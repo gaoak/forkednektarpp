@@ -32,158 +32,84 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <NekMesh/MeshElements/Line.h>
-
 #include <LibUtilities/Foundations/ManagerAccess.h>
+#include <NekMesh/MeshElements/Element.h>
+#include <SpatialDomains/Curve.hpp>
 
 using namespace std;
 
 namespace Nektar::NekMesh
 {
 
-LibUtilities::ShapeType Line::m_type =
-    GetElementFactory().RegisterCreatorFunction(LibUtilities::eSegment,
-                                                Line::create, "Line");
-
-/**
- * @brief Create a line element.
- */
-Line::Line(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
-           vector<int> pTagList)
-    : Element(pConf, GetNumNodes(pConf), pNodeList.size())
+struct lineHelper
 {
-    m_tag     = "S";
-    m_dim     = 1;
-    m_taglist = pTagList;
-    int n     = m_conf.m_order - 1;
-
-    // Add vertices
-    for (int i = 0; i < 2; ++i)
+    static SpatialDomains::Geometry *create(
+        std::vector<SpatialDomains::PointGeom *> &nodeList,
+        SpatialDomains::MeshGraphSharedPtr &meshGraph, EdgeMap &edgeMap,
+        [[maybe_unused]] FaceMap &faceMap, ElmtConfig &conf,
+        std::set<int> *vertIDs, std::unordered_set<int> *curveNodeIDs,
+        [[maybe_unused]] std::unordered_set<int> *naiveTriIDs,
+        ElmtIds *forceIDs)
     {
-        m_vertex.push_back(pNodeList[i]);
-    }
+        auto &curvedEdges = meshGraph->GetCurvedEdges();
+        // auto &pointGeoms  = meshGraph->GetGeomMap<PointGeom>();
+        // auto &curveNodes  = meshGraph->GetAllCurveNodes();
 
-    if (m_conf.m_order > 1)
-    {
-        for (int j = 0; j < n; ++j)
+        int id = NextEdgeId(meshGraph);
+        if (forceIDs != nullptr)
         {
-            m_volumeNodes.push_back(pNodeList[2 + j]);
-        }
-    }
-}
-
-SpatialDomains::Geometry *Line::GetGeom(int coordDim,
-                                        SpatialDomains::EntityHolder &holder)
-{
-    // Create edge vertices.
-    std::array<SpatialDomains::PointGeom *, 2> p;
-    SpatialDomains::SegGeomUniquePtr seg;
-
-    p[0] = m_vertex[0]->GetGeom(coordDim, holder);
-    p[1] = m_vertex[1]->GetGeom(coordDim, holder);
-
-    if (m_edge[0]->m_edgeNodes.size() > 0)
-    {
-        SpatialDomains::CurveUniquePtr c =
-            ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
-                m_id, m_edge[0]->m_curveType);
-
-        c->m_points.push_back(p[0]);
-        for (int i = 0; i < m_edge[0]->m_edgeNodes.size(); ++i)
-        {
-            c->m_points.push_back(
-                m_edge[0]->m_edgeNodes[i]->GetGeom(coordDim, holder));
-        }
-        c->m_points.push_back(p[1]);
-
-        seg = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
-            m_id, 2, p, c.get());
-        holder.m_curveVec.push_back(std::move(c));
-    }
-    else
-    {
-        seg = ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(m_id,
-                                                                         2, p);
-    }
-    auto ret = dynamic_cast<SpatialDomains::Geometry *>(seg.get());
-    holder.m_segVec.push_back(std::move(seg));
-
-    ret->Setup();
-    return ret;
-}
-
-void Line::GetCurvedNodes(std::vector<NodeSharedPtr> &nodeList) const
-{
-    nodeList.push_back(m_vertex[0]);
-    for (int i = 0; i < m_volumeNodes.size(); ++i)
-    {
-        nodeList.push_back(m_volumeNodes[i]);
-    }
-    nodeList.push_back(m_vertex[1]);
-}
-void Line::MakeOrder(int order, SpatialDomains::Geometry *geom,
-                     LibUtilities::PointsType pType, int coordDim, int &id,
-                     bool justConfig)
-{
-    m_conf.m_order       = order;
-    m_curveType          = pType;
-    m_conf.m_volumeNodes = false;
-    m_volumeNodes.clear();
-
-    // Lines of order == 1 have no interior volume points.
-    if (order == 1)
-    {
-        m_conf.m_faceNodes = false;
-        return;
-    }
-
-    m_conf.m_faceNodes = true;
-
-    if (justConfig)
-    {
-        return;
-    }
-
-    int nPoints                            = order + 1;
-    StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
-
-    Array<OneD, NekDouble> px;
-    LibUtilities::PointsKey pKey(nPoints, pType);
-    ASSERTL1(pKey.GetPointsDim() == 1, "Points distribution must be 1D");
-    LibUtilities::PointsManager()[pKey]->GetPoints(px);
-
-    Array<OneD, Array<OneD, NekDouble>> phys(coordDim);
-
-    for (int i = 0; i < coordDim; ++i)
-    {
-        phys[i] = Array<OneD, NekDouble>(xmap->GetTotPoints());
-        xmap->BwdTrans(geom->GetCoeffs(i), phys[i]);
-    }
-
-    int nQuadIntPts = (nPoints - 2) * (nPoints - 2);
-    m_volumeNodes.resize(nQuadIntPts);
-
-    for (int i = 1, cnt = 0; i < nPoints - 1; ++i)
-    {
-        Array<OneD, NekDouble> xp(1);
-        xp[0] = px[i];
-
-        Array<OneD, NekDouble> x(3, 0.0);
-        for (int k = 0; k < coordDim; ++k)
-        {
-            x[k] = xmap->PhysEvaluate(xp, phys[k]);
+            id = forceIDs->elmt;
         }
 
-        m_volumeNodes[cnt] =
-            std::shared_ptr<Node>(new Node(id++, x[0], x[1], x[2]));
-    }
-}
+        // Create seg curvature
+        SpatialDomains::Curve *curvePtr = nullptr;
+        if (conf.m_order > 1)
+        {
+            int n = conf.m_order - 1;
+            std::vector<SpatialDomains::PointGeom *> tmpNodeList;
+            tmpNodeList.emplace_back(nodeList[0]);
+            for (int j = 2; j < 2 + n; ++j)
+            {
+                tmpNodeList.emplace_back(nodeList[j]);
+            }
+            tmpNodeList.emplace_back(nodeList[1]);
 
-/**
- * @brief Return the number of nodes defining a line.
- */
-unsigned int Line::GetNumNodes(ElmtConfig pConf)
-{
-    return pConf.m_order + 1;
-}
+            auto curve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    id, conf.m_edgeCurveType);
+            for (auto &node : tmpNodeList)
+            {
+                curveNodeIDs->insert(node->GetGlobalID());
+                curve->m_points.emplace_back(node);
+            }
+            curvePtr        = curve.get();
+            curvedEdges[id] = std::move(curve);
+        }
+
+        if (vertIDs != nullptr)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                vertIDs->insert(nodeList[i]->GetGlobalID());
+            }
+        }
+
+        std::array<SpatialDomains::PointGeom *, 2> verts = {nodeList[0],
+                                                            nodeList[1]};
+        auto segGeom =
+            ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
+                id, nodeList[0]->GetCoordim(), verts, curvePtr);
+        auto segPtr = segGeom.get();
+        meshGraph->AddGeom<SpatialDomains::SegGeom>(id, std::move(segGeom));
+
+        edgeMap[std::make_pair(nodeList[0]->GetGlobalID(),
+                               nodeList[1]->GetGlobalID())] = segPtr;
+
+        return segPtr;
+    }
+};
+
+LibUtilities::ShapeType segType = GetElementFactory().RegisterCreatorFunction(
+    LibUtilities::eSegment, lineHelper::create, "Line");
+
 } // namespace Nektar::NekMesh

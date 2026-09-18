@@ -32,10 +32,9 @@
 ##
 ###############################################################################
 
-from NekPy.LibUtilities import ShapeType
-from NekPy.NekMesh import Node, Element, ElmtConfig, NodeSet, Mesh, \
-                          Module, ProcessModule, ModuleType,        \
-                          InputModule, OutputModule, NekMeshError
+from NekPy.LibUtilities import ShapeType, NekError
+from NekPy.NekMesh import ElmtConfig, Mesh, Module, ProcessModule, \
+                          ModuleType, InputModule, OutputModule
 import numpy as np
 import unittest
 import sys
@@ -46,11 +45,9 @@ class InheritFromInputModuleTest(InputModule):
         InputModule.__init__(self, mesh)
 
     def Process(self):
-        # Call the Module functions to create all of the edges, faces and
-        # composites.
+        # The elements, edges and faces were created by the CreateGeom(),
+        # so only the renumberinga and the composites are left.
         self.ProcessVertices()
-        self.ProcessEdges()
-        self.ProcessFaces()
         self.ProcessElements()
         self.ProcessComposites()
 
@@ -59,11 +56,7 @@ class InheritFromProcessModuleTest(ProcessModule):
         ProcessModule.__init__(self, mesh)
 
     def Process(self):
-        # Call the Module functions to create all of the edges, faces and
-        # composites.
         self.ProcessVertices()
-        self.ProcessEdges()
-        self.ProcessFaces()
         self.ProcessElements()
         self.ProcessComposites()
 
@@ -72,111 +65,104 @@ class InheritFromOutputModuleTest(OutputModule):
         OutputModule.__init__(self, mesh)
 
     def Process(self):
-        # Call the Module functions to create all of the edges, faces and
-        # composites.
         self.ProcessVertices()
-        self.ProcessEdges()
-        self.ProcessFaces()
         self.ProcessElements()
         self.ProcessComposites()
 
 
 class TestModule(unittest.TestCase):
+
     def _initialize_static_values(self):
-        self.coord_1x   = 0.0
-        self.coord_1y   = 1.0
-        self.coord_2y   = 2.0
-        self.coord_2x   = 3.0
-        self.nx         = 11
-        self.ny         = 7
-        self.comp_ID    = 2
-        self.shape_type = ShapeType.Triangle
-        self.x_points   = np.linspace(self.coord_1x, self.coord_2x, self.nx)
-        self.y_points   = np.linspace(self.coord_1y, self.coord_2y, self.ny)
-        self.expDim     = 2
-        self.spaceDim   = 2
-        self.nummode    = 5
+        self.coord_1x, self.coord_2x = 0.0, 3.0
+        self.coord_1y, self.coord_2y = 1.0, 2.0
+        self.nx, self.ny = 11, 7
+        self.comp_ID     = 2
+        self.x_points    = np.linspace(self.coord_1x, self.coord_2x, self.nx)
+        self.y_points    = np.linspace(self.coord_1y, self.coord_2y, self.ny)
+        self.expDim      = 2
+        self.spaceDim    = 2
 
     def _create_mesh(self):
         self.mesh = Mesh()
         self.mesh.expDim   = self.expDim
         self.mesh.spaceDim = self.spaceDim
-        self.mesh.nummode  = self.nummode
 
     def _initialize_nodes(self):
         self.nodes = []
         id_cnt = 0
-
         for y in range(self.ny):
             tmp = []
             for x in range(self.nx):
-                tmp.append(Node(id_cnt, self.x_points[x], self.y_points[y], 0.0))
+                tmp.append(self.mesh.CreateVertex(
+                    id_cnt, self.x_points[x], self.y_points[y], 0.0))
                 id_cnt += 1
             self.nodes.append(tmp)
 
     def _create_triangular_elements(self):
+        config = ElmtConfig(ShapeType.Triangle, 1, False, False)
         for y in range(self.ny - 1):
             for x in range(self.nx - 1):
-                config = ElmtConfig(ShapeType.Triangle, 1, False, False)
-                self.mesh.element[2].append(
-                    Element.Create(
+                self.mesh.CreateElement(
                     config,
-                    [self.nodes[y][x], self.nodes[y+1][x+1], self.nodes[y+1][x]],
-                    [self.comp_ID]))
-                self.mesh.element[2].append(
-                    Element.Create(
+                    [self.nodes[y][x], self.nodes[y+1][x+1],
+                     self.nodes[y+1][x]],
+                    self.comp_ID)
+                self.mesh.CreateElement(
                     config,
-                    [self.nodes[y][x], self.nodes[y][x+1], self.nodes[y+1][x+1]],
-                    [self.comp_ID]))
+                    [self.nodes[y][x], self.nodes[y][x+1],
+                     self.nodes[y+1][x+1]],
+                    self.comp_ID)
 
-    def _setUpMesh(self):
+    def setUp(self):
         self._initialize_static_values()
         self._create_mesh()
         self._initialize_nodes()
         self._create_triangular_elements()
 
-    def setUp(self):
-        self._setUpMesh()
-
     def testModuleProcessRuntimeError(self):
         mod = ProcessModule(self.mesh)
-        try:
+        with self.assertRaises(RuntimeError):
             mod.Process()
-        except RuntimeError:
-            pass
 
     def testInheritFromInputModuleTest(self):
-        mod = InheritFromInputModuleTest(self.mesh)
-        mod.Process()
+        InheritFromInputModuleTest(self.mesh).Process()
 
     def testInheritFromProcessModuleTest(self):
-        mod = InheritFromProcessModuleTest(self.mesh)
-        mod.Process()
+        InheritFromProcessModuleTest(self.mesh).Process()
 
     def testInheritFromOutputModuleTest(self):
-        mod = InheritFromOutputModuleTest(self.mesh)
-        mod.Process()
+        InheritFromOutputModuleTest(self.mesh).Process()
+
+    def testRemoveOrphanedEntities(self):
+        # Untagging an element leaves its geometry in the graph until the
+        # orphan sweep, which is a Module operation.
+        class Sweeper(ProcessModule):
+            def __init__(self, mesh):
+                ProcessModule.__init__(self, mesh)
+            def Process(self):
+                self.RemoveOrphanedEntities()
+
+        el = self.mesh.GetElements(2)[0]
+        before = len(self.mesh.GetElements(2))
+        self.mesh.RemoveElement(el)
+        self.assertEqual(len(self.mesh.GetElements(2)), before - 1)
+        Sweeper(self.mesh).Process()
 
     def testCreateModuleUnknownParameter(self):
-        mod1 = ProcessModule.Create("jac", self.mesh, unknown_parameter=False).Process()
+        ProcessModule.Create("jac", self.mesh,
+                             unknown_parameter=False).Process()
 
     def testCreateExceptionUnknownModule(self):
-        try:
-            mod1 = ProcessModule.Create("unknown_module", self.mesh)
-        except NekMeshError:
-            pass
+        with self.assertRaises(NekError):
+            ProcessModule.Create("unknown_module", self.mesh)
 
     def testCreateExceptionWrongArgs(self):
-        try:
-            mod1 = InputModule.Create("xml", self.mesh)
-        except NekMeshError:
-            pass
+        with self.assertRaises(NekError):
+            InputModule.Create("xml", self.mesh)
 
     def testExceptionNoMesh(self):
-        try:
-            mod1 = ProcessModule.Create("jac", "wrong_argument")
-        except NekMeshError:
-            pass
+        with self.assertRaises(NekError):
+            ProcessModule.Create("jac", "wrong_argument")
 
 if __name__ == '__main__':
     unittest.main()

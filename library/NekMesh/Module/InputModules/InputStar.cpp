@@ -72,8 +72,8 @@ InputStar::~InputStar()
  */
 void InputStar::Process()
 {
-    m_mesh->m_expDim   = 3;
-    m_mesh->m_spaceDim = 3;
+    m_mesh->m_meshGraph->SetMeshDimension(3);
+    m_mesh->m_meshGraph->SetSpaceDimension(3);
 
     m_log(VERBOSE) << "Reading CCM+ file: '" << m_config["infile"].as<string>()
                    << "'" << endl;
@@ -87,8 +87,6 @@ void InputStar::Process()
         return;
     }
 
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 
@@ -104,7 +102,7 @@ void InputStar::SetupElements(void)
     int nComposite = 0;
 
     // Read in Nodes
-    ReadNodes(m_mesh->m_node);
+    ReadNodes();
 
     // Get list of faces nodes and adjacents elements.
     std::unordered_map<int, vector<int>> FaceNodes;
@@ -135,7 +133,7 @@ void InputStar::SetupElements(void)
     // 3D Zone
     // Reset node ordering so that all prism faces have
     // consistent numbering for singular vertex re-ordering
-    ResetNodes(m_mesh->m_node, ElementFaces, FaceNodes);
+    ResetNodes(ElementFaces, FaceNodes);
 
     // create Prisms first
     int nelements = ElementFaces.size();
@@ -144,12 +142,10 @@ void InputStar::SetupElements(void)
     int cnt = 0;
     for (i = 0; i < nelements; ++i)
     {
-        Array<OneD, int> Nodes =
-            SortFaceNodes(m_mesh->m_node, ElementFaces[i], FaceNodes);
+        Array<OneD, int> Nodes = SortFaceNodes(ElementFaces[i], FaceNodes);
         if (ElementFaces[i].size() == 5 && Nodes.size() == 6) // if a prism
         {
-            GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
-                         nComposite, true);
+            GenElement3D(i, ElementFaces[i], FaceNodes, nComposite, true);
             ++cnt;
         }
     }
@@ -161,12 +157,10 @@ void InputStar::SetupElements(void)
     cnt = 0;
     for (i = 0; i < nelements; ++i)
     {
-        Array<OneD, int> Nodes =
-            SortFaceNodes(m_mesh->m_node, ElementFaces[i], FaceNodes);
+        Array<OneD, int> Nodes = SortFaceNodes(ElementFaces[i], FaceNodes);
         if (ElementFaces[i].size() == 5 && Nodes.size() == 5) // if a pyra
         {
-            GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
-                         nComposite, true);
+            GenElement3D(i, ElementFaces[i], FaceNodes, nComposite, true);
             ++cnt;
         }
     }
@@ -180,8 +174,7 @@ void InputStar::SetupElements(void)
     {
         if (ElementFaces[i].size() == 4) // if a tetra
         {
-            GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
-                         nComposite, true);
+            GenElement3D(i, ElementFaces[i], FaceNodes, nComposite, true);
             ++cnt;
         }
     }
@@ -194,19 +187,12 @@ void InputStar::SetupElements(void)
     {
         if (ElementFaces[i].size() == 6) // if a hexa
         {
-            GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
-                         nComposite, true);
+            GenElement3D(i, ElementFaces[i], FaceNodes, nComposite, true);
             ++cnt;
         }
     }
     m_log(VERBOSE) << "  - # of hexa: " << cnt << endl;
     nComposite++;
-
-    // Insert vertices into map.
-    for (auto &node : m_mesh->m_node)
-    {
-        m_mesh->m_vertexSet.insert(node);
-    }
 
     // Add boundary zones/composites
     for (i = 0; i < BndElementFaces.size(); ++i)
@@ -219,7 +205,7 @@ void InputStar::SetupElements(void)
             auto it = FaceNodes.find(BndElementFaces[i][j]);
             if (it != FaceNodes.end())
             {
-                GenElement2D(m_mesh->m_node, j, it->second, nComposite);
+                TagElement2D(j, it->second, nComposite);
             }
             else
             {
@@ -256,16 +242,15 @@ static void PrismLineFaces(int prismid, map<int, int> &facelist,
  *  - order doesn't matter for quad faces and there is no coupling between the
  *    tri faces in tets
  */
-void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
-                           Array<OneD, vector<int>> &ElementFaces,
+void InputStar::ResetNodes(Array<OneD, vector<int>> &ElementFaces,
                            std::unordered_map<int, vector<int>> &FaceNodes)
 {
     int i, j;
-    Array<OneD, int> NodeReordering(Vnodes.size(), -1);
+    Array<OneD, int> NodeReordering(m_mesh->m_meshGraph->GetNvertices(), -1);
     int face1_map[3] = {0, 1, 4};
     int face3_map[3] = {3, 2, 5};
     int nodeid       = 0;
-    int revNodeid    = Vnodes.size() - 1;
+    int revNodeid    = m_mesh->m_meshGraph->GetNvertices() - 1;
     map<int, bool> FacesRenumbered;
 
     // Determine Prism triangular face connectivity.
@@ -364,7 +349,7 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         for (int faceId : GlobTriFaces[PyraIt.second]) // for each tri face
         {
             TraversePyraPrismLine(PyraIt.second, faceId, apexNode, FaceToPrisms,
-                                  GlobTriFaces, Vnodes, ElementFaces, FaceNodes,
+                                  GlobTriFaces, ElementFaces, FaceNodes,
                                   NodeReordering, revNodeid);
         }
     }
@@ -407,7 +392,7 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
                 }
 
                 Array<OneD, int> Nodes =
-                    SortFaceNodes(Vnodes, ElementFaces[prismid], FaceNodes);
+                    SortFaceNodes(ElementFaces[prismid], FaceNodes);
 
                 if ((FacesDone[PrismToFaces[prismid][0]] == false) &&
                     (FacesDone[PrismToFaces[prismid][1]] == false))
@@ -521,19 +506,22 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         }
     }
 
-    vector<NodeSharedPtr> save(Vnodes);
-    for (i = 0; i < Vnodes.size(); ++i)
+    SpatialDomains::GeomMap<SpatialDomains::PointGeom> newPointGeoms;
+    for (i = 0; i < m_mesh->m_meshGraph->GetNvertices(); ++i)
     {
-        Vnodes[NodeReordering[i]] = save[i];
-        Vnodes[NodeReordering[i]]->SetID(NodeReordering[i]);
+        auto point =
+            m_mesh->m_meshGraph->ExtractGeom<SpatialDomains::PointGeom>(i);
+        point->SetGlobalID(NodeReordering[i]);
+        newPointGeoms[NodeReordering[i]] = std::move(point);
     }
+    m_mesh->m_meshGraph->SetGeomMap<SpatialDomains::PointGeom>(
+        std::move(newPointGeoms));
 }
 
 void InputStar::TraversePyraPrismLine(
     int currElemId, int currFaceId, int currApexNode,
     std::vector<std::vector<int>> FaceToPrisms,
     std::vector<std::vector<int>> GlobTriFaces,
-    std::vector<NodeSharedPtr> &Vnodes,
     Array<OneD, std::vector<int>> &ElementFaces,
     std::unordered_map<int, std::vector<int>> &FaceNodes,
     Array<OneD, int> &NodeReordering, int &revNodeid)
@@ -564,7 +552,7 @@ void InputStar::TraversePyraPrismLine(
 
             // reorder the nodes
             Array<OneD, int> Nodes =
-                SortFaceNodes(Vnodes, ElementFaces[nextElemId], FaceNodes);
+                SortFaceNodes(ElementFaces[nextElemId], FaceNodes);
 
             int nextApexNode = -1; // the ID of the opposite collapsed point
             int currFace     = -1; // either 1 or 3
@@ -619,7 +607,7 @@ void InputStar::TraversePyraPrismLine(
 
             // continue traversing along the line
             TraversePyraPrismLine(nextElemId, nextFaceId, -1, FaceToPrisms,
-                                  GlobTriFaces, Vnodes, ElementFaces, FaceNodes,
+                                  GlobTriFaces, ElementFaces, FaceNodes,
                                   NodeReordering, revNodeid);
         }
     }
@@ -654,51 +642,38 @@ static void PrismLineFaces(int prismid, map<int, int> &facelist,
     }
 }
 
-void InputStar::GenElement2D(vector<NodeSharedPtr> &VertNodes,
-                             [[maybe_unused]] int i, vector<int> &FaceNodes,
+void InputStar::TagElement2D([[maybe_unused]] int i, vector<int> &FaceNodes,
                              int nComposite)
 {
-    LibUtilities::ShapeType elType = LibUtilities::eTriangle;
-
-    if (FaceNodes.size() == 4)
-    {
-        elType = LibUtilities::eQuadrilateral;
-    }
-    else if (FaceNodes.size() != 3)
+    if (FaceNodes.size() != 3 && FaceNodes.size() != 4)
     {
         m_log(FATAL) << "Not set up for elements which are not tets or prisms"
                      << endl;
     }
 
-    // Create element tags
-    vector<int> tags;
-    tags.push_back(nComposite);
-
-    // make unique node list
-    vector<NodeSharedPtr> nodeList;
-    Array<OneD, int> Nodes = SortEdgeNodes(VertNodes, FaceNodes);
-    for (int j = 0; j < Nodes.size(); ++j)
+    // Check face already exists in faceSet using vertex IDs and set tag
+    int fourthID            = (FaceNodes.size() == 3) ? -1 : FaceNodes[3];
+    std::array<int, 4> vids = {FaceNodes[0], FaceNodes[1], FaceNodes[2],
+                               fourthID};
+    auto it                 = m_mesh->m_faceSet.find(vids);
+    if (it == m_mesh->m_faceSet.end())
     {
-        nodeList.push_back(VertNodes[Nodes[j]]);
+        NEKERROR(ErrorUtil::efatal, "Face not found");
     }
-
-    // Create element
-    ElmtConfig conf(elType, 1, true, true);
-    ElementSharedPtr E =
-        GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
-
-    m_mesh->m_element[E->GetDim()].push_back(E);
+    else
+    {
+        m_mesh->m_elementTags[2][it->second] = nComposite;
+    }
 }
 
-void InputStar::GenElement3D(vector<NodeSharedPtr> &VertNodes,
-                             [[maybe_unused]] int i, vector<int> &ElementFaces,
+void InputStar::GenElement3D([[maybe_unused]] int i, vector<int> &ElementFaces,
                              std::unordered_map<int, vector<int>> &FaceNodes,
                              int nComposite, bool DoOrient)
 {
     LibUtilities::ShapeType elType = LibUtilities::eTetrahedron;
 
     // set up Node list
-    Array<OneD, int> Nodes = SortFaceNodes(VertNodes, ElementFaces, FaceNodes);
+    Array<OneD, int> Nodes = SortFaceNodes(ElementFaces, FaceNodes);
     int nnodes             = Nodes.size();
     map<LibUtilities::ShapeType, int> domainComposite;
 
@@ -720,81 +695,24 @@ void InputStar::GenElement3D(vector<NodeSharedPtr> &VertNodes,
         m_log(FATAL) << "Unknown element type" << endl;
     }
 
-    // Create element tags
-    vector<int> tags;
-    tags.push_back(nComposite);
-
     // make unique node list
-    vector<NodeSharedPtr> nodeList;
+    vector<SpatialDomains::PointGeom *> nodeList;
     for (int j = 0; j < Nodes.size(); ++j)
     {
-        nodeList.push_back(VertNodes[Nodes[j]]);
+        nodeList.push_back(m_mesh->m_meshGraph->GetPointGeom(Nodes[j]));
     }
 
-    ElmtConfig conf(elType, 1, true, true, DoOrient);
-    ElementSharedPtr E =
-        GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
+    ElmtConfig conf(elType, 1, false, false, DoOrient);
+    // Create element
+    SpatialDomains::Geometry *element = GetElementFactory().CreateInstance(
+        elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+        m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
 
-    m_mesh->m_element[E->GetDim()].push_back(E);
-}
-
-Array<OneD, int> InputStar::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
-                                          vector<int> &FaceNodes)
-{
-    Array<OneD, int> returnval;
-
-    if (FaceNodes.size() == 3) // Triangle
-    {
-        returnval = Array<OneD, int>(3);
-
-        returnval[0] = FaceNodes[0];
-        returnval[1] = FaceNodes[1];
-        returnval[2] = FaceNodes[2];
-    }
-    else if (FaceNodes.size() == 4) // quadrilateral
-    {
-        returnval = Array<OneD, int>(4);
-
-        int indx0 = FaceNodes[0];
-        int indx1 = FaceNodes[1];
-        int indx2 = FaceNodes[2];
-        int indx3 = FaceNodes[3];
-
-        // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
-        // calculate 0-2,
-        Node b      = *(Vnodes[indx2]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
-
-        // calculate 2-1,
-        Node c = *(Vnodes[indx1]) - *(Vnodes[indx2]);
-        // calculate 3-2,
-        Node d      = *(Vnodes[indx3]) - *(Vnodes[indx2]);
-        Node acurld = a.curl(d);
-
-        NekDouble acurlb_dot_acurld = acurlb.dot(acurld);
-        if (acurlb_dot_acurld > 0.0)
-        {
-            returnval[0] = indx0;
-            returnval[1] = indx1;
-            returnval[2] = indx2;
-            returnval[3] = indx3;
-        }
-        else
-        {
-            returnval[0] = indx0;
-            returnval[1] = indx1;
-            returnval[2] = indx3;
-            returnval[3] = indx2;
-        }
-    }
-
-    return returnval;
+    m_mesh->m_elementTags[3][element] = nComposite;
 }
 
 Array<OneD, int> InputStar::SortFaceNodes(
-    vector<NodeSharedPtr> &Vnodes, vector<int> &ElementFaces,
-    std::unordered_map<int, vector<int>> &FaceNodes)
+    vector<int> &ElementFaces, std::unordered_map<int, vector<int>> &FaceNodes)
 {
     int i, j;
     Array<OneD, int> returnval;
@@ -812,10 +730,18 @@ Array<OneD, int> InputStar::SortFaceNodes(
         int indx2 = it->second[2];
         int indx3 = -1;
 
+        auto point0 = m_mesh->m_meshGraph->GetPointGeom(indx0);
+        auto point1 = m_mesh->m_meshGraph->GetPointGeom(indx1);
+        auto point2 = m_mesh->m_meshGraph->GetPointGeom(indx2);
+
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        std::array<double, 3> a = {(*point1)[0] - (*point0)[0],
+                                   (*point1)[1] - (*point0)[1],
+                                   (*point1)[2] - (*point0)[2]};
         // calculate 0-2,
-        Node b = *(Vnodes[indx2]) - *(Vnodes[indx0]);
+        std::array<double, 3> b = {(*point2)[0] - (*point0)[0],
+                                   (*point2)[1] - (*point0)[1],
+                                   (*point2)[2] - (*point0)[2]};
 
         // Find fourth node index;
         ASSERTL1(FaceNodes[ElementFaces[1]].size() == 3,
@@ -831,12 +757,18 @@ Array<OneD, int> InputStar::SortFaceNodes(
                 break;
             }
         }
+        auto point3 = m_mesh->m_meshGraph->GetPointGeom(indx3);
 
         // calculate 0-3,
-        Node c      = *(Vnodes[indx3]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        std::array<double, 3> c      = {(*point3)[0] - (*point0)[0],
+                                        (*point3)[1] - (*point0)[1],
+                                        (*point3)[2] - (*point0)[2]};
+        std::array<double, 3> acurlb = {a[1] * b[2] - a[2] * b[1],
+                                        a[2] * b[0] - a[0] * b[2],
+                                        a[0] * b[1] - a[1] * b[0]};
 
-        NekDouble acurlb_dotc = acurlb.dot(c);
+        NekDouble acurlb_dotc =
+            acurlb[0] * c[0] + acurlb[1] * c[1] + acurlb[2] * c[2];
         if (acurlb_dotc < 0.0)
         {
             returnval[0] = indx0;
@@ -981,15 +913,26 @@ Array<OneD, int> InputStar::SortFaceNodes(
             }
         }
 
-        // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
-        // calculate 0-4,
-        Node b = *(Vnodes[indx4]) - *(Vnodes[indx0]);
-        // calculate 0-2,
-        Node c      = *(Vnodes[indx2]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        auto pp0 = m_mesh->m_meshGraph->GetPointGeom(indx0);
+        auto pp1 = m_mesh->m_meshGraph->GetPointGeom(indx1);
+        auto pp2 = m_mesh->m_meshGraph->GetPointGeom(indx2);
+        auto pp4 = m_mesh->m_meshGraph->GetPointGeom(indx4);
 
-        NekDouble acurlb_dotc = acurlb.dot(c);
+        // calculate 0-1,
+        std::array<double, 3> a = {(*pp1)[0] - (*pp0)[0], (*pp1)[1] - (*pp0)[1],
+                                   (*pp1)[2] - (*pp0)[2]};
+        // calculate 0-4,
+        std::array<double, 3> b = {(*pp4)[0] - (*pp0)[0], (*pp4)[1] - (*pp0)[1],
+                                   (*pp4)[2] - (*pp0)[2]};
+        // calculate 0-2,
+        std::array<double, 3> c = {(*pp2)[0] - (*pp0)[0], (*pp2)[1] - (*pp0)[1],
+                                   (*pp2)[2] - (*pp0)[2]};
+        std::array<double, 3> acurlb = {a[1] * b[2] - a[2] * b[1],
+                                        a[2] * b[0] - a[0] * b[2],
+                                        a[0] * b[1] - a[1] * b[0]};
+
+        NekDouble acurlb_dotc =
+            acurlb[0] * c[0] + acurlb[1] * c[1] + acurlb[2] * c[2];
         if (acurlb_dotc < 0.0)
         {
             returnval[0] = indx0;
@@ -1221,7 +1164,7 @@ void InputStar::InitCCM(void)
     }
 }
 
-void InputStar::ReadNodes(std::vector<NodeSharedPtr> &Nodes)
+void InputStar::ReadNodes()
 {
     CCMIOID mapID, vertices;
     CCMIOSize nVertices;
@@ -1278,8 +1221,9 @@ void InputStar::ReadNodes(std::vector<NodeSharedPtr> &Nodes)
 
     for (int i = 0; i < nVertices; ++i)
     {
-        Nodes.push_back(std::make_shared<Node>(
-            i, verts[3 * i], verts[3 * i + 1], verts[3 * i + 2]));
+        m_mesh->m_meshGraph->CreatePointGeom(
+            3, m_mesh->m_meshGraph->GetNvertices(), verts[3 * i],
+            verts[3 * i + 1], verts[3 * i + 2]);
     }
 }
 

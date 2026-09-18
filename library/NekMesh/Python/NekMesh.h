@@ -36,12 +36,16 @@
 #define NEKTAR_NEKMESH_PYTHON_NEKMESH_H
 
 #include <NekMesh/MeshElements/Element.h>
+#include <NekMesh/MeshElements/Mesh.h>
 
 using namespace Nektar;
 using namespace Nektar::NekMesh;
 
-PYBIND11_MAKE_OPAQUE(std::vector<ElementSharedPtr>);
-PYBIND11_MAKE_OPAQUE(ElementMap);
-PYBIND11_MAKE_OPAQUE(NodeSet);
+// The mesh is held in a MeshGraph now: its vertices and elements are
+// SpatialDomains geometry owned by the graph, exposed through NekPy's
+// SpatialDomains module, so there are no NekMesh-side container types left to
+// make opaque. Element tags are bound as an opaque map so that Python sees the
+// mesh's own map rather than a copy.
+PYBIND11_MAKE_OPAQUE(GeomTagMap);
 
 #endif

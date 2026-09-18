@@ -56,41 +56,7 @@
 
 class TiXmlDocument;
 
-namespace Nektar
-{
-
-template <>
-PoolAllocator<SpatialDomains::PointGeom>
-    ObjPoolManager<SpatialDomains::PointGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::SegGeom>
-    ObjPoolManager<SpatialDomains::SegGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::TriGeom>
-    ObjPoolManager<SpatialDomains::TriGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::QuadGeom>
-    ObjPoolManager<SpatialDomains::QuadGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::TetGeom>
-    ObjPoolManager<SpatialDomains::TetGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::PyrGeom>
-    ObjPoolManager<SpatialDomains::PyrGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::PrismGeom>
-    ObjPoolManager<SpatialDomains::PrismGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::HexGeom>
-    ObjPoolManager<SpatialDomains::HexGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::GeomFactors>
-    ObjPoolManager<SpatialDomains::GeomFactors>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::Curve>
-    ObjPoolManager<SpatialDomains::Curve>::m_alloc;
-
-namespace SpatialDomains
+namespace Nektar::SpatialDomains
 {
 
 template <typename T> using GeomMap = std::map<int, unique_ptr_objpool<T>>;
@@ -226,6 +192,13 @@ typedef std::shared_ptr<MeshGraph> MeshGraphSharedPtr;
 class Movement;
 typedef std::shared_ptr<Movement> MovementSharedPtr;
 
+/// Forward declared so that the CAD headers are not pulled into every
+/// translation unit that uses a MeshGraph; see CADAssociation.h.
+class CADAssociation;
+typedef std::shared_ptr<CADAssociation> CADAssociationSharedPtr;
+class CADSystem;
+typedef std::shared_ptr<CADSystem> CADSystemSharedPtr;
+
 template <typename T> class GeomMapView
 {
 public:
@@ -331,6 +304,11 @@ public:
     std::size_t size() const
     {
         return m_map.size();
+    }
+
+    bool empty() const
+    {
+        return m_map.empty();
     }
 
     Iterator find(int id) const
@@ -633,40 +611,278 @@ public:
 
         if constexpr (std::is_same_v<T, PointGeom>)
         {
-            m_pointGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_pointGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, SegGeom>)
         {
-            m_segGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_segGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, QuadGeom>)
         {
-            m_quadGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_quadGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, TriGeom>)
         {
-            m_triGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_triGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, TetGeom>)
         {
-            m_tetGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_tetGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, PyrGeom>)
         {
-            m_pyrGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_pyrGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, PrismGeom>)
         {
-            m_prismGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_prismGeoms, id, std::move(geom));
         }
         else if constexpr (std::is_same_v<T, HexGeom>)
         {
-            m_hexGeoms.insert(std::make_pair(id, std::move(geom)));
+            InsertGeomChecked(m_hexGeoms, id, std::move(geom));
+        }
+        else if constexpr (std::is_same_v<T, Geometry>)
+        {
+            switch (geom->GetShapeType())
+            {
+                case LibUtilities::ePoint:
+                    InsertGeomChecked(
+                        m_pointGeoms, id,
+                        unique_ptr_objpool_cast<PointGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::eSegment:
+                    InsertGeomChecked(
+                        m_segGeoms, id,
+                        unique_ptr_objpool_cast<SegGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::eTriangle:
+                    InsertGeomChecked(
+                        m_triGeoms, id,
+                        unique_ptr_objpool_cast<TriGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::eQuadrilateral:
+                    InsertGeomChecked(
+                        m_quadGeoms, id,
+                        unique_ptr_objpool_cast<QuadGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::eTetrahedron:
+                    InsertGeomChecked(
+                        m_tetGeoms, id,
+                        unique_ptr_objpool_cast<TetGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::ePyramid:
+                    InsertGeomChecked(
+                        m_pyrGeoms, id,
+                        unique_ptr_objpool_cast<PyrGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::ePrism:
+                    InsertGeomChecked(
+                        m_prismGeoms, id,
+                        unique_ptr_objpool_cast<PrismGeom>(std::move(geom)));
+                    break;
+                case LibUtilities::eHexahedron:
+                    InsertGeomChecked(
+                        m_hexGeoms, id,
+                        unique_ptr_objpool_cast<HexGeom>(std::move(geom)));
+                    break;
+                default:
+                    ASSERTL0(false, "Unknown or unsupported shape type");
+                    break;
+            }
         }
         else
         {
             ASSERTL0(false, "Unknown geometry type");
         }
+    }
+
+    /**
+     */
+    template <typename MapT, typename U>
+    void InsertGeomChecked(MapT &map, int id, unique_ptr_objpool<U> geom)
+    {
+        const bool inserted =
+            map.insert(std::make_pair(id, std::move(geom))).second;
+        ASSERTL0(inserted, "MeshGraph already contains a geometry with ID " +
+                               std::to_string(id));
+    }
+
+    template <typename T>
+    void BulkAddGeom(
+        std::vector<std::pair<int, unique_ptr_objpool<T>>> &insertVector)
+    {
+        if constexpr (std::is_same_v<T, PointGeom>)
+        {
+            m_pointGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                                std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, SegGeom>)
+        {
+            m_segGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                              std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, QuadGeom>)
+        {
+            m_quadGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                               std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, TriGeom>)
+        {
+            m_triGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                              std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, TetGeom>)
+        {
+            m_tetGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                              std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, PyrGeom>)
+        {
+            m_pyrGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                              std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, PrismGeom>)
+        {
+            m_prismGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                                std::make_move_iterator(insertVector.end()));
+        }
+        else if constexpr (std::is_same_v<T, HexGeom>)
+        {
+            m_hexGeoms.insert(std::make_move_iterator(insertVector.begin()),
+                              std::make_move_iterator(insertVector.end()));
+        }
+        else
+        {
+            ASSERTL0(false, "Unknown geometry type");
+        }
+    }
+
+    /**
+     * @brief Function to extract a geometry from the MeshGraph
+     * with ID @p id, returning a move interator.
+     *
+     * @p id    Geometry ID
+     */
+    template <typename T>
+    unique_ptr_objpool<T> ExtractGeom(int id, bool erase = false)
+    {
+        if constexpr (std::is_same_v<T, PointGeom>)
+        {
+            auto ret = std::move(m_pointGeoms[id]);
+            if (erase)
+            {
+                m_pointGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, SegGeom>)
+        {
+            auto ret = std::move(m_segGeoms[id]);
+            if (erase)
+            {
+                m_segGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, QuadGeom>)
+        {
+            auto ret = std::move(m_quadGeoms[id]);
+            if (erase)
+            {
+                m_quadGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, TriGeom>)
+        {
+            auto ret = std::move(m_triGeoms[id]);
+            if (erase)
+            {
+                m_triGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, TetGeom>)
+        {
+            auto ret = std::move(m_tetGeoms[id]);
+            if (erase)
+            {
+                m_tetGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, PyrGeom>)
+        {
+            auto ret = std::move(m_pyrGeoms[id]);
+            if (erase)
+            {
+                m_pyrGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, PrismGeom>)
+        {
+            auto ret = std::move(m_prismGeoms[id]);
+            if (erase)
+            {
+                m_prismGeoms.erase(id);
+            }
+            return ret;
+        }
+        else if constexpr (std::is_same_v<T, HexGeom>)
+        {
+            auto ret = std::move(m_hexGeoms[id]);
+            if (erase)
+            {
+                m_hexGeoms.erase(id);
+            }
+            return ret;
+        }
+    }
+
+    SPATIAL_DOMAINS_EXPORT PointGeom *CreateCurveNode(const int coordim,
+                                                      const int vid,
+                                                      NekDouble x, NekDouble y,
+                                                      NekDouble z)
+    {
+        auto geom =
+            ObjPoolManager<PointGeom>::AllocateUniquePtr(coordim, vid, x, y, z);
+        auto ret = geom.get();
+        m_nodeSet.push_back(std::move(geom));
+        return ret;
+    }
+
+    void AddCurveNode(PointGeomUniquePtr n)
+    {
+        m_nodeSet.push_back(std::move(n));
+    }
+
+    void AddCurveNodes(std::vector<PointGeomUniquePtr> &n)
+    {
+        for (std::size_t i = 0; i < n.size(); ++i)
+        {
+            m_nodeSet.push_back(std::move(n[i]));
+        }
+    }
+
+    void AddCurvedEdge(CurveUniquePtr curve)
+    {
+        m_curvedEdges[curve->m_curveID] = std::move(curve);
+    }
+
+    void AddCurvedFace(CurveUniquePtr curve)
+    {
+        m_curvedFaces[curve->m_curveID] = std::move(curve);
+    }
+
+    /// Adopt the interior nodes of a 3D element, filed under the element's own
+    /// curve ID. The counterpart of AddCurvedEdge/AddCurvedFace for the one
+    /// remaining dimension: unlike an edge or a face, a volume's interior
+    /// nodes are not shared with any neighbour, so they belong to the element
+    /// alone.
+    void AddCurvedVolume(CurveUniquePtr curve)
+    {
+        m_curvedVolumes[curve->m_curveID] = std::move(curve);
     }
 
     SPATIAL_DOMAINS_EXPORT PointGeom *CreatePointGeom(const int coordim,
@@ -760,6 +976,11 @@ public:
         return m_curvedFaces;
     }
 
+    SPATIAL_DOMAINS_EXPORT CurveMap &GetCurvedVolumes()
+    {
+        return m_curvedVolumes;
+    }
+
     template <typename T> GeomMapView<T> &GetGeomMap()
     {
         if constexpr (std::is_same_v<T, PointGeom>)
@@ -799,7 +1020,61 @@ public:
                  "MeshGraph does not support the supplied geometry type.");
     }
 
-    SPATIAL_DOMAINS_EXPORT std::unordered_map<int, GeometryLinkSharedPtr> &
+    /// The number of geometries of type @tparam T held by this graph.
+    template <typename T> std::size_t GetNumGeoms()
+    {
+        return GetGeomMap<T>().size();
+    }
+
+    /// Whether this graph holds any geometry of type @tparam T.
+    template <typename T> bool HasGeoms()
+    {
+        return !GetGeomMap<T>().empty();
+    }
+
+    template <typename T> void SetGeomMap(GeomMap<T> newMap)
+    {
+        if constexpr (std::is_same_v<T, PointGeom>)
+        {
+            m_pointGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, SegGeom>)
+        {
+            m_segGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, TriGeom>)
+        {
+            m_triGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, QuadGeom>)
+        {
+            m_quadGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, TetGeom>)
+        {
+            m_tetGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, PrismGeom>)
+        {
+            m_prismGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, PyrGeom>)
+        {
+            m_pyrGeoms = std::move(newMap);
+        }
+        else if constexpr (std::is_same_v<T, HexGeom>)
+        {
+            m_hexGeoms = std::move(newMap);
+        }
+        else
+        {
+            ASSERTL0(false,
+                     "MeshGraph does not support the supplied geometry type.");
+        }
+    }
+
+    SPATIAL_DOMAINS_EXPORT std::unordered_map<Geometry2D *,
+                                              GeometryLinkSharedPtr> &
     GetAllFaceToElMap()
     {
         return m_faceToElMap;
@@ -810,7 +1085,7 @@ public:
         return m_nodeSet;
     }
 
-    SPATIAL_DOMAINS_EXPORT int GetNumElements();
+    SPATIAL_DOMAINS_EXPORT int GetNumElements(int dim = -1);
 
     Geometry2D *GetGeometry2D(int gID)
     {
@@ -824,6 +1099,35 @@ public:
         if (it2 != m_quadGeoms.end())
         {
             return it2->second.get();
+        }
+
+        return nullptr;
+    };
+
+    Geometry3D *GetGeometry3D(int gID)
+    {
+        auto it1 = m_tetGeoms.find(gID);
+        if (it1 != m_tetGeoms.end())
+        {
+            return it1->second.get();
+        }
+
+        auto it2 = m_pyrGeoms.find(gID);
+        if (it2 != m_pyrGeoms.end())
+        {
+            return it2->second.get();
+        }
+
+        auto it3 = m_prismGeoms.find(gID);
+        if (it3 != m_prismGeoms.end())
+        {
+            return it3->second.get();
+        }
+
+        auto it4 = m_hexGeoms.find(gID);
+        if (it4 != m_hexGeoms.end())
+        {
+            return it4->second.get();
         }
 
         return nullptr;
@@ -865,7 +1169,26 @@ public:
         return m_movement;
     }
 
-    SPATIAL_DOMAINS_EXPORT void Clear();
+    /// True if a CAD system has been attached to this graph.
+    SPATIAL_DOMAINS_EXPORT bool HasCAD() const;
+
+    /**
+     * @brief The mesh entity to CAD associations for this graph.
+     *
+     * Brought into being by SetCAD, so a graph with no CAD carries nothing
+     * beyond a null pointer; asking one for its associations is an error
+     * rather than an empty answer, since the caller has nothing to do with the
+     * result either way. Guard with HasCAD() where a mesh may arrive without
+     * CAD. See CADAssociation.
+     */
+    SPATIAL_DOMAINS_EXPORT CADAssociationSharedPtr &GetCADAssociation();
+
+    /// Convenience forwarder for the very common GetCADAssociation()->GetCAD().
+    SPATIAL_DOMAINS_EXPORT CADSystemSharedPtr &GetCAD();
+
+    SPATIAL_DOMAINS_EXPORT void SetCAD(CADSystemSharedPtr cad);
+
+    void Clear();
 
     SPATIAL_DOMAINS_EXPORT void PopulateFaceToElMap(Geometry3D *element,
                                                     int kNfaces);
@@ -915,6 +1238,7 @@ protected:
 
     CurveMap m_curvedEdges;
     CurveMap m_curvedFaces;
+    CurveMap m_curvedVolumes;
 
     GeomMap<PointGeom> m_pointGeoms;
     GeomMap<SegGeom> m_segGeoms;
@@ -958,7 +1282,7 @@ protected:
 
     ExpansionInfoMapShPtrMap m_expansionMapShPtrMap;
 
-    std::unordered_map<int, GeometryLinkSharedPtr> m_faceToElMap;
+    std::unordered_map<Geometry2D *, GeometryLinkSharedPtr> m_faceToElMap;
 
     TiXmlElement *m_xmlGeom;
 
@@ -968,6 +1292,10 @@ protected:
     struct GeomRTree;
     std::unique_ptr<GeomRTree> m_boundingBoxTree;
     MovementSharedPtr m_movement;
+
+    /// The CAD system and the mesh entity to CAD associations. Null until a
+    /// CAD system is attached, since most meshes have none.
+    CADAssociationSharedPtr m_cadAssoc;
 };
 
 typedef std::shared_ptr<MeshGraph> MeshGraphSharedPtr;
@@ -1028,8 +1356,6 @@ inline bool MeshGraph::ExpansionInfoDefined(const std::string var)
     return m_expansionMapShPtrMap.count(var);
 }
 
-} // namespace SpatialDomains
-
-} // namespace Nektar
+} // namespace Nektar::SpatialDomains
 
 #endif

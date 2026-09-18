@@ -48,6 +48,7 @@
 #include <iomanip>
 #include <sstream>
 
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/Movement/Movement.h>
 #include <SpatialDomains/RefRegion.h>
@@ -111,6 +112,36 @@ MeshGraph::~MeshGraph()
             delete refInfo.second;
         }
     }
+}
+
+bool MeshGraph::HasCAD() const
+{
+    return m_cadAssoc != nullptr && m_cadAssoc->GetCAD() != nullptr;
+}
+
+CADAssociationSharedPtr &MeshGraph::GetCADAssociation()
+{
+    ASSERTL0(m_cadAssoc != nullptr,
+             "This mesh graph has no CAD attached, so it has no CAD "
+             "associations to give. Guard the call with HasCAD(), or attach a "
+             "CAD system with SetCAD() first.");
+    return m_cadAssoc;
+}
+
+CADSystemSharedPtr &MeshGraph::GetCAD()
+{
+    return GetCADAssociation()->GetCAD();
+}
+
+void MeshGraph::SetCAD(CADSystemSharedPtr cad)
+{
+    // The one place the association is brought into being: everywhere else
+    // asks for it and is entitled to assume it is there.
+    if (m_cadAssoc == nullptr)
+    {
+        m_cadAssoc = std::make_shared<CADAssociation>();
+    }
+    m_cadAssoc->SetCAD(std::move(cad));
 }
 
 void MeshGraph::SetPartition(SpatialDomains::MeshGraphSharedPtr graph)
@@ -266,10 +297,17 @@ std::vector<int> MeshGraph::GetElementsContainingPoint(PointGeom *p)
     return vals;
 }
 
-int MeshGraph::GetNumElements()
+int MeshGraph::GetNumElements(int dim)
 {
-    switch (m_meshDimension)
+    // use m_meshDimension if no dim given
+    dim = (dim == -1) ? m_meshDimension : dim;
+    switch (dim)
     {
+        case 0:
+        {
+            return m_pointGeoms.size();
+        }
+        break;
         case 1:
         {
             return m_segGeoms.size();
@@ -287,6 +325,7 @@ int MeshGraph::GetNumElements()
         }
     }
 
+    NEKERROR(ErrorUtil::ewarning, ("Invalid dimension in GetNumElements"));
     return 0;
 }
 
@@ -4270,7 +4309,7 @@ GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1D *edge)
 
 GeometryLinkSharedPtr MeshGraph::GetElementsFromFace(Geometry2D *face)
 {
-    auto it = m_faceToElMap.find(face->GetGlobalID());
+    auto it = m_faceToElMap.find(face);
 
     ASSERTL0(it != m_faceToElMap.end(), "Unable to find corresponding face!");
 
@@ -4291,17 +4330,17 @@ void MeshGraph::PopulateFaceToElMap(Geometry3D *element, int kNfaces)
     // Set up face -> element map
     for (int i = 0; i < kNfaces; ++i)
     {
-        int faceId = element->GetFace(i)->GetGlobalID();
+        Geometry2D *face = element->GetFace(i);
 
         // Search map to see if face already exists.
-        auto it = m_faceToElMap.find(faceId);
+        auto it = m_faceToElMap.find(face);
 
         if (it == m_faceToElMap.end())
         {
             GeometryLinkSharedPtr tmp = GeometryLinkSharedPtr(
                 new std::vector<std::pair<Geometry *, int>>);
             tmp->push_back(std::make_pair(element, i));
-            m_faceToElMap[faceId] = tmp;
+            m_faceToElMap[face] = tmp;
         }
         else
         {
@@ -4498,6 +4537,14 @@ void MeshGraph::Clear()
     m_domain.clear();
     m_expansionMapShPtrMap.clear();
     m_faceToElMap.clear();
+
+    // Every geometry has just gone, so all of the CAD associations key on freed
+    // addresses. The CAD system itself is kept: it describes the model, not the
+    // mesh being cleared.
+    if (m_cadAssoc != nullptr)
+    {
+        m_cadAssoc->Clear();
+    }
 }
 
 } // namespace Nektar::SpatialDomains

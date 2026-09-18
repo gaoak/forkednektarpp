@@ -843,25 +843,6 @@ all elements are valid. Either \inlsh{all} or \inlsh{invalid} must be specified.
   useful in the presence of a prismatic boundary layer.
 \end{itemize}
 
-\subsection{Extracting interface between tetrahedra and prismatic elements}
-
-When the mesh is three-dimensional and comprised of a prismatic boundary layer
-with tetrahedra in the interior of the domain, this module extracts the
-prismatic elements only, and constructs a boundary region for the interface
-between the tetrahedra and prisms. This is useful in, for example, the study of
-aortic flows, where the prismatic boundary layer can be extracted and refined to
-study unsteady advection-diffusion problems on a more refined grid inside the
-boundary layer.
-
-To use this module you therefore use the command:
-
-\begin{lstlisting}[style=BashInputStyle]
-  NekMesh -m extracttetprisminterface input.xml output.xml
-\end{lstlisting}
-
-There are no configuration options for this module, as it is highly specific to
-a certain class of meshes.
-
 \subsection{Boundary identification}
 
 Some mesh formats lack the ability to identify boundaries of the domain they
@@ -891,21 +872,6 @@ may issue the command
   self-intersection. If a boundary layer is required, one option is to use this
   module in combination with the splitting module described earlier.
 \end{notebox}
-
-\subsection{Link Checking}
-
-It is quite possible that a mesh contains some sort of hanging entity or
-element connectivity error. The check link module is a fast check that, a)
-elements are correctly connected and b) the boundary entities (composites)
-match the interior domain:
-
-\begin{lstlisting}[style=BashInputStyle]
-  NekMesh -m linkcheck mesh.xml mesh2.xml
-\end{lstlisting}
-
-This module should be added to the module chain if the user suspects there may
-be a mesh issue. The module will print a warning if there is a connectivity
-error.
 
 \subsection{2D mesh extrusion}
 

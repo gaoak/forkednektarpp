@@ -43,6 +43,7 @@
 #include <NekMesh/Module/Module.h>
 
 using namespace std;
+using namespace Nektar;
 using namespace Nektar::NekMesh;
 
 namespace po = boost::program_options;
@@ -325,6 +326,15 @@ int main(int argc, char *argv[])
 
     log.SetPrefixLen(maxModName);
 
+    // Temporary warning.
+    log.SetPrefix("NekMesh");
+    log(INFO) << "NOTE: NekMesh has undergone a major refactoring: see MR !2752"
+              << endl;
+    log(INFO) << "Although user experience should be identical and "
+              << "performance improved, there may be issues." << endl;
+    log(INFO) << "If you find any issues, please report them to the Nektar++"
+              << " forum: https://forum.nektar.info" << endl;
+
     // Run mesh process.
     for (int i = 0; i < modules.size(); ++i)
     {
@@ -335,7 +345,7 @@ int main(int argc, char *argv[])
             modules[i]->GetLogger().SetPrefixLen(maxModName);
             modules[i]->Process();
         }
-        catch (NekMeshError &e)
+        catch (ErrorUtil::NekError &e)
         {
             return 1;
         }

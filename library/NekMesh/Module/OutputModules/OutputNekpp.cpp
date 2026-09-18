@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <fstream>
 #include <set>
 #include <string>
 #include <thread>
@@ -39,19 +40,13 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
-
-namespace io = boost::iostreams;
 
 #include <LibUtilities/BasicUtils/CppCommandLine.hpp>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
-#include <NekMesh/MeshElements/Element.h>
-#include <SpatialDomains/MeshGraph.h>
-#include <SpatialDomains/MeshGraphIO.h>
-#include <SpatialDomains/PointGeom.h>
+#include <SpatialDomains/MeshGraphIOXml.h>
 #include <tinyxml.h>
+
+#include <SpatialDomains/PointGeom.h>
 
 #include "OutputNekpp.h"
 
@@ -216,43 +211,23 @@ void OutputNekpp::Process()
         type = "HDF5";
     }
 
-    SpatialDomains::MeshGraphSharedPtr graph =
-        MemoryManager<SpatialDomains::MeshGraph>::AllocateSharedPtr();
-    graph->Empty(m_mesh->m_expDim, m_mesh->m_spaceDim);
+    SpatialDomains::MeshGraphIOSharedPtr graphIO =
+        SpatialDomains::GetMeshGraphIOFactory().CreateInstance(type);
+    graphIO->SetMeshGraph(m_mesh->m_meshGraph);
 
-    TransferVertices(graph);
-
-    std::unordered_map<int, SegGeom *> segMap;
-    TransferEdges(graph, segMap);
-    TransferFaces(graph, segMap);
-    TransferElements(graph);
-    TransferCurves(graph);
-    TransferComposites(graph);
-    TransferDomain(graph);
-
-    auto graphIO = SpatialDomains::GetMeshGraphIOFactory().CreateInstance(type);
-    graphIO->SetMeshGraph(graph);
     graphIO->WriteGeometry(filename, true, m_mesh->m_metadata);
 
-    // Test the resulting XML file (with a basic test) by loading it
-    // with the session reader, generating the MeshGraph and testing if
-    // each element is valid.
+    // For testing let's attempt to load the mesh and create a meshgraph.
     if (m_config["test"].beenSet)
     {
-        // Create an equation based on the test condition. Should evaluate to 1
-        // or 0 using boolean logic.
-        string testcond = m_config["testcond"].as<string>();
-        int exprId      = -1;
-
-        if (testcond.length() > 0)
-        {
-            exprId = m_strEval.DefineFunction("x y z", testcond);
-        }
-
         vector<string> filenames(1);
 
         if (type == "HDF5")
         {
+            // The HDF5 writer puts the geometry in the .nekg file and a
+            // session that references it alongside in a .xml, derived from
+            // the output name the same way. The session reader needs the
+            // latter.
             vector<string> tmp;
             boost::split(tmp, filename, boost::is_any_of("."));
             filenames[0] = tmp[0] + ".xml";
@@ -260,6 +235,14 @@ void OutputNekpp::Process()
         else
         {
             filenames[0] = filename;
+        }
+
+        LibUtilities::Interpreter strEval;
+        int exprId       = -1;
+        string condition = m_config["testcond"].as<string>();
+        if (condition.size() > 0)
+        {
+            exprId = strEval.DefineFunction("x y z", condition);
         }
 
         // Fake command line argument for SessionReader construction
@@ -270,534 +253,20 @@ void OutputNekpp::Process()
         SpatialDomains::MeshGraphSharedPtr graph =
             SpatialDomains::MeshGraphIO::Read(vSession);
 
-        TestElmts(graph->GetGeomMap<SpatialDomains::SegGeom>(), graph,
-                  m_strEval, exprId, m_log);
-        TestElmts(graph->GetGeomMap<SpatialDomains::TriGeom>(), graph,
-                  m_strEval, exprId, m_log);
-        TestElmts(graph->GetGeomMap<SpatialDomains::QuadGeom>(), graph,
-                  m_strEval, exprId, m_log);
-        TestElmts(graph->GetGeomMap<SpatialDomains::TetGeom>(), graph,
-                  m_strEval, exprId, m_log);
+        TestElmts(graph->GetGeomMap<SpatialDomains::SegGeom>(), graph, strEval,
+                  exprId, m_log);
+        TestElmts(graph->GetGeomMap<SpatialDomains::TriGeom>(), graph, strEval,
+                  exprId, m_log);
+        TestElmts(graph->GetGeomMap<SpatialDomains::QuadGeom>(), graph, strEval,
+                  exprId, m_log);
+        TestElmts(graph->GetGeomMap<SpatialDomains::TetGeom>(), graph, strEval,
+                  exprId, m_log);
         TestElmts(graph->GetGeomMap<SpatialDomains::PrismGeom>(), graph,
-                  m_strEval, exprId, m_log);
-        TestElmts(graph->GetGeomMap<SpatialDomains::PyrGeom>(), graph,
-                  m_strEval, exprId, m_log);
-        TestElmts(graph->GetGeomMap<SpatialDomains::HexGeom>(), graph,
-                  m_strEval, exprId, m_log);
+                  strEval, exprId, m_log);
+        TestElmts(graph->GetGeomMap<SpatialDomains::PyrGeom>(), graph, strEval,
+                  exprId, m_log);
+        TestElmts(graph->GetGeomMap<SpatialDomains::HexGeom>(), graph, strEval,
+                  exprId, m_log);
     }
 }
-
-void OutputNekpp::TransferVertices(MeshGraphSharedPtr graph)
-{
-    for (auto &it : m_mesh->m_vertexSet)
-    {
-        auto vert = ObjPoolManager<PointGeom>::AllocateUniquePtr(
-            m_mesh->m_spaceDim, it->m_id, it->m_x, it->m_y, it->m_z);
-        graph->AddGeom(it->m_id, std::move(vert));
-    }
-}
-
-void OutputNekpp::TransferEdges(MeshGraphSharedPtr graph,
-                                std::unordered_map<int, SegGeom *> &edgeMap)
-{
-    if (m_mesh->m_expDim >= 2)
-    {
-        for (auto &it : m_mesh->m_edgeSet)
-        {
-            std::array<PointGeom *, 2> verts = {
-                graph->GetPointGeom(it->m_n1->m_id),
-                graph->GetPointGeom(it->m_n2->m_id)};
-            SegGeomUniquePtr edge = ObjPoolManager<SegGeom>::AllocateUniquePtr(
-                it->m_id, m_mesh->m_spaceDim, verts);
-            edgeMap[it->m_id] = edge.get();
-            graph->AddGeom(it->m_id, std::move(edge));
-        }
-    }
-}
-
-void OutputNekpp::TransferFaces(MeshGraphSharedPtr graph,
-                                std::unordered_map<int, SegGeom *> &edgeMap)
-{
-    if (m_mesh->m_expDim == 3)
-    {
-        for (auto &it : m_mesh->m_faceSet)
-        {
-            if (it->m_edgeList.size() == 3)
-            {
-                std::array<SegGeom *, TriGeom::kNedges> edges = {
-                    edgeMap[it->m_edgeList[0]->m_id],
-                    edgeMap[it->m_edgeList[1]->m_id],
-                    edgeMap[it->m_edgeList[2]->m_id]};
-
-                TriGeomUniquePtr tri =
-                    ObjPoolManager<TriGeom>::AllocateUniquePtr(it->m_id, edges);
-                graph->AddGeom(it->m_id, std::move(tri));
-            }
-            else
-            {
-                std::array<SegGeom *, QuadGeom::kNedges> edges = {
-                    edgeMap[it->m_edgeList[0]->m_id],
-                    edgeMap[it->m_edgeList[1]->m_id],
-                    edgeMap[it->m_edgeList[2]->m_id],
-                    edgeMap[it->m_edgeList[3]->m_id]};
-
-                QuadGeomUniquePtr quad =
-                    ObjPoolManager<QuadGeom>::AllocateUniquePtr(it->m_id,
-                                                                edges);
-                graph->AddGeom(it->m_id, std::move(quad));
-            }
-        }
-    }
-}
-
-void OutputNekpp::TransferElements(MeshGraphSharedPtr graph)
-{
-    vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
-
-    for (int i = 0; i < elmt.size(); ++i)
-    {
-        switch (elmt[i]->GetTag()[0])
-        {
-            case 'S':
-            {
-                int id                              = elmt[i]->GetId();
-                std::array<PointGeom *, 2> vertices = {
-                    graph->GetPointGeom(elmt[i]->GetVertex(0)->m_id),
-                    graph->GetPointGeom(elmt[i]->GetVertex(1)->m_id)};
-                auto geom = ObjPoolManager<SegGeom>::AllocateUniquePtr(
-                    id, m_mesh->m_spaceDim, vertices);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            case 'T':
-            {
-                int id = elmt[i]->GetId();
-                std::array<SegGeom *, TriGeom::kNedges> edges = {
-                    graph->GetSegGeom(elmt[i]->GetEdge(0)->m_id),
-                    graph->GetSegGeom(elmt[i]->GetEdge(1)->m_id),
-                    graph->GetSegGeom(elmt[i]->GetEdge(2)->m_id)};
-
-                auto geom =
-                    ObjPoolManager<TriGeom>::AllocateUniquePtr(id, edges);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            case 'Q':
-            {
-                int id = elmt[i]->GetId();
-                std::array<SegGeom *, QuadGeom::kNedges> edges = {
-                    graph->GetSegGeom(elmt[i]->GetEdge(0)->m_id),
-                    graph->GetSegGeom(elmt[i]->GetEdge(1)->m_id),
-                    graph->GetSegGeom(elmt[i]->GetEdge(2)->m_id),
-                    graph->GetSegGeom(elmt[i]->GetEdge(3)->m_id)};
-
-                auto geom =
-                    ObjPoolManager<QuadGeom>::AllocateUniquePtr(id, edges);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            case 'A':
-            {
-                int id = elmt[i]->GetId();
-                std::array<TriGeom *, 4> tfaces;
-                for (int j = 0; j < 4; ++j)
-                {
-                    Geometry2D *face =
-                        graph->GetGeometry2D(elmt[i]->GetFace(j)->m_id);
-                    tfaces[j] = static_cast<TriGeom *>(face);
-                }
-
-                auto geom =
-                    ObjPoolManager<TetGeom>::AllocateUniquePtr(id, tfaces);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            case 'P':
-            {
-                std::array<Geometry2D *, 5> faces;
-
-                int id = elmt[i]->GetId();
-                for (int j = 0; j < 5; ++j)
-                {
-                    Geometry2D *face =
-                        graph->GetGeometry2D(elmt[i]->GetFace(j)->m_id);
-
-                    if (face->GetShapeType() == LibUtilities::eTriangle)
-                    {
-                        faces[j] = static_cast<TriGeom *>(face);
-                    }
-                    else if (face->GetShapeType() ==
-                             LibUtilities::eQuadrilateral)
-                    {
-                        faces[j] = static_cast<QuadGeom *>(face);
-                    }
-                }
-                auto geom =
-                    ObjPoolManager<PyrGeom>::AllocateUniquePtr(id, faces);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            case 'R':
-            {
-                std::array<Geometry2D *, 5> faces;
-
-                int id = elmt[i]->GetId();
-                for (int j = 0; j < 5; ++j)
-                {
-                    Geometry2D *face =
-                        graph->GetGeometry2D(elmt[i]->GetFace(j)->m_id);
-
-                    if (face->GetShapeType() == LibUtilities::eTriangle)
-                    {
-                        faces[j] = static_cast<TriGeom *>(face);
-                    }
-                    else if (face->GetShapeType() ==
-                             LibUtilities::eQuadrilateral)
-                    {
-                        faces[j] = static_cast<QuadGeom *>(face);
-                    }
-                }
-                auto geom =
-                    ObjPoolManager<PrismGeom>::AllocateUniquePtr(id, faces);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            case 'H':
-            {
-                std::array<QuadGeom *, 6> faces;
-
-                int id = elmt[i]->GetId();
-                for (int j = 0; j < 6; ++j)
-                {
-                    Geometry2D *face =
-                        graph->GetGeometry2D(elmt[i]->GetFace(j)->m_id);
-                    faces[j] = static_cast<QuadGeom *>(face);
-                }
-
-                auto geom =
-                    ObjPoolManager<HexGeom>::AllocateUniquePtr(id, faces);
-                graph->AddGeom(id, std::move(geom));
-            }
-            break;
-            default:
-                ASSERTL1(false, "Unknown element type");
-        }
-    }
-}
-
-void OutputNekpp::TransferCurves(MeshGraphSharedPtr graph)
-{
-    CurveMap &edges  = graph->GetCurvedEdges();
-    auto &curveNodes = graph->GetAllCurveNodes();
-
-    int edgecnt = 0;
-
-    for (auto &it : m_mesh->m_edgeSet)
-    {
-        if (it->m_edgeNodes.size() > 0)
-        {
-            CurveUniquePtr curve = ObjPoolManager<Curve>::AllocateUniquePtr(
-                it->m_id, it->m_curveType);
-            vector<NodeSharedPtr> ns;
-            it->GetCurvedNodes(ns);
-            for (int i = 0; i < ns.size(); i++)
-            {
-                PointGeomUniquePtr vert =
-                    ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                        m_mesh->m_spaceDim, edgecnt, ns[i]->m_x, ns[i]->m_y,
-                        ns[i]->m_z);
-                curve->m_points.push_back(vert.get());
-                curveNodes.push_back(std::move(vert));
-            }
-
-            edges[it->m_id] = std::move(curve);
-            edgecnt++;
-        }
-    }
-
-    if (m_mesh->m_expDim == 1 && m_mesh->m_spaceDim > 1)
-    {
-        for (int e = 0; e < m_mesh->m_element[1].size(); e++)
-        {
-            ElementSharedPtr el = m_mesh->m_element[1][e];
-            vector<NodeSharedPtr> ns;
-            el->GetCurvedNodes(ns);
-            if (ns.size() > 2)
-            {
-                CurveUniquePtr curve = ObjPoolManager<Curve>::AllocateUniquePtr(
-                    el->GetId(), el->GetCurveType());
-
-                for (int i = 0; i < ns.size(); i++)
-                {
-                    PointGeomUniquePtr vert =
-                        ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                            m_mesh->m_spaceDim, edgecnt, ns[i]->m_x, ns[i]->m_y,
-                            ns[i]->m_z);
-                    curve->m_points.push_back(vert.get());
-                    curveNodes.push_back(std::move(vert));
-                }
-
-                edges[el->GetId()] = std::move(curve);
-                edgecnt++;
-            }
-        }
-    }
-
-    CurveMap &faces = graph->GetCurvedFaces();
-
-    int facecnt = 0;
-
-    for (auto &it : m_mesh->m_faceSet)
-    {
-        if (it->m_faceNodes.size() > 0)
-        {
-            CurveUniquePtr curve = ObjPoolManager<Curve>::AllocateUniquePtr(
-                it->m_id, it->m_curveType);
-            vector<NodeSharedPtr> ns;
-            it->GetCurvedNodes(ns);
-            for (int i = 0; i < ns.size(); i++)
-            {
-                PointGeomUniquePtr vert =
-                    ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                        m_mesh->m_spaceDim, facecnt, ns[i]->m_x, ns[i]->m_y,
-                        ns[i]->m_z);
-                curve->m_points.push_back(vert.get());
-                curveNodes.push_back(std::move(vert));
-            }
-
-            faces[it->m_id] = std::move(curve);
-            facecnt++;
-        }
-    }
-
-    if (m_mesh->m_expDim == 2 && m_mesh->m_spaceDim == 3)
-    {
-        // manifold case
-        for (int e = 0; e < m_mesh->m_element[2].size(); e++)
-        {
-            ElementSharedPtr el = m_mesh->m_element[2][e];
-
-            if (el->GetVolumeNodes().size() > 0) // needed for extract surf case
-            {
-                vector<NodeSharedPtr> ns;
-                el->GetCurvedNodes(ns);
-                if (ns.size() > 4)
-                {
-                    CurveUniquePtr curve =
-                        ObjPoolManager<Curve>::AllocateUniquePtr(
-                            el->GetId(), el->GetCurveType());
-
-                    for (int i = 0; i < ns.size(); i++)
-                    {
-                        PointGeomUniquePtr vert =
-                            ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                                m_mesh->m_spaceDim, facecnt, ns[i]->m_x,
-                                ns[i]->m_y, ns[i]->m_z);
-                        curve->m_points.push_back(vert.get());
-                        curveNodes.push_back(std::move(vert));
-                    }
-
-                    faces[el->GetId()] = std::move(curve);
-                    facecnt++;
-                }
-            }
-        }
-    }
-}
-
-void OutputNekpp::TransferComposites(MeshGraphSharedPtr graph)
-{
-    SpatialDomains::CompositeMap &comps = graph->GetComposites();
-    map<int, string> &compLabels        = graph->GetCompositesLabels();
-
-    for (auto &it : m_mesh->m_composite)
-    {
-        if (it.second->m_items.size() > 0)
-        {
-            int indx = it.second->m_id;
-            SpatialDomains::CompositeSharedPtr curVector =
-                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
-
-            if (it.second->m_label.size())
-            {
-                compLabels[indx] = it.second->m_label;
-            }
-
-            switch (it.second->m_tag[0])
-            {
-                case 'V':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetPointGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'S':
-                case 'E':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetSegGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'Q':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetQuadGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'T':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetTriGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'F':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom = graph->GetGeometry2D(
-                            it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'A':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetTetGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    };
-                }
-                break;
-                case 'P':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetPyrGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'R':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetPrismGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                case 'H':
-                {
-                    for (int i = 0; i < it.second->m_items.size(); i++)
-                    {
-                        auto geom =
-                            graph->GetHexGeom(it.second->m_items[i]->GetId());
-                        curVector->m_geomVec.push_back(geom);
-                    }
-                }
-                break;
-                default:
-                    ASSERTL1(false, "Unknown element type");
-            }
-
-            comps[indx] = curVector;
-        }
-    }
-
-    if (m_config["chkbndcomp"].beenSet)
-    {
-        if (m_mesh->m_expDim == 3)
-        {
-            // check to see if any boundary surfaces are not set and if so put
-            // them into a set with tag 9999
-            map<int, FaceSharedPtr> NotSet;
-
-            // loop over faceset and make a map of all faces only linked
-            // to one element
-            for (auto &it : m_mesh->m_faceSet)
-            {
-                // for some reason links are defined twice so should have
-                // been 1 but needs to be 2
-                if (it->m_elLink.size() == 1)
-                {
-                    NotSet[it->m_id] = it;
-                }
-            }
-
-            // reove composites and remove
-            for (auto &it : m_mesh->m_element[2])
-            {
-                int id = it->GetId();
-                if (NotSet.count(id))
-                {
-                    NotSet.erase(id);
-                }
-            }
-
-            // Make composite of all missing faces
-            if (NotSet.size())
-            {
-                int indx                                     = 9999;
-                SpatialDomains::CompositeSharedPtr curVector = MemoryManager<
-                    SpatialDomains::Composite>::AllocateSharedPtr();
-
-                for (auto &sit : NotSet)
-                {
-                    curVector->m_geomVec.push_back(
-                        graph->GetGeometry2D(sit.first));
-                }
-                comps[indx] = curVector;
-            }
-        }
-    }
-}
-
-// @TODO: We currently lose domain information from input file here. This
-// assumes
-//        every composite that is of expansion dimension is a separate domain
-//        and sequentially numbered. So junks multi-composite domains & IDs.
-void OutputNekpp::TransferDomain(MeshGraphSharedPtr graph)
-{
-    std::map<int, SpatialDomains::CompositeMap> &domain = graph->GetDomain();
-
-    int cnt = 0;
-    for (auto &it : m_mesh->m_composite)
-    {
-
-        string list;
-        if (it.second->m_items[0]->GetDim() == m_mesh->m_expDim)
-        {
-            if (list.length() > 0)
-            {
-                list += ",";
-            }
-            list += std::to_string(it.second->m_id);
-
-            SpatialDomains::CompositeMap fullDomain;
-            graph->GetCompositeList(list, fullDomain);
-            domain[cnt++] = fullDomain;
-        }
-    }
-}
-
 } // namespace Nektar::NekMesh

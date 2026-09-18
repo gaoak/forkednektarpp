@@ -1,5 +1,8 @@
 SET(NekMeshUnitTestsSources
     main.cpp
+    TestGmshReordering.cpp
+    TestHOAlignment.cpp
+    TestTaggedEntities.cpp
     TestTetrahedron.cpp
 )
 

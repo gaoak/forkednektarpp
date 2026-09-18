@@ -33,7 +33,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "ProcessExtrude.h"
-#include <NekMesh/MeshElements/Element.h>
 
 using namespace std;
 
@@ -57,8 +56,9 @@ ProcessExtrude::~ProcessExtrude()
 void ProcessExtrude::Process()
 {
     m_log(VERBOSE) << "Extruding grid." << endl;
+    auto graph = m_mesh->m_meshGraph;
 
-    if (m_mesh->m_spaceDim != 2)
+    if (graph->GetSpaceDimension() != 2)
     {
         m_log(FATAL) << "Extrude should only be called for a two dimensional "
                      << "mesh" << endl;
@@ -70,373 +70,212 @@ void ProcessExtrude::Process()
     NekDouble dz = length / nLayers;
 
     // Increment space and expansion dimensions.
-    m_mesh->m_spaceDim++;
-    m_mesh->m_expDim++;
+    int dim = 3;
+    graph->SetSpaceDimension(dim);
+    graph->SetMeshDimension(dim);
 
-    // Grab a copy of the existing two-dimensional elements.
-    vector<ElementSharedPtr> el = m_mesh->m_element[2];
-
-    // Grab a copy of existing composites.
-    CompositeMap oldComp = m_mesh->m_composite;
-    m_log(VERBOSE) << "Boundary composites" << endl;
-    for (auto &it : oldComp)
-    {
-        if (it.second->m_tag != "E")
-        {
-            continue;
-        }
-        m_log(VERBOSE) << it.first << "\t" << it.second->m_tag;
-        for (int i = 0; i < it.second->m_items.size(); ++i)
-        {
-            m_log(VERBOSE) << "\t" << it.second->m_items[i]->GetId() << " ("
-                           << it.second->m_items[i]->GetVertex(0) << ", "
-                           << it.second->m_items[i]->GetVertex(1) << ")";
-            vector<NodeSharedPtr> vv = it.second->m_items[i]->GetVertexList();
-            m_log(VERBOSE) << "\t(" << vv[0]->GetID() << ", " << vv[1]->GetID()
-                           << ")";
-        }
-        m_log(VERBOSE) << endl;
-    }
-
-    // Reset mesh.
-    for (int d = 0; d <= 3; ++d)
-    {
-        m_mesh->m_element[d].clear();
-    }
-
-    NodeSet nodes = m_mesh->m_vertexSet;
-
-    map<int, NodeSharedPtr> id2node;
-
-    for (auto &n : nodes)
-    {
-        id2node[n->m_id] = n;
-    }
     // Save z plane coordinate
     NekDouble z0 = 0;
 
+    int initNumVerts = graph->GetNumGeoms<SpatialDomains::PointGeom>();
+    std::vector<std::pair<int, SpatialDomains::PointGeomUniquePtr>> newVerts;
     // Create vertices for subsequent layers.
-    for (int i = 1; i < nLayers + 1; ++i)
+    for (auto [vertID, vert] : graph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        for (auto &n : nodes)
+        vert->SetCoordim(dim);
+        z0 = (*vert)[2];
+        for (int i = 1; i < nLayers + 1; ++i)
         {
-            z0 = n->m_z;
-            NodeSharedPtr newNode(new Node(i * nodes.size() + n->m_id, n->m_x,
-                                           n->m_y, n->m_z + i * dz));
-            m_mesh->m_vertexSet.insert(newNode);
-            id2node[i * nodes.size() + n->m_id] = newNode;
+            int newID = i * initNumVerts + vert->GetGlobalID();
+            auto newVert =
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    dim, newID, (*vert)[0], (*vert)[1], z0 + i * dz);
+            newVerts.push_back(
+                std::pair<int, SpatialDomains::PointGeomUniquePtr>(
+                    {newID, std::move(newVert)}));
         }
     }
+    graph->BulkAddGeom<SpatialDomains::PointGeom>(newVerts);
 
-    EdgeSet esOld = m_mesh->m_edgeSet; // copy edges for curvature
-
-    for (int j = 0; j < nLayers; ++j)
+    auto initTags = m_mesh->m_elementTags[2];
+    std::map<int, SpatialDomains::CompositeSharedPtr> faceTagToVolComp;
+    std::array<SpatialDomains::CompositeSharedPtr, 2> periodicComps = {
+        MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr(),
+        MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr()};
+    // Create 3D elements
+    for (auto &[geom, tag] : initTags)
     {
-        for (int i = 0; i < el.size(); ++i)
+        auto it = faceTagToVolComp.find(tag);
+        if (it == faceTagToVolComp.end())
         {
-            vector<NodeSharedPtr> verts = el[i]->GetVertexList();
-            if (verts.size() == 4)
+            faceTagToVolComp[tag] =
+                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+        }
+
+        for (int j = 0; j < nLayers; ++j)
+        {
+            if (geom->GetShapeType() == LibUtilities::eQuadrilateral)
             {
-                vector<NodeSharedPtr> nodeList(8);
-                nodeList[0] = id2node[verts[0]->m_id + j * nodes.size()];
-                nodeList[1] = id2node[verts[1]->m_id + j * nodes.size()];
-                nodeList[2] = id2node[verts[2]->m_id + j * nodes.size()];
-                nodeList[3] = id2node[verts[3]->m_id + j * nodes.size()];
-                nodeList[4] = id2node[verts[0]->m_id + (j + 1) * nodes.size()];
-                nodeList[5] = id2node[verts[1]->m_id + (j + 1) * nodes.size()];
-                nodeList[6] = id2node[verts[2]->m_id + (j + 1) * nodes.size()];
-                nodeList[7] = id2node[verts[3]->m_id + (j + 1) * nodes.size()];
+                vector<SpatialDomains::PointGeom *> nodeList(8);
+                nodeList[0] =
+                    graph->GetPointGeom(geom->GetVid(0) + j * initNumVerts);
+                nodeList[1] =
+                    graph->GetPointGeom(geom->GetVid(1) + j * initNumVerts);
+                nodeList[2] =
+                    graph->GetPointGeom(geom->GetVid(2) + j * initNumVerts);
+                nodeList[3] =
+                    graph->GetPointGeom(geom->GetVid(3) + j * initNumVerts);
+                nodeList[4] = graph->GetPointGeom(geom->GetVid(0) +
+                                                  (j + 1) * initNumVerts);
+                nodeList[5] = graph->GetPointGeom(geom->GetVid(1) +
+                                                  (j + 1) * initNumVerts);
+                nodeList[6] = graph->GetPointGeom(geom->GetVid(2) +
+                                                  (j + 1) * initNumVerts);
+                nodeList[7] = graph->GetPointGeom(geom->GetVid(3) +
+                                                  (j + 1) * initNumVerts);
 
-                vector<int> tags(1);
-                tags[0] = 0;
-
-                ElmtConfig conf(LibUtilities::eHexahedron, 1, false, false,
-                                false);
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    LibUtilities::eHexahedron, conf, nodeList, tags);
-
-                m_mesh->m_element[3].push_back(E);
+                auto hexGeom = CreateElementLite(
+                    LibUtilities::eHexahedron, nodeList, graph,
+                    m_mesh->m_edgeSet, m_mesh->m_faceSet);
+                faceTagToVolComp[tag]->m_geomVec.push_back(hexGeom);
+                m_mesh->m_elementTags[3][hexGeom] = tag;
             }
             else
             {
-                vector<NodeSharedPtr> nodeList(6);
-                nodeList[0] = id2node[verts[0]->m_id + (j + 1) * nodes.size()];
-                nodeList[1] = id2node[verts[1]->m_id + (j + 1) * nodes.size()];
-                nodeList[2] = id2node[verts[1]->m_id + j * nodes.size()];
-                nodeList[3] = id2node[verts[0]->m_id + j * nodes.size()];
-                nodeList[4] = id2node[verts[2]->m_id + (j + 1) * nodes.size()];
-                nodeList[5] = id2node[verts[2]->m_id + j * nodes.size()];
+                vector<SpatialDomains::PointGeom *> nodeList(6);
+                nodeList[0] = graph->GetPointGeom(geom->GetVid(0) +
+                                                  (j + 1) * initNumVerts);
+                nodeList[1] = graph->GetPointGeom(geom->GetVid(1) +
+                                                  (j + 1) * initNumVerts);
+                nodeList[2] =
+                    graph->GetPointGeom(geom->GetVid(1) + j * initNumVerts);
+                nodeList[3] =
+                    graph->GetPointGeom(geom->GetVid(0) + j * initNumVerts);
+                nodeList[4] = graph->GetPointGeom(geom->GetVid(2) +
+                                                  (j + 1) * initNumVerts);
+                nodeList[5] =
+                    graph->GetPointGeom(geom->GetVid(2) + j * initNumVerts);
 
-                vector<int> tags(1);
-                tags[0] = 1;
-
-                ElmtConfig conf(LibUtilities::ePrism, 1, false, false, false);
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    LibUtilities::ePrism, conf, nodeList, tags);
-
-                m_mesh->m_element[3].push_back(E);
+                auto prismGeom =
+                    CreateElementLite(LibUtilities::ePrism, nodeList, graph,
+                                      m_mesh->m_edgeSet, m_mesh->m_faceSet);
+                faceTagToVolComp[tag]->m_geomVec.push_back(prismGeom);
+                m_mesh->m_elementTags[3][prismGeom] = tag;
             }
         }
+
+        periodicComps[0]->m_geomVec.push_back(geom);
+        // Find opposite periodic face using m_faceSet
+        std::array<int, 4> vertIDs =
+            (geom->GetNumVerts() == 4)
+                ? std::array<int, 4>{nLayers * initNumVerts + geom->GetVid(0),
+                                     nLayers * initNumVerts + geom->GetVid(1),
+                                     nLayers * initNumVerts + geom->GetVid(2),
+                                     nLayers * initNumVerts + geom->GetVid(3)}
+                : std::array<int, 4>{nLayers * initNumVerts + geom->GetVid(0),
+                                     nLayers * initNumVerts + geom->GetVid(1),
+                                     nLayers * initNumVerts + geom->GetVid(2),
+                                     -1};
+        auto it2 = m_mesh->m_faceSet.find(vertIDs);
+        ASSERTL0(it2 != m_mesh->m_faceSet.end(), "could not find face");
+        periodicComps[1]->m_geomVec.push_back(it2->second);
     }
 
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
-    ProcessComposites();
 
-    // Copy edge information
-    for (auto &edge : esOld)
+    // Copy edge curves
+    std::vector<std::pair<int, SpatialDomains::CurveUniquePtr>> newCurves;
+    for (auto &[initEdgeID, initCurve] : graph->GetCurvedEdges())
     {
-        if (edge->m_edgeNodes.size() > 0)
+        auto initSeg = graph->GetSegGeom(initEdgeID);
+        for (int i = 1; i < nLayers + 1; ++i)
         {
-            for (int j = 0; j < nLayers + 1; ++j)
+            auto idPair = std::make_pair(i * initNumVerts + initSeg->GetVid(0),
+                                         i * initNumVerts + initSeg->GetVid(1));
+            auto it     = m_mesh->m_edgeSet.find(idPair);
+            ASSERTL0(it != m_mesh->m_edgeSet.end(), "could not find edge");
+            auto newSeg = it->second;
+
+            auto newCurve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    newSeg->GetGlobalID(), initCurve->m_ptype);
+            for (int p = 0; p < initCurve->m_points.size(); p++)
             {
-                vector<NodeSharedPtr> ns(edge->m_edgeNodes.size());
-                for (int i = 0; i < ns.size(); i++)
+                if (initCurve->m_points[p] == initSeg->GetVertex(0))
                 {
-                    NodeSharedPtr n = edge->m_edgeNodes[i];
-                    ns[i]           = std::shared_ptr<Node>(
-                        new Node(0, n->m_x, n->m_y, n->m_z + j * dz));
+                    newCurve->m_points.push_back(newSeg->GetVertex(0));
                 }
-
-                EdgeSharedPtr e = std::shared_ptr<Edge>(
-                    new Edge(id2node[edge->m_n1->m_id + j * nodes.size()],
-                             id2node[edge->m_n2->m_id + j * nodes.size()]));
-
-                auto f = m_mesh->m_edgeSet.find(e);
-                ASSERTL1(f != m_mesh->m_edgeSet.end(), "could not find edge");
-
-                // Copy edge type
-                (*f)->m_curveType = edge->m_curveType;
-                // Copy points
-                if ((*f)->m_n1 == e->m_n1)
+                else if (initCurve->m_points[p] == initSeg->GetVertex(1))
                 {
-                    (*f)->m_edgeNodes = ns;
+                    newCurve->m_points.push_back(newSeg->GetVertex(1));
                 }
                 else
                 {
-                    reverse(ns.begin(), ns.end());
-                    (*f)->m_edgeNodes = ns;
+                    auto point = ObjPoolManager<SpatialDomains::PointGeom>::
+                        AllocateUniquePtr(dim, newCurve->m_curveID,
+                                          (*initCurve->m_points[p])[0],
+                                          (*initCurve->m_points[p])[1],
+                                          (*initCurve->m_points[p])[2] +
+                                              i * dz);
+                    newCurve->m_points.push_back(point.get());
+                    graph->GetAllCurveNodes().push_back(std::move(point));
                 }
             }
+            if (i * initNumVerts + initSeg->GetVid(0) == newSeg->GetVid(1))
+            {
+                std::reverse(newCurve->m_points.begin(),
+                             newCurve->m_points.end());
+            }
+            it->second->SetCurve(newCurve.get());
+            newCurves.push_back(std::pair<int, SpatialDomains::CurveUniquePtr>{
+                it->second->GetGlobalID(), std::move(newCurve)});
         }
     }
+    graph->GetCurvedEdges().insert(std::make_move_iterator(newCurves.begin()),
+                                   std::make_move_iterator(newCurves.end()));
 
-    // Get composites max id
+    // Replace existing comps with higher dimension comps
     unsigned int maxCompId = 0;
-    for (auto &it : oldComp)
+    for (auto &[id, comp] : graph->GetComposites())
     {
-        if (it.second->m_id >= maxCompId)
+        maxCompId = std::max<int>(maxCompId, id);
+        if (comp->m_geomVec[0]->GetShapeDim() == 1)
         {
-            maxCompId = it.second->m_id;
-        }
-    }
-
-    // First rename surface to volume composites to out of range
-    int outCompId = maxCompId + 1;
-    std::vector<int> toErase;
-    for (auto &it2 : m_mesh->m_composite)
-    {
-        if (it2.second->m_id > maxCompId)
-        {
-            // done!
-            break;
-        }
-        if (it2.second->m_tag == "H" || it2.second->m_tag == "R")
-        {
-            it2.second->m_id = outCompId;
-            m_mesh->m_composite.insert(std::make_pair(outCompId, it2.second));
-            toErase.push_back(it2.first);
-            outCompId += 1;
-        }
-    }
-
-    for (auto &e : toErase)
-    {
-        m_mesh->m_composite.erase(e);
-    }
-
-    toErase.clear();
-
-    // Then copy surface to volume composites names
-    for (auto &it2 : m_mesh->m_composite)
-    {
-        if (it2.second->m_tag == "H" || it2.second->m_tag == "R")
-        {
-            for (auto &it1 : oldComp)
+            auto newComp =
+                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+            for (auto &geom : comp->m_geomVec)
             {
-                if (it2.second->m_tag == "H" && it1.second->m_tag == "Q")
+                for (int j = 0; j < nLayers; ++j)
                 {
-                    it2.second->m_id = it1.second->m_id;
-                    m_mesh->m_composite.insert(
-                        std::make_pair(it1.second->m_id, it2.second));
-                    toErase.push_back(it2.first);
-                    oldComp.erase(it1.first);
-                    break;
-                }
-                else if (it2.second->m_tag == "R" && it1.second->m_tag == "T")
-                {
-                    it2.second->m_id = it1.second->m_id;
-                    m_mesh->m_composite.insert(
-                        std::make_pair(it1.second->m_id, it2.second));
-                    toErase.push_back(it2.first);
-                    oldComp.erase(it1.first);
-                    break;
+                    std::array<int, 4> vertIDs = {
+                        j * initNumVerts + geom->GetVid(0),
+                        j * initNumVerts + geom->GetVid(1),
+                        (j + 1) * initNumVerts + geom->GetVid(0),
+                        (j + 1) * initNumVerts + geom->GetVid(1)};
+                    auto it = m_mesh->m_faceSet.find(vertIDs);
+                    ASSERTL0(it != m_mesh->m_faceSet.end(),
+                             "could not find face");
+                    newComp->m_geomVec.push_back(it->second);
+                    m_mesh->m_elementTags[2][it->second] = id;
                 }
             }
+            comp = newComp;
+        }
+        else if (comp->m_geomVec[0]->GetShapeDim() == 2)
+        {
+            comp = faceTagToVolComp[id];
         }
     }
 
-    for (auto &e : toErase)
+    // Set comps and tags of periodic faces
+    graph->GetComposites()[++maxCompId] = periodicComps[0];
+    graph->GetComposites()[++maxCompId] = periodicComps[1];
+    for (int id = maxCompId - 1; id <= maxCompId; id++)
     {
-        m_mesh->m_composite.erase(e);
-    }
-
-    // Add new composite to be filled with all boundary faces
-    CompositeSharedPtr comp(new Composite());
-    comp->m_id = ++maxCompId;
-    unsigned int compAllFaceId =
-        maxCompId; // save it so we can remove it later on
-    comp->m_tag = "F";
-    m_mesh->m_composite.insert(std::make_pair(maxCompId, comp));
-
-    // Add all boundary faces to the composite
-    auto allFaceC = m_mesh->m_composite.find(maxCompId);
-    m_log(VERBOSE) << "Faces boundary list" << endl;
-
-    for (auto &it : m_mesh->m_faceSet)
-    {
-        // Add to composite if boundary face
-        if (it->m_elLink.size() < 2)
+        for (auto &geom : graph->GetComposites()[id]->m_geomVec)
         {
-            if (it->m_vertexList.size() == 3)
-            {
-                // Triangle
-                ElmtConfig conf(LibUtilities::eTriangle, 1, false, false);
-                vector<int> tags(1);
-                tags[0]            = 1;
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    LibUtilities::eTriangle, conf, it->m_vertexList, tags);
-                E->SetId(it->m_id);
-                allFaceC->second->m_items.push_back(E);
-            }
-            else if (it->m_vertexList.size() == 4)
-            {
-                // Quad
-                ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false, false);
-                vector<int> tags(1);
-                tags[0]            = 0;
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    LibUtilities::eQuadrilateral, conf, it->m_vertexList, tags);
-                E->SetId(it->m_id);
-                allFaceC->second->m_items.push_back(E);
-            }
+            m_mesh->m_elementTags[2][geom] = id;
         }
     }
-
-    // Create boundary composites
-    for (auto &itOc : oldComp)
-    {
-        CompositeSharedPtr comp(new Composite());
-        comp->m_id  = itOc.second->m_id;
-        comp->m_tag = "F";
-        m_mesh->m_composite.insert(std::make_pair(itOc.second->m_id, comp));
-    }
-    // Create periodic composites
-    for (int i = 0; i < 2; i++)
-    {
-        CompositeSharedPtr comp(new Composite());
-        comp->m_id  = ++maxCompId;
-        comp->m_tag = "F";
-        m_mesh->m_composite.insert(std::make_pair(maxCompId, comp));
-    }
-
-    // Populates boundary composites
-    for (auto &itQ : allFaceC->second->m_items)
-    {
-        // Check if this quad belongs to previous boundary
-        for (auto &itOc : oldComp)
-        {
-            for (int iEd = 0; iEd < itOc.second->m_items.size(); ++iEd)
-            {
-                int inCommon = 0;
-                for (int iV = 0; iV < itQ->GetVertexList().size(); iV++)
-                {
-                    for (int j = 0; j < 2; j++)
-                    {
-                        if (LibUtilities::IsRealEqual(
-                                itQ->GetVertex(iV)->m_x,
-                                itOc.second->m_items[iEd]->GetVertex(j)->m_x) &&
-                            LibUtilities::IsRealEqual(
-                                itQ->GetVertex(iV)->m_y,
-                                itOc.second->m_items[iEd]->GetVertex(j)->m_y))
-                        {
-                            ++inCommon;
-                        }
-                    }
-                }
-                // If the face contains 4 xy pairs in common with 1 edge it
-                // must be an extruded edge and it should be added to the
-                // corresponding composite
-                if (inCommon == 4)
-                {
-                    auto newC = m_mesh->m_composite.find(itOc.second->m_id);
-                    // Quad
-                    ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false,
-                                    false);
-                    vector<int> tags(1);
-                    tags[0]            = 0;
-                    ElementSharedPtr E = GetElementFactory().CreateInstance(
-                        LibUtilities::eQuadrilateral, conf,
-                        itQ->GetVertexList(), tags);
-                    E->SetId(itQ->GetId());
-                    newC->second->m_items.push_back(E);
-                }
-            }
-        }
-
-        // Populates periodic composites
-        NekDouble zdist = 0.0;
-        for (int iV = 0; iV < itQ->GetVertexList().size(); iV++)
-        {
-            zdist += itQ->GetVertex(iV)->m_z;
-        }
-        zdist                  = zdist / itQ->GetVertexList().size();
-        unsigned int compPerId = 0;
-        if (LibUtilities::IsRealEqual(zdist, z0))
-        {
-            compPerId = maxCompId - 1;
-        }
-        else if (LibUtilities::IsRealEqual(zdist - z0, length))
-        {
-            compPerId = maxCompId;
-        }
-        if (compPerId > 0 && itQ->GetVertexList().size() == 3)
-        {
-            // Triangle
-            auto perC = m_mesh->m_composite.find(compPerId);
-            ElmtConfig conf(LibUtilities::eTriangle, 1, false, false);
-            vector<int> tags(1);
-            tags[0]            = 1;
-            ElementSharedPtr E = GetElementFactory().CreateInstance(
-                LibUtilities::eTriangle, conf, itQ->GetVertexList(), tags);
-            E->SetId(itQ->GetId());
-            perC->second->m_items.push_back(E);
-        }
-        else if (compPerId > 0 && itQ->GetVertexList().size() == 4)
-        {
-            // Quad
-            auto perC = m_mesh->m_composite.find(compPerId);
-            ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false, false);
-            vector<int> tags(1);
-            tags[0]            = 0;
-            ElementSharedPtr E = GetElementFactory().CreateInstance(
-                LibUtilities::eQuadrilateral, conf, itQ->GetVertexList(), tags);
-            E->SetId(itQ->GetId());
-            perC->second->m_items.push_back(E);
-        }
-    }
-    // Remove all faces composite
-    m_mesh->m_composite.erase(compAllFaceId);
 }
 } // namespace Nektar::NekMesh

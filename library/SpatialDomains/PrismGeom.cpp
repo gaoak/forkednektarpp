@@ -32,12 +32,19 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/Interp.h>
+#include <LibUtilities/Foundations/ManagerAccess.h>
+#include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/GeomFactors.h>
 #include <SpatialDomains/Geometry1D.h>
 #include <SpatialDomains/Geometry2D.h>
+#include <SpatialDomains/HOAlignment.h>
 #include <SpatialDomains/PrismGeom.h>
+#include <SpatialDomains/QuadGeom.h>
 #include <SpatialDomains/SegGeom.h>
+#include <SpatialDomains/TriGeom.h>
 #include <SpatialDomains/XmapFactory.hpp>
+#include <StdRegions/StdNodalPrismExp.h>
 #include <StdRegions/StdPrismExp.h>
 
 namespace Nektar::SpatialDomains
@@ -63,8 +70,9 @@ PrismGeom::PrismGeom()
     m_shapeType = LibUtilities::ePrism;
 }
 
-PrismGeom::PrismGeom(int id, std::array<Geometry2D *, kNfaces> faces)
-    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim())
+PrismGeom::PrismGeom(int id, std::array<Geometry2D *, kNfaces> faces,
+                     Curve *curve)
+    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim(), curve)
 {
     m_shapeType = LibUtilities::ePrism;
     m_globalID  = id;
@@ -75,6 +83,27 @@ PrismGeom::PrismGeom(int id, std::array<Geometry2D *, kNfaces> faces)
     SetUpLocalVertices();
     SetUpEdgeOrientation();
     SetUpFaceOrientation();
+}
+
+PrismGeom::PrismGeom(int id, std::array<Geometry2D *, 5> faces,
+                     std::array<SegGeom *, 9> edges,
+                     std::array<PointGeom *, 6> verts, bool skipSetUp,
+                     Curve *curve)
+    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim(), curve)
+{
+    m_shapeType = LibUtilities::ePrism;
+    m_globalID  = id;
+
+    /// Copy the face & edge & vert pointers
+    m_faces = faces;
+    m_edges = edges;
+    m_verts = verts;
+
+    if (!skipSetUp)
+    {
+        SetUpEdgeOrientation();
+        SetUpFaceOrientation();
+    }
 }
 
 int PrismGeom::v_GetDir(const int faceidx, const int facedir) const
@@ -149,7 +178,6 @@ GeomType PrismGeom::v_CalcGeomType()
     {
         v_CalculateInverseIsoParam();
     }
-
     return Gtype;
 }
 
@@ -717,6 +745,15 @@ void PrismGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     {
         m_faces[i]->Reset(curvedEdges, curvedFaces);
     }
+
+    SetUpXmap();
+    SetUpCoeffs(m_xmap->GetNcoeffs());
+}
+
+void PrismGeom::v_ResetLite()
+{
+    SetUpEdgeOrientation();
+    SetUpFaceOrientation();
 }
 
 void PrismGeom::v_Setup()
@@ -823,6 +860,62 @@ void PrismGeom::v_FillGeom()
         return;
     }
 
+    if (m_curve)
+    {
+        // Interior nodes of the element itself, taken through a nodal prism
+        // expansion of matching order in the same way the tetrahedron does.
+        // The face loop below then overwrites the boundary coefficients, which
+        // are shared and so authoritative.
+        const int N = m_curve->m_points.size();
+
+        // N = n(n+1)/2 * n; recover n.
+        int nEdgePts = 1;
+        while (nEdgePts * (nEdgePts + 1) / 2 * nEdgePts < N)
+        {
+            ++nEdgePts;
+        }
+        ASSERTL0(nEdgePts * (nEdgePts + 1) / 2 * nEdgePts == N,
+                 "NUMPOINTS should be a prism number in prism " +
+                     std::to_string(m_globalID));
+
+        const LibUtilities::PointsKey P0(nEdgePts,
+                                         LibUtilities::eGaussLobattoLegendre);
+        const LibUtilities::PointsKey P1(nEdgePts,
+                                         LibUtilities::eGaussLobattoLegendre);
+        const LibUtilities::PointsKey P2(nEdgePts,
+                                         LibUtilities::eGaussRadauMAlpha1Beta0);
+        const LibUtilities::BasisKey T0(LibUtilities::eOrtho_A, nEdgePts, P0);
+        const LibUtilities::BasisKey T1(LibUtilities::eOrtho_A, nEdgePts, P1);
+        const LibUtilities::BasisKey T2(LibUtilities::eOrtho_B, nEdgePts, P2);
+
+        const int nq =
+            P0.GetNumPoints() * P1.GetNumPoints() * P2.GetNumPoints();
+        Array<OneD, NekDouble> nodal(N);
+        Array<OneD, NekDouble> tmp(nq);
+        Array<OneD, NekDouble> phys(m_xmap->GetTotPoints());
+
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            StdRegions::StdNodalPrismExpSharedPtr t =
+                MemoryManager<StdRegions::StdNodalPrismExp>::AllocateSharedPtr(
+                    T0, T1, T2, m_curve->m_ptype);
+
+            for (int j = 0; j < N; ++j)
+            {
+                nodal[j] = (m_curve->m_points[j]->GetPtr())[i];
+            }
+
+            t->BwdTrans(nodal, tmp);
+
+            LibUtilities::Interp3D(P0, P1, P2, tmp,
+                                   m_xmap->GetBasis(0)->GetPointsKey(),
+                                   m_xmap->GetBasis(1)->GetPointsKey(),
+                                   m_xmap->GetBasis(2)->GetPointsKey(), phys);
+
+            m_xmap->FwdTrans(phys, m_coeffs[i]);
+        }
+    }
+
     int i, j, k;
 
     for (i = 0; i < kNfaces; i++)
@@ -863,6 +956,168 @@ void PrismGeom::v_FillGeom()
     }
 
     m_state = ePtsFilled;
+}
+
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> PrismGeom::
+    v_MakeOrder(int order, const LibUtilities::PointsType pType)
+{
+    int nPoints = order + 1;
+
+    Array<OneD, NekDouble> px, py, pz;
+    LibUtilities::PointsKey pKey(nPoints, pType);
+    ASSERTL1(pKey.GetPointsDim() == 3, "Points distribution must be 3D");
+    LibUtilities::PointsManager()[pKey]->GetPoints(px, py, pz);
+
+    // A nodal prism is laid out as six vertices, then the interior of each of
+    // the nine edges, then the interior of each of the five faces in
+    // faceVerts order -- quadrilateral, triangle, quadrilateral, triangle,
+    // quadrilateral -- and finally the interior of the element.
+    const int nPrismPts  = nPoints * (nPoints + 1) / 2 * nPoints;
+    const int nEdgeNodes = nPoints - 2;
+    const int nTriNodes  = (nPoints - 2) * (nPoints - 3) / 2;
+    const int nQuadNodes = (nPoints - 2) * (nPoints - 2);
+
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> cd;
+
+    cd.first = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        m_globalID, pType);
+
+    Curve *c = cd.first.get();
+    c->m_points.resize(nPrismPts);
+
+    m_curve = c;
+
+    // The nodal distribution numbers its vertices in raster order, which
+    // transposes v2 and v3 with respect to the standard element: nodal slot 2
+    // is at (-1, 1, -1), which is where the standard element puts vertex 3.
+    const int vertPerm[kNverts] = {0, 1, 3, 2, 4, 5};
+    for (int i = 0; i < kNverts; ++i)
+    {
+        c->m_points[i] = m_verts[vertPerm[i]];
+    }
+
+    // Edge interiors. Measured against eNodalPrismEvenlySpaced: the blocks
+    // come in edgeVerts order and each runs along its edge, so unlike the
+    // tetrahedron there is no block to reverse.
+    for (int e = 0; e < kNedges; ++e)
+    {
+        Curve *edgeCurve = m_edges[e]->GetCurve();
+        ASSERTL1(edgeCurve != nullptr,
+                 "Edge curve not set; call MakeOrder on edges before volumes");
+
+        const int offset = kNverts + e * nEdgeNodes;
+        for (int j = 0; j < nEdgeNodes; ++j)
+        {
+            c->m_points[offset + j] =
+                (m_eorient[e] == StdRegions::eForwards)
+                    ? edgeCurve->m_points[j + 1]
+                    : edgeCurve->m_points[nPoints - 2 - j];
+        }
+    }
+
+    // Face interiors. A face is numbered by whichever element built it, so its
+    // nodes have to be brought into this element's view first.
+    const unsigned int faceVerts[kNfaces][QuadGeom::kNverts] = {
+        {0, 1, 2, 3}, {0, 1, 4, 0}, {1, 2, 5, 4}, {3, 2, 5, 0}, {0, 3, 5, 4}};
+    const bool isTri[kNfaces] = {false, true, false, true, false};
+
+    int offset = kNverts + kNedges * nEdgeNodes;
+    for (int f = 0; f < kNfaces; ++f)
+    {
+        Curve *faceCurve = m_faces[f]->GetCurve();
+        ASSERTL1(faceCurve != nullptr,
+                 "Face curve not set; call MakeOrder on faces before volumes");
+
+        if (isTri[f])
+        {
+            if (nTriNodes > 0)
+            {
+                // A triangle's curve is nodal, so its interior is the tail.
+                const int faceStart =
+                    TriGeom::kNverts + TriGeom::kNedges * nEdgeNodes;
+                std::vector<PointGeom *> faceNodes(
+                    faceCurve->m_points.begin() + faceStart,
+                    faceCurve->m_points.begin() + faceStart + nTriNodes);
+
+                std::vector<int> faceOwnIds(TriGeom::kNverts);
+                std::vector<int> elmtIds(TriGeom::kNverts);
+                for (int v = 0; v < TriGeom::kNverts; ++v)
+                {
+                    faceOwnIds[v] = m_faces[f]->GetVertex(v)->GetGlobalID();
+                    elmtIds[v]    = m_verts[faceVerts[f][v]]->GetGlobalID();
+                }
+
+                HOTriangle<PointGeom *> hoTri(faceOwnIds, faceNodes);
+                hoTri.Align(elmtIds);
+
+                for (int j = 0; j < nTriNodes; ++j)
+                {
+                    c->m_points[offset + j] = hoTri.surfVerts[j];
+                }
+            }
+            offset += nTriNodes;
+        }
+        else
+        {
+            if (nQuadNodes > 0)
+            {
+                // A quadrilateral's curve is a tensor grid, so reindex it into
+                // this element's ordering of the face and then take the
+                // interior, first face direction fastest.
+                Array<OneD, int> idmap;
+                m_xmap->ReOrientTracePhysMap(m_forient[f], idmap, nPoints,
+                                             nPoints);
+
+                std::vector<PointGeom *> elemFace(nPoints * nPoints, nullptr);
+                for (int t = 0; t < nPoints * nPoints; ++t)
+                {
+                    elemFace[idmap[t]] = faceCurve->m_points[t];
+                }
+
+                int cnt = 0;
+                for (int b = 1; b < nPoints - 1; ++b)
+                {
+                    for (int a = 1; a < nPoints - 1; ++a)
+                    {
+                        c->m_points[offset + cnt++] = elemFace[a + nPoints * b];
+                    }
+                }
+            }
+            offset += nQuadNodes;
+        }
+    }
+
+    // Interior nodes are new, and are evaluated on this element's own mapping.
+    if (offset < nPrismPts)
+    {
+        Array<OneD, Array<OneD, NekDouble>> phys(m_coordim);
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            phys[i] = Array<OneD, NekDouble>(m_xmap->GetTotPoints());
+            m_xmap->BwdTrans(GetCoeffs(i), phys[i]);
+        }
+
+        for (int i = offset; i < nPrismPts; ++i)
+        {
+            Array<OneD, NekDouble> xp(3);
+            xp[0] = px[i];
+            xp[1] = py[i];
+            xp[2] = pz[i];
+
+            Array<OneD, NekDouble> x(3, 0.0);
+            for (int j = 0; j < m_coordim; ++j)
+            {
+                x[j] = m_xmap->PhysEvaluate(xp, phys[j]);
+            }
+
+            cd.second.push_back(
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    m_coordim, 0, x[0], x[1], x[2]));
+            c->m_points[i] = cd.second.back().get();
+        }
+    }
+
+    return cd;
 }
 
 } // namespace Nektar::SpatialDomains

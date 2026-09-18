@@ -151,16 +151,19 @@ void InputSem::Process()
         }
     }
 
-    m_mesh->m_expDim = 0;
+    auto &graph = m_mesh->m_meshGraph;
+    graph->SetMeshDimension(2);
+
     string tag;
-    int start, end, nVertices, nEntities, nCurves, nSurf, nGroups, nBCs;
+    int start, end, nVertices, nEntities, nCurves, nSurf, nGroups;
     int id, i, j, k;
     vector<double> hoXData, hoYData;
     LibUtilities::ShapeType elType = LibUtilities::eQuadrilateral;
     ifstream homeshFile;
 
     // Begin by reading in list of nodes which define the linear
-    // elements.
+    // elements. The coordinates are buffered so that the space dimension is
+    // known before any vertex is created with it.
     m_fileStream.seekg(sectionMap["NODES"]);
     getline(m_fileStream, line);
     ss.clear();
@@ -172,6 +175,11 @@ void InputSem::Process()
     end       = tag.find_first_of('>');
     nVertices = atoi(tag.substr(start + 1, end).c_str());
 
+    vector<std::array<NekDouble, 3>> coords;
+    coords.reserve(nVertices);
+
+    int spaceDim = 2;
+
     i = id = 0;
     while (i < nVertices)
     {
@@ -182,23 +190,38 @@ void InputSem::Process()
         }
         ss.clear();
         ss.str(line);
-        double x = 0, y = 0, z = 0;
+        NekDouble x = 0, y = 0, z = 0;
         ss >> id >> x >> y >> z;
 
-        if ((y * y) > 0.000001 && m_mesh->m_spaceDim != 3)
-        {
-            m_mesh->m_spaceDim = 2;
-        }
         if ((z * z) > 0.000001)
         {
-            m_mesh->m_spaceDim = 3;
+            spaceDim = 3;
         }
-        id -= 1; // counter starts at 0
-        m_mesh->m_node.push_back(std::shared_ptr<Node>(new Node(id, x, y, z)));
+
+        coords.push_back({x, y, z});
         ++i;
     }
 
-    // Now read in elements
+    graph->SetSpaceDimension(spaceDim);
+
+    // The nodes are owned here until the elements have been created, so that
+    // the element factory can report which of them ended up as vertices and
+    // which as curvature nodes; the two are given to the graph differently.
+    // This follows InputGmsh, which has the same problem.
+    std::map<int, SpatialDomains::PointGeomUniquePtr> loadedNodes;
+    vector<SpatialDomains::PointGeom *> verts(nVertices);
+
+    for (i = 0; i < nVertices; ++i)
+    {
+        loadedNodes[i] =
+            ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                spaceDim, i, coords[i][0], coords[i][1], coords[i][2]);
+        verts[i] = loadedNodes[i].get();
+    }
+
+    // Now read in the element vertices. The geometry is not created yet: the
+    // CURVES section below may raise an element to high order, and building
+    // it once is simpler than building it straight and replacing it.
     m_fileStream.seekg(sectionMap["ELEMENTS"]);
     getline(m_fileStream, line);
     ss.clear();
@@ -210,6 +233,9 @@ void InputSem::Process()
     end       = tag.find_first_of('>');
     nEntities = atoi(tag.substr(start + 1, end).c_str());
 
+    vector<std::array<int, 4>> elmtVerts;
+    elmtVerts.reserve(nEntities);
+
     i = id = 0;
     while (i < nEntities)
     {
@@ -219,40 +245,32 @@ void InputSem::Process()
             continue;
         }
 
-        // Create element tags
-        vector<int> tags;
-        tags.push_back(0); // composite
-
         // Read element node list
         ss.clear();
         ss.str(line);
         ss >> id >> word;
-        vector<NodeSharedPtr> nodeList;
+
+        std::array<int, 4> nodes = {0, 0, 0, 0};
         for (j = 0; j < 4; ++j)
         {
             int node = 0;
             ss >> node;
-            nodeList.push_back(m_mesh->m_node[node - 1]);
+            nodes[j] = node - 1;
         }
 
-        // Create element
-        ElmtConfig conf(elType, 1, false, false);
-        ElementSharedPtr E =
-            GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
-
-        // Determine mesh expansion dimension
-        if (E->GetDim() > m_mesh->m_expDim)
-        {
-            m_mesh->m_expDim = E->GetDim();
-        }
-        m_mesh->m_element[E->GetDim()].push_back(E);
+        elmtVerts.push_back(nodes);
         ++i;
     }
+
+    // Order of each element, and the curvature nodes it carries, filled in by
+    // the CURVES section below. An order of one means a straight element.
+    vector<int> elmtOrder(nEntities, 1);
+    vector<vector<int>> elmtCurveNodes(nEntities);
 
     // Finally, process curves.
     if (sectionMap["CURVES"] != std::streampos(-1))
     {
-        int np, nel, nodeId = m_mesh->m_node.size();
+        int np, nel, nodeId = nVertices;
 
         m_fileStream.seekg(sectionMap["CURVES"]);
         getline(m_fileStream, line);
@@ -288,7 +306,7 @@ void InputSem::Process()
             ss.str(line);
             ss >> np >> nel >> nel >> nel;
 
-            if (nel != m_mesh->m_element[m_mesh->m_expDim].size())
+            if (nel != nEntities)
             {
                 m_log(FATAL)
                     << "Number of elements mismatch in mesh file." << endl;
@@ -326,26 +344,40 @@ void InputSem::Process()
             id--;
             elmt--;
 
-            vector<NodeSharedPtr> edgeNodes;
-
             if (word != "<SPLINE>" && word != "<ARC>")
             {
                 m_log(FATAL) << "Unknown curve tag: " << word << endl;
             }
 
+            if (elmt < 0 || elmt >= nEntities)
+            {
+                m_log(FATAL) << "Curve " << id + 1 << " names element "
+                             << elmt + 1 << ", which does not exist." << endl;
+            }
+
             // See if we have already retrieved high-order data
-            // for this elements; prevents unnecessary computation
+            // for this element; prevents unnecessary computation
             // for elements with multiple curves.
-            if (m_mesh->m_element[2][elmt]->GetConf().m_order > 1)
+            if (elmtOrder[elmt] > 1)
             {
                 ++i;
                 continue;
             }
 
-            // Now set high order data for requested element.
-            for (int side = 0; side < 4; ++side)
+            // The mesh file holds the whole np by np grid of every element,
+            // so one curve record is enough to raise the element to high
+            // order on all four of its sides at once. Grid point (row, col)
+            // of element e is at e*np*np + row*np + col, with row zero the
+            // bottom side and column zero the left, which is the same
+            // orientation as the element's local edges: edge 0 runs left to
+            // right along the bottom, edge 1 up the right, edge 2 back along
+            // the top and edge 3 down the left.
+            vector<int> &curveNodes = elmtCurveNodes[elmt];
+            const int elmtOffset    = elmt * np * np;
+
+            for (side = 0; side < 4; ++side)
             {
-                int offset = elmt * np * np;
+                int offset = elmtOffset;
                 int stride = 0;
 
                 switch (side)
@@ -373,59 +405,99 @@ void InputSem::Process()
 
                 for (j = 1; j < np - 1; ++j, ++nodeId)
                 {
-                    double x = hoXData[offset + j * stride];
-                    double y = hoYData[offset + j * stride];
-                    NodeSharedPtr n =
-                        std::shared_ptr<Node>(new Node(nodeId, x, y, 0.0));
-                    edgeNodes.push_back(n);
+                    loadedNodes[nodeId] =
+                        ObjPoolManager<SpatialDomains::PointGeom>::
+                            AllocateUniquePtr(
+                                spaceDim, nodeId, hoXData[offset + j * stride],
+                                hoYData[offset + j * stride], 0.0);
+                    curveNodes.push_back(nodeId);
                 }
             }
 
-            // Add internal points.
+            // Add internal points, row by row, which is the order
+            // GetCurvedNodesQuad expects them in.
             for (j = 1; j < np - 1; ++j)
             {
-                int offset = j * np + 1;
+                int offset = elmtOffset + j * np;
                 for (k = 1; k < np - 1; ++k, ++nodeId)
                 {
-                    double x = hoXData[offset + k];
-                    double y = hoYData[offset + k];
-                    NodeSharedPtr n =
-                        std::shared_ptr<Node>(new Node(nodeId, x, y, 0.0));
-                    edgeNodes.push_back(n);
+                    loadedNodes[nodeId] =
+                        ObjPoolManager<SpatialDomains::PointGeom>::
+                            AllocateUniquePtr(spaceDim, nodeId,
+                                              hoXData[offset + k],
+                                              hoYData[offset + k], 0.0);
+                    curveNodes.push_back(nodeId);
                 }
             }
 
-            // Grab existing element from list and retrieve tags and
-            // vertices; insert these into existing edge nodes.
-            ElementSharedPtr e           = m_mesh->m_element[2][elmt];
-            vector<NodeSharedPtr> elvert = e->GetVertexList();
-            vector<int> tags             = e->GetTagList();
-            edgeNodes.insert(edgeNodes.begin(), elvert.begin(), elvert.end());
-
-            // Create new element and replace with an incomplete
-            // quadrilateral of the correct order.
-            ElmtConfig conf(elType, np - 1, true, false, true,
-                            LibUtilities::eGaussLobattoLegendre);
-            m_mesh->m_element[2][elmt] = GetElementFactory().CreateInstance(
-                elType, conf, edgeNodes, tags);
+            elmtOrder[elmt] = np - 1;
 
             ++i;
         }
     }
 
-    // Process field names
-    if (sectionMap["FIELDS"] != std::streampos(-1))
-    {
-        m_fileStream.seekg(sectionMap["FIELDS"]);
-        getline(m_fileStream, line);
-        getline(m_fileStream, line);
-        ss.clear();
-        ss.str(line);
+    // Create the elements. The factory sorts the node list into vertices,
+    // edge curves and a face curve, sharing an edge curve between the two
+    // elements either side of it, and records which nodes it used as what.
+    std::set<int> vertIDs;
+    std::unordered_set<int> curveNodeIDs;
 
-        while (ss >> tag)
+    m_elements.clear();
+    m_elements.reserve(nEntities);
+
+    for (i = 0; i < nEntities; ++i)
+    {
+        vector<SpatialDomains::PointGeom *> nodeList;
+        for (j = 0; j < 4; ++j)
         {
-            m_mesh->m_fields.push_back(tag);
+            nodeList.push_back(verts[elmtVerts[i][j]]);
         }
+        for (int node : elmtCurveNodes[i])
+        {
+            nodeList.push_back(loadedNodes[node].get());
+        }
+
+        // Semtex writes its points at the Gauss-Lobatto-Legendre points of
+        // the element, interior as well as edge.
+        ElmtConfig conf(elType, elmtOrder[i], elmtOrder[i] > 1, false, true,
+                        LibUtilities::eGaussLobattoLegendre,
+                        LibUtilities::eGaussLobattoLegendre);
+
+        SpatialDomains::Geometry *element = GetElementFactory().CreateInstance(
+            elType, nodeList, graph, m_mesh->m_edgeSet, m_mesh->m_faceSet, conf,
+            &vertIDs, &curveNodeIDs, nullptr, nullptr);
+
+        m_mesh->m_elementTags[2][element] = 0;
+        m_elements.push_back(element);
+    }
+
+    // Hand the vertices to the graph, renumbered contiguously in case the
+    // session lists a node no element uses.
+    std::vector<std::pair<int, SpatialDomains::PointGeomUniquePtr>> movedVerts;
+    int contigVertID = 0;
+    for (int node : vertIDs)
+    {
+        auto vert = std::move(loadedNodes[node]);
+        vert->SetGlobalID(contigVertID);
+        movedVerts.emplace_back(contigVertID, std::move(vert));
+        contigVertID++;
+    }
+    graph->BulkAddGeom<SpatialDomains::PointGeom>(movedVerts);
+
+    // Curvature nodes are owned by the graph but are not vertices and carry
+    // no global id. Anything left in loadedNodes after this is a duplicate of
+    // a curvature node on an edge shared by two curved elements, which the
+    // factory generated once and shared, and is dropped with loadedNodes.
+    for (int node : curveNodeIDs)
+    {
+        if (vertIDs.find(node) == vertIDs.end())
+        {
+            graph->GetAllCurveNodes().push_back(std::move(loadedNodes[node]));
+        }
+    }
+    for (auto &node : graph->GetAllCurveNodes())
+    {
+        node->SetGlobalID(-1);
     }
 
     // Process surfaces if they exist. This is deliberately done after
@@ -434,6 +506,10 @@ void InputSem::Process()
     {
         map<string, int> conditionMap;
         int maxTag = -1;
+
+        m_log(WARNING) << "Semtex boundary conditions and field definitions "
+                       << "are not imported; only the geometry and the "
+                       << "composites its surface groups define are." << endl;
 
         // First read in list of groups, which defines each condition tag.
         m_fileStream.seekg(sectionMap["GROUPS"]);
@@ -458,93 +534,6 @@ void InputSem::Process()
         }
 
         maxTag = i;
-
-        // Now read in actual values for boundary conditions from BCS
-        // section.
-        m_fileStream.seekg(sectionMap["BCS"]);
-        getline(m_fileStream, line);
-        ss.clear();
-        ss.str(line);
-        ss >> word;
-
-        tag   = ss.str();
-        start = tag.find_first_of('=');
-        end   = tag.find_first_of('>');
-        nBCs  = atoi(tag.substr(start + 1, end).c_str());
-
-        i = id = 0;
-        while (i < nBCs)
-        {
-            int nF;
-            string tmp;
-            ConditionSharedPtr p;
-            getline(m_fileStream, line);
-            ss.clear();
-            ss.str(line);
-            ss >> id >> tag >> nF;
-
-            p = ConditionSharedPtr(new Condition());
-            m_mesh->m_condition[conditionMap[tag]] = p;
-
-            // Read boundary condition.
-            j = 0;
-            while (j < nF)
-            {
-                getline(m_fileStream, line);
-                ss.clear();
-                ss.str(line);
-                ss >> tmp;
-
-                // First string should be condition type.
-                if (tmp == "<D>")
-                {
-                    p->type.push_back(eDirichlet);
-                }
-                else if (tmp == "<N>")
-                {
-                    p->type.push_back(eNeumann);
-                }
-                else if (tmp == "<H>")
-                {
-                    p->type.push_back(eHOPCondition);
-                    p->value.push_back("0");
-                    p->field.push_back("p");
-                    ++j;
-                    continue;
-                }
-                else
-                {
-                    m_log(FATAL) << "Unsupported boundary condition type: '"
-                                 << tmp << "'" << endl;
-                }
-
-                // Second string should be field.
-                ss >> tmp;
-                p->field.push_back(tmp);
-
-                // Third string should be equals sign.
-                ss >> tmp;
-                if (tmp != "=")
-                {
-                    m_log(FATAL) << "Couldn't read boundary condition type: '"
-                                 << "'" << tag << "'" << endl;
-                }
-
-                // Fourth string should be value. CAUTION: Assumes
-                // expression is defined without any spaces in it!
-                ss >> tmp;
-                p->value.push_back(tmp);
-
-                ++j;
-            }
-
-            // Finally set composite for condition. In this case, all
-            // composites will be lines so there is one set per
-            // composite.
-            p->m_composite.push_back(conditionMap[tag] + 1);
-
-            ++i;
-        }
 
         // Finally read surface information.
         m_fileStream.seekg(sectionMap["SURFACES"]);
@@ -573,32 +562,19 @@ void InputSem::Process()
             elmt--;
             side--;
 
+            if (elmt < 0 || elmt >= nEntities || side < 0 || side > 3)
+            {
+                m_log(FATAL) << "Surface " << id << " names element "
+                             << elmt + 1 << " side " << side + 1
+                             << ", which does not exist." << endl;
+            }
+
             if (word == "<P>")
             {
-                // If this is the first periodic boundary condition
-                // encountered, then set up m_mesh->m_condition with two
-                // periodic conditions.
+                // The two sides of a periodic pair go into a composite each.
                 if (periodicTagId == -1)
                 {
-                    periodicTagId         = maxTag;
-                    ConditionSharedPtr in = ConditionSharedPtr(new Condition());
-                    ConditionSharedPtr out =
-                        ConditionSharedPtr(new Condition());
-                    for (j = 0; j < m_mesh->m_fields.size(); ++j)
-                    {
-                        in->type.push_back(ePeriodic);
-                        out->type.push_back(ePeriodic);
-                        in->field.push_back(m_mesh->m_fields[j]);
-                        out->field.push_back(m_mesh->m_fields[j]);
-                        in->value.push_back(
-                            "[" + std::to_string(periodicTagId + 1) + "]");
-                        out->value.push_back(
-                            "[" + std::to_string(periodicTagId) + "]");
-                    }
-                    in->m_composite.push_back(periodicTagId + 1);
-                    out->m_composite.push_back(periodicTagId + 2);
-                    m_mesh->m_condition[periodicTagId]     = in;
-                    m_mesh->m_condition[periodicTagId + 1] = out;
+                    periodicTagId = maxTag;
                 }
 
                 int elmtB, sideB;
@@ -635,29 +611,19 @@ void InputSem::Process()
 
     PrintSummary();
 
-    // Process rest of mesh.
-    ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 }
 
 void InputSem::insertEdge(int elmt, int side, int tagId)
 {
-    EdgeSharedPtr edge              = m_mesh->m_element[2][elmt]->GetEdge(side);
-    vector<NodeSharedPtr> edgeNodes = edge->m_edgeNodes;
-    edgeNodes.insert(edgeNodes.begin(), edge->m_n2);
-    edgeNodes.insert(edgeNodes.begin(), edge->m_n1);
-    int order = edgeNodes.size() - 1;
+    // A boundary element is now the tagged entity itself, so the quadrilateral
+    // side just gains a tag. There is nothing to copy: it is the same SegGeom
+    // the element holds, and it already carries whatever curve the CURVES
+    // section gave it.
+    auto *edge = static_cast<SpatialDomains::Geometry2D *>(m_elements[elmt])
+                     ->GetEdge(side);
 
-    vector<int> tags;
-    tags.push_back(tagId);
-
-    ElmtConfig conf(LibUtilities::eSegment, order, order > 1, false, true,
-                    LibUtilities::eGaussLobattoLegendre);
-    ElementSharedPtr E = GetElementFactory().CreateInstance(
-        LibUtilities::eSegment, conf, edgeNodes, tags);
-    m_mesh->m_element[1].push_back(E);
+    m_mesh->m_elementTags[1][edge] = tagId;
 }
 } // namespace Nektar::NekMesh

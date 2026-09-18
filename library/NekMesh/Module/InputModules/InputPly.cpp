@@ -33,10 +33,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <NekMesh/MeshElements/Element.h>
+#include <NekMesh/Module/SurfaceHints.h>
 
 #include "InputPly.h"
 
-using namespace std;
+using namespace Nektar::NekMesh;
 
 namespace Nektar::NekMesh
 {
@@ -66,31 +67,37 @@ void InputPly::Process()
 
     m_mshFile.reset();
 
-    ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
+    // Finishing processes
     ProcessElements();
     ProcessComposites();
+
+    PrintSummary();
 }
 
 void InputPly::ReadPly(io::filtering_istream &mshFile, NekDouble scale)
 {
-    m_mesh->m_expDim = 0;
-    string line;
+    std::string line;
     int nVertices                  = 0;
     int nEntities                  = 0;
     int nProperties                = 0;
     LibUtilities::ShapeType elType = LibUtilities::eTriangle;
-    map<string, int> propMap;
+    std::map<std::string, int> propMap;
 
-    m_log(VERBOSE) << "Reading .ply file '" << m_config["infile"].as<string>()
-                   << "'" << endl;
+    m_log(VERBOSE) << "Reading .ply file '"
+                   << m_config["infile"].as<std::string>() << "'" << std::endl;
+
+    // Keep track of spaceDim as we read the grid. Will reset nodes later with
+    // correct coordim.
+    int spaceDim = 0;
+
+    // Always assume a triangulation.
+    m_mesh->m_meshGraph->SetMeshDimension(2);
 
     while (!mshFile.eof())
     {
-        getline(mshFile, line);
-        stringstream s(line);
-        string word;
+        std::getline(mshFile, line);
+        std::stringstream s(line);
+        std::string word;
         s >> word;
         if (word == "format")
         {
@@ -98,7 +105,7 @@ void InputPly::ReadPly(io::filtering_istream &mshFile, NekDouble scale)
             if (word != "ascii")
             {
                 m_log(FATAL) << "Currently only ASCII-formatted .ply files are "
-                             << "supported." << endl;
+                             << "supported." << std::endl;
             }
         }
         else if (word == "element")
@@ -122,11 +129,11 @@ void InputPly::ReadPly(io::filtering_istream &mshFile, NekDouble scale)
         else if (word == "end_header")
         {
             // Read nodes
-            vector<double> data(nProperties);
+            std::vector<double> data(nProperties);
             for (int i = 0; i < nVertices; ++i)
             {
-                getline(mshFile, line);
-                stringstream st(line);
+                std::getline(mshFile, line);
+                std::stringstream st(line);
 
                 for (int j = 0; j < nProperties; ++j)
                 {
@@ -137,66 +144,75 @@ void InputPly::ReadPly(io::filtering_istream &mshFile, NekDouble scale)
                 double y = data[propMap["y"]];
                 double z = data[propMap["z"]];
 
-                if ((y * y) > 0.000001 && m_mesh->m_spaceDim != 3)
+                if ((x * x) > 0.000001 && spaceDim < 1)
                 {
-                    m_mesh->m_spaceDim = 2;
+                    spaceDim = 1;
+                    UpdateCoordim(m_mesh->m_meshGraph, i, spaceDim);
                 }
-                if ((z * z) > 0.000001)
+                if ((y * y) > 0.000001 && spaceDim < 2)
                 {
-                    m_mesh->m_spaceDim = 3;
+                    spaceDim = 2;
+                    UpdateCoordim(m_mesh->m_meshGraph, i, spaceDim);
+                }
+                if ((z * z) > 0.000001 && spaceDim < 3)
+                {
+                    spaceDim = 3;
+                    UpdateCoordim(m_mesh->m_meshGraph, i, spaceDim);
                 }
 
                 x *= scale;
                 y *= scale;
                 z *= scale;
 
-                m_mesh->m_node.push_back(
-                    std::shared_ptr<Node>(new Node(i, x, y, z)));
+                m_mesh->m_meshGraph->CreatePointGeom(spaceDim, i, x, y, z);
 
-                // Read vertex normals.
+                // A .ply may carry the true surface normal at each vertex in
+                // nx/ny/nz. Nothing writes those to an output file, so they
+                // are handed to whichever later module wants them -- the
+                // spherigon module, which smooths far better with them than
+                // with normals averaged from the facets.
                 if (propMap.count("nx") > 0)
                 {
-                    double nx                  = data[propMap["nx"]];
-                    double ny                  = data[propMap["ny"]];
-                    double nz                  = data[propMap["nz"]];
-                    m_mesh->m_vertexNormals[i] = Node(0, nx, ny, nz);
+                    m_mesh->GetContext()
+                        .Get<VertexNormals>()
+                        .normals[m_mesh->m_meshGraph->GetPointGeom(i)] = {
+                        data[propMap["nx"]], data[propMap["ny"]],
+                        data[propMap["nz"]]};
                 }
             }
 
             // Read elements
             for (int i = 0; i < nEntities; ++i)
             {
-                getline(mshFile, line);
-                stringstream st(line);
+                std::getline(mshFile, line);
+                std::stringstream st(line);
                 int id = 0;
-
-                // Create element tags
-                vector<int> tags;
-                tags.push_back(0); // composite
 
                 // Read element node list
                 st >> id;
-                vector<NodeSharedPtr> nodeList;
+                std::vector<SpatialDomains::PointGeom *> nodeList;
                 for (int k = 0; k < 3; ++k)
                 {
                     int node = 0;
                     st >> node;
-                    nodeList.push_back(m_mesh->m_node[node]);
+                    nodeList.push_back(m_mesh->m_meshGraph->GetPointGeom(node));
                 }
 
                 // Create element
                 ElmtConfig conf(elType, 1, false, false);
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    elType, conf, nodeList, tags);
+                SpatialDomains::Geometry *element =
+                    GetElementFactory().CreateInstance(
+                        elType, nodeList, m_mesh->m_meshGraph,
+                        m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, nullptr,
+                        nullptr, nullptr, nullptr);
 
-                // Determine mesh expansion dimension
-                if (E->GetDim() > m_mesh->m_expDim)
-                {
-                    m_mesh->m_expDim = E->GetDim();
-                }
-                m_mesh->m_element[E->GetDim()].push_back(E);
+                auto shapeDim = LibUtilities::ShapeTypeDimMap[elType];
+                m_mesh->m_elementTags[shapeDim][element] = 0;
             }
         }
     }
+
+    // Set final space dimension on the meshgraph.
+    m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
 }
 } // namespace Nektar::NekMesh

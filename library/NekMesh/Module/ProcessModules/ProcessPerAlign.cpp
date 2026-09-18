@@ -48,6 +48,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 
@@ -166,7 +167,7 @@ void ProcessPerAlign::Process()
     }
 
     int cnt = 0;
-    map<int, pair<FaceSharedPtr, vector<int>>> perFaces;
+    map<int, pair<SpatialDomains::Geometry2D *, vector<int>>> perFaces;
     for (int pIt = 0; pIt < surf1.size(); pIt++)
     {
         string dir = "false";
@@ -216,6 +217,7 @@ void ProcessPerAlign::Process()
         NekDouble alignDir[3] = {0.0, 0.0, 0.0};
         NekDouble rotangle    = 0.0;
 
+        int rotAxis = 0;
         if (rot.size() && rot != "false")
         {
             // Rotationally periodic boundary
@@ -238,12 +240,14 @@ void ProcessPerAlign::Process()
                 return;
             }
         }
-        if (!dir.size() && m_mesh->m_spaceDim == 2 && m_mesh->m_cad)
+        if (!dir.size() && m_mesh->m_meshGraph->GetSpaceDimension() == 2 &&
+            m_mesh->m_meshGraph->GetCAD())
         {
             // if the direction is not specified and its a 2D mesh and there is
             // CAD it can figure out the dir on its own
-            auto T = m_mesh->m_cad->GetPeriodicTranslationVector(surf1[pIt],
-                                                                 surf2[pIt]);
+            auto T =
+                m_mesh->m_meshGraph->GetCAD()->GetPeriodicTranslationVector(
+                    surf1[pIt], surf2[pIt]);
             NekDouble mag = sqrt(T[0] * T[0] + T[1] * T[1]);
 
             alignDir[0] = T[0] / mag;
@@ -262,6 +266,7 @@ void ProcessPerAlign::Process()
             alignDir[0] = (dir == "x") ? 1.0 : 0.0;
             alignDir[1] = (dir == "y") ? 1.0 : 0.0;
             alignDir[2] = (dir == "z") ? 1.0 : 0.0;
+            rotAxis     = (dir == "y") ? 1 : ((dir == "z") ? 2 : 0);
         }
         else if (tmp1.size() == 3)
         {
@@ -277,27 +282,29 @@ void ProcessPerAlign::Process()
             return;
         }
 
-        auto it1 = m_mesh->m_composite.find(surf1[pIt]);
-        auto it2 = m_mesh->m_composite.find(surf2[pIt]);
+        auto &composites = m_mesh->m_meshGraph->GetComposites();
 
-        if (it1 == m_mesh->m_composite.end())
+        auto it1 = composites.find(surf1[pIt]);
+        auto it2 = composites.find(surf2[pIt]);
+
+        if (it1 == composites.end())
         {
             m_log(WARNING) << "Couldn't find surface " << surf1[pIt]
                            << ". Skipping periodic alignment." << endl;
             return;
         }
 
-        if (it2 == m_mesh->m_composite.end())
+        if (it2 == composites.end())
         {
             m_log(WARNING) << "Couldn't find surface " << surf2[pIt] << ", "
                            << "skipping periodic alignment." << endl;
             return;
         }
 
-        CompositeSharedPtr c1 = it1->second;
-        CompositeSharedPtr c2 = it2->second;
+        SpatialDomains::CompositeSharedPtr c1 = it1->second;
+        SpatialDomains::CompositeSharedPtr c2 = it2->second;
 
-        if (c1->m_items.size() != c2->m_items.size())
+        if (c1->m_geomVec.size() != c2->m_geomVec.size())
         {
             m_log(WARNING) << "Surfaces " << surf1[pIt] << " and " << surf2[pIt]
                            << " have different numbers of elements. Skipping"
@@ -305,23 +312,23 @@ void ProcessPerAlign::Process()
             return;
         }
 
-        c1->m_reorder = false;
-        c2->m_reorder = false;
-
         // Loop over elements, calculate centroids of elements in c2.
-        map<int, Node> centroidMap;
-        for (size_t i = 0; i < c2->m_items.size(); ++i)
+        map<int, SpatialDomains::PointGeom> centroidMap;
+        for (size_t i = 0; i < c2->m_geomVec.size(); i++)
         {
-            Node centroid;
-            for (size_t j = 0; j < c2->m_items[i]->GetVertexCount(); ++j)
+            SpatialDomains::PointGeom centroid(3, -1, 0.0, 0.0, 0.0);
+            for (int j = 0; j < c2->m_geomVec[i]->GetNumVerts(); ++j)
             {
-                centroid += *(c2->m_items[i]->GetVertex(j));
+                centroid.Add(centroid, *(c2->m_geomVec[i]->GetVertex(j)));
             }
-            centroid /= (NekDouble)c2->m_items[i]->GetVertexCount();
+            NekDouble nv = (NekDouble)c2->m_geomVec[i]->GetNumVerts();
+            centroid(0) /= nv;
+            centroid(1) /= nv;
+            centroid(2) /= nv;
 
             if (rotalign) // rotate centroid
             {
-                centroid.Rotate(dir, rotangle);
+                centroid.Rotate(centroid, rotAxis, rotangle);
             }
 
             centroidMap[i] = centroid;
@@ -331,14 +338,17 @@ void ProcessPerAlign::Process()
         map<int, int> elmtPairs;
         map<int, int> vertCheck;
 
-        for (size_t i = 0; i < c1->m_items.size(); ++i)
+        for (size_t i = 0; i < c1->m_geomVec.size(); i++)
         {
-            Node centroid;
-            for (size_t j = 0; j < c1->m_items[i]->GetVertexCount(); ++j)
+            SpatialDomains::PointGeom centroid(3, -1, 0.0, 0.0, 0.0);
+            for (int j = 0; j < c1->m_geomVec[i]->GetNumVerts(); ++j)
             {
-                centroid += *(c1->m_items[i]->GetVertex(j));
+                centroid.Add(centroid, *(c1->m_geomVec[i]->GetVertex(j)));
             }
-            centroid /= (NekDouble)c1->m_items[i]->GetVertexCount();
+            NekDouble nv = (NekDouble)c1->m_geomVec[i]->GetNumVerts();
+            centroid(0) /= nv;
+            centroid(1) /= nv;
+            centroid(2) /= nv;
 
             bool found           = false;
             unsigned int tolFact = LibUtilities::checked_cast<unsigned int>(
@@ -351,21 +361,22 @@ void ProcessPerAlign::Process()
                     continue;
                 }
 
-                Node dx = it.second - centroid;
+                SpatialDomains::PointGeom dx;
+                dx.Sub(it.second, centroid);
                 bool match;
                 if (rotalign)
                 {
                     // match = it.second == centroid;
-                    match = IsNodeEqual(it.second, centroid, tolFact) ||
-                            IsNodeClose(it.second, centroid, absTol);
+                    match = it.second.IsNodeClose(centroid, tolFact, absTol);
                 }
                 else
                 {
                     // Check normalized inner product
                     NekDouble normInnProd =
-                        fabs(dx.m_x * alignDir[0] + dx.m_y * alignDir[1] +
-                             dx.m_z * alignDir[2]) /
-                        sqrt(dx.abs2());
+                        fabs(dx.x() * alignDir[0] + dx.y() * alignDir[1] +
+                             dx.z() * alignDir[2]) /
+                        sqrt(dx.x() * dx.x() + dx.y() * dx.y() +
+                             dx.z() * dx.z());
                     match =
                         LibUtilities::IsRealEqual(normInnProd, 1.0, tolFact) ||
                         LibUtilities::IsRealClose(normInnProd, 1.0, absTol);
@@ -376,62 +387,58 @@ void ProcessPerAlign::Process()
                     // Found match
                     int id1, id2;
 
-                    if (c1->m_items[i]->GetConf().m_e == LibUtilities::eSegment)
-                    {
-                        id1 = c1->m_items[i]->GetEdgeLink()->m_id;
-                        id2 = c2->m_items[it.first]->GetEdgeLink()->m_id;
-                    }
-                    else
-                    {
-                        id1 = c1->m_items[i]->GetFaceLink()->m_id;
-                        id2 = c2->m_items[it.first]->GetFaceLink()->m_id;
-                    }
+                    id1 = c1->m_geomVec[i]->GetGlobalID();
+                    id2 = c2->m_geomVec[it.first]->GetGlobalID();
 
                     elmtDone.insert(it.first);
                     elmtPairs[i] = it.first;
 
                     // Identify periodic vertices
-                    size_t nVerts = c1->m_items[i]->GetVertexCount();
+                    size_t nVerts = c1->m_geomVec[i]->GetNumVerts();
                     vector<int> perVerts(nVerts, 0), perVertsInv(nVerts, 0);
 
                     if (orient)
                     {
                         for (size_t k = 0; k < nVerts; ++k)
                         {
-                            NodeSharedPtr n1 =
-                                c1->m_items[i]->GetFaceLink()->m_vertexList[k];
+                            SpatialDomains::PointGeom *n1 =
+                                c1->m_geomVec[i]->GetVertex(k);
                             size_t l;
                             NekDouble mindn = 1000;
 
                             for (l = 0; l < nVerts; ++l)
                             {
-                                NodeSharedPtr n2 = c2->m_items[it.first]
-                                                       ->GetFaceLink()
-                                                       ->m_vertexList[l];
+                                SpatialDomains::PointGeom *n2 =
+                                    c2->m_geomVec[it.first]->GetVertex(l);
 
                                 if (rotalign) // rotate n2
                                 {
-                                    Node n2tmp = *n2;
-                                    n2tmp.Rotate(dir, rotangle);
+                                    SpatialDomains::PointGeom n2tmp;
+                                    n2tmp.Rotate(*n2, rotAxis, rotangle);
                                     // Check if same node
                                     // match = n2tmp == *n1;
-                                    match = IsNodeEqual(n2tmp, *n1, tolFact) ||
-                                            IsNodeClose(n2tmp, *n1, absTol);
+                                    match =
+                                        n2tmp.IsNodeClose(*n1, tolFact, absTol);
                                     // Compute distance
-                                    Node dn         = n2tmp - *n1;
-                                    NekDouble dnabs = sqrt(dn.abs2());
+                                    SpatialDomains::PointGeom dn;
+                                    dn.Sub(n2tmp, *n1);
+                                    NekDouble dnabs =
+                                        sqrt(dn.x() * dn.x() + dn.y() * dn.y() +
+                                             dn.z() * dn.z());
                                     mindn = (dnabs < mindn) ? dnabs : mindn;
                                 }
                                 else
                                 {
-                                    Node dn = *n2 - *n1;
+                                    SpatialDomains::PointGeom dn;
+                                    dn.Sub(*n2, *n1);
 
                                     // Check normalized inner product
                                     NekDouble dnabs =
-                                        fabs(dn.m_x * alignDir[0] +
-                                             dn.m_y * alignDir[1] +
-                                             dn.m_z * alignDir[2]) /
-                                        sqrt(dn.abs2());
+                                        fabs(dn.x() * alignDir[0] +
+                                             dn.y() * alignDir[1] +
+                                             dn.z() * alignDir[2]) /
+                                        sqrt(dn.x() * dn.x() + dn.y() * dn.y() +
+                                             dn.z() * dn.z());
                                     match = LibUtilities::IsRealEqual(
                                                 dnabs, 1.0, tolFact) ||
                                             LibUtilities::IsRealClose(
@@ -444,8 +451,8 @@ void ProcessPerAlign::Process()
                                     perVerts[k]    = l;
                                     perVertsInv[l] = k;
 
-                                    int id1 = n1->m_id;
-                                    int id2 = n2->m_id;
+                                    int id1 = n1->GetGlobalID();
+                                    int id2 = n2->GetGlobalID();
                                     if (vertCheck.count(id1) == 0)
                                     {
                                         vertCheck[id1] = id2;
@@ -476,16 +483,21 @@ void ProcessPerAlign::Process()
                                  "Error identifying periodic vertices");
                     }
 
-                    if (c2->m_items[i]->GetConf().m_e != LibUtilities::eSegment)
+                    if (c2->m_geomVec[i]->GetShapeType() !=
+                        LibUtilities::eSegment)
                     {
                         // manually adding the flag for the
                         perVerts.push_back(cnt);
                         perVertsInv.push_back(cnt);
                         // construct perFaces
-                        perFaces[id1] = make_pair(
-                            c2->m_items[it.first]->GetFaceLink(), perVerts);
-                        perFaces[id2] = make_pair(c1->m_items[i]->GetFaceLink(),
-                                                  perVertsInv);
+                        perFaces[id1] =
+                            make_pair(static_cast<SpatialDomains::Geometry2D *>(
+                                          c2->m_geomVec[it.first]),
+                                      perVerts);
+                        perFaces[id2] =
+                            make_pair(static_cast<SpatialDomains::Geometry2D *>(
+                                          c1->m_geomVec[i]),
+                                      perVertsInv);
                     }
                     found = true;
                     break;
@@ -494,20 +506,21 @@ void ProcessPerAlign::Process()
 
             if (!found)
             {
-                m_log(WARNING) << "Could not find matching edge for surface "
-                               << "element " << c1->m_items[i]->GetId() << ". "
-                               << "Rot = " << rot << "."
-                               << "Skipping periodic alignment." << endl;
+                m_log(WARNING)
+                    << "Could not find matching edge for surface "
+                    << "element " << c1->m_geomVec[i]->GetGlobalID() << ". "
+                    << "Rot = " << rot << "."
+                    << "Skipping periodic alignment." << endl;
                 return;
             }
         }
 
         // Reorder vectors.
-        vector<ElementSharedPtr> tmp = c2->m_items;
+        vector<SpatialDomains::Geometry *> tmp = c2->m_geomVec;
 
-        for (size_t i = 0; i < tmp.size(); ++i)
+        for (size_t i = 0; i < tmp.size(); i++)
         {
-            c2->m_items[i] = tmp[elmtPairs[i]];
+            c2->m_geomVec[i] = tmp[elmtPairs[i]];
         }
 
         // Important the pair flag about for the perFace

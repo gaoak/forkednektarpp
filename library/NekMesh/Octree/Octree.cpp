@@ -33,12 +33,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "Octree.h"
-#include <NekMesh/CADSystem/CADCurve.h>
-#include <NekMesh/CADSystem/CADSurf.h>
 #include <NekMesh/Module/Module.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADSurf.h>
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
@@ -50,7 +51,7 @@ constexpr int nSamp = 40;
 
 void Octree::Process()
 {
-    auto boundingBox = m_mesh->m_cad->GetBoundingBox();
+    auto boundingBox = m_mesh->m_meshGraph->GetCAD()->GetBoundingBox();
 
     // build curvature samples
     CompileSourcePointList();
@@ -205,61 +206,54 @@ NekDouble Octree::GetMinDelta()
 void Octree::WriteOctree(string nm)
 {
     MeshSharedPtr oct = std::shared_ptr<Mesh>(new Mesh());
-    oct->m_expDim     = 3;
-    oct->m_spaceDim   = 3;
-    oct->m_nummode    = 2;
+    oct->m_meshGraph->SetMeshDimension(3);
+    oct->m_meshGraph->SetSpaceDimension(3);
+
+    auto &graph = oct->m_meshGraph;
+    int nodeId  = 0;
 
     for (int i = 0; i < m_octants.size(); i++)
     {
-        vector<NodeSharedPtr> ns(8);
+        // Octant extends, used OctantFace enumeration.
+        NekDouble bk = m_octants[i]->FX(eBack);
+        NekDouble fw = m_octants[i]->FX(eForward);
+        NekDouble dn = m_octants[i]->FX(eDown);
+        NekDouble up = m_octants[i]->FX(eUp);
+        NekDouble rt = m_octants[i]->FX(eRight);
+        NekDouble lt = m_octants[i]->FX(eLeft);
 
-        ns[0] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eBack),
-                                               m_octants[i]->FX(eDown),
-                                               m_octants[i]->FX(eRight)));
+        // Corners in NekMesh hexahedron vertex order.
+        NekDouble corners[8][3] = {{bk, dn, rt}, {fw, dn, rt}, {fw, up, rt},
+                                   {bk, up, rt}, {bk, dn, lt}, {fw, dn, lt},
+                                   {fw, up, lt}, {bk, up, lt}};
 
-        ns[1] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eForward),
-                                               m_octants[i]->FX(eDown),
-                                               m_octants[i]->FX(eRight)));
+        vector<SpatialDomains::PointGeom *> ns(8);
 
-        ns[2] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eForward),
-                                               m_octants[i]->FX(eUp),
-                                               m_octants[i]->FX(eRight)));
+        for (int j = 0; j < 8; j++)
+        {
+            auto pt =
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    3, nodeId, corners[j][0], corners[j][1], corners[j][2]);
+            ns[j] = pt.get();
+            graph->AddGeom<SpatialDomains::PointGeom>(nodeId, std::move(pt));
+            nodeId++;
+        }
 
-        ns[3] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eBack),
-                                               m_octants[i]->FX(eUp),
-                                               m_octants[i]->FX(eRight)));
+        // create octant hex
+        SpatialDomains::Geometry *E =
+            CreateElementLite(LibUtilities::eHexahedron, ns, graph,
+                              oct->m_edgeSet, oct->m_faceSet);
 
-        ns[4] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eBack),
-                                               m_octants[i]->FX(eDown),
-                                               m_octants[i]->FX(eLeft)));
-
-        ns[5] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eForward),
-                                               m_octants[i]->FX(eDown),
-                                               m_octants[i]->FX(eLeft)));
-
-        ns[6] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eForward),
-                                               m_octants[i]->FX(eUp),
-                                               m_octants[i]->FX(eLeft)));
-
-        ns[7] = std::shared_ptr<Node>(new Node(0, m_octants[i]->FX(eBack),
-                                               m_octants[i]->FX(eUp),
-                                               m_octants[i]->FX(eLeft)));
-
-        vector<int> tags;
-        tags.push_back(0);
-        ElmtConfig conf(LibUtilities::eHexahedron, 1, false, false);
-        ElementSharedPtr E = GetElementFactory().CreateInstance(
-            LibUtilities::eHexahedron, conf, ns, tags);
-        oct->m_element[3].push_back(E);
+        oct->m_elementTags[3][E] = 0;
     }
 
     ModuleSharedPtr mod =
         GetModuleFactory().CreateInstance(ModuleKey(eOutputModule, "xml"), oct);
     mod->RegisterConfig("outfile", "octree.xml");
     mod->RegisterConfig("order", nm);
-    mod->ProcessVertices();
-    mod->ProcessEdges();
-    mod->ProcessFaces();
+
+    // no ProcessEdges
+    // no ProcessFaces
     mod->ProcessElements();
     mod->ProcessComposites();
     mod->Process();
@@ -623,7 +617,7 @@ void Octree::PropagateDomain()
                         std::array<NekDouble, 2> uv;
                         int surf;
                         sp->GetCAD(surf, uv);
-                        N = m_mesh->m_cad->GetSurf(surf)->N(uv);
+                        N = m_mesh->m_meshGraph->GetCAD()->GetSurf(surf)->N(uv);
 
                         octloc = oct->GetLoc();
                         sploc  = sp->GetLoc();
@@ -716,7 +710,7 @@ int Octree::CountElemt()
 
     NekDouble total = 0.0;
 
-    auto boundingBox = m_mesh->m_cad->GetBoundingBox();
+    auto boundingBox = m_mesh->m_meshGraph->GetCAD()->GetBoundingBox();
 
     for (int i = 0; i < m_octants.size(); i++)
     {
@@ -841,14 +835,15 @@ void Octree::CompileSourcePointList()
     }
 
     int totalEnt = 0;
-    if (m_mesh->m_cad->Is2D())
+    auto cadSys  = m_mesh->m_meshGraph->GetCAD();
+    if (cadSys->Is2D())
     {
-        totalEnt = m_mesh->m_cad->GetNumCurve();
-        for (int i = 1; i <= m_mesh->m_cad->GetNumCurve(); i++)
+        totalEnt = cadSys->GetNumCurve();
+        for (int i = 1; i <= totalEnt; i++)
         {
             m_log(VERBOSE).Progress(i, totalEnt, "  - Compiling source points");
 
-            CADCurveSharedPtr curve = m_mesh->m_cad->GetCurve(i);
+            SpatialDomains::CADCurveSharedPtr curve = cadSys->GetCurve(i);
 
             // Check if curve i has refinement data
             map<int, pair<NekDouble, NekDouble>>::iterator it;
@@ -875,7 +870,8 @@ void Octree::CompileSourcePointList()
 
                 auto loc = curve->P(t);
 
-                vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>>
+                vector<pair<weak_ptr<SpatialDomains::CADSurf>,
+                            SpatialDomains::CADOrientation::Orientation>>
                     ss  = curve->GetAdjSurf();
                 auto uv = ss[0].first.lock()->locuv(loc);
 
@@ -924,13 +920,13 @@ void Octree::CompileSourcePointList()
     }
     else
     {
-        totalEnt = m_mesh->m_cad->GetNumSurf();
+        totalEnt = cadSys->GetNumSurf();
         for (int i = 1; i <= totalEnt; i++)
         {
             m_log(VERBOSE).Progress(i, totalEnt, "  - Compiling source points");
 
-            CADSurfSharedPtr surf = m_mesh->m_cad->GetSurf(i);
-            auto bounds           = surf->GetBounds();
+            SpatialDomains::CADSurfSharedPtr surf = cadSys->GetSurf(i);
+            auto bounds                           = surf->GetBounds();
 
             // to figure out the amount of curvature sampling to be conducted on
             // each parameter plane the surface is first sampled with a nSamp x
@@ -1128,5 +1124,18 @@ void Octree::CompileSourcePointList()
 NekDouble Octree::ddx(OctantSharedPtr i, OctantSharedPtr j)
 {
     return fabs(i->GetDelta() - j->GetDelta()) / i->Distance(j);
+}
+
+Octree &GetOctree(MeshSharedPtr mesh, Logger &log)
+{
+    Octree *octree = mesh->GetContext().TryGet<Octree>();
+
+    if (octree == nullptr)
+    {
+        log(FATAL) << "No octree has been loaded; add the loadoctree module "
+                   << "to the pipeline before meshing." << endl;
+    }
+
+    return *octree;
 }
 } // namespace Nektar::NekMesh

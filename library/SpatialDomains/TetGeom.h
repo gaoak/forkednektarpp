@@ -46,7 +46,14 @@ class TetGeom : public Geometry3D
 {
 public:
     SPATIAL_DOMAINS_EXPORT TetGeom();
-    SPATIAL_DOMAINS_EXPORT TetGeom(int id, TriGeom *faces[]);
+    SPATIAL_DOMAINS_EXPORT TetGeom(int id, std::array<TriGeom *, 4> faces,
+                                   Curve *curve = nullptr);
+    SPATIAL_DOMAINS_EXPORT TetGeom(int id, std::array<TriGeom *, 4> faces,
+                                   std::array<SegGeom *, 6> edges,
+                                   std::array<PointGeom *, 4> verts,
+                                   bool skipSetUp = false,
+                                   Curve *curve   = nullptr);
+    SPATIAL_DOMAINS_EXPORT ~TetGeom() override = default;
 
     SPATIAL_DOMAINS_EXPORT static const int kNverts  = 4;
     SPATIAL_DOMAINS_EXPORT static const int kNedges  = 6;
@@ -56,9 +63,18 @@ public:
     SPATIAL_DOMAINS_EXPORT static const int kNfacets = kNfaces;
     SPATIAL_DOMAINS_EXPORT static const std::string XMLElementType;
 
-    SPATIAL_DOMAINS_EXPORT TetGeom(int id,
-                                   std::array<TriGeom *, kNfaces> faces);
-    SPATIAL_DOMAINS_EXPORT ~TetGeom() override = default;
+    void SetFace(int i, TriGeom *f)
+    {
+        m_faces[i] = f;
+    }
+    void SetEdge(int i, SegGeom *e)
+    {
+        m_edges[i] = e;
+    }
+    void SetVertex(int i, PointGeom *v)
+    {
+        m_verts[i] = v;
+    }
 
 protected:
     int v_GetVertexEdgeMap(const int i, const int j) const override;
@@ -67,11 +83,14 @@ protected:
     int v_GetEdgeNormalToFaceVert(const int i, const int j) const override;
     int v_GetDir(const int faceidx, const int facedir) const override;
     void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces) override;
+    void v_ResetLite() override;
     void v_Setup() override;
     GeomType v_CalcGeomType() override;
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     void v_FillGeom() override;
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> v_MakeOrder(
+        int order, const LibUtilities::PointsType pTypes) override;
 
     inline int v_GetNumVerts() const final
     {
@@ -86,6 +105,16 @@ protected:
     inline int v_GetNumFaces() const final
     {
         return kNfaces;
+    }
+
+    inline int v_GetNumFacets() const final
+    {
+        return kNfacets;
+    }
+
+    inline Geometry *v_GetFacet(const int i) const final
+    {
+        return v_GetFace(i);
     }
 
     inline PointGeom *v_GetVertex(const int i) const final

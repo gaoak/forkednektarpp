@@ -66,24 +66,17 @@ public:
     }
 
 protected:
-    void GenElement3D(std::vector<NekMesh::NodeSharedPtr> &Nodes, int i,
-                      std::vector<int> &ElementFaces,
+    void GenElement3D(int i, std::vector<int> &ElementFaces,
                       std::unordered_map<int, std::vector<int>> &FaceNodes,
                       int ncomposite, bool DoOrient);
 
-    void GenElement2D(std::vector<NekMesh::NodeSharedPtr> &Nodes, int i,
-                      std::vector<int> &FaceNodes, int ncomposite);
-
-    Array<OneD, int> SortEdgeNodes(std::vector<NekMesh::NodeSharedPtr> &Nodes,
-                                   std::vector<int> &FaceNodes);
+    void TagElement2D(int i, std::vector<int> &FaceNodes, int ncomposite);
 
     Array<OneD, int> SortFaceNodes(
-        std::vector<NekMesh::NodeSharedPtr> &Nodes,
         std::vector<int> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes);
 
-    void ResetNodes(std::vector<NekMesh::NodeSharedPtr> &Nodes,
-                    Array<OneD, std::vector<int>> &ElementFaces,
+    void ResetNodes(Array<OneD, std::vector<int>> &ElementFaces,
                     std::unordered_map<int, std::vector<int>> &FaceNodes);
 
 private:
@@ -94,7 +87,7 @@ private:
 
     void InitCCM(void);
 
-    void ReadNodes(std::vector<NekMesh::NodeSharedPtr> &Nodes);
+    void ReadNodes();
 
     void ReadInternalFaces(
         std::unordered_map<int, std::vector<int>> &FacesNodes,
@@ -104,7 +97,6 @@ private:
         int currElemId, int currFaceId, int currApexNode,
         std::vector<std::vector<int>> FaceToPrisms,
         std::vector<std::vector<int>> GlobTriFaces,
-        std::vector<NodeSharedPtr> &Vnodes,
         Array<OneD, std::vector<int>> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes,
         Array<OneD, int> &NodeReordering, int &revNodeid);

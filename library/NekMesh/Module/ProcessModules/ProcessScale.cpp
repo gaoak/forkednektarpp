@@ -72,33 +72,19 @@ void ProcessScale::Process()
     m_log(VERBOSE) << "Scaled in Z = " << scaleCoeff_Z << endl;
 
     // Vertices
-    for (auto vertex : m_mesh->m_vertexSet)
+    for (auto vertex :
+         m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        vertex->m_x *= scaleCoeff_X;
-        vertex->m_y *= scaleCoeff_Y;
-        vertex->m_z *= scaleCoeff_Z;
+        (*vertex.second)[0] *= scaleCoeff_X;
+        (*vertex.second)[1] *= scaleCoeff_Y;
+        (*vertex.second)[2] *= scaleCoeff_Z;
     }
 
-    // EdgesNodes
-    for (auto edge : m_mesh->m_edgeSet)
+    for (auto &node : m_mesh->m_meshGraph->GetAllCurveNodes())
     {
-        for (auto node : edge->m_edgeNodes)
-        {
-            node->m_x *= scaleCoeff_X;
-            node->m_y *= scaleCoeff_Y;
-            node->m_z *= scaleCoeff_Z;
-        }
-    }
-
-    // FacesNodes
-    for (auto face : m_mesh->m_faceSet)
-    {
-        for (auto node : face->m_faceNodes)
-        {
-            node->m_x *= scaleCoeff_X;
-            node->m_y *= scaleCoeff_Y;
-            node->m_z *= scaleCoeff_Z;
-        }
+        (*node)[0] *= scaleCoeff_X;
+        (*node)[1] *= scaleCoeff_Y;
+        (*node)[2] *= scaleCoeff_Z;
     }
 }
 } // namespace Nektar::NekMesh

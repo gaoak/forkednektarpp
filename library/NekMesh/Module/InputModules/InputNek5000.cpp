@@ -82,8 +82,17 @@ void InputNek5000::Process()
     LibUtilities::ShapeType elType;
     double vertex[8][3];
 
-    m_mesh->m_expDim   = 0;
-    m_mesh->m_spaceDim = 0;
+    // Nek5000 meshes list each element's vertex coordinates and have no unique
+    // node list, so vertices are shared by matching their coordinates exactly.
+    std::map<std::array<NekDouble, 3>, SpatialDomains::PointGeom *>
+        vertexLookup;
+
+    // Elements in the order the file gives them: the curvature and boundary
+    // condition sections below refer to elements by that index.
+    std::vector<SpatialDomains::Geometry *> elements;
+
+    int expDim   = 0;
+    int spaceDim = 0;
 
     m_log(VERBOSE) << "Reading Nek5000 .rea file '"
                    << m_config["infile"].as<string>() << "'" << endl;
@@ -150,17 +159,19 @@ void InputNek5000::Process()
     getline(m_mshFile, line);
     s.clear();
     s.str(line);
-    s >> nElements >> m_mesh->m_expDim;
-    m_mesh->m_spaceDim = m_mesh->m_expDim;
+    s >> nElements >> expDim;
+    spaceDim = expDim;
 
-    // Set up field names.
-    m_mesh->m_fields.push_back("u");
-    m_mesh->m_fields.push_back("v");
-    if (m_mesh->m_spaceDim > 2)
-    {
-        m_mesh->m_fields.push_back("w");
-    }
-    m_mesh->m_fields.push_back("p");
+    m_mesh->m_meshGraph->SetMeshDimension(expDim);
+    m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
+
+    // The solver field names the file implies. The mesh no longer carries
+    // these, nor the boundary conditions read below, so only the geometry and
+    // its composites are imported.
+    const int nVelocityFields = (spaceDim > 2) ? 3 : 2;
+    m_log(WARNING) << "Nek5000 boundary conditions and field definitions are "
+                   << "not imported; only the geometry and its composites are."
+                   << endl;
 
     // Loop over and create elements.
     for (i = 0; i < nElements; ++i)
@@ -168,7 +179,7 @@ void InputNek5000::Process()
         int nNodes;
         getline(m_mshFile, line);
 
-        if (m_mesh->m_expDim == 2)
+        if (expDim == 2)
         {
             // - quad: 2 lines with x-coords, y-coords
             elType = LibUtilities::eQuadrilateral;
@@ -206,28 +217,31 @@ void InputNek5000::Process()
         // Nek5000 meshes do not contain a unique list of nodes, so this block
         // constructs a unique set so that elements can be created with unique
         // nodes.
-        vector<NodeSharedPtr> nodeList(nNodes);
+        vector<SpatialDomains::PointGeom *> nodeList(nNodes);
         for (k = 0; k < nNodes; ++k)
         {
-            nodeList[k] = std::shared_ptr<Node>(
-                new Node(0, vertex[k][0], vertex[k][1], vertex[k][2]));
-            auto testIns = m_mesh->m_vertexSet.insert(nodeList[k]);
+            std::array<NekDouble, 3> loc = {vertex[k][0], vertex[k][1],
+                                            vertex[k][2]};
 
-            if (!testIns.second)
+            auto it = vertexLookup.find(loc);
+            if (it != vertexLookup.end())
             {
-                nodeList[k] = *(testIns.first);
+                nodeList[k] = it->second;
             }
             else
             {
-                nodeList[k]->m_id = nodeCounter++;
+                nodeList[k] = m_mesh->m_meshGraph->CreatePointGeom(
+                    3, nodeCounter++, loc[0], loc[1], loc[2]);
+                vertexLookup[loc] = nodeList[k];
             }
         }
 
-        vector<int> tags(1, 0);
         ElmtConfig conf(elType, 1, false, false);
-        ElementSharedPtr E =
-            GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
-        m_mesh->m_element[E->GetDim()].push_back(E);
+        SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+            elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+            m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
+        m_mesh->m_elementTags[E->GetShapeDim()][E] = 0;
+        elements.push_back(E);
     }
 
     // -- Read in curved data.
@@ -324,27 +338,34 @@ void InputNek5000::Process()
                     int convexity    = radius < 0 ? -1 : 1;
                     radius           = fabs(radius);
 
-                    ElementSharedPtr el =
-                        m_mesh->m_element[m_mesh->m_expDim][elmt];
-                    EdgeSharedPtr edge = el->GetEdge(side);
-                    edge->m_curveType  = LibUtilities::eGaussLobattoLegendre;
+                    SpatialDomains::Geometry *el = elements[elmt];
+                    SpatialDomains::SegGeom *edge =
+                        static_cast<SpatialDomains::SegGeom *>(
+                            el->GetEdge(side));
 
-                    // Assume 2D projection
-                    Node P1(*(edge->m_n1)), P2(*(edge->m_n2));
+                    SpatialDomains::PointGeom *n1 = edge->GetVertex(0);
+                    SpatialDomains::PointGeom *n2 = edge->GetVertex(1);
 
-                    if (fabs(P1.m_z - P2.m_z) > 1e-8)
+                    if (fabs((*n1)[2] - (*n2)[2]) > 1e-8)
                     {
                         m_log(WARNING) << "detected curvature on edge that is "
                                        << "not located on x-y plane." << endl;
                     }
-                    P1.m_z = P2.m_z = 0.0;
 
-                    Node unitNormal, link, centroid, centre;
-                    Node midpoint = (P1 + P2) * 0.5, dx = P2 - P1;
-                    NekDouble l = sqrt(dx.abs2()), sign = 0.0, semiangle = 0.0;
+                    // The arc is imposed in the x-y plane and has no
+                    // z-dependence, so work in 2D components throughout. The
+                    // logic follows Semtex (src/mesh.C).
+                    NekDouble p1x = (*n1)[0], p1y = (*n1)[1];
+                    NekDouble p2x = (*n2)[0], p2y = (*n2)[1];
 
-                    unitNormal.m_x = -dx.m_y / l;
-                    unitNormal.m_y = dx.m_x / l;
+                    NekDouble midx = 0.5 * (p1x + p2x);
+                    NekDouble midy = 0.5 * (p1y + p2y);
+                    NekDouble dx = p2x - p1x, dy = p2y - p1y;
+                    NekDouble l         = sqrt(dx * dx + dy * dy);
+                    NekDouble semiangle = 0.0;
+
+                    // Unit normal to the chord.
+                    NekDouble nx = -dy / l, ny = dx / l;
 
                     if (2.0 * radius < l)
                     {
@@ -355,45 +376,61 @@ void InputNek5000::Process()
                         semiangle = asin(0.5 * l / radius);
                     }
 
-                    // Calculate element centroid
-                    vector<NodeSharedPtr> elNodes = el->GetVertexList();
-                    int nNodes                    = elNodes.size();
-
-                    for (int i = 0; i < nNodes; ++i)
+                    // Element centroid, again in the x-y plane, used to pick
+                    // which side of the chord the arc centre falls on.
+                    NekDouble cx = 0.0, cy = 0.0;
+                    const int nVerts = el->GetNumVerts();
+                    for (int v = 0; v < nVerts; ++v)
                     {
-                        // Assume 2D projection
-                        Node tmp(*elNodes[i]);
-                        tmp.m_z = 0.0;
-                        centroid += tmp;
+                        cx += (*el->GetVertex(v))[0];
+                        cy += (*el->GetVertex(v))[1];
                     }
+                    cx /= (NekDouble)nVerts;
+                    cy /= (NekDouble)nVerts;
 
-                    centroid /= (NekDouble)nNodes;
-                    link   = centroid - midpoint;
-                    sign   = link.dot(unitNormal);
-                    sign   = convexity * sign / fabs(sign);
-                    centre = midpoint +
-                             unitNormal * (sign * cos(semiangle) * radius);
+                    NekDouble sign = (cx - midx) * nx + (cy - midy) * ny;
+                    sign           = convexity * sign / fabs(sign);
 
-                    NekDouble theta1, theta2, dtheta, phi;
-                    theta1 = atan2(P1.m_y - centre.m_y, P1.m_x - centre.m_x);
-                    theta2 = atan2(P2.m_y - centre.m_y, P2.m_x - centre.m_x);
-                    dtheta = theta2 - theta1;
+                    NekDouble centrex =
+                        midx + nx * (sign * cos(semiangle) * radius);
+                    NekDouble centrey =
+                        midy + ny * (sign * cos(semiangle) * radius);
+
+                    NekDouble theta1 = atan2(p1y - centrey, p1x - centrex);
+                    NekDouble theta2 = atan2(p2y - centrey, p2x - centrex);
+                    NekDouble dtheta = theta2 - theta1;
 
                     if (fabs(dtheta) > 2.0 * semiangle + 1e-15)
                     {
                         dtheta += (dtheta < 0.0) ? 2.0 * M_PI : -2.0 * M_PI;
                     }
 
-                    edge->m_edgeNodes.clear();
+                    // Build the edge's curve: the two vertices with the arc
+                    // points between them, in the order SegGeom expects.
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(edge->GetGlobalID(),
+                                          LibUtilities::eGaussLobattoLegendre);
+                    curve->m_points.push_back(n1);
 
                     for (j = 1; j < nq - 1; ++j)
                     {
-                        phi = theta1 + dtheta * 0.5 * (rp[j] + 1.0);
-                        NodeSharedPtr asd(new Node(
-                            0, centre.m_x + radius * cos(phi),
-                            centre.m_y + radius * sin(phi), edge->m_n1->m_z));
-                        edge->m_edgeNodes.push_back(asd);
+                        NekDouble phi = theta1 + dtheta * 0.5 * (rp[j] + 1.0);
+
+                        // Curvature nodes carry no global ID of their own.
+                        auto node = ObjPoolManager<SpatialDomains::PointGeom>::
+                            AllocateUniquePtr(
+                                3, -1, centrex + radius * cos(phi),
+                                centrey + radius * sin(phi), (*n1)[2]);
+                        curve->m_points.push_back(node.get());
+                        m_mesh->m_meshGraph->GetAllCurveNodes().push_back(
+                            std::move(node));
                     }
+
+                    curve->m_points.push_back(n2);
+
+                    SpatialDomains::Curve *curvePtr = curve.get();
+                    m_mesh->m_meshGraph->AddCurvedEdge(std::move(curve));
+                    edge->SetCurve(curvePtr);
                     break;
                 }
                 case 's':
@@ -421,7 +458,12 @@ void InputNek5000::Process()
         m_log(FATAL) << "Cannot find boundary conditions." << endl;
     }
 
-    int nSurfaces = 0;
+    // The mesh no longer stores boundary conditions, but they still decide
+    // how boundary elements group into composites: elements sharing a
+    // condition share a tag. So keep the conditions locally for that grouping
+    // alone.
+    ConditionMap conditions;
+
     std::unordered_set<pair<int, int>, HashOp> periodicIn;
     int periodicInId = -1, periodicOutId = -1;
 
@@ -486,7 +528,7 @@ void InputNek5000::Process()
             s.clear();
             s.str(line.substr(4, 6));
             s >> elmt;
-            side = lineCnt % (2 * m_mesh->m_expDim);
+            side = lineCnt % (2 * expDim);
             line = line.substr(9);
         }
         else
@@ -495,7 +537,7 @@ void InputNek5000::Process()
             s.clear();
             s.str(line.substr(4, 12));
             s >> elmt;
-            side = lineCnt % (2 * m_mesh->m_expDim);
+            side = lineCnt % (2 * expDim);
             line = line.substr(15);
         }
 
@@ -514,7 +556,7 @@ void InputNek5000::Process()
         // Increment lines read
         lineCnt++;
 
-        ElementSharedPtr el = m_mesh->m_element[m_mesh->m_spaceDim][elmt];
+        SpatialDomains::Geometry *el = elements[elmt];
 
         std::string fields[] = {"u", "v", "w", "p"};
 
@@ -527,7 +569,7 @@ void InputNek5000::Process()
 
             case 'W':
             {
-                for (i = 0; i < m_mesh->m_fields.size() - 1; ++i)
+                for (i = 0; i < nVelocityFields; ++i)
                 {
                     c->field.push_back(fields[i]);
                     c->value.push_back("0");
@@ -550,8 +592,8 @@ void InputNek5000::Process()
                 bool setup = false;
                 if (periodicInId == -1)
                 {
-                    periodicInId  = m_mesh->m_condition.size();
-                    periodicOutId = m_mesh->m_condition.size() + 1;
+                    periodicInId  = conditions.size();
+                    periodicOutId = conditions.size() + 1;
                     setup         = true;
                 }
 
@@ -574,7 +616,7 @@ void InputNek5000::Process()
                 std::string periodicOutStr =
                     "[" + std::to_string(periodicOutId) + "]";
 
-                for (i = 0; i < m_mesh->m_fields.size() - 1; ++i)
+                for (i = 0; i < nVelocityFields; ++i)
                 {
                     c->field.push_back(fields[i]);
                     c->value.push_back(periodicOutStr);
@@ -600,8 +642,8 @@ void InputNek5000::Process()
                         c2->value.push_back(periodicInStr);
                     }
 
-                    m_mesh->m_condition[periodicInId]  = c;
-                    m_mesh->m_condition[periodicOutId] = c2;
+                    conditions[periodicInId]  = c;
+                    conditions[periodicOutId] = c2;
                 }
 
                 if (hasIn)
@@ -616,51 +658,52 @@ void InputNek5000::Process()
                 continue;
         }
 
-        int compTag, conditionId;
-        ElementSharedPtr surfEl;
+        int compTag;
 
-        // Create element for face (3D) or segment (2D).
-        if (el->GetDim() == 3)
+        // Create the boundary element: a quadrilateral face in 3D, a segment
+        // in 2D. Both are looked up in the edge and face maps first, so the
+        // one the parent element already built is reused, and with it any
+        // curvature -- unlike before, nothing needs copying across.
+        SpatialDomains::Geometry *surfEl = nullptr;
+
+        if (el->GetShapeDim() == 3)
         {
-            FaceSharedPtr f = el->GetFace(nek2nekface[side]);
-            vector<NodeSharedPtr> nodeList;
-            nodeList.insert(nodeList.begin(), f->m_vertexList.begin(),
-                            f->m_vertexList.end());
+            SpatialDomains::Geometry2D *f = el->GetFace(nek2nekface[side]);
 
-            vector<int> tags;
-            ElmtConfig conf(LibUtilities::eQuadrilateral, 1, true, true, false,
-                            LibUtilities::eGaussLobattoLegendre);
-            surfEl = GetElementFactory().CreateInstance(
-                LibUtilities::eQuadrilateral, conf, nodeList, tags);
-
-            // Copy high-order surface information from edges.
-            for (int i = 0; i < f->m_vertexList.size(); ++i)
+            vector<SpatialDomains::PointGeom *> nodeList;
+            for (int v = 0; v < f->GetNumVerts(); ++v)
             {
-                surfEl->GetEdge(i)->m_edgeNodes = f->m_edgeList[i]->m_edgeNodes;
-                surfEl->GetEdge(i)->m_curveType = f->m_edgeList[i]->m_curveType;
+                nodeList.push_back(f->GetVertex(v));
             }
+
+            ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false, false,
+                            false, LibUtilities::eGaussLobattoLegendre);
+            surfEl = GetElementFactory().CreateInstance(
+                LibUtilities::eQuadrilateral, nodeList, m_mesh->m_meshGraph,
+                m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, nullptr, nullptr,
+                nullptr, nullptr);
         }
         else
         {
-            EdgeSharedPtr f = el->GetEdge(side);
+            SpatialDomains::Geometry1D *f = el->GetEdge(side);
 
-            vector<NodeSharedPtr> nodeList;
-            nodeList.push_back(f->m_n1);
-            nodeList.push_back(f->m_n2);
+            vector<SpatialDomains::PointGeom *> nodeList;
+            nodeList.push_back(f->GetVertex(0));
+            nodeList.push_back(f->GetVertex(1));
 
-            vector<int> tags;
-
-            ElmtConfig conf(LibUtilities::eSegment, 1, true, true, false,
+            ElmtConfig conf(LibUtilities::eSegment, 1, false, false, false,
                             LibUtilities::eGaussLobattoLegendre);
-            surfEl = GetElementFactory().CreateInstance(LibUtilities::eSegment,
-                                                        conf, nodeList, tags);
+            surfEl = GetElementFactory().CreateInstance(
+                LibUtilities::eSegment, nodeList, m_mesh->m_meshGraph,
+                m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, nullptr, nullptr,
+                nullptr, nullptr);
         }
 
-        // Now attempt to find this boundary condition inside
-        // m_mesh->condition. This is currently a linear search and should
-        // probably be made faster!
+        // Find whether an identical condition has already been seen, so that
+        // this element joins that composite rather than starting a new one.
+        // A linear search, as before.
         bool found = false;
-        for (auto &it : m_mesh->m_condition)
+        for (auto &it : conditions)
         {
             if (c == it.second)
             {
@@ -672,29 +715,19 @@ void InputNek5000::Process()
 
         if (!found)
         {
-            conditionId = m_mesh->m_condition.size();
-            compTag     = nComposite;
+            compTag = nComposite;
             c->m_composite.push_back(compTag);
-            m_mesh->m_condition[conditionId] = c;
+            conditions[conditions.size()] = c;
         }
         else
         {
             compTag = c->m_composite[0];
         }
 
-        // Insert composite tag into element and insert element into
-        // mesh.
-        vector<int> existingTags = surfEl->GetTagList();
-
-        existingTags.insert(existingTags.begin(), compTag);
-        surfEl->SetTagList(existingTags);
-        surfEl->SetId(nSurfaces);
-
-        m_mesh->m_element[surfEl->GetDim()].push_back(surfEl);
-        nSurfaces++;
+        m_mesh->m_elementTags[surfEl->GetShapeDim()][surfEl] = compTag;
     }
 
-    if (lineCnt != nElements * (m_mesh->m_expDim * 2))
+    if (lineCnt != nElements * (expDim * 2))
     {
         m_log(WARNING) << "Boundary conditions may not have been correctly "
                        << "read from Nek5000 input file." << endl;
@@ -707,19 +740,18 @@ void InputNek5000::Process()
 
     m_mshFile.reset();
 
-    // -- Process rest of mesh.
-    ProcessEdges();
-    ProcessFaces();
+    // -- Process rest of mesh. Edges and faces are built as the elements are
+    // created, so only elements and composites are left to do.
     ProcessElements();
     ProcessComposites();
 
-    // -- Set periodic composites to not be reordered.
+    // Periodic composites used to be flagged so they were not reordered.
+    // The mesh no longer keeps a composite map to carry that flag.
     if (periodicInId != -1)
     {
-        m_mesh->m_composite[m_mesh->m_condition[periodicInId]->m_composite[0]]
-            ->m_reorder = false;
-        m_mesh->m_composite[m_mesh->m_condition[periodicOutId]->m_composite[0]]
-            ->m_reorder = false;
+        m_log(WARNING) << "Periodic composites can no longer be marked as "
+                       << "not reorderable; periodic boundaries may need "
+                       << "realigning with the peralign module." << endl;
     }
 }
 

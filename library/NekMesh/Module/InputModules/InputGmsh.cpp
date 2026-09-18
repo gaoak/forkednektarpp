@@ -33,18 +33,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <tuple>
 
 #include <NekMesh/MeshElements/Element.h>
-#include <NekMesh/MeshElements/Hexahedron.h>
-#include <NekMesh/MeshElements/Line.h>
-#include <NekMesh/MeshElements/Point.h>
-#include <NekMesh/MeshElements/Prism.h>
-#include <NekMesh/MeshElements/Pyramid.h>
-#include <NekMesh/MeshElements/Quadrilateral.h>
-#include <NekMesh/MeshElements/Tetrahedron.h>
-#include <NekMesh/MeshElements/Triangle.h>
+#include <NekMesh/MeshElements/HOAlignment.h>
 
 #include "InputGmsh.h"
 
@@ -277,6 +271,7 @@ struct cmpop
  *
  * @return The nodes vector in tensor-product ordering.
  */
+
 std::vector<int> tetTensorNodeOrdering(const std::vector<int> &nodes, int n)
 {
     std::vector<int> nodeList;
@@ -412,6 +407,157 @@ std::vector<int> tetTensorNodeOrdering(const std::vector<int> &nodes, int n)
 }
 
 /**
+ * @brief Reorder a gmsh pyramid into the ordering a nodal pyramid uses.
+ *
+ * Gmsh gives a pyramid as its five vertices, then the inside of each of its
+ * eight edges, then of its four triangles and its base, then whatever is left
+ * over -- which is a smaller pyramid, handled by coming back round again. A
+ * nodal pyramid instead walks the lattice, a square of @f$ (n-z)^2 @f$ points
+ * at each height @f$ z @f$, tapering to the apex.
+ *
+ * So each of gmsh's nodes is placed at the lattice point it stands on. Every
+ * edge of a pyramid runs straight through the lattice and every face is flat
+ * in it, so those points are arrived at by stepping, and the arithmetic holds
+ * at any order rather than being tabulated.
+ */
+std::vector<int> pyrTensorNodeOrdering(const std::vector<int> &nodes, int n)
+{
+    std::vector<int> nodeList;
+
+    if (n < 1)
+    {
+        return nodeList;
+    }
+
+    nodeList.resize(nodes.size());
+
+    // Where a lattice point sits in the list.
+    auto index = [n](int x, int y, int z) {
+        int offset = 0;
+        for (int k = 0; k < z; ++k)
+        {
+            offset += (n - k) * (n - k);
+        }
+        return offset + y * (n - z) + x;
+    };
+
+    // Lattice positions of the vertices, in the order gmsh lists them.
+    const std::array<std::array<int, 3>, 5> vert = {{{{0, 0, 0}},
+                                                     {{n - 1, 0, 0}},
+                                                     {{n - 1, n - 1, 0}},
+                                                     {{0, n - 1, 0}},
+                                                     {{0, 0, n - 1}}}};
+
+    nodeList[0] = nodes[0];
+    if (n == 1)
+    {
+        return nodeList;
+    }
+
+    for (int v = 0; v < 5; ++v)
+    {
+        nodeList[index(vert[v][0], vert[v][1], vert[v][2])] = nodes[v];
+    }
+    if (n == 2)
+    {
+        return nodeList;
+    }
+
+    // Edges, in gmsh's order. Stepping from one vertex to the other lands on
+    // each interior point of the edge in turn.
+    static const int edgeVerts[8][2] = {{0, 1}, {0, 3}, {0, 4}, {1, 2},
+                                        {1, 4}, {2, 3}, {2, 4}, {3, 4}};
+
+    int cnt = 5;
+    for (int e = 0; e < 8; ++e)
+    {
+        const auto &a = vert[edgeVerts[e][0]], &b = vert[edgeVerts[e][1]];
+        for (int j = 1; j < n - 1; ++j)
+        {
+            nodeList[index(a[0] + (b[0] - a[0]) * j / (n - 1),
+                           a[1] + (b[1] - a[1]) * j / (n - 1),
+                           a[2] + (b[2] - a[2]) * j / (n - 1))] = nodes[cnt++];
+        }
+    }
+
+    const int nTriInt  = (n - 2) * (n - 3) / 2;
+    const int nQuadInt = (n - 2) * (n - 2);
+
+    // Faces: gmsh gives the four triangles first, then the base.
+    static const int triFaceVerts[4][3] = {
+        {0, 1, 4}, {3, 0, 4}, {1, 2, 4}, {2, 3, 4}};
+
+    for (int f = 0; f < 4 && nTriInt > 0; ++f)
+    {
+        std::vector<int> faceNodes(nTriInt);
+        for (int j = 0; j < nTriInt; ++j)
+        {
+            faceNodes[j] = nodes[cnt++];
+        }
+        faceNodes = triTensorNodeOrdering(faceNodes, n - 3);
+
+        const auto &A = vert[triFaceVerts[f][0]];
+        const auto &B = vert[triFaceVerts[f][1]];
+        const auto &C = vert[triFaceVerts[f][2]];
+
+        // The face's interior is a triangle of n - 3 points a side, one step
+        // inside it, so a node there is that far along each of its corners.
+        for (int j = 0, p = 0; j < n - 3; ++j)
+        {
+            for (int i = 0; i < n - 3 - j; ++i, ++p)
+            {
+                const int a0 = n - 3 - i - j, a1 = i + 1, a2 = j + 1;
+                nodeList[index((a0 * A[0] + a1 * B[0] + a2 * C[0]) / (n - 1),
+                               (a0 * A[1] + a1 * B[1] + a2 * C[1]) / (n - 1),
+                               (a0 * A[2] + a1 * B[2] + a2 * C[2]) / (n - 1))] =
+                    faceNodes[p];
+            }
+        }
+    }
+
+    if (nQuadInt > 0)
+    {
+        std::vector<int> faceNodes(nQuadInt);
+        for (int j = 0; j < nQuadInt; ++j)
+        {
+            faceNodes[j] = nodes[cnt++];
+        }
+        faceNodes = quadTensorNodeOrdering(faceNodes, n - 2);
+
+        // Gmsh's base is {0, 3, 2, 1}, so the direction its rows run in is
+        // the lattice's second and its columns the lattice's first.
+        for (int row = 0, p = 0; row < n - 2; ++row)
+        {
+            for (int col = 0; col < n - 2; ++col, ++p)
+            {
+                nodeList[index(row + 1, col + 1, 0)] = faceNodes[p];
+            }
+        }
+    }
+
+    // Whatever is left is a pyramid of n - 3 points a side, one step in from
+    // every face of this one.
+    if (cnt < (int)nodes.size())
+    {
+        std::vector<int> interior(nodes.begin() + cnt, nodes.end());
+        interior = pyrTensorNodeOrdering(interior, n - 3);
+
+        for (int z = 0, p = 0; z < n - 3; ++z)
+        {
+            for (int y = 0; y < n - 3 - z; ++y)
+            {
+                for (int x = 0; x < n - 3 - z; ++x, ++p)
+                {
+                    nodeList[index(x + 1, y + 1, z + 1)] = interior[p];
+                }
+            }
+        }
+    }
+
+    return nodeList;
+}
+
+/**
  * @brief Reorder Gmsh nodes so that they appear in a "tensor product" format
  * suitable for the interior of a Nektar++ prism. This routine is specifically
  * designed for *interior* Gmsh nodes only.
@@ -482,7 +628,10 @@ std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n)
 
     auto nTriNodes = (n - 1) * n / 2;
 
-    // Construct vectors of the triangular planes
+    // Construct vectors of the triangular planes. A node is indexed by which
+    // node of the triangle it is and how far along the segment, the triangle
+    // being the slower of the two, so the nodes of one plane are a stride of
+    // the segment's length apart.
     std::vector<std::vector<int>> triPlanes(n);
     for (int i = 0; i < n; ++i)
     {
@@ -491,13 +640,16 @@ std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n)
 
         for (int j = 0; j < nTriNodes; ++j)
         {
-            triNodes[j] = triOffset + j * nTriNodes;
+            triNodes[j] = nodes[triOffset + j * n];
         }
 
         triPlanes[i] = triTensorNodeOrdering(triNodes, n - 1);
     }
 
-    // Now reorder the planes into the tensor product ordering
+    // Now reorder the planes into the tensor product ordering. The nodal prism
+    // runs along the triangle's second direction most slowly, then along the
+    // segment, then along the triangle's first direction, so i and k walk the
+    // triangle -- k of them left on row i -- and j picks the plane.
     for (int i = 0, b = 0; i < n - 1; ++i)
     {
         for (int j = 0; j < n; ++j)
@@ -505,7 +657,7 @@ std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n)
             for (int k = 0; k < n - 1 - i; ++k, ++b)
             {
                 auto idx    = k + i * (2 * (n - 1) + 1 - i) / 2;
-                nodeList[b] = nodes[idx];
+                nodeList[b] = triPlanes[j][idx];
             }
         }
     }
@@ -548,7 +700,6 @@ std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n)
  */
 std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
 {
-    int i, j, k;
     std::vector<int> nodeList;
 
     nodeList.resize(nodes.size());
@@ -630,7 +781,7 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
         StdRegions::eDir1BwdDir1_Dir2FwdDir2,
         StdRegions::eDir1FwdDir1_Dir2FwdDir2};
 
-    for (i = 0; i < 6; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         int n2   = (n - 2) * (n - 2);
         int face = gmsh2NekFace[i];
@@ -638,7 +789,7 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
 
         // Create a list of interior face nodes for this face only.
         vector<int> faceNodes(n2);
-        for (j = 0; j < n2; ++j)
+        for (int j = 0; j < n2; ++j)
         {
             faceNodes[j] = nodes[offset + j];
         }
@@ -658,9 +809,9 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
         else if (faceOrient[i] == StdRegions::eDir1FwdDir2_Dir2FwdDir1)
         {
             // Tranposed faces
-            for (j = 0; j < n - 2; ++j)
+            for (int j = 0; j < n - 2; ++j)
             {
-                for (k = 0; k < n - 2; ++k)
+                for (int k = 0; k < n - 2; ++k)
                 {
                     tmp[j * (n - 2) + k] = faceNodes[k * (n - 2) + j];
                 }
@@ -668,23 +819,27 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
         }
         else if (faceOrient[i] == StdRegions::eDir1BwdDir1_Dir2FwdDir2)
         {
-            for (j = 0; j < n - 2; ++j)
+            for (int j = 0; j < n - 2; ++j)
             {
-                for (k = 0; k < n - 2; ++k)
+                for (int k = 0; k < n - 2; ++k)
                 {
                     tmp[j * (n - 2) + k] = faceNodes[j * (n - 2) + (n - k - 3)];
                 }
             }
         }
 
-        // Now put this into the right place in the output array
-        for (k = 1; k < n - 1; ++k)
+        // Now put this into the right place in the output array. Note this
+        // takes the reoriented face rather than the one read from the file:
+        // writing faceNodes here drops the transposes and reversals just
+        // worked out above, leaving the interior of every face of a
+        // hexahedron mirrored about its diagonal.
+        for (int k = 1; k < n - 1; ++k)
         {
-            for (j = 1; j < n - 1; ++j)
+            for (int j = 1; j < n - 1; ++j)
             {
                 nodeList[hexFaces[face][0] + j * hexFaces[face][1] +
                          k * hexFaces[face][2]] =
-                    faceNodes[(k - 1) * (n - 2) + j - 1];
+                    tmp[(k - 1) * (n - 2) + j - 1];
             }
         }
     }
@@ -719,7 +874,7 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
  *
  */
 InputGmsh::InputGmsh(MeshSharedPtr m)
-    : InputModule(m), m_version(0.0), m_prevId(-1), m_maxTagId(-1)
+    : InputModule(m), m_version(0.0), m_maxTagId(-1)
 {
     m_config["identifyComposite"] =
         ConfigOption(false, "", "Use Gmsh CAD IDs for composites.");
@@ -753,8 +908,6 @@ void InputGmsh::Process()
     // Open the file stream.
     OpenStream();
 
-    m_mesh->m_expDim   = 0;
-    m_mesh->m_spaceDim = 0;
     string line;
     int fileType  = 0;
     int nVBlocks  = 0;
@@ -779,9 +932,9 @@ void InputGmsh::Process()
     while (!m_mshFile.eof())
     {
         getline(m_mshFile, line);
-        stringstream s(line);
+        stringstream sw(line);
         string word;
-        s >> word;
+        sw >> word;
 
         // Process file format.
         if (word == "$MeshFormat")
@@ -811,6 +964,8 @@ void InputGmsh::Process()
 
             s >> nEntity[0] >> nEntity[1] >> nEntity[2] >> nEntity[3];
 
+            int spaceDim = m_mesh->m_meshGraph->GetSpaceDimension();
+            bool skip    = false; // Skip the check for dim if we are already 3D
             for (int i = 0; i < 4; ++i)
             {
                 for (int j = 0; j < nEntity[i]; ++j)
@@ -820,20 +975,46 @@ void InputGmsh::Process()
                     GmshEntity ent;
 
                     int entityId;
-                    si >> entityId >> ent.minX >> ent.minY >> ent.minZ;
-
-                    if (i > 0)
+                    if (i == 0 && m_version > 4.0)
                     {
-                        si >> ent.maxX >> ent.maxY >> ent.maxZ;
+                        si >> entityId >> ent.minX >> ent.minY >> ent.minZ;
+                        ent.maxX = ent.minX;
+                        ent.maxY = ent.minY;
+                        ent.maxZ = ent.minZ;
+                    }
+                    else
+                    {
+                        si >> entityId >> ent.minX >> ent.minY >> ent.minZ >>
+                            ent.maxX >> ent.maxY >> ent.maxZ;
                     }
 
-                    int nPhysTags, tmp;
+                    // We need to figure out the spaceDim before we save
+                    // nodes...
+                    if (!skip)
+                    {
+                        if ((ent.minX * ent.maxX) > 0.000001 && spaceDim < 1)
+                        {
+                            spaceDim = 1;
+                        }
+                        if ((ent.minY * ent.maxY) > 0.000001 && spaceDim < 2)
+                        {
+                            spaceDim = 2;
+                        }
+                        if ((ent.minZ * ent.maxZ) > 0.000001 && spaceDim < 3)
+                        {
+                            spaceDim = 3;
+                            skip     = true;
+                        }
+                        m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
+                    }
+
+                    int nPhysTags, tmpTag;
                     si >> nPhysTags;
 
                     for (int k = 0; k < nPhysTags; ++k)
                     {
-                        si >> tmp;
-                        ent.physicalTags.push_back(tmp);
+                        si >> tmpTag;
+                        ent.physicalTags.push_back(tmpTag);
                     }
 
                     entityMap[i][entityId] = ent;
@@ -858,7 +1039,7 @@ void InputGmsh::Process()
 
                     if (m_version == 4.0)
                     {
-                        for (int i = 0; i < nVertices; ++i)
+                        for (int j = 0; j < nVertices; ++j)
                         {
                             ReadNextNode();
                         }
@@ -873,10 +1054,10 @@ void InputGmsh::Process()
             {
                 s >> nVertices;
 
-                for (int i = 0; i < nVertices; ++i)
-                {
-                    ReadNextNode();
-                }
+                // As we are < v4 we still don't know the mesh dimension
+                // we loop over all nodes first to find this before we save
+                // I don't like this but can't think how else to do it
+                CalcNodeDim(nVertices);
             }
         }
         // Process elements
@@ -907,8 +1088,7 @@ void InputGmsh::Process()
                     // surfaces.
                     std::vector<int> physIds =
                         entityMap[tagDim][tag].physicalTags;
-
-                    if (physIds.size() == 0)
+                    if (physIds.empty())
                     {
                         for (int j = 0; j < nElements; ++j)
                         {
@@ -933,29 +1113,25 @@ void InputGmsh::Process()
                     ReadNextElement();
                 }
             }
-
-            // If boundary elements of a lower dimension are created delete them
-            // in NekMesh boundary elements are only [m_dim -1]
-            for (int i = 0; i < m_mesh->m_expDim - 1; i++)
-            {
-                m_mesh->m_element[i] = {};
-            }
         }
     }
     m_mshFile.reset();
 
+    ProcessVertices(); // ProcessVertices moved earlier to get correct meshDim.
+    auto meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+    // If boundary composites of a lower dimension are created delete them.
+    // In NekMesh boundary composites are only [m_dim -1].
+    for (int i = 0; i < meshDim - 1; i++)
+    {
+        m_mesh->m_elementTags[i] = {};
+    }
+
     // Go through element and remap tags if necessary.
     map<int, map<LibUtilities::ShapeType, int>> compMap;
-
-    for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim].size(); ++i)
+    for (auto &[el, tag] : m_mesh->m_elementTags[meshDim])
     {
-        ElementSharedPtr el          = m_mesh->m_element[m_mesh->m_expDim][i];
-        LibUtilities::ShapeType type = el->GetConf().m_e;
-
-        vector<int> tags = el->GetTagList();
-        int tag          = tags[0];
-
-        auto cIt = compMap.find(tag);
+        LibUtilities::ShapeType type = el->GetShapeType();
+        auto cIt                     = compMap.find(tag);
 
         if (cIt == compMap.end())
         {
@@ -969,13 +1145,11 @@ void InputGmsh::Process()
         {
             m_maxTagId++;
             cIt->second[type] = m_maxTagId;
-            tags[0]           = m_maxTagId;
-            el->SetTagList(tags);
+            tag               = m_maxTagId;
         }
         else if (sIt->second != tag)
         {
-            tags[0] = sIt->second;
-            el->SetTagList(tags);
+            tag = sIt->second;
         }
     }
 
@@ -1015,10 +1189,37 @@ void InputGmsh::Process()
         }
     }
 
-    // Process rest of mesh.
-    ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
+    // Move ownership of element vertices from m_loadedNodes to m_vertSet map
+    // Bulk move via vector to avoid poor flat_map insertion times
+    std::vector<std::pair<int, SpatialDomains::PointGeomUniquePtr>> movedVerts;
+    movedVerts.reserve(m_vertIDs.size());
+    int contigVertID = 0;
+    for (int node : m_vertIDs)
+    {
+        auto vert = std::move(m_loadedNodes[node]);
+        vert->SetGlobalID(contigVertID);
+        movedVerts.emplace_back(contigVertID, std::move(vert));
+        contigVertID++;
+    }
+    m_mesh->m_meshGraph->BulkAddGeom<SpatialDomains::PointGeom>(movedVerts);
+
+    // Move ownership of curvature nodes from m_loadedNodes to m_nodeSet vector
+    for (int node : m_curveNodeIDs)
+    {
+        // meshGraph.m_nodeSet should not include vertices
+        if (m_vertIDs.find(node) == m_vertIDs.end())
+        {
+            m_mesh->m_meshGraph->GetAllCurveNodes().push_back(
+                std::move(m_loadedNodes[node]));
+        }
+    }
+    // Set global ID of all curvature nodes to -1
+    for (auto &node : m_mesh->m_meshGraph->GetAllCurveNodes())
+    {
+        node->SetGlobalID(-1);
+    }
+
+    // Finishing processes
     ProcessElements();
     ProcessComposites();
 
@@ -1067,48 +1268,62 @@ void InputGmsh::ReadNextNode()
 }
 
 /**
+ * Calculate space dim of node
+ */
+void InputGmsh::CalcNodeDim(int nVertices)
+{
+    int spaceDim = m_mesh->m_meshGraph->GetSpaceDimension();
+
+    Array<OneD, std::tuple<int, NekDouble, NekDouble, NekDouble>> tmpIdCoords(
+        nVertices);
+    for (int i = 0; i < nVertices; ++i)
+    {
+        string line;
+        getline(m_mshFile, line);
+        stringstream st(line);
+        double x = 0, y = 0, z = 0;
+        int id = 0;
+        st >> id >> x >> y >> z;
+
+        bool skip = false; // Skip the check for dim if we are already 3D
+        if (!skip)
+        {
+            if ((x * x) > 0.000001 && spaceDim < 1)
+            {
+                spaceDim = 1;
+            }
+            if ((y * y) > 0.000001 && spaceDim < 2)
+            {
+                spaceDim = 2;
+            }
+            if ((z * z) > 0.000001 && spaceDim < 3)
+            {
+                spaceDim = 3;
+                skip     = true;
+            }
+            m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
+        }
+
+        tmpIdCoords[i] = std::make_tuple(id, x, y, z);
+    }
+
+    for (auto node : tmpIdCoords)
+    {
+        SaveNode(get<0>(node), get<1>(node), get<2>(node), get<3>(node));
+    }
+}
+
+/**
  * Save node into mesh
  */
 void InputGmsh::SaveNode(int id, NekDouble x, NekDouble y, NekDouble z)
 {
-    if ((x * x) > 0.000001 && m_mesh->m_spaceDim < 1)
-    {
-        m_mesh->m_spaceDim = 1;
-    }
-    if ((y * y) > 0.000001 && m_mesh->m_spaceDim < 2)
-    {
-        m_mesh->m_spaceDim = 2;
-    }
-    if ((z * z) > 0.000001 && m_mesh->m_spaceDim < 3)
-    {
-        m_mesh->m_spaceDim = 3;
-    }
+    int spaceDim = m_mesh->m_meshGraph->GetSpaceDimension();
 
     id -= 1; // counter starts at 0
-
-    if (!m_idMap.size())
-    {
-        if (id - m_prevId == 1)
-        {
-            m_prevId = id;
-        }
-        else
-        {
-            // Build m_idMap so far
-            for (int i = 0; i < m_mesh->m_node.size(); ++i)
-            {
-                m_idMap[i] = i;
-            }
-
-            m_idMap[id] = m_mesh->m_node.size();
-        }
-    }
-    else
-    {
-        m_idMap[id] = m_mesh->m_node.size();
-    }
-
-    m_mesh->m_node.push_back(std::shared_ptr<Node>(new Node(id, x, y, z)));
+    m_loadedNodes[id] =
+        ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            spaceDim, id, x, y, z);
 }
 
 /**
@@ -1119,7 +1334,7 @@ void InputGmsh::ReadNextElement(int tag, int elm_type)
     string line;
     getline(m_mshFile, line);
     stringstream st(line);
-    int id = 0, num_tag = 0, num_nodes = 0;
+    int id = 0, num_tag = 0;
 
     st >> id;
     id -= 1; // counter starts at 0
@@ -1134,61 +1349,63 @@ void InputGmsh::ReadNextElement(int tag, int elm_type)
     {
         m_log(FATAL) << "Element type " << elm_type << " not supported" << endl;
     }
+    // Skip Point element creation
+    if (it->second.m_e == LibUtilities::ePoint)
+    {
+        m_log(WARNING) << "Point boundary elements not supported yet" << endl;
+        // TODO: but it should be easy, just set the tag of the correct
+        // PointGeom already created
+        return;
+    }
 
     // Read element tags (version 2 only)
     vector<int> tags;
-    for (int j = 0; j < num_tag; ++j)
+    if (m_version < 4.0)
     {
-        int tag = 0;
-        st >> tag;
-        tags.push_back(tag);
+        for (int j = 0; j < num_tag; ++j)
+        {
+            int tagId = 0;
+            st >> tagId;
+            tags.push_back(tagId);
+        }
+        tag = tags[0];
     }
-    if (m_version >= 4.0)
-    {
-        tags.push_back(tag);
-    }
-    // use the elementary CAD object ID if no physical group is defined
+
+    // use the elementary CAD object ID in 2D if no physical group is defined
     if (m_config["identifyComposite"].beenSet && m_version == 2.2)
     {
-        tags[0] = tags[1];
+        tag = tags[1];
         // Put All Tets in C1005, Prisms C1007,Pyramids 1006, Hex 1008
         if (it->second.m_e == LibUtilities::ShapeType::eTetrahedron)
         {
-            tags[0] = 1000 + LibUtilities::ShapeType::eTetrahedron;
+            tag = 1000 + LibUtilities::ShapeType::eTetrahedron;
         }
         else if (it->second.m_e == LibUtilities::ShapeType::eHexahedron)
         {
-            tags[0] = 1000 + LibUtilities::ShapeType::eHexahedron;
+            tag = 1000 + LibUtilities::ShapeType::eHexahedron;
         }
         else if (it->second.m_e == LibUtilities::ShapeType::ePrism)
         {
-            tags[0] = 1000 + LibUtilities::ShapeType::ePrism;
+            tag = 1000 + LibUtilities::ShapeType::ePrism;
         }
         else if (it->second.m_e == LibUtilities::ShapeType::ePyramid)
         {
-            tags[0] = 1000 + LibUtilities::ShapeType::ePyramid;
+            tag = 1000 + LibUtilities::ShapeType::ePyramid;
         }
     }
-    tags.resize(1);
 
-    m_maxTagId = max(m_maxTagId, tags[0]);
+    m_maxTagId = max(m_maxTagId, tag);
 
     // Read element node list
-    vector<NodeSharedPtr> nodeList;
-    num_nodes = GetNnodes(elm_type);
+    int num_nodes = GetNnodes(elm_type);
+    vector<SpatialDomains::PointGeom *> pointList(num_nodes);
+
     for (int k = 0; k < num_nodes; ++k)
     {
         int node = 0;
         st >> node;
         node -= 1; // counter starts at 0
-        if (!m_idMap.size())
-        {
-            nodeList.push_back(m_mesh->m_node[node]);
-        }
-        else
-        {
-            nodeList.push_back(m_mesh->m_node[m_idMap[node]]);
-        }
+        pointList[k] = m_loadedNodes[node].get();
     }
 
     // Look up reordering.
@@ -1203,27 +1420,155 @@ void InputGmsh::ReadNextElement(int tag, int elm_type)
                 .first;
     }
 
+    // Keep the nodes as the file gave them: the interior of a high-order
+    // element is stored against the element in gmsh's own ordering, and the
+    // reordering below rearranges pointList into the order Nektar++ builds
+    // edges and faces from.
+    const vector<SpatialDomains::PointGeom *> gmshPoints = pointList;
+
     // Apply reordering map where necessary.
-    if (oIt->second.size() > 0)
+    if (!oIt->second.empty())
     {
-        vector<int> &mapping      = oIt->second;
-        vector<NodeSharedPtr> tmp = nodeList;
+        vector<int> &mapping = oIt->second;
         for (int i = 0; i < mapping.size(); ++i)
         {
-            nodeList[i] = tmp[mapping[i]];
+            pointList[i] = gmshPoints[mapping[i]];
         }
     }
 
     // Create element
-    ElementSharedPtr E = GetElementFactory().CreateInstance(
-        it->second.m_e, it->second, nodeList, tags);
+    SpatialDomains::Geometry *element = GetElementFactory().CreateInstance(
+        it->second.m_e, pointList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+        m_mesh->m_faceSet, it->second, &m_vertIDs, &m_curveNodeIDs,
+        &m_naiveTriIDs, nullptr);
 
-    // Determine mesh expansion dimension
-    if (E->GetDim() > m_mesh->m_expDim)
+    auto shapeDim = LibUtilities::ShapeTypeDimMap[it->second.m_e];
+    m_mesh->m_elementTags[shapeDim][element] = tag;
+
+    StoreVolumeNodes(element, it->second, gmshPoints);
+}
+
+/**
+ * @brief Keep the interior nodes of a high-order element as a curve on it.
+ *
+ * Edges and faces are shared, so their curvature lives on the entity that owns
+ * it; the interior of an element belongs to nothing else and is held against
+ * the element itself. Without this the nodes are read and dropped, and an
+ * element whose gmsh type is defined to carry them -- a 27-node hexahedron,
+ * say -- cannot be written back out, because the shorter form it would be
+ * reduced to is not a type gmsh has.
+ *
+ * The whole node grid goes in rather than just the interior, in the tensor
+ * ordering FillGeom reads it back in: index @f$ d_0 + n(d_1 + n d_2) @f$ for a
+ * grid of @f$ n @f$ points a side. That is what the reordering tables here
+ * already produce for gmsh's ordering, so the file's own ordering is what they
+ * are applied to.
+ *
+ * The grid is rebuilt in the element's own frame rather than the file's.
+ * HexGeom works out its local vertex numbering from its faces when it is
+ * constructed, which need not agree with the order the file listed them in,
+ * and FillGeom reads the curve as a tensor grid laid out along the element's
+ * own axes. Handing it the file's grid unchanged describes a differently
+ * oriented element, which shows up as a tangled element rather than as an
+ * error.
+ *
+ * Hexahedra only for the moment. Tetrahedra and prisms reorder their vertices
+ * as well, but their nodes are not a tensor grid, so the same correction does
+ * not carry over to them.
+ */
+void InputGmsh::StoreVolumeNodes(
+    SpatialDomains::Geometry *element, const ElmtConfig &conf,
+    const vector<SpatialDomains::PointGeom *> &gmshPoints)
+{
+    if (!conf.m_volumeNodes || conf.m_e != LibUtilities::eHexahedron)
     {
-        m_mesh->m_expDim = E->GetDim();
+        return;
     }
-    m_mesh->m_element[E->GetDim()].push_back(E);
+
+    const int n = conf.m_order + 1;
+    if (n * n * n != (int)gmshPoints.size())
+    {
+        m_log(WARNING) << "Hexahedron " << element->GetGlobalID() << " carries "
+                       << gmshPoints.size() << " nodes, not the " << n * n * n
+                       << " a complete grid of order " << conf.m_order
+                       << " would have; its interior has been dropped." << endl;
+        return;
+    }
+
+    // hexTensorNodeOrdering rearranges what it is given, so give it the
+    // positions: the result says which of the file's nodes belongs at each
+    // point of the grid.
+    vector<int> positions(gmshPoints.size());
+    std::iota(positions.begin(), positions.end(), 0);
+    vector<int> tensor = hexTensorNodeOrdering(positions, n);
+
+    vector<int> gridOf(gmshPoints.size());
+    for (size_t i = 0; i < tensor.size(); ++i)
+    {
+        gridOf[tensor[i]] = i;
+    }
+
+    // Where each of the element's own vertices sits in the file's grid. A
+    // vertex is at a corner, so every component comes back as 0 or n - 1.
+    std::array<std::array<int, 3>, 8> corner;
+    for (int v = 0; v < 8; ++v)
+    {
+        SpatialDomains::PointGeom *vert = element->GetVertex(v);
+
+        auto it = std::find(gmshPoints.begin(), gmshPoints.end(), vert);
+        if (it == gmshPoints.end())
+        {
+            m_log(WARNING) << "Hexahedron " << element->GetGlobalID()
+                           << " has a vertex that is not among its own nodes; "
+                              "its interior has been dropped."
+                           << endl;
+            return;
+        }
+
+        int g     = gridOf[std::distance(gmshPoints.begin(), it)];
+        corner[v] = {g % n, (g / n) % n, g / (n * n)};
+    }
+
+    // The element's axes in the file's frame. Local vertices 1, 3 and 4 are
+    // the neighbours of vertex 0 along the three axes, so the steps to them
+    // say which way each of the element's axes runs through the file's grid.
+    // Together with vertex 0 that is the whole correspondence, the two
+    // orderings differing only by a symmetry of the cube.
+    auto axis = [&](int to) {
+        std::array<int, 3> step{};
+        for (int d = 0; d < 3; ++d)
+        {
+            step[d] = (corner[to][d] - corner[0][d]) / (n - 1);
+        }
+        return step;
+    };
+    const std::array<int, 3> origin = corner[0], u0 = axis(1), u1 = axis(3),
+                             u2 = axis(4);
+
+    auto curve = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        element->GetGlobalID(), conf.m_edgeCurveType);
+    curve->m_points.resize(gmshPoints.size());
+
+    for (int k = 0; k < n; ++k)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                int from = 0;
+                for (int d = 0, stride = 1; d < 3; ++d, stride *= n)
+                {
+                    from += stride *
+                            (origin[d] + i * u0[d] + j * u1[d] + k * u2[d]);
+                }
+
+                curve->m_points[i + n * (j + n * k)] = gmshPoints[tensor[from]];
+            }
+        }
+    }
+
+    static_cast<SpatialDomains::Geometry3D *>(element)->SetCurve(curve.get());
+    m_mesh->m_meshGraph->AddCurvedVolume(std::move(curve));
 }
 
 /**
@@ -1244,29 +1589,22 @@ int InputGmsh::GetNnodes(unsigned int InputGmshEntity)
     switch (it->second.m_e)
     {
         case LibUtilities::ePoint:
-            nNodes = Point::GetNumNodes(it->second);
+            // nNodes = Point::GetNumNodes(it->second);
             break;
         case LibUtilities::eSegment:
-            nNodes = Line::GetNumNodes(it->second);
+        case LibUtilities::eQuadrilateral:
+        case LibUtilities::ePyramid:
+        case LibUtilities::ePrism:
+        case LibUtilities::eHexahedron:
+            nNodes = GetNumNodes(it->second.m_e, it->second);
             break;
         case LibUtilities::eTriangle:
-            nNodes = Triangle::GetNumNodes(it->second);
-            break;
-        case LibUtilities::eQuadrilateral:
-            nNodes = Quadrilateral::GetNumNodes(it->second);
-            break;
-        case LibUtilities::eTetrahedron:
-            nNodes                     = Tetrahedron::GetNumNodes(it->second);
+            nNodes = GetNumNodes(it->second.m_e, it->second);
             it->second.m_faceCurveType = LibUtilities::eNodalTriEvenlySpaced;
             break;
-        case LibUtilities::ePyramid:
-            nNodes = Pyramid::GetNumNodes(it->second);
-            break;
-        case LibUtilities::ePrism:
-            nNodes = Prism::GetNumNodes(it->second);
-            break;
-        case LibUtilities::eHexahedron:
-            nNodes = Hexahedron::GetNumNodes(it->second);
+        case LibUtilities::eTetrahedron:
+            nNodes = GetNumNodes(it->second.m_e, it->second);
+            it->second.m_faceCurveType = LibUtilities::eNodalTriEvenlySpaced;
             break;
         default:
             m_log(FATAL) << "Gmsh file contains an unknown element type"
@@ -1933,14 +2271,16 @@ vector<int> InputGmsh::PyrReordering(ElmtConfig conf)
         return mapping;
     }
 
-    const int totPoints = Pyramid::GetNumNodes(conf);
+    const int totPoints = GetNumNodes(LibUtilities::ePyramid, conf);
     vector<int> interior;
     for (i = mapping.size(); i < totPoints; ++i)
     {
         interior.push_back(i);
     }
 
-    // @TODO: Volume-interior nodes are _wrong_ but we don't use them (yet!)
+    // The interior is a smaller pyramid in gmsh's ordering; a nodal pyramid
+    // wants it walked as a lattice.
+    interior = pyrTensorNodeOrdering(interior, order - 2);
     mapping.insert(mapping.end(), interior.begin(), interior.end());
 
     return mapping;
@@ -1954,7 +2294,6 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
     const int order = conf.m_order;
     const int n     = order - 1;
     const int n2    = n * n;
-    int i, j, k;
 
     vector<int> mapping;
 
@@ -1964,7 +2303,7 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
 
     // Push back vertices.
     mapping.resize(8);
-    for (i = 0; i < 8; ++i)
+    for (int i = 0; i < 8; ++i)
     {
         mapping[i] = i;
     }
@@ -1979,7 +2318,7 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
 
     // Reorder edges.
     int cnt = 8, offset;
-    for (i = 0; i < 12; ++i)
+    for (int i = 0; i < 12; ++i)
     {
         int edge = gmshToNekEdge[i];
         offset   = 8 + n * abs(edge);
@@ -2000,7 +2339,7 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
         }
     }
 
-    if (conf.m_faceNodes == false || n2 == 0)
+    if (!conf.m_faceNodes || n2 == 0)
     {
         return mapping;
     }
@@ -2020,7 +2359,7 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
         StdRegions::eDir1BwdDir1_Dir2FwdDir2,
         StdRegions::eDir1FwdDir1_Dir2FwdDir2};
 
-    for (i = 0; i < 6; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         int face    = gmsh2NekFace[i];
         int offset2 = 8 + 12 * n + i * n2;
@@ -2028,7 +2367,7 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
 
         // Create a list of interior face nodes for this face only.
         vector<int> faceNodes(n2);
-        for (j = 0; j < n2; ++j)
+        for (int j = 0; j < n2; ++j)
         {
             faceNodes[j] = offset2 + j;
         }
@@ -2042,7 +2381,7 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
         if (faceOrient[i] == StdRegions::eDir1FwdDir1_Dir2FwdDir2)
         {
             // Orientation is the same, just copy.
-            for (j = 0; j < n2; ++j)
+            for (int j = 0; j < n2; ++j)
             {
                 mapping[offset + j] = tmp[j];
             }
@@ -2050,9 +2389,9 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
         else if (faceOrient[i] == StdRegions::eDir1FwdDir2_Dir2FwdDir1)
         {
             // Tranposed faces
-            for (j = 0; j < n; ++j)
+            for (int j = 0; j < n; ++j)
             {
-                for (k = 0; k < n; ++k)
+                for (int k = 0; k < n; ++k)
                 {
                     mapping[offset + j * n + k] = tmp[k * n + j];
                 }
@@ -2060,9 +2399,9 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
         }
         else if (faceOrient[i] == StdRegions::eDir1BwdDir1_Dir2FwdDir2)
         {
-            for (j = 0; j < n; ++j)
+            for (int j = 0; j < n; ++j)
             {
-                for (k = 0; k < n; ++k)
+                for (int k = 0; k < n; ++k)
                 {
                     mapping[offset + j * n + k] = tmp[j * n + (n - k - 1)];
                 }
@@ -2070,14 +2409,14 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
         }
     }
 
-    if (conf.m_volumeNodes == false)
+    if (!conf.m_volumeNodes)
     {
         return mapping;
     }
 
     const int totPoints = (order + 1) * (order + 1) * (order + 1);
     vector<int> interior;
-    for (i = 8 + 12 * n + 6 * n2; i < totPoints; ++i)
+    for (int i = 8 + 12 * n + 6 * n2; i < totPoints; ++i)
     {
         interior.push_back(i);
     }

@@ -56,6 +56,10 @@ struct Curve
     /// Points distribution of this curve.
     LibUtilities::PointsType m_ptype;
 };
+
+typedef unique_ptr_objpool<Curve> CurveUniquePtr;
+typedef std::map<int, CurveUniquePtr> CurveMap;
+
 } // namespace Nektar::SpatialDomains
 
 #endif

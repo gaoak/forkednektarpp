@@ -48,7 +48,7 @@ public:
 
     /// Write mesh to output file.
     void Process() override;
-    void GenerateEdgeNodes(NekMesh::EdgeSharedPtr edge)
+    void GenerateEdgeNodes(SpatialDomains::SegGeom *edge)
     {
         v_GenerateEdgeNodes(edge);
     }
@@ -59,7 +59,7 @@ public:
     }
 
 protected:
-    virtual void v_GenerateEdgeNodes(NekMesh::EdgeSharedPtr edge) = 0;
+    virtual void v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge) = 0;
 };
 } // namespace Nektar::NekMesh
 

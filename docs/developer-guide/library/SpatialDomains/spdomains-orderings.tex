@@ -1,0 +1,304 @@
+%
+\section{Node Orderings for Curved Geometry}
+\label{sec:spatialdomains-orderings}
+
+Section \ref{sec:spatialdomains-fundamentals} described how curvature
+information reaches a geometry object: as a list of physical-space point
+positions sampled at a known distribution of points on the reference element,
+from which the modal coefficients of the mapping $\chi(\vec{\xi})$ are
+inferred.  That list lives in a \code{Curve} object, held by
+\code{Geometry::m\_curve}, and consists of a \code{PointsType} naming the
+distribution together with a flat \code{std::vector} of \code{PointGeom}
+pointers.
+
+Being a flat vector, the \code{Curve} carries no information about which node
+sits where on the reference element -- that is implied entirely by the
+\code{PointsType} and by the shape of the geometry.  Getting this ordering
+wrong does not produce an error; it produces a geometry that is subtly and
+silently the wrong shape.  This section therefore documents, shape by shape,
+what the ordering actually is.
+
+The two places that have to agree on it are:
+
+\begin{itemize}
+\item \code{v\_FillGeom()}, which reads a \code{Curve} and interpolates it onto
+  the quadrature points of \code{m\_xmap} to recover the mapping
+  coefficients; and
+\item \code{v\_MakeOrder()}, which does the reverse -- it evaluates the
+  existing mapping and writes out a \code{Curve} at a new (usually higher)
+  polynomial order.
+\end{itemize}
+
+\noindent Both are also the contract with any external mesh source, since a
+\code{Curve} assembled by \code{MeshGraphIO} or by \nek{}'s mesh generator
+\code{NekMesh} must be laid out the same way.
+
+\subsection{Two Orderings: Modal and Nodal}
+\label{sec:spatialdomains-orderings-two}
+
+There are \emph{two} distinct node orderings in use within \nek{}, and the
+difference between them is a frequent source of confusion.  It is deliberate,
+and is a consequence of the order in which the code was written.
+
+\begin{description}
+\item[The modal ordering] is the one described by the \code{edgeVerts} and
+  \code{faceVerts} tables inside the shape-specific geometry classes
+  (\code{TetGeom}, \code{PrismGeom}, and so on).  It is the ordering that
+  falls out naturally from the tensor-product construction of the expansion
+  bases, and is what the vertex, edge, face and interior \emph{modes} of an
+  expansion are numbered against.  It was revised at one point precisely so as
+  to line up with the tensor-product structure.
+
+\item[The nodal ordering] is the ordering emitted by the \code{eNodal*} point
+  distributions in LibUtilities (for example
+  \code{eNodalTetEvenlySpaced}), and consumed by the nodal expansions
+  \code{StdNodalTriExp}, \code{StdNodalTetExp} and \code{StdNodalPrismExp}.
+  It predates the modal ordering above.  \code{NekMesh} was written against
+  it, and so the high-order node ordering in \nek{}'s mesh formats follows the
+  nodal convention.
+\end{description}
+
+The practical consequence is that for the simplicial and prismatic shapes,
+whose curves use a nodal distribution, the layout of a \code{Curve} is
+\emph{not} simply the shape's own \code{edgeVerts} and \code{faceVerts}
+tables read in order.  Assuming that it is will give you an element that is
+correct at the vertices and wrong in the interior.  The known discrepancies
+are called out per shape below; do not assume that others are absent.
+
+A third layer is worth distinguishing from both of the above.  Sections
+\ref{sect:node_ordering} and \ref{sect:HO_node_ordering} document the
+ordering \code{NekMesh} uses internally and in \nek{}'s mesh formats, which
+is a plain concatenation of vertices, then mid-edge nodes, then mid-face
+nodes, then mid-volume nodes, for \emph{every} shape.  That is the nodal
+convention, and for the simplicial and prismatic shapes it is also the
+\code{Curve} layout.  For the tensor-product shapes it is not: a
+quadrilateral or hexahedral \code{Curve} is a tensor grid, and the conversion
+happens on the way in, in \code{GetCurvedNodesQuad()} and its relatives in
+\code{NekMesh/MeshElements/}.  So a concatenated node list from a mesh file
+and the \code{Curve} that ends up on a \code{QuadGeom} are two different
+orderings of the same nodes.
+
+\subsection{The FillGeom / MakeOrder Contract}
+\label{sec:spatialdomains-orderings-contract}
+
+Curvature is shared: an edge node belongs to the \code{SegGeom} for that edge,
+and every element around that edge must see the same \code{PointGeom} object,
+or the mesh will be discontinuous.  \code{v\_MakeOrder()} therefore does not
+evaluate boundary nodes on its own mapping.  It \emph{copies} them from the
+curves of its attached edges and faces, and evaluates only the nodes it
+genuinely owns -- the interior ones.  This has two implications.
+
+First, order of operations matters, and \code{MakeOrder} must be applied
+bottom-up: all edges, then all faces, then all elements.  Each
+\code{v\_MakeOrder()} asserts that the curves it needs are already present.
+
+Second, and less obviously, \textbf{\code{MakeOrder} must never call
+\code{FillGeom}}.  It evaluates the mapping that is already in place, which
+means an unfilled geometry silently yields nodes at the origin; the temptation
+to close that hole by filling on entry should be resisted.  If an attached edge
+or face has already been modified, filling at that point would pull the
+modification into the parent and subtly move the geometry part-way through the
+elevation.  The protocol is instead two separate passes over the whole mesh:
+\textbf{everyone calls \code{FillGeom}, and then everyone calls
+\code{MakeOrder}}.  Callers are responsible for the first pass.
+
+\subsection{Per-Shape Layouts}
+\label{sec:spatialdomains-orderings-shapes}
+
+Throughout, $P$ denotes the number of points along an edge, so that
+$P = \text{order} + 1$, and the reference coordinates are
+$\vec{\xi} = (\xi_1, \xi_2, \xi_3)$.
+
+\subsubsection{SegGeom}
+
+A one-dimensional distribution of $P$ points, running from vertex $0$ to
+vertex $1$:
+%
+$$
+[\, \vec{v}_0,\ \text{interior} \ldots,\ \vec{v}_1 \,].
+$$
+%
+The end points are the vertices themselves, so the distribution must be one
+that includes its end points (a GLL or evenly-spaced distribution, not a Gauss
+one).
+
+\subsubsection{QuadGeom}
+
+A full tensor grid of $P^2$ points.  Grid point $(i,j)$ sits at
+$\vec{\xi} = (\code{px}[j], \code{px}[i])$ and is stored at index
+$i P + j$; that is, $\xi_1$ varies fastest.
+
+The boundary of the grid is copied from the four edge curves, which means the
+vertices come across for free as the ends of those edges.  Only the
+$(P-2)^2$ interior nodes are evaluated.  The four element-local edges traverse
+the grid as follows, with $k$ running along the local edge direction:
+
+\begin{center}
+\begin{tabular}{llll}
+\hline
+Edge & Constraint & $i$ & $j$ \\
+\hline
+0 & $\xi_2 = -1$, $\xi_1$ increasing & $0$     & $k$ \\
+1 & $\xi_1 = +1$, $\xi_2$ increasing & $k$     & $P-1$ \\
+2 & $\xi_2 = +1$, $\xi_1$ decreasing & $P-1$   & $P-1-k$ \\
+3 & $\xi_1 = -1$, $\xi_2$ decreasing & $P-1-k$ & $0$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\paragraph{Trap.}  \code{QuadGeom}'s constructor \emph{inverts}
+\code{m\_eorient[2]} and \code{m\_eorient[3]} after computing them, so that
+those stored values describe the edge relative to the anticlockwise circuit of
+the boundary rather than relative to the element's local edge direction.  Code
+that needs the latter -- as \code{v\_MakeOrder()} does, to decide whether to
+read an edge curve forwards or backwards -- must flip them back.
+
+\subsubsection{TriGeom}
+
+A nodal distribution of $P(P+1)/2$ points, laid out as three vertices, then
+the $P-2$ interior nodes of each of the three edges in \code{edgeVerts} order,
+then the face interior:
+%
+$$
+[\, \underbrace{\vec{v}_0, \vec{v}_1, \vec{v}_2}_{3},\
+     \underbrace{e_0, e_1, e_2}_{3(P-2)},\
+     \underbrace{\text{interior}}_{(P-2)(P-3)/2} \,].
+$$
+
+\paragraph{Trap.}  As with \code{QuadGeom}, the constructor inverts
+\code{m\_eorient[2]}, and \code{v\_MakeOrder()} flips it back.
+
+\subsubsection{HexGeom}
+
+A full tensor grid of $P^3$ points.  Grid point $(d_0, d_1, d_2)$ sits at
+$\vec{\xi} = (\code{px}[d_0], \code{px}[d_1], \code{px}[d_2])$ and is stored
+at index
+%
+$$
+d_0 + P\,(d_1 + P\,d_2),
+$$
+%
+matching the ordering that \code{v\_FillGeom()} hands to \code{Interp3D}.
+
+Because a quadrilateral's curve is itself a full tensor grid including its own
+edge and vertex nodes, copying the six face curves brings across every
+boundary node of the hexahedron, and only the $(P-2)^3$ interior nodes need to
+be evaluated.  Each face's own $(a,b)$ indexing is related to the element's
+view of that face by \code{StdExpansion::ReOrientTracePhysMap}, which for a
+face orientation returns \code{idmap} such that \code{idmap[dest]} is the
+source index; the resulting $(a,b)$ then maps onto element directions
+following \code{v\_GetDir()} and the \code{faceVerts} table:
+
+\begin{center}
+\begin{tabular}{llll}
+\hline
+Face & Constraint & Spans & $(d_0, d_1, d_2)$ \\
+\hline
+0 & $\xi_3 = -1$ & $(\xi_1, \xi_2)$ & $(a,\ b,\ 0)$ \\
+1 & $\xi_2 = -1$ & $(\xi_1, \xi_3)$ & $(a,\ 0,\ b)$ \\
+2 & $\xi_1 = +1$ & $(\xi_2, \xi_3)$ & $(P-1,\ a,\ b)$ \\
+3 & $\xi_2 = +1$ & $(\xi_1, \xi_3)$ & $(a,\ P-1,\ b)$ \\
+4 & $\xi_1 = -1$ & $(\xi_2, \xi_3)$ & $(0,\ a,\ b)$ \\
+5 & $\xi_3 = +1$ & $(\xi_1, \xi_2)$ & $(a,\ b,\ P-1)$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsubsection{TetGeom}
+
+A nodal distribution of $P(P+1)(P+2)/6$ points, laid out as four vertices,
+then the interior of each of the six edges, then the interior of each of the
+four faces in \code{faceVerts} order, then the interior of the element:
+%
+$$
+[\, \underbrace{\vec{v}_{0\ldots3}}_{4},\
+     \underbrace{e_{0\ldots5}}_{6(P-2)},\
+     \underbrace{f_{0\ldots3}}_{4(P-2)(P-3)/2},\
+     \underbrace{\text{interior}}_{\text{remainder}} \,].
+$$
+
+\paragraph{Trap: edge 2 runs backwards.}  This is the clearest instance of the
+modal/nodal divergence of Section
+\ref{sec:spatialdomains-orderings-two}.  \code{TetGeom::edgeVerts[2]} is
+$\{0,2\}$, but the nodal distribution emits its third edge block running from
+vertex $2$ to vertex $0$.  The six blocks are therefore
+%
+$$
+v_0 \! \to \! v_1,\quad v_1 \! \to \! v_2,\quad \mathbf{v_2 \! \to \! v_0},
+\quad v_0 \! \to \! v_3,\quad v_1 \! \to \! v_3,\quad v_2 \! \to \! v_3,
+$$
+%
+and that one block must be traversed against the element's local edge
+direction.  Unlike the triangle and quadrilateral, nothing is flipped in the
+constructor, so \code{m\_eorient[e]} may be used directly for the other five.
+
+\paragraph{Face interiors need aligning.}  A face's nodes are numbered by
+whichever element first constructed the \code{TriGeom}, which need not be this
+one.  Its interior nodes -- the tail of its curve, after the vertex and edge
+blocks -- must therefore be rotated and reflected into this element's view of
+the face before being copied.  \code{HOTriangle<T>::Align()} in
+\code{SpatialDomains/HOAlignment.h} does this, given the face's own vertex IDs
+and the IDs this element expects from \code{faceVerts}.
+
+\subsubsection{PrismGeom}
+
+A nodal distribution of $P(P+1)/2 \cdot P$ points, laid out as six vertices,
+then the interior of each of the nine edges, then the interior of each of the
+five faces in \code{faceVerts} order -- quadrilateral, triangle,
+quadrilateral, triangle, quadrilateral -- and finally the interior of the
+element.
+
+\paragraph{Trap: vertices 2 and 3 are transposed.}  The nodal distribution
+numbers its vertices in raster order, so nodal slot $2$ sits at
+$\vec{\xi} = (-1, 1, -1)$, which is where the standard prism puts vertex $3$.
+The permutation from nodal slot to element vertex is therefore
+%
+$$
+\{0,\ 1,\ 3,\ 2,\ 4,\ 5\}.
+$$
+%
+The nine edge blocks, by contrast, do come in \code{edgeVerts} order and each
+runs along its edge, so there is no block to reverse as there is for the
+tetrahedron.
+
+\paragraph{Mixed faces.}  The triangular faces (1 and 3) are handled as for
+the tetrahedron, with \code{HOTriangle::Align()}.  The quadrilateral faces (0,
+2 and 4) carry a full tensor grid, so they are first reindexed into the
+element's view with \code{ReOrientTracePhysMap} and the interior then taken
+with the first face direction fastest.
+
+\subsubsection{PyrGeom}
+
+The pyramid is the remaining gap.  The nodal infrastructure it needs
+(\code{StdNodalPyrExp} and an associated point distribution) is newer than
+that of the other shapes; once it is available, the layout follows the pattern
+above, with the same two warnings as the prism: the nodal distribution numbers
+its vertices in raster order, transposing vertices $2$ and $3$, and its edge
+blocks $2$ and $3$ are directed $v_3 \! \to \! v_2$ and $v_0 \! \to \! v_3$.
+
+\subsection{Determining an Ordering Empirically}
+\label{sec:spatialdomains-orderings-method}
+
+Since neither of the two orderings is authoritative for every shape, the
+reliable way to establish the layout for a shape is to read it out of the
+point distribution rather than to infer it from a table:
+
+\begin{enumerate}
+\item Ask \code{PointsManager()} for the distribution at a modest order --
+  order $4$ or so, which is high enough to have a non-trivial number of edge,
+  face and interior nodes and low enough to inspect by hand.
+\item For each node in turn, classify it by its reference-space position: how
+  many of the element's faces it lies on tells you whether it is a vertex, an
+  edge node, a face node or an interior node, and which one.
+\item Compare the resulting sequence of blocks against the shape's
+  \code{edgeVerts} and \code{faceVerts} tables, and record every place the two
+  disagree.
+\end{enumerate}
+
+The unit test \code{TestMakeOrder.cpp} in \code{library/UnitTests/}
+\code{SpatialDomains/} exercises the result.  It is worth noting how it does
+so, because the obvious test is vacuous: a single standalone element has
+identity face orientations, so its face-reindexing paths are never taken and a
+per-shape round-trip test passes whether or not they are correct.  The test
+therefore sweeps face orientations explicitly, and each of the reindexing
+paths described above has been confirmed to fail the sweep when removed.

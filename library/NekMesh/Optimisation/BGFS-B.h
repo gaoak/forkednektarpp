@@ -35,8 +35,8 @@
 #ifndef NEKTAR_MESHUTILS_OPTIMISATION_BGFS_H
 #define NEKTAR_MESHUTILS_OPTIMISATION_BGFS_H
 
-#include <NekMesh/CADSystem/CADSystem.h>
 #include <NekMesh/Optimisation/OptimiseObj.h>
+#include <SpatialDomains/CADSystem/CADSystem.h>
 
 namespace Nektar::NekMesh
 {

@@ -11,9 +11,13 @@
             <P PARAM="EPS"      VALUE="0.05"  />
             <P PARAM="Order"    VALUE="3"     />
 
+            <!-- Five layers, not three: the refinement lines take the surface
+                 mesh to about 0.0025 at the trailing edge, and three layers
+                 would put the first at 0.0074. Prisms that much taller than
+                 they are wide invert where vertex normals disagree. -->
             <P PARAM="BndLayerSurfaces"    VALUE="7,8,9" />
             <P PARAM="BndLayerThickness"   VALUE="0.02"  />
-            <P PARAM="BndLayerLayers"      VALUE="3"     />
+            <P PARAM="BndLayerLayers"      VALUE="5"     />
             <P PARAM="BndLayerProgression" VALUE="1.5"   />
         </PARAMETERS>
 

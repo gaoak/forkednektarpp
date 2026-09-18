@@ -42,6 +42,9 @@
 #include <LibUtilities/BasicUtils/Interpolator.h>
 #include <LibUtilities/BasicUtils/PtsField.h>
 
+#include <SpatialDomains/CADSystem/CADCurve.h>
+#include <SpatialDomains/Geometry.h>
+
 typedef Nektar::LibUtilities::PtsFieldSharedPtr PtsFieldSharedPtr;
 
 namespace Nektar::NekMesh
@@ -53,23 +56,31 @@ struct Residual;
 typedef std::shared_ptr<DerivUtil> DerivUtilSharedPtr;
 typedef std::shared_ptr<Residual> ResidualSharedPtr;
 
+/**
+ * @brief A CAD curve to refine towards, paired with its bounding box in the
+ * same {xmin, ymin, zmin, xmax, ymax, zmax} layout as
+ * SpatialDomains::Geometry::GetBoundingBox(), so that the two can be tested
+ * for overlap directly.
+ */
+typedef std::vector<
+    std::pair<SpatialDomains::CADCurveSharedPtr, std::array<NekDouble, 6>>>
+    AdaptCurveVector;
+
 class ElUtilJob;
 
 class ElUtil : public std::enable_shared_from_this<ElUtil>
 {
 public:
-    ElUtil(ElementSharedPtr e, DerivUtilSharedPtr d, ResidualSharedPtr, int n,
-           int o);
+    ElUtil(SpatialDomains::Geometry *e, DerivUtilSharedPtr d, ResidualSharedPtr,
+           int n, int o);
 
     ElUtilJob *GetJob(bool update = false);
-    ElUtilJob *GetAdaptJob(
-        std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-            &adaptCurves,
-        NekDouble scale, NekDouble rad);
+    ElUtilJob *GetAdaptJob(AdaptCurveVector &adaptCurves, NekDouble scale,
+                           NekDouble rad, SpatialDomains::MeshGraph *graph);
 
     int GetId()
     {
-        return m_el->GetId();
+        return m_el->GetGlobalID();
     }
 
     // Leaving these varibles as public for sake of efficiency
@@ -79,12 +90,12 @@ public:
     void Evaluate();
     void InitialMinJac();
 
-    ElementSharedPtr GetEl()
+    SpatialDomains::Geometry *GetEl()
     {
         return m_el;
     }
 
-    int NodeId(int in)
+    int NodeId(SpatialDomains::PointGeom *in)
     {
         return m_idmap[in];
     }
@@ -105,30 +116,31 @@ public:
         UpdateMapping();
     }
 
-    void SetScalingFromInput(NekDouble scale, NekDouble radius,
-                             std::vector<CADCurveSharedPtr> curves)
+    void SetScalingFromInput(
+        NekDouble scale, NekDouble radius,
+        std::vector<SpatialDomains::CADCurveSharedPtr> curves,
+        SpatialDomains::MeshGraph *graph)
     {
         m_radapt       = true;
         m_adapt_scale  = scale;
         m_adapt_radius = radius;
         m_adaptcurves  = curves;
+        m_graph        = graph;
     }
 
-    bool PreUpdateMapping(
-        std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-            &adaptCurves,
-        NekDouble scale, NekDouble rad);
+    bool PreUpdateMapping(AdaptCurveVector &adaptCurves, NekDouble scale,
+                          NekDouble rad, SpatialDomains::MeshGraph *graph);
 
     void UpdateMapping();
 
 private:
     void MappingIdealToRef();
 
-    ElementSharedPtr m_el;
+    SpatialDomains::Geometry *m_el;
     int m_dim;
     int m_mode;
     int m_order;
-    std::map<int, int> m_idmap;
+    std::unordered_map<SpatialDomains::PointGeom *, int> m_idmap;
 
     NekDouble m_scaledJac;
     NekDouble m_minJac;
@@ -143,7 +155,10 @@ private:
     std::vector<std::vector<NekDouble>> m_maps, m_mapsStd;
     // r-adaption
     bool m_radapt;
-    std::vector<CADCurveSharedPtr> m_adaptcurves;
+    std::vector<SpatialDomains::CADCurveSharedPtr> m_adaptcurves;
+    /// Needed to ask which CAD curves a vertex sits on; only set when
+    /// r-adapting against CAD curves.
+    SpatialDomains::MeshGraph *m_graph = nullptr;
     NekDouble m_adapt_scale;
     NekDouble m_adapt_radius;
 };
@@ -152,15 +167,13 @@ typedef std::shared_ptr<ElUtil> ElUtilSharedPtr;
 class ElUtilJob : public Thread::ThreadJob
 {
 public:
-    ElUtilJob(ElUtil *e,
-              std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-                  &adaptCurves,
-              NekDouble scale, NekDouble rad)
+    ElUtilJob(ElUtil *e, AdaptCurveVector &adaptCurves, NekDouble scale,
+              NekDouble rad, SpatialDomains::MeshGraph *graph)
         : el(e), m_update(false), m_adaptCurves(adaptCurves),
           m_adaptScale(scale), m_adaptRad(rad)
     {
-        m_update =
-            el->PreUpdateMapping(m_adaptCurves, m_adaptScale, m_adaptRad);
+        m_update = el->PreUpdateMapping(m_adaptCurves, m_adaptScale, m_adaptRad,
+                                        graph);
     }
 
     ElUtilJob(ElUtil *e, bool update) : el(e), m_update(update)
@@ -180,8 +193,7 @@ public:
 private:
     ElUtil *el;
     bool m_update;
-    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-        m_adaptCurves;
+    AdaptCurveVector m_adaptCurves;
     NekDouble m_adaptScale;
     NekDouble m_adaptRad;
 };

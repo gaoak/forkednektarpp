@@ -57,12 +57,17 @@ void OutputSTL::Process()
     std::string filename = m_config["outfile"].as<std::string>();
     m_log(VERBOSE) << "Writing STL file '" << filename << "'." << endl;
 
-    if (m_mesh->m_expDim != 2 && m_mesh->m_expDim != 3)
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+
+    if (meshDim != 2 && meshDim != 3)
     {
         m_log(FATAL) << "Only 2D or 3D meshes are supported." << endl;
     }
 
-    bool stream_open = OpenStream();
+    // Binary, despite the contents being ASCII: STL is consumed by other
+    // tools and compared byte-for-byte by the regression test, so the line
+    // endings must not depend on the platform we write it from.
+    bool stream_open = OpenStream(true);
     if (!stream_open)
     {
         return;
@@ -70,84 +75,68 @@ void OutputSTL::Process()
 
     m_mshFile << std::scientific << setprecision(8);
 
-    if (m_mesh->m_expDim == 2)
-    {
-        vector<ElementSharedPtr> &el = m_mesh->m_element[2];
+    // One facet per element: the outward normal from its first three
+    // vertices, then the vertices themselves.
+    auto writeFacet = [&](SpatialDomains::Geometry *geom) {
+        const int nVerts = geom->GetNumVerts();
+        ASSERTL0(nVerts >= 3, "An STL facet needs at least three vertices");
 
+        auto v = [&](int i, int d) { return (*geom->GetVertex(i))[d]; };
+
+        std::array<NekDouble, 3> n;
+        for (int d = 0; d < 3; ++d)
+        {
+            const int a = (d + 1) % 3, b = (d + 2) % 3;
+            n[d] = (v(1, a) - v(0, a)) * (v(2, b) - v(0, b)) -
+                   (v(1, b) - v(0, b)) * (v(2, a) - v(0, a));
+        }
+
+        NekDouble mt = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        for (int d = 0; d < 3; ++d)
+        {
+            n[d] /= mt;
+        }
+
+        m_mshFile << "facet normal " << n[0] << " " << n[1] << " " << n[2]
+                  << endl;
+        m_mshFile << "outer loop" << endl;
+        for (int j = 0; j < nVerts; j++)
+        {
+            m_mshFile << "vertex " << v(j, 0) << " " << v(j, 1) << " "
+                      << v(j, 2) << endl;
+        }
+        m_mshFile << "endloop" << endl << "endfacet" << endl;
+    };
+
+    if (meshDim == 2)
+    {
         m_mshFile << "solid comp:" << 0 << endl;
 
-        for (int i = 0; i < el.size(); ++i)
+        for ([[maybe_unused]] auto &[geom, tag] : m_mesh->m_elementTags[2])
         {
-            vector<NodeSharedPtr> ns = el[i]->GetVertexList();
-
-            Array<OneD, NekDouble> tmp(3, 0.0);
-            tmp[0] = (ns[1]->m_y - ns[0]->m_y) * (ns[2]->m_z - ns[0]->m_z) -
-                     (ns[1]->m_z - ns[0]->m_z) * (ns[2]->m_y - ns[0]->m_y);
-            tmp[1] = (ns[1]->m_z - ns[0]->m_z) * (ns[2]->m_x - ns[0]->m_x) -
-                     (ns[1]->m_x - ns[0]->m_x) * (ns[2]->m_z - ns[0]->m_z);
-            tmp[2] = (ns[1]->m_x - ns[0]->m_x) * (ns[2]->m_y - ns[0]->m_y) -
-                     (ns[1]->m_y - ns[0]->m_y) * (ns[2]->m_x - ns[0]->m_x);
-
-            NekDouble mt = tmp[0] * tmp[0] + tmp[1] * tmp[1] + tmp[2] * tmp[2];
-            mt           = sqrt(mt);
-            tmp[0] /= mt;
-            tmp[1] /= mt;
-            tmp[2] /= mt;
-
-            m_mshFile << "facet normal " << tmp[0] << " " << tmp[1] << " "
-                      << tmp[2] << endl;
-            m_mshFile << "outer loop" << endl;
-            for (int j = 0; j < ns.size(); j++)
-            {
-                m_mshFile << "vertex " << ns[j]->m_x << " " << ns[j]->m_y << " "
-                          << ns[j]->m_z << endl;
-            }
-            m_mshFile << "endloop" << endl << "endfacet" << endl;
+            writeFacet(geom);
         }
 
         m_mshFile << "endsolid" << endl;
         return;
     }
 
-    for (auto &it : m_mesh->m_composite)
+    // In 3D the surface is whatever the two-dimensional composites hold.
+    for (auto &it : m_mesh->m_meshGraph->GetComposites())
     {
-        if (it.second->m_tag != "F")
+        if (it.second->m_geomVec.empty() ||
+            it.second->m_geomVec[0]->GetShapeDim() != 2)
         {
             continue;
         }
 
-        m_mshFile << "solid comp:" << it.second->m_id << endl;
+        m_mshFile << "solid comp:" << it.first << endl;
 
-        vector<ElementSharedPtr> el = it.second->m_items;
-
-        for (int i = 0; i < el.size(); i++)
+        for (auto &geom : it.second->m_geomVec)
         {
-            vector<NodeSharedPtr> ns = el[i]->GetVertexList();
-
-            Array<OneD, NekDouble> tmp(3, 0.0);
-            tmp[0] = (ns[1]->m_y - ns[0]->m_y) * (ns[2]->m_z - ns[0]->m_z) -
-                     (ns[1]->m_z - ns[0]->m_z) * (ns[2]->m_y - ns[0]->m_y);
-            tmp[1] = (ns[1]->m_z - ns[0]->m_z) * (ns[2]->m_x - ns[0]->m_x) -
-                     (ns[1]->m_x - ns[0]->m_x) * (ns[2]->m_z - ns[0]->m_z);
-            tmp[2] = (ns[1]->m_x - ns[0]->m_x) * (ns[2]->m_y - ns[0]->m_y) -
-                     (ns[1]->m_y - ns[0]->m_y) * (ns[2]->m_x - ns[0]->m_x);
-
-            NekDouble mt = tmp[0] * tmp[0] + tmp[1] * tmp[1] + tmp[2] * tmp[2];
-            mt           = sqrt(mt);
-            tmp[0] /= mt;
-            tmp[1] /= mt;
-            tmp[2] /= mt;
-
-            m_mshFile << "facet normal " << tmp[0] << " " << tmp[1] << " "
-                      << endl;
-            m_mshFile << "outer loop" << endl;
-            for (int j = 0; j < ns.size(); j++)
-            {
-                m_mshFile << "vertex " << ns[j]->m_x << " " << ns[j]->m_y << " "
-                          << ns[j]->m_z << endl;
-            }
-            m_mshFile << "endloop" << endl << "endfacet" << endl;
+            writeFacet(geom);
         }
+
         m_mshFile << "endsolid" << endl;
     }
 }

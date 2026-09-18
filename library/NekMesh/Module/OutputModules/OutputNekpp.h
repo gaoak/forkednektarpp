@@ -61,21 +61,6 @@ public:
     {
         return "OutputNekpp";
     }
-
-private:
-    LibUtilities::Interpreter m_strEval;
-
-    void TransferVertices(SpatialDomains::MeshGraphSharedPtr graph);
-    void TransferEdges(
-        SpatialDomains::MeshGraphSharedPtr graph,
-        std::unordered_map<int, SpatialDomains::SegGeom *> &edgeMap);
-    void TransferFaces(
-        SpatialDomains::MeshGraphSharedPtr graph,
-        std::unordered_map<int, SpatialDomains::SegGeom *> &edgeMap);
-    void TransferElements(SpatialDomains::MeshGraphSharedPtr graph);
-    void TransferCurves(SpatialDomains::MeshGraphSharedPtr graph);
-    void TransferComposites(SpatialDomains::MeshGraphSharedPtr graph);
-    void TransferDomain(SpatialDomains::MeshGraphSharedPtr graph);
 };
 } // namespace Nektar::NekMesh
 

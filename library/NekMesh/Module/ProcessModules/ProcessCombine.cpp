@@ -34,11 +34,38 @@
 
 #include "ProcessCombine.h"
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <LibUtilities/BasicUtils/HashUtils.hpp>
+#include <LibUtilities/BasicUtils/RealComparison.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <NekMesh/MeshElements/Element.h>
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
+
+namespace
+{
+// @TODO: Replicates master's coordinate-based NodeHash with bitwise equality.
+// Consider adding a tolerance for non-bitwise-identical coincident nodes.
+struct PointHash
+{
+    std::size_t operator()(Nektar::SpatialDomains::PointGeom *const p) const
+    {
+        return Nektar::hash_combine((*p)(0), (*p)(1), (*p)(2));
+    }
+};
+struct PointEqual
+{
+    bool operator()(Nektar::SpatialDomains::PointGeom *const p1,
+                    Nektar::SpatialDomains::PointGeom *const p2) const
+    {
+        return Nektar::LibUtilities::IsRealEqual((*p1)(0), (*p2)(0)) &&
+               Nektar::LibUtilities::IsRealEqual((*p1)(1), (*p2)(1)) &&
+               Nektar::LibUtilities::IsRealEqual((*p1)(2), (*p2)(2));
+    }
+};
+using PointSet = std::unordered_set<Nektar::SpatialDomains::PointGeom *,
+                                    PointHash, PointEqual>;
+} // namespace
 
 namespace Nektar::NekMesh
 {
@@ -52,6 +79,16 @@ ProcessCombine::ProcessCombine(MeshSharedPtr m) : ProcessModule(m)
 {
     m_config["file"] = ConfigOption(
         false, "", "Second mesh file to be combined with the input mesh file.");
+    m_config["hashpos"] = ConfigOption(
+        true, "0",
+        "Deduplicate coincident vertices by position. When false (default), "
+        "all vertices, edges, faces, and elements are merged without any "
+        "deduplication.");
+    m_config["delintbnd"] = ConfigOption(
+        true, "0",
+        "Delete internal boundaries between the two meshes. Requires "
+        "hashpos=true, since boundary identification relies on vertex "
+        "deduplication to detect shared faces.");
 }
 
 void ProcessCombine::Process()
@@ -128,180 +165,384 @@ void ProcessCombine::Process()
 
     // Run second input module
     mod->Process();
-    MeshSharedPtr mesh2 = mod->GetMesh();
+    MeshSharedPtr mesh2                       = mod->GetMesh();
+    SpatialDomains::MeshGraphSharedPtr graph1 = m_mesh->m_meshGraph;
+    SpatialDomains::MeshGraphSharedPtr graph2 = mesh2->m_meshGraph;
 
     // Check dimensions of both meshes are the same
-    ASSERTL0(m_mesh->m_expDim == mesh2->m_expDim,
+    int meshDim = graph1->GetMeshDimension();
+    ASSERTL0(meshDim == graph2->GetMeshDimension(),
              "The expansion dimensions of the meshes being combined must be "
              "the same.")
 
-    // Renumber vertices and copy in to m_vertexSet
-    int vid = m_mesh->m_vertexSet.size();
-    for (auto &elmt : mesh2->m_element[m_mesh->m_expDim])
+    // geomRemap maps every graph2 Geometry* to its canonical graph1 equivalent.
+    // Shared sub-elements map to the pre-existing graph1 ptr; new ones map to
+    // themselves (valid after extraction since unique_ptr move doesn't
+    // relocate).
+    std::unordered_map<SpatialDomains::Geometry *, SpatialDomains::Geometry *>
+        geomRemap;
+
+    bool hashByPos = m_config["hashpos"].as<bool>();
+
+    // Move mesh2 vertices into mesh1, deduplicating by position if
+    // hashpos=true.
+    int vid = graph1->GetNumElements(0);
+    if (hashByPos)
     {
-        for (int j = 0; j < elmt->GetVertexCount(); ++j)
+        PointSet pointSet;
+        for (auto [id, point] : graph1->GetGeomMap<SpatialDomains::PointGeom>())
         {
-            pair<NodeSet::iterator, bool> testIns =
-                m_mesh->m_vertexSet.insert(elmt->GetVertex(j));
-
-            if (testIns.second)
-            {
-                (*testIns.first)->m_id = vid++;
-            }
-
-            elmt->SetVertex(j, *testIns.first);
+            pointSet.insert(point);
         }
-    }
 
-    // Renumber edges and copy in to m_edgeSet
-    int eid = m_mesh->m_edgeSet.size();
-    for (auto &elmt : mesh2->m_element[m_mesh->m_expDim])
-    {
-        for (int j = 0; j < elmt->GetEdgeCount(); ++j)
+        for (auto [oldID, point] :
+             graph2->GetGeomMap<SpatialDomains::PointGeom>())
         {
-            EdgeSharedPtr ed = elmt->GetEdge(j);
-            pair<EdgeSet::iterator, bool> testIns =
-                m_mesh->m_edgeSet.insert(ed);
-
-            if (testIns.second)
+            auto [it, inserted] = pointSet.insert(point);
+            if (!inserted)
             {
-                EdgeSharedPtr ed2 = *testIns.first;
-                ed2->m_id         = eid++;
-                // ed2->m_elLink.push_back(
-                //        pair<ElementSharedPtr, int>(elmt, j));
+                geomRemap[point] = *it;
             }
             else
             {
-                EdgeSharedPtr e2 = *(testIns.first);
-                elmt->SetEdge(j, e2);
-                if (e2->m_edgeNodes.size() == 0 && ed->m_edgeNodes.size() > 0)
-                {
-                    e2->m_curveType = ed->m_curveType;
-                    e2->m_edgeNodes = ed->m_edgeNodes;
-
-                    // Reverse nodes if appropriate.
-                    if (e2->m_n1->m_id != ed->m_n1->m_id)
-                    {
-                        reverse(e2->m_edgeNodes.begin(), e2->m_edgeNodes.end());
-                    }
-                }
-
-                // if (ed->m_parentCAD)
-                //{
-                //    e2->m_parentCAD = ed->m_parentCAD;
-                //}
-
-                // Update edge to element map.
-                // e2->m_elLink.push_back(
-                //        pair<ElementSharedPtr, int>(elmt, j));
+                graph1->AddGeom<SpatialDomains::PointGeom>(
+                    vid, graph2->ExtractGeom<SpatialDomains::PointGeom>(oldID));
+                point->SetGlobalID(vid++);
+                geomRemap[point] = point;
             }
-
-            elmt->SetEdge(j, *testIns.first);
         }
     }
-
-    // @TODO: Create links for 1D elements?
-
-    // Renumber faces and copy in to m_faceSet
-    int fid = m_mesh->m_faceSet.size();
-    for (auto &elmt : mesh2->m_element[m_mesh->m_expDim])
+    else
     {
-        for (int j = 0; j < elmt->GetFaceCount(); ++j)
+        for (auto [oldID, point] :
+             graph2->GetGeomMap<SpatialDomains::PointGeom>())
         {
-            pair<FaceSet::iterator, bool> testIns =
-                m_mesh->m_faceSet.insert(elmt->GetFace(j));
-
-            if (testIns.second)
-            {
-                (*(testIns.first))->m_id = fid++;
-                // Update face to element map.
-                //(*(testIns.first))->m_elLink.push_back(
-                //        pair<ElementSharedPtr,int>(elmt,j));
-            }
-            else
-            {
-                // Update face to element map.
-                //(*(testIns.first))->m_elLink.push_back(
-                //        pair<ElementSharedPtr,int>(elmt,j));
-            }
-
-            elmt->SetFace(j, *testIns.first);
+            graph1->AddGeom<SpatialDomains::PointGeom>(
+                vid, graph2->ExtractGeom<SpatialDomains::PointGeom>(oldID));
+            point->SetGlobalID(vid++);
+            geomRemap[point] = point;
         }
     }
 
-    // @TODO: Create links for 2D elements?
-
-    // Renumber elements and copy in to m_element
-    auto &elmts = mesh2->m_element;
-    for (int d = 0; d < 4; ++d)
+    // Move mesh2 edges into mesh1, deduplicating via m_edgeSet.
+    int eid = graph1->GetNumElements(1);
+    for (auto [oldID, edge] : graph2->GetGeomMap<SpatialDomains::SegGeom>())
     {
-        int numEl  = m_mesh->m_element[d].size();
-        auto elVec = elmts[d];
-        for (auto &el : elVec)
+        for (int i = 0; i < 2; i++)
         {
-            el->SetId(numEl++);
-            m_mesh->m_element[d].emplace_back(el);
+            edge->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                   geomRemap.at(edge->GetVertex(i))));
+        }
+        std::pair<int, int> edgeKey(edge->GetVertex(0)->GetGlobalID(),
+                                    edge->GetVertex(1)->GetGlobalID());
+        auto [edgeIt, edgeInserted] = m_mesh->m_edgeSet.emplace(edgeKey, edge);
+        if (!edgeInserted)
+        {
+            geomRemap[edge] = edgeIt->second;
+        }
+        else
+        {
+            graph1->AddGeom<SpatialDomains::SegGeom>(
+                eid, graph2->ExtractGeom<SpatialDomains::SegGeom>(
+                         edge->GetGlobalID()));
+            edge->SetGlobalID(eid);
+            if (edge->GetCurve() != nullptr)
+            {
+                edge->GetCurve()->m_curveID = eid;
+                graph1->GetCurvedEdges()[eid] =
+                    std::move(graph2->GetCurvedEdges()[oldID]);
+            }
+            geomRemap[edge] = edge;
+            eid++;
         }
     }
 
-    // Renumber composites and copy in to m_composite
+    // Move mesh2 faces into mesh1, deduplicating via m_faceSet.
+    int fid = graph1->GetNumElements(2);
+    for (auto [oldID, tri] : graph2->GetGeomMap<SpatialDomains::TriGeom>())
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            tri->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                  geomRemap.at(tri->GetVertex(i))));
+            tri->SetEdge(i, static_cast<SpatialDomains::SegGeom *>(
+                                geomRemap.at(tri->GetEdge(i))));
+        }
+        std::array<int, 4> faceKey({tri->GetVertex(0)->GetGlobalID(),
+                                    tri->GetVertex(1)->GetGlobalID(),
+                                    tri->GetVertex(2)->GetGlobalID(), -1});
+        auto [faceIt, faceInserted] = m_mesh->m_faceSet.emplace(faceKey, tri);
+        if (!faceInserted)
+        {
+            geomRemap[tri] = faceIt->second;
+        }
+        else
+        {
+            graph1->AddGeom<SpatialDomains::TriGeom>(
+                fid, graph2->ExtractGeom<SpatialDomains::TriGeom>(
+                         tri->GetGlobalID()));
+            tri->SetGlobalID(fid);
+            if (tri->GetCurve() != nullptr)
+            {
+                tri->GetCurve()->m_curveID = fid;
+                graph1->GetCurvedFaces()[fid] =
+                    std::move(graph2->GetCurvedFaces()[oldID]);
+            }
+            geomRemap[tri] = tri;
+            fid++;
+        }
+    }
+    for (auto [oldID, quad] : graph2->GetGeomMap<SpatialDomains::QuadGeom>())
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            quad->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                   geomRemap.at(quad->GetVertex(i))));
+            quad->SetEdge(i, static_cast<SpatialDomains::SegGeom *>(
+                                 geomRemap.at(quad->GetEdge(i))));
+        }
+        std::array<int, 4> faceKey({quad->GetVertex(0)->GetGlobalID(),
+                                    quad->GetVertex(1)->GetGlobalID(),
+                                    quad->GetVertex(2)->GetGlobalID(),
+                                    quad->GetVertex(3)->GetGlobalID()});
+        auto [faceIt, faceInserted] = m_mesh->m_faceSet.emplace(faceKey, quad);
+        if (!faceInserted)
+        {
+            geomRemap[quad] = faceIt->second;
+        }
+        else
+        {
+            graph1->AddGeom<SpatialDomains::QuadGeom>(
+                fid, graph2->ExtractGeom<SpatialDomains::QuadGeom>(
+                         quad->GetGlobalID()));
+            quad->SetGlobalID(fid);
+            if (quad->GetCurve() != nullptr)
+            {
+                quad->GetCurve()->m_curveID = fid;
+                graph1->GetCurvedFaces()[fid] =
+                    std::move(graph2->GetCurvedFaces()[oldID]);
+            }
+            geomRemap[quad] = quad;
+            fid++;
+        }
+    }
+
+    // Move mesh2 elements into mesh1, redirecting all sub-element pointers.
+    int elid = graph1->GetNumElements(3);
+    for (auto [oldID, tet] : graph2->GetGeomMap<SpatialDomains::TetGeom>())
+    {
+        for (int i = 0; i < tet->GetNumVerts(); i++)
+        {
+            tet->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                  geomRemap.at(tet->GetVertex(i))));
+        }
+        for (int i = 0; i < tet->GetNumEdges(); i++)
+        {
+            tet->SetEdge(i, static_cast<SpatialDomains::SegGeom *>(
+                                geomRemap.at(tet->GetEdge(i))));
+        }
+        for (int i = 0; i < tet->GetNumFaces(); i++)
+        {
+            tet->SetFace(i, static_cast<SpatialDomains::TriGeom *>(
+                                geomRemap.at(tet->GetFace(i))));
+        }
+        graph1->AddGeom<SpatialDomains::TetGeom>(
+            elid,
+            graph2->ExtractGeom<SpatialDomains::TetGeom>(tet->GetGlobalID()));
+        tet->SetGlobalID(elid++);
+    }
+    for (auto [oldID, pyr] : graph2->GetGeomMap<SpatialDomains::PyrGeom>())
+    {
+        for (int i = 0; i < pyr->GetNumVerts(); i++)
+        {
+            pyr->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                  geomRemap.at(pyr->GetVertex(i))));
+        }
+        for (int i = 0; i < pyr->GetNumEdges(); i++)
+        {
+            pyr->SetEdge(i, static_cast<SpatialDomains::SegGeom *>(
+                                geomRemap.at(pyr->GetEdge(i))));
+        }
+        for (int i = 0; i < pyr->GetNumFaces(); i++)
+        {
+            pyr->SetFace(i, static_cast<SpatialDomains::Geometry2D *>(
+                                geomRemap.at(pyr->GetFace(i))));
+        }
+        graph1->AddGeom<SpatialDomains::PyrGeom>(
+            elid,
+            graph2->ExtractGeom<SpatialDomains::PyrGeom>(pyr->GetGlobalID()));
+        pyr->SetGlobalID(elid++);
+    }
+    for (auto [oldID, prism] : graph2->GetGeomMap<SpatialDomains::PrismGeom>())
+    {
+        for (int i = 0; i < prism->GetNumVerts(); i++)
+        {
+            prism->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                    geomRemap.at(prism->GetVertex(i))));
+        }
+        for (int i = 0; i < prism->GetNumEdges(); i++)
+        {
+            prism->SetEdge(i, static_cast<SpatialDomains::SegGeom *>(
+                                  geomRemap.at(prism->GetEdge(i))));
+        }
+        for (int i = 0; i < prism->GetNumFaces(); i++)
+        {
+            prism->SetFace(i, static_cast<SpatialDomains::Geometry2D *>(
+                                  geomRemap.at(prism->GetFace(i))));
+        }
+        graph1->AddGeom<SpatialDomains::PrismGeom>(
+            elid, graph2->ExtractGeom<SpatialDomains::PrismGeom>(
+                      prism->GetGlobalID()));
+        prism->SetGlobalID(elid++);
+    }
+    for (auto [oldID, hex] : graph2->GetGeomMap<SpatialDomains::HexGeom>())
+    {
+        for (int i = 0; i < hex->GetNumVerts(); i++)
+        {
+            hex->SetVertex(i, static_cast<SpatialDomains::PointGeom *>(
+                                  geomRemap.at(hex->GetVertex(i))));
+        }
+        for (int i = 0; i < hex->GetNumEdges(); i++)
+        {
+            hex->SetEdge(i, static_cast<SpatialDomains::SegGeom *>(
+                                geomRemap.at(hex->GetEdge(i))));
+        }
+        for (int i = 0; i < hex->GetNumFaces(); i++)
+        {
+            hex->SetFace(i, static_cast<SpatialDomains::QuadGeom *>(
+                                geomRemap.at(hex->GetFace(i))));
+        }
+        graph1->AddGeom<SpatialDomains::HexGeom>(
+            elid,
+            graph2->ExtractGeom<SpatialDomains::HexGeom>(hex->GetGlobalID()));
+        hex->SetGlobalID(elid++);
+    }
+
+    // Update composite geom vectors to use graph1 pointers.
+    for (auto &[id, comp] : graph2->GetComposites())
+    {
+        for (auto &g : comp->m_geomVec)
+        {
+            if (auto it = geomRemap.find(g); it != geomRemap.end())
+            {
+                g = it->second;
+            }
+        }
+    }
+
+    // Renumber composites and copy in
     std::map<int, int> compRenumber;
-    for (int d = 0; d <= m_mesh->m_expDim; ++d)
+    for (auto &[id, comp] : graph2->GetComposites())
     {
-        vector<ElementSharedPtr> &elmt = m_mesh->m_element[d];
-        for (int i = elmt.size() - mesh2->m_element[d].size(); i < elmt.size();
-             ++i) // for number of elements added by mesh 2
+        int newId    = id;
+        auto findKey = compRenumber.find(id);
+        if (findKey != compRenumber.end())
         {
-            CompositeMap::iterator it;
-            unsigned int tagid = elmt[i]->GetTagList()[0];
-
-            auto findKey = compRenumber.find(elmt[i]->GetTagList()[0]);
-            if (findKey != compRenumber.end())
+            newId = findKey->second;
+        }
+        else
+        {
+            while (graph1->GetComposites().count(newId) ||
+                   (newId != id && graph2->GetComposites().count(newId)))
             {
-                tagid = findKey->second;
+                newId++;
+            }
+            compRenumber[id] = newId;
+        }
+        graph1->GetComposites()[newId] = comp;
+    }
+
+    bool deleteInteriorBnds = m_config["delintbnd"].as<bool>();
+    std::unordered_set<SpatialDomains::Geometry *> removeBnd;
+    // Copy over tags, remapping shared-element keys and composite IDs
+    for (int d = 0; d <= 3; d++)
+    {
+        for (auto &[geom, tag] : mesh2->m_elementTags[d])
+        {
+            auto it     = geomRemap.find(geom);
+            auto *canon = (it != geomRemap.end()) ? it->second : geom;
+
+            if (deleteInteriorBnds && d == meshDim - 1 &&
+                m_mesh->m_elementTags[d].find(canon) !=
+                    m_mesh->m_elementTags[d].end())
+            {
+                removeBnd.insert(canon);
             }
             else
             {
-                // Checks if composite tag is already defined in mesh 1
-                while (m_mesh->m_composite.find(tagid) !=
-                       m_mesh->m_composite.end())
-                {
-                    tagid++;
-                    // Checks if trying to replace the tag with a tag already
-                    // defined in mesh 2
-                    if (mesh2->m_composite.find(tagid) !=
-                        mesh2->m_composite.end())
-                    {
-                        tagid++;
-                    }
-                }
-
-                compRenumber[elmt[i]->GetTagList()[0]] = tagid;
+                m_mesh->m_elementTags[d][canon] = compRenumber.at(tag);
             }
-
-            it = m_mesh->m_composite.find(tagid);
-            if (it == m_mesh->m_composite.end())
-            {
-                CompositeSharedPtr tmp =
-                    std::shared_ptr<Composite>(new Composite());
-                pair<CompositeMap::iterator, bool> testIns;
-                tmp->m_id  = tagid;
-                tmp->m_tag = elmt[i]->GetTag();
-                if (mesh2->m_faceLabels.count(tmp->m_id) != 0)
-                {
-                    tmp->m_label = mesh2->m_faceLabels[tmp->m_id];
-                }
-
-                testIns = m_mesh->m_composite.insert(
-                    pair<unsigned int, CompositeSharedPtr>(tagid, tmp));
-                it = testIns.first;
-            }
-
-            elmt[i]->GetTagList()[0] = tagid;
-            it->second->m_items.push_back(elmt[i]);
         }
     }
 
+    if (deleteInteriorBnds)
+    {
+        // Delete removed boundaries from element tags and composite
+        for (auto it = graph1->GetComposites().begin();
+             it != graph1->GetComposites().end();)
+        {
+            auto &[id, comp] = *it;
+            if (comp->m_geomVec[0]->GetShapeDim() != meshDim - 1)
+            {
+                ++it;
+                continue;
+            }
+
+            std::vector<SpatialDomains::Geometry *> newGeomVec;
+            for (auto &geom : comp->m_geomVec)
+            {
+                if (removeBnd.find(geom) == removeBnd.end())
+                {
+                    newGeomVec.push_back(geom);
+                }
+                else
+                {
+                    m_mesh->m_elementTags[meshDim - 1].erase(geom);
+                }
+            }
+
+            if (newGeomVec.size() == 0)
+            {
+                it = graph1->GetComposites().erase(it);
+            }
+            else
+            {
+                comp->m_geomVec = newGeomVec;
+                ++it;
+            }
+        }
+    }
+
+    // Copy over domains, updating map keys
+    int newID = 0;
+    for (auto &[id, oldDomain] : graph2->GetDomain())
+    {
+        while (graph1->GetDomain().count(newID))
+        {
+            newID++;
+        }
+        SpatialDomains::CompositeMap newDomain;
+        for (auto &[oldID, comp] : oldDomain)
+        {
+            newDomain[compRenumber[oldID]] = comp;
+        }
+        graph1->GetDomain()[newID] = newDomain;
+    }
+
+    // Transfer graph2 curve nodes into graph1 so Curve::m_points raw pointers
+    // don't dangle when mesh2 goes out of scope.
+    for (auto &node : graph2->GetAllCurveNodes())
+    {
+        graph1->GetAllCurveNodes().push_back(std::move(node));
+    }
+
+    for (auto it = compRenumber.begin(); it != compRenumber.end();)
+    {
+        bool removed = graph1->GetComposites().find(it->second) ==
+                       graph1->GetComposites().end();
+        it = (removed || it->first == it->second) ? compRenumber.erase(it)
+                                                  : std::next(it);
+    }
     if (!compRenumber.empty())
     {
         m_log << "Duplicate composite IDs from mesh 1 detected in mesh 2."
@@ -310,11 +551,8 @@ void ProcessCombine::Process()
 
         for (auto &cIt : compRenumber)
         {
-            if (cIt.first != cIt.second)
-            {
-                m_log << "- C[" << cIt.first << "] => "
-                      << "C[" << cIt.second << "]" << endl;
-            }
+            m_log << "- C[" << cIt.first << "] => "
+                  << "C[" << cIt.second << "]" << endl;
         }
     }
 }

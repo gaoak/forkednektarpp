@@ -35,14 +35,15 @@
 #include <algorithm>
 #include <list>
 
-#include <NekMesh/CADSystem/CADCurve.h>
-#include <NekMesh/CADSystem/CADSurf.h>
 #include <NekMesh/Optimisation/BGFS-B.h>
 #include <NekMesh/SurfaceMeshing/HOSurfaceMesh.h>
 #include <NekMesh/SurfaceMeshing/OptimiseFunctions.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADSurf.h>
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LocalRegions/MatrixKey.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -56,10 +57,9 @@ HOSurfaceMesh::HOSurfaceMesh(MeshSharedPtr m) : ProcessModule(m)
 {
     m_config["no_opti"] =
         ConfigOption(false, "0", "Disable edge node optimisation.");
+    m_config["order"] = ConfigOption(false, "4", "order for mesh curving.");
     m_config["third_party"] =
-        ConfigOption(false, "0",
-                     "The mesh comes from a third-party source or the "
-                     "CADreconstruction/ProjectCAD was used beforehand.");
+        ConfigOption(false, "0", "When third-party linear meshes are used.");
 }
 
 HOSurfaceMesh::~HOSurfaceMesh()
@@ -68,31 +68,43 @@ HOSurfaceMesh::~HOSurfaceMesh()
 
 void HOSurfaceMesh::Process()
 {
-    m_log(VERBOSE) << "High-order surface meshing:" << endl;
+    // Order
+    if (m_config["order"].beenSet)
+    {
+        m_order   = m_config["order"].as<int>();
+        m_nummode = m_order + 1;
+    }
 
-    LibUtilities::PointsKey ekey(m_mesh->m_nummode,
+    // The order used to be read from Mesh::m_nummode, which every caller had
+    // to set beforehand. It is a module option now, so a pipeline assembled
+    // by hand has to pass it: InputMCF registers it from the .mcf's Order
+    // parameter. Without it m_nummode is still -1, which reaches the points
+    // manager below as a request for -1 points and fails as a bad allocation.
+    if (m_nummode < 2)
+    {
+        m_log(FATAL) << "High-order surface meshing needs an order: pass "
+                     << "order=N to this module." << endl;
+    }
+
+    m_log(VERBOSE) << "High-order surface meshing order =  " << m_order << endl;
+    LibUtilities::PointsKey ekey(m_nummode,
                                  LibUtilities::eGaussLobattoLegendre);
     Array<OneD, NekDouble> gll;
 
     LibUtilities::PointsManager()[ekey]->GetPoints(gll);
 
-    LibUtilities::PointsKey pkey(m_mesh->m_nummode,
-                                 LibUtilities::eNodalTriElec);
+    LibUtilities::PointsKey pkey(m_nummode, LibUtilities::eNodalTriElec);
+    LibUtilities::PointsKey qkey(m_nummode,
+                                 LibUtilities::eGaussLobattoLegendre);
 
     Array<OneD, NekDouble> u, v;
 
     int cntBreak = 0;
 
-    int nq = m_mesh->m_nummode;
-
+    // N-quadrature points
+    int nq = m_order + 1;
+    // N all Triangular points
     int np = nq * (nq + 1) / 2;
-
-    int ni = (nq - 2) * (nq - 3) / 2;
-
-    int npq = nq * nq;
-
-    int niq = npq - 4 - 4 * (nq - 2);
-
     LibUtilities::PointsManager()[pkey]->GetPoints(u, v);
 
     // HO surface optimisation eneabled by default
@@ -101,99 +113,66 @@ void HOSurfaceMesh::Process()
     // loop over all the faces in the surface mesh, check all three edges for
     // high order info, if nothing high-order the edge.
 
-    EdgeSet surfaceEdges;
-    EdgeSet completedEdges;
+    EdgeMap surfaceEdges;
+    EdgeMap completedEdges;
 
-    for (int i = 0; i < m_mesh->m_element[2].size(); i++)
+    for (auto &[elmt, tag] : m_mesh->m_elementTags[2])
     {
-        vector<EdgeSharedPtr> es = m_mesh->m_element[2][i]->GetEdgeList();
-        for (int j = 0; j < es.size(); j++)
+        for (int j = 0; j < elmt->GetNumEdges(); j++)
         {
-            surfaceEdges.insert(es[j]);
-            if (es[j]->m_edgeNodes.size() != 0)
+            auto *edge =
+                static_cast<SpatialDomains::SegGeom *>(elmt->GetEdge(j));
+            int v0                 = edge->GetVertex(0)->GetGlobalID();
+            int v1                 = edge->GetVertex(1)->GetGlobalID();
+            surfaceEdges[{v0, v1}] = edge;
+            if (edge->GetCurve() && edge->GetCurve()->m_points.size())
             {
-                completedEdges.insert(es[j]);
+                completedEdges[{v0, v1}] = edge;
             }
         }
     }
     m_log(WARNING) << "Curved edges inserted N = " << completedEdges.size()
                    << endl;
 
-    for (int i = 0; i < m_mesh->m_element[2].size(); i++)
+    int i                           = 0;
+    std::array<int, 4> m_quadVorder = {0, 1, 3, 2};
+    for (auto &[element, tag] : m_mesh->m_elementTags[2])
     {
-        m_log(VERBOSE).Progress(i, m_mesh->m_element[2].size(),
+        auto *elem2D = static_cast<SpatialDomains::Geometry2D *>(element);
+
+        m_log(VERBOSE).Progress(i++, m_mesh->m_elementTags[2].size(),
                                 "    Surface elements");
 
         // Avoid the surface elements with no parentCAD
-        if (!m_mesh->m_element[2][i]->m_parentCAD)
+        if (!m_mesh->m_meshGraph->GetCADAssociation()->GetSurf(element))
         {
             // no parent cad
             cntBreak++;
             continue;
         }
 
-        ASSERTL0(m_mesh->m_element[2][i]->m_parentCAD->GetType() == 2,
-                 "CAD Association of face is a CAD Curve. Decrease tolv1 or "
-                 "tolv2");
+        SpatialDomains::CADSurfSharedPtr surf =
+            m_mesh->m_meshGraph->GetCADAssociation()->GetSurf(element);
 
-        CADObjectSharedPtr o = m_mesh->m_element[2][i]->m_parentCAD;
-        CADSurfSharedPtr s   = std::dynamic_pointer_cast<CADSurf>(o);
-        int surf             = s->GetId(); // face CADSurf ID
-
-        FaceSharedPtr f = m_mesh->m_element[2][i]->GetFaceLink();
-
-        bool dumFace = false;
-
-        if (!f)
+        int ToBreak = 0;
+        for (int j = 0; j < element->GetNumEdges(); j++)
         {
-            // This uses a fake face to build the high-order info
-            // in the case of 2D and manifold geometries without having to
-            // rewrite the 3D code
-            // important to note that face nodes need to be inserted into the
-            // volume nodes of the surface element or they will be forgotton
-            f = std::shared_ptr<Face>(new Face(
-                m_mesh->m_element[2][i]->GetVertexList(),
-                vector<NodeSharedPtr>(), m_mesh->m_element[2][i]->GetEdgeList(),
-                LibUtilities::ePolyEvenlySpaced));
-
-            dumFace = true;
-        }
-
-        f->m_parentCAD = s;
-
-        vector<EdgeSharedPtr> edges = f->m_edgeList;
-        int ToBreak                 = 0;
-        for (int j = 0; j < edges.size(); j++)
-        {
-            EdgeSharedPtr e = edges[j];
+            SpatialDomains::SegGeom *edge =
+                static_cast<SpatialDomains::SegGeom *>(element->GetEdge(j));
             // test insert the edge into completedEdges
             // if the edge already exists move on
             // if not figure out its high-order information
+            SpatialDomains::PointGeom *v0 = edge->GetVertex(0);
+            SpatialDomains::PointGeom *v1 = edge->GetVertex(1);
 
-            EdgeSet::iterator test = completedEdges.find(e);
-
-            if (test != completedEdges.end())
+            if (completedEdges[{v0->GetGlobalID(), v1->GetGlobalID()}])
             {
                 continue;
             }
 
-            // the edges in the element are different to those in the face
-            // the cad information is stored in the element edges which are not
-            // in the m_mesh->m_edgeSet groups
-            // need to link them together and copy the cad information to be
-            // able to identify how to make it high-order
-            EdgeSet::iterator it = surfaceEdges.find(e);
-            if (it == surfaceEdges.end())
-            {
-                m_log(FATAL) << "High-order meshing failed. Could not locate "
-                             << "edge '" << e->m_id << "' in surface." << endl;
-            }
-
-            if ((*it)->m_parentCAD)
-            {
-                e->m_parentCAD = (*it)->m_parentCAD;
-            }
-            else if (m_config["third_party"].beenSet)
+            if (m_config["third_party"].beenSet &&
+                !(m_mesh->m_meshGraph->GetCADAssociation()->GetSurf(edge) ||
+                  m_mesh->m_meshGraph->GetCADAssociation()->GetCurve(edge)))
             {
                 m_log(WARNING)
                     << "This edge does not have a CAD object "
@@ -204,34 +183,34 @@ void HOSurfaceMesh::Process()
             }
             else
             {
-                e->m_parentCAD = s;
+                m_mesh->m_meshGraph->GetCADAssociation()->Set(edge, {surf});
             }
 
-            vector<NodeSharedPtr> honodes(m_mesh->m_nummode - 2);
+            // GetVertex Locations fors later assigning the edgeNodes
+            NekDouble x, y, z, x1, y1, z1;
+            v0->GetCoords(x, y, z);
+            v1->GetCoords(x1, y1, z1);
 
-            if (e->m_parentCAD->GetType() == CADType::eCurve)
+            auto edgeCurve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    edge->GetGlobalID(),
+                    LibUtilities::PointsManager()[ekey]->GetPointsType());
+
+            if (m_mesh->m_meshGraph->GetCADAssociation()->GetCurve(edge))
             {
-                // the edge is on the CAD curve 1D optimisation (CASE2)
-                int cid = e->m_parentCAD->GetId();
-                CADCurveSharedPtr c =
-                    std::dynamic_pointer_cast<CADCurve>(e->m_parentCAD);
-                NekDouble tb = e->m_n1->GetCADCurveInfo(cid);
-                NekDouble te = e->m_n2->GetCADCurveInfo(cid);
-
-                // For the third-party case, we would like reavaluate the uv of
-                // the vertices for robustness (circle bug in the past)
-                if (m_config["third_party"].beenSet)
-                {
-                    NekDouble tmin, tmax;
-                    c->GetBounds(tmin, tmax);
-
-                    c->loct(e->m_n1->GetLoc(), tb, tmin, tmax);
-                    c->loct(e->m_n2->GetLoc(), te, tmin, tmax);
-                }
+                // the edge is on the CAD curve 1D optimisation(CASE2)
+                SpatialDomains::CADCurveSharedPtr curveCAD =
+                    m_mesh->m_meshGraph->GetCADAssociation()->GetCurve(edge);
+                NekDouble tb =
+                    m_mesh->m_meshGraph->GetCADAssociation()->GetCurveT(
+                        v0, curveCAD->GetId());
+                NekDouble te =
+                    m_mesh->m_meshGraph->GetCADAssociation()->GetCurveT(
+                        v1, curveCAD->GetId());
 
                 // distribute points along curve as inital guess
-                Array<OneD, NekDouble> ti(m_mesh->m_nummode);
-                for (int k = 0; k < m_mesh->m_nummode; k++)
+                Array<OneD, NekDouble> ti(m_nummode);
+                for (int k = 0; k < m_nummode; k++)
                 {
                     ti[k] =
                         tb * (1.0 - gll[k]) / 2.0 + te * (1.0 + gll[k]) / 2.0;
@@ -246,16 +225,17 @@ void HOSurfaceMesh::Process()
                     }
 
                     OptiEdgeSharedPtr opti =
-                        MemoryManager<OptiEdge>::AllocateSharedPtr(ti, gll, c);
+                        MemoryManager<OptiEdge>::AllocateSharedPtr(ti, gll,
+                                                                   curveCAD);
 
                     DNekMat B(nq - 2, nq - 2,
-                              0.0); // approximate hessian (I to start)
+                              0.0); // approximate hessian (I tostart)
                     for (int k = 0; k < nq - 2; k++)
                     {
                         B(k, k) = 1.0;
                     }
                     DNekMat H(nq - 2, nq - 2,
-                              0.0); // approximate inverse hessian (I to start)
+                              0.0); // approximate inverse hessian(I tostart)
                     for (int k = 0; k < nq - 2; k++)
                     {
                         H(k, k) = 1.0;
@@ -263,7 +243,7 @@ void HOSurfaceMesh::Process()
 
                     DNekMat J = opti->dF(xi);
 
-                    auto bnds = c->GetBounds();
+                    auto bnds = curveCAD->GetBounds();
 
                     bool repeat = true;
                     int itct    = 0;
@@ -285,7 +265,7 @@ void HOSurfaceMesh::Process()
                         if (itct > 2000)
                         {
                             m_log(TRACE) << "Failed to optimise on curve "
-                                         << c->GetId() << endl;
+                                         << curveCAD->GetId() << endl;
                             for (int k = 0; k < nq; k++)
                             {
                                 ti[k] = tb * (1.0 - gll[k]) / 2.0 +
@@ -298,32 +278,43 @@ void HOSurfaceMesh::Process()
                         if (!BGFSUpdate(opti, J, B, H))
                         {
                             m_log(VERBOSE).Newline();
-                            m_log(VERBOSE) << "  - BFGS reported no update, "
-                                           << "curve on " << c->GetId() << endl;
+                            m_log(VERBOSE)
+                                << "  - BFGS reported no update,"
+                                << "curve on " << curveCAD->GetId() << endl;
                             break;
                         }
                     }
                     // need to pull the solution out of opti
                     ti = opti->GetSolution();
                 }
-                vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>> s =
-                    c->GetAdjSurf();
+                // KK - do we need the orientation here?
+                // vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>>
+                // s =
+                //     curveCAD->GetAdjSurf();
+                // Each node is recorded against the CAD curve as it is made.
+                // The parametric position is known exactly here, so this is
+                // both cheaper and more accurate than leaving Mesh::MakeOrder
+                // to recover it later with loct(). Without it the node is
+                // indistinguishable from a free interior one, and
+                // ProcessVarOpti would be at liberty to move it off the curve.
+                auto &assoc = m_mesh->m_meshGraph->GetCADAssociation();
 
-                for (int k = 1; k < m_mesh->m_nummode - 1; k++)
+                auto addNode = [&](NekDouble t, NekDouble px, NekDouble py,
+                                   NekDouble pz) {
+                    auto *node =
+                        m_mesh->m_meshGraph->CreateCurveNode(3, 0, px, py, pz);
+                    assoc->Add(node,
+                               SpatialDomains::CADLink(curveCAD, {t, 0.0}));
+                    edgeCurve->m_points.push_back(node);
+                };
+
+                addNode(ti[0], x, y, z);
+                for (int k = 1; k < m_nummode - 1; k++)
                 {
-                    auto loc         = c->P(ti[k]);
-                    NodeSharedPtr nn = std::shared_ptr<Node>(
-                        new Node(0, loc[0], loc[1], loc[2]));
-
-                    nn->SetCADCurve(c, ti[k]);
-                    for (int m = 0; m < s.size(); m++)
-                    {
-                        auto uv = s[m].first.lock()->locuv(loc);
-                        nn->SetCADSurf(s[m].first.lock(), uv);
-                    }
-
-                    honodes[k - 1] = nn;
+                    auto loc = curveCAD->P(ti[k]);
+                    addNode(ti[k], loc[0], loc[1], loc[2]);
                 }
+                addNode(ti[m_nummode - 1], x1, y1, z1);
             }
             else
             {
@@ -331,38 +322,40 @@ void HOSurfaceMesh::Process()
 
                 // To Do : Check if CADSurf is the same as surf (face CADSurf)
                 // if not, then it is CASE3 (robustness !)
-                std::array<Nektar::NekDouble, 2UL> uvb, uve;
+                std::array<NekDouble, 2> uvb, uve;
 
                 if (m_config["third_party"].beenSet)
                 {
-                    // For the third-party case, we would like reavaluate the uv
-                    // of the vertices for robustness (cylinder bug in the past)
+                    // For the third-party case we re-evaluate the uv of the
+                    // vertices, for robustness (cylinder bug in the past).
                     NekDouble dist0, dist1, Umin, Usup, Vmin, Vsup;
-                    s->GetBounds(Umin, Usup, Vmin, Vsup);
-                    uvb = s->locuv(e->m_n1->GetLoc(), dist0, Umin, Usup, Vmin,
-                                   Vsup);
-                    uve = s->locuv(e->m_n2->GetLoc(), dist1, Umin, Usup, Vmin,
-                                   Vsup);
-                    // This check is necessary if identification is not perfect,
-                    // especially in periodic curves/surfaces
-                    NekDouble tol = e->m_n1->Distance(e->m_n2) * 0.025;
+                    surf->GetBounds(Umin, Usup, Vmin, Vsup);
+
+                    uvb = surf->locuv({x, y, z}, dist0, Umin, Usup, Vmin, Vsup);
+                    uve = surf->locuv({x1, y1, z1}, dist1, Umin, Usup, Vmin,
+                                      Vsup);
+                    // This check is necessary if identification is not
+                    // perfect, especially in periodic curves/surfaces
+                    NekDouble tol = v0->dist(*v1) * 0.025;
                     if (dist0 > tol || dist1 > tol)
                     {
                         ToBreak = 1;
                         m_log(WARNING)
-                            << "Edge vertices too far from CADSUrf dist = "
-                            << dist0 << " | " << dist1 << "  tol = " << tol
+                            << "Edge vertices too far from CADSurf dist = "
+                            << dist0 << " | " << dist1 << " tol = " << tol
                             << endl;
                         continue;
                     }
                 }
                 else
                 {
-                    uvb = e->m_n1->GetCADSurfInfo(surf);
-                    uve = e->m_n2->GetCADSurfInfo(surf);
+                    uvb = m_mesh->m_meshGraph->GetCADAssociation()->GetSurfUV(
+                        v0, surf->GetId());
+                    uve = m_mesh->m_meshGraph->GetCADAssociation()->GetSurfUV(
+                        v1, surf->GetId());
                 }
 
-                e->m_parentCAD = s;
+                m_mesh->m_meshGraph->GetCADAssociation()->Set(edge, {surf});
                 Array<OneD, std::array<NekDouble, 2>> uvi(nq);
 
                 for (int k = 0; k < nq; k++)
@@ -374,7 +367,6 @@ void HOSurfaceMesh::Process()
                             uve[1] * (1.0 + gll[k]) / 2.0;
                     uvi[k] = uv;
                 }
-
                 if (qOpti)
                 {
                     Array<OneD, NekDouble> all(2 * nq);
@@ -392,7 +384,8 @@ void HOSurfaceMesh::Process()
                     }
 
                     OptiEdgeSharedPtr opti =
-                        MemoryManager<OptiEdge>::AllocateSharedPtr(all, gll, s);
+                        MemoryManager<OptiEdge>::AllocateSharedPtr(all, gll,
+                                                                   surf);
 
                     DNekMat B(2 * (nq - 2), 2 * (nq - 2),
                               0.0); // approximate hessian (I to start)
@@ -401,7 +394,7 @@ void HOSurfaceMesh::Process()
                         B(k, k) = 1.0;
                     }
                     DNekMat H(2 * (nq - 2), 2 * (nq - 2),
-                              0.0); // approximate inverse hessian (I to start)
+                              0.0); // approximate inverse hessian(I to start)
                     for (int k = 0; k < 2 * (nq - 2); k++)
                     {
                         H(k, k) = 1.0;
@@ -419,14 +412,14 @@ void HOSurfaceMesh::Process()
                             if (k % 2 == 0)
                             {
                                 Norm +=
-                                    J(k, 0) * J(k, 0); // (bnds[1] - bnds[0]) /
-                                                       //(bnds[1] - bnds[0]);
+                                    J(k, 0) * J(k, 0); //(bnds[1] bnds[0])
+                                                       /////(bnds[1]- bnds[0]);
                             }
                             else
                             {
-                                Norm +=
-                                    J(k, 0) * J(k, 0); // (bnds[3] - bnds[2]) /
-                                                       //(bnds[3] - bnds[2]);
+                                Norm += J(k, 0) *
+                                        J(k, 0); //  (bnds[3] - bnds[2])
+                                                 //  ///(bnds[3]  - bnds[2]);
                             }
                         }
                         Norm = sqrt(Norm);
@@ -440,9 +433,8 @@ void HOSurfaceMesh::Process()
                         if (itct > 2000)
                         {
                             m_log(VERBOSE).Newline();
-                            m_log(WARNING)
-                                << "  Failed to optimise on edge " << Norm
-                                << " loc= " << e->m_n1 << endl;
+                            m_log(WARNING) << "  Failed to optimise on edge, "
+                                           << "norm = " << Norm << endl;
                             for (int k = 0; k < nq; k++)
                             {
                                 std::array<NekDouble, 2> uv;
@@ -476,24 +468,34 @@ void HOSurfaceMesh::Process()
                     }
                 }
 
-                for (int k = 1; k < nq - 1; k++)
+                edgeCurve->m_points.push_back(
+                    m_mesh->m_meshGraph->CreateCurveNode(3, 0, x, y, z));
+
+                for (int k = 1; k < m_nummode - 1; k++)
                 {
-                    auto loc         = s->P(uvi[k]);
-                    NodeSharedPtr nn = std::shared_ptr<Node>(
-                        new Node(0, loc[0], loc[1], loc[2]));
-                    nn->SetCADSurf(s, uvi[k]);
-                    honodes[k - 1] = nn;
+                    auto loc = surf->P(uvi[k]);
+                    edgeCurve->m_points.push_back(
+                        m_mesh->m_meshGraph->CreateCurveNode(3, 0, loc[0],
+                                                             loc[1], loc[2]));
                 }
+                edgeCurve->m_points.push_back(
+                    m_mesh->m_meshGraph->CreateCurveNode(3, 0, x1, y1, z1));
             }
 
-            e->m_edgeNodes = honodes;
-            e->m_curveType = LibUtilities::eGaussLobattoLegendre;
-            completedEdges.insert(e);
+            // Assign the curve to the EDGE ? - To Do - we shouldn't do both
+            // SetCurve and std::move. Possibly move to
+            // m_graph->SetEdgeCurve(edgeID , edgeCurvePtr )
+            edge->SetCurve(edgeCurve.get());
+            m_mesh->m_meshGraph->GetCurvedEdges()[edge->GetGlobalID()] =
+                std::move(edgeCurve);
+
+            completedEdges[{v0->GetGlobalID(), v1->GetGlobalID()}] = edge;
         }
 
         if (ToBreak == 1)
         {
-            // if any edge is not projected or is already high-order before hand
+            // if any edge is not projected or is already high-order
+            // before hand
             // then likely the face is CASE3 (between 2 CAD surfaces)
             cntBreak++;
             continue;
@@ -501,15 +503,14 @@ void HOSurfaceMesh::Process()
 
         // just add the face interior nodes through interp and project (no
         // optimization)
-        vector<NodeSharedPtr> vertices = f->m_vertexList;
 
-        SpatialDomains::EntityHolder holder;
-        SpatialDomains::Geometry *geom = f->GetGeom(3, holder);
-        geom->FillGeom();
-        StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
-        Array<OneD, NekDouble> coeffs0         = geom->GetCoeffs(0);
-        Array<OneD, NekDouble> coeffs1         = geom->GetCoeffs(1);
-        Array<OneD, NekDouble> coeffs2         = geom->GetCoeffs(2);
+        element->Reset(m_mesh->m_meshGraph->GetCurvedEdges(),
+                       m_mesh->m_meshGraph->GetCurvedFaces());
+        element->FillGeom();
+        StdRegions::StdExpansionSharedPtr xmap = element->GetXmap();
+        Array<OneD, NekDouble> coeffs0         = element->GetCoeffs(0);
+        Array<OneD, NekDouble> coeffs1         = element->GetCoeffs(1);
+        Array<OneD, NekDouble> coeffs2         = element->GetCoeffs(2);
 
         Array<OneD, NekDouble> xc(xmap->GetTotPoints());
         Array<OneD, NekDouble> yc(xmap->GetTotPoints());
@@ -519,11 +520,12 @@ void HOSurfaceMesh::Process()
         xmap->BwdTrans(coeffs1, yc);
         xmap->BwdTrans(coeffs2, zc);
 
-        if (vertices.size() == 3)
+        if (element->GetNumVerts() == 3 && m_order > 2)
         {
             // build an array of all uvs
+            // KK the new version should start from 0 not np-ni
             vector<std::array<NekDouble, 2>> uvi;
-            for (int j = np - ni; j < np; j++)
+            for (int j = 0; j < np; j++)
             {
                 Array<OneD, NekDouble> xp(2);
                 xp[0]                        = u[j];
@@ -531,69 +533,144 @@ void HOSurfaceMesh::Process()
                 std::array<NekDouble, 3> loc = {xmap->PhysEvaluate(xp, xc),
                                                 xmap->PhysEvaluate(xp, yc),
                                                 xmap->PhysEvaluate(xp, zc)};
+                // uvi.push_back(surf->locuv(loc));
+                NekDouble dist0, Umin, Usup, Vmin, Vsup;
+                surf->GetBounds(Umin, Usup, Vmin, Vsup);
 
-                uvi.push_back(s->locuv(loc));
+                uvi.push_back(surf->locuv(loc, dist0, Umin, Usup, Vmin, Vsup));
             }
 
-            vector<NodeSharedPtr> honodes;
-            for (int j = 0; j < ni; j++)
+            auto faceCurve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    element->GetGlobalID(),
+                    LibUtilities::PointsManager()[pkey]->GetPointsType());
+
+            // Vertices (Reuse)
+            for (int v = 0; v < element->GetNumVerts(); v++)
             {
-                auto loc = s->P(uvi[j]);
-                NodeSharedPtr nn =
-                    std::shared_ptr<Node>(new Node(0, loc[0], loc[1], loc[2]));
-                nn->SetCADSurf(s, uvi[j]);
-                honodes.push_back(nn);
+                faceCurve->m_points.push_back(element->GetVertex(v));
             }
 
-            f->m_faceNodes = honodes;
-            f->m_curveType = LibUtilities::eNodalTriElec;
+            // Edge nodes from the edges curve, orientation important
+            // EdgeNodes after optimization are not corresponding to
+            // FACENODES!!!
+            // This means we have to reproject them and fill again the edge
+            // curve
+            int numEdgeNodes = 0;
+            for (int e = 0; e < element->GetNumEdges(); e++)
+            {
+                auto ecurve   = element->GetEdge(e)->GetCurve();
+                bool reversed = (element->GetEdge(e)->GetVertex(0) !=
+                                 element->GetVertex(e));
+                if (reversed)
+                {
+                    for (auto it = ecurve->m_points.rbegin() + 1;
+                         it != ecurve->m_points.rend() - 1; ++it)
+                    {
+                        faceCurve->m_points.push_back(*it);
+                    }
+                }
+                else
+                {
+                    for (auto it = ecurve->m_points.begin() + 1;
+                         it != ecurve->m_points.end() - 1; ++it)
+                    {
+                        faceCurve->m_points.push_back(*it);
+                    }
+                }
+                numEdgeNodes += ecurve->m_points.size() - 2;
+            }
+
+            // Continue with projections only if all edges have the correct
+            // number
+            if (numEdgeNodes != (nq - 2) * element->GetNumEdges())
+            {
+                m_log(WARNING)
+                    << "Variable edges, meaning no facenodes projection = "
+                    << numEdgeNodes << " " << (nq - 2) * element->GetNumEdges()
+                    << endl;
+                continue;
+            }
+
+            // Interior face nodes
+            for (int k = 3 + numEdgeNodes; k < uvi.size(); k++)
+            {
+                auto locP = surf->P(uvi[k]);
+                faceCurve->m_points.push_back(
+                    m_mesh->m_meshGraph->CreateCurveNode(3, 0, locP[0], locP[1],
+                                                         locP[2]));
+            }
+
+            elem2D->SetCurve(faceCurve.get());
+            m_mesh->m_meshGraph->GetCurvedFaces()[element->GetGlobalID()] =
+                std::move(faceCurve);
         }
-        else if (vertices.size() == 4)
+        else if (element->GetNumVerts() == 4)
         {
             // build an array of all uvs
             vector<std::array<NekDouble, 2>> uvi;
-            for (int i = 1; i < nq - 1; i++)
+            // If non Lobatto points are targetted the for loop should be
+            // changed to avoid recreating the vertics
+            for (int k = 0; k < nq; k++)
             {
-                for (int j = 1; j < nq - 1; j++)
+                // z-alignment
+                for (int j = 0; j < nq; j++)
                 {
                     Array<OneD, NekDouble> xp(2);
                     xp[0]                        = gll[j];
-                    xp[1]                        = gll[i];
+                    xp[1]                        = gll[k];
                     std::array<NekDouble, 3> loc = {xmap->PhysEvaluate(xp, xc),
                                                     xmap->PhysEvaluate(xp, yc),
                                                     xmap->PhysEvaluate(xp, zc)};
-
-                    uvi.push_back(s->locuv(loc));
+                    uvi.push_back(surf->locuv(loc));
                 }
             }
 
-            vector<NodeSharedPtr> honodes;
-            for (int j = 0; j < niq; j++)
+            auto faceCurve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    element->GetGlobalID(),
+                    LibUtilities::PointsManager()[qkey]->GetPointsType());
+
+            // Project all nodes to the CAD - not Vertices are REPROJECTED
+            // again.
+            // for (int j = 0; j < nq * nq; j++)
+            for (int k = 0; k < nq; k++)
             {
-                auto loc = s->P(uvi[j]);
-                NodeSharedPtr nn =
-                    std::shared_ptr<Node>(new Node(0, loc[0], loc[1], loc[2]));
-                nn->SetCADSurf(s, uvi[j]);
-                honodes.push_back(nn);
+                for (int j = 0; j < nq; j++)
+                {
+                    std::array<NekDouble, 3> loc;
+
+                    if ((j == 0 || j == nq - 1) && (k == 0 || k == nq - 1))
+                    {
+                        // for vertex reuse the curved node
+                        // int vid = (int[]){0, 1, 3,
+                        //                   2}[(j == nq - 1) + 2 * (k == nq -
+                        //                   1)];
+                        int rawVID = (j == nq - 1) + 2 * (k == nq - 1);
+                        int vid    = m_quadVorder[rawVID];
+                        faceCurve->m_points.push_back(element->GetVertex(vid));
+                    }
+                    else
+                    {
+
+                        // for facenodes(also edge nodes) reproject them
+                        // this might create a discrepency between edgenodes and
+                        // facenodes on the edge
+                        loc = surf->P(uvi[k * (nq) + j]);
+                        faceCurve->m_points.push_back(
+                            m_mesh->m_meshGraph->CreateCurveNode(
+                                3, 0, loc[0], loc[1], loc[2]));
+                    }
+                }
             }
-
-            f->m_faceNodes = honodes;
-            f->m_curveType = LibUtilities::eGaussLobattoLegendre;
-        }
-
-        if (dumFace)
-        {
-            m_mesh->m_element[2][i]->SetVolumeNodes(f->m_faceNodes);
-            m_mesh->m_element[2][i]->SetCurveType(f->m_curveType);
+            elem2D->SetCurve(faceCurve.get());
+            m_mesh->m_meshGraph->GetCurvedFaces()[element->GetGlobalID()] =
+                std::move(faceCurve);
         }
     }
-
-    cout << '\n';
     m_log(WARNING) << "Surface Optimization (T/F)  = " << qOpti << endl;
     m_log(WARNING) << "There were " << cntBreak
-                   << " 2D Surface Faces that were skipped for HOSurfModule. "
+                   << " 2D Surface Faces that were skipped for HOSurfModule."
                    << endl;
-
-    m_log(VERBOSE).Newline();
 }
 } // namespace Nektar::NekMesh

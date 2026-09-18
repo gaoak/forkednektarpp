@@ -34,21 +34,166 @@
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <NekMesh/MeshElements/Mesh.h>
-
-#include <NekMesh/CADSystem/CADCurve.h>
-#include <NekMesh/CADSystem/CADSurf.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
+#include <SpatialDomains/CADSystem/CADSurf.h>
+#include <iomanip>
+#include <limits>
+#include <map>
 
 using namespace std;
 
 namespace Nektar::NekMesh
 {
 
+namespace
+{
+/**
+ * @brief Does this entity store curvature, on itself or any edge or face?
+ *
+ * This is a question about the mesh representation, and deliberately not
+ * @c Geometry::CalcGeomType(), which derives regular versus deformed from the
+ * geometric factors. The two legitimately disagree: a curved element whose
+ * curve happens to be affine is @c eRegular, and a straight-sided but
+ * non-affine quadrilateral is @c eDeformed.
+ */
+bool CarriesCurvature(SpatialDomains::Geometry *geom)
+{
+    // A point has no curvature to carry, and no GetCurve() to ask.
+    if (geom->GetShapeDim() == 0)
+    {
+        return false;
+    }
+
+    if (geom->GetCurve() != nullptr)
+    {
+        return true;
+    }
+
+    for (int i = 0; i < geom->GetNumEdges(); ++i)
+    {
+        if (geom->GetEdge(i)->GetCurve() != nullptr)
+        {
+            return true;
+        }
+    }
+
+    for (int i = 0; i < geom->GetNumFaces(); ++i)
+    {
+        if (geom->GetFace(i)->GetCurve() != nullptr)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @brief Move generated curvature nodes on to the CAD they belong to.
+ *
+ * MakeOrder places a new node by evaluating the polynomial map of the geometry
+ * it started from, which for a straight-sided or lower-order element does not
+ * follow the true boundary: on a curved surface the node lands on the chord
+ * rather than the arc. Where the entity carrying the curve is itself
+ * associated with a CAD curve or surface, the node is projected back on to it.
+ *
+ * Recording the association matters as much as moving the node. ProcessVarOpti
+ * constrains a node to the CAD entity it lies on, so a boundary node with no
+ * association is treated as a free interior node and is at liberty to be
+ * optimised off the geometry.
+ */
+std::pair<size_t, NekDouble> ProjectCurveNodesToCAD(
+    SpatialDomains::MeshGraphSharedPtr &graph)
+{
+    auto &assoc     = graph->GetCADAssociation();
+    size_t nMoved   = 0;
+    NekDouble maxRy = 0.0;
+
+    auto record = [&](SpatialDomains::PointGeom *p,
+                      const std::array<NekDouble, 3> &from,
+                      const std::array<NekDouble, 3> &to) {
+        NekDouble d = sqrt((to[0] - from[0]) * (to[0] - from[0]) +
+                           (to[1] - from[1]) * (to[1] - from[1]) +
+                           (to[2] - from[2]) * (to[2] - from[2]));
+        maxRy       = std::max(maxRy, d);
+        p->UpdatePosition(to[0], to[1], to[2]);
+        ++nMoved;
+    };
+
+    auto onCurve = [&](SpatialDomains::PointGeom *p,
+                       const SpatialDomains::CADCurveSharedPtr &c) {
+        std::array<NekDouble, 3> loc = {(*p)(0), (*p)(1), (*p)(2)};
+        NekDouble t                  = 0.0;
+        c->loct(loc, t);
+        record(p, loc, c->P(t));
+        assoc->Add(p, SpatialDomains::CADLink(c, {t, 0.0}));
+    };
+
+    auto onSurf = [&](SpatialDomains::PointGeom *p,
+                      const SpatialDomains::CADSurfSharedPtr &s) {
+        std::array<NekDouble, 3> loc = {(*p)(0), (*p)(1), (*p)(2)};
+        auto uv                      = s->locuv(loc);
+        record(p, loc, s->P(uv));
+        assoc->Add(p, SpatialDomains::CADLink(s, {uv[0], uv[1]}));
+    };
+
+    // A node that already carries an association is either a mesh vertex the
+    // surface mesher placed, or one an earlier entity here has dealt with --
+    // an edge's nodes appear again in the curve of every face using that edge,
+    // and a face's in the curve of every element using that face.
+    auto project = [&](SpatialDomains::Geometry *geom) {
+        SpatialDomains::Curve *curve = geom->GetCurve();
+        if (curve == nullptr)
+        {
+            return;
+        }
+
+        // An edge lying along a CAD curve is pinned to it; one merely interior
+        // to a surface is free along that surface.
+        auto cadCurve = assoc->GetCurve(geom);
+        auto cadSurf  = cadCurve ? nullptr : assoc->GetSurf(geom);
+
+        if (!cadCurve && !cadSurf)
+        {
+            return;
+        }
+
+        for (auto *p : curve->m_points)
+        {
+            if (assoc->Has(p))
+            {
+                continue;
+            }
+
+            cadCurve ? onCurve(p, cadCurve) : onSurf(p, cadSurf);
+        }
+    };
+
+    for (auto [id, geom] : graph->GetGeomMap<SpatialDomains::SegGeom>())
+    {
+        project(geom);
+    }
+    for (auto [id, geom] : graph->GetGeomMap<SpatialDomains::TriGeom>())
+    {
+        project(geom);
+    }
+    for (auto [id, geom] : graph->GetGeomMap<SpatialDomains::QuadGeom>())
+    {
+        project(geom);
+    }
+
+    return {nMoved, maxRy};
+}
+} // namespace
+
 /**
  * @brief Return the number of elements of the expansion dimension.
  */
 unsigned int Mesh::GetNumElements()
 {
-    return m_element[m_expDim].size();
+    unsigned int i = m_meshGraph->GetMeshDimension();
+    return m_elementTags[i].size();
 }
 
 /**
@@ -57,29 +202,21 @@ unsigned int Mesh::GetNumElements()
  */
 unsigned int Mesh::GetNumBndryElements()
 {
-    unsigned int i, nElmt = 0;
-
-    for (i = 0; i < m_expDim; ++i)
-    {
-        nElmt += m_element[i].size();
-    }
-
-    return nElmt;
+    unsigned int i = m_meshGraph->GetMeshDimension();
+    return m_elementTags[i - 1].size();
 }
 
 /**
  * @brief Return the total number of entities in the mesh (i.e. all
  * elements, regardless of dimension).
  */
-unsigned int Mesh::GetNumEntities()
+unsigned int Mesh::GetNumTaggedEntities()
 {
     unsigned int nEnt = 0;
-
-    for (unsigned int d = 0; d <= m_expDim; ++d)
+    for (unsigned int d = 0; d <= m_meshGraph->GetMeshDimension(); ++d)
     {
-        nEnt += m_element[d].size();
+        nEnt += m_elementTags[d].size();
     }
-
     return nEnt;
 }
 
@@ -89,30 +226,10 @@ unsigned int Mesh::GetNumEntities()
  *
  * This routine adds curvature points into a mesh so that the resulting elements
  * are all of a uniform order @p order and all high-order vertices are
- * consistently ordered. It proceeds in a bottom-up fashion:
- *
- * - First construct all edge, face and elemental geometry mappings.
- * - Then call the local MakeOrder functions on each edge, face and element of
- *   dimension Mesh::m_expDim.
- * - Finally, any boundary elements are updated so that they have the same
- *   interior degrees of freedom as their corresponding edge or face links.
+ * consistently ordered.
  */
 void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
 {
-    SpatialDomains::EntityHolder holder;
-    // Going to make a copy of the curavture information, since this is cheaper
-    // than using Nektar's Geometry objects. Currently, the geometry objects
-    // which make up a 3D element dont use the volume nodes, they are just
-    // stored, so we can get away without copying them.
-
-    int id = m_vertexSet.size();
-
-    EdgeSet::iterator eit;
-    FaceSet::iterator fit;
-
-    std::unordered_map<int, EdgeSharedPtr> edgeCopies;
-    std::unordered_map<int, FaceSharedPtr> faceCopies;
-
     // Decide on distribution of points to use for each shape type based on the
     // input we've been supplied.
     std::map<LibUtilities::ShapeType, LibUtilities::PointsType> pTypes;
@@ -136,158 +253,215 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
         pTypes[LibUtilities::ePrism]       = LibUtilities::eNodalPrismElec;
         pTypes[LibUtilities::eTetrahedron] = LibUtilities::eNodalTetElec;
         pTypes[LibUtilities::eHexahedron] = LibUtilities::eGaussLobattoLegendre;
+
+        // The distributions above are trace-compatible: restricted to a face
+        // or an edge they reduce to the ones used there, so the boundary
+        // points an element takes from its shared face and edge curves agree
+        // with its own distribution. There is no electrostatic pyramid
+        // distribution and the evenly spaced one is not trace-compatible with
+        // GLL edges, so a pyramid would get a curve labelled
+        // eNodalPyrEvenlySpaced whose boundary points are not evenly spaced.
+        if (m_meshGraph->HasGeoms<SpatialDomains::PyrGeom>())
+        {
+            log(FATAL) << "Cannot raise the order of a mesh containing "
+                       << "pyramids using a Gauss-Lobatto-Legendre "
+                       << "distribution: no compatible nodal pyramid "
+                       << "distribution exists." << std::endl;
+        }
     }
     else
     {
         ASSERTL1(false, "Mesh::MakeOrder does not support this points type.");
     }
 
-    // Begin by copying mesh objects for edges and faces so that we don't affect
-    // any neighbouring elements in the mesh as we process each element. At the
-    // same time we delete the curvature from the original edge and face, which
-    // will be re-added with the MakeOrder routine.
-
-    // First, we fill in the volume-interior nodes. This preserves the original
-    // curvature of the mesh.
-    const int nElmt = m_element[m_expDim].size();
-    int tmpId       = 0;
-    for (int i = 0; i < nElmt; ++i)
+    // Pass 0: drop each geometry's cached state. FillGeom() returns
+    // immediately once a geometry is filled, so on a second call to MakeOrder
+    // -- a second varopti module in the same pipeline, say -- the fill below
+    // would be a no-op and the curves generated afterwards would be evaluated
+    // against coefficients describing the mesh as it was before the previous
+    // module moved its nodes. Reset also rebuilds the xmap and coefficient
+    // storage, which the curves of the preceding order have resized.
+    auto &curvedEdges = m_meshGraph->GetCurvedEdges();
+    auto &curvedFaces = m_meshGraph->GetCurvedFaces();
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
     {
-        log(VERBOSE).Progress(i, nElmt, "MakeOrder: Elements");
-        ElementSharedPtr el            = m_element[m_expDim][i];
-        SpatialDomains::Geometry *geom = el->GetGeom(m_spaceDim, holder);
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
+    {
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
+    {
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>())
+    {
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>())
+    {
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>())
+    {
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>())
+    {
+        geom->Reset(curvedEdges, curvedFaces);
+    }
+
+    // Pass 1: FillGeom everything so all m_coeffs are set from the original
+    // geometry before any curve is modified by MakeOrder
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
+    {
         geom->FillGeom();
-        el->MakeOrder(order, geom, pTypes[el->GetConf().m_e], m_spaceDim,
-                      tmpId);
     }
-
-    log(VERBOSE).Newline();
-
-    // Now make copies of each of the edges.
-    for (eit = m_edgeSet.begin(); eit != m_edgeSet.end(); eit++)
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
     {
-        edgeCopies[(*eit)->m_id] = EdgeSharedPtr(new Edge(*(*eit)));
-        (*eit)->m_edgeNodes.clear();
-    }
-
-    // Now copy faces. Make sure that this is a "deep copy", so that the face's
-    // edge list corresponds to the copied edges, otherwise we end up in a
-    // non-consistent state.
-    for (fit = m_faceSet.begin(); fit != m_faceSet.end(); fit++)
-    {
-        FaceSharedPtr tmpFace = FaceSharedPtr(new Face(*(*fit)));
-
-        for (int i = 0; i < tmpFace->m_edgeList.size(); ++i)
-        {
-            tmpFace->m_edgeList[i] = edgeCopies[tmpFace->m_edgeList[i]->m_id];
-        }
-
-        faceCopies[(*fit)->m_id] = tmpFace;
-        (*fit)->m_faceNodes.clear();
-    }
-
-    std::unordered_set<int> processedEdges, processedFaces, processedVolumes;
-
-    // note if CAD previously existed on the face or edge, the new points need
-    // to be projected onto the CAD entity.
-
-    // Call MakeOrder with our generated geometries on each edge to fill in edge
-    // interior nodes.
-    int ct = 0;
-    for (eit = m_edgeSet.begin(); eit != m_edgeSet.end(); eit++, ct++)
-    {
-        log(VERBOSE).Progress(ct, m_edgeSet.size(), "MakeOrder: Edges");
-
-        int edgeId = (*eit)->m_id;
-
-        if (processedEdges.find(edgeId) != processedEdges.end())
-        {
-            continue;
-        }
-
-        EdgeSharedPtr cpEdge           = edgeCopies[edgeId];
-        SpatialDomains::Geometry *geom = cpEdge->GetGeom(m_spaceDim, holder);
         geom->FillGeom();
-
-        (*eit)->MakeOrder(order, geom, pTypes[LibUtilities::eSegment],
-                          m_spaceDim, id);
-        processedEdges.insert(edgeId);
     }
-
-    if (m_edgeSet.size() > 0)
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
     {
-        log(VERBOSE).Newline();
-    }
-
-    // Call MakeOrder with our generated geometries on each face to fill in face
-    // interior nodes.
-    ct = 0;
-    for (fit = m_faceSet.begin(); fit != m_faceSet.end(); fit++, ct++)
-    {
-        log(VERBOSE).Progress(ct, m_faceSet.size(), "MakeOrder: Faces");
-
-        int faceId = (*fit)->m_id;
-
-        if (processedFaces.find(faceId) != processedFaces.end())
-        {
-            continue;
-        }
-
-        FaceSharedPtr cpFace           = faceCopies[faceId];
-        SpatialDomains::Geometry *geom = cpFace->GetGeom(m_spaceDim, holder);
         geom->FillGeom();
-
-        LibUtilities::ShapeType type = (*fit)->m_vertexList.size() == 3
-                                           ? LibUtilities::eTriangle
-                                           : LibUtilities::eQuadrilateral;
-        (*fit)->MakeOrder(order, geom, pTypes[type], m_spaceDim, id);
-        processedFaces.insert(faceId);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>())
+    {
+        geom->FillGeom();
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>())
+    {
+        geom->FillGeom();
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>())
+    {
+        geom->FillGeom();
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>())
+    {
+        geom->FillGeom();
     }
 
-    if (m_faceSet.size() > 0)
+    // Pass 2: MakeOrder bottom-up, edges first so face curves can read from
+    // them, then faces, then top-level elements
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
     {
-        log(VERBOSE).Newline();
+        // Insert generated curves and nodes into MeshGraph
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedEdge(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
     }
 
-    // Copy curvature into boundary conditions
-    for (int i = 0; i < m_element[1].size(); ++i)
+    const int nFaces = m_meshGraph->GetNumGeoms<SpatialDomains::TriGeom>() +
+                       m_meshGraph->GetNumGeoms<SpatialDomains::QuadGeom>();
+    int i = 0;
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
     {
-        ElementSharedPtr el = m_element[1][i];
-        EdgeSharedPtr edge  = el->GetEdgeLink();
+        log(VERBOSE).Progress(i++, nFaces, "MakeOrder: Elements");
 
-        if (!edge)
+        // Insert generated curves and nodes into MeshGraph
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedFace(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
+    {
+        log(VERBOSE).Progress(i++, nFaces, "MakeOrder: Elements");
+
+        // Insert generated curves and nodes into MeshGraph
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedFace(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
+    }
+
+    // Finally the volumes. A 3D element's interior nodes belong to it alone,
+    // but its boundary nodes are read from the face curves generated above,
+    // reoriented into this element's view of each face, so the faces have to
+    // be done first.
+    const int nVolumes = m_meshGraph->GetNumGeoms<SpatialDomains::TetGeom>() +
+                         m_meshGraph->GetNumGeoms<SpatialDomains::PrismGeom>() +
+                         m_meshGraph->GetNumGeoms<SpatialDomains::PyrGeom>() +
+                         m_meshGraph->GetNumGeoms<SpatialDomains::HexGeom>();
+    int j = 0;
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>())
+    {
+        log(VERBOSE).Progress(j++, nVolumes, "MakeOrder: Volumes");
+
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedVolume(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>())
+    {
+        log(VERBOSE).Progress(j++, nVolumes, "MakeOrder: Volumes");
+
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedVolume(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>())
+    {
+        log(VERBOSE).Progress(j++, nVolumes, "MakeOrder: Volumes");
+
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedVolume(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
+    }
+    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>())
+    {
+        log(VERBOSE).Progress(j++, nVolumes, "MakeOrder: Volumes");
+
+        auto curveData = geom->MakeOrder(order, pTypes[geom->GetShapeType()]);
+        m_meshGraph->AddCurvedVolume(std::move(curveData.first));
+        m_meshGraph->AddCurveNodes(curveData.second);
+    }
+
+    // The nodes generated above sit where the old geometry's polynomial map
+    // put them, which on a curved boundary is not on the boundary. Put the
+    // ones belonging to a CAD entity back on it.
+    if (m_meshGraph->HasCAD())
+    {
+        auto [nMoved, maxMove] = ProjectCurveNodesToCAD(m_meshGraph);
+        log(VERBOSE) << "  - Projected " << nMoved
+                     << " generated nodes onto the CAD (max move " << maxMove
+                     << ")" << std::endl;
+
+        // Moving them invalidates the coefficients filled above.
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
         {
-            continue;
+            geom->Reset(curvedEdges, curvedFaces);
         }
-
-        // Copy face curvature
-        el->MakeOrder(order, nullptr, pTypes[el->GetConf().m_e], m_spaceDim, id,
-                      true);
-        el->SetVolumeNodes(edge->m_edgeNodes);
-    }
-
-    for (int i = 0; i < m_element[2].size(); ++i)
-    {
-        ElementSharedPtr el = m_element[2][i];
-        FaceSharedPtr face  = el->GetFaceLink();
-
-        if (!face)
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
         {
-            continue;
+            geom->Reset(curvedEdges, curvedFaces);
         }
-
-        // Copy face curvature
-        el->MakeOrder(order, nullptr, pTypes[el->GetConf().m_e], m_spaceDim, id,
-                      true);
-        el->SetVolumeNodes(face->m_faceNodes);
-    }
-
-    for (int i = 0; i < nElmt; ++i)
-    {
-        vector<NodeSharedPtr> tmp = m_element[m_expDim][i]->GetVolumeNodes();
-        for (int j = 0; j < tmp.size(); ++j)
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
         {
-            tmp[j]->m_id = id++;
+            geom->Reset(curvedEdges, curvedFaces);
+        }
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>())
+        {
+            geom->Reset(curvedEdges, curvedFaces);
+        }
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>())
+        {
+            geom->Reset(curvedEdges, curvedFaces);
+        }
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>())
+        {
+            geom->Reset(curvedEdges, curvedFaces);
+        }
+        for (auto [id, geom] :
+             m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>())
+        {
+            geom->Reset(curvedEdges, curvedFaces);
         }
     }
 }
@@ -299,46 +473,65 @@ void Mesh::PrintStats(Logger &log)
 {
     log << "Mesh statistics:" << std::endl;
 
-    log << "  - Mesh dimension       : " << m_spaceDim << std::endl
-        << "  - Element dimension    : " << m_expDim << std::endl
-        << "  - Has CAD attached     : " << (m_cad ? "yes" : "no") << std::endl
-        << "  - Node count           : " << m_vertexSet.size() << std::endl;
-
-    if (m_edgeSet.size() > 0)
-    {
-        log << "  - Edge count           : " << m_edgeSet.size() << std::endl;
-    }
-
-    if (m_faceSet.size() > 0)
-    {
-        log << "  - Face count           : " << m_faceSet.size() << std::endl;
-    }
-
-    log << "  - Elements             : " << m_element[m_expDim].size()
+    log << "  - Mesh dimension       : " << m_meshGraph->GetSpaceDimension()
+        << std::endl
+        << "  - Element dimension    : " << m_meshGraph->GetMeshDimension()
+        << std::endl
+        << "  - Has CAD attached     : "
+        << (m_meshGraph->HasCAD() ? "yes" : "no") << std::endl
+        << "  - Node count           : " << m_meshGraph->GetNvertices()
         << std::endl;
-    log << "  - Bnd elements         : " << m_element[m_expDim - 1].size()
+
+    size_t nEdges = m_meshGraph->GetNumGeoms<SpatialDomains::SegGeom>();
+    if (m_meshGraph->GetMeshDimension() > 1)
+    {
+        log << "  - Edge count           : " << nEdges << std::endl;
+    }
+
+    size_t nFaces = m_meshGraph->GetNumGeoms<SpatialDomains::TriGeom>() +
+                    m_meshGraph->GetNumGeoms<SpatialDomains::QuadGeom>();
+    if (m_meshGraph->GetMeshDimension() > 2)
+    {
+        log << "  - Face count           : " << nFaces << std::endl;
+    }
+
+    log << "  - Elements             : "
+        << m_elementTags[m_meshGraph->GetMeshDimension()].size() << std::endl;
+    log << "  - Bnd elements         : "
+        << m_elementTags[m_meshGraph->GetMeshDimension() - 1].size()
         << std::endl;
 
     // Print out number of composites
-    log << "  - Number of composites : " << m_composite.size() << std::endl;
+    log << "  - Number of composites : " << m_meshGraph->GetComposites().size()
+        << std::endl;
 
     // Calculate domain extent
-    auto extent = m_element[m_expDim][0]->GetBoundingBox();
-    for (int i = 1; i < m_element[m_expDim].size(); ++i)
+    double inf     = std::numeric_limits<double>::max();
+    double lower_x = inf, lower_y = inf, lower_z = inf;
+    double upper_x = -inf, upper_y = -inf, upper_z = -inf;
+    for (auto vertex : m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        auto el           = m_element[m_expDim][i]->GetBoundingBox();
-        extent.first.m_x  = std::min(extent.first.m_x, el.first.m_x);
-        extent.first.m_y  = std::min(extent.first.m_y, el.first.m_y);
-        extent.first.m_z  = std::min(extent.first.m_z, el.first.m_z);
-        extent.second.m_x = std::max(extent.second.m_x, el.second.m_x);
-        extent.second.m_y = std::max(extent.second.m_y, el.second.m_y);
-        extent.second.m_z = std::max(extent.second.m_z, el.second.m_z);
+        lower_x = std::min(lower_x, (*vertex.second)[0]);
+        lower_y = std::min(lower_y, (*vertex.second)[1]);
+        lower_z = std::min(lower_z, (*vertex.second)[2]);
+        upper_x = std::max(upper_x, (*vertex.second)[0]);
+        upper_y = std::max(upper_y, (*vertex.second)[1]);
+        upper_z = std::max(upper_z, (*vertex.second)[2]);
+    }
+    for (auto &vertex : m_meshGraph->GetAllCurveNodes())
+    {
+        lower_x = std::min(lower_x, (*vertex)[0]);
+        lower_y = std::min(lower_y, (*vertex)[1]);
+        lower_z = std::min(lower_z, (*vertex)[2]);
+        upper_x = std::max(upper_x, (*vertex)[0]);
+        upper_y = std::max(upper_y, (*vertex)[1]);
+        upper_z = std::max(upper_z, (*vertex)[2]);
     }
 
-    log << "  - Lower mesh extent    : " << extent.first.m_x << " "
-        << extent.first.m_y << " " << extent.first.m_z << std::endl
-        << "  - Upper mesh extent    : " << extent.second.m_x << " "
-        << extent.second.m_y << " " << extent.second.m_z << std::endl;
+    log << "  - Lower mesh extent    : " << lower_x << " " << lower_y << " "
+        << lower_z << std::endl
+        << "  - Upper mesh extent    : " << upper_x << " " << upper_y << " "
+        << upper_z << std::endl;
 
     std::map<LibUtilities::ShapeType, std::pair<int, int>> elmtCounts;
 
@@ -349,11 +542,12 @@ void Mesh::PrintStats(Logger &log)
 
     for (int dim = 0; dim <= 3; ++dim)
     {
-        for (auto &elmt : m_element[dim])
+        for (auto &entry : m_elementTags[dim])
         {
+            auto *elmt   = entry.first;
             auto &counts = elmtCounts[elmt->GetShapeType()];
 
-            if (elmt->IsDeformed())
+            if (CarriesCurvature(elmt))
             {
                 counts.second++;
             }
@@ -375,7 +569,7 @@ void Mesh::PrintStats(Logger &log)
             continue;
         }
 
-        log << "  - " << std::setw(12) << std::left
+        log << "  - " << std::setw(14) << std::left
             << LibUtilities::ShapeTypeMap[(LibUtilities::ShapeType)i] << ": "
             << setw(12) << counts.first << "  " << setw(12) << counts.second
             << "  " << setw(12) << counts.first + counts.second << std::endl;

@@ -2,13 +2,29 @@
 <test>
     <description>Extraction of curved surface</description>
     <executable>NekMesh</executable>
-    <parameters>-m jac:list -m extract:surf=2,3 extract_curved_face.xml extract_curved_face-out.xml:xml:test</parameters>
+    <parameters>-m jac:list -m extract:surf=2,3 extract_curved_face.xml extract_curved_face-out.xml:xml:test:stats</parameters>
     <files>
         <file description="Input File">extract_curved_face.xml</file>
     </files>
     <metrics>
         <metric type="regex" id="1">
             <regex>.*Total negative Jacobians: (\d+)</regex>
+            <matches>
+                <match>
+                    <field id="0">0</field>
+                </match>
+            </matches>
+        </metric>
+        <metric type="regex" id="2">
+            <regex>.*Elements\s*:\s*(\d+)</regex>
+            <matches>
+                <match>
+                    <field id="0">42</field>
+                </match>
+            </matches>
+        </metric>
+        <metric type="regex" id="3">
+            <regex>.*Bnd elements\s*:\s*(\d+)</regex>
             <matches>
                 <match>
                     <field id="0">0</field>

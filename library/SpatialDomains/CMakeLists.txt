@@ -32,6 +32,7 @@ SET(SPATIAL_DOMAINS_HEADERS
 Conditions.h
 Curve.hpp
 GeomFactors.h
+HOAlignment.h
 Geometry0D.h
 Geometry1D.h
 Geometry2D.h
@@ -84,6 +85,57 @@ IF(NEKTAR_USE_METIS)
     SET(SPATIAL_DOMAINS_SOURCES ${SPATIAL_DOMAINS_SOURCES} MeshPartitionMetis.cpp)
 ENDIF()
 
+SET(SPATIAL_DOMAINS_SOURCES ${SPATIAL_DOMAINS_SOURCES}
+    CADSystem/CADAssociation.cpp
+    CADSystem/CADSystem.cpp
+    CADSystem/CADCurve.cpp
+    CADSystem/CADSurf.cpp
+    CADSystem/CADVert.cpp
+)
+SET(SPATIAL_DOMAINS_HEADERS ${SPATIAL_DOMAINS_HEADERS}
+    CADSystem/CADAssociation.h
+    CADSystem/CADSystem.h
+    CADSystem/CADObject.h
+    CADSystem/CADCurve.h
+    CADSystem/CADSurf.h
+    CADSystem/CADVert.h
+)
+
+IF(NEKTAR_USE_MESHGEN)
+    SET(SPATIAL_DOMAINS_SOURCES ${SPATIAL_DOMAINS_SOURCES}
+        CADSystem/OCE/CADSystemOCE.cpp
+        CADSystem/OCE/CADVertOCE.cpp
+        CADSystem/OCE/CADCurveOCE.cpp
+        CADSystem/OCE/CADSurfOCE.cpp
+        CADSystem/OCE/TransfiniteSurface.cpp
+    )
+    SET(SPATIAL_DOMAINS_HEADERS ${SPATIAL_DOMAINS_HEADERS}
+        CADSystem/OCE/CADSystemOCE.h
+        CADSystem/OCE/CADVertOCE.h
+        CADSystem/OCE/CADCurveOCE.h
+        CADSystem/OCE/CADSurfOCE.h
+        CADSystem/OCE/GeoParser.hpp
+        CADSystem/OCE/TransfiniteSurface.h
+        CADSystem/OCE/OpenCascade.h
+    )
+ENDIF()
+
+IF(NEKTAR_USE_CFI)
+    SET(SPATIAL_DOMAINS_SOURCES ${SPATIAL_DOMAINS_SOURCES}
+        CADSystem/CFI/CADSystemCFI.cpp
+        CADSystem/CFI/CADVertCFI.cpp
+        CADSystem/CFI/CADCurveCFI.cpp
+        CADSystem/CFI/CADSurfCFI.cpp
+    )
+    SET(SPATIAL_DOMAINS_HEADERS ${SPATIAL_DOMAINS_HEADERS}
+        CADSystem/CFI/CADSystemCFI.h
+        CADSystem/CFI/CADVertCFI.h
+        CADSystem/CFI/CADCurveCFI.h
+        CADSystem/CFI/CADSurfCFI.h
+        CADSystem/CFI/CADElementCFI.h
+    )
+ENDIF()
+
 ADD_DEFINITIONS(-DSPATIAL_DOMAINS_EXPORTS)
 
 ADD_NEKTAR_LIBRARY(SpatialDomains
@@ -92,6 +144,11 @@ ADD_NEKTAR_LIBRARY(SpatialDomains
     DEPENDS StdRegions
     SUMMARY "Nektar++ SpatialDomains library"
     DESCRIPTION "This library provides the mappings between reference regions and physical regions in the domain.")
+
+IF(NEKTAR_USE_MESHGEN)
+    TARGET_LINK_LIBRARIES(SpatialDomains LINK_PRIVATE ${OCC_LIBRARIES})
+    ADD_DEPENDENCIES(SpatialDomains oce-0.18.3)
+ENDIF()
 
 IF (NEKTAR_USE_METIS)
     # Metis

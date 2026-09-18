@@ -32,8 +32,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <NekMesh/CADSystem/CADCurve.h>
 #include <NekMesh/SurfaceMeshing/OptimiseFunctions.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -67,7 +67,7 @@ Array<OneD, NekDouble> OptiEdge::Getxi()
 
     switch (o->GetType())
     {
-        case CADType::eCurve:
+        case SpatialDomains::CADType::eCurve:
             xi = Array<OneD, NekDouble>(all.size() - 2);
             for (int i = 1; i < all.size() - 1; i++)
             {
@@ -75,7 +75,7 @@ Array<OneD, NekDouble> OptiEdge::Getxi()
             }
             break;
 
-        case CADType::eSurf:
+        case SpatialDomains::CADType::eSurf:
             xi = Array<OneD, NekDouble>(all.size() - 4);
             for (int i = 2; i < all.size() - 2; i++)
             {
@@ -83,8 +83,8 @@ Array<OneD, NekDouble> OptiEdge::Getxi()
             }
             break;
 
-        case CADType::eVert:
-        case CADType::eOther:
+        case SpatialDomains::CADType::eVert:
+        case SpatialDomains::CADType::eOther:
             ASSERTL0(false, "Should not be able to pass vert");
     }
     return xi;
@@ -95,20 +95,23 @@ Array<OneD, NekDouble> OptiEdge::Getli()
     Array<OneD, NekDouble> li;
     switch (o->GetType())
     {
-        case CADType::eCurve:
+        case SpatialDomains::CADType::eCurve:
         {
-            li            = Array<OneD, NekDouble>(all.size() - 2);
-            auto bndCurve = std::dynamic_pointer_cast<CADCurve>(o)->GetBounds();
+            li = Array<OneD, NekDouble>(all.size() - 2);
+            auto bndCurve =
+                std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o)
+                    ->GetBounds();
             for (int i = 1; i < all.size() - 1; i++)
             {
                 li[i - 1] = bndCurve[0];
             }
             break;
         }
-        case CADType::eSurf:
+        case SpatialDomains::CADType::eSurf:
         {
             li           = Array<OneD, NekDouble>(all.size() - 4);
-            auto bndSurf = std::dynamic_pointer_cast<CADSurf>(o)->GetBounds();
+            auto bndSurf = std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o)
+                               ->GetBounds();
             for (int i = 2; i < all.size() - 2; i++)
             {
                 if (i % 2 == 0)
@@ -123,8 +126,8 @@ Array<OneD, NekDouble> OptiEdge::Getli()
             break;
         }
 
-        case CADType::eVert:
-        case CADType::eOther:
+        case SpatialDomains::CADType::eVert:
+        case SpatialDomains::CADType::eOther:
             ASSERTL0(false, "Should not be able to pass vert");
     }
     return li;
@@ -135,10 +138,12 @@ Array<OneD, NekDouble> OptiEdge::Getui()
     Array<OneD, NekDouble> ui;
     switch (o->GetType())
     {
-        case CADType::eCurve:
+        case SpatialDomains::CADType::eCurve:
         {
-            ui            = Array<OneD, NekDouble>(all.size() - 2);
-            auto bndCurve = std::dynamic_pointer_cast<CADCurve>(o)->GetBounds();
+            ui = Array<OneD, NekDouble>(all.size() - 2);
+            auto bndCurve =
+                std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o)
+                    ->GetBounds();
             for (int i = 1; i < all.size() - 1; i++)
             {
                 ui[i - 1] = bndCurve[1];
@@ -146,10 +151,11 @@ Array<OneD, NekDouble> OptiEdge::Getui()
             break;
         }
 
-        case CADType::eSurf:
+        case SpatialDomains::CADType::eSurf:
         {
             ui           = Array<OneD, NekDouble>(all.size() - 4);
-            auto bndSurf = std::dynamic_pointer_cast<CADSurf>(o)->GetBounds();
+            auto bndSurf = std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o)
+                               ->GetBounds();
             for (int i = 2; i < all.size() - 2; i++)
             {
                 if (i % 2 == 0)
@@ -164,8 +170,8 @@ Array<OneD, NekDouble> OptiEdge::Getui()
             break;
         }
 
-        case CADType::eVert:
-        case CADType::eOther:
+        case SpatialDomains::CADType::eVert:
+        case SpatialDomains::CADType::eOther:
             ASSERTL0(false, "Should not be able to pass vert");
     }
     return ui;
@@ -175,7 +181,7 @@ NekDouble OptiEdge::F(Array<OneD, NekDouble> xitst)
 {
     Array<OneD, NekDouble> val(all.size());
 
-    if (o->GetType() == CADType::eCurve)
+    if (o->GetType() == SpatialDomains::CADType::eCurve)
     {
         val[0] = all[0];
         for (int i = 0; i < xitst.size(); i++)
@@ -184,7 +190,7 @@ NekDouble OptiEdge::F(Array<OneD, NekDouble> xitst)
         }
         val[all.size() - 1] = all[all.size() - 1];
     }
-    else if (o->GetType() == CADType::eSurf)
+    else if (o->GetType() == SpatialDomains::CADType::eSurf)
     {
         val[0] = all[0];
         val[1] = all[1];
@@ -197,9 +203,10 @@ NekDouble OptiEdge::F(Array<OneD, NekDouble> xitst)
     }
 
     NekDouble ret = 0.0;
-    if (o->GetType() == CADType::eCurve)
+    if (o->GetType() == SpatialDomains::CADType::eCurve)
     {
-        CADCurveSharedPtr c = std::dynamic_pointer_cast<CADCurve>(o);
+        SpatialDomains::CADCurveSharedPtr c =
+            std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o);
 
         for (int i = 0; i < all.size() - 1; i++)
         {
@@ -209,9 +216,10 @@ NekDouble OptiEdge::F(Array<OneD, NekDouble> xitst)
             ret += norm / (z[i + 1] - z[i]);
         }
     }
-    else if (o->GetType() == CADType::eSurf)
+    else if (o->GetType() == SpatialDomains::CADType::eSurf)
     {
-        CADSurfSharedPtr s = std::dynamic_pointer_cast<CADSurf>(o);
+        SpatialDomains::CADSurfSharedPtr s =
+            std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o);
         // need to organise the val array
         Array<OneD, std::array<NekDouble, 2>> uv(val.size() / 2);
         for (int i = 0; i < val.size() / 2; i++)
@@ -234,7 +242,7 @@ DNekMat OptiEdge::dF(Array<OneD, NekDouble> xitst)
 {
     Array<OneD, NekDouble> val(all.size());
 
-    if (o->GetType() == CADType::eCurve)
+    if (o->GetType() == SpatialDomains::CADType::eCurve)
     {
         val[0] = all[0];
         for (int i = 0; i < xitst.size(); i++)
@@ -243,7 +251,7 @@ DNekMat OptiEdge::dF(Array<OneD, NekDouble> xitst)
         }
         val[all.size() - 1] = all[all.size() - 1];
     }
-    else if (o->GetType() == CADType::eSurf)
+    else if (o->GetType() == SpatialDomains::CADType::eSurf)
     {
         val[0] = all[0];
         val[1] = all[1];
@@ -257,9 +265,10 @@ DNekMat OptiEdge::dF(Array<OneD, NekDouble> xitst)
 
     DNekMat ret;
 
-    if (o->GetType() == CADType::eCurve)
+    if (o->GetType() == SpatialDomains::CADType::eCurve)
     {
-        CADCurveSharedPtr c = std::dynamic_pointer_cast<CADCurve>(o);
+        SpatialDomains::CADCurveSharedPtr c =
+            std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o);
         vector<std::array<NekDouble, 3>> r, dr;
 
         for (int i = 0; i < all.size(); i++)
@@ -286,9 +295,10 @@ DNekMat OptiEdge::dF(Array<OneD, NekDouble> xitst)
 
         ret = J;
     }
-    else if (o->GetType() == CADType::eSurf)
+    else if (o->GetType() == SpatialDomains::CADType::eSurf)
     {
-        CADSurfSharedPtr s = std::dynamic_pointer_cast<CADSurf>(o);
+        SpatialDomains::CADSurfSharedPtr s =
+            std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o);
 
         // need to organise the all array
         Array<OneD, std::array<NekDouble, 2>> uv(val.size() / 2);
@@ -335,14 +345,14 @@ DNekMat OptiEdge::dF(Array<OneD, NekDouble> xitst)
 
 void OptiEdge::Update(Array<OneD, NekDouble> xinew)
 {
-    if (o->GetType() == CADType::eCurve)
+    if (o->GetType() == SpatialDomains::CADType::eCurve)
     {
         for (int i = 0; i < xinew.size(); i++)
         {
             all[i + 1] = xinew[i];
         }
     }
-    else if (o->GetType() == CADType::eSurf)
+    else if (o->GetType() == SpatialDomains::CADType::eSurf)
     {
         for (int i = 0; i < xinew.size(); i++)
         {

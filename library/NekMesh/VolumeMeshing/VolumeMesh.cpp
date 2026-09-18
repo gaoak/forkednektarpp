@@ -35,12 +35,11 @@
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
 #include "VolumeMesh.h"
-#include <NekMesh/CADSystem/CADCurve.h>
-#include <NekMesh/CADSystem/CADSurf.h>
 #include <NekMesh/SurfaceMeshing/CurveMesh.h>
 #include <NekMesh/SurfaceMeshing/FaceMesh.h>
 #include <NekMesh/VolumeMeshing/BLMeshing/BLMesh.h>
 #include <NekMesh/VolumeMeshing/TetMeshing/TetMesh.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -65,6 +64,8 @@ VolumeMesh::~VolumeMesh()
 
 void VolumeMesh::Process()
 {
+    auto &m_graph = m_mesh->m_meshGraph;
+
     m_log(VERBOSE) << "Volume meshing:" << endl;
 
     bool makeBL;
@@ -82,12 +83,13 @@ void VolumeMesh::Process()
     }
 
     NekDouble prefix = 100;
-    if (m_mesh->m_cad->GetNumSurf() > 100)
+    if (m_graph->GetCAD()->GetNumSurf() > 100)
     {
         prefix *= 10;
     }
 
     TetMeshSharedPtr tet;
+
     if (makeBL)
     {
         m_log(VERBOSE) << "  Performing boundary layer generation." << endl;
@@ -100,42 +102,40 @@ void VolumeMesh::Process()
 
         // remesh the correct surfaces
         vector<unsigned int> symsurfs = blmesh->GetSymSurfs();
-        vector<ElementSharedPtr> els  = m_mesh->m_element[2];
-        m_mesh->m_element[2].clear();
+
+        vector<SpatialDomains::Geometry *> els;
+        for (auto &[el, tag] : m_mesh->m_elementTags[2])
+        {
+            els.push_back(el);
+        }
+
         for (int i = 0; i < els.size(); i++)
         {
-            vector<unsigned int>::iterator f = find(
-                symsurfs.begin(), symsurfs.end(), els[i]->m_parentCAD->GetId());
+            vector<unsigned int>::iterator f =
+                find(symsurfs.begin(), symsurfs.end(),
+                     m_graph->GetCADAssociation()->GetSurf(els[i])->GetId());
 
             if (f == symsurfs.end())
             {
-                m_mesh->m_element[2].push_back(els[i]);
+                continue;
             }
-            else
-            {
-                // remove element from links
-                vector<EdgeSharedPtr> es = els[i]->GetEdgeList();
-                for (int j = 0; j < es.size(); j++)
-                {
-                    vector<pair<weak_ptr<Element>, int>> lk = es[j]->m_elLink;
-                    es[j]->m_elLink.clear();
-                    for (int k = 0; k < lk.size(); k++)
-                    {
-                        if (lk[k].first.lock() == els[i])
-                        {
-                            continue;
-                        }
-                        es[j]->m_elLink.push_back(lk[k]);
-                    }
-                }
-            }
+
+            // erase the triag face from the set with key the {vertices -1}
+            std::array<int, 4> vids = {els[i]->GetVertex(0)->GetGlobalID(),
+                                       els[i]->GetVertex(1)->GetGlobalID(),
+                                       els[i]->GetVertex(2)->GetGlobalID(), -1};
+            m_mesh->m_faceSet.erase(vids);
+            m_mesh->m_elementTags[2].erase(els[i]);
+            m_graph->GetCADAssociation()->Remove(els[i]);
+            m_graph->ExtractGeom<SpatialDomains::TriGeom>(els[i]->GetGlobalID(),
+                                                          true);
         }
 
         for (int i = 0; i < symsurfs.size(); i++)
         {
             set<int> cIds;
-            vector<EdgeLoopSharedPtr> e =
-                m_mesh->m_cad->GetSurf(symsurfs[i])->GetEdges();
+            vector<SpatialDomains::EdgeLoopSharedPtr> e =
+                m_graph->GetCAD()->GetSurf(symsurfs[i])->GetEdges();
             for (int k = 0; k < e.size(); k++)
             {
                 for (int j = 0; j < e[k]->edges.size(); j++)
@@ -145,30 +145,31 @@ void VolumeMesh::Process()
             }
 
             // find the curve nodes which are on this symsurf
-            map<int, vector<NodeSharedPtr>> curveNodeMap;
-            NodeSet::iterator it;
-            for (it = m_mesh->m_vertexSet.begin();
-                 it != m_mesh->m_vertexSet.end(); it++)
+            map<int, vector<SpatialDomains::PointGeom *>> curveNodeMap;
+            for (auto [vid, vert] :
+                 m_graph->GetGeomMap<SpatialDomains::PointGeom>())
             {
-                vector<CADCurveSharedPtr> cc = (*it)->GetCADCurves();
+                auto cc = m_graph->GetCADAssociation()->GetLinks(
+                    vert, SpatialDomains::CADType::eCurve);
                 for (int j = 0; j < cc.size(); j++)
                 {
-                    set<int>::iterator f = cIds.find(cc[j]->GetId());
+                    set<int>::iterator f = cIds.find(cc[j].Id());
                     if (f != cIds.end())
                     {
-                        curveNodeMap[cc[j]->GetId()].push_back((*it));
+                        curveNodeMap[cc[j].Id()].push_back(vert);
                     }
                 }
             }
 
             // need to bubble sort the vectors
-            map<int, vector<NodeSharedPtr>>::iterator cit;
+            map<int, vector<SpatialDomains::PointGeom *>>::iterator cit;
             for (cit = curveNodeMap.begin(); cit != curveNodeMap.end(); cit++)
             {
                 vector<NekDouble> ts;
                 for (int i = 0; i < cit->second.size(); i++)
                 {
-                    ts.push_back(cit->second[i]->GetCADCurveInfo(cit->first));
+                    ts.push_back(m_graph->GetCADAssociation()->GetCurveT(
+                        cit->second[i], cit->first));
                 }
                 bool repeat = true;
                 while (repeat)
@@ -188,25 +189,24 @@ void VolumeMesh::Process()
             }
 
             // create quads
-            map<NodeSharedPtr, NodeSharedPtr> nmap = blmesh->GetSymNodes();
+            map<SpatialDomains::PointGeom *, SpatialDomains::PointGeom *> nmap =
+                blmesh->GetSymNodes();
             for (cit = curveNodeMap.begin(); cit != curveNodeMap.end(); cit++)
             {
                 for (int j = 0; j < cit->second.size() - 1; j++)
                 {
-                    map<NodeSharedPtr, NodeSharedPtr>::iterator f1 =
-                        nmap.find(cit->second[j]);
-                    map<NodeSharedPtr, NodeSharedPtr>::iterator f2 =
-                        nmap.find(cit->second[j + 1]);
+                    auto f1 = nmap.find(cit->second[j]);
+                    auto f2 = nmap.find(cit->second[j + 1]);
 
                     if (f1 == nmap.end() || f2 == nmap.end())
                     {
                         continue;
                     }
 
-                    NodeSharedPtr n1 = f1->second;
-                    NodeSharedPtr n2 = f2->second;
+                    SpatialDomains::PointGeom *n1 = f1->second;
+                    SpatialDomains::PointGeom *n2 = f2->second;
 
-                    vector<NodeSharedPtr> ns;
+                    vector<SpatialDomains::PointGeom *> ns;
                     ns.push_back(cit->second[j]);
                     ns.push_back(n1);
                     ns.push_back(n2);
@@ -215,34 +215,16 @@ void VolumeMesh::Process()
                     ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false,
                                     false);
 
-                    vector<int> tags;
-                    tags.push_back(prefix * 2 + symsurfs[i]);
-                    ElementSharedPtr E = GetElementFactory().CreateInstance(
-                        LibUtilities::eQuadrilateral, conf, ns, tags);
-                    E->m_parentCAD = m_mesh->m_cad->GetSurf(symsurfs[i]);
-                    m_mesh->m_element[2].push_back(E);
+                    // quad element will check if quad element exist and reuse
+                    SpatialDomains::Geometry *E =
+                        GetElementFactory().CreateInstance(
+                            LibUtilities::eQuadrilateral, ns, m_graph,
+                            m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, nullptr,
+                            nullptr, nullptr, nullptr);
 
-                    // need to dummy process the new elements
-                    for (int k = 0; k < E->GetEdgeCount(); ++k)
-                    {
-                        pair<EdgeSet::iterator, bool> testIns;
-                        EdgeSharedPtr ed = E->GetEdge(k);
-                        testIns          = m_mesh->m_edgeSet.insert(ed);
-
-                        if (testIns.second)
-                        {
-                            EdgeSharedPtr ed2 = *testIns.first;
-                            ed2->m_elLink.push_back(
-                                pair<ElementSharedPtr, int>(E, k));
-                        }
-                        else
-                        {
-                            EdgeSharedPtr e2 = *(testIns.first);
-                            E->SetEdge(k, e2);
-                            e2->m_elLink.push_back(
-                                pair<ElementSharedPtr, int>(E, k));
-                        }
-                    }
+                    m_graph->GetCADAssociation()->Set(
+                        E, {m_graph->GetCAD()->GetSurf(symsurfs[i])});
+                    m_mesh->m_elementTags[2][E] = prefix * 2 + symsurfs[i];
                 }
             }
 
@@ -251,8 +233,7 @@ void VolumeMesh::Process()
             {
                 for (int j = 0; j < cit->second.size(); j++)
                 {
-                    map<NodeSharedPtr, NodeSharedPtr>::iterator f1 =
-                        nmap.find(cit->second[j]);
+                    auto f1 = nmap.find(cit->second[j]);
                     if (f1 == nmap.end())
                     {
                         continue;
@@ -275,22 +256,22 @@ void VolumeMesh::Process()
         vector<unsigned int> blsurfs = blmesh->GetBLSurfs();
 
         // build the surface for tetgen to use.
-        vector<ElementSharedPtr> tetsurface = blmesh->GetPseudoSurface();
-        for (int i = 0; i < m_mesh->m_element[2].size(); i++)
+        vector<SpatialDomains::Geometry *> tetsurface =
+            blmesh->GetPseudoSurface();
+        for (auto &[el, tag] : m_mesh->m_elementTags[2])
         {
-            if (m_mesh->m_element[2][i]->GetConf().m_e ==
-                LibUtilities::eQuadrilateral)
+            if (el->GetShapeType() == LibUtilities::eQuadrilateral)
             {
                 continue;
             }
 
             vector<unsigned int>::iterator f =
                 find(blsurfs.begin(), blsurfs.end(),
-                     m_mesh->m_element[2][i]->m_parentCAD->GetId());
+                     m_graph->GetCADAssociation()->GetSurf(el)->GetId());
 
             if (f == blsurfs.end())
             {
-                tetsurface.push_back(m_mesh->m_element[2][i]);
+                tetsurface.push_back(el);
             }
         }
 
@@ -308,10 +289,7 @@ void VolumeMesh::Process()
 
     tet->Mesh();
 
-    ClearElementLinks();
     ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 }

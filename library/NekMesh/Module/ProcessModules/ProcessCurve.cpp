@@ -46,6 +46,8 @@
 
 #include "ProcessCurve.h"
 
+#include <SpatialDomains/Curve.hpp>
+
 using namespace std;
 
 namespace Nektar::NekMesh
@@ -100,16 +102,14 @@ ProcessCurve::~ProcessCurve()
  *
  * @param edge Edge which will be modified
  */
-void ProcessCurve::v_GenerateEdgeNodes(EdgeSharedPtr edge)
+void ProcessCurve::v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge)
 {
-    NodeSharedPtr n1 = edge->m_n1;
-    NodeSharedPtr n2 = edge->m_n2;
+    SpatialDomains::PointGeom *n1 = edge->GetVertex(0);
+    SpatialDomains::PointGeom *n2 = edge->GetVertex(1);
 
     int nq          = m_config["N"].as<int>();
     int niter       = m_config["niter"].as<int>();
     NekDouble gamma = m_config["gamma"].as<double>();
-
-    edge->m_edgeNodes.resize(nq - 2);
 
     // Read function defining the curve
     if (m_config["function"].as<string>().compare("NotSet") != 0)
@@ -148,10 +148,10 @@ void ProcessCurve::v_GenerateEdgeNodes(EdgeSharedPtr edge)
     NekDouble s_average;
 
     // Fix start point
-    x[0] = n1->m_x;
+    x[0] = (*n1)[0];
     y[0] = EvaluateCoordinate(x[0]);
     // Start with uniform distribution along x-axis
-    Vmath::Sadd(nq - 1, (n2->m_x - n1->m_x) / (nq - 1), dx, 1, dx, 1);
+    Vmath::Sadd(nq - 1, ((*n2)[0] - (*n1)[0]) / (nq - 1), dx, 1, dx, 1);
 
     // Iterate a few times to make points more evenly distributed
     for (int s = 0; s < niter; ++s)
@@ -192,13 +192,23 @@ void ProcessCurve::v_GenerateEdgeNodes(EdgeSharedPtr edge)
         }
     }
 
-    // Write interior nodes to edge
+    // Write the edge curve: the two vertices bracket the interior nodes
+    // generated above.
+    auto curve = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        edge->GetGlobalID(), LibUtilities::ePolyEvenlySpaced);
+
+    curve->m_points.push_back(n1);
     for (int k = 1; k < nq - 1; ++k)
     {
-        edge->m_edgeNodes[k - 1] =
-            NodeSharedPtr(new Node(0, x[k], y[k], n1->m_z));
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            n1->GetCoordim(), 0, x[k], y[k], (*n1)[2]);
+        curve->m_points.push_back(pt.get());
+        m_mesh->m_meshGraph->GetAllCurveNodes().push_back(std::move(pt));
     }
-    edge->m_curveType = LibUtilities::ePolyEvenlySpaced;
+    curve->m_points.push_back(n2);
+
+    edge->SetCurve(curve.get());
+    m_mesh->m_meshGraph->AddCurvedEdge(std::move(curve));
 }
 
 NekDouble ProcessCurve::EvaluateCoordinate(NekDouble xCoord)

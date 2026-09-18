@@ -35,6 +35,7 @@
 #include <algorithm>
 
 #include <NekMesh/SurfaceMeshing/SurfaceMesh.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -54,18 +55,15 @@ SurfaceMesh::~SurfaceMesh()
 
 void SurfaceMesh::Process()
 {
-    m_mesh->m_expDim--; // just to make it easier to surface mesh for now
-
     m_log(VERBOSE) << "Surface meshing" << endl;
     m_log(VERBOSE) << "  Curve meshing:" << endl;
 
-    m_mesh->m_numNodes = m_mesh->m_cad->GetNumVerts();
+    auto m_cad = m_mesh->m_meshGraph->GetCAD();
 
     // linear mesh all curves
-    for (int i = 1; i <= m_mesh->m_cad->GetNumCurve(); i++)
+    for (int i = 1; i <= m_cad->GetNumCurve(); i++)
     {
-        m_log(VERBOSE).Progress(i, m_mesh->m_cad->GetNumCurve(),
-                                "Curve progress");
+        m_log(VERBOSE).Progress(i, m_cad->GetNumCurve(), "Curve progress");
 
         m_curvemeshes[i] =
             MemoryManager<CurveMesh>::AllocateSharedPtr(i, m_mesh, m_log);
@@ -75,9 +73,9 @@ void SurfaceMesh::Process()
     m_log(VERBOSE) << "  Face meshing:" << endl;
 
     bool validError = false;
-    for (int i = 1; i <= m_mesh->m_cad->GetNumSurf(); i++)
+    for (int i = 1; i <= m_cad->GetNumSurf(); i++)
     {
-        m_log(VERBOSE).Progress(i, m_mesh->m_cad->GetNumSurf(),
+        m_log(VERBOSE).Progress(i, m_cad->GetNumSurf(),
                                 "    - Validating curve meshes");
 
         FaceMeshSharedPtr face = MemoryManager<FaceMesh>::AllocateSharedPtr(
@@ -96,10 +94,9 @@ void SurfaceMesh::Process()
     }
 
     // linear mesh all surfaces
-    for (int i = 1; i <= m_mesh->m_cad->GetNumSurf(); i++)
+    for (int i = 1; i <= m_cad->GetNumSurf(); i++)
     {
-        m_log(VERBOSE).Progress(i, m_mesh->m_cad->GetNumSurf(),
-                                "Face progress");
+        m_log(VERBOSE).Progress(i, m_cad->GetNumSurf(), "Face progress");
         m_facemeshes[i] = MemoryManager<FaceMesh>::AllocateSharedPtr(
             i, m_mesh, m_curvemeshes, i, m_log);
 
@@ -107,29 +104,16 @@ void SurfaceMesh::Process()
     }
 
     ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 
     Report();
-
-    EdgeSet::iterator it;
-    for (it = m_mesh->m_edgeSet.begin(); it != m_mesh->m_edgeSet.end(); it++)
-    {
-        if ((*it)->m_elLink.size() != 2)
-        {
-            ASSERTL0(false, "surface mesh connectivity error");
-        }
-    }
-
-    m_mesh->m_expDim++; // revert dim
 }
 void SurfaceMesh::Report()
 {
-    int ns = m_mesh->m_vertexSet.size();
-    int es = m_mesh->m_edgeSet.size();
-    int ts = m_mesh->m_element[2].size();
+    int ns = m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::PointGeom>();
+    int es = m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::SegGeom>();
+    int ts = m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::TriGeom>();
     int ep = ns - es + ts;
 
     m_log(VERBOSE) << "Surface meshing complete. Statistics:" << endl;

@@ -37,7 +37,7 @@
 
 #include <algorithm>
 
-#include <NekMesh/MeshElements/Triangle.h>
+#include <NekMesh/MeshElements/HOAlignment.h>
 #include <NekMesh/Module/Module.h>
 
 namespace Nektar::NekMesh
@@ -90,6 +90,14 @@ private:
      * Maps ordering of hsf standard element to Nektar++ ordering.
      */
     std::map<int, int> hoMap;
+
+    /**
+     * Coordinate carriers for the high-order surface data. The .hsf file is
+     * read before the mesh exists, so its points cannot be mesh vertices;
+     * they are held here purely to carry coordinates until the curved faces
+     * are built.
+     */
+    std::vector<SpatialDomains::PointGeomUniquePtr> m_hoSurfNodes;
 };
 } // namespace Nektar::NekMesh
 

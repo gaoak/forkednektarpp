@@ -56,11 +56,11 @@ class NodeOpti
     typedef boost::multi_array<NekDouble, 4> DerivArray;
 
 public:
-    NodeOpti(NodeSharedPtr n, std::vector<ElUtilSharedPtr> e,
+    NodeOpti(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
              ResidualSharedPtr r,
              std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-             optiType o, [[maybe_unused]] int dim)
-        : m_node(n), m_res(r), m_derivUtils(d), m_opti(o)
+             optiType o, [[maybe_unused]] int dim, SpatialDomains::MeshGraph *g)
+        : m_node(n), m_graph(g), m_res(r), m_derivUtils(d), m_opti(o)
     {
         // filter element types within d vector
         for (int i = 0; i < e.size(); i++)
@@ -82,7 +82,10 @@ public:
     template <int DIM> void MinEigen(NekDouble &val);
 
 protected:
-    NodeSharedPtr m_node;
+    SpatialDomains::PointGeom *m_node;
+    /// Holds the node to CAD association; only the CAD-constrained subclasses
+    /// use it.
+    SpatialDomains::MeshGraph *m_graph;
     std::mutex mtx;
     std::map<LibUtilities::ShapeType, std::vector<ElUtilSharedPtr>> m_data;
     std::vector<NekDouble> m_grad;
@@ -110,9 +113,9 @@ protected:
 
 typedef std::shared_ptr<NodeOpti> NodeOptiSharedPtr;
 typedef LibUtilities::NekFactory<
-    int, NodeOpti, NodeSharedPtr, std::vector<ElUtilSharedPtr>,
+    int, NodeOpti, SpatialDomains::PointGeom *, std::vector<ElUtilSharedPtr>,
     ResidualSharedPtr, std::map<LibUtilities::ShapeType, DerivUtilSharedPtr>,
-    optiType>
+    optiType, SpatialDomains::MeshGraph *>
     NodeOptiFactory;
 
 NodeOptiFactory &GetNodeOptiFactory();
@@ -120,11 +123,11 @@ NodeOptiFactory &GetNodeOptiFactory();
 class NodeOpti3D3D : public NodeOpti // 1D optimsation in 3D space
 {
 public:
-    NodeOpti3D3D(NodeSharedPtr n, std::vector<ElUtilSharedPtr> e,
+    NodeOpti3D3D(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
                  ResidualSharedPtr r,
                  std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-                 optiType o)
-        : NodeOpti(n, e, r, d, o, 3)
+                 optiType o, SpatialDomains::MeshGraph *g)
+        : NodeOpti(n, e, r, d, o, 3, g)
     {
     }
 
@@ -134,10 +137,12 @@ public:
 
     static int m_type;
     static NodeOptiSharedPtr create(
-        NodeSharedPtr n, std::vector<ElUtilSharedPtr> e, ResidualSharedPtr r,
-        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o)
+        SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
+        ResidualSharedPtr r,
+        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o,
+        SpatialDomains::MeshGraph *g)
     {
-        return NodeOptiSharedPtr(new NodeOpti3D3D(n, e, r, d, o));
+        return NodeOptiSharedPtr(new NodeOpti3D3D(n, e, r, d, o, g));
     }
 
 private:
@@ -146,11 +151,11 @@ private:
 class NodeOpti2D2D : public NodeOpti // 1D optimsation in 3D space
 {
 public:
-    NodeOpti2D2D(NodeSharedPtr n, std::vector<ElUtilSharedPtr> e,
+    NodeOpti2D2D(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
                  ResidualSharedPtr r,
                  std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-                 optiType o)
-        : NodeOpti(n, e, r, d, o, 2)
+                 optiType o, SpatialDomains::MeshGraph *g)
+        : NodeOpti(n, e, r, d, o, 2, g)
     {
     }
 
@@ -160,10 +165,12 @@ public:
 
     static int m_type;
     static NodeOptiSharedPtr create(
-        NodeSharedPtr n, std::vector<ElUtilSharedPtr> e, ResidualSharedPtr r,
-        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o)
+        SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
+        ResidualSharedPtr r,
+        std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d, optiType o,
+        SpatialDomains::MeshGraph *g)
     {
-        return NodeOptiSharedPtr(new NodeOpti2D2D(n, e, r, d, o));
+        return NodeOptiSharedPtr(new NodeOpti2D2D(n, e, r, d, o, g));
     }
 
 private:
@@ -326,9 +333,9 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
                             NekDouble basisDeriv[DIM];
                             for (int m = 0; m < DIM; ++m)
                             {
-                                basisDeriv[m] = *(
-                                    m_derivUtils[typeIt.first]->VdmD[m])(
-                                    k, typeIt.second[i]->NodeId(m_node->m_id));
+                                basisDeriv[m] =
+                                    *(m_derivUtils[typeIt.first]->VdmD[m])(
+                                        k, typeIt.second[i]->NodeId(m_node));
                             }
                             // jacDeriv is actually a tensor,
                             // but can be stored as a vector, as 18 out of 27
@@ -522,13 +529,11 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
                             NekDouble basisDeriv[DIM];
                             for (int m = 0; m < DIM; ++m)
                             {
-                                basisDeriv[m] =
-                                    *(m_derivUtils[typeIt.first]
-                                          ->VdmD[m]
-                                          .GetRawPtr() +
-                                      typeIt.second[i]->NodeId(m_node->m_id) *
-                                          pts +
-                                      k);
+                                basisDeriv[m] = *(
+                                    m_derivUtils[typeIt.first]
+                                        ->VdmD[m]
+                                        .GetRawPtr() +
+                                    typeIt.second[i]->NodeId(m_node) * pts + k);
                             }
 
                             // jacDeriv is actually a tensor,
@@ -692,9 +697,9 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
                             NekDouble basisDeriv[DIM];
                             for (int m = 0; m < DIM; ++m)
                             {
-                                basisDeriv[m] = *(
-                                    m_derivUtils[typeIt.first]->VdmD[m])(
-                                    k, typeIt.second[i]->NodeId(m_node->m_id));
+                                basisDeriv[m] =
+                                    *(m_derivUtils[typeIt.first]->VdmD[m])(
+                                        k, typeIt.second[i]->NodeId(m_node));
                             }
                             // jacDeriv is actually a tensor,
                             // but can be stored as a vector, as 18 out of 27
@@ -865,9 +870,9 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
                             NekDouble basisDeriv[DIM];
                             for (int m = 0; m < DIM; ++m)
                             {
-                                basisDeriv[m] = *(
-                                    m_derivUtils[typeIt.first]->VdmD[m])(
-                                    k, typeIt.second[i]->NodeId(m_node->m_id));
+                                basisDeriv[m] =
+                                    *(m_derivUtils[typeIt.first]->VdmD[m])(
+                                        k, typeIt.second[i]->NodeId(m_node));
                             }
                             // jacDeriv is actually a tensor,
                             // but can be stored as a vector, as 18 out of 27

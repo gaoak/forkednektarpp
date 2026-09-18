@@ -43,6 +43,8 @@
 
 #include "ProcessCyl.h"
 
+#include <SpatialDomains/Curve.hpp>
+
 using namespace std;
 
 namespace Nektar::NekMesh
@@ -68,17 +70,17 @@ ProcessCyl::~ProcessCyl()
 {
 }
 
-void ProcessCyl::v_GenerateEdgeNodes(EdgeSharedPtr edge)
+void ProcessCyl::v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge)
 {
-    NodeSharedPtr n1 = edge->m_n1;
-    NodeSharedPtr n2 = edge->m_n2;
+    SpatialDomains::PointGeom *n1 = edge->GetVertex(0);
+    SpatialDomains::PointGeom *n2 = edge->GetVertex(1);
 
     int nq    = m_config["N"].as<int>();
     double r  = m_config["r"].as<double>();
     double xc = m_config["xc"].as<double>();
     double yc = m_config["yc"].as<double>();
-    double t1 = atan2(n1->m_y - yc, n1->m_x - xc);
-    double t2 = atan2(n2->m_y - yc, n2->m_x - xc);
+    double t1 = atan2((*n1)[1] - yc, (*n1)[0] - xc);
+    double t2 = atan2((*n2)[1] - yc, (*n2)[0] - xc);
     double dt;
     double dz;
 
@@ -92,15 +94,25 @@ void ProcessCyl::v_GenerateEdgeNodes(EdgeSharedPtr edge)
     }
 
     dt = (t2 - t1) / (nq - 1);
-    dz = (n2->m_z - n1->m_z) / (nq - 1);
+    dz = ((*n2)[2] - (*n1)[2]) / (nq - 1);
 
-    edge->m_edgeNodes.resize(nq - 2);
+    // A curve runs end to end, so the two vertices bracket the interior
+    // points that are generated here.
+    auto curve = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        edge->GetGlobalID(), LibUtilities::ePolyEvenlySpaced);
+
+    curve->m_points.push_back(n1);
     for (int i = 1; i < nq - 1; ++i)
     {
-        edge->m_edgeNodes[i - 1] = NodeSharedPtr(
-            new Node(0, xc + r * cos(t1 + i * dt), yc + r * sin(t1 + i * dt),
-                     n1->m_z + i * dz));
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            n1->GetCoordim(), 0, xc + r * cos(t1 + i * dt),
+            yc + r * sin(t1 + i * dt), (*n1)[2] + i * dz);
+        curve->m_points.push_back(pt.get());
+        m_mesh->m_meshGraph->GetAllCurveNodes().push_back(std::move(pt));
     }
-    edge->m_curveType = LibUtilities::ePolyEvenlySpaced;
+    curve->m_points.push_back(n2);
+
+    edge->SetCurve(curve.get());
+    m_mesh->m_meshGraph->AddCurvedEdge(std::move(curve));
 }
 } // namespace Nektar::NekMesh

@@ -48,6 +48,7 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Foundations/NodalUtil.h>
 
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <boost/algorithm/string.hpp>
 
 // Including Timer.h includes Windows.h, which causes GetJob to be set as a
@@ -117,6 +118,8 @@ void ProcessVarOpti::Process()
 {
     m_log(VERBOSE) << "Optimising mesh quality." << endl;
 
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+
     if (m_config["linearelastic"].beenSet)
     {
         m_opti = eLinEl;
@@ -147,40 +150,46 @@ void ProcessVarOpti::Process()
         subIter = maxIter;
     }
 
-    // m_mesh->m_nummode = m_config["nq"].as<int>();
-
-    bool fd = false;
-
     if (m_config["nq"].beenSet)
     {
-        m_mesh->m_nummode = m_config["nq"].as<int>();
-        fd                = true;
+        m_nummode = m_config["nq"].as<int>();
     }
 
-    if (!fd)
+    if (!m_nummode)
     {
-        for (auto &edge : m_mesh->m_edgeSet)
+        for (auto &[id, edge] :
+             m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
         {
-            if (edge->m_edgeNodes.size() > 0)
+            SpatialDomains::Curve *c = edge->GetCurve();
+
+            if (!c)
             {
-                m_mesh->m_nummode = edge->m_edgeNodes.size() + 2;
-                fd                = true;
+                continue;
+            }
+
+            if (c->m_points.size() > 0)
+            {
+                m_nummode = c->m_points.size();
                 break;
             }
         }
     }
-    ASSERTL0(fd, "failed to find order of mesh");
+
+    if (!m_nummode)
+    {
+        m_log(FATAL) << "Failed to find order of mesh: set nq directly as a "
+                        "module option"
+                     << std::endl;
+    }
 
     // Safety feature: limit over-integration order for high-order triangles
     // over order 5.
     int intOrder = m_config["overint"].as<int>();
-    intOrder =
-        m_mesh->m_nummode + intOrder <= 11 ? intOrder : 11 - m_mesh->m_nummode;
+    intOrder     = m_nummode + intOrder <= 11 ? intOrder : 11 - m_nummode;
 
-    m_log(VERBOSE) << "  - Identified mesh order as: " << m_mesh->m_nummode - 1
-                   << endl;
+    m_log(VERBOSE) << "  - Identified mesh order as: " << m_nummode - 1 << endl;
 
-    if (m_mesh->m_expDim == 2 && m_mesh->m_spaceDim == 3)
+    if (meshDim == 2 && m_mesh->m_meshGraph->GetSpaceDimension() == 3)
     {
         m_log(FATAL) << "Cannot presently optimise manifold meshes (2D embedded"
                      << " in 3D)." << endl;
@@ -188,8 +197,8 @@ void ProcessVarOpti::Process()
 
     m_res      = std::shared_ptr<Residual>(new Residual);
     m_res->val = 1.0;
-    m_mesh->MakeOrder(m_mesh->m_nummode - 1,
-                      LibUtilities::eGaussLobattoLegendre, m_log);
+    m_mesh->MakeOrder(m_nummode - 1, LibUtilities::eGaussLobattoLegendre,
+                      m_log);
 
     if (m_config["analytics"].beenSet)
     {
@@ -217,62 +226,59 @@ void ProcessVarOpti::Process()
         elLock = GetLockedElements(m_config["region"].as<NekDouble>());
     }
 
-    vector<vector<NodeSharedPtr>> freenodes = GetColouredNodes(elLock);
+    vector<vector<SpatialDomains::PointGeom *>> freenodes =
+        GetColouredNodes(elLock);
     vector<vector<NodeOptiSharedPtr>> optiNodes;
 
+    // Null when the mesh has no CAD attached, in which case every node is
+    // free. Fetched once: asking the graph for it creates it.
+    SpatialDomains::CADAssociationSharedPtr cad =
+        m_mesh->m_meshGraph->HasCAD() ? m_mesh->m_meshGraph->GetCADAssociation()
+                                      : nullptr;
+
     // turn the free nodes into optimisable objects with all required data
-    set<int> check;
+    std::unordered_set<SpatialDomains::PointGeom *> check;
     for (int i = 0; i < freenodes.size(); i++)
     {
         vector<NodeOptiSharedPtr> ns;
         for (int j = 0; j < freenodes[i].size(); j++)
         {
-            auto it = m_nodeElMap.find(freenodes[i][j]->m_id);
+            auto it = m_nodeElMap.find(freenodes[i][j]);
             ASSERTL0(it != m_nodeElMap.end(), "could not find");
 
-            int optiKind = m_mesh->m_spaceDim;
+            // Nodes sitting on the CAD are constrained to it: one on a CAD
+            // curve may only slide along the curve, one on a CAD surface only
+            // within the surface, and one coinciding with a CAD vertex is
+            // frozen (optiKind 0, skipped below). Everything else moves
+            // freely in the full space.
+            int optiKind = m_mesh->m_meshGraph->GetSpaceDimension();
 
-            if (freenodes[i][j]->GetNumCadCurve())
+            if (cad != nullptr &&
+                cad->Has(freenodes[i][j], SpatialDomains::CADType::eCurve))
             {
-                // ensures CAD vertices are removed from optimisation and not
-                // allowed to move.
-                [&] { // in a lambda function to avoid checking multiple curves
-                      // if node is already identified as a vertex.
-                    for (auto &curve : freenodes[i][j]->GetCADCurves())
-                    {
-                        for (auto &vert : curve->GetVertex())
-                        {
-                            if (freenodes[i][j] == vert->GetNode())
-                            {
-                                // node is a vertex of the CAD curve and should
-                                // not be optimised.
-                                optiKind = 0;
-                                return;
-                            }
-                        }
-                    }
-                    optiKind += 10; // if the lambda function hasn't returned
-                                    // then node is not a vertex.
-                }();
+                // A CAD vertex is where two curves meet; moving it would pull
+                // the topology apart, so it does not get optimised at all.
+                optiKind = cad->GetVert(freenodes[i][j]) ? 0 : optiKind + 10;
             }
-            else if (freenodes[i][j]->GetNumCADSurf())
+            else if (cad != nullptr &&
+                     cad->Has(freenodes[i][j], SpatialDomains::CADType::eSurf))
             {
                 optiKind += 20;
             }
             else
             {
-                optiKind += 10 * m_mesh->m_expDim;
+                optiKind += 10 * meshDim;
             }
 
-            auto c = check.find(freenodes[i][j]->m_id);
+            auto c = check.find(freenodes[i][j]);
             ASSERTL0(c == check.end(), "duplicate node");
-            check.insert(freenodes[i][j]->m_id);
+            check.insert(freenodes[i][j]);
 
             if (optiKind)
             {
                 ns.push_back(GetNodeOptiFactory().CreateInstance(
                     optiKind, freenodes[i][j], it->second, m_res, derivUtils,
-                    m_opti));
+                    m_opti, m_mesh->m_meshGraph.get()));
             }
         }
         optiNodes.push_back(ns);
@@ -304,7 +310,7 @@ void ProcessVarOpti::Process()
 
     m_log(VERBOSE) << "Mesh statistics prior to optimisation:" << endl;
     m_log(VERBOSE) << "  - # elements         : "
-                   << m_mesh->m_element[m_mesh->m_expDim].size() - elLock.size()
+                   << m_mesh->m_elementTags[meshDim].size() - elLock.size()
                    << endl;
     m_log(VERBOSE) << "  - # invalid elements : " << m_res->startInv << endl;
     m_log(VERBOSE) << "  - Worst Jacobian     : " << scientific
@@ -321,9 +327,9 @@ void ProcessVarOpti::Process()
 
     int nThreads = m_config["numthreads"].as<int>();
 
-    if (m_mesh->m_cad)
+    if (m_mesh->m_meshGraph->HasCAD())
     {
-        if (boost::equals(m_mesh->m_cad->GetEngine(), "cfi"))
+        if (boost::equals(m_mesh->m_meshGraph->GetCAD()->GetEngine(), "cfi"))
         {
             m_log(WARNING) << "CFI is not thread-safe; forcing to "
                            << "'numthreads=1'." << endl;
@@ -394,7 +400,8 @@ void ProcessVarOpti::Process()
             {
                 elJobs[i] = m_dataSet[i]->GetAdaptJob(
                     m_adaptCurves, m_config["radaptscale"].as<NekDouble>(),
-                    m_config["radaptrad"].as<NekDouble>());
+                    m_config["radaptrad"].as<NekDouble>(),
+                    m_mesh->m_meshGraph.get());
             }
             else
             {
@@ -506,15 +513,19 @@ protected:
 
 void ProcessVarOpti::Analytics()
 {
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+
     // Grab the first element from the list
-    ElementSharedPtr elmt = m_mesh->m_element[m_mesh->m_expDim][0];
+    ASSERTL0(!m_mesh->m_elementTags[meshDim].empty(),
+             "No elements of the mesh dimension to analyse");
+    SpatialDomains::Geometry *elmt =
+        m_mesh->m_elementTags[meshDim].begin()->first;
 
     // Get curved nodes
-    vector<NodeSharedPtr> nodes;
-    elmt->GetCurvedNodes(nodes);
+    std::vector<SpatialDomains::PointGeom *> nodes = GetCurvedNodes(elmt);
 
     // We're going to investigate only the first node (corner node)
-    NodeSharedPtr node = nodes[4];
+    SpatialDomains::PointGeom *node = nodes[4];
 
     // Loop over overintegration orders
     const int nPoints       = 200;
@@ -532,11 +543,11 @@ void ProcessVarOpti::Analytics()
     // Loop over square defined by (originX, originY), length
     for (int k = 0; k < nPoints; ++k)
     {
-        node->m_y = originY + k * dx;
+        (*node)[1] = originY + k * dx;
         for (int j = 0; j < nPoints; ++j)
         {
-            node->m_x = originX + j * dx;
-            m_log(VERBOSE) << node->m_x << " " << node->m_y << " ";
+            (*node)[0] = originX + j * dx;
+            m_log(VERBOSE) << (*node)[0] << " " << (*node)[1] << " ";
 
             NekDouble minJacNew;
 
@@ -562,9 +573,9 @@ void ProcessVarOpti::Analytics()
                 // Create NodeOpti object.
                 NodeOptiSharedPtr nodeOpti =
                     GetNodeOptiFactory().CreateInstance(
-                        m_mesh->m_spaceDim * 11, node,
-                        m_nodeElMap.find(node->m_id)->second, m_res, derivUtils,
-                        m_opti);
+                        m_mesh->m_meshGraph->GetSpaceDimension() * 11, node,
+                        m_nodeElMap.find(node)->second, m_res, derivUtils,
+                        m_opti, m_mesh->m_meshGraph.get());
 
                 minJacNew = 0.0;
 

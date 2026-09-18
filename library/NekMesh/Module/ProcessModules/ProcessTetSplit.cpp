@@ -65,7 +65,7 @@ ProcessTetSplit::~ProcessTetSplit()
 
 void ProcessTetSplit::Process()
 {
-    int nodeId = m_mesh->m_vertexSet.size();
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
 
     // Set up map which identifies edges (as pairs of vertex ids)
     // including their vertices to the offset/stride in the 3d array of
@@ -143,47 +143,57 @@ void ProcessTetSplit::Process()
     static int tetFaceNodes[4][3] = {
         {0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}};
 
-    static NodeSharedPtr stdPrismNodes[6] = {
-        NodeSharedPtr(new Node(0, -1, -1, -1)),
-        NodeSharedPtr(new Node(1, 1, -1, -1)),
-        NodeSharedPtr(new Node(2, 1, 1, -1)),
-        NodeSharedPtr(new Node(3, -1, 1, -1)),
-        NodeSharedPtr(new Node(4, -1, -1, 1)),
-        NodeSharedPtr(new Node(5, -1, 1, 1))};
+    // Reference coordinates of the standard prism's vertices.
+    static const NekDouble stdPrismNodes[6][3] = {{-1, -1, -1}, {1, -1, -1},
+                                                  {1, 1, -1},   {-1, 1, -1},
+                                                  {-1, -1, 1},  {-1, 1, 1}};
 
     // Generate equally spaced nodal points on triangle.
     Array<OneD, NekDouble> rp(nq * (nq + 1) / 2), sp(nq * (nq + 1) / 2);
     LibUtilities::PointsKey elec(nq, LibUtilities::eNodalTriEvenlySpaced);
     LibUtilities::PointsManager()[elec]->GetPoints(rp, sp);
 
-    // Make a copy of the element list.
-    vector<ElementSharedPtr> el = m_mesh->m_element[m_mesh->m_expDim];
-    m_mesh->m_element[m_mesh->m_expDim].clear();
+    // create() records the vertex and curvature node ids it uses and
+    // dereferences these without checking, so they cannot be null.
+    std::set<int> vertIDs;
+    std::unordered_set<int> curveNodeIDs;
+    std::unordered_set<int> naiveTriIDs;
+
+    // Snapshot the elements and their tags, then rebuild the list keeping
+    // everything that is not a prism.
+    std::vector<std::pair<SpatialDomains::Geometry *, int>> el;
+    el.reserve(m_mesh->m_elementTags[meshDim].size());
+    for (auto &[geom, tag] : m_mesh->m_elementTags[meshDim])
+    {
+        el.push_back({geom, tag});
+    }
 
     for (int i = 0; i < el.size(); ++i)
     {
-        if (el[i]->GetConf().m_e != LibUtilities::ePrism)
+        SpatialDomains::Geometry *prism = el[i].first;
+        const int elTag                 = el[i].second;
+
+        if (prism->GetShapeType() != LibUtilities::ePrism)
         {
-            m_mesh->m_element[m_mesh->m_expDim].push_back(el[i]);
             continue;
         }
 
-        vector<NodeSharedPtr> nodeList(6);
+        vector<SpatialDomains::PointGeom *> nodeList(6);
 
         // Map Nektar++ ordering (vertices 0,1,2,3 are base quad) to
         // paper ordering (vertices 0,1,2 are first triangular face).
         int mapPrism[6] = {0, 1, 4, 3, 2, 5};
         for (int j = 0; j < 6; ++j)
         {
-            nodeList[j] = el[i]->GetVertex(mapPrism[j]);
+            nodeList[j] = prism->GetVertex(mapPrism[j]);
         }
 
         // Determine minimum ID of the nodes in this prism.
-        int minElId = nodeList[0]->m_id;
+        int minElId = nodeList[0]->GetGlobalID();
         int minId   = 0;
         for (int j = 1; j < 6; ++j)
         {
-            int curId = nodeList[j]->m_id;
+            int curId = nodeList[j]->GetGlobalID();
             if (curId < minElId)
             {
                 minElId = curId;
@@ -194,10 +204,10 @@ void ProcessTetSplit::Process()
         int offset = 0;
 
         // Split prism using paper criterion.
-        int id1 = min(nodeList[indir[minId][1]]->m_id,
-                      nodeList[indir[minId][5]]->m_id);
-        int id2 = min(nodeList[indir[minId][2]]->m_id,
-                      nodeList[indir[minId][4]]->m_id);
+        int id1 = min(nodeList[indir[minId][1]]->GetGlobalID(),
+                      nodeList[indir[minId][5]]->GetGlobalID());
+        int id2 = min(nodeList[indir[minId][2]]->GetGlobalID(),
+                      nodeList[indir[minId][4]]->GetGlobalID());
 
         if (id1 < id2)
         {
@@ -213,11 +223,11 @@ void ProcessTetSplit::Process()
                          << endl;
         }
 
-        SpatialDomains::EntityHolder holder;
-        // Create local prismatic region so that co-ordinates of the
-        // mapped element can be read from.
-        auto geomLayer = dynamic_cast<SpatialDomains::PrismGeom *>(
-            el[i]->GetGeom(m_mesh->m_spaceDim, holder));
+        // The element is the geometry now, so the prismatic region can be
+        // built straight from it.
+        auto geomLayer = dynamic_cast<SpatialDomains::PrismGeom *>(prism);
+        ASSERTL0(geomLayer != nullptr, "Prism geometry expected");
+        geomLayer->FillGeom();
         LibUtilities::BasisKey B0(
             LibUtilities::eOrtho_A, nq,
             LibUtilities::PointsKey(nq, LibUtilities::eGaussLobattoLegendre));
@@ -265,12 +275,22 @@ void ProcessTetSplit::Process()
         map<int, int> prismVerts;
         for (int j = 0; j < 6; ++j)
         {
-            prismVerts[el[i]->GetVertex(j)->m_id] = j;
+            prismVerts[prism->GetVertex(j)->GetGlobalID()] = j;
         }
+
+        // Curvature nodes carry no global ID of their own.
+        auto makeNode = [&](NekDouble xc, NekDouble yc, NekDouble zc) {
+            auto node =
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    3, -1, xc, yc, zc);
+            SpatialDomains::PointGeom *raw = node.get();
+            m_mesh->m_meshGraph->GetAllCurveNodes().push_back(std::move(node));
+            return raw;
+        };
 
         for (int j = 0; j < 3; ++j)
         {
-            vector<NodeSharedPtr> tetNodes(4);
+            vector<SpatialDomains::PointGeom *> tetNodes(4);
 
             // Extract vertices for tetrahedron.
             for (int k = 0; k < 4; ++k)
@@ -291,7 +311,9 @@ void ProcessTetSplit::Process()
                                        [prismTet[j + offset][tetEdges[k][1]]]];
 
                 // Find offset/stride
-                auto it = edgeMap.find(pair<int, int>(n1, n2));
+                auto it          = edgeMap.find(pair<int, int>(n1, n2));
+                bool reverseEdge = false;
+
                 if (it == edgeMap.end())
                 {
                     it = edgeMap.find(pair<int, int>(n2, n1));
@@ -300,76 +322,68 @@ void ProcessTetSplit::Process()
                         m_log(FATAL) << "Couldn't find prism edges " << n1
                                      << " " << n2 << endl;
                     }
-                    // Extract vertices -- reverse order.
-                    for (int l = ne - 1; l >= 0; --l)
-                    {
-                        int pos = it->second.first + l * it->second.second;
-                        tetNodes.push_back(NodeSharedPtr(new Node(
-                            nodeId++, xn[0][pos], xn[1][pos], xn[2][pos])));
-                    }
+                    reverseEdge = true;
                 }
-                else
+
+                for (int m = 0; m < ne; ++m)
                 {
-                    // Extract vertices -- forwards order.
-                    for (int l = 0; l < ne; ++l)
-                    {
-                        int pos = it->second.first + l * it->second.second;
-                        tetNodes.push_back(NodeSharedPtr(new Node(
-                            nodeId++, xn[0][pos], xn[1][pos], xn[2][pos])));
-                    }
+                    const int l   = reverseEdge ? ne - 1 - m : m;
+                    const int pos = it->second.first + l * it->second.second;
+                    tetNodes.push_back(
+                        makeNode(xn[0][pos], xn[1][pos], xn[2][pos]));
                 }
             }
 
-            // Create new tetrahedron with edge curvature.
-            vector<int> tags = el[i]->GetTagList();
-            ElmtConfig conf(LibUtilities::eTetrahedron, nq - 1, false, false);
-            ElementSharedPtr elmt = GetElementFactory().CreateInstance(
-                LibUtilities::eTetrahedron, conf, tetNodes, tags);
-
-            // Extract interior face data.
+            // Interior nodes of each face. These used to be pushed onto the
+            // created element's faces afterwards; the factory now places them
+            // itself, so they go into the node list in its own face order,
+            // which is the same table as tetFaceNodes.
             for (int k = 0; k < 4; ++k)
             {
-                // First determine which nodes of prism are being used
-                // for this face.
-                FaceSharedPtr face = elmt->GetFace(k);
-                vector<NodeSharedPtr> triNodes(3);
-
+                // The face's vertices, and where each of them sits in the
+                // standard prism.
+                const NekDouble *p[3];
                 for (int l = 0; l < 3; ++l)
                 {
-                    NodeSharedPtr v = face->m_vertexList[l];
-                    triNodes[l]     = stdPrismNodes[prismVerts[v->m_id]];
+                    SpatialDomains::PointGeom *v = tetNodes[tetFaceNodes[k][l]];
+                    p[l] = stdPrismNodes[prismVerts[v->GetGlobalID()]];
                 }
 
-                // Create a triangle with the standard nodes of the
-                // prism.
-                vector<int> tags;
-                ElmtConfig conf(LibUtilities::eTriangle, 1, false, false);
-                ElementSharedPtr elmt = GetElementFactory().CreateInstance(
-                    LibUtilities::eTriangle, conf, triNodes, tags);
-                SpatialDomains::Geometry *triGeom = elmt->GetGeom(3, holder);
-                triGeom->FillGeom();
-                o                 = 3 + 3 * ne;
-                face->m_curveType = LibUtilities::eNodalTriEvenlySpaced;
+                o = 3 + 3 * ne;
 
                 for (int l = 0; l < nft; ++l)
                 {
-                    Array<OneD, NekDouble> tmp1(2), tmp2(3);
-                    tmp1[0] = rp[o + l];
-                    tmp1[1] = sp[o + l];
-                    tmp2[0] = triGeom->GetCoord(0, tmp1);
-                    tmp2[1] = triGeom->GetCoord(1, tmp1);
-                    tmp2[2] = triGeom->GetCoord(2, tmp1);
+                    // Straight-sided triangle map from the face's nodal
+                    // coordinates into the prism's reference space. Doing
+                    // this arithmetically avoids building a throwaway
+                    // triangle, which would now land in the mesh graph.
+                    const NekDouble r = rp[o + l], t = sp[o + l];
+                    const NekDouble w0 = -(r + t) / 2.0;
+                    const NekDouble w1 = (1.0 + r) / 2.0;
+                    const NekDouble w2 = (1.0 + t) / 2.0;
 
-                    // PhysEvaluate on prism geometry.
-                    NekDouble xc = geomLayer->GetCoord(0, tmp2);
-                    NekDouble yc = geomLayer->GetCoord(1, tmp2);
-                    NekDouble zc = geomLayer->GetCoord(2, tmp2);
-                    face->m_faceNodes.push_back(
-                        NodeSharedPtr(new Node(nodeId++, xc, yc, zc)));
+                    Array<OneD, NekDouble> ref(3);
+                    for (int d = 0; d < 3; ++d)
+                    {
+                        ref[d] = w0 * p[0][d] + w1 * p[1][d] + w2 * p[2][d];
+                    }
+
+                    tetNodes.push_back(makeNode(geomLayer->GetCoord(0, ref),
+                                                geomLayer->GetCoord(1, ref),
+                                                geomLayer->GetCoord(2, ref)));
                 }
             }
 
-            m_mesh->m_element[m_mesh->m_expDim].push_back(elmt);
+            // Create the new tetrahedron, curvature and all.
+            ElmtConfig conf(LibUtilities::eTetrahedron, nq - 1, nft > 0, false,
+                            true, LibUtilities::eGaussLobattoLegendre,
+                            LibUtilities::eNodalTriEvenlySpaced);
+            SpatialDomains::Geometry *elmt = GetElementFactory().CreateInstance(
+                LibUtilities::eTetrahedron, tetNodes, m_mesh->m_meshGraph,
+                m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, &vertIDs,
+                &curveNodeIDs, &naiveTriIDs, nullptr);
+
+            m_mesh->m_elementTags[meshDim][elmt] = elTag;
         }
 
         // Now check to see if this one of the quadrilateral faces is
@@ -382,23 +396,27 @@ void ProcessTetSplit::Process()
         // implementation is simple.
         for (int fid = 0; fid < 5; fid += 2)
         {
-            int bl = el[i]->GetBoundaryLink(fid);
+            // The boundary element for this face, if there is one, is the
+            // face geometry itself, so look it up among the tagged boundary
+            // elements rather than through a stored link.
+            SpatialDomains::Geometry *quadFace = prism->GetFace(fid);
 
-            if (bl == -1)
+            auto blIt = m_mesh->m_elementTags[meshDim - 1].find(quadFace);
+
+            if (blIt == m_mesh->m_elementTags[meshDim - 1].end())
             {
                 continue;
             }
 
-            vector<NodeSharedPtr> triNodeList(3);
+            vector<SpatialDomains::PointGeom *> triNodeList(3);
             vector<int> faceNodes(3);
             vector<int> tmp;
-            vector<int> tagBE;
-            ElmtConfig bconf(LibUtilities::eTriangle, 1, true, true);
-            ElementSharedPtr elmt;
+            const int tagBE = blIt->second;
+            ElmtConfig bconf(LibUtilities::eTriangle, 1, false, false);
 
-            // Mark existing boundary face for removal.
-            toRemove.insert(bl);
-            tagBE = m_mesh->m_element[m_mesh->m_expDim - 1][bl]->GetTagList();
+            // The quadrilateral boundary element is replaced by the two
+            // triangles found below.
+            m_mesh->m_elementTags[meshDim - 1].erase(quadFace);
 
             // First loop over tets.
             for (int j = 0; j < 3; ++j)
@@ -448,31 +466,37 @@ void ProcessTetSplit::Process()
                         triNodeList[0] = nodeList[mapPrism[tmp[0]]];
                         triNodeList[1] = nodeList[mapPrism[tmp[1]]];
                         triNodeList[2] = nodeList[mapPrism[tmp[2]]];
-                        elmt           = GetElementFactory().CreateInstance(
-                            LibUtilities::eTriangle, bconf, triNodeList, tagBE);
-                        m_mesh->m_element[m_mesh->m_expDim - 1].push_back(elmt);
+
+                        SpatialDomains::Geometry *bElmt =
+                            GetElementFactory().CreateInstance(
+                                LibUtilities::eTriangle, triNodeList,
+                                m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+                                m_mesh->m_faceSet, bconf, &vertIDs,
+                                &curveNodeIDs, &naiveTriIDs, nullptr);
+
+                        m_mesh->m_elementTags[meshDim - 1][bElmt] = tagBE;
                     }
                 }
             }
         }
     }
 
-    // Remove 2D elements.
-    vector<ElementSharedPtr> tmp;
-    for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim - 1].size(); ++i)
+    // Stop declaring the prisms as elements. Their geometry, the quadrilateral
+    // boundary elements replaced above, and the edges and faces that only they
+    // used are then all unreferenced, and go together below.
+    for (auto &[geom, tag] : el)
     {
-        if (toRemove.find(i) == toRemove.end())
+        if (geom->GetShapeType() == LibUtilities::ePrism)
         {
-            tmp.push_back(m_mesh->m_element[m_mesh->m_expDim - 1][i]);
+            m_mesh->m_elementTags[meshDim].erase(geom);
         }
     }
 
-    m_mesh->m_element[m_mesh->m_expDim - 1] = tmp;
+    // Leave a clean mesh behind: nothing the mesh no longer refers to should
+    // survive to be written out.
+    RemoveOrphanedEntities();
 
-    // Re-process mesh to eliminate duplicate vertices and edges.
     ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 }

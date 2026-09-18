@@ -42,7 +42,7 @@ using namespace std;
 namespace Nektar::NekMesh
 {
 
-void TetGenInterface::InitialMesh(map<int, NodeSharedPtr> tgidton,
+void TetGenInterface::InitialMesh(map<int, SpatialDomains::PointGeom *> tgidton,
                                   vector<std::array<int, 3>> tri)
 {
     surface.initialize();
@@ -56,10 +56,11 @@ void TetGenInterface::InitialMesh(map<int, NodeSharedPtr> tgidton,
     surface.numberofpoints = tgidton.size();
     surface.pointlist      = new REAL[surface.numberofpoints * 3];
 
-    map<int, NodeSharedPtr>::iterator it;
+    map<int, SpatialDomains::PointGeom *>::iterator it;
     for (it = tgidton.begin(); it != tgidton.end(); it++)
     {
-        auto loc = it->second->GetLoc();
+        std::array<NekDouble, 3> loc;
+        it->second->GetCoords(loc[0], loc[1], loc[2]);
 
         surface.pointlist[it->first * 3 + 0] = loc[0];
         surface.pointlist[it->first * 3 + 1] = loc[1];

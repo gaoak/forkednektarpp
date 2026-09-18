@@ -2,7 +2,7 @@
 <test>
     <description> NekMesh ProjectCAD with Shaft (check for detailed CAD projection info) </description>
     <executable>NekMesh</executable>
-    <parameters> -m bl:nq=5:surf=6,7,8:layers=4:r=3 -m jac:list -m linkcheck 05_bl_NACA0012.xml 05_bl_NACA0012-out.xml:xml:test -v </parameters>
+    <parameters> -m bl:nq=5:surf=6,7,8:layers=4:r=3 -m jac:list -m connectivity:list 05_bl_NACA0012.xml 05_bl_NACA0012-out.xml:xml:test -v </parameters>
     <files>
         <file description="Input File">05_bl_NACA0012.xml</file>
     </files>
@@ -24,6 +24,10 @@
                     <field id="0">6901</field>
                 </match>
             </matches>
+        </metric>
+        # Detected connectivity issues 
+        <metric type="nowarning" id="3">
+            <regex>Detected</regex>
         </metric>
     </metrics>
 </test>

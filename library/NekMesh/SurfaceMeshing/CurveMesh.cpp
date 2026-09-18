@@ -39,6 +39,36 @@ using namespace std;
 namespace Nektar::NekMesh
 {
 
+SpatialDomains::PointGeom *CurveMesh::GetOrCreateCADVertPoint(
+    SpatialDomains::CADVertSharedPtr cadVert)
+{
+    // CADVert::GetNode() is gone and MeshGraph only maps mesh->CAD, so the
+    // mesh vertex sitting on a CAD vertex is tracked alongside the pipeline.
+    // Curves meeting at a CAD vertex must share the vertex, otherwise the
+    // curve meshes come out disconnected.
+    auto &cadVertPoints = m_mesh->GetContext().Get<CADVertPoints>().points;
+
+    auto search = cadVertPoints.find(cadVert->GetId());
+    if (search != cadVertPoints.end())
+    {
+        return search->second;
+    }
+
+    auto &graph = m_mesh->m_meshGraph;
+    auto loc    = cadVert->GetLoc();
+
+    int newId = NextPointId(graph);
+    auto pt   = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+        3, newId, loc[0], loc[1], loc[2]);
+
+    SpatialDomains::PointGeom *ret = pt.get();
+    graph->AddGeom<SpatialDomains::PointGeom>(newId, std::move(pt));
+    graph->GetCADAssociation()->Set(ret, {cadVert});
+    cadVertPoints[cadVert->GetId()] = ret;
+
+    return ret;
+}
+
 void CurveMesh::ReMesh()
 {
     m_meshpoints.clear();
@@ -47,7 +77,12 @@ void CurveMesh::ReMesh()
     meshsvalue.clear();
     for (int i = 0; i < m_meshedges.size(); i++)
     {
-        m_mesh->m_edgeSet.erase(m_meshedges[i]);
+        // erase the edge in the edgeset
+        m_mesh->m_edgeSet.erase(
+            {m_meshedges[i]->GetVid(0), m_meshedges[i]->GetVid(1)});
+        // erase the old geometry pointer from mesh graph
+        m_mesh->m_meshGraph->ExtractGeom<SpatialDomains::SegGeom>(
+            m_meshedges[i]->GetGlobalID(), true);
     }
     m_meshedges.clear();
 
@@ -61,7 +96,7 @@ void CurveMesh::Mesh(bool forceThree)
     m_bounds      = m_cadcurve->GetBounds();
     m_curvelength = m_cadcurve->GetTotLength();
     m_numSamplePoints =
-        int(m_curvelength / m_mesh->m_octree->GetMinDelta()) + 10;
+        int(m_curvelength / GetOctree(m_mesh, m_log).GetMinDelta()) + 10;
     ds = m_curvelength / (m_numSamplePoints - 1);
 
     // compute the offset due to adjacent BLs
@@ -159,58 +194,73 @@ void CurveMesh::Mesh(bool forceThree)
     NekDouble t;
     std::array<NekDouble, 3> loc;
 
-    vector<CADVertSharedPtr> verts = m_cadcurve->GetVertex();
-    vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>> s =
-        m_cadcurve->GetAdjSurf();
+    auto &graph = m_mesh->m_meshGraph;
 
-    NodeSharedPtr n = verts[0]->GetNode();
-    t               = m_bounds[0];
-    n->SetCADCurve(m_cadcurve, t);
-    loc = n->GetLoc();
+    vector<SpatialDomains::CADVertSharedPtr> verts = m_cadcurve->GetVertex();
+    vector<pair<weak_ptr<SpatialDomains::CADSurf>,
+                SpatialDomains::CADOrientation::Orientation>>
+        s = m_cadcurve->GetAdjSurf();
+
+    SpatialDomains::PointGeom *n = GetOrCreateCADVertPoint(verts[0]);
+    t                            = m_bounds[0];
+    graph->GetCADAssociation()->Add(n, {m_cadcurve, {t, 0.0}});
+    n->GetCoords(loc[0], loc[1], loc[2]);
     for (int j = 0; j < s.size(); j++)
     {
         if (verts[0]->IsDegen() == s[j].first.lock()->GetId())
         {
-            // if the degen has been set for this node the node
-            // already knows its corrected location
+            // locuv is ill-conditioned at a collapsed point, so take the
+            // parametric location the CAD system recorded in SetDegen rather
+            // than projecting.
+            auto duv = verts[0]->GetDegenUV();
+            graph->GetCADAssociation()->Add(
+                n, {s[j].first.lock(), {duv[0], duv[1]}});
             continue;
         }
 
         auto uv = s[j].first.lock()->locuv(loc);
-        n->SetCADSurf(s[j].first.lock(), uv);
+        graph->GetCADAssociation()->Add(n, {s[j].first.lock(), {uv[0], uv[1]}});
     }
     m_meshpoints.push_back(n);
 
     for (int i = 1; i < meshsvalue.size() - 1; i++)
     {
-        t                = m_cadcurve->tAtArcLength(meshsvalue[i]);
-        loc              = m_cadcurve->P(t);
-        NodeSharedPtr n2 = std::shared_ptr<Node>(
-            new Node(m_mesh->m_numNodes++, loc[0], loc[1], loc[2]));
-        n2->SetCADCurve(m_cadcurve, t);
+        t   = m_cadcurve->tAtArcLength(meshsvalue[i]);
+        loc = m_cadcurve->P(t);
+
+        int newId = NextPointId(graph);
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            3, newId, loc[0], loc[1], loc[2]);
+        SpatialDomains::PointGeom *n2 = pt.get();
+        graph->AddGeom<SpatialDomains::PointGeom>(newId, std::move(pt));
+
+        graph->GetCADAssociation()->Add(n2, {m_cadcurve, {t, 0.0}});
         for (int j = 0; j < s.size(); j++)
         {
             auto uv = s[j].first.lock()->locuv(loc);
-            n2->SetCADSurf(s[j].first.lock(), uv);
+            graph->GetCADAssociation()->Add(
+                n2, {s[j].first.lock(), {uv[0], uv[1]}});
         }
         m_meshpoints.push_back(n2);
     }
 
-    n = verts[1]->GetNode();
+    n = GetOrCreateCADVertPoint(verts[1]);
     t = m_bounds[1];
-    n->SetCADCurve(m_cadcurve, t);
-    loc = n->GetLoc();
+    graph->GetCADAssociation()->Add(n, {m_cadcurve, {t, 0.0}});
+    n->GetCoords(loc[0], loc[1], loc[2]);
     for (int j = 0; j < s.size(); j++)
     {
         if (verts[1]->IsDegen() == s[j].first.lock()->GetId())
         {
-            // if the degen has been set for this node the node
-            // already knows its corrected location
+            // as above: use the recorded degenerate parametric location
+            auto duv = verts[1]->GetDegenUV();
+            graph->GetCADAssociation()->Add(
+                n, {s[j].first.lock(), {duv[0], duv[1]}});
             continue;
         }
 
         auto uv = s[j].first.lock()->locuv(loc);
-        n->SetCADSurf(s[j].first.lock(), uv);
+        graph->GetCADAssociation()->Add(n, {s[j].first.lock(), {uv[0], uv[1]}});
     }
     m_meshpoints.push_back(n);
 
@@ -220,10 +270,14 @@ void CurveMesh::Mesh(bool forceThree)
     // make edges and add them to the edgeset for the face mesher to use
     for (int i = 0; i < m_meshpoints.size() - 1; i++)
     {
-        EdgeSharedPtr e = std::shared_ptr<Edge>(
-            new Edge(m_meshpoints[i], m_meshpoints[i + 1]));
-        e->m_parentCAD = m_cadcurve;
-        m_mesh->m_edgeSet.insert(e);
+        vector<SpatialDomains::PointGeom *> ns = {m_meshpoints[i],
+                                                  m_meshpoints[i + 1]};
+
+        auto *e = static_cast<SpatialDomains::SegGeom *>(
+            CreateElementLite(LibUtilities::eSegment, ns, graph,
+                              m_mesh->m_edgeSet, m_mesh->m_faceSet));
+
+        graph->GetCADAssociation()->Set(e, {m_cadcurve});
         m_meshedges.push_back(e);
     }
 
@@ -345,6 +399,8 @@ NekDouble CurveMesh::EvaluatePS(NekDouble s)
 
 void CurveMesh::GetSampleFunction()
 {
+    Octree &octree = GetOctree(m_mesh, m_log);
+
     m_dst.resize(m_numSamplePoints);
 
     vector<NekDouble> dsti;
@@ -379,7 +435,7 @@ void CurveMesh::GetSampleFunction()
         // else, dsti[0] is found from the octree
         if (!found)
         {
-            dsti[0] = m_mesh->m_octree->Query(loc);
+            dsti[0] = octree.Query(loc);
         }
 
         dsti[2] = t;
@@ -394,39 +450,53 @@ void CurveMesh::PeriodicOverwrite(CurveMeshSharedPtr from)
     m_meshpoints.clear();
     for (int i = 0; i < m_meshedges.size(); i++)
     {
-        m_mesh->m_edgeSet.erase(m_meshedges[i]);
+        m_mesh->m_edgeSet.erase(
+            {m_meshedges[i]->GetVid(0), m_meshedges[i]->GetVid(1)});
     }
     m_meshedges.clear();
 
     ///////
 
-    int tid = from->GetId();
-    auto T  = m_mesh->m_cad->GetPeriodicTranslationVector(tid, m_id);
+    auto &graph = m_mesh->m_meshGraph;
+    auto cad    = graph->GetCAD();
 
-    CADCurveSharedPtr c1 = m_mesh->m_cad->GetCurve(tid);
+    int tid = from->GetId();
+    auto T  = cad->GetPeriodicTranslationVector(tid, m_id);
+
+    SpatialDomains::CADCurveSharedPtr c1 = cad->GetCurve(tid);
 
     bool reversed = c1->GetOrienationWRT(1) == m_cadcurve->GetOrienationWRT(1);
 
-    vector<NodeSharedPtr> nodes = from->GetMeshPoints();
+    vector<SpatialDomains::PointGeom *> nodes = from->GetMeshPoints();
 
-    vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>> surfs =
-        m_cadcurve->GetAdjSurf();
+    vector<pair<weak_ptr<SpatialDomains::CADSurf>,
+                SpatialDomains::CADOrientation::Orientation>>
+        surfs = m_cadcurve->GetAdjSurf();
 
     for (int i = 1; i < nodes.size() - 1; i++)
     {
-        auto loc         = nodes[i]->GetLoc();
-        NodeSharedPtr nn = NodeSharedPtr(
-            new Node(m_mesh->m_numNodes++, loc[0] + T[0], loc[1] + T[1], 0.0));
+        std::array<NekDouble, 3> loc;
+        nodes[i]->GetCoords(loc[0], loc[1], loc[2]);
+
+        int newId = NextPointId(graph);
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            3, newId, loc[0] + T[0], loc[1] + T[1], 0.0);
+        SpatialDomains::PointGeom *nn = pt.get();
+        graph->AddGeom<SpatialDomains::PointGeom>(newId, std::move(pt));
+
+        std::array<NekDouble, 3> nloc;
+        nn->GetCoords(nloc[0], nloc[1], nloc[2]);
 
         for (int j = 0; j < surfs.size(); j++)
         {
-            auto uv = surfs[j].first.lock()->locuv(nn->GetLoc());
-            nn->SetCADSurf(surfs[j].first.lock(), uv);
+            auto uv = surfs[j].first.lock()->locuv(nloc);
+            graph->GetCADAssociation()->Add(
+                nn, {surfs[j].first.lock(), {uv[0], uv[1]}});
         }
 
         NekDouble t;
-        m_cadcurve->loct(nn->GetLoc(), t);
-        nn->SetCADCurve(m_cadcurve, t);
+        m_cadcurve->loct(nloc, t);
+        graph->GetCADAssociation()->Add(nn, {m_cadcurve, {t, 0.0}});
 
         m_meshpoints.push_back(nn);
     }
@@ -437,19 +507,24 @@ void CurveMesh::PeriodicOverwrite(CurveMeshSharedPtr from)
         reverse(m_meshpoints.begin(), m_meshpoints.end());
     }
 
-    vector<CADVertSharedPtr> verts = m_cadcurve->GetVertex();
+    vector<SpatialDomains::CADVertSharedPtr> verts = m_cadcurve->GetVertex();
 
-    m_meshpoints.insert(m_meshpoints.begin(), verts[0]->GetNode());
-    m_meshpoints.push_back(verts[1]->GetNode());
+    m_meshpoints.insert(m_meshpoints.begin(),
+                        GetOrCreateCADVertPoint(verts[0]));
+    m_meshpoints.push_back(GetOrCreateCADVertPoint(verts[1]));
     // dont need to realign cad for vertices
 
-    // make edges and add them to the edgeset for the face mesher to use
+    // make edges and add to the EdgeSet for the face mesher
     for (int i = 0; i < m_meshpoints.size() - 1; i++)
     {
-        EdgeSharedPtr e = std::shared_ptr<Edge>(
-            new Edge(m_meshpoints[i], m_meshpoints[i + 1]));
-        e->m_parentCAD = m_cadcurve;
-        m_mesh->m_edgeSet.insert(e);
+        vector<SpatialDomains::PointGeom *> ns = {m_meshpoints[i],
+                                                  m_meshpoints[i + 1]};
+
+        auto *e = static_cast<SpatialDomains::SegGeom *>(
+            CreateElementLite(LibUtilities::eSegment, ns, graph,
+                              m_mesh->m_edgeSet, m_mesh->m_faceSet));
+
+        graph->GetCADAssociation()->Set(e, {m_cadcurve});
         m_meshedges.push_back(e);
     }
 }

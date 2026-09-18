@@ -37,12 +37,13 @@
 
 #include <NekMesh/Module/Module.h>
 
-#include <NekMesh/CADSystem/CFI/CADSystemCFI.h>
+#include <SpatialDomains/CADSystem/CFI/CADSystemCFI.h>
 
 namespace Nektar
 {
 namespace NekMesh
 {
+using SpatialDomains::CADSystemCFISharedPtr;
 
 /**
  * Converter for CADfix files.

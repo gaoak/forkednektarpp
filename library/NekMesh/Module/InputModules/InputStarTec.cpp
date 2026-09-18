@@ -47,6 +47,28 @@ namespace io = boost::iostreams;
 namespace Nektar::NekMesh
 {
 
+namespace
+{
+/// Small vector helpers, replacing the arithmetic the old Node class carried.
+typedef std::array<NekDouble, 3> Vec3;
+
+inline Vec3 SubPts(SpatialDomains::PointGeom *p, SpatialDomains::PointGeom *q)
+{
+    return {(*p)[0] - (*q)[0], (*p)[1] - (*q)[1], (*p)[2] - (*q)[2]};
+}
+
+inline Vec3 CrossVec(const Vec3 &a, const Vec3 &b)
+{
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0]};
+}
+
+inline NekDouble DotVec(const Vec3 &a, const Vec3 &b)
+{
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+} // namespace
+
 ModuleKey InputTec::className = GetModuleFactory().RegisterCreatorFunction(
     ModuleKey(eInputModule, "dat"), InputTec::create,
     "Reads Tecplot polyhedron ascii format converted from Star CCM (.dat).");
@@ -71,8 +93,8 @@ InputTec::~InputTec()
  */
 void InputTec::Process()
 {
-    m_mesh->m_expDim   = 3;
-    m_mesh->m_spaceDim = 3;
+    m_mesh->m_meshGraph->SetMeshDimension(3);
+    m_mesh->m_meshGraph->SetSpaceDimension(3);
 
     m_log(VERBOSE) << "Reading Tecplot .dat file '"
                    << m_config["infile"].as<string>() << "'" << endl;
@@ -107,8 +129,7 @@ void InputTec::Process()
     PrintSummary();
     m_mshFile.reset();
 
-    ProcessEdges();
-    ProcessFaces();
+    // Edges and faces are built as the elements are created.
     ProcessElements();
     ProcessComposites();
 }
@@ -216,11 +237,17 @@ void InputTec::ReadZone(int &nComposite)
                      << "file" << endl;
     }
 
-    std::vector<NodeSharedPtr> Nodes;
+    // Held outside the mesh graph for now: ResetNodes renumbers them below,
+    // and the graph keys its vertices by id.
+    std::vector<SpatialDomains::PointGeomUniquePtr> ownedNodes;
+    std::vector<SpatialDomains::PointGeom *> Nodes;
     for (i = 0; i < nnodes; ++i)
     {
-        Nodes.push_back(std::shared_ptr<Node>(new Node(
-            i, nodeLocs[i], nodeLocs[i + nnodes], nodeLocs[i + 2 * nnodes])));
+        ownedNodes.push_back(
+            ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                3, i, nodeLocs[i], nodeLocs[i + nnodes],
+                nodeLocs[i + 2 * nnodes]));
+        Nodes.push_back(ownedNodes.back().get());
     }
 
     ReadNextNonEmptyLine(m_mshFile, line);
@@ -324,7 +351,31 @@ void InputTec::ReadZone(int &nComposite)
         // consistent numbering for singular vertex re-ordering
         ResetNodes(Nodes, ElementFaces, FaceNodes);
 
-        m_mesh->m_node = Nodes;
+        // ResetNodes has settled the ids, so the vertices can go into the
+        // mesh graph now. Ids continue on from whatever is already there, so
+        // a second 3D zone does not collide with the first; the relative
+        // ordering ResetNodes established is preserved either way.
+        const int idBase =
+            m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::PointGeom>();
+
+        std::vector<std::pair<int, SpatialDomains::PointGeomUniquePtr>> moved;
+        moved.reserve(ownedNodes.size());
+        for (auto &n : ownedNodes)
+        {
+            const int id = idBase + n->GetGlobalID();
+            n->SetGlobalID(id);
+            moved.emplace_back(id, std::move(n));
+        }
+        m_mesh->m_meshGraph->BulkAddGeom<SpatialDomains::PointGeom>(moved);
+        ownedNodes.clear();
+
+        // Later 2D zones list their vertices again, and match them onto these
+        // by position, so keep a lookup. The reader's old node set matched
+        // coordinates exactly too.
+        for (auto *n : Nodes)
+        {
+            m_vertexLookup[{(*n)[0], (*n)[1], (*n)[2]}] = n;
+        }
 
         // create Prisms/Pyramids first
         for (i = 0; i < nelements; ++i)
@@ -355,19 +406,21 @@ void InputTec::ReadZone(int &nComposite)
     {
         m_log(VERBOSE) << "Setting up zone " << zcnt++ << " (2D)" << endl;
 
-        // find ids of VertNodes from m_mesh->m_vertexSet so that we can
-        // identify
+        // Match this zone's vertices onto the ones the 3D zone registered,
+        // by position, so the boundary elements are built on the same
+        // geometry rather than on duplicates.
         for (i = 0; i < Nodes.size(); ++i)
         {
-            auto it = m_mesh->m_vertexSet.find(Nodes[i]);
+            auto it = m_vertexLookup.find(
+                {(*Nodes[i])[0], (*Nodes[i])[1], (*Nodes[i])[2]});
 
-            if (it == m_mesh->m_vertexSet.end())
+            if (it == m_vertexLookup.end())
             {
                 m_log(FATAL) << "Failed to find face vertex in 3D list" << endl;
             }
             else
             {
-                Nodes[i] = *it;
+                Nodes[i] = it->second;
             }
         }
 
@@ -393,7 +446,7 @@ static void PrismLineFaces(int prismid, map<int, int> &facelist,
                            vector<vector<int>> &PrismsToFaces,
                            vector<bool> &PrismDone);
 
-void InputTec::ResetNodes(vector<NodeSharedPtr> &Vnodes,
+void InputTec::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
                           Array<OneD, vector<int>> &ElementFaces,
                           vector<vector<int>> &FaceNodes)
 {
@@ -594,11 +647,11 @@ void InputTec::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         }
     }
 
-    vector<NodeSharedPtr> save(Vnodes);
+    vector<SpatialDomains::PointGeom *> save(Vnodes);
     for (i = 0; i < Vnodes.size(); ++i)
     {
         Vnodes[NodeReordering[i]] = save[i];
-        Vnodes[NodeReordering[i]]->SetID(NodeReordering[i]);
+        Vnodes[NodeReordering[i]]->SetGlobalID(NodeReordering[i]);
     }
 }
 
@@ -631,7 +684,7 @@ static void PrismLineFaces(int prismid, map<int, int> &facelist,
     }
 }
 
-void InputTec::GenElement2D(vector<NodeSharedPtr> &VertNodes,
+void InputTec::GenElement2D(vector<SpatialDomains::PointGeom *> &VertNodes,
                             [[maybe_unused]] int i, vector<int> &ElementFaces,
                             vector<vector<int>> &FaceNodes, int nComposite)
 {
@@ -657,7 +710,7 @@ void InputTec::GenElement2D(vector<NodeSharedPtr> &VertNodes,
     tags.push_back(nComposite);
 
     // make unique node list
-    vector<NodeSharedPtr> nodeList;
+    vector<SpatialDomains::PointGeom *> nodeList;
     Array<OneD, int> Nodes = SortEdgeNodes(VertNodes, ElementFaces, FaceNodes);
     for (int j = 0; j < Nodes.size(); ++j)
     {
@@ -665,14 +718,15 @@ void InputTec::GenElement2D(vector<NodeSharedPtr> &VertNodes,
     }
 
     // Create element
-    ElmtConfig conf(elType, 1, true, true);
-    ElementSharedPtr E =
-        GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
+    ElmtConfig conf(elType, 1, false, false);
+    SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+        elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+        m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
 
-    m_mesh->m_element[E->GetDim()].push_back(E);
+    m_mesh->m_elementTags[E->GetShapeDim()][E] = nComposite;
 }
 
-void InputTec::GenElement3D(vector<NodeSharedPtr> &VertNodes,
+void InputTec::GenElement3D(vector<SpatialDomains::PointGeom *> &VertNodes,
                             [[maybe_unused]] int i, vector<int> &ElementFaces,
                             vector<vector<int>> &FaceNodes, int nComposite,
                             bool DoOrient)
@@ -711,7 +765,7 @@ void InputTec::GenElement3D(vector<NodeSharedPtr> &VertNodes,
     tags.push_back(nComposite);
 
     // make unique node list
-    vector<NodeSharedPtr> nodeList;
+    vector<SpatialDomains::PointGeom *> nodeList;
     for (int j = 0; j < Nodes.size(); ++j)
     {
         nodeList.push_back(VertNodes[Nodes[j]]);
@@ -720,11 +774,12 @@ void InputTec::GenElement3D(vector<NodeSharedPtr> &VertNodes,
     // Create element
     if (elType != LibUtilities::ePyramid)
     {
-        ElmtConfig conf(elType, 1, true, true, DoOrient);
-        ElementSharedPtr E =
-            GetElementFactory().CreateInstance(elType, conf, nodeList, tags);
+        ElmtConfig conf(elType, 1, false, false, DoOrient);
+        SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+            elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+            m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
 
-        m_mesh->m_element[E->GetDim()].push_back(E);
+        m_mesh->m_elementTags[E->GetShapeDim()][E] = nComposite;
     }
     else
     {
@@ -733,9 +788,9 @@ void InputTec::GenElement3D(vector<NodeSharedPtr> &VertNodes,
     }
 }
 
-Array<OneD, int> InputTec::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
-                                         vector<int> &ElementFaces,
-                                         vector<vector<int>> &FaceNodes)
+Array<OneD, int> InputTec::SortEdgeNodes(
+    vector<SpatialDomains::PointGeom *> &Vnodes, vector<int> &ElementFaces,
+    vector<vector<int>> &FaceNodes)
 {
     int i, j;
     Array<OneD, int> returnval;
@@ -794,18 +849,16 @@ Array<OneD, int> InputTec::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
                  "Failed to find vertex 3 or 4");
 
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        Vec3 a = SubPts(Vnodes[indx1], Vnodes[indx0]);
         // calculate 0-2,
-        Node b      = *(Vnodes[indx2]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        Vec3 b      = SubPts(Vnodes[indx2], Vnodes[indx0]);
+        Vec3 acurlb = CrossVec(a, b);
 
-        // calculate 2-1,
-        Node c = *(Vnodes[indx1]) - *(Vnodes[indx2]);
         // calculate 3-2,
-        Node d      = *(Vnodes[indx3]) - *(Vnodes[indx2]);
-        Node acurld = a.curl(d);
+        Vec3 d      = SubPts(Vnodes[indx3], Vnodes[indx2]);
+        Vec3 acurld = CrossVec(a, d);
 
-        NekDouble acurlb_dot_acurld = acurlb.dot(acurld);
+        NekDouble acurlb_dot_acurld = DotVec(acurlb, acurld);
         if (acurlb_dot_acurld > 0.0)
         {
             returnval[0] = indx0;
@@ -825,9 +878,9 @@ Array<OneD, int> InputTec::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
     return returnval;
 }
 
-Array<OneD, int> InputTec::SortFaceNodes(vector<NodeSharedPtr> &Vnodes,
-                                         vector<int> &ElementFaces,
-                                         vector<vector<int>> &FaceNodes)
+Array<OneD, int> InputTec::SortFaceNodes(
+    vector<SpatialDomains::PointGeom *> &Vnodes, vector<int> &ElementFaces,
+    vector<vector<int>> &FaceNodes)
 {
 
     int i, j;
@@ -846,9 +899,9 @@ Array<OneD, int> InputTec::SortFaceNodes(vector<NodeSharedPtr> &Vnodes,
         int indx3 = -1;
 
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        Vec3 a = SubPts(Vnodes[indx1], Vnodes[indx0]);
         // calculate 0-2,
-        Node b = *(Vnodes[indx2]) - *(Vnodes[indx0]);
+        Vec3 b = SubPts(Vnodes[indx2], Vnodes[indx0]);
 
         // Find fourth node index;
         ASSERTL1(FaceNodes[ElementFaces[1]].size() == 3,
@@ -866,10 +919,10 @@ Array<OneD, int> InputTec::SortFaceNodes(vector<NodeSharedPtr> &Vnodes,
         }
 
         // calculate 0-3,
-        Node c      = *(Vnodes[indx3]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        Vec3 c      = SubPts(Vnodes[indx3], Vnodes[indx0]);
+        Vec3 acurlb = CrossVec(a, b);
 
-        NekDouble acurlb_dotc = acurlb.dot(c);
+        NekDouble acurlb_dotc = DotVec(acurlb, c);
         if (acurlb_dotc < 0.0)
         {
             returnval[0] = indx0;
@@ -999,14 +1052,14 @@ Array<OneD, int> InputTec::SortFaceNodes(vector<NodeSharedPtr> &Vnodes,
         }
 
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        Vec3 a = SubPts(Vnodes[indx1], Vnodes[indx0]);
         // calculate 0-4,
-        Node b = *(Vnodes[indx4]) - *(Vnodes[indx0]);
+        Vec3 b = SubPts(Vnodes[indx4], Vnodes[indx0]);
         // calculate 0-2,
-        Node c      = *(Vnodes[indx2]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        Vec3 c      = SubPts(Vnodes[indx2], Vnodes[indx0]);
+        Vec3 acurlb = CrossVec(a, b);
 
-        NekDouble acurlb_dotc = acurlb.dot(c);
+        NekDouble acurlb_dotc = DotVec(acurlb, c);
         if (acurlb_dotc < 0.0)
         {
             returnval[0] = indx0;

@@ -33,10 +33,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <algorithm>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <fstream>
+#include <functional>
 
 #include "Module.h"
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 
 using namespace std;
 namespace io = boost::iostreams;
@@ -108,8 +111,13 @@ void InputModule::OpenStream()
 
 /**
  * @brief Open a file for output.
+ *
+ * @param binary  Open the file in binary mode. Text mode translates '\n' to
+ *                the platform's line ending, so a format that is compared
+ *                byte-for-byte across platforms has to ask for binary even
+ *                though its contents are ASCII.
  */
-bool OutputModule::OpenStream()
+bool OutputModule::OpenStream(bool binary)
 {
     string filename = m_config["outfile"].as<string>();
     bool overwrite  = CheckOverwrite(filename);
@@ -126,7 +134,9 @@ bool OutputModule::OpenStream()
         }
         else
         {
-            m_mshFileStream.open(filename.c_str());
+            m_mshFileStream.open(filename.c_str(),
+                                 binary ? ios_base::out | ios_base::binary
+                                        : ios_base::out);
             m_mshFile.push(m_mshFileStream);
         }
 
@@ -189,268 +199,195 @@ bool OutputModule::CheckOverwrite(const std::string &filename)
  * inserted into #m_vertexSet, which at the end of the routine
  * contains all unique vertices in the mesh.
  */
+namespace
+{
+
+/// Remove every geometry of type @p T that is not in @p live, returning how
+/// many went.
+template <typename T>
+int RemoveUnreachable(
+    SpatialDomains::MeshGraphSharedPtr &graph,
+    const std::unordered_set<SpatialDomains::Geometry *> &live,
+    std::vector<int> *removedIds = nullptr)
+{
+    std::vector<int> doomed;
+    std::vector<SpatialDomains::Geometry *> doomedGeoms;
+
+    for (auto &[id, geom] : graph->GetGeomMap<T>())
+    {
+        if (live.find(static_cast<SpatialDomains::Geometry *>(geom)) ==
+            live.end())
+        {
+            doomed.push_back(id);
+            doomedGeoms.push_back(geom);
+        }
+    }
+
+    // Drop any CAD association first: the pool allocator reuses freed
+    // addresses, so an entry left behind here would reappear attached to
+    // whatever geometry is allocated next.
+    if (graph->HasCAD())
+    {
+        for (auto *geom : doomedGeoms)
+        {
+            graph->GetCADAssociation()->Remove(geom);
+        }
+    }
+
+    for (int id : doomed)
+    {
+        graph->ExtractGeom<T>(id, true);
+    }
+
+    if (removedIds != nullptr)
+    {
+        removedIds->insert(removedIds->end(), doomed.begin(), doomed.end());
+    }
+
+    return doomed.size();
+}
+
+} // namespace
+
+/**
+ * @brief Drop any geometry the mesh no longer refers to.
+ *
+ * A module that replaces elements leaves the geometry of what it replaced
+ * behind in the MeshGraph, which is still written out. Call this once such a
+ * module is finished: every element the mesh declares, at any dimension, is
+ * taken as a root, everything reachable from one is kept, and the rest --
+ * geometries, the curves attached to them, and the curvature nodes those
+ * curves held -- is removed.
+ */
+void Module::RemoveOrphanedEntities()
+{
+    auto &graph = m_mesh->m_meshGraph;
+
+    std::unordered_set<SpatialDomains::Geometry *> live;
+
+    // Mark a geometry and everything beneath it. The recursion is only as
+    // deep as the dimension.
+    std::function<void(SpatialDomains::Geometry *)> mark =
+        [&](SpatialDomains::Geometry *g) {
+            if (g == nullptr || !live.insert(g).second)
+            {
+                return;
+            }
+
+            // A point has nothing beneath it, and asking is fatal rather
+            // than empty.
+            if (g->GetShapeDim() < 1)
+            {
+                return;
+            }
+
+            for (int i = 0; i < g->GetNumVerts(); ++i)
+            {
+                mark(g->GetVertex(i));
+            }
+            for (int i = 0; i < g->GetNumEdges(); ++i)
+            {
+                mark(g->GetEdge(i));
+            }
+            for (int i = 0; i < g->GetNumFaces(); ++i)
+            {
+                mark(g->GetFace(i));
+            }
+        };
+
+    for (auto &tags : m_mesh->m_elementTags)
+    {
+        for (auto &[geom, tag] : tags)
+        {
+            mark(geom);
+        }
+    }
+
+    // Highest dimension first, so a face or edge is only judged once nothing
+    // above it can still be holding on to it.
+    std::vector<int> deadEdges, deadFaces, deadVolumes;
+
+    RemoveUnreachable<SpatialDomains::HexGeom>(graph, live, &deadVolumes);
+    RemoveUnreachable<SpatialDomains::PrismGeom>(graph, live, &deadVolumes);
+    RemoveUnreachable<SpatialDomains::PyrGeom>(graph, live, &deadVolumes);
+    RemoveUnreachable<SpatialDomains::TetGeom>(graph, live, &deadVolumes);
+    RemoveUnreachable<SpatialDomains::QuadGeom>(graph, live, &deadFaces);
+    RemoveUnreachable<SpatialDomains::TriGeom>(graph, live, &deadFaces);
+    RemoveUnreachable<SpatialDomains::SegGeom>(graph, live, &deadEdges);
+    RemoveUnreachable<SpatialDomains::PointGeom>(graph, live);
+
+    // Curves are filed under the id of the geometry they belong to.
+    for (int id : deadEdges)
+    {
+        graph->GetCurvedEdges().erase(id);
+    }
+    for (int id : deadFaces)
+    {
+        graph->GetCurvedFaces().erase(id);
+    }
+    for (int id : deadVolumes)
+    {
+        graph->GetCurvedVolumes().erase(id);
+    }
+
+    // Finally the curvature nodes. These are owned by the graph and only ever
+    // reached through a curve, so anything no surviving curve mentions has
+    // gone with it.
+    std::unordered_set<SpatialDomains::PointGeom *> usedNodes;
+    for (auto *curveMap : {&graph->GetCurvedEdges(), &graph->GetCurvedFaces(),
+                           &graph->GetCurvedVolumes()})
+    {
+        for (auto &[id, curve] : *curveMap)
+        {
+            for (auto *pt : curve->m_points)
+            {
+                usedNodes.insert(pt);
+            }
+        }
+    }
+
+    auto &nodes = graph->GetAllCurveNodes();
+    nodes.erase(
+        std::remove_if(nodes.begin(), nodes.end(),
+                       [&](const SpatialDomains::PointGeomUniquePtr &n) {
+                           return usedNodes.find(n.get()) == usedNodes.end();
+                       }),
+        nodes.end());
+
+    // Geometry has been freed, so any inter-module payload keyed on entity
+    // pointers may now be holding dangling keys. Mark them all stale: a
+    // consumer then sees no payload and falls back to whatever it would have
+    // done had no producer run. Note that renumbering entities is
+    // deliberately not an invalidation -- surviving it is the reason these
+    // payloads are keyed on pointers rather than ids.
+    m_mesh->GetContext().Invalidate();
+}
+
 void Module::ProcessVertices()
 {
-    vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
-
-    m_mesh->m_vertexSet.clear();
-
-    for (size_t i = 0, vid = 0; i < elmt.size(); ++i)
+    // Determine mesh expansion dimension
+    int expDim = m_mesh->m_meshGraph->GetMeshDimension();
+    if (m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::PointGeom>())
     {
-        for (size_t j = 0; j < elmt[i]->GetVertexCount(); ++j)
-        {
-            pair<NodeSet::iterator, bool> testIns =
-                m_mesh->m_vertexSet.insert(elmt[i]->GetVertex(j));
-
-            if (testIns.second)
-            {
-                (*(testIns.first))->m_id = vid++;
-            }
-            else
-            {
-                elmt[i]->SetVertex(j, *testIns.first);
-            }
-        }
+        expDim = 0;
     }
-}
-
-/**
- * @brief Create a unique set of mesh edges from elements stored in
- * Mesh::element.
- *
- * All elements are first scanned and a list of unique, enumerated
- * edges produced in #m_edgeSet. Since each element generated its
- * edges independently, we must now ensure that each element only uses
- * edge objects from the #m_edgeSet set This ensures there are no
- * duplicate edge objects. Finally, we scan the list of elements for
- * 1-D boundary elements which correspond to an edge in
- * #m_edgeSet. For such elements, we set its edgeLink to reference the
- * corresponding edge in #m_edgeSet.
- *
- * This routine only proceeds if the expansion dimension is 2 or 3.
- */
-void Module::ProcessEdges(bool ReprocessEdges)
-{
-    if (m_mesh->m_expDim < 2)
+    if (m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::SegGeom>())
     {
-        return;
+        expDim = 1;
     }
-
-    if (ReprocessEdges)
+    if (m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::TriGeom>() ||
+        m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::QuadGeom>())
     {
-        vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
-
-        m_mesh->m_edgeSet.clear();
-
-        // Clear all edge links
-
-        // Scan all elements and generate list of unique edges
-        for (int i = 0, eid = 0; i < elmt.size(); ++i)
-        {
-            for (int j = 0; j < elmt[i]->GetEdgeCount(); ++j)
-            {
-                pair<EdgeSet::iterator, bool> testIns;
-                EdgeSharedPtr ed = elmt[i]->GetEdge(j);
-                testIns          = m_mesh->m_edgeSet.insert(ed);
-
-                if (testIns.second)
-                {
-                    EdgeSharedPtr ed2 = *testIns.first;
-                    ed2->m_id         = eid++;
-                    ed2->m_elLink.push_back(
-                        pair<ElementSharedPtr, int>(elmt[i], j));
-                }
-                else
-                {
-                    EdgeSharedPtr e2 = *(testIns.first);
-                    elmt[i]->SetEdge(j, e2);
-                    if (e2->m_edgeNodes.size() == 0 &&
-                        ed->m_edgeNodes.size() > 0)
-                    {
-                        e2->m_curveType = ed->m_curveType;
-                        e2->m_edgeNodes = ed->m_edgeNodes;
-
-                        // Reverse nodes if appropriate.
-                        if (e2->m_n1->m_id != ed->m_n1->m_id)
-                        {
-                            reverse(e2->m_edgeNodes.begin(),
-                                    e2->m_edgeNodes.end());
-                        }
-                    }
-
-                    if (ed->m_parentCAD)
-                    {
-                        e2->m_parentCAD = ed->m_parentCAD;
-                    }
-
-                    // Update edge to element map.
-                    e2->m_elLink.push_back(
-                        pair<ElementSharedPtr, int>(elmt[i], j));
-                }
-            }
-        }
+        expDim = 2;
     }
-
-    // Create links for 1D elements
-    for (int i = 0; i < m_mesh->m_element[1].size(); ++i)
+    if (m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::HexGeom>() ||
+        m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::PrismGeom>() ||
+        m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::PyrGeom>() ||
+        m_mesh->m_meshGraph->GetNumGeoms<SpatialDomains::TetGeom>())
     {
-        ElementSharedPtr elmt = m_mesh->m_element[1][i];
-        NodeSharedPtr v0      = elmt->GetVertex(0);
-        NodeSharedPtr v1      = elmt->GetVertex(1);
-        vector<NodeSharedPtr> edgeNodes;
-        EdgeSharedPtr E = std::shared_ptr<Edge>(
-            new Edge(v0, v1, edgeNodes, elmt->GetConf().m_edgeCurveType));
-
-        EdgeSet::iterator it = m_mesh->m_edgeSet.find(E);
-        if (it == m_mesh->m_edgeSet.end())
-        {
-            m_log(FATAL) << "Cannot find the 2D element that is connected to "
-                         << "the 1D element " << i << ": check boundary is "
-                         << "consistent with the domain.";
-        }
-        elmt->SetEdgeLink(*it);
-
-        // Update 2D element boundary map.
-        pair<weak_ptr<Element>, int> eMap = (*it)->m_elLink.at(0);
-        eMap.first.lock()->SetBoundaryLink(eMap.second, i);
-
-        // Update vertices
-        elmt->SetVertex(0, (*it)->m_n1, false);
-        elmt->SetVertex(1, (*it)->m_n2, false);
-
-        // Copy curvature to edge.
-        if ((*it)->m_edgeNodes.size() > 0)
-        {
-            ElementSharedPtr edge = elmt;
-            if (edge->GetVertex(0) == (*it)->m_n1)
-            {
-                edge->SetVolumeNodes((*it)->m_edgeNodes);
-            }
-            elmt->SetCurveType((*it)->m_curveType);
-        }
+        expDim = 3;
     }
-}
-
-/**
- * @brief Create a unique set of mesh faces from elements stored in
- * Mesh::element.
- *
- * All elements are scanned and a unique list of enumerated faces is
- * produced in #m_faceSet. Since elements created their own faces
- * independently, we examine each element only uses face objects from
- * #m_faceSet. Duplicate faces of those in #m_face are replaced with
- * the corresponding entry in #m_faceSet. Finally, we scan the list of
- * elements for 2-D boundary faces which correspond to faces in
- * #m_faceSet. For such elements, we set its faceLink to reference the
- * corresponding face in #m_faceSet.
- *
- * This routine only proceeds if the expansion dimension is 3.
- */
-void Module::ProcessFaces(bool ReprocessFaces)
-{
-    if (m_mesh->m_expDim < 3)
-    {
-        return;
-    }
-
-    if (ReprocessFaces)
-    {
-        vector<ElementSharedPtr> &elmt = m_mesh->m_element[m_mesh->m_expDim];
-
-        m_mesh->m_faceSet.clear();
-        // elmt : correct number of elements
-        // Scan all elements and generate list of unique faces
-        for (int i = 0, fid = 0; i < elmt.size(); ++i)
-        {
-            for (int j = 0; j < elmt[i]->GetFaceCount(); ++j)
-            {
-                pair<FaceSet::iterator, bool> testIns;
-                testIns = m_mesh->m_faceSet.insert(elmt[i]->GetFace(j));
-
-                if (testIns.second)
-                {
-                    (*(testIns.first))->m_id = fid++;
-                    // Update face to element map.
-                    (*(testIns.first))
-                        ->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(elmt[i], j));
-                }
-                else
-                {
-                    elmt[i]->SetFace(j, *testIns.first);
-                    // Update face to element map.
-                    (*(testIns.first))
-                        ->m_elLink.push_back(
-                            pair<ElementSharedPtr, int>(elmt[i], j));
-                }
-            }
-        }
-    }
-
-    // m_mesh->m_faceSet : list of faces
-    // m_mesh->m_element[2] : boundary elements
-    // Create links for 2D elements
-    for (int i = 0; i < m_mesh->m_element[2].size(); ++i)
-    {
-        ElementSharedPtr elmt          = m_mesh->m_element[2][i];
-        vector<NodeSharedPtr> vertices = elmt->GetVertexList();
-        vector<NodeSharedPtr> faceNodes;
-        vector<EdgeSharedPtr> edgeList = elmt->GetEdgeList();
-        FaceSharedPtr F                = std::shared_ptr<Face>(new Face(
-            vertices, faceNodes, edgeList, elmt->GetConf().m_faceCurveType));
-
-        FaceSet::iterator it = m_mesh->m_faceSet.find(F);
-        // No face on elements found
-        if (it == m_mesh->m_faceSet.end())
-        {
-            m_log(VERBOSE)
-                << "Cannot find corresponding element face for 2D element " << i
-                << endl;
-            m_log(VERBOSE) << "This element has "
-                           << elmt->GetVertexList().size() << " vertex" << endl;
-            m_log(VERBOSE) << "This element has " << elmt->GetEdgeList().size()
-                           << " edges" << endl;
-            break;
-        }
-
-        elmt->SetFaceLink(*it);
-
-        // Set edges/vertices
-        for (size_t j = 0; j < elmt->GetVertexCount(); ++j)
-        {
-            elmt->SetVertex(j, (*it)->m_vertexList[j], false);
-            elmt->SetEdge(j, (*it)->m_edgeList[j], false);
-        }
-
-        EdgeSet tmp(edgeList.begin(), edgeList.end());
-
-        for (size_t j = 0; j < elmt->GetEdgeCount(); ++j)
-        {
-            EdgeSharedPtr e     = elmt->GetEdge(j);
-            EdgeSet::iterator f = tmp.find(e);
-            if (f != tmp.end())
-            {
-                if ((*f)->m_parentCAD)
-                {
-                    e->m_parentCAD = (*f)->m_parentCAD;
-                }
-            }
-        }
-
-        // Update 3D element boundary map.
-        for (int j = 0; j < (*it)->m_elLink.size(); ++j)
-        {
-            pair<weak_ptr<Element>, int> eMap = (*it)->m_elLink.at(j);
-            eMap.first.lock()->SetBoundaryLink(eMap.second, i);
-        }
-
-        // Copy face curvature
-        if ((*it)->m_faceNodes.size() > 0)
-        {
-            elmt->SetVolumeNodes((*it)->m_faceNodes);
-            elmt->SetCurveType((*it)->m_curveType);
-        }
-    }
+    m_mesh->m_meshGraph->SetMeshDimension(expDim);
 }
 
 /**
@@ -458,15 +395,53 @@ void Module::ProcessFaces(bool ReprocessFaces)
  *
  * For all elements of equal dimension to the mesh dimension, we
  * enumerate sequentially. All other elements in the list should be of
- * lower dimension and have ID set by a corresponding edgeLink or
- * faceLink (as set in #ProcessEdges or #ProcessFaces).
+ * lower dimension.
  */
 void Module::ProcessElements()
 {
-    int cnt = 0;
-    for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim].size(); ++i)
+    auto segGeoms = m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>();
+    auto triGeoms = m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>();
+    auto quadGeoms =
+        m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>();
+    auto hexGeoms = m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>();
+    auto tetGeoms = m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>();
+    auto pyrGeoms = m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>();
+    auto prismGeoms =
+        m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>();
+
+    for (auto geom : segGeoms)
     {
-        m_mesh->m_element[m_mesh->m_expDim][i]->SetId(cnt++);
+        geom.second->ResetLite();
+    }
+
+    for (auto geom : triGeoms)
+    {
+        geom.second->ResetLite();
+    }
+
+    for (auto geom : quadGeoms)
+    {
+        geom.second->ResetLite();
+    }
+
+    for (auto geom : hexGeoms)
+    {
+        geom.second->ResetLite();
+    }
+
+    for (auto geom : tetGeoms)
+    {
+        geom.second->ResetLite();
+    }
+
+    for (auto geom : pyrGeoms)
+    {
+        geom.second->ResetLite();
+    }
+
+    for (auto geom : prismGeoms)
+    {
+        geom.second->ResetLite();
     }
 }
 
@@ -474,78 +449,88 @@ void Module::ProcessElements()
  * @brief Generate a list of composites (groups of elements) from tag
  * IDs stored in mesh vertices/edges/faces/elements.
  *
- * Each element is assigned to a composite ID by an input module. First
- * we scan the element list and generate a list of composite IDs. We
- * then generate the composite objects and populate them with a second
- * scan through the element list.
+ * Each element is assigned to a composite ID by an input module. We
+ * then generate the composite objects and populate them.
  */
 void Module::ProcessComposites()
 {
-    m_mesh->m_composite.clear();
-
     // For each element, check to see if a composite has been
     // created. If not, create a new composite. Otherwise, add the
     // element to the composite.
-    for (int d = 0; d <= m_mesh->m_expDim; ++d)
+    int meshDim      = m_mesh->m_meshGraph->GetMeshDimension();
+    auto &composites = m_mesh->m_meshGraph->GetComposites();
+    composites.clear();
+    for (int d = 0; d <= meshDim; ++d)
     {
-        vector<ElementSharedPtr> &elmt = m_mesh->m_element[d];
-
-        for (int i = 0; i < elmt.size(); ++i)
+        for (const auto &elmt : m_mesh->m_elementTags[d])
         {
-            CompositeMap::iterator it;
-            unsigned int tagid = elmt[i]->GetTagList()[0];
+            SpatialDomains::CompositeMap::iterator it;
+            unsigned int compid = elmt.second;
 
-            it = m_mesh->m_composite.find(tagid);
-
-            if (it == m_mesh->m_composite.end())
+            it = composites.find(compid);
+            if (it == composites.end())
             {
-                CompositeSharedPtr tmp =
-                    std::shared_ptr<Composite>(new Composite());
-                pair<CompositeMap::iterator, bool> testIns;
-                tmp->m_id  = tagid;
-                tmp->m_tag = elmt[i]->GetTag();
-                if (m_mesh->m_faceLabels.count(tmp->m_id) != 0)
-                {
-                    tmp->m_label = m_mesh->m_faceLabels[tmp->m_id];
-                }
-
-                testIns = m_mesh->m_composite.insert(
-                    pair<unsigned int, CompositeSharedPtr>(tagid, tmp));
+                pair<SpatialDomains::CompositeMap::iterator, bool> testIns;
+                testIns = composites.insert(
+                    pair<unsigned int, SpatialDomains::CompositeSharedPtr>(
+                        compid, std::make_shared<SpatialDomains::Composite>()));
                 it = testIns.first;
             }
-
-            if (elmt[i]->GetTag() != it->second->m_tag)
+            else if (elmt.first->GetShapeType() !=
+                         it->second->m_geomVec[0]->GetShapeType() &&
+                     d != 2) // @TODO: The d !=2 avoids warning for composites
+                             // of face elements
             {
                 m_log(WARNING)
                     << "Different types of elements in same composite!" << endl
-                    << " -> Composite uses " << it->second->m_tag << endl
-                    << " -> Element uses   " << elmt[i]->GetTag() << endl
+                    << " -> Composite uses "
+                    << LibUtilities::ShapeTypeMap[it->second->m_geomVec[0]
+                                                      ->GetShapeType()]
+                    << endl
+                    << " -> Element uses   "
+                    << LibUtilities::ShapeTypeMap[elmt.first->GetShapeType()]
+                    << endl
                     << "Have you specified physical volumes and surfaces?"
                     << endl;
             }
-            it->second->m_items.push_back(elmt[i]);
+
+            it->second->m_geomVec.push_back(elmt.first);
         }
     }
-}
-
-/**
- * clear all element link information from mesh entities to be able to reprocess
- * new mesh
- */
-void Module::ClearElementLinks()
-{
-    EdgeSet::iterator eit;
-
-    for (eit = m_mesh->m_edgeSet.begin(); eit != m_mesh->m_edgeSet.end(); eit++)
+    // Reorder every composite. m_elementTags is keyed on pointers, so the
+    // loop above visits entities in an order that depends on where they
+    // happen to have been allocated; without this the membership of a
+    // composite is written out in a different order on every run. Sorting
+    // only the composites of top dimension, as this used to, left the
+    // boundary composites varying from run to run. Ties are broken on the
+    // shape type because a two-dimensional composite can hold both triangles
+    // and quadrilaterals.
+    for (auto &comp : composites)
     {
-        (*eit)->m_elLink.clear();
+        std::sort(
+            comp.second->m_geomVec.begin(), comp.second->m_geomVec.end(),
+            [](SpatialDomains::Geometry *a, SpatialDomains::Geometry *b) {
+                return std::make_pair(a->GetGlobalID(),
+                                      static_cast<int>(a->GetShapeType())) <
+                       std::make_pair(b->GetGlobalID(),
+                                      static_cast<int>(b->GetShapeType()));
+            });
     }
 
-    FaceSet::iterator fit;
-
-    for (fit = m_mesh->m_faceSet.begin(); fit != m_mesh->m_faceSet.end(); fit++)
+    // @TODO: We currently lose domain information from input file here. This
+    // assumes
+    //        every composite that is of expansion dimension is a separate
+    //        domain and sequentially numbered. So junks multi-composite domains
+    //        & IDs.
+    auto &domain = m_mesh->m_meshGraph->GetDomain();
+    domain.clear();
+    int cnt = 0;
+    for (auto &[compID, comp] : composites)
     {
-        (*fit)->m_elLink.clear();
+        if (comp->m_geomVec[0]->GetShapeDim() == meshDim)
+        {
+            domain[cnt++][compID] = comp;
+        }
     }
 }
 
@@ -563,104 +548,111 @@ void Module::ClearElementLinks()
  *   - For each line, renumber node IDs consistently so that highest ID
  *     per-element corresponds to the line of collapsed coordinate
  *     points.
- *   - Recreate each prism in the line using the new ordering, and apply
- *     the existing OrientPrism routine to orient nodes accordingly.
- *   - When all prism lines are processed, recreate all tetrahedra using
- *     the existing orientation code.
- *   - Finally renumber any other nodes (i.e. those belonging to
- *     hexahedra).
- *
- * The last step is to eliminate duplicate edges/faces and reenumerate.
- *
- * NOTE: This routine does not copy face-interior high-order information
- * yet!
+ *   - New id key for all geom objects
+ *   - Recreate every tet, prism and tetrahedron using the new ordering, use
+ *     OrientPrism/OrientTet routines.
+ *   - Reuse the edge curves for the high-order info
  */
 void Module::ReorderPrisms(PerMap &perFaces)
 {
     // Loop over elements and extract any that are prisms.
     int i, j, k;
 
-    if (m_mesh->m_expDim < 3)
+    auto &m_graph = m_mesh->m_meshGraph;
+
+    if (m_graph->GetMeshDimension() < 3)
     {
         return;
     }
 
     map<int, int> lines;
-    set<int> prismsDone, tetsDone;
+    set<int> prismsDone, tetsDone, pyrsDone;
     PerMap::iterator pIt;
 
-    // Compile list of prisms and tets.
-    for (i = 0; i < m_mesh->m_element[3].size(); ++i)
+    // Compile list of prisms, tets and pyramids, identified by geometry ID.
+    for (auto &el : m_mesh->m_elementTags[3])
     {
-        ElementSharedPtr el = m_mesh->m_element[3][i];
-
-        if (el->GetConf().m_e == LibUtilities::ePrism)
+        if (el.first->GetShapeType() == LibUtilities::ePrism)
         {
-            prismsDone.insert(i);
+            prismsDone.insert(el.first->GetGlobalID());
         }
-        else if (el->GetConf().m_e == LibUtilities::eTetrahedron)
+        else if (el.first->GetShapeType() == LibUtilities::eTetrahedron)
         {
-            tetsDone.insert(i);
+            tetsDone.insert(el.first->GetGlobalID());
+        }
+        else if (el.first->GetShapeType() == LibUtilities::ePyramid)
+        {
+            pyrsDone.insert(el.first->GetGlobalID());
         }
     }
 
-    // Destroy existing node numbering.
-    NodeSet::iterator it;
-    for (it = m_mesh->m_vertexSet.begin(); it != m_mesh->m_vertexSet.end();
-         ++it)
+    // Face to Element to get neighbour el links
+    m_graph->GetAllFaceToElMap().clear();
+    for (auto &el : m_mesh->m_elementTags[3])
     {
-        (*it)->m_id = -1;
+        m_graph->PopulateFaceToElMap(
+            static_cast<SpatialDomains::Geometry3D *>(el.first),
+            el.first->GetNumFaces());
+    }
+
+    // Destroy existing node numbering.
+    for (auto &vert : m_graph->GetGeomMap<SpatialDomains::PointGeom>())
+    {
+        vert.second->SetGlobalID(-1);
     }
 
     // Counter for new node IDs.
     int nodeId          = 0;
     int prismTris[2][3] = {{0, 1, 4}, {3, 2, 5}};
 
-    // Warning flag for high-order curvature information.
-    bool warnCurvature = false;
-
     // facesDone tracks face IDs inside prisms which have already been
     // aligned.
     std::unordered_set<int> facesDone;
     std::unordered_set<int>::iterator fIt[2], fIt2;
 
-    // Loop over prisms until we've found all lines of prisms.
+    // prism lines marching through the prism stacks
+    // and give prism stack vertices new IDs
+    set<int> prismsLeft = prismsDone;
 
-    while (prismsDone.size() > 0)
+    while (prismsLeft.size() > 0)
     {
-        vector<ElementSharedPtr> line;
+        vector<SpatialDomains::Geometry *> line;
 
         // Call PrismLines to identify all prisms connected to
-        // prismDone.begin() and place them in line[].
-        PrismLines(*prismsDone.begin(), perFaces, prismsDone, line);
+        // prismLeft.begin() and place them in line[].
+        PrismLines(*prismsLeft.begin(), perFaces, prismsLeft, line);
 
         // Loop over each prism, figure out which line of vertices
         // contains the vertex with highest ID.
         for (i = 0; i < line.size(); ++i)
         {
-            // Copy tags and nodes from existing element.
-            vector<int> tags            = line[i]->GetTagList();
-            vector<NodeSharedPtr> nodes = line[i]->GetVertexList();
+            // Copy nodes from existing element.
+            vector<SpatialDomains::PointGeom *> nodes;
+            for (j = 0; j < 6; ++j)
+            {
+                nodes.push_back(line[i]->GetVertex(j));
+            }
 
             // See if either face of this prism has been renumbered
             // already.
-            FaceSharedPtr f[2] = {line[i]->GetFace(1), line[i]->GetFace(3)};
+            SpatialDomains::Geometry2D *f[2] = {line[i]->GetFace(1),
+                                                line[i]->GetFace(3)};
 
-            fIt[0] = facesDone.find(f[0]->m_id);
-            fIt[1] = facesDone.find(f[1]->m_id);
+            fIt[0] = facesDone.find(f[0]->GetGlobalID());
+            fIt[1] = facesDone.find(f[1]->GetGlobalID());
 
             // See if either of these faces is periodic. If it is, then
             // assign ids accordingly.
             for (j = 0; j < 2; ++j)
             {
-                pIt = perFaces.find(f[j]->m_id);
+                pIt = perFaces.find(f[j]->GetGlobalID());
 
                 if (pIt == perFaces.end())
                 {
                     continue;
                 }
 
-                fIt2 = facesDone.find(pIt->second.first->m_id);
+                fIt2 = facesDone.find(pIt->second.first->GetGlobalID());
 
                 if (fIt[j] == facesDone.end() && fIt2 != facesDone.end())
                 {
@@ -681,16 +673,16 @@ void Module::ReorderPrisms(PerMap &perFaces)
                 {
                     for (k = 0; k < 3; ++k)
                     {
-                        NodeSharedPtr n = nodes[prismTris[j][k]];
-                        if (n->m_id == -1)
+                        SpatialDomains::PointGeom *n = nodes[prismTris[j][k]];
+                        if (n->GetGlobalID() == -1)
                         {
-                            n->m_id = nodeId++;
+                            n->SetGlobalID(nodeId++);
                         }
                     }
                 }
 
-                facesDone.insert(f[0]->m_id);
-                facesDone.insert(f[1]->m_id);
+                facesDone.insert(f[0]->GetGlobalID());
+                facesDone.insert(f[1]->GetGlobalID());
             }
             else
             {
@@ -706,8 +698,8 @@ void Module::ReorderPrisms(PerMap &perFaces)
                 std::vector<std::pair<int32_t, int32_t>> tmp;
                 for (int j = 0; j < 3; ++j)
                 {
-                    tmp.push_back(
-                        std::make_pair(j, nodes[prismTris[o][j]]->m_id));
+                    tmp.push_back(std::make_pair(
+                        j, nodes[prismTris[o][j]]->GetGlobalID()));
                 }
                 std::sort(tmp.begin(), tmp.end(),
                           [&](std::pair<int32_t, int32_t> a,
@@ -718,84 +710,35 @@ void Module::ReorderPrisms(PerMap &perFaces)
                 // Renumber this face so that highest ID matches.
                 for (j = 0; j < 3; ++j)
                 {
-                    NodeSharedPtr n = nodes[prismTris[t][tmp[j].first]];
-                    if (n->m_id == -1)
+                    SpatialDomains::PointGeom *n =
+                        nodes[prismTris[t][tmp[j].first]];
+                    if (n->GetGlobalID() == -1)
                     {
-                        n->m_id = nodeId++;
+                        n->SetGlobalID(nodeId++);
                     }
                 }
 
-                facesDone.insert(f[t]->m_id);
+                facesDone.insert(f[t]->GetGlobalID());
             }
 
             for (j = 0; j < 6; ++j)
             {
-                ASSERTL1(nodes[j]->m_id != -1, "Renumbering error");
+                ASSERTL1(nodes[j]->GetGlobalID() != -1, "Renumbering error");
             }
-
-            // Recreate prism with the new ordering.
-            ElmtConfig conf(LibUtilities::ePrism, 1, false, false, true);
-            ElementSharedPtr el = GetElementFactory().CreateInstance(
-                LibUtilities::ePrism, conf, nodes, tags);
-
-            // Now transfer high-order information back into
-            // place. TODO: Face curvature.
-            for (j = 0; j < 9; ++j)
-            {
-                EdgeSharedPtr e1 = line[i]->GetEdge(j);
-                for (k = 0; k < 9; ++k)
-                {
-                    EdgeSharedPtr e2 = el->GetEdge(k);
-                    if (e1->m_n1 == e2->m_n1 && e1->m_n2 == e2->m_n2)
-                    {
-                        e2->m_edgeNodes = e1->m_edgeNodes;
-                        e2->m_curveType = e1->m_curveType;
-                    }
-                    else if (e1->m_n1 == e2->m_n2 && e1->m_n2 == e2->m_n1)
-                    {
-                        e2->m_edgeNodes = e1->m_edgeNodes;
-                        std::reverse(e2->m_edgeNodes.begin(),
-                                     e2->m_edgeNodes.end());
-                        e2->m_curveType = e1->m_curveType;
-                    }
-                }
-            }
-
-            // Warn users that we're throwing away face curvature
-            if (!warnCurvature)
-            {
-                for (j = 0; j < 5; ++j)
-                {
-                    if (line[i]->GetFace(j)->m_faceNodes.size() > 0)
-                    {
-                        warnCurvature = true;
-                        break;
-                    }
-                }
-            }
-
-            // Replace old prism.
-            m_mesh->m_element[3][line[i]->GetId()] = el;
         }
     }
 
-    if (warnCurvature)
-    {
-        m_log(WARNING) << "[ReorderPrisms] WARNING: Face curvature detected in "
-                       << "some prisms; this will be ignored in further module "
-                       << "evaluations." << endl;
-    }
     int maxCouples = 3;
     // Loop over periodic faces, enumerate vertices.
     for (int flag = 0; flag < maxCouples; flag++)
     {
         for (pIt = perFaces.begin(); pIt != perFaces.end(); ++pIt)
         {
-            FaceSharedPtr f2     = pIt->second.first;
-            FaceSharedPtr f1     = perFaces[f2->m_id].first;
-            vector<int> perVerts = pIt->second.second;
-            int nVerts           = perVerts.size() - 1;
-            int coupleFlags      = perVerts[perVerts.size() - 1];
+            SpatialDomains::Geometry2D *f2 = pIt->second.first;
+            SpatialDomains::Geometry2D *f1 = perFaces[f2->GetGlobalID()].first;
+            vector<int> perVerts           = pIt->second.second;
+            int nVerts                     = perVerts.size() - 1;
+            int coupleFlags                = perVerts[perVerts.size() - 1];
 
             if (coupleFlags != flag)
             {
@@ -804,81 +747,221 @@ void Module::ReorderPrisms(PerMap &perFaces)
             // Number periodic vertices first.
             for (j = 0; j < nVerts; ++j)
             {
-                NodeSharedPtr n1 = f1->m_vertexList[j];
-                NodeSharedPtr n2 = f2->m_vertexList[perVerts[j]];
+                SpatialDomains::PointGeom *n1 = f1->GetVertex(j);
+                SpatialDomains::PointGeom *n2 = f2->GetVertex(perVerts[j]);
 
-                if (n1->m_id == -1 && n2->m_id == -1)
+                if (n1->GetGlobalID() == -1 && n2->GetGlobalID() == -1)
                 {
-                    n1->m_id = nodeId++;
-                    n2->m_id = nodeId++;
+                    n1->SetGlobalID(nodeId++);
+                    n2->SetGlobalID(nodeId++);
                 }
-                else if (n1->m_id != -1 && n2->m_id != -1)
+                else if (n1->GetGlobalID() != -1 && n2->GetGlobalID() != -1)
                 {
                     continue;
                 }
                 else
                 {
                     m_log(WARNING)
-                        << "n1 " << n1->m_id << " " << n1->m_x << " " << n1->m_y
-                        << " " << n1->m_z << " n2=" << n2->m_id << " "
-                        << n2->m_x << " " << n2->m_y << " " << n2->m_z << endl;
+                        << "n1 " << n1->GetGlobalID() << " " << n1->x() << " "
+                        << n1->y() << " " << n1->z()
+                        << " n2=" << n2->GetGlobalID() << " " << n2->x() << " "
+                        << n2->y() << " " << n2->z() << endl;
                     ASSERTL0(false, "Periodic face renumbering error");
                 }
             }
         }
     }
 
-    // Recreate tets.
+    // Do tet vertices .
     set<int>::iterator it2;
     for (it2 = tetsDone.begin(); it2 != tetsDone.end(); ++it2)
     {
-        ElementSharedPtr el         = m_mesh->m_element[3][*it2];
-        vector<NodeSharedPtr> nodes = el->GetVertexList();
-        vector<int> tags            = el->GetTagList();
+        SpatialDomains::Geometry *el = m_graph->GetGeometry3D(*it2);
 
         for (i = 0; i < 4; ++i)
         {
-            if (nodes[i]->m_id == -1)
+            if (el->GetVertex(i)->GetGlobalID() == -1)
             {
-                nodes[i]->m_id = nodeId++;
+                el->GetVertex(i)->SetGlobalID(nodeId++);
             }
         }
-
-        // Recreate tet.
-        ElmtConfig conf(LibUtilities::eTetrahedron, 1, false, false, true);
-        m_mesh->m_element[3][*it2] = GetElementFactory().CreateInstance(
-            LibUtilities::eTetrahedron, conf, nodes, tags);
     }
 
-    // Enumerate rest of vertices.
-    for (it = m_mesh->m_vertexSet.begin(); it != m_mesh->m_vertexSet.end();
-         ++it)
+    // Enumerate rest of vertices (pyr, hex)
+    for (auto &vert : m_graph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        if ((*it)->m_id == -1)
+        if (vert.second->GetGlobalID() == -1)
         {
             m_log(VERBOSE) << "Vertex that is not connected to Prism or Tet in "
                               "PerAlign id = nodeId++"
                            << endl;
-            (*it)->m_id = nodeId++;
+            vert.second->SetGlobalID(nodeId++);
         }
     }
 
-    for (it = m_mesh->m_vertexSet.begin(); it != m_mesh->m_vertexSet.end();
-         ++it)
+    // check for left vertices with no ID
+    for (auto &vert : m_graph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        if ((*it)->m_id == -1)
+        if (vert.second->GetGlobalID() == -1)
         {
             m_log(FATAL) << "Vetex no ID " << endl;
         }
     }
 
-    ProcessEdges();
-    ProcessFaces();
+    // Rebuld the vertices with the new ids and put into the geommap
+    vector<int> vertIds;
+    for (auto &vert : m_graph->GetGeomMap<SpatialDomains::PointGeom>())
+    {
+        vertIds.push_back(vert.first);
+    }
+
+    SpatialDomains::GeomMap<SpatialDomains::PointGeom> newVertGeoms;
+    for (i = 0; i < vertIds.size(); ++i)
+    {
+        auto point =
+            m_graph->ExtractGeom<SpatialDomains::PointGeom>(vertIds[i]);
+        int newId           = point->GetGlobalID();
+        newVertGeoms[newId] = std::move(point);
+    }
+    m_graph->SetGeomMap<SpatialDomains::PointGeom>(std::move(newVertGeoms));
+
+    // Create the new edges with the new id key
+    EdgeMap edgeSet;
+    for (auto &e : m_mesh->m_edgeSet)
+    {
+        edgeSet[make_pair(e.second->GetVertex(0)->GetGlobalID(),
+                          e.second->GetVertex(1)->GetGlobalID())] = e.second;
+    }
+    m_mesh->m_edgeSet = edgeSet;
+
+    // Create the new faces triag and quad faces with the new vertids
+    FaceMap faceSet;
+    for (auto &f : m_mesh->m_faceSet)
+    {
+        std::array<int, 4> vids = {f.second->GetVertex(0)->GetGlobalID(),
+                                   f.second->GetVertex(1)->GetGlobalID(),
+                                   f.second->GetVertex(2)->GetGlobalID(), -1};
+        if (f.second->GetNumVerts() == 4)
+        {
+            vids[3] = f.second->GetVertex(3)->GetGlobalID();
+        }
+        faceSet[vids] = f.second;
+    }
+    m_mesh->m_faceSet = faceSet;
+
+    // Keep the composite to face ID as these will be rebuild in the end
+    map<int, vector<int>> compIds;
+    for (auto &comp : m_graph->GetComposites())
+    {
+        if (comp.second->m_geomVec[0]->GetShapeDim() == 3)
+        {
+            for (auto &geom : comp.second->m_geomVec)
+            {
+                compIds[comp.first].push_back(geom->GetGlobalID());
+            }
+        }
+    }
+
+    // Reorienting an element changes the vertex order also for triags.
+    // Hence we keep the ID if necessary for later
+    std::unordered_set<int> naiveTriIDs;
+    for (auto &tri : m_graph->GetGeomMap<SpatialDomains::TriGeom>())
+    {
+        naiveTriIDs.insert(tri.first);
+    }
+
+    // Warning flag for face curvature informationß.
+    bool warnCurvature = false;
+
+    // Recreate prisms and tets: the factory reorients them using the
+    // new vertex IDs, while their edges and faces are rebuilt above.
+    vector<int> elmtsDone;
+    elmtsDone.insert(elmtsDone.end(), prismsDone.begin(), prismsDone.end());
+    elmtsDone.insert(elmtsDone.end(), pyrsDone.begin(), pyrsDone.end());
+    elmtsDone.insert(elmtsDone.end(), tetsDone.begin(), tetsDone.end());
+
+    for (auto &elId : elmtsDone)
+    {
+        SpatialDomains::Geometry *el  = m_graph->GetGeometry3D(elId);
+        LibUtilities::ShapeType eType = el->GetShapeType();
+
+        vector<SpatialDomains::PointGeom *> nodes;
+        for (i = 0; i < el->GetNumVerts(); ++i)
+        {
+            nodes.push_back(el->GetVertex(i));
+        }
+
+        auto tagIt = m_mesh->m_elementTags[3].find(el);
+        int tag    = tagIt->second;
+        m_mesh->m_elementTags[3].erase(tagIt);
+
+        if (eType == LibUtilities::ePrism)
+        {
+            m_graph->ExtractGeom<SpatialDomains::PrismGeom>(elId, true);
+        }
+        else if (eType == LibUtilities::ePyramid)
+        {
+            m_graph->ExtractGeom<SpatialDomains::PyrGeom>(elId, true);
+        }
+        else
+        {
+            m_graph->ExtractGeom<SpatialDomains::TetGeom>(elId, true);
+        }
+
+        ElmtConfig conf(eType, 1, false, false, true);
+        ElmtIds ids;
+        ids.elmt = elId;
+        ids.edges.assign(9, NextEdgeId(m_graph));
+        ids.faces.assign(5, NextFaceId(m_graph));
+
+        // Create the new element
+        SpatialDomains::Geometry *elNew = GetElementFactory().CreateInstance(
+            conf.m_e, nodes, m_graph, m_mesh->m_edgeSet, m_mesh->m_faceSet,
+            conf, nullptr, nullptr, &naiveTriIDs, &ids);
+        m_mesh->m_elementTags[3][elNew] = tag;
+
+        for (i = 0; i < elNew->GetNumFaces(); ++i)
+        {
+            SpatialDomains::Geometry2D *f = elNew->GetFace(i);
+            if (naiveTriIDs.erase(f->GetGlobalID()) > 0 &&
+                f->GetCurve() != nullptr)
+            {
+                warnCurvature = true;
+            }
+        }
+    }
+
+    if (warnCurvature)
+    {
+        m_log(WARNING)
+            << "[ReorderPrisms] WARNING: Face intranal curvature will be "
+               "dropped, but edge curvature retained."
+            << endl;
+    }
+
+    for (auto &comp : compIds)
+    {
+        auto &geomVec = m_graph->GetComposites()[comp.first]->m_geomVec;
+        for (i = 0; i < comp.second.size(); ++i)
+        {
+            geomVec[i] = m_graph->GetGeometry3D(comp.second[i]);
+        }
+    }
+
+    // Rebuild the face to element map now that the elements have changed.
+    m_graph->GetAllFaceToElMap().clear();
+    for (auto &el : m_mesh->m_elementTags[3])
+    {
+        m_graph->PopulateFaceToElMap(
+            static_cast<SpatialDomains::Geometry3D *>(el.first),
+            el.first->GetNumFaces());
+    }
+
     ProcessElements();
 }
 
 void Module::PrismLines(int prism, PerMap &perFaces, set<int> &prismsDone,
-                        vector<ElementSharedPtr> &line)
+                        vector<SpatialDomains::Geometry *> &line)
 {
     int i;
     set<int>::iterator it = prismsDone.find(prism);
@@ -889,38 +972,45 @@ void Module::PrismLines(int prism, PerMap &perFaces, set<int> &prismsDone,
         return;
     }
 
+    auto &m_graph = m_mesh->m_meshGraph;
+
     // Remove this prism from the list.
     prismsDone.erase(it);
-    line.push_back(m_mesh->m_element[3][prism]);
+    line.push_back(m_graph->GetGeometry3D(prism));
 
     // Now find prisms connected to this one through a triangular face.
     for (i = 1; i <= 3; i += 2) // checks only face 1 and face 3
     {
-        FaceSharedPtr f = m_mesh->m_element[3][prism]->GetFace(i);
+        SpatialDomains::Geometry2D *f =
+            m_graph->GetGeometry3D(prism)->GetFace(i);
         int nextId;
 
         // See if this face is periodic.
-        it2 = perFaces.find(f->m_id);
+        it2 = perFaces.find(f->GetGlobalID());
 
         if (it2 != perFaces.end())
         {
-            int id2 = it2->second.first->m_id;
-            nextId  = it2->second.first->m_elLink[0].first.lock()->GetId();
+            int id2 = it2->second.first->GetGlobalID();
+            nextId  = m_graph->GetElementsFromFace(it2->second.first)
+                         ->at(0)
+                         .first->GetGlobalID();
             perFaces.erase(it2);
             perFaces.erase(id2);
             PrismLines(nextId, perFaces, prismsDone, line);
         }
 
         // Nothing else connected to this face.
-        if (f->m_elLink.size() == 1)
+        SpatialDomains::GeometryLinkSharedPtr elLink =
+            m_graph->GetElementsFromFace(f);
+        if (elLink->size() == 1)
         {
             continue;
         }
 
-        nextId = f->m_elLink[0].first.lock()->GetId();
-        if (nextId == m_mesh->m_element[3][prism]->GetId())
+        nextId = elLink->at(0).first->GetGlobalID();
+        if (nextId == prism)
         {
-            nextId = f->m_elLink[1].first.lock()->GetId();
+            nextId = elLink->at(1).first->GetGlobalID();
         }
 
         PrismLines(nextId, perFaces, prismsDone, line);
@@ -995,67 +1085,6 @@ void Module::SetDefaults()
     }
 }
 
-void Module::ExtractCAD()
-{
-    set<NodeSharedPtr> vertices;
-    set<EdgeSharedPtr> edges;
-
-    // Open the file for writing
-    std::ofstream outFile("CAD.txt");
-    ASSERTL1(!outFile.is_open(), "Unable to open file CAD.txt for writing.");
-
-    // Loop over all elements in m_mesh->m_element[2] and collect all surface
-    // vertices and edges
-    for (auto &elmt : m_mesh->m_element[2])
-    {
-        for (size_t i = 0; i < elmt->GetVertexCount(); ++i)
-        {
-            vertices.insert(elmt->GetVertex(i));
-        }
-
-        for (size_t i = 0; i < elmt->GetEdgeCount(); ++i)
-        {
-            edges.insert(elmt->GetEdge(i));
-        }
-    }
-
-    // Export vertices (This can be deducted from Edge and element[2] for now)
-    // Can  be used in V&V campaigns
-    // outFile << "Edge ID | Type CAD | CAD ID:" << endl;
-    // for (auto &vertex : vertices)
-    // {
-    //     outFile << "Vertex ID: " << vertex->m_id << " | Type: Vertex"
-    //             << " | CAD ID: " << vertex->m_parentCAD->GetId() <<
-    //             std::endl;
-    // }
-
-    // Export edges
-    outFile << "Edge ID | Type CAD | CAD ID:" << endl;
-
-    for (auto &edge : edges)
-    {
-        if (edge->m_parentCAD)
-        {
-            outFile << edge->m_id << " " << edge->m_parentCAD->GetType() << " "
-                    << edge->m_parentCAD->GetId() << endl;
-        }
-    }
-
-    // Export elements (Always CADSurf)
-    outFile << "Element/Face ID | CAD ID:" << endl;
-    for (auto &elmt : m_mesh->m_element[2])
-    {
-        if (elmt->m_parentCAD)
-        {
-            outFile << elmt->GetId() << " " << elmt->m_parentCAD->GetId()
-                    << endl;
-        }
-    }
-
-    // Close the file
-    outFile.close();
-}
-
 /**
  * @brief Print a brief summary of information.
  */
@@ -1064,14 +1093,15 @@ void InputModule::PrintSummary()
     // Compute the number of full-dimensional elements and boundary
     // elements.
     m_log(VERBOSE) << "Finished reading mesh." << endl;
-    m_log(VERBOSE) << " - Element dimension        : " << m_mesh->m_expDim
-                   << endl;
-    m_log(VERBOSE) << " - Space dimension          : " << m_mesh->m_spaceDim
-                   << endl;
+    m_log(VERBOSE) << " - Element dimension        : "
+                   << m_mesh->m_meshGraph->GetMeshDimension() << endl;
+    m_log(VERBOSE) << " - Space dimension          : "
+                   << m_mesh->m_meshGraph->GetSpaceDimension() << endl;
     m_log(VERBOSE) << " - No. of nodes             : "
-                   << m_mesh->m_vertexSet.size() << endl;
-    m_log(VERBOSE) << " - No. of " << m_mesh->m_expDim
-                   << "D elements       : " << m_mesh->GetNumElements() << endl;
+                   << m_mesh->m_meshGraph->GetNvertices() << endl;
+    m_log(VERBOSE) << " - No. of " << m_mesh->m_meshGraph->GetMeshDimension()
+                   << "D elements       : "
+                   << m_mesh->m_meshGraph->GetNumElements() << endl;
     m_log(VERBOSE) << " - No. of boundary elements : "
                    << m_mesh->GetNumBndryElements() << endl;
 }
