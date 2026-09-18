@@ -98,17 +98,18 @@ typedef std::shared_lock<std::shared_mutex> ReadLock;
  *              ::CreateInstance("[derivedclass]",Param1);
  * \endcode
  */
-template <typename tKey,  // reference tag (e.g. string, int)
-          typename tBase, // base class
+template <typename tKey,     // reference tag (e.g. string, int)
+          typename tBase,    // base class
+          typename tBasePtr, // type used for storage (ptr, shared_ptr, etc)
           typename... tParam>
-class NekFactory
+class NekFactoryBase
 {
 public:
     /// Shared pointer to an object of baseclass type.
     typedef std::shared_ptr<tBase> tBaseSharedPtr;
     /// CreatorFunction type which takes parameter and returns base class shared
     /// pointer.
-    typedef std::function<tBaseSharedPtr(tParam...)> CreatorFunction;
+    typedef std::function<tBasePtr(tParam...)> CreatorFunction;
 
     /// Define a struct to hold the information about a module.
     struct ModuleEntry
@@ -128,7 +129,7 @@ public:
     typedef std::unordered_map<tKey, ModuleEntry, HashOp> tMapFactory;
 
 public:
-    NekFactory() = default;
+    NekFactoryBase() = default;
 
     /**
      * @brief Create an instance of the class referred to by \c idKey.
@@ -139,7 +140,7 @@ public:
      * @param   args            Parameter to pass to class constructor.
      * @returns                 Base class pointer to new instance.
      */
-    tBaseSharedPtr CreateInstance(tKey idKey, tParam... args)
+    tBasePtr CreateInstance(tKey idKey, tParam... args)
     {
 #ifdef NEKTAR_USE_THREAD_SAFETY
         ReadLock vReadLock(m_mutex);
@@ -178,7 +179,7 @@ public:
         errstr << "No such module: " << idKey << std::endl;
         PrintAvailableClasses(errstr);
         NEKERROR(ErrorUtil::efatal, errstr.str());
-        return tBaseSharedPtr();
+        return tBasePtr();
     }
 
     /**
@@ -278,8 +279,8 @@ protected:
     }
 
 private:
-    NekFactory(const NekFactory &rhs)            = delete;
-    NekFactory &operator=(const NekFactory &rhs) = delete;
+    NekFactoryBase(const NekFactoryBase &rhs)            = delete;
+    NekFactoryBase &operator=(const NekFactoryBase &rhs) = delete;
 
     tMapFactory m_mapFactory;
 
@@ -287,6 +288,10 @@ private:
     std::shared_mutex m_mutex;
 #endif
 };
+
+template <typename tKey, typename tBase, typename... tParam>
+using NekFactory =
+    NekFactoryBase<tKey, tBase, std::shared_ptr<tBase>, tParam...>;
 
 } // namespace Nektar::LibUtilities
 

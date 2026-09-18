@@ -35,9 +35,9 @@
 
 #include "OutputCADfix.h"
 
-#include <NekMesh/CADSystem/CFI/CADCurveCFI.h>
-#include <NekMesh/CADSystem/CFI/CADElementCFI.h>
-#include <NekMesh/CADSystem/CFI/CADSurfCFI.h>
+#include <SpatialDomains/CADSystem/CFI/CADCurveCFI.h>
+#include <SpatialDomains/CADSystem/CFI/CADElementCFI.h>
+#include <SpatialDomains/CADSystem/CFI/CADSurfCFI.h>
 
 using namespace std;
 using namespace Nektar::SpatialDomains;
@@ -46,6 +46,9 @@ namespace Nektar
 {
 namespace NekMesh
 {
+using SpatialDomains::CADCurveSharedPtr;
+using SpatialDomains::CADElementCFISharedPtr;
+using SpatialDomains::CADSurfSharedPtr;
 ModuleKey OutputCADfix::className = GetModuleFactory().RegisterCreatorFunction(
     ModuleKey(eOutputModule, "fbm"), OutputCADfix::create,
     "Appends to a CADfix database file.");

@@ -71,8 +71,10 @@ InputCGNS::~InputCGNS()
  */
 void InputCGNS::SaveNode(int id, NekDouble x, NekDouble y, NekDouble z)
 {
-    NodeSharedPtr newNode = std::make_shared<Node>(id, x, y, z);
-    m_mesh->m_node.push_back(newNode);
+    m_loadedNodes[id] =
+        ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(3, id, x,
+                                                                     y, z);
+    m_node.push_back(m_loadedNodes[id].get());
 }
 
 /**
@@ -84,8 +86,6 @@ void InputCGNS::Process()
 {
     SetupElements();
 
-    ProcessEdges();
-    ProcessFaces();
     ProcessElements();
     ProcessComposites();
 
@@ -123,12 +123,12 @@ void InputCGNS::SetupElements()
     }
     else
     {
-        m_mesh->m_expDim   = expDim;
-        m_mesh->m_spaceDim = spaceDim;
+        m_mesh->m_meshGraph->SetMeshDimension(expDim);
+        m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
         m_log(VERBOSE) << "Read base information" << endl;
         m_log(VERBOSE) << "Base name    : " << baseName << endl;
-        m_log(VERBOSE) << "Element dim  : " << m_mesh->m_expDim << endl;
-        m_log(VERBOSE) << "Physical dim : " << m_mesh->m_spaceDim << endl;
+        m_log(VERBOSE) << "Element dim  : " << expDim << endl;
+        m_log(VERBOSE) << "Physical dim : " << spaceDim << endl;
     }
 
     ZoneType_t zoneType;
@@ -366,7 +366,7 @@ void InputCGNS::SetupElements()
     // 3D Zone
     // Reset node ordering so that all prism faces have
     // consistent numbering for singular vertex re-ordering
-    ResetNodes(m_mesh->m_node, ElementFaces, FaceNodes, elemInfo, VolumeElems);
+    ResetNodes(m_node, ElementFaces, FaceNodes, elemInfo, VolumeElems);
 
     int nComposite = 0, i = 0;
     int nelements = ElementFaces.size();
@@ -377,10 +377,10 @@ void InputCGNS::SetupElements()
     for (i = 0; i < nelements; ++i)
     {
         Array<OneD, int> Nodes =
-            SortFaceNodes(m_mesh->m_node, ElementFaces[i], FaceNodes);
+            SortFaceNodes(m_node, ElementFaces[i], FaceNodes);
         if (ElementFaces[i].size() == 5 && Nodes.size() == 6) // is a prism
         {
-            GenElement3D(m_mesh->m_node, elemInfo[VolumeElems[i]].second,
+            GenElement3D(m_node, elemInfo[VolumeElems[i]].second,
                          ElementFaces[i], FaceNodes,
                          elemInfo[VolumeElems[i]].first, nComposite, true);
             ++cnt;
@@ -398,10 +398,10 @@ void InputCGNS::SetupElements()
     for (i = 0; i < nelements; ++i)
     {
         Array<OneD, int> Nodes =
-            SortFaceNodes(m_mesh->m_node, ElementFaces[i], FaceNodes);
+            SortFaceNodes(m_node, ElementFaces[i], FaceNodes);
         if (ElementFaces[i].size() == 5 && Nodes.size() == 5) // is a pyra
         {
-            GenElement3D(m_mesh->m_node, elemInfo[VolumeElems[i]].second,
+            GenElement3D(m_node, elemInfo[VolumeElems[i]].second,
                          ElementFaces[i], FaceNodes,
                          elemInfo[VolumeElems[i]].first, nComposite, true);
             ++cnt;
@@ -420,7 +420,7 @@ void InputCGNS::SetupElements()
     {
         if (ElementFaces[i].size() == 4) // is a tetra
         {
-            GenElement3D(m_mesh->m_node, elemInfo[VolumeElems[i]].second,
+            GenElement3D(m_node, elemInfo[VolumeElems[i]].second,
                          ElementFaces[i], FaceNodes,
                          elemInfo[VolumeElems[i]].first, nComposite, true);
             ++cnt;
@@ -439,7 +439,7 @@ void InputCGNS::SetupElements()
     {
         if (ElementFaces[i].size() == 6) // is a hexa
         {
-            GenElement3D(m_mesh->m_node, elemInfo[VolumeElems[i]].second,
+            GenElement3D(m_node, elemInfo[VolumeElems[i]].second,
                          ElementFaces[i], FaceNodes,
                          elemInfo[VolumeElems[i]].first, nComposite, true);
             ++cnt;
@@ -451,49 +451,40 @@ void InputCGNS::SetupElements()
         nComposite++;
     }
 
-    // Insert vertices into map.
-    for (auto &node : m_mesh->m_node)
-    {
-        m_mesh->m_vertexSet.insert(node);
-    }
-
     // create Boundary elements last
     for (auto sec : SectionNameToRange)
     {
         cnt = 0;
         for (int i = sec.second.first; i < sec.second.second; ++i)
         {
-            GenElement2D(m_mesh->m_node, elemInfo[i].second, elemInfo[i].first,
+            GenElement2D(m_node, elemInfo[i].second, elemInfo[i].first,
                          nComposite, true);
             ++cnt;
         }
 
         if (cnt)
         {
-            m_mesh->m_faceLabels[nComposite] = sec.first;
             m_log(VERBOSE) << "  - # of bndry elmts in " + sec.first + " :"
                            << cnt << endl;
             nComposite++;
         }
     }
 
-    // create periodic boundary elements  if present
+    // TBD create periodic boundary elements  if present
 
     // set up list of faces that are not shared by two elements
     // and so are an external face
-    set<FaceSharedPtr> facelist;
+    set<SpatialDomains::Geometry2D *> facelist;
     if (ConnNameToFaces.size())
     {
-        // process faces to make a unique list in m_mesh->m_faceSet
-        ProcessFaces();
-
         for (auto &it : m_mesh->m_faceSet)
         {
-            // if only has one element link and no tag id store element shared
-            // ptr
-            if (it->m_elLink.size() == 1)
+            // if face only has one element link and no tag id needs to store
+            // the face as it is new and unique
+            if (m_mesh->m_meshGraph->GetElementsFromFace(it.second)->size() ==
+                1)
             {
-                facelist.insert(it);
+                facelist.insert(it.second);
             }
         }
     }
@@ -505,9 +496,9 @@ void InputCGNS::SetupElements()
         for (auto &it : facelist)
         {
             bool OnBoundary = true;
-            for (int i = 0; i < it->m_vertexList.size(); ++i)
+            for (int i = 0; i < it->GetNumVerts(); ++i)
             {
-                if (con.second.count(it->m_vertexList[i]->m_id + 1) == 0)
+                if (con.second.count(it->GetVid(i) + 1) == 0)
                 {
                     OnBoundary = false;
                 }
@@ -515,51 +506,8 @@ void InputCGNS::SetupElements()
 
             if (OnBoundary)
             {
-                // using the face information generate a 2D element and add to
-                // m_mesh_m_element
-
-                vector<int> tags;
-                tags.push_back(nComposite);
-
-                bool faceNodes, volumeNodes;
-                LibUtilities::ShapeType shapeType =
-                    (it->m_edgeList.size() == 3) ? LibUtilities::eTriangle
-                                                 : LibUtilities::eQuadrilateral;
-                faceNodes   = it->m_faceNodes.size() ? true : false;
-                volumeNodes = false;
-                LibUtilities::PointsType edgeCurveType =
-                    LibUtilities::ePolyEvenlySpaced;
-                LibUtilities::PointsType faceCurveType =
-                    (shapeType == LibUtilities::eTriangle)
-                        ? LibUtilities::eNodalTriEvenlySpaced
-                        : LibUtilities::ePolyEvenlySpaced;
-                int order = it->m_edgeList[0]->m_edgeNodes.size() + 1;
-
-                ElmtConfig conf(shapeType, order, faceNodes, volumeNodes, false,
-                                edgeCurveType, faceCurveType);
-
-                vector<NodeSharedPtr> nodeList;
-                for (int i = 0; i < it->m_vertexList.size(); ++i)
-                {
-                    nodeList.push_back(it->m_vertexList[i]);
-                }
-                for (int i = 0; i < it->m_edgeList.size(); ++i)
-                {
-                    for (int j = 0; j < it->m_edgeList[i]->m_edgeNodes.size();
-                         ++j)
-                    {
-                        nodeList.push_back(it->m_edgeList[i]->m_edgeNodes[j]);
-                    }
-                }
-                for (int i = 0; i < it->m_faceNodes.size(); ++i)
-                {
-                    nodeList.push_back(it->m_faceNodes[i]);
-                }
-
-                ElementSharedPtr E = GetElementFactory().CreateInstance(
-                    shapeType, conf, nodeList, tags);
-
-                m_mesh->m_element[E->GetDim()].push_back(E);
+                // the porting needs just to be added to the map, no new face
+                m_mesh->m_elementTags[2][it] = nComposite;
 
                 ++cnt;
             }
@@ -567,11 +515,39 @@ void InputCGNS::SetupElements()
 
         if (cnt)
         {
-            m_mesh->m_faceLabels[nComposite] = con.first;
             m_log(VERBOSE) << "  - # of bndry elmts in " + con.first + " :"
                            << cnt << endl;
             nComposite++;
         }
+    }
+
+    // We need to give MeshGraph the ownership of the vertices.
+    // Also renumber them.
+    std::vector<std::pair<int, SpatialDomains::PointGeomUniquePtr>> movedVerts;
+    movedVerts.reserve(m_vertIDs.size());
+    int contigVertID = 0;
+    for (int node : m_vertIDs)
+    {
+        auto vert = std::move(m_loadedNodes[node]);
+        vert->SetGlobalID(contigVertID);
+        movedVerts.emplace_back(contigVertID, std::move(vert));
+        contigVertID++;
+    }
+    m_mesh->m_meshGraph->BulkAddGeom<SpatialDomains::PointGeom>(movedVerts);
+
+    // We need to give MeshGraph the ownership of the high-order nodes.
+    // give them -1 id
+    for (int node : m_curveNodeIDs)
+    {
+        if (m_vertIDs.find(node) == m_vertIDs.end())
+        {
+            m_mesh->m_meshGraph->GetAllCurveNodes().push_back(
+                std::move(m_loadedNodes[node]));
+        }
+    }
+    for (auto &node : m_mesh->m_meshGraph->GetAllCurveNodes())
+    {
+        node->SetGlobalID(-1);
     }
 }
 
@@ -764,7 +740,7 @@ static void PrismLineFaces(int prismid, map<int, int> &facelist,
 /**
  * Reorder the node IDs to set the orientation of the elments
  */
-void InputCGNS::ResetNodes(vector<NodeSharedPtr> &Vnodes,
+void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
                            Array<OneD, vector<int>> &ElementFaces,
                            std::unordered_map<int, vector<int>> &FaceNodes,
                            vector<pair<ElementType_t, vector<int>>> &elemInfo,
@@ -1048,11 +1024,18 @@ void InputCGNS::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         }
     }
 
-    vector<NodeSharedPtr> save(Vnodes);
+    SpatialDomains::GeomMap<SpatialDomains::PointGeom> newLoadedNodes;
+    for (i = 0; i < Vnodes.size(); ++i)
+    {
+        m_loadedNodes[i]->SetGlobalID(NodeReordering[i]);
+        newLoadedNodes[NodeReordering[i]] = std::move(m_loadedNodes[i]);
+    }
+    m_loadedNodes = std::move(newLoadedNodes);
+
+    vector<SpatialDomains::PointGeom *> save(Vnodes);
     for (i = 0; i < Vnodes.size(); ++i)
     {
         Vnodes[NodeReordering[i]] = save[i];
-        Vnodes[NodeReordering[i]]->SetID(NodeReordering[i]);
     }
 
     for (auto &ei : elemInfo)
@@ -1070,7 +1053,8 @@ void InputCGNS::ResetNodes(vector<NodeSharedPtr> &Vnodes,
  * elements.
  */
 void InputCGNS::PyramidShielding(
-    vector<NodeSharedPtr> &Vnodes, Array<OneD, vector<int>> &ElementFaces,
+    vector<SpatialDomains::PointGeom *> &Vnodes,
+    Array<OneD, vector<int>> &ElementFaces,
     std::unordered_map<int, vector<int>> &FaceNodes,
     vector<pair<ElementType_t, vector<int>>> &elemInfo,
     vector<int> &VolumeElems, vector<int> &NodeReordering, int pyraElemIdx)
@@ -1093,9 +1077,9 @@ void InputCGNS::PyramidShielding(
 
     for (int vertIdx = 0; vertIdx < 5; vertIdx++)
     {
-        NekDouble vArray[] = {Vnodes[oldPyra[vertIdx]]->m_x,
-                              Vnodes[oldPyra[vertIdx]]->m_y,
-                              Vnodes[oldPyra[vertIdx]]->m_z};
+        NekDouble vArray[] = {(*Vnodes[oldPyra[vertIdx]])[0],
+                              (*Vnodes[oldPyra[vertIdx]])[1],
+                              (*Vnodes[oldPyra[vertIdx]])[2]};
         NekVector<NekDouble> v(3, vArray);
         oldVerts.push_back(v);
     }
@@ -1524,7 +1508,7 @@ void InputCGNS::TraversePyraPrismLine(
     int currElemId, int currFaceId, int currApexNode,
     std::vector<std::vector<int>> FaceToPrisms,
     std::vector<std::vector<int>> GlobTriFaces,
-    std::vector<NodeSharedPtr> &Vnodes,
+    std::vector<SpatialDomains::PointGeom *> &Vnodes,
     Array<OneD, std::vector<int>> &ElementFaces,
     std::unordered_map<int, std::vector<int>> &FaceNodes,
     std::vector<int> &NodeReordering, int &revNodeid)
@@ -1617,7 +1601,7 @@ void InputCGNS::TraversePyraPrismLine(
     }
 }
 
-void InputCGNS::GenElement2D(vector<NodeSharedPtr> &VertNodes,
+void InputCGNS::GenElement2D(vector<SpatialDomains::PointGeom *> &VertNodes,
                              vector<int> elemNodes, ElementType_t elemType,
                              int nComposite, bool DoOrient)
 {
@@ -1626,12 +1610,25 @@ void InputCGNS::GenElement2D(vector<NodeSharedPtr> &VertNodes,
     LibUtilities::PointsType edgeCurveType;
     LibUtilities::PointsType faceCurveType;
 
-    // Create element tags
-    vector<int> tags;
-    tags.push_back(nComposite);
+    // Now the boundary face only needs the composite tag.
+    // KK bugfix - It should not be duplicated if created by3D element and
+    // exist!
+    int fourthID            = (shapeType == LibUtilities::eTriangle)
+                                  ? -1
+                                  : VertNodes[elemNodes[3]]->GetGlobalID();
+    std::array<int, 4> vids = {VertNodes[elemNodes[0]]->GetGlobalID(),
+                               VertNodes[elemNodes[1]]->GetGlobalID(),
+                               VertNodes[elemNodes[2]]->GetGlobalID(),
+                               fourthID};
+    auto fIt                = m_mesh->m_faceSet.find(vids);
+    if (fIt != m_mesh->m_faceSet.end())
+    {
+        m_mesh->m_elementTags[2][fIt->second] = nComposite;
+        return;
+    }
 
     // make unique node list
-    vector<NodeSharedPtr> nodeList;
+    vector<SpatialDomains::PointGeom *> nodeList;
 
     // Look up reordering.
     auto oIt = m_orderingMap.find(elemType);
@@ -1661,13 +1658,14 @@ void InputCGNS::GenElement2D(vector<NodeSharedPtr> &VertNodes,
 
     ElmtConfig conf(shapeType, order, faceNodes, volumeNodes, DoOrient,
                     edgeCurveType, faceCurveType);
-    ElementSharedPtr E =
-        GetElementFactory().CreateInstance(shapeType, conf, nodeList, tags);
+    SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+        shapeType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+        m_mesh->m_faceSet, conf, &m_vertIDs, &m_curveNodeIDs, nullptr, nullptr);
 
-    m_mesh->m_element[E->GetDim()].push_back(E);
+    m_mesh->m_elementTags[2][E] = nComposite;
 }
 
-void InputCGNS::GenElement3D(vector<NodeSharedPtr> &VertNodes,
+void InputCGNS::GenElement3D(vector<SpatialDomains::PointGeom *> &VertNodes,
                              vector<int> elemNodes, vector<int> &ElementFace,
                              std::unordered_map<int, vector<int>> &FaceNodes,
                              ElementType_t elemType, int nComposite,
@@ -1678,12 +1676,8 @@ void InputCGNS::GenElement3D(vector<NodeSharedPtr> &VertNodes,
     LibUtilities::PointsType edgeCurveType;
     LibUtilities::PointsType faceCurveType;
 
-    // Create element tags
-    vector<int> tags;
-    tags.push_back(nComposite);
-
     // make unique node list
-    vector<NodeSharedPtr> nodeList;
+    vector<SpatialDomains::PointGeom *> nodeList;
 
     if (order == 1)
     {
@@ -1727,10 +1721,11 @@ void InputCGNS::GenElement3D(vector<NodeSharedPtr> &VertNodes,
 
     ElmtConfig conf(shapeType, order, faceNodes, volumeNodes, DoOrient,
                     edgeCurveType, faceCurveType);
-    ElementSharedPtr E =
-        GetElementFactory().CreateInstance(shapeType, conf, nodeList, tags);
+    SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+        shapeType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+        m_mesh->m_faceSet, conf, &m_vertIDs, &m_curveNodeIDs, nullptr, nullptr);
 
-    m_mesh->m_element[E->GetDim()].push_back(E);
+    m_mesh->m_elementTags[3][E] = nComposite;
 }
 
 vector<int> InputCGNS::CGNSReordering(LibUtilities::ShapeType shapeType,
@@ -1797,7 +1792,7 @@ vector<int> InputCGNS::CGNSReordering(LibUtilities::ShapeType shapeType,
 
                 case LibUtilities::ePrism:
                     mapping = {3,  4,  1,  0,  5,  2,  18, 19, 15, 14,
-                               6,  7,  13, 12, 23, 22, 20, 21, 8,  9,
+                               7,  6,  12, 13, 23, 22, 20, 21, 8,  9,
                                11, 10, 17, 16, 28, 27, 25, 26, 37, 32,
                                29, 31, 30, 24, 35, 34, 36, 33, 38, 39};
                     break;
@@ -1846,7 +1841,7 @@ vector<int> InputCGNS::CGNSReordering(LibUtilities::ShapeType shapeType,
 
                 case LibUtilities::ePrism:
                     mapping = {3,  4,  1,  0,  5,  2,  24, 25, 26, 20, 19,
-                               18, 6,  7,  8,  17, 16, 15, 32, 31, 30, 27,
+                               18, 8,  7,  6,  15, 16, 17, 32, 31, 30, 27,
                                28, 29, 9,  10, 11, 14, 13, 12, 23, 22, 21,
                                42, 41, 40, 43, 44, 39, 36, 37, 38, 63, 64,
                                65, 51, 52, 45, 50, 53, 46, 49, 48, 47, 33,
@@ -1885,8 +1880,8 @@ vector<int> InputCGNS::CGNSReordering(LibUtilities::ShapeType shapeType,
     return mapping;
 }
 
-Array<OneD, int> InputCGNS::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
-                                          vector<int> &FaceNodes)
+Array<OneD, int> InputCGNS::SortEdgeNodes(
+    vector<SpatialDomains::PointGeom *> &Vnodes, vector<int> &FaceNodes)
 {
     Array<OneD, int> returnval;
 
@@ -1907,17 +1902,18 @@ Array<OneD, int> InputCGNS::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
         int indx2 = FaceNodes[2];
         int indx3 = FaceNodes[3];
 
+        SpatialDomains::PointGeom a, b, c, d, acurlb, acurld;
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        a.Sub(*(Vnodes[indx1]), *(Vnodes[indx0]));
         // calculate 0-2,
-        Node b      = *(Vnodes[indx2]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        b.Sub(*(Vnodes[indx2]), *(Vnodes[indx0]));
+        acurlb.Mult(a, b);
 
         // calculate 2-1,
-        Node c = *(Vnodes[indx1]) - *(Vnodes[indx2]);
+        c.Sub(*(Vnodes[indx1]), *(Vnodes[indx2]));
         // calculate 3-2,
-        Node d      = *(Vnodes[indx3]) - *(Vnodes[indx2]);
-        Node acurld = a.curl(d);
+        d.Sub(*(Vnodes[indx3]), *(Vnodes[indx2]));
+        acurld.Mult(a, d);
 
         NekDouble acurlb_dot_acurld = acurlb.dot(acurld);
         if (acurlb_dot_acurld > 0.0)
@@ -1940,7 +1936,7 @@ Array<OneD, int> InputCGNS::SortEdgeNodes(vector<NodeSharedPtr> &Vnodes,
 }
 
 Array<OneD, int> InputCGNS::SortFaceNodes(
-    vector<NodeSharedPtr> &Vnodes, vector<int> &ElementFaces,
+    vector<SpatialDomains::PointGeom *> &Vnodes, vector<int> &ElementFaces,
     std::unordered_map<int, vector<int>> &FaceNodes)
 {
     int i, j;
@@ -1959,10 +1955,11 @@ Array<OneD, int> InputCGNS::SortFaceNodes(
         int indx2 = it->second[2];
         int indx3 = -1;
 
+        SpatialDomains::PointGeom a, b, c, acurlb;
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        a.Sub(*(Vnodes[indx1]), *(Vnodes[indx0]));
         // calculate 0-2,
-        Node b = *(Vnodes[indx2]) - *(Vnodes[indx0]);
+        b.Sub(*(Vnodes[indx2]), *(Vnodes[indx0]));
 
         // Find fourth node index;
         ASSERTL1(FaceNodes[ElementFaces[1]].size() == 3,
@@ -1980,8 +1977,8 @@ Array<OneD, int> InputCGNS::SortFaceNodes(
         }
 
         // calculate 0-3,
-        Node c      = *(Vnodes[indx3]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        c.Sub(*(Vnodes[indx3]), *(Vnodes[indx0]));
+        acurlb.Mult(a, b);
 
         NekDouble acurlb_dotc = acurlb.dot(c);
         if (acurlb_dotc < 0.0)
@@ -2128,13 +2125,14 @@ Array<OneD, int> InputCGNS::SortFaceNodes(
             }
         }
 
+        SpatialDomains::PointGeom a, b, c, acurlb;
         // calculate 0-1,
-        Node a = *(Vnodes[indx1]) - *(Vnodes[indx0]);
+        a.Sub(*(Vnodes[indx1]), *(Vnodes[indx0]));
         // calculate 0-4,
-        Node b = *(Vnodes[indx4]) - *(Vnodes[indx0]);
+        b.Sub(*(Vnodes[indx4]), *(Vnodes[indx0]));
         // calculate 0-2,
-        Node c      = *(Vnodes[indx2]) - *(Vnodes[indx0]);
-        Node acurlb = a.curl(b);
+        c.Sub(*(Vnodes[indx2]), *(Vnodes[indx0]));
+        acurlb.Mult(a, b);
 
         NekDouble acurlb_dotc = acurlb.dot(c);
         if (acurlb_dotc < 0.0)

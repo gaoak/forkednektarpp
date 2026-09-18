@@ -69,9 +69,12 @@ void TriangleInterface::Mesh(bool Quality)
         {
             nodemap[pointc] = m_boundingloops[i][j];
 
-            auto uv = m_boundingloops[i][j]->GetCADSurfInfo(sid);
-            dt.in.pointlist[pointc * 2 + 0] = uv[0] * m_str;
-            dt.in.pointlist[pointc * 2 + 1] = uv[1];
+            auto search = m_nodeUV.find(m_boundingloops[i][j]);
+            ASSERTL0(search != m_nodeUV.end(),
+                     "no uv provided for bounding loop node");
+
+            dt.in.pointlist[pointc * 2 + 0] = search->second[0] * m_str;
+            dt.in.pointlist[pointc * 2 + 1] = search->second[1];
         }
     }
 
@@ -79,9 +82,11 @@ void TriangleInterface::Mesh(bool Quality)
     {
         nodemap[pointc] = m_stienerpoints[i];
 
-        auto uv = m_stienerpoints[i]->GetCADSurfInfo(sid);
-        dt.in.pointlist[pointc * 2 + 0] = uv[0] * m_str;
-        dt.in.pointlist[pointc * 2 + 1] = uv[1];
+        auto search = m_nodeUV.find(m_stienerpoints[i]);
+        ASSERTL0(search != m_nodeUV.end(), "no uv provided for stiener point");
+
+        dt.in.pointlist[pointc * 2 + 0] = search->second[0] * m_str;
+        dt.in.pointlist[pointc * 2 + 1] = search->second[1];
     }
 
     dt.in.numberofsegments = numSeg;
@@ -124,6 +129,17 @@ void TriangleInterface::Mesh(bool Quality)
     dt.Run(cstr);
 
     delete[] cstr;
+
+    // Triangle silently discards input points that coincide, which renumbers
+    // its output and breaks the index -> vertex mapping in Extract.
+    if (dt.out.numberofpoints != dt.in.numberofpoints)
+    {
+        stringstream err;
+        err << "Triangle returned " << dt.out.numberofpoints << " points from "
+            << dt.in.numberofpoints << " input points on surface " << sid
+            << "; coincident points in the parameter plane were merged.";
+        ASSERTL0(false, err.str());
+    }
 }
 
 void TriangleInterface::SetUp()
@@ -187,12 +203,13 @@ void TriangleInterface::SetUp()
     dt.out.numberofedges  = 0;
 }
 
-void TriangleInterface::Extract(std::vector<std::vector<NodeSharedPtr>> &Connec)
+void TriangleInterface::Extract(
+    std::vector<std::vector<SpatialDomains::PointGeom *>> &Connec)
 {
     Connec.clear();
     for (int i = 0; i < dt.out.numberoftriangles; i++)
     {
-        map<int, NodeSharedPtr>::iterator n1, n2, n3;
+        map<int, SpatialDomains::PointGeom *>::iterator n1, n2, n3;
         n1 = nodemap.find(dt.out.trianglelist[i * 3 + 0]);
         n2 = nodemap.find(dt.out.trianglelist[i * 3 + 1]);
         n3 = nodemap.find(dt.out.trianglelist[i * 3 + 2]);
@@ -201,7 +218,7 @@ void TriangleInterface::Extract(std::vector<std::vector<NodeSharedPtr>> &Connec)
                      n3 != nodemap.end(),
                  "node index error");
 
-        vector<NodeSharedPtr> tri(3);
+        vector<SpatialDomains::PointGeom *> tri(3);
         tri[0] = n1->second;
         tri[1] = n2->second;
         tri[2] = n3->second;

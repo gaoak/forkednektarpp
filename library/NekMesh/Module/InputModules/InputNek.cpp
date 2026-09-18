@@ -39,8 +39,8 @@
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <NekMesh/MeshElements/Element.h>
-#include <NekMesh/MeshElements/Prism.h>
-#include <NekMesh/MeshElements/Tetrahedron.h>
+#include <NekMesh/MeshElements/HOAlignment.h>
+#include <NekMesh/Module/SurfaceHints.h>
 #include <boost/algorithm/string.hpp>
 
 #include "InputNek.h"
@@ -84,7 +84,26 @@ void InputNek::Process()
     LibUtilities::ShapeType elType;
     double vertex[3][8];
     map<LibUtilities::ShapeType, int> domainComposite;
-    map<LibUtilities::ShapeType, vector<vector<NodeSharedPtr>>> elNodes;
+    // Raw vertex coordinates per element, gathered by shape and turned into
+    // shared PointGeoms below.
+    typedef std::vector<std::array<NekDouble, 3>> CoordList;
+    map<LibUtilities::ShapeType, vector<CoordList>> elNodes;
+
+    // Nektar .rea meshes list each element's vertex coordinates and have no
+    // unique node list, so vertices are shared by matching coordinates
+    // exactly, as the reader's old node set did.
+    std::map<std::array<NekDouble, 3>, SpatialDomains::PointGeom *>
+        vertexLookup;
+
+    // Elements in reordered id order; the curve and boundary condition
+    // sections refer to elements by that index.
+    std::vector<SpatialDomains::Geometry *> elements;
+
+    // The vertices of each element in the order the file gave them. The
+    // element factory reorients tetrahedra and prisms, so the element's own
+    // vertex order is not the file's, and the curved side records are written
+    // in the file's.
+    std::vector<std::vector<SpatialDomains::PointGeom *>> fileNodes;
     map<LibUtilities::ShapeType, vector<int>> elIds;
     std::unordered_map<int, int> elMap;
     vector<LibUtilities::ShapeType> elmOrder;
@@ -100,8 +119,8 @@ void InputNek::Process()
     elmOrder.push_back(LibUtilities::eTetrahedron);
     elmOrder.push_back(LibUtilities::eHexahedron);
 
-    m_mesh->m_expDim   = 0;
-    m_mesh->m_spaceDim = 0;
+    int expDim   = 0;
+    int spaceDim = 0;
 
     m_log(VERBOSE) << "Reading Nektar .rea file '"
                    << m_config["infile"].as<string>() << "'" << endl;
@@ -168,28 +187,40 @@ void InputNek::Process()
     getline(m_mshFile, line);
     s.clear();
     s.str(line);
-    s >> nElements >> m_mesh->m_expDim;
-    m_mesh->m_spaceDim = m_mesh->m_expDim;
+    s >> nElements >> expDim;
+    spaceDim = expDim;
 
-    // Set up field names.
-    m_mesh->m_fields.push_back("u");
+    m_mesh->m_meshGraph->SetMeshDimension(expDim);
+    m_mesh->m_meshGraph->SetSpaceDimension(spaceDim);
 
+    // The field names the file implies. The mesh no longer carries these, nor
+    // the boundary conditions below, so they are kept locally: the conditions
+    // still decide how boundary elements group into composites.
+    //
+    // @TODO: the conditions are therefore read, used to group composites and
+    // then discarded, so a .rea file's boundary conditions no longer reach the
+    // output. Restoring that needs somewhere for them to live.
+    std::vector<std::string> fieldNames;
+    fieldNames.push_back("u");
     if (!scalar)
     {
-        m_mesh->m_fields.push_back("v");
-        if (m_mesh->m_spaceDim > 2)
+        fieldNames.push_back("v");
+        if (spaceDim > 2)
         {
-            m_mesh->m_fields.push_back("w");
+            fieldNames.push_back("w");
         }
-        m_mesh->m_fields.push_back("p");
+        fieldNames.push_back("p");
     }
+    m_log(WARNING) << "Nektar .rea boundary conditions and field definitions "
+                   << "are not imported; only the geometry and its composites "
+                   << "are." << endl;
 
     // Loop over and create elements.
     for (i = 0; i < nElements; ++i)
     {
         getline(m_mshFile, line);
 
-        if (m_mesh->m_expDim == 2)
+        if (expDim == 2)
         {
             if (line.find("Qua") != string::npos ||
                 line.find("qua") != string::npos)
@@ -239,7 +270,7 @@ void InputNek::Process()
         // Read in number of vertices for element type.
         const int nNodes = GetNnodes(elType);
 
-        for (j = 0; j < m_mesh->m_expDim; ++j)
+        for (j = 0; j < expDim; ++j)
         {
             getline(m_mshFile, line);
             s.clear();
@@ -251,7 +282,7 @@ void InputNek::Process()
         }
 
         // Zero co-ordinates bigger than expansion dimension.
-        for (j = m_mesh->m_expDim; j < 3; ++j)
+        for (j = expDim; j < 3; ++j)
         {
             for (k = 0; k < nNodes; ++k)
             {
@@ -262,12 +293,10 @@ void InputNek::Process()
         // Nektar meshes do not contain a unique list of nodes, so this
         // block constructs a unique set so that elements can be created
         // with unique nodes.
-        vector<NodeSharedPtr> nodeList;
+        CoordList nodeList;
         for (k = 0; k < nNodes; ++k)
         {
-            NodeSharedPtr n = std::shared_ptr<Node>(new Node(
-                nodeCounter++, vertex[0][k], vertex[1][k], vertex[2][k]));
-            nodeList.push_back(n);
+            nodeList.push_back({vertex[0][k], vertex[1][k], vertex[2][k]});
         }
 
         elNodes[elType].push_back(nodeList);
@@ -279,8 +308,8 @@ void InputNek::Process()
 
     for (i = 0; i < elmOrder.size(); ++i)
     {
-        LibUtilities::ShapeType elType     = elmOrder[i];
-        vector<vector<NodeSharedPtr>> &tmp = elNodes[elType];
+        LibUtilities::ShapeType elType = elmOrder[i];
+        vector<CoordList> &tmp         = elNodes[elType];
 
         for (j = 0; j < tmp.size(); ++j)
         {
@@ -299,27 +328,33 @@ void InputNek::Process()
 
             elMap[elIds[elType][j]] = reorderedId++;
 
-            vector<NodeSharedPtr> nodeList = tmp[j];
+            vector<SpatialDomains::PointGeom *> nodeList(tmp[j].size());
 
-            for (k = 0; k < nodeList.size(); ++k)
+            for (k = 0; k < tmp[j].size(); ++k)
             {
-                auto testIns = m_mesh->m_vertexSet.insert(nodeList[k]);
+                auto &loc = tmp[j][k];
+                auto it   = vertexLookup.find(loc);
 
-                if (!testIns.second)
+                if (it != vertexLookup.end())
                 {
-                    nodeList[k] = *(testIns.first);
+                    nodeList[k] = it->second;
                 }
                 else
                 {
-                    nodeList[k]->m_id = nodeCounter++;
+                    nodeList[k] = m_mesh->m_meshGraph->CreatePointGeom(
+                        3, nodeCounter++, loc[0], loc[1], loc[2]);
+                    vertexLookup[loc] = nodeList[k];
                 }
             }
 
             // Create linear element
             ElmtConfig conf(elType, 1, false, false);
-            ElementSharedPtr E = GetElementFactory().CreateInstance(
-                elType, conf, nodeList, tags);
-            m_mesh->m_element[E->GetDim()].push_back(E);
+            SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+                elType, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+                m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
+            m_mesh->m_elementTags[E->GetShapeDim()][E] = tags[0];
+            elements.push_back(E);
+            fileNodes.push_back(nodeList);
         }
     }
 
@@ -390,8 +425,22 @@ void InputNek::Process()
         s.str(line);
         s >> nCurvedSides;
 
-        // Iterate over curved sides, and look up high-order surface
-        // information in the HOSurfSet, then map this onto faces.
+        // Curved side records name a 3D element and one of its faces, in
+        // the file's own numbering, together with the face's three vertices.
+        // Rather than translate that face index into the element's -- the
+        // factory reorients tetrahedra and prisms and does not report the
+        // mapping -- the face and its edges are found from their vertices,
+        // which is numbering-independent, and the curvature attached to those
+        // shared geometries directly. That is where it belongs anyway: a face
+        // curve is shared by both elements either side of it.
+        static const int tetFaceVerts[4][3] = {
+            {0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}};
+        static const int prismFaceVerts[5][4] = {{0, 1, 2, 3},
+                                                 {0, 1, 4, -1},
+                                                 {1, 2, 5, 4},
+                                                 {3, 2, 5, -1},
+                                                 {0, 3, 5, 4}};
+
         for (i = 0; i < nCurvedSides; ++i)
         {
             getline(m_mshFile, line);
@@ -399,29 +448,7 @@ void InputNek::Process()
             s.str(line);
             s >> faceId >> elId >> word;
             faceId--;
-            elId                = elMap[elId - 1];
-            ElementSharedPtr el = m_mesh->m_element[m_mesh->m_expDim][elId];
-
-            int origFaceId = faceId;
-
-            if (el->GetConf().m_e == LibUtilities::ePrism && faceId % 2 == 0)
-            {
-                std::shared_ptr<Prism> p = std::dynamic_pointer_cast<Prism>(el);
-                if (p->m_orientation == 1)
-                {
-                    faceId = (faceId + 2) % 6;
-                }
-                else if (p->m_orientation == 2)
-                {
-                    faceId = (faceId + 4) % 6;
-                }
-            }
-            else if (el->GetConf().m_e == LibUtilities::eTetrahedron)
-            {
-                std::shared_ptr<Tetrahedron> t =
-                    std::dynamic_pointer_cast<Tetrahedron>(el);
-                faceId = t->m_orientationMap[faceId];
-            }
+            elId = elMap[elId - 1];
 
             auto it = curveTags.find(word);
             if (it == curveTags.end())
@@ -430,189 +457,243 @@ void InputNek::Process()
                              << " in curved lines" << endl;
             }
 
+            // The element's three face vertices, in the file's ordering, so
+            // that they line up with the ids or coordinates that follow.
+            SpatialDomains::Geometry *el                 = elements[elId];
+            std::vector<SpatialDomains::PointGeom *> &fn = fileNodes[elId];
+
+            const int *fv = nullptr;
+            if (el->GetShapeType() == LibUtilities::eTetrahedron)
+            {
+                ASSERTL0(faceId >= 0 && faceId < 4, "Bad tetrahedron face");
+                fv = tetFaceVerts[faceId];
+            }
+            else if (el->GetShapeType() == LibUtilities::ePrism)
+            {
+                ASSERTL0(faceId >= 0 && faceId < 5, "Bad prism face");
+                if (prismFaceVerts[faceId][3] != -1)
+                {
+                    m_log(FATAL) << "Curvature on a quadrilateral prism face "
+                                 << "is not supported." << endl;
+                }
+                fv = prismFaceVerts[faceId];
+            }
+            else
+            {
+                m_log(FATAL) << "Curved sides are only supported on "
+                             << "tetrahedra and prisms." << endl;
+            }
+
+            std::array<int, 4> faceKey = {fn[fv[0]]->GetGlobalID(),
+                                          fn[fv[1]]->GetGlobalID(),
+                                          fn[fv[2]]->GetGlobalID(), -1};
+
+            auto faceIt = m_mesh->m_faceSet.find(faceKey);
+            ASSERTL0(faceIt != m_mesh->m_faceSet.end(),
+                     "Could not find the curved face among the element's "
+                     "faces");
+            SpatialDomains::Geometry2D *face = faceIt->second;
+
             if (it->second.first == eRecon)
             {
-                // Spherigon information: read in vertex normals.
-                vector<NodeSharedPtr> &tmp = el->GetFace(faceId)->m_vertexList;
-                vector<Node> n(tmp.size());
+                // Spherigon reconstruction: the record is followed by the x,
+                // then y, then z components of the true surface normal at each
+                // of the face's vertices. Neither those nor the list of sides
+                // to smooth are mesh data, so they are left in the mesh's
+                // context for the spherigon module to pick up.
+                //
+                // The normals are taken to be listed in the file's own face
+                // vertex order, fv[] above -- which is why no counterpart of
+                // the rotation this module used to apply for odd prism faces
+                // is needed. No test file in the tree uses a Recon side, so
+                // that reading is unverified.
+                std::vector<std::array<NekDouble, 3>> n(3);
 
-                int offset = 0;
-                if (el->GetConf().m_e == LibUtilities::ePrism &&
-                    faceId % 2 == 1)
+                for (int d = 0; d < 3; ++d)
                 {
-                    offset =
-                        std::dynamic_pointer_cast<Prism>(el)->m_orientation;
-                }
-
-                // Read x/y/z coordinates.
-                getline(m_mshFile, line);
-                s.clear();
-                s.str(line);
-                for (j = 0; j < tmp.size(); ++j)
-                {
-                    s >> n[j].m_x;
-                }
-
-                getline(m_mshFile, line);
-                s.clear();
-                s.str(line);
-                for (j = 0; j < tmp.size(); ++j)
-                {
-                    s >> n[j].m_y;
-                }
-
-                getline(m_mshFile, line);
-                s.clear();
-                s.str(line);
-                for (j = 0; j < tmp.size(); ++j)
-                {
-                    s >> n[j].m_z;
-                }
-
-                for (j = 0; j < tmp.size(); ++j)
-                {
-                    int id   = tmp[(j + offset) % tmp.size()]->m_id;
-                    auto vIt = m_mesh->m_vertexNormals.find(id);
-
-                    if (vIt == m_mesh->m_vertexNormals.end())
+                    getline(m_mshFile, line);
+                    s.clear();
+                    s.str(line);
+                    for (int j = 0; j < 3; ++j)
                     {
-                        m_mesh->m_vertexNormals[id] = n[j];
+                        s >> n[j][d];
                     }
                 }
 
-                // Add edge/face to list of faces to apply spherigons
-                // to.
-                m_mesh->m_spherigonSurfs.insert(make_pair(elId, faceId));
+                auto &normals =
+                    m_mesh->GetContext().Get<VertexNormals>().normals;
+
+                for (int j = 0; j < 3; ++j)
+                {
+                    // First writer wins, as it did when this was keyed on
+                    // vertex id: a vertex shared by several curved sides keeps
+                    // the normal of the first one to mention it.
+                    normals.emplace(fn[fv[j]], n[j]);
+                }
+
+                m_mesh->GetContext().Get<SpherigonSurfs>().surfs.push_back(
+                    face);
+
+                continue;
             }
-            else if (it->second.first == eFile)
+
+            // High-order surface data read from the companion file.
+            std::vector<int> vertId(3);
+            s >> vertId[0] >> vertId[1] >> vertId[2];
+
+            auto hoIt = hoData[word].find(HOSurfSharedPtr(new HOSurf(vertId)));
+
+            if (hoIt == hoData[word].end())
             {
-                FaceSharedPtr f               = el->GetFace(faceId);
-                static int tetFaceVerts[4][3] = {
-                    {0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}};
+                m_log(FATAL) << "Unable to find high-order surface data "
+                             << "for element id " << elId + 1 << endl;
+            }
 
-                vector<int> vertId(3);
-                s >> vertId[0] >> vertId[1] >> vertId[2];
+            if (face->GetCurve() != nullptr)
+            {
+                // Already curved from the neighbouring element.
+                continue;
+            }
 
-                // Prisms and tets may have been rotated by OrientPrism
-                // routine which reorders vertices. This block rotates
-                // vertex ids accordingly.
-                if (el->GetConf().m_e == LibUtilities::eTetrahedron)
+            // Align the surface data to this face's own vertex ordering, then
+            // reorder it from the surface file's layout into the nodal one
+            // (vertices, then edges, then interior).
+            std::vector<int> faceVertIds(3);
+            for (int j = 0; j < 3; ++j)
+            {
+                faceVertIds[j] = face->GetVertex(j)->GetGlobalID();
+            }
+
+            // The ids the surface data is keyed by, in this face's order.
+            std::vector<int> alignIds(3);
+            for (int j = 0; j < 3; ++j)
+            {
+                for (int k = 0; k < 3; ++k)
                 {
-                    std::shared_ptr<Tetrahedron> tet =
-                        std::static_pointer_cast<Tetrahedron>(el);
-                    vector<int> tmpVertId = vertId;
-
-                    for (j = 0; j < 3; ++j)
+                    if (fn[fv[k]]->GetGlobalID() == faceVertIds[j])
                     {
-                        int v =
-                            tet->GetVertex(
-                                   tet->m_origVertMap[tetFaceVerts[origFaceId]
-                                                                  [j]])
-                                ->m_id;
-
-                        for (k = 0; k < 3; ++k)
-                        {
-                            int w = f->m_vertexList[k]->m_id;
-                            if (v == w)
-                            {
-                                vertId[k] = tmpVertId[j];
-                                break;
-                            }
-                        }
+                        alignIds[j] = vertId[k];
+                        break;
                     }
                 }
-                else if (el->GetConf().m_e == LibUtilities::ePrism)
+            }
+
+            HOSurf surf = **hoIt;
+            surf.Align(alignIds);
+
+            const int Ntot = surf.surfVerts.size();
+            const int N    = ((int)sqrt(8.0 * Ntot + 1.0) - 1) / 2;
+
+            std::vector<SpatialDomains::PointGeom *> ordered(Ntot);
+            for (int j = 0; j < Ntot; ++j)
+            {
+                ordered[hoMap[j]] = surf.surfVerts[j];
+            }
+
+            // Turn the coordinates into curvature nodes, which carry no
+            // global ID of their own.
+            // A copy per element: hoData is shared between the faces that
+            // use a surface, so its carriers must not become mesh nodes.
+            auto makeNode = [&](SpatialDomains::PointGeom *n) {
+                auto node = ObjPoolManager<
+                    SpatialDomains::PointGeom>::AllocateUniquePtr(3, -1,
+                                                                  (*n)[0],
+                                                                  (*n)[1],
+                                                                  (*n)[2]);
+                SpatialDomains::PointGeom *raw = node.get();
+                m_mesh->m_meshGraph->GetAllCurveNodes().push_back(
+                    std::move(node));
+                return raw;
+            };
+
+            // Edge curves first, so the face curve can reuse their nodes.
+            // An edge shared with another curved face must keep one set of
+            // nodes, or the face curve and the edge curve disagree, so take
+            // the existing nodes whenever the edge already has a curve.
+            std::vector<std::vector<SpatialDomains::PointGeom *>> edgeNodes(3);
+            for (int j = 0; j < 3; ++j)
+            {
+                // The nodal triangle runs edge j from face vertex j to j+1.
+                SpatialDomains::PointGeom *v0 = face->GetVertex(j);
+                SpatialDomains::PointGeom *v1 = face->GetVertex((j + 1) % 3);
+
+                auto edgeIt = m_mesh->m_edgeSet.find(
+                    std::make_pair(v0->GetGlobalID(), v1->GetGlobalID()));
+                ASSERTL0(edgeIt != m_mesh->m_edgeSet.end(),
+                         "Could not find a curved face's edge");
+                SpatialDomains::SegGeom *edge = edgeIt->second;
+
+                // A segment curve runs from its own first vertex to its
+                // second, which may be the other way round to the face's.
+                const bool forward = edge->GetVertex(0) == v0;
+
+                SpatialDomains::Curve *existing = edge->GetCurve();
+
+                if (existing != nullptr)
                 {
-                    std::shared_ptr<Prism> pr =
-                        std::static_pointer_cast<Prism>(el);
-                    if (pr->m_orientation == 1)
-                    {
-                        swap(vertId[2], vertId[1]);
-                        swap(vertId[0], vertId[1]);
-                    }
-                    else if (pr->m_orientation == 2)
-                    {
-                        swap(vertId[0], vertId[1]);
-                        swap(vertId[2], vertId[1]);
-                    }
-                }
-
-                HOSurfSharedPtr hs =
-                    std::shared_ptr<HOSurf>(new HOSurf(vertId));
-                // Find vertex combination in hoData.
-                auto hoIt = hoData[word].find(hs);
-
-                if (hoIt == hoData[word].end())
-                {
-                    m_log(FATAL) << "Unable to find high-order surface data "
-                                 << "for element id " << elId + 1 << endl;
-                }
-
-                // Depending on order of vertices in rea file, surface
-                // information may need to be rotated or reflected.
-                HOSurfSharedPtr surf = *hoIt;
-                surf->Align(vertId);
-
-                // Finally, add high order data to appropriate face.
-                int Ntot = (*hoIt)->surfVerts.size();
-                int N    = ((int)sqrt(8.0 * Ntot + 1.0) - 1) / 2;
-                EdgeSharedPtr edge;
-
-                // Apply high-order map to convert face data to Nektar++
-                // ordering (vertices->edges->internal).
-                vector<NodeSharedPtr> tmpVerts = (*hoIt)->surfVerts;
-                for (j = 0; j < tmpVerts.size(); ++j)
-                {
-                    (*hoIt)->surfVerts[hoMap[j]] = tmpVerts[j];
-                }
-
-                for (j = 0; j < tmpVerts.size(); ++j)
-                {
-                    NodeSharedPtr a = (*hoIt)->surfVerts[j];
-                }
-
-                vector<int> faceVertIds(3);
-                faceVertIds[0] = f->m_vertexList[0]->m_id;
-                faceVertIds[1] = f->m_vertexList[1]->m_id;
-                faceVertIds[2] = f->m_vertexList[2]->m_id;
-
-                for (j = 0; j < f->m_edgeList.size(); ++j)
-                {
-                    edge = f->m_edgeList[j];
-
-                    // Skip over edges which have already been
-                    // populated.
-                    if (edge->m_edgeNodes.size() > 0)
-                    {
-                        continue;
-                    }
-
-                    // edge->m_edgeNodes.clear();
-                    edge->m_curveType = LibUtilities::eGaussLobattoLegendre;
+                    ASSERTL0(existing->m_points.size() ==
+                                 static_cast<size_t>(N),
+                             "Curved edge shared between faces of different "
+                             "order");
 
                     for (int k = 0; k < N - 2; ++k)
                     {
-                        edge->m_edgeNodes.push_back(
-                            (*hoIt)->surfVerts[3 + j * (N - 2) + k]);
+                        edgeNodes[j].push_back(
+                            forward ? existing->m_points[k + 1]
+                                    : existing->m_points[N - 2 - k]);
                     }
-
-                    // Nodal triangle data is always
-                    // counter-clockwise. Add this check to reorder
-                    // where necessary.
-                    if (edge->m_n1->m_id != faceVertIds[j])
-                    {
-                        reverse(edge->m_edgeNodes.begin(),
-                                edge->m_edgeNodes.end());
-                    }
+                    continue;
                 }
 
-                // Insert interior face curvature.
-                f->m_curveType = LibUtilities::eNodalTriElec;
-                for (int j = 3 + 3 * (N - 2); j < Ntot; ++j)
+                for (int k = 0; k < N - 2; ++k)
                 {
-                    f->m_faceNodes.push_back((*hoIt)->surfVerts[j]);
+                    edgeNodes[j].push_back(
+                        makeNode(ordered[3 + j * (N - 2) + k]));
+                }
+
+                auto curve =
+                    ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                        edge->GetGlobalID(),
+                        LibUtilities::eGaussLobattoLegendre);
+
+                curve->m_points.push_back(edge->GetVertex(0));
+                for (int k = 0; k < N - 2; ++k)
+                {
+                    curve->m_points.push_back(
+                        forward ? edgeNodes[j][k] : edgeNodes[j][N - 3 - k]);
+                }
+                curve->m_points.push_back(edge->GetVertex(1));
+
+                SpatialDomains::Curve *curvePtr = curve.get();
+                m_mesh->m_meshGraph->AddCurvedEdge(std::move(curve));
+                edge->SetCurve(curvePtr);
+            }
+
+            // Now the face itself: vertices, the edge blocks in face order,
+            // then the interior, which is the nodal triangle layout.
+            auto faceCurve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    face->GetGlobalID(), LibUtilities::eNodalTriElec);
+
+            for (int j = 0; j < 3; ++j)
+            {
+                faceCurve->m_points.push_back(face->GetVertex(j));
+            }
+            for (int j = 0; j < 3; ++j)
+            {
+                for (int k = 0; k < N - 2; ++k)
+                {
+                    faceCurve->m_points.push_back(edgeNodes[j][k]);
                 }
             }
+            for (int j = 3 + 3 * (N - 2); j < Ntot; ++j)
+            {
+                faceCurve->m_points.push_back(makeNode(ordered[j]));
+            }
+
+            SpatialDomains::Curve *faceCurvePtr = faceCurve.get();
+            m_mesh->m_meshGraph->AddCurvedFace(std::move(faceCurve));
+            face->SetCurve(faceCurvePtr);
         }
     }
 
@@ -624,11 +705,24 @@ void InputNek::Process()
     // each element type.
     map<int, vector<pair<int, LibUtilities::ShapeType>>> surfaceCompMap;
 
+    // The mesh no longer stores boundary conditions, but they still decide
+    // how boundary elements group into composites, so keep them locally for
+    // that alone.
+    ConditionMap conditions;
+
+    // Face vertices in the file's numbering, for locating a boundary face
+    // from its vertices.
+    static const int bcTetFaceVerts[4][4] = {
+        {0, 1, 2, -1}, {0, 1, 3, -1}, {1, 2, 3, -1}, {0, 2, 3, -1}};
+    static const int bcPrismFaceVerts[5][4] = {
+        {0, 1, 2, 3}, {0, 1, 4, -1}, {1, 2, 5, 4}, {3, 2, 5, -1}, {0, 3, 5, 4}};
+    static const int bcHexFaceVerts[6][4] = {{0, 1, 2, 3}, {0, 1, 5, 4},
+                                             {1, 2, 6, 5}, {3, 2, 6, 7},
+                                             {0, 3, 7, 4}, {4, 5, 6, 7}};
+
     // Skip boundary conditions line.
     getline(m_mshFile, line);
     getline(m_mshFile, line);
-
-    int nSurfaces = 0;
 
     while (true)
     {
@@ -654,11 +748,11 @@ void InputNek::Process()
         vector<ConditionType> type;
         ConditionSharedPtr c = MemoryManager<Condition>::AllocateSharedPtr();
 
-        ElementSharedPtr elm = m_mesh->m_element[m_mesh->m_spaceDim][elId];
+        SpatialDomains::Geometry *elm = elements[elId];
 
         // Ignore BCs for undefined edges/faces
-        if ((elm->GetDim() == 2 && faceId >= elm->GetEdgeCount()) ||
-            (elm->GetDim() == 3 && faceId >= elm->GetFaceCount()))
+        if ((elm->GetShapeDim() == 2 && faceId >= elm->GetNumEdges()) ||
+            (elm->GetShapeDim() == 3 && faceId >= elm->GetNumFaces()))
         {
             continue;
         }
@@ -678,7 +772,7 @@ void InputNek::Process()
                 }
                 else
                 {
-                    for (i = 0; i < m_mesh->m_fields.size() - 1; ++i)
+                    for (i = 0; i < fieldNames.size() - 1; ++i)
                     {
                         vals.push_back("0");
                         type.push_back(eDirichlet);
@@ -705,7 +799,7 @@ void InputNek::Process()
                 }
                 else
                 {
-                    for (i = 0; i < m_mesh->m_fields.size() - 1; ++i)
+                    for (i = 0; i < fieldNames.size() - 1; ++i)
                     {
                         getline(m_mshFile, line);
                         size_t p = line.find_first_of('=');
@@ -731,13 +825,13 @@ void InputNek::Process()
                 }
                 else
                 {
-                    for (i = 0; i < m_mesh->m_fields.size(); ++i)
+                    for (i = 0; i < fieldNames.size(); ++i)
                     {
                         vals.push_back("0");
                         type.push_back(eNeumann);
                     }
                     // Set zero Dirichlet condition for outflow.
-                    type[m_mesh->m_fields.size() - 1] = eDirichlet;
+                    type[fieldNames.size() - 1] = eDirichlet;
                 }
                 break;
             }
@@ -757,7 +851,7 @@ void InputNek::Process()
         }
 
         // Populate condition information.
-        c->field = m_mesh->m_fields;
+        c->field = fieldNames;
         c->type  = type;
         c->value = vals;
 
@@ -765,8 +859,8 @@ void InputNek::Process()
         // m_mesh->condition. This is currently a linear search and should
         // probably be made faster!
         bool found = false;
-        auto it    = m_mesh->m_condition.begin();
-        for (; it != m_mesh->m_condition.end(); ++it)
+        auto it    = conditions.begin();
+        for (; it != conditions.end(); ++it)
         {
             if (c == it->second)
             {
@@ -776,73 +870,76 @@ void InputNek::Process()
         }
 
         int compTag, conditionId;
-        ElementSharedPtr surfEl;
+        SpatialDomains::Geometry *surfEl = nullptr;
 
         // Create element for face (3D) or segment (2D). At the moment
         // this is a bit of a hack since high-order nodes are not
         // copied, so some output modules (e.g. Gmsh) will not output
         // correctly.
-        if (elm->GetDim() == 3)
+        if (elm->GetShapeDim() == 3)
         {
-            // 3D elements may have been reoriented, so face IDs will
-            // change.
-            if (elm->GetConf().m_e == LibUtilities::ePrism && faceId % 2 == 0)
+            // Find the boundary face from its vertices in the file's
+            // ordering, as with the curved sides above, rather than through
+            // the element's own face numbering, which differs for the
+            // reoriented shapes.
+            const int *fv  = nullptr;
+            int nFaceVerts = 0;
+
+            switch (elm->GetShapeType())
             {
-                std::shared_ptr<Prism> p =
-                    std::dynamic_pointer_cast<Prism>(elm);
-                if (p->m_orientation == 1)
-                {
-                    faceId = (faceId + 2) % 6;
-                }
-                else if (p->m_orientation == 2)
-                {
-                    faceId = (faceId + 4) % 6;
-                }
+                case LibUtilities::eTetrahedron:
+                    ASSERTL0(faceId < 4, "Bad tetrahedron face");
+                    fv         = bcTetFaceVerts[faceId];
+                    nFaceVerts = 3;
+                    break;
+                case LibUtilities::ePrism:
+                    ASSERTL0(faceId < 5, "Bad prism face");
+                    fv         = bcPrismFaceVerts[faceId];
+                    nFaceVerts = (fv[3] == -1) ? 3 : 4;
+                    break;
+                case LibUtilities::eHexahedron:
+                    ASSERTL0(faceId < 6, "Bad hexahedron face");
+                    fv         = bcHexFaceVerts[faceId];
+                    nFaceVerts = 4;
+                    break;
+                default:
+                    m_log(FATAL) << "Unsupported 3D element shape for "
+                                 << "boundary conditions." << endl;
+                    break;
             }
-            else if (elm->GetConf().m_e == LibUtilities::eTetrahedron)
+
+            std::vector<SpatialDomains::PointGeom *> &fn = fileNodes[elId];
+            vector<SpatialDomains::PointGeom *> nodeList;
+            for (int v = 0; v < nFaceVerts; ++v)
             {
-                std::shared_ptr<Tetrahedron> t =
-                    std::dynamic_pointer_cast<Tetrahedron>(elm);
-                faceId = t->m_orientationMap[faceId];
+                nodeList.push_back(fn[fv[v]]);
             }
 
-            FaceSharedPtr f = elm->GetFace(faceId);
-            bool tri        = f->m_vertexList.size() == 3;
-
-            vector<NodeSharedPtr> nodeList;
-            nodeList.insert(nodeList.begin(), f->m_vertexList.begin(),
-                            f->m_vertexList.end());
-
-            vector<int> tags;
-
-            LibUtilities::ShapeType seg =
-                tri ? LibUtilities::eTriangle : LibUtilities::eQuadrilateral;
-            ElmtConfig conf(seg, 1, true, true, false,
+            // Looked up in the face and edge maps, so the face the parent
+            // element already built is reused, curvature included.
+            LibUtilities::ShapeType seg = (nFaceVerts == 3)
+                                              ? LibUtilities::eTriangle
+                                              : LibUtilities::eQuadrilateral;
+            ElmtConfig conf(seg, 1, false, false, false,
                             LibUtilities::eGaussLobattoLegendre);
-            surfEl =
-                GetElementFactory().CreateInstance(seg, conf, nodeList, tags);
-
-            // Copy high-order surface information from edges.
-            for (int i = 0; i < f->m_vertexList.size(); ++i)
-            {
-                surfEl->GetEdge(i)->m_edgeNodes = f->m_edgeList[i]->m_edgeNodes;
-                surfEl->GetEdge(i)->m_curveType = f->m_edgeList[i]->m_curveType;
-            }
+            surfEl = GetElementFactory().CreateInstance(
+                seg, nodeList, m_mesh->m_meshGraph, m_mesh->m_edgeSet,
+                m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
         }
-        else if (faceId < elm->GetEdgeCount())
+        else if (faceId < elm->GetNumEdges())
         {
-            EdgeSharedPtr f = elm->GetEdge(faceId);
+            SpatialDomains::Geometry1D *f = elm->GetEdge(faceId);
 
-            vector<NodeSharedPtr> nodeList;
-            nodeList.push_back(f->m_n1);
-            nodeList.push_back(f->m_n2);
+            vector<SpatialDomains::PointGeom *> nodeList;
+            nodeList.push_back(f->GetVertex(0));
+            nodeList.push_back(f->GetVertex(1));
 
-            vector<int> tags;
-
-            ElmtConfig conf(LibUtilities::eSegment, 1, true, true, false,
+            ElmtConfig conf(LibUtilities::eSegment, 1, false, false, false,
                             LibUtilities::eGaussLobattoLegendre);
-            surfEl = GetElementFactory().CreateInstance(LibUtilities::eSegment,
-                                                        conf, nodeList, tags);
+            surfEl = GetElementFactory().CreateInstance(
+                LibUtilities::eSegment, nodeList, m_mesh->m_meshGraph,
+                m_mesh->m_edgeSet, m_mesh->m_faceSet, conf, nullptr, nullptr,
+                nullptr, nullptr);
         }
 
         if (!surfEl)
@@ -850,17 +947,17 @@ void InputNek::Process()
             continue;
         }
 
-        LibUtilities::ShapeType surfElType = surfEl->GetConf().m_e;
+        LibUtilities::ShapeType surfElType = surfEl->GetShapeType();
 
         if (!found)
         {
             // If condition does not already exist, add to condition
             // list, create new composite tag and put inside
             // surfaceCompMap.
-            conditionId = m_mesh->m_condition.size();
+            conditionId = conditions.size();
             compTag     = nComposite;
             c->m_composite.push_back(compTag);
-            m_mesh->m_condition[conditionId] = c;
+            conditions[conditionId] = c;
 
             surfaceCompMap[conditionId].push_back(
                 pair<int, LibUtilities::ShapeType>(nComposite, surfElType));
@@ -899,30 +996,21 @@ void InputNek::Process()
                 it2->second.push_back(
                     pair<int, LibUtilities::ShapeType>(nComposite, surfElType));
                 compTag = nComposite;
-                m_mesh->m_condition[it->first]->m_composite.push_back(compTag);
+                conditions[it->first]->m_composite.push_back(compTag);
                 nComposite++;
             }
 
             conditionId = it->first;
         }
 
-        // Insert composite tag into element and insert element into
-        // mesh.
-        vector<int> existingTags = surfEl->GetTagList();
-
-        existingTags.insert(existingTags.begin(), compTag);
-        surfEl->SetTagList(existingTags);
-        surfEl->SetId(nSurfaces);
-
-        m_mesh->m_element[surfEl->GetDim()].push_back(surfEl);
-        nSurfaces++;
+        // Tag the boundary element with its composite.
+        m_mesh->m_elementTags[surfEl->GetShapeDim()][surfEl] = compTag;
     }
 
     m_mshFile.reset();
 
-    // -- Process rest of mesh.
-    ProcessEdges();
-    ProcessFaces();
+    // -- Process rest of mesh. Edges and faces are built as the elements are
+    // created, so only elements and composites are left to do.
     ProcessElements();
     ProcessComposites();
 }
@@ -932,7 +1020,7 @@ void InputNek::Process()
  */
 void InputNek::LoadHOSurfaces()
 {
-    int nodeId = m_mesh->GetNumEntities();
+    int nodeId = m_mesh->GetNumTaggedEntities();
 
     for (auto &it : curveTags)
     {
@@ -1036,11 +1124,11 @@ void InputNek::LoadHOSurfaces()
         getline(hsf, line);
 
         // Read in nodal points for each face.
-        map<int, vector<NodeSharedPtr>> faceMap;
+        map<int, vector<SpatialDomains::PointGeom *>> faceMap;
         for (int i = 0; i < Nface; ++i)
         {
             getline(hsf, line);
-            vector<NodeSharedPtr> faceNodes(Ntot);
+            vector<SpatialDomains::PointGeom *> faceNodes(Ntot);
             for (int j = 0; j < Ntot; ++j, ++nodeId)
             {
                 double x, y, z;
@@ -1048,7 +1136,12 @@ void InputNek::LoadHOSurfaces()
                 ss.clear();
                 ss.str(line);
                 ss >> x >> y >> z;
-                faceNodes[j] = NodeSharedPtr(new Node(nodeId, x, y, z));
+
+                auto pt = ObjPoolManager<
+                    SpatialDomains::PointGeom>::AllocateUniquePtr(3, nodeId, x,
+                                                                  y, z);
+                faceNodes[j] = pt.get();
+                m_hoSurfNodes.push_back(std::move(pt));
             }
             // Skip over tecplot connectivity information.
             for (int j = 0; j < (N - 1) * (N - 1); ++j)

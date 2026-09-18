@@ -41,6 +41,7 @@
 #include <boost/geometry/geometries/box.hpp>
 #include <boost/geometry/geometries/point.hpp>
 
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <boost/geometry/index/rtree.hpp>
 
 namespace bg  = boost::geometry;
@@ -76,45 +77,49 @@ public:
 
 private:
     // Min edge length in an element
-    std::map<NodeSharedPtr, NekDouble> minConEdge; // should be unordered?!
+    std::unordered_map<SpatialDomains::PointGeom *, NekDouble> m_minConEdge;
     // Vertices on the surface
-    NodeSet surfNodes;
+    std::unordered_map<int, SpatialDomains::PointGeom *> surfNodes;
     // Edges on the surface
-    EdgeSet surfEdges;
+    EdgeMap surfEdges;
     // Surface vertices to 3D elements
-    std::map<NodeSharedPtr, std::vector<ElementSharedPtr>> surfNodeToEl;
+    std::unordered_map<SpatialDomains::PointGeom *,
+                       std::vector<SpatialDomains::Geometry3D *>>
+        surfNodeToEl;
     // this is a set of nodes which have a CAD failure
     // if touched in the HO stage they should be ignored and linearised
-    NodeSet lockedNodes;
+    std::unordered_set<SpatialDomains::PointGeom *> lockedNodes;
 
     void LoadCAD(std::string filename);
     void CreateBoundingBoxes(bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
                              bgi::rtree<boxI, bgi::quadratic<16>> &rtreeCurve,
                              bgi::rtree<boxI, bgi::quadratic<16>> &rtreeNode,
                              NekDouble tolv1, NekDouble scale);
-    bool IsNotValid(std::vector<NekMesh::ElementSharedPtr> &els);
+    bool IsNotValid(std::vector<SpatialDomains::Geometry3D *> els);
     void CalculateMinEdgeLength();
     void Auxilaries();
-    void LinkVertexToCAD(NekMesh::MeshSharedPtr &m_mesh, bool CADCurve,
-                         NodeSet &lockedNodes, NekDouble tolv1, NekDouble tolv2,
-                         bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
-                         bgi::rtree<boxI, bgi::quadratic<16>> &rtreeCurve,
-                         bgi::rtree<boxI, bgi::quadratic<16>> &rtreeNode);
+    void LinkVertexToCAD(
+        NekMesh::MeshSharedPtr &m_mesh, bool CADCurve,
+        std::unordered_set<SpatialDomains::PointGeom *> &lockedNodes,
+        NekDouble tolv1, NekDouble tolv2,
+        bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
+        bgi::rtree<boxI, bgi::quadratic<16>> &rtreeCurve,
+        bgi::rtree<boxI, bgi::quadratic<16>> &rtreeNode);
 
     bool FindAndProject(bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
                         std::array<NekDouble, 3> &in, int &surf);
-    void LinkEdgeToCAD(EdgeSet &surfEdges, NekDouble tolv1);
+    void LinkEdgeToCAD(EdgeMap &surfEdges, NekDouble tolv1);
     void LinkFaceToCAD(NekDouble tolv1);
 
-    // for CASE 3 elements between two surfaces
-    void ProjectEdges(EdgeSet &surfEdges, int order,
+    // // for CASE 3 elements between two surfaces
+    void ProjectEdges(EdgeMap &surfEdges, int order,
                       bgi::rtree<boxI, bgi::quadratic<16>> &rtree);
-    std::vector<int> IntersectCADSurf(std::vector<CADSurfSharedPtr> v1_CADs,
-                                      std::vector<CADSurfSharedPtr> v2_CADs);
+    /// The IDs of the CAD objects common to both sets of links.
+    std::vector<int> IntersectCADLinks(
+        const std::vector<SpatialDomains::CADLink> &v1_CADs,
+        const std::vector<SpatialDomains::CADLink> &v2_CADs);
 
-    std::vector<int> IntersectCADCurve(std::vector<CADCurveSharedPtr> v1_CADs,
-                                       std::vector<CADCurveSharedPtr> v2_CADs);
-    void LinkHOtoCAD(EdgeSet &surfEdges, NekDouble tolv1);
+    void LinkHOtoCAD(EdgeMap &surfEdges, NekDouble tolv1);
 
     void Diagnostics();
     void ExportCAD();

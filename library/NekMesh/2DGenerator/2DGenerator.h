@@ -65,13 +65,9 @@ public:
 
 private:
     void FindBLEnds();
-
     void MakeBLPrep();
-
     void PeriodicPrep();
-
     void MakePeriodic();
-
     void MakeBL(int faceid);
 
     void Report();
@@ -92,13 +88,18 @@ private:
     /// map of curves and Bl ends: 0, 1 or 2 (for both)
     std::map<unsigned, unsigned> m_blends;
     /// list of BL edges
-    std::vector<EdgeSharedPtr> m_blEdges;
+    std::vector<SpatialDomains::SegGeom *> m_blEdges;
     /// BL thickness expression
     LibUtilities::Interpreter m_thickness;
     /// BL thickness expression ID
     int m_thickness_ID;
-    /// map of BL curve nodes to adjacent edges
-    std::map<NodeSharedPtr, std::vector<EdgeSharedPtr>> m_nodesToEdge;
+    /// map of BL curve nodes to adjacent edges. Ordered by node ID rather
+    /// than by address: the boundary layer normals are created by walking
+    /// through this, so the node order sets the IDs of every node the layer
+    /// adds.
+    std::map<SpatialDomains::PointGeom *,
+             std::vector<SpatialDomains::SegGeom *>, GeometryPtrIdLess>
+        m_nodesToEdge;
 };
 } // namespace Nektar::NekMesh
 

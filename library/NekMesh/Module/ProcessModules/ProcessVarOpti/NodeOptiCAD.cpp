@@ -59,10 +59,11 @@ void NodeOpti1D3D::Optimise()
         ProcessGradient();
 
         // needs to optimise
-        NekDouble tc = m_node->GetCADCurveInfo(curve->GetId());
-        NekDouble xc = m_node->m_x;
-        NekDouble yc = m_node->m_y;
-        NekDouble zc = m_node->m_z;
+        NekDouble tc =
+            m_graph->GetCADAssociation()->GetCurveT(m_node, curve->GetId());
+        NekDouble xc = (*m_node)[0];
+        NekDouble yc = (*m_node)[1];
+        NekDouble zc = (*m_node)[2];
         NekDouble nt;
 
         vector<NekDouble> sk(1);
@@ -94,7 +95,7 @@ void NodeOpti1D3D::Optimise()
                 continue;
             }
 
-            curve->P(nt, m_node->m_x, m_node->m_y, m_node->m_z);
+            curve->P(nt, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
 
             newVal = GetFunctional<3>(minJacNew, false);
 
@@ -112,7 +113,7 @@ void NodeOpti1D3D::Optimise()
         {
             // reset the node
             nt = tc;
-            curve->P(nt, m_node->m_x, m_node->m_y, m_node->m_z);
+            curve->P(nt, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
 
             mtx.lock();
             m_res->nReset[0]++;
@@ -121,13 +122,12 @@ void NodeOpti1D3D::Optimise()
         else
         {
             m_minJac = minJacNew;
-            m_node->Move(m_node->m_x, m_node->m_y, m_node->m_z, curve->GetId(),
-                         nt);
+            m_graph->GetCADAssociation()->Add(m_node, {curve, {nt, 0.0}});
         }
         mtx.lock();
-        m_res->val = max(sqrt((m_node->m_x - xc) * (m_node->m_x - xc) +
-                              (m_node->m_y - yc) * (m_node->m_y - yc) +
-                              (m_node->m_z - zc) * (m_node->m_z - zc)),
+        m_res->val = max(sqrt(((*m_node)[0] - xc) * ((*m_node)[0] - xc) +
+                              ((*m_node)[1] - yc) * ((*m_node)[1] - yc) +
+                              ((*m_node)[2] - zc) * ((*m_node)[2] - zc)),
                          m_res->val);
         mtx.unlock();
     }
@@ -153,10 +153,11 @@ void NodeOpti2D3D::Optimise()
         ProcessGradient();
 
         // needs to optimise
-        auto uvc     = m_node->GetCADSurfInfo(surf->GetId());
-        NekDouble xc = m_node->m_x;
-        NekDouble yc = m_node->m_y;
-        NekDouble zc = m_node->m_z;
+        auto uvc =
+            m_graph->GetCADAssociation()->GetSurfUV(m_node, surf->GetId());
+        NekDouble xc = (*m_node)[0];
+        NekDouble yc = (*m_node)[1];
+        NekDouble zc = (*m_node)[2];
         std::array<NekDouble, 2> uvt;
         std::array<NekDouble, 4> bd;
         surf->GetBounds(bd[0], bd[1], bd[2], bd[3]);
@@ -196,7 +197,7 @@ void NodeOpti2D3D::Optimise()
                 continue;
             }
 
-            surf->P(uvt, m_node->m_x, m_node->m_y, m_node->m_z);
+            surf->P(uvt, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
 
             newVal = GetFunctional<3>(minJacNew, false);
 
@@ -213,7 +214,7 @@ void NodeOpti2D3D::Optimise()
         if (!found)
         {
             // reset the node
-            surf->P(uvc, m_node->m_x, m_node->m_y, m_node->m_z);
+            surf->P(uvc, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
 
             mtx.lock();
             m_res->nReset[1]++;
@@ -222,18 +223,18 @@ void NodeOpti2D3D::Optimise()
         else
         {
             m_minJac = minJacNew;
-            m_node->Move(m_node->m_x, m_node->m_y, m_node->m_z, surf->GetId(),
-                         uvt);
+            m_graph->GetCADAssociation()->Add(m_node, {surf, uvt});
         }
 
         mtx.lock();
-        m_res->val = max(sqrt((m_node->m_x - xc) * (m_node->m_x - xc) +
-                              (m_node->m_y - yc) * (m_node->m_y - yc) +
-                              (m_node->m_z - zc) * (m_node->m_z - zc)),
+        m_res->val = max(sqrt(((*m_node)[0] - xc) * ((*m_node)[0] - xc) +
+                              ((*m_node)[1] - yc) * ((*m_node)[1] - yc) +
+                              ((*m_node)[2] - zc) * ((*m_node)[2] - zc)),
                          m_res->val);
         mtx.unlock();
 
-        auto uva = m_node->GetCADSurfInfo(surf->GetId());
+        auto uva =
+            m_graph->GetCADAssociation()->GetSurfUV(m_node, surf->GetId());
         if (uva[0] < bd[0] || uva[0] > bd[1] || uva[1] < bd[2] ||
             uva[1] > bd[3])
         {
@@ -262,10 +263,11 @@ void NodeOpti1D2D::Optimise()
         ProcessGradient();
 
         // needs to optimise
-        NekDouble tc = m_node->GetCADCurveInfo(curve->GetId());
-        NekDouble xc = m_node->m_x;
-        NekDouble yc = m_node->m_y;
-        NekDouble zc = m_node->m_z;
+        NekDouble tc =
+            m_graph->GetCADAssociation()->GetCurveT(m_node, curve->GetId());
+        NekDouble xc = (*m_node)[0];
+        NekDouble yc = (*m_node)[1];
+        NekDouble zc = (*m_node)[2];
         NekDouble nt;
 
         std::array<NekDouble, 3> p;
@@ -295,10 +297,10 @@ void NodeOpti1D2D::Optimise()
                 continue;
             }
 
-            p           = curve->P(nt);
-            m_node->m_x = p[0];
-            m_node->m_y = p[1];
-            m_node->m_z = p[2];
+            p            = curve->P(nt);
+            (*m_node)[0] = p[0];
+            (*m_node)[1] = p[1];
+            (*m_node)[2] = p[2];
 
             newVal = GetFunctional<2>(minJacNew, false);
 
@@ -315,11 +317,11 @@ void NodeOpti1D2D::Optimise()
         if (!found)
         {
             // reset the node
-            nt          = tc;
-            p           = curve->P(nt);
-            m_node->m_x = p[0];
-            m_node->m_y = p[1];
-            m_node->m_z = p[2];
+            nt           = tc;
+            p            = curve->P(nt);
+            (*m_node)[0] = p[0];
+            (*m_node)[1] = p[1];
+            (*m_node)[2] = p[2];
 
             mtx.lock();
             m_res->nReset[0]++;
@@ -328,13 +330,13 @@ void NodeOpti1D2D::Optimise()
         else
         {
             m_minJac = minJacNew;
-            m_node->Move(p, curve->GetId(), nt);
+            m_graph->GetCADAssociation()->Add(m_node, {curve, {nt, 0.0}});
         }
 
         mtx.lock();
-        m_res->val = max(sqrt((m_node->m_x - xc) * (m_node->m_x - xc) +
-                              (m_node->m_y - yc) * (m_node->m_y - yc) +
-                              (m_node->m_z - zc) * (m_node->m_z - zc)),
+        m_res->val = max(sqrt(((*m_node)[0] - xc) * ((*m_node)[0] - xc) +
+                              ((*m_node)[1] - yc) * ((*m_node)[1] - yc) +
+                              ((*m_node)[2] - zc) * ((*m_node)[2] - zc)),
                          m_res->val);
         mtx.unlock();
     }
@@ -346,7 +348,8 @@ void NodeOpti1D2D::Optimise()
 
 void NodeOpti1D3D::ProcessGradient()
 {
-    NekDouble tc           = m_node->GetCADCurveInfo(curve->GetId());
+    NekDouble tc =
+        m_graph->GetCADAssociation()->GetCurveT(m_node, curve->GetId());
     vector<NekDouble> grad = m_grad;
     m_grad                 = vector<NekDouble>(2, 0.0);
 
@@ -366,7 +369,7 @@ void NodeOpti1D3D::ProcessGradient()
 
 void NodeOpti2D3D::ProcessGradient()
 {
-    auto uvc = m_node->GetCADSurfInfo(surf->GetId());
+    auto uvc = m_graph->GetCADAssociation()->GetSurfUV(m_node, surf->GetId());
 
     vector<NekDouble> grad = m_grad;
     m_grad                 = vector<NekDouble>(5, 0.0);
@@ -425,7 +428,8 @@ void NodeOpti2D3D::ProcessGradient()
 
 void NodeOpti1D2D::ProcessGradient()
 {
-    NekDouble tc           = m_node->GetCADCurveInfo(curve->GetId());
+    NekDouble tc =
+        m_graph->GetCADAssociation()->GetCurveT(m_node, curve->GetId());
     vector<NekDouble> grad = m_grad;
     m_grad                 = vector<NekDouble>(2, 0.0);
 

@@ -32,27 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/Log.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
-#include <NekMesh/Module/Log.hpp>
 #include <NekMesh/Python/NekMesh.h>
 
 using namespace Nektar;
 using namespace Nektar::NekMesh;
 
-void export_Element(py::module &m);
 void export_Mesh(py::module &m);
 void export_Module(py::module &m);
-void export_Node(py::module &m);
-
-using NekMeshError = Nektar::NekMesh::NekMeshError;
 
 PYBIND11_MODULE(_NekMesh, m)
 {
-    // Register the NekMeshError exception.
-    py::register_exception<NekMeshError>(m, "NekMeshError");
+    // Errors raised here are Nektar::ErrorUtil::NekError, which
+    // NekPy.LibUtilities already registers as NekError.
+    py::module::import("NekPy.LibUtilities");
 
-    export_Element(m);
     export_Mesh(m);
     export_Module(m);
-    export_Node(m);
 }

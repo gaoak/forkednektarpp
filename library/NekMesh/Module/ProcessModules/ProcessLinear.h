@@ -65,7 +65,7 @@ public:
     }
 
 private:
-    bool Invalid(NekMesh::ElementSharedPtr el, NekDouble thr);
+    bool Invalid(SpatialDomains::Geometry *geom, NekDouble thr);
 };
 } // namespace Nektar::NekMesh
 

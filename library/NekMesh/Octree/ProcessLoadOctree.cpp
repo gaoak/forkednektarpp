@@ -74,26 +74,28 @@ void ProcessLoadOctree::Process()
 
     ASSERTL0(minDelta > 0 && maxDelta > 0 && eps > 0, "invalid parameters");
 
-    m_mesh->m_octree = MemoryManager<Octree>::AllocateSharedPtr(m_mesh, m_log);
+    // Hand the octree to the surface and volume meshers that run later in the
+    // pipeline. Set() rather than Get() so that a second loadoctree replaces
+    // the first rather than quietly reusing it.
+    Octree &octree = m_mesh->GetContext().Set<Octree>(m_mesh, m_log);
 
-    m_mesh->m_octree->SetParameters(minDelta, maxDelta, eps);
+    octree.SetParameters(minDelta, maxDelta, eps);
 
     if (m_config["refinement"].beenSet)
     {
-        m_mesh->m_octree->Refinement(m_config["refinement"].as<string>());
+        octree.Refinement(m_config["refinement"].as<string>());
     }
 
     if (m_config["curve_refinement"].beenSet)
     {
-        m_mesh->m_octree->CurveRefinement(
-            m_config["curve_refinement"].as<string>());
+        octree.CurveRefinement(m_config["curve_refinement"].as<string>());
     }
 
-    m_mesh->m_octree->Process();
+    octree.Process();
 
     if (m_config["writeoctree"].beenSet)
     {
-        m_mesh->m_octree->WriteOctree(m_config["writeoctree"].as<string>());
+        octree.WriteOctree(m_config["writeoctree"].as<string>());
     }
 }
 } // namespace Nektar::NekMesh

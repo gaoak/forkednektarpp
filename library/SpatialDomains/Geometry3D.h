@@ -40,6 +40,7 @@
 
 #include <SpatialDomains/Geometry.h>
 #include <SpatialDomains/Geometry1D.h>
+#include <SpatialDomains/Geometry2D.h>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
 
 namespace Nektar::SpatialDomains
@@ -50,8 +51,17 @@ class Geometry3D : public Geometry
 {
 public:
     SPATIAL_DOMAINS_EXPORT Geometry3D();
-    SPATIAL_DOMAINS_EXPORT Geometry3D(const int coordim);
+    SPATIAL_DOMAINS_EXPORT Geometry3D(const int coordim, Curve *curve);
     SPATIAL_DOMAINS_EXPORT ~Geometry3D() override = default;
+
+    Curve *GetCurve() override
+    {
+        return m_curve;
+    }
+    void SetCurve(Curve *curvePtr)
+    {
+        m_curve = curvePtr;
+    }
 
     //---------------------------------------
     // Helper functions
@@ -61,6 +71,7 @@ public:
 protected:
     int m_eid;
     bool m_ownverts;
+    Curve *m_curve;
 
     //---------------------------------------
     // 3D Geometry Methods

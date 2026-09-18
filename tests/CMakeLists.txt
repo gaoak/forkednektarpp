@@ -8,6 +8,7 @@ SET(TESTER_SOURCES
   MetricExecutionTime.cpp
   MetricFile.cpp
   MetricFileExists.cpp
+  MetricFilesMatch.cpp
   MetricL2.cpp
   MetricLInf.cpp
   MetricPrecon.cpp
@@ -26,6 +27,7 @@ SET(TESTER_HEADERS
   MetricExecutionTime.h
   MetricFile.h
   MetricFileExists.h
+  MetricFilesMatch.h
   MetricL2.h
   MetricLInf.h
   MetricPrecon.h

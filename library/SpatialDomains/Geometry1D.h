@@ -36,6 +36,7 @@
 #ifndef NEKTAR_SPATIALDOMAINS_GEOMETRY1D_H
 #define NEKTAR_SPATIALDOMAINS_GEOMETRY1D_H
 
+#include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/Geometry.h>
 #include <SpatialDomains/PointGeom.h>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
@@ -54,7 +55,18 @@ public:
 
     SPATIAL_DOMAINS_EXPORT static const int kDim = 1;
 
+    SPATIAL_DOMAINS_EXPORT Curve *GetCurve() override
+    {
+        return m_curve;
+    }
+    SPATIAL_DOMAINS_EXPORT void SetCurve(Curve *curvePtr)
+    {
+        m_curve = curvePtr;
+    }
+
 protected:
+    Curve *m_curve = nullptr;
+
     int v_GetShapeDim() const override;
     NekDouble v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
                              Array<OneD, NekDouble> &Lcoords) override;

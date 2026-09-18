@@ -56,18 +56,6 @@ using namespace Nektar::LocalRegions;
 namespace po = boost::program_options;
 namespace sd = Nektar::SpatialDomains;
 
-// These declarations are not really necessary, but avoid compiler warnings
-// related to destructors for unique_ptr_objpool<Geometry> and other
-// non-elemental classes (Geometry1D, Geometry2D, Geometry3D).
-namespace Nektar
-{
-template <> PoolAllocator<sd::Geometry> ObjPoolManager<sd::Geometry>::m_alloc;
-template <>
-PoolAllocator<sd::Geometry2D> ObjPoolManager<sd::Geometry2D>::m_alloc;
-template <>
-PoolAllocator<sd::Geometry3D> ObjPoolManager<sd::Geometry3D>::m_alloc;
-} // namespace Nektar
-
 NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z, vector<int> order,
                     vector<BasisType> btype, ShapeType stype, bool diff);
 

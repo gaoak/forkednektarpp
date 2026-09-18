@@ -58,24 +58,22 @@ ProcessDetectSurf::~ProcessDetectSurf()
 
 struct EdgeInfo
 {
-    EdgeInfo() : count(0)
-    {
-    }
-    int count;
-    EdgeSharedPtr edge;
-    unsigned int group;
+    int count                     = 0;
+    SpatialDomains::SegGeom *edge = nullptr;
+    unsigned int group            = 0;
 };
 
 void ProcessDetectSurf::Process()
 {
-    if (m_mesh->m_expDim > 2)
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+
+    if (meshDim > 2)
     {
         m_log(WARNING) << "Surface detection only implemented for 2D meshes;"
                        << "ignoring this module." << endl;
         return;
     }
 
-    int i, j;
     string surf = m_config["vol"].as<string>();
 
     // Obtain vector of surface IDs from string.
@@ -94,72 +92,65 @@ void ProcessDetectSurf::Process()
                        << " " << surf << endl;
     }
 
-    vector<ElementSharedPtr> &el = m_mesh->m_element[m_mesh->m_expDim];
     map<int, EdgeInfo> edgeCount;
     set<int> doneIds;
-    map<int, int> idMap;
+    map<int, SpatialDomains::Geometry *> idMap;
+
+    // Which elements share each edge. This used to be read off the edge
+    // itself, through Edge::m_elLink, and is cheaper to accumulate here
+    // than to maintain globally: the pass below already visits every edge
+    // of every element of interest.
+    EdgeToElMap edgeToEl;
 
     // Iterate over list of surface elements.
-    for (i = 0; i < el.size(); ++i)
+    for (auto &[elmt, tag] : m_mesh->m_elementTags[meshDim])
     {
         // Work out whether this lies on our surface of interest.
-        if (surfs.size() > 0)
+        if (surfs.size() > 0 && !binary_search(surfs.begin(), surfs.end(),
+                                               static_cast<unsigned int>(tag)))
         {
-            vector<int> inter, tags = el[i]->GetTagList();
-
-            sort(tags.begin(), tags.end());
-            set_intersection(surfs.begin(), surfs.end(), tags.begin(),
-                             tags.end(), back_inserter(inter));
-
-            // It doesn't continue to next element.
-            if (inter.size() != 1)
-            {
-                continue;
-            }
+            continue;
         }
 
         // List all edges.
-        ElementSharedPtr elmt = el[i];
-        for (j = 0; j < elmt->GetEdgeCount(); ++j)
+        for (int j = 0; j < elmt->GetNumEdges(); ++j)
         {
-            EdgeSharedPtr e = elmt->GetEdge(j);
-            int eId         = e->m_id;
+            auto *e = static_cast<SpatialDomains::SegGeom *>(elmt->GetEdge(j));
+            int eId = e->GetGlobalID();
             edgeCount[eId].count++;
             edgeCount[eId].edge = e;
+            edgeToEl[eId].push_back(elmt);
         }
 
-        doneIds.insert(elmt->GetId());
-        ASSERTL0(idMap.count(elmt->GetId()) == 0, "Shouldn't happen");
-        idMap[elmt->GetId()] = i;
+        const int elId = elmt->GetGlobalID();
+        doneIds.insert(elId);
+        ASSERTL0(idMap.count(elId) == 0, "Shouldn't happen");
+        idMap[elId] = elmt;
     }
 
     unsigned int maxId = 0;
 
-    for (auto &cIt : m_mesh->m_composite)
+    for (auto &cIt : m_mesh->m_meshGraph->GetComposites())
     {
-        maxId = (std::max)(cIt.first, maxId);
+        maxId = (std::max)(static_cast<unsigned int>(cIt.first), maxId);
     }
 
     ++maxId;
 
     while (doneIds.size() > 0)
     {
-        ElementSharedPtr start =
-            m_mesh->m_element[m_mesh->m_expDim][idMap[*(doneIds.begin())]];
+        SpatialDomains::Geometry *start = idMap[*(doneIds.begin())];
 
-        vector<ElementSharedPtr> block;
-        FindContiguousSurface(start, doneIds, block);
+        vector<SpatialDomains::Geometry *> block;
+        FindContiguousSurface(start, edgeToEl, doneIds, block);
         ASSERTL0(block.size() > 0, "Contiguous block not found");
 
         // Loop over all edges in block.
-        for (i = 0; i < block.size(); ++i)
+        for (auto *elmt : block)
         {
-            // Find edge info.
-            ElementSharedPtr elmt = block[i];
-
-            for (j = 0; j < elmt->GetEdgeCount(); ++j)
+            for (int j = 0; j < elmt->GetNumEdges(); ++j)
             {
-                auto eIt = edgeCount.find(elmt->GetEdge(j)->m_id);
+                auto eIt = edgeCount.find(elmt->GetEdge(j)->GetGlobalID());
                 ASSERTL0(eIt != edgeCount.end(), "Couldn't find edge");
                 eIt->second.group = maxId;
             }
@@ -168,6 +159,10 @@ void ProcessDetectSurf::Process()
         ++maxId;
     }
 
+    // An edge seen once bounds its block, so tag it with that block's ID.
+    // The edges already exist as geometries, so unlike the old code there is
+    // no element to create: tagging them and rebuilding the composites is
+    // what puts one composite around each detected surface.
     for (auto &eIt : edgeCount)
     {
         if (eIt.second.count > 1)
@@ -175,58 +170,35 @@ void ProcessDetectSurf::Process()
             continue;
         }
 
-        unsigned int compId = eIt.second.group;
-        auto cIt            = m_mesh->m_composite.find(compId);
-
-        if (cIt == m_mesh->m_composite.end())
-        {
-            CompositeSharedPtr comp(new Composite());
-            comp->m_id  = compId;
-            comp->m_tag = "E";
-            cIt =
-                m_mesh->m_composite.insert(std::make_pair(compId, comp)).first;
-        }
-
-        vector<int> tags(1);
-        tags[0] = compId;
-        vector<NodeSharedPtr> nodeList(2);
-        nodeList[0] = eIt.second.edge->m_n1;
-        nodeList[1] = eIt.second.edge->m_n2;
-
-        ElmtConfig conf(LibUtilities::eSegment, 1, false, false);
-        ElementSharedPtr elmt = GetElementFactory().CreateInstance(
-            LibUtilities::eSegment, conf, nodeList, tags);
-        elmt->SetEdgeLink(eIt.second.edge);
-
-        cIt->second->m_items.push_back(elmt);
+        m_mesh->m_elementTags[meshDim - 1][eIt.second.edge] = eIt.second.group;
     }
+
+    ProcessComposites();
 }
 
-void ProcessDetectSurf::FindContiguousSurface(ElementSharedPtr start,
-                                              set<int> &doneIds,
-                                              vector<ElementSharedPtr> &block)
+void ProcessDetectSurf::FindContiguousSurface(
+    SpatialDomains::Geometry *start, const EdgeToElMap &edgeToEl,
+    set<int> &doneIds, vector<SpatialDomains::Geometry *> &block)
 {
     block.push_back(start);
-    doneIds.erase(start->GetId());
+    doneIds.erase(start->GetGlobalID());
 
-    vector<EdgeSharedPtr> edges = start->GetEdgeList();
-
-    for (int i = 0; i < edges.size(); ++i)
+    for (int i = 0; i < start->GetNumEdges(); ++i)
     {
-        for (int j = 0; j < edges[i]->m_elLink.size(); ++j)
+        auto eIt = edgeToEl.find(start->GetEdge(i)->GetGlobalID());
+        if (eIt == edgeToEl.end())
         {
-            ElementSharedPtr elmt = (edges[i]->m_elLink[j].first).lock();
-            if (elmt == start)
+            continue;
+        }
+
+        for (auto *elmt : eIt->second)
+        {
+            if (elmt == start || doneIds.count(elmt->GetGlobalID()) == 0)
             {
                 continue;
             }
 
-            if (doneIds.count(elmt->GetId()) == 0)
-            {
-                continue;
-            }
-
-            FindContiguousSurface(elmt, doneIds, block);
+            FindContiguousSurface(elmt, edgeToEl, doneIds, block);
         }
     }
 }

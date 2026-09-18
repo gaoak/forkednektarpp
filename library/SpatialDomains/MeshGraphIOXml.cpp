@@ -1054,7 +1054,7 @@ void MeshGraphIOXml::v_ReadCurves()
                     {
                         curveNodes.emplace_back(
                             ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                                meshDimension, edgeindx, xval, yval, zval));
+                                meshDimension, -1, xval, yval, zval));
                         curve->m_points.emplace_back(curveNodes.back().get());
                     }
                 }
@@ -1167,7 +1167,7 @@ void MeshGraphIOXml::v_ReadCurves()
                     {
                         curveNodes.emplace_back(
                             ObjPoolManager<PointGeom>::AllocateUniquePtr(
-                                meshDimension, faceindx, xval, yval, zval));
+                                meshDimension, -1, xval, yval, zval));
                         curvedFaces[faceid]->m_points.emplace_back(
                             curveNodes.back().get());
                     }

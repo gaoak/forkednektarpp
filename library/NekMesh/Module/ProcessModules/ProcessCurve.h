@@ -61,7 +61,7 @@ public:
     }
 
 protected:
-    void v_GenerateEdgeNodes(NekMesh::EdgeSharedPtr edge) override;
+    void v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge) override;
 
 private:
     NekDouble EvaluateCoordinate(NekDouble xCoord);

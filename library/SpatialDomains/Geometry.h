@@ -43,16 +43,8 @@
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
 
 #include <array>
+#include <map>
 #include <unordered_map>
-
-namespace Nektar
-{
-// Forward declarations for allocation pools that are defined within
-// MeshGraph.cpp compilation unit.
-template <>
-PoolAllocator<SpatialDomains::GeomFactors>
-    ObjPoolManager<SpatialDomains::GeomFactors>::m_alloc;
-} // namespace Nektar
 
 namespace Nektar::SpatialDomains
 {
@@ -65,6 +57,7 @@ class Geometry1D;
 class Geometry2D;
 
 class PointGeom;
+typedef unique_ptr_objpool<PointGeom> PointGeomUniquePtr;
 
 struct Curve;
 typedef unique_ptr_objpool<Curve> CurveUniquePtr;
@@ -120,7 +113,14 @@ public:
     SPATIAL_DOMAINS_EXPORT inline int GetNumVerts() const;
     SPATIAL_DOMAINS_EXPORT inline int GetNumEdges() const;
     SPATIAL_DOMAINS_EXPORT inline int GetNumFaces() const;
+    SPATIAL_DOMAINS_EXPORT inline int GetNumFacets() const;
+    SPATIAL_DOMAINS_EXPORT inline Geometry *GetFacet(int i) const;
     SPATIAL_DOMAINS_EXPORT inline int GetShapeDim() const;
+    SPATIAL_DOMAINS_EXPORT virtual Curve *GetCurve()
+    {
+        ASSERTL0(false, "GetCurve() not valid for this geometry type");
+        return nullptr;
+    }
 
     //---------------------------------------
     // \chi mapping access
@@ -130,6 +130,9 @@ public:
     SPATIAL_DOMAINS_EXPORT inline const Array<OneD, const NekDouble> &GetCoeffs(
         const int i) const;
     SPATIAL_DOMAINS_EXPORT inline void FillGeom();
+    SPATIAL_DOMAINS_EXPORT std::pair<CurveUniquePtr,
+                                     std::vector<PointGeomUniquePtr>>
+    MakeOrder(int order, const LibUtilities::PointsType pType);
 
     //---------------------------------------
     // Point lookups
@@ -174,6 +177,7 @@ public:
 
     SPATIAL_DOMAINS_EXPORT inline void Reset(CurveMap &curvedEdges,
                                              CurveMap &curvedFaces);
+    SPATIAL_DOMAINS_EXPORT inline void ResetLite();
     SPATIAL_DOMAINS_EXPORT inline void ResetNonRecursive(CurveMap &curvedEdges,
                                                          CurveMap &curvedFaces);
 
@@ -212,12 +216,16 @@ protected:
     virtual int v_GetNumVerts() const;
     virtual int v_GetNumEdges() const;
     virtual int v_GetNumFaces() const;
+    virtual int v_GetNumFacets() const;
+    virtual Geometry *v_GetFacet(const int i) const;
     virtual int v_GetShapeDim() const;
 
     virtual GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt);
     virtual StdRegions::StdExpansionSharedPtr v_GetXmap() const;
     virtual void v_FillGeom();
+    virtual std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> v_MakeOrder(
+        int order, const LibUtilities::PointsType pType);
 
     virtual bool v_ContainsPoint(const Array<OneD, const NekDouble> &gloCoord,
                                  Array<OneD, NekDouble> &locCoord,
@@ -239,7 +247,7 @@ protected:
 
     virtual GeomType v_CalcGeomType();
     virtual void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces);
-
+    virtual void v_ResetLite();
     virtual void v_Setup();
 
     inline void SetUpCoeffs(const int nCoeffs);
@@ -414,6 +422,25 @@ inline int Geometry::GetNumFaces() const
 }
 
 /**
+ * @brief Get the number of facets of this object.
+ *
+ * A vertex for a 1D geometry, an edge for a 2D geometry, and a face for a 3D
+ * geometry.
+ */
+inline int Geometry::GetNumFacets() const
+{
+    return v_GetNumFacets();
+}
+
+/**
+ * @brief Returns facet @p i of this object.
+ */
+inline Geometry *Geometry::GetFacet(int i) const
+{
+    return v_GetFacet(i);
+}
+
+/**
  * @brief Get the object's shape dimension.
  *
  * For example, a segment is one dimensional and quadrilateral is two
@@ -460,6 +487,13 @@ inline const Array<OneD, const NekDouble> &Geometry::GetCoeffs(
  */
 inline void Geometry::FillGeom()
 {
+    // If the element is built with ElementLite, we don't have m_coeff, hence we
+    // need Setup.
+    if (!m_setupState)
+    {
+        v_Setup();
+    }
+
     v_FillGeom();
 }
 
@@ -671,6 +705,21 @@ inline int Geometry::GetDir(const int faceidx, const int facedir) const
 inline void Geometry::Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
 {
     v_Reset(curvedEdges, curvedFaces);
+}
+
+/**
+ * @brief Reset this geometry object without rebuilding mapping data.
+ *
+ * The fill state is cleared here rather than in v_ResetLite(), so that a shape
+ * overriding it to recompute edge and face orientation cannot forget to. A
+ * geometry that kept its state would also keep the coefficients FillGeom()
+ * produced for the arrangement it had before, and FillGeom() returns
+ * immediately once a geometry is filled.
+ */
+inline void Geometry::ResetLite()
+{
+    m_state = eNotFilled;
+    v_ResetLite();
 }
 
 /**

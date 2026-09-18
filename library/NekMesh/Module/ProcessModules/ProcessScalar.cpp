@@ -38,6 +38,8 @@
 
 #include "ProcessScalar.h"
 
+#include <SpatialDomains/Curve.hpp>
+
 using namespace std;
 
 namespace Nektar::NekMesh
@@ -62,7 +64,6 @@ ProcessScalar::~ProcessScalar()
 
 void ProcessScalar::Process()
 {
-    int i, j, k;
     string surf = m_config["surf"].as<string>();
 
     // Obtain vector of surface IDs from string.
@@ -80,61 +81,61 @@ void ProcessScalar::Process()
     LibUtilities::Interpreter rEval;
     int rExprId = rEval.DefineFunction("x y z", expr);
 
-    // Make a copy of all existing elements of one dimension lower.
-    vector<ElementSharedPtr> el = m_mesh->m_element[m_mesh->m_expDim - 1];
+    auto scalar = [&](NekDouble x, NekDouble y) {
+        NekDouble z = rEval.Evaluate(rExprId, x, y, 0.0, 0.0);
+        return z < 1e-32 ? 0.0 : z;
+    };
 
-    // Iterate over list of surface elements.
-    for (i = 0; i < el.size(); ++i)
+    const int meshDim = m_mesh->m_meshGraph->GetMeshDimension();
+
+    // The boundary elements are the surface geometries themselves, so what
+    // used to be reached through Element::GetFaceLink() is now the tagged
+    // entity directly.
+    for (auto &[face, tag] : m_mesh->m_elementTags[meshDim - 1])
     {
-        // Work out whether this lies on our surface of interest.
-        vector<int> inter, tags = el[i]->GetTagList();
-
-        sort(tags.begin(), tags.end());
-        set_intersection(surfs.begin(), surfs.end(), tags.begin(), tags.end(),
-                         back_inserter(inter));
-
-        // It doesn't continue to next element.
-        if (inter.size() != 1)
+        if (!binary_search(surfs.begin(), surfs.end(),
+                           static_cast<unsigned int>(tag)))
         {
             continue;
         }
 
-        // Grab face link.
-        FaceSharedPtr f = el[i]->GetFaceLink();
-
-        // Update vertices
-        for (j = 0; j < 4; ++j)
+        // Update vertices.
+        for (int j = 0; j < face->GetNumVerts(); ++j)
         {
-            NodeSharedPtr n = f->m_vertexList[j];
-            n->m_z          = rEval.Evaluate(rExprId, n->m_x, n->m_y, 0.0, 0.0);
-
-            if (n->m_z < 1e-32)
-            {
-                n->m_z = 0;
-            }
+            SpatialDomains::PointGeom *n = face->GetVertex(j);
+            n->UpdatePosition((*n)[0], (*n)[1], scalar((*n)[0], (*n)[1]));
         }
 
-        // Put curvature into edges
-        for (j = 0; j < f->m_edgeList.size(); ++j)
+        // Put curvature into edges.
+        for (int j = 0; j < face->GetNumEdges(); ++j)
         {
-            NodeSharedPtr n1 = f->m_edgeList[j]->m_n1;
-            NodeSharedPtr n2 = f->m_edgeList[j]->m_n2;
-            Node disp        = *n2 - *n1;
+            auto *edge =
+                static_cast<SpatialDomains::SegGeom *>(face->GetEdge(j));
 
-            f->m_edgeList[j]->m_edgeNodes.clear();
+            SpatialDomains::PointGeom *n1 = edge->GetVertex(0);
+            SpatialDomains::PointGeom *n2 = edge->GetVertex(1);
 
-            for (k = 1; k < nq - 1; ++k)
+            auto curve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    edge->GetGlobalID(), LibUtilities::ePolyEvenlySpaced);
+
+            curve->m_points.push_back(n1);
+            for (int k = 1; k < nq - 1; ++k)
             {
-                Node n = *n1 + disp * k / (nq - 1.0);
-                n.m_z  = rEval.Evaluate(rExprId, n.m_x, n.m_y, 0.0, 0.0);
-                if (n.m_z < 1e-32)
-                {
-                    n.m_z = 0;
-                }
+                const NekDouble t = k / (nq - 1.0);
+                const NekDouble x = (*n1)[0] + ((*n2)[0] - (*n1)[0]) * t;
+                const NekDouble y = (*n1)[1] + ((*n2)[1] - (*n1)[1]) * t;
 
-                f->m_edgeList[j]->m_edgeNodes.push_back(
-                    NodeSharedPtr(new Node(n)));
+                auto pt = ObjPoolManager<SpatialDomains::PointGeom>::
+                    AllocateUniquePtr(n1->GetCoordim(), 0, x, y, scalar(x, y));
+                curve->m_points.push_back(pt.get());
+                m_mesh->m_meshGraph->GetAllCurveNodes().push_back(
+                    std::move(pt));
             }
+            curve->m_points.push_back(n2);
+
+            edge->SetCurve(curve.get());
+            m_mesh->m_meshGraph->AddCurvedEdge(std::move(curve));
         }
     }
 }

@@ -34,7 +34,6 @@
 
 #include "ProcessExtractSurf.h"
 #include <LibUtilities/BasicUtils/ParseUtils.h>
-#include <NekMesh/MeshElements/Element.h>
 
 using namespace std;
 
@@ -58,11 +57,27 @@ ProcessExtractSurf::~ProcessExtractSurf()
 {
 }
 
+void moveCurve(int &id, SpatialDomains::CurveMap &oldMap,
+               SpatialDomains::CurveMap &newMap,
+               std::unordered_set<SpatialDomains::PointGeom *> &moveNodes)
+{
+    auto findIt = oldMap.find(id);
+    if (findIt != oldMap.end())
+    {
+        // add curvature nodes to set (not vertices hence begin()+1 and end()-1)
+        for (auto &point : findIt->second->m_points)
+        {
+            moveNodes.insert(point);
+        }
+        newMap[id] = std::move(findIt->second);
+    }
+}
+
 void ProcessExtractSurf::Process()
 {
-    int i, j;
     string surf    = m_config["surf"].as<string>();
     bool detectbnd = m_config["detectbnd"].beenSet;
+    auto oldGraph  = m_mesh->m_meshGraph;
 
     // Obtain vector of surface IDs from string.
     vector<unsigned int> surfs;
@@ -77,363 +92,357 @@ void ProcessExtractSurf::Process()
     m_log(VERBOSE) << "Extracting surface" << (surfs.size() > 1 ? "s" : "")
                    << " " << surf << endl;
 
-    // Make a copy of all existing elements of one dimension lower.
-    vector<ElementSharedPtr> el = m_mesh->m_element[m_mesh->m_expDim - 1];
-
-    // Clear all elements.
-    m_mesh->m_element[m_mesh->m_expDim].clear();
-    m_mesh->m_element[m_mesh->m_expDim - 1].clear();
-
-    // Clear existing vertices, edges and faces.
-    m_mesh->m_vertexSet.clear();
-
-    m_mesh->m_edgeSet.clear();
-    m_mesh->m_faceSet.clear();
-
-    // Clear all edge -> element links.
-    for (i = 0; i < el.size(); ++i)
-    {
-        vector<EdgeSharedPtr> edges = el[i]->GetEdgeList();
-        for (j = 0; j < edges.size(); ++j)
-        {
-            edges[j]->m_elLink.clear();
-        }
-
-        FaceSharedPtr f = el[i]->GetFaceLink();
-        if (f)
-        {
-            for (j = 0; j < f->m_edgeList.size(); ++j)
-            {
-                f->m_edgeList[j]->m_elLink.clear();
-            }
-        }
-    }
-
-    // keptIds stores IDs of elements we processed earlier.
-    std::unordered_set<int> keptIds;
-
-    EdgeSet bndEdgeSet;
+    int oldDim = oldGraph->GetMeshDimension();
+    int newDim = oldGraph->GetComposite(surfs[0])->m_geomVec[0]->GetShapeDim();
+    auto newGraph =
+        MemoryManager<SpatialDomains::MeshGraph>::AllocateSharedPtr();
+    newGraph->SetMeshDimension(newDim);
+    newGraph->SetSpaceDimension(oldGraph->GetSpaceDimension());
+    auto &newVerts     = newGraph->GetGeomMap<SpatialDomains::PointGeom>();
+    auto &newSegGeoms  = newGraph->GetGeomMap<SpatialDomains::SegGeom>();
+    auto &newTriGeoms  = newGraph->GetGeomMap<SpatialDomains::TriGeom>();
+    auto &newQuadGeoms = newGraph->GetGeomMap<SpatialDomains::QuadGeom>();
+    std::unordered_set<SpatialDomains::PointGeom *> vertSet;
+    std::unordered_set<SpatialDomains::PointGeom *> moveCurveNodes;
 
     // Iterate over list of surface elements.
-    for (i = 0; i < el.size(); ++i)
+    for (auto &[elmt, tag] : m_mesh->m_elementTags[newDim])
     {
         // Work out whether this lies on our surface of interest.
-        vector<int> inter, tags = el[i]->GetTagList();
-
-        sort(tags.begin(), tags.end());
-        set_intersection(surfs.begin(), surfs.end(), tags.begin(), tags.end(),
-                         back_inserter(inter));
-
-        // It doesn't continue to next element.
-        if (inter.size() != 1)
+        // If it doesn't continue to next element.
+        if (std::find(surfs.begin(), surfs.end(), tag) == surfs.end())
         {
             continue;
         }
 
-        // Get list of element vertices and edges.
-        ElementSharedPtr elmt       = el[i];
-        vector<NodeSharedPtr> verts = elmt->GetVertexList();
-        vector<EdgeSharedPtr> edges = elmt->GetEdgeList();
+        int elmtId = elmt->GetGlobalID();
+        switch (elmt->GetShapeType())
+        {
+            case LibUtilities::eSegment:
+                newGraph->AddGeom<SpatialDomains::SegGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::SegGeom>(elmtId));
+                break;
+            case LibUtilities::eTriangle:
+                newGraph->AddGeom<SpatialDomains::TriGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::TriGeom>(elmtId));
+                break;
+            case LibUtilities::eQuadrilateral:
+                newGraph->AddGeom<SpatialDomains::QuadGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::QuadGeom>(elmtId));
+                break;
+            case LibUtilities::eTetrahedron:
+                newGraph->AddGeom<SpatialDomains::TetGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::TetGeom>(elmtId));
+                break;
+            case LibUtilities::ePyramid:
+                newGraph->AddGeom<SpatialDomains::PyrGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::PyrGeom>(elmtId));
+                break;
+            case LibUtilities::ePrism:
+                newGraph->AddGeom<SpatialDomains::PrismGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::PrismGeom>(elmtId));
+                break;
+            case LibUtilities::eHexahedron:
+                newGraph->AddGeom<SpatialDomains::HexGeom>(
+                    elmtId,
+                    oldGraph->ExtractGeom<SpatialDomains::HexGeom>(elmtId));
+                break;
+            default:
+                NEKERROR(ErrorUtil::efatal,
+                         "Unexpected shape type to extract.");
+                break;
+        }
 
         // Insert surface vertices.
-        for (j = 0; j < verts.size(); ++j)
+        for (int i = 0; i < elmt->GetNumVerts(); i++)
         {
-            m_mesh->m_vertexSet.insert(verts[j]);
-        }
-
-        // Problem: edges and element IDs aren't enumerated with
-        // geometry IDs by some input modules/the Module ProcessEdges
-        // function. Get around this by replacing everything in the
-        // edge/face with information from edge/face link.
-        EdgeSharedPtr e = elmt->GetEdgeLink();
-        FaceSharedPtr f = elmt->GetFaceLink();
-        if (e)
-        {
-            elmt->SetId(e->m_id);
-        }
-        else if (f)
-        {
-            for (j = 0; j < f->m_vertexList.size(); j++)
+            if (newVerts.find(elmt->GetVid(i)) == newVerts.end())
             {
-                elmt->SetVertex(j, f->m_vertexList[j]);
+                newGraph->AddGeom<SpatialDomains::PointGeom>(
+                    elmt->GetVid(i),
+                    oldGraph->ExtractGeom<SpatialDomains::PointGeom>(
+                        elmt->GetVid(i)));
+                vertSet.insert(elmt->GetVertex(i));
             }
+        }
 
-            for (j = 0; j < edges.size(); ++j)
+        // Identify curvature nodes, move element curves and surface edges in 2D
+        if (newDim == 1)
+        {
+            moveCurve(elmtId, oldGraph->GetCurvedEdges(),
+                      newGraph->GetCurvedEdges(), moveCurveNodes);
+            continue;
+        }
+        for (int i = 0; i < elmt->GetNumEdges(); i++)
+        {
+            int edgeID = elmt->GetEid(i);
+            if (newSegGeoms.find(edgeID) == newSegGeoms.end())
             {
-                m_mesh->m_edgeSet.insert(f->m_edgeList[j]);
-                elmt->SetEdge(j, f->m_edgeList[j]);
-                f->m_edgeList[j]->m_elLink.push_back(std::make_pair(elmt, j));
+                newGraph->AddGeom<SpatialDomains::SegGeom>(
+                    edgeID,
+                    oldGraph->ExtractGeom<SpatialDomains::SegGeom>(edgeID));
+                moveCurve(edgeID, oldGraph->GetCurvedEdges(),
+                          newGraph->GetCurvedEdges(), moveCurveNodes);
+            }
+        }
+        if (newDim == 2)
+        {
+            moveCurve(elmtId, oldGraph->GetCurvedFaces(),
+                      newGraph->GetCurvedFaces(), moveCurveNodes);
+            continue;
+        }
+        for (int i = 0; i < elmt->GetNumFaces(); i++)
+        {
+            int faceID = elmt->GetFid(i);
+            if (elmt->GetFace(i)->GetShapeType() == LibUtilities::eTriangle &&
+                newTriGeoms.find(faceID) == newTriGeoms.end())
+            {
+                newGraph->AddGeom<SpatialDomains::TriGeom>(
+                    faceID,
+                    oldGraph->ExtractGeom<SpatialDomains::TriGeom>(faceID));
+                moveCurve(faceID, oldGraph->GetCurvedFaces(),
+                          newGraph->GetCurvedFaces(), moveCurveNodes);
+            }
+            else if (elmt->GetFace(i)->GetShapeType() ==
+                         LibUtilities::eQuadrilateral &&
+                     newQuadGeoms.find(faceID) == newQuadGeoms.end())
+            {
+                newGraph->AddGeom<SpatialDomains::QuadGeom>(
+                    faceID,
+                    oldGraph->ExtractGeom<SpatialDomains::QuadGeom>(faceID));
+                moveCurve(faceID, oldGraph->GetCurvedFaces(),
+                          newGraph->GetCurvedFaces(), moveCurveNodes);
+            }
+        }
+    }
 
-                // generate a list of edges on boundary of surfaces being
-                // extracted
-                auto edit = bndEdgeSet.find(f->m_edgeList[j]);
-                if (edit != bndEdgeSet.end())
+    // Move curve nodes
+    for (auto &node : oldGraph->GetAllCurveNodes())
+    {
+        if (vertSet.find(node.get()) != vertSet.end())
+        {
+            continue;
+        }
+        else if (moveCurveNodes.find(node.get()) != moveCurveNodes.end())
+        {
+            newGraph->GetAllCurveNodes().push_back(std::move(node));
+        }
+    }
+
+    int maxId = -1;
+    for (auto &[id, oldComp] : oldGraph->GetComposites())
+    {
+        if (find(surfs.begin(), surfs.end(), id) == surfs.end())
+        {
+            continue;
+        }
+        maxId = std::max(maxId, id);
+    }
+    // Process composites, and repopulate m_elementTags
+    auto oldTags = m_mesh->m_elementTags[newDim];
+    m_mesh->m_elementTags[oldDim].clear();
+    m_mesh->m_elementTags[oldDim - 1].clear();
+    for (auto &[id, oldComp] : oldGraph->GetComposites())
+    {
+        if (find(surfs.begin(), surfs.end(), id) == surfs.end())
+        {
+            continue;
+        }
+        // 2D surfaces may contain both quadrilaterals and triangles and so need
+        // to be split up.
+        if (oldDim == 3 && newDim == 2)
+        {
+            LibUtilities::ShapeType type1 =
+                oldComp->m_geomVec[0]->GetShapeType();
+            // composite for first shape type found (tri or quad)
+            auto newComp1 =
+                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+            // second composite for if the other shape type is found
+            auto newComp2 =
+                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+            for (auto &geom : oldComp->m_geomVec)
+            {
+                if (geom->GetShapeType() == type1)
                 {
-                    // remove since visited more than once
-                    bndEdgeSet.erase(edit);
+                    newComp1->m_geomVec.push_back(geom);
                 }
                 else
                 {
-                    bndEdgeSet.insert(f->m_edgeList[j]);
+                    newComp2->m_geomVec.push_back(geom);
                 }
+                m_mesh->m_elementTags[newDim][geom] = oldTags[geom];
             }
-            elmt->SetVolumeNodes(f->m_faceNodes);
-            elmt->SetId(f->m_id);
-            elmt->SetCurveType(f->m_curveType);
+            newGraph->GetComposites()[id] = newComp1;
+            if (newComp2->m_geomVec.size())
+            {
+                newGraph->GetComposites()[++maxId] = newComp2;
+                for (auto &geom : newComp2->m_geomVec)
+                {
+                    m_mesh->m_elementTags[newDim][geom] = maxId;
+                }
+                // Print out mapping information if we split a composite
+                m_log(VERBOSE)
+                    << "  - Split mixed composite " << id << " into composites "
+                    << id << " and " << maxId << "." << endl;
+            }
         }
         else
         {
-            for (j = 0; j < edges.size(); ++j)
+            newGraph->GetComposites()[id] = oldComp;
+            for (auto &geom : oldComp->m_geomVec)
             {
-                m_mesh->m_edgeSet.insert(edges[j]);
+                m_mesh->m_elementTags[newDim][geom] = oldTags[geom];
+            }
+        }
+    }
+
+    // Create domains for element composites
+    int domID = 0;
+    for (auto &[compID, comp] : newGraph->GetComposites())
+    {
+        newGraph->GetDomain()[domID++] =
+            SpatialDomains::CompositeMap({{compID, comp}});
+    }
+
+    // Detect composites for boundary edges. This is done by looping over all
+    // extracted elements in the new graph and finding boundary sides that only
+    // belong to one of these extracted elements.
+    if (detectbnd)
+    {
+        ASSERTL0(
+            newDim >= 2,
+            "Surface boundary detection only implemented for 2D and 3D meshes");
+
+        std::unordered_set<int> visitedOnce;
+        // find edges of face elements that are only used by 1 extracted face
+        if (newDim == 2)
+        {
+            for (auto &[compID, comp] : newGraph->GetComposites())
+            {
+                for (auto &geom : comp->m_geomVec)
+                {
+                    for (int e = 0; e < geom->GetNumEdges(); e++)
+                    {
+                        // if the edge has already been found, erase it
+                        if (!visitedOnce.insert(geom->GetEid(e)).second)
+                        {
+                            visitedOnce.erase(geom->GetEid(e));
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (auto &[compID, comp] : newGraph->GetComposites())
+            {
+                for (auto &geom : comp->m_geomVec)
+                {
+                    for (int f = 0; f < geom->GetNumFaces(); f++)
+                    {
+                        // if the edge has already been found, erase it
+                        if (!visitedOnce.insert(geom->GetFid(f)).second)
+                        {
+                            visitedOnce.erase(geom->GetFid(f));
+                        }
+                    }
+                }
             }
         }
 
-        // Nullify edge/face links to get correct tag
-        elmt->SetFaceLink(FaceSharedPtr());
-        elmt->SetEdgeLink(EdgeSharedPtr());
-        keptIds.insert(elmt->GetId());
-
-        // Push element back into the list.
-        m_mesh->m_element[m_mesh->m_expDim - 1].push_back(elmt);
-    }
-
-    // Decrement the expansion dimension to get manifold embedding.
-    m_mesh->m_expDim--;
-
-    // Now process composites. This is necessary because 2D surfaces may
-    // contain both quadrilaterals and triangles and so need to be split
-    // up.
-    CompositeMap tmp = m_mesh->m_composite;
-
-    m_mesh->m_composite.clear();
-    int maxId = -1;
-
-    // Loop over composites for first time to determine any composites
-    // which don't have elements of the correct dimension.
-    for (auto &it : tmp)
-    {
-        if (it.second->m_items[0]->GetDim() != m_mesh->m_expDim)
+        // Iterate over old newDim composites being dumped to group new
+        // boundaries into new boundary composites
+        for (auto &[id, oldComp] : oldGraph->GetComposites())
         {
-            continue;
-        }
-
-        vector<ElementSharedPtr> el = it.second->m_items;
-        it.second->m_items.clear();
-
-        for (i = 0; i < el.size(); ++i)
-        {
-            if (keptIds.count(el[i]->GetId()) > 0)
+            // continue if extracting this composite or not newDim
+            if (find(surfs.begin(), surfs.end(), id) != surfs.end() ||
+                oldComp->m_geomVec[0]->GetShapeDim() != newDim)
             {
-                it.second->m_items.push_back(el[i]);
+                continue;
             }
-        }
-
-        if (it.second->m_items.size() == 0)
-        {
-            continue;
-        }
-
-        m_mesh->m_composite.insert(it);
-
-        // Figure out the maximum ID so if we need to create new
-        // composites we can give them a unique ID.
-        maxId = (std::max)(maxId, (int)it.second->m_id) + 1;
-    }
-
-    tmp = m_mesh->m_composite;
-    m_mesh->m_composite.clear();
-
-    // Now do another loop over the composites to remove composites
-    // which don't contain any elements in the new mesh.
-    for (auto &it : tmp)
-    {
-        CompositeSharedPtr c        = it.second;
-        vector<ElementSharedPtr> el = c->m_items;
-
-        // Remove all but the first element from this composite.
-        string initialTag = el[0]->GetTag();
-        c->m_items.resize(1);
-        c->m_tag = initialTag;
-
-        // newComps stores the new composites. The key is the composite
-        // type (e.g. Q for quad) and value is the composite.
-        map<string, CompositeSharedPtr> newComps;
-        newComps[initialTag] = c;
-
-        // Loop over remaining elements in composite and figure out
-        // whether it needs to be split up.
-        for (i = 1; i < el.size(); ++i)
-        {
-            // See if tag exists. If it does, we append this to the
-            // composite, otherwise we create a new composite and store
-            // it in newComps.
-            string tag = el[i]->GetTag();
-            auto it2   = newComps.find(tag);
-            if (it2 == newComps.end())
+            auto newComp =
+                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+            if (newDim == 2)
             {
-                CompositeSharedPtr newComp(new Composite());
-                newComp->m_id  = maxId++;
-                newComp->m_tag = tag;
-                newComp->m_items.push_back(el[i]);
-                newComps[tag] = newComp;
+                for (auto &geom : oldComp->m_geomVec)
+                {
+                    for (int e = 0; e < geom->GetNumEdges(); e++)
+                    {
+                        if (visitedOnce.find(geom->GetEid(e)) !=
+                            visitedOnce.end())
+                        {
+                            newComp->m_geomVec.push_back(
+                                newGraph->GetSegGeom(geom->GetEid(e)));
+                            visitedOnce.erase(geom->GetEid(e));
+                        }
+                    }
+                }
             }
             else
             {
-                it2->second->m_items.push_back(el[i]);
+                for (auto &geom : oldComp->m_geomVec)
+                {
+                    for (int f = 0; f < geom->GetNumFaces(); f++)
+                    {
+                        if (visitedOnce.find(geom->GetFid(f)) !=
+                            visitedOnce.end())
+                        {
+                            newComp->m_geomVec.push_back(
+                                newGraph->GetGeometry2D(geom->GetFid(f)));
+                            visitedOnce.erase(geom->GetFid(f));
+                        }
+                    }
+                }
             }
-        }
-
-        // Print out mapping information if we remapped composite IDs.
-        if (newComps.size() > 1)
-        {
-            m_log(VERBOSE) << "  - Mapping composite " << it.first << " ->";
-        }
-
-        // Insert new composites.
-        i = 0;
-        for (auto &it2 : newComps)
-        {
-            if (newComps.size() > 1)
+            if (newComp->m_geomVec.size())
             {
-                m_log(VERBOSE) << (i > 0 ? ", " : " ") << it2.second->m_id
-                               << "(" << it2.second->m_tag << ")";
+                newGraph->GetComposites()[++maxId] = newComp;
+                for (auto &geom : newComp->m_geomVec)
+                {
+                    m_mesh->m_elementTags[newDim - 1][geom] = maxId;
+                }
             }
-            m_mesh->m_composite[it2.second->m_id] = it2.second;
-            ++i;
         }
 
-        if (newComps.size() > 1)
+        // Any remaining elements in visitedOnce should be in old
+        // boundary composites, if newDim == oldDim
+        for (auto &[id, oldComp] : oldGraph->GetComposites())
         {
-            m_log(VERBOSE) << endl;
-        }
-    }
-
-    // Detect composites for boundaries. This is done by looping over all
-    // elements identifiying if they are not part of required surfaces and if
-    // not setting up a list of boundary edges (identified by only being visited
-    // once). This list is then compared against an earlier identification of
-    // boundary edges on the required surfaces and if the two overlap add a
-    // segment element and put segment element in composite as well
-    if (detectbnd)
-    {
-        if (m_mesh->m_expDim != 2)
-        {
-            m_log(WARNING) << "Surface boundary detection only implemented "
-                           << "for 2D meshes" << endl;
-            return;
-        }
-
-        map<int, EdgeSet> surfBndEdgeSet;
-        map<int, string> surfLabels;
-
-        // Iterate over list of surface elements.
-        for (i = 0; i < el.size(); ++i)
-        {
-            // Work out whether this lies on our surface of interest.
-            vector<int> inter, tags = el[i]->GetTagList();
-
-            if (tags.size() != 1)
-            {
-                m_log(FATAL) << "Multiple tags found!" << endl;
-            }
-
-            sort(tags.begin(), tags.end());
-            set_intersection(surfs.begin(), surfs.end(), tags.begin(),
-                             tags.end(), back_inserter(inter));
-
-            // It does so continue to next element.
-            if (inter.size() == 1)
+            if (oldComp->m_geomVec[0]->GetShapeDim() != newDim - 1)
             {
                 continue;
             }
 
-            int surf = tags[0];
-
-            // gather surface labels if they exist.
-            if (m_mesh->m_faceLabels.count(surf))
+            auto newComp =
+                MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+            for (auto &geom : oldComp->m_geomVec)
             {
-                surfLabels[surf] = m_mesh->m_faceLabels[surf];
-            }
-
-            // Get list of element vertices and edges.
-            ElementSharedPtr elmt       = el[i];
-            vector<EdgeSharedPtr> edges = elmt->GetEdgeList();
-
-            FaceSharedPtr f = elmt->GetFaceLink();
-            if (f)
-            {
-                for (j = 0; j < edges.size(); ++j)
+                if (visitedOnce.find(geom->GetGlobalID()) != visitedOnce.end())
                 {
-                    // generate a list of edges on boundary of surfaces being
-                    // extracted
-                    if (surfBndEdgeSet.count(surf))
-                    {
-                        auto edit = surfBndEdgeSet[surf].find(f->m_edgeList[j]);
-                        if (edit != surfBndEdgeSet[surf].end())
-                        {
-                            // remove since visited more than once
-                            surfBndEdgeSet[surf].erase(edit);
-                        }
-                        else
-                        {
-                            surfBndEdgeSet[surf].insert(f->m_edgeList[j]);
-                        }
-                    }
-                    else
-                    {
-                        EdgeSet newEdgeSet;
-                        surfBndEdgeSet[surf] = newEdgeSet;
-                        surfBndEdgeSet[surf].insert(f->m_edgeList[j]);
-                    }
+                    newComp->m_geomVec.push_back(geom);
+                    visitedOnce.erase(geom->GetGlobalID());
+                }
+            }
+            if (newComp->m_geomVec.size())
+            {
+                newGraph->GetComposites()[++maxId] = newComp;
+                for (auto &geom : newComp->m_geomVec)
+                {
+                    m_mesh->m_elementTags[newDim - 1][geom] = maxId;
                 }
             }
         }
 
-        m_mesh->m_faceLabels.clear();
-
-        // iteratve over surfBndEdgeSet and see if they are in BndEdgeSet
-        for (auto &esetit : surfBndEdgeSet)
-        {
-            CompositeSharedPtr newComp(new Composite());
-            newComp->m_id  = maxId;
-            newComp->m_tag = "E";
-            // set up labels if they exist
-            if (surfLabels.count(esetit.first))
-            {
-                newComp->m_label = surfLabels[esetit.first];
-            }
-
-            for (auto &edit : esetit.second)
-            {
-                auto locit = bndEdgeSet.find(edit);
-                if (locit != bndEdgeSet.end())
-                {
-                    // make 1D segment element
-                    LibUtilities::ShapeType elType = LibUtilities::eSegment;
-
-                    vector<int> tags;
-                    tags.push_back(maxId);
-
-                    // make unique node list
-                    vector<NodeSharedPtr> nodeList;
-                    nodeList.push_back((*locit)->m_n1);
-                    nodeList.push_back((*locit)->m_n2);
-
-                    ElmtConfig conf(elType, 1, true, true);
-                    ElementSharedPtr E = GetElementFactory().CreateInstance(
-                        elType, conf, nodeList, tags);
-                    E->SetId((*locit)->m_id);
-                    m_mesh->m_element[E->GetDim()].push_back(E);
-                    newComp->m_items.push_back(E);
-                }
-            }
-
-            if (newComp->m_items.size())
-            {
-                m_mesh->m_composite[maxId++] = newComp;
-            }
-        }
+        ASSERTL0(visitedOnce.size() == 0,
+                 "Some detected boundary elements not assigned to composites.");
     }
+
+    m_mesh->m_meshGraph = newGraph;
 }
 } // namespace Nektar::NekMesh

@@ -13,22 +13,19 @@ SET(NEKMESH_SOURCES
     Module/OutputModules/OutputSTL.cpp
     Module/OutputModules/OutputStdOut.cpp
     Module/ProcessModules/ProcessBL.cpp
-    Module/ProcessModules/ProcessBLOld.cpp
+    Module/ProcessModules/ProcessCheckConnectivity.cpp
     Module/ProcessModules/ProcessCombine.cpp
     Module/ProcessModules/ProcessCurve.cpp
     Module/ProcessModules/ProcessCurvedEdges.cpp
     Module/ProcessModules/ProcessCyl.cpp
     Module/ProcessModules/ProcessDetectSurf.cpp
     Module/ProcessModules/ProcessExtractSurf.cpp
-    Module/ProcessModules/ProcessExtractTetPrismInterface.cpp
     Module/ProcessModules/ProcessJac.cpp
-    Module/ProcessModules/ProcessLinkCheck.cpp
     Module/ProcessModules/ProcessLinear.cpp
     Module/ProcessModules/ProcessPerAlign.cpp
     Module/ProcessModules/ProcessScalar.cpp
     Module/ProcessModules/ProcessSpherigon.cpp
     Module/ProcessModules/ProcessTetSplit.cpp
-    Module/ProcessModules/ProcessOptiExtract.cpp
     Module/ProcessModules/ProcessInsertSurface.cpp
     Module/ProcessModules/ProcessExtrude.cpp
     Module/ProcessModules/ProcessRevolve.cpp
@@ -41,11 +38,7 @@ SET(NEKMESH_SOURCES
 
     MeshElements/Mesh.cpp
     MeshElements/Element.cpp
-    MeshElements/Edge.cpp
-    MeshElements/Face.cpp
     MeshElements/BooleanOperators.cpp
-    MeshElements/Point.cpp
-    MeshElements/Node.cpp
     MeshElements/Line.cpp
     MeshElements/Triangle.cpp
     MeshElements/Quadrilateral.cpp
@@ -53,16 +46,15 @@ SET(NEKMESH_SOURCES
     MeshElements/Pyramid.cpp
     MeshElements/Prism.cpp
     MeshElements/Hexahedron.cpp
-    CADSystem/CADSystem.cpp
-    CADSystem/CADSurf.cpp
-    CADSystem/CADVert.cpp
-    CADSystem/CADCurve.cpp
     CADSystem/ProcessLoadCAD.cpp
     )
 
 SET(NEKMESH_HEADERS
     NekMeshDeclspec.h
     Module/Module.h
+    Module/MacroElements.h
+    Module/ModuleContext.h
+    Module/SurfaceHints.h
     Module/InputModules/InputGmsh.h
     Module/InputModules/InputNek.h
     Module/InputModules/InputNek5000.h
@@ -76,22 +68,19 @@ SET(NEKMESH_HEADERS
     Module/OutputModules/OutputSTL.h
     Module/OutputModules/OutputStdOut.h
     Module/ProcessModules/ProcessBL.h
-    Module/ProcessModules/ProcessBLOld.h
+    Module/ProcessModules/ProcessCheckConnectivity.h
     Module/ProcessModules/ProcessCombine.h
     Module/ProcessModules/ProcessCurve.h
     Module/ProcessModules/ProcessCurvedEdges.h
     Module/ProcessModules/ProcessCyl.h
     Module/ProcessModules/ProcessDetectSurf.h
     Module/ProcessModules/ProcessExtractSurf.h
-    Module/ProcessModules/ProcessExtractTetPrismInterface.h
     Module/ProcessModules/ProcessJac.h
-    Module/ProcessModules/ProcessLinkCheck.h
     Module/ProcessModules/ProcessLinear.h
     Module/ProcessModules/ProcessPerAlign.h
     Module/ProcessModules/ProcessScalar.h
     Module/ProcessModules/ProcessSpherigon.h
     Module/ProcessModules/ProcessTetSplit.h
-    Module/ProcessModules/ProcessOptiExtract.h
     Module/ProcessModules/ProcessInsertSurface.h
     Module/ProcessModules/ProcessExtrude.h
     Module/ProcessModules/ProcessRevolve.h
@@ -100,27 +89,10 @@ SET(NEKMESH_HEADERS
     Module/ProcessModules/ProcessVarOpti/ElUtil.h
     Module/ProcessModules/ProcessScale.h
 
-    MeshElements/Node.h
-    MeshElements/Edge.h
-    MeshElements/Face.h
     MeshElements/Element.h
-    MeshElements/Composite.h
     MeshElements/Mesh.h
-    MeshElements/Point.h
-    MeshElements/Line.h
-    MeshElements/Triangle.h
-    MeshElements/Quadrilateral.h
-    MeshElements/Tetrahedron.h
-    MeshElements/Pyramid.h
-    MeshElements/Prism.h
-    MeshElements/Hexahedron.h
     MeshElements/HOAlignment.h
     MeshElements/ElementConfig.h
-    CADSystem/CADObject.h
-    CADSystem/CADSystem.h
-    CADSystem/CADVert.h
-    CADSystem/CADCurve.h
-    CADSystem/CADSurf.h
     CADSystem/ProcessLoadCAD.h
     )
 
@@ -140,11 +112,6 @@ IF(NEKTAR_USE_MESHGEN)
         VolumeMeshing/TetMeshing/TetMesh.cpp
         VolumeMeshing/BLMeshing/BLMesh.cpp
         Optimisation/BGFS-B.cpp
-        CADSystem/OCE/CADSystemOCE.cpp
-        CADSystem/OCE/CADVertOCE.cpp
-        CADSystem/OCE/CADCurveOCE.cpp
-        CADSystem/OCE/CADSurfOCE.cpp
-        CADSystem/OCE/TransfiniteSurface.cpp
         2DGenerator/2DGenerator.cpp
         Module/ProcessModules/ProcessVarOpti/NodeOptiCAD.cpp
         Module/ProcessModules/ProcessProjectCAD.cpp
@@ -166,13 +133,6 @@ IF(NEKTAR_USE_MESHGEN)
         VolumeMeshing/VolumeMesh.h
         VolumeMeshing/TetMeshing/TetMesh.h
         VolumeMeshing/BLMeshing/BLMesh.h
-        CADSystem/OCE/OpenCascade.h
-        CADSystem/OCE/CADSystemOCE.h
-        CADSystem/OCE/CADVertOCE.h
-        CADSystem/OCE/CADCurveOCE.h
-        CADSystem/OCE/CADSurfOCE.h
-        CADSystem/OCE/GeoParser.hpp
-        CADSystem/OCE/TransfiniteSurface.h
         Optimisation/BGFS-B.h
         Optimisation/OptimiseObj.h
         2DGenerator/2DGenerator.h
@@ -183,21 +143,24 @@ IF(NEKTAR_USE_MESHGEN)
 ENDIF()
 
 IF(NEKTAR_USE_CFI)
+    # The CADfix CAD classes have moved to SpatialDomains and are ported, but
+    # InputCADfix and OutputCADfix still build against the mesh representation
+    # NekMesh used to carry its own: NodeSharedPtr, ElementSharedPtr,
+    # Mesh::m_element and Mesh::m_expDim, none of which exist any more. They
+    # would not compile, so refuse to configure rather than fail part way
+    # through a build. The sources are kept as they stand, to be ported
+    # against a CADfix licence to test with.
+    MESSAGE(FATAL_ERROR
+        "NEKTAR_USE_CFI is not currently supported: the NekMesh CADfix "
+        "modules have not been ported to SpatialDomains geometry. Configure "
+        "with -DNEKTAR_USE_CFI=OFF.")
+
     ADD_DEFINITIONS(-DNEKTAR_USE_CFI)
     SET(NEKMESH_HEADERS ${NEKMESH_HEADERS}
-        CADSystem/CFI/CADSystemCFI.h
-        CADSystem/CFI/CADVertCFI.h
-        CADSystem/CFI/CADCurveCFI.h
-        CADSystem/CFI/CADSurfCFI.h
-        CADSystem/CFI/CADElementCFI.h
         Module/InputModules/InputCADfix.h
         Module/OutputModules/OutputCADfix.h
     )
     SET(NEKMESH_SOURCES ${NEKMESH_SOURCES}
-        CADSystem/CFI/CADSystemCFI.cpp
-        CADSystem/CFI/CADVertCFI.cpp
-        CADSystem/CFI/CADCurveCFI.cpp
-        CADSystem/CFI/CADSurfCFI.cpp
         Module/InputModules/InputCADfix.cpp
         Module/OutputModules/OutputCADfix.cpp
     )
@@ -227,7 +190,7 @@ ADD_DEFINITIONS(-DNEKMESH_EXPORTS)
 ADD_NEKTAR_LIBRARY(libNekMesh
     SOURCES ${NEKMESH_SOURCES}
     HEADERS ${NEKMESH_HEADERS}
-    DEPENDS LocalRegions
+    DEPENDS LocalRegions SpatialDomains
     SUMMARY "Nektar++ NekMesh library"
     DESCRIPTION "This library provides mesh generation and routines for the NekMesh executable.")
 

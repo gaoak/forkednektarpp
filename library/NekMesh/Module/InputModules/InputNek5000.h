@@ -37,7 +37,7 @@
 
 #include <algorithm>
 
-#include <NekMesh/MeshElements/Triangle.h>
+#include <NekMesh/MeshElements/HOAlignment.h>
 #include <NekMesh/Module/Module.h>
 
 namespace Nektar::NekMesh

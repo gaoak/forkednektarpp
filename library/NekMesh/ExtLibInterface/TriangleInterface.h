@@ -38,7 +38,7 @@
 #include <memory>
 
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
-#include <NekMesh/MeshElements/Node.h>
+#include <SpatialDomains/PointGeom.h>
 
 #define ANSI_DECLARATORS
 #define REAL double
@@ -50,6 +50,11 @@ extern "C"
 
 namespace Nektar::NekMesh
 {
+
+/// Parametric (u,v) location of a mesh vertex on the CAD surface.
+typedef std::unordered_map<SpatialDomains::PointGeom *,
+                           std::array<NekDouble, 2>>
+    NodeUVMap;
 
 /**
  * @brief class for interfacing with external library triangle
@@ -66,20 +71,27 @@ public:
 
     /**
      * @brief assign meshing paramters
+     *
+     * @p nodeUV gives the (u,v) on the surface being meshed for every node
+     * passed in.
      */
-    void Assign(std::vector<std::vector<NodeSharedPtr>> &boundingloops,
-                std::vector<std::array<NekDouble, 2>> &centers, int i,
-                NekDouble str = 1.0)
+    void Assign(
+        std::vector<std::vector<SpatialDomains::PointGeom *>> &boundingloops,
+        std::vector<std::array<NekDouble, 2>> &centers, int i,
+        const NodeUVMap &nodeUV, NekDouble str = 1.0)
     {
         m_boundingloops = boundingloops;
         m_centers       = centers;
         m_str           = str;
         sid             = i;
+        m_nodeUV        = nodeUV;
     }
 
-    void AssignStiener(std::vector<NodeSharedPtr> stiner)
+    void AssignStiener(std::vector<SpatialDomains::PointGeom *> stiner,
+                       const NodeUVMap &nodeUV)
     {
         m_stienerpoints = stiner;
+        m_nodeUV.insert(nodeUV.begin(), nodeUV.end());
     }
 
     /**
@@ -90,7 +102,7 @@ public:
     /**
      * @brief Extract mesh
      */
-    void Extract(std::vector<std::vector<NodeSharedPtr>> &Connec);
+    void Extract(std::vector<std::vector<SpatialDomains::PointGeom *>> &Connec);
 
 private:
     /**
@@ -109,13 +121,15 @@ private:
     };
 
     /// List of bounding nodes to the surface
-    std::vector<std::vector<NodeSharedPtr>> m_boundingloops;
+    std::vector<std::vector<SpatialDomains::PointGeom *>> m_boundingloops;
     /// List of additional nodes
-    std::vector<NodeSharedPtr> m_stienerpoints;
+    std::vector<SpatialDomains::PointGeom *> m_stienerpoints;
+    /// (u,v) on this surface of every node handed to Assign/AssignStiener
+    NodeUVMap m_nodeUV;
     /// Coordinates of the centers of the loops
     std::vector<std::array<NekDouble, 2>> m_centers;
     /// Map from NekMesh id to triangle id
-    std::map<int, NodeSharedPtr> nodemap;
+    std::map<int, SpatialDomains::PointGeom *> nodemap;
     /// ID of the surface
     int sid;
     /// Stretching factor of parameter plane

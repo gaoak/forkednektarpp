@@ -177,10 +177,58 @@ NekDouble PointGeom::dist(PointGeom &a)
                 (z() - a.z()) * (z() - a.z()));
 }
 
+/// \brief return whether coords close within (tol) or machine precision
+/// fact(eps diff)
+bool PointGeom::IsNodeClose(const PointGeom &a, const unsigned int fact,
+                            const NekDouble tol) const
+{
+    return (LibUtilities::IsRealEqual(x(), a.x(), fact) &&
+            LibUtilities::IsRealEqual(y(), a.y(), fact) &&
+            LibUtilities::IsRealEqual(z(), a.z(), fact)) ||
+           (LibUtilities::IsRealClose(x(), a.x(), tol) &&
+            LibUtilities::IsRealClose(y(), a.y(), tol) &&
+            LibUtilities::IsRealClose(z(), a.z(), tol));
+}
+
 /// \brief retun the dot product between this and input a
 NekDouble PointGeom::dot(PointGeom &a)
 {
     return (x() * a.x() + y() * a.y() + z() * a.z());
+}
+
+/// \brief return the angle between by locA and locB, oriented
+/// by the surface normal N and centered around the node of interest.
+NekDouble PointGeom::Angle(std::array<NekDouble, 3> locA,
+                           std::array<NekDouble, 3> locB,
+                           std::array<NekDouble, 3> N)
+{
+    std::array<NekDouble, 3> A, B, CP;
+    A[0] = locA[0] - x();
+    A[1] = locA[1] - y();
+    A[2] = locA[2] - z();
+    B[0] = locB[0] - x();
+    B[1] = locB[1] - y();
+    B[2] = locB[2] - z();
+
+    CP[0] = A[1] * B[2] - A[2] * B[1];
+    CP[1] = -1.0 * (A[0] * B[2] - A[2] * B[0]);
+    CP[2] = A[0] * B[1] - A[1] * B[0];
+
+    NekDouble ang = sqrt(CP[0] * CP[0] + CP[1] * CP[1] + CP[2] * CP[2]);
+
+    ang /= sqrt(A[0] * A[0] + A[1] * A[1] + A[2] * A[2]);
+    ang /= sqrt(B[0] * B[0] + B[1] * B[1] + B[2] * B[2]);
+
+    NekDouble dot = N[0] * CP[0] + N[1] * CP[1] + N[2] * CP[2];
+
+    ang = asin(ang);
+
+    if (dot < 0.0)
+    {
+        ang = 2.0 * M_PI - ang;
+    }
+
+    return ang;
 }
 
 /// Determine equivalence by the ids.  No matter what the position,

@@ -45,184 +45,123 @@ ElementFactory &GetElementFactory()
     return instance;
 }
 
-Element::Element(ElmtConfig pConf, unsigned int pNumNodes,
-                 unsigned int pGotNodes)
-    : m_conf(pConf), m_curveType(LibUtilities::ePolyEvenlySpaced), m_geom()
+std::vector<SpatialDomains::PointGeom *> GetCurvedNodesTri(
+    LibUtilities::PointsType conf_faceCurveType,
+    std::array<SpatialDomains::PointGeom *, 3> &vertexList,
+    std::array<SpatialDomains::SegGeom *, 3> &edgeList,
+    std::vector<SpatialDomains::PointGeom *> &faceNodes)
 {
-    if (pNumNodes != pGotNodes)
+    std::vector<SpatialDomains::PointGeom *> nodeList;
+
+    // Treat 2D point distributions differently to 3D.
+    ASSERTL0(conf_faceCurveType == LibUtilities::eNodalTriFekete ||
+                 conf_faceCurveType == LibUtilities::eNodalTriEvenlySpaced ||
+                 conf_faceCurveType == LibUtilities::eNodalTriElec,
+             "Incorrect conf_faceCurveType for GetCurvedNodesTri")
+
+    int n  = edgeList[0]->GetCurve()->m_points.size();
+    int n2 = edgeList[0]->GetCurve()->m_points.size();
+    int n3 = edgeList[0]->GetCurve()->m_points.size();
+
+    bool same = (n == n2 ? (n2 == n3) : false);
+    ASSERTL0(same, "Edges are not consistent");
+
+    nodeList.insert(nodeList.end(), vertexList.begin(), vertexList.end());
+    for (int k = 0; k < edgeList.size(); ++k)
     {
-        cerr << "Number of modes mismatch for type " << pConf.m_e
-             << "! Should be " << pNumNodes << " but got " << pGotNodes
-             << " nodes." << endl;
-        abort();
+        for (auto it = std::next(edgeList[k]->GetCurve()->m_points.begin());
+             it != std::prev(edgeList[k]->GetCurve()->m_points.end()); ++it)
+        {
+            nodeList.emplace_back(*it);
+        }
+
+        if (edgeList[k]->GetVertex(0) != vertexList[k])
+        {
+            // If edge orientation is reversed relative to node
+            // ordering, we need to reverse order of nodes.
+            std::reverse(nodeList.begin() + 3 + k * (n - 2),
+                         nodeList.begin() + 3 + (k + 1) * (n - 2));
+        }
     }
+    nodeList.insert(nodeList.end(), faceNodes.begin(), faceNodes.end());
+
+    return nodeList;
 }
 
-void Element::SetVertex(unsigned int p, NodeSharedPtr pNew, bool descend)
+std::vector<SpatialDomains::PointGeom *> GetCurvedNodesQuad(
+    [[maybe_unused]] LibUtilities::PointsType conf_faceCurveType,
+    std::array<SpatialDomains::PointGeom *, 4> &vertexList,
+    std::array<SpatialDomains::SegGeom *, 4> &edgeList,
+    std::vector<SpatialDomains::PointGeom *> &faceNodes)
 {
-    NodeSharedPtr vOld = m_vertex[p];
-    m_vertex[p]        = pNew;
+    std::vector<SpatialDomains::PointGeom *> nodeList;
 
-    if (!descend)
+    // Write out in 2D tensor product order.
+
+    int n1 = faceNodes.size();
+    for (auto &i : edgeList)
     {
-        return;
+        n1 += i->GetCurve()->m_points.size();
+    }
+    n1 -= vertexList.size();
+
+    int n = (int)sqrt((NekDouble)n1);
+    nodeList.resize(n * n);
+
+    ASSERTL0(n * n == n1, "Wrong number of modes?");
+
+    // Write vertices
+    nodeList[0]           = vertexList[0];
+    nodeList[n - 1]       = vertexList[1];
+    nodeList[n * n - 1]   = vertexList[2];
+    nodeList[n * (n - 1)] = vertexList[3];
+
+    // Write edge-interior
+    int skips[4][2] = {{0, 1}, {n - 1, n}, {n * n - 1, -1}, {n * (n - 1), -n}};
+    for (int i = 0; i < 4; ++i)
+    {
+        bool reverseEdge = edgeList[i]->GetVertex(0) == vertexList[i];
+
+        if (!reverseEdge)
+        {
+            for (int j = 1; j < n - 1; ++j)
+            {
+                nodeList[skips[i][0] + j * skips[i][1]] =
+                    edgeList[i]->GetCurve()->m_points[n - 1 - j];
+            }
+        }
+        else
+        {
+            for (int j = 1; j < n - 1; ++j)
+            {
+                nodeList[skips[i][0] + j * skips[i][1]] =
+                    edgeList[i]->GetCurve()->m_points[j];
+            }
+        }
     }
 
-    for (unsigned int i = 0; i < m_edge.size(); ++i)
+    // Write interior
+    for (int i = 1; i < n - 1; ++i)
     {
-        if (m_edge[i]->m_n1 == vOld)
+        for (int j = 1; j < n - 1; ++j)
         {
-            m_edge[i]->m_n1 = pNew;
-        }
-        else if (m_edge[i]->m_n2 == vOld)
-        {
-            m_edge[i]->m_n2 = pNew;
+            nodeList[i * n + j] = faceNodes[(i - 1) * (n - 2) + (j - 1)];
         }
     }
-    for (unsigned int i = 0; i < m_face.size(); ++i)
-    {
-        // Replace vertices in faces
-        for (unsigned int j = 0; j < m_face[i]->m_vertexList.size(); ++j)
-        {
-            if (m_face[i]->m_vertexList[j] == vOld)
-            {
-                m_face[i]->m_vertexList[j] = pNew;
-            }
-        }
-        for (unsigned int j = 0; j < m_face[i]->m_edgeList.size(); ++j)
-        {
-            if (m_face[i]->m_edgeList[j]->m_n1 == vOld)
-            {
-                m_face[i]->m_edgeList[j]->m_n1 = pNew;
-            }
-            else if (m_face[i]->m_edgeList[j]->m_n2 == vOld)
-            {
-                m_face[i]->m_edgeList[j]->m_n2 = pNew;
-            }
-        }
-    }
+
+    return nodeList;
 }
 
-void Element::SetEdge(unsigned int p, EdgeSharedPtr pNew, bool descend)
+std::vector<SpatialDomains::PointGeom *> GetCurvedNodes(
+    SpatialDomains::Geometry *geom)
 {
-    EdgeSharedPtr vOld = m_edge[p];
-    m_edge[p]          = pNew;
+    SpatialDomains::Curve *curve = geom->GetCurve();
 
-    if (!descend)
-    {
-        return;
-    }
+    ASSERTL0(curve != nullptr,
+             "Element " + std::to_string(geom->GetGlobalID()) +
+                 " carries no curve, so its nodes cannot be gathered.");
 
-    for (unsigned int i = 0; i < m_face.size(); ++i)
-    {
-        for (unsigned int j = 0; j < m_face[i]->m_edgeList.size(); ++j)
-        {
-            if (m_face[i]->m_edgeList[j] == vOld)
-            {
-                m_face[i]->m_edgeList[j] = pNew;
-            }
-        }
-    }
-}
-
-void Element::SetFace(unsigned int p, FaceSharedPtr pNew)
-{
-    m_face[p] = pNew;
-}
-
-int Element::GetMaxOrder()
-{
-    int i, ret = 1;
-
-    for (i = 0; i < m_edge.size(); ++i)
-    {
-        int edgeOrder = m_edge[i]->GetNodeCount() - 1;
-        if (edgeOrder > ret)
-        {
-            ret = edgeOrder;
-        }
-    }
-
-    return ret;
-}
-
-unsigned int Element::GetNodeCount()
-{
-    unsigned int n = m_volumeNodes.size();
-    if (m_dim == 1)
-    {
-        n += 2;
-    }
-    else if (m_dim == 2)
-    {
-        for (int i = 0; i < m_edge.size(); ++i)
-        {
-            n += m_edge[i]->GetNodeCount();
-        }
-        n -= m_vertex.size();
-    }
-    else
-    {
-        for (int i = 0; i < m_face.size(); ++i)
-        {
-            n += m_face[i]->GetNodeCount();
-        }
-        for (int i = 0; i < m_edge.size(); ++i)
-        {
-            n -= m_edge[i]->GetNodeCount();
-        }
-        n += m_vertex.size();
-        std::cerr << "Not supported." << std::endl;
-        exit(1);
-    }
-    return n;
-}
-
-string Element::GetXmlString()
-{
-    std::stringstream s;
-    switch (m_dim)
-    {
-        case 1:
-            for (int j = 0; j < m_vertex.size(); ++j)
-            {
-                s << std::setw(5) << m_vertex[j]->m_id << " ";
-            }
-            break;
-        case 2:
-            for (int j = 0; j < m_edge.size(); ++j)
-            {
-                s << std::setw(5) << m_edge[j]->m_id << " ";
-            }
-            break;
-        case 3:
-            for (int j = 0; j < m_face.size(); ++j)
-            {
-                s << std::setw(5) << m_face[j]->m_id << " ";
-            }
-            break;
-    }
-    return s.str();
-}
-
-string Element::GetXmlCurveString()
-{
-    // Temporary node list for reordering
-    std::vector<NodeSharedPtr> nodeList;
-
-    GetCurvedNodes(nodeList);
-
-    // Finally generate the XML string corresponding to our new
-    // node reordering.
-    std::stringstream s;
-    std::string str;
-    for (int k = 0; k < nodeList.size(); ++k)
-    {
-        s << std::scientific << std::setprecision(8) << "    "
-          << nodeList[k]->m_x << "  " << nodeList[k]->m_y << "  "
-          << nodeList[k]->m_z << "    ";
-    }
-    return s.str();
+    return curve->m_points;
 }
 
 } // namespace Nektar::NekMesh

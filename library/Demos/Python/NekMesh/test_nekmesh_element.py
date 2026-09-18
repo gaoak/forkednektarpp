@@ -28,61 +28,83 @@
 ## FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 ## DEALINGS IN THE SOFTWARE.
 ##
-## Description: Unit tests for the Element class.
+## Description: Unit tests for mesh elements.
 ##
 ###############################################################################
 
-from NekPy.NekMesh import ElmtConfig, Node, Element
+from NekPy.NekMesh import ElmtConfig, Mesh
 from NekPy.LibUtilities import ShapeType, PointsType
 
 import unittest
 
 class TestElmtConfig(unittest.TestCase):
     def testElmtConfigConstructor(self):
-        self.shapeType = ShapeType.Triangle
-        self.order     = 2
-        self.faceNodes = True
-        self.volNodes  = True
-        self.reorient  = 2
-        self.edgeNodeType = PointsType.GaussLobattoLegendre
-        self.faceNodeType = PointsType.GaussGaussLegendre
-        self.config = ElmtConfig(self.shapeType, self.order,
-                                 self.faceNodes, self.volNodes,
-                                 self.reorient,  self.edgeNodeType,
-                                 self.faceNodeType )
+        ElmtConfig(ShapeType.Triangle, 2, True, True, True,
+                   PointsType.GaussLobattoLegendre,
+                   PointsType.GaussGaussLegendre)
 
     def testNoDefaultConstructor(self):
-        try:
-            default_config = ElmtConfig()
-        except:
-            pass
+        with self.assertRaises(TypeError):
+            ElmtConfig()
 
 class TestElement(unittest.TestCase):
+    """An element is a SpatialDomains Geometry that is holded by MeshGraph. 
+    The geom constructor creates it and the child edges and faces if unique.
+    Last, associates it to a composite."""
+
     def setUp(self):
-        self.x  = float(1.1)
-        self.y  = float(2.2)
-        self.z  = float(3.3)
-        self.node_a = Node(1, self.x      , self.y      , self.z)
-        self.node_b = Node(2, self.x + 1.0, self.y      , self.z)
-        self.node_c = Node(3, self.x      , self.y + 1.0, self.z)
-        self.config = ElmtConfig(ShapeType.Triangle, 1, False, False)
+        self.mesh = Mesh()
+        self.mesh.expDim   = 2
+        self.mesh.spaceDim = 2
+        self.x, self.y = 1.1, 2.2
+        self.nodes = [
+            self.mesh.CreateVertex(1, self.x,       self.y,       0.0),
+            self.mesh.CreateVertex(2, self.x + 1.0, self.y,       0.0),
+            self.mesh.CreateVertex(3, self.x,       self.y + 1.0, 0.0),
+        ]
+        self.config  = ElmtConfig(ShapeType.Triangle, 1, False, False)
         self.comp_ID = 2
-        self.element = Element.Create(self.config,
-                                  [self.node_a, self.node_b, self.node_c],
-                                  [self.comp_ID])
+        self.element = self.mesh.CreateElement(self.config, self.nodes,
+                                               self.comp_ID)
 
-    def testElementGetId(self):
-        # Possibly needs a better test?
-        elmt_id = self.element.GetId()
+    def testElementGetGlobalID(self):
+        self.element.GetGlobalID()
 
-    def testElementGetDim(self):
-        self.assertEqual(self.element.GetDim(), 2)
+    def testElementGetShapeDim(self):
+        self.assertEqual(self.element.GetShapeDim(), 2)
 
     def testElementGetShapeType(self):
-        self.assertEqual( self.element.GetShapeType(), ShapeType.Triangle)
+        self.assertEqual(self.element.GetShapeType(), ShapeType.Triangle)
 
-    def testElementGetTag(self):
-        self.assertEqual( self.element.GetTag(), "T")
+    def testElementCounts(self):
+        self.assertEqual(self.element.GetNumVerts(), 3)
+        self.assertEqual(self.element.GetNumEdges(), 3)
+
+    def testElementTag(self):
+        self.assertEqual(self.mesh.GetTag(self.element), self.comp_ID)
+        self.mesh.SetTag(self.element, 5)
+        self.assertEqual(self.mesh.GetTag(self.element), 5)
+
+    def testElementInMesh(self):
+        elements = self.mesh.GetElements(2)
+        self.assertEqual(len(elements), 1)
+        self.assertEqual(elements[0].GetGlobalID(),
+                         self.element.GetGlobalID())
+
+    def testElementRemove(self):
+        self.mesh.RemoveElement(self.element)
+        self.assertEqual(len(self.mesh.GetElements(2)), 0)
+        with self.assertRaises(KeyError):
+            self.mesh.GetTag(self.element)
+
+    def testElementSharesEdges(self):
+        # A second triangle along the first one's edge must reuse it rather
+        # than create a duplicate.
+        fourth = self.mesh.CreateVertex(4, self.x + 1.0, self.y + 1.0, 0.0)
+        self.mesh.CreateElement(
+            self.config, [self.nodes[1], fourth, self.nodes[2]], self.comp_ID)
+        self.assertEqual(len(self.mesh.GetElements(2)), 2)
+        self.assertEqual(self.mesh.GetNumElements(), 2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -40,6 +40,7 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
+#include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
@@ -78,8 +79,10 @@ Generator2D::~Generator2D()
 
 void Generator2D::Process()
 {
+    auto cad = m_mesh->m_meshGraph->GetCAD();
+
     // Check that cad is 2D
-    auto bndBox = m_mesh->m_cad->GetBoundingBox();
+    auto bndBox = cad->GetBoundingBox();
 
     if (fabs(bndBox[5] - bndBox[4]) > 1.0e-7)
     {
@@ -89,7 +92,6 @@ void Generator2D::Process()
     m_log(VERBOSE) << "Beginning 2D mesh generation:" << endl;
     m_log(VERBOSE) << "  Curve meshing:" << endl;
 
-    m_mesh->m_numNodes = m_mesh->m_cad->GetNumVerts();
     m_thickness_ID =
         m_thickness.DefineFunction("x y z", m_config["blthick"].as<string>());
     ParseUtils::GenerateSeqVector(m_config["blcurves"].as<string>(),
@@ -102,10 +104,9 @@ void Generator2D::Process()
     }
 
     // linear mesh all curves
-    for (int i = 1; i <= m_mesh->m_cad->GetNumCurve(); i++)
+    for (int i = 1; i <= cad->GetNumCurve(); i++)
     {
-        m_log(VERBOSE).Progress(i, m_mesh->m_cad->GetNumCurve(),
-                                "Curve progress");
+        m_log(VERBOSE).Progress(i, cad->GetNumCurve(), "Curve progress");
 
         vector<unsigned int>::iterator f =
             find(m_blCurves.begin(), m_blCurves.end(), i);
@@ -119,8 +120,8 @@ void Generator2D::Process()
             // BL thickness
             if (m_blends.count(i))
             {
-                vector<CADVertSharedPtr> vertices =
-                    m_mesh->m_cad->GetCurve(i)->GetVertex();
+                vector<SpatialDomains::CADVertSharedPtr> vertices =
+                    cad->GetCurve(i)->GetVertex();
                 std::array<NekDouble, 3> loc;
                 NekDouble t;
 
@@ -165,7 +166,7 @@ void Generator2D::Process()
     {
         // we need to do the boundary layer generation in a face by face basis
         MakeBLPrep();
-        for (int i = 1; i <= m_mesh->m_cad->GetNumSurf(); i++)
+        for (int i = 1; i <= cad->GetNumSurf(); i++)
         {
             MakeBL(i);
         }
@@ -174,7 +175,7 @@ void Generator2D::Process()
         // nodes from the curve meshes
         for (auto &ic : m_blends)
         {
-            vector<NodeSharedPtr> nodes =
+            vector<SpatialDomains::PointGeom *> nodes =
                 m_curvemeshes[ic.first]->GetMeshPoints();
 
             if (ic.second == 0 || ic.second == 2)
@@ -199,37 +200,43 @@ void Generator2D::Process()
     m_log(VERBOSE) << "  Face meshing:" << endl;
 
     // linear mesh all surfaces
-    for (int i = 1; i <= m_mesh->m_cad->GetNumSurf(); i++)
+    for (int i = 1; i <= cad->GetNumSurf(); i++)
     {
-        m_log(VERBOSE).Progress(i, m_mesh->m_cad->GetNumSurf(),
-                                "Face progress");
+        m_log(VERBOSE).Progress(i, cad->GetNumSurf(), "Face progress");
         m_facemeshes[i] = MemoryManager<FaceMesh>::AllocateSharedPtr(
             i, m_mesh, m_curvemeshes, 99 + i, m_log);
+
+        // Check the curve meshes bounding this surface do not cross in the
+        // parameter plane before handing to a triangle, which would
+        // otherwise fail later with a node index error.
+        if (m_facemeshes[i]->ValidateCurves())
+        {
+            m_log(WARNING) << "Curve meshes intersect on CAD surface " << i
+                           << endl;
+        }
+
         m_facemeshes[i]->Mesh();
     }
-
     ////////////////////////////////////
 
-    EdgeSet::iterator it;
-    for (auto &it : m_mesh->m_edgeSet)
+    // 1D boundary elemen -SegGeom itself, aprt of m_elementTags[1] with id of
+    // the CADcurve
+    for (auto &[curveId, curveMesh] : m_curvemeshes)
     {
-        vector<NodeSharedPtr> ns;
-        ns.push_back(it->m_n1);
-        ns.push_back(it->m_n2);
-        // for each iterator create a LibUtilities::eSegement
-        // push segment into m_mesh->m_element[1]
-        // tag for the elements shoudl be the CAD number of the curves
-        ElmtConfig conf(LibUtilities::eSegment, 1, false, false);
-        vector<int> tags;
-        tags.push_back(it->m_parentCAD->GetId());
-        ElementSharedPtr E2 = GetElementFactory().CreateInstance(
-            LibUtilities::eSegment, conf, ns, tags);
-        m_mesh->m_element[1].push_back(E2);
+        for (auto &edge : curveMesh->GetMeshEdges())
+        {
+            m_mesh->m_elementTags[1][edge] = curveId;
+        }
     }
 
-    ProcessVertices();
-    ProcessEdges();
-    ProcessFaces();
+    // BL curve meshes were replaced by their outer nodes and carry no edges,
+    // so their boundary comes from the original edges kept in m_blEdges
+    for (auto &edge : m_blEdges)
+    {
+        m_mesh->m_elementTags[1][edge] =
+            m_mesh->m_meshGraph->GetCADAssociation()->GetCurve(edge)->GetId();
+    }
+
     ProcessElements();
     ProcessComposites();
     Report();
@@ -242,16 +249,17 @@ void Generator2D::FindBLEnds()
     // the set if found
     // This leaves us with a set of vertices that are at the end of BL open
     // loops
-    set<CADVertSharedPtr> cadverts;
+    set<SpatialDomains::CADVertSharedPtr> cadverts;
 
     for (auto &it : m_blCurves)
     {
-        vector<CADVertSharedPtr> vertices =
-            m_mesh->m_cad->GetCurve(it)->GetVertex();
+        vector<SpatialDomains::CADVertSharedPtr> vertices =
+            m_mesh->m_meshGraph->GetCAD()->GetCurve(it)->GetVertex();
 
         for (auto &iv : vertices)
         {
-            set<CADVertSharedPtr>::iterator is = cadverts.find(iv);
+            set<SpatialDomains::CADVertSharedPtr>::iterator is =
+                cadverts.find(iv);
 
             if (is != cadverts.end())
             {
@@ -267,15 +275,15 @@ void Generator2D::FindBLEnds()
     // Build m_blends based on the previously constructed set of vertices
     // m_blends is a map of curve number (the curves right outside the BL open
     // loops) to the offset node number: 0, 1 or 2 (for both)
-    for (int i = 1; i <= m_mesh->m_cad->GetNumCurve(); ++i)
+    for (int i = 1; i <= m_mesh->m_meshGraph->GetCAD()->GetNumCurve(); ++i)
     {
         if (find(m_blCurves.begin(), m_blCurves.end(), i) != m_blCurves.end())
         {
             continue;
         }
 
-        vector<CADVertSharedPtr> vertices =
-            m_mesh->m_cad->GetCurve(i)->GetVertex();
+        vector<SpatialDomains::CADVertSharedPtr> vertices =
+            m_mesh->m_meshGraph->GetCAD()->GetCurve(i)->GetVertex();
 
         for (int j = 0; j < 2; ++j)
         {
@@ -301,40 +309,46 @@ void Generator2D::MakeBLPrep()
     m_log(VERBOSE) << "  Boundary layer meshing:" << endl;
 
     // identify the nodes and edges which will become the boundary layer.
-
     for (auto &it : m_blCurves)
     {
-        vector<EdgeSharedPtr> localedges = m_curvemeshes[it]->GetMeshEdges();
+        vector<SpatialDomains::SegGeom *> localedges =
+            m_curvemeshes[it]->GetMeshEdges();
         for (auto &ie : localedges)
         {
             m_blEdges.push_back(ie);
-            m_nodesToEdge[ie->m_n1].push_back(ie);
-            m_nodesToEdge[ie->m_n2].push_back(ie);
+            m_nodesToEdge[ie->GetVertex(0)].push_back(ie);
+            m_nodesToEdge[ie->GetVertex(1)].push_back(ie);
         }
     }
 }
 
 void Generator2D::MakeBL(int faceid)
 {
-    map<int, std::array<NekDouble, 2>> edgeNormals;
-    int eid = 0;
+    auto &m_graph  = m_mesh->m_meshGraph;
+    Octree &octree = GetOctree(m_mesh, m_log);
+
+    std::unordered_map<SpatialDomains::SegGeom *, std::array<NekDouble, 2>>
+        edgeNormals;
+
     for (auto &it : m_blCurves)
     {
-        CADOrientation::Orientation edgeo =
-            m_mesh->m_cad->GetCurve(it)->GetOrienationWRT(faceid);
-        vector<EdgeSharedPtr> es = m_curvemeshes[it]->GetMeshEdges();
+        SpatialDomains::CADOrientation::Orientation edgeo =
+            m_graph->GetCAD()->GetCurve(it)->GetOrienationWRT(faceid);
+        vector<SpatialDomains::SegGeom *> es =
+            m_curvemeshes[it]->GetMeshEdges();
         // on each !!!EDGE!!! calculate a normal
         // always to the left unless edgeo is 1
         // normal must be done in the parametric space (and then projected back)
         // because of face orientation
         for (auto &ie : es)
         {
-            ie->m_id = eid++;
-            auto p1  = ie->m_n1->GetCADSurfInfo(faceid);
-            auto p2  = ie->m_n2->GetCADSurfInfo(faceid);
+            auto p1 = m_graph->GetCADAssociation()->GetSurfUV(ie->GetVertex(0),
+                                                              faceid);
+            auto p2 = m_graph->GetCADAssociation()->GetSurfUV(ie->GetVertex(1),
+                                                              faceid);
 
             std::array<NekDouble, 2> n = {p1[1] - p2[1], p2[0] - p1[0]};
-            if (edgeo == CADOrientation::eBackwards)
+            if (edgeo == SpatialDomains::CADOrientation::eBackwards)
             {
                 n[0] *= -1.0;
                 n[1] *= -1.0;
@@ -345,14 +359,15 @@ void Generator2D::MakeBL(int faceid)
 
             std::array<NekDouble, 2> np = {p1[0] + n[0], p1[1] + n[1]};
 
-            auto loc  = ie->m_n1->GetLoc();
-            auto locp = m_mesh->m_cad->GetSurf(faceid)->P(np);
+            std::array<NekDouble, 3> loc;
+            ie->GetVertex(0)->GetCoords(loc[0], loc[1], loc[2]);
+            auto locp = m_graph->GetCAD()->GetSurf(faceid)->P(np);
             n[0]      = locp[0] - loc[0];
             n[1]      = locp[1] - loc[1];
             mag       = sqrt(n[0] * n[0] + n[1] * n[1]);
             n[0] /= mag;
             n[1] /= mag;
-            edgeNormals[ie->m_id] = n;
+            edgeNormals[ie] = n;
         }
     }
 
@@ -370,7 +385,9 @@ void Generator2D::MakeBL(int faceid)
         divider = 2.0;
     }
 
-    map<NodeSharedPtr, NodeSharedPtr> nodeNormals;
+    std::unordered_map<SpatialDomains::PointGeom *, SpatialDomains::PointGeom *>
+        nodeNormals;
+    std::unordered_set<SpatialDomains::PointGeom *> createdNormals;
     for (auto &it : m_nodesToEdge)
     {
         if (it.second.size() != 1 && it.second.size() != 2)
@@ -384,16 +401,17 @@ void Generator2D::MakeBL(int faceid)
         // constructed by computing a normal but found on the adjacent curve
         if (it.second.size() == 1)
         {
-            vector<CADCurveSharedPtr> curves = it.first->GetCADCurves();
+            auto curves = m_graph->GetCADAssociation()->GetLinks(
+                it.first, SpatialDomains::CADType::eCurve);
 
-            vector<EdgeSharedPtr> edges =
-                m_curvemeshes[curves[0]->GetId()]->GetMeshEdges();
-            vector<EdgeSharedPtr>::iterator ie =
+            vector<SpatialDomains::SegGeom *> edges =
+                m_curvemeshes[curves[0].Id()]->GetMeshEdges();
+            vector<SpatialDomains::SegGeom *>::iterator ie =
                 find(edges.begin(), edges.end(), it.second[0]);
             int rightCurve =
-                (ie == edges.end()) ? curves[0]->GetId() : curves[1]->GetId();
+                (ie == edges.end()) ? curves[0].Id() : curves[1].Id();
 
-            vector<NodeSharedPtr> nodes =
+            vector<SpatialDomains::PointGeom *> nodes =
                 m_curvemeshes[rightCurve]->GetMeshPoints();
             nodeNormals[it.first] =
                 (nodes[0] == it.first) ? nodes[1] : nodes[nodes.size() - 2];
@@ -402,19 +420,21 @@ void Generator2D::MakeBL(int faceid)
         }
 
         std::array<NekDouble, 3> n = {0.0, 0.0, 0.0};
-        auto n1                    = edgeNormals[it.second[0]->m_id];
-        auto n2                    = edgeNormals[it.second[1]->m_id];
+        auto n1                    = edgeNormals[it.second[0]];
+        auto n2                    = edgeNormals[it.second[1]];
         n[0]                       = (n1[0] + n2[0]) / 2.0;
         n[1]                       = (n1[1] + n2[1]) / 2.0;
         NekDouble mag              = sqrt(n[0] * n[0] + n[1] * n[1]);
         n[0] /= mag;
         n[1] /= mag;
-        NekDouble t = m_thickness.Evaluate(m_thickness_ID, it.first->m_x,
-                                           it.first->m_y, 0.0, 0.0);
+        NekDouble t = m_thickness.Evaluate(m_thickness_ID, it.first->x(),
+                                           it.first->y(), 0.0, 0.0);
         // Adjust thickness according to angle between normals
         if (adjust)
         {
-            if (adjustEverywhere || it.first->GetNumCadCurve() > 1)
+            if (adjustEverywhere ||
+                m_graph->GetCADAssociation()->Count(
+                    it.first, SpatialDomains::CADType::eCurve) > 1)
             {
                 NekDouble angle = acos(n1[0] * n2[0] + n1[1] * n2[1]);
                 angle           = (angle > M_PI) ? 2 * M_PI - angle : angle;
@@ -422,13 +442,18 @@ void Generator2D::MakeBL(int faceid)
             }
         }
 
-        n[0]             = n[0] * t + it.first->m_x;
-        n[1]             = n[1] * t + it.first->m_y;
-        NodeSharedPtr nn = std::shared_ptr<Node>(
-            new Node(m_mesh->m_numNodes++, n[0], n[1], 0.0));
-        CADSurfSharedPtr s = m_mesh->m_cad->GetSurf(faceid);
-        auto uv            = s->locuv(n);
-        nn->SetCADSurf(s, uv);
+        n[0] = n[0] * t + it.first->x();
+        n[1] = n[1] * t + it.first->y();
+
+        int newId = NextPointId(m_graph);
+        auto pt = ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+            3, newId, n[0], n[1], 0.0);
+        SpatialDomains::PointGeom *nn = pt.get();
+        m_graph->AddGeom<SpatialDomains::PointGeom>(newId, std::move(pt));
+
+        SpatialDomains::CADSurfSharedPtr s = m_graph->GetCAD()->GetSurf(faceid);
+        auto uv                            = s->locuv(n);
+        m_graph->GetCADAssociation()->Add(nn, {s, {uv[0], uv[1]}});
         nodeNormals[it.first] = nn;
     }
 
@@ -436,10 +461,14 @@ void Generator2D::MakeBL(int faceid)
     // needed
     if (smoothbl)
     {
-        // Nodes that need normal smoothing and their unit normal
-        map<NodeSharedPtr, vector<NodeSharedPtr>> unitNormals;
+        // Nodes that need normal smoothing and their unit normal. Ordered
+        // by node ID, not by address: smoothing walks these and moves each
+        // node, so the order decides the result.
+        map<SpatialDomains::PointGeom *, vector<std::array<NekDouble, 3>>,
+            GeometryPtrIdLess>
+            unitNormals;
         // Nodes that need normal smoothing and their BL thickness
-        map<NodeSharedPtr, NekDouble> dist;
+        map<SpatialDomains::PointGeom *, NekDouble, GeometryPtrIdLess> dist;
 
         int count = 0;
 
@@ -452,13 +481,17 @@ void Generator2D::MakeBL(int faceid)
             {
                 // Line intersection based on
                 // https://stackoverflow.com/a/565282/7241595
-                NodeSharedPtr p = it->m_n1;
-                NodeSharedPtr q = it->m_n2;
+                SpatialDomains::PointGeom *p = it->GetVertex(0);
+                SpatialDomains::PointGeom *q = it->GetVertex(1);
 
-                Node r = *nodeNormals[p] - *p;
-                Node s = *nodeNormals[q] - *q;
+                std::array<NekDouble, 3> r = {nodeNormals[p]->x() - p->x(),
+                                              nodeNormals[p]->y() - p->y(),
+                                              nodeNormals[p]->z() - p->z()};
+                std::array<NekDouble, 3> s = {nodeNormals[q]->x() - q->x(),
+                                              nodeNormals[q]->y() - q->y(),
+                                              nodeNormals[q]->z() - q->z()};
 
-                NekDouble d = r.curl(s).m_z;
+                NekDouble d = r[0] * s[1] - r[1] * s[0];
 
                 // Should probably use tolerance to check parallelism
                 if (d == 0)
@@ -466,8 +499,11 @@ void Generator2D::MakeBL(int faceid)
                     continue;
                 }
 
-                NekDouble t = (*q - *p).curl(s).m_z / d;
-                NekDouble u = (*q - *p).curl(r).m_z / d;
+                std::array<NekDouble, 3> qp = {q->x() - p->x(), q->y() - p->y(),
+                                               q->z() - p->z()};
+
+                NekDouble t = (qp[0] * s[1] - qp[1] * s[0]) / d;
+                NekDouble u = (qp[0] * r[1] - qp[1] * r[0]) / d;
 
                 // Check for intersection of the infinite continuation of one
                 // normal with the other. A tolerance of 0.5 times the length of
@@ -475,11 +511,13 @@ void Generator2D::MakeBL(int faceid)
                 // aggressive value.
                 if ((-0.5 < t && t <= 1.5) || (-0.5 < u && u <= 1.5))
                 {
-                    dist[p] = sqrt(r.abs2());
-                    dist[q] = sqrt(s.abs2());
+                    dist[p] = sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]);
+                    dist[q] = sqrt(s[0] * s[0] + s[1] * s[1] + s[2] * s[2]);
 
-                    NodeSharedPtr sum =
-                        make_shared<Node>(r / dist[p] + s / dist[q]);
+                    std::array<NekDouble, 3> sum = {
+                        r[0] / dist[p] + s[0] / dist[q],
+                        r[1] / dist[p] + s[1] / dist[q],
+                        r[2] / dist[p] + s[2] / dist[q]};
 
                     unitNormals[p].push_back(sum);
                     unitNormals[q].push_back(sum);
@@ -489,24 +527,32 @@ void Generator2D::MakeBL(int faceid)
             // Smooth each normal one by one
             for (const auto &it : unitNormals)
             {
-                Node avg(0, 0.0, 0.0, 0.0);
+                std::array<NekDouble, 3> avg = {0.0, 0.0, 0.0};
 
                 for (const auto &i : it.second)
                 {
-                    avg += *i;
+                    avg[0] += i[0];
+                    avg[1] += i[1];
+                    avg[2] += i[2];
                 }
 
-                avg /= sqrt(avg.abs2());
+                NekDouble mag =
+                    sqrt(avg[0] * avg[0] + avg[1] * avg[1] + avg[2] * avg[2]);
+                avg[0] /= mag;
+                avg[1] /= mag;
+                avg[2] /= mag;
 
-                // Create new BL node with smoothed normal
-                NodeSharedPtr nn = std::shared_ptr<Node>(
-                    new Node(nodeNormals[it.first]->GetID(),
-                             it.first->m_x + avg.m_x * dist[it.first],
-                             it.first->m_y + avg.m_y * dist[it.first], 0.0));
-                CADSurfSharedPtr s =
-                    *nodeNormals[it.first]->GetCADSurfs().begin();
-                auto uv = s->locuv(nn->GetLoc());
-                nn->SetCADSurf(s, uv);
+                // Move the BL node onto the smoothed normal
+                SpatialDomains::PointGeom *nn = nodeNormals[it.first];
+                std::array<NekDouble, 3> loc  = {
+                    it.first->x() + avg[0] * dist[it.first],
+                    it.first->y() + avg[1] * dist[it.first], 0.0};
+                nn->UpdatePosition(loc[0], loc[1], loc[2]);
+
+                SpatialDomains::CADSurfSharedPtr s =
+                    m_graph->GetCADAssociation()->GetSurf(nn);
+                auto uv = s->locuv(loc);
+                m_graph->GetCADAssociation()->Add(nn, {s, {uv[0], uv[1]}});
 
                 nodeNormals[it.first] = nn;
             }
@@ -541,7 +587,7 @@ void Generator2D::MakeBL(int faceid)
                                       nospaceoutsurf);
 
         // List of connected nodes at need spacing out
-        vector<deque<NodeSharedPtr>> nodesToMove;
+        vector<deque<SpatialDomains::PointGeom *>> nodesToMove;
 
         int count = 0;
 
@@ -554,19 +600,23 @@ void Generator2D::MakeBL(int faceid)
             // Find which nodes need to be spaced out
             for (const auto &ie : m_blEdges)
             {
-                auto it = find(nospaceoutsurf.begin(), nospaceoutsurf.end(),
-                               ie->m_parentCAD->GetId());
+                auto it =
+                    find(nospaceoutsurf.begin(), nospaceoutsurf.end(),
+                         m_graph->GetCADAssociation()->GetCurve(ie)->GetId());
                 if (it != nospaceoutsurf.end())
                 {
                     continue;
                 }
 
-                NodeSharedPtr n1 = nodeNormals[ie->m_n1];
-                NodeSharedPtr n2 = nodeNormals[ie->m_n2];
+                SpatialDomains::PointGeom *n1 = nodeNormals[ie->GetVertex(0)];
+                SpatialDomains::PointGeom *n2 = nodeNormals[ie->GetVertex(1)];
 
-                NekDouble targetD =
-                    m_mesh->m_octree->Query(((*n1 + *n2) / 2.0).GetLoc());
-                NekDouble realD = sqrt((*n1 - *n2).abs2());
+                std::array<NekDouble, 3> mid = {(n1->x() + n2->x()) / 2.0,
+                                                (n1->y() + n2->y()) / 2.0,
+                                                (n1->z() + n2->z()) / 2.0};
+
+                NekDouble targetD = octree.Query(mid);
+                NekDouble realD   = n1->dist(*n2);
 
                 // Add nodes if condition fulfilled
                 if (realD < spaceoutthr * targetD)
@@ -604,7 +654,7 @@ void Generator2D::MakeBL(int faceid)
                     // Create new set of connected nodes if necessary
                     if (!connected)
                     {
-                        deque<NodeSharedPtr> newList;
+                        deque<SpatialDomains::PointGeom *> newList;
                         newList.push_back(n1);
                         newList.push_back(n2);
 
@@ -620,13 +670,14 @@ void Generator2D::MakeBL(int faceid)
                 // find extra space.
                 for (int i1 = 0; i1 < nodesToMove.size(); ++i1)
                 {
-                    NodeSharedPtr n11 = nodesToMove[i1].front();
-                    NodeSharedPtr n12 = nodesToMove[i1].back();
+                    SpatialDomains::PointGeom *n11 = nodesToMove[i1].front();
+                    SpatialDomains::PointGeom *n12 = nodesToMove[i1].back();
 
                     for (int i2 = i1 + 1; i2 < nodesToMove.size(); ++i2)
                     {
-                        NodeSharedPtr n21 = nodesToMove[i2].front();
-                        NodeSharedPtr n22 = nodesToMove[i2].back();
+                        SpatialDomains::PointGeom *n21 =
+                            nodesToMove[i2].front();
+                        SpatialDomains::PointGeom *n22 = nodesToMove[i2].back();
 
                         if (n11 == n21 || n11 == n22 || n12 == n21 ||
                             n12 == n22)
@@ -665,32 +716,37 @@ void Generator2D::MakeBL(int faceid)
                     break;
                 }
 
-                set<EdgeSharedPtr> addedEdges;
+                set<SpatialDomains::SegGeom *> addedEdges;
 
                 // Expand each set of connected nodes by one node to allow for
                 // extra space
                 for (auto &il : nodesToMove)
                 {
-                    NodeSharedPtr n11 = *(il.begin() + 0);
-                    NodeSharedPtr n12 = *(il.begin() + 1);
+                    SpatialDomains::PointGeom *n11 = *(il.begin() + 0);
+                    SpatialDomains::PointGeom *n12 = *(il.begin() + 1);
 
-                    NodeSharedPtr n13 = *(il.rbegin() + 1);
-                    NodeSharedPtr n14 = *(il.rbegin() + 0);
+                    SpatialDomains::PointGeom *n13 = *(il.rbegin() + 1);
+                    SpatialDomains::PointGeom *n14 = *(il.rbegin() + 0);
 
                     for (const auto &ie : m_blEdges)
                     {
                         auto it =
                             find(nospaceoutsurf.begin(), nospaceoutsurf.end(),
-                                 ie->m_parentCAD->GetId());
+                                 m_graph->GetCADAssociation()
+                                     ->GetCurve(ie)
+                                     ->GetId());
                         if (addedEdges.count(ie) || it != nospaceoutsurf.end())
                         {
                             continue;
                         }
 
-                        NodeSharedPtr n21 = nodeNormals[ie->m_n1];
-                        NodeSharedPtr n22 = nodeNormals[ie->m_n2];
+                        SpatialDomains::PointGeom *n21 =
+                            nodeNormals[ie->GetVertex(0)];
+                        SpatialDomains::PointGeom *n22 =
+                            nodeNormals[ie->GetVertex(1)];
 
-                        NodeSharedPtr frontPush, backPush;
+                        SpatialDomains::PointGeom *frontPush = nullptr;
+                        SpatialDomains::PointGeom *backPush  = nullptr;
 
                         if (n11)
                         {
@@ -706,7 +762,7 @@ void Generator2D::MakeBL(int faceid)
                             if (frontPush)
                             {
                                 il.push_front(frontPush);
-                                n11.reset();
+                                n11 = nullptr;
                                 addedEdges.insert(ie);
                             }
                         }
@@ -724,7 +780,7 @@ void Generator2D::MakeBL(int faceid)
                             if (backPush)
                             {
                                 il.push_back(backPush);
-                                n14.reset();
+                                n14 = nullptr;
                                 addedEdges.insert(ie);
                             }
                         }
@@ -742,19 +798,22 @@ void Generator2D::MakeBL(int faceid)
             // required Delta or each edge.
             for (const auto &il : nodesToMove)
             {
-                NodeSharedPtr ni = il.front();
-                NodeSharedPtr nf = il.back();
+                SpatialDomains::PointGeom *ni = il.front();
+                SpatialDomains::PointGeom *nf = il.back();
 
                 vector<NekDouble> deltas;
                 NekDouble total = 0.0;
 
                 for (int i = 0; i < il.size() - 1; ++i)
                 {
-                    NodeSharedPtr n1 = il[i];
-                    NodeSharedPtr n2 = il[i + 1];
+                    SpatialDomains::PointGeom *n1 = il[i];
+                    SpatialDomains::PointGeom *n2 = il[i + 1];
 
-                    deltas.push_back(
-                        m_mesh->m_octree->Query(((*n1 + *n2) / 2.0).GetLoc()));
+                    std::array<NekDouble, 3> mid = {(n1->x() + n2->x()) / 2.0,
+                                                    (n1->y() + n2->y()) / 2.0,
+                                                    (n1->z() + n2->z()) / 2.0};
+
+                    deltas.push_back(octree.Query(mid));
                     total += deltas.back();
                 }
 
@@ -768,12 +827,19 @@ void Generator2D::MakeBL(int faceid)
                 for (int i = 1; i < il.size() - 1; ++i)
                 {
                     runningTotal += deltas[i - 1];
-                    auto loc = (*ni * (1.0 - runningTotal) + *nf * runningTotal)
-                                   .GetLoc();
+                    std::array<NekDouble, 3> loc = {
+                        ni->x() * (1.0 - runningTotal) + nf->x() * runningTotal,
+                        ni->y() * (1.0 - runningTotal) + nf->y() * runningTotal,
+                        ni->z() * (1.0 - runningTotal) +
+                            nf->z() * runningTotal};
 
-                    auto uv = m_mesh->m_cad->GetSurf(faceid)->locuv(loc);
+                    SpatialDomains::CADSurfSharedPtr s =
+                        m_graph->GetCAD()->GetSurf(faceid);
+                    auto uv = s->locuv(loc);
 
-                    il[i]->Move(loc, faceid, uv);
+                    il[i]->UpdatePosition(loc[0], loc[1], loc[2]);
+                    m_graph->GetCADAssociation()->Add(il[i],
+                                                      {s, {uv[0], uv[1]}});
                 }
             }
         } while (nodesToMove.size() && count++ < 50);
@@ -790,13 +856,14 @@ void Generator2D::MakeBL(int faceid)
                            << endl;
         }
     }
-
+    m_log(VERBOSE) << "   N (BLcurves) = " << m_blCurves.size() << endl;
     for (auto &it : m_blCurves)
     {
-        CADOrientation::Orientation edgeo =
-            m_mesh->m_cad->GetCurve(it)->GetOrienationWRT(faceid);
-        vector<NodeSharedPtr> ns = m_curvemeshes[it]->GetMeshPoints();
-        vector<NodeSharedPtr> newNs;
+        SpatialDomains::CADOrientation::Orientation edgeo =
+            m_graph->GetCAD()->GetCurve(it)->GetOrienationWRT(faceid);
+        vector<SpatialDomains::PointGeom *> ns =
+            m_curvemeshes[it]->GetMeshPoints();
+        vector<SpatialDomains::PointGeom *> newNs;
         for (auto &in : ns)
         {
             newNs.push_back(nodeNormals[in]);
@@ -805,36 +872,32 @@ void Generator2D::MakeBL(int faceid)
         m_curvemeshes[it] = MemoryManager<CurveMesh>::AllocateSharedPtr(
             it, m_mesh, newNs, m_log);
 
-        if (edgeo == CADOrientation::eBackwards)
+        if (edgeo == SpatialDomains::CADOrientation::eBackwards)
         {
             reverse(ns.begin(), ns.end());
         }
         for (int i = 0; i < ns.size() - 1; ++i)
         {
-            vector<NodeSharedPtr> qns;
+            vector<SpatialDomains::PointGeom *> qns;
             qns.push_back(ns[i]);
             qns.push_back(ns[i + 1]);
             qns.push_back(nodeNormals[ns[i + 1]]);
             qns.push_back(nodeNormals[ns[i]]);
-            ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false, false);
-            vector<int> tags;
-            tags.push_back(101);
-            ElementSharedPtr E = GetElementFactory().CreateInstance(
-                LibUtilities::eQuadrilateral, conf, qns, tags);
-            E->m_parentCAD = m_mesh->m_cad->GetSurf(faceid);
-            for (int j = 0; j < E->GetEdgeCount(); ++j)
-            {
-                pair<EdgeSet::iterator, bool> testIns;
-                EdgeSharedPtr ed = E->GetEdge(j);
-                // look for edge in m_mesh edgeset from curves
-                EdgeSet::iterator s = m_mesh->m_edgeSet.find(ed);
-                if (!(s == m_mesh->m_edgeSet.end()))
-                {
-                    ed = *s;
-                    E->SetEdge(j, *s);
-                }
-            }
-            m_mesh->m_element[2].push_back(E);
+
+            // quad from a boundary edge and its two normals with
+            // reorientations
+            // KK we might be able to scale and project the CAD Curve ontop
+            // so we preserve curvature on the both sides of the BLs quad
+            ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false, false,
+                            m_graph->GetSpaceDimension() != 3);
+
+            SpatialDomains::Geometry *E = GetElementFactory().CreateInstance(
+                LibUtilities::eQuadrilateral, qns, m_graph, m_mesh->m_edgeSet,
+                m_mesh->m_faceSet, conf, nullptr, nullptr, nullptr, nullptr);
+
+            m_graph->GetCADAssociation()->Set(
+                E, {m_graph->GetCAD()->GetSurf(faceid)});
+            m_mesh->m_elementTags[2][E] = 101;
         }
     }
 }
@@ -902,15 +965,19 @@ void Generator2D::MakePeriodic()
 
 void Generator2D::Report()
 {
-    int ns = m_mesh->m_vertexSet.size();
-    int es = m_mesh->m_edgeSet.size();
-    int ts = m_mesh->m_element[2].size();
-    int ep = ns - es + ts;
+    auto &graph = m_mesh->m_meshGraph;
+
+    int ns = graph->GetNumGeoms<SpatialDomains::PointGeom>();
+    int es = graph->GetNumGeoms<SpatialDomains::SegGeom>();
+    int ts = graph->GetNumGeoms<SpatialDomains::TriGeom>();
+    int qs = graph->GetNumGeoms<SpatialDomains::QuadGeom>();
+    int ep = ns - es + ts + qs;
 
     m_log(VERBOSE) << "Surface meshing complete. Statistics:" << endl;
     m_log(VERBOSE) << "  - Nodes         : " << ns << endl;
     m_log(VERBOSE) << "  - Edges         : " << es << endl;
     m_log(VERBOSE) << "  - Triangles     : " << ts << endl;
+    m_log(VERBOSE) << "  - Quads         : " << qs << endl;
     m_log(VERBOSE) << "  - Euler-Poincaré: " << ep << endl;
 }
 } // namespace Nektar::NekMesh

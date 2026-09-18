@@ -48,7 +48,8 @@ Geometry3D::Geometry3D()
 {
 }
 
-Geometry3D::Geometry3D(const int coordim) : Geometry(coordim)
+Geometry3D::Geometry3D(const int coordim, Curve *curve)
+    : Geometry(coordim), m_curve(curve)
 {
     ASSERTL0(m_coordim > 2,
              "Coordinate dimension should be at least 3 for a 3D geometry.");

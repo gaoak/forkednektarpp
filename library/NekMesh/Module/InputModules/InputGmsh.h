@@ -57,14 +57,17 @@ public:
     }
     /// %ModuleKey for class.
     static NekMesh::ModuleKey className;
-    static std::map<unsigned int, NekMesh::ElmtConfig> GenElmMap();
+    /// Exported so that the unit tests can reach it; Windows will not
+    /// resolve it from outside libNekMesh otherwise.
+    NEKMESH_EXPORT static std::map<unsigned int, NekMesh::ElmtConfig> GenElmMap();
 
     /**
      * Element map; takes a msh id to an %ElmtConfig object.
      */
     static std::map<unsigned int, NekMesh::ElmtConfig> elmMap;
-    static std::vector<int> CreateReordering(unsigned int InputGmshEntity,
-                                             Logger &log);
+    /// Exported for the unit tests, as GenElmMap() above.
+    NEKMESH_EXPORT static std::vector<int> CreateReordering(
+        unsigned int InputGmshEntity, Logger &log);
 
     std::string GetModuleName() override
     {
@@ -83,21 +86,31 @@ private:
 
     // Gmsh file version
     NekDouble m_version;
-    // Previous id for contiguousness
-    int m_prevId;
-    // Id map if non-contiguous
-    std::map<int, int> m_idMap;
     // Highest tag number
     int m_maxTagId;
     // This map takes each element ID and maps it to a permutation map
     // that is required to take Gmsh element node orderings and map them
     // to Nektar++ orderings.
     std::unordered_map<int, std::vector<int>> m_orderingMap;
+    /// Container vertices and curvature nodes are loaded into before sorting
+    SpatialDomains::GeomMap<SpatialDomains::PointGeom> m_loadedNodes;
+    /// IDs to move from m_loadedNodes into the graph as mesh vertices
+    std::set<int> m_vertIDs;
+    /// IDs to move from m_loadedNodes into the graph as curvature nodes
+    std::unordered_set<int> m_curveNodeIDs;
+    /// IDs of triangles created naively, whose orientation a tetrahedron
+    /// adopting them should overwrite
+    std::unordered_set<int> m_naiveTriIDs;
 
     void ReadNextNode();
+    void CalcNodeDim(int nVertices);
     void ReadNextNodeBlock(int nVertices = 0);
     void SaveNode(int id, NekDouble x = 0, NekDouble y = 0, NekDouble z = 0);
     void ReadNextElement(int tag = 0, int elm_type = 0);
+    /// Keep the interior nodes of a high-order element as a curve on it.
+    void StoreVolumeNodes(
+        SpatialDomains::Geometry *element, const NekMesh::ElmtConfig &conf,
+        const std::vector<SpatialDomains::PointGeom *> &gmshPoints);
 };
 } // namespace Nektar::NekMesh
 

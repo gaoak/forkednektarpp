@@ -22,6 +22,7 @@ SET(BasicUtilsHeaders
     ./BasicUtils/ErrorUtil.hpp
     ./BasicUtils/Interpolator.h
     ./BasicUtils/HashUtils.hpp
+    ./BasicUtils/Log.hpp
     ./BasicUtils/NekManager.hpp
     ./BasicUtils/NekFactory.hpp
     ./BasicUtils/ParseUtils.h

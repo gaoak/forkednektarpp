@@ -34,9 +34,15 @@
 
 #include <SpatialDomains/TetGeom.h>
 
+#include <LibUtilities/Foundations/Interp.h>
+#include <LibUtilities/Foundations/ManagerAccess.h>
+#include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/Geometry1D.h>
+#include <SpatialDomains/HOAlignment.h>
 #include <SpatialDomains/SegGeom.h>
+#include <SpatialDomains/TriGeom.h>
 #include <SpatialDomains/XmapFactory.hpp>
+#include <StdRegions/StdNodalTetExp.h>
 #include <StdRegions/StdTetExp.h>
 
 namespace Nektar::SpatialDomains
@@ -61,8 +67,8 @@ TetGeom::TetGeom()
     m_shapeType = LibUtilities::eTetrahedron;
 }
 
-TetGeom::TetGeom(int id, std::array<TriGeom *, kNfaces> faces)
-    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim())
+TetGeom::TetGeom(int id, std::array<TriGeom *, kNfaces> faces, Curve *curve)
+    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim(), curve)
 {
     m_shapeType = LibUtilities::eTetrahedron;
     m_globalID  = id;
@@ -72,6 +78,26 @@ TetGeom::TetGeom(int id, std::array<TriGeom *, kNfaces> faces)
     SetUpLocalVertices();
     SetUpEdgeOrientation();
     SetUpFaceOrientation();
+}
+
+TetGeom::TetGeom(int id, std::array<TriGeom *, 4> faces,
+                 std::array<SegGeom *, 6> edges,
+                 std::array<PointGeom *, 4> verts, bool skipSetUp, Curve *curve)
+    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim(), curve)
+{
+    m_shapeType = LibUtilities::eTetrahedron;
+    m_globalID  = id;
+
+    /// Copy the face & edge & vert pointers
+    m_faces = faces;
+    m_edges = edges;
+    m_verts = verts;
+
+    if (!skipSetUp)
+    {
+        SetUpEdgeOrientation();
+        SetUpFaceOrientation();
+    }
 }
 
 int TetGeom::v_GetDir(const int faceidx, const int facedir) const
@@ -231,7 +257,6 @@ void TetGeom::SetUpLocalEdges()
 
 void TetGeom::SetUpLocalVertices()
 {
-
     // Set up the first 2 vertices (i.e. vertex 0,1)
     if ((m_edges[0]->GetVid(0) == m_edges[1]->GetVid(0)) ||
         (m_edges[0]->GetVid(0) == m_edges[1]->GetVid(1)))
@@ -579,6 +604,15 @@ void TetGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     {
         m_faces[i]->Reset(curvedEdges, curvedFaces);
     }
+
+    SetUpXmap();
+    SetUpCoeffs(m_xmap->GetNcoeffs());
+}
+
+void TetGeom::v_ResetLite()
+{
+    SetUpEdgeOrientation();
+    SetUpFaceOrientation();
 }
 
 void TetGeom::v_Setup()
@@ -647,7 +681,6 @@ GeomType TetGeom::v_CalcGeomType()
     {
         v_CalculateInverseIsoParam();
     }
-
     return Gtype;
 }
 
@@ -718,6 +751,64 @@ void TetGeom::v_FillGeom()
 
     int i, j, k;
 
+    if (m_curve)
+    {
+        // Interior nodes of the element itself. A tetrahedron's nodes are a
+        // nodal distribution rather than a tensor grid, so this follows the
+        // triangle: interpolate through a nodal expansion of matching order,
+        // then transform. The faces below then overwrite the boundary
+        // coefficients, which are shared and so authoritative, leaving only
+        // the interior taken from here.
+        const int N = m_curve->m_points.size();
+
+        // N = n(n+1)(n+2)/6; recover n.
+        int nEdgePts = 1;
+        while (nEdgePts * (nEdgePts + 1) * (nEdgePts + 2) / 6 < N)
+        {
+            ++nEdgePts;
+        }
+        ASSERTL0(nEdgePts * (nEdgePts + 1) * (nEdgePts + 2) / 6 == N,
+                 "NUMPOINTS should be a tetrahedral number in tetrahedron " +
+                     std::to_string(m_globalID));
+
+        const LibUtilities::PointsKey P0(nEdgePts,
+                                         LibUtilities::eGaussLobattoLegendre);
+        const LibUtilities::PointsKey P1(nEdgePts,
+                                         LibUtilities::eGaussRadauMAlpha1Beta0);
+        const LibUtilities::PointsKey P2(nEdgePts,
+                                         LibUtilities::eGaussRadauMAlpha2Beta0);
+        const LibUtilities::BasisKey T0(LibUtilities::eOrtho_A, nEdgePts, P0);
+        const LibUtilities::BasisKey T1(LibUtilities::eOrtho_B, nEdgePts, P1);
+        const LibUtilities::BasisKey T2(LibUtilities::eOrtho_C, nEdgePts, P2);
+
+        const int nq =
+            P0.GetNumPoints() * P1.GetNumPoints() * P2.GetNumPoints();
+        Array<OneD, NekDouble> nodal(N);
+        Array<OneD, NekDouble> tmp(nq);
+        Array<OneD, NekDouble> phys(m_xmap->GetTotPoints());
+
+        for (i = 0; i < m_coordim; ++i)
+        {
+            StdRegions::StdNodalTetExpSharedPtr t =
+                MemoryManager<StdRegions::StdNodalTetExp>::AllocateSharedPtr(
+                    T0, T1, T2, m_curve->m_ptype);
+
+            for (j = 0; j < N; ++j)
+            {
+                nodal[j] = (m_curve->m_points[j]->GetPtr())[i];
+            }
+
+            t->BwdTrans(nodal, tmp);
+
+            LibUtilities::Interp3D(P0, P1, P2, tmp,
+                                   m_xmap->GetBasis(0)->GetPointsKey(),
+                                   m_xmap->GetBasis(1)->GetPointsKey(),
+                                   m_xmap->GetBasis(2)->GetPointsKey(), phys);
+
+            m_xmap->FwdTrans(phys, m_coeffs[i]);
+        }
+    }
+
     for (i = 0; i < kNfaces; i++)
     {
         m_faces[i]->FillGeom();
@@ -756,6 +847,139 @@ void TetGeom::v_FillGeom()
     }
 
     m_state = ePtsFilled;
+}
+
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> TetGeom::v_MakeOrder(
+    int order, const LibUtilities::PointsType pType)
+{
+    int nPoints = order + 1;
+
+    Array<OneD, NekDouble> px, py, pz;
+    LibUtilities::PointsKey pKey(nPoints, pType);
+    ASSERTL1(pKey.GetPointsDim() == 3, "Points distribution must be 3D");
+    LibUtilities::PointsManager()[pKey]->GetPoints(px, py, pz);
+
+    // A nodal tetrahedron is laid out as four vertices, then the interior of
+    // each of the six edges, then the interior of each of the four faces, then
+    // the interior of the element.
+    const int nTetPts    = nPoints * (nPoints + 1) * (nPoints + 2) / 6;
+    const int nEdgeNodes = nPoints - 2;
+    const int nFaceNodes = (nPoints - 2) * (nPoints - 3) / 2;
+
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> cd;
+
+    cd.first = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        m_globalID, pType);
+
+    Curve *c = cd.first.get();
+    c->m_points.resize(nTetPts);
+
+    m_curve = c;
+
+    for (int i = 0; i < kNverts; ++i)
+    {
+        c->m_points[i] = m_verts[i];
+    }
+
+    // Edge interiors, taken from the edge curves so that they stay shared with
+    // the neighbours that own them. m_eorient says directly whether the
+    // segment runs along the element's local edge direction; unlike the
+    // triangle and quadrilateral, nothing was flipped during construction.
+    for (int e = 0; e < kNedges; ++e)
+    {
+        Curve *edgeCurve = m_edges[e]->GetCurve();
+        ASSERTL1(edgeCurve != nullptr,
+                 "Edge curve not set; call MakeOrder on edges before volumes");
+
+        // The nodal distribution emits edge 2 running from vertex 2 to
+        // vertex 0, whereas edgeVerts[2] is {0, 2}, so that one block is
+        // traversed against the element's local edge direction. Verified
+        // against eNodalTetEvenlySpaced rather than assumed.
+        const bool alongLocal = (m_eorient[e] == StdRegions::eForwards);
+        const bool forward    = (e == 2) ? !alongLocal : alongLocal;
+
+        const int offset = kNverts + e * nEdgeNodes;
+        for (int j = 0; j < nEdgeNodes; ++j)
+        {
+            c->m_points[offset + j] =
+                forward ? edgeCurve->m_points[j + 1]
+                        : edgeCurve->m_points[nPoints - 2 - j];
+        }
+    }
+
+    // Face interiors. A face is numbered by whichever element built it, so its
+    // interior nodes have to be rotated and reflected into this element's view
+    // of that face before they can be copied across.
+    const unsigned int faceVerts[kNfaces][TriGeom::kNverts] = {
+        {0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}};
+
+    if (nFaceNodes > 0)
+    {
+        for (int f = 0; f < kNfaces; ++f)
+        {
+            Curve *faceCurve = m_faces[f]->GetCurve();
+            ASSERTL1(
+                faceCurve != nullptr,
+                "Face curve not set; call MakeOrder on faces before volumes");
+
+            // The face's own interior nodes are the tail of its curve.
+            const int faceStart =
+                TriGeom::kNverts + TriGeom::kNedges * nEdgeNodes;
+            std::vector<PointGeom *> faceNodes(
+                faceCurve->m_points.begin() + faceStart,
+                faceCurve->m_points.begin() + faceStart + nFaceNodes);
+
+            std::vector<int> faceOwnIds(TriGeom::kNverts);
+            std::vector<int> elmtIds(TriGeom::kNverts);
+            for (int v = 0; v < TriGeom::kNverts; ++v)
+            {
+                faceOwnIds[v] = m_faces[f]->GetVertex(v)->GetGlobalID();
+                elmtIds[v]    = m_verts[faceVerts[f][v]]->GetGlobalID();
+            }
+
+            HOTriangle<PointGeom *> hoTri(faceOwnIds, faceNodes);
+            hoTri.Align(elmtIds);
+
+            const int offset = kNverts + kNedges * nEdgeNodes + f * nFaceNodes;
+            for (int j = 0; j < nFaceNodes; ++j)
+            {
+                c->m_points[offset + j] = hoTri.surfVerts[j];
+            }
+        }
+    }
+
+    // Interior nodes are new, and are evaluated on this element's own mapping.
+    const int volStart = kNverts + kNedges * nEdgeNodes + kNfaces * nFaceNodes;
+    if (volStart < nTetPts)
+    {
+        Array<OneD, Array<OneD, NekDouble>> phys(m_coordim);
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            phys[i] = Array<OneD, NekDouble>(m_xmap->GetTotPoints());
+            m_xmap->BwdTrans(GetCoeffs(i), phys[i]);
+        }
+
+        for (int i = volStart; i < nTetPts; ++i)
+        {
+            Array<OneD, NekDouble> xp(3);
+            xp[0] = px[i];
+            xp[1] = py[i];
+            xp[2] = pz[i];
+
+            Array<OneD, NekDouble> x(3, 0.0);
+            for (int j = 0; j < m_coordim; ++j)
+            {
+                x[j] = m_xmap->PhysEvaluate(xp, phys[j]);
+            }
+
+            cd.second.push_back(
+                ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                    m_coordim, 0, x[0], x[1], x[2]));
+            c->m_points[i] = cd.second.back().get();
+        }
+    }
+
+    return cd;
 }
 
 } // namespace Nektar::SpatialDomains

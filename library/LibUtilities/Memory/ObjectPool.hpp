@@ -89,12 +89,43 @@ public:
         return std::unique_ptr<DataType, UniquePtrDeleter>(Allocate(args...));
     }
 
+    /// The pool this type is allocated from; defined just below.
     static PoolAllocator<DataType> m_alloc;
 };
+
+/**
+ * @brief Definition of ObjPoolManager::m_alloc.
+ *
+ * Defined out of class rather than as an inline member: an inline member is a
+ * definition inside the class, which MSVC instantiates along with the class
+ * and so requires DataType to be complete. Geometry.h forms
+ * unique_ptr_objpool<Curve> and unique_ptr_objpool<PointGeom> on forward
+ * declarations, so that is not available. Out of class this is a template in
+ * its own right, instantiated later and only where the type is complete.
+ *
+ * The pool itself is unaffected either way: PoolAllocator is empty, its
+ * storage being boost::singleton_pool keyed on the object size, so this
+ * defines no memory. All it adds per library is a guard variable per type,
+ * and those are emitted as STB_GNU_UNIQUE, one to a process.
+ */
+template <typename DataType>
+PoolAllocator<DataType> ObjPoolManager<DataType>::m_alloc;
 
 template <typename T>
 using unique_ptr_objpool =
     std::unique_ptr<T, typename ObjPoolManager<T>::UniquePtrDeleter>;
+
+template <class To, class From, class D>
+std::unique_ptr<To, D> unique_ptr_objpool_cast(std::unique_ptr<From, D> &&p)
+{
+    auto *as = dynamic_cast<To *>(p.get());
+    ASSERTL2(as, "Bad cast in unique_ptr_objpool_cast");
+
+    // Move the deleter out of p, then release the raw pointer and rewrap.
+    D &del    = p.get_deleter();
+    From *raw = p.release();
+    return std::unique_ptr<To, D>(static_cast<To *>(raw), std::move(del));
+}
 
 } // namespace Nektar
 

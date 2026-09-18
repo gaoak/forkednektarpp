@@ -34,6 +34,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/Geometry.h>
 #include <SpatialDomains/Geometry1D.h>
 #include <SpatialDomains/Geometry2D.h>
@@ -169,6 +170,26 @@ int Geometry::v_GetNumEdges() const
 int Geometry::v_GetNumFaces() const
 {
     return 0;
+}
+
+/**
+ * @copydoc Geometry::GetNumFacets()
+ */
+int Geometry::v_GetNumFacets() const
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This function is only valid for shape type geometries");
+    return 0;
+}
+
+/**
+ * @copydoc Geometry::GetFacet()
+ */
+Geometry *Geometry::v_GetFacet([[maybe_unused]] const int i) const
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This function is only valid for shape type geometries");
+    return nullptr;
 }
 
 /**
@@ -361,10 +382,43 @@ void Geometry::v_FillGeom()
 }
 
 /**
+ * @brief Change curvature order for this Geometry
+ *
+ * @see v_MakeOrder()
+ */
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> Geometry::MakeOrder(
+    int order, LibUtilities::PointsType pType)
+{
+    return v_MakeOrder(order, pType);
+}
+
+/**
+ * @copydoc Geometry::MakeOrder()
+ */
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> Geometry::
+    v_MakeOrder([[maybe_unused]] int order,
+                [[maybe_unused]] const LibUtilities::PointsType pType)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This function is only valid for expansion type geometries");
+
+    return std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>>{};
+}
+
+/**
  * @copydoc Geometry::Reset()
  */
 void Geometry::v_Reset([[maybe_unused]] CurveMap &curvedEdges,
                        [[maybe_unused]] CurveMap &curvedFaces)
+{
+    // Reset state
+    m_state = eNotFilled;
+}
+
+/**
+ * @copydoc Geometry::ResetLite()
+ */
+void Geometry::v_ResetLite()
 {
     // Reset state
     m_state = eNotFilled;

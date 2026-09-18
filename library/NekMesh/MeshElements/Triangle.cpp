@@ -33,274 +33,215 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LocalRegions/TriExp.h>
-#include <NekMesh/MeshElements/Triangle.h>
+#include <NekMesh/MeshElements/Element.h>
 #include <StdRegions/StdNodalTriExp.h>
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
 
-using namespace std;
-
 namespace Nektar::NekMesh
 {
 
-LibUtilities::ShapeType Triangle::m_type =
-    GetElementFactory().RegisterCreatorFunction(LibUtilities::eTriangle,
-                                                Triangle::create, "Triangle");
-
-/**
- * @brief Create a triangle element.
- */
-Triangle::Triangle(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
-                   vector<int> pTagList)
-    : Element(pConf, GetNumNodes(pConf), pNodeList.size())
+struct triangleHelper
 {
-    m_tag       = "T";
-    m_dim       = 2;
-    m_taglist   = pTagList;
-    m_curveType = LibUtilities::eNodalTriEvenlySpaced;
-    int n       = m_conf.m_order - 1;
-
-    // Create a map to relate edge nodes to a pair of vertices
-    // defining an edge. This is based on the ordering produced by
-    // gmsh.
-    map<pair<int, int>, int> edgeNodeMap;
-    map<pair<int, int>, int>::iterator it;
-    edgeNodeMap[pair<int, int>(1, 2)] = 4;
-    edgeNodeMap[pair<int, int>(2, 3)] = 4 + n;
-    edgeNodeMap[pair<int, int>(3, 1)] = 4 + 2 * n;
-
-    // Add vertices. This logic will determine (in 2D) whether the
-    // element is clockwise (sum > 0) or counter-clockwise (sum < 0).
-    NekDouble sum = 0.0;
-    for (int i = 0; i < 3; ++i)
+    /**
+     * @brief Create a triangle element.
+     */
+    static SpatialDomains::Geometry *create(
+        std::vector<SpatialDomains::PointGeom *> &nodeList,
+        SpatialDomains::MeshGraphSharedPtr &meshGraph, EdgeMap &edgeMap,
+        FaceMap &faceMap, ElmtConfig &conf, std::set<int> *vertIDs,
+        std::unordered_set<int> *curveNodeIDs,
+        std::unordered_set<int> *naiveTriIDs, ElmtIds *forceIDs)
     {
-        int o = (i + 1) % 3;
-        m_vertex.push_back(pNodeList[i]);
-        sum += (pNodeList[o]->m_x - pNodeList[i]->m_x) *
-               (pNodeList[o]->m_y + pNodeList[i]->m_y);
-    }
+        auto &curvedEdges = meshGraph->GetCurvedEdges();
+        auto &curvedFaces = meshGraph->GetCurvedFaces();
 
-    // Create edges (with corresponding set of edge points)
-    for (it = edgeNodeMap.begin(); it != edgeNodeMap.end(); ++it)
-    {
-        vector<NodeSharedPtr> edgeNodes;
-        if (m_conf.m_order > 1)
+        // Vertex IDs that make up the triangle edges
+        const unsigned int edgeIds[3][2] = {{0, 1}, {1, 2}, {2, 0}};
+
+        // Add vertices. This logic will determine (in 2D) whether the
+        // element is clockwise (sum > 0) or counter-clockwise (sum < 0).
+        std::array<SpatialDomains::PointGeom *, 3> vertex = {
+            nodeList[0], nodeList[1], nodeList[2]};
+
+        // Bugfix - face can already exist, so let's check to avoid creating a
+        // duplicate
+        std::array<int, 4> vIDs = {vertex[0]->GetGlobalID(),
+                                   vertex[1]->GetGlobalID(),
+                                   vertex[2]->GetGlobalID(), -1};
+
+        auto found = faceMap.find(vIDs);
+        if (found != faceMap.end() && !conf.m_faceNodes)
         {
-            for (int j = it->second; j < it->second + n; ++j)
+            return found->second;
+        }
+
+        // Create edges (with corresponding set of edge points)
+        std::array<SpatialDomains::SegGeom *, 3> edges;
+        for (int e = 0; e < 3; ++e)
+        {
+            std::array<SpatialDomains::PointGeom *, 2> edgeVerts = {
+                nodeList[edgeIds[e][0]], nodeList[edgeIds[e][1]]};
+
+            // Check if edge already exists in edgeSet using edgeVert IDs, if it
+            // does we can just reuse that...
+            auto idPair = std::make_pair(edgeVerts[0]->GetGlobalID(),
+                                         edgeVerts[1]->GetGlobalID());
+            auto it     = edgeMap.find(idPair);
+
+            if (it == edgeMap.end())
             {
-                edgeNodes.push_back(pNodeList[j - 1]);
+                // Create edge.
+                int id = NextEdgeId(meshGraph);
+                if (forceIDs != nullptr)
+                {
+                    id = forceIDs->edges[e];
+                }
+
+                SpatialDomains::Curve *curvePtr = nullptr;
+                if (conf.m_order > 1)
+                {
+                    int n = conf.m_order - 1;
+                    std::vector<SpatialDomains::PointGeom *> tmpNodeList;
+                    tmpNodeList.emplace_back(edgeVerts[0]);
+                    for (int j = 3 + n * e; j < 3 + n * (e + 1); ++j)
+                    {
+                        tmpNodeList.emplace_back(nodeList[j]);
+                    }
+                    tmpNodeList.emplace_back(edgeVerts[1]);
+
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(id, conf.m_edgeCurveType);
+                    for (auto &node : tmpNodeList)
+                    {
+                        curveNodeIDs->insert(node->GetGlobalID());
+                        curve->m_points.emplace_back(node);
+                    }
+                    curvePtr        = curve.get();
+                    curvedEdges[id] = std::move(curve);
+                }
+
+                auto seg =
+                    ObjPoolManager<SpatialDomains::SegGeom>::AllocateUniquePtr(
+                        id, nodeList[0]->GetCoordim(), edgeVerts, curvePtr);
+
+                edges[e]        = seg.get();
+                edgeMap[idPair] = seg.get();
+                meshGraph->AddGeom<SpatialDomains::SegGeom>(id, std::move(seg));
+            }
+            else
+            {
+                edges[e] = it->second;
+
+                // Create edge curvature if it's needed and we haven't already
+                if (conf.m_order > 1 && edges[e]->GetCurve() == nullptr)
+                {
+                    int n = conf.m_order - 1;
+                    std::vector<SpatialDomains::PointGeom *> tmpNodeList;
+                    tmpNodeList.emplace_back(edgeVerts[0]);
+                    for (int j = 3 + n * e; j < 3 + n * (e + 1); ++j)
+                    {
+                        tmpNodeList.emplace_back(nodeList[j]);
+                    }
+                    tmpNodeList.emplace_back(edgeVerts[1]);
+                    if (edgeVerts[1]->GetGlobalID() ==
+                        edges[e]->GetVertex(0)->GetGlobalID())
+                    {
+                        std::reverse(tmpNodeList.begin(), tmpNodeList.end());
+                    }
+
+                    auto curve = ObjPoolManager<SpatialDomains::Curve>::
+                        AllocateUniquePtr(edges[e]->GetGlobalID(),
+                                          conf.m_edgeCurveType);
+                    for (auto &node : tmpNodeList)
+                    {
+                        curveNodeIDs->insert(node->GetGlobalID());
+                        curve->m_points.emplace_back(node);
+                    }
+                    edges[e]->SetCurve(curve.get());
+                    curvedEdges[edges[e]->GetGlobalID()] = std::move(curve);
+                }
             }
         }
-        m_edge.push_back(EdgeSharedPtr(new Edge(
-            pNodeList[it->first.first - 1], pNodeList[it->first.second - 1],
-            edgeNodes, m_conf.m_edgeCurveType)));
-    }
 
-    if (pConf.m_reorient)
-    {
-        if (sum > 0.0)
+        if (conf.m_reorient)
         {
-            swap(m_vertex[1], m_vertex[2]);
-            reverse(m_edge.begin(), m_edge.end());
-        }
-    }
-
-    if (m_conf.m_faceNodes)
-    {
-        m_volumeNodes.insert(m_volumeNodes.begin(),
-                             pNodeList.begin() + 3 * m_conf.m_order,
-                             pNodeList.end());
-    }
-}
-
-SpatialDomains::Geometry *Triangle::GetGeom(
-    int coordDim, SpatialDomains::EntityHolder &holder)
-{
-    std::array<SpatialDomains::SegGeom *, 3> edges;
-    SpatialDomains::TriGeomUniquePtr tri;
-
-    for (int i = 0; i < 3; ++i)
-    {
-        edges[i] = m_edge[i]->GetGeom(coordDim, holder);
-    }
-
-    tri =
-        ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(m_id, edges);
-    auto ret = dynamic_cast<SpatialDomains::Geometry *>(tri.get());
-    holder.m_triVec.push_back(std::move(tri));
-
-    ret->Setup();
-    return ret;
-}
-
-StdRegions::Orientation Triangle::GetEdgeOrient(int edgeId, EdgeSharedPtr edge)
-{
-    int locVert = edgeId;
-    if (edge->m_n1 == m_vertex[locVert])
-    {
-        return StdRegions::eForwards;
-    }
-    else if (edge->m_n2 == m_vertex[locVert])
-    {
-        return StdRegions::eBackwards;
-    }
-    else
-    {
-        ASSERTL1(false, "Edge is not connected to this triangle.");
-    }
-
-    return StdRegions::eNoOrientation;
-}
-
-/**
- * @brief Return the number of nodes defining a triangle.
- */
-unsigned int Triangle::GetNumNodes(ElmtConfig pConf)
-{
-    int n = pConf.m_order;
-    if (!pConf.m_faceNodes)
-    {
-        return (n + 1) + 2 * (n - 1) + 1;
-    }
-    else
-    {
-        return (n + 1) * (n + 2) / 2;
-    }
-}
-
-void Triangle::GetCurvedNodes(std::vector<NodeSharedPtr> &nodeList) const
-{
-    int n = m_edge[0]->GetNodeCount();
-    nodeList.resize(n * (n + 1) / 2);
-
-    // Populate nodelist
-    std::copy(m_vertex.begin(), m_vertex.end(), nodeList.begin());
-    for (int i = 0; i < 3; ++i)
-    {
-        std::copy(m_edge[i]->m_edgeNodes.begin(), m_edge[i]->m_edgeNodes.end(),
-                  nodeList.begin() + 3 + i * (n - 2));
-        if (m_edge[i]->m_n1 != m_vertex[i])
-        {
-            // If edge orientation is reversed relative to node ordering, we
-            // need to reverse order of nodes.
-            std::reverse(nodeList.begin() + 3 + i * (n - 2),
-                         nodeList.begin() + 3 + (i + 1) * (n - 2));
-        }
-    }
-
-    // Copy volume nodes.
-    std::copy(m_volumeNodes.begin(), m_volumeNodes.end(),
-              nodeList.begin() + 3 * (n - 1));
-}
-
-void Triangle::MakeOrder(int order, SpatialDomains::Geometry *geom,
-                         LibUtilities::PointsType pType, int coordDim, int &id,
-                         bool justConfig)
-
-{
-    m_conf.m_order       = order;
-    m_curveType          = pType;
-    m_conf.m_volumeNodes = false;
-    m_volumeNodes.clear();
-
-    // Triangles of order < 3 have no interior volume points.
-    if (order == 1 || order == 2)
-    {
-        m_conf.m_faceNodes = false;
-        return;
-    }
-
-    m_conf.m_faceNodes = true;
-
-    if (justConfig)
-    {
-        return;
-    }
-
-    int nPoints                            = order + 1;
-    StdRegions::StdExpansionSharedPtr xmap = geom->GetXmap();
-
-    Array<OneD, NekDouble> px, py;
-    LibUtilities::PointsKey pKey(nPoints, pType);
-    ASSERTL1(pKey.GetPointsDim() == 2, "Points distribution must be 2D");
-    LibUtilities::PointsManager()[pKey]->GetPoints(px, py);
-
-    Array<OneD, Array<OneD, NekDouble>> phys(coordDim);
-
-    for (int i = 0; i < coordDim; ++i)
-    {
-        phys[i] = Array<OneD, NekDouble>(xmap->GetTotPoints());
-        xmap->BwdTrans(geom->GetCoeffs(i), phys[i]);
-    }
-
-    const int nTriPts    = nPoints * (nPoints + 1) / 2;
-    const int nTriIntPts = (nPoints - 3) * (nPoints - 2) / 2;
-    m_volumeNodes.resize(nTriIntPts);
-
-    for (int i = 3 + 3 * (nPoints - 2), cnt = 0; i < nTriPts; ++i, ++cnt)
-    {
-        Array<OneD, NekDouble> xp(2);
-        xp[0] = px[i];
-        xp[1] = py[i];
-
-        Array<OneD, NekDouble> x(3, 0.0);
-        for (int j = 0; j < coordDim; ++j)
-        {
-            x[j] = xmap->PhysEvaluate(xp, phys[j]);
+            NekDouble sum = 0.0;
+            for (int i = 0; i < 3; ++i)
+            {
+                int o = (i + 1) % 3;
+                sum += (nodeList[o]->x() - nodeList[i]->x()) *
+                       (nodeList[o]->y() + nodeList[i]->y());
+            }
+            if (sum > 0.0)
+            {
+                std::reverse(edges.begin(), edges.end());
+                std::swap(vertex[1], vertex[2]);
+            }
         }
 
-        m_volumeNodes[cnt] =
-            std::shared_ptr<Node>(new Node(id++, x[0], x[1], x[2]));
-    }
-
-    m_conf.m_order       = order;
-    m_conf.m_faceNodes   = true;
-    m_conf.m_volumeNodes = false;
-}
-
-std::array<NekDouble, 3> Triangle::Normal(bool inward)
-{
-    std::array<NekDouble, 3> ret = {0.0, 0.0, 0.0};
-
-    ret[0] = (m_vertex[1]->m_y - m_vertex[0]->m_y) *
-                 (m_vertex[2]->m_z - m_vertex[0]->m_z) -
-             (m_vertex[1]->m_z - m_vertex[0]->m_z) *
-                 (m_vertex[2]->m_y - m_vertex[0]->m_y);
-    ret[1] = (m_vertex[1]->m_z - m_vertex[0]->m_z) *
-                 (m_vertex[2]->m_x - m_vertex[0]->m_x) -
-             (m_vertex[1]->m_x - m_vertex[0]->m_x) *
-                 (m_vertex[2]->m_z - m_vertex[0]->m_z);
-    ret[2] = (m_vertex[1]->m_x - m_vertex[0]->m_x) *
-                 (m_vertex[2]->m_y - m_vertex[0]->m_y) -
-             (m_vertex[1]->m_y - m_vertex[0]->m_y) *
-                 (m_vertex[2]->m_x - m_vertex[0]->m_x);
-
-    NekDouble mt = ret[0] * ret[0] + ret[1] * ret[1] + ret[2] * ret[2];
-    mt           = sqrt(mt);
-
-    ret[0] /= mt;
-    ret[1] /= mt;
-    ret[2] /= mt;
-
-    if (m_parentCAD)
-    {
-        // has cad so can orientate based on that
-        if (m_parentCAD->Orientation() == CADOrientation::eBackwards)
+        // The idea is to take the NextFaceID instead of .size(),
+        // as the set shrinks and expands
+        int id = NextFaceId(meshGraph);
+        if (forceIDs != nullptr)
         {
-            ret[0] *= -1.0;
-            ret[1] *= -1.0;
-            ret[2] *= -1.0;
+            id = forceIDs->elmt;
+        }
+        SpatialDomains::Curve *curvePtr = nullptr;
+        if (conf.m_faceNodes)
+        {
+            int n = conf.m_order - 1;
+            int N = 3 + 3 * n;
+            std::vector<SpatialDomains::PointGeom *> faceNodes;
+            for (int i = 0; i < n * (n - 1) / 2; ++i)
+            {
+                faceNodes.emplace_back(nodeList[N + i]);
+            }
+
+            auto tmpNodeList = GetCurvedNodesTri(conf.m_faceCurveType, vertex,
+                                                 edges, faceNodes);
+
+            auto curve =
+                ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+                    id, conf.m_faceCurveType);
+            for (auto &node : tmpNodeList)
+            {
+                curveNodeIDs->insert(node->GetGlobalID());
+                curve->m_points.emplace_back(node);
+            }
+            curvePtr        = curve.get();
+            curvedFaces[id] = std::move(curve);
         }
 
-        // by default normals point outwards so if we want inward for BLs
-        if (inward)
+        // Dummy index in last position to make use of quads' faceMap
+        std::array<int, 4> vids = {vertex[0]->GetGlobalID(),
+                                   vertex[1]->GetGlobalID(),
+                                   vertex[2]->GetGlobalID(), -1};
+
+        if (vertIDs != nullptr)
         {
-            ret[0] *= -1.0;
-            ret[1] *= -1.0;
-            ret[2] *= -1.0;
+            for (auto vert : vertex)
+            {
+                vertIDs->insert(vert->GetGlobalID());
+            }
         }
-    }
-    return ret;
-}
+
+        auto triGeom =
+            ObjPoolManager<SpatialDomains::TriGeom>::AllocateUniquePtr(
+                id, edges, vertex, true, curvePtr);
+        auto triPtr = triGeom.get();
+
+        faceMap[vids] = triPtr;
+        meshGraph->AddGeom<SpatialDomains::TriGeom>(id, std::move(triGeom));
+        if (naiveTriIDs != nullptr)
+        {
+            naiveTriIDs->insert(id);
+        }
+        return triPtr;
+    };
+};
+
+LibUtilities::ShapeType triType = GetElementFactory().RegisterCreatorFunction(
+    LibUtilities::eTriangle, triangleHelper::create, "Triangle");
 
 } // namespace Nektar::NekMesh

@@ -55,7 +55,9 @@ class StructuredGrid(NekMesh.InputModule):
         for y in range(ny):
             tmp = []
             for x in range(nx):
-                tmp.append(NekMesh.Node(id_cnt, x_points[x], y_points[y], 0.0))
+                # Append the vertex to the meshGraph.
+                tmp.append(self.mesh.CreateVertex(
+                    id_cnt, x_points[x], y_points[y], 0.0))
                 id_cnt += 1
             nodes.append(tmp)
 
@@ -66,11 +68,9 @@ class StructuredGrid(NekMesh.InputModule):
         else:
             raise ValueError("Unknown shape type: should be quad or tri.")
 
-        # Call the Module functions to create all of the edges, faces and
-        # composites.
+        # CreateElement already made the edges and faces and put each element
+        # in a composite, so all that is left is to number them.
         self.ProcessVertices()
-        self.ProcessEdges()
-        self.ProcessFaces()
         self.ProcessElements()
         self.ProcessComposites()
 
@@ -78,28 +78,25 @@ class StructuredGrid(NekMesh.InputModule):
         config = NekMesh.ElmtConfig(ShapeType.Quadrilateral, 1, False, False)
         for y in range(ny-1):
             for x in range(nx-1):
-                self.mesh.element[2].append(
-                    NekMesh.Element.Create(
-                        config, [
-                            nodes[y][x], nodes[y][x+1],
-                            nodes[y+1][x+1], nodes[y+1][x]
-                        ], [compID]))
+                self.mesh.CreateElement(
+                    config,
+                    [nodes[y][x], nodes[y][x+1],
+                     nodes[y+1][x+1], nodes[y+1][x]],
+                    compID)
 
     def _create_triangles(self, nodes, nx, ny, compID):
         config = NekMesh.ElmtConfig(ShapeType.Triangle, 1, False, False)
         for y in range(ny-1):
             for x in range(nx-1):
-                self.mesh.element[2].append(
-                    NekMesh.Element.Create(
-                        config,
-                        [nodes[y][x], nodes[y+1][x+1], nodes[y+1][x]],
-                        [compID]))
+                self.mesh.CreateElement(
+                    config,
+                    [nodes[y][x], nodes[y+1][x+1], nodes[y+1][x]],
+                    compID)
 
-                self.mesh.element[2].append(
-                    Element.Create(
-                        config,
-                        [nodes[y][x], nodes[y][x+1], nodes[y+1][x+1]],
-                        [compID]))
+                self.mesh.CreateElement(
+                    config,
+                    [nodes[y][x], nodes[y][x+1], nodes[y+1][x+1]],
+                    compID)
 
 # Register our TestInput module with the factory.
 NekMesh.Module.Register(

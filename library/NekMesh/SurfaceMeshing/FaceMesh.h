@@ -35,9 +35,10 @@
 #ifndef NekMesh_SURFACEMESHING_FACEMESH
 #define NekMesh_SURFACEMESHING_FACEMESH
 
-#include <NekMesh/CADSystem/CADSurf.h>
 #include <NekMesh/MeshElements/Mesh.h>
 #include <NekMesh/SurfaceMeshing/CurveMesh.h>
+#include <SpatialDomains/CADSystem/CADAssociation.h>
+#include <SpatialDomains/CADSystem/CADSurf.h>
 
 namespace Nektar::NekMesh
 {
@@ -59,7 +60,7 @@ public:
              Logger l)
         : m_mesh(m), m_curvemeshes(cmeshes), m_id(id), m_compId(comp), m_log(l)
     {
-        m_cadsurf   = m_mesh->m_cad->GetSurf(m_id);
+        m_cadsurf   = m_mesh->m_meshGraph->GetCAD()->GetSurf(m_id);
         m_edgeloops = m_cadsurf->GetEdges();
         m_log.SetPrefix("FaceMesh");
     };
@@ -97,7 +98,7 @@ private:
     void Smoothing();
 
     /**
-     * @brief performs diagonal swapping of edges
+     * @brief swapping
      */
     void DiagonalSwap();
 
@@ -130,31 +131,36 @@ private:
     /// mesh pointer
     MeshSharedPtr m_mesh;
     /// CAD surface
-    CADSurfSharedPtr m_cadsurf;
+    SpatialDomains::CADSurfSharedPtr m_cadsurf;
     /// Map of the curve meshes which bound the surfaces
     std::map<int, CurveMeshSharedPtr> m_curvemeshes;
     /// data structure containing the edges, their order and oreientation for
     /// the surface
-    std::vector<EdgeLoopSharedPtr> m_edgeloops;
+    std::vector<SpatialDomains::EdgeLoopSharedPtr> m_edgeloops;
     /// id of the surface mesh
     int m_id;
     /// list of boundary nodes in their order loops
-    std::vector<std::vector<NodeSharedPtr>> orderedLoops;
+    std::vector<std::vector<SpatialDomains::PointGeom *>> orderedLoops;
     /// list of stiener points in the triangulation
-    std::vector<NodeSharedPtr> m_stienerpoints;
+    std::vector<SpatialDomains::PointGeom *> m_stienerpoints;
     /// pplane stretching
     NekDouble m_str;
     /// triangle connectiviities
-    std::vector<std::vector<NodeSharedPtr>> m_connec;
+    std::vector<std::vector<SpatialDomains::PointGeom *>> m_connec;
     /// local set of nodes
-    NodeSet m_localNodes;
+    /// Nodes of this face, ordered by ID rather than by address: the elastic
+    /// relaxation in Smoothing() moves each node onto the average of its
+    /// neighbours' current positions, so the order they are visited in decides
+    /// where they end up. Safe to order on the ID because these are created
+    /// with NextPointId and nothing renumbers them while the face is meshed.
+    std::set<SpatialDomains::PointGeom *, GeometryPtrIdLess> m_localNodes;
     /// local set of edges
-    EdgeSet m_localEdges;
+    EdgeMap m_localEdges;
     /// local list of elements
-    std::vector<ElementSharedPtr> m_localElements;
+    std::vector<SpatialDomains::Geometry *> m_localElements;
     /// set of nodes which are in the boundary (easier to identify conflicts
     /// with)
-    NodeSet m_inBoundary;
+    std::unordered_set<SpatialDomains::PointGeom *> m_inBoundary;
     /// identity to put into element tags
     int m_compId;
     /// Logger

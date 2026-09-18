@@ -13,6 +13,7 @@
             <function>testInheritFromOutputModuleTest</function>
             <function>testInheritFromProcessModuleTest</function>
             <function>testModuleProcessRuntimeError</function>
+            <function>testRemoveOrphanedEntities</function>
         </metric>
     </metrics>
 </test>

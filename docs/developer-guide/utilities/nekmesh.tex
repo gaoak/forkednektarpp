@@ -1,33 +1,33 @@
-%\documentclass[a4paper,10pt]{article}
+% \documentclass[a4paper,10pt]{article}
 
-%\usepackage[a4paper, margin=1in]{geometry} % Set 1 inch margins (adjust as needed)
-%\usepackage{tikz,tikz-3dplot}
-%\usepackage{subcaption}
-%\usepackage{hyperref}
-%\usepackage{algorithm2e}
-%\usepackage{graphicx}
-%\usepackage{listings}
-%\usetikzlibrary{trees}
+% \usepackage[a4paper, margin=1in]{geometry} % Set 1 inch margins (adjust as needed)
+% \usepackage{tikz,tikz-3dplot}
+% \usepackage{subcaption}
+% \usepackage{hyperref}
+% \usepackage{algorithm2e}
+% \usepackage{graphicx}
+% \usepackage{listings}
+% \usetikzlibrary{trees}
 
-%% \lstdefinestyle{BashInputStyle}{
-%%   language=bash,
-%%   basicstyle=\small\ttfamily,
-%% %  numbers=left,
-%% %  numberstyle=\tiny,
-%% %  numbersep=3pt,
-%%   frame=single,
-%%   columns=fullflexible,
-%%   backgroundcolor=\color{yellow!10},
-%%   linewidth=0.95\linewidth,
-%%   xleftmargin=0.05\linewidth,
-%%   keepspaces=true,
-%%   breaklines=true,
-%%   framesep=5pt,
-%%   rulecolor=\color{black!30},
-%%   aboveskip=10pt,
-%% }
+% \lstdefinestyle{BashInputStyle}{
+%   language=bash,
+%   basicstyle=\small\ttfamily,
+% %  numbers=left,
+% %  numberstyle=\tiny,
+% %  numbersep=3pt,
+%   frame=single,
+%   columns=fullflexible,
+%   backgroundcolor=\color{yellow!10},
+%   linewidth=0.95\linewidth,
+%   xleftmargin=0.05\linewidth,
+%   keepspaces=true,
+%   breaklines=true,
+%   framesep=5pt,
+%   rulecolor=\color{black!30},
+%   aboveskip=10pt,
+% }
 
-%\begin{document}
+% \begin{document}
 
 \section{Introduction}
 NekMesh is described in its paper \cite{NekMesh_paper} as "an
@@ -39,6 +39,900 @@ Output modules, and the workflow is to run 1) one input module 2) $n$
 process modules 3) one output module. Before learning about the three
 module types, we need a good understanding of the theory underpinning
 the NekMesh format.
+
+\section{Overview of the redesign}
+\label{sect:redesign_overview}
+This section describes the ongoing redesign of NekMesh relative to the
+\texttt{master} branch. It is intended as an orientation guide for
+developers who know the old code base and need to understand what has
+moved, what has been ported, and what is temporarily disabled. The
+subsequent sections of this document describe the design as it now
+stands.
+
+\subsection{Motivation}
+Historically NekMesh maintained its \textit{own} mesh data structures
+(\texttt{Node}, \texttt{Edge}, \texttt{Face}, \texttt{Element},
+\texttt{Composite}) which duplicated, but were not interoperable with,
+the \texttt{SpatialDomains} geometry objects (\texttt{PointGeom},
+\texttt{SegGeom}, \texttt{TriGeom}/\texttt{QuadGeom},
+\texttt{TetGeom}, \texttt{PrismGeom}, \ldots) used by the solvers. Every
+NekMesh run therefore ended in a translation step: the NekMesh
+representation was converted into geometry objects (or serialised to
+XML) before it could be used. This had three consequences:
+
+\begin{enumerate}
+  \item \textbf{Duplication.} Connectivity, curvature and
+    high-order node handling were implemented twice, in two
+    conventions that had to be kept in sync.
+  \item \textbf{Cost.} Large industrial meshes were held twice in
+    memory, and the conversion between representations dominated the
+    runtime of several modules.
+  \item \textbf{No pipelining.} Because NekMesh objects were not
+    geometry objects, a mesh could not be handed straight to a solver,
+    nor could a solver-side \texttt{MeshGraph} be fed back into a
+    process module.
+\end{enumerate}
+
+The redesign removes the duplication by making
+\texttt{SpatialDomains} the single mesh representation: NekMesh now
+\textit{operates directly on} a \texttt{MeshGraph}. This enables an
+in-memory, MPI-parallel meshing pipeline (mesh $\rightarrow$ process
+$\rightarrow$ solve) without file round-trips.
+
+\subsection{Summary of the data structure changes}
+\label{sect:ds_summary}
+Table \ref{tab:ds_mapping} maps each of the old NekMesh structures onto
+its replacement. The rest of this section explains each entry in turn.
+
+\begin{table}[h!]
+  \centering
+  \begin{tabular}{p{0.28\textwidth}p{0.32\textwidth}p{0.30\textwidth}}
+    \hline
+    \textbf{Was} & \textbf{Is now} & \textbf{Note}\\
+    \hline
+    \texttt{NodeSharedPtr} &
+    \texttt{SpatialDomains::PointGeom*} &
+    owned by the graph, passed by raw pointer\\
+    \texttt{EdgeSharedPtr} &
+    \texttt{SpatialDomains::SegGeom*} &
+    \texttt{Edge.cpp/.h} out of the build\\
+    \texttt{FaceSharedPtr} &
+    \texttt{SpatialDomains::Geometry2D*} &
+    \texttt{Face.cpp/.h} out of the build\\
+    \texttt{Element} (owns nodes) &
+    \texttt{Geometry}/\texttt{Geometry2D}/\texttt{Geometry3D} &
+    \texttt{Element} is now only a shape-level builder\\
+    \texttt{Mesh::m\_node}, \texttt{m\_vertexSet}, \texttt{m\_numNodes} &
+    \texttt{MeshGraph} point-geometry map &
+    \texttt{GetGeomMap<PointGeom>()}\\
+    \texttt{Mesh::m\_element} (\texttt{ElementMap}) &
+    \texttt{MeshGraph} per-shape geometry maps &
+    \texttt{GetGeomMap<T>()}, keyed by global ID\\
+    \texttt{Mesh::m\_composite} (\texttt{CompositeMap}) &
+    \texttt{Mesh::m\_elementTags} &
+    \texttt{array<unordered\_map<Geometry*,int>,4>}\\
+    \texttt{Mesh::m\_edgeSet}, \texttt{m\_faceSet}
+    (\texttt{EdgeSet}/\texttt{FaceSet} of shared pointers) &
+    \texttt{EdgeMap}, \texttt{FaceMap}
+    (hash maps to \texttt{SegGeom*}/\texttt{Geometry2D*}) &
+    same hashing, non-owning\\
+    \texttt{Mesh::m\_expDim}, \texttt{m\_spaceDim} &
+    \texttt{MeshGraph::GetMeshDimension()},
+    \texttt{GetSpaceDimension()} &
+    dimensions live with the graph\\
+    \texttt{Mesh::m\_cad} &
+    \texttt{MeshGraph} / \texttt{SpatialDomains::CADSystem} &
+    see the CAD subsection below\\
+    (no equivalent) &
+    \texttt{SpatialDomains::EntityHolder} &
+    owns geometry not yet in the graph\\
+    (no equivalent) &
+    \texttt{ElmtIds} &
+    explicit, deterministic IDs on creation\\
+    \hline
+  \end{tabular}
+  \caption{Correspondence between the old NekMesh mesh structures and
+    the new \texttt{SpatialDomains}-based ones.}
+  \label{tab:ds_mapping}
+\end{table}
+
+The changes fall into four groups, in decreasing order of impact on
+calling code:
+
+\begin{enumerate}
+  \item \textbf{Representation.} Nodes, edges, faces and elements are
+    now geometry objects. Any code that dereferenced
+    \texttt{node->m\_x} or iterated \texttt{el->GetVertexList()} must
+    be rewritten against the \texttt{Geometry} interface.
+  \item \textbf{Ownership.} The \texttt{MeshGraph} owns every entity
+    through \texttt{unique\_ptr\_objpool}; everybody else holds raw
+    pointers. Shared-pointer reference counting no longer keeps
+    entities alive, so lifetime is now explicit.
+  \item \textbf{Identity.} Entities are addressed by global ID within
+    the graph's maps rather than by pointer identity within a set, and
+    IDs can be pinned at creation.
+  \item \textbf{Grouping.} Composites are replaced by a
+    geometry-to-tag map, one per dimension.
+\end{enumerate}
+
+\subsection{The single data structure}
+The central change is in \texttt{MeshElements/Mesh.h}. The old
+\texttt{Mesh} class owned \texttt{m\_node}, \texttt{m\_vertexSet},
+\texttt{m\_element}, \texttt{m\_composite} and friends. The new
+\texttt{Mesh} owns essentially one thing:
+
+\begin{lstlisting}[style=BashInputStyle]
+class Mesh
+{
+public:
+    /// Mesh graph shared ptr storing the geometry info
+    SpatialDomains::MeshGraphSharedPtr m_meshGraph;
+    /// Array by dimension of maps of all elements and boundary
+    /// surfaces to their tags.
+    std::array<GeomTagMap, 4> m_elementTags;
+    /// Map of element edges / faces.
+    EdgeMap m_edgeSet;
+    FaceMap m_faceSet;
+    ...
+    /// Information handed from one module to another.
+    ModuleContext &GetContext();
+private:
+    ModuleContext m_context;
+};
+\end{lstlisting}
+
+Taking each member in turn:
+
+\begin{itemize}
+  \item \textbf{\texttt{m\_meshGraph} --- the \texttt{MeshGraph} owns
+    the mesh.} Geometry objects are held by the graph in per-shape
+    maps (\texttt{m\_pointGeoms}, \texttt{m\_segGeoms},
+    \texttt{m\_triGeoms}, \ldots) of \texttt{unique\_ptr\_objpool},
+    keyed by global ID; everything else refers to them by \textit{raw
+    pointer}. This replaces both \texttt{m\_node}/\texttt{m\_vertexSet}
+    and \texttt{m\_element}. Ownership is transferred explicitly
+    through the new \texttt{MeshGraph} API:
+
+    \begin{itemize}
+      \item \texttt{AddGeom<T>(id, geom)} --- hand a single entity to
+        the graph. The type-dispatched overload for \texttt{T =
+        Geometry} switches on \texttt{GetShapeType()} and downcasts,
+        so a module holding a generic \texttt{Geometry} need not know
+        the concrete shape.
+      \item \texttt{BulkAddGeom<T>(vector)} --- move a whole batch in
+        at once, which avoids repeated map rehashing when a module
+        creates many entities (e.g. boundary-layer splitting).
+      \item \texttt{ExtractGeom<T>(id, erase)} --- take ownership
+        \textit{back} out of the graph, optionally erasing the map
+        entry. This is how a module temporarily removes entities it is
+        about to replace.
+      \item \texttt{GetGeomMap<T>()} / \texttt{SetGeomMap<T>()} ---
+        read or wholesale-replace a shape's map; the latter is used
+        when renumbering.
+    \end{itemize}
+
+    Insertion goes through \texttt{InsertGeomChecked}, which asserts
+    that the ID is not already present, so a duplicate global ID is now
+    a hard error rather than silent corruption of the mesh.
+
+  \item \textbf{\texttt{m\_elementTags} --- composites replaced by
+    tags.} \texttt{m\_elementTags[dim]} is a
+    \texttt{unordered\_map<Geometry*, int>} (\texttt{GeomTagMap})
+    associating each geometry of that dimension with its
+    composite/tag. The old \texttt{CompositeMap} was the inverse
+    relation --- tag $\rightarrow$ list of elements --- which meant a
+    linear search to answer "which composite is this element in?", the
+    question modules actually ask. Boundary membership is now a single
+    lookup, \texttt{Mesh::IsBoundary(geom, dim)}. Note that an entity
+    carries a single \texttt{int} tag rather than a
+    \texttt{vector<int>}. The counting helpers follow:
+    \texttt{GetNumEntities()} has become
+    \texttt{GetNumTaggedEntities()}.
+
+  \item \textbf{\texttt{m\_edgeSet}, \texttt{m\_faceSet} ---
+    connectivity lookup.} These retain their old purpose (find the
+    existing edge/face defined by a given set of vertex IDs, so that
+    neighbouring elements share it rather than duplicating it) and
+    their old hashing, but they are now non-owning maps to geometry
+    pointers:
+\begin{lstlisting}[style=BashInputStyle]
+typedef std::unordered_map<std::pair<int,int>,
+        SpatialDomains::SegGeom*, EdgeHash, EdgeKey>    EdgeMap;
+typedef std::unordered_map<std::array<int,4>,
+        SpatialDomains::Geometry2D*, FaceHash, FaceKey> FaceMap;
+\end{lstlisting}
+    \texttt{EdgeHash}/\texttt{EdgeKey} hash an edge on its two vertex
+    IDs irrespective of order; \texttt{FaceHash}/\texttt{FaceKey} do
+    the same for the (up to) four vertex IDs of a face via the
+    \texttt{sort4} sorting network. A face key is a fixed
+    \texttt{array<int,4>}, with triangles using the fourth slot as a
+    sentinel.
+
+  \item \textbf{What disappeared.} \texttt{Node}, \texttt{Edge},
+    \texttt{Face}, \texttt{Point}, \texttt{Composite},
+    \texttt{HOAlignment} and \texttt{Pyramid} are commented out of
+    \texttt{library/NekMesh/CMakeLists.txt} (the files remain on disk
+    for reference only). \texttt{m\_expDim} and \texttt{m\_spaceDim}
+    move to \texttt{MeshGraph::GetMeshDimension()} and
+    \texttt{GetSpaceDimension()}. \texttt{m\_cad} moves into
+    \texttt{SpatialDomains}. The auxiliary members
+    \texttt{m\_vertexNormals}, \texttt{m\_spherigonSurfs},
+    \texttt{m\_faceLabels}, \texttt{m\_condition} and \texttt{m\_fields}
+    are not carried over as members: those still needed are now
+    module-to-module payloads held in the \texttt{ModuleContext}
+    described below, rather than fields on \texttt{Mesh} that every
+    module pays for and no module owns. (The \texttt{Condition} type
+    itself is still declared in \texttt{Mesh.h}.)
+\end{itemize}
+
+\subsubsection{ModuleContext --- payloads between modules}
+\texttt{NekMesh.cpp} builds a pipeline of modules and runs them in
+sequence, and some of them need to hand something to a later one that
+is not mesh data: vertex normals read from a \texttt{.ply} file and
+consumed by the spherigon module, the octree built by
+\texttt{loadoctree} and used by surface meshing, the coarse elements
+\texttt{ProcessBL} keeps so that a boundary layer can later be
+regenerated. Historically each of these was a member of \texttt{Mesh}
+(\texttt{m\_vertexNormals}, \texttt{m\_octree},
+\texttt{m\_macroElements}, \ldots), which put single-module concerns in
+the one class every module includes, and gave the payload no clear
+owner or lifetime.
+
+\texttt{ModuleContext} (\texttt{NekMesh/Module/ModuleContext.h}),
+reached through \texttt{Mesh::GetContext()}, is a store keyed on the
+payload's own type:
+
+\begin{lstlisting}[style=BashInputStyle]
+// Producer, in the module that has the information:
+m_mesh->GetContext().Get<VertexNormals>().normals[vert] = {nx, ny, nz};
+
+// Consumer, in a module that may or may not be given it:
+if (VertexNormals *vn = m_mesh->GetContext().TryGet<VertexNormals>())
+{
+    ...
+}
+\end{lstlisting}
+
+\noindent \texttt{Set<T>} replaces a payload, \texttt{Get<T>}
+constructs one if absent or stale, \texttt{TryGet<T>} returns
+\texttt{nullptr} in that case instead, and \texttt{Remove<T>} drops
+one. The distinction matters to a consumer that must tell ``nothing was
+supplied'' from ``something was supplied and is empty'', which a
+\texttt{size() == 0} test cannot do. The key is
+\texttt{std::type\_index}, so there are no string names
+to keep in sync and a typo is a compile error; entries are held as
+\texttt{shared\_ptr<void>}, which (unlike \texttt{unique\_ptr<void>} or
+\texttt{std::any}) retains the concrete deleter, so the payload type
+need only be complete where it is used.
+
+The payload types themselves are small structs declared next to the
+context: \texttt{VertexNormals} and \texttt{SpherigonSurfs}
+(\texttt{Module/SurfaceHints.h}) and \texttt{MacroElements}
+(\texttt{Module/MacroElements.h}), the last of which wraps an
+\texttt{EntityHolder} --- a plain owning container of unique pointers,
+one vector per geometry type, for entities that must stay alive while
+not part of the graph.
+
+\paragraph{Staleness.} A payload that refers to mesh entities is
+invalidated when those entities may have gone.
+\texttt{Module::RemoveOrphanedEntities()} calls
+\texttt{ModuleContext::Invalidate()}, which bumps a generation counter;
+\texttt{TryGet<T>} compares generations and reports a payload stored
+before the last invalidation as absent. This is deliberately coarse ---
+``the mesh changed, discard'' --- because testing whether a particular
+entity survived would cost more than rebuilding the payload.
+Renumbering, by contrast, is deliberately \textit{not} an invalidation:
+keying a payload on geometry pointers rather than on global IDs is
+precisely what lets it survive one.
+
+Not every payload wants that, and the trait
+\texttt{PayloadFollowsEntities<T>} says so. It defaults to
+\texttt{true\_type}, the safe answer, and is specialised for the
+octree:
+
+\begin{lstlisting}[style=BashInputStyle]
+template <> struct PayloadFollowsEntities<Octree> : std::false_type {};
+\end{lstlisting}
+
+\noindent because the octree is built from the CAD, not from mesh
+entities, and would otherwise be thrown away the first time a module
+tidied up the graph --- during mesh generation, before anything had
+used it. The check is an \texttt{if constexpr} in
+\texttt{TryGet<T>}, so an exempt payload costs nothing.
+
+\paragraph{When to use it rather than SpatialDomains.} The question to
+ask is whether the payload must react to the destruction of an
+\textit{individual} entity. CAD associations must --- a link from a
+geometry to the CAD curve it sits on has to disappear with that
+geometry --- so they live in \texttt{SpatialDomains} as
+\texttt{CADAssociation}, whose \texttt{Remove()} is called from the
+geometry destructor. Everything for which the coarse ``mesh changed''
+answer is enough belongs in the context, where it stays out of
+\texttt{SpatialDomains} and out of \texttt{Mesh}.
+
+\subsubsection{Element and the element factory}
+\texttt{Element} used to \textit{be} the mesh element: it owned
+\texttt{m\_vertex}, \texttt{m\_edge}, \texttt{m\_face} and
+\texttt{m\_volumeNodes}, and held \texttt{m\_geom} as a lazily-built
+by-product for output. That relationship is now inverted. The geometry
+object \textit{is} the element, and \texttt{Element} is reduced to a
+shape-level helper that builds and queries it. Its remaining state is
+just \texttt{m\_id}, \texttt{m\_dim}, \texttt{m\_conf},
+\texttt{m\_tag}, \texttt{m\_taglist}, \texttt{m\_curveType},
+\texttt{m\_boundaryLinks} and \texttt{m\_geom}; the four node/edge/face
+containers and the \texttt{m\_edgeLink}/\texttt{m\_faceLink} boundary
+back-pointers are gone, the latter being expressed by the
+\texttt{m\_elementTags} lookup instead.
+
+The factory signature reflects the inversion. It used to construct an
+\texttt{Element} from nodes,
+
+\begin{lstlisting}[style=BashInputStyle]
+// old
+typedef LibUtilities::NekFactory<LibUtilities::ShapeType, Element,
+    ElmtConfig, std::vector<NodeSharedPtr>, std::vector<int>>
+    ElementFactory;
+\end{lstlisting}
+
+\noindent whereas it now produces a
+\texttt{SpatialDomains::Geometry*} directly:
+
+\begin{lstlisting}[style=BashInputStyle]
+// new
+typedef LibUtilities::NekFactoryBase<
+    LibUtilities::ShapeType, SpatialDomains::Geometry,
+    SpatialDomains::Geometry *,
+    std::vector<SpatialDomains::PointGeom *> &,
+    SpatialDomains::MeshGraphSharedPtr &, EdgeMap &, FaceMap &,
+    ElmtConfig &, std::set<int> *, std::unordered_set<int> *,
+    std::unordered_set<int> *, ElmtIds *> ElementFactory;
+\end{lstlisting}
+
+Reading the argument list left to right:
+
+\begin{itemize}
+  \item \texttt{ShapeType} selects the shape-level implementation, as
+    before, but the \textit{product} type is now
+    \texttt{SpatialDomains::Geometry} --- hence
+    \texttt{NekFactoryBase}, which allows the created type and the
+    returned type to differ.
+  \item \texttt{vector<PointGeom*>} is the vertex list, in the NekMesh
+    node ordering described in section \ref{sect:node_ordering}.
+  \item \texttt{MeshGraphSharedPtr} is the graph the new entity (and
+    any edges and faces created along the way) is registered with, so
+    creation and ownership happen in one step rather than two.
+  \item \texttt{EdgeMap}/\texttt{FaceMap} are consulted first for
+    every edge and face of the new element: an entity already present
+    is \textit{reused}, and only a genuinely new one is constructed and
+    inserted. This is where inter-element connectivity is established.
+  \item \texttt{ElmtConfig} carries the order and the
+    curvature/face-node flags, as before.
+  \item The three pointer-to-set arguments are optional bookkeeping
+    outputs; each may be \texttt{nullptr} if the caller does not want
+    it.
+    \begin{itemize}
+      \item \texttt{vertIDs} collects the global IDs of the vertices
+        used, so a caller can distinguish true vertices from
+        high-order nodes.
+      \item \texttt{curveNodeIDs} collects the global IDs of the
+        points consumed as curve (high-order) nodes.
+      \item \texttt{naiveTriIDs} records triangular faces that were
+        created \textit{standalone} by \texttt{Triangle.cpp}, i.e.
+        without a parent 3D element to fix their orientation. When a
+        prism or tet later adopts such a face, it finds it in this set
+        and re-sets the face's vertices and edges to its own
+        orientation (and regenerates the face curvature), instead of
+        inheriting the arbitrary alignment the face was born with.
+    \end{itemize}
+  \item \texttt{ElmtIds*} lets the caller pin explicit global IDs for
+    the element and for each of its edges and faces:
+\begin{lstlisting}[style=BashInputStyle]
+struct ElmtIds
+{
+    std::vector<int> edges; ///< edge ids, indexed by local edge
+    std::vector<int> faces; ///< face ids, indexed by local face
+    int elmt;               ///< element id
+};
+\end{lstlisting}
+    Passing \texttt{nullptr} falls back to an automatic ID taken from
+    the current size of the relevant map, which is adequate when
+    building a mesh from scratch but not when a module inserts
+    elements into an existing mesh. Pinning is what lets a module
+    place new entities at chosen IDs and so produce reproducible
+    output --- notably the same result in serial and in parallel ---
+    and it is used together with the \texttt{consolidateIDs<T>()}
+    renumbering described below.
+\end{itemize}
+
+\noindent The convenience wrapper \texttt{CreateElementLite()} covers
+the common case --- a linear element with automatic IDs and no
+filters:
+
+\begin{lstlisting}[style=BashInputStyle]
+SpatialDomains::Geometry *CreateElementLite(
+    LibUtilities::ShapeType type,
+    std::vector<SpatialDomains::PointGeom *> &nodeList,
+    SpatialDomains::MeshGraphSharedPtr &meshGraph,
+    EdgeMap &edgeMap, FaceMap &faceMap);
+\end{lstlisting}
+
+Two free functions, \texttt{GetCurvedNodesTri()} and
+\texttt{GetCurvedNodesQuad()}, assemble the full high-order node list
+of a 2D entity from its vertices, edge curves and interior face nodes,
+in the NekMesh ordering of section \ref{sect:HO_node_ordering}.
+
+\subsubsection{High-order representation and \texttt{MakeOrder}}
+Order elevation has moved down into \texttt{SpatialDomains}. The new
+\texttt{Geometry::MakeOrder(order, pType)} returns the curve and the
+newly created interior points,
+
+\begin{lstlisting}[style=BashInputStyle]
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>>
+    MakeOrder(int order, const LibUtilities::PointsType pType);
+\end{lstlisting}
+
+\noindent and is implemented per shape (\texttt{SegGeom},
+\texttt{TriGeom}, \texttt{QuadGeom}, \texttt{TetGeom},
+\texttt{PrismGeom}, \texttt{HexGeom}). Two properties are new: the
+implementation no longer requires a \texttt{MeshGraph}, and elevation
+proceeds \textit{bottom-up} --- edge curves are generated first, face
+curves are filled from the edge curves, and volume nodes last --- so
+that shared entities are curved exactly once and consistently. Two
+supporting additions are \texttt{Geometry::GetNumFacets()} /
+\texttt{GetFacet(i)}, which give dimension-generic access to a
+geometry's sub-entities (vertices in 1D, edges in 2D, faces in 3D),
+and \texttt{Geometry::ResetLite()}, a cheap reset that invalidates a
+geometry without rebuilding its mapping data. Consistent
+\texttt{v\_Reset}/\texttt{FillGeom} behaviour across all shapes is
+what allows a mesh to be handed on to a solver in-memory after a
+module has modified it.
+
+\subsection{Common operations: before and after}
+\label{sect:common_ops}
+The tables below give the idiom for each of the operations that
+modules perform most often, as written on \texttt{master} and as
+written now. They are grouped by theme: traversal and access
+(table \ref{tab:ops_traversal}), creation, ownership and identity
+(table \ref{tab:ops_ownership}), and CAD, evaluation and pipeline
+(table \ref{tab:ops_cad}). \texttt{graph} below abbreviates
+\texttt{m\_mesh->m\_meshGraph}.
+
+\begin{table}[h!]
+  \centering
+  \small
+  \begin{tabular}{p{0.20\textwidth}p{0.36\textwidth}p{0.36\textwidth}}
+    \hline
+    \textbf{Operation} & \textbf{Before} & \textbf{Now}\\
+    \hline
+    Loop over all elements &
+    \texttt{for (auto \&el : m\_mesh->m\_element[m\_mesh->m\_expDim])} &
+    \texttt{for (auto \&[id, geom] : graph->GetGeomMap<SD::TetGeom>())}
+    --- one loop per shape type present\\
+    \hline
+    Loop over boundary elements &
+    \texttt{for (auto \&el : m\_mesh->m\_element[m\_expDim - 1])} &
+    \texttt{for (auto \&[geom, tag] : m\_mesh->m\_elementTags[dim])}\\
+    \hline
+    Loop over a composite &
+    \texttt{m\_mesh->m\_composite[id]->m\_items} &
+    filter \texttt{m\_elementTags[dim]} on \texttt{tag}, or
+    \texttt{graph->GetComposites()}\\
+    \hline
+    Test boundary membership &
+    element had a non-empty \texttt{m\_edgeLink}/\texttt{m\_faceLink} &
+    \texttt{m\_mesh->IsBoundary(geom, dim)} (equivalently a
+    \texttt{find()} in \texttt{m\_elementTags[dim]})\\
+    \hline
+    Mesh / space dimension &
+    \texttt{m\_mesh->m\_expDim}, \texttt{m\_mesh->m\_spaceDim} &
+    \texttt{graph->GetMeshDimension()},
+    \texttt{graph->GetSpaceDimension()}\\
+    \hline
+    Element vertices &
+    \texttt{el->GetVertexList()} $\rightarrow$
+    \texttt{vector<NodeSharedPtr>} &
+    \texttt{geom->GetVertex(i)} $\rightarrow$ \texttt{PointGeom*},
+    count from \texttt{GetNumVerts()}\\
+    \hline
+    Element edges / faces &
+    \texttt{el->GetEdgeList()}, \texttt{el->GetFaceList()} &
+    \texttt{geom->GetEdge(i)}, \texttt{geom->GetFace(i)}; generically
+    \texttt{GetNumFacets()} / \texttt{GetFacet(i)}\\
+    \hline
+    Vertex coordinates &
+    \texttt{node->m\_x}, \texttt{m\_y}, \texttt{m\_z} &
+    \texttt{pt->GetCoords(x, y, z)}\\
+    \hline
+    Find shared edge / face &
+    \texttt{m\_mesh->m\_edgeSet.find(edge)} on an
+    \texttt{EdgeSharedPtr} &
+    \texttt{m\_mesh->m\_edgeSet.find(\{vid0, vid1\})} keyed on vertex
+    IDs, returning \texttt{SegGeom*}\\
+    \hline
+    Neighbours of a face &
+    \texttt{face->m\_elLink[j].first.lock()} &
+    \texttt{graph->GetAllFaceToElMap()} (populated via
+    \texttt{PopulateFaceToElMap()})\\
+    \hline
+    Recover concrete shape &
+    \texttt{el->GetConf().m\_e} / \texttt{GetShapeType()}, element
+    already typed &
+    \texttt{switch (geom->GetShapeType())} then
+    \texttt{static\_cast<SD::TriGeom*>(geom)}\\
+    \hline
+    Identify a shape &
+    Same &
+    \texttt{LibUtilities::ShapeType} (\texttt{eTriangle},
+    \texttt{ePrism}, \ldots) is still the key everywhere\\
+    \hline
+    Describe an element's order and curvature &
+    Same &
+    \texttt{ElmtConfig}: \texttt{m\_order},
+    \texttt{m\_faceNodes}, \texttt{m\_volumeNodes},
+    \texttt{m\_edgeCurveType}\\
+    \hline
+    Vertex node ordering &
+    Same &
+    the collapsed-point, prism and pyramid rules of section
+    \ref{sect:node_ordering} are unchanged, as is the high-order
+    ordering of section \ref{sect:HO_node_ordering}\\
+    \hline
+  \end{tabular}
+  \caption{Traversal and access idioms. \texttt{SD} abbreviates
+    \texttt{SpatialDomains}. Rows marked \textit{Same} are unchanged
+    from \texttt{master} and are listed because they remain in common
+    use.}
+  \label{tab:ops_traversal}
+\end{table}
+
+\begin{table}[h!]
+  \centering
+  \small
+  \begin{tabular}{p{0.20\textwidth}p{0.36\textwidth}p{0.36\textwidth}}
+    \hline
+    \textbf{Operation} & \textbf{Before} & \textbf{Now}\\
+    \hline
+    Create a vertex &
+    \texttt{make\_shared<Node>(id,x,y,z)} then
+    \texttt{m\_node.push\_back()} and \texttt{m\_vertexSet.insert()} &
+    \texttt{ObjPoolManager<SD::PointGeom>::AllocateUniquePtr(...)} then
+    \texttt{graph->AddGeom<SD::PointGeom>(id, std::move(p))}\\
+    \hline
+    Create an element &
+    \texttt{GetElementFactory().CreateInstance(elType, conf, nodeList,
+      tags)} $\rightarrow$ \texttt{ElementSharedPtr} &
+    same factory, but $\rightarrow$ \texttt{SD::Geometry*}, taking
+    \texttt{graph}, \texttt{EdgeMap}, \texttt{FaceMap} and
+    \texttt{ElmtIds*}; \texttt{CreateElementLite()} for the linear
+    case\\
+    \hline
+    Register an element &
+    \texttt{m\_mesh->m\_element[E->GetDim()].push\_back(E)} &
+    done \textit{inside} the factory, via
+    \texttt{graph->AddGeom<T>()}; bulk insertion with
+    \texttt{BulkAddGeom<T>()}\\
+    \hline
+    Remove an element &
+    erase from \texttt{m\_element[dim]}; the shared pointer freed it &
+    \texttt{graph->ExtractGeom<T>(id, /*erase*/ true)}, which returns
+    ownership to the caller (often into an \texttt{EntityHolder})\\
+    \hline
+    Keep an entity alive off-graph &
+    reference counting did it implicitly &
+    park it in an \texttt{EntityHolder} (e.g.
+    \texttt{GetContext().Get<MacroElements>().entities})\\
+    \hline
+    Entity ID &
+    \texttt{node->m\_id}, \texttt{edge->m\_id}, \texttt{el->GetId()} &
+    \texttt{geom->GetGlobalID()}, \texttt{geom->SetGlobalID(id)}\\
+    \hline
+    Choose IDs on creation &
+    not possible; assigned on insertion &
+    pass an \texttt{ElmtIds\{edges, faces, elmt\}}; \texttt{nullptr}
+    for automatic\\
+    \hline
+    Renumber after edits &
+    reassign \texttt{m\_id} while re-walking the sets &
+    \texttt{consolidateIDs<T>()}, which rebuilds the shape's geom map
+    \textit{and} the matching curve map\\
+    \hline
+    Composite / tag of an entity &
+    \texttt{el->GetTagList()} $\rightarrow$ \texttt{vector<int>} &
+    \texttt{m\_mesh->m\_elementTags[dim][geom]} $\rightarrow$
+    \texttt{int}\\
+    \hline
+    Edge / face curvature &
+    \texttt{edge->m\_edgeNodes}, \texttt{face->m\_faceNodes},
+    \texttt{el->GetVolumeNodes()} &
+    \texttt{graph->GetCurvedEdges()[id]},
+    \texttt{GetCurvedFaces()[id]}, each a \texttt{Curve} with
+    \texttt{m\_points}; read back with \texttt{geom->GetCurve()}\\
+    \hline
+    Register a module &
+    Same &
+    \texttt{GetModuleFactory().RegisterCreatorFunction(ModuleKey(eProcessModule,
+      "name"), create, ...)}\\
+    \hline
+    Declare and read options &
+    Same &
+    \texttt{m\_config["key"] = ConfigOption(...)} in the constructor,
+    then \texttt{m\_config["key"].as<T>()} and \texttt{.beenSet}\\
+    \hline
+    Report to the user &
+    Same &
+    \texttt{m\_log(VERBOSE)}, \texttt{m\_log(WARNING)},
+    \texttt{m\_log(FATAL)}\\
+    \hline
+    Assert &
+    Same &
+    \texttt{ASSERTL0} / \texttt{NEKERROR}\\
+    \hline
+  \end{tabular}
+  \caption{Creation, ownership and identity idioms. Rows marked
+    \textit{Same} are unchanged from \texttt{master}.}
+  \label{tab:ops_ownership}
+\end{table}
+
+\begin{table}[h!]
+  \centering
+  \small
+  \begin{tabular}{p{0.20\textwidth}p{0.36\textwidth}p{0.36\textwidth}}
+    \hline
+    \textbf{Operation} & \textbf{Before} & \textbf{Now}\\
+    \hline
+    Reach the CAD model &
+    \texttt{m\_mesh->m\_cad} &
+    \texttt{graph->GetCAD()}\\
+    \hline
+    Fetch a CAD entity &
+    \texttt{m\_mesh->m\_cad->GetSurf(i)},
+    \texttt{GetCurve(i)}, \texttt{GetVert(i)} &
+    \texttt{graph->GetCAD()->GetSurf(i)}, etc. --- same interface,
+    now in \texttt{SpatialDomains}\\
+    \hline
+    Project a point to a surface &
+    Same &
+    \texttt{s->locuv(in, dist)} then \texttt{s->P(uv)}; the bounded
+    overload \texttt{locuv(loc, dist, umin, umax, vmin, vmax)} is now
+    also used, to restrict the search\\
+    \hline
+    Query a CAD entity &
+    Same &
+    \texttt{N()} (normal), \texttt{D1()}/\texttt{D2()}
+    (derivatives), \texttt{GetBounds()}, \texttt{IsPlanar()}\\
+    \hline
+    Build geometry for evaluation &
+    \texttt{el->GetGeom(m\_spaceDim, holder)} --- constructed on
+    demand &
+    the entity \textit{is} the geometry; no conversion step\\
+    \hline
+    Geometric factors / Jacobian &
+    Same &
+    \texttt{geom->GetXmap()->GetPointsKeys()},
+    \texttt{geom->GenGeomFactors(p)}, \texttt{gfac->GetDeriv(p)} ---
+    this path was already \texttt{SpatialDomains}\\
+    \hline
+    Integrate over an element &
+    Same &
+    \texttt{geom->GetXmap()->Integral(jac)},
+    \texttt{GetTotPoints()}\\
+    \hline
+    Refresh after moving nodes &
+    rebuild the element's geometry &
+    \texttt{geom->FillGeom()} and \texttt{geom->Reset()}, or
+    \texttt{ResetLite()} when the mapping data need not be rebuilt\\
+    \hline
+    Elevate order &
+    \texttt{Mesh::MakeOrder()} walking elements and requiring a
+    \texttt{MeshGraph} &
+    \texttt{Geometry::MakeOrder(order, pType)} per shape, bottom-up,
+    with no \texttt{MeshGraph} dependency\\
+    \hline
+  \end{tabular}
+  \caption{CAD, evaluation and pipeline idioms.}
+  \label{tab:ops_cad}
+\end{table}
+
+\subsection{CAD association: where the links now live}
+\label{sect:cad_links}
+A separate point, easily missed: geometry objects carry no CAD
+back-pointer. \texttt{m\_parentCAD} is commented out in
+\texttt{SegGeom}, \texttt{TriGeom} and \texttt{QuadGeom}, and
+\texttt{PointGeom} has no equivalent of the old
+\texttt{Node::SetCADSurf} / \texttt{GetCADSurfInfo}. The association is
+instead held by the \texttt{MeshGraph} in a set of maps from mesh
+entity to CAD entity (\texttt{SpatialDomains/MeshGraph.h}):
+
+\begin{itemize}
+  \item \texttt{Get}/\texttt{SetFaceToCADSurf(Geometry*)};
+  \item \texttt{Get}/\texttt{SetEdgeToCADSurf(Geometry1D*)} and
+    \texttt{Get}/\texttt{SetEdgeToCADCurve(Geometry1D*)};
+  \item \texttt{Get}/\texttt{SetVertToCADSurf(PointGeom*)}, with
+    \texttt{GetVertToCADSurfUV(vert, cadId)} for the parameter pair;
+  \item \texttt{Get}/\texttt{SetVertToCADCurve(PointGeom*)}, with
+    \texttt{GetVertToCADCurveT(vert, cadId)};
+  \item \texttt{Get}/\texttt{SetVertToCADVert(PointGeom*)}.
+\end{itemize}
+
+Table \ref{tab:ops_cadlink} gives the translation used when porting
+\texttt{CurveMesh}, which is representative of the mesh generation
+modules generally.
+
+\begin{table}[h!]
+  \centering
+  \small
+  \begin{tabular}{p{0.44\textwidth}p{0.48\textwidth}}
+    \hline
+    \textbf{Before} & \textbf{Now}\\
+    \hline
+    \texttt{node->SetCADCurve(c, t)} &
+    \texttt{graph->SetVertToCADCurve(pt, \{c, t\})}\\
+    \hline
+    \texttt{node->SetCADSurf(s, uv)} &
+    \texttt{graph->SetVertToCADSurf(pt, \{s, \{u,v\}\})}\\
+    \hline
+    \texttt{node->GetCADCurveInfo(id)} &
+    \texttt{graph->GetVertToCADCurveT(pt, id)}\\
+    \hline
+    \texttt{node->GetCADSurfInfo(id)} &
+    \texttt{graph->GetVertToCADSurfUV(pt, id)}\\
+    \hline
+    \texttt{edge->m\_parentCAD = c} &
+    \texttt{graph->SetEdgeToCADCurve(seg, c)}\\
+    \hline
+    \texttt{new Node(m\_numNodes++, x, y, z)} &
+    \texttt{ObjPoolManager<PointGeom>::AllocateUniquePtr(...)} then
+    \texttt{graph->AddGeom<PointGeom>(id, std::move(pt))}\\
+    \hline
+    \texttt{new Edge(n1, n2)} then
+    \texttt{m\_edgeSet.insert(e)} &
+    \texttt{CreateElementLite(eSegment, ns, graph, edgeSet, faceSet)}
+    --- registers with the graph and the edge map in one step\\
+    \hline
+    \texttt{m\_edgeSet.erase(edge)} &
+    \texttt{m\_edgeSet.erase(\{vid0, vid1\})} --- keyed on vertex ids\\
+    \hline
+    \texttt{node->GetLoc()} &
+    \texttt{pt->GetCoords(x, y, z)}\\
+    \hline
+    \texttt{cadVert->GetNode()} &
+    no equivalent; see the note below\\
+    \hline
+  \end{tabular}
+  \caption{CAD/mesh association commands. \texttt{graph} abbreviates
+    \texttt{m\_mesh->m\_meshGraph} and \texttt{pt} a
+    \texttt{PointGeom*}.}
+  \label{tab:ops_cadlink}
+\end{table}
+
+
+
+\subsection{CAD moves into SpatialDomains}
+The whole CAD abstraction has been lifted out of
+\texttt{library/NekMesh/CADSystem} into
+\texttt{library/SpatialDomains/CADSystem}, so that geometry objects
+themselves --- not just NekMesh --- can carry a CAD association:
+
+\begin{itemize}
+  \item the interface (\texttt{CADObject}, \texttt{CADSystem},
+    \texttt{CADCurve}, \texttt{CADSurf}, \texttt{CADVert});
+  \item the OpenCASCADE backend \texttt{CADSystem/OCE}, including
+    \texttt{OpenCascade.h}, \texttt{TransfiniteSurface} and
+    \texttt{GeoParser.hpp}, a \texttt{boost::spirit} parser for the
+    \texttt{.geo} format;
+  \item the CFI backend \texttt{CADSystem/CFI}, which additionally
+    gains \texttt{CADElementCFI}.
+\end{itemize}
+
+\noindent \texttt{SpatialDomains/MeshGraph.h} now includes
+\texttt{CADSystem/CADSystem.h} directly. The corresponding NekMesh
+sources are commented out of the NekMesh build, and NekMesh gains a
+dependency on \texttt{SpatialDomains}.
+
+\texttt{ProcessProjectCAD} has been substantially rewritten on top of
+this (\textit{CAD reconstruction}): it now keys its work off
+\texttt{PointGeom*} and \texttt{Geometry3D*} rather than nodes and
+elements, and separates the association stages into
+\texttt{LinkVertexToCAD}, \texttt{LinkEdgeToCAD} and
+\texttt{LinkFaceToCAD}, with \texttt{boost::geometry} R-trees for
+proximity search and a \texttt{lockedNodes} set recording vertices
+whose CAD projection failed (these are linearised rather than curved).
+\texttt{HOSurfaceMesh} has been reworked in step with it, for both
+quadrilateral and triangular face nodes.
+
+\subsection{Parallel modules}
+Because the mesh is now a \texttt{MeshGraph}, modules can be run under
+MPI on a partitioned mesh. \texttt{Mesh::m\_comm} holds the
+communicator, and the ported modules test
+\texttt{m\_comm->GetSize() > 1} to switch on the parallel path,
+exchanging the entities they have modified across ranks (for example
+via \texttt{GatherUnion} of cleared edge/face IDs and
+\texttt{AllReduce} on the iteration termination flag in
+\texttt{ProcessLinear}). At present:
+
+\begin{itemize}
+  \item \texttt{ProcessLinear} runs in parallel, with an
+    \texttt{extract} configuration option to write out the invalid
+    elements it finds (per-rank).
+  \item \texttt{ProcessBL} runs in parallel, and now handles
+    hexahedra and mixed element orientations in 2D and 3D.
+  \item Parallel HDF5 output is supported and HDF5 is enabled by
+    default; \texttt{MeshGraphIOHDF5} gained parallel writing of
+    curve data, composites and domains.
+\end{itemize}
+
+\subsection{Module status}
+The port is incomplete by design: modules are being brought over to
+the new data structure one at a time, and those not yet converted are
+commented out of \texttt{library/NekMesh/CMakeLists.txt} rather than
+deleted. Table \ref{tab:module_status} summarises the state at the
+time of writing.
+
+\begin{table}[h!]
+  \centering
+  \begin{tabular}{p{0.20\textwidth}p{0.34\textwidth}p{0.34\textwidth}}
+    \hline
+    \textbf{Kind} & \textbf{Ported} & \textbf{Not yet ported (disabled)}\\
+    \hline
+    Input &
+    \texttt{InputGmsh}, \texttt{InputNekpp}, \texttt{InputStar},
+    \texttt{InputPly}, \texttt{InputSwan} &
+    \texttt{InputNek}, \texttt{InputNek5000}, \texttt{InputSem},
+    \texttt{InputStarTec}, \texttt{InputMCF}, \texttt{InputVtk}\\
+    \hline
+    Process &
+    \texttt{ProcessBL}, \texttt{ProcessLinear},
+    \texttt{ProcessProjectCAD}, \texttt{ProcessCombine},
+    \texttt{ProcessExtractSurf}, \texttt{ProcessExtrude},
+    \texttt{ProcessJac}, \texttt{ProcessScale},
+    \texttt{ProcessCheckConnectivity} (new) &
+    \texttt{ProcessVarOpti}, \texttt{ProcessCurve},
+    \texttt{ProcessCurvedEdges}, \texttt{ProcessCyl},
+    \texttt{ProcessDetectSurf}, \texttt{ProcessPerAlign},
+    \texttt{ProcessSpherigon}, \texttt{ProcessTetSplit},
+    \texttt{ProcessInsertSurface}, \texttt{ProcessRevolve},
+    \texttt{ProcessLinkCheck}, \texttt{ProcessOptiExtract},
+    \texttt{ProcessScalar},
+    \texttt{ProcessExtractTetPrismInterface}\\
+    \hline
+    Output &
+    \texttt{OutputNekpp} (XML and parallel HDF5),
+    \texttt{OutputGmsh} &
+    \texttt{OutputSTL}, \texttt{OutputVtk}\\
+    \hline
+    Generation & --- &
+    \texttt{Octree}, \texttt{SurfaceMesh}/\texttt{CurveMesh}/%
+    \texttt{FaceMesh}, \texttt{VolumeMesh}/\texttt{TetMesh}/%
+    \texttt{BLMesh}, \texttt{2DGenerator}, Triangle/TetGen
+    interfaces\\
+    \hline
+  \end{tabular}
+  \caption{Status of NekMesh modules under the new
+    \texttt{MeshGraph}-based data structure. Disabled modules are
+    commented out of the build, not removed.}
+  \label{tab:module_status}
+\end{table}
+
+\noindent \texttt{ProcessCheckConnectivity} is a new module which
+verifies the connectivity of all elements and reports orphaned
+geometry --- a useful consistency check while modules are being
+ported.
+
+\subsection{Behavioural changes to be aware of coming from SpatialDomains}
+\begin{itemize}
+  \item Coincident vertices are \textbf{no longer removed by
+    default}.
+  \item Element tags are a single \texttt{int}
+    (\texttt{m\_elementTags}) rather than a \texttt{vector<int>}.
+  \item Geometry IDs are consolidated after modules that create or
+    destroy entities (see the \texttt{consolidateIDs<T>()} template in
+    \texttt{ProcessBL.h}), which renumbers a shape's geometry map and
+    the associated curve map so that IDs remain contiguous and
+    deterministic.
+  \item \texttt{Module} gained \texttt{m\_order} and
+    \texttt{m\_nummode} members (both \texttt{-1} for the non-uniform
+    case).
+\end{itemize}
 
 \section{Theory}
 \subsection{Mesh Hierarchy}
@@ -294,6 +1188,13 @@ in the 2D case, it is a concatenation of the vertices, then all the
 mid-edge nodes, then all the mid-face nodes (if included) then all the
 mid-volume nodes (if included).
 
+Note that this concatenated ordering is not in general the ordering used by
+the \code{Curve} objects that carry curvature inside SpatialDomains: for the
+tensor-product shapes (quadrilateral and hexahedron) a \code{Curve} holds a
+tensor grid instead, and the conversion is done as the geometry is
+constructed.  Section \ref{sec:spatialdomains-orderings} documents the
+SpatialDomains side and the places where the two conventions diverge.
+
 \begin{figure}[h!]
     \centering
     \begin{subfigure}[b]{0.45\textwidth}
@@ -457,4 +1358,4 @@ orderings in the CGNS SIDS \cite{SIDS_node_ordering} and NekMesh
  \bibitem{SIDS_node_ordering}\url{ https://cgns.github.io/CGNS_docs_current/sids/conv.html\#unstructgrid}
 \end{thebibliography}
 
-%\end{document}
+% \end{document}

@@ -33,7 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
-#include <NekMesh/CADSystem/CADSystem.h>
+#include <SpatialDomains/CADSystem/CADSystem.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -73,28 +73,30 @@ void ProcessLoadCAD::Process()
 
     if (fs::path(name).extension() == ".fbm")
     {
-        m_mesh->m_cad = GetEngineFactory().CreateInstance("cfi", name);
+        m_mesh->m_meshGraph->SetCAD(
+            SpatialDomains::GetEngineFactory().CreateInstance("cfi", name));
 
         if (m_config["usecfimesh"].beenSet)
         {
-            m_mesh->m_cad->SetConfig("UseCFIMesh", "1");
+            m_mesh->m_meshGraph->GetCAD()->SetConfig("UseCFIMesh", "1");
         }
     }
     else
     {
-        m_mesh->m_cad = GetEngineFactory().CreateInstance("oce", name);
+        m_mesh->m_meshGraph->SetCAD(
+            SpatialDomains::GetEngineFactory().CreateInstance("oce", name));
     }
 
-    m_mesh->m_cad->SetLogger(m_log);
-
+    auto m_cad = m_mesh->m_meshGraph->GetCAD();
+    m_cad->SetLogger(m_log);
     if (m_config["2D"].beenSet)
     {
-        m_mesh->m_cad->Set2D();
+        m_cad->Set2D();
     }
 
     if (m_config["NACA"].beenSet)
     {
-        m_mesh->m_cad->SetConfig("UseNACA", m_config["NACA"].as<std::string>());
+        m_cad->SetConfig("UseNACA", m_config["NACA"].as<std::string>());
     }
 
     std::string voidPoints = m_config["voidpoints"].as<std::string>();
@@ -123,9 +125,8 @@ void ProcessLoadCAD::Process()
             voidPts.push_back(tmp);
         }
 
-        m_mesh->m_cad->SetVoidPoints(voidPts);
+        m_cad->SetVoidPoints(voidPts);
     }
-
-    ASSERTL0(m_mesh->m_cad->LoadCAD(), "Failed to load CAD");
+    ASSERTL0(m_cad->LoadCAD(), "Failed to load CAD");
 }
 } // namespace Nektar::NekMesh

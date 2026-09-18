@@ -71,31 +71,32 @@ public:
         return m_blsurfs;
     }
 
-    std::map<NodeSharedPtr, NodeSharedPtr> GetSymNodes();
+    std::map<SpatialDomains::PointGeom *, SpatialDomains::PointGeom *>
+    GetSymNodes();
 
-    std::vector<ElementSharedPtr> GetPseudoSurface()
+    std::vector<SpatialDomains::Geometry *> GetPseudoSurface()
     {
         return m_psuedoSurface;
     }
 
     struct blInfo
     {
-        NodeSharedPtr pNode;
-        NodeSharedPtr oNode;
+        SpatialDomains::PointGeom *pNode;
+        SpatialDomains::PointGeom *oNode;
         int bl;
         std::array<NekDouble, 3> N;
         int symsurf;
         bool onSym;
-        std::vector<ElementSharedPtr> els;
+        std::vector<SpatialDomains::Geometry *> els;
         std::set<int> surfs;
 
         bool stopped;
 
         void AlignNode(NekDouble t)
         {
-            pNode->m_x = oNode->m_x + t * N[0];
-            pNode->m_y = oNode->m_y + t * N[1];
-            pNode->m_z = oNode->m_z + t * N[2];
+            NekDouble x, y, z;
+            oNode->GetCoords(x, y, z);
+            pNode->UpdatePosition(x + t * N[0], y + t * N[1], z + t * N[2]);
         }
     };
     typedef std::shared_ptr<blInfo> blInfoSharedPtr;
@@ -105,13 +106,16 @@ private:
     void GrowLayers();
     void Shrink();
     void BuildElements();
-    bool TestIntersectionEl(ElementSharedPtr e1, ElementSharedPtr e2);
-    bool IsPrismValid(ElementSharedPtr el);
-    NekDouble Proximity(NodeSharedPtr n, ElementSharedPtr el);
+    bool TestIntersectionEl(SpatialDomains::Geometry *e1,
+                            SpatialDomains::Geometry *e2);
+    bool IsPrismValid(SpatialDomains::Geometry *el);
+    NekDouble Proximity(SpatialDomains::PointGeom *n,
+                        SpatialDomains::Geometry *el);
 
-    NekDouble Visability(std::vector<ElementSharedPtr> tris,
+    NekDouble Visability(std::vector<SpatialDomains::Geometry *> tris,
                          std::array<NekDouble, 3> N);
-    std::array<NekDouble, 3> GetNormal(std::vector<ElementSharedPtr> tris);
+    std::array<NekDouble, 3> GetNormal(
+        std::vector<SpatialDomains::Geometry *> tris);
 
     /// mesh object containing surface mesh
     MeshSharedPtr m_mesh;
@@ -125,12 +129,19 @@ private:
     std::vector<NekDouble> m_layerT;
     /// list of surfaces to be remeshed due to the boundary layer
     std::vector<unsigned int> m_symSurfs;
-    /// data structure used to store and develop bl information
-    std::map<NodeSharedPtr, blInfoSharedPtr> m_blData;
-    std::map<NodeSharedPtr, std::vector<blInfoSharedPtr>>
+    /// data structure used to store and develop bl information. Ordered by
+    /// node ID, not by address: growing the layers visits these in order and
+    /// stops nodes against the ones already grown, so the order decides the
+    /// mesh. Safe to key on the ID because nothing renumbers vertices while
+    /// the boundary layer is being built; VolumeMesh only calls
+    /// ProcessVertices once the meshing is finished.
+    std::map<SpatialDomains::PointGeom *, blInfoSharedPtr, GeometryPtrIdLess>
+        m_blData;
+    std::map<SpatialDomains::PointGeom *, std::vector<blInfoSharedPtr>,
+             GeometryPtrIdLess>
         m_nToNInfo; // node to neighbouring information
-    std::map<ElementSharedPtr, ElementSharedPtr> m_priToTri;
-    std::vector<ElementSharedPtr> m_psuedoSurface;
+    std::map<SpatialDomains::Geometry *, SpatialDomains::Geometry *> m_priToTri;
+    std::vector<SpatialDomains::Geometry *> m_psuedoSurface;
     NekMatrix<NekDouble> m_deriv[3];
     /// Logger
     Logger m_log;

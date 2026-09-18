@@ -2,7 +2,7 @@
 <test>
     <description> NekMesh ProjectCAD with Shaft (check for detailed CAD projection info) </description>
     <executable>NekMesh</executable>
-    <parameters> -m bl:nq=4:surf=1,2:layers=10:r=1.2 -m jac:list -m linkcheck 04_bl_ShaftHO.xml 04_bl_ShaftHO-out.xml:xml:test -v </parameters>
+    <parameters> -m bl:nq=4:surf=1,2:layers=10:r=1.2 -m jac:list -m connectivity:list 04_bl_ShaftHO.xml 04_bl_ShaftHO-out.xml:xml:test -v </parameters>
     <files>
         <file description="Input File">04_bl_ShaftHO.xml</file>
     </files>
@@ -25,5 +25,10 @@
                 </match>
             </matches>
         </metric>
+        # Detected connectivity issues 
+        <metric type="nowarning" id="3">
+            <regex>Detected</regex>
+        </metric>
+
     </metrics>
 </test>

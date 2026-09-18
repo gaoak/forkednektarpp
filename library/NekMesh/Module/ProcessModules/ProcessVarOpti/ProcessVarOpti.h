@@ -100,15 +100,19 @@ public:
 private:
     void Analytics();
 
-    typedef std::map<int, std::vector<ElUtilSharedPtr>> NodeElMap;
+    // Keyed by node rather than by node id: the high-order nodes that
+    // MakeOrder generates all carry id 0, so identity is the pointer.
+    typedef std::unordered_map<SpatialDomains::PointGeom *,
+                               std::vector<ElUtilSharedPtr>>
+        NodeElMap;
 
     std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> BuildDerivUtil(int o);
     void GetElementMap(
         int o, std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> derMap);
     std::vector<ElUtilSharedPtr> GetLockedElements(NekDouble thres);
-    std::vector<std::vector<NodeSharedPtr>> CreateColoursets(
-        std::vector<NodeSharedPtr> remain);
-    std::vector<std::vector<NodeSharedPtr>> GetColouredNodes(
+    std::vector<std::vector<SpatialDomains::PointGeom *>> CreateColoursets(
+        std::vector<SpatialDomains::PointGeom *> remain);
+    std::vector<std::vector<SpatialDomains::PointGeom *>> GetColouredNodes(
         std::vector<ElUtilSharedPtr> elLock);
 
     void RemoveLinearCurvature();
@@ -119,9 +123,9 @@ private:
 
     NodeElMap m_nodeElMap;
     std::vector<ElUtilSharedPtr> m_dataSet;
-    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
-        m_adaptCurves;
+    AdaptCurveVector m_adaptCurves;
     bool m_radaptCAD;
+    int m_nummode = 0;
 
     ResidualSharedPtr m_res;
     optiType m_opti;

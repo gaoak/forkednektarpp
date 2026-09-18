@@ -32,6 +32,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/Interp.h>
+#include <LibUtilities/Foundations/ManagerAccess.h>
+#include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/GeomFactors.h>
 #include <SpatialDomains/Geometry1D.h>
 #include <SpatialDomains/HexGeom.h>
@@ -39,6 +42,8 @@
 #include <SpatialDomains/SegGeom.h>
 #include <SpatialDomains/XmapFactory.hpp>
 #include <StdRegions/StdHexExp.h>
+
+#include <cmath>
 
 namespace Nektar::SpatialDomains
 {
@@ -67,8 +72,8 @@ HexGeom::HexGeom()
     m_shapeType = LibUtilities::eHexahedron;
 }
 
-HexGeom::HexGeom(int id, std::array<QuadGeom *, kNfaces> faces)
-    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim())
+HexGeom::HexGeom(int id, std::array<QuadGeom *, kNfaces> faces, Curve *curve)
+    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim(), curve)
 {
     m_shapeType = LibUtilities::eHexahedron;
     m_globalID  = id;
@@ -78,6 +83,26 @@ HexGeom::HexGeom(int id, std::array<QuadGeom *, kNfaces> faces)
     SetUpLocalVertices();
     SetUpEdgeOrientation();
     SetUpFaceOrientation();
+}
+
+HexGeom::HexGeom(int id, std::array<QuadGeom *, 6> faces,
+                 std::array<SegGeom *, 12> edges,
+                 std::array<PointGeom *, 8> verts, bool skipSetUp, Curve *curve)
+    : Geometry3D(faces[0]->GetEdge(0)->GetVertex(0)->GetCoordim(), curve)
+{
+    m_shapeType = LibUtilities::eHexahedron;
+    m_globalID  = id;
+
+    /// Copy the face & edge & vert pointers
+    m_faces = faces;
+    m_edges = edges;
+    m_verts = verts;
+
+    if (!skipSetUp)
+    {
+        SetUpEdgeOrientation();
+        SetUpFaceOrientation();
+    }
 }
 
 GeomType HexGeom::v_CalcGeomType()
@@ -142,6 +167,11 @@ GeomType HexGeom::v_CalcGeomType()
                 }
             }
         }
+    }
+
+    if (Gtype == eRegular)
+    {
+        v_CalculateInverseIsoParam();
     }
 
     if (Gtype == eRegular)
@@ -706,6 +736,12 @@ void HexGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     SetUpCoeffs(m_xmap->GetNcoeffs());
 }
 
+void HexGeom::v_ResetLite()
+{
+    SetUpEdgeOrientation();
+    SetUpFaceOrientation();
+}
+
 void HexGeom::v_Setup()
 {
     if (!m_setupState)
@@ -850,6 +886,49 @@ void HexGeom::v_FillGeom()
 
     int i, j, k;
 
+    if (m_curve)
+    {
+        // Interior nodes of the element itself. A hexahedron's nodes form a
+        // tensor product, so this mirrors the quadrilateral in one more
+        // dimension: interpolate the whole nodal grid onto the mapping's
+        // points and transform. The faces below then overwrite the boundary
+        // coefficients, which are shared and therefore authoritative, leaving
+        // only the interior taken from here.
+        const int npts     = m_curve->m_points.size();
+        const int nEdgePts = (int)std::round(std::cbrt((NekDouble)npts));
+
+        ASSERTL0(nEdgePts * nEdgePts * nEdgePts == npts,
+                 "NUMPOINTS should be a cube number in hexahedron " +
+                     std::to_string(m_globalID));
+
+        for (i = 0; i < kNedges; ++i)
+        {
+            ASSERTL0(m_edges[i]->GetXmap()->GetNcoeffs() == nEdgePts,
+                     "Number of edge points does not correspond to number of "
+                     "volume points in hexahedron " +
+                         std::to_string(m_globalID));
+        }
+
+        Array<OneD, NekDouble> tmp(npts);
+        Array<OneD, NekDouble> tmp2(m_xmap->GetTotPoints());
+        LibUtilities::PointsKey curveKey(nEdgePts, m_curve->m_ptype);
+
+        for (i = 0; i < m_coordim; ++i)
+        {
+            for (j = 0; j < npts; ++j)
+            {
+                tmp[j] = (m_curve->m_points[j]->GetPtr())[i];
+            }
+
+            LibUtilities::Interp3D(curveKey, curveKey, curveKey, tmp,
+                                   m_xmap->GetBasis(0)->GetPointsKey(),
+                                   m_xmap->GetBasis(1)->GetPointsKey(),
+                                   m_xmap->GetBasis(2)->GetPointsKey(), tmp2);
+
+            m_xmap->FwdTrans(tmp2, m_coeffs[i]);
+        }
+    }
+
     for (i = 0; i < kNfaces; i++)
     {
         m_faces[i]->FillGeom();
@@ -888,6 +967,126 @@ void HexGeom::v_FillGeom()
     }
 
     m_state = ePtsFilled;
+}
+
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> HexGeom::v_MakeOrder(
+    int order, const LibUtilities::PointsType pType)
+{
+    int nPoints = order + 1;
+
+    Array<OneD, NekDouble> px;
+    LibUtilities::PointsKey pKey(nPoints, pType);
+    ASSERTL1(pKey.GetPointsDim() == 1, "Points distribution must be 1D");
+    LibUtilities::PointsManager()[pKey]->GetPoints(px);
+
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> cd;
+
+    cd.first = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        m_globalID, pType);
+
+    Curve *c = cd.first.get();
+    c->m_points.resize(nPoints * nPoints * nPoints);
+
+    m_curve = c;
+
+    // The nodes form a tensor grid: point (d0, d1, d2) sits at
+    // xi = (px[d0], px[d1], px[d2]) and index d0 + nPoints * (d1 + nPoints *
+    // d2), matching the ordering v_FillGeom() hands to Interp3D.
+    auto gridIndex = [nPoints](int d0, int d1, int d2) {
+        return d0 + nPoints * (d1 + nPoints * d2);
+    };
+
+    // Boundary nodes come from the face curves. A quadrilateral's curve is a
+    // full tensor grid including its own edge and vertex nodes, so copying the
+    // six faces also brings across every edge and vertex, already shared with
+    // the neighbours that own them.
+    for (int f = 0; f < kNfaces; ++f)
+    {
+        Curve *faceCurve = m_faces[f]->GetCurve();
+        ASSERTL1(faceCurve != nullptr,
+                 "Face curve not set; call MakeOrder on faces before volumes");
+        ASSERTL1(faceCurve->m_points.size() ==
+                     static_cast<size_t>(nPoints * nPoints),
+                 "Face curve has the wrong number of points for this order");
+
+        // idmap takes an index in the face's own ordering to the corresponding
+        // index in the element's ordering of that face.
+        Array<OneD, int> idmap;
+        m_xmap->ReOrientTracePhysMap(m_forient[f], idmap, nPoints, nPoints);
+
+        for (int t = 0; t < nPoints * nPoints; ++t)
+        {
+            const int e = idmap[t];
+            const int a = e % nPoints;
+            const int b = e / nPoints;
+
+            // Which element directions the face spans, and which face of the
+            // pair it is, follows v_GetDir() and the face vertex tables.
+            int d0, d1, d2;
+            switch (f)
+            {
+                case 0: // xi3 = -1, spans (xi1, xi2)
+                    d0 = a, d1 = b, d2 = 0;
+                    break;
+                case 1: // xi2 = -1, spans (xi1, xi3)
+                    d0 = a, d1 = 0, d2 = b;
+                    break;
+                case 2: // xi1 = +1, spans (xi2, xi3)
+                    d0 = nPoints - 1, d1 = a, d2 = b;
+                    break;
+                case 3: // xi2 = +1, spans (xi1, xi3)
+                    d0 = a, d1 = nPoints - 1, d2 = b;
+                    break;
+                case 4: // xi1 = -1, spans (xi2, xi3)
+                    d0 = 0, d1 = a, d2 = b;
+                    break;
+                default: // face 5: xi3 = +1, spans (xi1, xi2)
+                    d0 = a, d1 = b, d2 = nPoints - 1;
+                    break;
+            }
+
+            c->m_points[gridIndex(d0, d1, d2)] = faceCurve->m_points[t];
+        }
+    }
+
+    // Interior nodes are new, and are evaluated on this element's own mapping.
+    if (nPoints > 2)
+    {
+        Array<OneD, Array<OneD, NekDouble>> phys(m_coordim);
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            phys[i] = Array<OneD, NekDouble>(m_xmap->GetTotPoints());
+            m_xmap->BwdTrans(GetCoeffs(i), phys[i]);
+        }
+
+        for (int d2 = 1; d2 < nPoints - 1; ++d2)
+        {
+            for (int d1 = 1; d1 < nPoints - 1; ++d1)
+            {
+                for (int d0 = 1; d0 < nPoints - 1; ++d0)
+                {
+                    Array<OneD, NekDouble> xp(3);
+                    xp[0] = px[d0];
+                    xp[1] = px[d1];
+                    xp[2] = px[d2];
+
+                    Array<OneD, NekDouble> x(3, 0.0);
+                    for (int j = 0; j < m_coordim; ++j)
+                    {
+                        x[j] = m_xmap->PhysEvaluate(xp, phys[j]);
+                    }
+
+                    cd.second.push_back(
+                        ObjPoolManager<SpatialDomains::PointGeom>::
+                            AllocateUniquePtr(m_coordim, 0, x[0], x[1], x[2]));
+
+                    c->m_points[gridIndex(d0, d1, d2)] = cd.second.back().get();
+                }
+            }
+        }
+    }
+
+    return cd;
 }
 
 } // namespace Nektar::SpatialDomains

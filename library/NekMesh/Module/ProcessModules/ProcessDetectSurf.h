@@ -68,9 +68,13 @@ public:
     }
 
 private:
-    void FindContiguousSurface(NekMesh::ElementSharedPtr start,
+    /// Edge global ID to the elements that share it, built by Process().
+    typedef std::map<int, std::vector<SpatialDomains::Geometry *>> EdgeToElMap;
+
+    void FindContiguousSurface(SpatialDomains::Geometry *start,
+                               const EdgeToElMap &edgeToEl,
                                std::set<int> &doneIds,
-                               std::vector<NekMesh::ElementSharedPtr> &block);
+                               std::vector<SpatialDomains::Geometry *> &block);
 };
 } // namespace Nektar::NekMesh
 

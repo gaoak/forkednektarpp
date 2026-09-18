@@ -4,7 +4,6 @@ from NekPy.NekMesh import Mesh, ProcessModule, OutputModule
 mesh          = Mesh()
 mesh.expDim   = 3
 mesh.spaceDim = 3
-mesh.nummode  = 5
 
 if len(sys.argv) != 3:
     print('Usage: LoadCAD.py input.stp output.xml')
@@ -25,7 +24,7 @@ ProcessModule.Create("surfacemesh", mesh).Process()
 mesh.expDim = 2
 
 # Create a high-order surface
-ProcessModule.Create("hosurface", mesh).Process()
+ProcessModule.Create("hosurface", mesh, order=4).Process()
 
 # Dump out elemental Jacobians
 ProcessModule.Create("jac", mesh, list=True).Process()

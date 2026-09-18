@@ -34,24 +34,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <SpatialDomains/GeomFactors.h>
+#include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/SegGeom.h>
 #include <SpatialDomains/XmapFactory.hpp>
 
 #include <LibUtilities/Foundations/ManagerAccess.h> // for PointsManager, etc
 #include <StdRegions/StdRegions.hpp>
 #include <StdRegions/StdSegExp.h>
-
-namespace Nektar
-{
-// Forward declarations for allocation pools that are defined within
-// MeshGraph.cpp compilation unit.
-template <>
-PoolAllocator<SpatialDomains::PointGeom>
-    ObjPoolManager<SpatialDomains::PointGeom>::m_alloc;
-template <>
-PoolAllocator<SpatialDomains::SegGeom>
-    ObjPoolManager<SpatialDomains::SegGeom>::m_alloc;
-} // namespace Nektar
 
 namespace Nektar::SpatialDomains
 {
@@ -326,6 +315,53 @@ void SegGeom::v_FillGeom()
     }
 }
 
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> SegGeom::v_MakeOrder(
+    int order, const LibUtilities::PointsType pType)
+{
+    int nPoints = order + 1;
+
+    Array<OneD, NekDouble> edgePoints;
+    LibUtilities::PointsKey edgeKey(nPoints, pType);
+    LibUtilities::PointsManager()[edgeKey]->GetPoints(edgePoints);
+
+    Array<OneD, Array<OneD, NekDouble>> phys(m_coordim);
+
+    for (int i = 0; i < m_coordim; ++i)
+    {
+        phys[i] = Array<OneD, NekDouble>(m_xmap->GetTotPoints());
+        m_xmap->BwdTrans(GetCoeffs(i), phys[i]);
+    }
+
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> cd;
+
+    cd.first = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        m_globalID, pType);
+
+    Curve *c = cd.first.get();
+    m_curve  = c;
+
+    c->m_points.resize(nPoints);
+
+    // Assuming that pType includes vertices in the curve points
+    c->m_points[0] = m_verts[0];
+    for (int i = 1; i < nPoints - 1; ++i)
+    {
+        Array<OneD, NekDouble> x(3, 0.0);
+        for (int j = 0; j < m_coordim; ++j)
+        {
+            x[j] = m_xmap->PhysEvaluate(edgePoints + i, phys[j]);
+        }
+
+        cd.second.push_back(
+            ObjPoolManager<SpatialDomains::PointGeom>::AllocateUniquePtr(
+                m_coordim, 0, x[0], x[1], x[2]));
+        c->m_points[i] = cd.second.back().get();
+    }
+    c->m_points[nPoints - 1] = m_verts[1];
+
+    return cd;
+}
+
 void SegGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
 {
     Geometry::v_Reset(curvedEdges, curvedFaces);
@@ -334,6 +370,10 @@ void SegGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     if (it != curvedEdges.end())
     {
         m_curve = it->second.get();
+    }
+    else
+    {
+        m_curve = nullptr;
     }
 
     SetUpXmap();

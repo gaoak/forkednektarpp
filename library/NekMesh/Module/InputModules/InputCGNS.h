@@ -68,21 +68,22 @@ public:
 private:
     void SetupElements();
     void ResetNodes(
-        std::vector<NodeSharedPtr> &Vnodes,
+        std::vector<SpatialDomains::PointGeom *> &Vnodes,
         Array<OneD, std::vector<int>> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes,
         std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
         std::vector<int> &VolumeElems);
 
     Array<OneD, int> SortFaceNodes(
-        std::vector<NodeSharedPtr> &Vnodes, std::vector<int> &ElementFaces,
+        std::vector<SpatialDomains::PointGeom *> &Vnodes,
+        std::vector<int> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes);
 
-    void GenElement2D(std::vector<NodeSharedPtr> &VertNodes,
+    void GenElement2D(std::vector<SpatialDomains::PointGeom *> &VertNodes,
                       std::vector<int> elemNodes, ElementType_t elemType,
                       int nComposite, bool DoOrient);
 
-    void GenElement3D(std::vector<NodeSharedPtr> &VertNodes,
+    void GenElement3D(std::vector<SpatialDomains::PointGeom *> &VertNodes,
                       std::vector<int> elemNodes,
                       std::vector<int> &ElementFaces,
                       std::unordered_map<int, std::vector<int>> &FaceNodes,
@@ -91,8 +92,9 @@ private:
     std::vector<int> CGNSReordering(LibUtilities::ShapeType shapeType,
                                     int order);
 
-    Array<OneD, int> SortEdgeNodes(std::vector<NodeSharedPtr> &Vnodes,
-                                   std::vector<int> &FaceNodes);
+    Array<OneD, int> SortEdgeNodes(
+        std::vector<SpatialDomains::PointGeom *> &Vnodes,
+        std::vector<int> &FaceNodes);
 
     void ReadFaces(
         std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
@@ -112,7 +114,7 @@ private:
     void SaveNode(int id, NekDouble x = 0, NekDouble y = 0, NekDouble z = 0);
 
     void PyramidShielding(
-        std::vector<NodeSharedPtr> &Vnodes,
+        std::vector<SpatialDomains::PointGeom *> &Vnodes,
         Array<OneD, std::vector<int>> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes,
         std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
@@ -123,7 +125,7 @@ private:
         int currElemId, int currFaceId, int currApexNode,
         std::vector<std::vector<int>> FaceToPrisms,
         std::vector<std::vector<int>> GlobTriFaces,
-        std::vector<NodeSharedPtr> &Vnodes,
+        std::vector<SpatialDomains::PointGeom *> &Vnodes,
         Array<OneD, std::vector<int>> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes,
         std::vector<int> &NodeReordering, int &revNodeid);
@@ -134,6 +136,14 @@ private:
     std::vector<double> m_x; // x-coordinates from CGNS file
     std::vector<double> m_y; // y-coordinates from CGNS file
     std::vector<double> m_z; // z-coordinates from CGNS file
+
+    // vertices and high-order nodes that are loaded from the CGNS file
+    SpatialDomains::GeomMap<SpatialDomains::PointGeom> m_loadedNodes;
+    std::vector<SpatialDomains::PointGeom *> m_node;
+    /// map m_loadedNodes to mesh_graph vertex.
+    std::set<int> m_vertIDs;
+    /// map high-order nodes ids to populate mesh_graph curve.
+    std::unordered_set<int> m_curveNodeIDs;
 
     std::unordered_map<ElementType_t, std::vector<int>> m_orderingMap;
 

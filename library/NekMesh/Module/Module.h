@@ -35,7 +35,7 @@
 #ifndef NEKMESH_MODULE
 #define NEKMESH_MODULE
 
-#include <NekMesh/Module/Log.hpp>
+#include <LibUtilities/BasicUtils/Log.hpp>
 
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -70,7 +70,8 @@ enum ModuleType
 
 const std::string ModuleTypeMap[] = {"Input", "Process", "Output"};
 
-typedef std::map<int, std::pair<FaceSharedPtr, std::vector<int>>> PerMap;
+typedef std::map<int, std::pair<SpatialDomains::Geometry2D *, std::vector<int>>>
+    PerMap;
 
 /**
  * @brief Represents a command-line configuration option.
@@ -193,19 +194,13 @@ public:
 
     /// Extract element vertices
     NEKMESH_EXPORT void ProcessVertices();
-    /// Extract element edges
-    NEKMESH_EXPORT void ProcessEdges(bool ReprocessEdges = true);
-    /// Extract element faces
-    NEKMESH_EXPORT void ProcessFaces(bool ReprocessFaces = true);
     /// Generate element IDs
     NEKMESH_EXPORT void ProcessElements();
     /// Generate composites
     NEKMESH_EXPORT void ProcessComposites();
+    /// Drop geometry, curves and curvature nodes the mesh no longer refers to
+    NEKMESH_EXPORT void RemoveOrphanedEntities();
 
-    NEKMESH_EXPORT void ClearElementLinks();
-
-    /// Extracts the CAD objects to CAD.txt
-    NEKMESH_EXPORT void ExtractCAD();
     /// Links the CAD to Mesh Objects given CAD.txt
     NEKMESH_EXPORT void InputCAD();
 
@@ -216,11 +211,15 @@ protected:
     std::map<std::string, ConfigOption> m_config;
     /// Logger object.
     Logger m_log;
+    // Uniform Order for non-uniform
+    int m_order = -1;
+    // NumModes -1 for non-uniform
+    int m_nummode = -1;
 
     NEKMESH_EXPORT void ReorderPrisms(PerMap &perFaces);
-    NEKMESH_EXPORT void PrismLines(int prism, PerMap &perFaces,
-                                   std::set<int> &prismsDone,
-                                   std::vector<ElementSharedPtr> &line);
+    NEKMESH_EXPORT void PrismLines(
+        int prism, PerMap &perFaces, std::set<int> &prismsDone,
+        std::vector<SpatialDomains::Geometry *> &line);
 };
 
 /**
@@ -273,7 +272,7 @@ class OutputModule : public Module
 {
 public:
     NEKMESH_EXPORT OutputModule(MeshSharedPtr p_m);
-    NEKMESH_EXPORT bool OpenStream();
+    NEKMESH_EXPORT bool OpenStream(bool binary = false);
 
 protected:
     /// Check to see whether we would overwrite this file and prompt

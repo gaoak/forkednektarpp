@@ -34,6 +34,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Foundations/Interp.h>
+#include <LibUtilities/Foundations/ManagerAccess.h>
+#include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/QuadGeom.h>
 
 #include <SpatialDomains/Curve.hpp>
@@ -103,6 +105,46 @@ QuadGeom::QuadGeom(const QuadGeom &in) : Geometry2D(in)
     {
         m_eorient[i] = in.m_eorient[i];
     }
+}
+
+QuadGeom::QuadGeom(const int id, std::array<SegGeom *, kNverts> edges,
+                   std::array<PointGeom *, kNverts> verts, bool skipSetUp,
+                   Curve *curve)
+    : Geometry2D(edges[0]->GetVertex(0)->GetCoordim(), curve)
+{
+    m_shapeType = LibUtilities::eQuadrilateral;
+    m_globalID  = id;
+
+    /// Copy the edge pointers
+    for (int i = 0; i < 4; ++i)
+    {
+        m_edges[i] = edges[i];
+    }
+
+    /// Copy the vert pointers
+    for (int i = 0; i < 4; ++i)
+    {
+        m_verts[i] = verts[i];
+    }
+
+    if (!skipSetUp)
+    {
+        for (int j = 0; j < kNverts; ++j)
+        {
+            m_eorient[j] =
+                SegGeom::GetEdgeOrientation(*edges[j], *edges[(j + 1) % 4]);
+        }
+
+        for (int j = 2; j < kNedges; ++j)
+        {
+            m_eorient[j] = m_eorient[j] == StdRegions::eBackwards
+                               ? StdRegions::eForwards
+                               : StdRegions::eBackwards;
+        }
+    }
+
+    m_coordim = edges[0]->GetVertex(0)->GetCoordim();
+    ASSERTL0(m_coordim > 1, "Cannot call function with dim == 1");
 }
 
 int QuadGeom::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
@@ -451,7 +493,6 @@ GeomType QuadGeom::v_CalcGeomType()
             }
         }
     }
-
     if (Gtype == eRegular)
     {
         v_CalculateInverseIsoParam();
@@ -553,6 +594,109 @@ void QuadGeom::v_FillGeom()
     }
 }
 
+std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> QuadGeom::
+    v_MakeOrder(int order, const LibUtilities::PointsType pType)
+{
+    int nPoints = order + 1;
+
+    Array<OneD, NekDouble> px;
+    LibUtilities::PointsKey pKey(nPoints, pType);
+    ASSERTL1(pKey.GetPointsDim() == 1, "Points distribution must be 1D");
+    LibUtilities::PointsManager()[pKey]->GetPoints(px);
+
+    std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> cd;
+
+    cd.first = ObjPoolManager<SpatialDomains::Curve>::AllocateUniquePtr(
+        m_globalID, pType);
+
+    Curve *c = cd.first.get();
+    c->m_points.resize(nPoints * nPoints);
+
+    m_curve = c;
+
+    // Boundary nodes: copy from edge curves.
+    // Grid point (i, j) has xi1=px[j], xi2=px[i], index = i*nPoints+j.
+    // Local edge directions (k=0 is start of element-local edge):
+    //   edge 0: i=0,        j=k          (xi2=-1, xi1 increasing)
+    //   edge 1: i=k,        j=nPoints-1  (xi1=+1, xi2 increasing)
+    //   edge 2: i=nPoints-1, j=nPoints-1-k (xi2=+1, xi1 decreasing)
+    //   edge 3: i=nPoints-1-k, j=0       (xi1=-1, xi2 decreasing)
+    // m_eorient[2] and m_eorient[3] were flipped during construction; flip
+    // back to get the actual relation between SegGeom direction and element
+    // local edge direction.
+    for (int e = 0; e < kNedges; ++e)
+    {
+        Curve *edgeCurve = m_edges[e]->GetCurve();
+        ASSERTL1(edgeCurve != nullptr,
+                 "Edge curve not set; call MakeOrder on edges before faces");
+
+        StdRegions::Orientation orient = m_eorient[e];
+        if (e == 2 || e == 3)
+        {
+            orient = (orient == StdRegions::eForwards) ? StdRegions::eBackwards
+                                                       : StdRegions::eForwards;
+        }
+
+        for (int k = 0; k < nPoints; ++k)
+        {
+            int gridIdx;
+            switch (e)
+            {
+                case 0:
+                    gridIdx = k;
+                    break;
+                case 1:
+                    gridIdx = k * nPoints + (nPoints - 1);
+                    break;
+                case 2:
+                    gridIdx = (nPoints - 1) * nPoints + (nPoints - 1 - k);
+                    break;
+                default:
+                    gridIdx = (nPoints - 1 - k) * nPoints;
+                    break;
+            }
+            const int crvIdx =
+                (orient == StdRegions::eForwards) ? k : (nPoints - 1 - k);
+            c->m_points[gridIdx] = edgeCurve->m_points[crvIdx];
+        }
+    }
+
+    // Interior nodes only: use PhysEvaluate
+    if (nPoints > 2)
+    {
+        Array<OneD, Array<OneD, NekDouble>> phys(m_coordim);
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            phys[i] = Array<OneD, NekDouble>(m_xmap->GetTotPoints());
+            m_xmap->BwdTrans(GetCoeffs(i), phys[i]);
+        }
+
+        for (int i = 1; i < nPoints - 1; ++i)
+        {
+            for (int j = 1; j < nPoints - 1; ++j)
+            {
+                Array<OneD, NekDouble> xp(2);
+                xp[0] = px[j];
+                xp[1] = px[i];
+
+                Array<OneD, NekDouble> x(3, 0.0);
+                for (int k = 0; k < m_coordim; ++k)
+                {
+                    x[k] = m_xmap->PhysEvaluate(xp, phys[k]);
+                }
+
+                cd.second.push_back(
+                    ObjPoolManager<SpatialDomains::PointGeom>::
+                        AllocateUniquePtr(m_coordim, 0, x[0], x[1], x[2]));
+
+                c->m_points[i * nPoints + j] = cd.second.back().get();
+            }
+        }
+    }
+
+    return cd;
+}
+
 void QuadGeom::PreSolveStraightEdge()
 {
     int i0, i1, j1, j2;
@@ -616,6 +760,10 @@ void QuadGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     {
         m_curve = it->second.get();
     }
+    else
+    {
+        m_curve = nullptr;
+    }
 
     for (int i = 0; i < 4; ++i)
     {
@@ -624,6 +772,22 @@ void QuadGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
 
     SetUpXmap();
     SetUpCoeffs(m_xmap->GetNcoeffs());
+}
+
+void QuadGeom::v_ResetLite()
+{
+    for (int j = 0; j < kNedges; ++j)
+    {
+        m_eorient[j] = SegGeom::GetEdgeOrientation(*m_edges[j],
+                                                   *m_edges[(j + 1) % kNedges]);
+    }
+
+    for (int j = 2; j < kNedges; ++j)
+    {
+        m_eorient[j] = m_eorient[j] == StdRegions::eBackwards
+                           ? StdRegions::eForwards
+                           : StdRegions::eBackwards;
+    }
 }
 
 void QuadGeom::v_Setup()

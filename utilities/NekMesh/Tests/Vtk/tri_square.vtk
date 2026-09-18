@@ -1,0 +1,23 @@
+# vtk DataFile Version 3.0
+Triangulated unit square, 3x3 grid of points forming 8 triangles
+ASCII
+DATASET POLYDATA
+POINTS 9 float
+0.0 0.0 0.0
+0.5 0.0 0.0
+1.0 0.0 0.0
+0.0 0.5 0.0
+0.5 0.5 0.0
+1.0 0.5 0.0
+0.0 1.0 0.0
+0.5 1.0 0.0
+1.0 1.0 0.0
+POLYGONS 8 32
+3 0 1 4
+3 0 4 3
+3 1 2 5
+3 1 5 4
+3 3 4 7
+3 3 7 6
+3 4 5 8
+3 4 8 7
