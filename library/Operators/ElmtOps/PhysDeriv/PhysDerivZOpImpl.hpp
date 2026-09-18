@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekFFTW.h
+// File: PhysDerivZOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,58 +28,17 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Header file for the wrapper around FFTW library
+// Description: Declaration of the homogeneous z-derivative backend.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILITIES_FFT_NEKFFTW_H
-#define NEKTAR_LIB_UTILITIES_FFT_NEKFFTW_H
+#pragma once
 
-#include <LibUtilities/FFT/NektarFFT.h>
-
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <LibUtilities/Memory/NekMemoryManager.hpp>
-
-namespace Nektar::LibUtilities
+namespace Nektar::Operators::detail
 {
+template <typename ExecSpace, typename TData, typename Enable = void>
+class PhysDerivZOpImpl;
+} // namespace Nektar::Operators::detail
 
-/**
- * FFTW-backed NektarFFT implementation. TData must be double or float,
- * the corresponding fftw_plan / fftwf_plan API is selected via if constexpr.
- *
- * The public aliases NekFFTW and NekFFTWFloat refer to the double and float
- * specialisations respectively.
- */
-template <typename TData> class NekFFTWImpl : public NektarFFT<TData>
-{
-public:
-    static std::shared_ptr<NektarFFT<TData>> create(int N)
-    {
-        return MemoryManager<NekFFTWImpl<TData>>::AllocateSharedPtr(N);
-    }
-
-    static std::string className;
-
-    NekFFTWImpl(int N);
-    ~NekFFTWImpl() override;
-
-protected:
-    Array<OneD, TData> m_FFTW_w;
-    Array<OneD, TData> m_FFTW_w_inv;
-    Array<OneD, TData> m_wsp;
-
-    void *m_plan_backward;
-    void *m_plan_forward;
-
-    void v_FFTFwdTrans(TData *inarray, TData *outarray) override;
-    void v_FFTBwdTrans(TData *inarray, TData *outarray) override;
-};
-
-// Backward-compatible aliases.
-using NekFFTW      = NekFFTWImpl<double>;
-using NekFFTWFloat = NekFFTWImpl<float>;
-
-using NekFFTWSharedPtr = std::shared_ptr<NekFFTW>;
-
-} // namespace Nektar::LibUtilities
-#endif // NEKTAR_LIB_UTILITIES_FFT_NEKFFTW_H
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOpDevice.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOpSerialAVX.hpp"

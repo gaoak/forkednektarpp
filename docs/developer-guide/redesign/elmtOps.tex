@@ -1093,28 +1093,48 @@ The arguments and their meanings of the BwdTransQuadSumFacTOPKernel function for
 In three-dimensional configurations with one homogeneous direction (3DH1D),
 computing $\partial u / \partial z$ requires a Fourier-space wavenumber
 multiplication that is independent of the per-element operators used for the
-$x$ and $y$ directions. Two GPU backends are provided and selected via the
-\texttt{ExecSpace} template parameter of \texttt{PhysDerivOp}:
+$x$ and $y$ directions. This is factored out into \texttt{PhysDerivZOp},
+which is specialised on the \texttt{ExecSpace} template parameter of
+\texttt{PhysDerivOp}:
 
 \begin{description}
-  \item[\texttt{DeviceSpace}] Uses \texttt{PhysDerivZCuFFT} to execute a
-    batched cuFFT D2Z transform, multiply each Fourier mode by
-    $i k_z \beta$ (with $\beta = 2\pi/L_z$), and an inverse Z2D transform
-    entirely on the GPU.  The pipeline is captured as a CUDA graph on the
-    second call and replayed on subsequent calls. Enabled when CMake is
-    configured with \texttt{NEKTAR\_ENABLE\_DEVICE=CUDA}.
+  \item[\texttt{HostSpace}] Delegates the z-derivative to the existing
+    FFTW-based \texttt{ExpListHomogeneous1D} pipeline.
 
-  \item[\texttt{DeviceDxSpace}] Uses \texttt{NekCuFFTDx} to execute the
-    same D2Z + multiply + Z2D pipeline via a fused cuFFTDx kernel, avoiding
-    the overhead of separate cuFFT plan launches. Requires
-    \texttt{NEKTAR\_USE\_CUFFTDX=ON} and a CUDA toolkit with cuFFTDx support.
+  \item[\texttt{DeviceSpace}] Executes a D2Z transform, a multiply of each
+    Fourier mode by $i k_z \beta$ (with $\beta = 2\pi/L_z$), and an inverse
+    Z2D transform entirely on the GPU. The pipeline runs per block and in
+    place on the block device memory, so no gather into (or scatter out of)
+    a contiguous plane-major scratch buffer is needed. Enabled when CMake is
+    configured with \texttt{NEKTAR\_ENABLE\_DEVICE=CUDA}.
 \end{description}
 
-Both backends are wired into \texttt{PhysDerivZOp} via template
-specialisations in \texttt{PhysDerivZOpDevice.h} and
-\texttt{PhysDerivZOpDeviceDx.h} respectively. The host fallback
-(\texttt{HostSpace}) delegates the z-derivative to the existing FFTW-based
-\texttt{ExpListHomogeneous1D} pipeline.
+The device specialisation lives in \texttt{PhysDerivZOpDevice.hpp} and calls
+the single entry point \texttt{PhysDerivZDirect} unconditionally. That
+function is declared in \texttt{LibUtilities/FFT/PhysDerivZCuFFT.h}, and
+defined and explicitly instantiated for double and single precision in
+\texttt{PhysDerivZCuFFT.cu}; it picks one of two implementations at compile
+time:
+
+\begin{description}
+  \item[cuFFT (default)] Drives the three stages with cached cuFFT plans.
+    Any even number of homogeneous planes is supported.
+
+  \item[cuFFTDx] Fuses all three stages into a single kernel, one thread
+    block per $xy$ pencil, avoiding the overhead of separate cuFFT plan
+    launches. Used when \texttt{NEKTAR\_USE\_CUFFTDX} is defined; requires a
+    CUDA toolkit with cuFFTDx support, and the number of homogeneous planes
+    must be one of \texttt{16}, \texttt{32}, \texttt{64}, \texttt{128},
+    \texttt{256} or \texttt{512}. The transform size and precision are
+    compile-time parameters, and the elements-per-thread count is whatever
+    cuFFTDx suggests for that pair rather than a value imposed here.
+\end{description}
+
+With either implementation, \texttt{PhysDerivZOpImpl} captures the whole
+z-pipeline as a CUDA graph on the second call and replays it on subsequent
+calls. The wait on the per-block producer streams is deliberately left
+outside the captured graph, so that a replay still orders itself against
+whatever last wrote the input.
 
 \subsection{CMake options}
 
@@ -1122,8 +1142,8 @@ specialisations in \texttt{PhysDerivZOpDevice.h} and
   \item[\texttt{NEKTAR\_USE\_CUFFT\_STATIC}] Link cuFFT statically
     (default: \texttt{OFF}).  Required to enable cuFFT store-callback
     support in \texttt{NekCuFFT}.
-  \item[\texttt{NEKTAR\_USE\_CUFFTDX}] Enable the fused cuFFTDx kernel
-    path (\texttt{DeviceDxSpace}).  Requires the cuFFTDx header-only
-    library and a compatible GPU architecture.
+  \item[\texttt{NEKTAR\_USE\_CUFFTDX}] Use the fused cuFFTDx kernel instead
+    of cuFFT for the \texttt{DeviceSpace} z-derivative.  Requires the
+    cuFFTDx header-only library and a compatible GPU architecture.
 \end{description}
 %%TODO: describe difference between shared and non-shared wsp in sumfactop and sumfac

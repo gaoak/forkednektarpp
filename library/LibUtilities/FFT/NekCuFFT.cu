@@ -44,8 +44,8 @@
 #include <cufft.h>
 #include <cufftXt.h>
 
-#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/FFT/NekCuFFT.h>
+#include <LibUtilities/FFT/NekCuFFTHelper.h>
 
 #ifdef NEKTAR_ENABLE_NVTX
 #if __has_include(<nvtx3/nvToolsExt.h>)
@@ -78,20 +78,6 @@ namespace Nektar::LibUtilities
 
 namespace
 {
-
-inline void checkCuda(cudaError_t err, const char *msg)
-{
-    if (err != cudaSuccess)
-        throw std::runtime_error(std::string(msg) + ": " +
-                                 cudaGetErrorString(err));
-}
-
-inline void checkCufft(cufftResult err, const char *msg)
-{
-    if (err != CUFFT_SUCCESS)
-        throw std::runtime_error(std::string(msg) +
-                                 " (cufftResult=" + std::to_string(err) + ")");
-}
 
 class PlanCache
 {
@@ -166,11 +152,6 @@ private:
     std::unordered_map<Key, Entry, KeyHash> m_map;
 };
 
-// Helper alias: maps a real scalar type to its cuFFT complex element type.
-template <typename TReal>
-using CufftCmplx = std::conditional_t<std::is_same_v<TReal, double>,
-                                      cufftDoubleComplex, cufftComplex>;
-
 // Callback parameter block, templated so invN/beta match the plan precision.
 template <typename TReal> struct StoreScaledParams
 {
@@ -244,92 +225,6 @@ __global__ static void ScaleReals2(TComplex *__restrict__ d, int nComplex,
         val.y *= alpha;
         d[i] = val;
     }
-}
-
-// Converts cuFFT half-complex output to Nektar++ coefficient layout.
-// With Scaled=true, folds 1/N into the output (used when no store-callback).
-template <typename TReal, typename TComplex, bool Scaled>
-__global__ static void ComplexToCoefKernel(const TComplex *__restrict__ d_cmplx,
-                                           TReal *__restrict__ d_coef, int N,
-                                           int halfN, TReal invN)
-{
-    const int b = static_cast<int>(blockIdx.x);
-    const int k = static_cast<int>(blockIdx.y) * blockDim.x + threadIdx.x;
-    if (k > halfN)
-    {
-        return;
-    }
-
-    const TComplex cx = d_cmplx[b * (halfN + 1) + k];
-    TReal *coef       = d_coef + b * N;
-
-    if (k == 0)
-    {
-        coef[0] = Scaled ? cx.x * invN : cx.x;
-        coef[1] = TReal(0);
-    }
-    else if (k < halfN)
-    {
-        const TReal factor = Scaled ? TReal(2) * invN : TReal(2);
-        coef[2 * k]        = cx.x * factor;
-        coef[2 * k + 1]    = cx.y * factor;
-    }
-    // k == halfN: Nyquist bin has no Nektar++ slot, left unwritten.
-}
-
-// Converts Nektar++ coefficient layout to cuFFT half-complex input.
-template <typename TReal, typename TComplex>
-__global__ static void CoefToComplexKernel(const TReal *__restrict__ d_coef,
-                                           TComplex *__restrict__ d_cmplx,
-                                           int N, int halfN)
-{
-    const int b = static_cast<int>(blockIdx.x);
-    const int k = static_cast<int>(blockIdx.y) * blockDim.x + threadIdx.x;
-    if (k > halfN)
-    {
-        return;
-    }
-
-    const TReal *coef = d_coef + b * N;
-    TComplex *cx      = d_cmplx + b * (halfN + 1);
-
-    if (k == 0)
-    {
-        cx[0] = {__ldg(&coef[0]), TReal(0)};
-    }
-    else if (k == halfN)
-    {
-        cx[k] = {TReal(0), TReal(0)};
-    }
-    else
-    {
-        cx[k] = {__ldg(&coef[2 * k]) * TReal(0.5),
-                 __ldg(&coef[2 * k + 1]) * TReal(0.5)};
-    }
-}
-
-// Multiplies by i*k*beta*normScale in-place. DC and Nyquist are zeroed.
-template <typename TReal, typename TComplex>
-__global__ static void WavenumberMultiplyKernel(TComplex *__restrict__ d_cmplx,
-                                                int halfN, TReal beta,
-                                                TReal normScale)
-{
-    const int b = static_cast<int>(blockIdx.x);
-    const int k = static_cast<int>(blockIdx.y) * blockDim.x + threadIdx.x;
-    if (k > halfN)
-    {
-        return;
-    }
-
-    if (k == 0 || k == halfN)
-    {
-        d_cmplx[b * (halfN + 1) + k] = {TReal(0), TReal(0)};
-        return;
-    }
-
-    const TComplex cx            = d_cmplx[b * (halfN + 1) + k];
-    const TReal scale            = static_cast<TReal>(k) * beta * normScale;
-    d_cmplx[b * (halfN + 1) + k] = {-cx.y * scale, cx.x * scale};
 }
 
 template <typename TData>

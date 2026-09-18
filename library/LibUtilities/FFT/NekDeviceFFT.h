@@ -45,8 +45,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILITIES_FFT_NEKDEVICEFFT_H
-#define NEKTAR_LIB_UTILITIES_FFT_NEKDEVICEFFT_H
+#pragma once
 
 #if defined(NEKTAR_ENABLE_CUDA)
 
@@ -84,5 +83,3 @@ See library/LibUtilities/FFT/NekDeviceFFT.h for the TODO."
 Configure with NEKTAR_ENABLE_DEVICE=CUDA (or HIP/SYCL once implemented)."
 
 #endif
-
-#endif // NEKTAR_LIB_UTILITIES_FFT_NEKDEVICEFFT_H

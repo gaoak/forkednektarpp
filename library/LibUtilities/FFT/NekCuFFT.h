@@ -35,8 +35,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILITIES_FFT_NEKCUFFT_H
-#define NEKTAR_LIB_UTILITIES_FFT_NEKCUFFT_H
+#pragma once
 
 #ifndef NEKTAR_ENABLE_CUDA
 #error "NekCuFFT.h requires CUDA support (NEKTAR_ENABLE_CUDA). \
@@ -220,5 +219,3 @@ extern template class NekCuFFTImpl<double>;
 extern template class NekCuFFTImpl<float>;
 
 } // namespace Nektar::LibUtilities
-
-#endif // NEKTAR_LIB_UTILITIES_FFT_NEKCUFFT_H

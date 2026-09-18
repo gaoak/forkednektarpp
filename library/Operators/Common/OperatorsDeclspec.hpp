@@ -32,8 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR__OPERATORS_OPERATORS_DECLSPEC_H
-#define NEKTAR__OPERATORS_OPERATORS_DECLSPEC_H
+#pragma once
 
 #if defined(_MSC_VER)
 #ifdef OPERATORS_EXPORTS
@@ -44,5 +43,3 @@
 #else
 #define OPERATORS_EXPORT
 #endif
-
-#endif // NEKTAR__OPERATORS_OPERATORS_DECLSPEC_H

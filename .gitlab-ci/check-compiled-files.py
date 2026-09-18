@@ -59,7 +59,6 @@ ignore_sources = [
     "solvers/CardiacEPSolver/Utilities/CellMLToNektar/nektar/template/model.cpp",
     # FFT
     "library/LibUtilities/FFT/NekCuFFT.cu",
-    "library/LibUtilities/FFT/NekCuFFTDx.cu",
     "library/LibUtilities/FFT/PhysDerivZCuFFT.cu",
     "library/UnitTests/LibUtilities/TestDeviceFFT.cpp",
     # Profiler
