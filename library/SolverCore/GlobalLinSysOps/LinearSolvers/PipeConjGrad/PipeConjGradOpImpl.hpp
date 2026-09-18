@@ -214,8 +214,10 @@ protected:
             if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
-                msg << "Exceeded max iterations: " << this->m_niter;
-                WARNINGL0(false, msg.str());
+                msg << "Exceeded max iterations: " << this->m_niter
+                    << ". Increase NekLinSysMaxIterations in the session "
+                       "PARAMETERS section to allow more iterations.";
+                NEKERROR(ErrorUtil::efatal, msg.str());
 
                 return;
             }
