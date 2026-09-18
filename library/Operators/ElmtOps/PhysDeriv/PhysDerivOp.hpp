@@ -37,9 +37,6 @@
 #include "Operators/ElmtOps/ElmtOp.hpp"
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOp.h"
-
-#include <MultiRegions/ExpListHomogeneous1D.h>
 
 namespace Nektar::Operators
 {
@@ -47,12 +44,9 @@ namespace Nektar::Operators
 /// \brief Element-block operator that computes the physical-space derivative
 /// \f$\nabla u\f$ over a collection of elements.
 ///
-/// The backend for the homogeneous z-derivative in 3DH1 configurations is
-/// selected at Create() time via the \p execStr argument:
-///   - "Serial" / "AVX" -- FFTW-based serial path (always built).
-///   - "Device"         -- cuFFT pipeline, or cuFFTDx when
-///                         NEKTAR_USE_CUFFTDX. A device build without a
-///                         z-FFT of its own falls back to the host path.
+/// In 3DH1 the z-derivative backend follows \p execStr: FFTW for
+/// "Serial"/"AVX", and cuFFT (or cuFFTDx under NEKTAR_USE_CUFFTDX) for
+/// "Device", which needs a CUDA build and raises a fatal error without one.
 /// An empty execStr resolves the space from the session.
 template <typename TData>
 class PhysDerivOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
@@ -65,43 +59,15 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto op =
-            ElmtOp<FieldState::Phys, FieldState::Phys, TData>::template Create<
-                PhysDerivOp, PhysDerivBlockOp>(expansionList, components,
-                                               execStr, implStr);
-
-        // FFT setup. A z-op is built only for a multi-plane 3DH1 expansion;
-        // m_zOp stays null for 2D/3D, 3DH2 and single-plane 3DH1, and
-        // v_Apply then does the xy derivatives alone.
-        auto homo =
-            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
-                expansionList);
-
-        if (homo)
-        {
-            const unsigned int nhomo =
-                static_cast<unsigned int>(expansionList->GetTotPoints() /
-                                          homo->GetPlane(0)->GetTotPoints());
-
-            if (nhomo > 1)
-            {
-                op->m_zOp =
-                    PhysDerivZOpBase<TData>::Create(expansionList, execStr);
-
-                op->m_beta = 2.0 * M_PI / homo->GetHomoLen();
-                op->m_zOp->Init(op->m_beta);
-            }
-        }
-
-        return op;
+        return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
+            template Create<PhysDerivOp, PhysDerivBlockOp>(
+                expansionList, components, execStr, implStr);
     }
 
     static inline const std::string name = "PhysDeriv";
 
 protected:
     std::vector<std::shared_ptr<PhysDerivBlockOp<TData>>> m_blockOp;
-    std::shared_ptr<PhysDerivZOpBase<TData>> m_zOp;
-    TData m_beta = 0.0;
 
     PhysDerivOp(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
@@ -137,11 +103,12 @@ protected:
         }
 
         // Apply FFT.
-        if (m_zOp && in.GetNumHomoModes() > 1)
-        {
-            m_zOp->Launch(in, out);
-        }
+        v_ApplyFFT(in, out);
     }
+
+    virtual void v_ApplyFFT(
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::Operators

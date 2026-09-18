@@ -121,15 +121,11 @@ IF(NEKTAR_USE_FFTW)
 ENDIF(NEKTAR_USE_FFTW)
 
 IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFT.h ./FFT/NekCuFFT.h ./FFT/PhysDerivZCuFFT.h
+    SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFT.h ./FFT/NekCuFFT.h
+        ./FFT/NekCuFFTHelper.h ./FFT/PhysDerivZCuFFT.h
         ../LibUtilities/Backends/DeviceProperties.hpp)
     SET(FFTSources ${FFTSources} ./FFT/NekCuFFT.cu ./FFT/PhysDerivZCuFFT.cu
         ../LibUtilities/Backends/DeviceProperties.cpp)
-
-    IF(NEKTAR_USE_CUFFTDX)
-        SET(FFTHeaders ${FFTHeaders} ./FFT/NekCuFFTDx.h)
-        SET(FFTSources ${FFTSources} ./FFT/NekCuFFTDx.cu)
-    ENDIF()
 ENDIF()
 
 SET(FoundationHeaders
@@ -747,7 +743,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
             TARGET_COMPILE_DEFINITIONS(LibUtilities PUBLIC NEKTAR_USE_CUFFTDX)
             TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE
                 CUFFTDX_TARGET_SM=${CUFFTDX_TARGET_SM})
-            MESSAGE(STATUS "NekCuFFTDx: enabled (${CUFFTDX_INCLUDE_DIR}), SM=${CUFFTDX_TARGET_SM}")
+            MESSAGE(STATUS "cuFFTDx: enabled (${CUFFTDX_INCLUDE_DIR}), SM=${CUFFTDX_TARGET_SM}")
         endif()
         TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${CUFFT_LIBRARY})
     ENDIF()

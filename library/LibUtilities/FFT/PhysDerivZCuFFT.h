@@ -28,19 +28,27 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: cuFFT-based z-derivative (D2Z + wavenumber multiply + Z2D)
-//              for the Nektar++ homogeneous-1D PhysDeriv pipeline.
+// Description: Device z-derivative (D2Z + wavenumber multiply + Z2D) for the
+//              Nektar++ homogeneous-1D PhysDeriv pipeline.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILITIES_FFT_PHYSDERIVZCUFFT_H
-#define NEKTAR_LIB_UTILITIES_FFT_PHYSDERIVZCUFFT_H
+#pragma once
+
+#include <cstddef>
+
+#include <cuda_runtime.h>
 
 namespace Nektar::LibUtilities
 {
 
 /// \brief Compute the z-derivative of a real field in the homogeneous
-/// direction using cuFFT (D2Z + wavenumber multiply + Z2D).
+/// direction on the device (D2Z + wavenumber multiply + Z2D).
+///
+/// The three stages run as cuFFT calls, or fused into a single cuFFTDx
+/// kernel when the build defines NEKTAR_USE_CUFFTDX. Explicitly instantiated
+/// for double and float in PhysDerivZCuFFT.cu; both precisions take the same
+/// path in either build.
 ///
 /// The field is in plane-major layout: \c d_in[plane * compStride + xy].
 /// \c d_in and \c d_out may alias the same buffer (in-place is safe).
@@ -54,9 +62,8 @@ namespace Nektar::LibUtilities
 /// \param beta       Wavenumber factor \f$2\pi/L_z\f$.
 /// \param stream     CUDA stream on which all work is submitted.
 template <typename TData>
-void PhysDerivZDirect(const TData *d_in, TData *d_out, int nhomo, int NXY,
-                      int compStride, TData beta, cudaStream_t stream);
+void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
+                      size_t NXY, size_t compStride, TData beta,
+                      cudaStream_t stream);
 
 } // namespace Nektar::LibUtilities
-
-#endif // NEKTAR_LIB_UTILITIES_FFT_PHYSDERIVZCUFFT_H
