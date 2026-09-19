@@ -32,6 +32,46 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file ElmtHelper.hpp
+ * @brief Kernel size-parameter types shared by every element-operator
+ * family, the traits that recognise them and the helpers built on them.
+ *
+ * @details
+ * Each sum-factorised (SumFac / SumFacTOP) kernel launcher, and each
+ * Generic trace kernel, receives its element dimensions -- mode counts
+ * `nm*`, quadrature-point counts `nq*` -- packed into one
+ * size-parameter object; the StdMat paths pass their dimensions as
+ * plain scalars and run mostly through BLAS. Every dimensionality
+ * comes in two forms: `NonTemplated...` carries runtime values (the
+ * default path, valid for any order), while `Templated...` exposes the
+ * same values as compile-time constants -- instantiated by the
+ * CMake-generated ShapeBlock switch code (see
+ * LibUtilities/BasicUtils/Switch) for orders within the
+ * NEKTAR_SWITCH_MIN/MAX range -- so that inner loops can be unrolled
+ * and launch bounds fixed at compile time. Both forms expose the same
+ * accessor names, so a kernel written against one compiles against
+ * the other; the accompanying `Is...` traits let the kernel launchers
+ * check and dispatch on whichever form they are given.
+ *
+ * Three kinds of size parameter exist:
+ * - the plain `SizeParameter` variants carry both modes and points and
+ *   serve the transform and inner-product operators;
+ * - the `PhysSizeParameter` variants carry only point counts (plus, in
+ *   one and two dimensions, the coordinate dimension of the possibly
+ *   embedded element) for operators acting purely on physical-space
+ *   data, such as PhysDeriv;
+ * - the `TraceSizeParameter` variants carry the element's mode counts
+ *   together with the point counts of its traces, direction by
+ *   direction, for the trace operators (PhysTraceExtract,
+ *   IProductWRTPhysTrace, IProductWRTPhysNormalDerivTrace).
+ *
+ * TransposeSizeParameter() exchanges the mode and quadrature roles of
+ * a plain size parameter, and GetMaxThreadPerBlock() derives the
+ * compile-time launch bound of a device kernel from its implementation
+ * tag and size-parameter type.
+ */
+
 #pragma once
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
@@ -39,6 +79,11 @@
 namespace Nektar::Operators::detail
 {
 
+/**
+ * @brief Runtime physical-space sizes of a 1D element: coordinate
+ * dimension and quadrature-point count (see the file notes on the
+ * size-parameter scheme).
+ */
 struct NonTemplatedPhysSizeParameter1D
 {
     NonTemplatedPhysSizeParameter1D(const unsigned int ncoord,
@@ -65,6 +110,7 @@ private:
     unsigned int m_nq0;
 };
 
+/// Trait: T is the runtime 1D physical-space size parameter.
 template <typename T> struct IsNonTemplatedPhysSizeParameter1D : std::false_type
 {
 };
@@ -75,6 +121,11 @@ struct IsNonTemplatedPhysSizeParameter1D<NonTemplatedPhysSizeParameter1D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedPhysSizeParameter1D,
+ * instantiated by the generated ShapeBlock switch code for sizes
+ * within the switch range.
+ */
 template <unsigned int tncoord, unsigned int tnq0>
 struct TemplatedPhysSizeParameter1D
 {
@@ -92,6 +143,7 @@ struct TemplatedPhysSizeParameter1D
     }
 };
 
+/// Trait: T is a compile-time 1D physical-space size parameter.
 template <typename T> struct IsTemplatedPhysSizeParameter1D : std::false_type
 {
 };
@@ -102,6 +154,10 @@ struct IsTemplatedPhysSizeParameter1D<
 {
 };
 
+/**
+ * @brief Runtime physical-space sizes of a 2D element: coordinate
+ * dimension and per-direction quadrature-point counts.
+ */
 struct NonTemplatedPhysSizeParameter2D
 {
     NonTemplatedPhysSizeParameter2D(const unsigned int ncoord,
@@ -134,6 +190,7 @@ private:
     unsigned int m_nq1;
 };
 
+/// Trait: T is the runtime 2D physical-space size parameter.
 template <typename T> struct IsNonTemplatedPhysSizeParameter2D : std::false_type
 {
 };
@@ -144,6 +201,11 @@ struct IsNonTemplatedPhysSizeParameter2D<NonTemplatedPhysSizeParameter2D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedPhysSizeParameter2D,
+ * instantiated by the generated ShapeBlock switch code for sizes
+ * within the switch range.
+ */
 template <unsigned int tncoord, unsigned int tnq0, unsigned int tnq1>
 struct TemplatedPhysSizeParameter2D
 {
@@ -165,6 +227,7 @@ struct TemplatedPhysSizeParameter2D
     }
 };
 
+/// Trait: T is a compile-time 2D physical-space size parameter.
 template <typename T> struct IsTemplatedPhysSizeParameter2D : std::false_type
 {
 };
@@ -175,6 +238,11 @@ struct IsTemplatedPhysSizeParameter2D<
 {
 };
 
+/**
+ * @brief Runtime physical-space sizes of a 3D element: per-direction
+ * quadrature-point counts. No coordinate dimension is carried, since a
+ * 3D element's coordinate dimension is always three.
+ */
 struct NonTemplatedPhysSizeParameter3D
 {
     NonTemplatedPhysSizeParameter3D(const unsigned int nq0,
@@ -207,6 +275,7 @@ private:
     unsigned int m_nq2;
 };
 
+/// Trait: T is the runtime 3D physical-space size parameter.
 template <typename T> struct IsNonTemplatedPhysSizeParameter3D : std::false_type
 {
 };
@@ -217,6 +286,11 @@ struct IsNonTemplatedPhysSizeParameter3D<NonTemplatedPhysSizeParameter3D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedPhysSizeParameter3D,
+ * instantiated by the generated ShapeBlock switch code for sizes
+ * within the switch range.
+ */
 template <unsigned int tnq0, unsigned int tnq1, unsigned int tnq2>
 struct TemplatedPhysSizeParameter3D
 {
@@ -238,6 +312,7 @@ struct TemplatedPhysSizeParameter3D
     }
 };
 
+/// Trait: T is a compile-time 3D physical-space size parameter.
 template <typename T> struct IsTemplatedPhysSizeParameter3D : std::false_type
 {
 };
@@ -248,6 +323,10 @@ struct IsTemplatedPhysSizeParameter3D<
 {
 };
 
+/**
+ * @brief Runtime modal and quadrature sizes of a 1D element: mode
+ * count and quadrature-point count.
+ */
 struct NonTemplatedSizeParameter1D
 {
     NonTemplatedSizeParameter1D(const unsigned int nm0, const unsigned int nq0)
@@ -277,6 +356,7 @@ private:
     unsigned int m_nq0;
 };
 
+/// Trait: T is the runtime 1D modal/quadrature size parameter.
 template <typename T> struct IsNonTemplatedSizeParameter1D : std::false_type
 {
 };
@@ -287,6 +367,11 @@ struct IsNonTemplatedSizeParameter1D<NonTemplatedSizeParameter1D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedSizeParameter1D,
+ * instantiated by the generated ShapeBlock switch code for sizes
+ * within the switch range.
+ */
 template <unsigned int tnm0, unsigned int tnq0> struct TemplatedSizeParameter1D
 {
     static NEK_HOSTDEVICE_INLINE constexpr unsigned int nm0(void)
@@ -307,6 +392,7 @@ template <unsigned int tnm0, unsigned int tnq0> struct TemplatedSizeParameter1D
     }
 };
 
+/// Trait: T is a compile-time 1D modal/quadrature size parameter.
 template <typename T> struct IsTemplatedSizeParameter1D : std::false_type
 {
 };
@@ -317,6 +403,13 @@ struct IsTemplatedSizeParameter1D<TemplatedSizeParameter1D<tnm0, tnq0>>
 {
 };
 
+/**
+ * @brief Runtime modal and quadrature sizes of a 2D element.
+ *
+ * The total mode count `nmTot` is supplied separately because for
+ * simplex-type shapes (e.g. triangles) it is not the product of the
+ * per-direction counts.
+ */
 struct NonTemplatedSizeParameter2D
 {
     NonTemplatedSizeParameter2D(const unsigned int nm0, const unsigned int nm1,
@@ -359,6 +452,7 @@ private:
     unsigned int m_nq1;
 };
 
+/// Trait: T is the runtime 2D modal/quadrature size parameter.
 template <typename T> struct IsNonTemplatedSizeParameter2D : std::false_type
 {
 };
@@ -369,6 +463,11 @@ struct IsNonTemplatedSizeParameter2D<NonTemplatedSizeParameter2D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedSizeParameter2D,
+ * instantiated by the generated ShapeBlock switch code for sizes
+ * within the switch range.
+ */
 template <unsigned int tnm0, unsigned int tnm1, unsigned int tnmTot,
           unsigned int tnq0, unsigned int tnq1>
 struct TemplatedSizeParameter2D
@@ -399,6 +498,7 @@ struct TemplatedSizeParameter2D
     }
 };
 
+/// Trait: T is a compile-time 2D modal/quadrature size parameter.
 template <typename T> struct IsTemplatedSizeParameter2D : std::false_type
 {
 };
@@ -410,6 +510,13 @@ struct IsTemplatedSizeParameter2D<
 {
 };
 
+/**
+ * @brief Runtime modal and quadrature sizes of a 3D element.
+ *
+ * As in 2D, the total mode count `nmTot` is supplied separately
+ * because for simplex-type shapes it is not the product of the
+ * per-direction counts.
+ */
 struct NonTemplatedSizeParameter3D
 {
     NonTemplatedSizeParameter3D(const unsigned int nm0, const unsigned int nm1,
@@ -465,6 +572,7 @@ private:
     unsigned int m_nq2;
 };
 
+/// Trait: T is the runtime 3D modal/quadrature size parameter.
 template <typename T> struct IsNonTemplatedSizeParameter3D : std::false_type
 {
 };
@@ -475,6 +583,11 @@ struct IsNonTemplatedSizeParameter3D<NonTemplatedSizeParameter3D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedSizeParameter3D,
+ * instantiated by the generated ShapeBlock switch code for sizes
+ * within the switch range.
+ */
 template <unsigned int tnm0, unsigned int tnm1, unsigned int tnm2,
           unsigned int tnmTot, unsigned int tnq0, unsigned int tnq1,
           unsigned int tnq2>
@@ -514,6 +627,7 @@ struct TemplatedSizeParameter3D
     }
 };
 
+/// Trait: T is a compile-time 3D modal/quadrature size parameter.
 template <typename T> struct IsTemplatedSizeParameter3D : std::false_type
 {
 };
@@ -527,6 +641,11 @@ struct IsTemplatedSizeParameter3D<
 {
 };
 
+/**
+ * @brief Runtime trace sizes of a 1D element: mode count and
+ * quadrature-point count of the segment, whose traces are its two end
+ * vertices.
+ */
 struct NonTemplatedTraceSizeParameter1D
 {
     NonTemplatedTraceSizeParameter1D(const unsigned int nm0,
@@ -543,7 +662,7 @@ struct NonTemplatedTraceSizeParameter1D
     {
         return m_nm0;
     }
-    /// Longest volume direction, which the launches size against.
+    /// Largest of the per-direction mode counts.
     NEK_HOSTDEVICE_INLINE unsigned int nmMax(void) const
     {
         return m_nm0;
@@ -568,6 +687,7 @@ private:
     unsigned int m_nq0;
 };
 
+/// Trait: T is the runtime 1D trace size parameter.
 template <typename T>
 struct IsNonTemplatedTraceSizeParameter1D : std::false_type
 {
@@ -579,6 +699,11 @@ struct IsNonTemplatedTraceSizeParameter1D<NonTemplatedTraceSizeParameter1D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedTraceSizeParameter1D,
+ * instantiated by the generated trace switch code for sizes within
+ * the switch range.
+ */
 template <unsigned int tnm0, unsigned int tnq0>
 struct TemplatedTraceSizeParameter1D
 {
@@ -607,6 +732,7 @@ struct TemplatedTraceSizeParameter1D
     }
 };
 
+/// Trait: T is a compile-time 1D trace size parameter.
 template <typename T> struct IsTemplatedTraceSizeParameter1D : std::false_type
 {
 };
@@ -617,6 +743,13 @@ struct IsTemplatedTraceSizeParameter1D<
 {
 };
 
+/**
+ * @brief Runtime trace sizes of a 2D element: the element's
+ * per-direction mode counts and the quadrature-point count of the
+ * edges the shape counts in each direction
+ * (LibUtilities::ShapeTypeNumTraceInDir): `nq00` for direction 0,
+ * `nq10` for direction 1.
+ */
 struct NonTemplatedTraceSizeParameter2D
 {
     NonTemplatedTraceSizeParameter2D(const unsigned int nm0,
@@ -639,7 +772,7 @@ struct NonTemplatedTraceSizeParameter2D
     {
         return m_nm0 * m_nm1;
     }
-    /// Longest volume direction, which the launches size against.
+    /// Largest of the per-direction mode counts.
     NEK_HOSTDEVICE_INLINE unsigned int nmMax(void) const
     {
         return std::max(m_nm0, m_nm1);
@@ -672,6 +805,7 @@ private:
     unsigned int m_nq10;
 };
 
+/// Trait: T is the runtime 2D trace size parameter.
 template <typename T>
 struct IsNonTemplatedTraceSizeParameter2D : std::false_type
 {
@@ -683,6 +817,11 @@ struct IsNonTemplatedTraceSizeParameter2D<NonTemplatedTraceSizeParameter2D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedTraceSizeParameter2D,
+ * instantiated by the generated trace switch code for sizes within
+ * the switch range.
+ */
 template <unsigned int tnm0, unsigned int tnm1, unsigned int tnq00,
           unsigned int tnq10>
 struct TemplatedTraceSizeParameter2D
@@ -722,6 +861,7 @@ struct TemplatedTraceSizeParameter2D
     }
 };
 
+/// Trait: T is a compile-time 2D trace size parameter.
 template <typename T> struct IsTemplatedTraceSizeParameter2D : std::false_type
 {
 };
@@ -733,6 +873,13 @@ struct IsTemplatedTraceSizeParameter2D<
 {
 };
 
+/**
+ * @brief Runtime trace sizes of a 3D element: the element's
+ * per-direction mode counts and the two in-face quadrature-point
+ * counts of the faces the shape counts in each direction
+ * (LibUtilities::ShapeTypeNumTraceInDir): `nq00`/`nq01` for direction
+ * 0, `nq10`/`nq11` for direction 1 and `nq20`/`nq21` for direction 2.
+ */
 struct NonTemplatedTraceSizeParameter3D
 {
     NonTemplatedTraceSizeParameter3D(
@@ -761,7 +908,7 @@ struct NonTemplatedTraceSizeParameter3D
     {
         return m_nm0 * m_nm1 * m_nm2;
     }
-    /// Longest volume direction, which the launches size against.
+    /// Largest of the per-direction mode counts.
     NEK_HOSTDEVICE_INLINE unsigned int nmMax(void) const
     {
         return std::max(m_nm0, std::max(m_nm1, m_nm2));
@@ -818,6 +965,7 @@ private:
     unsigned int m_nq21;
 };
 
+/// Trait: T is the runtime 3D trace size parameter.
 template <typename T>
 struct IsNonTemplatedTraceSizeParameter3D : std::false_type
 {
@@ -829,6 +977,11 @@ struct IsNonTemplatedTraceSizeParameter3D<NonTemplatedTraceSizeParameter3D>
 {
 };
 
+/**
+ * @brief Compile-time counterpart of NonTemplatedTraceSizeParameter3D,
+ * instantiated by the generated trace switch code for sizes within
+ * the switch range.
+ */
 template <unsigned int tnm0, unsigned int tnm1, unsigned int tnm2,
           unsigned int tnq00, unsigned int tnq01, unsigned int tnq10,
           unsigned int tnq11, unsigned int tnq20, unsigned int tnq21>
@@ -893,6 +1046,7 @@ struct TemplatedTraceSizeParameter3D
     }
 };
 
+/// Trait: T is a compile-time 3D trace size parameter.
 template <typename T> struct IsTemplatedTraceSizeParameter3D : std::false_type
 {
 };
@@ -906,7 +1060,15 @@ struct IsTemplatedTraceSizeParameter3D<TemplatedTraceSizeParameter3D<
 {
 };
 
-// Helper traits
+// Helper traits combining the runtime and compile-time forms: true
+// when T is either form of the corresponding size parameter, with an
+// `Is..._v` variable shorthand for each. The kernel headers use them in
+// static_assert guards on the dimensionality of the size parameter a
+// kernel launcher was passed and, in the trace kernels, to constrain
+// the launcher overloads via enable_if, so one signature per
+// dimensionality serves both forms.
+
+/// T is a 1D physical-space size parameter (either form).
 template <typename T> struct IsPhysSizeParameter1D
 {
     static constexpr bool value = IsNonTemplatedPhysSizeParameter1D<T>::value ||
@@ -915,6 +1077,7 @@ template <typename T> struct IsPhysSizeParameter1D
 template <typename T>
 inline constexpr bool IsPhysSizeParameter1D_v = IsPhysSizeParameter1D<T>::value;
 
+/// T is a 2D physical-space size parameter (either form).
 template <typename T> struct IsPhysSizeParameter2D
 {
     static constexpr bool value = IsNonTemplatedPhysSizeParameter2D<T>::value ||
@@ -923,6 +1086,7 @@ template <typename T> struct IsPhysSizeParameter2D
 template <typename T>
 inline constexpr bool IsPhysSizeParameter2D_v = IsPhysSizeParameter2D<T>::value;
 
+/// T is a 3D physical-space size parameter (either form).
 template <typename T> struct IsPhysSizeParameter3D
 {
     static constexpr bool value = IsNonTemplatedPhysSizeParameter3D<T>::value ||
@@ -931,6 +1095,7 @@ template <typename T> struct IsPhysSizeParameter3D
 template <typename T>
 inline constexpr bool IsPhysSizeParameter3D_v = IsPhysSizeParameter3D<T>::value;
 
+/// T is a 1D modal/quadrature size parameter (either form).
 template <typename T> struct IsSizeParameter1D
 {
     static constexpr bool value = IsNonTemplatedSizeParameter1D<T>::value ||
@@ -939,6 +1104,7 @@ template <typename T> struct IsSizeParameter1D
 template <typename T>
 inline constexpr bool IsSizeParameter1D_v = IsSizeParameter1D<T>::value;
 
+/// T is a 2D modal/quadrature size parameter (either form).
 template <typename T> struct IsSizeParameter2D
 {
     static constexpr bool value = IsNonTemplatedSizeParameter2D<T>::value ||
@@ -947,6 +1113,7 @@ template <typename T> struct IsSizeParameter2D
 template <typename T>
 inline constexpr bool IsSizeParameter2D_v = IsSizeParameter2D<T>::value;
 
+/// T is a 3D modal/quadrature size parameter (either form).
 template <typename T> struct IsSizeParameter3D
 {
     static constexpr bool value = IsNonTemplatedSizeParameter3D<T>::value ||
@@ -955,20 +1122,32 @@ template <typename T> struct IsSizeParameter3D
 template <typename T>
 inline constexpr bool IsSizeParameter3D_v = IsSizeParameter3D<T>::value;
 
-// Exchange the mode and quadrature roles of a size parameter.
-//
-// A switch describes an operator's two grids in the direction it was
-// written for: BlockOpSwitchPhysInterp1D.h.in sweeps the native counts as
-// the mode side and the scaled counts derived from them as the quadrature
-// side. A kernel always reads the mode side as its source and the
-// quadrature side as its target, so an operator consuming the scaled grid
-// and producing the native one - PhysGalerkinProject1DScaled, the reverse
-// of PhysInterp1DScaled - needs those two roles exchanged before it can
-// reuse both the switch and the kernels. Transposing keeps a templated
-// size parameter templated, so the compile time sizes survive the swap.
-//
-// Both sides are full tensor product grids here, so the transposed nmTot
-// is the product of the original quadrature counts.
+/**
+ * @brief Exchange the mode and quadrature roles of a size parameter.
+ *
+ * A switch describes an operator's two grids in the direction it was
+ * written for: BlockOpSwitchPhysInterp1D.h.in sweeps the native counts
+ * as the mode side and the scaled counts derived from them as the
+ * quadrature side. A kernel always reads the mode side as its source
+ * and the quadrature side as its target, so an operator consuming the
+ * scaled grid and producing the native one -- PhysGalerkinProject1DScaled,
+ * the reverse of PhysInterp1DScaled -- needs those two roles exchanged
+ * before it can reuse both the switch and the kernels. Transposing
+ * keeps a templated size parameter templated, so the compile-time sizes
+ * survive the swap.
+ *
+ * Both sides are full tensor-product grids here, so the transposed
+ * `nmTot` is the product of the original quadrature counts.
+ *
+ * @tparam TSizeParameter  Plain (modal/quadrature) size parameter of
+ *                         any dimensionality, in either form.
+ *
+ * @param   sizeParam   Size parameter to transpose; read only for the
+ *                      runtime forms.
+ *
+ * @return A size parameter of the same dimensionality and form with the
+ * mode and quadrature counts exchanged.
+ */
 template <typename TSizeParameter>
 NEK_FORCE_INLINE static auto TransposeSizeParameter(
     [[maybe_unused]] const TSizeParameter sizeParam)
@@ -1017,6 +1196,7 @@ NEK_FORCE_INLINE static auto TransposeSizeParameter(
     }
 }
 
+/// T is a 1D trace size parameter (either form).
 template <typename T> struct IsTraceSizeParameter1D
 {
     static constexpr bool value =
@@ -1027,6 +1207,7 @@ template <typename T>
 inline constexpr bool IsTraceSizeParameter1D_v =
     IsTraceSizeParameter1D<T>::value;
 
+/// T is a 2D trace size parameter (either form).
 template <typename T> struct IsTraceSizeParameter2D
 {
     static constexpr bool value =
@@ -1037,6 +1218,7 @@ template <typename T>
 inline constexpr bool IsTraceSizeParameter2D_v =
     IsTraceSizeParameter2D<T>::value;
 
+/// T is a 3D trace size parameter (either form).
 template <typename T> struct IsTraceSizeParameter3D
 {
     static constexpr bool value =
@@ -1048,6 +1230,26 @@ inline constexpr bool IsTraceSizeParameter3D_v =
     IsTraceSizeParameter3D<T>::value;
 
 #if defined(NEKTAR_ENABLE_DEVICE)
+/**
+ * @brief Compile-time upper bound on the threads per block a kernel of
+ * the given implementation is launched with; used in the
+ * `__LAUNCH_BOUNDS__` annotation of the device kernel launchers.
+ *
+ * For SumFac the bound is the warp size, matching GetDeviceBlockSize().
+ * For SumFacTOP with a templated (compile-time) plain or physical-space
+ * size parameter the bound is GetDeviceBlockSize() evaluated at the
+ * parameter's total mode count (plain forms) or total point count
+ * (physical-space forms); with any other size parameter -- the runtime
+ * forms and the trace forms -- the device's default block size is
+ * used, which is the cap GetDeviceBlockSize() applies at run time.
+ * Other implementations return 0.
+ *
+ * @tparam Implementation   Implementation tag.
+ * @tparam TSizeParameter   Size-parameter type the kernel is
+ *                          instantiated with.
+ *
+ * @return Maximum threads per block for the launch-bounds annotation.
+ */
 template <typename Implementation, typename TSizeParameter>
 static constexpr unsigned int GetMaxThreadPerBlock(void)
 {

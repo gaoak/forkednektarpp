@@ -32,6 +32,31 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file AssmbScatrOpImpl.hpp
+ * @brief Backend implementations of the AssmbScatr (assemble--scatter)
+ * operator, including the parallel path that overlaps interior assembly
+ * with inter-rank communication.
+ *
+ * @details
+ * Assemble--scatter takes a coefficient-space field in element-local
+ * storage and, for every global degree of freedom (DOF) to which several
+ * local coefficients contribute, replaces each local copy by the
+ * sign-weighted sum of all of them. It is the operator-library equivalent
+ * of AssemblyMap::Assemble() followed by AssemblyMap::GlobalToLocal(),
+ * but acts in place on the element-local data without ever forming the
+ * globally-ordered array.
+ *
+ * The computational kernels live in AssmbScatrSerialAVXKernels.hpp
+ * (Serial and AVX back-ends) and AssmbScatrDeviceKernels.hpp (device
+ * back-ends); overload resolution on the ExecSpace template parameter
+ * selects between them. The index and sign tables the kernels consume are
+ * built once per configuration by MultiRegions::LocalToGlobalDataCreator
+ * (see MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp) and
+ * cached in the expansion list's data warehouse, so several operator
+ * instances share them.
+ */
+
 #pragma once
 
 #include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
@@ -48,6 +73,79 @@ using namespace Nektar::Operators;
 namespace Nektar::Operators::detail
 {
 
+/**
+ * @brief Backend implementation of AssmbScatrOp: in-place
+ * assemble--scatter of a coefficient field for one execution space.
+ *
+ * @details
+ * ### What one application does
+ * Only the interior DOFs that need work are visited: those with more than one
+ * local contribution (assemble followed by scatter is the identity on a DOF
+ * with a single contribution, because the +-1 sign factors square to
+ * one) and, when ZERODIR is set, global Dirichlet DOFs. For each visited
+ * DOF the kernels accumulate the sign-weighted local coefficients and
+ * write the sign-weighted sum back through the same indices.
+ *
+ * ### Index/sign layout and WIDTH interleaving
+ * The tables address the field's coefficient storage as one flat array:
+ * each index already includes the block and component offsets, and the
+ * blocks of a Field are allocated contiguously (see
+ * Field::AllocateFieldStorage), so block 0's pointer serves as the base
+ * of the whole field. The interior tables are interleaved in groups of
+ * #m_device_width (WIDTH) DOFs: the j-th index/sign entries of the WIDTH
+ * DOFs of a group are adjacent in memory. On the Device back-end the
+ * lanes of a warp therefore read them with unit stride (coalesced); on
+ * AVX the tables are interleaved at the SIMD width, although the current
+ * kernel walks the lanes with scalar loops. Each group occupies a
+ * rectangular block sized by its largest valence (the group is permuted
+ * so that its first DOF carries that valence); surplus slots repeat a
+ * valid index with sign 0 so they are harmless if read. For the Serial
+ * back-end WIDTH is 1 and the tables are simply packed.
+ *
+ * ### The sign table
+ * #m_gsSign holds one factor per index entry:
+ * - the +-1 factors provided by AssemblyMapCG::GetLocalToGlobalSign()
+ *   whenever the assembly map applies sign changes and SIGNCHANGE is
+ *   true;
+ * - their absolute values when SIGNCHANGE is false;
+ * - 0 for global Dirichlet DOFs when ZERODIR is true, so that their
+ *   contributions are ignored on assembly and their local copies are
+ *   zeroed on scatter;
+ * - 0 in the padding slots described above.
+ * Folding all of this into one table lets a single kernel serve every
+ * ZERODIR/SIGNCHANGE combination without branching.
+ *
+ * ### Parallel operation
+ * DOFs whose contributions all live on this rank ("interior") and DOFs
+ * shared with other ranks ("boundary") are held in disjoint tables. One
+ * application then proceeds as follows:
+ * -# AssembleScatrBndKernel: per boundary DOF, form this rank's partial
+ *    sum, park it (sign-weighted) in the DOF's first local coefficient
+ *    and copy it into #m_send_buffer -- one slot per neighbouring rank
+ *    sharing the DOF;
+ * -# m_assmbCommCG->BeginComm(): start the persistent sends/receives;
+ * -# AssembleScatrKernel: assemble--scatter all interior DOFs,
+ *    overlapping with the message exchange;
+ * -# m_assmbCommCG->EndComm(): wait for the exchange to complete;
+ * -# AssembleFromBndKernel: per boundary DOF, sum the neighbours'
+ *    partial sums from #m_recv_buffer together with the parked local one
+ *    and scatter the total. The additions are performed in ascending
+ *    rank order on every rank (#m_gsBndAssOrder gives this rank's slot),
+ *    so all sharers accumulate in the same order and obtain identical
+ *    floating-point values for the shared DOF.
+ *
+ * @tparam ExecSpace  Execution back-end (NektarSpaces::Serial, AVX or
+ *                    Device); its memory_space determines where the
+ *                    field data and the tables must reside.
+ * @tparam TData      Floating-point type of the coefficients.
+ * @tparam ZERODIR    Zero global Dirichlet DOFs instead of assembling
+ *                    them (see AssmbScatrZeroDirOpImpl).
+ * @tparam SIGNCHANGE Apply the assembly map's +-1 orientation factors;
+ *                    if false their absolute values are used instead
+ *                    (see AssmbScatrNoSignOpImpl).
+ *
+ * @see AssmbScatrOp for the public Apply interface and factory hooks.
+ */
 template <typename ExecSpace, typename TData, bool ZERODIR = false,
           bool SIGNCHANGE = true>
 class AssmbScatrOpImpl : public AssmbScatrOp<TData>
@@ -55,17 +153,18 @@ class AssmbScatrOpImpl : public AssmbScatrOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    // scalar version
+    /// Forwards to AssmbScatrOp; the assembly tables and, in parallel, the
+    /// communication are set up lazily by SetUpMaps() on the first Apply().
     AssmbScatrOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                      const std::vector<std::string> &components)
         : AssmbScatrOp<TData>(expansionList, components)
     {
     }
 
-    // className - for OperatorFactory
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// Creator function registered with OperatorFactory.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -76,36 +175,91 @@ public:
     }
 
 protected:
+    /// Interleave width of the interior tables: 1 (Serial), the SIMD
+    /// vector width (AVX) or the device warp size (Device).
     static constexpr unsigned m_device_width =
         NektarSpaces::vector_width<ExecSpace, TData>::value;
-    const unsigned *m_gsNumAssmb    = nullptr;
-    const unsigned *m_gsIndex       = nullptr;
-    const unsigned *m_gsOffset      = nullptr;
-    const int *m_gsSign             = nullptr;
+    /// Number of local contributions (valence) per interior DOF.
+    const unsigned *m_gsNumAssmb = nullptr;
+    /// Interleaved local-coefficient indices of the interior DOFs.
+    const unsigned *m_gsIndex = nullptr;
+    /// First entry of each interior DOF within #m_gsIndex / #m_gsSign.
+    const unsigned *m_gsOffset = nullptr;
+    /// Factor per #m_gsIndex entry: +-1, or 0 to disable the entry.
+    const int *m_gsSign = nullptr;
+    /// Number of local contributions (valence) per boundary DOF.
     const unsigned *m_gsBndNumAssmb = nullptr;
-    const unsigned *m_gsNumBndVals  = nullptr;
-    const unsigned *m_gsBndIndex    = nullptr;
-    const unsigned *m_gsBndOffset   = nullptr;
+    /// Number of neighbouring ranks sharing each boundary DOF.
+    const unsigned *m_gsNumBndVals = nullptr;
+    /// Per boundary DOF: local coefficient indices, then send/receive
+    /// buffer slots in ascending neighbour-rank order (packed, width 1).
+    const unsigned *m_gsBndIndex = nullptr;
+    /// First entry of each boundary DOF in #m_gsBndIndex / #m_gsBndSign.
+    const unsigned *m_gsBndOffset = nullptr;
+    /// Slot of this rank's own partial sum in the rank-ordered boundary
+    /// summation, i.e. the number of sharing ranks of lower rank.
     const unsigned *m_gsBndAssOrder = nullptr;
-    const int *m_gsBndSign          = nullptr;
+    /// Factors for the local entries of #m_gsBndIndex (0 in the buffer
+    /// slot positions).
+    const int *m_gsBndSign = nullptr;
+    /// Spatial (row) communicator over which the mesh is partitioned.
     LibUtilities::CommSharedPtr m_rowComm;
 
-    /// number of internal device  dofs ot assemble.
+    /// Number of interior assembly targets, i.e. (global DOF, component)
+    /// pairs visited by AssembleScatrKernel.
     unsigned m_nGids;
-    /// number of inter device boundary dofs to assemble
+    /// Number of partition-boundary assembly targets visited by the
+    /// boundary kernels; set in parallel runs only.
     unsigned m_nBndGids;
-    /// number of components mappings are setup for
+    /// Number of field components the tables and buffers are set up for;
+    /// 0 until the first Apply() calls SetUpMaps().
     unsigned m_numAssemblyComps = 0;
 
-    /// flag to identify when method is setup for parallel communication
+    /// True when the row communicator has more than one rank, i.e. when
+    /// the boundary exchange is active; set by SetUpMaps().
     bool m_isParallel;
-    /// A pointer to the assembly communication for inter device commonication
+    /// Persistent inter-rank exchange of the partition-boundary partial
+    /// sums; created by SetUpMaps() in parallel runs only.
     std::unique_ptr<MultiRegions::AssemblyComm<TData>> m_assmbCommCG;
-    /// Buffer to place send data for inter device communication
+    /// Send buffer of the boundary exchange (pinned host memory): one
+    /// entry per (neighbouring rank, shared DOF, component).
     LibUtilities::MemoryRegion<TData> m_send_buffer;
-    /// Buffer to receive data into  for inter device communication
+    /// Receive buffer of the boundary exchange, laid out like
+    /// #m_send_buffer.
     LibUtilities::MemoryRegion<TData> m_recv_buffer;
 
+    /**
+     * @brief Fetch (or build) the assembly tables for the operator's
+     * component list and, in parallel, set up the boundary tables, the
+     * persistent communication and the message buffers.
+     *
+     * The interior tables are obtained from the data warehouse keyed on
+     * the operator's components, the ZERODIR flag and #m_device_width
+     * (the sign table additionally on SIGNCHANGE), so they are created
+     * once per configuration and shared between operator instances.
+     *
+     * When the row communicator has more than one rank, a
+     * MultiRegions::AssemblyComm is constructed from the universal IDs
+     * of the global boundary coefficients (interior coefficients are
+     * masked with 0 and never communicated). Its constructor discovers,
+     * collectively, which ranks share each DOF; InitSendRecvComms() then
+     * creates persistent point-to-point requests bound directly to
+     * #m_send_buffer / #m_recv_buffer -- to their device pointers when
+     * the operator runs in the device memory space and the communicator
+     * is GPU-aware, and to their pinned host pointers otherwise. Because
+     * the requests capture raw pointers, the buffers must stay allocated
+     * for the lifetime of #m_assmbCommCG. Each buffer holds one entry
+     * per (neighbouring rank, shared DOF, component) triple, grouped
+     * into one contiguous block per neighbouring rank.
+     *
+     * Called lazily from v_Apply() whenever the number of components
+     * differs from the previous call; note that the construction is
+     * collective, so all ranks must take that branch together.
+     *
+     * @param   numComp     Number of field components the communication
+     *                      buffers are sized for; the tables themselves
+     *                      are keyed on the operator's component list.
+     */
     void SetUpMaps(unsigned numComp)
     {
         m_numAssemblyComps = numComp;
@@ -254,6 +408,17 @@ protected:
         }
     }
 
+    /**
+     * @brief Copying overload: assemble--scatter @p in into @p out.
+     *
+     * @p in is copied into @p out (skipped when both refer to the same
+     * field) and the in-place overload is applied to @p out; @p in is
+     * otherwise left untouched.
+     *
+     * @param   in      Coefficient-space input field.
+     * @param   out     Coefficient-space output field; must match @p in
+     *                  in block size and number of components.
+     */
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
@@ -271,6 +436,36 @@ protected:
         v_Apply(out);
     }
 
+    /**
+     * @brief Assemble and scatter @p inout in place, overlapping the
+     * interior kernel with inter-rank communication in parallel.
+     *
+     * The steps are:
+     * -# Rebuild the tables and communication via SetUpMaps() if the
+     *    number of components differs from the current setup.
+     * -# Reshape any vector-interleaved block to interleave width 1,
+     *    since the index tables address coefficients in non-interleaved
+     *    layout; the original width is restored before returning.
+     * -# Fetch every block's pointer in MemSpace so the whole field is
+     *    resident there; the kernels then address the field's contiguous
+     *    storage through block 0's base pointer alone.
+     * -# Parallel only: AssembleScatrBndKernel partially assembles the
+     *    partition-boundary DOFs into #m_send_buffer, parking each
+     *    partial sum in its DOF's first local coefficient. The buffer is
+     *    then made visible to MPI -- copied to the host or, with a
+     *    GPU-aware communicator, published by synchronising the kernel
+     *    stream -- and BeginComm() starts the persistent exchange.
+     * -# AssembleScatrKernel assembles and scatters the interior DOFs;
+     *    in parallel this overlaps with the message exchange.
+     * -# Parallel only: #m_recv_buffer is marked as written in the
+     *    memory space MPI delivers into, EndComm() waits for the
+     *    exchange, and AssembleFromBndKernel completes the boundary DOFs
+     *    from the received partial sums in ascending rank order (see the
+     *    class notes on cross-rank determinism).
+     *
+     * @param   inout   Coefficient-space field, assembled and scattered
+     *                  in place.
+     */
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override
     {
         auto numComp = inout.GetNumComponents();
@@ -409,7 +604,22 @@ protected:
     }
 };
 
-// Specialised Assembly with Zero Dirichlet action
+/**
+ * @brief Specialised assemble--scatter with zero Dirichlet action:
+ * global Dirichlet DOFs are zeroed rather than assembled.
+ *
+ * Equivalent to AssemblyMap::Assemble(), zeroing the global Dirichlet
+ * coefficients, then AssemblyMap::GlobalToLocal(). Realised through
+ * AssmbScatrOpImpl with ZERODIR set, i.e. via zero entries in the sign
+ * tables rather than a separate kernel; Dirichlet DOFs with a single
+ * local contribution are visited too, so their local copies are zeroed
+ * as well.
+ *
+ * The generated factory code registers this class under
+ * AssmbScatrZeroDirOp::name. The registered creator is the inherited
+ * Instantiate(), which constructs an AssmbScatrOpImpl<ExecSpace, TData,
+ * true, true> rather than this class; the two differ only in #className.
+ */
 template <typename ExecSpace, typename TData>
 class AssmbScatrZeroDirOpImpl
     : public AssmbScatrOpImpl<ExecSpace, TData, true, true>
@@ -421,10 +631,20 @@ public:
                                                          components)
     {
     }
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 };
 
-// Specialised Assembly with no sign change
+/**
+ * @brief Specialised assemble--scatter with no sign change: the
+ * assembly map's orientation factors are replaced by their absolute
+ * values, so contributions are summed without sign reconciliation.
+ *
+ * Not registered with the operator factory: no AssmbScatrOp-derived
+ * interface class names it and no generated factory code defines
+ * #className. The diagonal preconditioner (DiagPreconOpImpl) constructs
+ * it directly.
+ */
 template <typename ExecSpace, typename TData>
 class AssmbScatrNoSignOpImpl
     : public AssmbScatrOpImpl<ExecSpace, TData, false, false>
@@ -436,6 +656,8 @@ public:
                                                            components)
     {
     }
+    /// Operator class name; unlike the registered implementations, no
+    /// generated factory code defines it.
     static std::string className;
 };
 } // namespace Nektar::Operators::detail
