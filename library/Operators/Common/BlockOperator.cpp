@@ -39,6 +39,16 @@ using namespace Nektar::LibUtilities;
 namespace Nektar::Operators
 {
 
+/**
+ * @brief Return the process-wide singleton BlockOperatorFactory<TData>,
+ * constructing it on first use.
+ *
+ * @tparam TData  Floating-point type of the field data.
+ *
+ * @return The single BlockOperatorFactory<TData> instance that every
+ * operator family registers its block-operator creators with and
+ * BlockOperator::Create() looks its keys up in.
+ */
 template <typename TData> BlockOperatorFactory<TData> &GetBlockOperatorFactory()
 {
     static BlockOperatorFactory<TData> instance;

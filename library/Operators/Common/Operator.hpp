@@ -32,6 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file Operator.hpp
+ * @brief Whole-field operator base class and factory machinery shared by
+ * every operator family in the Operators library.
+ *
+ * @details
+ * Operator fixes no input or output field type; it only provides what
+ * every family's interface class needs regardless of what kind of
+ * operator it is: the expansion list, component names and data
+ * warehouse an instance was built with, the factory lookup performed
+ * by Create(), and the execution-space default returned by
+ * GetOpExecSpace(). Families that act element by element derive their
+ * public interface from ElmtOp (ElmtOp.hpp) instead, which adds the
+ * per-block factory stage on top of this class.
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -56,21 +72,41 @@ namespace Nektar::Operators
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;
 
-// Typename alias for the factory
+/// @brief Factory of Operator<TData> interface objects, keyed by
+/// `TOperator::name + execStr`.
 template <typename TData>
 using OperatorFactory =
     LibUtilities::NekFactory<std::string, Operator<TData>,
                              const MultiRegions::ExpListSharedPtr &,
                              const std::vector<std::string> &>;
 
-// Operator factory singleton
+/// @brief Return the process-wide singleton OperatorFactory<TData>.
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
 
+/**
+ * @brief Common base class of the operator family interfaces: holds the
+ * expansion list, component names and data warehouse an operator was
+ * built with, and provides the family-agnostic Create() and
+ * GetOpExecSpace().
+ *
+ * @tparam TData  Floating-point type of the field data.
+ *
+ * @see ElmtOp for the element-by-element specialisation that adds the
+ * per-block factory stage.
+ */
 template <typename TData> class Operator
 {
 public:
     virtual ~Operator() = default;
 
+    /**
+     * @brief Construct the interface part of a concrete operator;
+     * called by the factory-registered creator functions.
+     *
+     * @param   expansionList   Expansion list the operator acts on.
+     * @param   components      Names of the field components the
+     *                          operator is set up for.
+     */
     Operator(const MultiRegions::ExpListSharedPtr &expansionList,
              const std::vector<std::string> components)
         : m_expansionList(expansionList), m_components(components),
@@ -78,6 +114,33 @@ public:
     {
     }
 
+    /**
+     * @brief Create a concrete operator instance through the operator
+     * factory.
+     *
+     * The factory key is `TOperator::name + execStr`, where an empty
+     * @p execStr is resolved by GetOpExecSpace(). The product is
+     * handed back through a static_pointer_cast to @p TOperator, so
+     * the creator registered under the key must construct that class
+     * or one derived from it.
+     *
+     * @tparam TOperator  Family interface class supplying the static
+     *                    `name` string.
+     *
+     * @param   expansionList   Expansion list the operator acts on.
+     * @param   components      Names of the field components the
+     *                          operator is set up for.
+     * @param   execStr         Execution space ("Serial", "AVX" or
+     *                          "Device"); if empty, GetOpExecSpace()
+     *                          supplies it from the session's
+     *                          "opExecSpace" command-line argument or,
+     *                          failing that, the build's default, with
+     *                          a warning.
+     *
+     * @return The newly created operator. Creation raises a fatal
+     * error (throws ErrorUtil::NekError) if no implementation is
+     * registered under the requested key.
+     */
     template <template <typename> typename TOperator>
     static std::shared_ptr<TOperator<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
@@ -206,8 +269,13 @@ public:
     }
 
 protected:
+    /// Expansion list the operator acts on.
     MultiRegions::ExpListSharedPtr m_expansionList;
+    /// Names of the field components the operator was built for.
     std::vector<std::string> m_components;
+    /// Data warehouse shared with the other operators on the expansion
+    /// list, used to build and cache shared tables (basis matrices,
+    /// mode indices, geometric factors) once.
     LibUtilities::NekDataWarehouseSharedPtr m_dataWarehouse;
 };
 
