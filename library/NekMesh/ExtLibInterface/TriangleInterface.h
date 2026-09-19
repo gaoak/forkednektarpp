@@ -40,14 +40,6 @@
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <SpatialDomains/PointGeom.h>
 
-#define ANSI_DECLARATORS
-#define REAL double
-#define VOID void
-extern "C"
-{
-#include <triangle.h>
-}
-
 namespace Nektar::NekMesh
 {
 
@@ -67,7 +59,15 @@ public:
     /**
      * @brief default constructor
      */
-    TriangleInterface() {};
+    TriangleInterface();
+
+    /**
+     * @brief destructor
+     *
+     * Out of line so that the incomplete DelaunayTriangle below can be
+     * destroyed where its definition is visible.
+     */
+    ~TriangleInterface();
 
     /**
      * @brief assign meshing paramters
@@ -110,15 +110,11 @@ private:
      */
     void SetUp();
 
-    struct DelaunayTriangle
-    {
-    public:
-        void Run(char *cmd)
-        {
-            triangulate(cmd, &in, &out, nullptr);
-        }
-        struct triangulateio in, out;
-    };
+    /// Triangle's input and output data structures. Defined in the source
+    /// file: triangle.h declares lower-case function-like macros (dest, org,
+    /// apex, ...) that clash with ordinary member names, so it must not be
+    /// dragged into anything that includes this header.
+    struct DelaunayTriangle;
 
     /// List of bounding nodes to the surface
     std::vector<std::vector<SpatialDomains::PointGeom *>> m_boundingloops;
@@ -135,7 +131,7 @@ private:
     /// Stretching factor of parameter plane
     NekDouble m_str;
     /// Triangle data strucutres
-    DelaunayTriangle dt;
+    std::unique_ptr<DelaunayTriangle> dt;
 };
 
 typedef std::shared_ptr<TriangleInterface> TriangleInterfaceSharedPtr;
