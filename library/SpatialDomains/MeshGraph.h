@@ -1261,11 +1261,14 @@ protected:
     /// Vector of all unique curve nodes, not including vertices
     std::vector<PointGeomUniquePtr> m_nodeSet;
 
-    int m_meshDimension;
-    int m_spaceDimension;
-    int m_partition;
-    bool m_meshPartitioned = false;
-    bool m_useExpansionType;
+    /// Dimensions default to zero: readers that discover the space dimension
+    /// from the coordinates they read (InputGmsh, for one) raise this value
+    /// rather than assign it, so it must start from a known zero.
+    int m_meshDimension     = 0;
+    int m_spaceDimension    = 0;
+    int m_partition         = 0;
+    bool m_meshPartitioned  = false;
+    bool m_useExpansionType = false;
 
     // Refinement attributes (class members)
     /// Link the refinement id with the composites
