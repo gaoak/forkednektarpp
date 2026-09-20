@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekCuFFTHelper.h
+// File: NekDeviceFFTHIPCUDAHelper.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,51 +28,80 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Shared cuFFT helpers for the Nektar++ CUDA FFT backends.
+// Description: Shared helpers for the CUDA and HIP device FFT backends, over
+//              cuFFT and hipFFT respectively. NekDeviceFFTSYCLHelper.h is the
+//              SYCL counterpart.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#ifndef NEKTAR_ENABLE_CUDA
-#error "NekCuFFTHelper.h requires CUDA support (NEKTAR_ENABLE_CUDA). \
-Configure with NEKTAR_ENABLE_DEVICE=CUDA."
-#endif
+// This header defines __global__ kernels and must only be included from
+// translation units compiled by the device compiler (i.e. .cu files under
+// nvcc and .hip files under hipcc), never from a .cpp.
 
-// This header defines a __global__ kernel and must only be included from
-// translation units compiled by nvcc (i.e. .cu files), never from a .cpp.
-
-#include <stdexcept>
-#include <string>
+#include <cstdlib>
+#include <iostream>
 #include <type_traits>
 
+#if defined(NEKTAR_ENABLE_CUDA)
 #include <cuda_runtime.h>
 #include <cufft.h>
+
+#include <LibUtilities/Backends/CUDA_Host_API.hpp> // CHECK_HIPCUDA_ERROR
+#else
+#include <hip/hip_runtime.h>
+#include <hipfft/hipfft.h>
+
+#include <LibUtilities/Backends/HIP_Host_API.hpp> // CHECK_HIPCUDA_ERROR
+#endif
 
 namespace Nektar::LibUtilities
 {
 
-/// \brief Throw if a CUDA runtime call failed, tagging the message with
-///        \p msg.
-inline void checkCuda(cudaError_t err, const char *msg)
-{
-    if (err != cudaSuccess)
-        throw std::runtime_error(std::string(msg) + ": " +
-                                 cudaGetErrorString(err));
-}
+// The backends differ only in the names below; everything after this block is
+// written once against these aliases. The kernels need no mapping at all.
+#if defined(NEKTAR_ENABLE_CUDA)
 
-/// \brief Throw if a cuFFT call failed, tagging the message with \p msg.
-inline void checkCufft(cufftResult err, const char *msg)
-{
-    if (err != CUFFT_SUCCESS)
-        throw std::runtime_error(std::string(msg) +
-                                 " (cufftResult=" + std::to_string(err) + ")");
-}
+using DeviceFFTResult = cufftResult;
 
-/// \brief Maps a real scalar type to its cuFFT complex element type.
+inline constexpr DeviceFFTResult kDeviceFFTSuccess = CUFFT_SUCCESS;
+inline constexpr const char *kDeviceFFTResultName  = "cufftResult";
+
+/// \brief Maps a real scalar type to its device FFT complex element type.
 template <typename TReal>
-using CufftCmplx = std::conditional_t<std::is_same_v<TReal, double>,
-                                      cufftDoubleComplex, cufftComplex>;
+using DeviceFFTCmplx = std::conditional_t<std::is_same_v<TReal, double>,
+                                          cufftDoubleComplex, cufftComplex>;
+
+#else // NEKTAR_ENABLE_HIP
+
+using DeviceFFTResult = hipfftResult;
+
+inline constexpr DeviceFFTResult kDeviceFFTSuccess = HIPFFT_SUCCESS;
+inline constexpr const char *kDeviceFFTResultName  = "hipfftResult";
+
+/// \brief Maps a real scalar type to its device FFT complex element type.
+template <typename TReal>
+using DeviceFFTCmplx = std::conditional_t<std::is_same_v<TReal, double>,
+                                          hipfftDoubleComplex, hipfftComplex>;
+
+#endif
+
+// Counterpart of CHECK_HIPCUDA_ERROR (LibUtilities/Backends) for FFT status
+// codes, which that macro cannot take: it compares against cudaSuccess and
+// formats with cudaGetErrorString. Evaluates its argument once.
+#define CHECK_HIPCUDA_FFT_ERROR(err)                                           \
+    {                                                                          \
+        const Nektar::LibUtilities::DeviceFFTResult nekFFTErr = (err);         \
+        if (nekFFTErr != Nektar::LibUtilities::kDeviceFFTSuccess)              \
+        {                                                                      \
+            std::cerr << "Device FFT Error at: " << __FILE__ << ":"            \
+                      << __LINE__ << std::endl;                                \
+            std::cerr << Nektar::LibUtilities::kDeviceFFTResultName << "="     \
+                      << static_cast<int>(nekFFTErr) << std::endl;             \
+            exit(0);                                                           \
+        }                                                                      \
+    }
 
 /// \brief Multiply each Fourier mode by \f$i k \beta\f$ times \p normScale, in
 ///        place; the DC and Nyquist modes are zeroed.
@@ -87,7 +116,7 @@ using CufftCmplx = std::conditional_t<std::is_same_v<TReal, double>,
 /// \param normScale Normalisation applied alongside the wavenumber multiply
 ///                  (typically \f$1/N\f$ to fold in the inverse-transform
 ///                  scaling).
-template <typename TReal, typename TComplex = CufftCmplx<TReal>>
+template <typename TReal, typename TComplex = DeviceFFTCmplx<TReal>>
 __global__ static void WavenumberMultiplyKernel(TComplex *__restrict__ d_cmplx,
                                                 int halfN, TReal beta,
                                                 TReal normScale)
@@ -110,8 +139,27 @@ __global__ static void WavenumberMultiplyKernel(TComplex *__restrict__ d_cmplx,
     d_cmplx[b * (halfN + 1) + k] = {-cx.y * scale, cx.x * scale};
 }
 
-/// \brief Convert cuFFT half-complex output to the Nektar++ coefficient
-///        layout.
+/// \brief Scale every complex element of \p d by \p alpha, in place.
+///
+/// \param d        Device pointer to \p nComplex complex elements.
+/// \param nComplex Number of complex elements.
+/// \param alpha    Scale factor.
+template <typename TReal, typename TComplex>
+__global__ static void ScaleComplexKernel(TComplex *__restrict__ d,
+                                          int nComplex, TReal alpha)
+{
+    const int i = static_cast<int>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i < nComplex)
+    {
+        TComplex val = d[i];
+        val.x *= alpha;
+        val.y *= alpha;
+        d[i] = val;
+    }
+}
+
+/// \brief Convert device FFT half-complex output to the Nektar++
+///        coefficient layout.
 ///
 /// With \c Scaled true the \f$1/N\f$ normalisation is folded into the
 /// output, which is what the plan needs when no store callback is registered.
@@ -144,8 +192,8 @@ __global__ static void ComplexToCoefKernel(const TComplex *__restrict__ d_cmplx,
     // k == halfN: Nyquist bin has no Nektar++ slot, left unwritten.
 }
 
-/// \brief Convert the Nektar++ coefficient layout to cuFFT half-complex
-///        input.
+/// \brief Convert the Nektar++ coefficient layout to device FFT
+///        half-complex input.
 template <typename TReal, typename TComplex>
 __global__ static void CoefToComplexKernel(const TReal *__restrict__ d_coef,
                                            TComplex *__restrict__ d_cmplx,

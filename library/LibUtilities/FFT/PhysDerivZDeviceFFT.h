@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZCuFFT.h
+// File: PhysDerivZDeviceFFT.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,18 +37,17 @@
 
 #include <cstddef>
 
-#include <cuda_runtime.h>
-
 namespace Nektar::LibUtilities
 {
 
 /// \brief Compute the z-derivative of a real field in the homogeneous
 /// direction on the device (D2Z + wavenumber multiply + Z2D).
 ///
-/// The three stages run as cuFFT calls, or fused into a single cuFFTDx
-/// kernel when the build defines NEKTAR_USE_CUFFTDX. Explicitly instantiated
-/// for double and float in PhysDerivZCuFFT.cu; both precisions take the same
-/// path in either build.
+/// The three stages run as cuFFT, hipFFT or oneMath calls, or fused into a
+/// single cuFFTDx kernel when the build defines NEKTAR_USE_CUFFTDX.
+/// Explicitly instantiated for double and float in PhysDerivZDeviceFFT.cu
+/// (CUDA), .hip (HIP) and .cpp (SYCL); both precisions take the same path in
+/// any build.
 ///
 /// The field is in plane-major layout: \c d_in[plane * compStride + xy].
 /// \c d_in and \c d_out may alias the same buffer (in-place is safe).
@@ -60,10 +59,13 @@ namespace Nektar::LibUtilities
 /// \param compStride Stride between successive planes in the buffers
 ///                   (>= NXY; equals NXY when there is no padding).
 /// \param beta       Wavenumber factor \f$2\pi/L_z\f$.
-/// \param stream     CUDA stream on which all work is submitted.
+/// \param stream     Device stream on which all work is submitted, as an
+///                   opaque handle so that this header stays free of the
+///                   CUDA, HIP and SYCL headers. Pass a cudaStream_t, a
+///                   hipStream_t or a sycl::queue *; all are pointers, so a
+///                   static_cast to void * round-trips exactly.
 template <typename TData>
 void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta,
-                      cudaStream_t stream);
+                      size_t NXY, size_t compStride, TData beta, void *stream);
 
 } // namespace Nektar::LibUtilities

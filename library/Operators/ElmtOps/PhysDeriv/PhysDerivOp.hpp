@@ -43,11 +43,6 @@ namespace Nektar::Operators
 
 /// \brief Element-block operator that computes the physical-space derivative
 /// \f$\nabla u\f$ over a collection of elements.
-///
-/// In 3DH1 the z-derivative backend follows \p execStr: FFTW for
-/// "Serial"/"AVX", and cuFFT (or cuFFTDx under NEKTAR_USE_CUFFTDX) for
-/// "Device", which needs a CUDA build and raises a fatal error without one.
-/// An empty execStr resolves the space from the session.
 template <typename TData>
 class PhysDerivOp : public ElmtOp<FieldState::Phys, FieldState::Phys, TData>
 {

@@ -6,7 +6,13 @@
 #
 ########################################################################
 
-IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
+# Intel targets, CPU and GPU alike, are served by MKL's own SYCL interfaces
+# rather than by oneMath: MKL covers both device kinds through the same
+# oneapi/mkl.hpp headers. That interface is DPC++ only, so under AdaptiveCpp
+# these configurations are left without a backend and the sources take their
+# fallback path.
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU" OR
+    NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
     IF (${AdaptiveCpp_FOUND})
        # Do nothing.
     ELSEIF (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
@@ -22,10 +28,10 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
         SET(ONEMATH_SYCL_IMPLEMENTATION "dpc++")
     ENDIF()
 
-    FIND_PATH(ONEMATH_INCLUDE_DIR math.hpp)
+    FIND_PATH(ONEMATH_INCLUDE_DIR oneapi/math.hpp)
     FIND_LIBRARY(ONEMATH_LIBRARY NAMES "onemath")
 
-    # If we have our library then don't build libmagma.
+    # If we have the library already then don't build it.
     IF (ONEMATH_LIBRARY AND ONEMATH_INCLUDE_DIR)
         SET(BUILD_ONEMATH OFF)
     ELSE()
@@ -35,8 +41,11 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
     OPTION(THIRDPARTY_BUILD_ONEMATH
         "Build OneMath library from ThirdParty" ${BUILD_ONEMATH})
 
+    # Selects the oneMath API over oneMKL in the sources, so it has to hold
+    # whether the library is built below or was found on the system.
+    ADD_DEFINITIONS(-DNEKTAR_ENABLE_ONEMATH)
+
     IF(THIRDPARTY_BUILD_ONEMATH)
-        ADD_DEFINITIONS(-DNEKTAR_ENABLE_ONEMATH)
         INCLUDE(ExternalProject)
 
         THIRDPARTY_LIBRARY(ONEMATH_LIBRARY SHARED onemath DESCRIPTION "OneMath library")
@@ -135,13 +144,15 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
         SET(ONEMATH_INCLUDE_DIR ${TPDIST}/include CACHE FILEPATH "onemath include" FORCE)
         MESSAGE(STATUS "Build onemath: ${ONEMATH_LIBRARY}")
         SET(ONEMATH_CONFIG_INCLUDE_DIR ${TPINC})
-
-        INCLUDE_DIRECTORIES(${ONEMATH_INCLUDE_DIR})
     ELSE()
         ADD_CUSTOM_TARGET(onemath-v0.9 ALL)
         MESSAGE(STATUS "Found onemath: ${ONEMATH_LIBRARY}")
         SET(ONEMATH_CONFIG_INCLUDE_DIR ${ONEMATH_INCLUDE_DIR})
     ENDIF()
+
+    # Both branches leave ONEMATH_INCLUDE_DIR as the directory holding
+    # oneapi/math.hpp, which is how the sources include it.
+    INCLUDE_DIRECTORIES(${ONEMATH_INCLUDE_DIR})
 
     ADD_DEPENDENCIES(thirdparty onemath-v0.9)
 

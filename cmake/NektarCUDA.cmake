@@ -45,13 +45,13 @@ FIND_PACKAGE(CUDAToolkit ${CUDA_MIN_VERSION} REQUIRED)
 INCLUDE_DIRECTORIES(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 OPTION(NEKTAR_USE_CUFFT_STATIC
-    "Link cuFFT statically to enable store-callback support in NekCuFFT"
+    "Link cuFFT statically to enable store-callback support in NekDeviceFFT"
     OFF)
 MARK_AS_ADVANCED(NEKTAR_USE_CUFFT_STATIC)
 IF(NEKTAR_USE_CUFFT_STATIC)
     SET(CMAKE_CUDA_RUNTIME_LIBRARY Static)
     SET(CUFFT_LIBRARY CUDA::cufft_static CUDA::culibos)
-    MESSAGE(STATUS "NekCuFFT: static cuFFT linkage enabled (callbacks supported)")
+    MESSAGE(STATUS "NekDeviceFFT: static cuFFT linkage enabled (callbacks supported)")
 
     IF(CMAKE_CUDA_ARCHITECTURES STREQUAL "native")
         SET(CUFFT_ARCH_FLAGS "-arch=native")
@@ -117,22 +117,6 @@ IF(NEKTAR_USE_CUFFTDX)
             ENDIF()
         ENDIF()
         MATH(EXPR CUFFTDX_TARGET_SM "${_cufftdx_arch_2digit} * 10")
-    ENDIF()
-ENDIF()
-
-OPTION(NEKTAR_ENABLE_NVTX "Enable NVTX profiling markers in NekDeviceFFT (CUDA backend)" OFF)
-MARK_AS_ADVANCED(NEKTAR_ENABLE_NVTX)
-if(NEKTAR_ENABLE_NVTX)
-    FIND_PATH(NVTX_INCLUDE_DIR
-            NAMES nvtx3/nvToolsExt.h nvToolsExt.h
-            HINTS ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    FIND_LIBRARY(NVTX_LIBRARY
-            NAMES nvToolsExt
-            HINTS ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-    IF(NOT NVTX_INCLUDE_DIR)
-        MESSAGE(FATAL_ERROR
-                "NEKTAR_ENABLE_NVTX: could not find NVTX headers. "
-                "Ensure the CUDA module is loaded.")
     ENDIF()
 ENDIF()
 

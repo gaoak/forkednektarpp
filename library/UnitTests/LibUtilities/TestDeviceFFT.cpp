@@ -34,6 +34,8 @@
 
 #include <cmath>
 
+#include <stdexcept>
+
 #include <boost/test/unit_test.hpp>
 
 #include <LibUtilities/Backends/Backends.hpp>
@@ -185,6 +187,21 @@ BOOST_AUTO_TEST_CASE(TestPlanCacheIsPopulated)
     BOOST_CHECK(NekDeviceFFT::IsCacheWarmed(deviceId, N, M));
 }
 
+// Graph capture is a CUDA and HIP facility. The SYCL backend has no
+// equivalent and resubmits the pipeline instead, so the round-trip cases below
+// are replaced there by one that pins that behaviour.
+#if defined(NEKTAR_ENABLE_SYCL)
+
+BOOST_AUTO_TEST_CASE(TestGraphCaptureUnsupported)
+{
+    auto fft = MemoryManager<NekDeviceFFT>::AllocateSharedPtr(16, 1);
+    BOOST_CHECK(!fft->HasGraph());
+    BOOST_CHECK_THROW(fft->BeginGraphCapture(), std::runtime_error);
+    BOOST_CHECK(!fft->HasGraph());
+}
+
+#else
+
 BOOST_AUTO_TEST_CASE(TestGraphRoundTrip)
 {
     for (const int N : {16, 64, 256})
@@ -211,6 +228,10 @@ BOOST_AUTO_TEST_CASE(TestGraphRoundTrip)
     }
 }
 
+#endif // NEKTAR_ENABLE_SYCL
+
+// LaunchGraph() without a capture raises the same error on every backend; on
+// SYCL that is the only outcome, there being no capture to make.
 BOOST_AUTO_TEST_CASE(TestLaunchGraphWithoutCapture)
 {
     auto fft = MemoryManager<NekDeviceFFT>::AllocateSharedPtr(16, 1);
@@ -303,6 +324,8 @@ BOOST_AUTO_TEST_CASE(TestFloatRoundTripDeviceResident)
         BOOST_CHECK_SMALL(recv[n] - phys[n], 1.0e-5f);
 }
 
+#if !defined(NEKTAR_ENABLE_SYCL)
+
 BOOST_AUTO_TEST_CASE(TestFloatGraphRoundTrip)
 {
     const int N = 64;
@@ -328,5 +351,7 @@ BOOST_AUTO_TEST_CASE(TestFloatGraphRoundTrip)
             BOOST_CHECK_SMALL(recv[n] - ref[n], 1.0e-5f);
     }
 }
+
+#endif // !NEKTAR_ENABLE_SYCL
 
 } // namespace Nektar::DeviceFFTUnitTests

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZCuFFT.cu
+// File: PhysDerivZDeviceFFT.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,34 +35,31 @@
 
 #if defined(NEKTAR_ENABLE_DEVICE)
 
-#include <cuda_runtime.h>
-
 // The two implementations share no machinery, so each pulls in only what it
 // needs; see the matching split in the anonymous namespace below.
 #if !defined(NEKTAR_USE_CUFFTDX)
 
 #include <algorithm>
-#include <type_traits>
 #include <unordered_map>
 
-#include <cufft.h>
-
-#include <LibUtilities/FFT/NekCuFFTHelper.h>
+#include <LibUtilities/FFT/NekDeviceFFTHIPCUDAHelper.h>
+#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
 
 #else // NEKTAR_USE_CUFFTDX
 
 #include <stdexcept>
 #include <string>
 
+#include <cuda_runtime.h>
 #include <cufftdx/cufftdx.hpp>
+
+#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
 
 #ifndef CUFFTDX_TARGET_SM
 #define CUFFTDX_TARGET_SM 700
 #endif
 
 #endif // !NEKTAR_USE_CUFFTDX
-
-#include <LibUtilities/FFT/PhysDerivZCuFFT.h>
 
 namespace Nektar::LibUtilities
 {
@@ -116,12 +113,12 @@ struct DirectPlanKeyHash
 
 template <typename TData> struct DirectPlanEntry
 {
-    cufftHandle planFwd        = 0;
-    cufftHandle planBwd        = 0;
-    CufftCmplx<TData> *d_cmplx = nullptr;
-    void *d_workspace          = nullptr;
-    int halfN                  = 0;
-    int blockSizeWave          = 0;
+    cufftHandle planFwd            = 0;
+    cufftHandle planBwd            = 0;
+    DeviceFFTCmplx<TData> *d_cmplx = nullptr;
+    void *d_workspace              = nullptr;
+    int halfN                      = 0;
+    int blockSizeWave              = 0;
 };
 
 template <typename TData> class DirectPlanCache
@@ -166,22 +163,17 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     e.halfN = static_cast<int>(nhomo / 2);
 
     const std::size_t nCmplx = NXY * static_cast<std::size_t>(e.halfN + 1);
-    checkCuda(cudaMalloc(reinterpret_cast<void **>(&e.d_cmplx),
-                         nCmplx * sizeof(CufftCmplx<TData>)),
-              "NekCuFFTDirect: cudaMalloc d_cmplx");
+    CHECK_HIPCUDA_ERROR(cudaMalloc(reinterpret_cast<void **>(&e.d_cmplx),
+                                   nCmplx * sizeof(DeviceFFTCmplx<TData>)));
 
-    checkCufft(cufftCreate(&e.planFwd), "NekCuFFTDirect: cufftCreate forward");
-    checkCufft(cufftCreate(&e.planBwd), "NekCuFFTDirect: cufftCreate backward");
+    CHECK_HIPCUDA_FFT_ERROR(cufftCreate(&e.planFwd));
+    CHECK_HIPCUDA_FFT_ERROR(cufftCreate(&e.planBwd));
 
-    checkCufft(cufftSetAutoAllocation(e.planFwd, 0),
-               "NekCuFFTDirect: cufftSetAutoAllocation forward");
-    checkCufft(cufftSetAutoAllocation(e.planBwd, 0),
-               "NekCuFFTDirect: cufftSetAutoAllocation backward");
+    CHECK_HIPCUDA_FFT_ERROR(cufftSetAutoAllocation(e.planFwd, 0));
+    CHECK_HIPCUDA_FFT_ERROR(cufftSetAutoAllocation(e.planBwd, 0));
 
-    checkCufft(cufftSetStream(e.planFwd, stream),
-               "NekCuFFTDirect: cufftSetStream forward");
-    checkCufft(cufftSetStream(e.planBwd, stream),
-               "NekCuFFTDirect: cufftSetStream backward");
+    CHECK_HIPCUDA_FFT_ERROR(cufftSetStream(e.planFwd, stream));
+    CHECK_HIPCUDA_FFT_ERROR(cufftSetStream(e.planBwd, stream));
 
     const int nhomoI      = static_cast<int>(nhomo);
     const int compStrideI = static_cast<int>(compStride);
@@ -191,69 +183,62 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     int inembed[] = {nhomoI};
     int onembed[] = {e.halfN + 1};
 
+    // The plan type has to track TData: the single-precision plans are
+    // R2C/C2R, and executing them with the double-precision entry points (or
+    // the reverse) is rejected by cuFFT at exec time.
+    constexpr cufftType fwdType =
+        std::is_same_v<TData, double> ? CUFFT_D2Z : CUFFT_R2C;
+    constexpr cufftType bwdType =
+        std::is_same_v<TData, double> ? CUFFT_Z2D : CUFFT_C2R;
+
     std::size_t wsFwd = 0, wsBwd = 0;
 
-    checkCufft(cufftMakePlanMany(e.planFwd, 1, dims, inembed, compStrideI, 1,
-                                 onembed, 1, e.halfN + 1, CUFFT_D2Z, batchI,
-                                 &wsFwd),
-               "NekCuFFTDirect: cufftMakePlanMany forward");
+    CHECK_HIPCUDA_FFT_ERROR(
+        cufftMakePlanMany(e.planFwd, 1, dims, inembed, compStrideI, 1, onembed,
+                          1, e.halfN + 1, fwdType, batchI, &wsFwd));
 
-    checkCufft(cufftMakePlanMany(e.planBwd, 1, dims, onembed, 1, e.halfN + 1,
-                                 inembed, compStrideI, 1, CUFFT_Z2D, batchI,
-                                 &wsBwd),
-               "NekCuFFTDirect: cufftMakePlanMany backward");
+    CHECK_HIPCUDA_FFT_ERROR(cufftMakePlanMany(e.planBwd, 1, dims, onembed, 1,
+                                              e.halfN + 1, inembed, compStrideI,
+                                              1, bwdType, batchI, &wsBwd));
 
     const std::size_t wsBytes = std::max(wsFwd, wsBwd);
     if (wsBytes > 0)
     {
-        checkCuda(cudaMalloc(&e.d_workspace, wsBytes),
-                  "NekCuFFTDirect: cudaMalloc workspace");
-        checkCufft(cufftSetWorkArea(e.planFwd, e.d_workspace),
-                   "NekCuFFTDirect: cufftSetWorkArea forward");
-        checkCufft(cufftSetWorkArea(e.planBwd, e.d_workspace),
-                   "NekCuFFTDirect: cufftSetWorkArea backward");
+        CHECK_HIPCUDA_ERROR(cudaMalloc(&e.d_workspace, wsBytes));
+        CHECK_HIPCUDA_FFT_ERROR(cufftSetWorkArea(e.planFwd, e.d_workspace));
+        CHECK_HIPCUDA_FFT_ERROR(cufftSetWorkArea(e.planBwd, e.d_workspace));
     }
     else
     {
-        checkCufft(cufftSetAutoAllocation(e.planFwd, 1),
-                   "NekCuFFTDirect: re-enable auto-alloc forward");
-        checkCufft(cufftSetAutoAllocation(e.planBwd, 1),
-                   "NekCuFFTDirect: re-enable auto-alloc backward");
+        CHECK_HIPCUDA_FFT_ERROR(cufftSetAutoAllocation(e.planFwd, 1));
+        CHECK_HIPCUDA_FFT_ERROR(cufftSetAutoAllocation(e.planBwd, 1));
     }
 
     {
         int dummy;
-        checkCuda(cudaOccupancyMaxPotentialBlockSize(
-                      &dummy, &e.blockSizeWave, WavenumberMultiplyKernel<TData>,
-                      0, 0),
-                  "NekCuFFTDirect: cudaOccupancyMaxPotentialBlockSize");
+        CHECK_HIPCUDA_ERROR(cudaOccupancyMaxPotentialBlockSize(
+            &dummy, &e.blockSizeWave, WavenumberMultiplyKernel<TData>, 0, 0));
         (void)dummy;
     }
 
     TData *d_tmp = nullptr;
     const std::size_t nPhys =
         static_cast<std::size_t>(nhomo) * static_cast<std::size_t>(compStride);
-    checkCuda(
-        cudaMalloc(reinterpret_cast<void **>(&d_tmp), nPhys * sizeof(TData)),
-        "NekCuFFTDirect: cudaMalloc warm-up buffer");
-    checkCuda(cudaMemset(d_tmp, 0, nPhys * sizeof(TData)),
-              "NekCuFFTDirect: cudaMemset warm-up buffer");
+    CHECK_HIPCUDA_ERROR(
+        cudaMalloc(reinterpret_cast<void **>(&d_tmp), nPhys * sizeof(TData)));
+    CHECK_HIPCUDA_ERROR(cudaMemset(d_tmp, 0, nPhys * sizeof(TData)));
     if constexpr (std::is_same_v<TData, double>)
     {
-        checkCufft(cufftExecD2Z(e.planFwd, d_tmp, e.d_cmplx),
-                   "NekCuFFTDirect: warm-up D2Z");
-        checkCufft(cufftExecZ2D(e.planBwd, e.d_cmplx, d_tmp),
-                   "NekCuFFTDirect: warm-up Z2D");
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecD2Z(e.planFwd, d_tmp, e.d_cmplx));
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecZ2D(e.planBwd, e.d_cmplx, d_tmp));
     }
     else if constexpr (std::is_same_v<TData, float>)
     {
-        checkCufft(cufftExecR2C(e.planFwd, d_tmp, e.d_cmplx),
-                   "NekCuFFTDirect: warm-up R2C");
-        checkCufft(cufftExecC2R(e.planBwd, e.d_cmplx, d_tmp),
-                   "NekCuFFTDirect: warm-up C2R");
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecR2C(e.planFwd, d_tmp, e.d_cmplx));
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecC2R(e.planBwd, e.d_cmplx, d_tmp));
     }
-    checkCuda(cudaStreamSynchronize(stream), "NekCuFFTDirect: warm-up sync");
-    checkCuda(cudaFree(d_tmp), "NekCuFFTDirect: warm-up buffer free");
+    CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(stream));
+    CHECK_HIPCUDA_ERROR(cudaFree(d_tmp));
 
     return e;
 }
@@ -446,14 +431,18 @@ void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
 
 template <typename TData>
 void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta,
-                      cudaStream_t stream)
+                      size_t NXY, size_t compStride, TData beta, void *vstream)
 {
+    // The declaration hands the stream over as void * to keep the header
+    // independent of the CUDA runtime; everything below works on the real
+    // handle.
+    cudaStream_t stream = static_cast<cudaStream_t>(vstream);
+
 #if defined(NEKTAR_USE_CUFFTDX)
     PhysDerivZDxDispatch(d_in, d_out, nhomo, NXY, compStride, beta, stream);
 #else
     int deviceId = 0;
-    checkCuda(cudaGetDevice(&deviceId), "NekCuFFTDirect: cudaGetDevice");
+    CHECK_HIPCUDA_ERROR(cudaGetDevice(&deviceId));
 
     const DirectPlanKey key{deviceId, nhomo, NXY, compStride, stream};
 
@@ -466,15 +455,13 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 
     if constexpr (std::is_same_v<TData, double>)
     {
-        checkCufft(cufftExecD2Z(entry.planFwd, const_cast<TData *>(d_in),
-                                entry.d_cmplx),
-                   "NekCuFFTDirect: cufftExecD2Z");
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecD2Z(
+            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
     }
     else if constexpr (std::is_same_v<TData, float>)
     {
-        checkCufft(cufftExecR2C(entry.planFwd, const_cast<TData *>(d_in),
-                                entry.d_cmplx),
-                   "NekCuFFTDirect: cufftExecR2C");
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecR2C(
+            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
     }
 
     const TData invN = 1.0 / static_cast<TData>(nhomo);
@@ -487,13 +474,13 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 
     if constexpr (std::is_same_v<TData, double>)
     {
-        checkCufft(cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out),
-                   "NekCuFFTDirect: cufftExecZ2D");
+        CHECK_HIPCUDA_FFT_ERROR(
+            cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
     }
     else if constexpr (std::is_same_v<TData, float>)
     {
-        checkCufft(cufftExecC2R(entry.planBwd, entry.d_cmplx, d_out),
-                   "NekCuFFTDirect: cufftExecZ2D");
+        CHECK_HIPCUDA_FFT_ERROR(
+            cufftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
     }
 #endif
 }
@@ -501,11 +488,11 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
                                        unsigned int nhomo, size_t NXY,
                                        size_t compStride, double beta,
-                                       cudaStream_t stream);
+                                       void *vstream);
 template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
-                                      cudaStream_t stream);
+                                      void *vstream);
 
 } // namespace Nektar::LibUtilities
 

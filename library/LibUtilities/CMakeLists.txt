@@ -121,12 +121,26 @@ IF(NEKTAR_USE_FFTW)
     SET(FFTSources ${FFTSources} ./FFT/NekFFTW.cpp)
 ENDIF(NEKTAR_USE_FFTW)
 
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-    SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFT.h ./FFT/NekCuFFT.h
-        ./FFT/NekCuFFTHelper.h ./FFT/PhysDerivZCuFFT.h
+IF(NEKTAR_ENABLE_DEVICE)
+    SET(FFTHeaders ${FFTHeaders} 
+	./FFT/NekDeviceFFT.h 
+        ./FFT/PhysDerivZDeviceFFT.h
         ../LibUtilities/Backends/DeviceProperties.hpp)
-    SET(FFTSources ${FFTSources} ./FFT/NekCuFFT.cu ./FFT/PhysDerivZCuFFT.cu
+    SET(FFTSources ${FFTSources} 
         ../LibUtilities/Backends/DeviceProperties.cpp)
+    IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
+        SET(FFTSources ${FFTSources} 
+            ./FFT/NekDeviceFFT.cu ./FFT/PhysDerivZDeviceFFT.cu)
+    ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
+        SET(FFTSources ${FFTSources} 
+            ./FFT/NekDeviceFFT.hip ./FFT/PhysDerivZDeviceFFT.hip)
+    ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTSYCLHelper.h)
+        SET(FFTSources ${FFTSources}
+            ./FFT/NekDeviceFFT.cpp ./FFT/PhysDerivZDeviceFFT.cpp)
+    ENDIF()
 ENDIF()
 
 SET(FoundationHeaders
@@ -701,21 +715,13 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # CUFFT
     IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-        if(NEKTAR_ENABLE_NVTX)
-            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE ${NVTX_INCLUDE_DIR})
-            if(NVTX_LIBRARY)
-                TARGET_LINK_LIBRARIES(LibUtilities PRIVATE ${NVTX_LIBRARY})
-            endif()
-            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_ENABLE_NVTX)
-            MESSAGE(STATUS "NekDeviceFFT: NVTX markers enabled (${NVTX_INCLUDE_DIR})")
-        endif()
         IF(NEKTAR_USE_CUFFT_STATIC)
             TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_USE_CUFFT_STATIC)
             SET_TARGET_PROPERTIES(LibUtilities PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS OFF)
 
-            # NekCuFFT.cu.o path under the CMake Makefile generator
+            # NekDeviceFFT.cu.o path under the CMake Makefile generator
             SET(_nekcufft_obj
-                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/LibUtilities.dir/FFT/NekCuFFT.cu.o")
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/LibUtilities.dir/FFT/NekDeviceFFT.cu.o")
             SET(_merged_dlink
                 "${CMAKE_CURRENT_BINARY_DIR}/cufft_merged_device_link.o")
 
@@ -729,7 +735,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
                         "$<TARGET_FILE:CUDA::cufft_static>"
                         -o "${_merged_dlink}"
                 DEPENDS "${_nekcufft_obj}" "$<TARGET_FILE:CUDA::cufft_static>"
-                COMMENT "nvlink: merged device-link NekCuFFT.cu + libcufft_static (callback fat-binary)"
+                COMMENT "nvlink: merged device-link NekDeviceFFT.cu + libcufft_static (callback fat-binary)"
                 VERBATIM
             )
             ADD_CUSTOM_TARGET(cufft_merged_dlink DEPENDS "${_merged_dlink}")
@@ -738,15 +744,29 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ENDIF()
 
         if(NEKTAR_USE_CUFFTDX)
-            TARGET_INCLUDE_DIRECTORIES(LibUtilities PUBLIC $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
-            TARGET_INCLUDE_DIRECTORIES(LibUtilities PUBLIC
+            # Private: only PhysDerivZDeviceFFT.cu includes the cuFFTDx headers
+            # or tests the option.
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE
                     $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}/../external/cutlass/include>)
-            TARGET_COMPILE_DEFINITIONS(LibUtilities PUBLIC NEKTAR_USE_CUFFTDX)
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_USE_CUFFTDX)
             TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE
                 CUFFTDX_TARGET_SM=${CUFFTDX_TARGET_SM})
             MESSAGE(STATUS "cuFFTDx: enabled (${CUFFTDX_INCLUDE_DIR}), SM=${CUFFTDX_TARGET_SM}")
         endif()
-        TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${CUFFT_LIBRARY})
+        # Private: the device FFT libraries are named only by the .cu/.hip/.cpp
+        # translation units under FFT/, and the headers that reach them are not
+        # included outside LibUtilities.
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${CUFFT_LIBRARY})
+    # HIPFFT
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${HIPFFT_LIBRARY})
+    # ONEMATH / ONEMKL DFT
+    ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${ONEMATH_LIBRARY})
+        IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+            ADD_DEPENDENCIES(LibUtilities onemath-v0.9)
+        ENDIF()
     ENDIF()
 
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_CUDA_DEPENDS})

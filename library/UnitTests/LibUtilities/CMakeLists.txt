@@ -25,7 +25,7 @@ ADD_NEKTAR_EXECUTABLE(LibUtilitiesUnitTests
     COMPONENT unit-test DEPENDS LibUtilities SOURCES ${LibUtilitiesUnitTestSources})
 ADD_TEST(NAME LibUtilitiesUnitTests COMMAND LibUtilitiesUnitTests --detect_memory_leaks=0)
 
-IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+IF(NEKTAR_ENABLE_DEVICE)
     SET(DeviceFFTUnitTestSources
         TestDeviceFFT.cpp
         main.cpp
