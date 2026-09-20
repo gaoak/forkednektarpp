@@ -120,14 +120,13 @@ TEST_PHYSDERIV(physderiv_tet_nodal, TetNodal, 2.0E-12)
 TEST_PHYSDERIV(physderiv_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cube_all_elements, CubeAllElements, 1.0E-12)
-#if !defined(NEKTAR_ENABLE_DEVICE) || defined(NEKTAR_ENABLE_CUDA)
+
 TEST_PHYSDERIV3DH1(physderiv_quad_3dh1, QuadFFT, 1.0E-10)
 
 TEST_PHYSDERIV3DH1(physderiv_tri_3dh1, TriFFT, 1.0E-10)
 
 TEST_PHYSDERIV3DH1(physderiv_square_all_elements_3dh1, SquareAllElementsFFT,
                    1.0E-10)
-#endif
 #endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

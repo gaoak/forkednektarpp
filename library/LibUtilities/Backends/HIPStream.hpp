@@ -54,12 +54,15 @@ namespace Nektar
         }                                                                      \
     }
 #define CHECK_HIPCUDA_ERROR(err)                                               \
-    if (err != hipSuccess)                                                     \
     {                                                                          \
-        std::cerr << "HIP Runtime Error at: " << __FILE__ << ":" << __LINE__   \
-                  << std::endl;                                                \
-        std::cerr << hipGetErrorString(err) << std::endl;                      \
-        exit(0);                                                               \
+        const hipError_t nekCheckErr = (err);                                  \
+        if (nekCheckErr != hipSuccess)                                         \
+        {                                                                      \
+            std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
+                      << __LINE__ << std::endl;                                \
+            std::cerr << hipGetErrorString(nekCheckErr) << std::endl;          \
+            exit(0);                                                           \
+        }                                                                      \
     }
 
 class HIPStream

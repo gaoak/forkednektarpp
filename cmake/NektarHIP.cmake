@@ -57,7 +57,7 @@ SET(NEKTAR_HIP_DEPENDS
     ${HIPRTC_LIB}
 )
 SET(HIPBLAS_LIBRARY roc::hipblas)
-SET(HIPFFT_LIBRARY roc::hipfft)
+SET(HIPFFT_LIBRARY hip::hipfft)
 SET(HIPSPARSE_LIBRARY roc::hipsparse)
 SET(HIPSOLVER_LIBRARY roc::hipsolver)
 SET(HIPRAND_LIBRARY roc::hiprand)

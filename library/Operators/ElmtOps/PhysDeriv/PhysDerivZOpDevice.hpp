@@ -35,22 +35,24 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <vector>
 
-#if defined(NEKTAR_ENABLE_CUDA)
-#include <LibUtilities/FFT/PhysDerivZCuFFT.h>
-#endif
+// Brings in the host API of whichever backend is enabled, and with it
+// CUDAStream / HIPStream / SYCLQueue and CHECK_HIPCUDA_ERROR.
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
 
 namespace Nektar::Operators::detail
 {
 
-#if defined(NEKTAR_ENABLE_CUDA)
-
 /// \brief Device backend for the homogeneous z-derivative.
 ///
 /// Launch() applies a D2Z + wavenumber multiply + Z2D pipeline per block via
-/// PhysDerivZDirect. From the second call on the pipeline is captured as a
-/// CUDA graph and replayed for lower launch overhead.
+/// PhysDerivZDirect, over cuFFT, hipFFT or oneMath. Under CUDA and HIP the
+/// pipeline is captured as a device graph from the second call on and
+/// replayed for lower launch overhead; SYCL submits it every call, leaving
+/// m_graphExec null and m_pendingCapture false, so the capture and replay
+/// paths are never entered there.
 template <typename ExecSpace, typename TData>
 class PhysDerivZOpImpl<
     ExecSpace, TData,
@@ -60,20 +62,57 @@ public:
     /// \param expansionList  Unused; the device pipeline works straight off
     ///                       the block pointers. Present so that both
     ///                       backends are constructed the same way.
-    PhysDerivZOpImpl(
-        [[maybe_unused]] const MultiRegions::ExpListSharedPtr &expansionList)
+    PhysDerivZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
     {
+        auto homoExpList =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                expansionList);
+
+        ASSERTL0(homoExpList,
+                 "The homogeneous z-derivative needs an ExpListHomogeneous1D");
+
+        m_beta = 2.0 * M_PI / homoExpList->GetHomoLen();
+
+#if defined(NEKTAR_ENABLE_CUDA)
+        int leastPriority    = 0;
+        int greatestPriority = 0;
+        CHECK_HIPCUDA_ERROR(cudaDeviceGetStreamPriorityRange(
+            &leastPriority, &greatestPriority));
+        CHECK_HIPCUDA_ERROR(cudaStreamCreateWithPriority(
+            &m_stream, cudaStreamDefault, greatestPriority));
+        m_pendingCapture = false;
+        m_graphExec      = nullptr;
+#elif defined(NEKTAR_ENABLE_HIP)
+        int leastPriority    = 0;
+        int greatestPriority = 0;
+        CHECK_HIPCUDA_ERROR(
+            hipDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
+        CHECK_HIPCUDA_ERROR(hipStreamCreateWithPriority(
+            &m_stream, hipStreamDefault, greatestPriority));
+        m_pendingCapture = false;
+        m_graphExec      = nullptr;
+#elif defined(NEKTAR_ENABLE_SYCL)
+        m_stream = &SYCLQueue::GetInstance(0);
+#endif
     }
 
     ~PhysDerivZOpImpl()
     {
         if (m_graphExec)
         {
-            cudaGraphExecDestroy(m_graphExec);
+#if defined(NEKTAR_ENABLE_CUDA)
+            (void)cudaGraphExecDestroy(m_graphExec);
+#elif defined(NEKTAR_ENABLE_HIP)
+            (void)hipGraphExecDestroy(m_graphExec);
+#endif
         }
         if (m_stream)
         {
-            cudaStreamDestroy(m_stream);
+#if defined(NEKTAR_ENABLE_CUDA)
+            (void)cudaStreamDestroy(m_stream);
+#elif defined(NEKTAR_ENABLE_HIP)
+            (void)hipStreamDestroy(m_stream);
+#endif
         }
     }
 
@@ -83,60 +122,48 @@ public:
     PhysDerivZOpImpl(PhysDerivZOpImpl &&)                 = delete;
     PhysDerivZOpImpl &operator=(PhysDerivZOpImpl &&)      = delete;
 
-    void Init(TData beta)
-    {
-        int leastPriority    = 0;
-        int greatestPriority = 0;
-        cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority);
-        cudaStreamCreateWithPriority(&m_stream, cudaStreamDefault,
-                                     greatestPriority);
-        m_beta           = beta;
-        m_hasGraph       = false;
-        m_pendingCapture = false;
-        m_graphExec      = nullptr;
-    }
-
     void Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
                 LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         const unsigned int nhomo = in.GetNumHomoModes();
+        const unsigned int nComp = in.GetNumComponents();
         const unsigned int numBlocks =
             static_cast<unsigned int>(in.GetBlocks().size());
 
-        if (m_hasGraph)
-        {
-            WaitForBlockProducers(numBlocks);
-            cudaGraphLaunch(m_graphExec, m_stream);
-            cudaStreamSynchronize(m_stream);
-            return;
-        }
-
-        // m_stream is private and not registered with CUDAStream, so nothing
-        // otherwise orders it against the per-block producer streams whose
-        // writes the z-FFT reads below. Kept outside graph capture: replay
+        // Nothing otherwise orders m_stream against the per-block producer
+        // streams whose writes the z-FFT reads below: under CUDA and HIP it
+        // is a private stream unknown to CUDAStream, and under SYCL a queue
+        // the producers never submit to. Kept outside graph capture: replay
         // must re-synchronize against fresh input on every call.
         WaitForBlockProducers(numBlocks);
 
-        if (m_pendingCapture)
+        if (m_graphExec)
         {
-            cudaStreamBeginCapture(m_stream, cudaStreamCaptureModeRelaxed);
+            LaunchGraph();
+            return;
         }
 
-        for (unsigned int n = 0; n < in.GetNumComponents(); ++n)
+        if (m_pendingCapture)
         {
-            for (unsigned int blk = 0; blk < numBlocks; ++blk)
+            BeginCapture();
+        }
+
+        for (unsigned int blk = 0; blk < numBlocks; ++blk)
+        {
+            auto &inblock           = in.GetBlocks()[blk];
+            auto &outblock          = out.GetBlocks()[blk];
+            const size_t compStride = inblock.CompSize();
+            const TData *inPtr =
+                inblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+            TData *outPtr =
+                outblock
+                    .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
+
+            for (unsigned int n = 0; n < nComp; ++n)
             {
-                auto &inblock           = in.GetBlocks()[blk];
-                auto &outblock          = out.GetBlocks()[blk];
-                const size_t compStride = inblock.CompSize();
-                const TData *phiPtr =
-                    inblock.template GetPtr<NektarSpaces::DeviceSpace,
-                                            ReadOnly>() +
-                    n * compStride * nhomo;
-                TData *dzPtr =
-                    outblock.template GetPtr<NektarSpaces::DeviceSpace,
-                                             WriteOnly>() +
-                    (n * 3 + 2) * compStride * nhomo;
+                // Output component for the z-derivative of input n is 3n + 2.
+                const TData *phiPtr = inPtr + n * compStride * nhomo;
+                TData *dzPtr        = outPtr + (n * 3 + 2) * compStride * nhomo;
                 LibUtilities::PhysDerivZDirect(phiPtr, dzPtr, nhomo, compStride,
                                                compStride, m_beta, m_stream);
             }
@@ -144,121 +171,124 @@ public:
 
         if (m_pendingCapture)
         {
-            cudaGraph_t graph;
-            cudaStreamEndCapture(m_stream, &graph);
-
-            bool updated = false;
-            if (m_graphExec)
-            {
-#if CUDART_VERSION >= 12000
-                cudaGraphExecUpdateResultInfo info{};
-                const cudaError_t ue =
-                    cudaGraphExecUpdate(m_graphExec, graph, &info);
-                (void)cudaGetLastError();
-                updated = (ue == cudaSuccess &&
-                           info.result == cudaGraphExecUpdateSuccess);
-#else
-                cudaGraphNode_t errNode;
-                cudaGraphExecUpdateResult updateResult;
-                const cudaError_t ue = cudaGraphExecUpdate(
-                    m_graphExec, graph, &errNode, &updateResult);
-                updated = (ue == cudaSuccess &&
-                           updateResult == cudaGraphExecUpdateSuccess);
-#endif
-            }
-            if (!updated)
-            {
-                if (m_graphExec)
-                {
-                    cudaGraphExecDestroy(m_graphExec);
-                }
-#if CUDART_VERSION >= 12000
-                cudaGraphInstantiate(&m_graphExec, graph, 0);
-#else
-                cudaGraphInstantiate(&m_graphExec, graph, nullptr, nullptr, 0);
-#endif
-            }
-            cudaGraphDestroy(graph);
-            m_hasGraph       = true;
-            m_pendingCapture = false;
+            EndCapture();
         }
 
-        cudaStreamSynchronize(m_stream);
-        m_pendingCapture = !m_hasGraph;
+        Finalise();
     }
 
 private:
+#if defined(NEKTAR_ENABLE_CUDA)
     cudaStream_t m_stream       = nullptr;
     cudaGraphExec_t m_graphExec = nullptr;
-    bool m_hasGraph             = false;
     bool m_pendingCapture       = false;
-    TData m_beta                = 0.0;
+#elif defined(NEKTAR_ENABLE_HIP)
+    hipStream_t m_stream       = nullptr;
+    hipGraphExec_t m_graphExec = nullptr;
+    bool m_pendingCapture      = false;
+#elif defined(NEKTAR_ENABLE_SYCL)
+    sycl::queue *m_stream = nullptr;
+    void *m_graphExec     = nullptr;
+    bool m_pendingCapture = false;
+#else
+    void *m_stream        = nullptr;
+    void *m_graphExec     = nullptr;
+    bool m_pendingCapture = false;
+#endif
+    TData m_beta = 0.0;
 
     /// \brief Make m_stream wait on every per-block producer stream
     ///        (block_idx + 1) before it reads their data.
     ///
-    /// The event is recorded here rather than left to the producer, so the
-    /// ordering holds regardless of what last wrote to `in`.
-    void WaitForBlockProducers(unsigned int numBlocks)
+    /// Under CUDA and HIP the event is recorded here rather than left to the
+    /// producer, so the ordering holds regardless of what last wrote to
+    /// `in`. Under SYCL the producers publish their last event through
+    /// SYCLQueue, and a barrier on m_stream depending on all of them does the
+    /// same job; m_stream is in-order, so the pipeline submitted afterwards
+    /// inherits the wait.
+    void WaitForBlockProducers([[maybe_unused]] unsigned int numBlocks)
     {
+#if defined(NEKTAR_ENABLE_SYCL)
+        std::vector<unsigned int> eventIDs(numBlocks);
+        for (unsigned int blk = 0; blk < numBlocks; ++blk)
+        {
+            eventIDs[blk] = blk + 1;
+        }
+        SetStreamDependencies<NektarSpaces::Device>(0, eventIDs);
+#else
         for (unsigned int blk = 0; blk < numBlocks; ++blk)
         {
             const unsigned int streamID = blk + 1;
+#if defined(NEKTAR_ENABLE_CUDA)
             CUDAStream::RecordEvent(streamID);
-            cudaStreamWaitEvent(m_stream, CUDAStream::GetEvent(streamID));
-        }
-    }
-};
-
+            CHECK_HIPCUDA_ERROR(
+                cudaStreamWaitEvent(m_stream, CUDAStream::GetEvent(streamID)));
+#elif defined(NEKTAR_ENABLE_HIP)
+            HIPStream::RecordEvent(streamID);
+            CHECK_HIPCUDA_ERROR(
+                hipStreamWaitEvent(m_stream, HIPStream::GetEvent(streamID)));
 #else
-
-/// \brief Device backend for a build with no device z-FFT.
-///
-/// Without NEKTAR_ENABLE_CUDA there is no device transform to call, so every
-/// entry point reports a fatal error rather than leaving the output field's
-/// z-component unwritten. The specialization has to exist either way, because
-/// PhysDerivOpImpl is templated on the execution space alone.
-template <typename ExecSpace, typename TData>
-class PhysDerivZOpImpl<
-    ExecSpace, TData,
-    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>>>
-{
-public:
-    PhysDerivZOpImpl(
-        [[maybe_unused]] const MultiRegions::ExpListSharedPtr &expansionList)
-    {
+            (void)streamID;
+#endif
+        }
+#endif
     }
 
-    // Non-copyable and non-movable.
-    PhysDerivZOpImpl(const PhysDerivZOpImpl &)            = delete;
-    PhysDerivZOpImpl &operator=(const PhysDerivZOpImpl &) = delete;
-    PhysDerivZOpImpl(PhysDerivZOpImpl &&)                 = delete;
-    PhysDerivZOpImpl &operator=(PhysDerivZOpImpl &&)      = delete;
-
-    void Init([[maybe_unused]] TData beta)
+    void LaunchGraph(void)
     {
-        Unavailable();
+#if defined(NEKTAR_ENABLE_CUDA)
+        CHECK_HIPCUDA_ERROR(cudaGraphLaunch(m_graphExec, m_stream));
+        CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(m_stream));
+#elif defined(NEKTAR_ENABLE_HIP)
+        CHECK_HIPCUDA_ERROR(hipGraphLaunch(m_graphExec, m_stream));
+        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(m_stream));
+#endif
     }
 
-    void Launch(
-        [[maybe_unused]] LibUtilities::Field<TData, FieldState::Phys> &in,
-        [[maybe_unused]] LibUtilities::Field<TData, FieldState::Phys> &out)
+    void BeginCapture(void)
     {
-        Unavailable();
+#if defined(NEKTAR_ENABLE_CUDA)
+        CHECK_HIPCUDA_ERROR(
+            cudaStreamBeginCapture(m_stream, cudaStreamCaptureModeRelaxed));
+#elif defined(NEKTAR_ENABLE_HIP)
+        CHECK_HIPCUDA_ERROR(
+            hipStreamBeginCapture(m_stream, hipStreamCaptureModeRelaxed));
+#endif
     }
 
-private:
-    /// \brief Report that this build cannot take the z-derivative.
-    static void Unavailable()
+    void EndCapture(void)
     {
-        NEKERROR(ErrorUtil::efatal,
-                 "PhysDerivOp: the homogeneous z-derivative on the Device "
-                 "execution space needs a CUDA build. Rebuild with "
-                 "NEKTAR_ENABLE_CUDA, or run this 3DH1 case on the Serial or "
-                 "AVX execution space.");
+#if defined(NEKTAR_ENABLE_CUDA)
+        cudaGraph_t graph;
+        CHECK_HIPCUDA_ERROR(cudaStreamEndCapture(m_stream, &graph));
+#if CUDART_VERSION >= 12000
+        CHECK_HIPCUDA_ERROR(cudaGraphInstantiate(&m_graphExec, graph, 0));
+#else
+        CHECK_HIPCUDA_ERROR(
+            cudaGraphInstantiate(&m_graphExec, graph, nullptr, nullptr, 0));
+#endif
+        CHECK_HIPCUDA_ERROR(cudaGraphDestroy(graph));
+#elif defined(NEKTAR_ENABLE_HIP)
+        hipGraph_t graph;
+        CHECK_HIPCUDA_ERROR(hipStreamEndCapture(m_stream, &graph));
+        CHECK_HIPCUDA_ERROR(
+            hipGraphInstantiate(&m_graphExec, graph, nullptr, nullptr, 0));
+        CHECK_HIPCUDA_ERROR(hipGraphDestroy(graph));
+#endif
+    }
+
+    void Finalise(void)
+    {
+#if defined(NEKTAR_ENABLE_CUDA)
+        CHECK_HIPCUDA_ERROR(cudaStreamSynchronize(m_stream));
+        m_pendingCapture = (m_graphExec == nullptr);
+#elif defined(NEKTAR_ENABLE_HIP)
+        CHECK_HIPCUDA_ERROR(hipStreamSynchronize(m_stream));
+        m_pendingCapture = (m_graphExec == nullptr);
+#elif defined(NEKTAR_ENABLE_SYCL)
+        m_stream->wait();
+#endif
     }
 };
-
-#endif // NEKTAR_ENABLE_CUDA
 
 } // namespace Nektar::Operators::detail

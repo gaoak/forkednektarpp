@@ -64,6 +64,8 @@ public:
 
         ASSERTL0(m_homoExpList,
                  "The homogeneous z-derivative needs an ExpListHomogeneous1D");
+
+        m_beta = 2.0 * M_PI / m_homoExpList->GetHomoLen();
     }
 
     // Non-copyable and non-movable.
@@ -71,11 +73,6 @@ public:
     PhysDerivZOpImpl &operator=(const PhysDerivZOpImpl &) = delete;
     PhysDerivZOpImpl(PhysDerivZOpImpl &&)                 = delete;
     PhysDerivZOpImpl &operator=(PhysDerivZOpImpl &&)      = delete;
-
-    void Init(TData beta)
-    {
-        m_beta = beta;
-    }
 
     void Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
                 LibUtilities::Field<TData, FieldState::Phys> &out)
