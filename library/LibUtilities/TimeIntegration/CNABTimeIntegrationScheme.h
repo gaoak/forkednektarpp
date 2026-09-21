@@ -42,8 +42,6 @@
 
 #define LUE LIB_UTILITIES_EXPORT
 
-#include <boost/core/ignore_unused.hpp>
-
 #include <LibUtilities/TimeIntegration/IMEXdirkTimeIntegrationSchemes.h>
 #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeGLM.h>
 
@@ -57,7 +55,8 @@ public:
                               std::vector<NekDouble> freeParams)
         : TimeIntegrationSchemeGLM("", 2, freeParams)
     {
-        boost::ignore_unused(variant, order);
+        (void)variant; // unused
+        (void)order;   // unused
 
         m_integration_phases    = TimeIntegrationAlgorithmGLMVector(2);
         m_integration_phases[0] = TimeIntegrationAlgorithmGLMSharedPtr(

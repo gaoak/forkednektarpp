@@ -538,7 +538,7 @@ void ProcessSpherigon::FindNormalFromPlyFile(
     for (auto &[id, pt] :
          plymesh->m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        boost::ignore_unused(id);
+        (void)id; // unused
         dataPts.push_back(make_pair(Point((*pt)[0], (*pt)[1], (*pt)[2]), j++));
         treeIdToPlyVert.push_back(pt);
     }
@@ -621,7 +621,7 @@ void ProcessSpherigon::GenerateNormals(
     // Normalize resulting vectors.
     for (auto &[v, nrm] : out.normals)
     {
-        boost::ignore_unused(v);
+        (void)v; // unused
         nrm = Vec3(nrm).unit().arr();
     }
 }
@@ -653,7 +653,7 @@ void ProcessSpherigon::Process()
         // Manifold case: the elements are the surface.
         for (auto &[geom, tag] : m_mesh->m_elementTags[2])
         {
-            boost::ignore_unused(tag);
+            (void)tag; // unused
             el.push_back(geom);
         }
     }
@@ -675,7 +675,7 @@ void ProcessSpherigon::Process()
 
             for (auto &[elmt, tag] : m_mesh->m_elementTags[expDim])
             {
-                boost::ignore_unused(tag);
+                (void)tag; // unused
 
                 const int nSurf =
                     expDim == 3 ? elmt->GetNumFaces() : elmt->GetNumEdges();
@@ -801,7 +801,7 @@ void ProcessSpherigon::Process()
         vector<SpatialDomains::Geometry *> plyEl;
         for (auto &[geom, tag] : plymesh->m_elementTags[2])
         {
-            boost::ignore_unused(tag);
+            (void)tag; // unused
             plyEl.push_back(geom);
         }
 
@@ -1199,7 +1199,7 @@ void ProcessSpherigon::Process()
 
     for (auto &[elmt, tag] : m_mesh->m_elementTags[expDim])
     {
-        boost::ignore_unused(tag);
+        (void)tag; // unused
 
         bool affected = false;
 

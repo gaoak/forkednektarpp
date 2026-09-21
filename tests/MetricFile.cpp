@@ -37,7 +37,6 @@
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 
@@ -162,10 +161,9 @@ std::string MetricFile::CalculateHash(std::string pfilename)
     return std::string(strhash);
 }
 
-bool MetricFile::v_Test(std::istream &pStdout, std::istream &pStderr)
+bool MetricFile::v_Test([[maybe_unused]] std::istream &pStdout,
+                        [[maybe_unused]] std::istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     std::map<std::string, std::string>::iterator it;
     bool success = true;
 
@@ -184,10 +182,9 @@ bool MetricFile::v_Test(std::istream &pStdout, std::istream &pStderr)
     return success;
 }
 
-void MetricFile::v_Generate(std::istream &pStdout, std::istream &pStderr)
+void MetricFile::v_Generate([[maybe_unused]] std::istream &pStdout,
+                            [[maybe_unused]] std::istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     std::map<std::string, std::string>::iterator it;
 
     // Update SHA1 hashes.

@@ -35,7 +35,6 @@
 #include <MetricRegex.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
 #include <boost/lexical_cast.hpp>
 
 using namespace std;
@@ -114,8 +113,6 @@ MetricRegex::MetricRegex(TiXmlElement *metric, bool generate)
  */
 bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     ASSERTL0(m_matches.size(), "No test conditions defined for Regex.");
 
     // Select istream to use.
@@ -267,8 +264,6 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
  */
 void MetricRegex::v_Generate(std::istream &pStdout, std::istream &pStderr)
 {
-    boost::ignore_unused(pStderr);
-
     // Select istream to use.
     std::istream &is = m_useStderr ? pStderr : pStdout;
 
