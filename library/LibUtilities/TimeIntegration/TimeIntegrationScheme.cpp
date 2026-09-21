@@ -37,8 +37,6 @@
 
 #include <iostream>
 
-#include <boost/core/ignore_unused.hpp>
-
 #include <LibUtilities/TimeIntegration/TimeIntegrationScheme.h>
 
 namespace Nektar::LibUtilities
@@ -53,7 +51,9 @@ TimeIntegrationSchemeFactory &GetTimeIntegrationSchemeFactory()
 TimeIntegrationScheme::TimeIntegrationScheme(std::string variant, size_t order,
                                              std::vector<NekDouble> freeParams)
 {
-    boost::ignore_unused(variant, order, freeParams);
+    (void)variant;    // unused
+    (void)order;      // unused
+    (void)freeParams; // unused
 }
 
 // Access Methods

@@ -37,7 +37,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include <boost/core/ignore_unused.hpp>
 #include <boost/lexical_cast.hpp>
 
 using namespace std;
@@ -153,8 +152,6 @@ MetricExecutionTime::MetricExecutionTime(TiXmlElement *metric, bool generate)
  */
 bool MetricExecutionTime::v_Test(istream &pStdout, istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     bool success = true;
 
     // Select istream to use.
@@ -265,8 +262,6 @@ bool MetricExecutionTime::v_Test(istream &pStdout, istream &pStderr)
  */
 void MetricExecutionTime::v_Generate(istream &pStdout, istream &pStderr)
 {
-    boost::ignore_unused(pStderr);
-
     // Select istream to use
     istream &is = m_useStderr ? pStderr : pStdout;
 

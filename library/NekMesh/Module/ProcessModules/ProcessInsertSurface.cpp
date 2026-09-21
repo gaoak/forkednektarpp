@@ -40,7 +40,6 @@
 #include "ProcessInsertSurface.h"
 #include <NekMesh/MeshElements/Element.h>
 #include <SpatialDomains/Curve.hpp>
-#include <boost/core/ignore_unused.hpp>
 
 namespace bg  = boost::geometry;
 namespace bgi = boost::geometry::index;
@@ -93,7 +92,7 @@ void ProcessInsertSurface::Process()
         std::unordered_set<SpatialDomains::PointGeom *> verts;
         for (auto &[geom, tag] : m->m_elementTags[2])
         {
-            boost::ignore_unused(tag);
+            (void)tag; // unused
             for (int j = 0; j < geom->GetNumVerts(); ++j)
             {
                 verts.insert(geom->GetVertex(j));
@@ -130,7 +129,7 @@ void ProcessInsertSurface::Process()
     std::unordered_set<SpatialDomains::SegGeom *> surfEdges;
     for (auto &[face, tag] : m_mesh->m_elementTags[2])
     {
-        boost::ignore_unused(tag);
+        (void)tag; // unused
         for (int j = 0; j < face->GetNumEdges(); ++j)
         {
             surfEdges.insert(

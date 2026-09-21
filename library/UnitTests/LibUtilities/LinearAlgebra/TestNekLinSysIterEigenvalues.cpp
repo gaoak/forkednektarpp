@@ -58,10 +58,9 @@ public:
     }
 
     void Apply(const Array<OneD, const NekDouble> &input,
-               Array<OneD, NekDouble> &output, const bool &flag)
+               Array<OneD, NekDouble> &output,
+               [[maybe_unused]] const bool &flag)
     {
-        boost::ignore_unused(flag);
-
         std::fill(output.data(), output.data() + output.size(), 0.0);
         for (size_t i = 0; i < m_diagonal.size(); ++i)
         {

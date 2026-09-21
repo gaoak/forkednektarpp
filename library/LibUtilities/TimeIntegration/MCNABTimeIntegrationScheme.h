@@ -54,7 +54,8 @@ public:
                                std::vector<NekDouble> freeParams)
         : TimeIntegrationSchemeGLM("", 2, freeParams)
     {
-        boost::ignore_unused(variant, order);
+        (void)variant; // unused
+        (void)order;   // unused
 
         m_integration_phases    = TimeIntegrationAlgorithmGLMVector(3);
         m_integration_phases[0] = TimeIntegrationAlgorithmGLMSharedPtr(

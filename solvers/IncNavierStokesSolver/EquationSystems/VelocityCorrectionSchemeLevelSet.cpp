@@ -427,15 +427,12 @@ void VCSLevelSet::v_SetUpViscousForcing(
 /**
  * Solve level set system using a Helmholtz-type operator.
  */
-void VCSLevelSet::SolveLevelSet(const Array<OneD, NekDouble> &Forcing,
-                                const Array<OneD, NekDouble> &inarray,
-                                Array<OneD, NekDouble> &outarrayPhi,
-                                Array<OneD, NekDouble> &outarrayRho,
-                                Array<OneD, NekDouble> &outarrayVisc,
-                                const NekDouble aii_Dt)
+void VCSLevelSet::SolveLevelSet(
+    const Array<OneD, NekDouble> &Forcing,
+    [[maybe_unused]] const Array<OneD, NekDouble> &inarray,
+    Array<OneD, NekDouble> &outarrayPhi, Array<OneD, NekDouble> &outarrayRho,
+    Array<OneD, NekDouble> &outarrayVisc, const NekDouble aii_Dt)
 {
-    // inarray actually not used at present
-    boost::ignore_unused(inarray);
     int nvel    = m_velocity.size();
     int physTot = m_fields[nvel]->GetTotPoints();
     StdRegions::ConstFactorMap factors;

@@ -637,29 +637,6 @@ void NekLinSysIterGMRESLoc::DoBackward(const int number,
 void NekLinSysIterGMRESLoc::ComputeEigenvalues(
     Array<OneD, NekDouble> &hes_history)
 {
-    // boost::ignore_unused(pInput,pOutput,tol,factor);
-    // int nNonDir = nGlobal - nDir;
-
-    // Array<OneD, NekDouble> Mat(nNonDir*nNonDir);
-    ////////////////////////////////////////////////////////
-    // Print History Matrix
-    // FILE *mFile;
-
-    // mFile = fopen("Matrix.txt", "w");
-    // for (int j = 0; j < nNonDir; j++)
-    // {
-    //     for (int k = 0; k < nNonDir; k++)
-    //     {
-    //         if(fabs(Mat[j *nNonDir + k]) < 1e-15)
-    //         {
-    //             Mat[j * nNonDir + k] = 0.0;
-    //         }
-    //         fprintf(mFile, "%e ", Mat[j * nNonDir + k]);
-    //     }
-    //     fprintf(mFile, "\n");
-    // }
-    // fclose(mFile);
-
     // Rank of the matrix for EV estimation
     int n = m_LinSysMaxStorage + 1; // hes_history is square of this
 

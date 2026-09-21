@@ -43,8 +43,6 @@
 
 #include "ProcessCurvedEdges.h"
 
-#include <boost/core/ignore_unused.hpp>
-
 using namespace std;
 
 namespace Nektar::NekMesh
@@ -82,7 +80,7 @@ void ProcessCurvedEdges::Process()
 
     for (auto &[el, elTag] : m_mesh->m_elementTags[dim])
     {
-        boost::ignore_unused(elTag);
+        (void)elTag; // unused
 
         int nSurf = dim == 3 ? el->GetNumFaces() : el->GetNumEdges();
 
