@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <TestData.h>
@@ -63,7 +62,7 @@ TestData::TestData(TiXmlElement *pElmt, po::variables_map &pVm)
 
 TestData::TestData(const TestData &pSrc)
 {
-    boost::ignore_unused(pSrc);
+    (void)pSrc; // unused
 }
 
 /// Returns the description of a test.

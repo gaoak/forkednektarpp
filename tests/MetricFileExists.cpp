@@ -36,7 +36,6 @@
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
 
 #include <MetricFileExists.h>
 
@@ -80,10 +79,9 @@ MetricFileExists::MetricFileExists(TiXmlElement *metric, bool generate)
     }
 }
 
-bool MetricFileExists::v_Test(std::istream &pStdout, std::istream &pStderr)
+bool MetricFileExists::v_Test([[maybe_unused]] std::istream &pStdout,
+                              [[maybe_unused]] std::istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     bool success = true;
     auto pwd     = fs::current_path();
 
@@ -121,10 +119,9 @@ bool MetricFileExists::v_Test(std::istream &pStdout, std::istream &pStderr)
     return success;
 }
 
-void MetricFileExists::v_Generate(std::istream &pStdout, std::istream &pStderr)
+void MetricFileExists::v_Generate([[maybe_unused]] std::istream &pStdout,
+                                  [[maybe_unused]] std::istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     // Update File counts.
     auto pwd = fs::current_path();
 

@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
 
 #include <TestException.hpp>
 #include <TestFile.h>
@@ -71,7 +70,7 @@ TestFile::TestFile(const fs::path &pFilename, po::variables_map &pVm)
 
 TestFile::TestFile(const TestFile &pSrc)
 {
-    boost::ignore_unused(pSrc);
+    (void)pSrc; // unused
 }
 
 TestFile::~TestFile(void)

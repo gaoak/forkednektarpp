@@ -118,8 +118,10 @@ remains unmerged for more than a couple of days.
 - Have you run your branch through GitLab CI and do all the tests pass?
 - Have you fixed any new compiler warnings your code has introduced into the
   compilation step for all of the Linux CI environments?
-  - **unused parameters**: if these are genuinely needed (e.g. virtual functions
-    in a derived class, please use `boost::ignore_unused()` to mark as such.
+  - **unused parameters**: if these are genuinely needed (e.g. virtual
+    functions in a derived class), please mark them `[[maybe_unused]]` at the
+    parameter declaration. Where an attribute cannot be applied, such as a
+    structured binding, use `(void)name; // unused` instead.
   - **switch case may fall-through**: for switch statements which
     *intentionally* exploit fall-through between cases, mark the end of such
     cases with the comment `/* Falls through. */` to suppress the warning.

@@ -70,7 +70,6 @@
 #include <MetricNoWarning.h>
 
 #include <algorithm>
-#include <boost/core/ignore_unused.hpp>
 #include <boost/lexical_cast.hpp>
 
 namespace Nektar
@@ -154,8 +153,6 @@ MetricNoWarning::MetricNoWarning(TiXmlElement *metric, bool generate)
  */
 bool MetricNoWarning::v_Test(std::istream &pStdout, std::istream &pStderr)
 {
-    boost::ignore_unused(pStdout, pStderr);
-
     // Loop over both standard output and error output
     for (std::string line; getline(pStdout, line) || getline(pStderr, line);)
     {
@@ -216,8 +213,6 @@ bool MetricNoWarning::v_Test(std::istream &pStdout, std::istream &pStderr)
  */
 void MetricNoWarning::v_Generate(std::istream &pStdout, std::istream &pStderr)
 {
-    boost::ignore_unused(pStderr);
-
     // Check both standard output and error output
     for (std::string line; getline(pStdout, line) || getline(pStderr, line);)
     {

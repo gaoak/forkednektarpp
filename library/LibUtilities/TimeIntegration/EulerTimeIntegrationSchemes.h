@@ -58,7 +58,8 @@ public:
                                std::vector<NekDouble> freeParams)
         : TimeIntegrationSchemeGLM(variant, 1, freeParams)
     {
-        boost::ignore_unused(variant, order);
+        (void)variant; // unused
+        (void)order;   // unused
 
         ASSERTL1(variant == "Backward" || variant == "Forward",
                  "Euler Time integration scheme unknown variant: " + variant +

@@ -32,8 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/core/ignore_unused.hpp>
-
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <NekMesh/MeshElements/Element.h>
 #include <NekMesh/MeshElements/Mesh.h>
@@ -117,7 +115,7 @@ std::vector<SpatialDomains::PointGeom *> Mesh_GetVertices(MeshSharedPtr mesh)
     for (auto &[id, vert] :
          mesh->m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
     {
-        boost::ignore_unused(id);
+        (void)id; // unused
         ret.push_back(vert);
     }
 
@@ -143,7 +141,7 @@ std::vector<SpatialDomains::Geometry *> Mesh_GetElements(MeshSharedPtr mesh,
 
     for (auto &[el, tag] : mesh->m_elementTags[dim])
     {
-        boost::ignore_unused(tag);
+        (void)tag; // unused
         ret.push_back(el);
     }
 
