@@ -37,7 +37,7 @@
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOpImpl.hpp"
+#include "Operators/ElmtOps/PhysDerivZOpImpl.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -56,9 +56,15 @@ public:
         auto homoExpList =
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 expansionList);
+        // The planes this rank holds, not the homogeneous basis' point count:
+        // with npz > 1 the direction is split over the column communicator
+        // while the basis still reports the global total.
+        const unsigned int nhomo =
+            homoExpList
+                ? static_cast<unsigned int>(homoExpList->GetZIDs().size())
+                : 1u;
 
-        if (homoExpList &&
-            homoExpList->GetHomogeneousBasis()->GetNumPoints() > 1)
+        if (nhomo > 1)
         {
             m_zOp = std::make_shared<PhysDerivZOpImpl<ExecSpace, TData>>(
                 expansionList);

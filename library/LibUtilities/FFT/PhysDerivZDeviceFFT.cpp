@@ -197,6 +197,37 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 }
 
 template <typename TData>
+void PhysDerivZ2Direct(const TData *d_in, TData *d_out, unsigned int nhomo,
+                       size_t NXY, size_t compStride, TData beta,
+                       unsigned int streamID)
+{
+    // The declaration hands the queue over as an id to keep the header
+    // independent of SYCL; the registry resolves it to the real handle here.
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+
+    // The plans depend only on the problem size, so the first derivative's
+    // entry serves here too; only the wavenumber multiply differs.
+    DirectPlanEntry<TData> entry =
+        GetOrCreateEntry<TData>(nhomo, NXY, compStride, Q);
+
+    // The three stages are chained on their events rather than left to the
+    // queue, so the pipeline holds whether or not the caller's queue is
+    // in-order.
+    sycl::event eFwd = ComputeForward(Q, entry.plan, d_in, entry.d_cmplx);
+
+    const TData invN = 1.0 / static_cast<TData>(nhomo);
+    sycl::event eWav = WavenumberMultiply2Kernel(
+        Q, entry.d_cmplx, NXY, entry.plan.halfN, beta, invN, {eFwd});
+
+    sycl::event eBwd =
+        ComputeBackward(Q, entry.plan, entry.d_cmplx, d_out, {eWav});
+
+    // Publish the tail of the pipeline so that a later
+    // SetStreamDependencies() on this stream id waits for it.
+    SYCLQueue::SetEvent(streamID, eBwd);
+}
+
+template <typename TData>
 void PhysDerivZPrepare(unsigned int nhomo, size_t NXY, size_t compStride,
                        unsigned int streamID)
 {
@@ -212,6 +243,15 @@ template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
                                       unsigned int streamID);
+
+template void PhysDerivZ2Direct<double>(const double *d_in, double *d_out,
+                                        unsigned int nhomo, size_t NXY,
+                                        size_t compStride, double beta,
+                                        unsigned int streamID);
+template void PhysDerivZ2Direct<float>(const float *d_in, float *d_out,
+                                       unsigned int nhomo, size_t NXY,
+                                       size_t compStride, float beta,
+                                       unsigned int streamID);
 
 template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
                                         size_t compStride,

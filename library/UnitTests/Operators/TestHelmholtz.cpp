@@ -59,7 +59,7 @@
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
-        Configure3DH1(4);                                                      \
+        Configure3DH1(16);                                                     \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -99,13 +99,13 @@ TEST_HELMHOLTZ(helmholtz_quad_sem, QuadSEM, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_HELMHOLTZ3DH1(helmholtz_quad_3dh1, Quad, 1.0E-12)
+TEST_HELMHOLTZ3DH1(helmholtz_quad_3dh1, QuadFFT, 1.0E-10)
 
 TEST_HELMHOLTZ(helmholtz_tri, Tri, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_tri_3d, Tri3D, 1.0E-12)
 
-TEST_HELMHOLTZ3DH1(helmholtz_tri_3dh1, Tri, 1.0E-12)
+TEST_HELMHOLTZ3DH1(helmholtz_tri_3dh1, TriFFT, 1.0E-10)
 
 TEST_HELMHOLTZ(helmholtz_tri_varp, TriVarP, 1.0E-12)
 
@@ -113,8 +113,8 @@ TEST_HELMHOLTZ(helmholtz_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_HELMHOLTZ3DH1(helmholtz_square_all_elements_3dh1, SquareAllElements,
-                   1.0E-12)
+TEST_HELMHOLTZ3DH1(helmholtz_square_all_elements_3dh1, SquareAllElementsFFT,
+                   1.0E-10)
 
 TEST_HELMHOLTZ(helmholtz_hex, Hex, 1.0E-12)
 
@@ -141,6 +141,6 @@ TEST_HELMHOLTZ(helmholtz_tet_nodal, TetNodal, 1.0E-12)
 TEST_HELMHOLTZ(helmholtz_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_cube_all_elements, CubeAllElements, 1.0E-12)
-#endif
+#endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

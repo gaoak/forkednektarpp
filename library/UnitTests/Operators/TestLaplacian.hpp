@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <MultiRegions/ExpListHomogeneous1D.h>
+
 #include "TestOp.hpp"
 
 #include "Operators/ElmtOps/Laplacian/LaplacianOp.hpp"
@@ -159,8 +161,41 @@ public:
         Array<OneD, TData> outcoeffs(numComp * ncoeffs);
         Array<OneD, TData> tmp;
 
+        // The weak z-Laplacian of a 3DH1 field is (beta k)^2 M on each Fourier
+        // mode, so the reference transforms to wave space, applies a plane-wise
+        // Helmholtz carrying that lambda, and transforms back. The operator
+        // reaches the same result by another route, the mass matrix applied to
+        // minus the second z-derivative, so this is a genuine cross-check.
+        auto homoExpList =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist);
+        const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+        const bool is3DH1        = homoExpList && nhomo > 1;
+
+        Array<OneD, NekDouble> lambdaK(nhomo, 0.0);
+        if (is3DH1)
+        {
+            const NekDouble beta = 2.0 * M_PI / homoExpList->GetHomoLen();
+            for (unsigned int p = 0; p < nhomo; ++p)
+            {
+                const NekDouble betaK =
+                    beta *
+                    homoExpList->m_transposition->GetK(static_cast<int>(p));
+                lambdaK[p] = betaK * betaK;
+            }
+
+            HomogeneousTrans(homoExpList, ncoeffs, incoeffs, true);
+        }
+
         for (unsigned int i = 0; i < numComp; ++i)
         {
+            // The planes of a component are consecutive, so i % nhomo picks
+            // the Fourier mode this slice carries.
+            if (is3DH1)
+            {
+                factors[StdRegions::eFactorLambda] = lambdaK[i % nhomo];
+            }
+
             size_t e      = 0;
             size_t offset = i * ncoeffs;
             for (const auto &block : this->fixt_expected->GetBlocks())
@@ -169,7 +204,8 @@ public:
                 for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     StdRegions::StdMatrixKey mkey(
-                        StdRegions::eLaplacian,
+                        is3DH1 ? StdRegions::eHelmholtz
+                               : StdRegions::eLaplacian,
                         this->fixt_explist->GetExp(e)->DetShapeType(),
                         *(this->fixt_explist->GetExp(e)), factors);
                     this->fixt_explist->GetExp(e)->GeneralMatrixOp(
@@ -179,8 +215,44 @@ public:
                 }
             }
         }
+
+        if (is3DH1)
+        {
+            HomogeneousTrans(homoExpList, ncoeffs, outcoeffs, false);
+        }
+
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
+    }
+
+    /// Transform @p coeffs between physical z and wave space, one component at
+    /// a time; Homogeneous1DTrans works in NekDouble whatever TData is.
+    void HomogeneousTrans(
+        const std::shared_ptr<MultiRegions::ExpListHomogeneous1D> &homoExpList,
+        const size_t ncoeffs, Array<OneD, TData> &coeffs, const bool forwards)
+    {
+        const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+        const size_t nPerComp    = ncoeffs * nhomo;
+
+        Array<OneD, NekDouble> in(nPerComp);
+        Array<OneD, NekDouble> out(nPerComp);
+
+        for (unsigned int c = 0; c < this->fixt_in->GetNumComponents(); ++c)
+        {
+            const size_t base = c * nPerComp;
+            for (size_t j = 0; j < nPerComp; ++j)
+            {
+                in[j] = static_cast<NekDouble>(coeffs[base + j]);
+            }
+
+            homoExpList->Homogeneous1DTrans(static_cast<int>(nPerComp), in, out,
+                                            forwards);
+
+            for (size_t j = 0; j < nPerComp; ++j)
+            {
+                coeffs[base + j] = static_cast<TData>(out[j]);
+            }
+        }
     }
 
 private:
@@ -268,3 +340,40 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData> class TestLaplacianFFT : public TestLaplacian<TData>
+{
+public:
+    TestLaplacianFFT() = default;
+};
+
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestLaplacianFFT<float>{                        \
+        public : type##float(){meshName = filename;                            \
+    }                                                                          \
+    }                                                                          \
+    ;
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestLaplacianFFT<double>                               \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")

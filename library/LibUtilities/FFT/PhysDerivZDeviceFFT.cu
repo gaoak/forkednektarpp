@@ -311,7 +311,7 @@ public:
 // Reads from block device memory with stride compStride instead of NXY,
 // writing directly to the z-slot in the output block. One block per xy
 // pencil (blockIdx.x == j). Avoids separate gather/scatter copies.
-template <typename TReal, int N_PLANES>
+template <typename TReal, int N_PLANES, int DERIV_ORDER>
 __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
                                          TReal *__restrict__ d_out, int NXY,
                                          int compStride, TReal beta)
@@ -342,6 +342,10 @@ __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
     for (int i = 0; i < kEPT; ++i)
     {
         const int k = static_cast<int>(threadIdx.x) + i * FFT_t::stride;
+
+        // Nektar's eFourier basis spans k = 0 to N/2 - 1 only, its second
+        // slot being a structural zero rather than a Nyquist mode, so k = N/2
+        // is not representable at either derivative order.
         if (k == 0 || k == half_n)
         {
             thread_data[i] = complex_type{TReal(0), TReal(0)};
@@ -349,9 +353,19 @@ __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
         else
         {
             const int wn      = (k <= half_n) ? k : (k - N_PLANES);
-            const TReal scale = static_cast<TReal>(wn) * beta;
-            thread_data[i]    = complex_type{-thread_data[i].y * scale,
-                                          thread_data[i].x * scale};
+            const TReal betaK = static_cast<TReal>(wn) * beta;
+
+            if constexpr (DERIV_ORDER == 1)
+            {
+                thread_data[i] = complex_type{-thread_data[i].y * betaK,
+                                              thread_data[i].x * betaK};
+            }
+            else
+            {
+                const TReal scale = -betaK * betaK;
+                thread_data[i]    = complex_type{thread_data[i].x * scale,
+                                              thread_data[i].y * scale};
+            }
         }
     }
 
@@ -369,7 +383,7 @@ __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
 // attr_set latch below and the kernel whose attribute it raises must be the
 // same instantiation, or one precision would never get its shared-memory
 // limit lifted.
-template <typename TReal, int N_PLANES>
+template <typename TReal, int N_PLANES, int DERIV_ORDER>
 void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
                               int compStride, TReal beta, cudaStream_t stream)
 {
@@ -381,9 +395,9 @@ void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
     static bool attr_set = false;
     if (!attr_set)
     {
-        cudaFuncSetAttribute(PhysDerivZDxDirectKernel<TReal, N_PLANES>,
-                             cudaFuncAttributeMaxDynamicSharedMemorySize,
-                             shmem_size);
+        cudaFuncSetAttribute(
+            PhysDerivZDxDirectKernel<TReal, N_PLANES, DERIV_ORDER>,
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size);
         attr_set = true;
     }
 
@@ -394,7 +408,7 @@ void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
     // PhysDerivZOpDevice already handles graph capture/replay for the full
     // z-pipeline. When the stream is being captured by that outer graph the
     // kernel launch is recorded into it automatically.
-    PhysDerivZDxDirectKernel<TReal, N_PLANES>
+    PhysDerivZDxDirectKernel<TReal, N_PLANES, DERIV_ORDER>
         <<<NXY, FFT_t::block_dim, shmem_size, stream>>>(d_in, d_out, NXY,
                                                         compStride, beta);
 }
@@ -402,7 +416,7 @@ void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
 // Switches on the plane count to pick the compile-time FFT size. Takes the
 // same argument order as PhysDerivZDirect, so the dispatch below forwards
 // its arguments unchanged.
-template <typename TReal>
+template <typename TReal, int DERIV_ORDER>
 void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
                           size_t NXY, size_t compStride, TReal beta,
                           cudaStream_t stream)
@@ -415,28 +429,28 @@ void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
     switch (nhomo)
     {
         case 16:
-            LaunchPhysDerivZDxDirect<TReal, 16>(d_in, d_out, NXYI, compStrideI,
-                                                beta, stream);
+            LaunchPhysDerivZDxDirect<TReal, 16, DERIV_ORDER>(
+                d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 32:
-            LaunchPhysDerivZDxDirect<TReal, 32>(d_in, d_out, NXYI, compStrideI,
-                                                beta, stream);
+            LaunchPhysDerivZDxDirect<TReal, 32, DERIV_ORDER>(
+                d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 64:
-            LaunchPhysDerivZDxDirect<TReal, 64>(d_in, d_out, NXYI, compStrideI,
-                                                beta, stream);
+            LaunchPhysDerivZDxDirect<TReal, 64, DERIV_ORDER>(
+                d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 128:
-            LaunchPhysDerivZDxDirect<TReal, 128>(d_in, d_out, NXYI, compStrideI,
-                                                 beta, stream);
+            LaunchPhysDerivZDxDirect<TReal, 128, DERIV_ORDER>(
+                d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 256:
-            LaunchPhysDerivZDxDirect<TReal, 256>(d_in, d_out, NXYI, compStrideI,
-                                                 beta, stream);
+            LaunchPhysDerivZDxDirect<TReal, 256, DERIV_ORDER>(
+                d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 512:
-            LaunchPhysDerivZDxDirect<TReal, 512>(d_in, d_out, NXYI, compStrideI,
-                                                 beta, stream);
+            LaunchPhysDerivZDxDirect<TReal, 512, DERIV_ORDER>(
+                d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         default:
             throw std::runtime_error(
@@ -462,7 +476,8 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
     cudaStream_t stream = CUDAStream::GetInstance(streamID);
 
 #if defined(NEKTAR_USE_CUFFTDX)
-    PhysDerivZDxDispatch(d_in, d_out, nhomo, NXY, compStride, beta, stream);
+    PhysDerivZDxDispatch<TData, 1>(d_in, d_out, nhomo, NXY, compStride, beta,
+                                   stream);
 #else
     DirectPlanEntry<TData> entry =
         GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
@@ -500,6 +515,57 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 }
 
 template <typename TData>
+void PhysDerivZ2Direct(const TData *d_in, TData *d_out, unsigned int nhomo,
+                       size_t NXY, size_t compStride, TData beta,
+                       unsigned int streamID)
+{
+    // The declaration hands the stream over as an id to keep the header
+    // independent of the CUDA runtime; the registry resolves it to the real
+    // handle here.
+    cudaStream_t stream = CUDAStream::GetInstance(streamID);
+
+#if defined(NEKTAR_USE_CUFFTDX)
+    PhysDerivZDxDispatch<TData, 2>(d_in, d_out, nhomo, NXY, compStride, beta,
+                                   stream);
+#else
+    // The plans depend only on the problem size, so the first derivative's
+    // entry serves here too; only the wavenumber multiply differs.
+    DirectPlanEntry<TData> entry =
+        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
+
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecD2Z(
+            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(cufftExecR2C(
+            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
+    }
+
+    const TData invN = 1.0 / static_cast<TData>(nhomo);
+    const dim3 grid(
+        static_cast<unsigned int>(NXY),
+        static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
+                              entry.blockSizeWave));
+    WavenumberMultiply2Kernel<<<grid, entry.blockSizeWave, 0, stream>>>(
+        entry.d_cmplx, entry.halfN, beta, invN);
+
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(
+            cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(
+            cufftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
+    }
+#endif
+}
+
+template <typename TData>
 void PhysDerivZPrepare([[maybe_unused]] unsigned int nhomo,
                        [[maybe_unused]] size_t NXY,
                        [[maybe_unused]] size_t compStride,
@@ -521,6 +587,15 @@ template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
                                       unsigned int streamID);
+
+template void PhysDerivZ2Direct<double>(const double *d_in, double *d_out,
+                                        unsigned int nhomo, size_t NXY,
+                                        size_t compStride, double beta,
+                                        unsigned int streamID);
+template void PhysDerivZ2Direct<float>(const float *d_in, float *d_out,
+                                       unsigned int nhomo, size_t NXY,
+                                       size_t compStride, float beta,
+                                       unsigned int streamID);
 
 template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
                                         size_t compStride,
