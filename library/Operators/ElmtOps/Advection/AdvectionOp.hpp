@@ -68,6 +68,7 @@ public:
         {
             this->m_blockOp[blk]->SetScale(scale);
         }
+        v_SetScaleFFT(scale);
     }
 
     void SetAppend(const bool &append)
@@ -81,16 +82,22 @@ public:
 
     void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &advVel)
     {
-        ASSERTL1(
-            advVel.GetNumComponents() ==
-                static_cast<unsigned int>(this->m_expansionList->GetCoordim(0)),
-            "Advection velocity must have coordDim components");
+        // A 3DH1 expansion carries a third velocity component along the
+        // homogeneous direction, which the planes themselves do not count.
+        ASSERTL1(advVel.GetNumComponents() ==
+                     (advVel.GetNumHomoModes() == 1
+                          ? static_cast<unsigned int>(
+                                this->m_expansionList->GetCoordim(0))
+                          : 3u),
+                 "Advection velocity must have coordDim components, or three "
+                 "on a 3DH1 expansion");
 
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetAdvVel(advVel.GetBlocks()[blk]);
         }
+        v_SetAdvVelFFT(advVel);
         m_isSetAdvVel = true;
     }
 
@@ -129,7 +136,19 @@ protected:
 
             this->m_blockOp[blk]->Apply(inblock, outblock);
         }
+
+        // Apply FFT.
+        v_ApplyFFT(in, out);
     }
+
+    virtual void v_SetScaleFFT(const TData &scale) = 0;
+
+    virtual void v_SetAdvVelFFT(
+        LibUtilities::Field<TData, FieldState::Phys> &advVel) = 0;
+
+    virtual void v_ApplyFFT(
+        LibUtilities::Field<TData, FieldState::Phys> &in,
+        LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 };
 
 } // namespace Nektar::Operators

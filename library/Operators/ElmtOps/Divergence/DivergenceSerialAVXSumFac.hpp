@@ -330,8 +330,10 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Pointer offset between the components of the input block.
-        const auto compOffset = inblock.CompSize() * inblock.GetNumHomoModes();
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto nhomo      = inblock.GetNumHomoModes();
+        const auto compOffset = inblock.CompSize() * nhomo;
 
         // Initialize pointers.
         auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -342,10 +344,10 @@ protected:
             inptr[d] = inbase + d * compOffset;
         }
 
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes() / ndim;
-             ++n)
+        // Loop over the planes. Each holds one xy divergence, over the same
+        // geometry, so the derivative factors restart with every plane while
+        // the field pointers run on through the block.
+        for (unsigned int p = 0; p < nhomo; ++p)
         {
             auto dfptr = m_dfptr;
 

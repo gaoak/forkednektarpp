@@ -124,7 +124,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr, m_streamID);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -159,9 +160,10 @@ protected:
 
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions
-        // spans all of them, while the advection velocity is shared by them.
+        // spans all of them, and the advection velocity carries the same
+        // planes as the input, so one of its components spans all of them.
         const auto advelsize =
-            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
+            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) * nhomo;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
         const auto derivoffset = m_nqTot * nelmt * ncomp;
 
@@ -184,8 +186,8 @@ protected:
             derivptr, m_nqTot, derivoffset, m_dimension);
 
         // Multiply by derivative factor. The advection velocity is indexed by
-        // the elements of a single component, so the components are taken one
-        // at a time.
+        // the elements of one component over all its planes, so the components
+        // are taken one at a time.
         for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
         {
             if (m_isDeformed)

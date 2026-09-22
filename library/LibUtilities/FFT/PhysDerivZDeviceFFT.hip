@@ -221,17 +221,12 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     return e;
 }
 
-} // anonymous namespace
-
+// Cache lookup shared by PhysDerivZDirect() and PhysDerivZPrepare(), so that
+// preparing a stream and running on it cannot disagree about the key.
 template <typename TData>
-void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta, void *vstream)
+DirectPlanEntry<TData> GetOrCreateEntry(unsigned int nhomo, size_t NXY,
+                                        size_t compStride, hipStream_t stream)
 {
-    // The declaration hands the stream over as void * to keep the header
-    // independent of the HIP runtime; everything below works on the real
-    // handle.
-    hipStream_t stream = static_cast<hipStream_t>(vstream);
-
     int deviceId = 0;
     CHECK_HIPCUDA_ERROR(hipGetDevice(&deviceId));
 
@@ -243,6 +238,24 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
         entry = CreateEntry<TData>(nhomo, NXY, compStride, stream);
         DirectPlanCache<TData>::Instance().Register(key, entry);
     }
+
+    return entry;
+}
+
+} // anonymous namespace
+
+template <typename TData>
+void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
+                      size_t NXY, size_t compStride, TData beta,
+                      unsigned int streamID)
+{
+    // The declaration hands the stream over as an id to keep the header
+    // independent of the HIP runtime; the registry resolves it to the real
+    // handle here.
+    hipStream_t stream = HIPStream::GetInstance(streamID);
+
+    DirectPlanEntry<TData> entry =
+        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
 
     if constexpr (std::is_same_v<TData, double>)
     {
@@ -275,14 +288,29 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
     }
 }
 
+template <typename TData>
+void PhysDerivZPrepare(unsigned int nhomo, size_t NXY, size_t compStride,
+                       unsigned int streamID)
+{
+    GetOrCreateEntry<TData>(nhomo, NXY, compStride,
+                            HIPStream::GetInstance(streamID));
+}
+
 template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
                                        unsigned int nhomo, size_t NXY,
                                        size_t compStride, double beta,
-                                       void *vstream);
+                                       unsigned int streamID);
 template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
-                                      void *vstream);
+                                      unsigned int streamID);
+
+template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
+                                        size_t compStride,
+                                        unsigned int streamID);
+template void PhysDerivZPrepare<float>(unsigned int nhomo, size_t NXY,
+                                       size_t compStride,
+                                       unsigned int streamID);
 
 } // namespace Nektar::LibUtilities
 

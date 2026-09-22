@@ -53,8 +53,12 @@ public:
         // A z-op is built only for a multi-plane 3DH1 expansion; m_zOp stays
         // null for 2D/3D, 3DH2 and single-plane 3DH1, where v_Apply does the
         // xy derivatives alone.
-        if (std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
-                expansionList))
+        auto homoExpList =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                expansionList);
+
+        if (homoExpList &&
+            homoExpList->GetHomogeneousBasis()->GetNumPoints() > 1)
         {
             m_zOp = std::make_shared<PhysDerivZOpImpl<ExecSpace, TData>>(
                 expansionList);

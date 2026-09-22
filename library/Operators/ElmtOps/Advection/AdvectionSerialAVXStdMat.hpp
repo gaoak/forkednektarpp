@@ -125,7 +125,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -156,15 +157,21 @@ protected:
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
-        // Loop over components.
+        // Loop over components. The advection velocity carries the same
+        // planes as the input, so one of its components spans all of them.
+        const auto nhomo = inblock.GetNumHomoModes();
         const auto advelsize =
-            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth);
+            m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) * nhomo;
         const auto derivsize = m_nqTot;
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        for (unsigned int n = 0; n < inblock.GetNumComponents() * nhomo; ++n)
         {
+            // n runs over the components of the input with their planes
+            // innermost, so this iteration takes the velocity of plane
+            // n % nhomo, and advelsize steps from there to the next velocity
+            // component on the same plane.
             auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>() +
+                (n % nhomo) * this->m_advVel->CompSize();
             auto dfptr = m_dfptr;
 
             // Loop over element groups.

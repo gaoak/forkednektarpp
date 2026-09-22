@@ -138,14 +138,15 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-    size_t e = getGlobalIdx<0>(threadBlock);
+    size_t e             = getGlobalIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr = in + nq0 * warpsize * iwarp;
-        TData *outptr      = out + nq0 * warpsize * iwarp;
+        const TData *inptr = in + nq0 * (nelmt * p + warpsize * iwarp);
+        TData *outptr      = out + nq0 * (nelmt * p + warpsize * iwarp);
         PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, ncoord, nq0, D0,
                                                        dfptr, inptr, outptr);
         e += getGlobalRange<0>(threadBlock);
@@ -208,14 +209,15 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         localBarrier(threadBlock);
     }
 
-    size_t e = getGlobalIdx<0>(threadBlock);
+    size_t e             = getGlobalIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nqTot * warpsize * iwarp;
+        const TData *inptr = in + nqTot * (nelmt * p + warpsize * iwarp);
+        TData *outptr      = out + nqTot * (nelmt * p + warpsize * iwarp);
 
         PhysDerivDir2DSumFacKernel<SHAPE_TYPE, false, DEFORMED, 0>(
             ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr, inptr, outptr);
@@ -336,13 +338,14 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     }
 
     size_t e = getGlobalIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr = in + nqTot * warpsize * iwarp;
-        TData *outptr      = out + nqTot * warpsize * iwarp;
+        const TData *inptr = in + nqTot * (nelmt * p + warpsize * iwarp);
+        TData *outptr      = out + nqTot * (nelmt * p + warpsize * iwarp);
         PhysDerivDir3DSumFacKernel<SHAPE_TYPE, false, DEFORMED, 0>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             inptr, outptr);

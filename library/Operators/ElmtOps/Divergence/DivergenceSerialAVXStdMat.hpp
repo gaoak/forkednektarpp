@@ -120,9 +120,6 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        ASSERTL1(inblock.GetNumHomoModes() == 1,
-                 "Currently only setup for one homogeneous plane");
-
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -143,113 +140,123 @@ protected:
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
-        // Loop over components.
-        const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto nhomo    = inblock.GetNumHomoModes();
+        const auto inoffset = inblock.CompSize() * nhomo;
 
-        auto dfptr = m_dfptr;
-
-        // Loop over element groups.
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
-             ++e)
+        // Loop over the planes. Each holds one xy divergence, over the same
+        // geometry, so the derivative factors restart with every plane while
+        // the field pointers run on through the block.
+        for (unsigned int p = 0; p < nhomo; ++p)
         {
+            auto dfptr = m_dfptr;
 
-            // du/dx
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    m_implInterleaveWidth, interleaveWidth, chunkSize, m_nqTot,
-                    (TData *)inptr);
-            }
-
-            // calculate dudx
-            // Perform matrix-matrix multiply.
-            for (unsigned int d = 0; d < m_dimension; d++)
-            {
-                gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
-                            wspptr + d * m_nqTot * simd_t::width);
-            }
-
-            // Multiply by derivative factor.
-            if (m_isDeformed)
-            {
-                MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
-                    0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                    reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(wspptr),
-                    reinterpret_cast<simd_t *>(outptr));
-            }
-            else
-            {
-                MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
-                    0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
-                    reinterpret_cast<const simd_t *>(dfptr),
-                    reinterpret_cast<const simd_t *>(wspptr),
-                    reinterpret_cast<simd_t *>(outptr));
-            }
-
-            // Calculate dv/dy & dw/dz
-            for (unsigned c = 1; c < m_dimension; ++c)
+            // Loop over element groups.
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
 
+                // du/dx
+                // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, interleaveWidth, chunkSize,
-                        m_nqTot, (TData *)inptr + c * inoffset);
+                        m_nqTot, (TData *)inptr);
                 }
 
+                // calculate dudx
                 // Perform matrix-matrix multiply.
                 for (unsigned int d = 0; d < m_dimension; d++)
                 {
-                    gemm_kernel(inptr + c * inoffset,
-                                m_matptr + d * m_nqTot * m_nqTot,
+                    gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
                                 wspptr + d * m_nqTot * simd_t::width);
                 }
 
                 // Multiply by derivative factor.
                 if (m_isDeformed)
                 {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
-                        c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                    MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
+                        0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));
                 }
                 else
                 {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
-                        c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                    MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
+                        0, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(wspptr),
                         reinterpret_cast<simd_t *>(outptr));
                 }
-            }
 
-            // Reshape back, if necessary.
-            if (e % width_ratio == width_ratio - 1)
-            {
-                for (unsigned c = 0; c < m_dimension; ++c)
+                // Calculate dv/dy & dw/dz
+                for (unsigned c = 1; c < m_dimension; ++c)
                 {
+
+                    if (e % width_ratio == 0)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_nqTot, (TData *)inptr + c * inoffset);
+                    }
+
+                    // Perform matrix-matrix multiply.
+                    for (unsigned int d = 0; d < m_dimension; d++)
+                    {
+                        gemm_kernel(inptr + c * inoffset,
+                                    m_matptr + d * m_nqTot * m_nqTot,
+                                    wspptr + d * m_nqTot * simd_t::width);
+                    }
+
+                    // Multiply by derivative factor.
+                    if (m_isDeformed)
+                    {
+                        MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
+                            c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(wspptr),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
+                            c, m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                            reinterpret_cast<const simd_t *>(dfptr),
+                            reinterpret_cast<const simd_t *>(wspptr),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                }
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned c = 0; c < m_dimension; ++c)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nqTot,
+                            (TData *)inptr + c * inoffset -
+                                (width_ratio - 1) * m_nqTot * simd_t::width);
+                    }
+
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         interleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
-                        (TData *)inptr + c * inoffset -
+                        (TData *)outptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                 }
 
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, m_implInterleaveWidth, chunkSize, m_nqTot,
-                    (TData *)outptr -
-                        (width_ratio - 1) * m_nqTot * simd_t::width);
+                // Increment pointer.
+                dfptr +=
+                    (m_isDeformed)
+                        ? m_coordDim * m_dimension * m_nqTot * simd_t::width
+                        : m_coordDim * m_dimension * simd_t::width;
+                inptr += m_nqTot * simd_t::width;
+                outptr += m_nqTot * simd_t::width;
             }
-
-            // Increment pointer.
-            dfptr += (m_isDeformed)
-                         ? m_coordDim * m_dimension * m_nqTot * simd_t::width
-                         : m_coordDim * m_dimension * simd_t::width;
-            inptr += m_nqTot * simd_t::width;
-            outptr += m_nqTot * simd_t::width;
         }
 
         // Set output block to input interleave.

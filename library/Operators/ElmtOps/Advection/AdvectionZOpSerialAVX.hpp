@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZOpSerialAVX.hpp
+// File: AdvectionZOpSerialAVX.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,27 +28,32 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Host (FFTW) backend for the PhysDerivOp z-derivative.
+// Description: Host (FFTW) backend for the AdvectionOp z-derivative.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
 namespace Nektar::Operators::detail
 {
 
-/// \brief Host FFTW backend for the homogeneous z-derivative.
+/// \brief Host FFTW backend for the homogeneous part of the advection term.
 ///
 /// Launch() gathers each component's unpadded per-plane data from all blocks
 /// into one contiguous array, applies the forward transform, wavenumber
-/// multiply and inverse transform over the full field, then scatters the
-/// result back. The gather is needed because Homogeneous1DTrans' transposition
-/// object is built for the full-field point count (nhomo × planePts) and
-/// cannot operate on per-block subsets.
+/// multiply and inverse transform over the full field, then adds
+/// scale * w * dphi/dz to the matching output component. The gather is needed
+/// because Homogeneous1DTrans' transposition object is built for the
+/// full-field point count (nhomo x planePts) and cannot operate on per-block
+/// subsets.
+///
+/// The xy backend leaves scale * (u dphi/dx + v dphi/dy) in the output,
+/// having honoured its own append flag, so this pass always accumulates.
 template <typename ExecSpace, typename TData>
-class PhysDerivZOpImpl<
+class AdvectionZOpImpl<
     ExecSpace, TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                      std::is_same_v<ExecSpace, NektarSpaces::AVX>>>
@@ -56,29 +61,68 @@ class PhysDerivZOpImpl<
 public:
     /// \param expansionList  Cast to ExpListHomogeneous1D for the FFT and
     ///                       transposition objects.
-    PhysDerivZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+    AdvectionZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
     {
         m_homoExpList =
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 expansionList);
 
         ASSERTL0(m_homoExpList,
-                 "The homogeneous z-derivative needs an ExpListHomogeneous1D");
+                 "The homogeneous advection needs an ExpListHomogeneous1D");
 
         m_beta = 2.0 * M_PI / m_homoExpList->GetHomoLen();
     }
 
     // Non-copyable and non-movable.
-    PhysDerivZOpImpl(const PhysDerivZOpImpl &)            = delete;
-    PhysDerivZOpImpl &operator=(const PhysDerivZOpImpl &) = delete;
-    PhysDerivZOpImpl(PhysDerivZOpImpl &&)                 = delete;
-    PhysDerivZOpImpl &operator=(PhysDerivZOpImpl &&)      = delete;
+    AdvectionZOpImpl(const AdvectionZOpImpl &)            = delete;
+    AdvectionZOpImpl &operator=(const AdvectionZOpImpl &) = delete;
+    AdvectionZOpImpl(AdvectionZOpImpl &&)                 = delete;
+    AdvectionZOpImpl &operator=(AdvectionZOpImpl &&)      = delete;
+
+    void SetScale(const TData &scale)
+    {
+        m_scale = scale;
+    }
+
+    void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &advVel)
+    {
+        m_advVel = &advVel;
+    }
 
     void Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
                 LibUtilities::Field<TData, FieldState::Phys> &out)
     {
         const unsigned int nhomo = in.GetNumHomoModes();
         const unsigned int nComp = in.GetNumComponents();
+
+        // The advection velocity along the homogeneous direction is the last
+        // component; the xy backend has already consumed the others.
+        const unsigned int wComp = m_advVel->GetNumComponents() - 1;
+
+        // The xy backend reshapes the advection velocity into its own
+        // interleave format and leaves it there, so it is realigned with the
+        // input before being read.
+        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            auto &velblock = m_advVel->GetBlocks()[blk];
+
+            const auto interleaveWidth =
+                in.GetBlocks()[blk].GetInterleaveWidth();
+
+            if (velblock.GetInterleaveWidth() != interleaveWidth)
+            {
+                auto velRWPtr =
+                    velblock
+                        .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    interleaveWidth, velblock.GetInterleaveWidth(),
+                    velblock.GetNumElementsWithPadding() *
+                        velblock.GetNumComponents() *
+                        velblock.GetNumHomoModes(),
+                    velblock.GetNumData(), velRWPtr);
+                velblock.template SetInterleaveWidth<TData>(interleaveWidth);
+            }
+        }
 
         // Unpadded points per plane, summed over the blocks of `in`, and the
         // total across all planes.
@@ -143,29 +187,45 @@ public:
                 }
             }
 
-            // Backward FFT: spectral -> physical dz.
+            // Backward FFT: spectral -> physical dphi/dz.
             m_homoExpList->Homogeneous1DTrans(static_cast<int>(nTotal),
                                               waveCoef, dzFlat, false);
 
-            // Scatter: write z-derivative back to per-block output z-slots.
-            // Output component for z of input n is at index (n*3 + 2).
-            // Block b, plane p offset = ((n*3+2)*nhomo + p) * compStride.
+            // Scatter: add scale * w * dphi/dz to output component n, which
+            // already holds the xy part of the advection term.
+            // Homogeneous1DTrans works in NekDouble, which is double whatever
+            // TData is, so the sum narrows as it accumulates and cannot go
+            // through the Math kernels, whose operands share one type.
             spatialOffset = 0;
-            for (auto &outblock : out.GetBlocks())
+            for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
             {
+                auto &outblock = out.GetBlocks()[blk];
+                auto &velblock = m_advVel->GetBlocks()[blk];
+
                 const size_t realPts =
                     outblock.GetNumElements() * outblock.GetNumData();
                 const size_t compStride = outblock.CompSize();
-                TData *dzPtr =
+                const size_t velStride  = velblock.CompSize();
+
+                TData *advPtr =
                     outblock
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>() +
-                    (n * 3 + 2) * compStride * nhomo;
+                        .template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
+                    n * compStride * nhomo;
+                const TData *wPtr =
+                    velblock
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>() +
+                    wComp * velStride * nhomo;
 
                 for (unsigned int p = 0; p < nhomo; ++p)
                 {
                     const double *src =
                         dzFlat.data() + p * planePts + spatialOffset;
-                    std::copy(src, src + realPts, dzPtr + p * compStride);
+                    TData *dst     = advPtr + p * compStride;
+                    const TData *w = wPtr + p * velStride;
+                    for (size_t j = 0; j < realPts; ++j)
+                    {
+                        dst[j] += m_scale * w[j] * src[j];
+                    }
                 }
 
                 spatialOffset += realPts;
@@ -175,7 +235,9 @@ public:
 
 private:
     std::shared_ptr<MultiRegions::ExpListHomogeneous1D> m_homoExpList;
-    double m_beta = 0.0;
+    LibUtilities::Field<TData, FieldState::Phys> *m_advVel = nullptr;
+    double m_beta                                          = 0.0;
+    TData m_scale                                          = 1.0;
 };
 
 } // namespace Nektar::Operators::detail

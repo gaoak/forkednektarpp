@@ -65,6 +65,17 @@ namespace Nektar::Operators
 // Forward-declare the BlockOperator base class so we can define the factory
 template <typename TData> class BlockOperator;
 
+namespace detail
+{
+// Forward-declare the homogeneous z-ops so that BlockOperator can befriend
+// them; the default of their third parameter stays with the declaration in
+// their own *ZOpImpl.hpp.
+template <typename ExecSpace, typename TData, typename Enable>
+class AdvectionZOpImpl;
+template <typename ExecSpace, typename TData, typename Enable>
+class DivergenceZOpImpl;
+} // namespace detail
+
 /// @brief Factory of BlockOperator<TData> interface objects, keyed by
 /// `TOperator::name + execStr`.
 template <typename TData>
@@ -172,6 +183,14 @@ protected:
         : m_block_idx(block_idx), m_exp(exp), m_dataWarehouse(dataWarehouse)
     {
     }
+
+    /// The homogeneous z-ops are not block operators, but they run on the
+    /// per-block streams and take their scratch from the same buffers, so
+    /// they reach GetStaticWorkSpace directly.
+    template <typename ExecSpace, typename TDataZ, typename Enable>
+    friend class detail::AdvectionZOpImpl;
+    template <typename ExecSpace, typename TDataZ, typename Enable>
+    friend class detail::DivergenceZOpImpl;
 
     /**
      * @brief Return a per-stream scratch buffer in @p MemSpace, sized

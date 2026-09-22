@@ -53,6 +53,7 @@
 #include <cuda_runtime.h>
 #include <cufftdx/cufftdx.hpp>
 
+#include <LibUtilities/Backends/CUDAStream.hpp>
 #include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
 
 #ifndef CUFFTDX_TARGET_SM
@@ -243,6 +244,27 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     return e;
 }
 
+// Cache lookup shared by PhysDerivZDirect() and PhysDerivZPrepare(), so that
+// preparing a stream and running on it cannot disagree about the key.
+template <typename TData>
+DirectPlanEntry<TData> GetOrCreateEntry(unsigned int nhomo, size_t NXY,
+                                        size_t compStride, cudaStream_t stream)
+{
+    int deviceId = 0;
+    CHECK_HIPCUDA_ERROR(cudaGetDevice(&deviceId));
+
+    const DirectPlanKey key{deviceId, nhomo, NXY, compStride, stream};
+
+    DirectPlanEntry<TData> entry;
+    if (!DirectPlanCache<TData>::Instance().Lookup(key, entry))
+    {
+        entry = CreateEntry<TData>(nhomo, NXY, compStride, stream);
+        DirectPlanCache<TData>::Instance().Register(key, entry);
+    }
+
+    return entry;
+}
+
 #else // NEKTAR_USE_CUFFTDX
 
 // ---------------------------------------------------------------------
@@ -431,27 +453,19 @@ void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
 
 template <typename TData>
 void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta, void *vstream)
+                      size_t NXY, size_t compStride, TData beta,
+                      unsigned int streamID)
 {
-    // The declaration hands the stream over as void * to keep the header
-    // independent of the CUDA runtime; everything below works on the real
-    // handle.
-    cudaStream_t stream = static_cast<cudaStream_t>(vstream);
+    // The declaration hands the stream over as an id to keep the header
+    // independent of the CUDA runtime; the registry resolves it to the real
+    // handle here.
+    cudaStream_t stream = CUDAStream::GetInstance(streamID);
 
 #if defined(NEKTAR_USE_CUFFTDX)
     PhysDerivZDxDispatch(d_in, d_out, nhomo, NXY, compStride, beta, stream);
 #else
-    int deviceId = 0;
-    CHECK_HIPCUDA_ERROR(cudaGetDevice(&deviceId));
-
-    const DirectPlanKey key{deviceId, nhomo, NXY, compStride, stream};
-
-    DirectPlanEntry<TData> entry;
-    if (!DirectPlanCache<TData>::Instance().Lookup(key, entry))
-    {
-        entry = CreateEntry<TData>(nhomo, NXY, compStride, stream);
-        DirectPlanCache<TData>::Instance().Register(key, entry);
-    }
+    DirectPlanEntry<TData> entry =
+        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
 
     if constexpr (std::is_same_v<TData, double>)
     {
@@ -485,14 +499,35 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 #endif
 }
 
+template <typename TData>
+void PhysDerivZPrepare([[maybe_unused]] unsigned int nhomo,
+                       [[maybe_unused]] size_t NXY,
+                       [[maybe_unused]] size_t compStride,
+                       [[maybe_unused]] unsigned int streamID)
+{
+    // The fused cuFFTDx kernel keeps no per-size state, so there is nothing
+    // to prepare in that build.
+#if !defined(NEKTAR_USE_CUFFTDX)
+    GetOrCreateEntry<TData>(nhomo, NXY, compStride,
+                            CUDAStream::GetInstance(streamID));
+#endif
+}
+
 template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
                                        unsigned int nhomo, size_t NXY,
                                        size_t compStride, double beta,
-                                       void *vstream);
+                                       unsigned int streamID);
 template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
-                                      void *vstream);
+                                      unsigned int streamID);
+
+template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
+                                        size_t compStride,
+                                        unsigned int streamID);
+template void PhysDerivZPrepare<float>(unsigned int nhomo, size_t NXY,
+                                       size_t compStride,
+                                       unsigned int streamID);
 
 } // namespace Nektar::LibUtilities
 

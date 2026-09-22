@@ -111,12 +111,13 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const unsigned int ndf    = ncoord;
     const unsigned int dfsize = DEFORMED ? nq0 : 1u;
 
-    size_t e = getBlockIdx<0>(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nq0 * e;
-        TData *outptr      = out + nq0 * e;
+        const TData *inptr = in + nq0 * nelmt * p + nq0 * e;
+        TData *outptr      = out + nq0 * nelmt * p + nq0 * e;
         PhysDerivDir1DSumFacTOPKernel<false, DEFORMED, 0>(
             ncoord, nq0, D0, dfptr, inptr, outptr, threadBlock);
         e += getBlockRange<0>(threadBlock);
@@ -156,12 +157,13 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    size_t e = getBlockIdx<0>(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nqTot * nelmt * p + nqTot * e;
+        TData *outptr      = out + nqTot * nelmt * p + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -233,11 +235,12 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * e;
-        TData *outptr      = out + nqTot * e;
+        const TData *inptr = in + nqTot * nelmt * p + nqTot * e;
+        TData *outptr      = out + nqTot * nelmt * p + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)

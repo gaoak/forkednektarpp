@@ -59,21 +59,7 @@
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
-        Configure3DH1(4);                                                      \
-        SetTestCase();                                                         \
-        RunTestCase();                                                         \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(Compare(tol));                                          \
-        }                                                                      \
-    }
-
-#define TEST_ADVECTION3DH2(test_name, test, tol)                               \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
-        Configure3DH2(4, 4);                                                   \
+        Configure3DH1(16);                                                     \
         SetTestCase();                                                         \
         RunTestCase();                                                         \
         boost::test_tools::output_test_stream output;                          \
@@ -143,6 +129,13 @@ TEST_ADVECTION(advection_tet_nodal, TetNodal, 1.0E-11)
 TEST_ADVECTION(advection_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_ADVECTION(advection_cube_all_elements, CubeAllElements, 1.0E-11)
-#endif
+
+TEST_ADVECTION3DH1(advection_quad_3dh1, QuadFFT, 1.0E-10)
+
+TEST_ADVECTION3DH1(advection_tri_3dh1, TriFFT, 1.0E-10)
+
+TEST_ADVECTION3DH1(advection_square_all_elements_3dh1, SquareAllElementsFFT,
+                   1.0E-10)
+#endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

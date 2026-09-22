@@ -283,8 +283,9 @@ protected:
         std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
-        constexpr unsigned int ndim = sizeof...(ind0);
-
+        // Get block sizes.
+        const auto nhomo = inblock.GetNumHomoModes();
+        const auto ncomp = inblock.GetNumComponents() * nhomo;
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -303,26 +304,30 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
-        // Loop over components.
-        const auto inoffset = outblock.CompSize();
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto inoffset = outblock.CompSize() * nhomo;
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, ndim * nelmt,
+            m_implInterleaveWidth, interleaveWidth, ncomp * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
-        // Calculate derivative du/dx
-        DEVICE_1DGRID_KERNEL_LAUNCHER(
+        // Calculate derivative du/dx. Each plane holds one xy divergence over
+        // the same geometry, so they ride the second grid dimension of a
+        // single launch and the kernel picks its plane from the block index.
+        DEVICE_2DGRID_KERNEL_LAUNCHER(
             (DivergenceKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
-            gridsize, blocksize, shmemsize, m_streamID, sizeParam, nelmt,
-            inoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr, outptr);
+            gridsize, nhomo, blocksize, 1, shmemsize, m_streamID, sizeParam,
+            nelmt, inoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr, inptr,
+            outptr);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, ndim * nelmt,
+            interleaveWidth, m_implInterleaveWidth, ncomp * nelmt,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt,
+            interleaveWidth, m_implInterleaveWidth, nelmt * nhomo,
             outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.

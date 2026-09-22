@@ -48,7 +48,15 @@ public:
 
     void SetFixture(const unsigned int nhomo) override
     {
-        auto nin  = this->fixt_explist->GetShapeDimension();
+        // A 3DH1 divergence needs the third velocity component, which the
+        // planes themselves do not count.
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+        auto nin  = (is3DH1 && nhomo > 1)
+                        ? 3u
+                        : static_cast<unsigned int>(
+                             this->fixt_explist->GetShapeDimension());
         auto nout = 1;
 
         auto inblockAttr =
@@ -158,20 +166,43 @@ public:
     {
         // Calculate expected result from Nektar++
         const unsigned int numComp = this->fixt_in->GetNumComponents();
-        const unsigned int dim     = this->fixt_explist->GetShapeDimension();
+        const unsigned int nhomo   = this->fixt_in->GetNumHomoModes();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> inphys  = this->fixt_in->ToArray();
         Array<OneD, TData> outphys(nphys, 0.0);
         Array<OneD, TData> outderiv(nphys);
 
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+
+        // A 3DH1 divergence carries the z-direction on top of the plane's own.
+        const unsigned int dim =
+            (is3DH1 && nhomo > 1)
+                ? 3u
+                : static_cast<unsigned int>(
+                      this->fixt_explist->GetShapeDimension());
+
         ASSERTL0(numComp >= dim,
                  "Need more components than dimensions for this test");
+
+        // The input is in physical space, while SetExpList3DH1 leaves
+        // WaveSpace true, so it is turned off for the derivatives.
+        if (is3DH1 && nhomo > 1)
+        {
+            this->fixt_explist->SetWaveSpace(false);
+        }
 
         // Calculate derivative
         for (unsigned int i = 0; i < dim; ++i)
         {
             this->fixt_explist->PhysDeriv(i, inphys + i * nphys, outderiv);
             Vmath::Vadd(nphys, outphys, 1, outderiv, 1, outphys, 1);
+        }
+
+        if (is3DH1 && nhomo > 1)
+        {
+            this->fixt_explist->SetWaveSpace(true);
         }
 
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
@@ -264,3 +295,40 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData> class TestDivergenceFFT : public TestDivergence<TData>
+{
+public:
+    TestDivergenceFFT() = default;
+};
+
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestDivergenceFFT<float>{                       \
+        public : type##float(){meshName = filename;                            \
+    }                                                                          \
+    }                                                                          \
+    ;
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestDivergenceFFT<double>                              \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")
