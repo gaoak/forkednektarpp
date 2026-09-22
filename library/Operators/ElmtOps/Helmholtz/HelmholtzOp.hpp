@@ -129,7 +129,14 @@ protected:
 
             this->m_blockOp[blk]->Apply(inblock, outblock);
         }
+
+        // Apply FFT.
+        v_ApplyFFT(in, out);
     }
+
+    virtual void v_ApplyFFT(
+        LibUtilities::Field<TData, FieldState::Coeff> &in,
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -139,6 +139,49 @@ __global__ static void WavenumberMultiplyKernel(TComplex *__restrict__ d_cmplx,
     d_cmplx[b * (halfN + 1) + k] = {-cx.y * scale, cx.x * scale};
 }
 
+/// \brief Multiply each Fourier mode by \f$-(k\beta)^2\f$ times \p normScale,
+///        in place; the DC and Nyquist modes are zeroed.
+///
+/// The half-spectrum is laid out as \c d_cmplx[b * (halfN + 1) + k] for batch
+/// entry \c b and wavenumber \c k. The batch index runs in the grid x
+/// dimension and the wavenumber range in y.
+///
+/// The Nyquist mode goes the same way as in the first derivative, for a
+/// reason particular to this basis rather than to the derivative: Nektar's
+/// eFourier basis spans \f$k = 0\f$ to \f$N/2 - 1\f$ only -- its second slot
+/// is a structural zero, not a Nyquist mode -- so \f$k = N/2\f$ is not
+/// representable and the host transform drops it either way.
+///
+/// \param d_cmplx   Device pointer to the half-spectrum, modified in place.
+/// \param halfN     Index of the Nyquist mode (the spectrum holds halfN + 1).
+/// \param beta      Wavenumber factor \f$2\pi/L_z\f$.
+/// \param normScale Normalisation applied alongside the wavenumber multiply
+///                  (typically \f$1/N\f$ to fold in the inverse-transform
+///                  scaling).
+template <typename TReal, typename TComplex = DeviceFFTCmplx<TReal>>
+__global__ static void WavenumberMultiply2Kernel(TComplex *__restrict__ d_cmplx,
+                                                 int halfN, TReal beta,
+                                                 TReal normScale)
+{
+    const int b = static_cast<int>(blockIdx.x);
+    const int k = static_cast<int>(blockIdx.y) * blockDim.x + threadIdx.x;
+    if (k > halfN)
+    {
+        return;
+    }
+
+    if (k == 0 || k == halfN)
+    {
+        d_cmplx[b * (halfN + 1) + k] = {TReal(0), TReal(0)};
+        return;
+    }
+
+    const TComplex cx            = d_cmplx[b * (halfN + 1) + k];
+    const TReal betaK            = static_cast<TReal>(k) * beta;
+    const TReal scale            = -betaK * betaK * normScale;
+    d_cmplx[b * (halfN + 1) + k] = {cx.x * scale, cx.y * scale};
+}
+
 /// \brief Scale every complex element of \p d by \p alpha, in place.
 ///
 /// \param d        Device pointer to \p nComplex complex elements.

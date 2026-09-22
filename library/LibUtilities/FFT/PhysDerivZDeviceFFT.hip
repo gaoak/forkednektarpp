@@ -289,6 +289,52 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
 }
 
 template <typename TData>
+void PhysDerivZ2Direct(const TData *d_in, TData *d_out, unsigned int nhomo,
+                       size_t NXY, size_t compStride, TData beta,
+                       unsigned int streamID)
+{
+    // The declaration hands the stream over as an id to keep the header
+    // independent of the HIP runtime; the registry resolves it to the real
+    // handle here.
+    hipStream_t stream = HIPStream::GetInstance(streamID);
+
+    // The plans depend only on the problem size, so the first derivative's
+    // entry serves here too; only the wavenumber multiply differs.
+    DirectPlanEntry<TData> entry =
+        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
+
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(hipfftExecD2Z(
+            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(hipfftExecR2C(
+            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
+    }
+
+    const TData invN = 1.0 / static_cast<TData>(nhomo);
+    const dim3 grid(
+        static_cast<unsigned int>(NXY),
+        static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
+                              entry.blockSizeWave));
+    WavenumberMultiply2Kernel<<<grid, entry.blockSizeWave, 0, stream>>>(
+        entry.d_cmplx, entry.halfN, beta, invN);
+
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(
+            hipfftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
+    }
+    else if constexpr (std::is_same_v<TData, float>)
+    {
+        CHECK_HIPCUDA_FFT_ERROR(
+            hipfftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
+    }
+}
+
+template <typename TData>
 void PhysDerivZPrepare(unsigned int nhomo, size_t NXY, size_t compStride,
                        unsigned int streamID)
 {
@@ -304,6 +350,15 @@ template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
                                       unsigned int streamID);
+
+template void PhysDerivZ2Direct<double>(const double *d_in, double *d_out,
+                                        unsigned int nhomo, size_t NXY,
+                                        size_t compStride, double beta,
+                                        unsigned int streamID);
+template void PhysDerivZ2Direct<float>(const float *d_in, float *d_out,
+                                       unsigned int nhomo, size_t NXY,
+                                       size_t compStride, float beta,
+                                       unsigned int streamID);
 
 template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
                                         size_t compStride,

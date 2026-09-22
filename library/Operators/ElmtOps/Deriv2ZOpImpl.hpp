@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZOpImpl.hpp
+// File: Deriv2ZOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Declaration of the homogeneous z-derivative backend.
+// Description: Declaration of the homogeneous second z-derivative backend.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -37,8 +37,8 @@
 namespace Nektar::Operators::detail
 {
 template <typename ExecSpace, typename TData, typename Enable = void>
-class PhysDerivZOpImpl;
+class Deriv2ZOpImpl;
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOpDevice.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivZOpSerialAVX.hpp"
+#include "Operators/ElmtOps/Deriv2ZOpDevice.hpp"
+#include "Operators/ElmtOps/Deriv2ZOpSerialAVX.hpp"

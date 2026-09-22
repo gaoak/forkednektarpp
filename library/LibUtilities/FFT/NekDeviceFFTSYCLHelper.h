@@ -284,6 +284,61 @@ sycl::event WavenumberMultiplyKernel(
     });
 }
 
+/// \brief Multiply each Fourier mode by \f$-(k\beta)^2\f$ times \p normScale,
+///        in place; only the DC mode is zeroed.
+///
+/// The half-spectrum is laid out as \c d_cmplx[b * (halfN + 1) + k] for batch
+/// entry \c b and wavenumber \c k.
+///
+/// The Nyquist mode goes the same way as in the first derivative, for a
+/// reason particular to this basis rather than to the derivative: Nektar's
+/// eFourier basis spans \f$k = 0\f$ to \f$N/2 - 1\f$ only -- its second slot
+/// is a structural zero, not a Nyquist mode -- so \f$k = N/2\f$ is not
+/// representable and the host transform drops it either way.
+///
+/// \param Q            Queue the kernel is submitted to.
+/// \param d_cmplx      Device pointer to the half-spectrum, modified in place.
+/// \param batch        Number of batch entries.
+/// \param halfN        Index of the Nyquist mode (the spectrum holds
+///                     halfN + 1).
+/// \param beta         Wavenumber factor \f$2\pi/L_z\f$.
+/// \param normScale    Normalisation applied alongside the wavenumber
+///                     multiply (typically \f$1/N\f$ to fold in the
+///                     inverse-transform scaling).
+/// \param dependencies Events the kernel waits on.
+template <typename TReal>
+sycl::event WavenumberMultiply2Kernel(
+    sycl::queue &Q, DFTCmplx<TReal> *d_cmplx, size_t batch, std::int64_t halfN,
+    TReal beta, TReal normScale,
+    const std::vector<sycl::event> &dependencies = {})
+{
+    const std::int64_t nModes = halfN + 1;
+    TReal *d_reim             = AsReIm(d_cmplx);
+
+    return Q.submit([&](sycl::handler &cgh) {
+        cgh.depends_on(dependencies);
+        cgh.parallel_for(
+            sycl::range<2>(batch, static_cast<size_t>(nModes)),
+            [=](sycl::id<2> indx) {
+                const std::int64_t b = static_cast<std::int64_t>(indx[0]);
+                const std::int64_t k = static_cast<std::int64_t>(indx[1]);
+                const size_t re      = 2 * static_cast<size_t>(b * nModes + k);
+
+                if (k == 0 || k == halfN)
+                {
+                    d_reim[re]     = TReal(0);
+                    d_reim[re + 1] = TReal(0);
+                    return;
+                }
+
+                const TReal betaK = static_cast<TReal>(k) * beta;
+                const TReal scale = -betaK * betaK * normScale;
+                d_reim[re]        = d_reim[re] * scale;
+                d_reim[re + 1]    = d_reim[re + 1] * scale;
+            });
+    });
+}
+
 /// \brief Scale every complex element of \p d by \p alpha, in place.
 ///
 /// \param Q            Queue the kernel is submitted to.

@@ -69,6 +69,37 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
                       size_t NXY, size_t compStride, TData beta,
                       unsigned int streamID);
 
+/// \brief Compute minus the second z-derivative of a real field in the
+/// homogeneous direction on the device (D2Z + wavenumber multiply + Z2D).
+///
+/// Same pipeline and layout as PhysDerivZDirect(), with the multiplier
+/// \f$-(k\beta)^2\f$ in place of \f$ik\beta\f$, so it gives
+/// \f$\partial_z^2 u\f$ rather than \f$\partial_z u\f$. It exists so that
+/// the second derivative costs one transform pair rather than the two that
+/// calling PhysDerivZDirect() twice would take; the two agree, both zeroing
+/// the mean and the mode at \f$k = N/2\f$, which Nektar's eFourier basis
+/// cannot represent.
+///
+/// The plans depend only on the problem size, so PhysDerivZPrepare() prepares
+/// this entry point as well.
+///
+/// The field is in plane-major layout: \c d_in[plane * compStride + xy].
+/// \c d_in and \c d_out may alias the same buffer (in-place is safe).
+///
+/// \param d_in       Device pointer to the input real field.
+/// \param d_out      Device pointer to the output real field.
+/// \param nhomo      Number of homogeneous planes (must be even).
+/// \param NXY        Number of points per plane (FFT batch size).
+/// \param compStride Stride between successive planes in the buffers
+///                   (>= NXY; equals NXY when there is no padding).
+/// \param beta       Wavenumber factor \f$2\pi/L_z\f$.
+/// \param streamID   Id of the stream on which all work is submitted, as for
+///                   PhysDerivZDirect().
+template <typename TData>
+void PhysDerivZ2Direct(const TData *d_in, TData *d_out, unsigned int nhomo,
+                       size_t NXY, size_t compStride, TData beta,
+                       unsigned int streamID);
+
 /// \brief Create and cache everything PhysDerivZDirect() needs for this
 /// problem size on this stream, without submitting any of the pipeline.
 ///

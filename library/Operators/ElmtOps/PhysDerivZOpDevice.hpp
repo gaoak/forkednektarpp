@@ -114,15 +114,15 @@ public:
         {
             const unsigned int streamID = blk + 1;
 
-            auto &inblock           = in.GetBlocks()[blk];
-            auto &outblock          = out.GetBlocks()[blk];
-            const size_t compStride = inblock.CompSize();
-
             if (replay)
             {
                 LaunchGraph(blk);
                 continue;
             }
+
+            auto &inblock           = in.GetBlocks()[blk];
+            auto &outblock          = out.GetBlocks()[blk];
+            const size_t compStride = inblock.CompSize();
 
             // Resolved before the capture opens: on a first touch these
             // allocate the block storage and copy it in, and a transfer
