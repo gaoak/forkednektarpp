@@ -65,13 +65,13 @@ MACRO(ADD_ELMT_OPERATOR dir)
             FOREACH (TData IN LISTS DataTypes)
                 # Set up the name used for the .cpp declaration file.
                 SET(FactoryDeclName
-	        "src/Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
+                   "src/Block${name}${ExecSpace}${Impl}${TData}.${SOURCE_EXT}")
 
                 # Get the source and header files for this operator,
                 # execution space, and implementation.
                 SET(CURRENT_HEADERS ${name}_${ExecSpace}_${Impl}_HEADERS)
                 SET(CURRENT_SOURCES ${name}_${ExecSpace}_${Impl}_SOURCES)
-                
+
                 # Get the headers matching the name, execution space, and
                 # Implementation (specific and kernel).
                 FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -251,7 +251,7 @@ IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
     SET(CUNROLL_ICE_SOURCES)
     FOREACH(src IN LISTS OPERATORS_SOURCES)
         GET_FILENAME_COMPONENT(src_name "${src}" NAME)
-        IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace)(Serial|AVX)Generic(double|float)(Hex|Pyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
+        IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace)(Serial|AVX)SumFac(double|float)(Hex|Pyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
             LIST(APPEND CUNROLL_ICE_SOURCES "${src}")
         ENDIF()
     ENDFOREACH()

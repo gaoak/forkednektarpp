@@ -208,6 +208,17 @@ TEST_IPWRTTRACESINGLE(ipwrtTrace_tet_single, Tet, 1.0E-12, true)
 
 TEST_IPWRTTRACESINGLE(ipwrtTrace_tet_single_coll, Tet, 1.0E-12, false)
 
+TEST_IPWRTTRACESINGLE(ipwrtTrace_quad_gauss_single, QuadGaussPts, 1.0E-12, true)
+
+TEST_IPWRTTRACESINGLE(ipwrtTrace_quad_gauss_single_coll, QuadGaussPts, 1.0E-12,
+                      false)
+
+TEST_IPWRTTRACESINGLE(ipwrtTrace_hex_gauss_single, HexAffineGauss, 1.0E-12,
+                      true)
+
+TEST_IPWRTTRACESINGLE(ipwrtTrace_hex_gauss_single_coll, HexAffineGauss, 1.0E-12,
+                      false)
+
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

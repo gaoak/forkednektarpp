@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysTraceExtractDeviceGenericKernels.hpp
+// File: PhysTraceExtractDeviceSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file PhysTraceExtractDeviceGenericKernels.hpp
+ * @file PhysTraceExtractDeviceSumFacKernels.hpp
  * @brief Device kernels of the trace extraction: one element per warp
  * lane.
  *
@@ -163,11 +163,10 @@
  *
  * Not everything here is live, and not everything live is correct:
  * - These kernels index with @c warpSize throughout and map one element
- *   to one lane, so they carry no implementation tag: there is one
- *   trace-extraction algorithm and the block operator registers it
- *   under @c Generic. A @c SumFacTOP block operator's width-one
- *   interleave would contradict the indexing here, and no template
- *   parameter now offers to accept it.
+ *   to one lane: they are the @c SumFac family, and their Implementation
+ *   parameter is constrained to that tag. The width-one,
+ *   one-element-per-block family is
+ *   PhysTraceExtractDeviceSumFacTOPKernels.hpp.
  * - The general (non-endpoint-collocated) arm of the three-dimensional
  *   normal stage carries the @c ntbasis row stride as an explicit
  *   @c tstride argument, separate from the face-loop bound. The two
@@ -191,10 +190,10 @@
  * compiled only for the device back-ends (NEKTAR_ENABLE_DEVICE together
  * with DEVICE_COMPILE_ONLY).
  *
- * @see PhysTraceExtractDeviceGeneric.hpp for the dispatch and the
- * launches, PhysTraceExtractSerialAVXGenericKernels.hpp for the SIMD
+ * @see PhysTraceExtractDeviceSumFac.hpp for the dispatch and the
+ * launches, PhysTraceExtractSerialAVXSumFacKernels.hpp for the SIMD
  * counterparts of the same decomposition, and
- * IProductWRTPhysTraceDeviceGenericKernels.hpp for the adjoint operation,
+ * IProductWRTPhysTraceDeviceSumFacKernels.hpp for the adjoint operation,
  * which applies the same tables transposed.
  */
 
@@ -266,10 +265,11 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysTraceExtractBlockSize(
  * traces being its end vertices with nothing to interpolate
  * tangentially.
  */
-template <
-    typename TTraceSizeParameter1D,
-    std::enable_if_t<IsTraceSizeParameter1D_v<TTraceSizeParameter1D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t PhysTraceExtractWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
@@ -279,10 +279,11 @@ inline constexpr size_t PhysTraceExtractWorkSpaceSize(
 
 /// @brief Workspace of a whole block, per component: one edge block per
 /// element, which PhysTraceExtractBlockSize() sizes.
-template <
-    typename TTraceSizeParameter2D,
-    std::enable_if_t<IsTraceSizeParameter2D_v<TTraceSizeParameter2D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t PhysTraceExtractWorkSpaceSize(
     const size_t nelmt, const TTraceSizeParameter2D sizeParam2D)
 {
@@ -292,14 +293,57 @@ inline constexpr size_t PhysTraceExtractWorkSpaceSize(
 /// @brief Workspace of a whole block, per component: three
 /// PhysTraceExtractBlockSize() per element, two for the face block the
 /// normal stage writes and one for the tangential scratch.
-template <
-    typename TTraceSizeParameter3D,
-    std::enable_if_t<IsTraceSizeParameter3D_v<TTraceSizeParameter3D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t PhysTraceExtractWorkSpaceSize(
     const size_t nelmt, const TTraceSizeParameter3D sizeParam3D)
 {
     return 3u * PhysTraceExtractBlockSize(sizeParam3D) * nelmt;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, the
+/// intermediates living in the global workspace
+/// PhysTraceExtractWorkSpaceSize() sizes.
+template <typename Implementation, typename TTraceSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, the
+/// intermediates living in the global workspace
+/// PhysTraceExtractWorkSpaceSize() sizes.
+template <typename Implementation, typename TTraceSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D)
+{
+    return 0;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, the
+/// intermediates living in the global workspace
+/// PhysTraceExtractWorkSpaceSize() sizes.
+template <typename Implementation, typename TTraceSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter3D sizeParam3D)
+{
+    return 0;
 }
 
 /**
@@ -596,15 +640,19 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacKernelTrace(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter1D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void PhysTraceExtractKernelLauncher(
-    const TTraceSizeParameter1D sizeParam1D, const size_t nelmt,
-    [[maybe_unused]] const unsigned int nmTot,
-    const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-    const bool endPtsCollocated0, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter1D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
+    PhysTraceExtractKernelLauncher(
+        const TTraceSizeParameter1D sizeParam1D, const size_t nelmt,
+        [[maybe_unused]] const unsigned int nmTot,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        const bool endPtsCollocated0, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                   "Template argument must be either of type "
@@ -669,16 +717,20 @@ NEK_DEVICE_KERNEL void PhysTraceExtractKernelLauncher(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter1D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void PhysTraceExtractTraceKernelLauncher(
-    const unsigned int traceid, const TTraceSizeParameter1D sizeParam1D,
-    const size_t nelmt, [[maybe_unused]] const unsigned int nmTot,
-    const unsigned int numDataOut, const unsigned int outOffset,
-    const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
-    const bool endPtsCollocated0, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter1D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
+    PhysTraceExtractTraceKernelLauncher(
+        const unsigned int traceid, const TTraceSizeParameter1D sizeParam1D,
+        const size_t nelmt, [[maybe_unused]] const unsigned int nmTot,
+        const unsigned int numDataOut, const unsigned int outOffset,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, [[maybe_unused]] TData *NEK_RESTRICT wsp,
+        const bool endPtsCollocated0, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                   "Template argument must be either of type "
@@ -781,7 +833,8 @@ NEK_DEVICE_KERNEL void PhysTraceExtractTraceKernelLauncher(
  *                      leaves both at zero, its window being one edge
  *                      wide.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, int NormalDir, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, unsigned int NormalDir,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernelTrace(
     const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nq0,
@@ -1061,17 +1114,22 @@ NEK_DEVICE_INLINE static void PhysTraceExtract2DSumFacKernelCore(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter2D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void PhysTraceExtractKernelLauncher(
-    const TTraceSizeParameter2D sizeParam2D, const size_t nelmt,
-    const unsigned int nmTot, const TData *NEK_RESTRICT ntbasis0,
-    const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const bool isCollocated0,
-    const bool isCollocated1, const bool endPtsCollocated0,
-    const bool endPtsCollocated1, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter2D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
+    PhysTraceExtractKernelLauncher(
+        const TTraceSizeParameter2D sizeParam2D, const size_t nelmt,
+        const unsigned int nmTot, const TData *NEK_RESTRICT ntbasis0,
+        const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT basis0,
+        const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        const bool isCollocated0, const bool isCollocated1,
+        const bool endPtsCollocated0, const bool endPtsCollocated1,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1218,18 +1276,23 @@ NEK_DEVICE_INLINE static void PhysTraceExtractEdgeKernel(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter2D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void PhysTraceExtractTraceKernelLauncher(
-    const unsigned int traceid, const TTraceSizeParameter2D sizeParam2D,
-    const size_t nelmt, const unsigned int nmTot, const unsigned int numDataOut,
-    const unsigned int outOffset, const TData *NEK_RESTRICT ntbasis0,
-    const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT tbasis00,
-    const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const bool isCollocated00,
-    const bool isCollocated10, const bool endPtsCollocated0,
-    const bool endPtsCollocated1, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter2D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
+    PhysTraceExtractTraceKernelLauncher(
+        const unsigned int traceid, const TTraceSizeParameter2D sizeParam2D,
+        const size_t nelmt, const unsigned int nmTot,
+        const unsigned int numDataOut, const unsigned int outOffset,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT ntbasis1,
+        const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis10,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        TData *NEK_RESTRICT wsp, const bool isCollocated00,
+        const bool isCollocated10, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -2100,22 +2163,27 @@ NEK_DEVICE_INLINE static void PhysTraceExtract3DSumFacKernelCore(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter3D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void PhysTraceExtractKernelLauncher(
-    const TTraceSizeParameter3D sizeParam3D, const size_t nelmt,
-    const unsigned int nmTot, const TData *NEK_RESTRICT ntbasis0,
-    const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT ntbasis2,
-    const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
-    const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
-    const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp, const bool isCollocated00,
-    const bool isCollocated01, const bool isCollocated10,
-    const bool isCollocated11, const bool isCollocated20,
-    const bool isCollocated21, const bool endPtsCollocated0,
-    const bool endPtsCollocated1, const bool endPtsCollocated2,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter3D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
+    PhysTraceExtractKernelLauncher(
+        const TTraceSizeParameter3D sizeParam3D, const size_t nelmt,
+        const unsigned int nmTot, const TData *NEK_RESTRICT ntbasis0,
+        const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT ntbasis2,
+        const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
+        const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
+        const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        TData *NEK_RESTRICT wsp, const bool isCollocated00,
+        const bool isCollocated01, const bool isCollocated10,
+        const bool isCollocated11, const bool isCollocated20,
+        const bool isCollocated21, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, const bool endPtsCollocated2,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
@@ -2322,23 +2390,28 @@ NEK_DEVICE_INLINE static void PhysTraceFaceExtractKernel(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter3D,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL void PhysTraceExtractTraceKernelLauncher(
-    const unsigned int traceid, const TTraceSizeParameter3D sizeParam3D,
-    const size_t nelmt, const unsigned int nmTot, const unsigned int numDataOut,
-    const unsigned int outOffset, const TData *NEK_RESTRICT ntbasis0,
-    const TData *NEK_RESTRICT ntbasis1, const TData *NEK_RESTRICT ntbasis2,
-    const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
-    const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
-    const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp, const bool isCollocated00,
-    const bool isCollocated01, const bool isCollocated10,
-    const bool isCollocated11, const bool isCollocated20,
-    const bool isCollocated21, const bool endPtsCollocated0,
-    const bool endPtsCollocated1, const bool endPtsCollocated2,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TTraceSizeParameter3D, typename TthreadBlock, typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
+    PhysTraceExtractTraceKernelLauncher(
+        const unsigned int traceid, const TTraceSizeParameter3D sizeParam3D,
+        const size_t nelmt, const unsigned int nmTot,
+        const unsigned int numDataOut, const unsigned int outOffset,
+        const TData *NEK_RESTRICT ntbasis0, const TData *NEK_RESTRICT ntbasis1,
+        const TData *NEK_RESTRICT ntbasis2, const TData *NEK_RESTRICT tbasis00,
+        const TData *NEK_RESTRICT tbasis01, const TData *NEK_RESTRICT tbasis10,
+        const TData *NEK_RESTRICT tbasis11, const TData *NEK_RESTRICT tbasis20,
+        const TData *NEK_RESTRICT tbasis21, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
+        const bool isCollocated00, const bool isCollocated01,
+        const bool isCollocated10, const bool isCollocated11,
+        const bool isCollocated20, const bool isCollocated21,
+        const bool endPtsCollocated0, const bool endPtsCollocated1,
+        const bool endPtsCollocated2, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "

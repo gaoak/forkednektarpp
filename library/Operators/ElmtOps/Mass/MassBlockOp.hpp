@@ -48,7 +48,7 @@ public:
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        const std::string &execStr, std::string implStr)
+        const std::string &execStr, const std::string &implStr)
     {
         return ElmtBlockOp<FieldState::Coeff, FieldState::Coeff,
                            TData>::template Create<MassBlockOp>(block_idx, exp,

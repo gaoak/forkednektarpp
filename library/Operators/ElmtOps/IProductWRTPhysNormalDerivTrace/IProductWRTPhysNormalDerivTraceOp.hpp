@@ -83,10 +83,10 @@
  *   and the active-direction selector;
  * - detail::IProductWRTPhysNormalDerivTraceBlockOpImpl: the per-block
  *   implementations, in
- *   IProductWRTPhysNormalDerivTraceSerialAVXGeneric.hpp (serving both
+ *   IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp (serving both
  *   the Serial and the AVX space) and
- *   IProductWRTPhysNormalDerivTraceDeviceGeneric.hpp (Device);
- * - the kernels in the matching *GenericKernels.hpp headers.
+ *   IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp (Device);
+ * - the kernels in the matching *SumFacKernels.hpp headers.
  *
  * The per-shape entry points, the ShapeBlock() specialisations, come from the
  * generated translation-unit template
@@ -95,11 +95,11 @@
  * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, whose
  * per-shape template arguments carry trace point counts per normal direction.
  *
- * @note There is one algorithm here and one registration, under
- * Operators::Generic. A StdMat, SumFac or SumFacTOP request does not
- * fail the factory lookup: ElmtBlockOp::Create() falls back to the
- * `"Generic"` key whenever the requested one is absent, so a whole-field
- * selection of any implementation can include this operator.
+ * @note There is one algorithm here, registered under Operators::SumFac
+ * and, on Device, under SumFacTOP from the same header. A StdMat request
+ * is mapped to SumFac by IProductWRTPhysNormalDerivTraceBlockOp::Create(),
+ * so a whole-field selection of StdMat, SumFac or SumFacTOP can include
+ * this operator.
  *
  * @see IProductWRTPhysTraceOp.hpp for the plain trace lift this operator
  * is built on, whose layouts and conventions it follows.
@@ -179,9 +179,9 @@ public:
      *                          operator is set up for.
      * @param   execStr         Execution space ("Serial", "AVX" or
      *                          "Device"); session default if empty.
-     * @param   implStr         Block implementation; every value
-     *                          resolves to the single "Generic"
-     *                          registration, see the file notes.
+     * @param   implStr         Block implementation; StdMat resolves to
+     *                          the SumFac registration, see the file
+     *                          notes.
      *
      * @return The fully assembled operator, ready to Apply.
      */

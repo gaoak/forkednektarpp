@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysNormalDerivTraceSerialAVXGenericKernels.hpp
+// File: IProductWRTPhysNormalDerivTraceSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,7 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysNormalDerivTraceSerialAVXGenericKernels.hpp
+ * @file IProductWRTPhysNormalDerivTraceSerialAVXSumFacKernels.hpp
  * @brief Serial and AVX kernels of the surface inner product against the
  * normal derivative of the volume cardinal basis.
  *
@@ -58,7 +58,7 @@
  * collocated for its own term.
  *
  * The edge and face cores are those of the plain trace lift in
- * IProductWRTPhysTraceSerialAVXGenericKernels.hpp; this file only decides
+ * IProductWRTPhysTraceSerialAVXSumFacKernels.hpp; this file only decides
  * which tables each core sees and where the collapsed factors go. The
  * three IProductWRTPhysNormalDerivTraceKernelLauncher() overloads are the
  * entry points the block operator's OperatorND() reaches; overload
@@ -72,9 +72,9 @@
  * parameters: one body per size serves all terms and both modes, and only
  * the end-point variants of the shared cores are instantiated twice.
  *
- * @see IProductWRTPhysNormalDerivTraceSerialAVXGeneric.hpp for the block
+ * @see IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp for the block
  * operator that calls these kernels.
- * @see IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp for the
+ * @see IProductWRTPhysNormalDerivTraceDeviceSumFacKernels.hpp for the
  * same decomposition packed for warp lanes instead of SIMD vectors.
  */
 
@@ -86,7 +86,7 @@
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceSerialAVXGenericKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -194,6 +194,8 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceEdgeGroupKernel(
     // Edge group offsets into the input and the factors, matching what
     // the plain trace lift does internally. Only the group being
     // instantiated reads its own offsets, so the others go unused.
+    [[maybe_unused]] constexpr unsigned nedgeN0 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
     [[maybe_unused]] constexpr unsigned nedgeN1 =
         LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
 
@@ -211,14 +213,14 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceEdgeGroupKernel(
         if (endPtsCollocated)
         {
             IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(
-                0, 2, nm0, nm1, nbasis, tnq00, tbasis, tw, jac, wsp, in, dst,
-                isCollocated);
+                0, nedgeN0, nedgeN0, nm0, nm1, nbasis, tnq00, tbasis, tw, jac,
+                wsp, in, dst, isCollocated);
         }
         else
         {
             IPWRTPhysTraceEdgeN0Kernel<false, DEFORMED>(
-                0, 2, nm0, nm1, nbasis, tnq00, tbasis, tw, jac, wsp, in, dst,
-                isCollocated);
+                0, nedgeN0, nedgeN0, nm0, nm1, nbasis, tnq00, tbasis, tw, jac,
+                wsp, in, dst, isCollocated);
         }
     }
     else
@@ -226,14 +228,14 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceEdgeGroupKernel(
         if (endPtsCollocated)
         {
             IPWRTPhysTraceEdgeN1Kernel<true, DEFORMED>(
-                0, nedgeN1, nm0, nm1, nbasis, tnq10, tbasis, tw, jac + joff1,
-                wsp, in + off1, dst, isCollocated);
+                0, nedgeN1, nedgeN1, nm0, nm1, nbasis, tnq10, tbasis, tw,
+                jac + joff1, wsp, in + off1, dst, isCollocated);
         }
         else
         {
             IPWRTPhysTraceEdgeN1Kernel<false, DEFORMED>(
-                0, nedgeN1, nm0, nm1, nbasis, tnq10, tbasis, tw, jac + joff1,
-                wsp, in + off1, dst, isCollocated);
+                0, nedgeN1, nedgeN1, nm0, nm1, nbasis, tnq10, tbasis, tw,
+                jac + joff1, wsp, in + off1, dst, isCollocated);
         }
     }
 
@@ -341,6 +343,8 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceFaceGroupKernel(
     // Face group offsets into the input and the factors, matching what
     // the plain trace lift does internally. Only the group being
     // instantiated reads its own offsets, so the others go unused.
+    [[maybe_unused]] constexpr unsigned nfaceN0 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
     [[maybe_unused]] constexpr unsigned nfaceN1 =
         LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
     [[maybe_unused]] constexpr unsigned nfaceN2 =
@@ -365,16 +369,16 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceFaceGroupKernel(
         if (endPtsCollocated)
         {
             IPWRTPhysTraceFaceN0Kernel<true, DEFORMED>(
-                0, 2, nm0, nm1, nm2, nbasis, tnq00, tnq01, tbasisA, tbasisB,
-                twA, twB, jac, wsp0, wsp1, in, dst, isCollocatedA,
-                isCollocatedB);
+                0, nfaceN0, nfaceN0, nm0, nm1, nm2, nbasis, tnq00, tnq01,
+                tbasisA, tbasisB, twA, twB, jac, wsp0, wsp1, in, dst,
+                isCollocatedA, isCollocatedB);
         }
         else
         {
             IPWRTPhysTraceFaceN0Kernel<false, DEFORMED>(
-                0, 2, nm0, nm1, nm2, nbasis, tnq00, tnq01, tbasisA, tbasisB,
-                twA, twB, jac, wsp0, wsp1, in, dst, isCollocatedA,
-                isCollocatedB);
+                0, nfaceN0, nfaceN0, nm0, nm1, nm2, nbasis, tnq00, tnq01,
+                tbasisA, tbasisB, twA, twB, jac, wsp0, wsp1, in, dst,
+                isCollocatedA, isCollocatedB);
         }
     }
     else if constexpr (FACE_NORMAL_DIR == 1)
@@ -382,16 +386,16 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceFaceGroupKernel(
         if (endPtsCollocated)
         {
             IPWRTPhysTraceFaceN1Kernel<true, DEFORMED>(
-                0, nfaceN1, nm0, nm1, nm2, nbasis, tnq10, tnq11, tbasisA,
-                tbasisB, twA, twB, jac + joff1, wsp0, wsp1, in + off1, dst,
-                isCollocatedA, isCollocatedB);
+                0, nfaceN1, nfaceN1, nm0, nm1, nm2, nbasis, tnq10, tnq11,
+                tbasisA, tbasisB, twA, twB, jac + joff1, wsp0, wsp1, in + off1,
+                dst, isCollocatedA, isCollocatedB);
         }
         else
         {
             IPWRTPhysTraceFaceN1Kernel<false, DEFORMED>(
-                0, nfaceN1, nm0, nm1, nm2, nbasis, tnq10, tnq11, tbasisA,
-                tbasisB, twA, twB, jac + joff1, wsp0, wsp1, in + off1, dst,
-                isCollocatedA, isCollocatedB);
+                0, nfaceN1, nfaceN1, nm0, nm1, nm2, nbasis, tnq10, tnq11,
+                tbasisA, tbasisB, twA, twB, jac + joff1, wsp0, wsp1, in + off1,
+                dst, isCollocatedA, isCollocatedB);
         }
     }
     else
@@ -399,16 +403,16 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceFaceGroupKernel(
         if (endPtsCollocated)
         {
             IPWRTPhysTraceFaceN2Kernel<true, DEFORMED>(
-                0, nfaceN2, nm0, nm1, nm2, nbasis, tnq20, tnq21, tbasisA,
-                tbasisB, twA, twB, jac + joff2, wsp0, wsp1, in + off2, dst,
-                isCollocatedA, isCollocatedB);
+                0, nfaceN2, nfaceN2, nm0, nm1, nm2, nbasis, tnq20, tnq21,
+                tbasisA, tbasisB, twA, twB, jac + joff2, wsp0, wsp1, in + off2,
+                dst, isCollocatedA, isCollocatedB);
         }
         else
         {
             IPWRTPhysTraceFaceN2Kernel<false, DEFORMED>(
-                0, nfaceN2, nm0, nm1, nm2, nbasis, tnq20, tnq21, tbasisA,
-                tbasisB, twA, twB, jac + joff2, wsp0, wsp1, in + off2, dst,
-                isCollocatedA, isCollocatedB);
+                0, nfaceN2, nfaceN2, nm0, nm1, nm2, nbasis, tnq20, tnq21,
+                tbasisA, tbasisB, twA, twB, jac + joff2, wsp0, wsp1, in + off2,
+                dst, isCollocatedA, isCollocatedB);
         }
     }
 

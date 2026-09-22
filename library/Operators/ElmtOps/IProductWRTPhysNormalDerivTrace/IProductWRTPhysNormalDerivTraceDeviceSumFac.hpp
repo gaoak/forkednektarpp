@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysNormalDerivTraceDeviceGeneric.hpp
+// File: IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,7 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysNormalDerivTraceDeviceGeneric.hpp
+ * @file IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp
  * @brief Device dispatch and kernel launches of the sum-factorised surface
  * inner product against the normal derivative of the volume cardinal
  * basis.
@@ -47,30 +47,30 @@
  * factors and the trace derivative factors out of the data warehouse;
  * each application then sizes the workspace and the launch configuration,
  * normalises the storage interleave and dispatches per shape into
- * IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp. No arithmetic
+ * IProductWRTPhysNormalDerivTraceDeviceSumFacKernels.hpp. No arithmetic
  * on the field happens here.
  *
- * CMake serves Operators::Generic from this one header (the Device Generic
- * branch of library/Operators/CMakeLists.txt) and generates one translation
- * unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units define
- * the per-shape entry points declared below, expanding
- * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
- * operator's switch template.
+ * CMake serves Operators::SumFac and Operators::SumFacTOP from this one
+ * header (the Device SumFac branch of library/Operators/CMakeLists.txt)
+ * and generates one translation unit per shape and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * define the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
+ * this operator's switch template.
  *
- * This operator has a single implementation, registered under
- * Operators::Generic, so the class is only ever built with that tag and
- * #m_implInterleaveWidth is unconditionally
- * NektarSpaces::Device::warpSize, the interleave the kernels index with.
- * The launch geometry is one element per warp, which is the shape
+ * This operator has a single algorithm, registered under
+ * Operators::SumFac and, from this same header, under SumFacTOP. The
+ * class reads neither tag: #m_implInterleaveWidth is unconditionally
+ * NektarSpaces::Device::warpSize, the interleave the kernels index with,
+ * and the launch geometry is one element per warp, which is the shape
  * GetDeviceBlockSize() and GetDeviceGridSize() compute for
  * Operators::SumFac, so that is what those helpers are queried with.
  *
  * @see IProductWRTPhysNormalDerivTraceOp.hpp for what the operator
  * computes and how the family is laid out.
- * @see IProductWRTPhysNormalDerivTraceSerialAVXGeneric.hpp for the same
+ * @see IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp for the same
  * decomposition packed for SIMD vectors instead of warp lanes.
- * @see IProductWRTPhysTraceDeviceGeneric.hpp for the plain trace lift this
+ * @see IProductWRTPhysTraceDeviceSumFac.hpp for the plain trace lift this
  * operator is built on, whose layout it follows.
  */
 
@@ -79,7 +79,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp"
-#include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceDeviceSumFacKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -106,8 +106,8 @@ namespace Nektar::Operators::detail
  * fetch, reshape and launch on it, so blocks can run concurrently. The
  * workspace is BlockOperator's shared static buffer, kept per stream.
  *
- * @tparam Implementation  Operators::Generic, this operator providing a
- *                         single implementation.
+ * @tparam Implementation  Operators::SumFac or Operators::SumFacTOP,
+ *                         neither of which the class reads.
  * @tparam TData           Floating-point type of the field data.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -274,8 +274,7 @@ public:
 
     /// @brief Creator function registered with BlockOperatorFactory;
     /// builds one block operator for the given block of elements.
-    /// Implementation is always Operators::Generic here, this operator
-    /// providing a single implementation; see
+    /// Implementation is the tag this class is registered under; see
     /// IProductWRTPhysNormalDerivTraceBlockOp.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>

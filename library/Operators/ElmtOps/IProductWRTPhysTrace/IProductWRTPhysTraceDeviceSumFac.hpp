@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysTraceDeviceGeneric.hpp
+// File: IProductWRTPhysTraceDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysTraceDeviceGeneric.hpp
+ * @file IProductWRTPhysTraceDeviceSumFac.hpp
  * @brief Device dispatch and kernel launchers of the sum-factorised
  * surface inner product against the volume cardinal basis.
  *
@@ -44,16 +44,16 @@
  * trace weights and trace Jacobian out of the data warehouse; each
  * application then sizes the workspace and the launch configuration,
  * normalises the storage interleave and dispatches per shape into
- * IProductWRTPhysTraceDeviceGenericKernels.hpp. No arithmetic on the
+ * IProductWRTPhysTraceDeviceSumFacKernels.hpp. No arithmetic on the
  * field happens here.
  *
- * CMake serves Operators::Generic from this one header (the Device Generic
- * branch of library/Operators/CMakeLists.txt) and generates one translation
- * unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units define
- * the per-shape entry points declared below, expanding
- * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
- * operator's switch template.
+ * CMake serves Operators::SumFac and Operators::SumFacTOP from this one
+ * header (the Device SumFac branch of library/Operators/CMakeLists.txt)
+ * and generates one translation unit per shape and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * define the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
+ * this operator's switch template.
  *
  * Two entry points reach the kernels:
  * - v_Apply, the bulk path, which lifts all of an element's traces in
@@ -63,34 +63,21 @@
  *   trace out of a packed trace field, zeroing the volume array or
  *   accumulating onto it according to #m_append as the bulk path does.
  *
- * @note This operator has a single implementation, registered under
- * Operators::Generic, so the class is only ever built with that tag and
- * #m_implInterleaveWidth is unconditionally
- * NektarSpaces::Device::warpSize, the interleave the kernels index
- * with. A StdMat, SumFac or SumFacTOP request reaches it through
- * ElmtBlockOp::Create()'s fallback to the `"Generic"` factory key.
- * SumFacTOP in particular must not select a width-one interleave here:
- * that would feed contiguous per-element data to kernels indexing at
- * the warp size, and with one registration there is no tag left that
- * could.
- *
- * The launch geometry is a separate question from the implementation
- * tag: it is one element per warp, which is the shape
- * GetDeviceBlockSize() and GetDeviceGridSize() compute for
- * Operators::SumFac, so that is what those helpers are queried with
- * rather than with Implementation, which is Operators::Generic here and
- * names no launch shape of its own. The kernels in
- * IProductWRTPhysTraceDeviceGenericKernels.hpp take no implementation
- * tag at all: they are written for that one launch geometry, so the tag
- * would have named nothing they read.
+ * @note Two implementations are registered from this header:
+ * Operators::SumFac, one element per warp lane at the warp-size
+ * interleave, and Operators::SumFacTOP, one element per thread block
+ * at width one. Implementation selects the kernel family, the launch
+ * geometry GetDeviceBlockSize() and GetDeviceGridSize() compute and
+ * #m_implInterleaveWidth. A StdMat request reaches the SumFac class
+ * through IProductWRTPhysTraceBlockOp::Create(), which maps it.
  *
  * @see IProductWRTPhysTraceOp.hpp for what the operator computes and
  * how the family is laid out.
- * @see IProductWRTPhysTraceDeviceGenericKernels.hpp for the kernels
+ * @see IProductWRTPhysTraceDeviceSumFacKernels.hpp for the kernels
  * launched from here.
- * @see IProductWRTPhysTraceSerialAVXGeneric.hpp for the same
+ * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the same
  * decomposition packed for SIMD vectors instead of warp lanes.
- * @see PhysTraceExtractDeviceGeneric.hpp for the adjoint operator, which
+ * @see PhysTraceExtractDeviceSumFac.hpp for the adjoint operator, which
  * applies the same interpolation tables untransposed.
  */
 
@@ -99,7 +86,8 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceBlockOp.hpp"
 
-#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceDeviceGenericKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceDeviceSumFacTOPKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -110,7 +98,8 @@ namespace Nektar::Operators::detail
 
 /**
  * @brief Device block implementation of the trace lifting term, one
- * element per warp lane.
+ * element per warp lane (Operators::SumFac) or per thread block
+ * (Operators::SumFacTOP).
  *
  * @details
  * For every element of the block this accumulates
@@ -133,11 +122,13 @@ namespace Nektar::Operators::detail
  * the tangential tables \f$h_p(\xi^{tr})\f$, called tbasis. Neither is
  * an expansion basis evaluated anywhere.
  *
- * Layout. Field, trace and Jacobian data are warp interleaved: element
- * \f$e = (i_{warp}, i_{lane})\f$ holds its entry @em n at
- * `buf[warpsize * n + ilane]` inside its warp block, and warp blocks
- * stride by `numData * warpsize`. That is why every per-element offset
- * handed to a kernel is scaled by #m_implInterleaveWidth. The packed
+ * Layout. Under Operators::SumFac field, trace and Jacobian data are
+ * warp interleaved: element \f$e = (i_{warp}, i_{lane})\f$ holds its
+ * entry @em n at `buf[warpsize * n + ilane]` inside its warp block, and
+ * warp blocks stride by `numData * warpsize`; under Operators::SumFacTOP
+ * an element's entries are contiguous at width one. That is why every
+ * per-element offset handed to a kernel is scaled by
+ * #m_implInterleaveWidth. The packed
  * trace input, and the deformed trace Jacobian, order traces by normal
  * direction: the N0 pair first, then the N1 pair or single, then N2,
  * face-major within a pair. A regular Jacobian carries one slot per
@@ -152,12 +143,12 @@ namespace Nektar::Operators::detail
  * buffer, which is kept per stream and so is private to the block for
  * the same reason.
  *
- * @tparam Implementation  Operators::Generic, this operator providing
- *                         a single implementation; see the file-level
+ * @tparam Implementation  Operators::SumFac or Operators::SumFacTOP,
+ *                         selecting the kernel family; see the file-level
  *                         note.
  * @tparam TData           Floating-point type of the field data.
  *
- * @see IProductWRTPhysTraceDeviceGenericKernels.hpp for the kernel
+ * @see IProductWRTPhysTraceDeviceSumFacKernels.hpp for the kernel
  * layers this class launches.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -316,8 +307,8 @@ public:
 
     /// @brief Creator function registered with BlockOperatorFactory;
     /// builds one block operator for the given block of elements.
-    /// Implementation is always Operators::Generic here, this operator
-    /// providing a single implementation; see IProductWRTPhysTraceBlockOp.
+    /// Implementation is the tag this class is registered under; see
+    /// IProductWRTPhysTraceBlockOp.
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
@@ -331,12 +322,16 @@ public:
     }
 
 protected:
-    /// Interleave width the kernels expect: a full warp, one element
-    /// per lane. The Operator methods reshape the block storage to this
-    /// width around every launch; the per-trace launchers scale their
-    /// per-element offsets by it.
+    /// Interleave width the kernels expect: the warp size for
+    /// Operators::SumFac, one element per lane, and one for
+    /// Operators::SumFacTOP, one element per thread block. The Operator
+    /// methods reshape the block storage to this width around every
+    /// launch; the per-trace launchers scale their per-element offsets
+    /// by it.
     static constexpr unsigned int m_implInterleaveWidth =
-        NektarSpaces::Device::warpSize;
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::Device::warpSize
+            : 1u;
 
     unsigned int m_streamID;
 
@@ -370,10 +365,10 @@ protected:
     /// Trace quadrature weights per (normal direction, tangential
     /// direction), in the same order as #m_nq. Empty in one dimension.
     std::vector<const TData *> m_W;
-    /// Trace Jacobian of the block in device memory, warp interleaved
-    /// and ordered by normal direction then trace: one value per trace
-    /// quadrature point when deformed, one per trace otherwise. Null in
-    /// one dimension, where a trace is a point and carries no measure.
+    /// Trace Jacobian of the block in device memory, interleaved at
+    /// #m_implInterleaveWidth and ordered by normal direction then trace: one
+    /// value per trace quadrature point when deformed, one per trace otherwise.
+    /// Null in one dimension, where a trace is a point and carries no measure.
     const TData *m_jacptr = nullptr;
     /// One flag per normal direction: that direction's volume rule
     /// contains domain endpoints, so interpolating it to the trace
@@ -700,11 +695,12 @@ protected:
      * deformed Jacobian is packed exactly like the trace field, so it
      * takes the same @p inOffset; a regular one has one slot per trace,
      * looked up in #m_shapeTraceIDtoJacOff. Both offsets are scaled by
-     * #m_implInterleaveWidth because the data is warp interleaved.
+     * #m_implInterleaveWidth, the interleave the data is stored at.
      *
      * The workspace is BlockOperator's shared static buffer, sized by
-     * IProductWRTPhysTraceWorkSpaceSize(), which the kernels partition
-     * per warp through the helpers behind it. This path covers a single
+     * IProductWRTPhysTraceWorkSpaceSize(), which the SumFac kernels
+     * partition per warp; the SumFacTOP kernels take the same budget
+     * from dynamic shared memory instead. This path covers a single
      * trace, hence the @c ntrace of one in two dimensions; in three the
      * two regions are sized per face already, so the bulk and the
      * per-trace budgets coincide.
@@ -759,15 +755,23 @@ protected:
         // Get static workspace pointer. This path covers a single
         // trace, hence the ntrace of one in two dimensions; in three
         // the regions are sized per face already.
-        size_t wspSize = 0;
+        size_t wspSize         = 0;
+        unsigned int shmemsize = 0;
         if constexpr (IsTraceSizeParameter2D_v<TTraceSizeParameter>)
         {
-            wspSize =
-                IProductWRTPhysTraceWorkSpaceSize(nelmtPad, sizeParam, 1u);
+            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                nelmtPad, sizeParam, 1u);
+            shmemsize = sizeof(TData) *
+                        IProductWRTPhysTraceSharedMemorySize<Implementation>(
+                            sizeParam, 1u);
         }
         else
         {
-            wspSize = IProductWRTPhysTraceWorkSpaceSize(nelmtPad, sizeParam);
+            wspSize = IProductWRTPhysTraceWorkSpaceSize<Implementation>(
+                nelmtPad, sizeParam);
+            shmemsize =
+                sizeof(TData) *
+                IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
         }
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -775,9 +779,9 @@ protected:
 
         // Set Kernel parameters.
         const unsigned int blocksize =
-            GetDeviceBlockSize<Operators::SumFac>(sizeParam.nmMax());
+            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
-            GetDeviceGridSize<Operators::SumFac>(nelmtPad, blocksize, 0);
+            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
 
         // A deformed Jacobian is packed like the trace field and takes
         // the same offset; a regular one has one slot per trace.
@@ -788,11 +792,11 @@ protected:
 
         // IProductWRTPhysTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysTraceTraceKernelLauncher<DEFORMED>), gridsize,
-            ncomp, blocksize, 1, 0, m_streamID, traceid, SHAPE_TYPE, sizeParam,
-            m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
-            m_B[sizeof...(ind0) + ind1]..., m_W[ind1]...,
-            m_jacptr + jacOffset * m_implInterleaveWidth, wspptr,
+            (IProductWRTPhysTraceTraceKernelLauncher<Implementation, DEFORMED>),
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, traceid,
+            SHAPE_TYPE, sizeParam, m_B[ind0]..., nelmtPad, numDataIn,
+            numDataOut, numDataJac, m_B[sizeof...(ind0) + ind1]...,
+            m_W[ind1]..., m_jacptr + jacOffset * m_implInterleaveWidth, wspptr,
             inptr + inOffset * m_implInterleaveWidth, outptr,
             (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]..., this->m_append);
@@ -948,7 +952,7 @@ protected:
      * quadrilateral or the single edge 0 of a triangle; in three the
      * faces one at a time, in packed order.
      *
-     * The three sizes the kernels need to walk warp-interleaved storage
+     * The three sizes the kernels need to walk the interleaved storage
      * come from the size parameter alone. @c numDataIn, the packed
      * trace entries of one element, is its nqTotTrace(). @c numDataOut,
      * the volume points, is its nmTot(). @c numDataJac follows the
@@ -959,8 +963,9 @@ protected:
      * three-dimensional paths carried separately; they agreed already.
      *
      * The workspace is BlockOperator's shared static buffer, sized by
-     * IProductWRTPhysTraceWorkSpaceSize(), which the kernels partition
-     * per warp through the helpers behind it. Its two-dimensional arm
+     * IProductWRTPhysTraceWorkSpaceSize(), which the SumFac kernels
+     * partition per warp; the SumFacTOP kernels take the same budget
+     * from dynamic shared memory instead. Its two-dimensional arm
      * defaults to an @c ntrace of two, this path integrating a whole
      * edge pair in one call; a segment needs no workspace at all and is
      * given a null pointer, deviceMalloc() returning one for a
@@ -1029,14 +1034,18 @@ protected:
                        : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
         // Set Kernel parameters.
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTPhysTraceSharedMemorySize<Implementation>(sizeParam);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Operators::SumFac>(sizeParam.nmMax());
+            GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
-            GetDeviceGridSize<Operators::SumFac>(nelmtPad, blocksize, 0);
+            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
 
         // Get static workspace pointer.
         const size_t wspSize =
-            IProductWRTPhysTraceWorkSpaceSize(nelmtPad, sizeParam);
+            IProductWRTPhysTraceWorkSpaceSize<Implementation>(nelmtPad,
+                                                              sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);
@@ -1054,8 +1063,9 @@ protected:
 
         // IProductWRTPhysTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, DEFORMED>),
-            gridsize, ncomp, blocksize, 1, 0, m_streamID, sizeParam,
+            (IProductWRTPhysTraceKernelLauncher<SHAPE_TYPE, Implementation,
+                                                DEFORMED>),
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
             m_B[ind0]..., nelmtPad, numDataIn, numDataOut, numDataJac,
             m_B[sizeof...(ind0) + ind1]..., m_W[ind1]..., m_jacptr, wspptr,
             inptr, outptr, (bool)this->m_isCollocated[ind1]...,

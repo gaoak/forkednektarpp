@@ -1,6 +1,6 @@
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysTraceDeviceGenericKernels.hpp
+// File: IProductWRTPhysTraceDeviceSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,10 +28,12 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-////////////////////////////////////////////////////////////////////////////////
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysTraceDeviceGenericKernels.hpp
+ * @file IProductWRTPhysTraceDeviceSumFacKernels.hpp
  * @brief Device kernels of the trace inner product: one element
  * per warp lane.
  *
@@ -116,38 +118,32 @@
  * - top-level kernels (`IProductWRTPhysTraceKernelLauncher`,
  *   `IProductWRTPhysTrace{Edge,Face}Kernel`), which own the grid-stride
  *   loop, the warp mapping and the workspace partitioning;
- * - wrappers (`IProductWRTPhysTrace2D`, `IProductWRTPhysTrace3DFace`),
- *   which zero the volume field and walk the packed traces of one
- *   element;
- * - workers (`IProductWRTPhysTraceEdge`, `IProductWRTPhysTraceFace`),
- *   which turn a face or edge id into a direction and a position;
+ * - wrappers (`IProductWRTPhysTrace2DKernel`,
+ *   `IProductWRTPhysTrace3DFaceKernel`), which zero the volume field
+ *   and walk the packed traces of one element;
+ * - workers (`IProductWRTPhysTraceEdgeKernel`,
+ *   `IProductWRTPhysTraceFaceKernel`), which turn a face or edge id
+ *   into a direction and a position;
  * - glue (`IPWRTPhysTraceEdgeN{0,1}Kernel`,
  *   `IPWRTPhysTraceFaceN{0,1,2}Kernel`), which pick the direction's
  *   tables and counts and call the two leaf stages,
  *   `IPWRTPhys{Edge,Face}Kernel` and `AddFaceN{0,1,2}ToVolKernel` or
  *   `AddEdgeN{0,1}ToVolKernel`.
  *
- * @section ipwrttrace_dev_state State of the paths
+ * @section ipwrttrace_dev_state Scope
  *
- * Not everything here is live, and not everything live is correct:
- * - These kernels assume warp-width interleaving and carry no
- *   implementation tag: there is one trace inner-product algorithm and
- *   the block operator registers it under @c Generic. A @c SumFacTOP
- *   block operator's width-one interleave would contradict the
- *   interleaving assumed here, and no template parameter now offers to
- *   accept it.
- * - The retained monolithic predecessors of the decomposed face family
- *   (`IProductWRTPhysTraceFaceDir{0,1,2}Core`,
- *   `IProductWRTPhysTrace3DKernel` and the per-shape
- *   `IProductWRTPhysTrace{Hex,Prism,Pyr,Tet}FaceKernel`) have been
- *   deleted: the decomposed family now serves every 3D shape,
- *   @c NodalPrism included, which shares the prism's trace structure.
+ * These kernels assume warp-width interleaving: they are the @c SumFac
+ * family, and their Implementation parameter is constrained to that
+ * tag. The width-one, one-element-per-block family is
+ * IProductWRTPhysTraceDeviceSumFacTOPKernels.hpp. The decomposed face
+ * family serves every 3D shape, @c NodalPrism included, which shares
+ * the prism's trace structure.
  *
  * No kernel in this file uses shared memory; every @c shmemptr parameter
  * is present for the launch macro's signature only.
  *
- * @see IProductWRTPhysTraceDeviceGeneric.hpp for the dispatch and the
- * launchers, IProductWRTPhysTraceSerialAVXGenericKernels.hpp for the
+ * @see IProductWRTPhysTraceDeviceSumFac.hpp for the dispatch and the
+ * launchers, IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the
  * SIMD counterparts of the same decomposition, and the PhysTraceExtract
  * kernels for the adjoint operation, which applies the same tables
  * untransposed.
@@ -162,6 +158,8 @@
 
 namespace Nektar::Operators::detail
 {
+
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 
 // Helper functions
 
@@ -230,10 +228,11 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTPhysTraceFaceScratchSize
  * @brief Workspace of a whole block, per component: none, a segment's
  * traces being points that carry no surface measure.
  */
-template <
-    typename TTraceSizeParameter1D,
-    std::enable_if_t<IsTraceSizeParameter1D_v<TTraceSizeParameter1D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTPhysTraceWorkSpaceSize(
     [[maybe_unused]] const size_t nelmt,
     [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
@@ -251,10 +250,11 @@ inline constexpr size_t IProductWRTPhysTraceWorkSpaceSize(
  *                  dimension through one uniform call; the per-trace
  *                  launcher passes one.
  */
-template <
-    typename TTraceSizeParameter2D,
-    std::enable_if_t<IsTraceSizeParameter2D_v<TTraceSizeParameter2D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTPhysTraceWorkSpaceSize(
     const size_t nelmt, const TTraceSizeParameter2D sizeParam2D,
     const unsigned int ntrace = 2u)
@@ -265,16 +265,60 @@ inline constexpr size_t IProductWRTPhysTraceWorkSpaceSize(
 /// @brief Workspace of a whole block, per component: the face mode
 /// block followed by the contraction scratch, one of each per element.
 /// The bulk and the per-trace path take the same.
-template <
-    typename TTraceSizeParameter3D,
-    std::enable_if_t<IsTraceSizeParameter3D_v<TTraceSizeParameter3D>, bool>
-        Enable = true>
+template <typename Implementation, typename TTraceSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
+                           bool>
+              Enable = true>
 inline constexpr size_t IProductWRTPhysTraceWorkSpaceSize(
     const size_t nelmt, const TTraceSizeParameter3D sizeParam3D)
 {
     return (IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D) +
             IProductWRTPhysTraceFaceScratchSize(sizeParam3D)) *
            nelmt;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, the
+/// intermediates living in the global workspace
+/// IProductWRTPhysTraceWorkSpaceSize() sizes.
+template <typename Implementation, typename TTraceSizeParameter1D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, the
+/// intermediates living in the global workspace
+/// IProductWRTPhysTraceWorkSpaceSize() sizes.
+template <typename Implementation, typename TTraceSizeParameter2D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D,
+    [[maybe_unused]] const unsigned int ntrace = 2u)
+{
+    return 0;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, the
+/// intermediates living in the global workspace
+/// IProductWRTPhysTraceWorkSpaceSize() sizes.
+template <typename Implementation, typename TTraceSizeParameter3D,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
+                               IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
+                           bool>
+              Enable = true>
+inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter3D sizeParam3D)
+{
+    return 0;
 }
 
 /**
@@ -373,17 +417,23 @@ NEK_DEVICE_INLINE TData GetJac(const bool deformed, const unsigned int ilane,
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TTraceSizeParameter1D, typename TData, typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
-    const TTraceSizeParameter1D sizeParam1D, const TData *NEK_RESTRICT nbasis0,
-    const size_t nelmt, const unsigned int numDataIn,
-    const unsigned int numDataOut,
-    [[maybe_unused]] const unsigned int numDataJac,
-    [[maybe_unused]] const TData *NEK_RESTRICT tjac,
-    [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const bool endPtsCollocated, const bool append,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TTraceSizeParameter1D, typename TData,
+          typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter1D>()))
+    IProductWRTPhysTraceKernelLauncher(
+        const TTraceSizeParameter1D sizeParam1D,
+        const TData *NEK_RESTRICT nbasis0, const size_t nelmt,
+        const unsigned int numDataIn, const unsigned int numDataOut,
+        [[maybe_unused]] const unsigned int numDataJac,
+        [[maybe_unused]] const TData *NEK_RESTRICT tjac,
+        [[maybe_unused]] TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const bool endPtsCollocated, const bool append,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                   "Template argument must be either of type "
@@ -433,7 +483,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
 }
 
 // -----------------------------------------------------------------------------
-//  2D KERNELS utilising normal to trace directions
+// 2D KERNELS UTILISING NORMAL TO TRACE DIRECTIONS
 // -----------------------------------------------------------------------------
 
 // Kernel for inner product over edge
@@ -824,7 +874,7 @@ NEK_DEVICE_INLINE static void IPWRTPhysTraceEdgeN1Kernel(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool APPEND,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTPhysTrace2D(
+NEK_DEVICE_INLINE static void IProductWRTPhysTrace2DKernel(
     const unsigned int ilane, const unsigned nm0, const unsigned nm1,
     const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
     const unsigned tnq00, const unsigned tnq10,
@@ -893,7 +943,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace2D(
  * Each iteration splits the global element index into warp and lane,
  * offsets @p in, @p out and @p tjac by the warp's `numData * warpsize`
  * blocks and the workspace by `2 * max(nm0,nm1) * warpsize`, then calls
- * IProductWRTPhysTrace2D, @p append selecting between its accumulating
+ * IProductWRTPhysTrace2DKernel, @p append selecting between its accumulating
  * and zeroing @c APPEND instantiations.
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
@@ -936,20 +986,26 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace2D(
  * @param   threadBlock     Thread-block handle supplied by the launch
  *                          macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TTraceSizeParameter2D, typename TData, typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
-    const TTraceSizeParameter2D sizeParam2D, const TData *NEK_RESTRICT nbasis0,
-    const TData *NEK_RESTRICT nbasis1, const size_t nelmt,
-    const unsigned int numDataIn, const unsigned int numDataOut,
-    const unsigned int numDataJac, const TData *NEK_RESTRICT tbasis0,
-    const TData *NEK_RESTRICT tbasis1, const TData *NEK_RESTRICT tw00,
-    const TData *NEK_RESTRICT tw10, const TData *NEK_RESTRICT tjac,
-    TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in, TData *out,
-    const bool isCollocated0, const bool isCollocated1,
-    const bool endPtsCollocated0, const bool endPtsCollocated1,
-    const bool append, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TTraceSizeParameter2D, typename TData,
+          typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
+    IProductWRTPhysTraceKernelLauncher(
+        const TTraceSizeParameter2D sizeParam2D,
+        const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
+        const size_t nelmt, const unsigned int numDataIn,
+        const unsigned int numDataOut, const unsigned int numDataJac,
+        const TData *NEK_RESTRICT tbasis0, const TData *NEK_RESTRICT tbasis1,
+        const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw10,
+        const TData *NEK_RESTRICT tjac, TData *NEK_RESTRICT wsp,
+        const TData *NEK_RESTRICT in, TData *out, const bool isCollocated0,
+        const bool isCollocated1, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, const bool append,
+        [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -978,7 +1034,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
 
         if (append)
         {
-            IProductWRTPhysTrace2D<SHAPE_TYPE, DEFORMED, true>(
+            IProductWRTPhysTrace2DKernel<SHAPE_TYPE, DEFORMED, true>(
                 ilane, nm0, nm1, nbasis0, nbasis1, tnq00, tnq10, tbasis0,
                 tbasis1, tw00, tw10, jacptr, wspptr, inptr, outptr,
                 isCollocated0, isCollocated1, endPtsCollocated0,
@@ -986,7 +1042,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
         }
         else
         {
-            IProductWRTPhysTrace2D<SHAPE_TYPE, DEFORMED, false>(
+            IProductWRTPhysTrace2DKernel<SHAPE_TYPE, DEFORMED, false>(
                 ilane, nm0, nm1, nbasis0, nbasis1, tnq00, tnq10, tbasis0,
                 tbasis1, tw00, tw10, jacptr, wspptr, inptr, outptr,
                 isCollocated0, isCollocated1, endPtsCollocated0,
@@ -1053,7 +1109,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
  *                          IProductWRTPhysTraceOp::IProductWRTPhysTrace()).
  */
 template <bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdge(
+NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdgeKernel(
     const unsigned int ilane, const unsigned edge, const unsigned nm0,
     const unsigned nm1, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const unsigned tnq00,
@@ -1216,7 +1272,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdge(
  * The single-trace counterpart of IProductWRTPhysTraceKernelLauncher. It
  * grid-strides over the block, offsets the pointers to the warp and the
  * workspace by `max(nm0,nm1) * warpsize`, one edge's worth rather than a
- * pair's, and calls IProductWRTPhysTraceEdge. The shape and the edge id
+ * pair's, and calls IProductWRTPhysTraceEdgeKernel. The shape and the edge id
  * are runtime arguments, so one instantiation serves every trace.
  *
  * @tparam DEFORMED         Trace Jacobian varies point by point.
@@ -1259,21 +1315,26 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdge(
  * @param   threadBlock     Thread-block handle supplied by the launch
  *                          macro.
  */
-template <bool DEFORMED, typename TTraceSizeParameter2D, typename TData,
-          typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
-    const unsigned edge, const LibUtilities::ShapeType shape,
-    const TTraceSizeParameter2D sizeParam2D, const TData *NEK_RESTRICT nbasis0,
-    const TData *NEK_RESTRICT nbasis1, const size_t nelmt,
-    const unsigned int numDataIn, const unsigned int numDataOut,
-    const unsigned int numDataJac, const TData *NEK_RESTRICT tbasis0,
-    const TData *NEK_RESTRICT tbasis1, const TData *NEK_RESTRICT tw00,
-    const TData *NEK_RESTRICT tw10, const TData *NEK_RESTRICT tjac,
-    TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const bool isCollocated0, const bool isCollocated1,
-    const bool endPtsCollocated0, const bool endPtsCollocated1,
-    const bool append, [[maybe_unused]] unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+template <typename Implementation, bool DEFORMED,
+          typename TTraceSizeParameter2D, typename TData, typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter2D>()))
+    IProductWRTPhysTraceTraceKernelLauncher(
+        const unsigned edge, const LibUtilities::ShapeType shape,
+        const TTraceSizeParameter2D sizeParam2D,
+        const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
+        const size_t nelmt, const unsigned int numDataIn,
+        const unsigned int numDataOut, const unsigned int numDataJac,
+        const TData *NEK_RESTRICT tbasis0, const TData *NEK_RESTRICT tbasis1,
+        const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw10,
+        const TData *NEK_RESTRICT tjac, TData *NEK_RESTRICT wsp,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        const bool isCollocated0, const bool isCollocated1,
+        const bool endPtsCollocated0, const bool endPtsCollocated1,
+        const bool append, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -1300,7 +1361,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
             wsp + IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D) *
                       (nelmt * c + warpsize * iwarp);
 
-        IProductWRTPhysTraceEdge<DEFORMED>(
+        IProductWRTPhysTraceEdgeKernel<DEFORMED>(
             ilane, edge, nm0, nm1, nbasis0, nbasis1, tnq00, tnq10, tbasis0,
             tbasis1, tw00, tw10, jacptr, wspptr, inptr, outptr, isCollocated0,
             isCollocated1, endPtsCollocated0, endPtsCollocated1, shape, append);
@@ -1309,9 +1370,9 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
     }
 }
 
-// ----------------------------------------------------------------------------
-// DECOMPOSED 3D FACE KERNELS (AVX-style technique ported to device)
-// ----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// DECOMPOSED 3D FACE KERNELS
+// -----------------------------------------------------------------------------
 
 // Integrate a (pair of) face(s) over its quadrature points into nm0*nm1 trace
 // modes. Warp-interleaved port of the SerialAVX IPWRTPhysFaceKernel. The
@@ -1870,7 +1931,7 @@ NEK_DEVICE_INLINE static void IPWRTPhysTraceFaceN2Kernel(
 
 // forward declaration: single-face worker (defined below)
 template <bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
+NEK_DEVICE_INLINE static void IProductWRTPhysTraceFaceKernel(
     const unsigned int ilane, const unsigned face,
     const LibUtilities::ShapeType shape, const unsigned nm0, const unsigned nm1,
     const unsigned nm2, const TData *NEK_RESTRICT nbasis0,
@@ -1943,7 +2004,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool APPEND,
           typename TData>
-NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFace(
+NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFaceKernel(
     const unsigned int ilane, const unsigned nm0, const unsigned nm1,
     const unsigned nm2, const TData *NEK_RESTRICT nbasis0,
     const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
@@ -2006,7 +2067,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFace(
         const unsigned dir  = (SHAPE_TYPE == LibUtilities::Hex)
                                   ? dirHex[t]
                                   : (IS_TET ? dirTet[t] : dir5[t]);
-        IProductWRTPhysTraceFace<DEFORMED>(
+        IProductWRTPhysTraceFaceKernel<DEFORMED>(
             ilane, face, SHAPE_TYPE, nm0, nm1, nm2, nbasis0, nbasis1, nbasis2,
             tnq00, tnq01, tnq10, tnq11, tnq20, tnq21, tbasis00, tbasis01,
             tbasis10, tbasis11, tbasis20, tbasis21, tw00, tw01, tw10, tw11,
@@ -2028,7 +2089,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFace(
  * and `wsp1Size` the largest intermediate of the general face
  * contraction, then per element offsets @p in, @p out and @p tjac to the
  * warp and splits the workspace into the two regions before calling
- * IProductWRTPhysTrace3DFace. @p append selects between the accumulating
+ * IProductWRTPhysTrace3DFaceKernel. @p append selects between the accumulating
  * and the zero-then-write instantiation of that wrapper.
  *
  * @tparam SHAPE_TYPE       Hex, Prism, Pyr, Tet, NodalTet or
@@ -2072,27 +2133,33 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFace(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TTraceSizeParameter3D, typename TData, typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
-    const TTraceSizeParameter3D sizeParam3D, const TData *NEK_RESTRICT nbasis0,
-    const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
-    const size_t nelmt, const unsigned int numDataIn,
-    const unsigned int numDataOut, const unsigned int numDataJac,
-    const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
-    const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
-    const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
-    const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw01,
-    const TData *NEK_RESTRICT tw10, const TData *NEK_RESTRICT tw11,
-    const TData *NEK_RESTRICT tw20, const TData *NEK_RESTRICT tw21,
-    const TData *NEK_RESTRICT tjac, TData *NEK_RESTRICT wsp,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    const bool isCollocated00, const bool isCollocated01,
-    const bool isCollocated10, const bool isCollocated11,
-    const bool isCollocated20, const bool isCollocated21,
-    const bool endPtsCollocated0, const bool endPtsCollocated1,
-    const bool endPtsCollocated2, const bool append,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TTraceSizeParameter3D, typename TData,
+          typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
+    IProductWRTPhysTraceKernelLauncher(
+        const TTraceSizeParameter3D sizeParam3D,
+        const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
+        const TData *NEK_RESTRICT nbasis2, const size_t nelmt,
+        const unsigned int numDataIn, const unsigned int numDataOut,
+        const unsigned int numDataJac, const TData *NEK_RESTRICT tbasis00,
+        const TData *NEK_RESTRICT tbasis01, const TData *NEK_RESTRICT tbasis10,
+        const TData *NEK_RESTRICT tbasis11, const TData *NEK_RESTRICT tbasis20,
+        const TData *NEK_RESTRICT tbasis21, const TData *NEK_RESTRICT tw00,
+        const TData *NEK_RESTRICT tw01, const TData *NEK_RESTRICT tw10,
+        const TData *NEK_RESTRICT tw11, const TData *NEK_RESTRICT tw20,
+        const TData *NEK_RESTRICT tw21, const TData *NEK_RESTRICT tjac,
+        TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const bool isCollocated00,
+        const bool isCollocated01, const bool isCollocated10,
+        const bool isCollocated11, const bool isCollocated20,
+        const bool isCollocated21, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, const bool endPtsCollocated2,
+        const bool append, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
@@ -2132,7 +2199,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
 
         if (append)
         {
-            IProductWRTPhysTrace3DFace<SHAPE_TYPE, DEFORMED, true>(
+            IProductWRTPhysTrace3DFaceKernel<SHAPE_TYPE, DEFORMED, true>(
                 ilane, nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00, tnq01,
                 tnq10, tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10,
                 tbasis11, tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20,
@@ -2143,7 +2210,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
         }
         else
         {
-            IProductWRTPhysTrace3DFace<SHAPE_TYPE, DEFORMED, false>(
+            IProductWRTPhysTrace3DFaceKernel<SHAPE_TYPE, DEFORMED, false>(
                 ilane, nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00, tnq01,
                 tnq10, tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10,
                 tbasis11, tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20,
@@ -2217,7 +2284,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceKernelLauncher(
  *                      the first trace.
  */
 template <bool DEFORMED, typename TData>
-NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
+NEK_DEVICE_INLINE static void IProductWRTPhysTraceFaceKernel(
     const unsigned int ilane, const unsigned face,
     const LibUtilities::ShapeType shape, const unsigned nm0, const unsigned nm1,
     const unsigned nm2, const TData *NEK_RESTRICT nbasis0,
@@ -2392,7 +2459,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
  * The single-trace counterpart of IProductWRTPhysTraceKernelLauncher and
  * the three-dimensional counterpart of IProductWRTPhysTraceTraceKernelLauncher.
  * It sizes and splits the workspace exactly as the bulk kernel does,
- * grid-strides over the block and calls IProductWRTPhysTraceFace. The
+ * grid-strides over the block and calls IProductWRTPhysTraceFaceKernel. The
  * shape and the face id are runtime arguments, so one instantiation
  * serves every trace of every three-dimensional shape.
  *
@@ -2436,28 +2503,33 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFace(
  * @param   shmemptr    Dynamic shared memory; unused.
  * @param   threadBlock Thread-block handle supplied by the launch macro.
  */
-template <bool DEFORMED, typename TTraceSizeParameter3D, typename TData,
-          typename TthreadBlock>
-NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
-    const unsigned face, const LibUtilities::ShapeType shape,
-    const TTraceSizeParameter3D sizeParam3D, const TData *NEK_RESTRICT nbasis0,
-    const TData *NEK_RESTRICT nbasis1, const TData *NEK_RESTRICT nbasis2,
-    const size_t nelmt, const unsigned int numDataIn,
-    const unsigned int numDataOut, const unsigned int numDataJac,
-    const TData *NEK_RESTRICT tbasis00, const TData *NEK_RESTRICT tbasis01,
-    const TData *NEK_RESTRICT tbasis10, const TData *NEK_RESTRICT tbasis11,
-    const TData *NEK_RESTRICT tbasis20, const TData *NEK_RESTRICT tbasis21,
-    const TData *NEK_RESTRICT tw00, const TData *NEK_RESTRICT tw01,
-    const TData *NEK_RESTRICT tw10, const TData *NEK_RESTRICT tw11,
-    const TData *NEK_RESTRICT tw20, const TData *NEK_RESTRICT tw21,
-    const TData *NEK_RESTRICT tjac, TData *NEK_RESTRICT wsp,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-    const bool isCollocated00, const bool isCollocated01,
-    const bool isCollocated10, const bool isCollocated11,
-    const bool isCollocated20, const bool isCollocated21,
-    const bool endPtsCollocated0, const bool endPtsCollocated1,
-    const bool endPtsCollocated2, const bool append,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+template <typename Implementation, bool DEFORMED,
+          typename TTraceSizeParameter3D, typename TData, typename TthreadBlock,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
+    (GetMaxThreadPerBlock<Implementation, TTraceSizeParameter3D>()))
+    IProductWRTPhysTraceTraceKernelLauncher(
+        const unsigned face, const LibUtilities::ShapeType shape,
+        const TTraceSizeParameter3D sizeParam3D,
+        const TData *NEK_RESTRICT nbasis0, const TData *NEK_RESTRICT nbasis1,
+        const TData *NEK_RESTRICT nbasis2, const size_t nelmt,
+        const unsigned int numDataIn, const unsigned int numDataOut,
+        const unsigned int numDataJac, const TData *NEK_RESTRICT tbasis00,
+        const TData *NEK_RESTRICT tbasis01, const TData *NEK_RESTRICT tbasis10,
+        const TData *NEK_RESTRICT tbasis11, const TData *NEK_RESTRICT tbasis20,
+        const TData *NEK_RESTRICT tbasis21, const TData *NEK_RESTRICT tw00,
+        const TData *NEK_RESTRICT tw01, const TData *NEK_RESTRICT tw10,
+        const TData *NEK_RESTRICT tw11, const TData *NEK_RESTRICT tw20,
+        const TData *NEK_RESTRICT tw21, const TData *NEK_RESTRICT tjac,
+        TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, const bool isCollocated00,
+        const bool isCollocated01, const bool isCollocated10,
+        const bool isCollocated11, const bool isCollocated20,
+        const bool isCollocated21, const bool endPtsCollocated0,
+        const bool endPtsCollocated1, const bool endPtsCollocated2,
+        const bool append, [[maybe_unused]] unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
@@ -2495,7 +2567,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
             wsp + (wsp0Size + wsp1Size) * (nelmt * c + warpsize * iwarp);
         TData *wsp1ptr = wspptr + wsp0Size * warpsize;
 
-        IProductWRTPhysTraceFace<DEFORMED>(
+        IProductWRTPhysTraceFaceKernel<DEFORMED>(
             ilane, face, shape, nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00,
             tnq01, tnq10, tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10,
             tbasis11, tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20, tw21,
@@ -2507,5 +2579,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysTraceTraceKernelLauncher(
         e += getGlobalRange<0>(threadBlock);
     }
 }
+
+#endif
 
 } // namespace Nektar::Operators::detail

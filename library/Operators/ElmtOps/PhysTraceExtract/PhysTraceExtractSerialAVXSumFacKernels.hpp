@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysTraceExtractSerialAVXGenericKernels.hpp
+// File: PhysTraceExtractSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file PhysTraceExtractSerialAVXGenericKernels.hpp
+ * @file PhysTraceExtractSerialAVXSumFacKernels.hpp
  * @brief Serial/AVX kernels of the trace extraction: one SIMD
  * vector of elements per call.
  *
@@ -152,7 +152,7 @@
  * - This header is included outside any namespace and declares no
  *   includes of its own; the names it needs -- the SIMD types, @c
  *   ASSERTL1, @c NEKERROR -- come from its single includer,
- *   PhysTraceExtractSerialAVXGeneric.hpp.
+ *   PhysTraceExtractSerialAVXSumFac.hpp.
  *
  * @section pte_avx_state State of the paths
  *
@@ -165,9 +165,9 @@
  * @c ShapeTypeNumTraceInDir, which is also what makes it right for the
  * collapsed directions of a triangle and a tetrahedron.
  *
- * @see PhysTraceExtractDeviceGenericKernels.hpp for the device kernels of
+ * @see PhysTraceExtractDeviceSumFacKernels.hpp for the device kernels of
  * the same decomposition, and
- * IProductWRTPhysTraceSerialAVXGenericKernels.hpp for the adjoint
+ * IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the adjoint
  * operation on this execution space.
  */
 

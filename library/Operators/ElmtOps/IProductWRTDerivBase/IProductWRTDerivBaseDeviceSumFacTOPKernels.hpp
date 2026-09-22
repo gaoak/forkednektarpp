@@ -833,7 +833,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         StdAlignDerivBase3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
             inptr, deriv0, deriv1, deriv2, threadBlock);
-        SumDerivTensor3DSumFacTOPKernel<false, APPEND>(
+        // Always overwrite the shared-memory deriv scratch (it is reused
+        // across the element loop); the op-level append is handled by the
+        // IProductWRTBase kernels writing the global output below.
+        SumDerivTensor3DSumFacTOPKernel<false, false>(
             nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv, scale,
             threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)

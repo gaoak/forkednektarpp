@@ -50,7 +50,7 @@ namespace Nektar
             std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
                       << __LINE__ << std::endl;                                \
             std::cerr << hipGetErrorString(err) << std::endl;                  \
-            exit(0);                                                           \
+            exit(1);                                                           \
         }                                                                      \
     }
 #define CHECK_HIPCUDA_ERROR(err)                                               \
@@ -61,7 +61,7 @@ namespace Nektar
             std::cerr << "HIP Runtime Error at: " << __FILE__ << ":"           \
                       << __LINE__ << std::endl;                                \
             std::cerr << hipGetErrorString(nekCheckErr) << std::endl;          \
-            exit(0);                                                           \
+            exit(1);                                                           \
         }                                                                      \
     }
 
