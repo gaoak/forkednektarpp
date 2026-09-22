@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp
+// File: IProductWRTPhysNormalDerivTraceDeviceSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,17 +34,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysNormalDerivTraceDeviceGenericKernels.hpp
+ * @file IProductWRTPhysNormalDerivTraceDeviceSumFacKernels.hpp
  * @brief Device kernels of the surface inner product against the normal
  * derivative of the volume cardinal basis, one element per warp lane.
  *
  * @details
  * The same decomposition as
- * IProductWRTPhysNormalDerivTraceSerialAVXGenericKernels.hpp: one trace
+ * IProductWRTPhysNormalDerivTraceSerialAVXSumFacKernels.hpp: one trace
  * inner product per element direction, each the plain trace lift with the
  * direction's table replaced by its derivative, and the collapsed
  * \f$2/(1 - \eta)\f$ factors applied on the volume. The edge and face
- * cores are those of IProductWRTPhysTraceDeviceGenericKernels.hpp.
+ * cores are those of IProductWRTPhysTraceDeviceSumFacKernels.hpp.
  *
  * Element data is warp interleaved: element @em e sits at lane
  * `e % warpsize` of warp `e / warpsize` and its @em i'th value at
@@ -55,7 +55,7 @@
  * along the second; overload resolution picks the dimension from the
  * number of arguments.
  *
- * @see IProductWRTPhysNormalDerivTraceDeviceGeneric.hpp for the block
+ * @see IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp for the block
  * operator that launches these kernels.
  */
 
@@ -67,7 +67,7 @@
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <Operators/ElmtOps/ElmtHelper.hpp>
 
-#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceDeviceGenericKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

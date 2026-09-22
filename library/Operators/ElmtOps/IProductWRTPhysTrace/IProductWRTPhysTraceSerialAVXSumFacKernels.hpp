@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysTraceSerialAVXGenericKernels.hpp
+// File: IProductWRTPhysTraceSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysTraceSerialAVXGenericKernels.hpp
+ * @file IProductWRTPhysTraceSerialAVXSumFacKernels.hpp
  * @brief Serial and AVX kernels of the trace inner product: one
  * element per SIMD lane.
  *
@@ -74,8 +74,14 @@
  * `nbasis[p * tstride + f]` with @c tstride the number of traces that
  * direction has: two for every direction of a hexahedron, one for a
  * collapsed direction (direction 1 of a tetrahedron and of a triangle,
- * direction 2 of prism, pyramid and tetrahedron). @c tw are the trace
- * quadrature weights and @c tjac the trace Jacobian.
+ * direction 2 of prism, pyramid and tetrahedron). The lift kernels take
+ * @c tstride as its own argument, separate from the [`edg`, `nedge`) or
+ * [`fac`, `nface`) window they walk: the two coincide only when a call
+ * spans the whole direction, which the bulk entry points do and the
+ * per-trace ones do not. The entry points read it from
+ * @c ShapeTypeNumTraceInDir, which is also what makes it right for the
+ * collapsed directions. @c tw are the trace quadrature weights and
+ * @c tjac the trace Jacobian.
  *
  * @section ipwrttrace_avx_layout Layout contracts
  *
@@ -163,25 +169,12 @@
  *   transform, so every coefficient a @c NodalTri, @c NodalTet or
  *   @c NodalPrism produces is wrong. The forward PhysTraceExtract is
  *   unaffected, mapping physical values to physical values.
- * - `AddEdgeN{0,1}ToVolKernel` and `AddFaceN{0,1,2}ToVolKernel` take
- *   their loop bound as the @c nbasis row stride. That bound differs
- *   from the direction's trace count only for a window of [0, 1) on a
- *   two-trace direction: the bulk kernels always span the direction,
- *   and an upper-trace window of [1, 2) still passes a bound of two.
- *   The per-trace entry points do call with a window of one for the
- *   lower trace of a two-trace direction, so the general (non-@c
- *   endPtsCollocated) arm then reads the table with a stride of one. The
- *   device port gave its face kernels an explicit @c tstride parameter
- *   for exactly this reason.
- * - `AddFaceN1ToVolKernel` advances its input by `nm0 * (nm1 - 1)` per
- *   face in the general arm, where the trace-mode slabs it reads are
- *   `nm0 * nm2` apart; see its note.
  * - There is no per-trace segment path: the block operator raises a fatal
  *   error for a segment rather than calling in here.
  *
- * @see IProductWRTPhysTraceSerialAVXGeneric.hpp for the block operator
+ * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the block operator
  * that owns the element-group loop, the workspace sizing and the shape
- * dispatch, IProductWRTPhysTraceDeviceGenericKernels.hpp for the warp
+ * dispatch, IProductWRTPhysTraceDeviceSumFacKernels.hpp for the warp
  * interleaved counterparts of the same decomposition, and the
  * PhysTraceExtract kernels for the adjoint operation, which applies the
  * same tables untransposed.
@@ -375,22 +368,15 @@ NEK_FORCE_INLINE static void IPWRTPhysEdgeKernel(
  * index within this call, which is why the caller passes absolute
  * positions.
  *
- * @note The general arm indexes `nbasis[i * nedge + e]`, taking the loop
- * bound @p nedge as the table's row stride. That is wrong only for a
- * window of [0, 1) on a direction that has two traces; every other call
- * here happens to pass a bound equal to the direction's trace count.
- * IProductWRTPhysTraceEdgeKernel calls this with `edg = 0, nedge = 1`
- * for the lower edge of a two-trace direction, where the stride should
- * still be two; see the file note.
- *
  * @tparam END_PTS_COLLOCATED0  Direction-0 volume rule contains the
  *                            domain endpoints.
  * @tparam simd_type          SIMD vector type carrying one element per
  *                            lane.
  *
  * @param   edg     Position of the first edge within direction 0.
- * @param   nedge   One past the position of the last edge; also used as
- *                  the @p nbasis row stride.
+ * @param   nedge   One past the position of the last edge.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 0 has.
  * @param   nm0     Volume quadrature points in direction 0.
  * @param   nm1     Volume quadrature points in direction 1.
  * @param   nbasis  eInterp table \f$h_i(\pm 1)\f$ of direction 0.
@@ -399,9 +385,10 @@ NEK_FORCE_INLINE static void IPWRTPhysEdgeKernel(
  */
 template <bool END_PTS_COLLOCATED0, typename simd_type>
 NEK_FORCE_INLINE static void AddEdgeN0ToVolKernel(
-    const unsigned edg, const unsigned nedge, const unsigned nm0,
-    const unsigned nm1, [[maybe_unused]] const simd_type *nbasis,
-    const simd_type *in, simd_type *out)
+    const unsigned edg, const unsigned nedge, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1,
+    [[maybe_unused]] const simd_type *nbasis, const simd_type *in,
+    simd_type *out)
 {
     if constexpr (END_PTS_COLLOCATED0)
     {
@@ -422,7 +409,7 @@ NEK_FORCE_INLINE static void AddEdgeN0ToVolKernel(
             {
                 for (unsigned i = 0; i < nm0; ++i)
                 {
-                    out[nm0 * q + i].fma(in[cnt], nbasis[i * nedge + e]);
+                    out[nm0 * q + i].fma(in[cnt], nbasis[i * tstride + e]);
                 }
             }
         }
@@ -442,8 +429,7 @@ NEK_FORCE_INLINE static void AddEdgeN0ToVolKernel(
  *
  * @note The template parameter is spelled @c END_PTS_COLLOCATED0 although
  * it is the direction-1 flag that the callers pass; only the name is
- * inherited from the direction-0 kernel. The @p nbasis row stride caveat
- * of AddEdgeN0ToVolKernel applies here unchanged.
+ * inherited from the direction-0 kernel.
  *
  * @tparam END_PTS_COLLOCATED0  Direction-1 volume rule contains the
  *                            domain endpoints, despite the name.
@@ -451,8 +437,9 @@ NEK_FORCE_INLINE static void AddEdgeN0ToVolKernel(
  *                            lane.
  *
  * @param   edg     Position of the first edge within direction 1.
- * @param   nedge   One past the position of the last edge; also used as
- *                  the @p nbasis row stride.
+ * @param   nedge   One past the position of the last edge.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 1 has.
  * @param   nm0     Volume quadrature points in direction 0.
  * @param   nm1     Volume quadrature points in direction 1.
  * @param   nbasis  eInterp table \f$h_q(\pm 1)\f$ of direction 1.
@@ -461,9 +448,10 @@ NEK_FORCE_INLINE static void AddEdgeN0ToVolKernel(
  */
 template <bool END_PTS_COLLOCATED0, typename simd_type>
 NEK_FORCE_INLINE static void AddEdgeN1ToVolKernel(
-    const unsigned edg, const unsigned nedge, const unsigned nm0,
-    const unsigned nm1, [[maybe_unused]] const simd_type *nbasis,
-    const simd_type *in, simd_type *out)
+    const unsigned edg, const unsigned nedge, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1,
+    [[maybe_unused]] const simd_type *nbasis, const simd_type *in,
+    simd_type *out)
 {
     if constexpr (END_PTS_COLLOCATED0)
     {
@@ -482,7 +470,7 @@ NEK_FORCE_INLINE static void AddEdgeN1ToVolKernel(
         {
             for (unsigned q = 0; q < nm1; ++q)
             {
-                simd_type val = nbasis[q * nedge + e];
+                simd_type val = nbasis[q * tstride + e];
                 for (unsigned i = 0; i < nm0; ++i)
                 {
                     out[nm0 * q + i].fma(in[cnt + i], val);
@@ -510,6 +498,8 @@ NEK_FORCE_INLINE static void AddEdgeN1ToVolKernel(
  *
  * @param   edg     Position of the first edge within direction 0.
  * @param   nedge   One past the position of the last edge.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 0 has.
  * @param   nm0     Volume quadrature points in direction 0.
  * @param   nm1     Volume quadrature points in direction 1.
  * @param   nbasis  eInterp table \f$h_i(\pm 1)\f$ of direction 0.
@@ -525,17 +515,17 @@ NEK_FORCE_INLINE static void AddEdgeN1ToVolKernel(
  */
 template <bool END_PTS_COLLOCATED0, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysTraceEdgeN0Kernel(
-    const unsigned edg, const unsigned nedge, const unsigned nm0,
-    const unsigned nm1, const simd_type *nbasis, const unsigned tnq,
-    const simd_type *tbasis, const simd_type *tw, const simd_type *tjac,
-    simd_type *wsp, const simd_type *in, simd_type *out,
+    const unsigned edg, const unsigned nedge, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const simd_type *nbasis,
+    const unsigned tnq, const simd_type *tbasis, const simd_type *tw,
+    const simd_type *tjac, simd_type *wsp, const simd_type *in, simd_type *out,
     const bool isCollocated)
 {
     IPWRTPhysEdgeKernel<DEFORMED>(edg, nedge, nm1, tnq, tbasis, tw, tjac, in,
                                   wsp, isCollocated);
 
-    AddEdgeN0ToVolKernel<END_PTS_COLLOCATED0>(edg, nedge, nm0, nm1, nbasis, wsp,
-                                              out);
+    AddEdgeN0ToVolKernel<END_PTS_COLLOCATED0>(edg, nedge, tstride, nm0, nm1,
+                                              nbasis, wsp, out);
 }
 
 // kernels for edge 0 and 2
@@ -555,6 +545,8 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceEdgeN0Kernel(
  *
  * @param   edg     Position of the first edge within direction 1.
  * @param   nedge   One past the position of the last edge.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 1 has.
  * @param   nm0     Volume quadrature points in direction 0.
  * @param   nm1     Volume quadrature points in direction 1.
  * @param   nbasis  eInterp table \f$h_q(\pm 1)\f$ of direction 1.
@@ -570,17 +562,17 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceEdgeN0Kernel(
  */
 template <bool END_PTS_COLLOCATED0, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysTraceEdgeN1Kernel(
-    const unsigned edg, const unsigned nedge, const unsigned nm0,
-    const unsigned nm1, const simd_type *nbasis, const unsigned tnq,
-    const simd_type *tbasis, const simd_type *tw, const simd_type *tjac,
-    simd_type *wsp, const simd_type *in, simd_type *out,
+    const unsigned edg, const unsigned nedge, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const simd_type *nbasis,
+    const unsigned tnq, const simd_type *tbasis, const simd_type *tw,
+    const simd_type *tjac, simd_type *wsp, const simd_type *in, simd_type *out,
     const bool isCollocated)
 {
     IPWRTPhysEdgeKernel<DEFORMED>(edg, nedge, nm0, tnq, tbasis, tw, tjac, in,
                                   wsp, isCollocated);
 
-    AddEdgeN1ToVolKernel<END_PTS_COLLOCATED0>(edg, nedge, nm0, nm1, nbasis, wsp,
-                                              out);
+    AddEdgeN1ToVolKernel<END_PTS_COLLOCATED0>(edg, nedge, tstride, nm0, nm1,
+                                              nbasis, wsp, out);
 }
 
 /**
@@ -607,9 +599,10 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceEdgeN1Kernel(
  * the volume field before applying its first trace.
  *
  * @note For the lower edge of a two-trace direction the window is
- * [0, 1), which the lift kernels also use as the @c nbasis row stride;
- * the general (non-@c endPtsCollocated) arm then reads that table with a stride
- * of one instead of two. See the file note.
+ * [0, 1), which is not the @c nbasis row stride: the lift kernels take
+ * that separately, from @c ShapeTypeNumTraceInDir, so the general
+ * (non-@c endPtsCollocated) arm reads the table at the direction's trace
+ * count either way.
  *
  * @tparam SHAPE_TYPE  Quad, or Tri standing in for any triangle.
  * @tparam DEFORMED    Trace Jacobian varies point by point.
@@ -656,6 +649,14 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
         std::memset((void *)out, 0, nm0 * nm1 * sizeof(simd_type));
     }
 
+    // One nbasis row per trace of the direction. A per-trace call covers
+    // one position within a direction, so its window is not the row stride
+    // and the two cannot be taken for one another.
+    constexpr unsigned tstride0 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+    constexpr unsigned tstride1 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+
     if constexpr (SHAPE_TYPE == Nektar::LibUtilities::Tri)
     {
         switch (edge)
@@ -664,14 +665,14 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 if (endPtsCollocated1)
                 {
                     IPWRTPhysTraceEdgeN1Kernel<true, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac,
-                        wsp, in, out, isCollocated1);
+                        0, 1, tstride1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+                        tjac, wsp, in, out, isCollocated1);
                 }
                 else
                 {
                     IPWRTPhysTraceEdgeN1Kernel<false, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac,
-                        wsp, in, out, isCollocated1);
+                        0, 1, tstride1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+                        tjac, wsp, in, out, isCollocated1);
                 }
                 break;
             case 1:
@@ -679,15 +680,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(
-                        1, 2, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        1, 2, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 else
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<false, DEFORMED>(
-                        1, 2, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        1, 2, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 break;
             case 2:
@@ -695,15 +696,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        0, 1, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 else
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<false, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        0, 1, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 break;
             default:
@@ -719,14 +720,14 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 if (endPtsCollocated1)
                 {
                     IPWRTPhysTraceEdgeN1Kernel<true, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac,
-                        wsp, in, out, isCollocated1);
+                        0, 1, tstride1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+                        tjac, wsp, in, out, isCollocated1);
                 }
                 else
                 {
                     IPWRTPhysTraceEdgeN1Kernel<false, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac,
-                        wsp, in, out, isCollocated1);
+                        0, 1, tstride1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+                        tjac, wsp, in, out, isCollocated1);
                 }
                 break;
             case 1:
@@ -734,29 +735,29 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(
-                        1, 2, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        1, 2, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 else
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<false, DEFORMED>(
-                        1, 2, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        1, 2, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 break;
             case 2:
                 if (endPtsCollocated1)
                 {
                     IPWRTPhysTraceEdgeN1Kernel<true, DEFORMED>(
-                        1, 2, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac,
-                        wsp, in, out, isCollocated1);
+                        1, 2, tstride1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+                        tjac, wsp, in, out, isCollocated1);
                 }
                 else
                 {
                     IPWRTPhysTraceEdgeN1Kernel<false, DEFORMED>(
-                        1, 2, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac,
-                        wsp, in, out, isCollocated1);
+                        1, 2, tstride1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+                        tjac, wsp, in, out, isCollocated1);
                 }
                 break;
             case 3:
@@ -764,15 +765,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        0, 1, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 else
                 {
 
                     IPWRTPhysTraceEdgeN0Kernel<false, DEFORMED>(
-                        0, 1, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac,
-                        wsp, in, out, isCollocated0);
+                        0, 1, tstride0, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
+                        tjac, wsp, in, out, isCollocated0);
                 }
                 break;
             default:
@@ -797,18 +798,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
  * entirely in the plane `p = f * (nm0 - 1)`, @em f being the position of
  * the face within its direction rather than its index within this call.
  *
- * @note The general arm indexes `nbasis[p * nface + f]`, taking the loop
- * bound @p nface as the table's row stride; see AddEdgeN0ToVolKernel and
- * the file note for when that is not the direction's trace count.
- *
  * @tparam END_PTS_COLLOCATED0  Direction-0 volume rule contains the
  *                            domain endpoints.
  * @tparam simd_type          SIMD vector type carrying one element per
  *                            lane.
  *
  * @param   fac     Position of the first face within direction 0.
- * @param   nface   One past the position of the last face; also used as
- *                  the @p nbasis row stride.
+ * @param   nface   One past the position of the last face.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 0 has.
  * @param   nm0,nm1,nm2   Volume quadrature points per direction.
  * @param   nbasis  eInterp table \f$h_p(\pm 1)\f$ of direction 0.
  * @param   in      Trace-mode workspace written by IPWRTPhysFaceKernel,
@@ -817,8 +815,8 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
  */
 template <bool END_PTS_COLLOCATED0, typename simd_type>
 NEK_FORCE_INLINE static void AddFaceN0ToVolKernel(
-    const unsigned fac, const unsigned nface, const unsigned nm0,
-    const unsigned nm1, const unsigned nm2,
+    const unsigned fac, const unsigned nface, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const unsigned nm2,
     [[maybe_unused]] const simd_type *nbasis, const simd_type *in,
     simd_type *out)
 {
@@ -848,7 +846,7 @@ NEK_FORCE_INLINE static void AddFaceN0ToVolKernel(
                 {
                     for (unsigned p = 0; p < nm0; ++p, ++ocnt)
                     {
-                        out[ocnt].fma(in[cnt], nbasis[p * nface + f]);
+                        out[ocnt].fma(in[cnt], nbasis[p * tstride + f]);
                     }
                 }
             }
@@ -867,19 +865,11 @@ NEK_FORCE_INLINE static void AddFaceN0ToVolKernel(
  * accumulates \f$\Lambda_{pqr} \mathrel{+}= h_q(\pm 1)\, F_{pr}\f$ over
  * every @em q.
  *
- * @note The general arm starts each face's input slab at
- * `f * nm0 * (nm1 - 1)`, the same expression the endpoint arm uses for
- * its @em output plane, whereas the slabs it reads are `nm0 * nm2` apart
- * and are counted from the first face of the call. It therefore reads the
- * wrong slab whenever the call covers more than the first face at
- * position 0: the upper face of the direction-1 pair on the bulk route,
- * and face 3 on the per-trace route. Only the general arm is affected, so
- * a direction-1 rule that contains the domain endpoints hides it. The
- * device port writes `(f - fac) * nm0 * nm2` here. Open defect, stated
- * rather than documented away.
- *
- * @note The @p nbasis row stride caveat of AddFaceN0ToVolKernel applies
- * here unchanged.
+ * @note The endpoint arm offsets by `f * nm0 * (nm1 - 1)`, which is an
+ * @em output plane, while the general arm offsets its @em input by
+ * `(f - fac) * nm0 * nm2`: the trace-mode slabs are `nm0 * nm2` apart and
+ * are counted from the first face of the call, not from position 0 of the
+ * direction.
  *
  * @tparam END_PTS_COLLOCATED1  Direction-1 volume rule contains the
  *                            domain endpoints.
@@ -887,8 +877,9 @@ NEK_FORCE_INLINE static void AddFaceN0ToVolKernel(
  *                            lane.
  *
  * @param   fac     Position of the first face within direction 1.
- * @param   nface   One past the position of the last face; also used as
- *                  the @p nbasis row stride.
+ * @param   nface   One past the position of the last face.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 1 has.
  * @param   nm0,nm1,nm2   Volume quadrature points per direction.
  * @param   nbasis  eInterp table \f$h_q(\pm 1)\f$ of direction 1.
  * @param   in      Trace-mode workspace written by IPWRTPhysFaceKernel,
@@ -897,8 +888,8 @@ NEK_FORCE_INLINE static void AddFaceN0ToVolKernel(
  */
 template <bool END_PTS_COLLOCATED1, typename simd_type>
 NEK_FORCE_INLINE static void AddFaceN1ToVolKernel(
-    const unsigned fac, const unsigned nface, const unsigned nm0,
-    const unsigned nm1, const unsigned nm2,
+    const unsigned fac, const unsigned nface, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const unsigned nm2,
     [[maybe_unused]] const simd_type *nbasis, const simd_type *in,
     simd_type *out)
 {
@@ -927,13 +918,13 @@ NEK_FORCE_INLINE static void AddFaceN1ToVolKernel(
             // *output*, picking the j = 0 or j = nm1 - 1 row. Here the face
             // contributes nm0 * nm2 values, indexed by the directions
             // tangential to dir 1.
-            unsigned offset = f * nm0 * nm2;
+            unsigned offset = (f - fac) * nm0 * nm2;
             for (unsigned r = 0, ocnt = 0; r < nm2; ++r)
             {
                 unsigned cnt = r * nm0 + offset;
                 for (unsigned q = 0; q < nm1; ++q)
                 {
-                    simd_type val = nbasis[q * nface + f];
+                    simd_type val = nbasis[q * tstride + f];
                     for (unsigned p = 0; p < nm0; ++p, ++ocnt)
                     {
                         out[ocnt].fma(in[cnt + p], val);
@@ -955,17 +946,15 @@ NEK_FORCE_INLINE static void AddFaceN1ToVolKernel(
  * accumulates \f$\Lambda_{pqr} \mathrel{+}= h_r(\pm 1)\, F_{pq}\f$ over
  * every @em r, advancing the input slab by `nm0 * nm1` per face.
  *
- * @note The @p nbasis row stride caveat of AddFaceN0ToVolKernel applies
- * here unchanged.
- *
  * @tparam END_PTS_COLLOCATED2  Direction-2 volume rule contains the
  *                            domain endpoints.
  * @tparam simd_type          SIMD vector type carrying one element per
  *                            lane.
  *
  * @param   fac     Position of the first face within direction 2.
- * @param   nface   One past the position of the last face; also used as
- *                  the @p nbasis row stride.
+ * @param   nface   One past the position of the last face.
+ * @param   tstride Row stride of @p nbasis, that is the number of traces
+ *                  direction 2 has.
  * @param   nm0,nm1,nm2   Volume quadrature points per direction.
  * @param   nbasis  eInterp table \f$h_r(\pm 1)\f$ of direction 2.
  * @param   in      Trace-mode workspace written by IPWRTPhysFaceKernel,
@@ -974,8 +963,8 @@ NEK_FORCE_INLINE static void AddFaceN1ToVolKernel(
  */
 template <bool END_PTS_COLLOCATED2, typename simd_type>
 NEK_FORCE_INLINE static void AddFaceN2ToVolKernel(
-    const unsigned fac, const unsigned nface, const unsigned nm0,
-    const unsigned nm1, const unsigned nm2,
+    const unsigned fac, const unsigned nface, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const unsigned nm2,
     [[maybe_unused]] const simd_type *nbasis, const simd_type *in,
     simd_type *out)
 {
@@ -1000,7 +989,7 @@ NEK_FORCE_INLINE static void AddFaceN2ToVolKernel(
         {
             for (unsigned r = 0, ocnt = 0; r < nm2; ++r)
             {
-                simd_type val = nbasis[r * nface + f];
+                simd_type val = nbasis[r * tstride + f];
 
                 for (unsigned q = 0, cnt = 0; q < nm1; ++q)
                 {
@@ -1248,6 +1237,8 @@ NEK_FORCE_INLINE static void IPWRTPhysFaceKernel(
  *
  * @param   fac         Position of the first face within direction 0.
  * @param   nface       One past the position of the last face.
+ * @param   tstride     Row stride of @p nbasis, that is the number of
+ *                      traces direction 0 has.
  * @param   nm0,nm1,nm2 Volume quadrature points per direction.
  * @param   nbasis      eInterp table \f$h_p(\pm 1)\f$ of direction 0.
  * @param   tnq0,tnq1   Trace quadrature points of the two in-face
@@ -1267,20 +1258,20 @@ NEK_FORCE_INLINE static void IPWRTPhysFaceKernel(
  */
 template <bool END_PTS_COLLOCATED0, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN0Kernel(
-    const unsigned fac, const unsigned nface, const unsigned nm0,
-    const unsigned nm1, const unsigned nm2, const simd_type *nbasis,
-    const unsigned tnq0, const unsigned tnq1, const simd_type *tbasis0,
-    const simd_type *tbasis1, const simd_type *tw0, const simd_type *tw1,
-    const simd_type *tjac, simd_type *wsp, simd_type *wsp1, const simd_type *in,
-    simd_type *out, const bool isCollocated0 = false,
-    const bool isCollocated1 = false)
+    const unsigned fac, const unsigned nface, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const unsigned nm2,
+    const simd_type *nbasis, const unsigned tnq0, const unsigned tnq1,
+    const simd_type *tbasis0, const simd_type *tbasis1, const simd_type *tw0,
+    const simd_type *tw1, const simd_type *tjac, simd_type *wsp,
+    simd_type *wsp1, const simd_type *in, simd_type *out,
+    const bool isCollocated0 = false, const bool isCollocated1 = false)
 {
     IPWRTPhysFaceKernel<DEFORMED>(fac, nface, nm1, nm2, tnq0, tnq1, tbasis0,
                                   tbasis1, tw0, tw1, tjac, wsp1, in, wsp,
                                   isCollocated0, isCollocated1);
 
-    AddFaceN0ToVolKernel<END_PTS_COLLOCATED0>(fac, nface, nm0, nm1, nm2, nbasis,
-                                              wsp, out);
+    AddFaceN0ToVolKernel<END_PTS_COLLOCATED0>(fac, nface, tstride, nm0, nm1,
+                                              nm2, nbasis, wsp, out);
 }
 
 /**
@@ -1298,6 +1289,8 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN0Kernel(
  *
  * @param   fac         Position of the first face within direction 1.
  * @param   nface       One past the position of the last face.
+ * @param   tstride     Row stride of @p nbasis, that is the number of
+ *                      traces direction 1 has.
  * @param   nm0,nm1,nm2 Volume quadrature points per direction.
  * @param   nbasis      eInterp table \f$h_q(\pm 1)\f$ of direction 1.
  * @param   tnq0,tnq1   Trace quadrature points of the two in-face
@@ -1317,20 +1310,20 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN0Kernel(
  */
 template <bool END_PTS_COLLOCATED1, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN1Kernel(
-    const unsigned fac, const unsigned nface, const unsigned nm0,
-    const unsigned nm1, const unsigned nm2, const simd_type *nbasis,
-    const unsigned tnq0, const unsigned tnq1, const simd_type *tbasis0,
-    const simd_type *tbasis1, const simd_type *tw0, const simd_type *tw1,
-    const simd_type *tjac, simd_type *wsp, simd_type *wsp1, const simd_type *in,
-    simd_type *out, const bool isCollocated0 = false,
-    const bool isCollocated1 = false)
+    const unsigned fac, const unsigned nface, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const unsigned nm2,
+    const simd_type *nbasis, const unsigned tnq0, const unsigned tnq1,
+    const simd_type *tbasis0, const simd_type *tbasis1, const simd_type *tw0,
+    const simd_type *tw1, const simd_type *tjac, simd_type *wsp,
+    simd_type *wsp1, const simd_type *in, simd_type *out,
+    const bool isCollocated0 = false, const bool isCollocated1 = false)
 {
     IPWRTPhysFaceKernel<DEFORMED>(fac, nface, nm0, nm2, tnq0, tnq1, tbasis0,
                                   tbasis1, tw0, tw1, tjac, wsp1, in, wsp,
                                   isCollocated0, isCollocated1);
 
-    AddFaceN1ToVolKernel<END_PTS_COLLOCATED1>(fac, nface, nm0, nm1, nm2, nbasis,
-                                              wsp, out);
+    AddFaceN1ToVolKernel<END_PTS_COLLOCATED1>(fac, nface, tstride, nm0, nm1,
+                                              nm2, nbasis, wsp, out);
 }
 
 /**
@@ -1348,6 +1341,8 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN1Kernel(
  *
  * @param   fac         Position of the first face within direction 2.
  * @param   nface       One past the position of the last face.
+ * @param   tstride     Row stride of @p nbasis, that is the number of
+ *                      traces direction 2 has.
  * @param   nm0,nm1,nm2 Volume quadrature points per direction.
  * @param   nbasis      eInterp table \f$h_r(\pm 1)\f$ of direction 2.
  * @param   tnq0,tnq1   Trace quadrature points of the two in-face
@@ -1367,20 +1362,20 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN1Kernel(
  */
 template <bool END_PTS_COLLOCATED2, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN2Kernel(
-    const unsigned fac, const unsigned nface, const unsigned nm0,
-    const unsigned nm1, const unsigned nm2, const simd_type *nbasis,
-    const unsigned tnq0, const unsigned tnq1, const simd_type *tbasis0,
-    const simd_type *tbasis1, const simd_type *tw0, const simd_type *tw1,
-    const simd_type *tjac, simd_type *wsp, simd_type *wsp1, const simd_type *in,
-    simd_type *out, const bool isCollocated0 = false,
-    const bool isCollocated1 = false)
+    const unsigned fac, const unsigned nface, const unsigned tstride,
+    const unsigned nm0, const unsigned nm1, const unsigned nm2,
+    const simd_type *nbasis, const unsigned tnq0, const unsigned tnq1,
+    const simd_type *tbasis0, const simd_type *tbasis1, const simd_type *tw0,
+    const simd_type *tw1, const simd_type *tjac, simd_type *wsp,
+    simd_type *wsp1, const simd_type *in, simd_type *out,
+    const bool isCollocated0 = false, const bool isCollocated1 = false)
 {
     IPWRTPhysFaceKernel<DEFORMED>(fac, nface, nm0, nm1, tnq0, tnq1, tbasis0,
                                   tbasis1, tw0, tw1, tjac, wsp1, in, wsp,
                                   isCollocated0, isCollocated1);
 
-    AddFaceN2ToVolKernel<END_PTS_COLLOCATED2>(fac, nface, nm0, nm1, nm2, nbasis,
-                                              wsp, out);
+    AddFaceN2ToVolKernel<END_PTS_COLLOCATED2>(fac, nface, tstride, nm0, nm1,
+                                              nm2, nbasis, wsp, out);
 }
 
 /**
@@ -1414,9 +1409,10 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceFaceN2Kernel(
  * the volume field before applying its first trace.
  *
  * @note For the lower face of a two-trace direction the window is
- * [0, 1), which the lift kernels also use as the @c nbasis row stride;
- * the general (non-@c endPtsCollocated) arm then reads that table with a stride
- * of one instead of two. See the file note.
+ * [0, 1), which is not the @c nbasis row stride: the lift kernels take
+ * that separately, from @c ShapeTypeNumTraceInDir, so the general
+ * (non-@c endPtsCollocated) arm reads the table at the direction's trace
+ * count either way.
  *
  * @tparam SHAPE_TYPE  Hex, Prism, Pyr or Tet; the block operator maps the
  *                     nodal shapes onto these.
@@ -1475,21 +1471,31 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
         std::memset((void *)out, 0, nm0 * nm1 * nm2 * sizeof(simd_type));
     }
 
+    // One nbasis row per trace of the direction. A per-trace call covers
+    // one position within a direction, so its window is not the row stride
+    // and the two cannot be taken for one another.
+    constexpr unsigned tstride0 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+    constexpr unsigned tstride1 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+    constexpr unsigned tstride2 =
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][2];
+
     switch (face)
     {
         case 0:
             if (endPtsCollocated2)
             {
                 IPWRTPhysTraceFaceN2Kernel<true, DEFORMED>(
-                    0, 1, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20,
-                    tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
+                    0, 1, tstride2, nm0, nm1, nm2, nbasis2, tnq20, tnq21,
+                    tbasis20, tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
                     isCollocated20, isCollocated21);
             }
             else
             {
                 IPWRTPhysTraceFaceN2Kernel<false, DEFORMED>(
-                    0, 1, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20,
-                    tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
+                    0, 1, tstride2, nm0, nm1, nm2, nbasis2, tnq20, tnq21,
+                    tbasis20, tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
                     isCollocated20, isCollocated21);
             }
             break;
@@ -1497,15 +1503,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
             if (endPtsCollocated1)
             {
                 IPWRTPhysTraceFaceN1Kernel<true, DEFORMED>(
-                    0, 1, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10,
-                    tbasis11, tw10, tw11, tjac, wsp, wsp1, in, out,
+                    0, 1, tstride1, nm0, nm1, nm2, nbasis1, tnq10, tnq11,
+                    tbasis10, tbasis11, tw10, tw11, tjac, wsp, wsp1, in, out,
                     isCollocated10, isCollocated11);
             }
             else
             {
                 IPWRTPhysTraceFaceN1Kernel<false, DEFORMED>(
-                    0, 1, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10,
-                    tbasis11, tw10, tw11, tjac, wsp, wsp1, in, out,
+                    0, 1, tstride1, nm0, nm1, nm2, nbasis1, tnq10, tnq11,
+                    tbasis10, tbasis11, tw10, tw11, tjac, wsp, wsp1, in, out,
                     isCollocated10, isCollocated11);
             }
             break;
@@ -1513,15 +1519,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
             if (endPtsCollocated0)
             {
                 IPWRTPhysTraceFaceN0Kernel<true, DEFORMED>(
-                    1, 2, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00,
-                    tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
+                    1, 2, tstride0, nm0, nm1, nm2, nbasis0, tnq00, tnq01,
+                    tbasis00, tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
                     isCollocated00, isCollocated01);
             }
             else
             {
                 IPWRTPhysTraceFaceN0Kernel<false, DEFORMED>(
-                    1, 2, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00,
-                    tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
+                    1, 2, tstride0, nm0, nm1, nm2, nbasis0, tnq00, tnq01,
+                    tbasis00, tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
                     isCollocated00, isCollocated01);
             }
 
@@ -1532,16 +1538,16 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
                 if (endPtsCollocated0)
                 {
                     IPWRTPhysTraceFaceN0Kernel<true, DEFORMED>(
-                        0, 1, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00,
-                        tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
-                        isCollocated00, isCollocated01);
+                        0, 1, tstride0, nm0, nm1, nm2, nbasis0, tnq00, tnq01,
+                        tbasis00, tbasis01, tw00, tw01, tjac, wsp, wsp1, in,
+                        out, isCollocated00, isCollocated01);
                 }
                 else
                 {
                     IPWRTPhysTraceFaceN0Kernel<false, DEFORMED>(
-                        0, 1, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00,
-                        tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
-                        isCollocated00, isCollocated01);
+                        0, 1, tstride0, nm0, nm1, nm2, nbasis0, tnq00, tnq01,
+                        tbasis00, tbasis01, tw00, tw01, tjac, wsp, wsp1, in,
+                        out, isCollocated00, isCollocated01);
                 }
             }
             else
@@ -1549,16 +1555,16 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
                 if (endPtsCollocated1)
                 {
                     IPWRTPhysTraceFaceN1Kernel<true, DEFORMED>(
-                        1, 2, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10,
-                        tbasis11, tw10, tw11, tjac, wsp, wsp1, in, out,
-                        isCollocated10, isCollocated11);
+                        1, 2, tstride1, nm0, nm1, nm2, nbasis1, tnq10, tnq11,
+                        tbasis10, tbasis11, tw10, tw11, tjac, wsp, wsp1, in,
+                        out, isCollocated10, isCollocated11);
                 }
                 else
                 {
                     IPWRTPhysTraceFaceN1Kernel<false, DEFORMED>(
-                        1, 2, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10,
-                        tbasis11, tw10, tw11, tjac, wsp, wsp1, in, out,
-                        isCollocated10, isCollocated11);
+                        1, 2, tstride1, nm0, nm1, nm2, nbasis1, tnq10, tnq11,
+                        tbasis10, tbasis11, tw10, tw11, tjac, wsp, wsp1, in,
+                        out, isCollocated10, isCollocated11);
                 }
             }
             break;
@@ -1566,15 +1572,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
             if (endPtsCollocated0)
             {
                 IPWRTPhysTraceFaceN0Kernel<true, DEFORMED>(
-                    0, 1, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00,
-                    tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
+                    0, 1, tstride0, nm0, nm1, nm2, nbasis0, tnq00, tnq01,
+                    tbasis00, tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
                     isCollocated00, isCollocated01);
             }
             else
             {
                 IPWRTPhysTraceFaceN0Kernel<false, DEFORMED>(
-                    0, 1, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00,
-                    tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
+                    0, 1, tstride0, nm0, nm1, nm2, nbasis0, tnq00, tnq01,
+                    tbasis00, tbasis01, tw00, tw01, tjac, wsp, wsp1, in, out,
                     isCollocated00, isCollocated01);
             }
             break;
@@ -1582,15 +1588,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceFaceKernel(
             if (endPtsCollocated2)
             {
                 IPWRTPhysTraceFaceN2Kernel<true, DEFORMED>(
-                    1, 2, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20,
-                    tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
+                    1, 2, tstride2, nm0, nm1, nm2, nbasis2, tnq20, tnq21,
+                    tbasis20, tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
                     isCollocated20, isCollocated21);
             }
             else
             {
                 IPWRTPhysTraceFaceN2Kernel<false, DEFORMED>(
-                    1, 2, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20,
-                    tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
+                    1, 2, tstride2, nm0, nm1, nm2, nbasis2, tnq20, tnq21,
+                    tbasis20, tbasis21, tw20, tw21, tjac, wsp, wsp1, in, out,
                     isCollocated20, isCollocated21);
             }
             break;
@@ -1710,10 +1716,13 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
         std::memset((void *)out, 0, nm0 * nm1 * sizeof(simd_type));
     }
 
+    // A bulk call spans the whole direction, so its window is also the
+    // nbasis row stride; the per-trace entry point has to state the two
+    // separately.
     if (endPtsCollocated0)
     {
 
-        IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(0, 2, nm0, nm1, nbasis0,
+        IPWRTPhysTraceEdgeN0Kernel<true, DEFORMED>(0, 2, 2, nm0, nm1, nbasis0,
                                                    tnq00, tbasis0, tw00, tjac,
                                                    wsp, in, out, isCollocated0);
     }
@@ -1721,8 +1730,8 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
     {
 
         IPWRTPhysTraceEdgeN0Kernel<false, DEFORMED>(
-            0, 2, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac, wsp, in, out,
-            isCollocated0);
+            0, 2, 2, nm0, nm1, nbasis0, tnq00, tbasis0, tw00, tjac, wsp, in,
+            out, isCollocated0);
     }
 
     unsigned offset  = 2 * tnq00; // edge offset for following edge
@@ -1735,14 +1744,14 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
     if (endPtsCollocated1)
     {
         IPWRTPhysTraceEdgeN1Kernel<true, DEFORMED>(
-            0, ntrace1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac + joffset,
-            wsp, in + offset, out, isCollocated1);
+            0, ntrace1, ntrace1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+            tjac + joffset, wsp, in + offset, out, isCollocated1);
     }
     else
     {
         IPWRTPhysTraceEdgeN1Kernel<false, DEFORMED>(
-            0, ntrace1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10, tjac + joffset,
-            wsp, in + offset, out, isCollocated1);
+            0, ntrace1, ntrace1, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
+            tjac + joffset, wsp, in + offset, out, isCollocated1);
     }
 }
 
@@ -1831,17 +1840,20 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
         std::memset((void *)out, 0, nm0 * nm1 * nm2 * sizeof(simd_type));
     }
 
+    // A bulk call spans the whole direction, so its window is also the
+    // nbasis row stride; the per-trace entry point has to state the two
+    // separately.
     if (endPtsCollocated0)
     {
         IPWRTPhysTraceFaceN0Kernel<true, DEFORMED>(
-            0, 2, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00, tbasis01,
+            0, 2, 2, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00, tbasis01,
             tw00, tw01, tjac, wsp, wsp1, in, out, isCollocated00,
             isCollocated01);
     }
     else
     {
         IPWRTPhysTraceFaceN0Kernel<false, DEFORMED>(
-            0, 2, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00, tbasis01,
+            0, 2, 2, nm0, nm1, nm2, nbasis0, tnq00, tnq01, tbasis00, tbasis01,
             tw00, tw01, tjac, wsp, wsp1, in, out, isCollocated00,
             isCollocated01);
     }
@@ -1855,15 +1867,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
     if (endPtsCollocated1)
     {
         IPWRTPhysTraceFaceN1Kernel<true, DEFORMED>(
-            0, nface1, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10, tbasis11,
-            tw10, tw11, tjac + joffset, wsp, wsp1, in + offset, out,
+            0, nface1, nface1, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10,
+            tbasis11, tw10, tw11, tjac + joffset, wsp, wsp1, in + offset, out,
             isCollocated10, isCollocated11);
     }
     else
     {
         IPWRTPhysTraceFaceN1Kernel<false, DEFORMED>(
-            0, nface1, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10, tbasis11,
-            tw10, tw11, tjac + joffset, wsp, wsp1, in + offset, out,
+            0, nface1, nface1, nm0, nm1, nm2, nbasis1, tnq10, tnq11, tbasis10,
+            tbasis11, tw10, tw11, tjac + joffset, wsp, wsp1, in + offset, out,
             isCollocated10, isCollocated11);
     }
     offset += nface1 * tnq10 * tnq11;
@@ -1875,15 +1887,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
     if (endPtsCollocated2)
     {
         IPWRTPhysTraceFaceN2Kernel<true, DEFORMED>(
-            0, nface2, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20, tbasis21,
-            tw20, tw21, tjac + joffset, wsp, wsp1, in + offset, out,
+            0, nface2, nface2, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20,
+            tbasis21, tw20, tw21, tjac + joffset, wsp, wsp1, in + offset, out,
             isCollocated20, isCollocated21);
     }
     else
     {
         IPWRTPhysTraceFaceN2Kernel<false, DEFORMED>(
-            0, nface2, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20, tbasis21,
-            tw20, tw21, tjac + joffset, wsp, wsp1, in + offset, out,
+            0, nface2, nface2, nm0, nm1, nm2, nbasis2, tnq20, tnq21, tbasis20,
+            tbasis21, tw20, tw21, tjac + joffset, wsp, wsp1, in + offset, out,
             isCollocated20, isCollocated21);
     }
 }

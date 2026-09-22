@@ -227,6 +227,7 @@ ENDIF()
 
 # Device StdMat
 IF(NEKTAR_ENABLE_DEVICE)
+    SET_UNIT_TEST(IProductWRTPhysTrace_device_stdmat TestIProductWRTPhysTrace Device StdMat FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_device_stdmat TestIProductWRTPhysNormalDerivTrace Device StdMat FALSE)
     SET_UNIT_TEST(PhysTraceExtract_device_stdmat TestPhysTraceExtract Device StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_device_stdmat TestBwdTrans Device StdMat FALSE)
@@ -268,6 +269,9 @@ ENDIF()
 
 # Device SumFacTOP
 IF(NEKTAR_ENABLE_DEVICE)
+    SET_UNIT_TEST(IProductWRTPhysTrace_device_sumfactop TestIProductWRTPhysTrace Device SumFacTOP FALSE)
+    SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_device_sumfactop TestIProductWRTPhysNormalDerivTrace Device SumFacTOP FALSE)
+    SET_UNIT_TEST(PhysTraceExtract_device_sumfactop TestPhysTraceExtract Device SumFacTOP FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfactop TestBwdTrans Device SumFacTOP FALSE)
     SET_UNIT_TEST(Helmholtz_device_sumfactop TestHelmholtz Device SumFacTOP FALSE)
     SET_UNIT_TEST(Laplacian_device_sumfactop TestLaplacian Device SumFacTOP FALSE)    

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysNormalDerivTraceSerialAVXGeneric.hpp
+// File: IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,7 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysNormalDerivTraceSerialAVXGeneric.hpp
+ * @file IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp
  * @brief Serial and AVX dispatch of the sum-factorised surface inner
  * product against the normal derivative of the volume cardinal basis.
  *
@@ -42,7 +42,7 @@
  * This header defines the primary
  * detail::IProductWRTPhysNormalDerivTraceBlockOpImpl template, which
  * serves the Serial and the AVX execution spaces; the Device space is
- * served by IProductWRTPhysNormalDerivTraceDeviceGeneric.hpp. The two
+ * served by IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp. The two
  * headers are the same operator with a different packing of the elements,
  * SIMD vector lanes here and warp lanes there. The vector type is
  * `tinysimd::simd<TData>` for AVX and `tinysimd::scalarT<TData>`, of width
@@ -53,21 +53,22 @@
  * trace derivative factors from the data warehouse, and allocates the
  * workspaces. Each application brings the block storage to `simd_t::width`
  * a chunk at a time and calls the kernels of
- * IProductWRTPhysNormalDerivTraceSerialAVXGenericKernels.hpp per shape.
+ * IProductWRTPhysNormalDerivTraceSerialAVXSumFacKernels.hpp per shape.
  * No arithmetic on the field happens here.
  *
  * CMake generates one translation unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the Serial/AVX
- * Generic branch of library/Operators/CMakeLists.txt). Those units define the
- * per-shape entry points declared below, expanding
- * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
- * operator's switch template. This operator registers a single implementation,
- * so the class is only ever instantiated for Operators::Generic and its
- * Implementation template parameter is not read anywhere.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the
+ * Serial/AVX SumFac branch of library/Operators/CMakeLists.txt). Those
+ * units define the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
+ * this operator's switch template. On Serial and AVX this operator
+ * registers a single implementation, so the class is only ever
+ * instantiated for Operators::SumFac and its Implementation template
+ * parameter is not read anywhere.
  *
  * @see IProductWRTPhysNormalDerivTraceOp.hpp for what the operator
  * computes and how the family is laid out.
- * @see IProductWRTPhysTraceSerialAVXGeneric.hpp for the plain trace lift
+ * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the plain trace lift
  * this operator is built on, whose layout it follows.
  */
 
@@ -78,7 +79,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp"
-#include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceSerialAVXGenericKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceSerialAVXSumFacKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -124,7 +125,7 @@ namespace Nektar::Operators::detail
  *
  * @tparam ExecSpace       NektarSpaces::Serial or NektarSpaces::AVX,
  *                         which is what selects the vector type.
- * @tparam Implementation  Operators::Generic; nothing else is
+ * @tparam Implementation  Operators::SumFac; nothing else is
  *                         generated, and the parameter is not read.
  * @tparam TData           Floating-point type of the field data.
  */
@@ -340,8 +341,7 @@ public:
 
     /// @brief Creator function registered with BlockOperatorFactory;
     /// builds one block operator for the given block of elements.
-    /// Implementation is always Operators::Generic here, this operator
-    /// providing a single implementation; see
+    /// Implementation is the tag this class is registered under; see
     /// IProductWRTPhysNormalDerivTraceBlockOp.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>

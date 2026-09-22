@@ -51,7 +51,7 @@ namespace Nektar
             std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
                       << __LINE__ << std::endl;                                \
             std::cerr << cudaGetErrorString(err) << std::endl;                 \
-            exit(0);                                                           \
+            exit(1);                                                           \
         }                                                                      \
     }
 #define CHECK_HIPCUDA_ERROR(err)                                               \
@@ -62,7 +62,7 @@ namespace Nektar
             std::cerr << "CUDA Runtime Error at: " << __FILE__ << ":"          \
                       << __LINE__ << std::endl;                                \
             std::cerr << cudaGetErrorString(nekCheckErr) << std::endl;         \
-            exit(0);                                                           \
+            exit(1);                                                           \
         }                                                                      \
     }
 

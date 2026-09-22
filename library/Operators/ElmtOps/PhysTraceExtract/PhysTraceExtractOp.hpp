@@ -89,30 +89,25 @@
  * - PhysTraceExtractBlockOp (PhysTraceExtractBlockOp.hpp): per-block
  *   interface;
  * - detail::PhysTraceExtractBlockOpImpl: the per-block implementations,
- *   in PhysTraceExtractSerialAVXGeneric.hpp (serving both the Serial and
- *   the AVX space) and PhysTraceExtractDeviceGeneric.hpp (Device);
- * - the kernels in PhysTraceExtractSerialAVXGenericKernels.hpp and
- *   PhysTraceExtractDeviceGenericKernels.hpp.
+ *   in PhysTraceExtractSerialAVXSumFac.hpp (serving both the Serial and
+ *   the AVX space) and PhysTraceExtractDeviceSumFac.hpp (Device);
+ * - the kernels in PhysTraceExtractSerialAVXSumFacKernels.hpp and
+ *   PhysTraceExtractDeviceSumFacKernels.hpp.
  *
  * The per-shape entry points are generated from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one translation unit
- * per shape, execution space and data type, so the size-templated OperatorND
- * instantiations of the SumFac families are kept even though this operator
- * registers a single implementation. Those units include the switch template
- * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, which is
- * named after this operator: its per-shape template arguments carry trace point
- * counts per normal direction.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
+ * translation unit per shape, execution space and data type, so the
+ * size-templated OperatorND instantiations of the SumFac families are
+ * kept. Those units include the switch template
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
+ * which is named after this operator: its per-shape template arguments
+ * carry trace point counts per normal direction.
  *
- * @note There is one trace-extraction algorithm and one registration,
- * under Operators::Generic. A StdMat, SumFac or SumFacTOP request does
- * not fail the factory lookup and does not need a shim header per
- * implementation: ElmtBlockOp::Create() falls back to the `"Generic"`
- * key whenever the requested one is absent, so a whole-field selection
- * of any implementation can include this operator. SumFacTOP is the
- * case that matters numerically -- the block class instantiated with
- * that tag would have run kernels indexing at the warp size against a
- * width-one interleave -- and there is now no such instantiation to
- * make.
+ * @note There is one trace-extraction algorithm, registered under
+ * Operators::SumFac, and on Device a SumFacTOP registration whose
+ * kernels run one element per thread block. A StdMat request is mapped
+ * to SumFac by PhysTraceExtractBlockOp::Create(), so a whole-field
+ * selection of StdMat, SumFac or SumFacTOP can include this operator.
  *
  * @warning For three-dimensional shapes the general normal-direction
  * interpolation, the arm taken when the volume rule of the normal
@@ -203,9 +198,9 @@ public:
      *                          operator is set up for.
      * @param   execStr         Execution space ("Serial", "AVX" or
      *                          "Device"); session default if empty.
-     * @param   implStr         Block implementation; every value
-     *                          resolves to the single "Generic"
-     *                          registration, see the file notes.
+     * @param   implStr         Block implementation; StdMat resolves to
+     *                          the SumFac registration, see the file
+     *                          notes.
      *
      * @return The fully assembled operator, ready to Apply.
      */

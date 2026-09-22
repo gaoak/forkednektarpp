@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTPhysTraceSerialAVXGeneric.hpp
+// File: IProductWRTPhysTraceSerialAVXSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file IProductWRTPhysTraceSerialAVXGeneric.hpp
+ * @file IProductWRTPhysTraceSerialAVXSumFac.hpp
  * @brief Serial and AVX dispatch and kernel drivers of the
  * sum-factorised surface inner product against the volume cardinal
  * basis.
@@ -42,7 +42,7 @@
  * This header defines the primary
  * detail::IProductWRTPhysTraceBlockOpImpl template, which serves the
  * Serial and the AVX execution spaces; the Device space is served by the
- * partial specialisation in IProductWRTPhysTraceDeviceGeneric.hpp. The
+ * partial specialisation in IProductWRTPhysTraceDeviceSumFac.hpp. The
  * two headers are the same operator with a different packing of the
  * elements, SIMD vector lanes here and warp lanes there. The vector type
  * is `tinysimd::simd<TData>` for AVX and `tinysimd::scalarT<TData>`, of
@@ -54,17 +54,18 @@
  * and trace Jacobian from the data warehouse. Each application then
  * allocates its workspace, brings the block storage to `simd_t::width` a
  * chunk at a time and calls the kernels of
- * IProductWRTPhysTraceSerialAVXGenericKernels.hpp per shape. No
+ * IProductWRTPhysTraceSerialAVXSumFacKernels.hpp per shape. No
  * arithmetic on the field happens here.
  *
  * CMake generates one translation unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the Serial/AVX
- * Generic branch of library/Operators/CMakeLists.txt). Those units define the
- * per-shape entry points declared below, expanding
- * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
- * operator's switch template. This operator registers a single implementation,
- * so the class is only ever instantiated for Operators::Generic and its
- * Implementation template parameter is not read anywhere.
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in (the
+ * Serial/AVX SumFac branch of library/Operators/CMakeLists.txt). Those
+ * units define the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
+ * this operator's switch template. On Serial and AVX this operator
+ * registers a single implementation, so the class is only ever
+ * instantiated for Operators::SumFac and its Implementation template
+ * parameter is not read anywhere.
  *
  * Two entry points reach the kernels:
  * - v_Apply, the bulk path, which lifts all of an element's traces
@@ -79,11 +80,11 @@
  *
  * @see IProductWRTPhysTraceOp.hpp for what the operator computes and how
  * the family is laid out.
- * @see IProductWRTPhysTraceSerialAVXGenericKernels.hpp for the kernels
+ * @see IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the kernels
  * called from here.
- * @see IProductWRTPhysTraceDeviceGeneric.hpp for the same decomposition
+ * @see IProductWRTPhysTraceDeviceSumFac.hpp for the same decomposition
  * packed for warp lanes instead of SIMD vectors.
- * @see PhysTraceExtractSerialAVXGeneric.hpp for the adjoint operator,
+ * @see PhysTraceExtractSerialAVXSumFac.hpp for the adjoint operator,
  * which applies the same interpolation tables untransposed.
  */
 
@@ -93,7 +94,7 @@
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceBlockOp.hpp"
-#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceSerialAVXGenericKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceSerialAVXSumFacKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -132,7 +133,7 @@ namespace Nektar::Operators::detail
  * trace-loop bound instead, so a one-wide window on a two-trace
  * direction reads the table with a stride of one; the Device backend
  * threads the stride through as a separate argument and does not share
- * the defect (see IProductWRTPhysTraceSerialAVXGenericKernels.hpp).
+ * the defect (see IProductWRTPhysTraceSerialAVXSumFacKernels.hpp).
  *
  * Layout. The tables and the weights are fetched with a
  * `BasisDataKey<simd_t>`, so each scalar coefficient occupies one whole
@@ -153,11 +154,11 @@ namespace Nektar::Operators::detail
  *
  * @tparam ExecSpace       NektarSpaces::Serial or NektarSpaces::AVX,
  *                         which is what selects the vector type.
- * @tparam Implementation  Operators::Generic; nothing else is
+ * @tparam Implementation  Operators::SumFac; nothing else is
  *                         generated, and the parameter is not read.
  * @tparam TData           Floating-point type of the field data.
  *
- * @see IProductWRTPhysTraceSerialAVXGenericKernels.hpp for the kernel
+ * @see IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the kernel
  * layers this class calls.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -358,8 +359,8 @@ public:
 
     /// @brief Creator function registered with BlockOperatorFactory;
     /// builds one block operator for the given block of elements.
-    /// Implementation is always Operators::Generic here, this operator
-    /// providing a single implementation; see IProductWRTPhysTraceBlockOp.
+    /// Implementation is the tag this class is registered under; see
+    /// IProductWRTPhysTraceBlockOp.
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>

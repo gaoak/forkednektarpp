@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysTraceExtractDeviceGeneric.hpp
+// File: PhysTraceExtractDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file PhysTraceExtractDeviceGeneric.hpp
+ * @file PhysTraceExtractDeviceSumFac.hpp
  * @brief Device dispatch and kernel launchers of the sum-factorised
  * extraction of a volume field onto the element traces.
  *
@@ -45,21 +45,21 @@
  * collocation properties that select the kernels' fast paths. Each
  * application then sizes the workspace and the launch configuration,
  * normalises the storage interleave and dispatches per shape into
- * PhysTraceExtractDeviceGenericKernels.hpp. No arithmetic on the field
+ * PhysTraceExtractDeviceSumFacKernels.hpp. No arithmetic on the field
  * happens here.
  *
- * CMake serves Operators::Generic from this one header (the Device Generic
- * branch of library/Operators/CMakeLists.txt) and generates one translation
- * unit per shape and data type from
- * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units define
- * the per-shape entry points declared below, expanding
- * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
- * operator's switch template.
+ * CMake serves Operators::SumFac and Operators::SumFacTOP from this one
+ * header (the Device SumFac branch of library/Operators/CMakeLists.txt)
+ * and generates one translation unit per shape and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * define the per-shape entry points declared below, expanding
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in,
+ * this operator's switch template.
  *
  * Unlike IProductWRTPhysTrace, which declares a primary template and
  * partially specialises it on NektarSpaces::Device, this header defines
  * the primary PhysTraceExtractBlockOpImpl template itself, as does
- * PhysTraceExtractSerialAVXGeneric.hpp. The two never collide because a
+ * PhysTraceExtractSerialAVXSumFac.hpp. The two never collide because a
  * generated translation unit includes exactly one of them.
  *
  * Two entry points reach the kernels:
@@ -69,33 +69,20 @@
  * - v_ExtractTrace, the per-trace path, which extracts one named trace
  *   into a caller-chosen offset of a packed trace field.
  *
- * @note This operator has a single implementation, registered under
- * Operators::Generic, so the class is only ever built with that tag and
- * #m_implInterleaveWidth is unconditionally
- * NektarSpaces::Device::warpSize, the interleave the kernels index
- * with. A StdMat, SumFac or SumFacTOP request reaches it through
- * ElmtBlockOp::Create()'s fallback to the `"Generic"` factory key.
- * SumFacTOP in particular must not select a width-one interleave here:
- * that would feed contiguous per-element data to kernels indexing at
- * the warp size, and with one registration there is no tag left that
- * could.
- *
- * The launch geometry is a separate question from the implementation
- * tag: it is one element per warp, which is the shape
- * GetDeviceBlockSize() and GetDeviceGridSize() compute for
- * Operators::SumFac, so that is what those helpers are queried with
- * rather than with Implementation, which is Operators::Generic here and
- * names no launch shape of its own. The kernels in
- * PhysTraceExtractDeviceGenericKernels.hpp take no implementation tag
- * at all: they are written for that one launch geometry, so the tag
- * would have named nothing they read.
+ * @note Two implementations are registered from this header:
+ * Operators::SumFac, one element per warp lane at the warp-size
+ * interleave, and Operators::SumFacTOP, one element per thread block
+ * at width one. Implementation selects the kernel family, the launch
+ * geometry GetDeviceBlockSize() and GetDeviceGridSize() compute and
+ * #m_implInterleaveWidth. A StdMat request reaches the SumFac class
+ * through PhysTraceExtractBlockOp::Create(), which maps it.
  *
  * @see PhysTraceExtractOp.hpp for the operator's place in the family.
- * @see PhysTraceExtractDeviceGenericKernels.hpp for the kernels launched
+ * @see PhysTraceExtractDeviceSumFacKernels.hpp for the kernels launched
  * from here.
- * @see PhysTraceExtractSerialAVXGeneric.hpp for the same decomposition
+ * @see PhysTraceExtractSerialAVXSumFac.hpp for the same decomposition
  * packed for SIMD vectors instead of warp lanes.
- * @see IProductWRTPhysTraceDeviceGeneric.hpp for the adjoint operator,
+ * @see IProductWRTPhysTraceDeviceSumFac.hpp for the adjoint operator,
  * which applies the same interpolation tables transposed and carries in
  * addition the trace weights and the trace Jacobian.
  */
@@ -105,7 +92,8 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp"
 
-#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractDeviceGenericKernels.hpp"
+#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractDeviceSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractDeviceSumFacTOPKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -116,7 +104,8 @@ namespace Nektar::Operators::detail
 
 /**
  * @brief Device block implementation of the trace extraction, one
- * element per warp lane.
+ * element per warp lane (Operators::SumFac) or per thread block
+ * (Operators::SumFacTOP).
  *
  * @details
  * For every element of the block this evaluates the volume field at the
@@ -145,11 +134,13 @@ namespace Nektar::Operators::detail
  * are the tangential tables \f$h_p(\xi^{tr})\f$, called tbasis. Neither
  * is an expansion basis evaluated anywhere.
  *
- * Layout. Field and trace data are warp interleaved: element
- * \f$e = (i_{warp}, i_{lane})\f$ holds its entry @em n at
- * `buf[warpsize * n + ilane]` inside its warp block, and warp blocks
- * stride by `numData * warpsize`. The packed trace output orders traces
- * by normal direction: the N0 pair first, then the N1 pair or single,
+ * Layout. Under Operators::SumFac field and trace data are warp
+ * interleaved: element \f$e = (i_{warp}, i_{lane})\f$ holds its entry
+ * @em n at `buf[warpsize * n + ilane]` inside its warp block, and warp
+ * blocks stride by `numData * warpsize`; under Operators::SumFacTOP an
+ * element's entries are contiguous at width one. The packed trace
+ * output orders traces by normal direction: the N0 pair first, then the
+ * N1 pair or single,
  * then N2, face-major within a pair. Unlike IProductWRTPhysTrace this
  * operator reads no Jacobian and no quadrature weights, because an
  * interpolation carries no surface measure, so it fetches no geometric
@@ -163,12 +154,12 @@ namespace Nektar::Operators::detail
  * the same reason.
  *
  * @tparam ExecSpace       NektarSpaces::Device.
- * @tparam Implementation  Operators::Generic, this operator providing
- *                         a single implementation; see the file-level
+ * @tparam Implementation  Operators::SumFac or Operators::SumFacTOP,
+ *                         selecting the kernel family; see the file-level
  *                         note.
  * @tparam TData           Floating-point type of the field data.
  *
- * @see PhysTraceExtractDeviceGenericKernels.hpp for the kernel layers
+ * @see PhysTraceExtractDeviceSumFacKernels.hpp for the kernel layers
  * this class launches.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -330,8 +321,8 @@ public:
 
     /// @brief Creator function registered with BlockOperatorFactory;
     /// builds one block operator for the given block of elements.
-    /// Implementation is always Operators::Generic here, this operator
-    /// providing a single implementation; see PhysTraceExtractBlockOp.
+    /// Implementation is the tag this class is registered under; see
+    /// PhysTraceExtractBlockOp.
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
@@ -345,11 +336,15 @@ public:
     }
 
 protected:
-    /// Interleave width the kernels expect: a full warp, one element
-    /// per lane. The Operator methods and v_ExtractTrace reshape the
-    /// block storage to this width around every launch.
+    /// Interleave width the kernels expect: the warp size for
+    /// Operators::SumFac, one element per lane, and one for
+    /// Operators::SumFacTOP, one element per thread block. The Operator
+    /// methods and v_ExtractTrace reshape the block storage to this
+    /// width around every launch.
     static constexpr unsigned int m_implInterleaveWidth =
-        NektarSpaces::Device::warpSize;
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::Device::warpSize
+            : 1u;
 
     unsigned int m_streamID;
 
@@ -506,7 +501,7 @@ protected:
      * @param   outOffset   Offset of this trace's values within one
      *                      element's packed trace entries, counted in
      *                      entries per element. The launchers scale it
-     *                      by the warp size inside the kernel.
+     *                      by #m_implInterleaveWidth inside the kernel.
      *
      * @note #m_extractTraceInit is a member of the block operator, not
      * of @p outblock, and is never cleared. An operator reused on a
@@ -699,7 +694,7 @@ protected:
      * shape: PhysTraceExtractTraceKernelLauncher's one-, two- and
      * three-dimensional arms are one overload set, and this one body
      * launches whichever the index sequences expand to. It offsets the
-     * output to `(numDataOut * iwarp + outOffset) * warpsize` so the
+     * output by @p outOffset, scaled by #m_implInterleaveWidth, so the
      * caller can place each trace in turn within the output block.
      *
      * The workspace comes from PhysTraceExtractWorkSpaceSize(), the
@@ -729,22 +724,20 @@ protected:
      *                      numbering of the shape.
      * @param   nelmtPad    Elements in the block including padding.
      * @param   ncomp       Components, including homogeneous planes.
-     * @param   nmTot       Volume points per element, so warp blocks of
-     *                      the input stride by `nmTot * warpsize`.
-     * @param   numDataOut  Packed trace entries per element, so warp
-     *                      blocks of the output stride by
-     *                      `numDataOut * warpsize`.
+     * @param   nmTot       Volume points per element, so interleave
+     *                      blocks of the input stride by
+     *                      `nmTot * m_implInterleaveWidth`.
+     * @param   numDataOut  Packed trace entries per element, so
+     *                      interleave blocks of the output stride by
+     *                      `numDataOut * m_implInterleaveWidth`.
      * @param   nTracePts   Trace points of this trace; sizes the launch
-     *                      only, and not even that, since
-     *                      GetDeviceBlockSize() ignores its argument
-     *                      for Operators::SumFac and returns the warp
-     *                      size.
+     *                      only.
      * @param   inptr       Volume field of the block.
      * @param   outptr      Packed trace field of the block.
      * @param   outOffset   Offset of this trace's values within one
      *                      element's packed trace entries, counted in
      *                      entries per element. The launchers scale it
-     *                      by the warp size inside the kernel.
+     *                      by #m_implInterleaveWidth inside the kernel.
      * @param   sizeParam   Volume and trace point counts of the block.
      */
     template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter,
@@ -760,23 +753,28 @@ protected:
     {
         // Get static workspace pointer.
         const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize(nelmtPad, sizeParam) * ncomp;
+            PhysTraceExtractWorkSpaceSize<Implementation>(nelmtPad, sizeParam) *
+            ncomp;
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
 
         // Set Kernel parameters.
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            PhysTraceExtractSharedMemorySize<Implementation>(sizeParam);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Operators::SumFac>(nTracePts);
+            GetDeviceBlockSize<Implementation>(nTracePts);
         const unsigned int gridsize =
-            GetDeviceGridSize<Operators::SumFac>(nelmtPad, blocksize, 0);
+            GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
 
         // PhysTraceExtract kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (PhysTraceExtractTraceKernelLauncher<SHAPE_TYPE>), gridsize, ncomp,
-            blocksize, 1, 0, m_streamID, traceid, sizeParam, nelmtPad, nmTot,
-            numDataOut, outOffset, m_B[ind0]..., m_B[sizeof...(ind0) + ind1]...,
-            inptr, outptr, wspptr, (bool)this->m_isCollocated[ind1]...,
+            (PhysTraceExtractTraceKernelLauncher<SHAPE_TYPE, Implementation>),
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, traceid,
+            sizeParam, nelmtPad, nmTot, numDataOut, outOffset, m_B[ind0]...,
+            m_B[sizeof...(ind0) + ind1]..., inptr, outptr, wspptr,
+            (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]...);
     }
 
@@ -938,8 +936,10 @@ protected:
      *
      * @c nqTotOut, from the size parameter's nqTotTrace(), reproduces
      * the packed output length to size the launch, and the workspace
-     * comes from PhysTraceExtractWorkSpaceSize(), which the kernel
-     * partitions per warp through the helpers behind it. A segment
+     * comes from PhysTraceExtractWorkSpaceSize(), which the SumFac
+     * kernels partition per warp; for SumFacTOP it is zero and the
+     * kernels take the same per-element budget from dynamic shared
+     * memory instead. A segment
      * needs none and is given a null pointer, deviceMalloc() returning
      * one for a zero-sized request.
      *
@@ -1008,7 +1008,8 @@ protected:
 
         // Get static workspace pointer.
         const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize(nelmt, sizeParam) * ncomp;
+            PhysTraceExtractWorkSpaceSize<Implementation>(nelmt, sizeParam) *
+            ncomp;
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize, m_streamID);
@@ -1016,10 +1017,13 @@ protected:
         // Set Kernel parameters.
         const unsigned int nqTotOut =
             sizeParam.template nqTotTrace<SHAPE_TYPE>();
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            PhysTraceExtractSharedMemorySize<Implementation>(sizeParam);
         const unsigned int blocksize =
-            GetDeviceBlockSize<Operators::SumFac>(nqTotOut);
+            GetDeviceBlockSize<Implementation>(nqTotOut);
         const unsigned int gridsize =
-            GetDeviceGridSize<Operators::SumFac>(nelmt, blocksize, 0);
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -1028,10 +1032,10 @@ protected:
 
         // PhysTraceExtract kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (PhysTraceExtractKernelLauncher<SHAPE_TYPE>), gridsize, ncomp,
-            blocksize, 1, 0, m_streamID, sizeParam, nelmt, nmTot, m_B[ind0]...,
-            m_B[sizeof...(ind0) + ind1]..., inptr, outptr, wspptr,
-            (bool)this->m_isCollocated[ind1]...,
+            (PhysTraceExtractKernelLauncher<SHAPE_TYPE, Implementation>),
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
+            nelmt, nmTot, m_B[ind0]..., m_B[sizeof...(ind0) + ind1]..., inptr,
+            outptr, wspptr, (bool)this->m_isCollocated[ind1]...,
             (bool)m_endPtsCollocated[ind0]...);
 
         // Reshape back, if necessary.

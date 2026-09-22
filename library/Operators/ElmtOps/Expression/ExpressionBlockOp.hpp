@@ -51,7 +51,7 @@ public:
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        const std::string &execStr, std::string implStr)
+        const std::string &execStr, const std::string &implStr)
     {
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<ExpressionBlockOp>(block_idx, exp, dataWarehouse,

@@ -152,17 +152,18 @@ namespace Nektar::Operators
  *
  * The concrete implementations are the
  * detail::IProductWRTPhysNormalDerivTraceBlockOpImpl definitions in
- * IProductWRTPhysNormalDerivTraceSerialAVXGeneric.hpp (Serial and AVX) and
- * IProductWRTPhysNormalDerivTraceDeviceGeneric.hpp (Device). Their
+ * IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp (Serial and AVX) and
+ * IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp (Device). Their
  * per-shape entry points, the ShapeBlock() specialisations, are generated
  * from LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in,
  * one translation unit per shape, execution space and data type.
  *
- * There is a single implementation, registered under Operators::Generic,
- * as for IProductWRTPhysTrace: a caller asking for StdMat, SumFac or
- * SumFacTOP is served that registration by ElmtBlockOp::Create(), which
- * falls back to the `"Generic"` factory key whenever the requested key is
- * absent.
+ * There is a single implementation, registered under Operators::SumFac
+ * and, on Device, under SumFacTOP from the same header, where it keeps
+ * the SumFac geometry. No standard-matrix formulation is intended, so
+ * Create() serves a StdMat request from the SumFac registration by
+ * mapping the implementation name before the factory lookup, as
+ * IProductWRTPhysTraceBlockOp::Create() does.
  *
  * @tparam TData Floating-point type of the field data.
  *
@@ -187,7 +188,8 @@ public:
      * @param   dataWarehouse   Data warehouse shared with the other
      *                          operators on the expansion list.
      * @param   execStr         Execution-space part of the factory key.
-     * @param   implStr         Implementation part of the factory key.
+     * @param   implStr         Implementation part of the factory key;
+     *                          StdMat resolves to SumFac.
      *
      * @return The newly created block operator.
      */
@@ -195,11 +197,20 @@ public:
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        std::string execStr, std::string implStr)
+        const std::string &execStr, const std::string &implStr)
     {
+        // No standard-matrix formulation of a trace operator is intended;
+        // the SumFac registration serves a StdMat request.
+        WARNINGL1(implStr != StdMat::name,
+                  "IProductWRTPhysNormalDerivTrace has no StdMat "
+                  "implementation; the request is served by SumFac.");
+
+        std::string implStr0 =
+            (implStr == StdMat::name) ? SumFac::name : implStr;
+
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<IProductWRTPhysNormalDerivTraceBlockOp>(
-                block_idx, exp, dataWarehouse, execStr, implStr);
+                block_idx, exp, dataWarehouse, execStr, implStr0);
     }
 
     /// Block-operator base name; Create() appends the execution space

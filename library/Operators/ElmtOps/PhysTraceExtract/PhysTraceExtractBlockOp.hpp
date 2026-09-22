@@ -73,29 +73,20 @@ namespace Nektar::Operators
  *
  * The concrete implementations are the
  * detail::PhysTraceExtractBlockOpImpl definitions in
- * PhysTraceExtractSerialAVXGeneric.hpp (Serial and AVX) and
- * PhysTraceExtractDeviceGeneric.hpp (Device). Their per-shape entry
+ * PhysTraceExtractSerialAVXSumFac.hpp (Serial and AVX) and
+ * PhysTraceExtractDeviceSumFac.hpp (Device). Their per-shape entry
  * points, the ShapeBlock() specialisations, are generated from
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
  * translation unit per shape, execution space and data type, so the
  * size-templated OperatorND() instantiations of the SumFac families are
  * kept.
  *
- * There is a single implementation, registered under
- * Operators::Generic: only one trace-extraction algorithm exists, and
- * no StdMat/SumFac/SumFacTOP choice is to be made here. A caller asking
- * for another implementation -- StdMat or SumFac from the whole-field
- * operator selection, SumFacTOP from a Device run -- is served that one
- * registration by ElmtBlockOp::Create(), which falls back to the
- * `"Generic"` factory key whenever the requested key is absent.
- *
- * Registering under Generic is also what keeps a SumFacTOP run correct.
- * The kernels index the trace data at warpSize interleave;
- * instantiating them with the SumFacTOP tag would have set an
- * implementation width of one and produced wrong numbers on real
- * hardware -- invisibly in a DEVICEONHOST build, where warpSize is 1
- * and the two interleaves coincide. With one registration there is no
- * such tag to instantiate against.
+ * There is one trace-extraction algorithm, registered under
+ * Operators::SumFac; the Device build adds a SumFacTOP registration,
+ * whose kernels run one element per thread block. No standard-matrix
+ * formulation is intended, so Create() serves a StdMat request from
+ * the SumFac registration by mapping the implementation name before
+ * the factory lookup.
  *
  * @tparam TData Floating-point type of the field data.
  *
@@ -121,7 +112,8 @@ public:
      *                          implementations take their interpolation
      *                          tables from it.
      * @param   execStr         Execution-space part of the factory key.
-     * @param   implStr         Implementation part of the factory key.
+     * @param   implStr         Implementation part of the factory key;
+     *                          StdMat resolves to SumFac.
      *
      * @return The newly created block operator.
      */
@@ -129,11 +121,20 @@ public:
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        std::string execStr, std::string implStr)
+        const std::string &execStr, const std::string &implStr)
     {
+        // No standard-matrix formulation of a trace operator is intended;
+        // the SumFac registration serves a StdMat request.
+        WARNINGL1(implStr != StdMat::name,
+                  "PhysTraceExtract has no StdMat implementation; the "
+                  "request is served by SumFac.");
+
+        std::string implStr0 =
+            (implStr == StdMat::name) ? SumFac::name : implStr;
+
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<PhysTraceExtractBlockOp>(
-                block_idx, exp, dataWarehouse, execStr, implStr);
+                block_idx, exp, dataWarehouse, execStr, implStr0);
     }
 
     /// Block-operator base name; Create() appends the execution space

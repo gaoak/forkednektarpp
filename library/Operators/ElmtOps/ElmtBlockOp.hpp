@@ -241,7 +241,7 @@ public:
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
-        const std::string &execStr, std::string implStr)
+        const std::string &execStr, const std::string &implStr)
     {
         std::string requestedKey = TOperator<TData>::name + execStr + implStr;
 

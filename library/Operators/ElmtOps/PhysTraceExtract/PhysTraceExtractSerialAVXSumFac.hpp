@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysTraceExtractSerialAVXGeneric.hpp
+// File: PhysTraceExtractSerialAVXSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * @file PhysTraceExtractSerialAVXGeneric.hpp
+ * @file PhysTraceExtractSerialAVXSumFac.hpp
  * @brief Serial and AVX dispatch of the sum-factorised trace
  * extraction, the interpolation of an element's volume field onto the
  * quadrature points of its traces.
@@ -44,12 +44,13 @@
  * counts and both families of interpolation tables out of the data
  * warehouse; each application then sizes the workspace, normalises the
  * storage interleave to the SIMD width and dispatches per shape into
- * PhysTraceExtractSerialAVXGenericKernels.hpp. No arithmetic on the
+ * PhysTraceExtractSerialAVXSumFacKernels.hpp. No arithmetic on the
  * field happens here.
  *
- * CMake selects this header for the Serial and AVX execution spaces with
- * Operators::Generic and generates one translation unit per shape and data type
- * from LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
+ * CMake selects this header for the Serial and AVX execution spaces
+ * with Operators::SumFac and generates one translation unit per shape
+ * and data type from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in. Those units
  * define the per-shape entry points declared below, expanding
  * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in, this
  * operator's switch template.
@@ -61,26 +62,26 @@
  * - v_ExtractTrace, the per-trace path, which extracts one named trace
  *   into a caller-chosen slot of that same output.
  *
- * @note The Implementation tag here is only ever Operators::Generic,
- * this operator providing a single implementation, and nothing in the
+ * @note The Implementation tag here is only ever Operators::SumFac,
+ * the one implementation built for Serial and AVX, and nothing in the
  * class reads it: it is only forwarded to name the instantiation. A
- * StdMat, SumFac or SumFacTOP request reaches this class through
- * ElmtBlockOp::Create()'s fallback to the `"Generic"` factory key.
+ * StdMat request reaches this class through
+ * PhysTraceExtractBlockOp::Create(), which maps it to SumFac.
  *
  * @note The class below is the primary
  * detail::PhysTraceExtractBlockOpImpl template, with an unconstrained
- * ExecSpace parameter, and PhysTraceExtractDeviceGeneric.hpp declares a
+ * ExecSpace parameter, and PhysTraceExtractDeviceSumFac.hpp declares a
  * second primary template of the same signature. The two headers are
  * therefore alternatives: a generated translation unit includes
  * exactly one of them, never both.
  *
  * @see PhysTraceExtractOp.hpp for the whole-field interface and for
  * the layouts of the two fields.
- * @see PhysTraceExtractSerialAVXGenericKernels.hpp for the kernels
+ * @see PhysTraceExtractSerialAVXSumFacKernels.hpp for the kernels
  * called from here.
- * @see PhysTraceExtractDeviceGeneric.hpp for the same decomposition
+ * @see PhysTraceExtractDeviceSumFac.hpp for the same decomposition
  * packed for warp lanes instead of SIMD vectors.
- * @see IProductWRTPhysTraceSerialAVXGeneric.hpp for the adjoint
+ * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the adjoint
  * operator, which applies the same interpolation tables transposed and
  * carries the trace weights and trace Jacobian this one has no use
  * for.
@@ -93,7 +94,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp"
 
-#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractSerialAVXGenericKernels.hpp"
+#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractSerialAVXSumFacKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -148,11 +149,11 @@ namespace Nektar::Operators::detail
  * @tparam ExecSpace       NektarSpaces::Serial or NektarSpaces::AVX;
  *                         it selects simd_t and with it
  *                         #m_implInterleaveWidth.
- * @tparam Implementation  Operators::Generic; see the file-level
+ * @tparam Implementation  Operators::SumFac; see the file-level
  *                         note.
  * @tparam TData           Floating-point type of the field data.
  *
- * @see PhysTraceExtractSerialAVXGenericKernels.hpp for the kernel
+ * @see PhysTraceExtractSerialAVXSumFacKernels.hpp for the kernel
  * layers this class calls into.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
@@ -342,8 +343,8 @@ public:
 
     /// @brief Creator function registered with BlockOperatorFactory;
     /// builds one block operator for the given block of elements.
-    /// Implementation is always Operators::Generic here, this operator
-    /// providing a single implementation; see PhysTraceExtractBlockOp.
+    /// Implementation is the tag this class is registered under; see
+    /// PhysTraceExtractBlockOp.
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
