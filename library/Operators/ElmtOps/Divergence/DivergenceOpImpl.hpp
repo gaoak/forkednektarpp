@@ -34,7 +34,10 @@
 
 #pragma once
 
+#include <MultiRegions/ExpListHomogeneous1D.h>
+
 #include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
+#include "Operators/ElmtOps/Divergence/DivergenceZOpImpl.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -47,6 +50,19 @@ public:
                      const std::vector<std::string> &components)
         : DivergenceOp<TData>(expansionList, components)
     {
+        // A z-op is built only for a multi-plane 3DH1 expansion; m_zOp stays
+        // null for 2D/3D, 3DH2 and single-plane 3DH1, where v_Apply does the
+        // xy derivatives alone.
+        auto homoExpList =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                expansionList);
+
+        if (homoExpList &&
+            homoExpList->GetHomogeneousBasis()->GetNumPoints() > 1)
+        {
+            m_zOp = std::make_shared<DivergenceZOpImpl<ExecSpace, TData>>(
+                expansionList);
+        }
     }
 
     // className - for OperatorFactory
@@ -59,6 +75,18 @@ public:
     {
         return std::make_unique<DivergenceOpImpl<ExecSpace, TData>>(
             expansionList, components);
+    }
+
+protected:
+    std::shared_ptr<DivergenceZOpImpl<ExecSpace, TData>> m_zOp;
+
+    void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Phys> &out) override
+    {
+        if (m_zOp && in.GetNumHomoModes() > 1)
+        {
+            m_zOp->Launch(in, out);
+        }
     }
 };
 

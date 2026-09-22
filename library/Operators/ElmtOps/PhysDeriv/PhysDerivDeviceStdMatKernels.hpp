@@ -101,14 +101,17 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
 template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
     const unsigned dir, const unsigned nqTot, const unsigned ncoord,
-    const unsigned dimension, const size_t nelmt, const size_t inoffset,
-    const TData *dfptr, const TData *inptr, TData *outptr,
-    const unsigned int streamID)
+    const unsigned dimension, const size_t nelmt, const unsigned nhomo,
+    const size_t inoffset, const TData *dfptr, const TData *inptr,
+    TData *outptr, const unsigned int streamID)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
 
+    // Every plane is one more block of elements over the same geometry, so
+    // they all run in this one launch and the element index wraps back to
+    // the same derivative factors on each.
     const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt;
+    const auto nsize = nqTot * nelmt * nhomo;
 
     if constexpr (DEFORMED)
     {

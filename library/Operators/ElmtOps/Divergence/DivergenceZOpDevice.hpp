@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZOpDevice.hpp
+// File: DivergenceZOpDevice.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Device (cuFFT/cuFFTDx) backend for the PhysDerivOp
+// Description: Device (cuFFT/cuFFTDx) backend for the DivergenceOp
 // z-derivative.
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,26 +40,36 @@
 // Brings in the host API of whichever backend is enabled, and with it
 // CUDAStream / HIPStream / SYCLQueue and CHECK_HIPCUDA_ERROR.
 #include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
 #include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
+
+#include "Operators/Common/BlockOperator.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-/// \brief Device backend for the homogeneous z-derivative.
+/// \brief Device backend for the homogeneous part of the divergence.
 ///
 /// Launch() applies a D2Z + wavenumber multiply + Z2D pipeline per block via
-/// PhysDerivZDirect, over cuFFT, hipFFT or oneMath. Each block is submitted
-/// to its own per-block stream (block index + 1), the same stream its
-/// producers and consumers use, so no cross-stream ordering is needed and the
-/// blocks can overlap. Under CUDA and HIP each block's pipeline is captured
-/// as its own device graph on the first call -- the graph is launched right
-/// after it is instantiated, so that call behaves like any other -- and
-/// replayed from the second on for lower launch overhead. Everything the
-/// capture must not see (block allocation, host-to-device transfers, plan
-/// creation) is resolved before it opens. SYCL has no capture, so there
-/// m_graphExec stays empty and every call submits the pipeline directly.
+/// PhysDerivZDirect, over cuFFT, hipFFT or oneMath. The transform writes to a
+/// scratch buffer rather than to the output, because the xy backend has
+/// already left du/dx + dv/dy there and dw/dz has to be added to it;
+/// addKernel does that sum. The scratch is the per-stream workspace the block
+/// operators share, so this pass allocates nothing of its own. Each block is
+/// submitted to its own per-block stream (block index + 1), the same stream
+/// its producers and consumers use, so no cross-stream ordering is needed and
+/// the blocks can overlap. Under CUDA and HIP each block's pipeline is
+/// captured as its own device graph on the first call -- the graph is
+/// launched right after it is instantiated, so that call behaves like any
+/// other -- and replayed from the second on for lower launch overhead.
+/// Everything the capture must not see (block allocation, host-to-device
+/// transfers, workspace growth, plan creation) is resolved before it opens,
+/// and because the shared workspace moves when another operator outgrows it,
+/// a block whose workspace address has changed is captured afresh instead of
+/// replayed. SYCL has no capture, so there m_graphExec stays empty and every
+/// call submits the pipeline directly.
 template <typename ExecSpace, typename TData>
-class PhysDerivZOpImpl<
+class DivergenceZOpImpl<
     ExecSpace, TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>>>
 {
@@ -67,19 +77,19 @@ public:
     /// \param expansionList  Read once for the homogeneous length; the device
     ///                       pipeline otherwise works straight off the block
     ///                       pointers.
-    PhysDerivZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+    DivergenceZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
     {
         auto homoExpList =
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 expansionList);
 
         ASSERTL0(homoExpList,
-                 "The homogeneous z-derivative needs an ExpListHomogeneous1D");
+                 "The homogeneous divergence needs an ExpListHomogeneous1D");
 
         m_beta = 2.0 * M_PI / homoExpList->GetHomoLen();
     }
 
-    ~PhysDerivZOpImpl()
+    ~DivergenceZOpImpl()
     {
         for ([[maybe_unused]] auto &graph : m_graphExec)
         {
@@ -92,10 +102,10 @@ public:
     }
 
     // Non-copyable and non-movable.
-    PhysDerivZOpImpl(const PhysDerivZOpImpl &)            = delete;
-    PhysDerivZOpImpl &operator=(const PhysDerivZOpImpl &) = delete;
-    PhysDerivZOpImpl(PhysDerivZOpImpl &&)                 = delete;
-    PhysDerivZOpImpl &operator=(PhysDerivZOpImpl &&)      = delete;
+    DivergenceZOpImpl(const DivergenceZOpImpl &)            = delete;
+    DivergenceZOpImpl &operator=(const DivergenceZOpImpl &) = delete;
+    DivergenceZOpImpl(DivergenceZOpImpl &&)                 = delete;
+    DivergenceZOpImpl &operator=(DivergenceZOpImpl &&)      = delete;
 
     void Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
                 LibUtilities::Field<TData, FieldState::Phys> &out)
@@ -110,6 +120,13 @@ public:
         // is what tells a replay apart from that first pass.
         const bool replay = (m_graphExec.size() == numBlocks);
 
+        // The velocity component along the homogeneous direction is the last
+        // one; the xy backend has already consumed the others.
+        ASSERTL1(nComp == 3,
+                 "The homogeneous divergence needs all three velocity "
+                 "components");
+        const unsigned int wComp = nComp - 1;
+
         for (unsigned int blk = 0; blk < numBlocks; ++blk)
         {
             const unsigned int streamID = blk + 1;
@@ -117,8 +134,18 @@ public:
             auto &inblock           = in.GetBlocks()[blk];
             auto &outblock          = out.GetBlocks()[blk];
             const size_t compStride = inblock.CompSize();
+            const size_t nsize      = compStride * nhomo;
 
-            if (replay)
+            // Scratch for the transform, taken from the per-stream workspace
+            // the block operators share. That workspace is reallocated
+            // whenever one of them asks for more than it currently holds, and
+            // a captured graph keeps the address it was built against, so a
+            // block is replayed only while its workspace has not moved and is
+            // captured again when it has.
+            TData *dzPtr = BlockOperator<TData>::template GetStaticWorkSpace<
+                NektarSpaces::DeviceSpace>(nsize, streamID);
+
+            if (replay && m_wsp[blk] == dzPtr)
             {
                 LaunchGraph(blk);
                 continue;
@@ -131,25 +158,36 @@ public:
                 inblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
             TData *outPtr =
-                outblock.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>(
+                outblock.template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>(
                     streamID);
 
-            // Likewise for the transform plans and their scratch: creating
-            // them allocates and synchronises the stream, neither of which a
-            // capture tolerates, so the graph only ever sees the transforms.
+            // Likewise for the transform plans and their own scratch:
+            // creating them allocates and synchronises the stream, neither of
+            // which a capture tolerates, so the graph only ever sees the
+            // transforms.
             LibUtilities::PhysDerivZPrepare<TData>(nhomo, compStride,
                                                    compStride, streamID);
 
+            // Record which workspace this capture is built against.
+            if (m_wsp.size() > blk)
+            {
+                m_wsp[blk] = dzPtr;
+            }
+            else
+            {
+                m_wsp.push_back(dzPtr);
+            }
+
             BeginCapture(blk);
 
-            for (unsigned int n = 0; n < nComp; ++n)
-            {
-                // Output component for the z-derivative of input n is 3n + 2.
-                const TData *phiPtr = inPtr + n * compStride * nhomo;
-                TData *dzPtr        = outPtr + (n * 3 + 2) * compStride * nhomo;
-                LibUtilities::PhysDerivZDirect(phiPtr, dzPtr, nhomo, compStride,
-                                               compStride, m_beta, streamID);
-            }
+            const TData *wPtr = inPtr + wComp * compStride * nhomo;
+            LibUtilities::PhysDerivZDirect(wPtr, dzPtr, nhomo, compStride,
+                                           compStride, m_beta, streamID);
+
+            // The output already holds the xy part of the divergence. The
+            // sum runs over the whole component, padding included: a padded
+            // xy slot only ever adds to itself.
+            Math::addKernel<ExecSpace>(nsize, dzPtr, outPtr, outPtr, streamID);
 
             // Capture records the pipeline instead of running it, so the
             // freshly instantiated graph has to be launched here for this
@@ -167,6 +205,7 @@ private:
 #else
     std::vector<void *> m_graphExec;
 #endif
+    std::vector<TData *> m_wsp;
     TData m_beta = 0.0;
 
     void LaunchGraph(const unsigned int blk)

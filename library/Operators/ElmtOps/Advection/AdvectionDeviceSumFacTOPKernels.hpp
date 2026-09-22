@@ -325,7 +325,8 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
+    const unsigned int nhomo, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale,
     [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
@@ -346,7 +347,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
         const TData *dfptr     = df + ndf * dfsize * e;
         const TData *inptr     = in + nq0 * nelmt * c + nq0 * e;
         TData *outptr          = out + nq0 * nelmt * c + nq0 * e;
-        const TData *advVelPtr = advVel + nq0 * e;
+        const TData *advVelPtr = advVel + nq0 * nelmt * (c % nhomo) + nq0 * e;
         Advection1DSumFacTOPKernel<APPEND, DEFORMED>(
             ncoord, nq0, D0, dfptr, advVelPtr, advVelOffset, inptr, outptr,
             scale, threadBlock);
@@ -364,9 +365,9 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
     const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT advVel,
-    const size_t advVelOffset, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
-    const TthreadBlock &threadBlock)
+    const size_t advVelOffset, const unsigned int nhomo,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
@@ -391,10 +392,11 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *dfptr     = df + ndf * dfsize * e;
-        const TData *inptr     = in + nqTot * nelmt * c + nqTot * e;
-        TData *outptr          = out + nqTot * nelmt * c + nqTot * e;
-        const TData *advVelPtr = advVel + nqTot * e;
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
+        const TData *advVelPtr =
+            advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
@@ -424,8 +426,9 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
     const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out, const TData scale,
-    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    const unsigned int nhomo, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
@@ -450,10 +453,11 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *dfptr     = df + ndf * dfsize * e;
-        const TData *inptr     = in + nqTot * nelmt * c + nqTot * e;
-        TData *outptr          = out + nqTot * nelmt * c + nqTot * e;
-        const TData *advVelPtr = advVel + nqTot * e;
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
+        const TData *advVelPtr =
+            advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)

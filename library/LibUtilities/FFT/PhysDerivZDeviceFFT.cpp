@@ -147,16 +147,12 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     return e;
 }
 
-} // anonymous namespace
-
+// Cache lookup shared by PhysDerivZDirect() and PhysDerivZPrepare(), so that
+// preparing a queue and running on it cannot disagree about the key.
 template <typename TData>
-void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta, void *vstream)
+DirectPlanEntry<TData> GetOrCreateEntry(unsigned int nhomo, size_t NXY,
+                                        size_t compStride, sycl::queue &Q)
 {
-    // The declaration hands the queue over as void * to keep the header
-    // independent of SYCL; everything below works on the real handle.
-    sycl::queue &Q = *static_cast<sycl::queue *>(vstream);
-
     const DirectPlanKey key{&Q, nhomo, NXY, compStride};
 
     DirectPlanEntry<TData> entry;
@@ -165,6 +161,23 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
         entry = CreateEntry<TData>(nhomo, NXY, compStride, Q);
         DirectPlanCache<TData>::Instance().Register(key, entry);
     }
+
+    return entry;
+}
+
+} // anonymous namespace
+
+template <typename TData>
+void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
+                      size_t NXY, size_t compStride, TData beta,
+                      unsigned int streamID)
+{
+    // The declaration hands the queue over as an id to keep the header
+    // independent of SYCL; the registry resolves it to the real handle here.
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+
+    DirectPlanEntry<TData> entry =
+        GetOrCreateEntry<TData>(nhomo, NXY, compStride, Q);
 
     // The three stages are chained on their events rather than left to the
     // queue, so the pipeline holds whether or not the caller's queue is
@@ -175,17 +188,37 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
     sycl::event eWav = WavenumberMultiplyKernel(
         Q, entry.d_cmplx, NXY, entry.plan.halfN, beta, invN, {eFwd});
 
-    ComputeBackward(Q, entry.plan, entry.d_cmplx, d_out, {eWav});
+    sycl::event eBwd =
+        ComputeBackward(Q, entry.plan, entry.d_cmplx, d_out, {eWav});
+
+    // Publish the tail of the pipeline so that a later
+    // SetStreamDependencies() on this stream id waits for it.
+    SYCLQueue::SetEvent(streamID, eBwd);
+}
+
+template <typename TData>
+void PhysDerivZPrepare(unsigned int nhomo, size_t NXY, size_t compStride,
+                       unsigned int streamID)
+{
+    GetOrCreateEntry<TData>(nhomo, NXY, compStride,
+                            SYCLQueue::GetInstance(streamID));
 }
 
 template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
                                        unsigned int nhomo, size_t NXY,
                                        size_t compStride, double beta,
-                                       void *vstream);
+                                       unsigned int streamID);
 template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
                                       unsigned int nhomo, size_t NXY,
                                       size_t compStride, float beta,
-                                      void *vstream);
+                                      unsigned int streamID);
+
+template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
+                                        size_t compStride,
+                                        unsigned int streamID);
+template void PhysDerivZPrepare<float>(unsigned int nhomo, size_t NXY,
+                                       size_t compStride,
+                                       unsigned int streamID);
 
 } // namespace Nektar::LibUtilities
 

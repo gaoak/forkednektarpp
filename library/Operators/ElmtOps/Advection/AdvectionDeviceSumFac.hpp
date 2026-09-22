@@ -289,7 +289,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr, m_streamID);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -298,6 +299,8 @@ protected:
         // Shape size.
         const auto nqTot = sizeParam.nqTot();
 
+        // Get block sizes.
+        const auto nhomo = inblock.GetNumHomoModes();
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -307,10 +310,11 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        // Initialize advVel pointers.
+        // Initialize advVel pointers. The advection velocity carries the same
+        // planes as the input, so one of its components spans all of them.
         auto advVelPtr =
             this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        const auto advVelOffset = nelmt * nqTot;
+        const auto advVelOffset = nelmt * nqTot * nhomo;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -345,7 +349,7 @@ protected:
                                          DEFORMED>),
                 gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
                 nelmt, m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr,
-                advVelOffset, inptr, outptr, this->m_scale);
+                advVelOffset, nhomo, inptr, outptr, this->m_scale);
         }
         else
         {
@@ -354,7 +358,7 @@ protected:
                                          DEFORMED>),
                 gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
                 nelmt, m_D[ind0]..., m_f[ind1]..., m_dfptr, advVelPtr,
-                advVelOffset, inptr, outptr, this->m_scale);
+                advVelOffset, nhomo, inptr, outptr, this->m_scale);
         }
 
         // Reshape back, if necessary.

@@ -71,8 +71,9 @@ public:
     {
         auto advelblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto vel = Field<TData, FieldState::Phys>("vel", advelblockAttr,
-                                                  m_coordDim, 1);
+        auto vel =
+            Field<TData, FieldState::Phys>("vel", advelblockAttr, m_coordDim,
+                                           this->fixt_in->GetNumHomoModes());
         vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);
 
         auto op = AdvectionOp<TData>::Create(this->fixt_explist,
@@ -155,10 +156,16 @@ public:
             el += block.GetNumElements();
         }
 
-        // Set advection velocity
-        size_t nphys = this->fixt_explist->GetTotPoints() /
-                       this->fixt_in->GetNumHomoModes();
-        m_coordDim         = this->fixt_explist->GetCoordim(0);
+        // Set advection velocity. It carries the same planes as the input,
+        // and on a 3DH1 expansion a third component along the homogeneous
+        // direction, which the planes themselves do not count.
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+        size_t nphys       = this->fixt_explist->GetTotPoints();
+        m_coordDim         = (is3DH1 && this->fixt_in->GetNumHomoModes() > 1)
+                                 ? 3
+                                 : this->fixt_explist->GetCoordim(0);
         m_vel              = Array<OneD, TData>(nphys * m_coordDim, 1.0);
         unsigned int count = 0;
         for (int i = 0; i < m_coordDim; i++)
@@ -184,6 +191,18 @@ public:
         Array<OneD, TData> grad1   = Array<OneD, TData>(nphys);
         Array<OneD, TData> grad2   = Array<OneD, TData>(nphys);
 
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+        const bool wave = is3DH1 && this->fixt_in->GetNumHomoModes() > 1;
+
+        // The input is in physical space, while SetExpList3DH1 leaves
+        // WaveSpace true, so it is turned off for the derivatives.
+        if (wave)
+        {
+            this->fixt_explist->SetWaveSpace(false);
+        }
+
         unsigned int count = 0;
         for (unsigned int i = 0; i < numComp; i++)
         {
@@ -208,6 +227,11 @@ public:
                 }
                 count += 1;
             }
+        }
+
+        if (wave)
+        {
+            this->fixt_explist->SetWaveSpace(true);
         }
 
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
@@ -298,3 +322,40 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData> class TestAdvectionFFT : public TestAdvection<TData>
+{
+public:
+    TestAdvectionFFT() = default;
+};
+
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestAdvectionFFT<float>{                        \
+        public : type##float(){meshName = filename;                            \
+    }                                                                          \
+    }                                                                          \
+    ;
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestAdvectionFFT<double>                               \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")
