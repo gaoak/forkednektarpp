@@ -28,9 +28,55 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Device sum-factorised implementation of the per-block
+// inner product with the basis.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file IProductWRTBaseDeviceSumFac.hpp
+ * @brief Device sum-factorised implementation of the per-block inner
+ * product with the basis, serving both the SumFac and the SumFacTOP
+ * strategy.
+ *
+ * @details
+ * As in the Serial/AVX sum-factorised implementation
+ * (IProductWRTBaseSerialAVXSumFac.hpp), the basis transpose is applied one
+ * coordinate direction at a time through the one-dimensional basis tables,
+ * with the quadrature metric folded into the contractions; on the device
+ * all of it happens inside a single fused kernel launch per block.
+ *
+ * This one header is included by the translation units CMake generates for
+ * either sum-factorisation strategy on the Device execution space; the
+ * Implementation tag selects between the two kernel families at compile
+ * time, when the enable_if-constrained kernel launchers and the workspace
+ * and shared-memory size helpers resolve:
+ * - SumFac (IProductWRTBaseDeviceSumFacKernels.hpp): one element per
+ *   thread. The lanes of a warp advance through warpSize elements in
+ *   lock-step on warp-interleaved data, which is what the Serial/AVX
+ *   implementation does with SIMD lanes; the inter-stage intermediates
+ *   live in a global-memory workspace and the quadrature metric is applied
+ *   inside the innermost contraction.
+ * - SumFacTOP (IProductWRTBaseDeviceSumFacTOPKernels.hpp): one element per
+ *   thread block. The block's threads are indexed over the element's
+ *   per-stage output entries, with the basis tables and the intermediates
+ *   staged in shared memory; the quadrature metric is applied once, while
+ *   the element's physical values are copied into shared memory, rather
+ *   than inside the contractions.
+ *
+ * The two strategies want different storage layouts; see the class
+ * description. The shape dispatch of v_Apply() and the generated
+ * ShapeBlock() specialisations mirror the Serial/AVX SumFac implementation
+ * -- the same BlockOpShapeBlock.cpp.in template generates them for both --
+ * so see IProductWRTBaseSerialAVXSumFac.hpp for that description.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through IProductWRTBaseOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated per-shape sources exist to avoid.
+ */
 
 #pragma once
 
@@ -47,6 +93,45 @@
 namespace Nektar::Operators::detail
 {
 
+/**
+ * @brief Device sum-factorised inner product with the basis (SumFac or
+ * SumFacTOP, selected by the Implementation tag).
+ *
+ * @details
+ * As in the Serial/AVX SumFac implementation, the constructor caches, per
+ * reference direction, the element sizes, the one-dimensional basis tables
+ * (#m_B) and quadrature weights (#m_W, collapsed-coordinate factors
+ * included), the nodal-to-modal matrix of the nodal shapes -- here fetched
+ * as eNodalToModal and applied transposed by the kernels' MatVecKernel --
+ * and the block's Jacobians, all in device memory. Under SumFacTOP it
+ * additionally fetches, for the shapes with a collapsed mode ordering
+ * (triangle, tetrahedron, prism, pyramid and their nodal variants), the
+ * precomputed mode-index tables #m_index (see ModeIndexDataWarehouse.hpp),
+ * from which a thread recovers the mode indices belonging to its flat work
+ * index without looping. What the tables hold is per shape: a triangle
+ * takes one, giving p for each flat mode; a tetrahedron three -- p for each
+ * flat (p,q) pair, then p and q for each flat mode; a prism three, giving
+ * p, q and r for each flat mode; and a pyramid two, giving p and q for each
+ * flat mode. Under SumFac they stay null.
+ *
+ * The strategy shows up in #m_implInterleaveWidth: the warp size for SumFac
+ * (one element per lane), one for SumFacTOP (contiguous per-element data).
+ * OperatorNDImpl() reshapes the block storage to that width around the
+ * launch and back afterwards.
+ *
+ * The generated ShapeBlock() specialisations land in OperatorND(), which
+ * forwards to OperatorNDImpl(): that issues a single kernel launch per
+ * block covering every element, component and homogeneous mode. Each block
+ * operator owns device stream block_idx + 1, so different blocks may
+ * overlap on the device.
+ *
+ * @tparam ExecSpace      NektarSpaces::Device.
+ * @tparam Implementation Operators::SumFac or Operators::SumFacTOP.
+ * @tparam TData          Floating-point type of the field data.
+ *
+ * @see IProductWRTBaseDeviceStdMat.hpp for the dense-matrix Device path;
+ * IProductWRTBaseSerialAVXSumFac.hpp for the host sum-factorised sibling.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>
 {
@@ -54,6 +139,17 @@ class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>
     using MemSpace    = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Bind the operator to the block's device stream, capture the
+     * element metadata and fetch the one-dimensional tables, nodal-to-modal
+     * matrix, mode-index tables and Jacobians (see the class description).
+     *
+     * @param   block_idx       Index of the block; the stream used for
+     *                          all device work is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     IProductWRTBaseBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -170,10 +266,13 @@ public:
             LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -186,25 +285,60 @@ public:
     }
 
 protected:
+    /// Element interleave width the kernels expect: the warp size for
+    /// SumFac (one element per lane), one for SumFacTOP. The Jacobians are
+    /// fetched at this width.
     static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    /// Device stream all work of this block operator is issued on, one
+    /// per block (block index + 1).
     unsigned int m_streamID;
+    /// Shape of the block's elements; drives the dispatch in v_Apply().
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point Jacobians); selects the
+    /// DEFORMED branch of the generated dispatch and hence of the kernels.
     bool m_isDeformed;
+    /// Whether the direction-0 basis is of type eModified_A; enables the
+    /// collapsed vertex- and edge-mode corrections in the kernels.
     bool m_isModified;
+    /// Reference (shape) dimension of the elements (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) elements; not read
+    /// by this implementation.
     unsigned int m_coordDim;
+    /// Modes per reference direction.
     std::vector<unsigned int> m_nm;
+    /// Quadrature points per reference direction.
     std::vector<unsigned int> m_nq;
+    /// One-dimensional basis tables, one per direction (eBasis), in device
+    /// memory.
     std::vector<const TData *> m_B;
+    /// One-dimensional quadrature weights, one per direction (eWeights),
+    /// collapsed-coordinate factors included, in device memory.
     std::vector<const TData *> m_W;
+    /// Mode-index tables of the collapsed mode orderings: one in 2D
+    /// (triangles), three in 3D (see NumIndex()), fetched under SumFacTOP
+    /// for the shapes that use them and null otherwise (the third is null
+    /// for the pyramid as well).
     std::vector<const unsigned int *> m_index;
+    /// Nodal-to-modal matrix of the nodal shapes, applied transposed by
+    /// the kernels; null otherwise.
     const TData *m_nodToMod;
+    /// Jacobians of the block, interleaved at #m_implInterleaveWidth: one
+    /// value per element, or one per quadrature point on a deformed block.
     const TData *m_jacptr;
 
+    /**
+     * @brief Dispatch on the block's shape to the generated ShapeBlock()
+     * specialisation. An unsupported shape prints a message and
+     * leaves @p outblock untouched.
+     *
+     * @param   inblock     Physical-space input block.
+     * @param   outblock    Coefficient-space output block.
+     */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
@@ -313,8 +447,60 @@ protected:
             std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
     }
 
-    // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the precomputed index arrays used by the kernels.
+    /**
+     * @brief Worker for every dimension: apply the operator to all elements
+     * of the block with a single fused kernel launch.
+     *
+     * @details
+     * Sizes the launch first. The grid has two dimensions. Its x extent
+     * covers the block's elements, padding included: with SumFac one thread
+     * per element, warpSize threads per thread block and as many thread
+     * blocks as that takes; with SumFacTOP one thread block per element at
+     * a time, its thread count the element's mode count rounded up to a
+     * warp multiple and capped at the default block size, and an
+     * occupancy-based number of thread blocks that stride over the
+     * remaining elements (GetDeviceBlockSize() and GetDeviceGridSize()).
+     * Its y extent is ncomp, the component count times the homogeneous mode
+     * count, so that one launch covers every component and mode and each
+     * kernel recovers its component from its block index. The dynamic
+     * shared memory request is IProductWRTBaseSharedMemorySize for the
+     * shape and strategy at hand, in bytes; the global workspace request is
+     * IProductWRTBaseWorkSpaceSize scaled by ncomp. Both helpers have one
+     * overload per strategy and dimension, documented in the kernel
+     * headers.
+     *
+     * Which of the four launcher instantiations runs is decided per call
+     * from the two settings of IProductWRTBaseBlockOp: the
+     * quadrature-metric flag picks the IProductWRTBaseKernelLauncher
+     * overload taking the weights and the Jacobians or the one without
+     * them, and a scale factor of exactly 1 picks the Scale = false
+     * variant. Append is set to false: this family never accumulates. The
+     * launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the overload of
+     * this dimension and strategy, the index sequences expanding to the
+     * per-direction tables #m_B and #m_W and the mode-index tables
+     * #m_index.
+     *
+     * The storage for all ncomp components is reshaped to
+     * #m_implInterleaveWidth in a single pass before the launch, and both
+     * input and output are reshaped back to the input's width once the
+     * kernel has been queued; the output block's recorded width is set to
+     * the input's on return. Everything is issued on #m_streamID.
+     *
+     * @tparam SHAPE_TYPE      Shape of the block, the nodal enumerators
+     *                         included.
+     * @tparam DEFORMED        Jacobians vary point by point.
+     * @tparam TSizeParameter  Size parameter of this dimension, templated
+     *                         or not.
+     * @tparam ind0            Reference directions, 0 to ndim - 1; selects
+     *                         the tables #m_B and #m_W.
+     * @tparam ind1            Mode-index tables #m_index the SumFacTOP
+     *                         kernels use: none in 1D, one in 2D, three in
+     *                         3D (see NumIndex()).
+     *
+     * @param   inblock     Physical-space input block.
+     * @param   outblock    Coefficient-space output block.
+     * @param   sizeParam   Element sizes, in runtime or compile-time form.
+     */
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1>

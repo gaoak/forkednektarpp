@@ -32,6 +32,27 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file PhysInterp1DScaledDeviceSumFacKernels.hpp
+ * @brief Device SumFac kernels of the scaled physical-space
+ * interpolation: the backward transform's, reused unchanged.
+ *
+ * @details
+ * This header defines nothing of its own. A 1D interpolation matrix has
+ * exactly the layout of a 1D basis table -- entry `[p * nq + i]` is the
+ * interpolant of input point p evaluated at output point i -- so
+ * interpolating point values onto a rescaled grid is a backward transform
+ * whose modes are the input points, and the block implementation launches
+ * the BwdTransKernelLauncher overloads of BwdTransDeviceSumFacKernels.hpp
+ * directly (see PhysInterp1DScaledDeviceSumFac.hpp for how the launch is
+ * configured). What the header provides is that indirection alone:
+ * PhysInterp1DScaledDeviceSumFac.hpp includes it, and its SumFacTOP
+ * sibling, in place of the BwdTrans kernel headers.
+ *
+ * @see PhysInterp1DScaledDeviceSumFacTOPKernels.hpp for the SumFacTOP
+ * counterpart.
+ */
+
 #pragma once
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"

@@ -32,6 +32,18 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file PhysInterp1DScaledOpImpl.hpp
+ * @brief Factory-registered whole-field implementation of the scaled
+ * physical-space interpolation operator.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through PhysInterp1DScaledOp.hpp and the
+ * operator factory.
+ */
+
 #pragma once
 
 #include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp"
@@ -39,10 +51,30 @@
 namespace Nektar::Operators::detail
 {
 
+/**
+ * @brief Whole-field implementation of PhysInterp1DScaledOp, registered
+ * with the operator factory once per execution space.
+ *
+ * The class adds no behaviour of its own: the whole-field stage of the
+ * interpolation is execution-space independent (the block loops of
+ * PhysInterp1DScaledOp::v_Apply and PhysInterp1DScaledOp::SetScaleFactor),
+ * and all numerical work happens in the per-block
+ * detail::PhysInterp1DScaledBlockOpImpl objects created alongside it by
+ * ElmtOp::Create. The ExecSpace template parameter exists so that the
+ * CMake-generated factory declaration code can register a separate entry
+ * ("PhysInterp1DScaledSerial", "PhysInterp1DScaledAVX",
+ * "PhysInterp1DScaledDevice") for each execution space enabled in the
+ * build.
+ *
+ * @tparam ExecSpace Execution space the factory entry is registered for.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class PhysInterp1DScaledOpImpl : public PhysInterp1DScaledOp<TData>
 {
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; forwards to PhysInterp1DScaledOp.
     PhysInterp1DScaledOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -50,10 +82,10 @@ public:
     {
     }
 
-    // className - for OperatorFactory
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// Creator function registered with OperatorFactory.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)

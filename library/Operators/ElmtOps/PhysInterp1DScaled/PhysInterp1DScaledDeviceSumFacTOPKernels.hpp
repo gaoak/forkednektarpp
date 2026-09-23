@@ -32,6 +32,21 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file PhysInterp1DScaledDeviceSumFacTOPKernels.hpp
+ * @brief Device SumFacTOP kernels of the scaled physical-space
+ * interpolation: the backward transform's, reused unchanged.
+ *
+ * @details
+ * The SumFacTOP counterpart of PhysInterp1DScaledDeviceSumFacKernels.hpp,
+ * and equally a forwarding header: it defines nothing and only includes
+ * BwdTransDeviceSumFacTOPKernels.hpp, whose kernels -- one element per
+ * thread block, tables and intermediates staged in shared memory -- the
+ * block implementation launches with the interpolation matrices in place
+ * of the basis tables and the input point counts in place of the mode
+ * counts.
+ */
+
 #pragma once
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp"

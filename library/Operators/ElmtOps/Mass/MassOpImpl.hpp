@@ -28,9 +28,28 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Factory shell for the whole-field Mass operator.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file MassOpImpl.hpp
+ * @brief Factory shell for the whole-field Mass operator.
+ *
+ * @details
+ * The whole-field behaviour of the operator is implemented entirely in
+ * MassOp (MassOp.hpp); the class here exists only so that a "Mass" +
+ * execution-space key ("MassSerial", "MassAVX", "MassDevice") can be
+ * registered with the operator factory. The numerical work is done by the
+ * block operators created alongside it (see MassSerialAVXStdMat.hpp and
+ * its siblings). CMake-generated translation units instantiate and
+ * register this class for each enabled execution space.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through MassOp.hpp and the
+ * operator factory.
+ */
 
 #pragma once
 
@@ -39,20 +58,40 @@
 namespace Nektar::Operators::detail
 {
 
+/**
+ * @brief Execution-space registration shell of MassOp; adds no behaviour
+ * of its own.
+ *
+ * @details
+ * The whole-field stage of the mass operator is execution-space
+ * independent (the block loop in MassOp::v_Apply), and all numerical work
+ * happens in the per-block detail::MassBlockOpImpl objects created
+ * alongside it by ElmtOp::Create. The ExecSpace template parameter exists
+ * so that the generated factory declaration code can register a separate
+ * entry for each execution space enabled in the build.
+ *
+ * @tparam ExecSpace Execution space the instance is registered for; used
+ *                   only to distinguish factory entries.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class MassOpImpl : public MassOp<TData>
 {
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; forwards to MassOp.
     MassOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
         : MassOp<TData>(expansionList, components)
     {
     }
 
-    // className - for OperatorFactory
+    /// Registration name for the operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// @brief Creator function registered with the operator factory;
+    /// builds one operator for the given expansion list and components.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
