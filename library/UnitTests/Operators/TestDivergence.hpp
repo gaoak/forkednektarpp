@@ -53,11 +53,12 @@ public:
         const bool is3DH1 =
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 this->fixt_explist) != nullptr;
-        auto nin  = (is3DH1 && nhomo > 1)
-                        ? 3u
-                        : static_cast<unsigned int>(
-                             this->fixt_explist->GetShapeDimension());
-        auto nout = 1;
+        m_coordDim = (is3DH1 && nhomo > 1)
+                         ? 3u
+                         : static_cast<unsigned int>(
+                               this->fixt_explist->GetShapeDimension());
+        auto nin   = m_coordDim;
+        auto nout  = 1;
 
         auto inblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
@@ -176,14 +177,7 @@ public:
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 this->fixt_explist) != nullptr;
 
-        // A 3DH1 divergence carries the z-direction on top of the plane's own.
-        const unsigned int dim =
-            (is3DH1 && nhomo > 1)
-                ? 3u
-                : static_cast<unsigned int>(
-                      this->fixt_explist->GetShapeDimension());
-
-        ASSERTL0(numComp >= dim,
+        ASSERTL0(numComp >= m_coordDim,
                  "Need more components than dimensions for this test");
 
         // The input is in physical space, while SetExpList3DH1 leaves
@@ -194,7 +188,7 @@ public:
         }
 
         // Calculate derivative
-        for (unsigned int i = 0; i < dim; ++i)
+        for (unsigned int i = 0; i < m_coordDim; ++i)
         {
             this->fixt_explist->PhysDeriv(i, inphys + i * nphys, outderiv);
             Vmath::Vadd(nphys, outphys, 1, outderiv, 1, outphys, 1);
@@ -208,6 +202,12 @@ public:
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outphys);
     }
+
+protected:
+    /// Direction components the field carries: three on a multi-plane 3DH1
+    /// expansion, where the homogeneous direction adds one the planes
+    /// themselves do not count, and the plane's own dimension otherwise.
+    unsigned int m_coordDim;
 };
 
 // clang-format off
@@ -302,13 +302,17 @@ public:
     TestDivergenceFFT() = default;
 };
 
+// clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TEST_FFTFLOAT(type, filename)                                          \
-    class type##float : public TestDivergenceFFT<float>{                       \
-        public : type##float(){meshName = filename;                            \
-    }                                                                          \
-    }                                                                          \
-    ;
+    class type##float : public TestDivergenceFFT<float>                        \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 #else
 #define TEST_FFTFLOAT(type, filename)
 #endif
@@ -328,6 +332,7 @@ public:
 #define TEST_FFT(type, filename)                                               \
     TEST_FFTFLOAT(type, filename)                                              \
     TEST_FFTDOUBLE(type, filename)
+// clang-format on
 
 TEST_FFT(QuadFFT, "run/square.xml")
 TEST_FFT(TriFFT, "run/tri.xml")

@@ -169,6 +169,12 @@ protected:
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
+        // Directions held per variable in the input block. In 3DH1
+        // (nhomo > 1) there are always three (x, y, z) regardless of the base
+        // mesh coordDim, the z slot being the one DerivZOp reads; the xy pass
+        // still consumes only m_coordDim of them.
+        const auto inDim = (inblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
+
         // Offsets between the components of a block. The metric of every
         // component is held at once, so the offset between two directions of
         // the workspace spans all of them.
@@ -178,9 +184,8 @@ protected:
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, inInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp * inDim,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
         if (this->m_append)
         {
             LibUtilities::ReshapeStorage<ExecSpace>(
@@ -200,7 +205,7 @@ protected:
                     JacobianDerivFactorKernel<ExecSpace, true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
                         inoffset, wspoffset, m_jacptr, m_dfptr,
-                        inptr + n * m_coordDim * inoffset,
+                        inptr + n * inDim * inoffset,
                         wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
                 else
@@ -208,7 +213,7 @@ protected:
                     JacobianDerivFactorKernel<ExecSpace, false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
                         inoffset, wspoffset, m_jacptr, m_dfptr,
-                        inptr + n * m_coordDim * inoffset,
+                        inptr + n * inDim * inoffset,
                         wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
             }
@@ -219,7 +224,7 @@ protected:
                     JacobianDerivFactorWeightsKernel<ExecSpace, true>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
                         inoffset, wspoffset, m_jacptr, m_dfptr, m_weights,
-                        inptr + n * m_coordDim * inoffset,
+                        inptr + n * inDim * inoffset,
                         wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
                 else
@@ -227,7 +232,7 @@ protected:
                     JacobianDerivFactorWeightsKernel<ExecSpace, false>(
                         m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
                         inoffset, wspoffset, m_jacptr, m_dfptr, m_weights,
-                        inptr + n * m_coordDim * inoffset,
+                        inptr + n * inDim * inoffset,
                         wspptr + n * m_nqTot * nelmtTot, m_streamID);
                 }
             }
@@ -249,9 +254,8 @@ protected:
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            inInterleaveWidth, m_implInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp * inDim,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             outblock.GetNumData(), outptr, m_streamID);

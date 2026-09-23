@@ -41,7 +41,7 @@
 #include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
-#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
+#include <LibUtilities/FFT/DerivZDeviceFFT.h>
 
 #include "Operators/Common/BlockOperator.hpp"
 
@@ -51,12 +51,14 @@ namespace Nektar::Operators::detail
 /// \brief Device backend for the homogeneous part of the advection term.
 ///
 /// Launch() applies a D2Z + wavenumber multiply + Z2D pipeline per block via
-/// PhysDerivZDirect, over cuFFT, hipFFT or oneMath. The transform writes to a
+/// DerivZDirect, over cuFFT, hipFFT or oneMath. The transform writes to a
 /// scratch buffer rather than to the output, because the xy backend has
 /// already left scale * (u dphi/dx + v dphi/dy) there and scale * w dphi/dz
 /// has to be added to it; mulKernel scales the derivative by w in place and
-/// daxpyKernel adds the result on. The scratch is the per-stream workspace
-/// the block operators share, so this pass allocates nothing of its own.
+/// daxpyKernel adds the result on. The transform's own APPEND mode would not
+/// serve here: the derivative has to be weighted by w before it reaches the
+/// output. The scratch is the per-stream workspace the block operators share,
+/// so this pass allocates nothing of its own.
 /// Each block is submitted to its own per-block stream (block index + 1), the
 /// same stream its producers and consumers use, so no cross-stream ordering
 /// is needed and the blocks can overlap. Under CUDA and HIP each block's
@@ -204,8 +206,8 @@ public:
             // creating them allocates and synchronises the stream, neither of
             // which a capture tolerates, so the graph only ever sees the
             // transforms.
-            LibUtilities::PhysDerivZPrepare<TData>(nhomo, compStride,
-                                                   compStride, streamID);
+            LibUtilities::DerivZPrepare<TData, false>(nhomo, compStride,
+                                                      compStride, streamID);
 
             // Record which workspace this capture is built against.
             if (m_wsp.size() > blk)
@@ -226,8 +228,10 @@ public:
                 const TData *phiPtr = inPtr + n * nsize;
                 TData *advPtr       = outPtr + n * nsize;
 
-                LibUtilities::PhysDerivZDirect(phiPtr, dzPtr, nhomo, compStride,
-                                               compStride, m_beta, streamID);
+                LibUtilities::DerivZDirect<
+                    TData, LibUtilities::DerivZOrder::First, false>(
+                    phiPtr, dzPtr, nhomo, compStride, compStride, m_beta,
+                    streamID);
 
                 // The output already holds the xy part of the advection
                 // term. Both steps run over the whole component, padding

@@ -122,8 +122,10 @@ protected:
                  "Set the value with SetAdvVel() before calling Apply().");
 
         // 3/2-rule over-integration runs on the native element grid, not per
-        // homogeneous-Fourier-plane, so 3DH1/3DH2 is not supported.
-        ASSERTL1(in.GetNumHomoModes() == 1 && out.GetNumHomoModes() == 1,
+        // homogeneous-Fourier-plane, so 3DH1/3DH2 is not supported. The guard
+        // is L0: without it a homogeneous field would come back silently
+        // wrong in a release build.
+        ASSERTL0(in.GetNumHomoModes() == 1 && out.GetNumHomoModes() == 1,
                  "AdvectionDealiasOp does not support homogeneous "
                  "(3DH1/3DH2) configurations.");
 

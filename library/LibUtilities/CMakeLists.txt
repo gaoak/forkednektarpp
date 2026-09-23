@@ -124,22 +124,22 @@ ENDIF(NEKTAR_USE_FFTW)
 IF(NEKTAR_ENABLE_DEVICE)
     SET(FFTHeaders ${FFTHeaders} 
 	./FFT/NekDeviceFFT.h 
-        ./FFT/PhysDerivZDeviceFFT.h
+        ./FFT/DerivZDeviceFFT.h
         ../LibUtilities/Backends/DeviceProperties.hpp)
     SET(FFTSources ${FFTSources} 
         ../LibUtilities/Backends/DeviceProperties.cpp)
     IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
         SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
         SET(FFTSources ${FFTSources} 
-            ./FFT/NekDeviceFFT.cu ./FFT/PhysDerivZDeviceFFT.cu)
+            ./FFT/NekDeviceFFT.cu ./FFT/DerivZDeviceFFT.cu)
     ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
         SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
         SET(FFTSources ${FFTSources} 
-            ./FFT/NekDeviceFFT.hip ./FFT/PhysDerivZDeviceFFT.hip)
+            ./FFT/NekDeviceFFT.hip ./FFT/DerivZDeviceFFT.hip)
     ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
         SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTSYCLHelper.h)
         SET(FFTSources ${FFTSources}
-            ./FFT/NekDeviceFFT.cpp ./FFT/PhysDerivZDeviceFFT.cpp)
+            ./FFT/NekDeviceFFT.cpp ./FFT/DerivZDeviceFFT.cpp)
     ENDIF()
 ENDIF()
 
@@ -744,7 +744,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ENDIF()
 
         if(NEKTAR_USE_CUFFTDX)
-            # Private: only PhysDerivZDeviceFFT.cu includes the cuFFTDx headers
+            # Private: only DerivZDeviceFFT.cu includes the cuFFTDx headers
             # or tests the option.
             TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
             TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE

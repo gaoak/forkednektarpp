@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZDeviceFFT.hip
+// File: DerivZDeviceFFT.hip
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,9 +28,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: hipFFT z-derivative pipeline for Nektar++ PhysDeriv. The HIP
-// counterpart of PhysDerivZDeviceFFT.cu; there is no ROCm equivalent of
-// cuFFTDx, so only the three-launch hipFFT pipeline is provided here.
+// Description: hipFFT z-derivative pipeline for the Nektar++ DerivZ
+// operators: cached hipFFT plans driving D2Z, the wavenumber multiply and
+// Z2D as three launches. ROCm offers no fused single-kernel transform, so
+// that is the only pipeline here.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,8 +40,8 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include <LibUtilities/FFT/DerivZDeviceFFT.h>
 #include <LibUtilities/FFT/NekDeviceFFTHIPCUDAHelper.h>
-#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
 
 namespace Nektar::LibUtilities
 {
@@ -95,8 +96,13 @@ template <typename TData> struct DirectPlanEntry
     hipfftHandle planBwd           = nullptr;
     DeviceFFTCmplx<TData> *d_cmplx = nullptr;
     void *d_workspace              = nullptr;
-    int halfN                      = 0;
-    int blockSizeWave              = 0;
+    /// Where the inverse transform lands when the caller is accumulating;
+    /// hipFFT owns its output store, so it cannot add into the caller's
+    /// buffer directly. Allocated on the first APPEND prepare and null
+    /// otherwise, so a caller that overwrites pays nothing for it.
+    TData *d_accum    = nullptr;
+    int halfN         = 0;
+    int blockSizeWave = 0;
 };
 
 template <typename TData> class DirectPlanCache
@@ -108,20 +114,19 @@ public:
         return instance;
     }
 
-    bool Lookup(const DirectPlanKey &key, DirectPlanEntry<TData> &entry) const
+    /// Null when the key is not cached. The entry is handed back by
+    /// reference so that a later prepare can attach the accumulate buffer to
+    /// the cached copy rather than to a temporary.
+    DirectPlanEntry<TData> *Find(const DirectPlanKey &key)
     {
         auto it = m_map.find(key);
-        if (it == m_map.end())
-        {
-            return false;
-        }
-        entry = it->second;
-        return true;
+        return it == m_map.end() ? nullptr : &it->second;
     }
 
-    void Register(const DirectPlanKey &key, const DirectPlanEntry<TData> &entry)
+    DirectPlanEntry<TData> &Register(const DirectPlanKey &key,
+                                     const DirectPlanEntry<TData> &entry)
     {
-        m_map[key] = entry;
+        return m_map[key] = entry;
     }
 
 private:
@@ -221,41 +226,79 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     return e;
 }
 
-// Cache lookup shared by PhysDerivZDirect() and PhysDerivZPrepare(), so that
+// Cache lookup shared by DerivZDirect() and DerivZPrepare(), so that
 // preparing a stream and running on it cannot disagree about the key.
 template <typename TData>
-DirectPlanEntry<TData> GetOrCreateEntry(unsigned int nhomo, size_t NXY,
-                                        size_t compStride, hipStream_t stream)
+DirectPlanEntry<TData> &GetOrCreateEntry(unsigned int nhomo, size_t NXY,
+                                         size_t compStride, hipStream_t stream)
 {
     int deviceId = 0;
     CHECK_HIPCUDA_ERROR(hipGetDevice(&deviceId));
 
     const DirectPlanKey key{deviceId, nhomo, NXY, compStride, stream};
 
-    DirectPlanEntry<TData> entry;
-    if (!DirectPlanCache<TData>::Instance().Lookup(key, entry))
+    if (DirectPlanEntry<TData> *hit =
+            DirectPlanCache<TData>::Instance().Find(key))
     {
-        entry = CreateEntry<TData>(nhomo, NXY, compStride, stream);
-        DirectPlanCache<TData>::Instance().Register(key, entry);
+        return *hit;
     }
 
-    return entry;
+    return DirectPlanCache<TData>::Instance().Register(
+        key, CreateEntry<TData>(nhomo, NXY, compStride, stream));
+}
+
+/// Attach the accumulate buffer to @p entry if it does not have one. It is
+/// laid out exactly as the inverse transform writes it -- plane p at
+/// p * compStride -- and zeroed once here: the transform never writes the
+/// padding between NXY and compStride, so it stays zero for the life of the
+/// buffer and the sum below can run flat over the whole span.
+/// This allocates, which a graph capture will not tolerate, so it is reached
+/// only from DerivZPrepare().
+template <typename TData>
+void EnsureAccumBuffer(DirectPlanEntry<TData> &entry, unsigned int nhomo,
+                       size_t compStride)
+{
+    if (entry.d_accum == nullptr)
+    {
+        const size_t nbytes = nhomo * compStride * sizeof(TData);
+        CHECK_HIPCUDA_ERROR(
+            hipMalloc(reinterpret_cast<void **>(&entry.d_accum), nbytes));
+        CHECK_HIPCUDA_ERROR(hipMemset(entry.d_accum, 0, nbytes));
+    }
+}
+
+/// Add the transform in @p src into @p dst over the whole plane-major span.
+/// The padding is zero in @p src, so a padded slot only ever adds zero to
+/// itself.
+template <typename TData>
+__global__ void AccumulateKernel(const TData *src, TData *dst, size_t nsize)
+{
+    const size_t i = blockIdx.x * static_cast<size_t>(blockDim.x) + threadIdx.x;
+    if (i < nsize)
+    {
+        dst[i] += src[i];
+    }
 }
 
 } // anonymous namespace
 
-template <typename TData>
-void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta,
-                      unsigned int streamID)
+template <typename TData, DerivZOrder DERIVORDER, bool APPEND>
+void DerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
+                  size_t NXY, size_t compStride, TData beta,
+                  unsigned int streamID)
 {
     // The declaration hands the stream over as an id to keep the header
     // independent of the HIP runtime; the registry resolves it to the real
     // handle here.
     hipStream_t stream = HIPStream::GetInstance(streamID);
 
-    DirectPlanEntry<TData> entry =
-        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
+    // The plans depend only on the problem size, so both orders share one
+    // entry; only the wavenumber multiply differs.
+    auto &entry = GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
+
+    // hipFFT owns its output store, so an accumulating call transforms into
+    // the buffer the plan holds and is summed into d_out below.
+    TData *d_target = APPEND ? entry.d_accum : d_out;
 
     if constexpr (std::is_same_v<TData, double>)
     {
@@ -273,99 +316,94 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
         static_cast<unsigned int>(NXY),
         static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
                               entry.blockSizeWave));
-    WavenumberMultiplyKernel<<<grid, entry.blockSizeWave, 0, stream>>>(
-        entry.d_cmplx, entry.halfN, beta, invN);
+    if constexpr (DERIVORDER == DerivZOrder::First)
+    {
+        WavenumberMultiplyKernel<<<grid, entry.blockSizeWave, 0, stream>>>(
+            entry.d_cmplx, entry.halfN, beta, invN);
+    }
+    else
+    {
+        WavenumberMultiply2Kernel<<<grid, entry.blockSizeWave, 0, stream>>>(
+            entry.d_cmplx, entry.halfN, beta, invN);
+    }
 
     if constexpr (std::is_same_v<TData, double>)
     {
         CHECK_HIPCUDA_FFT_ERROR(
-            hipfftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
+            hipfftExecZ2D(entry.planBwd, entry.d_cmplx, d_target));
     }
     else if constexpr (std::is_same_v<TData, float>)
     {
         CHECK_HIPCUDA_FFT_ERROR(
-            hipfftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
+            hipfftExecC2R(entry.planBwd, entry.d_cmplx, d_target));
+    }
+
+    if constexpr (APPEND)
+    {
+        const size_t nsize         = nhomo * compStride;
+        const unsigned int addGrid = static_cast<unsigned int>(
+            (nsize + entry.blockSizeWave - 1) / entry.blockSizeWave);
+        AccumulateKernel<<<addGrid, entry.blockSizeWave, 0, stream>>>(
+            entry.d_accum, d_out, nsize);
     }
 }
 
-template <typename TData>
-void PhysDerivZ2Direct(const TData *d_in, TData *d_out, unsigned int nhomo,
-                       size_t NXY, size_t compStride, TData beta,
-                       unsigned int streamID)
+template <typename TData, bool APPEND>
+void DerivZPrepare(unsigned int nhomo, size_t NXY, size_t compStride,
+                   unsigned int streamID)
 {
-    // The declaration hands the stream over as an id to keep the header
-    // independent of the HIP runtime; the registry resolves it to the real
-    // handle here.
-    hipStream_t stream = HIPStream::GetInstance(streamID);
+    auto &entry = GetOrCreateEntry<TData>(nhomo, NXY, compStride,
+                                          HIPStream::GetInstance(streamID));
 
-    // The plans depend only on the problem size, so the first derivative's
-    // entry serves here too; only the wavenumber multiply differs.
-    DirectPlanEntry<TData> entry =
-        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
-
-    if constexpr (std::is_same_v<TData, double>)
+    // Allocating is illegal inside a graph capture, so the buffer an
+    // accumulating call transforms through is created here.
+    if constexpr (APPEND)
     {
-        CHECK_HIPCUDA_FFT_ERROR(hipfftExecD2Z(
-            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
+        EnsureAccumBuffer<TData>(entry, nhomo, compStride);
     }
-    else if constexpr (std::is_same_v<TData, float>)
+    else
     {
-        CHECK_HIPCUDA_FFT_ERROR(hipfftExecR2C(
-            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
-    }
-
-    const TData invN = 1.0 / static_cast<TData>(nhomo);
-    const dim3 grid(
-        static_cast<unsigned int>(NXY),
-        static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
-                              entry.blockSizeWave));
-    WavenumberMultiply2Kernel<<<grid, entry.blockSizeWave, 0, stream>>>(
-        entry.d_cmplx, entry.halfN, beta, invN);
-
-    if constexpr (std::is_same_v<TData, double>)
-    {
-        CHECK_HIPCUDA_FFT_ERROR(
-            hipfftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
-    }
-    else if constexpr (std::is_same_v<TData, float>)
-    {
-        CHECK_HIPCUDA_FFT_ERROR(
-            hipfftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
+        (void)entry;
     }
 }
 
-template <typename TData>
-void PhysDerivZPrepare(unsigned int nhomo, size_t NXY, size_t compStride,
-                       unsigned int streamID)
-{
-    GetOrCreateEntry<TData>(nhomo, NXY, compStride,
-                            HIPStream::GetInstance(streamID));
-}
+template void DerivZDirect<double, DerivZOrder::First, false>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::First, true>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::Second, false>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::Second, true>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::First, false>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::First, true>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::Second, false>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::Second, true>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
 
-template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
-                                       unsigned int nhomo, size_t NXY,
-                                       size_t compStride, double beta,
-                                       unsigned int streamID);
-template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
-                                      unsigned int nhomo, size_t NXY,
-                                      size_t compStride, float beta,
-                                      unsigned int streamID);
-
-template void PhysDerivZ2Direct<double>(const double *d_in, double *d_out,
-                                        unsigned int nhomo, size_t NXY,
-                                        size_t compStride, double beta,
-                                        unsigned int streamID);
-template void PhysDerivZ2Direct<float>(const float *d_in, float *d_out,
-                                       unsigned int nhomo, size_t NXY,
-                                       size_t compStride, float beta,
-                                       unsigned int streamID);
-
-template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
-                                        size_t compStride,
-                                        unsigned int streamID);
-template void PhysDerivZPrepare<float>(unsigned int nhomo, size_t NXY,
-                                       size_t compStride,
-                                       unsigned int streamID);
+template void DerivZPrepare<double, false>(unsigned int nhomo, size_t NXY,
+                                           size_t compStride,
+                                           unsigned int streamID);
+template void DerivZPrepare<double, true>(unsigned int nhomo, size_t NXY,
+                                          size_t compStride,
+                                          unsigned int streamID);
+template void DerivZPrepare<float, false>(unsigned int nhomo, size_t NXY,
+                                          size_t compStride,
+                                          unsigned int streamID);
+template void DerivZPrepare<float, true>(unsigned int nhomo, size_t NXY,
+                                         size_t compStride,
+                                         unsigned int streamID);
 
 } // namespace Nektar::LibUtilities
 

@@ -131,6 +131,15 @@ protected:
                  "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
                  "before calling Apply().");
 
+        // The z terms are not wired: the weak z-Laplacian would need the xy
+        // mass matrix applied to minus the second z-derivative, and the
+        // advection term w du/dz on top of that, so 3DH1/3DH2 is not
+        // supported. The guard is L0: without it a homogeneous field would
+        // come back silently wrong in a release build.
+        ASSERTL0(in.GetNumHomoModes() == 1 && out.GetNumHomoModes() == 1,
+                 "LinAdvDiffReactionOp does not support homogeneous "
+                 "(3DH1/3DH2) configurations.");
+
         ASSERTL1(m_isSetAdvVel,
                  "Advection velocity has not been set."
                  "Set the value with SetAdvVel() before calling Apply().");

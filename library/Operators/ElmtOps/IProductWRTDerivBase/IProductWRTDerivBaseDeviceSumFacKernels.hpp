@@ -462,8 +462,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nq0 * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+            in + nq0 * (nelmt * (inDim * nmode * c + m) + warpsize * iwarp);
         TData *outptr =
             out + nm0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
         TData *deriv0 =
@@ -524,8 +528,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nq0 * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+            in + nq0 * (nelmt * (inDim * nmode * c + m) + warpsize * iwarp);
         TData *outptr =
             out + nq0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
         TData *deriv = wsp + nq0 * (nelmt * (nmode * c + m) + warpsize * iwarp);
@@ -616,8 +624,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nqTot * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+            in + nqTot * (nelmt * (inDim * nmode * c + m) + warpsize * iwarp);
         TData *outptr =
             out + nmTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
         TData *deriv0 =
@@ -740,8 +752,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nqTot * (nelmt * (ncoord * nmode * c + m) + warpsize * iwarp);
+            in + nqTot * (nelmt * (inDim * nmode * c + m) + warpsize * iwarp);
         TData *outptr =
             out + nqTot * (nelmt * (nmode * c + m) + warpsize * iwarp);
         TData *deriv0 =

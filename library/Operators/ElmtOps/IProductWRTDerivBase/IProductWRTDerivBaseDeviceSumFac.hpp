@@ -428,12 +428,17 @@ protected:
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
+        // Directions held per variable in the input block. In 3DH1
+        // (nhomo > 1) there are always three (x, y, z) regardless of the base
+        // mesh coordDim, the z slot being the one DerivZOp reads; the xy pass
+        // still consumes only m_coordDim of them.
+        const auto inDim = (inblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, inInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp * inDim,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         if constexpr (TFieldOut == FieldState::Phys)
         {
@@ -500,9 +505,8 @@ protected:
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            inInterleaveWidth, m_implInterleaveWidth,
-            nelmt * ncomp * m_coordDim, inblock.GetNumData(), (TData *)inptr,
-            m_streamID);
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp * inDim,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             outblock.GetNumData(), outptr, m_streamID);

@@ -172,6 +172,12 @@ protected:
         auto gemm_kernel1 = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_outTot, m_nqTot, 1.0, 1.0);
 
+        // Directions held per variable in the input block. In 3DH1
+        // (nhomo > 1) there are always three (x, y, z) regardless of the base
+        // mesh coordDim, the z slot being the one DerivZOp reads; the xy pass
+        // still consumes only m_coordDim of them.
+        const auto inDim = (inblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec =
@@ -298,7 +304,7 @@ protected:
 
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset;
+                inptr += (inDim - 1) * inoffset;
             }
         }
 

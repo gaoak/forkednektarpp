@@ -68,20 +68,6 @@
         }                                                                      \
     }
 
-#define TEST_LAPLACIAN3DH2(test_name, test, tol)                               \
-    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
-    {                                                                          \
-        std::cout << std::string("Run: ") + std::string(#test_name)            \
-                  << std::endl;                                                \
-        Configure3DH2(4, 4);                                                   \
-        SetTestCase();                                                         \
-        RunTestCase();                                                         \
-        boost::test_tools::output_test_stream output;                          \
-        {                                                                      \
-            BOOST_TEST(Compare(tol));                                          \
-        }                                                                      \
-    }
-
 BOOST_AUTO_TEST_SUITE(TestSuiteLaplacian)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -91,8 +77,6 @@ TEST_LAPLACIAN(laplacian_seg_sem, SegSEM, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_seg_3d, Seg3D, 1.0E-12)
 
-TEST_LAPLACIAN3DH2(laplacian_seg_sem_3dh2, SegSEM, 1.0E-12)
-
 TEST_LAPLACIAN(laplacian_quad, Quad, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_quad_3d, Quad3D, 1.0E-12)
@@ -101,22 +85,15 @@ TEST_LAPLACIAN(laplacian_quad_sem, QuadSEM, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_LAPLACIAN3DH1(laplacian_quad_3dh1, QuadFFT, 1.0E-10)
-
 TEST_LAPLACIAN(laplacian_tri, Tri, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_tri_3d, Tri3D, 1.0E-12)
-
-TEST_LAPLACIAN3DH1(laplacian_tri_3dh1, TriFFT, 1.0E-10)
 
 TEST_LAPLACIAN(laplacian_tri_varp, TriVarP, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_square_all_elements, SquareAllElements, 1.0E-12)
-
-TEST_LAPLACIAN3DH1(laplacian_square_all_elements_3dh1, SquareAllElementsFFT,
-                   1.0E-10)
 
 TEST_LAPLACIAN(laplacian_hex, Hex, 1.0E-12)
 
@@ -143,6 +120,13 @@ TEST_LAPLACIAN(laplacian_tet_nodal, TetNodal, 1.0E-12)
 TEST_LAPLACIAN(laplacian_cube_prism_hex, CubePrismHex, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_cube_all_elements, CubeAllElements, 1.0E-12)
+
+TEST_LAPLACIAN3DH1(laplacian_quad_3dh1, QuadFFT, 1.0E-10)
+
+TEST_LAPLACIAN3DH1(laplacian_tri_3dh1, TriFFT, 1.0E-10)
+
+TEST_LAPLACIAN3DH1(laplacian_square_all_elements_3dh1, SquareAllElementsFFT,
+                   1.0E-10)
 #endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZOpDevice.hpp
+// File: DerivZOpDevice.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,8 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Device (cuFFT/cuFFTDx) backend for the PhysDerivOp
-// z-derivative.
+// Description: Device backend for the homogeneous z-derivative.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -40,7 +39,7 @@
 // Brings in the host API of whichever backend is enabled, and with it
 // CUDAStream / HIPStream / SYCLQueue and CHECK_HIPCUDA_ERROR.
 #include <LibUtilities/Backends/Backends.hpp>
-#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
+#include <LibUtilities/FFT/DerivZDeviceFFT.h>
 
 namespace Nektar::Operators::detail
 {
@@ -48,7 +47,7 @@ namespace Nektar::Operators::detail
 /// \brief Device backend for the homogeneous z-derivative.
 ///
 /// Launch() applies a D2Z + wavenumber multiply + Z2D pipeline per block via
-/// PhysDerivZDirect, over cuFFT, hipFFT or oneMath. Each block is submitted
+/// DerivZDirect, over cuFFT, hipFFT or oneMath. Each block is submitted
 /// to its own per-block stream (block index + 1), the same stream its
 /// producers and consumers use, so no cross-stream ordering is needed and the
 /// blocks can overlap. Under CUDA and HIP each block's pipeline is captured
@@ -58,16 +57,22 @@ namespace Nektar::Operators::detail
 /// capture must not see (block allocation, host-to-device transfers, plan
 /// creation) is resolved before it opens. SYCL has no capture, so there
 /// m_graphExec stays empty and every call submits the pipeline directly.
-template <typename ExecSpace, typename TData>
-class PhysDerivZOpImpl<
-    ExecSpace, TData,
+///
+/// DerivZOpImpl.hpp says what LAYOUT, DERIVORDER and APPEND select. Both
+/// DERIVORDER and APPEND are handed straight to the transform: it picks the
+/// wavenumber multiply, and it accumulates in its own final store, so this
+/// backend needs no scratch of its own either way.
+template <typename ExecSpace, typename TData, DerivZLayout LAYOUT,
+          DerivZOrder DERIVORDER, bool APPEND>
+class DerivZOpImpl<
+    ExecSpace, TData, LAYOUT, DERIVORDER, APPEND,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>>>
 {
 public:
     /// \param expansionList  Read once for the homogeneous length; the device
     ///                       pipeline otherwise works straight off the block
     ///                       pointers.
-    PhysDerivZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+    DerivZOpImpl(const MultiRegions::ExpListSharedPtr &expansionList)
     {
         auto homoExpList =
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
@@ -79,7 +84,7 @@ public:
         m_beta = 2.0 * M_PI / homoExpList->GetHomoLen();
     }
 
-    ~PhysDerivZOpImpl()
+    ~DerivZOpImpl()
     {
         for ([[maybe_unused]] auto &graph : m_graphExec)
         {
@@ -92,16 +97,35 @@ public:
     }
 
     // Non-copyable and non-movable.
-    PhysDerivZOpImpl(const PhysDerivZOpImpl &)            = delete;
-    PhysDerivZOpImpl &operator=(const PhysDerivZOpImpl &) = delete;
-    PhysDerivZOpImpl(PhysDerivZOpImpl &&)                 = delete;
-    PhysDerivZOpImpl &operator=(PhysDerivZOpImpl &&)      = delete;
+    DerivZOpImpl(const DerivZOpImpl &)            = delete;
+    DerivZOpImpl &operator=(const DerivZOpImpl &) = delete;
+    DerivZOpImpl(DerivZOpImpl &&)                 = delete;
+    DerivZOpImpl &operator=(DerivZOpImpl &&)      = delete;
 
-    void Launch(LibUtilities::Field<TData, FieldState::Phys> &in,
-                LibUtilities::Field<TData, FieldState::Phys> &out)
+    /// Write the z-derivative of @p in to @p out, moving components as
+    /// LAYOUT says. Phys and Coeff both work: Homogeneous1DTrans transforms
+    /// coefficients as readily as quadrature points, as
+    /// ExpListHomogeneous1D::v_FwdTrans relies on.
+    template <FieldState TState>
+    void Launch(LibUtilities::Field<TData, TState> &in,
+                LibUtilities::Field<TData, TState> &out)
     {
         const unsigned int nhomo = in.GetNumHomoModes();
-        const unsigned int nComp = in.GetNumComponents();
+        // The scalar side of the mapping carries one component per variable
+        // and is the one to loop over; only VectorZToScalar has it on the
+        // output side.
+        const unsigned int nComp = LAYOUT == DerivZLayout::VectorZToScalar
+                                       ? out.GetNumComponents()
+                                       : in.GetNumComponents();
+
+        // The vector side gives every variable three direction slots, of
+        // which this reads the z one.
+        if constexpr (LAYOUT == DerivZLayout::VectorZToScalar)
+        {
+            ASSERTL1(in.GetNumComponents() == 3 * nComp,
+                     "The homogeneous z-derivative needs three directions "
+                     "per variable");
+        }
         const unsigned int numBlocks =
             static_cast<unsigned int>(in.GetBlocks().size());
 
@@ -114,15 +138,16 @@ public:
         {
             const unsigned int streamID = blk + 1;
 
+            auto &inblock           = in.GetBlocks()[blk];
+            auto &outblock          = out.GetBlocks()[blk];
+            const size_t compStride = inblock.CompSize();
+            const size_t nsize      = compStride * nhomo;
+
             if (replay)
             {
                 LaunchGraph(blk);
                 continue;
             }
-
-            auto &inblock           = in.GetBlocks()[blk];
-            auto &outblock          = out.GetBlocks()[blk];
-            const size_t compStride = inblock.CompSize();
 
             // Resolved before the capture opens: on a first touch these
             // allocate the block storage and copy it in, and a transfer
@@ -130,25 +155,49 @@ public:
             const TData *inPtr =
                 inblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
-            TData *outPtr =
-                outblock.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>(
-                    streamID);
+            TData *outPtr = outblock.template GetPtr<
+                NektarSpaces::DeviceSpace,
+                std::conditional_t<APPEND, ReadWrite, WriteOnly>>(streamID);
 
             // Likewise for the transform plans and their scratch: creating
             // them allocates and synchronises the stream, neither of which a
             // capture tolerates, so the graph only ever sees the transforms.
-            LibUtilities::PhysDerivZPrepare<TData>(nhomo, compStride,
-                                                   compStride, streamID);
+            LibUtilities::DerivZPrepare<TData, APPEND>(nhomo, compStride,
+                                                       compStride, streamID);
 
             BeginCapture(blk);
 
             for (unsigned int n = 0; n < nComp; ++n)
             {
-                // Output component for the z-derivative of input n is 3n + 2.
-                const TData *phiPtr = inPtr + n * compStride * nhomo;
-                TData *dzPtr        = outPtr + (n * 3 + 2) * compStride * nhomo;
-                LibUtilities::PhysDerivZDirect(phiPtr, dzPtr, nhomo, compStride,
-                                               compStride, m_beta, streamID);
+                unsigned int srcComp;
+                unsigned int dstComp;
+                if constexpr (LAYOUT == DerivZLayout::ScalarToVectorZ)
+                {
+                    // Component n of the scalar input to slot 3n + 2 of
+                    // the vector output, the z entry of the gradient.
+                    srcComp = n;
+                    dstComp = n * 3 + 2;
+                }
+                else if constexpr (LAYOUT == DerivZLayout::VectorZToScalar)
+                {
+                    // Component 3n + 2 of the input, the z direction of
+                    // variable n, to component n of the scalar output.
+                    srcComp = n * 3 + 2;
+                    dstComp = n;
+                }
+                else
+                {
+                    // Component for component, both sides scalar.
+                    srcComp = n;
+                    dstComp = n;
+                }
+
+                const TData *phiPtr = inPtr + srcComp * nsize;
+                TData *dzPtr        = outPtr + dstComp * nsize;
+
+                LibUtilities::DerivZDirect<TData, DERIVORDER, APPEND>(
+                    phiPtr, dzPtr, nhomo, compStride, compStride, m_beta,
+                    streamID);
             }
 
             // Capture records the pipeline instead of running it, so the

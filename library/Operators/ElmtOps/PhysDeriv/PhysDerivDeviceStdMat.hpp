@@ -134,7 +134,7 @@ protected:
         // Offsets between the components of a block. In 3DH1 (nhomo > 1) the
         // output has 3 slots per component (x, y, z) regardless of base mesh
         // coordDim, leaving slot 2 free for the z-derivative written by
-        // PhysDerivZOpHost/Device.
+        // DerivZOpImpl.
         const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
