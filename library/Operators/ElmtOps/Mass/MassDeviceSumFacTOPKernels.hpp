@@ -28,9 +28,50 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: SumFacTOP device kernels of the mass operator.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file MassDeviceSumFacTOPKernels.hpp
+ * @brief SumFacTOP device kernels of the mass operator: the threads of one
+ * device block cooperate on one element at a time, with the intermediates
+ * staged in shared memory.
+ *
+ * @details
+ * These are the kernels the Device/SumFacTOP block implementation launches
+ * (see MassDeviceSumFac.hpp); the SumFac counterparts, with one element
+ * per thread, are in MassDeviceSumFacKernels.hpp. Everything below is
+ * compiled only into device translation units of a device-enabled build
+ * (NEKTAR_ENABLE_DEVICE and DEVICE_COMPILE_ONLY).
+ *
+ * The 2D and 3D MassKernelLauncher overloads first stage the per-direction
+ * basis tables in shared memory once for the whole thread block, then
+ * stride their blocks over the elements. For each element they stage the
+ * coefficients (or, for a nodal shape, their modal image), call the
+ * BwdTrans shape kernel of BwdTransDeviceSumFacTOPKernels.hpp, and call the
+ * IProductWRTBase shape kernel of IProductWRTBaseDeviceSumFacTOPKernels.hpp,
+ * the transform with APPEND false and the inner product with SCALE and
+ * APPEND false. The 1D overload stages only the physical values passed
+ * between the two stages: it hands the basis table, the coefficients and
+ * the output to the segment kernels straight from global memory.
+ *
+ * Unlike the SumFac kernels, which hand the weights and the Jacobian to the
+ * inner-product shape kernel, the kernels here apply the whole quadrature
+ * metric themselves, in a thread-strided loop over the element's
+ * quadrature points between the two stages: each staged physical value is
+ * multiplied by the tensor product of the per-direction weights and by the
+ * element Jacobian (one value per element, or one per point when
+ * DEFORMED), and a barrier follows before the inner product reads them.
+ * The IProductWRTBase shape kernels are therefore called in their
+ * metric-free form, the one that expects its input to carry the metric
+ * already.
+ *
+ * The MassSharedMemorySize overloads here return what that staging costs;
+ * the MassWorkSpaceSize overloads carry the SumFacTOP tag but return the
+ * same non-zero global-memory sizes as their SumFac counterparts, even
+ * though the launchers below mark their workspace argument unused and no
+ * kernel here touches it.
+ */
 
 #pragma once
 
@@ -45,7 +86,27 @@ namespace Nektar::Operators::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-// Helper function
+/**
+ * @brief Global-memory workspace a 1D SumFacTOP mass launch requests, in
+ * TData values.
+ *
+ * Repeats the size of the SumFac overload in MassDeviceSumFacKernels.hpp
+ * (nq0 values per element), so the block implementation requests a
+ * workspace of that size before every SumFacTOP launch -- although the
+ * kernels of this file stage their intermediates in shared memory and
+ * never read the workspace pointer (see the file notes). The 2D and 3D
+ * overloads below do the same for their dimensions.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
+ * @tparam Implementation    Operators::SumFacTOP.
+ * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements in the block, padding included.
+ * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ *
+ * @return Workspace size in TData values per component, 0 for unhandled
+ * shapes.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -66,6 +127,8 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     return wspsize;
 }
 
+/// @brief Global-memory workspace a 2D SumFacTOP mass launch requests:
+/// the SumFac size, unread by the kernels here (see the 1D overload).
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -99,6 +162,8 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     return wspsize;
 }
 
+/// @brief Global-memory workspace a 3D SumFacTOP mass launch requests:
+/// the SumFac size, unread by the kernels here (see the 1D overload).
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -161,6 +226,23 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
     return wspsize;
 }
 
+/**
+ * @brief Dynamic shared memory a 1D SumFacTOP mass launch requests, in
+ * TData values.
+ *
+ * The 1D MassKernelLauncher stages one region only, the element's nq0
+ * physical values; this returns twice that, so nq0 values of the request
+ * go unused. They still enter the occupancy heuristic of
+ * GetDeviceGridSize.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
+ * @tparam Implementation    Operators::SumFacTOP.
+ * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
+ *
+ * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ *
+ * @return Shared memory per thread block, in TData values.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -175,6 +257,25 @@ inline constexpr unsigned int MassSharedMemorySize(
     return 2 * nq0;
 }
 
+/**
+ * @brief Dynamic shared memory a 2D SumFacTOP mass launch requests, in
+ * TData values.
+ *
+ * The sum of the regions the 2D MassKernelLauncher lays out: the element's
+ * nmTot coefficients, its nq0 * nq1 physical values, the scratch the two
+ * stages share -- max(nq0 * nm1, nm0 * nq1) for the quadrilateral,
+ * nm0 * nq1 for the triangles -- and copies of both basis tables, the
+ * direction-1 table having nmTot rows for the triangles because its rows
+ * are indexed by the combined mode.
+ *
+ * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
+ * @tparam Implementation    Operators::SumFacTOP.
+ * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
+ *
+ * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ *
+ * @return Shared memory per thread block, in TData values.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -202,6 +303,29 @@ inline constexpr unsigned int MassSharedMemorySize(
     }
 }
 
+/**
+ * @brief Dynamic shared memory a 3D SumFacTOP mass launch requests, in
+ * TData values.
+ *
+ * As in 2D, with three basis tables and two shared scratch areas. For the
+ * hexahedron each area is the maximum of what the two stages ask of it.
+ * For the collapsed shapes the two areas are sized to the transform's two
+ * demands exactly and the inner product reuses them in the opposite order
+ * -- its first stage fills the area the transform's second stage filled --
+ * which is why the 3D MassKernelLauncher passes them to the inner-product
+ * shape kernel with the two arguments swapped. The direction-2 table is
+ * combined-mode indexed for every collapsed shape, and the direction-1
+ * table for the tetrahedra as well, hence the nm01, nm02 and nmode2 row
+ * counts.
+ *
+ * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam Implementation    Operators::SumFacTOP.
+ * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
+ *
+ * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ *
+ * @return Shared memory per thread block, in TData values.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -250,6 +374,49 @@ inline constexpr unsigned int MassSharedMemorySize(
     }
 }
 
+/**
+ * @brief Device entry point of the 1D SumFacTOP mass operator: unpacks the
+ * size parameter and, striding the device block over the block's
+ * elements, transforms and integrates one segment at a time.
+ *
+ * The staged physical values are multiplied in place by the weights and
+ * the Jacobian between the two shape kernels, so the inner product runs in
+ * its metric-free form. Neither shape kernel stages the basis table: the
+ * segment kernels read @p basis0, @p in and @p out straight from global
+ * memory.
+ *
+ * Enabled only for the SumFacTOP tag, so the SumFac overload of the same
+ * name (MassDeviceSumFacKernels.hpp) never competes for the call; a
+ * static_assert then rejects anything but a 1D size parameter. The @p wsp
+ * argument is accepted, so that both strategies' launchers take the same
+ * argument list, and ignored.
+ *
+ * @tparam SHAPE_TYPE       Seg.
+ * @tparam Implementation   Operators::SumFacTOP.
+ * @tparam DEFORMED         @p jac holds one value per quadrature point
+ *                          rather than a single per-element value.
+ * @tparam TSizeParameter1D 1D size parameter, runtime or compile-time
+ *                          form.
+ * @tparam TthreadBlock     Back-end thread-block handle type.
+ * @tparam TData            Floating-point type of the field data.
+ *
+ * @param   sizeParam1D Mode and quadrature-point counts of an element.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   isModified  First-direction basis is eModified_A; unused in 1D.
+ * @param   basis0      Basis table (nm0 rows of nq0).
+ * @param   w0          Quadrature weights.
+ * @param   nodToMod    Nodal-to-modal matrix; unused in 1D.
+ * @param   jac         Block's Jacobians.
+ * @param   in          Block's coefficients, every component back to
+ *                      back; this thread block's own component is c.
+ * @param   out         Block's coefficients, every component back to
+ *                      back; this thread block's own component is c,
+ *                      overwritten.
+ * @param   wsp         Global workspace; unused.
+ * @param   shmemptr    Dynamic shared-memory base, sized by
+ *                      MassSharedMemorySize.
+ * @param   threadBlock Thread-block handle the index helpers read.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
           typename TData,
@@ -313,6 +480,51 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief Device entry point of the 2D SumFacTOP mass operator: unpacks the
+ * size parameter and, striding the device block over the block's
+ * elements, transforms and integrates one quadrilateral or triangle at a
+ * time.
+ *
+ * The shared-memory regions are carved out in the order tmp (the element's
+ * coefficients), bwd (its physical values), the shared stage scratch, then
+ * the two basis tables, which the thread block copies in once before the
+ * element loop. Per element the coefficients are staged -- through the
+ * nodal-to-modal matrix for a nodal triangle -- transformed, multiplied by
+ * the weights of both directions and the Jacobian, and integrated back;
+ * for a nodal triangle the inner product writes into tmp and the
+ * transposed nodal mapping produces the output.
+ *
+ * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
+ * @tparam Implementation   Operators::SumFacTOP.
+ * @tparam DEFORMED         @p jac holds one value per quadrature point
+ *                          rather than a single per-element value.
+ * @tparam TSizeParameter2D 2D size parameter, runtime or compile-time
+ *                          form.
+ * @tparam TthreadBlock     Back-end thread-block handle type.
+ * @tparam TData            Floating-point type of the field data.
+ *
+ * @param   sizeParam2D Mode and quadrature-point counts of an element.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   index0      Table giving p for each flat (p,q) mode of the
+ *                      triangles, read by the inner-product shape kernel;
+ *                      unused for the quadrilateral.
+ * @param   basis0,basis1   Per-direction basis tables in global memory,
+ *                      copied to shared memory here.
+ * @param   w0,w1       Per-direction quadrature weights.
+ * @param   nodToMod    Nodal-to-modal matrix (nodal shapes only).
+ * @param   jac         Block's Jacobians.
+ * @param   in          Block's coefficients, every component back to
+ *                      back; this thread block's own component is c.
+ * @param   out         Block's coefficients, every component back to
+ *                      back; this thread block's own component is c,
+ *                      overwritten.
+ * @param   wsp         Global workspace; unused.
+ * @param   shmemptr    Dynamic shared-memory base, sized by
+ *                      MassSharedMemorySize.
+ * @param   threadBlock Thread-block handle the index helpers read.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -460,6 +672,49 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief Device entry point of the 3D SumFacTOP mass operator: unpacks the
+ * size parameter and, striding the device block over the block's
+ * elements, transforms and integrates one element at a time.
+ *
+ * As in 2D, with three basis tables and two shared scratch areas. The two
+ * areas are handed to the inner-product shape kernel in the reverse order
+ * for the collapsed shapes, because there each area is sized for exactly
+ * one of the transform's two intermediates and the inner product's two
+ * intermediates take those sizes the other way round; the hexahedron,
+ * whose areas are maxima over both stages, passes them in the same order.
+ *
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam Implementation   Operators::SumFacTOP.
+ * @tparam DEFORMED         @p jac holds one value per quadrature point
+ *                          rather than a single per-element value.
+ * @tparam TSizeParameter3D 3D size parameter, runtime or compile-time
+ *                          form.
+ * @tparam TthreadBlock     Back-end thread-block handle type.
+ * @tparam TData            Floating-point type of the field data.
+ *
+ * @param   sizeParam3D Mode and quadrature-point counts of an element.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   index0,index1,index2,index3   Mode-index tables of the
+ *                      collapsed shapes; which of them a shape's two
+ *                      kernels read follows from the calls below, and
+ *                      the unused ones are null.
+ * @param   basis0,basis1,basis2    Per-direction basis tables in global
+ *                      memory, copied to shared memory here.
+ * @param   w0,w1,w2    Per-direction quadrature weights.
+ * @param   nodToMod    Nodal-to-modal matrix (nodal shapes only).
+ * @param   jac         Block's Jacobians.
+ * @param   in          Block's coefficients, every component back to
+ *                      back; this thread block's own component is c.
+ * @param   out         Block's coefficients, every component back to
+ *                      back; this thread block's own component is c,
+ *                      overwritten.
+ * @param   wsp         Global workspace; unused.
+ * @param   shmemptr    Dynamic shared-memory base, sized by
+ *                      MassSharedMemorySize.
+ * @param   threadBlock Thread-block handle the index helpers read.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
           typename TData,

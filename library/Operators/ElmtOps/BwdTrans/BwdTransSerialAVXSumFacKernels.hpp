@@ -28,9 +28,36 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Dimension-level dispatch and workspace sizing for the
+// Serial/AVX sum-factorised backward transform
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file BwdTransSerialAVXSumFacKernels.hpp
+ * @brief Dimension-level dispatch kernels and workspace sizing for the
+ * Serial/AVX sum-factorised backward transform.
+ *
+ * The BwdTransKernelLauncher overloads select the shape-specific
+ * kernel -- defined in
+ * StdRegions/Operators/BwdTransSumFacStdKernels.hpp -- at compile time
+ * from their SHAPE_TYPE template parameter, prepending the
+ * nodal-to-modal conversion for the nodal shapes. The
+ * BwdTrans{1,2,3}DWorkspace functions supply the workspace sizes those
+ * kernels require; the block operator allocates the workspaces once at
+ * construction (see BwdTransSerialAVXSumFac.hpp). The other
+ * sum-factorised operator families include this header for the same
+ * kernels, so their signatures are shared. Workspace sizes are
+ * counted in SIMD vectors: one vector holds the same value for each
+ * element of an interleaved element group.
+ *
+ * As the note below explains, the kernels are force-inlined rather than
+ * duplicated per element size, so that a call reaching them through a
+ * compile-time size parameter sees compile-time loop bounds and unrolls.
+ *
+ * @see BwdTransDeviceSumFacKernels.hpp for the device form of the same
+ * decomposition, expressed over warp lanes instead of SIMD vectors.
+ */
 
 #pragma once
 
@@ -49,6 +76,8 @@ namespace Nektar::Operators::detail
 
 // Workspace - used to dynamically get the workspace size needed for
 // temporary memory.
+/// @brief 1D workspace query: the segment kernel needs no workspace, so
+/// this is a no-op kept for uniformity with the 2D and 3D forms.
 NEK_FORCE_INLINE static void BwdTrans1DWorkspace(
     [[maybe_unused]] LibUtilities::ShapeType SHAPE_TYPE,
     [[maybe_unused]] const unsigned int nm0,
@@ -57,6 +86,22 @@ NEK_FORCE_INLINE static void BwdTrans1DWorkspace(
 {
 }
 
+/**
+ * @brief Grow @p wsp0Size to the workspace the 2D kernels need for the
+ * given shape and sizes.
+ *
+ * Updates a running maximum so one workspace can be sized across several
+ * queries. Sizes are in SIMD vectors: quadrilaterals stage nm1 * nq0
+ * direction-0 sums; triangles only nm0 per direction-1 point, the
+ * collapsed basis making the first stage per-point; nodal triangles
+ * additionally need room behind that for the modal-converted
+ * coefficients the launcher writes at offset nm0.
+ *
+ * @param   SHAPE_TYPE  Shape of the block's elements.
+ * @param   nm0,nm1     Modes per direction.
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param[in,out] wsp0Size  Raised to the required size if smaller.
+ */
 NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     LibUtilities::ShapeType SHAPE_TYPE, [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nm1,
@@ -77,6 +122,22 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     }
 }
 
+/**
+ * @brief Grow @p wsp0Size and @p wsp1Size to the workspaces the 3D
+ * kernels need for the given shape and sizes.
+ *
+ * As BwdTrans2DWorkspace, in SIMD vectors and as running maxima. The two
+ * workspaces hold the intermediates of the first and second
+ * sum-factorisation stages respectively; for the nodal shapes wsp0 is
+ * enlarged to carry the modal-converted coefficients behind the first
+ * stage's own area.
+ *
+ * @param   SHAPE_TYPE    Shape of the block's elements.
+ * @param   nm0,nm1,nm2   Modes per direction.
+ * @param   nq0,nq1,nq2   Quadrature points per direction.
+ * @param[in,out] wsp0Size    Raised to the required size if smaller.
+ * @param[in,out] wsp1Size    Raised to the required size if smaller.
+ */
 NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     LibUtilities::ShapeType SHAPE_TYPE, [[maybe_unused]] const unsigned int nm0,
     [[maybe_unused]] const unsigned int nm1,
@@ -109,6 +170,30 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     }
 }
 
+/**
+ * @brief 1D dispatch: forward one element group's transform to the
+ * segment kernel.
+ *
+ * @tparam SHAPE_TYPE       Shape tag (segments only in 1D).
+ * @tparam APPEND           Accumulate onto @p out instead of
+ *                          overwriting.
+ * @tparam TSizeParameter1D 1D size parameter, in the runtime or the
+ *                          compile-time form; with the latter the sizes
+ *                          below are compile-time constants and the
+ *                          kernel's loops unroll.
+ * @tparam simd_type        SIMD vector type; each vector holds one value
+ *                          of every element of the interleaved group.
+ *
+ * @param   sizeParam1D Modal and quadrature sizes of the expansion.
+ * @param   isModified  First-direction basis is eModified_A; the segment
+ *                      kernel needs no correction, so unused.
+ * @param   basis0      1D basis table, `basis0[p * nq0 + i]` = mode p at
+ *                      point i.
+ * @param   NtoM        Nodal-to-modal matrix; no 1D nodal shape, so
+ *                      unused.
+ * @param   in          Interleaved coefficients of the element group.
+ * @param   out         Interleaved physical values of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransKernelLauncher(
@@ -126,6 +211,33 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
     BwdTransSegKernel<APPEND>(nm0, nq0, basis0, in, out);
 }
 
+/**
+ * @brief 2D dispatch: select the quadrilateral or (nodal) triangular
+ * kernel for one element group at compile time.
+ *
+ * For NodalTri the coefficients are first mapped to the modified modal
+ * basis by MatVecKernel with @p NtoM, using the tail of @p wsp0 beyond
+ * its first nm0 vectors as destination; the triangular kernel then runs
+ * on the converted coefficients. For Tri, @p isModified triggers the
+ * extra collapsed vertex-mode contribution inside BwdTransTriKernel.
+ *
+ * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
+ * @tparam APPEND           Accumulate onto @p out instead of
+ *                          overwriting.
+ * @tparam TSizeParameter2D 2D size parameter, runtime or compile-time
+ *                          form.
+ * @tparam simd_type        SIMD vector type of the interleaved group.
+ *
+ * @param   sizeParam2D Modal and quadrature sizes per direction.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   basis0      Direction-0 basis table (nm0 rows of nq0).
+ * @param   basis1      Direction-1 basis table; for triangles indexed by
+ *                      the combined (p,q) mode, one row per mode.
+ * @param   NtoM        Nodal-to-modal matrix (nodal shapes only).
+ * @param   wsp0        Workspace sized by BwdTrans2DWorkspace.
+ * @param   in          Interleaved coefficients of the element group.
+ * @param   out         Interleaved physical values of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransKernelLauncher(
@@ -165,6 +277,35 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
     }
 }
 
+/**
+ * @brief 3D dispatch: select the hexahedral, (nodal) tetrahedral,
+ * (nodal) prismatic or pyramidal kernel for one element group at
+ * compile time.
+ *
+ * As in 2D, the nodal shapes are first mapped to the modified modal
+ * basis by MatVecKernel with @p NtoM, the destination sitting behind the
+ * shape's own area inside @p wsp0, and @p isModified triggers the
+ * collapsed-mode corrections inside the shape kernels.
+ *
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam APPEND           Accumulate onto @p out instead of
+ *                          overwriting.
+ * @tparam TSizeParameter3D 3D size parameter, runtime or compile-time
+ *                          form.
+ * @tparam simd_type        SIMD vector type of the interleaved group.
+ *
+ * @param   sizeParam3D Modal and quadrature sizes per direction.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   basis0      Direction-0 basis table (nm0 rows of nq0).
+ * @param   basis1      Direction-1 basis table; combined-mode indexed
+ *                      for the tetrahedron.
+ * @param   basis2      Direction-2 basis table; combined-mode indexed
+ *                      for the collapsed shapes.
+ * @param   NtoM        Nodal-to-modal matrix (nodal shapes only).
+ * @param   wsp0,wsp1   Workspaces sized by BwdTrans3DWorkspace.
+ * @param   in          Interleaved coefficients of the element group.
+ * @param   out         Interleaved physical values of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
           typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void BwdTransKernelLauncher(

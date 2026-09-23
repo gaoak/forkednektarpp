@@ -28,9 +28,30 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Factory shell for the whole-field IProductWRTBase
+// operator.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file IProductWRTBaseOpImpl.hpp
+ * @brief Factory shell for the whole-field IProductWRTBase operator.
+ *
+ * @details
+ * The whole-field behaviour of the operator is implemented entirely in
+ * IProductWRTBaseOp (IProductWRTBaseOp.hpp); the class here exists only so
+ * that an "IProductWRTBase" + execution-space key ("IProductWRTBaseSerial",
+ * "IProductWRTBaseAVX", "IProductWRTBaseDevice") can be registered with the
+ * operator factory. The numerical work is done by the block operators
+ * created alongside it (see IProductWRTBaseSerialAVXStdMat.hpp and its
+ * siblings). CMake-generated translation units instantiate and register
+ * this class for each enabled execution space.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through IProductWRTBaseOp.hpp and the
+ * operator factory.
+ */
 
 #pragma once
 
@@ -39,20 +60,32 @@
 namespace Nektar::Operators::detail
 {
 
+/**
+ * @brief Execution-space registration shell of IProductWRTBaseOp; adds no
+ * behaviour of its own.
+ *
+ * @tparam ExecSpace Execution space the instance is registered for; used
+ *                   only to distinguish factory entries.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class IProductWRTBaseOpImpl : public IProductWRTBaseOp<TData>
 {
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; forwards to IProductWRTBaseOp.
     IProductWRTBaseOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                           const std::vector<std::string> &components)
         : IProductWRTBaseOp<TData>(expansionList, components)
     {
     }
 
-    // className - for OperatorFactory
+    /// Registration name for the operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// @brief Creator function registered with the operator factory;
+    /// builds one operator for the given expansion list and components.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
