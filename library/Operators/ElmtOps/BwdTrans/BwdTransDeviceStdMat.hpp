@@ -51,7 +51,7 @@
  * translation unit. Other code goes through BwdTransOp.hpp and the
  * operator factory: including this header directly instantiates the
  * whole template set in that translation unit, which is what the
- * generated per-shape sources exist to avoid.
+ * generated sources exist to avoid.
  */
 
 #pragma once
