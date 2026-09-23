@@ -427,6 +427,12 @@ protected:
         const auto chunkSize =
             std::max(m_implInterleaveWidth, inInterleaveWidth);
 
+        // Directions held per variable in the input block. In 3DH1
+        // (nhomo > 1) there are always three (x, y, z) regardless of the base
+        // mesh coordDim, the z slot being the one DerivZOp reads; the xy pass
+        // still consumes only m_coordDim of them.
+        const auto inDim = (inblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
+
         // Loop over components.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto inoffset_vec = inoffset / simd_t::width;
@@ -534,11 +540,11 @@ protected:
                 dfptr += jacSize * ndf * simd_t::width;
             }
 
-            // Advance input by coordDim-1 components since have already
+            // Advance input by inDim-1 components since have already
             // advanced one component in the above.
             if ((n + 1) % inblock.GetNumHomoModes() == 0)
             {
-                inptr += (m_coordDim - 1) * inoffset;
+                inptr += (inDim - 1) * inoffset;
             }
         }
 

@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <MultiRegions/ExpListHomogeneous1D.h>
+
 #include "TestOp.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
@@ -49,13 +51,26 @@ public:
     TestIProductWRTDerivBase() = default;
 
 private:
+    /// Direction components the field carries: three on a multi-plane 3DH1
+    /// expansion, where the homogeneous direction adds one the planes
+    /// themselves do not count, and the plane's own dimension otherwise.
+    unsigned int m_coordDim;
     Field<TData, FieldState::Phys> *m_f_phys = nullptr;
 
 public:
     void SetFixture(const unsigned int nhomo) override
     {
-        auto nin = this->session->GetVariables().size() *
-                   this->fixt_explist->GetCoordim(0);
+        // A 3DH1 expansion carries a third direction along the homogeneous
+        // direction, which the planes themselves do not count.
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+        m_coordDim =
+            (is3DH1 && nhomo > 1)
+                ? 3u
+                : static_cast<unsigned int>(this->fixt_explist->GetCoordim(0));
+
+        auto nin  = this->session->GetVariables().size() * m_coordDim;
         auto nout = this->session->GetVariables().size();
         auto inblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
@@ -132,23 +147,68 @@ public:
         // Calculate expected result from Nektar++
         const size_t ncoeffs       = this->fixt_explist->GetNcoeffs();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
-        const unsigned int coordim = this->fixt_explist->GetCoordim(0);
         const unsigned int numComp = this->fixt_out->GetNumComponents();
+        const unsigned int nhomo   = this->fixt_in->GetNumHomoModes();
+
+        // A 3DH1 expansion carries a third direction, and the z part of the
+        // weak derivative needs the input in physical space, while
+        // SetExpList3DH1 leaves WaveSpace true.
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+        const bool wave = is3DH1 && nhomo > 1;
 
         Array<OneD, TData> inphys = this->fixt_in->ToArray();
         Array<OneD, TData> outcoeffs(ncoeffs * numComp, 0.0), tmp;
-        Array<OneD, Array<OneD, TData>> inphysarray(coordim);
+        Array<OneD, Array<OneD, TData>> inphysarray(m_coordDim);
 
         for (unsigned int i = 0; i < numComp; ++i)
         {
-            inphysarray[0] = inphys + i * nphys * coordim;
-            for (unsigned int j = 1; j < coordim; ++j)
+            inphysarray[0] = inphys + i * nphys * m_coordDim;
+            for (unsigned int j = 1; j < m_coordDim; ++j)
             {
                 inphysarray[j] = inphysarray[j - 1] + nphys;
             }
-            this->fixt_explist->IProductWRTDerivBase(
-                inphysarray, tmp = outcoeffs + i * ncoeffs);
+            if (wave)
+            {
+                // Legacy splits the two spaces differently from the
+                // redesign. v_PhysDeriv takes x and y plane by plane and
+                // only transforms for z, which is what the redesign does
+                // throughout, but v_IProductWRTDerivBase forward transforms
+                // every direction because its result is defined in wave
+                // space. The eFourier basis carries no Nyquist mode, so that
+                // round trip is a projection rather than the identity and
+                // would drop xy content the redesign keeps. The directions
+                // are therefore taken one at a time, each in its own space.
+                Array<OneD, TData> acc(ncoeffs, 0.0), dir(ncoeffs, 0.0),
+                    dirz(ncoeffs, 0.0);
+
+                // x and y: plane local, no transform either way.
+                this->fixt_explist->SetWaveSpace(true);
+                this->fixt_explist->IProductWRTDerivBase(0, inphysarray[0],
+                                                         acc);
+                this->fixt_explist->IProductWRTDerivBase(1, inphysarray[1],
+                                                         dir);
+                Vmath::Vadd(ncoeffs, dir, 1, acc, 1, acc, 1);
+
+                // z: forward transform, weight by the wavenumber, and come
+                // back, exactly as DerivZOp does.
+                this->fixt_explist->SetWaveSpace(false);
+                this->fixt_explist->IProductWRTDerivBase(2, inphysarray[2],
+                                                         dir);
+                this->fixt_explist->SetWaveSpace(true);
+                this->fixt_explist->HomogeneousBwdTrans(ncoeffs, dir, dirz);
+                Vmath::Vadd(ncoeffs, dirz, 1, acc, 1, acc, 1);
+
+                Vmath::Vcopy(ncoeffs, acc, 1, tmp = outcoeffs + i * ncoeffs, 1);
+            }
+            else
+            {
+                this->fixt_explist->IProductWRTDerivBase(
+                    inphysarray, tmp = outcoeffs + i * ncoeffs);
+            }
         }
+
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
     }
@@ -235,3 +295,48 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData>
+class TestIProductWRTDerivBaseFFT : public TestIProductWRTDerivBase<TData>
+{
+public:
+    TestIProductWRTDerivBaseFFT() = default;
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestIProductWRTDerivBaseFFT<float>              \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestIProductWRTDerivBaseFFT<double>                    \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+// clang-format on
+
+TEST_FFT(QuadFFT, "run/square.xml")
+
+TEST_FFT(TriFFT, "run/tri.xml")
+
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")

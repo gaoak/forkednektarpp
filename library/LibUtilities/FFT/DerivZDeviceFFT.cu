@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivZDeviceFFT.cu
+// File: DerivZDeviceFFT.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,8 +28,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: cuFFT z-derivative pipeline for Nektar++ PhysDeriv, with a
-// fused cuFFTDx kernel used instead under NEKTAR_USE_CUFFTDX.
+// Description: cuFFT z-derivative pipeline for the Nektar++ DerivZ
+// operators: cached cuFFT plans driving D2Z, the wavenumber multiply and Z2D
+// as three launches, or a single fused cuFFTDx kernel when the build defines
+// NEKTAR_USE_CUFFTDX.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -42,8 +44,8 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include <LibUtilities/FFT/DerivZDeviceFFT.h>
 #include <LibUtilities/FFT/NekDeviceFFTHIPCUDAHelper.h>
-#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
 
 #else // NEKTAR_USE_CUFFTDX
 
@@ -54,7 +56,7 @@
 #include <cufftdx/cufftdx.hpp>
 
 #include <LibUtilities/Backends/CUDAStream.hpp>
-#include <LibUtilities/FFT/PhysDerivZDeviceFFT.h>
+#include <LibUtilities/FFT/DerivZDeviceFFT.h>
 
 #ifndef CUFFTDX_TARGET_SM
 #define CUFFTDX_TARGET_SM 700
@@ -118,8 +120,13 @@ template <typename TData> struct DirectPlanEntry
     cufftHandle planBwd            = 0;
     DeviceFFTCmplx<TData> *d_cmplx = nullptr;
     void *d_workspace              = nullptr;
-    int halfN                      = 0;
-    int blockSizeWave              = 0;
+    /// Where the inverse transform lands when the caller is accumulating;
+    /// cuFFT owns its output store, so it cannot add into the caller's
+    /// buffer directly. Allocated on the first APPEND prepare and null
+    /// otherwise, so a caller that overwrites pays nothing for it.
+    TData *d_accum    = nullptr;
+    int halfN         = 0;
+    int blockSizeWave = 0;
 };
 
 template <typename TData> class DirectPlanCache
@@ -131,20 +138,19 @@ public:
         return instance;
     }
 
-    bool Lookup(const DirectPlanKey &key, DirectPlanEntry<TData> &entry) const
+    /// Null when the key is not cached. The entry is handed back by
+    /// reference so that a later prepare can attach the accumulate buffer to
+    /// the cached copy rather than to a temporary.
+    DirectPlanEntry<TData> *Find(const DirectPlanKey &key)
     {
         auto it = m_map.find(key);
-        if (it == m_map.end())
-        {
-            return false;
-        }
-        entry = it->second;
-        return true;
+        return it == m_map.end() ? nullptr : &it->second;
     }
 
-    void Register(const DirectPlanKey &key, const DirectPlanEntry<TData> &entry)
+    DirectPlanEntry<TData> &Register(const DirectPlanKey &key,
+                                     const DirectPlanEntry<TData> &entry)
     {
-        m_map[key] = entry;
+        return m_map[key] = entry;
     }
 
 private:
@@ -244,25 +250,58 @@ DirectPlanEntry<TData> CreateEntry(unsigned int nhomo, size_t NXY,
     return e;
 }
 
-// Cache lookup shared by PhysDerivZDirect() and PhysDerivZPrepare(), so that
+// Cache lookup shared by DerivZDirect() and DerivZPrepare(), so that
 // preparing a stream and running on it cannot disagree about the key.
 template <typename TData>
-DirectPlanEntry<TData> GetOrCreateEntry(unsigned int nhomo, size_t NXY,
-                                        size_t compStride, cudaStream_t stream)
+DirectPlanEntry<TData> &GetOrCreateEntry(unsigned int nhomo, size_t NXY,
+                                         size_t compStride, cudaStream_t stream)
 {
     int deviceId = 0;
     CHECK_HIPCUDA_ERROR(cudaGetDevice(&deviceId));
 
     const DirectPlanKey key{deviceId, nhomo, NXY, compStride, stream};
 
-    DirectPlanEntry<TData> entry;
-    if (!DirectPlanCache<TData>::Instance().Lookup(key, entry))
+    if (DirectPlanEntry<TData> *hit =
+            DirectPlanCache<TData>::Instance().Find(key))
     {
-        entry = CreateEntry<TData>(nhomo, NXY, compStride, stream);
-        DirectPlanCache<TData>::Instance().Register(key, entry);
+        return *hit;
     }
 
-    return entry;
+    return DirectPlanCache<TData>::Instance().Register(
+        key, CreateEntry<TData>(nhomo, NXY, compStride, stream));
+}
+
+/// Attach the accumulate buffer to @p entry if it does not have one. It is
+/// laid out exactly as the inverse transform writes it -- plane p at
+/// p * compStride -- and zeroed once here: the transform never writes the
+/// padding between NXY and compStride, so it stays zero for the life of the
+/// buffer and the sum below can run flat over the whole span.
+/// This allocates, which a graph capture will not tolerate, so it is reached
+/// only from DerivZPrepare().
+template <typename TData>
+void EnsureAccumBuffer(DirectPlanEntry<TData> &entry, unsigned int nhomo,
+                       size_t compStride)
+{
+    if (entry.d_accum == nullptr)
+    {
+        const size_t nbytes = nhomo * compStride * sizeof(TData);
+        CHECK_HIPCUDA_ERROR(
+            cudaMalloc(reinterpret_cast<void **>(&entry.d_accum), nbytes));
+        CHECK_HIPCUDA_ERROR(cudaMemset(entry.d_accum, 0, nbytes));
+    }
+}
+
+/// Add the transform in @p src into @p dst over the whole plane-major span.
+/// The padding is zero in @p src, so a padded slot only ever adds zero to
+/// itself.
+template <typename TData>
+__global__ void AccumulateKernel(const TData *src, TData *dst, size_t nsize)
+{
+    const size_t i = blockIdx.x * static_cast<size_t>(blockDim.x) + threadIdx.x;
+    if (i < nsize)
+    {
+        dst[i] += src[i];
+    }
 }
 
 #else // NEKTAR_USE_CUFFTDX
@@ -311,10 +350,10 @@ public:
 // Reads from block device memory with stride compStride instead of NXY,
 // writing directly to the z-slot in the output block. One block per xy
 // pencil (blockIdx.x == j). Avoids separate gather/scatter copies.
-template <typename TReal, int N_PLANES, int DERIV_ORDER>
-__global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
-                                         TReal *__restrict__ d_out, int NXY,
-                                         int compStride, TReal beta)
+template <typename TReal, int N_PLANES, DerivZOrder DERIVORDER, bool APPEND>
+__global__ void DerivZDxDirectKernel(const TReal *__restrict__ d_in,
+                                     TReal *__restrict__ d_out, int NXY,
+                                     int compStride, TReal beta)
 {
     using Traits       = DxFFT<TReal, N_PLANES>;
     using FFT_t        = typename Traits::FFT;
@@ -355,7 +394,7 @@ __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
             const int wn      = (k <= half_n) ? k : (k - N_PLANES);
             const TReal betaK = static_cast<TReal>(wn) * beta;
 
-            if constexpr (DERIV_ORDER == 1)
+            if constexpr (DERIVORDER == DerivZOrder::First)
             {
                 thread_data[i] = complex_type{-thread_data[i].y * betaK,
                                               thread_data[i].x * betaK};
@@ -371,11 +410,20 @@ __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
 
     IFFT_t().execute(thread_data, smem);
 
+    // Nothing else writes the result, so an accumulating call costs only
+    // the read-modify-write here: no staging buffer and no second pass.
     const TReal inv_n = TReal(1) / static_cast<TReal>(N_PLANES);
     for (int i = 0; i < kEPT; ++i)
     {
         const int k = static_cast<int>(threadIdx.x) + i * FFT_t::stride;
-        d_out[k * compStride + j] = thread_data[i].x * inv_n;
+        if constexpr (APPEND)
+        {
+            d_out[k * compStride + j] += thread_data[i].x * inv_n;
+        }
+        else
+        {
+            d_out[k * compStride + j] = thread_data[i].x * inv_n;
+        }
     }
 }
 
@@ -383,9 +431,9 @@ __global__ void PhysDerivZDxDirectKernel(const TReal *__restrict__ d_in,
 // attr_set latch below and the kernel whose attribute it raises must be the
 // same instantiation, or one precision would never get its shared-memory
 // limit lifted.
-template <typename TReal, int N_PLANES, int DERIV_ORDER>
-void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
-                              int compStride, TReal beta, cudaStream_t stream)
+template <typename TReal, int N_PLANES, DerivZOrder DERIVORDER, bool APPEND>
+void LaunchDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
+                          int compStride, TReal beta, cudaStream_t stream)
 {
     using Traits = DxFFT<TReal, N_PLANES>;
     using FFT_t  = typename Traits::FFT;
@@ -396,7 +444,7 @@ void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
     if (!attr_set)
     {
         cudaFuncSetAttribute(
-            PhysDerivZDxDirectKernel<TReal, N_PLANES, DERIV_ORDER>,
+            DerivZDxDirectKernel<TReal, N_PLANES, DERIVORDER, APPEND>,
             cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size);
         attr_set = true;
     }
@@ -405,21 +453,21 @@ void LaunchPhysDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
     // device pointers vary per call so a static graph cache
     // keyed on {NXY, compStride} would replay stale pointers for
     // differently-allocated fields of the same shape. The outer
-    // PhysDerivZOpDevice already handles graph capture/replay for the full
+    // DerivZOpDevice already handles graph capture/replay for the full
     // z-pipeline. When the stream is being captured by that outer graph the
     // kernel launch is recorded into it automatically.
-    PhysDerivZDxDirectKernel<TReal, N_PLANES, DERIV_ORDER>
+    DerivZDxDirectKernel<TReal, N_PLANES, DERIVORDER, APPEND>
         <<<NXY, FFT_t::block_dim, shmem_size, stream>>>(d_in, d_out, NXY,
                                                         compStride, beta);
 }
 
 // Switches on the plane count to pick the compile-time FFT size. Takes the
-// same argument order as PhysDerivZDirect, so the dispatch below forwards
+// same argument order as DerivZDirect, so the dispatch below forwards
 // its arguments unchanged.
-template <typename TReal, int DERIV_ORDER>
-void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
-                          size_t NXY, size_t compStride, TReal beta,
-                          cudaStream_t stream)
+template <typename TReal, DerivZOrder DERIVORDER, bool APPEND>
+void DerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
+                      size_t NXY, size_t compStride, TReal beta,
+                      cudaStream_t stream)
 {
     // The launcher below drives a kernel launch, so NXY and compStride narrow
     // to the int that the grid dimension and in-kernel indexing use.
@@ -429,32 +477,32 @@ void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
     switch (nhomo)
     {
         case 16:
-            LaunchPhysDerivZDxDirect<TReal, 16, DERIV_ORDER>(
+            LaunchDerivZDxDirect<TReal, 16, DERIVORDER, APPEND>(
                 d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 32:
-            LaunchPhysDerivZDxDirect<TReal, 32, DERIV_ORDER>(
+            LaunchDerivZDxDirect<TReal, 32, DERIVORDER, APPEND>(
                 d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 64:
-            LaunchPhysDerivZDxDirect<TReal, 64, DERIV_ORDER>(
+            LaunchDerivZDxDirect<TReal, 64, DERIVORDER, APPEND>(
                 d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 128:
-            LaunchPhysDerivZDxDirect<TReal, 128, DERIV_ORDER>(
+            LaunchDerivZDxDirect<TReal, 128, DERIVORDER, APPEND>(
                 d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 256:
-            LaunchPhysDerivZDxDirect<TReal, 256, DERIV_ORDER>(
+            LaunchDerivZDxDirect<TReal, 256, DERIVORDER, APPEND>(
                 d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         case 512:
-            LaunchPhysDerivZDxDirect<TReal, 512, DERIV_ORDER>(
+            LaunchDerivZDxDirect<TReal, 512, DERIVORDER, APPEND>(
                 d_in, d_out, NXYI, compStrideI, beta, stream);
             break;
         default:
             throw std::runtime_error(
-                "PhysDerivZDirect: unsupported number of homogeneous planes " +
+                "DerivZDirect: unsupported number of homogeneous planes " +
                 std::to_string(nhomo) +
                 " for the fused cuFFTDx kernel; supported values: 16, 32, 64, "
                 "128, 256, 512");
@@ -465,10 +513,10 @@ void PhysDerivZDxDispatch(const TReal *d_in, TReal *d_out, unsigned int nhomo,
 
 } // anonymous namespace
 
-template <typename TData>
-void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
-                      size_t NXY, size_t compStride, TData beta,
-                      unsigned int streamID)
+template <typename TData, DerivZOrder DERIVORDER, bool APPEND>
+void DerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
+                  size_t NXY, size_t compStride, TData beta,
+                  unsigned int streamID)
 {
     // The declaration hands the stream over as an id to keep the header
     // independent of the CUDA runtime; the registry resolves it to the real
@@ -476,11 +524,16 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
     cudaStream_t stream = CUDAStream::GetInstance(streamID);
 
 #if defined(NEKTAR_USE_CUFFTDX)
-    PhysDerivZDxDispatch<TData, 1>(d_in, d_out, nhomo, NXY, compStride, beta,
-                                   stream);
+    DerivZDxDispatch<TData, DERIVORDER, APPEND>(d_in, d_out, nhomo, NXY,
+                                                compStride, beta, stream);
 #else
-    DirectPlanEntry<TData> entry =
-        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
+    // The plans depend only on the problem size, so both orders share one
+    // entry; only the wavenumber multiply differs.
+    auto &entry = GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
+
+    // cuFFT owns its output store, so an accumulating call transforms into
+    // the buffer the plan holds and is summed into d_out below.
+    TData *d_target = APPEND ? entry.d_accum : d_out;
 
     if constexpr (std::is_same_v<TData, double>)
     {
@@ -498,111 +551,101 @@ void PhysDerivZDirect(const TData *d_in, TData *d_out, unsigned int nhomo,
         static_cast<unsigned int>(NXY),
         static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
                               entry.blockSizeWave));
-    WavenumberMultiplyKernel<<<grid, entry.blockSizeWave, 0, stream>>>(
-        entry.d_cmplx, entry.halfN, beta, invN);
+    if constexpr (DERIVORDER == DerivZOrder::First)
+    {
+        WavenumberMultiplyKernel<<<grid, entry.blockSizeWave, 0, stream>>>(
+            entry.d_cmplx, entry.halfN, beta, invN);
+    }
+    else
+    {
+        WavenumberMultiply2Kernel<<<grid, entry.blockSizeWave, 0, stream>>>(
+            entry.d_cmplx, entry.halfN, beta, invN);
+    }
 
     if constexpr (std::is_same_v<TData, double>)
     {
         CHECK_HIPCUDA_FFT_ERROR(
-            cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
+            cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_target));
     }
     else if constexpr (std::is_same_v<TData, float>)
     {
         CHECK_HIPCUDA_FFT_ERROR(
-            cufftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
+            cufftExecC2R(entry.planBwd, entry.d_cmplx, d_target));
+    }
+
+    if constexpr (APPEND)
+    {
+        const size_t nsize         = nhomo * compStride;
+        const unsigned int addGrid = static_cast<unsigned int>(
+            (nsize + entry.blockSizeWave - 1) / entry.blockSizeWave);
+        AccumulateKernel<<<addGrid, entry.blockSizeWave, 0, stream>>>(
+            entry.d_accum, d_out, nsize);
     }
 #endif
 }
 
-template <typename TData>
-void PhysDerivZ2Direct(const TData *d_in, TData *d_out, unsigned int nhomo,
-                       size_t NXY, size_t compStride, TData beta,
-                       unsigned int streamID)
-{
-    // The declaration hands the stream over as an id to keep the header
-    // independent of the CUDA runtime; the registry resolves it to the real
-    // handle here.
-    cudaStream_t stream = CUDAStream::GetInstance(streamID);
-
-#if defined(NEKTAR_USE_CUFFTDX)
-    PhysDerivZDxDispatch<TData, 2>(d_in, d_out, nhomo, NXY, compStride, beta,
-                                   stream);
-#else
-    // The plans depend only on the problem size, so the first derivative's
-    // entry serves here too; only the wavenumber multiply differs.
-    DirectPlanEntry<TData> entry =
-        GetOrCreateEntry<TData>(nhomo, NXY, compStride, stream);
-
-    if constexpr (std::is_same_v<TData, double>)
-    {
-        CHECK_HIPCUDA_FFT_ERROR(cufftExecD2Z(
-            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
-    }
-    else if constexpr (std::is_same_v<TData, float>)
-    {
-        CHECK_HIPCUDA_FFT_ERROR(cufftExecR2C(
-            entry.planFwd, const_cast<TData *>(d_in), entry.d_cmplx));
-    }
-
-    const TData invN = 1.0 / static_cast<TData>(nhomo);
-    const dim3 grid(
-        static_cast<unsigned int>(NXY),
-        static_cast<unsigned>((entry.halfN + 1 + entry.blockSizeWave - 1) /
-                              entry.blockSizeWave));
-    WavenumberMultiply2Kernel<<<grid, entry.blockSizeWave, 0, stream>>>(
-        entry.d_cmplx, entry.halfN, beta, invN);
-
-    if constexpr (std::is_same_v<TData, double>)
-    {
-        CHECK_HIPCUDA_FFT_ERROR(
-            cufftExecZ2D(entry.planBwd, entry.d_cmplx, d_out));
-    }
-    else if constexpr (std::is_same_v<TData, float>)
-    {
-        CHECK_HIPCUDA_FFT_ERROR(
-            cufftExecC2R(entry.planBwd, entry.d_cmplx, d_out));
-    }
-#endif
-}
-
-template <typename TData>
-void PhysDerivZPrepare([[maybe_unused]] unsigned int nhomo,
-                       [[maybe_unused]] size_t NXY,
-                       [[maybe_unused]] size_t compStride,
-                       [[maybe_unused]] unsigned int streamID)
+template <typename TData, bool APPEND>
+void DerivZPrepare([[maybe_unused]] unsigned int nhomo,
+                   [[maybe_unused]] size_t NXY,
+                   [[maybe_unused]] size_t compStride,
+                   [[maybe_unused]] unsigned int streamID)
 {
     // The fused cuFFTDx kernel keeps no per-size state, so there is nothing
     // to prepare in that build.
 #if !defined(NEKTAR_USE_CUFFTDX)
-    GetOrCreateEntry<TData>(nhomo, NXY, compStride,
-                            CUDAStream::GetInstance(streamID));
+    auto &entry = GetOrCreateEntry<TData>(nhomo, NXY, compStride,
+                                          CUDAStream::GetInstance(streamID));
+
+    // Allocating is illegal inside a graph capture, so the buffer an
+    // accumulating call transforms through is created here.
+    if constexpr (APPEND)
+    {
+        EnsureAccumBuffer<TData>(entry, nhomo, compStride);
+    }
+    else
+    {
+        (void)entry;
+    }
 #endif
 }
 
-template void PhysDerivZDirect<double>(const double *d_in, double *d_out,
-                                       unsigned int nhomo, size_t NXY,
-                                       size_t compStride, double beta,
-                                       unsigned int streamID);
-template void PhysDerivZDirect<float>(const float *d_in, float *d_out,
-                                      unsigned int nhomo, size_t NXY,
-                                      size_t compStride, float beta,
-                                      unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::First, false>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::First, true>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::Second, false>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<double, DerivZOrder::Second, true>(
+    const double *d_in, double *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, double beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::First, false>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::First, true>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::Second, false>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
+template void DerivZDirect<float, DerivZOrder::Second, true>(
+    const float *d_in, float *d_out, unsigned int nhomo, size_t NXY,
+    size_t compStride, float beta, unsigned int streamID);
 
-template void PhysDerivZ2Direct<double>(const double *d_in, double *d_out,
-                                        unsigned int nhomo, size_t NXY,
-                                        size_t compStride, double beta,
-                                        unsigned int streamID);
-template void PhysDerivZ2Direct<float>(const float *d_in, float *d_out,
-                                       unsigned int nhomo, size_t NXY,
-                                       size_t compStride, float beta,
-                                       unsigned int streamID);
-
-template void PhysDerivZPrepare<double>(unsigned int nhomo, size_t NXY,
-                                        size_t compStride,
-                                        unsigned int streamID);
-template void PhysDerivZPrepare<float>(unsigned int nhomo, size_t NXY,
-                                       size_t compStride,
-                                       unsigned int streamID);
+template void DerivZPrepare<double, false>(unsigned int nhomo, size_t NXY,
+                                           size_t compStride,
+                                           unsigned int streamID);
+template void DerivZPrepare<double, true>(unsigned int nhomo, size_t NXY,
+                                          size_t compStride,
+                                          unsigned int streamID);
+template void DerivZPrepare<float, false>(unsigned int nhomo, size_t NXY,
+                                          size_t compStride,
+                                          unsigned int streamID);
+template void DerivZPrepare<float, true>(unsigned int nhomo, size_t NXY,
+                                         size_t compStride,
+                                         unsigned int streamID);
 
 } // namespace Nektar::LibUtilities
 

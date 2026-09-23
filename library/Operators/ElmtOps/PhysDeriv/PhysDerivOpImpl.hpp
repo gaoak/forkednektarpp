@@ -36,8 +36,8 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
+#include "Operators/ElmtOps/DerivZOpImpl.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
-#include "Operators/ElmtOps/PhysDerivZOpImpl.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -66,8 +66,9 @@ public:
 
         if (nhomo > 1)
         {
-            m_zOp = std::make_shared<PhysDerivZOpImpl<ExecSpace, TData>>(
-                expansionList);
+            m_zOp = std::make_shared<
+                DerivZOpImpl<ExecSpace, TData, DerivZLayout::ScalarToVectorZ,
+                             DerivZOrder::First, false>>(expansionList);
         }
     }
 
@@ -84,7 +85,10 @@ public:
     }
 
 protected:
-    std::shared_ptr<PhysDerivZOpImpl<ExecSpace, TData>> m_zOp;
+    std::shared_ptr<
+        DerivZOpImpl<ExecSpace, TData, DerivZLayout::ScalarToVectorZ,
+                     DerivZOrder::First, false>>
+        m_zOp;
 
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
                     LibUtilities::Field<TData, FieldState::Phys> &out) override

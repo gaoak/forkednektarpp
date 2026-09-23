@@ -47,17 +47,18 @@ public:
     TestPhysDeriv() = default;
 
     // 3DH1 paths need 3 output components per input, all other paths use
-    // coordim.
+    // the plane's own dimension; m_coordDim carries whichever applies.
     void SetFixture(const unsigned int nhomo) override
     {
         const bool is3DH1 =
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 this->fixt_explist) != nullptr;
+        m_coordDim =
+            (is3DH1 && nhomo > 1)
+                ? 3u
+                : static_cast<unsigned int>(this->fixt_explist->GetCoordim(0));
         auto nin  = this->session->GetVariables().size();
-        auto nout = nin * (is3DH1 && nhomo > 1
-                               ? 3u
-                               : static_cast<unsigned int>(
-                                     this->fixt_explist->GetCoordim(0)));
+        auto nout = nin * m_coordDim;
         auto blockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
 
@@ -83,18 +84,18 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        auto coordim   = this->fixt_explist->GetCoordim(0);
+        auto coordDim  = this->fixt_explist->GetCoordim(0);
         auto totpoints = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> x(totpoints);
         Array<OneD, TData> y(totpoints);
         Array<OneD, TData> z(totpoints);
         this->fixt_explist->GetCoords(x, y, z);
-        if (coordim == 1)
+        if (coordDim == 1)
         {
             Vmath::Fill(totpoints, 1.0, y, 1);
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
-        else if (coordim == 2)
+        else if (coordDim == 2)
         {
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
@@ -161,7 +162,6 @@ public:
     void ExpectedSolution()
     {
         const unsigned int numComp = this->fixt_in->GetNumComponents();
-        const unsigned int coordim = this->fixt_explist->GetCoordim(0);
         const unsigned int nhomo   = this->fixt_in->GetNumHomoModes();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> inphys  = this->fixt_in->ToArray();
@@ -174,11 +174,11 @@ public:
         {
             // 3DH1: input is in physical space, SetExpList3DH1 leaves
             // WaveSpace=true, so temporarily disable it for PhysDeriv.
-            Array<OneD, TData> outphys(numComp * 3 * nphys);
+            Array<OneD, TData> outphys(numComp * m_coordDim * nphys);
             this->fixt_explist->SetWaveSpace(false);
             for (unsigned int i = 0; i < numComp; ++i)
             {
-                Array<OneD, TData> d0 = outphys + i * nphys * 3;
+                Array<OneD, TData> d0 = outphys + i * nphys * m_coordDim;
                 Array<OneD, TData> d1 = d0 + nphys;
                 Array<OneD, TData> d2 = d1 + nphys;
                 this->fixt_explist->PhysDeriv(inphys + i * nphys, d0, d1, d2);
@@ -189,10 +189,10 @@ public:
         }
         else
         {
-            Array<OneD, TData> outphys(numComp * coordim * nphys);
+            Array<OneD, TData> outphys(numComp * m_coordDim * nphys);
             for (unsigned int i = 0; i < numComp; ++i)
             {
-                Array<OneD, TData> outphys0 = outphys + i * nphys * coordim;
+                Array<OneD, TData> outphys0 = outphys + i * nphys * m_coordDim;
                 Array<OneD, TData> outphys1 = outphys0 + nphys;
                 Array<OneD, TData> outphys2 = outphys1 + nphys;
                 this->fixt_explist->PhysDeriv(inphys + i * nphys, outphys0,
@@ -202,6 +202,12 @@ public:
                 outphys);
         }
     }
+
+protected:
+    /// Direction components the field carries: three on a multi-plane 3DH1
+    /// expansion, where the homogeneous direction adds one the planes
+    /// themselves do not count, and the plane's own dimension otherwise.
+    unsigned int m_coordDim;
 
 private:
     bool m_hasDeviceFFT = false;
@@ -295,13 +301,17 @@ public:
     TestPhysDerivFFT() = default;
 };
 
+// clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TEST_FFTFLOAT(type, filename)                                          \
-    class type##float : public TestPhysDerivFFT<float>{                        \
-        public : type##float(){meshName = filename;                            \
-    }                                                                          \
-    }                                                                          \
-    ;
+    class type##float : public TestPhysDerivFFT<float>                         \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 #else
 #define TEST_FFTFLOAT(type, filename)
 #endif
@@ -321,6 +331,7 @@ public:
 #define TEST_FFT(type, filename)                                               \
     TEST_FFTFLOAT(type, filename)                                              \
     TEST_FFTDOUBLE(type, filename)
+// clang-format on
 
 TEST_FFT(QuadFFT, "run/square.xml")
 TEST_FFT(TriFFT, "run/tri.xml")

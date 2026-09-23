@@ -36,8 +36,8 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
+#include "Operators/ElmtOps/DerivZOpImpl.hpp"
 #include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
-#include "Operators/ElmtOps/Divergence/DivergenceZOpImpl.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -66,8 +66,9 @@ public:
 
         if (nhomo > 1)
         {
-            m_zOp = std::make_shared<DivergenceZOpImpl<ExecSpace, TData>>(
-                expansionList);
+            m_zOp = std::make_shared<
+                DerivZOpImpl<ExecSpace, TData, DerivZLayout::VectorZToScalar,
+                             DerivZOrder::First, true>>(expansionList);
         }
     }
 
@@ -84,7 +85,12 @@ public:
     }
 
 protected:
-    std::shared_ptr<DivergenceZOpImpl<ExecSpace, TData>> m_zOp;
+    /// The z velocity, component 3n + 2 of the input, added to component n
+    /// of the output, which already holds du/dx + dv/dy.
+    std::shared_ptr<
+        DerivZOpImpl<ExecSpace, TData, DerivZLayout::VectorZToScalar,
+                     DerivZOrder::First, true>>
+        m_zOp;
 
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
                     LibUtilities::Field<TData, FieldState::Phys> &out) override

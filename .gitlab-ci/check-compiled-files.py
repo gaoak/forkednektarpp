@@ -64,9 +64,9 @@ ignore_sources = [
     "library/LibUtilities/FFT/NekDeviceFFT.cpp",
     "library/LibUtilities/FFT/NekDeviceFFT.cu",
     "library/LibUtilities/FFT/NekDeviceFFT.hip",
-    "library/LibUtilities/FFT/PhysDerivZDeviceFFT.cpp",
-    "library/LibUtilities/FFT/PhysDerivZDeviceFFT.cu",
-    "library/LibUtilities/FFT/PhysDerivZDeviceFFT.hip",
+    "library/LibUtilities/FFT/DerivZDeviceFFT.cpp",
+    "library/LibUtilities/FFT/DerivZDeviceFFT.cu",
+    "library/LibUtilities/FFT/DerivZDeviceFFT.hip",
     "library/UnitTests/LibUtilities/TestDeviceFFT.cpp",
     # Profiler
     "library/Demos/Operators/Profilers/ProfilerTraceOps.cpp",

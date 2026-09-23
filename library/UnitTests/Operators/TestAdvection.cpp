@@ -75,15 +75,7 @@ TEST_ADVECTION(advection_seg, Seg, 1.0E-12)
 
 TEST_ADVECTION(advection_seg_sem, SegSEM, 1.0E-12)
 
-// TEST_ADVECTION(advection_seg_3d, Seg3D, 1.0E-12)
-
-// TEST_ADVECTION3DH2(advection_seg_sem_3dh2, SegSEM, 1.0E-10)
-
 TEST_ADVECTION(advection_quad, Quad, 1.0E-12)
-
-// TEST_ADVECTION(advection_quad_3d, Quad3D, 1.0E-12)
-
-// TEST_ADVECTION3DH1(advection_quad_3dh1, Quad, 1.0E-12)
 
 TEST_ADVECTION(advection_quad_sem, QuadSEM, 1.0E-12)
 
@@ -91,18 +83,11 @@ TEST_ADVECTION(advection_quad_varp, QuadVarP, 1.0E-12)
 
 TEST_ADVECTION(advection_tri, Tri, 1.0E-12)
 
-// TEST_ADVECTION(advection_tri_3d, Tri3D, 1.0E-12)
-
-// TEST_ADVECTION3DH1(advection_tri_3dh1, Tri, 1.0E-12)
-
 TEST_ADVECTION(advection_tri_varp, TriVarP, 1.0E-11)
 
 TEST_ADVECTION(advection_tri_nodal, TriNodal, 1.0E-12)
 
 TEST_ADVECTION(advection_square_all_elements, SquareAllElements, 1.0E-12)
-
-// TEST_ADVECTION3DH1(advection_square_all_elements_3dh1, SquareAllElements,
-//                    1.0E-12)
 
 TEST_ADVECTION(advection_hex, Hex, 1.0E-12)
 

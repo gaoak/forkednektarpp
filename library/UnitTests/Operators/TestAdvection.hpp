@@ -48,6 +48,13 @@ public:
 
     void SetFixture(const unsigned int nhomo) override
     {
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr;
+        m_coordDim =
+            (is3DH1 && nhomo > 1)
+                ? 3u
+                : static_cast<unsigned int>(this->fixt_explist->GetCoordim(0));
         auto nin  = this->session->GetVariables().size();
         auto nout = this->session->GetVariables().size();
         auto inblockAttr =
@@ -85,18 +92,18 @@ public:
     void SetTestCase()
     {
         // Set initial conditions.
-        auto coordim   = this->fixt_explist->GetCoordim(0);
+        auto coordDim  = this->fixt_explist->GetCoordim(0);
         auto totpoints = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> x(totpoints);
         Array<OneD, TData> y(totpoints);
         Array<OneD, TData> z(totpoints);
         this->fixt_explist->GetCoords(x, y, z);
-        if (coordim == 1)
+        if (coordDim == 1)
         {
             Vmath::Fill(totpoints, 1.0, y, 1);
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
-        else if (coordim == 2)
+        else if (coordDim == 2)
         {
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
@@ -159,13 +166,7 @@ public:
         // Set advection velocity. It carries the same planes as the input,
         // and on a 3DH1 expansion a third component along the homogeneous
         // direction, which the planes themselves do not count.
-        const bool is3DH1 =
-            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
-                this->fixt_explist) != nullptr;
         size_t nphys       = this->fixt_explist->GetTotPoints();
-        m_coordDim         = (is3DH1 && this->fixt_in->GetNumHomoModes() > 1)
-                                 ? 3
-                                 : this->fixt_explist->GetCoordim(0);
         m_vel              = Array<OneD, TData>(nphys * m_coordDim, 1.0);
         unsigned int count = 0;
         for (int i = 0; i < m_coordDim; i++)
@@ -239,6 +240,9 @@ public:
     }
 
 protected:
+    /// Direction components the field carries: three on a multi-plane 3DH1
+    /// expansion, where the homogeneous direction adds one the planes
+    /// themselves do not count, and the plane's own dimension otherwise.
     unsigned int m_coordDim;
     Array<OneD, TData> m_vel;
 };
@@ -329,13 +333,17 @@ public:
     TestAdvectionFFT() = default;
 };
 
+// clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TEST_FFTFLOAT(type, filename)                                          \
-    class type##float : public TestAdvectionFFT<float>{                        \
-        public : type##float(){meshName = filename;                            \
-    }                                                                          \
-    }                                                                          \
-    ;
+    class type##float : public TestAdvectionFFT<float>                         \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 #else
 #define TEST_FFTFLOAT(type, filename)
 #endif
@@ -355,6 +363,7 @@ public:
 #define TEST_FFT(type, filename)                                               \
     TEST_FFTFLOAT(type, filename)                                              \
     TEST_FFTDOUBLE(type, filename)
+// clang-format on
 
 TEST_FFT(QuadFFT, "run/square.xml")
 TEST_FFT(TriFFT, "run/tri.xml")

@@ -170,10 +170,10 @@ public:
             std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
                 this->fixt_explist);
         const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
-        const bool is3DH1        = homoExpList && nhomo > 1;
+        const bool wave          = homoExpList && nhomo > 1;
 
         Array<OneD, NekDouble> lambdaK(nhomo, 0.0);
-        if (is3DH1)
+        if (wave)
         {
             const NekDouble beta = 2.0 * M_PI / homoExpList->GetHomoLen();
             for (unsigned int p = 0; p < nhomo; ++p)
@@ -191,7 +191,7 @@ public:
         {
             // The planes of a component are consecutive, so i % nhomo picks
             // the Fourier mode this slice carries.
-            if (is3DH1)
+            if (wave)
             {
                 factors[StdRegions::eFactorLambda] = lambdaK[i % nhomo];
             }
@@ -204,8 +204,7 @@ public:
                 for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     StdRegions::StdMatrixKey mkey(
-                        is3DH1 ? StdRegions::eHelmholtz
-                               : StdRegions::eLaplacian,
+                        wave ? StdRegions::eHelmholtz : StdRegions::eLaplacian,
                         this->fixt_explist->GetExp(e)->DetShapeType(),
                         *(this->fixt_explist->GetExp(e)), factors);
                     this->fixt_explist->GetExp(e)->GeneralMatrixOp(
@@ -216,7 +215,7 @@ public:
             }
         }
 
-        if (is3DH1)
+        if (wave)
         {
             HomogeneousTrans(homoExpList, ncoeffs, outcoeffs, false);
         }
@@ -347,13 +346,17 @@ public:
     TestLaplacianFFT() = default;
 };
 
+// clang-format off
 #if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
 #define TEST_FFTFLOAT(type, filename)                                          \
-    class type##float : public TestLaplacianFFT<float>{                        \
-        public : type##float(){meshName = filename;                            \
-    }                                                                          \
-    }                                                                          \
-    ;
+    class type##float : public TestLaplacianFFT<float>                         \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 #else
 #define TEST_FFTFLOAT(type, filename)
 #endif
@@ -373,6 +376,7 @@ public:
 #define TEST_FFT(type, filename)                                               \
     TEST_FFTFLOAT(type, filename)                                              \
     TEST_FFTDOUBLE(type, filename)
+// clang-format on
 
 TEST_FFT(QuadFFT, "run/square.xml")
 TEST_FFT(TriFFT, "run/tri.xml")

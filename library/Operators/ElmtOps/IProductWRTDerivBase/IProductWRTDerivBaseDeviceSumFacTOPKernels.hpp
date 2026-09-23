@@ -445,8 +445,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nq0 * nelmt * (ncoord * nmode * c + m) + nq0 * e;
+            in + nq0 * nelmt * (inDim * nmode * c + m) + nq0 * e;
         TData *outptr = out + nm0 * nelmt * (nmode * c + m) + nm0 * e;
 
         StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
@@ -500,8 +504,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nq0 * nelmt * (ncoord * nmode * c + m) + nq0 * e;
+            in + nq0 * nelmt * (inDim * nmode * c + m) + nq0 * e;
         TData *outptr = out + nq0 * nelmt * (nmode * c + m) + nq0 * e;
 
         StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
@@ -596,8 +604,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nqTot * nelmt * (ncoord * nmode * c + m) + nqTot * e;
+            in + nqTot * nelmt * (inDim * nmode * c + m) + nqTot * e;
         TData *outptr = out + nmTot * nelmt * (nmode * c + m) + nmTot * e;
 
         StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -693,8 +705,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const TData *dfptr  = df + ndf * dfsize * e;
         const TData *jacptr = jac + jacsize * e;
+        // In 3DH1 (nmode > 1) the input holds three directions per
+        // variable, the z one read by DerivZOp, so the stride between
+        // variables is three even though only ncoord are consumed here.
+        const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
         const TData *inptr =
-            in + nqTot * nelmt * (ncoord * nmode * c + m) + nqTot * e;
+            in + nqTot * nelmt * (inDim * nmode * c + m) + nqTot * e;
         TData *outptr = out + nqTot * nelmt * (nmode * c + m) + nqTot * e;
 
         StdAlignDerivBase2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(

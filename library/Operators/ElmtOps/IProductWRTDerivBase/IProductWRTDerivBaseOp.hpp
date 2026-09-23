@@ -83,6 +83,7 @@ public:
         {
             this->m_blockOp[blk]->SetScale(scale);
         }
+        v_SetScaleFFT(scale);
     }
 
 protected:
@@ -103,6 +104,19 @@ protected:
         ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
                  "Number of input and output homogeneous modes differ");
 
+        // The z direction's weak derivative is the plane inner product
+        // weighted by the wavenumber, which lands in coefficient space, so
+        // only the Coeff variant carries it. The guard is L0: without it a
+        // homogeneous field would come back silently wrong in a release
+        // build.
+        if constexpr (TFieldOut == FieldState::Phys)
+        {
+            ASSERTL0(in.GetNumHomoModes() == 1,
+                     "IProductWRTDerivBaseOp does not support homogeneous "
+                     "(3DH1/3DH2) configurations with a Phys output; use the "
+                     "Coeff variant.");
+        }
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
@@ -112,7 +126,15 @@ protected:
 
             this->m_blockOp[blk]->Apply(inblock, outblock);
         }
+
+        // Apply FFT.
+        v_ApplyFFT(in, out);
     }
+
+    virtual void v_SetScaleFFT(const TData &scale) = 0;
+
+    virtual void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
+                            LibUtilities::Field<TData, TFieldOut> &out) = 0;
 };
 
 } // namespace Nektar::Operators
