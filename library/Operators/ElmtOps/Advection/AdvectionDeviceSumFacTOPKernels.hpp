@@ -426,7 +426,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
     const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
-    const unsigned int nhomo, const TData *NEK_RESTRICT in,
+    [[maybe_unused]] const unsigned int nhomo, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -453,11 +453,10 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *dfptr = df + ndf * dfsize * e;
-        const TData *inptr = in + nqTot * nelmt * c + nqTot * e;
-        TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
-        const TData *advVelPtr =
-            advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
+        const TData *dfptr     = df + ndf * dfsize * e;
+        const TData *inptr     = in + nqTot * nelmt * c + nqTot * e;
+        TData *outptr          = out + nqTot * nelmt * c + nqTot * e;
+        const TData *advVelPtr = advVel + nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)

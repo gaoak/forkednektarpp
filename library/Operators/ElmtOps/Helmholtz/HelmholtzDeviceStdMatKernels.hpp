@@ -59,11 +59,17 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     {
         if constexpr (DEFORMED)
         {
-            size_t e     = (idx % (nelmt * nqTot)) / nqTot;
-            size_t i     = idx % nqTot;
+            // The geometry is the same on every slice, so one modulo
+            // takes idx down to the element and the point within it, and
+            // the point then comes off that with a multiply and a subtract
+            // rather than a second modulo. islot rather than idx0, which is
+            // this thread's own starting index.
+            size_t islot = idx % (nelmt * nqTot);
+            size_t e     = islot / nqTot;
+            size_t i     = islot - e * nqTot;
             TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
 
-            auto jac = jacptr[nqTot * e + i];
+            auto jac = jacptr[islot];
 
             for (unsigned int k = 0; k < ncoord; ++k)
             {

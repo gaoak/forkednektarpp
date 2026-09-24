@@ -54,6 +54,20 @@
         }                                                                      \
     }
 
+#define TEST_LINADR3DH1(test_name, test, tol)                                  \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure3DH1(16);                                                     \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteLinAdvDiffReaction)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -109,6 +123,13 @@ TEST_LINADVDIFFREACTION(linadvdiffreaction_cube_prism_hex, CubePrismHex,
 
 TEST_LINADVDIFFREACTION(linadvdiffreaction_cube_all_elements, CubeAllElements,
                         1.0E-12)
+
+TEST_LINADR3DH1(linadvdiffreaction_quad_3dh1, QuadFFT, 1.0E-10)
+
+TEST_LINADR3DH1(linadvdiffreaction_tri_3dh1, TriFFT, 1.0E-10)
+
+TEST_LINADR3DH1(linadvdiffreaction_square_all_elements_3dh1,
+                SquareAllElementsFFT, 1.0E-10)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

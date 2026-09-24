@@ -148,7 +148,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr, m_streamID);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -188,10 +189,11 @@ protected:
 
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions
-        // spans all of them, while the advection velocity is shared by them.
+        // spans all of them, while the advection velocity is shared by the
+        // variables and spans all of the planes.
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        const auto adveloffset = m_nqTot * nelmt;
+        const auto adveloffset = m_nqTot * nelmtTot;
         const auto derivoffset = m_nqTot * nelmt * ncomp;
 
         // Reshape, if necessary.
@@ -225,17 +227,19 @@ protected:
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (ApplyMetricKernel<true>), gridSize, blockSize, m_streamID,
-                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp, derivoffset,
-                derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
-                advVelPtr, derivptr, derivptr, bwdptr, this->m_lambda);
+                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp,
+                inblock.GetNumHomoModes(), derivoffset, derivoffset,
+                adveloffset, diffCoeffPtr, m_jacptr, m_dfptr, advVelPtr,
+                derivptr, derivptr, bwdptr, this->m_lambda);
         }
         else
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                 (ApplyMetricKernel<false>), gridSize, blockSize, m_streamID,
-                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp, derivoffset,
-                derivoffset, adveloffset, diffCoeffPtr, m_jacptr, m_dfptr,
-                advVelPtr, derivptr, derivptr, bwdptr, this->m_lambda);
+                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp,
+                inblock.GetNumHomoModes(), derivoffset, derivoffset,
+                adveloffset, diffCoeffPtr, m_jacptr, m_dfptr, advVelPtr,
+                derivptr, derivptr, bwdptr, this->m_lambda);
         }
 
         // Step 4: IProduct

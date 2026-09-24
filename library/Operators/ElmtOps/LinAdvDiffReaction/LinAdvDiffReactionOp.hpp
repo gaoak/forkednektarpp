@@ -82,14 +82,31 @@ public:
         m_isSetDiffCoeff = true;
     }
 
+    /// \param advVel  One velocity per coordinate direction of a block, on
+    ///                every plane of the field. On a 3DH1 expansion the
+    ///                plane block operators take the first two, each plane
+    ///                its own, and the third is the through-plane velocity
+    ///                the z pass advects with.
     void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &advVel)
     {
+        // A 3DH1 expansion carries a third velocity component along the
+        // homogeneous direction, which the planes themselves do not count.
+        ASSERTL1(advVel.GetNumComponents() ==
+                     (advVel.GetNumHomoModes() == 1
+                          ? static_cast<unsigned int>(
+                                this->m_expansionList->GetCoordim(0))
+                          : 3u),
+                 "Advection velocity must have coordDim components, or three "
+                 "on a 3DH1 expansion");
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetAdvVel(advVel.GetBlocks()[blk]);
         }
         m_isSetAdvVel = true;
+
+        v_SetAdvVelFFT(advVel);
     }
 
 protected:
@@ -131,15 +148,6 @@ protected:
                  "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
                  "before calling Apply().");
 
-        // The z terms are not wired: the weak z-Laplacian would need the xy
-        // mass matrix applied to minus the second z-derivative, and the
-        // advection term w du/dz on top of that, so 3DH1/3DH2 is not
-        // supported. The guard is L0: without it a homogeneous field would
-        // come back silently wrong in a release build.
-        ASSERTL0(in.GetNumHomoModes() == 1 && out.GetNumHomoModes() == 1,
-                 "LinAdvDiffReactionOp does not support homogeneous "
-                 "(3DH1/3DH2) configurations.");
-
         ASSERTL1(m_isSetAdvVel,
                  "Advection velocity has not been set."
                  "Set the value with SetAdvVel() before calling Apply().");
@@ -153,7 +161,22 @@ protected:
 
             this->m_blockOp[blk]->Apply(inblock, outblock);
         }
+
+        // Apply FFT.
+        v_ApplyFFT(in, out);
     }
+
+    /// The z terms of a multi-plane 3DH1 field: the weak z-Laplacian, and
+    /// the advection along the homogeneous direction when SetAdvVel() was
+    /// given a through-plane velocity.
+    virtual void v_ApplyFFT(
+        LibUtilities::Field<TData, FieldState::Coeff> &in,
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
+
+    /// Hand the z pass the through-plane velocity, if there is one. The
+    /// plane block operators have already taken the in-plane components.
+    virtual void v_SetAdvVelFFT(
+        LibUtilities::Field<TData, FieldState::Phys> &advVel) = 0;
 };
 
 } // namespace Nektar::Operators

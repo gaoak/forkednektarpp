@@ -123,7 +123,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, [[maybe_unused]] const bool isModified,
+        const size_t nelmt, const unsigned int nhomo,
+        [[maybe_unused]] const bool isModified,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -154,13 +155,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const TData *dfptr      = df + ndf * dfsize * e;
-        const TData *jacptr     = jac + jacsize * e;
-        const TData *inptr      = in + nm0 * nelmt * c + nm0 * e;
-        TData *outptr           = out + nm0 * nelmt * c + nm0 * e;
-        const TData *advVel0ptr = advVel0 + nq0 * e;
-        const TData *advVel1ptr = (ncoord > 1) ? advVel1 + nq0 * e : advVel1;
-        const TData *advVel2ptr = (ncoord > 2) ? advVel2 + nq0 * e : advVel2;
+        const TData *dfptr  = df + ndf * dfsize * e;
+        const TData *jacptr = jac + jacsize * e;
+        const TData *inptr  = in + nm0 * nelmt * c + nm0 * e;
+        TData *outptr       = out + nm0 * nelmt * c + nm0 * e;
+        // The advection velocity is shared by the variables but not by the
+        // planes, and the plane this slice sits on is c % nhomo.
+        const size_t advelplane = nq0 * (nelmt * (c % nhomo) + e);
+        const TData *advVel0ptr = advVel0 + advelplane;
+        const TData *advVel1ptr = (ncoord > 1) ? advVel1 + advelplane : advVel1;
+        const TData *advVel2ptr = (ncoord > 2) ? advVel2 + advelplane : advVel2;
 
         BwdTransSegSumFacTOPKernel<false>(nm0, nq0, basis0, inptr, bwd,
                                           threadBlock);
@@ -190,7 +194,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
+        const size_t nelmt, const unsigned int nhomo, const bool isModified,
         const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -301,9 +305,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
             ncoord, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr, bwd, deriv,
             threadBlock);
-        const TData *advVel0ptr = advVel0 + nqTot * e;
-        const TData *advVel1ptr = advVel1 + nqTot * e;
-        const TData *advVel2ptr = (ncoord == 3) ? advVel2 + nqTot * e : advVel2;
+        // The advection velocity is shared by the variables but not by the
+        // planes, and the plane this slice sits on is c % nhomo.
+        const size_t advelplane = nqTot * (nelmt * (c % nhomo) + e);
+        const TData *advVel0ptr = advVel0 + advelplane;
+        const TData *advVel1ptr = advVel1 + advelplane;
+        const TData *advVel2ptr =
+            (ncoord == 3) ? advVel2 + advelplane : advVel2;
         AddAdvection2DSumFacTOPKernel(
             ncoord, nq0, nq1, advVel0ptr, advVel1ptr, advVel2ptr, deriv,
             deriv + nqTot, deriv + 2 * nqTot, bwd, lambda, threadBlock);
@@ -359,7 +367,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
-        const bool isModified, const unsigned int *NEK_RESTRICT index0,
+        [[maybe_unused]] const unsigned int nhomo, const bool isModified,
+        const unsigned int *NEK_RESTRICT index0,
         const unsigned int *NEK_RESTRICT index1,
         const unsigned int *NEK_RESTRICT index2,
         const unsigned int *NEK_RESTRICT index3,

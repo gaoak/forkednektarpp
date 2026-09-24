@@ -396,7 +396,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -429,12 +430,16 @@ protected:
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over components.
-        auto advVelOffset = nelmt * nqTot;
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+        const auto nhomo  = inblock.GetNumHomoModes();
+        auto advVelOffset = nelmt * nqTot * nhomo;
+        for (unsigned int n = 0; n < inblock.GetNumComponents() * nhomo; ++n)
         {
+            // The advection velocity is shared by the variables but not by
+            // the planes: the plane this component sits on is n % nhomo, and
+            // advVelOffset steps from there to the next velocity component.
             auto advVelPtr =
-                this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
+                this->m_advVel->template GetPtr<MemSpace, ReadOnly>() +
+                (n % nhomo) * this->m_advVel->CompSize();
             auto jacptr = m_jacptr;
             auto dfptr  = m_dfptr;
 
