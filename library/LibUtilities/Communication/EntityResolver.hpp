@@ -193,7 +193,10 @@ template <typename T> inline T UnpackPod(const std::byte *&cur)
                   "default-constructible type (T v; default-constructs "
                   "before the memcpy below)");
     T v;
-    std::memcpy(&v, cur, sizeof(T));
+    // The cast tells GCC the copy is intended: T is trivially copyable, as
+    // asserted above, but a default member initialiser makes its default
+    // constructor non-trivial, which -Wclass-memaccess otherwise flags.
+    std::memcpy(static_cast<void *>(&v), cur, sizeof(T));
     cur += sizeof(T);
     return v;
 }

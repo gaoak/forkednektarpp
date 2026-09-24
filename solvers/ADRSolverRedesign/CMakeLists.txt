@@ -16,11 +16,91 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
         DiffusionScalarIPVolFlux
         DiffusionScalarIPTraceFlux
     )
-
     SET(OPNAMESPACE "Nektar::detail")
+
     FOREACH(child ${ADR_OPERATOR_DIRS})
         ADD_OPERATOR(${child} OPNAMESPACE ADR_OPERATORS_HEADERS ADR_OPERATORS_SOURCES)
     ENDFOREACH()
+
+    ################################################################
+    # Advection Trace Flux operators
+    # These operator have an additional argument for the FieldState
+    # which requires two delcarations.
+    SET(OpList ScalarTraceFlux)
+
+    FOREACH (name IN LISTS OpList)
+
+        SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/${name})
+        SET(dirR ${CMAKE_CURRENT_SOURCE_DIR}/TraceFluxSolver)
+
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})      #Operator parameter for boiler plate code
+        
+        #boiler plate code for cpp file
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/solvers/ADRSolverRedesign/TraceFluxSolver/FluxOperatorFactoryDec.cpp.in)
+
+	#list of sovler types upwind, average, jump
+	SET(SolverTypes Upwind)
+        FOREACH (SolverType IN LISTS SolverTypes)
+            # Loop through each possible execution space.
+            FOREACH (ExecSpace IN LISTS ExecSpaces)
+        
+                # Set file extension.
+                SET(HEADER_EXT hpp)
+                IF("${ExecSpace}" STREQUAL "Device"
+                       AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                    SET(SOURCE_EXT cu)
+                ELSEIF("${ExecSpace}" STREQUAL "Device"
+                       AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                    SET(SOURCE_EXT hip)
+                ELSE()
+                    SET(SOURCE_EXT cpp)
+                ENDIF()
+
+                # Loop through each possible data type.
+                FOREACH (TData IN LISTS DataTypes)
+                     # Set up the name used for the .cpp declaration file.
+                     SET(FactoryDeclName
+                        src/${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
+	                MESSAGE("Factory name : " "${FactoryDecName}")
+
+                     # Get the source and header files for this operator,
+                     # execution space, and implementation.
+                     SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
+                     SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
+                        
+                     # Get the headers matching the name and execution space
+                     FILE(GLOB ${CURRENT_HEADERS} RELATIVE
+                          ${CMAKE_CURRENT_SOURCE_DIR}
+                          ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
+
+                     SET(IMPL_HEADER "#include \"${dir}/${name}OpImpl.hpp\"")
+                     SET(KERNEL_HEADER "#include \"${dirR}/${SolverType}SolverKernels.hpp\"")
+
+                     # Create the cpp file from the implementation file.
+                     CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                     # Add the respective cpp file.
+                     SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                     SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                     SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+
+                ENDFOREACH()
+            ENDFOREACH()
+        ENDFOREACH()
+
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(ADR_OPERATORS_SOURCES
+            ${ADR_OPERATORS_SOURCES}
+            ${${NAME_SOURCES}}
+             )
+
+        # Make list visible to subdirectories
+        SET(RIEMANN_FACTORY_SOURCES "${ADR_OPERATORS_SOURCES}" CACHE INTERNAL "Generated Riemann factory sources")
+    ENDFOREACH()
+    ################################################################
 
     SET(OPERATOR_UNIT_TEST_DEPENDS SolverCore)
 
@@ -36,6 +116,15 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
     SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat TestAdvectionWeakDG Serial StdMat FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_serial_sumfac TestAdvectionWeakDG Serial SumFac FALSE)
+    # The prism_varP crash that blocked these was a partitioner bug - the
+    # serial-path CSR adjacency was filled with raw element ids, which the
+    # 5-prism varP mesh's non-contiguous ids (a DOMAIN subset) sent out of
+    # range in SCOTCH. Fixed in MeshPartition::PartitionGraph; all 22 cases
+    # pass on 2-4 ranks, both implementations.
+    IF (NEKTAR_USE_MPI)
+        SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat TestAdvectionWeakDG Serial StdMat TRUE)
+        SET_UNIT_TEST(AdvectionWeakDG_serial_sumfac TestAdvectionWeakDG Serial SumFac TRUE)
+    ENDIF()
     IF(NEKTAR_ENABLE_SIMD)
         SET_UNIT_TEST(AdvectionWeakDG_avx_stdmat TestAdvectionWeakDG AVX StdMat FALSE)
         SET_UNIT_TEST(AdvectionWeakDG_avx_sumfac TestAdvectionWeakDG AVX SumFac FALSE)
@@ -134,6 +223,9 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
 
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection1D_TimeDependentDirichlet)
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection2D_TimeDependentDirichlet)
+        # DG variant keeps the full matrix: unlike a basis or dimension change,
+        # the projection is not orthogonal to opExecSpace/opImpl dispatch.
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection1D_TimeDependentDirichlet_DG)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign UnsteadyAdvection3D_TimeDependentDirichlet)
 
         # SDC time-integration: quadrature-node choice is a time-integration
@@ -175,11 +267,14 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
         # SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m10_DG_hex_periodic_nodal) # Failing due to memery on device
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m12_DG_hex_periodic)
         # face rotation test
-        # SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_DG_prism_varP) # Failing due to workspace size
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_DG_prism_varP)
 
         # 2D explicit diffusion (ScalarIP)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3_periodic)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m8)
+
+        # 3D explicit diffusion on a mixed element mesh, so that the trace splits
+        # into more than one block. Nothing else here does.
     ENDIF()
 ENDIF (NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)

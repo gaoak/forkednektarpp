@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "Operators/Common/Operator.hpp"
 
 namespace Nektar::SolverCore
@@ -76,7 +75,21 @@ public:
             factory.CreateInstance(requestedKey, expansionList, components));
     }
 
+    void SetScale(const TData &scale)
+    {
+        m_scale = scale;
+    }
+
+    /// Select whether Apply() overwrites its output or accumulates onto it.
+    void SetAppend(const bool &append)
+    {
+        m_append = append;
+    }
+
 protected:
+    TData m_scale = 1.0;
+    bool m_append = false;
+
     FluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> &components)
         : Operators::Operator<TData>(expansionList, components)

@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
+#include "SolverCore/RiemannSolver/RiemannSolverOp.hpp"
 
 #include "EquationOfState/SupportedEoS.hpp"
 

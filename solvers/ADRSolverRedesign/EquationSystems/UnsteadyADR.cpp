@@ -34,10 +34,13 @@
 
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
 #include <ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp>
+#include <ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 #include <ADRSolverRedesign/EquationSystems/UnsteadyADR.h>
 
@@ -235,6 +238,10 @@ void UnsteadyADR::DoExplicitRhs(
             // Add advection term
             if (m_explicitAdvection)
             {
+                // Refresh time-dependent boundary values at the current stage
+                // time, as the continuous branch does through the linear
+                // system operator.
+                m_advectionWeakDGOp->UpdateBndPhys(time);
                 m_advectionWeakDGOp->SetScale(-dt);
                 m_advectionWeakDGOp->Apply(in, out);
             }
@@ -355,40 +362,32 @@ void UnsteadyADR::v_InitialiseOperators()
                     m_expansionLists[0], m_variables);
                 m_volumeFluxOp = LinearAdvVolumeFluxOp<double>::Create(
                     m_expansionLists[0], m_variables);
-                m_riemannSolverOp = RiemannSolverOp<double>::Create(
-                    m_expansionLists[0], m_variables);
 
                 // Set volume flux and Riemann solver for advection operator
                 m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
-                m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
 
-                // Check if forcing is defined
-                if (m_session->DefinesFunction("AdvectionVelocity"))
-                {
-                    // Reads the Session File Velocity defined as function
-                    std::vector<std::string> vel;
-                    vel.push_back("Vx");
-                    vel.push_back("Vy");
-                    vel.push_back("Vz");
-                    vel.resize(m_coordim);
+                m_traceFluxOp = ScalarTraceFluxOp<double>::Create(
+                    m_expansionLists[0], m_variables);
+                m_advectionWeakDGOp->SetTraceFlux(m_traceFluxOp);
 
-                    // Create operator
-                    m_getFwdBwdTracePhysOp =
-                        GetFwdBwdTracePhysOp<double>::Create(
-                            m_expansionLists[0], vel);
-                    m_getFwdBwdTracePhysOp->SetFwdOnly(true);
+                // Set up trace advection velocity on trace for upwind
+                // solver
+                m_traceAdvVel = LibUtilities::Field<double, FieldState::Phys>(
+                    "traceAdvVel",
+                    MultiRegions::GetLocTraceBlockAttributes<double,
+                                                             FieldState::Phys>(
+                        m_expansionLists[0]),
+                    m_coordim, m_npointsZ);
 
-                    // Extract trace advection velocity for upwind solver
-                    m_getFwdBwdTracePhysOp->Apply(m_advectionVel,
-                                                  m_traceAdvectionVel,
-                                                  m_traceAdvectionVel);
-                }
+                // extract advection trace
+                auto physTraceExtractOp = PhysTraceExtractOp<double>::Create(
+                    m_expansionLists[0], m_advectionVel.GetComponentNames());
+                physTraceExtractOp->Apply(m_advectionVel, m_traceAdvVel);
+                // the trace flux reads it through a pointer from here on
+                m_traceFluxOp->SetTraceAdvVel(m_traceAdvVel);
 
-                // Set advection velocity
+                // Set advection velocity in volume flux
                 m_volumeFluxOp->SetAdvVel(m_advectionVel);
-
-                // Set trace advection velocity for upwind solver
-                m_riemannSolverOp->SetTraceAdvVel(m_traceAdvectionVel);
             }
             if (m_diffusion)
             {
@@ -397,6 +396,7 @@ void UnsteadyADR::v_InitialiseOperators()
                 auto diffusionScalarIPVolFluxOp =
                     DiffusionScalarIPVolFluxOp<double>::Create(
                         m_expansionLists[0], m_variables);
+
                 auto diffusionScalarIPTraceFluxOp =
                     DiffusionScalarIPTraceFluxOp<double>::Create(
                         m_expansionLists[0], m_variables);
@@ -491,18 +491,11 @@ void UnsteadyADR::v_InitialiseFields()
             auto bAtr_phys =
                 MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
                     m_expansionLists[0], interleaveWidth);
-            auto bAtr_phys_trace =
-                MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-                    m_expansionLists[0]->GetTrace(), interleaveWidth);
 
             if (m_advection)
             {
                 m_advectionVel = LibUtilities::Field<double, FieldState::Phys>(
                     "advectionVel", bAtr_phys, m_coordim, numHomoModes);
-                m_traceAdvectionVel =
-                    LibUtilities::Field<double, FieldState::Phys>(
-                        "traceAdvectVel", bAtr_phys_trace, m_coordim,
-                        numHomoModes);
             }
             break;
         }

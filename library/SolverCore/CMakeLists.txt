@@ -60,7 +60,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
              SET(CONFIG_FILE TimeOps/SDC/SDCOpFactoryDec.cpp.in)
         ELSEIF (${name} STREQUAL "ExplicitGEM" OR ${name} STREQUAL "ImplicitGEM" OR ${name} STREQUAL "IMEXGEM")
              SET(CONFIG_FILE TimeOps/GEM/GEMOpFactoryDec.cpp.in)
-        ELSE() 
+        ELSE()
              SET(CONFIG_FILE TimeOps/TimeOpFactoryDec.cpp.in)
         ENDIF()
 
@@ -76,7 +76,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
         FOREACH (Variant IN LISTS Variants)
             # Set timeintegration order
-            IF (${name} STREQUAL "RungeKutta") 
+            IF (${name} STREQUAL "RungeKutta")
                 IF ("${Variant}" STREQUAL "Dummy")
                     SET(TimeIntegrationOrders 1 2 3 4 5)
                 ELSEIF ("${Variant}" STREQUAL "SSP")
@@ -199,90 +199,28 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Filters")
     add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Forcing")
 
-    # Set SolverCore operators
-    FILE(GLOB children Advection/* Advection/AdvectionWeakDG/* Diffusion/* Diffusion/DiffusionIP/* MeanRemoval NormOps/* CFL/*
-         GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
+    # Header only components: the trace flux and the kernels it calls are
+    # instantiated by the solvers, not built here.
+    add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/TraceFlux")
+    add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/BndCond")
 
     SET(OPNAMESPACE "Nektar::SolverCore::detail")
+
+    # Set SolverCore operators
+    FILE(GLOB children Advection/* Advection/AdvectionWeakDG/*
+                       Diffusion/* Diffusion/DiffusionIP/*
+                       MeanRemoval NormOps/* CFL/*
+                       GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
+
     FOREACH(child ${children})
-        # MESSAGE("Child : " "${child}")
         ADD_OPERATOR(${child} OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
     ENDFOREACH()
 
-    # Set compilation for MeanRemoval operator
-    ADD_BLOCK_OPERATOR("${CMAKE_CURRENT_SOURCE_DIR}/MeanRemoval" OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
-
-    # Set compilation for the Norm and CFL block operators
-    FILE(GLOB children NormOps/* CFL/*)
+    # Set compilation for the MeanRemoval, Norm and CFL block operators
+    FILE(GLOB children MeanRemoval NormOps/* CFL/*)
     FOREACH(child ${children})
         ADD_BLOCK_OPERATOR(${child} OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
     ENDFOREACH()
-
-    # Set compilation for Riemann solvers
-    SET(SolverTypes Upwind)
-    SET(name RiemannSolver)
-    SET(dir ${CMAKE_CURRENT_SOURCE_DIR}/RiemannSolvers)
-    SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/SolverCore/RiemannSolvers/RiemannOperatorFactoryDec.cpp.in)
-
-    SET(NAME_HEADERS ${name}_HEADERS)
-    SET(NAME_SOURCES ${name}_SOURCES)
-    SET(OPERATOR ${name})
-    FOREACH (SolverType IN LISTS SolverTypes)
-        # Loop through each possible execution space.
-        FOREACH (ExecSpace IN LISTS ExecSpaces)
-
-            # Set file extension.
-            SET(HEADER_EXT hpp)
-            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-                SET(SOURCE_EXT cu)
-            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-                SET(SOURCE_EXT hip)
-            ELSE()
-                SET(SOURCE_EXT cpp)
-            ENDIF()
-
-            # Loop through each possible data type.
-            FOREACH (TData IN LISTS DataTypes)
-                # Set up the name used for the .cpp declaration file.
-                SET(FactoryDeclName src/${name}${SolverType}${ExecSpace}${TData}.${SOURCE_EXT})
-
-                # Get the source and header files for this operator,
-                # execution space, and implementation.
-                SET(CURRENT_HEADERS ${name}${SolverType}_${ExecSpace}_HEADERS)
-                SET(CURRENT_SOURCES ${name}${SolverType}_${ExecSpace}_SOURCES)
-                    
-                # Get the headers matching the name and execution space
-                FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}${SolverType}${ExecSpace}*.hpp)
-
-                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    "${dir}/${name}OpImpl.hpp")
-                SET(IMPL_HEADER "#include \"SolverCore/${include_file}\"")
-
-                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    "${dir}/${SolverType}SolverKernels.hpp")
-                SET(KERNEL_HEADER "#include \"SolverCore/${include_file}\"")
-
-                # Create the cpp file from the implementation file.
-                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
-
-                # Add the respective cpp file.
-                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
-                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-
-            ENDFOREACH()
-        ENDFOREACH()
-    ENDFOREACH()
-
-    SET(SOLVER_CORE_HEADERS
-        ${SOLVER_CORE_HEADERS}
-        ${${NAME_HEADERS}}
-    )
-    SET(SOLVER_CORE_SOURCES
-        ${SOLVER_CORE_SOURCES}
-        ${${NAME_SOURCES}}
-    )
 
     # Loop through TimeIntegration directory which contain operators and add
     # their source and header files.

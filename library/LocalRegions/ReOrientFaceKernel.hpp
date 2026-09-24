@@ -92,13 +92,15 @@ namespace Nektar::LocalRegions
  *                      side of an interior trace the opposite normal
  *                      without a second pass over the data.
  */
+// No asserts in this kernel: it is called from inside device kernels, and a
+// device build has no pass in which an assert message compiles out. Distinct
+// input and output and a known orientation are settled on the host before the
+// launch.
 template <bool APPEND, bool NEGATE_INPUT, typename TData>
 NEK_HOSTDEVICE_INLINE static void ReOrientFaceKernel(
     const StdRegions::Orientation orient, const unsigned nq0,
     const unsigned nq1, const TData *in, TData *out, bool Forwards)
 {
-    ASSERTL1(in != out, "This routine cannot use the same input and output");
-
     // Input sign change if required.
     TData sign = (NEGATE_INPUT) ? -1.0 : 1.0;
 
@@ -432,7 +434,9 @@ NEK_HOSTDEVICE_INLINE static void ReOrientFaceKernel(
         }
         break;
         default:
-            ASSERTL1(false, "Unknow orientation");
+            // No assert: this runs on the device, where an assert would
+            // bring a std::string into the kernel. The orientation comes
+            // from geometry validated on the host.
             break;
     }
 }

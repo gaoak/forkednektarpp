@@ -51,8 +51,8 @@ public:
         const std::string &execStr = "")
     {
         return std::dynamic_pointer_cast<LinearAdvVolumeFluxOp<TData>>(
-            SolverCore::FluxOp<TData>::Create(expansionList, components, name,
-                                              execStr));
+            SolverCore::AdvectionVolumeFluxOp<TData>::Create(
+                expansionList, components, name, execStr));
     }
 
     static inline const std::string name = "LinearAdvVolumeFlux";

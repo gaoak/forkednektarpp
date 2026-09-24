@@ -74,6 +74,8 @@
 
 #pragma once
 
+#include "Operators/ElmtOps/ElmtBlockOp.hpp"
+
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
 namespace Nektar::Operators::detail
@@ -1229,7 +1231,7 @@ template <typename T>
 inline constexpr bool IsTraceSizeParameter3D_v =
     IsTraceSizeParameter3D<T>::value;
 
-#if defined(NEKTAR_ENABLE_DEVICE)
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 /**
  * @brief Compile-time upper bound on the threads per block a kernel of
  * the given implementation is launched with; used in the

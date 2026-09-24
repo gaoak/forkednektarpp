@@ -37,13 +37,11 @@
 
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
-#include <Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
-#include <SolverCore/RiemannSolvers/RiemannSolverOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
@@ -89,15 +87,16 @@ protected:
 
     // Setup workspaces
     LibUtilities::Field<double, FieldState::Phys> m_advectionVel;
-    LibUtilities::Field<double, FieldState::Phys> m_traceAdvectionVel;
+    /// The advection velocity on the local trace, which the trace flux
+    /// operator reads through a pointer; kept here so that it outlives it.
+    LibUtilities::Field<double, FieldState::Phys> m_traceAdvVel;
 
     // Initialise operators
     std::shared_ptr<AdvectionOp<double>> m_advectionCGOp;
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
     std::shared_ptr<LinearAdvVolumeFluxOp<double>> m_volumeFluxOp;
+    std::shared_ptr<SolverCore::TraceFluxOp<double>> m_traceFluxOp;
     std::shared_ptr<DiffusionIPOp<double>> m_diffusionIPOp;
-    std::shared_ptr<RiemannSolverOp<double>> m_riemannSolverOp;
-    std::shared_ptr<GetFwdBwdTracePhysOp<double>> m_getFwdBwdTracePhysOp;
     std::shared_ptr<LinearSystemOp<double>> m_linearSystemOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconOp;

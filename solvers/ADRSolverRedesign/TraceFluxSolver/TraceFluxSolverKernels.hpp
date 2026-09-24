@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AdvectionWeakDGOp.hpp
+// File: TraceFluxSolverKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,44 +34,40 @@
 
 #pragma once
 
-#include <SolverCore/SolverCore.hpp>
+// The dimension and shape kernels. NOTE: They are NOT duplicate
+// templated version based on the array size like the
+// operators. HOWEVER, they are forced to be INLINED. The inlining is
+// critical so that when used in the templated version of the operator
+// that loop unrolling occurs.
 
-#include "SolverCore/Advection/AdvectionDGOp.hpp"
-
-namespace Nektar::SolverCore
-
+namespace Nektar::detail
 {
 
-// AdvectionWeakDG base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData> class AdvectionWeakDGOp : public AdvectionDGOp<TData>
+template <template <typename> typename FluxKernel, typename ExecSpace,
+          typename TData>
+NEK_FORCE_INLINE static void FluxKernelLauncher(
+    const size_t blksize, const unsigned int velComps,
+    const unsigned int fluxComps, const TData *velbase, const TData *normbase,
+    const TData *fwdbase, const TData *bwdbase, TData *fluxbase)
 {
-public:
-    static std::shared_ptr<AdvectionWeakDGOp<TData>> Create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components,
-        const std::string &execStr = "")
-    {
-        // Force a genuine cross-library symbol reference into
-        // libSolverCore - see EnsureLinked() in SolverCore.hpp. Without
-        // it a linker that keeps only what is referenced can drop the
-        // library, and the operator registrations go with it.
-        EnsureLinked();
+    // Explicit vectorisation for AVX backend,
+    // vec_t = tinysimd::simd<TData> for AVX,
+    // vec_t = TData otherwise.
+    // using vec_t = typename data_type_if<
+    //    std::is_same_v<ExecSpace, NektarSpaces::AVX>, TData>::type;
+    constexpr unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TData>::width
+            : 1;
 
-        return Operators::Operator<TData>::template Create<AdvectionWeakDGOp>(
-            expansionList, components, execStr);
-    }
+    const size_t groupsize = (blksize + vec_width - 1) / vec_width;
 
-    static inline const std::string name = "AdvectionWeakDG";
-
-protected:
-    AdvectionWeakDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : AdvectionDGOp<TData>(expansionList, components)
-    {
-    }
-
-    ~AdvectionWeakDGOp() override = default;
-};
-
-} // namespace Nektar::SolverCore
+    Nektar::parallel_for<ExecSpace>(
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            FluxKernel<ExecSpace>()(
+                blksize, velComps, fluxComps, velbase + i * vec_width,
+                normbase + i * vec_width, fwdbase + i * vec_width,
+                bwdbase + i * vec_width, fluxbase + i * vec_width);
+        });
+}
+} // namespace Nektar::detail

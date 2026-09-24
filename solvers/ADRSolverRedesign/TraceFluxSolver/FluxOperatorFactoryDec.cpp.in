@@ -47,7 +47,7 @@
 @IMPL_HEADER@
 @KERNEL_HEADER@
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 // Register the implementation with Operator Factory
@@ -60,5 +60,5 @@ std::string @OPERATOR@OpImpl<@SolverType@SolverKernel,
                           @TData@>::Instantiate,
         "...");
 
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::detail
 // clang-format on

@@ -58,11 +58,14 @@ namespace Nektar::SolverCore
  * and linked without any error.
  *
  * Calling this (empty) function from operator entry points that are
- * always compiled directly into consumers -- such as
- * SolverCore::RiemannSolverOp<TData>::Create() -- guarantees a real
- * reference exists, forcing every linker to keep SolverCore linked and
- * every loader to load it, on any platform, without relying on any
- * linker-specific flags.
+ * always compiled directly into consumers -- SolverCore::TraceFluxOp,
+ * AdvectionWeakDGOp, DiffusionIPOp and AdvWeakDGDiffusionIPOp all call it
+ * from Create() -- guarantees a real reference exists, forcing every linker
+ * to keep SolverCore linked and every loader to load it, on any platform,
+ * without relying on any linker-specific flags.
+ *
+ * Anything added to SolverCore that consumers reach only through header-only
+ * templates needs the same call, or its registrations can vanish.
  */
 SOLVER_CORE_EXPORT void EnsureLinked();
 
