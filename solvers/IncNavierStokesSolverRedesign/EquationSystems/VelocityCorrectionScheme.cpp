@@ -809,6 +809,14 @@ std::vector<bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
         }
     }
 
+    // The boundary conditions hold only the regions on this rank's
+    // partition. The pressure system is singular only if no rank has a
+    // pressure boundary that is neither Neumann nor periodic.
+    int nonSingular                     = pressureSingular ? 0 : 1;
+    LibUtilities::CommSharedPtr rowComm = m_session->GetComm()->GetRowComm();
+    rowComm->AllReduce(nonSingular, LibUtilities::ReduceMax);
+    pressureSingular = (nonSingular == 0);
+
     checks[nVar - 1] = pressureSingular;
     return checks;
 }

@@ -57,7 +57,8 @@ public:
         if (m_device)
         {
             const unsigned int streamID = 0;
-            deviceFree(m_device, this->size(), streamID, m_memAllocType);
+            deviceFree(m_device, this->size() * sizeof(TData), streamID,
+                       m_memAllocType);
             nekStreamSynchronize(streamID);
         }
 
