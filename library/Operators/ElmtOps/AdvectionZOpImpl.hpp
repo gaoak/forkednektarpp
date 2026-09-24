@@ -36,9 +36,18 @@
 
 namespace Nektar::Operators::detail
 {
+
+/// \brief The advection along the homogeneous direction, w du/dz, added on
+/// top of whatever the xy pass has already left in the output.
+///
+/// It sits here rather than with one operator because two of them take it:
+/// Advection itself, and LinAdvDiffReaction, whose weak z advection is this
+/// term formed at the quadrature points and taken back through the inner
+/// product. Specialised per execution space in AdvectionZOpSerialAVX.hpp and
+/// AdvectionZOpDevice.hpp.
 template <typename ExecSpace, typename TData, typename Enable = void>
 class AdvectionZOpImpl;
 } // namespace Nektar::Operators::detail
 
-#include "Operators/ElmtOps/Advection/AdvectionZOpDevice.hpp"
-#include "Operators/ElmtOps/Advection/AdvectionZOpSerialAVX.hpp"
+#include "Operators/ElmtOps/AdvectionZOpDevice.hpp"
+#include "Operators/ElmtOps/AdvectionZOpSerialAVX.hpp"

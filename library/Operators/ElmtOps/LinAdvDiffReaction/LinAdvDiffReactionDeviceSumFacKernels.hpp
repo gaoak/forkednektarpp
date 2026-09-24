@@ -128,7 +128,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter1D>()))
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter1D sizeParam1D, const unsigned int ncoord,
-        const size_t nelmt, [[maybe_unused]] const bool isModified,
+        const size_t nelmt, const unsigned int nhomo,
+        [[maybe_unused]] const bool isModified,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT D0,
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
@@ -170,11 +171,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *bwd         = wsp + nq0 * (nelmt * c + warpsize * iwarp);
         TData *deriv       = wsp + nq0 * nelmt * ncomp +
                        nq0 * (ncoord * nelmt * c + warpsize * iwarp);
-        const TData *advVel0ptr = advVel0 + nq0 * warpsize * iwarp;
-        const TData *advVel1ptr =
-            (ncoord > 1) ? advVel1 + nq0 * warpsize * iwarp : advVel1;
-        const TData *advVel2ptr =
-            (ncoord > 2) ? advVel2 + nq0 * warpsize * iwarp : advVel2;
+        // The advection velocity is shared by the variables but not by the
+        // planes, and the plane this slice sits on is c % nhomo.
+        const size_t advelplane =
+            nq0 * (nelmt * (c % nhomo) + warpsize * iwarp);
+        const TData *advVel0ptr = advVel0 + advelplane;
+        const TData *advVel1ptr = (ncoord > 1) ? advVel1 + advelplane : advVel1;
+        const TData *advVel2ptr = (ncoord > 2) ? advVel2 + advelplane : advVel2;
 
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
@@ -202,7 +205,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter2D sizeParam2D, const unsigned int ncoord,
-        const size_t nelmt, const bool isModified,
+        const size_t nelmt, const unsigned int nhomo, const bool isModified,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
         const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
@@ -281,10 +284,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                         nqTot * (ncoord * nelmt * c + warpsize * iwarp);
         TData *deriv2 = wsp + nqTot * nelmt * (ncomp + 2) +
                         nqTot * (ncoord * nelmt * c + warpsize * iwarp);
-        const TData *advVel0ptr = advVel0 + nqTot * warpsize * iwarp;
-        const TData *advVel1ptr = advVel1 + nqTot * warpsize * iwarp;
+        // The advection velocity is shared by the variables but not by the
+        // planes, and the plane this slice sits on is c % nhomo.
+        const size_t advelplane =
+            nqTot * (nelmt * (c % nhomo) + warpsize * iwarp);
+        const TData *advVel0ptr = advVel0 + advelplane;
+        const TData *advVel1ptr = advVel1 + advelplane;
         const TData *advVel2ptr =
-            (ncoord == 3) ? advVel2 + nqTot * warpsize * iwarp : advVel2;
+            (ncoord == 3) ? advVel2 + advelplane : advVel2;
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -368,7 +375,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     LinAdvDiffReactionKernelLauncher(
         const TSizeParameter3D sizeParam3D,
         [[maybe_unused]] const unsigned int ncoord, const size_t nelmt,
-        const bool isModified,
+        [[maybe_unused]] const unsigned int nhomo, const bool isModified,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index1,
         [[maybe_unused]] const unsigned int *NEK_RESTRICT index2,

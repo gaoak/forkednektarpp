@@ -34,6 +34,8 @@
 
 #include "TestOp.hpp"
 
+#include <MultiRegions/ExpListHomogeneous1D.h>
+
 #include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
 
 using namespace Nektar;
@@ -99,15 +101,25 @@ public:
             m_diffCoeff[5] = 1.0; // D22
         }
 
-        // Set advection velocity
-        size_t nphys = this->fixt_explist->GetTotPoints() /
-                       this->fixt_in->GetNumHomoModes();
-        m_vel = Array<OneD, TData>(nphys * m_coordDim, 0.0);
+        // Set advection velocity. The operator reads one velocity per
+        // coordinate direction on every plane, so a component spans them
+        // all; the planes are filled alike here, which is what lets the
+        // plane-wise reference below read any one of them.
+        const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+        size_t nphys             = this->fixt_explist->GetTotPoints() / nhomo;
+        m_velCompStride          = nphys * nhomo;
+
+        // A 3DH1 expansion wants a third component along the homogeneous
+        // direction, which its two-dimensional planes do not count. It is
+        // left at zero: the plane-wise reference cannot express the z
+        // advection, so a non-zero one would have nothing to compare with.
+        m_nVelComp = (nhomo == 1) ? m_coordDim : 3u;
+        m_vel      = Array<OneD, TData>(m_velCompStride * m_nVelComp, 0.0);
         Array<OneD, TData> tmp;
         for (unsigned int d = 1; d < m_coordDim; ++d)
         {
-            Vmath::Fill(nphys, d + 1.0, tmp = m_vel + d * nphys, 1);
-            // Vmath::Fill(nphys, 0.0, tmp = m_vel + d * nphys, 1);
+            Vmath::Fill(m_velCompStride, d + 1.0,
+                        tmp = m_vel + d * m_velCompStride, 1);
         }
 
         // Compute expected solution.
@@ -118,8 +130,9 @@ public:
     {
         auto advelblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        auto vel = Field<TData, FieldState::Phys>("vel", advelblockAttr,
-                                                  m_coordDim, 1);
+        auto vel =
+            Field<TData, FieldState::Phys>("vel", advelblockAttr, m_nVelComp,
+                                           this->fixt_in->GetNumHomoModes());
         vel.template CopyArray<NektarSpaces::HostSpace>(m_vel);
 
         auto LinADR = LinAdvDiffReactionOp<TData>::Create(
@@ -139,8 +152,6 @@ public:
                                      this->fixt_in->GetNumHomoModes();
         const size_t ncoeffs =
             this->fixt_explist->GetNcoeffs() / this->fixt_in->GetNumHomoModes();
-        const size_t nphys = this->fixt_explist->GetTotPoints() /
-                             this->fixt_in->GetNumHomoModes();
         Array<OneD, TData> tmp;
 
         StdRegions::FactorMap factors;
@@ -151,8 +162,47 @@ public:
             StdRegions::eVarCoeffVelX, StdRegions::eVarCoeffVelY,
             StdRegions::eVarCoeffVelZ};
 
+        // The weak z-Laplacian of a 3DH1 field is (beta k)^2 M on each
+        // Fourier mode, which rides the existing lambda: the reference
+        // transforms to wave space, applies a plane-wise operator with
+        // lambda - (beta k)^2 -- the reference carries the reaction term as
+        // -lambda M, so the z term enters with the opposite sign to
+        // Helmholtz's -- and transforms back. The operator reaches the same
+        // result by another route, the mass matrix applied to minus the
+        // second z-derivative, so this is a genuine cross-check.
+        //
+        // The advection velocity's through-plane component is zero, so the
+        // operator's z advection contributes nothing to compare against.
+        auto homoExpList =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist);
+        const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+        const bool wave          = homoExpList && nhomo > 1;
+
+        Array<OneD, NekDouble> lambdaK(nhomo, 0.0);
+        if (wave)
+        {
+            const NekDouble beta = 2.0 * M_PI / homoExpList->GetHomoLen();
+            for (unsigned int p = 0; p < nhomo; ++p)
+            {
+                const NekDouble betaK =
+                    beta *
+                    homoExpList->m_transposition->GetK(static_cast<int>(p));
+                lambdaK[p] = m_lambda - betaK * betaK;
+            }
+
+            HomogeneousTrans(homoExpList, ncoeffs, incoeffs, true);
+        }
+
         for (unsigned int i = 0; i < numComp; ++i)
         {
+            // The planes of a component are consecutive, so i % nhomo picks
+            // the Fourier mode this slice carries.
+            if (wave)
+            {
+                factors[StdRegions::eFactorLambda] = lambdaK[i % nhomo];
+            }
+
             size_t e          = 0;
             size_t offset     = i * ncoeffs;
             size_t physoffset = 0;
@@ -169,8 +219,10 @@ public:
 
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
+                        // Every plane carries the same velocity, so the
+                        // first one stands for all of them here.
                         varcoeffs[velCoeffType[d]] =
-                            m_vel + d * nphys + physoffset;
+                            m_vel + d * m_velCompStride + physoffset;
                     }
 
                     StdRegions::StdMatrixKey mkey(
@@ -186,12 +238,54 @@ public:
                 }
             }
         }
+
+        if (wave)
+        {
+            HomogeneousTrans(homoExpList, ncoeffs, outcoeffs, false);
+        }
+
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
     }
 
+    /// Transform @p coeffs between physical z and wave space, one component
+    /// at a time; Homogeneous1DTrans works in NekDouble whatever TData is.
+    void HomogeneousTrans(
+        const std::shared_ptr<MultiRegions::ExpListHomogeneous1D> &homoExpList,
+        const size_t ncoeffs, Array<OneD, TData> &coeffs, const bool forwards)
+    {
+        const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+        const size_t nPerComp    = ncoeffs * nhomo;
+
+        Array<OneD, NekDouble> in(nPerComp);
+        Array<OneD, NekDouble> out(nPerComp);
+
+        for (unsigned int c = 0; c < this->fixt_in->GetNumComponents(); ++c)
+        {
+            const size_t base = c * nPerComp;
+            for (size_t j = 0; j < nPerComp; ++j)
+            {
+                in[j] = static_cast<NekDouble>(coeffs[base + j]);
+            }
+
+            homoExpList->Homogeneous1DTrans(static_cast<int>(nPerComp), in, out,
+                                            forwards);
+
+            for (size_t j = 0; j < nPerComp; ++j)
+            {
+                coeffs[base + j] = static_cast<TData>(out[j]);
+            }
+        }
+    }
+
 private:
     unsigned int m_coordDim;
+    /// Step from one velocity component to the next: one plane's points
+    /// times the number of planes.
+    size_t m_velCompStride = 0;
+    /// Velocity components: one per coordinate direction, or three on a
+    /// 3DH1 expansion, whose planes do not count the homogeneous direction.
+    unsigned int m_nVelComp = 0;
     TData m_lambda;
     std::vector<TData> m_diffCoeff;
     Array<OneD, TData> m_vel;
@@ -278,3 +372,46 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData>
+class TestLinAdvDiffReactionFFT : public TestLinAdvDiffReaction<TData>
+{
+public:
+    TestLinAdvDiffReactionFFT() = default;
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestLinAdvDiffReactionFFT<float>                \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestLinAdvDiffReactionFFT<double>                      \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+// clang-format on
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")

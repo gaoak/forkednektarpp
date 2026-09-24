@@ -385,7 +385,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr, m_streamID);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -399,10 +400,12 @@ protected:
         auto diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
-        // Initialize advVel pointers.
+        // Initialize advVel pointers. One velocity component spans every
+        // plane, and the kernel picks the plane its slice sits on.
+        const auto nhomo = inblock.GetNumHomoModes();
         auto advVelPtr =
             this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto advVelSize = nelmt * sizeParam.nqTot();
+        auto advVelSize = nelmt * sizeParam.nqTot() * nhomo;
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -435,9 +438,9 @@ protected:
             (LinAdvDiffReactionKernelLauncher<SHAPE_TYPE, Implementation,
                                               DEFORMED>),
             gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
-            m_coordDim, nelmt, m_isModified, m_index[ind1]..., m_B[ind0]...,
-            m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr,
-            m_jacptr, diffCoeffPtr, advVelPtr, advVelPtr + advVelSize,
+            m_coordDim, nelmt, nhomo, m_isModified, m_index[ind1]...,
+            m_B[ind0]..., m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod,
+            m_dfptr, m_jacptr, diffCoeffPtr, advVelPtr, advVelPtr + advVelSize,
             advVelPtr + 2 * advVelSize, inptr, outptr, wspptr, this->m_lambda);
 
         // Reshape back, if necessary.

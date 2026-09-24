@@ -115,9 +115,13 @@ NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
     {
         Nektar::parallel_for<ExecSpace>(
             0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                // idx0 is the point's slot on its own plane. Stripping the
+                // plane costs the one modulo; the point within the element
+                // then comes off idx0 with a multiply and a subtract rather
+                // than a second modulo.
                 size_t idx0 = idx % (nelmt * nqTot);
                 size_t e    = idx0 / nqTot;
-                size_t i    = idx0 % nqTot;
+                size_t i    = idx0 - e * nqTot;
                 TData tmp[3];
                 for (unsigned int d = 0; d < dimension; d++)
                 {
@@ -141,9 +145,13 @@ NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
     {
         Nektar::parallel_for<ExecSpace>(
             0, nsize, NEKTAR_LAMBDA(const size_t idx) {
+                // idx0 is the point's slot on its own plane. Stripping the
+                // plane costs the one modulo; the point within the element
+                // then comes off idx0 with a multiply and a subtract rather
+                // than a second modulo.
                 size_t idx0 = idx % (nelmt * nqTot);
                 size_t e    = idx0 / nqTot;
-                size_t i    = idx0 % nqTot;
+                size_t i    = idx0 - e * nqTot;
                 TData tmp[3];
                 for (unsigned int d = 0; d < dimension; d++)
                 {

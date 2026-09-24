@@ -37,7 +37,7 @@
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
 #include "Operators/ElmtOps/Advection/AdvectionOp.hpp"
-#include "Operators/ElmtOps/Advection/AdvectionZOpImpl.hpp"
+#include "Operators/ElmtOps/AdvectionZOpImpl.hpp"
 
 namespace Nektar::Operators::detail
 {

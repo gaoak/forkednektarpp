@@ -475,7 +475,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
     const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT advVel, const size_t advVelOffset,
-    const unsigned int nhomo, const TData *NEK_RESTRICT in,
+    [[maybe_unused]] const unsigned int nhomo, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const TData scale, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
@@ -577,13 +577,12 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t ilane = e % warpsize;
-        const size_t iwarp = e / warpsize;
-        const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
-        const TData *inptr = in + nqTot * (nelmt * c + warpsize * iwarp);
-        TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
-        const TData *advVelPtr =
-            advVel + nqTot * (nelmt * (c % nhomo) + warpsize * iwarp);
+        const size_t ilane     = e % warpsize;
+        const size_t iwarp     = e / warpsize;
+        const TData *dfptr     = df + ndf * dfsize * warpsize * iwarp;
+        const TData *inptr     = in + nqTot * (nelmt * c + warpsize * iwarp);
+        TData *outptr          = out + nqTot * (nelmt * c + warpsize * iwarp);
+        const TData *advVelPtr = advVel + nqTot * warpsize * iwarp;
         Advection3DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED>(
             ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
             advVelPtr, advVelOffset, inptr, outptr, scale);
