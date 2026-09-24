@@ -49,12 +49,11 @@ ContField3DHomogeneous2D::ContField3DHomogeneous2D(
     : DisContField3DHomogeneous2D(In, false)
 {
 
-    ContFieldSharedPtr zero_line =
-        std::dynamic_pointer_cast<ContField>(In.m_lines[0]);
-
     for (int n = 0; n < m_lines.size(); ++n)
     {
-        m_lines[n] = MemoryManager<ContField>::AllocateSharedPtr(*zero_line);
+        ContFieldSharedPtr line =
+            std::dynamic_pointer_cast<ContField>(In.m_lines[n]);
+        m_lines[n] = MemoryManager<ContField>::AllocateSharedPtr(*line);
     }
 
     SetCoeffPhys();
@@ -71,6 +70,20 @@ ContField3DHomogeneous2D::ContField3DHomogeneous2D(
     const NekDouble lhom_z, const bool useFFT, const bool dealiasing,
     const SpatialDomains::MeshGraphSharedPtr &graph1D,
     const std::string &variable, const Collections::ImplementationType ImpType)
+    : ContField3DHomogeneous2D(pSession, HomoBasis_y, HomoBasis_z, lhom_y,
+                               lhom_z, useFFT, dealiasing, graph1D, variable,
+                               false, ImpType)
+{
+}
+
+ContField3DHomogeneous2D::ContField3DHomogeneous2D(
+    const LibUtilities::SessionReaderSharedPtr &pSession,
+    const LibUtilities::BasisKey &HomoBasis_y,
+    const LibUtilities::BasisKey &HomoBasis_z, const NekDouble lhom_y,
+    const NekDouble lhom_z, const bool useFFT, const bool dealiasing,
+    const SpatialDomains::MeshGraphSharedPtr &graph1D,
+    const std::string &variable, const bool CheckIfSingularSystem,
+    const Collections::ImplementationType ImpType)
     : DisContField3DHomogeneous2D(pSession, HomoBasis_y, HomoBasis_z, lhom_y,
                                   lhom_z, useFFT, dealiasing, ImpType)
 {
@@ -79,7 +92,7 @@ ContField3DHomogeneous2D::ContField3DHomogeneous2D(
     SpatialDomains::BoundaryConditions bcs(pSession, graph1D);
 
     m_lines[0] = line_zero = MemoryManager<ContField>::AllocateSharedPtr(
-        pSession, graph1D, variable, false, false, ImpType);
+        pSession, graph1D, variable, false, CheckIfSingularSystem, ImpType);
 
     m_exp = MemoryManager<LocalRegions::ExpansionVector>::AllocateSharedPtr();
     nel   = m_lines[0]->GetExpSize();
@@ -196,6 +209,16 @@ GlobalLinSysKey ContField3DHomogeneous2D::v_HelmSolve(
     {
         for (m = 0; m < nhom_modes_y; ++m, l++)
         {
+            // Index 1 represents an identically zero Fourier basis function.
+            // Clear its coefficients even when the output array is reused.
+            if (m == 1 || n == 1)
+            {
+                Vmath::Zero(m_lines[l]->GetNcoeffs(), &outarray[cnt1], 1);
+                cnt += m_lines[l]->GetTotPoints();
+                cnt1 += m_lines[l]->GetNcoeffs();
+                continue;
+            }
+
             beta_z      = 2 * M_PI * (n / 2) / m_lhom_z;
             beta_y      = 2 * M_PI * (m / 2) / m_lhom_y;
             beta        = beta_y * beta_y + beta_z * beta_z;
