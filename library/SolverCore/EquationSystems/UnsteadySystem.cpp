@@ -108,6 +108,11 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
 
     ASSERTL0(m_timestep > 0, "m_timestep < 0");
 
+    // Resolve the start time now, from a restart file or --set-start-time,
+    // so that the summary and everything set up before DoInitialise() see
+    // the time the run actually starts from.
+    CheckForRestartTime(m_time);
+
     // Set up time to dump in output field metadata.
     m_fieldMetaDataMap["Time"] = std::to_string(m_time);
 
@@ -438,8 +443,16 @@ void UnsteadySystem::v_PrintSummaryStatistics(double intTime)
  */
 void UnsteadySystem::v_DoInitialise(bool dumpInitialConditions)
 {
-    CheckForRestartTime(m_time);
     SetInitialConditions(m_time);
+
+    // The time operator starts at zero when it is created, so start it here
+    // from the initial time resolved in v_InitObject(), which may be a
+    // restart time.
+    if (m_timeOp)
+    {
+        m_timeOp->SetTime(m_time);
+    }
+
     if (dumpInitialConditions)
     {
         WriteInitialConditions();

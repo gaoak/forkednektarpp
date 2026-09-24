@@ -93,6 +93,20 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
         ENDIF()
     ENDFOREACH()
 
+    # Two partitions, of which only one reaches the pressure Dirichlet
+    # boundary. The timeout reports a deadlock as a failure.
+    IF(NEKTAR_USE_MPI AND NEKTAR_ENABLE_DOUBLE_PRECISION)
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_ChannelFlow2D_OutletPressure_MPI
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_OutletPressure_MPI.tst
+                -v --opExecSpace=Serial --opImpl=SumFac
+                "--solver-options=-I Formulation=semiimplicit")
+        SET_TESTS_PROPERTIES(
+            IncNavierStokesSolverRedesign_ChannelFlow2D_OutletPressure_MPI
+            PROPERTIES PROCESSORS 2 TIMEOUT 120)
+    ENDIF()
+
     # TGVFlow3D_Hex8 Serial+StdMat is disabled for now: at this element
     # order (NUMMODES=7) it hits a pre-existing slow non-templated-operator
     # fallback in Serial execspace dispatch, unrelated to StdMat evaluation
