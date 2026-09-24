@@ -618,19 +618,26 @@ MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
     ENDIF()
 
     IF (${mpi_flag} AND NEKTAR_USE_MPI)
-        IF (MSVC)
-            ADD_TEST(
-              NAME Operators${testname}_MPI
-              COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${name-ext}
-                      --detect_memory_leaks=0 -- ${execspace} ${implementation}
-            )
-        ELSE()
-            ADD_TEST(
-              NAME Operators${testname}_MPI
-              COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name-ext}
-                      --detect_memory_leaks=0 -- ${execspace} ${implementation}
-            )
-        ENDIF()
+        # A parallel run partitions its session file into a run/<session>_xml
+        # directory beside the mesh. Tests sharing a working directory then
+        # write the same partition files at once under a parallel ctest, and a
+        # rank reading one half-written stops with "Unable to find 'NEKTAR' XML
+        # node" while its peers wait in the trace exchange. Give each parallel
+        # test a directory, and its own copy of the meshes to partition.
+        SET(unit_test_dir ${CMAKE_CURRENT_BINARY_DIR}/mpi-${testname})
+        FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run
+             DESTINATION ${unit_test_dir})
+
+        # mpiexec needs the binary's path, and only the generator knows it:
+        # the -g/-ms/-rg suffix is a per-configuration postfix, Windows adds
+        # .exe, and a multi-configuration generator puts the file in a
+        # configuration subdirectory. $<TARGET_FILE> is all of that resolved.
+        ADD_TEST(
+          NAME Operators${testname}_MPI
+          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${name}>
+                  --detect_memory_leaks=0 -- ${execspace} ${implementation}
+          WORKING_DIRECTORY ${unit_test_dir}
+        )
     ELSE()
         ADD_TEST(
           NAME Operators${testname} 

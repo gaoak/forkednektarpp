@@ -34,15 +34,18 @@
 
 #pragma once
 
-#include "Operators/AddTraceIntegral/AddTraceIntegralOp.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
-#include "Operators/GetFwdBwdTracePhys/GetFwdBwdTracePhysOp.hpp"
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGKernels.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
+
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp"
+#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp"
 
 namespace Nektar::SolverCore::detail
 {
@@ -57,12 +60,12 @@ public:
                           const std::vector<std::string> &components)
         : AdvectionWeakDGOp<TData>(std::move(expansionList), components),
           m_coeff(LibUtilities::Field<TData, FieldState::Coeff>(
-              "Advet coeff",
+              "Advect coeff",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components.size(), 1)),
-          m_tmp(LibUtilities::Field<TData, FieldState::Coeff>(
-              "Advet tmp",
+          m_coefftmp(LibUtilities::Field<TData, FieldState::Coeff>(
+              "Advect coeff tmp",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components.size(), 1)),
@@ -74,34 +77,39 @@ public:
               1)),
           m_numflux(LibUtilities::Field<TData, FieldState::Phys>(
               "Num flux",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
+              MultiRegions::GetLocTraceBlockAttributes<TData, FieldState::Phys>(
+                  expansionList),
               components.size(), 1)),
-          m_fwd(LibUtilities::Field<TData, FieldState::Phys>(
-              "Fwd Trace",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
+          m_trace(LibUtilities::Field<TData, FieldState::Phys>(
+              "Trace",
+              MultiRegions::GetLocTraceBlockAttributes<TData, FieldState::Phys>(
+                  expansionList),
               components.size(), 1)),
-          m_bwd(LibUtilities::Field<TData, FieldState::Phys>(
-              "Bwd Trace",
+          m_phystmp(LibUtilities::Field<TData, FieldState::Phys>(
+              "Advect phys tmp",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                  expansionList->GetTrace()),
+                  expansionList),
               components.size(), 1))
     {
         m_bwdTransOp = Operators::BwdTransOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_iProductWRTDerivBaseOp =
-            Operators::IProductWRTDerivBaseOp<FieldState::Coeff, TData>::Create(
+        m_physTraceExtractOp = Operators::PhysTraceExtractOp<TData>::Create(
+            expansionList, components, ExecSpace::name);
+        m_iProductWRTDerivBaseOpNegOut =
+            Operators::IProductWRTDerivBaseOp<FieldState::Phys, TData>::Create(
                 expansionList, components, ExecSpace::name);
-        m_getFwdBwdTracePhysOp = Operators::GetFwdBwdTracePhysOp<TData>::Create(
+        m_iProductWRTDerivBaseOpNegOut->SetScale(-1.0);
+        m_iProductWRTPhysTraceOpAppend =
+            Operators::IProductWRTPhysTraceOp<TData>::Create(
+                expansionList, components, ExecSpace::name);
+        m_iProductWRTPhysTraceOpAppend->SetAppend(true);
+
+        m_BTransposeOp = Operators::IProductWRTBaseOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_addTraceIntegralOp = Operators::AddTraceIntegralOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
+        m_BTransposeOp->SetIntegration(false);
         m_multiplyByElmtInvMassOp =
             Operators::MultiplyByElmtInvMassOp<TData>::Create(
                 expansionList, components, ExecSpace::name);
-
-        m_iProductWRTDerivBaseOp->SetScale(-1.0);
     }
 
     // className - for OperatorFactory
@@ -117,16 +125,16 @@ public:
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth = 1u;
-    LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_tmp;
-    LibUtilities::Field<TData, FieldState::Phys> m_fluxvector, m_numflux, m_fwd,
-        m_bwd;
+    LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_coefftmp;
+    LibUtilities::Field<TData, FieldState::Phys> m_fluxvector, m_numflux,
+        m_trace, m_phystmp;
+    std::shared_ptr<Operators::PhysTraceExtractOp<TData>> m_physTraceExtractOp;
+    std::shared_ptr<Operators::IProductWRTPhysTraceOp<TData>>
+        m_iProductWRTPhysTraceOpAppend;
+    std::shared_ptr<Operators::IProductWRTDerivBaseOp<FieldState::Phys, TData>>
+        m_iProductWRTDerivBaseOpNegOut;
+    std::shared_ptr<Operators::IProductWRTBaseOp<TData>> m_BTransposeOp;
     std::shared_ptr<Operators::BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<Operators::IProductWRTDerivBaseOp<FieldState::Coeff, TData>>
-        m_iProductWRTDerivBaseOp;
-    std::shared_ptr<Operators::GetFwdBwdTracePhysOp<TData>>
-        m_getFwdBwdTracePhysOp;
-    std::shared_ptr<Operators::AddTraceIntegralOp<TData>> m_addTraceIntegralOp;
     std::shared_ptr<Operators::MultiplyByElmtInvMassOp<TData>>
         m_multiplyByElmtInvMassOp;
 
@@ -148,61 +156,54 @@ protected:
         AdvectCoeffs(in, m_coeff);
 
         m_bwdTransOp->Apply(m_coeff, out);
-
-        // Loop over blocks to reshape output storage
-        for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
-        {
-            const unsigned int streamID = blk + 1;
-
-            auto &outblock = out.GetBlocks()[blk];
-            auto outptr =
-                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
-
-            // Reshape, if necessary.
-            LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, outblock.GetInterleaveWidth(),
-                outblock.GetNumElementsWithPadding() *
-                    outblock.GetNumComponents() * outblock.GetNumHomoModes(),
-                outblock.GetNumData(), (TData *)outptr, streamID);
-
-            // Set output block to new interleave.
-            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        }
     }
 
     void AdvectCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
                       LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
-        // Compute interior flux vector
+        //  Extract trace from "in"
+        m_physTraceExtractOp->Apply(in, m_trace);
+
+        // The trace now holds this rank's side of every trace the partitioner
+        // cut, so the neighbours can be sent theirs. Everything between here
+        // and the matching wait below is local work the messages overlap with;
+        // in serial both calls do nothing.
+        this->m_traceFluxOp->BeginParallelExchange(m_trace);
+
+        // Boundary values that are functions of the interior state - an
+        // outflow extrapolating everything but the pressure, say - can only be
+        // formed now that the trace exists, and must be in place before the
+        // trace flux gathers them. The trace flux operator seeds its own
+        // boundary storage with the interior state, since it owns the layout,
+        // and the boundary operator then transforms that in place.
+        this->m_traceFluxOp->UpdateBndCond(m_trace);
+
+        // Compute volume flux and do IPWRTDB - could be fused
         this->m_volumeFluxOp->Apply(in, m_fluxvector);
+        m_iProductWRTDerivBaseOpNegOut->Apply(m_fluxvector, m_phystmp);
 
-        // Compute volume term contribution
-        m_iProductWRTDerivBaseOp->Apply(m_fluxvector, m_tmp);
+        // GetTraces, interpolate, reorient, compute numerical flux,
+        // reorient, interpolate back and put into m_numflux - the interior
+        // and boundary traces only, which need nothing from the exchange, so
+        // this too overlaps the messages.
+        this->m_traceFluxOp->Apply(m_trace, m_numflux);
 
-        // Compute numerical flux on element traces
-        AdvectTraceFlux(in, m_numflux);
+        // The numerical flux on a cut trace needs the neighbour's state, so
+        // the exchange has to have landed before ApplyParallel() and not
+        // before that.
+        this->m_traceFluxOp->EndParallelExchange();
+        this->m_traceFluxOp->ApplyParallel(m_trace, m_numflux);
 
-        // Add trace integral contribution
-        m_addTraceIntegralOp->Apply(m_numflux, m_tmp);
-
-        // Apply inverse mass matrix
-        m_multiplyByElmtInvMassOp->Apply(m_tmp, out);
+        // Integral of numflux, B^T and Multiply by Inv Mass - could be fused:
+        // zero<ExecSpace>(m_phystmp);
+        m_iProductWRTPhysTraceOpAppend->Apply(m_numflux, m_phystmp);
+        m_BTransposeOp->Apply(m_phystmp, m_coefftmp);
+        m_multiplyByElmtInvMassOp->Apply(m_coefftmp, out);
 
         if (this->m_scale != 1.0)
         {
             Math::mul<ExecSpace>(this->m_scale, out, out);
         }
-    }
-
-    void AdvectTraceFlux(LibUtilities::Field<TData, FieldState::Phys> &in,
-                         LibUtilities::Field<TData, FieldState::Phys> &out)
-    {
-
-        // Get forward and backward trace values
-        m_getFwdBwdTracePhysOp->Apply(in, m_fwd, m_bwd);
-
-        // Compute numerical flux
-        this->m_riemannSolverOp->Apply(m_fwd, m_bwd, out);
     }
 };
 

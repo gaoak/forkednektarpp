@@ -61,6 +61,7 @@
             <P> IO_InfoSteps   = 1000               </P>
             <P> advx           = 1.0                </P>
             <P> advy           = 0.5                </P>
+            <P> IterativeSolverTolerance = 1e-12   </P>
         </PARAMETERS>
 
         <SOLVERINFO>

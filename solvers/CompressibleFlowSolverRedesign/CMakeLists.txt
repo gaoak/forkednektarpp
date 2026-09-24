@@ -1,6 +1,9 @@
 IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    # Off by default in this layer: the solver still targets the advection
+    # framework the flux framework replaces, and is rewritten on top of it by
+    # the CompressibleFlowSolverRedesign layer, which turns this back on.
     CMAKE_DEPENDENT_OPTION(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT
-        "Build the Compressible Flow Solver using redesign framework." ON
+        "Build the Compressible Flow Solver using redesign framework." OFF
         "NEKTAR_BUILD_SOLVERS" OFF)
 
     IF (NOT NEKTAR_BUILD_SOLVERS)

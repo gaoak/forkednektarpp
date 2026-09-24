@@ -40,20 +40,17 @@
 // critical so that when used in the templated version of the operator
 // that loop unrolling occurs.
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace> struct UpwindSolverKernel
 {
 
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const size_t blksize,
-                                      const unsigned int velComps,
-                                      const unsigned int fluxComps,
-                                      const TScalar *velbase,
-                                      const TScalar *normbase,
-                                      const TScalar *fwdbase,
-                                      const TScalar *bwdbase, TScalar *fluxbase)
+    NEK_DEVICE_INLINE void operator()(
+        const size_t blksize, const unsigned velComps, const unsigned fluxComps,
+        const TScalar *velbase, const TScalar *normbase, const TScalar *fwdbase,
+        const TScalar *bwdbase, TScalar *fluxbase)
     {
         using std::abs;
 
@@ -62,10 +59,14 @@ template <typename ExecSpace> struct UpwindSolverKernel
         using vec_t =
             typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                                   TScalar>::type;
-        const unsigned int vec_width =
+        const unsigned vec_width =
             (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                 ? tinysimd::simd<TScalar>::width
                 : 1;
+
+        ASSERTL1(
+            blksize % vec_width == 0,
+            "Routine assumes blksize is exact integer multiple of vec_width");
 
         // Parallelize over points; each i is independent
         const size_t groupsize = blksize / vec_width;
@@ -77,7 +78,7 @@ template <typename ExecSpace> struct UpwindSolverKernel
 
         // Build nv = v·n on the fly
         vec_t nv = 0.0;
-        for (unsigned int d = 0; d < velComps; ++d)
+        for (unsigned d = 0; d < velComps; ++d)
         {
             const vec_t v_i = velvec[d * groupsize];
             const vec_t n_i = normvec[d * groupsize];
@@ -87,13 +88,12 @@ template <typename ExecSpace> struct UpwindSolverKernel
         const vec_t nv_abs = abs(nv);
 
         // Branchless split: nv_pos=max(nv,0), nv_neg=min(nv,0)
-        // Use fabs to stay device-friendly.
         const vec_t nv_pos = 0.5 * (nv + nv_abs);
         const vec_t nv_neg = 0.5 * (nv - nv_abs);
 
         // Blend without branches:
         // flux = nv_pos * Fwd + nv_neg * Bwd
-        for (unsigned int nc = 0; nc < fluxComps; ++nc)
+        for (unsigned nc = 0; nc < fluxComps; ++nc)
         {
             fluxvec[nc * groupsize] = nv_pos * fwdvec[nc * groupsize] +
                                       nv_neg * bwdvec[nc * groupsize];
@@ -101,4 +101,4 @@ template <typename ExecSpace> struct UpwindSolverKernel
     }
 };
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail

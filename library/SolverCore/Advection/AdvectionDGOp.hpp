@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "Operators/Common/Operator.hpp"
 #include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
-#include "SolverCore/RiemannSolvers/RiemannSolverOp.hpp"
+#include "SolverCore/BndCond/BndCondUpdateOp.hpp"
+#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
 
 namespace Nektar::SolverCore
 {
@@ -76,9 +76,37 @@ public:
         this->m_advVel = &advVel;
     }
 
-    void SetRiemannSolver(const std::shared_ptr<RiemannSolverOp<TData>> &ptr)
+    void SetTraceFlux(const std::shared_ptr<TraceFluxOp<TData>> &ptr)
     {
-        this->m_riemannSolverOp = ptr;
+        this->m_traceFluxOp = ptr;
+    }
+
+    /**
+     * @brief Attach an operator that computes boundary values from the
+     * interior trace.
+     *
+     * The same conditions the advection-diffusion path takes, and the same
+     * objects: an inviscid run needs the inflow and outflow states just as a
+     * viscous one does. Only the thermal wall conditions are specific to the
+     * viscous path, and those are claimed by their own operator, which an
+     * Euler solver simply does not attach.
+     */
+    void AddBndCondUpdateOp(const std::shared_ptr<BndCondUpdateOp<TData>> &ptr)
+    {
+        ASSERTL0(this->m_traceFluxOp,
+                 "A boundary condition was attached before the trace flux "
+                 "operator that supplies its storage.");
+        this->m_traceFluxOp->AddBndCondUpdateOp(ptr);
+    }
+
+    /// Refresh time-dependent boundary values before the next Apply(). A no-op
+    /// unless a boundary condition actually depends on time.
+    void UpdateBndPhys(const TData &time = 0.0)
+    {
+        if (this->m_traceFluxOp)
+        {
+            this->m_traceFluxOp->UpdateBndPhys(time);
+        }
     }
 
     void SetVolumeFluxOp(
@@ -89,7 +117,7 @@ public:
 
 protected:
     LibUtilities::Field<TData, FieldState::Phys> *m_advVel = nullptr;
-    std::shared_ptr<RiemannSolverOp<TData>> m_riemannSolverOp;
+    std::shared_ptr<TraceFluxOp<TData>> m_traceFluxOp;
     std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_volumeFluxOp;
     TData m_scale = 1.0;
     bool m_append = false;
