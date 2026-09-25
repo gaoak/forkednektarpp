@@ -28,19 +28,22 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Interior-penalty diffusion operator interface.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
+#include <SolverCore/SolverCore.hpp>
+
 #include "SolverCore/Diffusion/DiffusionOp.hpp"
+#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
 
 namespace Nektar::SolverCore
 {
 
-// DiffusionIP base class
-// Defines the apply operator to enforce apply parameter types
+// Interior-penalty diffusion: the factory name, Create() and the scheme
+// coefficients. Apply() is the base class's.
 template <typename TData> class DiffusionIPOp : public DiffusionOp<TData>
 {
 public:
@@ -49,16 +52,17 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
+        // Force a genuine cross-library symbol reference into
+        // libSolverCore - see EnsureLinked() in SolverCore.hpp. Without
+        // it a linker that keeps only what is referenced can drop the
+        // library, and the operator registrations go with it.
+        EnsureLinked();
+
         return Operators::Operator<TData>::template Create<DiffusionIPOp>(
             expansionList, components, execStr);
     }
 
     static inline const std::string name = "DiffusionIP";
-
-    void SetAppend(const bool &append)
-    {
-        v_SetAppend(append);
-    }
 
     void SetVolumeFluxOp(
         const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
@@ -66,33 +70,32 @@ public:
         this->m_volumeFluxOp = ptr;
     }
 
-    void SetTraceFluxOp(const std::shared_ptr<DiffusionTraceFluxOp<TData>> &ptr)
+    void SetTraceFluxOp(const std::shared_ptr<TraceFluxOp<TData>> &ptr)
     {
         this->m_traceFluxOp = ptr;
     }
 
+    /// Refresh time-dependent boundary values before the next Apply(). A no-op
+    /// unless a boundary condition actually depends on time.
+    void UpdateBndPhys(const TData &time = 0.0)
+    {
+        if (this->m_traceFluxOp)
+        {
+            this->m_traceFluxOp->UpdateBndPhys(time);
+        }
+    }
+
 protected:
+    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_volumeFluxOp;
+    std::shared_ptr<TraceFluxOp<TData>> m_traceFluxOp;
+
     DiffusionIPOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
         : DiffusionOp<TData>(expansionList, components)
     {
-        auto session = expansionList->GetSession();
-
-        session->LoadParameter("IPSymmFluxCoeff", m_IPSymmFluxCoeff, 0.0);
-        session->LoadParameter("IP2ndDervCoeff", m_IP2ndDervCoeff, 0.0);
-        session->LoadParameter("IPPenaltyCoeff", m_IPPenaltyCoeff, 4.0);
     }
 
     ~DiffusionIPOp() override = default;
-
-    virtual void v_SetAppend(const bool &append) = 0;
-
-    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_volumeFluxOp;
-    std::shared_ptr<DiffusionTraceFluxOp<TData>> m_traceFluxOp;
-
-    TData m_IPSymmFluxCoeff = 0.0;
-    TData m_IP2ndDervCoeff  = 0.0;
-    TData m_IPPenaltyCoeff  = 4.0;
 };
 
 } // namespace Nektar::SolverCore

@@ -13,7 +13,7 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
     # ADR-specific operators.
     FILE(GLOB ADR_OPERATOR_DIRS
         LinearAdvVolumeFlux
-        DiffusionScalarIPVolFlux
+        DiffusionScalarVolFlux
         DiffusionScalarIPTraceFlux
     )
     SET(OPNAMESPACE "Nektar::detail")
@@ -113,7 +113,18 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverCore SolverUtils
         SOURCES UnitTests/TestAdvectionWeakDG.cpp ${ADR_OPERATORS_SOURCES})
 
+    ADD_NEKTAR_EXECUTABLE(TestDiffusionIP
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SolverCore SolverUtils
+        SOURCES UnitTests/TestDiffusionIP.cpp ${ADR_OPERATORS_SOURCES})
+
     IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
+    SET_UNIT_TEST(DiffusionIP_serial_stdmat TestDiffusionIP Serial StdMat FALSE)
+    SET_UNIT_TEST(DiffusionIP_serial_sumfac TestDiffusionIP Serial SumFac FALSE)
+    IF(NEKTAR_ENABLE_SIMD)
+        SET_UNIT_TEST(DiffusionIP_avx_stdmat TestDiffusionIP AVX StdMat FALSE)
+        SET_UNIT_TEST(DiffusionIP_avx_sumfac TestDiffusionIP AVX SumFac FALSE)
+    ENDIF()
+
     SET_UNIT_TEST(AdvectionWeakDG_serial_stdmat TestAdvectionWeakDG Serial StdMat FALSE)
     SET_UNIT_TEST(AdvectionWeakDG_serial_sumfac TestAdvectionWeakDG Serial SumFac FALSE)
     # The prism_varP crash that blocked these was a partitioner bug - the
@@ -272,9 +283,12 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
         # 2D explicit diffusion (ScalarIP)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3_periodic)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3_Neumann)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m3_mixedBC)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_2D_IP_hybrid_m8)
 
         # 3D explicit diffusion on a mixed element mesh, so that the trace splits
         # into more than one block. Nothing else here does.
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign ExDiffusion_3D_IP_prism_hex)
     ENDIF()
 ENDIF (NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)

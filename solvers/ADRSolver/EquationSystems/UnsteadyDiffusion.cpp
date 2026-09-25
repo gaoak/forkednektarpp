@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ADRSolver/EquationSystems/UnsteadyDiffusion.h>
+#include <SolverUtils/Diffusion/DiffusionIP.h>
 
 namespace Nektar
 {
@@ -101,6 +102,30 @@ void UnsteadyDiffusion::v_InitObject(bool DeclareFields)
             m_diffusion = SolverUtils::GetDiffusionFactory().CreateInstance(
                 diffName, diffName);
             m_diffusion->SetFluxVector(&UnsteadyDiffusion::GetFluxVector, this);
+
+            if (diffName == "InteriorPenalty")
+            {
+                // DiffusionIP does not read the flux vector set above; it
+                // drives its own functors, and each one it reaches while
+                // unbound is a bad_function_call mid-run. See the note on the
+                // declarations in the header.
+                m_diffusion->SetDiffusionFluxCons(
+                    &UnsteadyDiffusion::GetFluxVectorCons, this);
+                m_diffusion->SetDiffusionFluxConsTrace(
+                    &UnsteadyDiffusion::GetFluxVectorConsTrace, this);
+                m_diffusion->SetDiffusionSymmFluxCons(
+                    &UnsteadyDiffusion::GetSymmFluxVectorCons, this);
+                m_diffusion->SetSpecialBndTreat(
+                    &UnsteadyDiffusion::SpecialBndTreat, this);
+
+                // The fields here are independent scalars, and DiffusionIP's
+                // default average treats them as compressible conservative
+                // variables - which divides by the first one. See
+                // DiffusionIP::SetScalarAveraging().
+                std::static_pointer_cast<SolverUtils::DiffusionIP>(m_diffusion)
+                    ->SetScalarAveraging(true);
+            }
+
             m_diffusion->InitObject(m_session, m_fields);
             break;
         }
@@ -257,6 +282,129 @@ void UnsteadyDiffusion::GetFluxVector(
                         viscousTensor[j][i], 1);
         }
     }
+}
+
+/**
+ * @brief Volume viscous flux for the InteriorPenalty operator.
+ *
+ * The same tensor GetFluxVector() builds, in the shape DiffusionIP asks for
+ * it: indexed [direction][field], and reporting through @p nonZeroIndex which
+ * fields carry a non-zero flux. For a scalar problem that is all of them -
+ * the compressible solver leaves density out, which is what the index exists
+ * for. Leaving it empty is not neutral: DiffusionIP loops over it to decide
+ * what to write, so an unset index yields a silent zero.
+ */
+void UnsteadyDiffusion::GetFluxVectorCons(
+    const int nDim,
+    [[maybe_unused]] const Array<OneD, Array<OneD, NekDouble>> &inarray,
+    const TensorOfArray3D<NekDouble> &qfield,
+    TensorOfArray3D<NekDouble> &viscousTensor, Array<OneD, int> &nonZeroIndex,
+    [[maybe_unused]] const Array<OneD, Array<OneD, NekDouble>> &normal)
+{
+    unsigned int nConvectiveFields = qfield[0].size();
+    unsigned int nPts              = qfield[0][0].size();
+
+    NekDouble d[3] = {m_d00, m_d11, m_d22};
+
+    nonZeroIndex = Array<OneD, int>(nConvectiveFields);
+    for (unsigned int i = 0; i < nConvectiveFields; ++i)
+    {
+        nonZeroIndex[i] = i;
+    }
+
+    for (int j = 0; j < nDim; ++j)
+    {
+        for (unsigned int i = 0; i < nConvectiveFields; ++i)
+        {
+            Vmath::Smul(nPts, m_epsilon * d[j], qfield[j][i], 1,
+                        viscousTensor[j][i], 1);
+        }
+    }
+}
+
+/**
+ * @brief The same flux on a trace, contracted with the trace normal.
+ *
+ * On the trace DiffusionIP wants n . (D grad u) rather than the tensor, so
+ * the output carries a single direction. Binding the volume form here indexes
+ * the output past that first direction and fails deep inside SolverUtils.
+ */
+void UnsteadyDiffusion::GetFluxVectorConsTrace(
+    const int nDim,
+    [[maybe_unused]] const Array<OneD, Array<OneD, NekDouble>> &inarray,
+    const TensorOfArray3D<NekDouble> &qfield,
+    TensorOfArray3D<NekDouble> &viscousTensor, Array<OneD, int> &nonZeroIndex,
+    const Array<OneD, Array<OneD, NekDouble>> &normal)
+{
+    unsigned int nConvectiveFields = qfield[0].size();
+    unsigned int nPts              = qfield[0][0].size();
+
+    NekDouble d[3] = {m_d00, m_d11, m_d22};
+
+    nonZeroIndex = Array<OneD, int>(nConvectiveFields);
+    for (unsigned int i = 0; i < nConvectiveFields; ++i)
+    {
+        nonZeroIndex[i] = i;
+    }
+
+    for (unsigned int i = 0; i < nConvectiveFields; ++i)
+    {
+        Vmath::Zero(nPts, viscousTensor[0][i], 1);
+        for (int j = 0; j < nDim; ++j)
+        {
+            for (unsigned int p = 0; p < nPts; ++p)
+            {
+                viscousTensor[0][i][p] +=
+                    m_epsilon * d[j] * qfield[j][i][p] * normal[j][p];
+            }
+        }
+    }
+}
+
+/**
+ * @brief Symmetric flux D n [u] for the SIP/NIP variants.
+ *
+ * Not reached while IPSymmFluxCoeff is zero, which is the default, but
+ * DiffusionIP is entitled to call it whenever that parameter is set and an
+ * unbound functor would fail exactly then.
+ */
+void UnsteadyDiffusion::GetSymmFluxVectorCons(
+    const int nDim,
+    [[maybe_unused]] const Array<OneD, Array<OneD, NekDouble>> &inaverg,
+    const Array<OneD, Array<OneD, NekDouble>> &injumps,
+    TensorOfArray3D<NekDouble> &outarray, Array<OneD, int> &nonZeroIndex,
+    const Array<OneD, Array<OneD, NekDouble>> &normal)
+{
+    unsigned int nConvectiveFields = injumps.size();
+    unsigned int nPts              = injumps[0].size();
+
+    NekDouble d[3] = {m_d00, m_d11, m_d22};
+
+    nonZeroIndex = Array<OneD, int>(nConvectiveFields);
+    for (unsigned int i = 0; i < nConvectiveFields; ++i)
+    {
+        nonZeroIndex[i] = i;
+    }
+
+    for (int j = 0; j < nDim; ++j)
+    {
+        for (unsigned int i = 0; i < nConvectiveFields; ++i)
+        {
+            Vmath::Vmul(nPts, injumps[i], 1, normal[j], 1, outarray[j][i], 1);
+            Vmath::Smul(nPts, m_epsilon * d[j], outarray[j][i], 1,
+                        outarray[j][i], 1);
+        }
+    }
+}
+
+/**
+ * @brief Boundary fix-up hook. A scalar diffusion has nothing to correct -
+ * this exists for the compressible solver, which resets the energy at a wall
+ * - but DiffusionIP calls it unconditionally, so it has to be bound.
+ */
+void UnsteadyDiffusion::SpecialBndTreat(
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &consvar)
+{
 }
 
 void UnsteadyDiffusion::v_GenerateSummary(SummaryList &s)

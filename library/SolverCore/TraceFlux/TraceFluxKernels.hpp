@@ -107,65 +107,6 @@ NEK_HOSTDEVICE_INLINE static void ReOrientEdgeKernel(
     }
 }
 
-// ReOrient with input and output offsets for interleaving
-template <bool APPEND, bool NEGATE_INPUT, typename TData>
-NEK_FORCE_INLINE static void ReOrientEdgeKernel(
-    const StdRegions::Orientation orient, const unsigned nq0, const TData *in,
-    const unsigned inOffset, TData *out, const unsigned outOffset)
-{
-    ASSERTL1(in != out, "This routine cannot use the same input and output");
-
-    // Input sign change if required.
-    TData sign = (NEGATE_INPUT) ? -1.0 : 1.0;
-
-    switch (orient)
-    {
-        case StdRegions::eForwards:
-            // straight copy and add
-            if constexpr (APPEND)
-            {
-                for (unsigned i = 0; i < nq0; ++i)
-                {
-                    out[i * outOffset] += sign * in[i * inOffset];
-                }
-            }
-            else
-            {
-                for (unsigned i = 0; i < nq0; ++i)
-                {
-                    out[i * outOffset] = sign * in[i * inOffset];
-                }
-            }
-            break;
-        case StdRegions::eBackwards:
-        {
-            TData store;
-            if constexpr (APPEND)
-            {
-                for (unsigned i = 0; i < (nq0 + 1u) / 2; ++i)
-                {
-                    store = sign * in[i * inOffset];
-                    out[i * outOffset] += sign * in[(nq0 - 1u - i) * inOffset];
-                    out[(nq0 - 1u - i) * outOffset] += store;
-                }
-            }
-            else
-            {
-                for (unsigned i = 0; i < (nq0 + 1u) / 2; ++i)
-                {
-                    store              = sign * in[i * inOffset];
-                    out[i * outOffset] = sign * in[(nq0 - 1u - i) * inOffset];
-                    out[(nq0 - 1u - i) * outOffset] = store;
-                }
-            }
-        }
-        break;
-        default:
-            ASSERTL1(false, "Unknow orientation");
-            break;
-    }
-}
-
 /// The frame-changing face kernel lives in LocalRegions (see
 /// LocalRegions/ReOrientFaceKernel.hpp for what the frames and @p Forwards
 /// mean); the overload below adds the per-face offsets the gathers use.

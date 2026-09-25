@@ -1152,6 +1152,7 @@ TEST(PrismVarP, "run/prism_varp.xml")
 TEST(PrismFixedP, "run/prism_fixedp.xml")
 
 TEST(Pyr, "run/pyr.xml")
+TEST(PyrOrtho, "run/pyr_ortho.xml")
 
 TEST(PyrVarP, "run/pyr_varp.xml")
 

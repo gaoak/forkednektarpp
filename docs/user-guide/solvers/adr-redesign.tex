@@ -1,0 +1,242 @@
+\chapter{Advection-Diffusion-Reaction Solver (Redesign)}
+\label{chap:adrRedesign}
+
+\section{Synopsis}
+The ADRSolverRedesign solves the same linear advection-diffusion-reaction
+problems as the ADRSolver of the previous chapter -- the governing equations
+are unchanged -- on the redesigned operator framework, in which every step of
+the discretisation (basis transforms, volume and trace fluxes, boundary
+conditions, the linear solve) is an operator with interchangeable
+implementations for each execution space. The same session file therefore runs
+
+\begin{itemize}
+\item in \inltt{Serial} on a single core,
+\item in \inltt{AVX} using SIMD vectorisation (AVX2/AVX512 on x86, NEON on
+  Arm), and
+\item on a \inltt{Device} (CUDA, HIP or SYCL GPU back-ends),
+\end{itemize}
+
+and in parallel under MPI, where the discontinuous Galerkin trace exchange
+overlaps interior work with communication.
+
+The solver currently provides:
+
+\begin{itemize}
+\item the unsteady advection, diffusion and advection-diffusion problems
+  and the steady advection-diffusion-reaction, Helmholtz and Poisson
+  problems of Table~\ref{t:adrredesign:eqtype}, in 1D, 2D and 3D on every
+  element shape;
+\item both a continuous (\inltt{Continuous}) and a discontinuous
+  (\inltt{DisContinuous}) Galerkin projection;
+\item for DG, weak-DG advection with an upwind trace flux and interior-penalty
+  diffusion, integrated explicitly;
+\item for CG, non-conservative advection and an implicit treatment of
+  diffusion through the iterative linear solvers of the framework;
+\item an anisotropic diffusion tensor and a reaction coefficient;
+\item time-dependent Dirichlet boundary conditions, and restart from
+  checkpoint (\inltt{.fld}) files.
+\end{itemize}
+
+Features of the legacy solver not yet available here include LDG diffusion,
+implicit or IMEX time integration of a DG discretisation, the Burgers and
+moving-frame (\inltt{MMF}) systems, and the \inltt{Projection} system.
+
+\section{Usage}
+\begin{lstlisting}[style=BashInputStyle]
+ADRSolverRedesign session.xml
+\end{lstlisting}
+
+The execution space may be chosen on the command line without touching the
+session file:
+
+\begin{lstlisting}[style=BashInputStyle]
+ADRSolverRedesign --opExecSpace AVX session.xml
+\end{lstlisting}
+
+The implementation used within a space (\inltt{SumFac} or \inltt{StdMat}
+element kernels) can likewise be forced for every operator at once with
+\inltt{--opImpl}. When no space is given, the solver picks the most capable one
+the build supports and says which. Individual operators may instead be given
+their own implementation from the session file, in an \inltt{<OPERATORS>}
+block with one section per back-end whose children name an operator and
+contain its implementation:
+
+\begin{lstlisting}[style=XmlStyle]
+<OPERATORS>
+  <AVXBACKEND>
+    <BWDTRANS> SumFac </BWDTRANS>
+    <PHYSDERIV> StdMat </PHYSDERIV>
+  </AVXBACKEND>
+</OPERATORS>
+\end{lstlisting}
+
+\section{Session file configuration}
+\label{sec:sessionFileADRRedesign}
+The session file follows the structure described for the legacy solver; below
+we describe the options currently understood, and where they differ.
+
+\subsection*{Solver info}
+\begin{lstlisting}[style=XmlStyle]
+<SOLVERINFO>
+  <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvectionDiffusion" />
+  <I PROPERTY="Projection"            VALUE="DisContinuous"              />
+  <I PROPERTY="AdvectionType"         VALUE="WeakDG"                     />
+  <I PROPERTY="UpwindType"            VALUE="Upwind"                     />
+  <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"            />
+  <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                   />
+  <I PROPERTY="DiffusionAdvancement"  VALUE="Explicit"                   />
+</SOLVERINFO>
+\end{lstlisting}
+\begin{itemize}
+\item \inltt{EQTYPE} selects the system from
+  Table~\ref{t:adrredesign:eqtype}. A reaction term enters any of them
+  through the parameter \inltt{lambda}.
+\item \inltt{Projection} is \inltt{Continuous} or \inltt{DisContinuous}. The
+  two projections have different capabilities, set out under the two
+  advancement properties below.
+\item \inltt{AdvectionType} is \inltt{WeakDG} for a discontinuous projection
+  and \inltt{NonConservative} for a continuous one.
+\item \inltt{UpwindType} names the trace flux of the weak-DG advection;
+  \inltt{Upwind} is the one available.
+\item \inltt{DiffusionType} is \inltt{InteriorPenalty}, the scheme the
+  discontinuous projection uses for the diffusion term; a continuous
+  projection needs no such choice.
+\item \inltt{AdvectionAdvancement} must be \inltt{Explicit}: advection is not
+  integrated implicitly.
+\item \inltt{DiffusionAdvancement} is \inltt{Explicit} or \inltt{Implicit}.
+  With a discontinuous projection it must be \inltt{Explicit}; with a
+  continuous one \inltt{Implicit} is available and solves the diffusion
+  operator with the iterative linear solvers below, under an IMEX or
+  diagonally implicit time integration scheme.
+\item \inltt{GLOBALSYSSOLN}, \inltt{LinSysIterSolver} and
+  \inltt{Preconditioner} configure the linear solve of a continuous
+  projection, for implicit diffusion and for the steady systems:
+  \inltt{IterativeFull}; \inltt{ConjugateGradientLoc} for a symmetric system
+  or \inltt{GMRES} where advection makes it non-symmetric (the solver switches
+  to GMRES itself, with a warning, if asked for conjugate gradients on an
+  advection system); and \inltt{Diagonal}.
+\end{itemize}
+
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\inltt{EQTYPE} & Problem & Time dependence \\
+\midrule
+\inltt{UnsteadyAdvection} & advection & unsteady \\
+\inltt{UnsteadyDiffusion} & diffusion & unsteady \\
+\inltt{UnsteadyAdvectionDiffusion} & advection-diffusion & unsteady \\
+\inltt{SteadyADR} & advection-diffusion-reaction & steady \\
+\inltt{Helmholtz} & Helmholtz & steady \\
+\inltt{Poisson} & Poisson & steady \\
+\bottomrule
+\end{tabular}
+\end{center}
+\caption{Systems solved by the redesigned ADR solver.}
+\label{t:adrredesign:eqtype}
+\end{table}
+
+\subsection*{Parameters}
+\begin{lstlisting}[style=XmlStyle]
+<PARAMETERS>
+  <P> TimeStep                 = 0.001             </P>
+  <P> NumSteps                 = 100               </P>
+  <P> FinTime                  = NumSteps*TimeStep </P>
+  <P> IO_InfoSteps             = 10                </P>
+  <P> epsilon                  = 0.01              </P>
+  <P> lambda                   = 0.0               </P>
+  <P> IterativeSolverTolerance = 1e-12             </P>
+</PARAMETERS>
+\end{lstlisting}
+\begin{itemize}
+\item \inltt{TimeStep}, \inltt{NumSteps}, \inltt{FinTime} and
+  \inltt{IO\_InfoSteps} behave as in the legacy solver. The step is fixed.
+\item \inltt{epsilon} sets the diffusion coefficient $\epsilon$. Default 1.
+\item \inltt{D00}, \inltt{D01}, \inltt{D11}, \inltt{D02}, \inltt{D12},
+  \inltt{D22} set the entries of a symmetric diffusion tensor $D$, as many as
+  the dimension needs; when any is given the tensor replaces $\epsilon$.
+  Default: the identity.
+\item \inltt{lambda} sets the reaction coefficient $\lambda$. Default 0.
+\item \inltt{IPPenaltyCoeff} multiplies the interior-penalty jump term. With
+  its value $c$, the penalty across a trace is $c\,\max(p+1)^2/h$, with $p+1$
+  the larger number of modes of the two elements sharing it and $h$ the
+  element length normal to it. Default 1, which is the penalty the legacy
+  solver applies.
+\item \inltt{IPSymmFluxCoeff} and \inltt{IP2ndDervCoeff} select the variant
+  of the interior-penalty scheme. Both default to 0, the incomplete scheme.
+\item \inltt{IterativeSolverTolerance} is the residual tolerance of the
+  iterative linear solve of a continuous projection.
+\end{itemize}
+
+\subsection*{Functions}
+\begin{itemize}
+\item \inltt{AdvectionVelocity} specifies the advection velocity
+  $\mathbf{V}$, one component per coordinate direction.
+\item \inltt{InitialConditions} specifies the initial condition of an
+  unsteady problem, as an expression or as a checkpoint file to restart from.
+\item \inltt{BodyForce} specifies the forcing function $f$. The legacy solver
+  calls this function \inltt{Forcing}.
+\item \inltt{ExactSolution} is used to report the error at the end of the run.
+\end{itemize}
+
+\subsection*{Time integration scheme}
+The \inltt{<TIMEINTEGRATIONSCHEME>} block is unchanged from the legacy solver.
+A discontinuous projection needs an explicit family (\inltt{RungeKutta},
+including its SSP variants, \inltt{ExplicitSDC}); a continuous projection with
+implicit diffusion takes \inltt{IMEX} when advection is present and a
+diagonally implicit scheme such as \inltt{BDFImplicit} when it is not.
+
+\section{Examples}
+The regression tests under \inltt{solvers/ADRSolverRedesign/Tests} are
+complete, runnable session files; two are quoted here.
+
+\subsection*{Weak-DG advection with a time-dependent Dirichlet condition}
+From \inltt{UnsteadyAdvection1D\_TimeDependentDirichlet\_DG.xml}: a 1D
+advection problem, integrated with fourth-order Runge-Kutta, whose boundary
+value is a function of time.
+\begin{lstlisting}[style=XmlStyle]
+<SOLVERINFO>
+  <I PROPERTY="EQTYPE"               VALUE="UnsteadyAdvection" />
+  <I PROPERTY="Projection"           VALUE="DisContinuous"     />
+  <I PROPERTY="AdvectionType"        VALUE="WeakDG"            />
+  <I PROPERTY="UpwindType"           VALUE="Upwind"            />
+  <I PROPERTY="AdvectionAdvancement" VALUE="Explicit"          />
+</SOLVERINFO>
+<TIMEINTEGRATIONSCHEME>
+  <METHOD> RungeKutta </METHOD>
+  <ORDER> 4 </ORDER>
+</TIMEINTEGRATIONSCHEME>
+<PARAMETERS>
+  <P> TimeStep       = 0.001              </P>
+  <P> NumSteps       = 100                </P>
+  <P> FinTime        = NumSteps*TimeStep  </P>
+  <P> advx           = 1.0                </P>
+</PARAMETERS>
+\end{lstlisting}
+
+\subsection*{Interior-penalty diffusion on a hybrid mesh}
+From \inltt{ExDiffusion\_2D\_IP\_hybrid\_m3.xml}: explicit diffusion on a mesh
+of triangles and quadrilaterals, with the interior-penalty scheme at its
+default coefficients.
+\begin{lstlisting}[style=XmlStyle]
+<SOLVERINFO>
+  <I PROPERTY="EQTYPE"                VALUE="UnsteadyDiffusion" />
+  <I PROPERTY="Projection"            VALUE="DisContinuous"     />
+  <I PROPERTY="AdvectionType"         VALUE="WeakDG"            />
+  <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"   />
+  <I PROPERTY="DiffusionAdvancement"  VALUE="Explicit"          />
+</SOLVERINFO>
+<TIMEINTEGRATIONSCHEME>
+  <METHOD> RungeKutta </METHOD>
+  <ORDER> 4 </ORDER>
+</TIMEINTEGRATIONSCHEME>
+<PARAMETERS>
+  <P> TimeStep        = 0.000001          </P>
+  <P> NumSteps        = 500               </P>
+  <P> FinTime         = TimeStep*NumSteps </P>
+</PARAMETERS>
+\end{lstlisting}
+The companion files \inltt{\_Neumann}, \inltt{\_mixedBC} and
+\inltt{\_periodic} run the same problem under those boundary conditions, and
+\inltt{ExDiffusion\_3D\_IP\_prism\_hex.xml} the 3D case on prisms and
+hexahedra.

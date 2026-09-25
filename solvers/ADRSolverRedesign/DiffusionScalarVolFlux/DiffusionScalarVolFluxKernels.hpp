@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionScalarIPVolFluxKernels.hpp
+// File: DiffusionScalarVolFluxKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -41,7 +41,7 @@ namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void DiffusionScalarIPVolFluxKernel(
+NEK_FORCE_INLINE static void DiffusionScalarVolFluxKernel(
     const size_t npts, const unsigned int ndim, const unsigned int nvarComps,
     const size_t derivStride, const size_t outStride, const TData *diffCoeff,
     const TData *derivbase, TData *outbase, const unsigned int streamID)
