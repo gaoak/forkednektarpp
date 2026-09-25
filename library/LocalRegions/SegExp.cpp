@@ -254,8 +254,7 @@ NekDouble SegExp::v_PhysEvalFirstDeriv(
     std::array<NekDouble, 3> &firstOrderDerivs)
 {
     Array<OneD, NekDouble> Lcoord(1);
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
+    GetLocator()->GetLocCoords(coord, Lcoord);
     return StdSegExp::v_PhysEvalFirstDeriv(Lcoord, inarray, firstOrderDerivs);
 }
 
@@ -266,8 +265,7 @@ NekDouble SegExp::v_PhysEvalFirstSecondDeriv(
     std::array<NekDouble, 6> &secondOrderDerivs)
 {
     Array<OneD, NekDouble> Lcoord(1);
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
+    GetLocator()->GetLocCoords(coord, Lcoord);
     return StdSegExp::v_PhysEvalFirstSecondDeriv(
         Lcoord, inarray, firstOrderDerivs, secondOrderDerivs);
 }

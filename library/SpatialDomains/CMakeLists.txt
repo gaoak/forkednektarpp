@@ -6,6 +6,7 @@ Geometry1D.cpp
 Geometry2D.cpp
 Geometry3D.cpp
 Geometry.cpp
+GeometryLocator.cpp
 HexGeom.cpp
 MeshGraph.cpp
 MeshGraphIO.cpp
@@ -38,6 +39,7 @@ Geometry1D.h
 Geometry2D.h
 Geometry3D.h
 Geometry.h
+GeometryLocator.h
 HexGeom.h
 LinearMeshGraph.hpp
 MeshEntities.hpp

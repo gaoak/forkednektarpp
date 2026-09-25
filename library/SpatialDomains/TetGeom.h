@@ -85,7 +85,7 @@ protected:
     void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces) override;
     void v_ResetLite() override;
     void v_Setup() override;
-    GeomType v_CalcGeomType() override;
+    GeomType v_CalcGeomType(IsoParam &iso) override;
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     void v_FillGeom() override;

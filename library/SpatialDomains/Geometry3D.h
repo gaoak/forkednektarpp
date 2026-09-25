@@ -77,10 +77,6 @@ protected:
     // 3D Geometry Methods
     //---------------------------------------
 
-    SPATIAL_DOMAINS_EXPORT NekDouble
-    v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
-                   Array<OneD, NekDouble> &Lcoords) override;
-
     void NewtonIterationForLocCoord(const Array<OneD, const NekDouble> &coords,
                                     const Array<OneD, const NekDouble> &ptsx,
                                     const Array<OneD, const NekDouble> &ptsy,
@@ -92,8 +88,6 @@ protected:
 
     NekDouble v_GetCoord(const int i,
                          const Array<OneD, const NekDouble> &Lcoord) override;
-    void v_CalculateInverseIsoParam() override;
-    int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord) override;
 
     //---------------------------------------
     // Helper functions

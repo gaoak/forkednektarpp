@@ -145,92 +145,6 @@ TriGeom::TriGeom(const int id, std::array<SegGeom *, kNverts> edges,
     ASSERTL0(m_coordim > 1, "Cannot call function with dim == 1");
 }
 
-int TriGeom::v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord)
-{
-    int nc = 1, d0 = m_manifold[0], d1 = m_manifold[1];
-    if (0 == m_edgeNormal.size())
-    {
-        m_edgeNormal = Array<OneD, Array<OneD, NekDouble>>(m_verts.size());
-        Array<OneD, Array<OneD, NekDouble>> x(2);
-        x[0] = Array<OneD, NekDouble>(3);
-        x[1] = Array<OneD, NekDouble>(3);
-        m_verts[0]->GetCoords(x[0]);
-        int i0 = 1, i1 = 0, direction = 1;
-        for (size_t i = 0; i < m_verts.size(); ++i)
-        {
-            i0 ^= 1;
-            i1 ^= 1;
-            m_verts[(i + 1) % m_verts.size()]->GetCoords(x[i1]);
-            if (m_edges[i]->GetXmap()->GetBasis(0)->GetNumModes() > 2)
-            {
-                continue;
-            }
-            m_edgeNormal[i]    = Array<OneD, NekDouble>(2);
-            m_edgeNormal[i][0] = x[i0][d1] - x[i1][d1];
-            m_edgeNormal[i][1] = x[i1][d0] - x[i0][d0];
-        }
-        if (m_coordim == 3)
-        {
-            for (size_t i = 0; i < m_verts.size(); ++i)
-            {
-                if (m_edgeNormal[i].size() == 2)
-                {
-                    m_verts[i]->GetCoords(x[0]);
-                    m_verts[(i + 2) % m_verts.size()]->GetCoords(x[1]);
-                    if (m_edgeNormal[i][0] * (x[1][d0] - x[0][d0]) <
-                        m_edgeNormal[i][1] * (x[0][d1] - x[1][d1]))
-                    {
-                        direction = -1;
-                    }
-                    break;
-                }
-            }
-        }
-        if (direction == -1)
-        {
-            for (size_t i = 0; i < m_verts.size(); ++i)
-            {
-                if (m_edgeNormal[i].size() == 2)
-                {
-                    m_edgeNormal[i][0] = -m_edgeNormal[i][0];
-                    m_edgeNormal[i][1] = -m_edgeNormal[i][1];
-                }
-            }
-        }
-    }
-
-    Array<OneD, NekDouble> vertex(3);
-    for (size_t i = 0; i < m_verts.size(); ++i)
-    {
-        int i1 = (i + 1) % m_verts.size();
-        if (m_verts[i]->GetGlobalID() < m_verts[i1]->GetGlobalID())
-        {
-            m_verts[i]->GetCoords(vertex);
-        }
-        else
-        {
-            m_verts[i1]->GetCoords(vertex);
-        }
-        if (m_edgeNormal[i].size() == 0)
-        {
-            nc = 0; // not sure
-            continue;
-        }
-        if (m_edgeNormal[i][0] * (gloCoord[d0] - vertex[d0]) <
-            m_edgeNormal[i][1] * (vertex[d1] - gloCoord[d1]))
-        {
-            return -1; // outside
-        }
-    }
-    // 3D manifold needs to check the distance
-    if (m_coordim == 3)
-    {
-        nc = 0;
-    }
-    // nc: 1 (side element), 0 (maybe inside), -1 (outside)
-    return nc;
-}
-
 NekDouble TriGeom::v_GetCoord(const int i,
                               const Array<OneD, const NekDouble> &Lcoord)
 {
@@ -361,7 +275,7 @@ StdRegions::Orientation TriGeom::GetFaceOrientation(
     return StdRegions::eNoOrientation;
 }
 
-GeomType TriGeom::v_CalcGeomType()
+GeomType TriGeom::v_CalcGeomType(IsoParam &iso)
 {
     if (!m_setupState)
     {
@@ -377,9 +291,8 @@ GeomType TriGeom::v_CalcGeomType()
         Gtype = eDeformed;
     }
 
-    m_manifold    = Array<OneD, int>(m_coordim);
-    m_manifold[0] = 0;
-    m_manifold[1] = 1;
+    iso.m_manifold[0] = 0;
+    iso.m_manifold[1] = 1;
     if (m_coordim == 3)
     {
         PointGeom e01, e21, norm;
@@ -397,38 +310,32 @@ GeomType TriGeom::v_CalcGeomType()
         {
             tmpi = 2;
         }
-        m_manifold[0] = (tmpi + 1) % 3;
-        m_manifold[1] = (tmpi + 2) % 3;
-        m_manifold[2] = (tmpi + 3) % 3;
+        iso.m_manifold[0] = (tmpi + 1) % 3;
+        iso.m_manifold[1] = (tmpi + 2) % 3;
+        iso.m_manifold[2] = (tmpi + 3) % 3;
     }
     if (Gtype == eRegular)
     {
-        Array<OneD, Array<OneD, NekDouble>> verts(m_verts.size());
-        for (int i = 0; i < m_verts.size(); ++i)
+        std::array<std::array<NekDouble, 3>, kNverts> verts;
+        for (int i = 0; i < kNverts; ++i)
         {
-            verts[i] = Array<OneD, NekDouble>(3);
-            m_verts[i]->GetCoords(verts[i]);
+            m_verts[i]->GetCoords(verts[i][0], verts[i][1], verts[i][2]);
         }
         // a00 + a01 xi1 + a02 xi2
         // a10 + a11 xi1 + a12 xi2
-        m_isoParameter = Array<OneD, Array<OneD, NekDouble>>(2);
+        iso.m_nCoeff = 3;
         for (int i = 0; i < 2; ++i)
         {
-            unsigned int d       = m_manifold[i];
-            m_isoParameter[i]    = Array<OneD, NekDouble>(3, 0.);
-            NekDouble A          = verts[0][d];
-            NekDouble B          = verts[1][d];
-            NekDouble C          = verts[2][d];
-            m_isoParameter[i][0] = 0.5 * (B + C);  // 1
-            m_isoParameter[i][1] = 0.5 * (-A + B); // xi1
-            m_isoParameter[i][2] = 0.5 * (-A + C); // xi2
+            unsigned int d    = iso.m_manifold[i];
+            NekDouble A       = verts[0][d];
+            NekDouble B       = verts[1][d];
+            NekDouble C       = verts[2][d];
+            iso.m_coeff[i][0] = 0.5 * (B + C);  // 1
+            iso.m_coeff[i][1] = 0.5 * (-A + B); // xi1
+            iso.m_coeff[i][2] = 0.5 * (-A + C); // xi2
         }
     }
 
-    if (Gtype == eRegular)
-    {
-        v_CalculateInverseIsoParam();
-    }
     return Gtype;
 }
 
@@ -643,6 +550,13 @@ void TriGeom::v_FillGeom()
 
         nEdgeCoeffs = m_edges[i]->GetXmap()->GetNcoeffs();
 
+        ASSERTL0(nEdgeCoeffs <= (int)mapArray.size(),
+                 "Edge " + std::to_string(i) + " of triangle " +
+                     std::to_string(m_globalID) +
+                     " carries more coefficients than the face's map has room "
+                     "for. The edge has been curved since the face was set up: "
+                     "call MeshGraph::ResetGeometry() after adding curvature.");
+
         for (j = 0; j < m_coordim; j++)
         {
             for (k = 0; k < nEdgeCoeffs; k++)
@@ -797,14 +711,6 @@ void TriGeom::v_Setup()
         }
         SetUpXmap();
         SetUpCoeffs(m_xmap->GetNcoeffs());
-
-        // check to see if expansions are linear
-        m_straightEdge = 1;
-        if (m_xmap->GetBasisNumModes(0) != 2 ||
-            m_xmap->GetBasisNumModes(1) != 2)
-        {
-            m_straightEdge = 0;
-        }
 
         m_setupState = true;
     }

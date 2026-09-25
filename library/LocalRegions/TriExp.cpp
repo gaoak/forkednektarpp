@@ -429,8 +429,7 @@ NekDouble TriExp::v_PhysEvalFirstDeriv(
     std::array<NekDouble, 3> &firstOrderDerivs)
 {
     Array<OneD, NekDouble> Lcoord(2);
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
+    GetLocator()->GetLocCoords(coord, Lcoord);
     return StdTriExp::v_PhysEvalFirstDeriv(Lcoord, inarray, firstOrderDerivs);
 }
 

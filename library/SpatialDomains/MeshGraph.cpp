@@ -75,7 +75,8 @@ struct MeshGraph::GeomRTree
 
     void InsertGeom(Geometry *const &geom)
     {
-        std::array<NekDouble, 6> minMax = geom->GetBoundingBox();
+        std::array<NekDouble, 6> minMax =
+            GeometryLocator::Create(geom)->GetBoundingBox();
         BgPoint ptMin(minMax[0], minMax[1], minMax[2]);
         BgPoint ptMax(minMax[3], minMax[4], minMax[5]);
         m_bgTree.insert(
@@ -221,6 +222,46 @@ void MeshGraph::FillGraph()
     // Populate the movement object
     m_movement = MemoryManager<SpatialDomains::Movement>::AllocateSharedPtr(
         m_session, this);
+}
+
+/**
+ * @copydoc MeshGraph::ResetGeometry()
+ */
+void MeshGraph::ResetGeometry()
+{
+    // Reset() rebuilds a geometry's map from the orders its boundary carries
+    // now, so the boundary has to have been rebuilt first. Hence ascending
+    // dimension: segments, then faces, then elements. Reset() also recurses
+    // down into the entities it owns, which makes the repeated visits
+    // redundant rather than wrong.
+    for (auto &[id, geom] : m_segGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
+    for (auto &[id, geom] : m_triGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
+    for (auto &[id, geom] : m_quadGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
+    for (auto &[id, geom] : m_tetGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
+    for (auto &[id, geom] : m_pyrGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
+    for (auto &[id, geom] : m_prismGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
+    for (auto &[id, geom] : m_hexGeoms)
+    {
+        geom->Reset(m_curvedEdges, m_curvedFaces);
+    }
 }
 
 void MeshGraph::FillBoundingBoxTree()

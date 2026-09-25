@@ -122,7 +122,7 @@ int PrismGeom::v_GetDir(const int faceidx, const int facedir) const
     }
 }
 
-GeomType PrismGeom::v_CalcGeomType()
+GeomType PrismGeom::v_CalcGeomType(IsoParam &iso)
 {
     if (!m_setupState)
     {
@@ -142,31 +142,29 @@ GeomType PrismGeom::v_CalcGeomType()
     // check to see if all quadrilateral faces are parallelograms
     if (Gtype == eRegular)
     {
-        m_isoParameter = Array<OneD, Array<OneD, NekDouble>>(3);
+        iso.m_nCoeff = 6;
         for (int i = 0; i < 3; ++i)
         {
-            m_isoParameter[i]    = Array<OneD, NekDouble>(6, 0.);
-            NekDouble A          = (*m_verts[0])(i);
-            NekDouble B          = (*m_verts[1])(i);
-            NekDouble C          = (*m_verts[2])(i);
-            NekDouble D          = (*m_verts[3])(i);
-            NekDouble E          = (*m_verts[4])(i);
-            NekDouble F          = (*m_verts[5])(i);
-            m_isoParameter[i][0] = 0.25 * (B + C + E + F);
+            NekDouble A       = (*m_verts[0])(i);
+            NekDouble B       = (*m_verts[1])(i);
+            NekDouble C       = (*m_verts[2])(i);
+            NekDouble D       = (*m_verts[3])(i);
+            NekDouble E       = (*m_verts[4])(i);
+            NekDouble F       = (*m_verts[5])(i);
+            iso.m_coeff[i][0] = 0.25 * (B + C + E + F);
 
-            m_isoParameter[i][1] = 0.25 * (-A + B + C - D); // xi1
-            m_isoParameter[i][2] = 0.25 * (-B + C - E + F); // xi2
-            m_isoParameter[i][3] = 0.25 * (-A - D + E + F); // xi3
+            iso.m_coeff[i][1] = 0.25 * (-A + B + C - D); // xi1
+            iso.m_coeff[i][2] = 0.25 * (-B + C - E + F); // xi2
+            iso.m_coeff[i][3] = 0.25 * (-A - D + E + F); // xi3
 
-            m_isoParameter[i][4] = 0.25 * (A - B + C - D); // xi1*xi2
-            m_isoParameter[i][5] = 0.25 * (A - D - E + F); // xi2*xi3
-            NekDouble tmp        = fabs(m_isoParameter[i][1]) +
-                            fabs(m_isoParameter[i][2]) +
-                            fabs(m_isoParameter[i][3]);
+            iso.m_coeff[i][4] = 0.25 * (A - B + C - D); // xi1*xi2
+            iso.m_coeff[i][5] = 0.25 * (A - D - E + F); // xi2*xi3
+            NekDouble tmp = fabs(iso.m_coeff[i][1]) + fabs(iso.m_coeff[i][2]) +
+                            fabs(iso.m_coeff[i][3]);
             tmp *= NekConstants::kNekZeroTol;
             for (int d = 4; d < 6; ++d)
             {
-                if (fabs(m_isoParameter[i][d]) > tmp)
+                if (fabs(iso.m_coeff[i][d]) > tmp)
                 {
                     Gtype = eDeformed;
                 }
@@ -174,10 +172,6 @@ GeomType PrismGeom::v_CalcGeomType()
         }
     }
 
-    if (Gtype == eRegular)
-    {
-        v_CalculateInverseIsoParam();
-    }
     return Gtype;
 }
 
@@ -766,15 +760,6 @@ void PrismGeom::v_Setup()
         }
         SetUpXmap();
         SetUpCoeffs(m_xmap->GetNcoeffs());
-
-        // check to see if expansions are linear
-        m_straightEdge = 1;
-        if (m_xmap->GetBasisNumModes(0) != 2 ||
-            m_xmap->GetBasisNumModes(1) != 2 ||
-            m_xmap->GetBasisNumModes(2) != 2)
-        {
-            m_straightEdge = 0;
-        }
 
         m_setupState = true;
     }

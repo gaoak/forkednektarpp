@@ -83,8 +83,7 @@ void export_Zones(py::module &m)
         .def("Move", &ZoneBase::Move)
         .def("GetElements", &ZoneBase::GetElements,
              py::return_value_policy::reference_internal)
-        .def("GetMoved", &ZoneBase::GetMoved, py::return_value_policy::copy)
-        .def("ClearBoundingBoxes", &ZoneBase::ClearBoundingBoxes);
+        .def("GetMoved", &ZoneBase::GetMoved, py::return_value_policy::copy);
 
     py::class_<ZoneRotate, ZoneBase, std::shared_ptr<ZoneRotate>>(m,
                                                                   "ZoneRotate")

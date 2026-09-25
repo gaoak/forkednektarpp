@@ -65,12 +65,6 @@ public:
 
 protected:
     Curve *m_curve;
-    Array<OneD, int> m_manifold;
-    Array<OneD, Array<OneD, NekDouble>> m_edgeNormal;
-
-    SPATIAL_DOMAINS_EXPORT NekDouble
-    v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
-                   Array<OneD, NekDouble> &Lcoords) override;
 
     void NewtonIterationForLocCoord(const Array<OneD, const NekDouble> &coords,
                                     const Array<OneD, const NekDouble> &ptsx,
@@ -79,14 +73,11 @@ protected:
                                     NekDouble &dist);
     void SolveStraightEdgeQuad(const Array<OneD, const NekDouble> &coords,
                                Array<OneD, NekDouble> &Lcoords);
-    void v_CalculateInverseIsoParam() override;
 
     //---------------------------------------
     // Helper functions
     //---------------------------------------
     int v_GetShapeDim() const override;
-    NekDouble v_FindDistance(const Array<OneD, const NekDouble> &xs,
-                             Array<OneD, NekDouble> &xi) override;
 };
 
 } // namespace Nektar::SpatialDomains
