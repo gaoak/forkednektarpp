@@ -110,13 +110,20 @@ public:
     void Launch(LibUtilities::Field<TData, TState> &in,
                 LibUtilities::Field<TData, TState> &out)
     {
+        static_assert(LAYOUT != DerivZLayout::CurlZ ||
+                          DERIVORDER == DerivZOrder::First,
+                      "A curl's z part is a first derivative; the sign the "
+                      "layout carries would be lost on a second one.");
+
         const unsigned int nhomo = in.GetNumHomoModes();
         // The scalar side of the mapping carries one component per variable
         // and is the one to loop over; only VectorZToScalar has it on the
-        // output side.
-        const unsigned int nComp = LAYOUT == DerivZLayout::VectorZToScalar
-                                       ? out.GetNumComponents()
-                                       : in.GetNumComponents();
+        // output side. CurlZ is fixed at the two transfers a curl's z part
+        // makes, whatever the component count.
+        const unsigned int nComp =
+            (LAYOUT == DerivZLayout::VectorZToScalar) ? out.GetNumComponents()
+            : (LAYOUT == DerivZLayout::CurlZ)         ? 2u
+                                                      : in.GetNumComponents();
 
         // The vector side gives every variable three direction slots, of
         // which this reads the z one.
@@ -125,6 +132,14 @@ public:
             ASSERTL1(in.GetNumComponents() == 3 * nComp,
                      "The homogeneous z-derivative needs three directions "
                      "per variable");
+        }
+
+        // A curl crosses the first two components over and leaves the third,
+        // so all three have to be there on both sides.
+        if constexpr (LAYOUT == DerivZLayout::CurlZ)
+        {
+            ASSERTL1(in.GetNumComponents() == 3 && out.GetNumComponents() == 3,
+                     "The homogeneous curl needs all three components");
         }
         const unsigned int numBlocks =
             static_cast<unsigned int>(in.GetBlocks().size());
@@ -171,6 +186,10 @@ public:
             {
                 unsigned int srcComp;
                 unsigned int dstComp;
+                // Only CurlZ carries a sign, and it takes the derivative
+                // itself either way, so the sign belongs to the mapping here
+                // rather than to the transform below.
+                TData sign = 1.0;
                 if constexpr (LAYOUT == DerivZLayout::ScalarToVectorZ)
                 {
                     // Component n of the scalar input to slot 3n + 2 of
@@ -185,6 +204,16 @@ public:
                     srcComp = n * 3 + 2;
                     dstComp = n;
                 }
+                else if constexpr (LAYOUT == DerivZLayout::CurlZ)
+                {
+                    // The z part of a curl, (-dfy/dz, dfx/dz, 0): transfer 0
+                    // takes component 1 to component 0 with a sign change
+                    // and transfer 1 takes component 0 to component 1.
+                    // Component 2 is zero there and is left to the xy pass.
+                    srcComp = 1u - n;
+                    dstComp = n;
+                    sign    = (n == 0u) ? -1.0 : 1.0;
+                }
                 else
                 {
                     // Component for component, both sides scalar.
@@ -195,8 +224,11 @@ public:
                 const TData *phiPtr = inPtr + srcComp * nsize;
                 TData *dzPtr        = outPtr + dstComp * nsize;
 
+                // The sign rides on beta, which the first-order multiplier
+                // is linear in; the static assert above keeps the second
+                // order, which is not, off this path.
                 LibUtilities::DerivZDirect<TData, DERIVORDER, APPEND>(
-                    phiPtr, dzPtr, nhomo, compStride, compStride, m_beta,
+                    phiPtr, dzPtr, nhomo, compStride, compStride, sign * m_beta,
                     streamID);
             }
 

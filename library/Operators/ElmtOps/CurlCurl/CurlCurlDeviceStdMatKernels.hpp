@@ -47,20 +47,27 @@ namespace Nektar::Operators::detail
 // a single sweep.
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Curl2DScalarStdMatKernel(
-    const unsigned int nqTot, const size_t nelmt, const size_t derivoffset,
-    const TData *dfptr, const TData *deriv, TData *omega,
-    const unsigned int streamID)
+    const unsigned int nqTot, const size_t nelmt, const unsigned int nhomo,
+    const size_t derivoffset, const TData *dfptr, const TData *deriv,
+    TData *omega, const unsigned int streamID)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
 
+    // Every plane is one more block of elements over the same geometry, so
+    // they all run in this one launch and the element index wraps back to the
+    // same derivative factors on each.
     constexpr unsigned int ndf = 4u;
-    const auto nsize           = nqTot * nelmt;
+    const auto nsize           = nqTot * nelmt * nhomo;
 
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            const size_t e = idx / nqTot;
+            // Stripping the plane costs the one modulo; the point within
+            // the element then comes off it with a multiply and a subtract
+            // rather than a second one.
+            const size_t ei = idx % (nelmt * nqTot);
+            const size_t e  = ei / nqTot;
             const size_t dfbase =
-                DEFORMED ? ndf * nqTot * e + (idx - e * nqTot) : ndf * e;
+                DEFORMED ? ndf * nqTot * e + (ei - e * nqTot) : ndf * e;
             const unsigned int dfstride = DEFORMED ? nqTot : 1u;
 
             const TData d0u = deriv[0u * derivoffset + idx];
@@ -86,20 +93,27 @@ NEK_FORCE_INLINE static void Curl2DScalarStdMatKernel(
 // deriv[d * derivoffset + idx] for direction d.
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Curl2DVectorStdMatKernel(
-    const unsigned int nqTot, const size_t nelmt, const size_t derivoffset,
-    const size_t outoffset, const TData *dfptr, const TData *deriv, TData *out,
-    const unsigned int streamID)
+    const unsigned int nqTot, const size_t nelmt, const unsigned int nhomo,
+    const size_t derivoffset, const size_t outoffset, const TData *dfptr,
+    const TData *deriv, TData *out, const unsigned int streamID)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
 
+    // Every plane is one more block of elements over the same geometry, so
+    // they all run in this one launch and the element index wraps back to the
+    // same derivative factors on each.
     constexpr unsigned int ndf = 4u;
-    const auto nsize           = nqTot * nelmt;
+    const auto nsize           = nqTot * nelmt * nhomo;
 
     Nektar::parallel_for<ExecSpace>(
         0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            const size_t e = idx / nqTot;
+            // Stripping the plane costs the one modulo; the point within
+            // the element then comes off it with a multiply and a subtract
+            // rather than a second one.
+            const size_t ei = idx % (nelmt * nqTot);
+            const size_t e  = ei / nqTot;
             const size_t dfbase =
-                DEFORMED ? ndf * nqTot * e + (idx - e * nqTot) : ndf * e;
+                DEFORMED ? ndf * nqTot * e + (ei - e * nqTot) : ndf * e;
             const unsigned int dfstride = DEFORMED ? nqTot : 1u;
 
             const TData d0 = deriv[0u * derivoffset + idx];

@@ -41,8 +41,9 @@ namespace Nektar::Operators::detail
 
 /// \brief Which way round a homogeneous z-derivative maps its components.
 ///
-/// Two of these are the same mapping read in opposite directions and the
-/// third leaves the components alone, so one parameter covers all three.
+/// Two of these are the same mapping read in opposite directions, the third
+/// leaves the components alone and the fourth crosses two of them over, so
+/// one parameter covers all four.
 enum class DerivZLayout
 {
     /// Component n of a scalar field to slot 3n + 2 of a vector, as PhysDeriv
@@ -54,6 +55,11 @@ enum class DerivZLayout
     /// Component n to component n, both sides scalar, as Laplacian and
     /// Helmholtz need for the weak z-Laplacian.
     Identity,
+    /// The z part of a curl, \f$(-\partial_z f_y, \partial_z f_x, 0)\f$:
+    /// component 1 to component 0 with a sign change and component 0 to
+    /// component 1, both sides the same three-component vector, as CurlCurl
+    /// needs for each of its two curls.
+    CurlZ,
 };
 
 /// Which z-derivative to take. It belongs to the transform, so it is defined
@@ -63,18 +69,20 @@ using LibUtilities::DerivZOrder;
 /// \brief The homogeneous z-derivative, specialised per execution space in
 /// DerivZOpSerialAVX.hpp and DerivZOpDevice.hpp.
 ///
-/// LAYOUT says which components are read and written and DERIVORDER which
-/// derivative is taken; both orders give the derivative itself, so an
-/// operator wanting minus the second one -- the form the weak z-Laplacian
-/// takes -- subtracts at its own level.
+/// LAYOUT says which components are read and written, and with what sign,
+/// and DERIVORDER which derivative is taken; both orders give the derivative
+/// itself, so an operator wanting minus the second one -- the form the weak
+/// z-Laplacian takes -- subtracts at its own level.
 ///
 /// APPEND says whether Launch() adds its result to the output or replaces
 /// it: the operators whose xy pass has already written a partial result --
-/// Divergence, which leaves du/dx + dv/dy there -- accumulate on top, while
-/// those writing into a slot of their own overwrite.
+/// Divergence, which leaves du/dx + dv/dy there, and CurlCurl, which leaves
+/// the plane part of a curl -- accumulate on top, while those writing into a
+/// slot of their own overwrite.
 template <typename ExecSpace, typename TData, DerivZLayout LAYOUT,
           DerivZOrder DERIVORDER, bool APPEND, typename Enable = void>
 class DerivZOpImpl;
+
 } // namespace Nektar::Operators::detail
 
 #include "Operators/ElmtOps/DerivZOpDevice.hpp"

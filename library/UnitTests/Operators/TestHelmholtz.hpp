@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
 #include "TestOp.hpp"
@@ -57,16 +59,29 @@ public:
             auto &block = this->fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int n = 0; n < this->fixt_in->GetNumComponents() *
-                                             this->fixt_in->GetNumHomoModes();
-                 ++n)
+            const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+
+            for (unsigned int n = 0;
+                 n < this->fixt_in->GetNumComponents() * nhomo; ++n)
             {
+                // The planes of a component are consecutive, so n % nhomo is
+                // the plane this slice sits on. Giving it a single Fourier
+                // mode along z is what exercises the z terms at all: a
+                // profile flat in z carries only the k = 0 mode, where they
+                // vanish, and the test would pass without them.
+                const TData zfac =
+                    (nhomo == 1)
+                        ? TData(1.0)
+                        : static_cast<TData>(std::cos(
+                              2.0 * M_PI * static_cast<double>(n % nhomo) /
+                              static_cast<double>(nhomo)));
+
                 for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int coeff = 0; coeff < block.GetNumData();
                          ++coeff, ++cnt)
                     {
-                        inptr[cnt] = coeff;
+                        inptr[cnt] = coeff * zfac;
                     }
                 }
                 inptr += block.CompSize();

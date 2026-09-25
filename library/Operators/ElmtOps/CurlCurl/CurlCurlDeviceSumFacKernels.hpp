@@ -536,6 +536,102 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     }
 }
 
+// One curl's plane part on each plane of a 3DH1 block: three components in,
+// three out.
+//
+// The curl of a 3DH1 field splits into a part that differentiates in the
+// plane, (df_z/dy, -df_z/dx, df_y/dx - df_x/dy), and a part that
+// differentiates along z. This writes the first; the operator's z-op adds the
+// second, and CurlCurlOpImpl takes the pair twice, the output carrying omega
+// in between. Both halves of
+// the plane part are already in the 2D kernels: the scalar one is the third
+// component, taken from the first two, and the vector one is the first two
+// components, taken from the third. Neither writes an intermediate any other
+// lane reads, so this pass needs no workspace at all.
+//
+// Each plane holds one plane curl over the same geometry, so they ride the
+// second grid dimension of a single launch and the kernel picks its plane
+// from the block index.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    const size_t inoffset, const size_t outoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    static_assert(
+        IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter2D or TemplatedPhysSizeParameter2D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int ncoord = sizeParam2D.ncoord();
+    const unsigned int nq0    = sizeParam2D.nq0();
+    const unsigned int nq1    = sizeParam2D.nq1();
+
+    const unsigned int ndf    = 2 * ncoord;
+    const unsigned int nqTot  = nq0 * nq1;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    TData *s_f0 = nullptr;
+    TData *s_f1 = nullptr;
+
+    // Precompute geometric factors.
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                  SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        s_f0 = (TData *)shmemptr;
+        s_f1 = s_f0 + nq0;
+
+        for (unsigned int idx = idx0; idx < nq0; idx += stride)
+        {
+            s_f0[idx] = f0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nq1; idx += stride)
+        {
+            s_f1[idx] = f1[idx];
+        }
+
+        localBarrier(threadBlock);
+    }
+
+    size_t e             = getGlobalIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
+    while (e < nelmt)
+    {
+        const size_t ilane = e % warpsize;
+        const size_t iwarp = e / warpsize;
+        const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
+        const TData *inptr = in + nqTot * (nelmt * p + warpsize * iwarp);
+        TData *outptr      = out + nqTot * (nelmt * p + warpsize * iwarp);
+
+        // The third component, df_y/dx - df_x/dy.
+        Curl2DScalarSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, ncoord, nq0, nq1, inoffset, D0, D1, s_f0, s_f1, dfptr, inptr,
+            outptr + 2u * outoffset);
+
+        // The first two components, {df_z/dy, -df_z/dx}.
+        Curl2DVectorSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, ncoord, nq0, nq1, outoffset, D0, D1, s_f0, s_f1, dfptr,
+            inptr + 2u * inoffset, outptr);
+
+        e += getGlobalRange<0>(threadBlock);
+    }
+}
+
 // Fused three-dimensional curl-curl kernel, see the two-dimensional kernel
 // above for the rationale.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,

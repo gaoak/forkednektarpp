@@ -123,8 +123,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        ASSERTL1(inblock.GetNumHomoModes() == 1,
-                 "Currently only setup for one homogeneous plane");
+        if (inblock.GetNumHomoModes() > 1)
+        {
+            ApplyCurl3DH1(inblock, outblock);
+            return;
+        }
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -302,6 +305,160 @@ protected:
                          : m_coordDim * m_dimension * simd_t::width;
             inptr += m_nqTot * simd_t::width;
             outptr += m_nqTot * simd_t::width;
+        }
+
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    /// \brief One curl's plane part on each plane of a 3DH1 block: three
+    /// components in, three out.
+    ///
+    /// The curl of a 3DH1 field splits into a part that differentiates in the
+    /// plane, \f$(\partial_y f_z, -\partial_x f_z,
+    /// \partial_x f_y - \partial_y f_x)\f$, and a part that differentiates
+    /// along z. This writes the first; the operator's z-op adds the second,
+    /// and CurlCurlOpImpl takes the pair twice, the output carrying omega in
+    /// between. Both halves of the plane part are already in the 2D kernels:
+    /// the scalar one is the third component, taken from the derivatives of
+    /// the first two, and the vector one is the first two components, taken
+    /// from the derivatives of the third.
+    void ApplyCurl3DH1(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        // A curl needs all three components whichever way round it is taken.
+        constexpr unsigned int nComp = 3u;
+
+        ASSERTL1(inblock.GetNumComponents() == nComp &&
+                     outblock.GetNumComponents() == nComp,
+                 "The homogeneous curl needs all three components");
+
+        // Initialize pointers.
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto nhomo     = inblock.GetNumHomoModes();
+        const auto inoffset  = inblock.CompSize() * nhomo;
+        const auto outoffset = outblock.CompSize() * nhomo;
+
+        // Get static workspace pointer. The standard derivatives of every
+        // component are held at once so that the chain rule and the curl can
+        // be applied by a single sweep.
+        const auto derivoffset = m_nqTot * simd_t::width;
+        auto derivptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                nComp * m_dimension * derivoffset);
+
+        // Dispatch kernel. The standard derivative matrices of all the
+        // directions are stored contiguously, so a multiply of
+        // dimension * nqTot columns forms the standard derivatives of one
+        // component in every direction at once.
+        auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_dimension * m_nqTot, m_nqTot, 1.0, 0.0);
+
+        // Loop over the planes. Each holds one xy curl, over the same
+        // geometry, so the derivative factors restart with every plane while
+        // the field pointers run on through the block.
+        for (unsigned int p = 0; p < nhomo; ++p)
+        {
+            auto dfptr = m_dfptr;
+
+            // Loop over element groups.
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
+            {
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    for (unsigned int c = 0; c < nComp; ++c)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            m_nqTot, (TData *)inptr + c * inoffset);
+                    }
+                }
+
+                // Step 1: standard derivatives of every component.
+                for (unsigned int c = 0; c < nComp; ++c)
+                {
+                    gemm_kernel(inptr + c * inoffset, m_matptr,
+                                derivptr + c * m_dimension * derivoffset);
+                }
+
+                // Step 2: the third component, df_y/dx - df_x/dy, from the
+                // derivatives of the first two.
+                if (m_isDeformed)
+                {
+                    Curl2DScalarStdMatKernel<ExecSpace, true>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
+                }
+                else
+                {
+                    Curl2DScalarStdMatKernel<ExecSpace, false>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(derivptr),
+                        reinterpret_cast<simd_t *>(outptr + 2 * outoffset));
+                }
+
+                // Step 3: the first two components, {df_z/dy, -df_z/dx}, from
+                // the derivatives of the third.
+                if (m_isDeformed)
+                {
+                    Curl2DVectorStdMatKernel<ExecSpace, true>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(
+                            derivptr + 2 * m_dimension * derivoffset),
+                        reinterpret_cast<simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr + outoffset));
+                }
+                else
+                {
+                    Curl2DVectorStdMatKernel<ExecSpace, false>(
+                        m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(
+                            derivptr + 2 * m_dimension * derivoffset),
+                        reinterpret_cast<simd_t *>(outptr),
+                        reinterpret_cast<simd_t *>(outptr + outoffset));
+                }
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int c = 0; c < nComp; ++c)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nqTot,
+                            (TData *)inptr + c * inoffset -
+                                (width_ratio - 1) * m_nqTot * simd_t::width);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nqTot,
+                            outptr + c * outoffset -
+                                (width_ratio - 1) * m_nqTot * simd_t::width);
+                    }
+                }
+
+                // Increment pointers.
+                dfptr +=
+                    (m_isDeformed)
+                        ? m_coordDim * m_dimension * m_nqTot * simd_t::width
+                        : m_coordDim * m_dimension * simd_t::width;
+                inptr += m_nqTot * simd_t::width;
+                outptr += m_nqTot * simd_t::width;
+            }
         }
 
         // Set output block to input interleave.

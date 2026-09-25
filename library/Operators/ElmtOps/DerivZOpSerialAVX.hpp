@@ -87,13 +87,20 @@ public:
     void Launch(LibUtilities::Field<TData, TState> &in,
                 LibUtilities::Field<TData, TState> &out)
     {
+        static_assert(LAYOUT != DerivZLayout::CurlZ ||
+                          DERIVORDER == DerivZOrder::First,
+                      "A curl's z part is a first derivative; the sign the "
+                      "layout carries would be lost on a second one.");
+
         const unsigned int nhomo = in.GetNumHomoModes();
         // The scalar side of the mapping carries one component per variable
         // and is the one to loop over; only VectorZToScalar has it on the
-        // output side.
-        const unsigned int nComp = LAYOUT == DerivZLayout::VectorZToScalar
-                                       ? out.GetNumComponents()
-                                       : in.GetNumComponents();
+        // output side. CurlZ is fixed at the two transfers a curl's z part
+        // makes, whatever the component count.
+        const unsigned int nComp =
+            (LAYOUT == DerivZLayout::VectorZToScalar) ? out.GetNumComponents()
+            : (LAYOUT == DerivZLayout::CurlZ)         ? 2u
+                                                      : in.GetNumComponents();
 
         // The vector side gives every variable three direction slots, of
         // which this reads the z one.
@@ -102,6 +109,14 @@ public:
             ASSERTL1(in.GetNumComponents() == 3 * nComp,
                      "The homogeneous z-derivative needs three directions "
                      "per variable");
+        }
+
+        // A curl crosses the first two components over and leaves the third,
+        // so all three have to be there on both sides.
+        if constexpr (LAYOUT == DerivZLayout::CurlZ)
+        {
+            ASSERTL1(in.GetNumComponents() == 3 && out.GetNumComponents() == 3,
+                     "The homogeneous curl needs all three components");
         }
 
         // Unpadded points per plane, summed over the blocks of `in`, and the
@@ -118,11 +133,15 @@ public:
         Array<OneD, double> waveCoef(nTotal, 0.0);
         Array<OneD, double> dzFlat(nTotal);
 
-        // z-derivative per component of the scalar side.
+        // One z-derivative per transfer the layout asks for.
         for (unsigned int n = 0; n < nComp; ++n)
         {
             unsigned int srcComp;
             unsigned int dstComp;
+            // Only CurlZ carries a sign, and it takes the derivative itself
+            // either way, so the sign belongs to the mapping here rather
+            // than to the transform below.
+            double sign = 1.0;
             if constexpr (LAYOUT == DerivZLayout::ScalarToVectorZ)
             {
                 // Component n of the scalar input to slot 3n + 2 of
@@ -136,6 +155,16 @@ public:
                 // variable n, to component n of the scalar output.
                 srcComp = n * 3 + 2;
                 dstComp = n;
+            }
+            else if constexpr (LAYOUT == DerivZLayout::CurlZ)
+            {
+                // The z part of a curl, (-dfy/dz, dfx/dz, 0): transfer 0
+                // takes component 1 to component 0 with a sign change and
+                // transfer 1 takes component 0 to component 1. Component 2
+                // is zero there and is left to the xy pass.
+                srcComp = 1u - n;
+                dstComp = n;
+                sign    = (n == 0u) ? -1.0 : 1.0;
             }
             else
             {
@@ -177,8 +206,11 @@ public:
             std::memset(waveCoef.data(), 0, nTotal * sizeof(double));
             for (unsigned int i = 0; i < nhomo; ++i)
             {
+                // The sign rides on beta, which the first-order multiplier
+                // is linear in; the static assert above keeps the second
+                // order, which is not, off this path.
                 const double betaK =
-                    m_beta *
+                    sign * m_beta *
                     m_homoExpList->m_transposition->GetK(static_cast<int>(i));
 
                 if constexpr (DERIVORDER == DerivZOrder::First)
@@ -186,7 +218,7 @@ public:
                     // The real and imaginary halves of a Fourier mode occupy
                     // adjacent planes, so d/dz writes plane i to its partner
                     // (i ^ 1) and negates the odd one.
-                    const double factor    = (i % 2 == 0 ? 1.0 : -1.0) * betaK;
+                    const double factor = ((i % 2 == 0) ? 1.0 : -1.0) * betaK;
                     const size_t srcOffset = i * planePts;
                     const size_t dstOffset = (i ^ 1u) * planePts;
                     for (size_t j = 0; j < planePts; ++j)

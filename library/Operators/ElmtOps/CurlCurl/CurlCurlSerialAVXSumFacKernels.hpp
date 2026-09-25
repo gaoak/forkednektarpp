@@ -397,6 +397,54 @@ NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
         nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, out0, out1);
 }
 
+// One curl's plane part on a 3DH1 element: three components in, three out.
+//
+// The curl of a 3DH1 field splits into a part that differentiates in the
+// plane, (df_z/dy, -df_z/dx, df_y/dx - df_x/dy), and a part that
+// differentiates along z. This writes the first; the operator's z-op adds the
+// second, and CurlCurlOpImpl takes the pair twice, the output carrying omega
+// in between. Both halves of
+// the plane part are already in the 2D kernels: the scalar one is the third
+// component, taken from the derivatives of the first two, and the vector one
+// is the first two components, taken from the derivatives of the third.
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TPhysSizeParameter2D, typename simd_type>
+NEK_FORCE_INLINE static void Curl3DH1KernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D,
+    const typename simd_type::scalarType *D0,
+    const typename simd_type::scalarType *D1, const simd_type *f0,
+    const simd_type *f1, const simd_type *df_ptr, simd_type *wsp,
+    const simd_type *in0, const simd_type *in1, const simd_type *in2,
+    simd_type *out0, simd_type *out1, simd_type *out2)
+{
+    static_assert(IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+                  "Template argument must be either of type "
+                  "NonTemplatedPhysSizeParameter2D or "
+                  "TemplatedPhysSizeParameter2D.");
+
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = sizeParam2D.nqTot();
+
+    // Tensorial derivatives of the first two components, then of the third
+    // once the first two have been consumed.
+    simd_type *tderiv_u = wsp;
+    simd_type *tderiv_v = tderiv_u + 2u * nqTot;
+
+    PhysDerivTensor2DKernel(nq0, nq1, in0, D0, D1, tderiv_u, tderiv_u + nqTot);
+    PhysDerivTensor2DKernel(nq0, nq1, in1, D0, D1, tderiv_v, tderiv_v + nqTot);
+
+    // The third component, df_y/dx - df_x/dy.
+    Curl2DScalarSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, tderiv_v,
+        tderiv_v + nqTot, out2);
+
+    // The first two components, {df_z/dy, -df_z/dx}.
+    PhysDerivTensor2DKernel(nq0, nq1, in2, D0, D1, tderiv_u, tderiv_u + nqTot);
+    Curl2DVectorSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, out0, out1);
+}
+
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void CurlCurlKernelLauncher(

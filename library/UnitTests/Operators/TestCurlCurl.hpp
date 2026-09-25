@@ -34,6 +34,10 @@
 
 #include "TestOp.hpp"
 
+#include <cmath>
+
+#include <MultiRegions/ExpListHomogeneous1D.h>
+
 #include "Operators/ElmtOps/CurlCurl/CurlCurlOp.hpp"
 
 using namespace Nektar;
@@ -48,7 +52,7 @@ public:
 
     void SetFixture(const unsigned int nhomo) override
     {
-        auto nin  = this->fixt_explist->GetCoordim(0);
+        auto nin  = NumCurlComponents();
         auto nout = nin;
 
         auto inblockAttr =
@@ -84,7 +88,11 @@ public:
         Array<OneD, TData> y(totpoints);
         Array<OneD, TData> z(totpoints);
         this->fixt_explist->GetCoords(x, y, z);
-        if (dim == 2)
+        // A 3DH1 expansion has a real third coordinate although its planes
+        // are two-dimensional, and the initial condition has to vary along
+        // it for the z terms to be exercised at all.
+        const bool isHomogeneous = this->fixt_in->GetNumHomoModes() > 1;
+        if (dim == 2 && !isHomogeneous)
         {
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
@@ -129,9 +137,22 @@ public:
                                 {
                                     for (unsigned int k = 0; k < M[2] / 2; ++k)
                                     {
+                                        // The homogeneous direction carries a
+                                        // Fourier basis over a unit period, so
+                                        // it is driven by a mode it can
+                                        // represent. A monomial in z is not
+                                        // periodic: its Fourier derivative
+                                        // rings, which would make this a test
+                                        // of how alike the two sides' Gibbs
+                                        // noise is rather than of the
+                                        // operator.
+                                        const TData zfac =
+                                            isHomogeneous
+                                                ? std::cos(2.0 * M_PI * k *
+                                                           z[pts])
+                                                : std::pow(z[pts], k);
                                         tmp += std::pow(x[pts], i) *
-                                                   std::pow(y[pts], j) *
-                                                   std::pow(z[pts], k) +
+                                                   std::pow(y[pts], j) * zfac +
                                                n + m + blk;
                                     }
                                 }
@@ -153,7 +174,7 @@ public:
     {
         // Calculate expected result from Nektar++
         const unsigned int numComp = this->fixt_in->GetNumComponents();
-        const unsigned int dim     = this->fixt_explist->GetCoordim(0);
+        const unsigned int dim     = NumCurlComponents();
         const size_t nphys         = this->fixt_explist->GetTotPoints();
         Array<OneD, TData> inphys  = this->fixt_in->ToArray();
         Array<OneD, TData> outphys(nphys * numComp, 0.0);
@@ -173,11 +194,39 @@ public:
             numComp == dim,
             "Need the same number of components and dimension for this test.");
 
-        // Calculate \nabla \times \nabla \times u
+        // Calculate \nabla \times \nabla \times u. On 3DH1 the input is in
+        // physical space while SetExpList3DH1 leaves WaveSpace=true, so it
+        // is turned off around the call: otherwise CurlCurl takes the planes
+        // for Fourier coefficients and skips the transforms its
+        // z-derivatives need.
+        const bool is3DH1 =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist) != nullptr &&
+            this->fixt_in->GetNumHomoModes() > 1;
+
+        if (is3DH1)
+        {
+            this->fixt_explist->SetWaveSpace(false);
+        }
+
         this->fixt_explist->CurlCurl(inphysmd, outphysmd);
+
+        if (is3DH1)
+        {
+            this->fixt_explist->SetWaveSpace(true);
+        }
 
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outphys);
+    }
+
+protected:
+    /// How many components a curl takes here. It is the coordinate dimension
+    /// of an ordinary expansion; a 3DH1 curl is three-dimensional although
+    /// its planes are not, so the homogeneous fixture says three instead.
+    virtual unsigned int NumCurlComponents() const
+    {
+        return this->fixt_explist->GetCoordim(0);
     }
 };
 
@@ -261,3 +310,53 @@ TEST(TetNodal, "run/tet_nodal.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData> class TestCurlCurlFFT : public TestCurlCurl<TData>
+{
+public:
+    TestCurlCurlFFT() = default;
+
+protected:
+    /// A curl on a 3DH1 expansion is three-dimensional: the planes carry two
+    /// coordinates and the homogeneous direction the third.
+    unsigned int NumCurlComponents() const override
+    {
+        return 3u;
+    }
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestCurlCurlFFT<float>                          \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestCurlCurlFFT<double>                                \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+// clang-format on
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")

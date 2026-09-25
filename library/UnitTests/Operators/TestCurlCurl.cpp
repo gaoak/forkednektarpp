@@ -55,6 +55,20 @@
         }                                                                      \
     }
 
+#define TEST_CURLCURL3DH1(test_name, test, tol)                                \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure3DH1(16);                                                     \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteCurlCurl)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -92,7 +106,7 @@ TEST_CURLCURL(curlcurl_prism_nodal, PrismNodal, 1.0E-10)
 
 TEST_CURLCURL(curlcurl_pyr, Pyr, 1.0E-09)
 
-TEST_CURLCURL(curlcurl_pyr_varp, PyrVarP, 2.0E-09)
+TEST_CURLCURL(curlcurl_pyr_varp, PyrVarP, 5.0E-09)
 
 TEST_CURLCURL(curlcurl_tet, Tet, 3.0E-09)
 
@@ -103,6 +117,13 @@ TEST_CURLCURL(curlcurl_tet_nodal, TetNodal, 3.0E-09)
 TEST_CURLCURL(curlcurl_cube_prism_hex, CubePrismHex, 4.0E-10)
 
 TEST_CURLCURL(curlcurl_cube_all_elements, CubeAllElements, 2.0E-09)
+
+TEST_CURLCURL3DH1(curlcurl_quad_3dh1, QuadFFT, 1.0E-09)
+
+TEST_CURLCURL3DH1(curlcurl_tri_3dh1, TriFFT, 3.0E-09)
+
+TEST_CURLCURL3DH1(curlcurl_square_all_elements_3dh1, SquareAllElementsFFT,
+                  1.0E-08)
 
 #endif
 

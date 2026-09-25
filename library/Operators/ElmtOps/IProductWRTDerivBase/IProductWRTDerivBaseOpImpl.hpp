@@ -83,19 +83,19 @@ public:
                 m_ipOp =
                     IProductWRTBaseOp<TData>::Create(expansionList, components);
 
-                const unsigned int nVar =
+                const unsigned int nComp =
                     static_cast<unsigned int>(components.size());
 
                 m_dz = LibUtilities::Field<TData, FieldState::Phys>(
                     "IProductWRTDerivBaseDz",
                     MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                         expansionList),
-                    nVar, nhomo);
+                    nComp, nhomo);
                 m_wsp = LibUtilities::Field<TData, FieldState::Coeff>(
                     "IProductWRTDerivBaseWsp",
                     MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                         expansionList),
-                    nVar, nhomo);
+                    nComp, nhomo);
             }
         }
     }
