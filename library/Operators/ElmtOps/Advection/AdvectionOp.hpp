@@ -85,7 +85,7 @@ public:
         // A 3DH1 expansion carries a third velocity component along the
         // homogeneous direction, which the planes themselves do not count.
         ASSERTL1(advVel.GetNumComponents() ==
-                     (advVel.GetNumHomoModes() == 1
+                     ((advVel.GetNumHomoModes() == 1)
                           ? static_cast<unsigned int>(
                                 this->m_expansionList->GetCoordim(0))
                           : 3u),

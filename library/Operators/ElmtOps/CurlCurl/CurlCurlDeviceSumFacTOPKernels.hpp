@@ -493,6 +493,83 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     }
 }
 
+// One curl's plane part on each plane of a 3DH1 block: three components in,
+// three out. See the SumFac kernel of the same name for how the curl splits
+// and why the 2D kernels already hold both halves of the plane part.
+//
+// The three input components fit the shared memory the 2D curl-curl already
+// asks for: the first two go where it stages its input and the third where
+// it would hold omega, which this pass never forms -- each half of the plane
+// part writes straight out to global memory.
+//
+// Each plane holds one plane curl over the same geometry, so they ride the
+// second grid dimension of a single launch and the kernel picks its plane
+// from the block index.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<std::is_same_v<Implementation, SumFacTOP>, bool>
+              Enable = true>
+NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
+    const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
+    const size_t inoffset, const size_t outoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    unsigned char *shmemptr, const TthreadBlock &threadBlock)
+{
+    static_assert(
+        IsPhysSizeParameter2D_v<TPhysSizeParameter2D>,
+        "Template argument must be either of type "
+        "NonTemplatedPhysSizeParameter2D or TemplatedPhysSizeParameter2D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int ncoord = sizeParam2D.ncoord();
+    const unsigned int nq0    = sizeParam2D.nq0();
+    const unsigned int nq1    = sizeParam2D.nq1();
+
+    const unsigned int ndf    = 2 * ncoord;
+    const unsigned int nqTot  = nq0 * nq1;
+    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+
+    TData *s_in               = (TData *)shmemptr;
+    TData *s_inz              = s_in + 2u * nqTot;
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
+    while (e < nelmt)
+    {
+        const TData *dfptr = df + ndf * dfsize * e;
+        const TData *inptr = in + nqTot * (nelmt * p + e);
+        TData *outptr      = out + nqTot * (nelmt * p + e);
+
+        // Copy all three components to shared memory.
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            s_in[idx]         = inptr[idx];
+            s_in[nqTot + idx] = inptr[inoffset + idx];
+            s_inz[idx]        = inptr[2u * inoffset + idx];
+        }
+
+        localBarrier(threadBlock);
+
+        // The third component, df_y/dx - df_x/dy.
+        Curl2DScalarSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            ncoord, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr, s_in,
+            outptr + 2u * outoffset, threadBlock);
+
+        // The first two components, {df_z/dy, -df_z/dx}.
+        Curl2DVectorSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            ncoord, nq0, nq1, outoffset, D0, D1, f0, f1, dfptr, s_inz, outptr,
+            threadBlock);
+
+        e += getBlockRange<0>(threadBlock);
+    }
+}
+
 // Fused three-dimensional curl-curl kernel, see the two-dimensional kernel
 // above for the rationale.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,

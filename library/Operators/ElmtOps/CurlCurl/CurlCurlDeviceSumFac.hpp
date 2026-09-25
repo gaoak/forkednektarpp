@@ -288,6 +288,30 @@ protected:
     {
         constexpr unsigned int ndim = sizeof...(ind0);
 
+        // A multi-plane 3DH1 field is a stack of plane curls on a 2D shape,
+        // which is a different kernel over the same sweep.
+        if (inblock.GetNumHomoModes() > 1)
+        {
+            if constexpr (ndim == 2)
+            {
+                OperatorCurl3DH1<SHAPE_TYPE, DEFORMED>(
+                    inblock, outblock, sizeParam,
+                    std::integer_sequence<unsigned int, ind0...>(),
+                    std::integer_sequence<unsigned int, ind1...>());
+                return;
+            }
+            else
+            {
+                // 3DH1 planes are two-dimensional and 3DH2 is not wired at
+                // all. The guard is L0: without it the launch below would
+                // take the extra planes for extra variables and come back
+                // silently wrong in a release build.
+                NEKERROR(ErrorUtil::efatal,
+                         "CurlCurlBlockOp supports homogeneous expansions "
+                         "only on two-dimensional planes.");
+            }
+        }
+
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
@@ -334,6 +358,80 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             interleaveWidth, m_implInterleaveWidth, ndim * nelmt,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
+
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    /// \brief One curl's plane part on each plane of a 3DH1 block: three
+    /// components in, three out.
+    ///
+    /// The z part is the operator's z-op and the double curl is the pair
+    /// taken twice with the output carrying omega in between, so this is one
+    /// curl's worth of plane derivatives and nothing more. Each plane holds the
+    /// same geometry, so they ride the second grid dimension of a single launch
+    /// rather than a loop on the host.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              typename TPhysSizeParameter, unsigned int... ind0,
+              unsigned int... ind1>
+    NEK_FORCE_INLINE void OperatorCurl3DH1(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
+        TPhysSizeParameter sizeParam,
+        std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>)
+    {
+        // A curl needs all three components whichever way round it is taken.
+        constexpr unsigned int nComp = 3u;
+
+        ASSERTL1(inblock.GetNumComponents() == nComp &&
+                     outblock.GetNumComponents() == nComp,
+                 "The homogeneous curl needs all three components");
+
+        // Get block sizes.
+        const auto nhomo = inblock.GetNumHomoModes();
+        const auto nelmt = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Set Kernel parameters.
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            CurlCurlSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+        const unsigned int blocksize =
+            GetDeviceBlockSize<Implementation>(sizeParam.nqTot());
+        const unsigned int gridsize =
+            GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
+
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto inoffset  = inblock.CompSize() * nhomo;
+        const auto outoffset = outblock.CompSize() * nhomo;
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nComp * nhomo * nelmt,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+
+        // Plane part of one curl.
+        DEVICE_2DGRID_KERNEL_LAUNCHER(
+            (Curl3DH1KernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            gridsize, nhomo, blocksize, 1, shmemsize, m_streamID, sizeParam,
+            nelmt, inoffset, outoffset, m_D[ind0]..., m_f[ind1]..., m_dfptr,
+            inptr, outptr);
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nComp * nhomo * nelmt,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nComp * nhomo * nelmt,
             outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.

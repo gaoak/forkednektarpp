@@ -319,6 +319,30 @@ protected:
     {
         constexpr unsigned int ndim = sizeof...(ind0);
 
+        // A multi-plane 3DH1 field is a stack of plane curls on a 2D shape,
+        // which is a different sweep over the same kernels.
+        if (inblock.GetNumHomoModes() > 1)
+        {
+            if constexpr (ndim == 2)
+            {
+                OperatorCurl3DH1<SHAPE_TYPE, DEFORMED>(
+                    inblock, outblock, sizeParam,
+                    std::integer_sequence<unsigned int, ind0...>(),
+                    std::integer_sequence<unsigned int, ind1...>());
+                return;
+            }
+            else
+            {
+                // 3DH1 planes are two-dimensional and 3DH2 is not wired at
+                // all. The guard is L0: without it the loop below would take
+                // the extra planes for extra variables and come back
+                // silently wrong in a release build.
+                NEKERROR(ErrorUtil::efatal,
+                         "CurlCurlBlockOp supports homogeneous expansions "
+                         "only on two-dimensional planes.");
+            }
+        }
+
         // Shape size.
         const auto nqTot = sizeParam.nqTot();
 
@@ -413,6 +437,128 @@ protected:
                 {
                     inptr[d] += nqTot * simd_t::width;
                     outptr[d] += nqTot * simd_t::width;
+                }
+            }
+        }
+
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    /// \brief One curl's plane part on each plane of a 3DH1 block: three
+    /// components in, three out.
+    ///
+    /// The z part is the operator's z-op and the double curl is the pair
+    /// taken twice with the output carrying omega in between, so this is one
+    /// curl's worth of plane derivatives and nothing more. Each plane holds the
+    /// same geometry, so the derivative factors restart with every plane while
+    /// the field pointers run on through the block.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              typename TPhysSizeParameter, unsigned int... ind0,
+              unsigned int... ind1>
+    NEK_FORCE_INLINE void OperatorCurl3DH1(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
+        TPhysSizeParameter sizeParam,
+        std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>)
+    {
+        // A curl needs all three components whichever way round it is taken.
+        constexpr unsigned int nComp = 3u;
+
+        ASSERTL1(inblock.GetNumComponents() == nComp &&
+                     outblock.GetNumComponents() == nComp,
+                 "The homogeneous curl needs all three components");
+
+        // Shape size.
+        const auto nqTot = sizeParam.nqTot();
+
+        unsigned int dfsize = 2u * 2u;
+        if constexpr (DEFORMED)
+        {
+            dfsize *= nqTot;
+        }
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto nhomo         = inblock.GetNumHomoModes();
+        const auto inCompOffset  = inblock.CompSize() * nhomo;
+        const auto outCompOffset = outblock.CompSize() * nhomo;
+
+        // Initialize pointers.
+        auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outbase = outblock.template GetPtr<MemSpace, WriteOnly>();
+        const TData *inptr[nComp];
+        TData *outptr[nComp];
+        for (unsigned int c = 0; c < nComp; ++c)
+        {
+            inptr[c]  = inbase + c * inCompOffset;
+            outptr[c] = outbase + c * outCompOffset;
+        }
+
+        // Loop over the planes. A component's planes are adjacent, so the
+        // field pointers simply carry on from one to the next.
+        for (unsigned int p = 0; p < nhomo; ++p)
+        {
+            auto dfptr = m_dfptr;
+
+            // Loop over element groups.
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
+            {
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    for (unsigned int c = 0; c < nComp; ++c)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, interleaveWidth, chunkSize,
+                            nqTot, (TData *)inptr[c]);
+                    }
+                }
+
+                // Plane part of one curl.
+                Curl3DH1KernelLauncher<SHAPE_TYPE, DEFORMED>(
+                    sizeParam, m_D[ind0]..., m_f[ind1]...,
+                    reinterpret_cast<const simd_t *>(dfptr), m_wsp.data(),
+                    reinterpret_cast<const simd_t *>(inptr[0]),
+                    reinterpret_cast<const simd_t *>(inptr[1]),
+                    reinterpret_cast<const simd_t *>(inptr[2]),
+                    reinterpret_cast<simd_t *>(outptr[0]),
+                    reinterpret_cast<simd_t *>(outptr[1]),
+                    reinterpret_cast<simd_t *>(outptr[2]));
+
+                // Reshape back, if necessary.
+                if (e % width_ratio == width_ratio - 1)
+                {
+                    for (unsigned int c = 0; c < nComp; ++c)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)inptr[c] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            interleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            (TData *)outptr[c] -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                    }
+                }
+
+                // Increment pointers for the next elmt group.
+                dfptr += dfsize * simd_t::width;
+                for (unsigned int c = 0; c < nComp; ++c)
+                {
+                    inptr[c] += nqTot * simd_t::width;
+                    outptr[c] += nqTot * simd_t::width;
                 }
             }
         }

@@ -121,8 +121,11 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
     {
-        ASSERTL1(inblock.GetNumHomoModes() == 1,
-                 "Currently only setup for one homogeneous plane");
+        if (inblock.GetNumHomoModes() > 1)
+        {
+            ApplyCurl3DH1(inblock, outblock);
+            return;
+        }
 
         // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
@@ -172,14 +175,14 @@ protected:
             if (m_isDeformed)
             {
                 Curl2DScalarStdMatKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, derivoffset, m_dfptr, derivptr, omegaptr,
-                    m_streamID);
+                    m_nqTot, nelmt, 1u, derivoffset, m_dfptr, derivptr,
+                    omegaptr, m_streamID);
             }
             else
             {
                 Curl2DScalarStdMatKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, derivoffset, m_dfptr, derivptr, omegaptr,
-                    m_streamID);
+                    m_nqTot, nelmt, 1u, derivoffset, m_dfptr, derivptr,
+                    omegaptr, m_streamID);
             }
         }
         else
@@ -212,14 +215,14 @@ protected:
             if (m_isDeformed)
             {
                 Curl2DVectorStdMatKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
-                    outptr, m_streamID);
+                    m_nqTot, nelmt, 1u, derivoffset, outoffset, m_dfptr,
+                    derivptr, outptr, m_streamID);
             }
             else
             {
                 Curl2DVectorStdMatKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
-                    outptr, m_streamID);
+                    m_nqTot, nelmt, 1u, derivoffset, outoffset, m_dfptr,
+                    derivptr, outptr, m_streamID);
             }
         }
         else
@@ -244,6 +247,124 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             interleaveWidth, m_implInterleaveWidth, m_coordDim * nelmt,
+            outblock.GetNumData(), (TData *)outptr, m_streamID);
+
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    /// \brief One curl's plane part on each plane of a 3DH1 block: three
+    /// components in, three out.
+    ///
+    /// The curl of a 3DH1 field splits into a part that differentiates in the
+    /// plane, \f$(\partial_y f_z, -\partial_x f_z,
+    /// \partial_x f_y - \partial_y f_x)\f$, and a part that differentiates
+    /// along z. This writes the first; the operator's z-op adds the second,
+    /// and CurlCurlOpImpl takes the pair twice, the output carrying omega in
+    /// between. Both halves of the plane part are already in the 2D kernels:
+    /// the scalar one is the third component, taken from the derivatives of
+    /// the first two, and the vector one is the first two components, taken
+    /// from the derivatives of the third.
+    ///
+    /// The two kernels want different strides between directions, two
+    /// components for the scalar and one for the vector, so the derivatives
+    /// come from two multiplies rather than one. Every plane rides inside
+    /// them: a component's planes are adjacent, so they simply lengthen the
+    /// element count.
+    void ApplyCurl3DH1(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        // A curl needs all three components whichever way round it is taken.
+        constexpr unsigned int nComp = 3u;
+
+        ASSERTL1(inblock.GetNumComponents() == nComp &&
+                     outblock.GetNumComponents() == nComp,
+                 "The homogeneous curl needs all three components");
+
+        // Get BLAS handle.
+        auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
+
+        // Get block sizes.
+        const auto nhomo    = inblock.GetNumHomoModes();
+        const auto nelmt    = inblock.GetNumElementsWithPadding();
+        const auto nelmtTot = nelmt * nhomo;
+
+        // Initialize pointers.
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+
+        // Get static workspace pointer. The standard derivatives of every
+        // component are held at once so that the chain rule and the curl can
+        // be applied by a single kernel: the first two components in the
+        // layout the scalar kernel reads, the third in the vector kernel's.
+        const auto derivoffset = m_nqTot * nelmtTot;
+        auto derivptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                nComp * m_dimension * derivoffset, m_streamID);
+        auto derivzptr = derivptr + 2u * m_dimension * derivoffset;
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // Offsets between the components of a block: one component spans all
+        // of the planes.
+        const auto compoffset = inblock.CompSize() * nhomo;
+        const auto outoffset  = outblock.CompSize() * nhomo;
+
+        // Reshape, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            m_implInterleaveWidth, interleaveWidth, nComp * nelmtTot,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+
+        // Standard derivatives of the first two components, ordered as the
+        // scalar kernel reads them.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, 2u * nelmtTot, m_nqTot, (TData)1.0,
+            m_matptr, m_nqTot, m_nqTot * m_nqTot, inptr, m_nqTot, 0, (TData)0.0,
+            derivptr, m_nqTot, 2u * derivoffset, m_dimension);
+
+        // Standard derivatives of the third component, ordered as the vector
+        // kernel reads them.
+        NekBlas::GemmStridedBatched(
+            handle, "N", "N", m_nqTot, nelmtTot, m_nqTot, (TData)1.0, m_matptr,
+            m_nqTot, m_nqTot * m_nqTot, inptr + 2u * compoffset, m_nqTot, 0,
+            (TData)0.0, derivzptr, m_nqTot, derivoffset, m_dimension);
+
+        // The third component, df_y/dx - df_x/dy.
+        if (m_isDeformed)
+        {
+            Curl2DScalarStdMatKernel<ExecSpace, true>(
+                m_nqTot, nelmt, nhomo, derivoffset, m_dfptr, derivptr,
+                outptr + 2u * outoffset, m_streamID);
+        }
+        else
+        {
+            Curl2DScalarStdMatKernel<ExecSpace, false>(
+                m_nqTot, nelmt, nhomo, derivoffset, m_dfptr, derivptr,
+                outptr + 2u * outoffset, m_streamID);
+        }
+
+        // The first two components, {df_z/dy, -df_z/dx}.
+        if (m_isDeformed)
+        {
+            Curl2DVectorStdMatKernel<ExecSpace, true>(
+                m_nqTot, nelmt, nhomo, derivoffset, outoffset, m_dfptr,
+                derivzptr, outptr, m_streamID);
+        }
+        else
+        {
+            Curl2DVectorStdMatKernel<ExecSpace, false>(
+                m_nqTot, nelmt, nhomo, derivoffset, outoffset, m_dfptr,
+                derivzptr, outptr, m_streamID);
+        }
+
+        // Reshape back, if necessary.
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nComp * nelmtTot,
+            inblock.GetNumData(), (TData *)inptr, m_streamID);
+        LibUtilities::ReshapeStorage<ExecSpace>(
+            interleaveWidth, m_implInterleaveWidth, nComp * nelmtTot,
             outblock.GetNumData(), (TData *)outptr, m_streamID);
 
         // Set output block to input interleave.
