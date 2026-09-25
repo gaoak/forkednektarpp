@@ -3734,16 +3734,20 @@ protected:
  *
  * @tparam ExecSpace Execution space the operator runs in.
  * @tparam TData     Floating-point representation used by the field data.
+ * @tparam TBase     Operator interface the implementation presents, passed
+ *                   through to TraceFluxOpImpl.
  */
-template <typename ExecSpace, typename TData>
-class ScalarDiffusionTraceFluxOpImpl : public TraceFluxOpImpl<ExecSpace, TData>
+template <typename ExecSpace, typename TData,
+          typename TBase = TraceFluxOp<TData>>
+class ScalarDiffusionTraceFluxOpImpl
+    : public TraceFluxOpImpl<ExecSpace, TData, TBase>
 {
 
 protected:
     ScalarDiffusionTraceFluxOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : TraceFluxOpImpl<ExecSpace, TData>(expansionList, components)
+        : TraceFluxOpImpl<ExecSpace, TData, TBase>(expansionList, components)
     {
     }
 

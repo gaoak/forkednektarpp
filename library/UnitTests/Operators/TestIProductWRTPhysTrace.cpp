@@ -180,6 +180,11 @@ TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_prism_transposed_face_divtest,
 
 TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_pyr_divtest, Pyr, 1.0E-12)
 
+// The same check on an orthogonal pyramid. Its collapsed-direction basis is
+// the one whose derivative data was short, so the divergence identity failed
+// here while every other shape passed.
+TEST_IPWRTTRACE_DIVTEST(ipwrtTrace_pyr_ortho_divtest, PyrOrtho, 1.0E-12)
+
 TEST_IPWRTTRACE(ipwrtTrace_cube_prism_hex, CubePrismHex, 1.0E-12, true)
 
 TEST_IPWRTTRACE(ipwrtTracey_cube_all_elements, CubeAllElements, 1.0E-12, true)

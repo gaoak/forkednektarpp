@@ -25,6 +25,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(NAME_SOURCES ${name}_SOURCES)
         SET(OPERATOR ${name})
 
+        # Counted so that a directory registering nothing can say so below,
+        # rather than surfacing later as a missing operator at run time.
+        SET(OP_REGISTERED 0)
+
         # These operator have an additional argument for the FieldState
         # which requires two delcarations.
         IF("${name}" STREQUAL "IProductWRTDerivBase")
@@ -80,9 +84,21 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
                 SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
                 SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                MATH(EXPR OP_REGISTERED "${OP_REGISTERED}+1")
 
             ENDFOREACH()
         ENDFOREACH()
+
+        # As above: a globbed directory that produces no operator is almost
+        # always a mistake, and says nothing until the factory is asked for it.
+        # Only for a directory that declares an operator: a glob such as
+        # BndCondOps/* also picks up shared directories which hold no operator
+        # and should stay quiet.
+        IF(OP_REGISTERED EQUAL 0 AND EXISTS "${abs_dir}/${name}Op.hpp")
+            MESSAGE(WARNING "ADD_OPERATOR: '${name}' declares ${name}Op.hpp but "
+                "registered no operator for any execution space. Expected an "
+                "implementation header named ${name}OpImpl.hpp in ${dir}.")
+        ENDIF()
 
         # Add this operator's implemenations to the global operator source
         # and header files.
@@ -110,6 +126,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(NAME_HEADERS ${name}_HEADERS)
         SET(NAME_SOURCES ${name}_SOURCES)
         SET(OPERATOR ${name})
+
+        # Counted so that a directory registering nothing can say so below,
+        # rather than surfacing later as a missing operator at run time.
+        SET(BLOCK_OP_REGISTERED 0)
 
         # These operator have an additional argument for the FieldState
         # which requires two delcarations.
@@ -167,8 +187,21 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
                 SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
                 SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                MATH(EXPR BLOCK_OP_REGISTERED "${BLOCK_OP_REGISTERED}+1")
             ENDFOREACH()
         ENDFOREACH()
+
+        # A globbed directory that produces no block operator is almost always
+        # a mistake, and its only symptom is "No such operator" from the
+        # factory at run time, a long way from the cause.
+        # Only for a directory that declares a block operator, so that shared
+        # directories picked up by a glob stay quiet.
+        IF(BLOCK_OP_REGISTERED EQUAL 0 AND EXISTS "${abs_dir}/${name}BlockOp.hpp")
+            MESSAGE(WARNING "ADD_BLOCK_OPERATOR: '${name}' declares "
+                "${name}BlockOp.hpp but registered no block operator for any "
+                "execution space. Expected an implementation header named "
+                "${name}BlockOp<SerialAVX|Device>.hpp in ${dir}.")
+        ENDIF()
 
         # Add this operator's implemenations to the global operator source
         # and header files.

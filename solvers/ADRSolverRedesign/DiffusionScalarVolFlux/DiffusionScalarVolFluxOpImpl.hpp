@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionScalarIPVolFluxOpImpl.hpp
+// File: DiffusionScalarVolFluxOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,23 +34,22 @@
 
 #pragma once
 
-#include "ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxKernels.hpp"
-#include "ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp"
+#include "ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxKernels.hpp"
+#include "ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp"
 
 namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
-class DiffusionScalarIPVolFluxOpImpl : public DiffusionScalarIPVolFluxOp<TData>
+class DiffusionScalarVolFluxOpImpl : public DiffusionScalarVolFluxOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DiffusionScalarIPVolFluxOpImpl(
+    DiffusionScalarVolFluxOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : DiffusionScalarIPVolFluxOp<TData>(std::move(expansionList),
-                                            components)
+        : DiffusionScalarVolFluxOp<TData>(std::move(expansionList), components)
     {
         m_nDim = expansionList->GetCoordim(0);
 
@@ -68,9 +67,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<
-            DiffusionScalarIPVolFluxOpImpl<ExecSpace, TData>>(expansionList,
-                                                              components);
+        return std::make_unique<DiffusionScalarVolFluxOpImpl<ExecSpace, TData>>(
+            expansionList, components);
     }
 
 protected:
@@ -96,7 +94,7 @@ protected:
             auto diffCoeffBase =
                 m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(streamID);
 
-            DiffusionScalarIPVolFluxKernel<ExecSpace>(
+            DiffusionScalarVolFluxKernel<ExecSpace>(
                 outblock.CompSize(), m_nDim, inblock.GetNumComponents(),
                 derivblock.CompSize(), outblock.CompSize(), diffCoeffBase,
                 derivbase, outbase, streamID);

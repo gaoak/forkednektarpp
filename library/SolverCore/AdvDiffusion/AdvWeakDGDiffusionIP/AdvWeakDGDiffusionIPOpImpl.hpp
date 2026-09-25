@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionIPOpImpl.hpp
+// File: AdvWeakDGDiffusionIPOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: DiffusionIP Operator.
+// Description: AdvWeakDGDiffusionIP Operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,7 +39,7 @@
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
-#include "SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
+#include "SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp"
@@ -49,14 +49,15 @@ namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
-class DiffusionIPOpImpl : public DiffusionIPOp<TData>
+class AdvWeakDGDiffusionIPOpImpl : public AdvWeakDGDiffusionIPOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    DiffusionIPOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components)
-        : DiffusionIPOp<TData>(std::move(expansionList), components),
+    AdvWeakDGDiffusionIPOpImpl(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : AdvWeakDGDiffusionIPOp<TData>(expansionList, components),
           m_coeff(LibUtilities::Field<TData, FieldState::Coeff>(
               "Diffusion coeff",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
@@ -76,7 +77,8 @@ public:
               "Flux vector",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                   expansionList),
-              expansionList->GetCoordim(0) * components.size(), 1)),
+              expansionList->GetExp(0)->GetShapeDimension() * components.size(),
+              1)),
           m_numflux(LibUtilities::Field<TData, FieldState::Phys>(
               "Num flux",
               MultiRegions::GetLocTraceBlockAttributes<TData, FieldState::Phys>(
@@ -127,7 +129,8 @@ public:
             expansionList, components, ExecSpace::name);
         m_BTransposeOp->SetIntegration(false);
 
-        m_numflux.template Initialize<MemSpace>(TData(0.0));
+        // initialise internal fields for the first call
+        m_numflux.template Initialize<MemSpace>(0.0);
     }
 
     static std::string className;
@@ -137,7 +140,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
-        return std::make_unique<DiffusionIPOpImpl<ExecSpace, TData>>(
+        return std::make_unique<AdvWeakDGDiffusionIPOpImpl<ExecSpace, TData>>(
             expansionList, components);
     }
 
@@ -163,12 +166,12 @@ protected:
         // High-level operator flow:
         // build the weak DG diffusion action in coefficient space, then map
         // that coefficient result back to physical space for the caller.
-        DiffuseCoeffs(in, m_coeff);
+        AdvDiffCoeffs(in, m_coeff);
 
         // The internal operator assembly lives in coefficient space, while the
-        // public DiffusionOp interface returns a physical-space field. Append
-        // is applied only at this final output stage so all internal workspaces
-        // remain overwrite-style temporaries.
+        // public AdvWeakDGDiffusionIPOp interface returns a physical-space
+        // field. Append is applied only at this final output stage so all
+        // internal workspaces remain overwrite-style temporaries.
         m_bwdTransOp->Apply(m_coeff, out);
     }
 
@@ -177,21 +180,25 @@ protected:
         m_bwdTransOp->SetAppend(append);
     }
 
-    void DiffuseCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
+    void AdvDiffCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
                        LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
-        ASSERTL1(this->m_volumeFluxOp,
-                 "DiffusionIPOp requires a volume flux op.");
-        ASSERTL1(this->m_traceFluxOp,
-                 "DiffusionIPOp requires a trace flux op.");
+        ASSERTL1(
+            this->m_advVolFluxOpNegOut,
+            "AdvWeakDGDiffusionIPOp requires an advection volume flux op.");
+        ASSERTL1(this->m_diffVolFluxOpAppend,
+                 "AdvWeakDGDiffusionIPOp requires a diffusion volume flux op.");
+        ASSERTL1(this->m_advDiffTraceFluxOp,
+                 "AdvWeakDGDiffusionIPOp requires a trace flux op.");
 
         // Step 0: Extract trace from "in"
         m_physTraceExtractOp->Apply(in, m_trace);
 
         // The state trace is complete, so the neighbours can be sent theirs.
         // Channel 0; the gradient follows on channel 1 once step 2 has made
-        // it, and both overlap the work between here and the wait below.
-        this->m_traceFluxOp->BeginParallelExchange(m_trace, 0);
+        // it, and both overlap the local work between here and the wait
+        // before step 5. In serial every one of these calls does nothing.
+        this->m_advDiffTraceFluxOp->BeginParallelExchange(m_trace, 0);
 
         // Step 1: compute physical derivatives of the conservative state.
         // These derivatives drive both the volume viscous tensor and the trace
@@ -205,30 +212,52 @@ protected:
         // state, so this is much the larger of the two messages and has much
         // less local work left to hide behind - which is why it goes as soon
         // as it exists rather than alongside the first.
-        this->m_traceFluxOp->BeginParallelExchange(m_traceDeriv, 1);
+        this->m_advDiffTraceFluxOp->BeginParallelExchange(m_traceDeriv, 1);
 
-        // Step 3: assemble the viscous volume flux tensor F_v(q, grad q)
-        this->m_volumeFluxOp->Apply(in, m_deriv, m_fluxvector);
+        // Step 2b: boundary values that are functions of the interior state -
+        // a no-slip wall, say - can only be formed now that the trace exists,
+        // and must be in place before the trace flux gathers them in step 5.
+        // The trace flux operator seeds its own boundary storage with the
+        // interior state, since it owns the layout, and the boundary operator
+        // then transforms that in place. It touches only the boundary blocks,
+        // which neither exchange reads, so it sits after both begins and
+        // overlaps both messages; the derivative work above cannot, since the
+        // gradient message waits on it.
+        this->m_advDiffTraceFluxOp->UpdateBndCond(m_trace);
+
+        // Step 3: assemble the negative of advection - the volume flux carries
+        // its sign from SetAdvVolFlux() - and add the viscous volume flux
+        // Both operators are held through a shared pointer, so another
+        // holder could have changed either setting since it was attached:
+        // the advective term enters with the opposite sign to the diffusive
+        // one, and the diffusive contribution accumulates onto it.
+        this->m_advVolFluxOpNegOut->SetScale(-1.0);
+        this->m_diffVolFluxOpAppend->SetAppend(true);
+
+        this->m_advVolFluxOpNegOut->Apply(in, m_fluxvector);
+        this->m_diffVolFluxOpAppend->Apply(in, m_deriv, m_fluxvector);
 
         // Step 4: integrate the volume flux contribution against derivative
         // bases in physical space and negate output
         m_iProductWRTDerivPhysOpNegOut->Apply(m_fluxvector, m_phystmp);
 
-        // Step 5: evaluate diffusion fluxes on the interior and boundary
-        // traces, which need nothing from the exchanges, so this too overlaps
-        // the messages.
-        this->m_traceFluxOp->Apply(m_trace, m_traceDeriv, m_numflux);
+        // Step 5: evaluate negative of advection and diffusion trace fluxes
+        // on the interior and boundary traces, which need nothing from the
+        // exchanges, so this too overlaps the messages.
+        this->m_advDiffTraceFluxOp->Apply(m_trace, m_traceDeriv, m_numflux);
 
         // Both exchanges have to have landed before the parallel traces' flux
         // is evaluated, and not before that.
-        this->m_traceFluxOp->EndParallelExchange();
-        this->m_traceFluxOp->ApplyParallel(m_trace, m_traceDeriv, m_numflux);
+        this->m_advDiffTraceFluxOp->EndParallelExchange();
+        this->m_advDiffTraceFluxOp->ApplyParallel(m_trace, m_traceDeriv,
+                                                  m_numflux);
 
-        // Step 6: Integral of numflux, B^T and Multiply by Inv Mass - could be
-        // fused: zero<ExecSpace>(m_phystmp);
+        // Step 6: Integral of numflux, B^T and Multiply by Inv Mass - (could be
+        // fused):
         m_iProductWRTPhysTraceOpAppend->Apply(m_numflux, m_phystmp);
         m_BTransposeOp->Apply(m_phystmp, m_coefftmp);
         m_multiplyByElmtInvMassOp->Apply(m_coefftmp, out);
+
         if (this->m_scale != 1.0)
         {
             Math::mul<ExecSpace>(this->m_scale, out, out);

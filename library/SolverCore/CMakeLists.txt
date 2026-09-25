@@ -209,6 +209,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     # Set SolverCore operators
     FILE(GLOB children Advection/* Advection/AdvectionWeakDG/*
                        Diffusion/* Diffusion/DiffusionIP/*
+                       AdvDiffusion/* AdvDiffusion/AdvWeakDGDiffusionIP/*
                        MeanRemoval NormOps/* CFL/*
                        GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
 

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionScalarIPVolFluxOp.hpp
+// File: DiffusionScalarVolFluxOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -40,32 +40,32 @@ namespace Nektar
 {
 
 template <typename TData>
-class DiffusionScalarIPVolFluxOp
-    : public SolverCore::ScalarIPDiffusionVolumeFluxOp<TData>
+class DiffusionScalarVolFluxOp
+    : public SolverCore::ScalarDiffusionVolumeFluxOp<TData>
 {
 public:
-    static std::shared_ptr<DiffusionScalarIPVolFluxOp<TData>> Create(
+    static std::shared_ptr<DiffusionScalarVolFluxOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        return std::dynamic_pointer_cast<DiffusionScalarIPVolFluxOp<TData>>(
+        return std::dynamic_pointer_cast<DiffusionScalarVolFluxOp<TData>>(
             SolverCore::FluxOp<TData>::Create(expansionList, components, name,
                                               execStr));
     }
 
-    static inline const std::string name = "DiffusionScalarIPVolFlux";
+    static inline const std::string name = "DiffusionScalarVolFlux";
 
 protected:
-    DiffusionScalarIPVolFluxOp(
+    DiffusionScalarVolFluxOp(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
-        : SolverCore::ScalarIPDiffusionVolumeFluxOp<TData>(expansionList,
-                                                           components)
+        : SolverCore::ScalarDiffusionVolumeFluxOp<TData>(expansionList,
+                                                         components)
     {
     }
 
-    ~DiffusionScalarIPVolFluxOp() override = default;
+    ~DiffusionScalarVolFluxOp() override = default;
 };
 
 } // namespace Nektar

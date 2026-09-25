@@ -71,8 +71,9 @@ protected:
                          LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
 };
 
+// Derived class for scalar diffusion which has a set Diffusion method
 template <typename TData>
-class ScalarIPDiffusionVolumeFluxOp : public DiffusionVolumeFluxOp<TData>
+class ScalarDiffusionVolumeFluxOp : public DiffusionVolumeFluxOp<TData>
 {
 public:
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
@@ -81,14 +82,14 @@ public:
     }
 
 protected:
-    ScalarIPDiffusionVolumeFluxOp(
+    ScalarDiffusionVolumeFluxOp(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
         : DiffusionVolumeFluxOp<TData>(expansionList, components)
     {
     }
 
-    ~ScalarIPDiffusionVolumeFluxOp() override = default;
+    ~ScalarDiffusionVolumeFluxOp() override = default;
 
     virtual void v_SetDiffCoeff(std::vector<TData> &diffCoeff) = 0;
 };

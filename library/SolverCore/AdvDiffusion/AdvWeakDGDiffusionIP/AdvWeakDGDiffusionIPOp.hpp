@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralSerialAVXKernels.hpp
+// File: AdvWeakDGDiffusionIPOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,32 +28,51 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Weak-DG advection with interior-penalty diffusion, the
+// operator interface.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-namespace Nektar::Operators::detail
+#include <SolverCore/SolverCore.hpp>
+
+#include "SolverCore/AdvDiffusion/AdvDiffusionOp.hpp"
+
+namespace Nektar::SolverCore
 {
 
-template <typename ExecSpace, typename TData,
-          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                           bool>
-              Enable = true>
-NEK_FORCE_INLINE static void AddTraceIntegralKernel(
-    const size_t nsize, const size_t *traceCoeffsToElmtMapPtr,
-    const int *traceCoeffsToElmtSignPtr,
-    const size_t *traceCoeffsToElmtTracePtr, const TData *tracePtr,
-    TData *outptr)
+// Weak-DG advection with interior-penalty diffusion: the factory name,
+// Create() and the scheme coefficients. Apply() is the base class's.
+template <typename TData>
+class AdvWeakDGDiffusionIPOp : public AdvDiffusionOp<TData>
 {
-    for (size_t i = 0; i < nsize; i++)
+public:
+    static std::shared_ptr<AdvWeakDGDiffusionIPOp<TData>> Create(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
     {
-        outptr[traceCoeffsToElmtMapPtr[i]] +=
-            traceCoeffsToElmtSignPtr[i] *
-            tracePtr[traceCoeffsToElmtTracePtr[i]];
-    }
-}
+        // Force a genuine cross-library symbol reference into
+        // libSolverCore - see EnsureLinked() in SolverCore.hpp. Without
+        // it a linker that keeps only what is referenced can drop the
+        // library, and the operator registrations go with it.
+        EnsureLinked();
 
-} // namespace Nektar::Operators::detail
+        return Operators::Operator<TData>::template Create<
+            AdvWeakDGDiffusionIPOp>(expansionList, components, execStr);
+    }
+
+    static inline const std::string name = "AdvWeakDGDiffusionIP";
+
+protected:
+    AdvWeakDGDiffusionIPOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                           const std::vector<std::string> &components)
+        : AdvDiffusionOp<TData>(expansionList, components)
+    {
+    }
+
+    ~AdvWeakDGDiffusionIPOp() override = default;
+};
+
+} // namespace Nektar::SolverCore

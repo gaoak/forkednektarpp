@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
-#include <ADRSolverRedesign/DiffusionScalarIPVolFlux/DiffusionScalarIPVolFluxOp.hpp>
+#include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
 #include <ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
@@ -247,6 +247,7 @@ void UnsteadyADR::DoExplicitRhs(
             }
             if (m_explicitDiffusion)
             {
+                m_diffusionIPOp->UpdateBndPhys(time);
                 m_diffusionIPOp->SetScale(dt);
                 m_diffusionIPOp->SetAppend(m_explicitAdvection);
                 m_diffusionIPOp->Apply(in, out);
@@ -393,18 +394,18 @@ void UnsteadyADR::v_InitialiseOperators()
             {
                 m_diffusionIPOp = DiffusionIPOp<double>::Create(
                     m_expansionLists[0], m_variables);
-                auto diffusionScalarIPVolFluxOp =
-                    DiffusionScalarIPVolFluxOp<double>::Create(
+                auto diffusionScalarVolFluxOp =
+                    DiffusionScalarVolFluxOp<double>::Create(
                         m_expansionLists[0], m_variables);
 
                 auto diffusionScalarIPTraceFluxOp =
                     DiffusionScalarIPTraceFluxOp<double>::Create(
                         m_expansionLists[0], m_variables);
 
-                diffusionScalarIPVolFluxOp->SetDiffCoeff(m_diffCoeff);
+                diffusionScalarVolFluxOp->SetDiffCoeff(m_diffCoeff);
                 diffusionScalarIPTraceFluxOp->SetDiffCoeff(m_diffCoeff);
 
-                m_diffusionIPOp->SetVolumeFluxOp(diffusionScalarIPVolFluxOp);
+                m_diffusionIPOp->SetVolumeFluxOp(diffusionScalarVolFluxOp);
                 m_diffusionIPOp->SetTraceFluxOp(diffusionScalarIPTraceFluxOp);
             }
             break;

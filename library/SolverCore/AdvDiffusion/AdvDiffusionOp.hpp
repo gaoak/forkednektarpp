@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionOp.hpp
+// File: AdvDiffusionOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,22 +28,24 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Diffusion operator base class.
+// Description: AdvDiffusion operator base class.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "Operators/Common/Operator.hpp"
+#include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
+#include "SolverCore/BndCond/BndCondUpdateOp.hpp"
 #include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
 #include "SolverCore/TraceFlux/TraceFluxOp.hpp"
 
 namespace Nektar::SolverCore
 {
 
-// Diffusion operator base class
-template <typename TData> class DiffusionOp : public Operators::Operator<TData>
+// AdvDiffusion operator base class
+template <typename TData>
+class AdvDiffusionOp : public Operators::Operator<TData>
 {
 public:
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -68,30 +70,61 @@ public:
         v_SetAppend(append);
     }
 
-    void SetVolumeFluxOp(
-        const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
+    void SetAdvVolFlux(const std::shared_ptr<AdvectionVolumeFluxOp<TData>> &ptr)
     {
-        m_volumeFluxOp = ptr;
+        m_advVolFluxOpNegOut = ptr;
     }
 
-    void SetTraceFluxOp(const std::shared_ptr<TraceFluxOp<TData>> &ptr)
+    void SetDiffVolFlux(
+        const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
     {
-        m_traceFluxOp = ptr;
+        m_diffVolFluxOpAppend = ptr;
+    }
+
+    void SetAdvDiffTraceFlux(const std::shared_ptr<TraceFluxOp<TData>> &ptr)
+    {
+        m_advDiffTraceFluxOp = ptr;
+    }
+
+    /**
+     * @brief Attach an operator that computes boundary values from the
+     * interior trace, such as a no-slip wall state.
+     *
+     * Applied once the interior trace is available and before the trace flux
+     * is evaluated, so the flux operator gathers the values it produced. The
+     * storage it writes into is taken from the trace flux operator, so the two
+     * necessarily agree.
+     */
+    void AddBndCondUpdateOp(const std::shared_ptr<BndCondUpdateOp<TData>> &ptr)
+    {
+        ASSERTL0(m_advDiffTraceFluxOp,
+                 "A boundary condition was attached before the trace flux "
+                 "operator that supplies its storage.");
+        m_advDiffTraceFluxOp->AddBndCondUpdateOp(ptr);
+    }
+
+    /// Refresh time-dependent boundary values before the next Apply().
+    void UpdateBndPhys(const TData &time = 0.0)
+    {
+        if (m_advDiffTraceFluxOp)
+        {
+            m_advDiffTraceFluxOp->UpdateBndPhys(time);
+        }
     }
 
 protected:
-    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_volumeFluxOp;
-    std::shared_ptr<TraceFluxOp<TData>> m_traceFluxOp;
-
+    std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_advVolFluxOpNegOut;
+    std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_diffVolFluxOpAppend;
+    std::shared_ptr<TraceFluxOp<TData>> m_advDiffTraceFluxOp;
     TData m_scale = 1.0;
 
-    DiffusionOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                const std::vector<std::string> &components)
+    AdvDiffusionOp(const MultiRegions::ExpListSharedPtr &expansionList,
+                   const std::vector<std::string> &components)
         : Operators::Operator<TData>(expansionList, components)
     {
     }
 
-    ~DiffusionOp() override = default;
+    ~AdvDiffusionOp() override = default;
 
     virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                          LibUtilities::Field<TData, FieldState::Phys> &out) = 0;
