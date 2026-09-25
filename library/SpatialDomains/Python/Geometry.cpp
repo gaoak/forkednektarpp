@@ -47,7 +47,7 @@ using namespace Nektar::SpatialDomains;
 bool Geometry_ContainsPoint(Geometry *geom,
                             const Array<OneD, const NekDouble> &gloCoord)
 {
-    return geom->ContainsPoint(gloCoord);
+    return GeometryLocator::Create(geom)->ContainsPoint(gloCoord);
 }
 
 void Geometry_GenGeomFactors(Geometry *geom)

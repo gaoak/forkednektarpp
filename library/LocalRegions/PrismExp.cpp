@@ -252,8 +252,7 @@ NekDouble PrismExp::v_PhysEvalFirstDeriv(
     std::array<NekDouble, 3> &firstOrderDerivs)
 {
     Array<OneD, NekDouble> Lcoord(3);
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
+    GetLocator()->GetLocCoords(coord, Lcoord);
     return StdPrismExp::v_PhysEvalFirstDeriv(Lcoord, inarray, firstOrderDerivs);
 }
 

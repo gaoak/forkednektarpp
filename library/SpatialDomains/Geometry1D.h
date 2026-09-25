@@ -68,8 +68,6 @@ protected:
     Curve *m_curve = nullptr;
 
     int v_GetShapeDim() const override;
-    NekDouble v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
-                             Array<OneD, NekDouble> &Lcoords) override;
 };
 
 } // namespace Nektar::SpatialDomains

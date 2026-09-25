@@ -88,7 +88,7 @@ protected:
 
     PointGeom *v_GetVertex(const int i) const override;
     virtual LibUtilities::ShapeType v_GetShapeType() const;
-    GeomType v_CalcGeomType() override;
+    GeomType v_CalcGeomType(IsoParam &iso) override;
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     void v_FillGeom() override;
@@ -99,8 +99,6 @@ protected:
     NekDouble v_GetCoord(const int i,
                          const Array<OneD, const NekDouble> &Lcoord) override;
     int v_GetNumVerts() const override;
-    NekDouble v_FindDistance(const Array<OneD, const NekDouble> &xs,
-                             Array<OneD, NekDouble> &xi) override;
 
     inline int v_GetNumFacets() const override
     {

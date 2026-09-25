@@ -92,7 +92,7 @@ public:
 protected:
     SPATIAL_DOMAINS_EXPORT NekDouble v_GetCoord(
         const int i, const Array<OneD, const NekDouble> &Lcoord) override;
-    GeomType v_CalcGeomType() override;
+    GeomType v_CalcGeomType(IsoParam &iso) override;
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     SPATIAL_DOMAINS_EXPORT void v_FillGeom() override;
@@ -105,9 +105,6 @@ protected:
                                         CurveMap &curvedFaces) override;
     SPATIAL_DOMAINS_EXPORT void v_ResetLite() override;
     SPATIAL_DOMAINS_EXPORT void v_Setup() override;
-    void PreSolveStraightEdge();
-
-    int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord) override;
 
     inline int v_GetNumVerts() const final
     {

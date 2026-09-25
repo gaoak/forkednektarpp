@@ -81,7 +81,7 @@ PyrGeom::PyrGeom(int id, std::array<Geometry2D *, 5> faces, Curve *curve)
     SetUpFaceOrientation();
 }
 
-GeomType PyrGeom::v_CalcGeomType()
+GeomType PyrGeom::v_CalcGeomType(IsoParam &iso)
 {
     if (!m_setupState)
     {
@@ -98,39 +98,52 @@ GeomType PyrGeom::v_CalcGeomType()
         Gtype = eDeformed;
     }
 
-    // check to see if all quadrilateral faces are parallelograms
+    // Check to see if the quadrilateral base is a parallelogram.
+    //
+    // Unlike the other elements, a pyramid's mapping is not a polynomial in
+    // the local coordinates. Both of the base directions collapse against the
+    // same denominator -- eta_i = 2(1 + xi_i)/(1 - xi_2) - 1 for i = 0,1 --
+    // so the bilinear base term carries a factor 1/(1 - xi_2). The polynomial
+    // below is therefore only the true mapping when the coefficient of that
+    // term, A - B + C - D, vanishes, which is exactly when the base is a
+    // parallelogram and the whole mapping collapses to an affine one.
+    //
+    // @see StdRegions::StdPyrExp::v_LocCoordToLocCollapsed
     if (Gtype == eRegular)
     {
-        m_isoParameter = Array<OneD, Array<OneD, NekDouble>>(3);
+        iso.m_nCoeff = 5;
         for (int i = 0; i < 3; ++i)
         {
-            m_isoParameter[i]    = Array<OneD, NekDouble>(5, 0.);
-            NekDouble A          = (*m_verts[0])(i);
-            NekDouble B          = (*m_verts[1])(i);
-            NekDouble C          = (*m_verts[2])(i);
-            NekDouble D          = (*m_verts[3])(i);
-            NekDouble E          = (*m_verts[4])(i);
-            m_isoParameter[i][0] = 0.25 * (-A + B + C + D + E + E);
+            NekDouble A       = (*m_verts[0])(i);
+            NekDouble B       = (*m_verts[1])(i);
+            NekDouble C       = (*m_verts[2])(i);
+            NekDouble D       = (*m_verts[3])(i);
+            NekDouble E       = (*m_verts[4])(i);
+            iso.m_coeff[i][0] = 0.25 * (-A + B + C + D + E + E);
 
-            m_isoParameter[i][1] = 0.25 * (-A + B + C - D); // xi1
-            m_isoParameter[i][2] = 0.25 * (-A - B + C + D); // xi2
-            m_isoParameter[i][3] = 0.5 * (-A + E);          // xi3
+            iso.m_coeff[i][1] = 0.25 * (-A + B + C - D); // xi1
+            iso.m_coeff[i][2] = 0.25 * (-A - B + C + D); // xi2
+            iso.m_coeff[i][3] = 0.5 * (-A + E);          // xi3
 
-            m_isoParameter[i][4] = 0.25 * (A - B + C - D); // xi1*xi2
-            NekDouble tmp        = fabs(m_isoParameter[i][1]) +
-                            fabs(m_isoParameter[i][2]) +
-                            fabs(m_isoParameter[i][3]);
-            if (fabs(m_isoParameter[i][4]) > tmp * NekConstants::kNekZeroTol)
+            iso.m_coeff[i][4] = 0.25 * (A - B + C - D); // xi1*xi2
+            NekDouble tmp = fabs(iso.m_coeff[i][1]) + fabs(iso.m_coeff[i][2]) +
+                            fabs(iso.m_coeff[i][3]);
+            if (fabs(iso.m_coeff[i][4]) > tmp * NekConstants::kNekZeroTol)
             {
                 Gtype = eDeformed;
             }
         }
+
+        if (Gtype != eRegular)
+        {
+            // The base is not a parallelogram, so the coefficients above do
+            // not describe this mapping away from the vertices. Report that
+            // there is no polynomial form, which sends the inverse mapping to
+            // the general Newton iteration on the chi mapping itself.
+            iso.m_nCoeff = 0;
+        }
     }
 
-    if (Gtype == eRegular)
-    {
-        v_CalculateInverseIsoParam();
-    }
     return Gtype;
 }
 
@@ -694,15 +707,6 @@ void PyrGeom::v_Setup()
         }
         SetUpXmap();
         SetUpCoeffs(m_xmap->GetNcoeffs());
-
-        // check to see if expansions are linear
-        m_straightEdge = 1;
-        if (m_xmap->GetBasisNumModes(0) != 2 ||
-            m_xmap->GetBasisNumModes(1) != 2 ||
-            m_xmap->GetBasisNumModes(2) != 2)
-        {
-            m_straightEdge = 0;
-        }
 
         m_setupState = true;
     }

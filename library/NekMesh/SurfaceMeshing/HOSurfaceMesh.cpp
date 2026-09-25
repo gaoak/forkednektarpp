@@ -668,6 +668,12 @@ void HOSurfaceMesh::Process()
                 std::move(faceCurve);
         }
     }
+    // Curves were attached to surface edges and faces above, but only the
+    // surface elements themselves were reset as they were curved. Every other
+    // geometry sharing those edges -- the interior faces, and all the volume
+    // elements -- is still set up for the linear mesh.
+    m_mesh->m_meshGraph->ResetGeometry();
+
     m_log(WARNING) << "Surface Optimization (T/F)  = " << qOpti << endl;
     m_log(WARNING) << "There were " << cntBreak
                    << " 2D Surface Faces that were skipped for HOSurfModule."

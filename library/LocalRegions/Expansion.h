@@ -109,6 +109,16 @@ public:
 
     LOCAL_REGIONS_EXPORT SpatialDomains::Geometry *GetGeom() const;
 
+    /// Inverse mapping for this expansion's geometry, built on first use.
+    LOCAL_REGIONS_EXPORT SpatialDomains::GeometryLocator *GetLocator()
+    {
+        if (!m_locator)
+        {
+            m_locator = SpatialDomains::GeometryLocator::Create(m_geom);
+        }
+        return m_locator.get();
+    }
+
     LOCAL_REGIONS_EXPORT void Reset();
 
     LOCAL_REGIONS_EXPORT IndexMapValuesSharedPtr
@@ -308,6 +318,9 @@ protected:
 
     std::map<int, ExpansionWeakPtr> m_traceExp;
     SpatialDomains::Geometry *m_geom;
+    /// Inverse mapping x -> xi for m_geom. Built on first use: most
+    /// expansions never point-locate, and it is not cheap to carry.
+    SpatialDomains::GeometryLocatorUniquePtr m_locator;
     SpatialDomains::GeomFactorsUniquePtr m_geomFactors;
     MetricMap m_metrics;
     std::map<int, NormalVector> m_traceNormals;

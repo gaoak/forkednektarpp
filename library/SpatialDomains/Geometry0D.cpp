@@ -51,14 +51,4 @@ int Geometry0D::v_GetShapeDim() const
     return 0;
 }
 
-bool Geometry0D::v_ContainsPoint(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &gloCoord,
-    [[maybe_unused]] Array<OneD, NekDouble> &locCoord,
-    [[maybe_unused]] NekDouble tol, [[maybe_unused]] NekDouble &dist)
-{
-    NEKERROR(ErrorUtil::efatal,
-             "This function has not been defined for 0D geometry");
-    return false;
-}
-
 } // namespace Nektar::SpatialDomains

@@ -40,10 +40,12 @@
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/Memory/ObjectPool.hpp>
 #include <SpatialDomains/GeomFactors.h>
+#include <SpatialDomains/GeometryLocator.h>
 #include <SpatialDomains/SpatialDomainsDeclspec.h>
 
 #include <array>
 #include <map>
+#include <memory>
 #include <unordered_map>
 
 namespace Nektar::SpatialDomains
@@ -79,6 +81,10 @@ public:
     SPATIAL_DOMAINS_EXPORT Geometry();
     SPATIAL_DOMAINS_EXPORT Geometry(int coordim);
     SPATIAL_DOMAINS_EXPORT virtual ~Geometry() = default;
+
+    /// The point-location cache is not copied; the copy rebuilds it on demand.
+    SPATIAL_DOMAINS_EXPORT Geometry(const Geometry &that);
+    SPATIAL_DOMAINS_EXPORT Geometry &operator=(const Geometry &that);
 
     //---------------------------------------
     // Helper functions
@@ -130,38 +136,13 @@ public:
     SPATIAL_DOMAINS_EXPORT inline const Array<OneD, const NekDouble> &GetCoeffs(
         const int i) const;
     SPATIAL_DOMAINS_EXPORT inline void FillGeom();
+    /// Evaluate the mapping: physical coordinate in direction @p i at the
+    /// local collapsed coordinate @p Lcoord.
+    SPATIAL_DOMAINS_EXPORT inline NekDouble GetCoord(
+        const int i, const Array<OneD, const NekDouble> &Lcoord);
     SPATIAL_DOMAINS_EXPORT std::pair<CurveUniquePtr,
                                      std::vector<PointGeomUniquePtr>>
     MakeOrder(int order, const LibUtilities::PointsType pType);
-
-    //---------------------------------------
-    // Point lookups
-    //---------------------------------------
-    SPATIAL_DOMAINS_EXPORT std::array<NekDouble, 6> GetBoundingBox();
-    SPATIAL_DOMAINS_EXPORT void ClearBoundingBox();
-
-    SPATIAL_DOMAINS_EXPORT inline bool ContainsPoint(
-        const Array<OneD, const NekDouble> &gloCoord, NekDouble tol = 0.0);
-    SPATIAL_DOMAINS_EXPORT inline bool ContainsPoint(
-        const Array<OneD, const NekDouble> &gloCoord,
-        Array<OneD, NekDouble> &locCoord, NekDouble tol);
-    SPATIAL_DOMAINS_EXPORT inline bool ContainsPoint(
-        const Array<OneD, const NekDouble> &gloCoord,
-        Array<OneD, NekDouble> &locCoord, NekDouble tol, NekDouble &dist);
-    SPATIAL_DOMAINS_EXPORT inline NekDouble GetLocCoords(
-        const Array<OneD, const NekDouble> &coords,
-        Array<OneD, NekDouble> &Lcoords);
-    SPATIAL_DOMAINS_EXPORT inline NekDouble GetCoord(
-        const int i, const Array<OneD, const NekDouble> &Lcoord);
-    SPATIAL_DOMAINS_EXPORT int PreliminaryCheck(
-        const Array<OneD, const NekDouble> &gloCoord);
-    SPATIAL_DOMAINS_EXPORT bool MinMaxCheck(
-        const Array<OneD, const NekDouble> &gloCoord);
-    SPATIAL_DOMAINS_EXPORT bool ClampLocCoords(
-        Array<OneD, NekDouble> &locCoord,
-        NekDouble tol = std::numeric_limits<NekDouble>::epsilon());
-    SPATIAL_DOMAINS_EXPORT inline NekDouble FindDistance(
-        const Array<OneD, const NekDouble> &xs, Array<OneD, NekDouble> &xi);
 
     //---------------------------------------
     // Misc. helper functions
@@ -173,7 +154,12 @@ public:
                                                               int j) const;
     SPATIAL_DOMAINS_EXPORT inline int GetDir(const int i,
                                              const int j = 0) const;
-    SPATIAL_DOMAINS_EXPORT inline GeomType CalcGeomType();
+    SPATIAL_DOMAINS_EXPORT GeomType CalcGeomType();
+    /// Classify, and hand back the isoparametric coefficients settled on the
+    /// way. Used by GeometryLocator, which needs both.
+    SPATIAL_DOMAINS_EXPORT GeomType CalcGeomType(IsoParam &iso);
+    /// True if every \f$\chi\f$ basis is linear.
+    SPATIAL_DOMAINS_EXPORT bool HasLinearXmap();
 
     SPATIAL_DOMAINS_EXPORT inline void Reset(CurveMap &curvedEdges,
                                              CurveMap &curvedFaces);
@@ -198,11 +184,9 @@ protected:
     int m_globalID;
     /// Array containing expansion coefficients of @p m_xmap
     std::vector<Array<OneD, NekDouble>> m_coeffs;
-    /// Array containing bounding box
-    Array<OneD, NekDouble> m_boundingBox;
-    Array<OneD, Array<OneD, NekDouble>> m_isoParameter;
-    Array<OneD, Array<OneD, NekDouble>> m_invIsoParam;
-    int m_straightEdge;
+    /// Cached regular/deformed classification; eNoGeomType until computed.
+    /// Cheap enough to keep on every geometry.
+    GeomType m_geomType;
 
     //---------------------------------------
     // Helper functions
@@ -227,17 +211,8 @@ protected:
     virtual std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> v_MakeOrder(
         int order, const LibUtilities::PointsType pType);
 
-    virtual bool v_ContainsPoint(const Array<OneD, const NekDouble> &gloCoord,
-                                 Array<OneD, NekDouble> &locCoord,
-                                 NekDouble tol, NekDouble &dist);
-    virtual int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord);
-
     virtual NekDouble v_GetCoord(const int i,
                                  const Array<OneD, const NekDouble> &Lcoord);
-    virtual NekDouble v_GetLocCoords(const Array<OneD, const NekDouble> &coords,
-                                     Array<OneD, NekDouble> &Lcoords);
-    virtual NekDouble v_FindDistance(const Array<OneD, const NekDouble> &xs,
-                                     Array<OneD, NekDouble> &xi);
 
     virtual int v_GetVertexEdgeMap(int i, int j) const;
     virtual int v_GetVertexFaceMap(int i, int j) const;
@@ -245,13 +220,20 @@ protected:
     virtual int v_GetEdgeNormalToFaceVert(const int i, const int j) const;
     virtual int v_GetDir(const int faceidx, const int facedir) const;
 
-    virtual GeomType v_CalcGeomType();
+    /// Classify this geometry as regular or deformed, filling @p loc with the
+    /// isoparametric data derived along the way.
+    ///
+    /// Classification and inverse-mapping setup share this one implementation
+    /// because deciding regularity *is* testing whether the nonlinear
+    /// isoparametric coefficients vanish. Callers that only want the
+    /// classification pass scratch storage and discard it; callers that intend
+    /// to invert the mapping pass the geometry's own locator.
+    virtual GeomType v_CalcGeomType(IsoParam &iso);
     virtual void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces);
     virtual void v_ResetLite();
     virtual void v_Setup();
 
     inline void SetUpCoeffs(const int nCoeffs);
-    virtual void v_CalculateInverseIsoParam();
 }; // class Geometry
 
 /**
@@ -302,18 +284,6 @@ inline void Geometry::SetCoordim(int dim)
 inline LibUtilities::ShapeType Geometry::GetShapeType()
 {
     return m_shapeType;
-}
-
-/**
- * A geometric shape is considered regular if it has constant geometric
- * information, and deformed if this information changes throughout the
- * shape.
- * @returns             The type of geometry.
- * @see GeomType
- */
-inline GeomType Geometry::CalcGeomType()
-{
-    return v_CalcGeomType();
 }
 
 /**
@@ -498,95 +468,6 @@ inline void Geometry::FillGeom()
 }
 
 /**
- * @brief Determine whether an element contains a particular Cartesian
- * coordinate \f$(x,y,z)\f$.
- *
- * @see Geometry::ContainsPoint
- */
-inline bool Geometry::ContainsPoint(
-    const Array<OneD, const NekDouble> &gloCoord, NekDouble tol)
-{
-    Array<OneD, NekDouble> locCoord(GetCoordim(), 0.0);
-    NekDouble dist;
-    return v_ContainsPoint(gloCoord, locCoord, tol, dist);
-}
-
-/**
- * @brief Determine whether an element contains a particular Cartesian
- * coordinate \f$(x,y,z)\f$.
- *
- * @see Geometry::ContainsPoint
- */
-inline bool Geometry::ContainsPoint(
-    const Array<OneD, const NekDouble> &gloCoord,
-    Array<OneD, NekDouble> &locCoord, NekDouble tol)
-{
-    NekDouble dist;
-    return v_ContainsPoint(gloCoord, locCoord, tol, dist);
-}
-
-/**
- * @brief Determine whether an element contains a particular Cartesian
- * coordinate \f$\vec{x} = (x,y,z)\f$.
- *
- * For curvilinear and non-affine elements (i.e. where the Jacobian varies as a
- * function of the standard element coordinates), this is a non-linear
- * optimisation problem that requires the use of a Newton iteration. Note
- * therefore that this can be an expensive operation.
- *
- * The parameter @p tol which is by default 0, can be used to expand the
- * coordinate range of the standard element from \f$[-1,1]^d\f$ to
- * \f$[-1-\epsilon,1+\epsilon\f$ to handle challenging edge cases. The function
- * also returns the local coordinates corresponding to @p gloCoord that can be
- * used to speed up subsequent searches.
- *
- * @param gloCoord  The coordinate \f$ (x,y,z) \f$.
- * @param locCoord  On exit, this is the local coordinate \f$\vec{\xi}\f$ such
- *                  that \f$\chi(\vec{\xi}) = \vec{x}\f$.
- * @param tol       The tolerance used to dictate the bounding box of the
- *                  standard coordinates \f$\vec{\xi}\f$.
- * @param dist      On exit, returns the minimum distance between @p gloCoord
- *                  and the quadrature points inside the element.
- *
- * @return `true` if the coordinate @p gloCoord is contained in the element;
- *         false otherwise.
- *
- * @see Geometry::GetLocCoords.
- */
-inline bool Geometry::ContainsPoint(
-    const Array<OneD, const NekDouble> &gloCoord,
-    Array<OneD, NekDouble> &locCoord, NekDouble tol, NekDouble &dist)
-{
-    return v_ContainsPoint(gloCoord, locCoord, tol, dist);
-}
-
-/**
- * @brief Determine the local collapsed coordinates that correspond to a
- * given Cartesian coordinate for this geometry object.
- *
- * For curvilinear and non-affine elements (i.e. where the Jacobian varies as a
- * function of the standard element coordinates), this is a non-linear
- * optimisation problem that requires the use of a Newton iteration. Note
- * therefore that this can be an expensive operation.
- *
- * Note that, clearly, the provided Cartesian coordinate lie outside the
- * element. The function therefore returns the minimum distance from some
- * position in the element to . @p Lcoords will also be constrained to fit
- * within the range \f$[-1,1]^d\f$ where \f$ d \f$ is the dimension of the
- * element.
- *
- * @param coords   Input Cartesian global coordinates
- * @param Lcoords  Corresponding local coordinates
- *
- * @return Distance between obtained coordinates and provided ones.
- */
-inline NekDouble Geometry::GetLocCoords(
-    const Array<OneD, const NekDouble> &coords, Array<OneD, NekDouble> &Lcoords)
-{
-    return v_GetLocCoords(coords, Lcoords);
-}
-
-/**
  * @brief Given local collapsed coordinate @p Lcoord, return the value of
  * physical coordinate in direction @p i.
  */
@@ -594,12 +475,6 @@ inline NekDouble Geometry::GetCoord(const int i,
                                     const Array<OneD, const NekDouble> &Lcoord)
 {
     return v_GetCoord(i, Lcoord);
-}
-
-inline NekDouble Geometry::FindDistance(const Array<OneD, const NekDouble> &xs,
-                                        Array<OneD, NekDouble> &xi)
-{
-    return v_FindDistance(xs, xi);
 }
 
 /**
@@ -704,6 +579,7 @@ inline int Geometry::GetDir(const int faceidx, const int facedir) const
  */
 inline void Geometry::Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
 {
+    m_geomType = eNoGeomType;
     v_Reset(curvedEdges, curvedFaces);
 }
 
@@ -718,7 +594,8 @@ inline void Geometry::Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
  */
 inline void Geometry::ResetLite()
 {
-    m_state = eNotFilled;
+    m_state    = eNotFilled;
+    m_geomType = eNoGeomType;
     v_ResetLite();
 }
 
@@ -729,6 +606,7 @@ inline void Geometry::ResetLite()
 inline void Geometry::ResetNonRecursive(CurveMap &curvedEdges,
                                         CurveMap &curvedFaces)
 {
+    m_geomType = eNoGeomType;
     Geometry::v_Reset(curvedEdges, curvedFaces);
 }
 

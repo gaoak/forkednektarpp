@@ -260,8 +260,34 @@ void InterfaceMapDG::ExchangeCoords()
  * all coordinates are missing. If local then the same structure as
  * CalcRankDistances is used to minimise computational cost.
  */
+namespace
+{
+/// Inverse mappings for interface trace geometries, built on first use and
+/// reused across the sweep. Deliberately function-scoped: on a moving mesh a
+/// locator is only valid for the current configuration.
+class LocatorCache
+{
+public:
+    SpatialDomains::GeometryLocator &For(SpatialDomains::Geometry *geom)
+    {
+        auto &loc = m_cache[geom];
+        if (!loc)
+        {
+            loc = SpatialDomains::GeometryLocator::Create(geom);
+        }
+        return *loc;
+    }
+
+private:
+    std::map<SpatialDomains::Geometry *,
+             SpatialDomains::GeometryLocatorUniquePtr>
+        m_cache;
+};
+} // namespace
+
 void InterfaceTrace::CalcLocalMissing()
 {
+    LocatorCache locators;
     // Nuke old missing/found
     m_missingCoords.clear();
     m_mapMissingCoordToTrace.clear();
@@ -359,7 +385,8 @@ void InterfaceTrace::CalcLocalMissing()
                 {
                     auto edge = m_interface->GetOppInterface()->GetEdge(
                         foundLocalCoordsCopy[offset + i].first);
-                    NekDouble dist = edge->FindDistance(xs, foundLocCoord);
+                    NekDouble dist =
+                        locators.For(edge).FindDistance(xs, foundLocCoord);
                     if (dist < NekConstants::kFindDistanceMin)
                     {
                         m_foundLocalCoords[offset + i] =
@@ -374,13 +401,13 @@ void InterfaceTrace::CalcLocalMissing()
                 for (auto &edge : parentEdge)
                 {
                     // First check if inside the edge bounding box
-                    if (!edge.second->MinMaxCheck(xs))
+                    if (!locators.For(edge.second).MinMaxCheck(xs))
                     {
                         continue;
                     }
 
-                    NekDouble dist =
-                        edge.second->FindDistance(xs, foundLocCoord);
+                    NekDouble dist = locators.For(edge.second)
+                                         .FindDistance(xs, foundLocCoord);
                     if (dist < NekConstants::kFindDistanceMin)
                     {
                         found                          = true;
@@ -740,6 +767,7 @@ void InterfaceExchange::SendFwdTrace(
 
 void InterfaceExchange::CalcRankDistances()
 {
+    LocatorCache locators;
     // Clear old found coordinates
     auto foundRankCoordsCopy = m_foundRankCoords[m_rank];
     m_foundRankCoords[m_rank]
@@ -775,7 +803,8 @@ void InterfaceExchange::CalcRankDistances()
             {
                 auto edge = m_interfaceTraces[i]->GetInterface()->GetEdge(
                     foundRankCoordsCopy[j / 3].first.second);
-                NekDouble dist = edge->FindDistance(xs, foundLocCoord);
+                NekDouble dist =
+                    locators.For(edge).FindDistance(xs, foundLocCoord);
 
                 if (dist < NekConstants::kFindDistanceMin)
                 {
@@ -788,12 +817,13 @@ void InterfaceExchange::CalcRankDistances()
             for (auto &edge : localEdge)
             {
                 // First check if inside the edge bounding box
-                if (!edge.second->MinMaxCheck(xs))
+                if (!locators.For(edge.second).MinMaxCheck(xs))
                 {
                     continue;
                 }
 
-                NekDouble dist = edge.second->FindDistance(xs, foundLocCoord);
+                NekDouble dist =
+                    locators.For(edge.second).FindDistance(xs, foundLocCoord);
 
                 if (dist < NekConstants::kFindDistanceMin)
                 {
