@@ -3236,8 +3236,8 @@ int ExpList::GetExpIndex(const Array<OneD, const NekDouble> &gloCoords,
     if (cachedId >= 0 && cachedId < (*m_exp).size())
     {
         nearpt = 1e12;
-        if ((*m_exp)[cachedId]->GetGeom()->ContainsPoint(gloCoords, locCoords,
-                                                         tol, nearpt))
+        if ((*m_exp)[cachedId]->GetLocator()->ContainsPoint(
+                gloCoords, locCoords, tol, nearpt))
         {
             return cachedId;
         }
@@ -3270,8 +3270,8 @@ int ExpList::GetExpIndex(const Array<OneD, const NekDouble> &gloCoords,
         {
             continue;
         }
-        if ((*m_exp)[id]->GetGeom()->ContainsPoint(gloCoords, locCoords, tol,
-                                                   nearpt))
+        if ((*m_exp)[id]->GetLocator()->ContainsPoint(gloCoords, locCoords, tol,
+                                                      nearpt))
         {
             return id;
         }

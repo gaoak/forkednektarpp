@@ -737,7 +737,8 @@ bool ProcessWallNormalData::NewtonIterForLocCoordOnBndElmt(
     Array<OneD, NekDouble> eta(2);
     bndXmap->LocCoordToLocCollapsed(locCoord, eta);
 
-    if (bndGeom->ClampLocCoords(eta, 0.0))
+    if (SpatialDomains::GeometryLocator::ClampLocCoords(
+            eta, bndGeom->GetShapeDim(), 0.0))
     {
         // calculate the global point corresponding to locCoord
         x1map = bndXmap->PhysEvaluate(eta, pts[dir1]);

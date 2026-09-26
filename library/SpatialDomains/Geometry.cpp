@@ -47,7 +47,8 @@ namespace Nektar::SpatialDomains
  */
 Geometry::Geometry()
     : m_coordim(0), m_state(eNotFilled), m_setupState(false),
-      m_shapeType(LibUtilities::eNoShapeType), m_globalID(-1), m_straightEdge(0)
+      m_shapeType(LibUtilities::eNoShapeType), m_globalID(-1),
+      m_geomType(eNoGeomType)
 {
 }
 
@@ -56,8 +57,104 @@ Geometry::Geometry()
  */
 Geometry::Geometry(const int coordim)
     : m_coordim(coordim), m_state(eNotFilled), m_setupState(false),
-      m_shapeType(LibUtilities::eNoShapeType), m_globalID(-1), m_straightEdge(0)
+      m_shapeType(LibUtilities::eNoShapeType), m_globalID(-1),
+      m_geomType(eNoGeomType)
 {
+}
+
+Geometry::Geometry(const Geometry &that)
+    : m_coordim(that.m_coordim), m_xmap(that.m_xmap), m_state(that.m_state),
+      m_setupState(that.m_setupState), m_shapeType(that.m_shapeType),
+      m_globalID(that.m_globalID), m_coeffs(that.m_coeffs),
+      m_geomType(that.m_geomType)
+{
+}
+
+Geometry &Geometry::operator=(const Geometry &that)
+{
+    if (this != &that)
+    {
+        m_coordim    = that.m_coordim;
+        m_xmap       = that.m_xmap;
+        m_state      = that.m_state;
+        m_setupState = that.m_setupState;
+        m_shapeType  = that.m_shapeType;
+        m_globalID   = that.m_globalID;
+        m_coeffs     = that.m_coeffs;
+        m_geomType   = that.m_geomType;
+    }
+    return *this;
+}
+
+/**
+ * @brief A straight-sided element is one whose every \f$\chi\f$ basis is
+ * linear.
+ *
+ * Derived from m_xmap, so it must be established on demand rather than in
+ * Setup(), which does not re-run when Reset() rebuilds the mapping.
+ */
+bool Geometry::HasLinearXmap()
+{
+    if (!m_xmap || GetShapeDim() < 2)
+    {
+        return false;
+    }
+    for (int i = 0; i < GetShapeDim(); ++i)
+    {
+        if (m_xmap->GetBasisNumModes(i) != 2)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @copydoc Geometry::CalcGeomType()
+ *
+ * Also hands back the isoparametric coefficients settled on the way, which is
+ * what a locator needs in order to invert the mapping.
+ */
+GeomType Geometry::CalcGeomType(IsoParam &iso)
+{
+    if (!m_setupState)
+    {
+        Setup();
+    }
+    m_geomType = v_CalcGeomType(iso);
+    return m_geomType;
+}
+
+/**
+ * A geometric shape is considered regular if it has constant geometric
+ * information, and deformed if this information changes throughout the
+ * shape.
+ *
+ * Deciding this *is* testing whether the nonlinear isoparametric coefficients
+ * vanish, so the answer arrives together with those coefficients. When the
+ * caller only wants the classification -- as MeshGraph does for every element
+ * it reads -- they are built in a stack-resident temporary and discarded,
+ * leaving the geometry without a locator and allocating nothing.
+ *
+ * @returns             The type of geometry.
+ * @see GeomType
+ */
+GeomType Geometry::CalcGeomType()
+{
+    if (m_geomType != eNoGeomType)
+    {
+        return m_geomType;
+    }
+
+    if (!m_setupState)
+    {
+        Setup();
+    }
+
+    IsoParam scratch;
+    m_geomType = v_CalcGeomType(scratch);
+
+    return m_geomType;
 }
 
 bool SortByGlobalId(const Geometry *&lhs, const Geometry *&rhs)
@@ -205,7 +302,7 @@ int Geometry::v_GetShapeDim() const
 /**
  * Calculates the GeomType (deformed, regular etc).
  */
-GeomType Geometry::v_CalcGeomType()
+GeomType Geometry::v_CalcGeomType([[maybe_unused]] IsoParam &iso)
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for shape type geometries");
@@ -223,74 +320,12 @@ GeomFactorsUniquePtr Geometry::v_GenGeomFactors(
     return GeomFactorsUniquePtr();
 }
 
-int Geometry::v_AllLeftCheck(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &gloCoord)
-{
-    return 0;
-}
-
-void Geometry::v_CalculateInverseIsoParam()
-{
-    NEKERROR(ErrorUtil::efatal,
-             "This function is only valid for shape type geometries");
-}
-
 /**
  * @copydoc Geometry::GetXmap()
  */
 StdRegions::StdExpansionSharedPtr Geometry::v_GetXmap() const
 {
     return m_xmap;
-}
-
-/**
- * @copydoc Geometry::ContainsPoint(
- *     const Array<OneD, const NekDouble> &, Array<OneD, NekDouble> &,
- *     NekDouble, NekDouble&)
- * dist is assigned value for curved elements
- */
-bool Geometry::v_ContainsPoint(const Array<OneD, const NekDouble> &gloCoord,
-                               Array<OneD, NekDouble> &locCoord, NekDouble tol,
-                               NekDouble &dist)
-{
-    int inside = PreliminaryCheck(gloCoord);
-    if (inside == -1)
-    {
-        dist = std::numeric_limits<double>::max();
-        return false;
-    }
-    dist = GetLocCoords(gloCoord, locCoord);
-    if (inside == 1)
-    {
-        dist = 0.;
-        return true;
-    }
-    else
-    {
-        Array<OneD, NekDouble> eta(GetShapeDim(), 0.);
-        m_xmap->LocCoordToLocCollapsed(locCoord, eta);
-        if (ClampLocCoords(eta, tol))
-        {
-            if (CalcGeomType() == eRegular)
-            {
-                dist = std::numeric_limits<double>::max();
-            }
-            return false;
-        }
-        return 3 != m_coordim ||
-               (LibUtilities::eTriangle != m_shapeType &&
-                LibUtilities::eQuadrilateral != m_shapeType) ||
-               dist <= tol;
-    }
-}
-
-NekDouble Geometry::v_FindDistance(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &xs,
-    [[maybe_unused]] Array<OneD, NekDouble> &xi)
-{
-    NEKERROR(ErrorUtil::efatal,
-             "This function has not been defined for this geometry");
-    return false;
 }
 
 /**
@@ -361,18 +396,6 @@ NekDouble Geometry::v_GetCoord(
 }
 
 /**
- * @copydoc Geometry::GetLocCoords()
- */
-NekDouble Geometry::v_GetLocCoords(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &coords,
-    [[maybe_unused]] Array<OneD, NekDouble> &Lcoords)
-{
-    NEKERROR(ErrorUtil::efatal,
-             "This function is only valid for expansion type geometries");
-    return 0.0;
-}
-
-/**
  * @copydoc Geometry::FillGeom()
  */
 void Geometry::v_FillGeom()
@@ -428,185 +451,6 @@ void Geometry::v_Setup()
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for expansion type geometries");
-}
-
-/**
- * @brief Generates the bounding box for the element.
- *
- * For regular elements, the vertices are sufficient to define the extent of
- * the bounding box. For non-regular elements, the extremes of the quadrature
- * point coordinates are used. A 10% margin is added around this computed
- * region to account for convex hull elements where the true extent of the
- * element may extend slightly beyond the quadrature points.
- */
-std::array<NekDouble, 6> Geometry::GetBoundingBox()
-{
-    if (m_boundingBox.size() == 6)
-    {
-        return {{m_boundingBox[0], m_boundingBox[1], m_boundingBox[2],
-                 m_boundingBox[3], m_boundingBox[4], m_boundingBox[5]}};
-    }
-    // NekDouble minx, miny, minz, maxx, maxy, maxz;
-    Array<OneD, NekDouble> min(3), max(3);
-
-    // Always get vertexes min/max
-    PointGeom *p = GetVertex(0);
-    Array<OneD, NekDouble> x(3, 0.0);
-    p->GetCoords(x[0], x[1], x[2]);
-    for (int j = 0; j < 3; ++j)
-    {
-        min[j] = x[j];
-        max[j] = x[j];
-    }
-    for (int i = 1; i < GetNumVerts(); ++i)
-    {
-        p = GetVertex(i);
-        p->GetCoords(x[0], x[1], x[2]);
-        for (int j = 0; j < 3; ++j)
-        {
-            min[j] = (x[j] < min[j] ? x[j] : min[j]);
-            max[j] = (x[j] > max[j] ? x[j] : max[j]);
-        }
-    }
-    // If element is deformed loop over quadrature points
-    NekDouble marginFactor = NekConstants::kGeomFactorsTol;
-    if (CalcGeomType() != eRegular)
-    {
-        marginFactor = 0.1;
-        const int nq = GetXmap()->GetTotPoints();
-        Array<OneD, Array<OneD, NekDouble>> xvec(3);
-        for (int j = 0; j < 3; ++j)
-        {
-            xvec[j] = Array<OneD, NekDouble>(nq, 0.0);
-        }
-        for (int j = 0; j < GetCoordim(); ++j)
-        {
-            GetXmap()->BwdTrans(m_coeffs[j], xvec[j]);
-        }
-        for (int j = 0; j < 3; ++j)
-        {
-            for (int i = 0; i < nq; ++i)
-            {
-                min[j] = (xvec[j][i] < min[j] ? xvec[j][i] : min[j]);
-                max[j] = (xvec[j][i] > max[j] ? xvec[j][i] : max[j]);
-            }
-        }
-    }
-    // Add margin to bounding box, in order to
-    // return the nearest element
-    for (int j = 0; j < 3; ++j)
-    {
-        NekDouble margin =
-            marginFactor * (max[j] - min[j]) + NekConstants::kFindDistanceMin;
-        min[j] -= margin;
-        max[j] += margin;
-    }
-
-    // save bounding box
-    m_boundingBox = Array<OneD, NekDouble>(6);
-    for (int j = 0; j < 3; ++j)
-    {
-        m_boundingBox[j]     = min[j];
-        m_boundingBox[j + 3] = max[j];
-    }
-    // Return bounding box
-    return {{min[0], min[1], min[2], max[0], max[1], max[2]}};
-}
-
-void Geometry::ClearBoundingBox()
-{
-    m_boundingBox = {};
-}
-
-/**
- * @brief A fast and robust check if a given global coord is outside of a
- * deformed element. For regular elements, this check is unnecessary.
- *
- * @param coords   Input Cartesian global coordinates
- *
- * @return 1 is inside of the element.
- *         0 maybe inside
- *        -1 outside of the element
- */
-int Geometry::PreliminaryCheck(const Array<OneD, const NekDouble> &gloCoord)
-{
-    // bounding box check
-    if (!MinMaxCheck(gloCoord))
-    {
-        return -1;
-    }
-
-    // regular element check
-    if (CalcGeomType() == eRegular)
-    {
-        return 0;
-    }
-
-    // All left check for straight edges/plane surfaces
-    return v_AllLeftCheck(gloCoord);
-}
-
-/**
- * @brief Check if given global coord is within the BoundingBox of the element.
- *
- * @param coords   Input Cartesian global coordinates
- *
- * @return True if within distance or False otherwise.
- */
-bool Geometry::MinMaxCheck(const Array<OneD, const NekDouble> &gloCoord)
-{
-    // Validation checks
-    ASSERTL1(gloCoord.size() >= m_coordim,
-             "Expects number of global coordinates supplied to be greater than "
-             "or equal to the mesh dimension.");
-
-    std::array<NekDouble, 6> minMax = GetBoundingBox();
-    for (int i = 0; i < m_coordim; ++i)
-    {
-        if ((gloCoord[i] < minMax[i]) || (gloCoord[i] > minMax[i + 3]))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
- * @brief Clamp local coords to be within standard regions [-1, 1]^dim.
- *
- * @param Lcoords  Corresponding local coordinates
- */
-bool Geometry::ClampLocCoords(Array<OneD, NekDouble> &locCoord, NekDouble tol)
-{
-    // Validation checks
-    ASSERTL1(locCoord.size() >= GetShapeDim(),
-             "Expects local coordinates to be same or "
-             "larger than shape dimension.");
-
-    // If out of range clamp locCoord to be within [-1,1]^dim
-    // since any larger value will be very oscillatory if
-    // called by 'returnNearestElmt' option in
-    // ExpList::GetExpIndex
-    bool clamp = false;
-    for (int i = 0; i < GetShapeDim(); ++i)
-    {
-        if (!std::isfinite(locCoord[i]))
-        {
-            locCoord[i] = 0.;
-            clamp       = true;
-        }
-        else if (locCoord[i] < -(1. + tol))
-        {
-            locCoord[i] = -(1. + tol);
-            clamp       = true;
-        }
-        else if (locCoord[i] > (1. + tol))
-        {
-            locCoord[i] = 1. + tol;
-            clamp       = true;
-        }
-    }
-    return clamp;
 }
 
 } // namespace Nektar::SpatialDomains

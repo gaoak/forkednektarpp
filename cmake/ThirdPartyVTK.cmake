@@ -59,7 +59,7 @@ IF( NEKTAR_USE_VTK )
         ENDIF()
         EXTERNALPROJECT_ADD(
             vtk-9.3.0
-            URL "https://www.vtk.org/files/release/9.3/VTK-9.3.0.tar.gz"
+            URL ${TPURL}/VTK-9.3.0.tar.gz
             URL_MD5 "8b4dbb0ec85a6c0cf39803b6f891a8f2"
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}

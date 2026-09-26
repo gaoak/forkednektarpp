@@ -46,6 +46,9 @@ Expansion::Expansion(SpatialDomains::Geometry *pGeom)
           std::string("ExpansionIndexMap")),
       m_geom(pGeom), m_elementTraceLeft(-1), m_elementTraceRight(-1)
 {
+    // Expansions need to be constructed with an appropriate geometry.
+    ASSERTL1(m_geom, "An expansion needs a geometry.");
+
     GenGeomFactors();
 
     if (!m_geomFactors)
@@ -185,6 +188,9 @@ void Expansion::Reset()
 {
     // Clear metrics
     m_metrics.clear();
+
+    // The geometry may have moved, so the inverse mapping is stale
+    m_locator.reset();
 
     // Regenerate geometry factors
     GenGeomFactors();
@@ -503,8 +509,7 @@ NekDouble Expansion::v_PhysEvaluate(
 {
     Array<OneD, NekDouble> Lcoord = Array<OneD, NekDouble>(GetShapeDimension());
 
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
+    GetLocator()->GetLocCoords(coord, Lcoord);
 
     return v_StdPhysEvaluate(Lcoord, physvals);
 }

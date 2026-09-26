@@ -177,28 +177,6 @@ ZoneRotate::ZoneRotate(int id, int domainID, const CompositeMap &domain,
     m_W2 = m_W * m_W;
 }
 
-void ZoneBase::ClearBoundingBoxes()
-{
-    // Clear bboxes (these will be regenerated next time GetBoundingBox is
-    // called)
-    for (auto &el : m_elements)
-    {
-        el->ClearBoundingBox();
-
-        int nfaces = el->GetNumFaces();
-        for (int i = 0; i < nfaces; ++i)
-        {
-            el->GetFace(i)->ClearBoundingBox();
-        }
-
-        int nedges = el->GetNumEdges();
-        for (int i = 0; i < nedges; ++i)
-        {
-            el->GetEdge(i)->ClearBoundingBox();
-        }
-    }
-}
-
 NekDouble ZoneRotate::GetAngularVel(const NekDouble &time) const
 {
     if (time < m_rampTime)
@@ -274,8 +252,6 @@ bool ZoneRotate::v_Move(NekDouble time)
             cnt++;
         }
     }
-
-    ClearBoundingBoxes();
 
     return true;
 }
@@ -398,8 +374,6 @@ bool ZoneTranslate::v_Move(NekDouble time)
             cnt++;
         }
     }
-
-    ClearBoundingBoxes();
 
     return true;
 }

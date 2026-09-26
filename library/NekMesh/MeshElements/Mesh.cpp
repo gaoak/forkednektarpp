@@ -281,36 +281,7 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
     // against coefficients describing the mesh as it was before the previous
     // module moved its nodes. Reset also rebuilds the xmap and coefficient
     // storage, which the curves of the preceding order have resized.
-    auto &curvedEdges = m_meshGraph->GetCurvedEdges();
-    auto &curvedFaces = m_meshGraph->GetCurvedFaces();
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
-    for (auto [id, geom] : m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>())
-    {
-        geom->Reset(curvedEdges, curvedFaces);
-    }
+    m_meshGraph->ResetGeometry();
 
     // Pass 1: FillGeom everything so all m_coeffs are set from the original
     // geometry before any curve is modified by MakeOrder
@@ -428,41 +399,7 @@ void Mesh::MakeOrder(int order, LibUtilities::PointsType distType, Logger &log)
                      << ")" << std::endl;
 
         // Moving them invalidates the coefficients filled above.
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::SegGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::TriGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::QuadGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::TetGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::PrismGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::PyrGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
-        for (auto [id, geom] :
-             m_meshGraph->GetGeomMap<SpatialDomains::HexGeom>())
-        {
-            geom->Reset(curvedEdges, curvedFaces);
-        }
+        m_meshGraph->ResetGeometry();
     }
 }
 

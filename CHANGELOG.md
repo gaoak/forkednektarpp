@@ -7,6 +7,7 @@ v5.11.0
 - Add parallel HDF5 mesh output (!2588)
 - Add Eigen value estimation to ConjGrad and GMRES (!2578)
 - Fix HDF5 thirdparty compilation with MPI (!2610)
+- Fix singularity check in the 3DH2D Poisson solver (!2627)
 - Add dual-precision (float/double) templating for NektarFFT and NekFFTW (!2632)
 - Replace Blas::Dscal and Blas::Daxpy call by VMath calls (!2630)
 - Update StdRegion for consistency with redesign (!2642)
@@ -26,9 +27,11 @@ v5.11.0
 - Fix the artificial viscosity's density floor, which was an absolute number and so made the viscosity depend on the units a session was written in; it is now a fraction of rhoInf (!2735)
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 - Trace-frame expansions and parallel mesh orderings (!2712)
+- Move point location out of Geometry into a new GeometryLocator class that callers build on demand, so geometry that is never searched no longer carries an inverse mapping (!2747)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
+- Fix modules that add curvature leaving the surrounding faces and elements set up for the linear mesh, so that later modules measured the mesh as it was before projection (!2747)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)

@@ -72,7 +72,7 @@ public:
     }
 
 protected:
-    GeomType v_CalcGeomType() override;
+    GeomType v_CalcGeomType(IsoParam &iso) override;
     GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt) override;
     int v_GetEdgeNormalToFaceVert(const int i, const int j) const override;

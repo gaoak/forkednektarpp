@@ -763,8 +763,11 @@ bool ElUtil::PreUpdateMapping(AdaptCurveVector &adaptCurves, NekDouble scale,
 
     std::vector<SpatialDomains::CADCurveSharedPtr> radaptCurves;
 
-    // Bounding boxes are {xmin, ymin, zmin, xmax, ymax, zmax}.
-    auto el_bb = m_el->GetBoundingBox();
+    // Bounding boxes are {xmin, ymin, zmin, xmax, ymax, zmax}. The box is
+    // held by the locator rather than the geometry, so one is built here and
+    // dropped again; this runs once per element, not per search.
+    auto el_bb =
+        SpatialDomains::GeometryLocator::Create(m_el)->GetBoundingBox();
 
     for (auto &curve : adaptCurves)
     {

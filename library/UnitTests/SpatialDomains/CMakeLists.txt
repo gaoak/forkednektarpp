@@ -2,6 +2,7 @@ SET(SpatialDomainsUnitTestsSources
     main.cpp
     TestMovement.cpp
     TestMakeOrder.cpp
+    TestPyrInverseMap.cpp
 )
 
 ADD_DEFINITIONS(-DENABLE_NEKTAR_EXCEPTIONS)

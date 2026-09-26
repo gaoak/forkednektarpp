@@ -981,6 +981,22 @@ public:
         return m_curvedVolumes;
     }
 
+    /**
+     * @brief Re-read every geometry's curvature and rebuild what depends on it.
+     *
+     * Attaching a curve to a geometry only stores a pointer: the \f$\chi\f$
+     * map, the coefficients sized from it and the cached regular/deformed
+     * classification are all left describing the shape as it was. They are
+     * rebuilt here, in ascending dimension, so that each face sees its edges
+     * already at their new order and each element sees its faces.
+     *
+     * Anything that adds or moves curvature after the graph has been read --
+     * Mesh::MakeOrder, the CAD projection modules -- has to call this before
+     * the mesh is used again, or a geometry whose edges were curved underneath
+     * it will still carry the linear map it was set up with.
+     */
+    SPATIAL_DOMAINS_EXPORT void ResetGeometry();
+
     template <typename T> GeomMapView<T> &GetGeomMap()
     {
         if constexpr (std::is_same_v<T, PointGeom>)

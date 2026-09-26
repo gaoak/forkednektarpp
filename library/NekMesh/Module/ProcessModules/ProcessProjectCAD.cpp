@@ -358,6 +358,13 @@ void ProcessProjectCAD::Process()
     int orderCASE3 = 2;
     ProjectEdges(surfEdges, orderCASE3, rtree);
 
+    // Curving an edge only attaches a curve to it; every face and element
+    // containing that edge is still carrying the linear map it was set up
+    // with when the mesh was read. Rebuild them before anything -- the
+    // high-order surface module below, or a later module -- reads geometry
+    // through them.
+    m_mesh->m_meshGraph->ResetGeometry();
+
     if (m_config["ho"].beenSet)
     {
         LinkHOtoCAD(surfEdges, tolv1 * 10.0);
@@ -388,8 +395,12 @@ void ProcessProjectCAD::Process()
             m_log(WARNING) << e.what() << endl;
             m_log(WARNING) << "The mesh will be written as normal but the "
                            << "incomplete surface will remain faceted" << endl;
+            m_mesh->m_meshGraph->ResetGeometry();
             return;
         }
+
+        // As above: the surface module has curved more edges and faces.
+        m_mesh->m_meshGraph->ResetGeometry();
     }
 
     Diagnostics();

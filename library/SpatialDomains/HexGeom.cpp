@@ -105,7 +105,7 @@ HexGeom::HexGeom(int id, std::array<QuadGeom *, 6> faces,
     }
 }
 
-GeomType HexGeom::v_CalcGeomType()
+GeomType HexGeom::v_CalcGeomType(IsoParam &iso)
 {
     if (!m_setupState)
     {
@@ -125,58 +125,44 @@ GeomType HexGeom::v_CalcGeomType()
     // check to see if all faces are parallelograms
     if (Gtype == eRegular)
     {
-        m_isoParameter = Array<OneD, Array<OneD, NekDouble>>(3);
+        iso.m_nCoeff = 8;
         for (int i = 0; i < 3; ++i)
         {
-            m_isoParameter[i]    = Array<OneD, NekDouble>(8, 0.);
-            NekDouble A          = (*m_verts[0])(i);
-            NekDouble B          = (*m_verts[1])(i);
-            NekDouble C          = (*m_verts[2])(i);
-            NekDouble D          = (*m_verts[3])(i);
-            NekDouble E          = (*m_verts[4])(i);
-            NekDouble F          = (*m_verts[5])(i);
-            NekDouble G          = (*m_verts[6])(i);
-            NekDouble H          = (*m_verts[7])(i);
-            m_isoParameter[i][0] = 0.125 * (A + B + C + D + E + F + G + H); // 1
+            NekDouble A = (*m_verts[0])(i);
+            NekDouble B = (*m_verts[1])(i);
+            NekDouble C = (*m_verts[2])(i);
+            NekDouble D = (*m_verts[3])(i);
+            NekDouble E = (*m_verts[4])(i);
+            NekDouble F = (*m_verts[5])(i);
+            NekDouble G = (*m_verts[6])(i);
+            NekDouble H = (*m_verts[7])(i);
+            // 1
+            iso.m_coeff[i][0] = 0.125 * (A + B + C + D + E + F + G + H);
 
-            m_isoParameter[i][1] =
-                0.125 * (-A + B + C - D - E + F + G - H); // xi1
-            m_isoParameter[i][2] =
-                0.125 * (-A - B + C + D - E - F + G + H); // xi2
-            m_isoParameter[i][3] =
-                0.125 * (-A - B - C - D + E + F + G + H); // xi3
+            iso.m_coeff[i][1] = 0.125 * (-A + B + C - D - E + F + G - H); // xi1
+            iso.m_coeff[i][2] = 0.125 * (-A - B + C + D - E - F + G + H); // xi2
+            iso.m_coeff[i][3] = 0.125 * (-A - B - C - D + E + F + G + H); // xi3
 
-            m_isoParameter[i][4] =
+            iso.m_coeff[i][4] =
                 0.125 * (A - B + C - D + E - F + G - H); // xi1*xi2
-            m_isoParameter[i][5] =
+            iso.m_coeff[i][5] =
                 0.125 * (A + B - C - D - E - F + G + H); // xi2*xi3
-            m_isoParameter[i][6] =
+            iso.m_coeff[i][6] =
                 0.125 * (A - B - C + D - E + F + G - H); // xi1*xi3
 
-            m_isoParameter[i][7] =
+            iso.m_coeff[i][7] =
                 0.125 * (-A + B - C + D + E - F + G - H); // xi1*xi2*xi3
-            NekDouble tmp = fabs(m_isoParameter[i][1]) +
-                            fabs(m_isoParameter[i][2]) +
-                            fabs(m_isoParameter[i][3]);
+            NekDouble tmp = fabs(iso.m_coeff[i][1]) + fabs(iso.m_coeff[i][2]) +
+                            fabs(iso.m_coeff[i][3]);
             tmp *= NekConstants::kNekZeroTol;
             for (int d = 4; d < 8; ++d)
             {
-                if (fabs(m_isoParameter[i][d]) > tmp)
+                if (fabs(iso.m_coeff[i][d]) > tmp)
                 {
                     Gtype = eDeformed;
                 }
             }
         }
-    }
-
-    if (Gtype == eRegular)
-    {
-        v_CalculateInverseIsoParam();
-    }
-
-    if (Gtype == eRegular)
-    {
-        v_CalculateInverseIsoParam();
     }
 
     return Gtype;
@@ -752,15 +738,6 @@ void HexGeom::v_Setup()
         }
         SetUpXmap();
         SetUpCoeffs(m_xmap->GetNcoeffs());
-
-        // check to see if expansions are linear
-        m_straightEdge = 1;
-        if (m_xmap->GetBasisNumModes(0) != 2 ||
-            m_xmap->GetBasisNumModes(1) != 2 ||
-            m_xmap->GetBasisNumModes(2) != 2)
-        {
-            m_straightEdge = 0;
-        }
 
         m_setupState = true;
     }

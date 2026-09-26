@@ -70,8 +70,8 @@ IF (NEKTAR_USE_SCOTCH)
         EXTERNALPROJECT_ADD(
             scotch-7.0.1
             PREFIX ${TPSRC}
-            GIT_REPOSITORY https://gitlab.inria.fr/scotch/scotch.git
-            GIT_TAG v7.0.1
+            URL ${TPURL}/scotch-v7.0.1.tar.gz 
+            URL_MD5 "34f1d3d2bb82c385b161befdccfaea45"
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
             SOURCE_DIR ${TPSRC}/scotch-7.0.1

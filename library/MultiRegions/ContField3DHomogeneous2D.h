@@ -46,6 +46,7 @@ class ContField3DHomogeneous2D : public DisContField3DHomogeneous2D
 public:
     MULTI_REGIONS_EXPORT ContField3DHomogeneous2D();
 
+    /// Construct a field without checking for a singular system.
     MULTI_REGIONS_EXPORT ContField3DHomogeneous2D(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const LibUtilities::BasisKey &HomoBasis_y,
@@ -53,6 +54,17 @@ public:
         const NekDouble lhom_z, const bool useFFT, const bool dealiasing,
         const SpatialDomains::MeshGraphSharedPtr &graph1D,
         const std::string &variable,
+        const Collections::ImplementationType ImpType =
+            Collections::eNoImpType);
+
+    /// Construct a field with optional singularity checking of the mean mode.
+    MULTI_REGIONS_EXPORT ContField3DHomogeneous2D(
+        const LibUtilities::SessionReaderSharedPtr &pSession,
+        const LibUtilities::BasisKey &HomoBasis_y,
+        const LibUtilities::BasisKey &HomoBasis_z, const NekDouble lhom_y,
+        const NekDouble lhom_z, const bool useFFT, const bool dealiasing,
+        const SpatialDomains::MeshGraphSharedPtr &graph1D,
+        const std::string &variable, const bool CheckIfSingularSystem,
         const Collections::ImplementationType ImpType =
             Collections::eNoImpType);
 

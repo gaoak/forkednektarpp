@@ -110,7 +110,6 @@ struct ZoneBase
     }
 
     /// Clears all bounding boxes associated with the zones elements
-    void ClearBoundingBoxes();
 
     /// Returns constituent elements, i.e. faces + edges
     inline std::array<std::set<Geometry *>, 3> &GetConstituentElements()

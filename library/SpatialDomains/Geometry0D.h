@@ -53,9 +53,6 @@ public:
     SPATIAL_DOMAINS_EXPORT static const int kDim = 0;
 
 protected:
-    bool v_ContainsPoint(const Array<OneD, const NekDouble> &gloCoord,
-                         Array<OneD, NekDouble> &locCoord, NekDouble tol,
-                         NekDouble &dist) override;
     int v_GetShapeDim() const override;
 };
 

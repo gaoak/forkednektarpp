@@ -330,7 +330,8 @@ void EquationSystem::v_InitObject(bool DeclareFields)
                                 AllocateSharedPtr(m_session, BkeyY, BkeyZ,
                                                   m_LhomY, m_LhomZ, m_useFFT,
                                                   m_homogen_dealiasing, m_graph,
-                                                  m_session->GetVariable(i));
+                                                  m_session->GetVariable(i),
+                                                  m_checkIfSystemSingular[i]);
                         }
                     }
                     else
