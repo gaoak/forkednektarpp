@@ -114,7 +114,7 @@ IF (NEKTAR_USE_PETSC)
             TMP_DIR ${TPBUILD}/petsc-3.19.3-tmp
             INSTALL_DIR ${TPDIST}
             BINARY_DIR ${TPBUILD}/petsc-3.19.3
-            URL https://www.nektar.info/thirdparty/petsc-3.19.3.tar.gz 
+            URL ${TPURL}/petsc-3.19.3.tar.gz 
             URL_MD5 "b493f0c19c067994ce7e9b5f4d13216c"
             BUILD_BYPRODUCTS ${PETSC_LIBRARIES}
             PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/petsc-3.19.3.patch
