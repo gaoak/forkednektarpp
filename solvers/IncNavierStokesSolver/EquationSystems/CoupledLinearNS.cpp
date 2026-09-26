@@ -68,6 +68,18 @@ CoupledLinearNS::CoupledLinearNS(
 
 void CoupledLinearNS::v_InitObject(bool DeclareField)
 {
+    // The coupled system is assembled into a single rank-local matrix and
+    // inverted with a direct static-condensation solve
+    // (GlobalLinSysDirectStaticCond), using the partition-local
+    // CoupledLocalToGlobalC0ContMap which has no universal (inter-partition)
+    // assembly map. Running in space-parallel therefore silently solves a set
+    // of decoupled subdomain problems rather than the global one, so trap it
+    // here. Parallel-in-time is unaffected and remains supported.
+    ASSERTL0(m_comm->GetSpaceComm()->GetSize() == 1,
+             "The coupled linearised Navier-Stokes solver uses a direct "
+             "static-condensation solve and is not set up for parallel "
+             "execution in space. Please run this session in serial.");
+
     IncNavierStokes::v_InitObject(DeclareField);
 
     size_t i;
