@@ -743,17 +743,19 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
             TARGET_LINK_LIBRARIES(LibUtilities PRIVATE "${_merged_dlink}")
         ENDIF()
 
-        if(NEKTAR_USE_CUFFTDX)
+        IF(NEKTAR_USE_CUFFTDX)
             # Private: only DerivZDeviceFFT.cu includes the cuFFTDx headers
             # or tests the option.
-            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
             TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE
-                    $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}/../external/cutlass/include>)
+                    $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE
+                    $<BUILD_INTERFACE:${CUFFTDX_CUTLASS_INCLUDE_DIR}>)
             TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_USE_CUFFTDX)
             TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE
                 CUFFTDX_TARGET_SM=${CUFFTDX_TARGET_SM})
+            ADD_DEPENDENCIES(LibUtilities cufftdx-25.12)
             MESSAGE(STATUS "cuFFTDx: enabled (${CUFFTDX_INCLUDE_DIR}), SM=${CUFFTDX_TARGET_SM}")
-        endif()
+        ENDIF()
         # Private: the device FFT libraries are named only by the .cu/.hip/.cpp
         # translation units under FFT/, and the headers that reach them are not
         # included outside LibUtilities.

@@ -44,8 +44,8 @@ IF (NEKTAR_USE_MAGMA)
         EXTERNALPROJECT_ADD(
                 magma-v2.10.0
                 PREFIX ${TPSRC}
-                GIT_REPOSITORY https://github.com/icl-utk-edu/magma.git
-                GIT_TAG v2.10.0
+                URL ${TPURL}/magma-2.10.0.tar.gz
+                URL_MD5 74587494f41d5a765d7a0f272f2a99cb
                 STAMP_DIR ${TPBUILD}/stamp
                 DOWNLOAD_DIR ${TPSRC}
                 SOURCE_DIR ${TPSRC}/magma-v2.10.0

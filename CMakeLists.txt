@@ -434,6 +434,8 @@ ADD_CUSTOM_TARGET(thirdparty)
 INCLUDE (ThirdPartyLibXSMM)
 INCLUDE (ThirdPartyOneMath)
 INCLUDE (ThirdPartyMAGMA)
+# Must follow NektarCUDA
+INCLUDE (ThirdPartyCUFFTDx)
 INCLUDE (ThirdPartyMPI)
 INCLUDE (ThirdPartyTinyxml)
 INCLUDE (ThirdPartyMetis)

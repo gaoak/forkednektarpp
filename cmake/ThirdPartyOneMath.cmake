@@ -57,8 +57,8 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
             EXTERNALPROJECT_ADD(
                     onemath-v0.9
                     PREFIX ${TPSRC}
-                    GIT_REPOSITORY https://github.com/uxlfoundation/oneMath.git
-                    GIT_TAG v0.9
+                    URL ${TPURL}/onemath-0.9.tar.gz
+                    URL_MD5 71bf1fafc6435dcc815345dee75f22c3
                     STAMP_DIR ${TPBUILD}/stamp
                     DOWNLOAD_DIR ${TPSRC}
                     SOURCE_DIR ${TPSRC}/onemath-v0.9
@@ -100,8 +100,8 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
             EXTERNALPROJECT_ADD(
                     onemath-v0.9
                     PREFIX ${TPSRC}
-                    GIT_REPOSITORY https://github.com/uxlfoundation/oneMath.git
-                    GIT_TAG v0.9
+                    URL ${TPURL}/onemath-0.9.tar.gz
+                    URL_MD5 71bf1fafc6435dcc815345dee75f22c3
                     STAMP_DIR ${TPBUILD}/stamp
                     DOWNLOAD_DIR ${TPSRC}
                     SOURCE_DIR ${TPSRC}/onemath-v0.9
