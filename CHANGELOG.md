@@ -27,6 +27,7 @@ v5.11.0
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 - Trace-frame expansions and parallel mesh orderings (!2712)
 - Move point location out of Geometry into a new GeometryLocator class that callers build on demand, so geometry that is never searched no longer carries an inverse mapping (!2747)
+- Fix a bug in LowEnergyBlock preconditioner which may causes divergence in Hex meshes (!2765)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

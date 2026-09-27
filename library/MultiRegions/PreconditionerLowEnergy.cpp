@@ -504,9 +504,13 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
     int uniEdgeOffset = 0;
 
     // Need to obtain a fixed offset for the universal number
-    // of the faces which come after the edge numbering
+    // of the faces which come after the edge numbering. Inspect every
+    // expansion: the last element does not need to contain the largest
+    // edge ID (fixed on 20260926)
     for (n = 0; n < n_exp; ++n)
     {
+        locExpansion = expList->GetExp(n)->as<LocalRegions::Expansion3D>();
+
         for (j = 0; j < locExpansion->GetNedges(); ++j)
         {
             meshEdgeId = locExpansion->as<LocalRegions::Expansion3D>()
