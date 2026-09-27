@@ -32,7 +32,7 @@ IF (NEKTAR_ENABLE_SIMD AND _SYSTEM_PROCESSOR STREQUAL "x86_64")
         EXTERNALPROJECT_ADD(
                 libxsmm-1.17
                 PREFIX ${TPSRC}
-                URL https://github.com/libxsmm/libxsmm/archive/refs/tags/1.17.tar.gz
+                URL ${TPURL}/libxsmm-1.17.tar.gz
                 URL_MD5 bef3b02f8837b0eed1ea334045da0524
                 STAMP_DIR ${TPBUILD}/stamp
                 DOWNLOAD_DIR ${TPSRC}
