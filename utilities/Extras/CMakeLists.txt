@@ -30,22 +30,39 @@ IF (NEKTAR_USE_VTK)
         ENDIF ()
     ENDIF ()
 
-    ADD_UTILITIES_EXECUTABLE(VtkToPng COMPONENT utilities-extra SOURCES VtkToPng.cpp)
-    IF (THIRDPARTY_BUILD_VTK)
-        TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC ${VTK_LIBRARIES})
-        ADD_DEPENDENCIES(VtkToPng vtk-9.3.0)
-    ELSE()
-        IF (VTK_MAJOR_VERSION LESS 6)
-            TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC vtkCommon vtksys vtkViews vtkWidgets
-                                                       vtkRendering vtkIO)
-        ELSEIF (VTK_MAJOR_VERSION  GREATER_EQUAL 9)
-            TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC VTK::CommonCore VTK::RenderingCore
-                                  VTK::IOXML VTK::IOImage)
-            vtk_module_autoinit(
-                TARGETS VtkToPng
-                MODULES VTK::CommonCore VTK::RenderingCore VTK::IOXML  VTK::IOImage) 
-            ELSE ()
+    # Unlike the other utilities, VtkToPng renders the dataset, so it needs the
+    # rendering backend implementation module. RenderingCore only declares
+    # vtkActor, vtkRenderer, vtkRenderWindow and vtkPolyDataMapper: their New()
+    # goes through the VTK object factory and the overrides are provided by
+    # RenderingOpenGL2. Without it VTK reports "no override found for
+    # 'vtkActor'", New() returns a null pointer and the utility segfaults.
+    IF (THIRDPARTY_BUILD_VTK OR VTK_MAJOR_VERSION LESS 9
+        OR TARGET VTK::RenderingOpenGL2)
+        ADD_UTILITIES_EXECUTABLE(VtkToPng COMPONENT utilities-extra SOURCES VtkToPng.cpp)
+        IF (THIRDPARTY_BUILD_VTK)
             TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC ${VTK_LIBRARIES})
+            # VTK has not been built yet at configure time, so
+            # vtk_module_autoinit() is unavailable; the object factory is
+            # registered from the source instead.
+            TARGET_COMPILE_DEFINITIONS(VtkToPng PRIVATE NEKTAR_VTK_AUTOINIT_OPENGL2)
+            ADD_DEPENDENCIES(VtkToPng vtk-9.3.0)
+        ELSE()
+            IF (VTK_MAJOR_VERSION LESS 6)
+                TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC vtkCommon vtksys vtkViews vtkWidgets
+                                                           vtkRendering vtkIO)
+            ELSEIF (VTK_MAJOR_VERSION  GREATER_EQUAL 9)
+                TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC VTK::CommonCore VTK::RenderingCore
+                                      VTK::RenderingOpenGL2 VTK::IOXML VTK::IOImage)
+                vtk_module_autoinit(
+                    TARGETS VtkToPng
+                    MODULES VTK::CommonCore VTK::RenderingCore
+                            VTK::RenderingOpenGL2 VTK::IOXML VTK::IOImage)
+            ELSE ()
+                TARGET_LINK_LIBRARIES(VtkToPng LINK_PUBLIC ${VTK_LIBRARIES})
+            ENDIF ()
         ENDIF ()
+    ELSE ()
+        MESSAGE(STATUS "VTK rendering backend (RenderingOpenGL2) not found: "
+                       "not building VtkToPng")
     ENDIF ()
 ENDIF (NEKTAR_USE_VTK)
