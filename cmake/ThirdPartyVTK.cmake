@@ -4,13 +4,18 @@ IF( NEKTAR_USE_VTK )
     # VTK9 uses modified component names - VTK9 can still be discovered with
     # the old names but these are deprecated and produce a number of warnings.
     MESSAGE(STATUS "Looking for VTK >= 9...")
+    # RenderingOpenGL2 is optional: only VtkToPng needs it, and it supplies the
+    # object factory overrides for vtkActor/vtkRenderer/vtkRenderWindow which
+    # RenderingCore only declares.
     FIND_PACKAGE(VTK 9 QUIET COMPONENTS
-        FiltersCore IOLegacy IOXML IOImage RenderingCore)
+        FiltersCore IOLegacy IOXML IOImage RenderingCore
+        OPTIONAL_COMPONENTS RenderingOpenGL2)
     IF(NOT VTK_FOUND)
         MESSAGE(STATUS "VTK 9+ not found, looking for earlier VTK versions...")
         # If we didn't find VTK9+, search VTK<9 using the older component names
         FIND_PACKAGE(VTK COMPONENTS
-            vtkFiltersGeometry vtkIOLegacy vtkIOXML vtkIOImage vtkRenderingCore)
+            vtkFiltersGeometry vtkIOLegacy vtkIOXML vtkIOImage vtkRenderingCore
+            OPTIONAL_COMPONENTS vtkRenderingOpenGL2)
     ENDIF()
 
     IF (VTK_FOUND)
@@ -35,7 +40,7 @@ IF( NEKTAR_USE_VTK )
 
     IF( THIRDPARTY_BUILD_VTK )
         INCLUDE( ExternalProject )
-        SET(VTK_LIB_LIST vtkFiltersGeometry-9.3 vtkIOLegacy-9.3 vtkIOXML-9.3 vtkIOImage-9.3 vtkRenderingCore-9.3 vtkIOCore-9.3 vtkCommonCore-9.3 vtkFiltersCore-9.3 vtkCommonDataModel-9.3 vtkCommonExecutionModel-9.3 vtksys-9.3)
+        SET(VTK_LIB_LIST vtkFiltersGeometry-9.3 vtkIOLegacy-9.3 vtkIOXML-9.3 vtkIOImage-9.3 vtkRenderingCore-9.3 vtkRenderingOpenGL2-9.3 vtkRenderingUI-9.3 vtkglew-9.3 vtkIOCore-9.3 vtkCommonCore-9.3 vtkFiltersCore-9.3 vtkCommonDataModel-9.3 vtkCommonExecutionModel-9.3 vtksys-9.3)
 
         THIRDPARTY_LIBRARY(VTK_LIBRARIES SHARED ${VTK_LIB_LIST} DESCRIPTION "VTK libs")
 

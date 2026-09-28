@@ -54,8 +54,34 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkXMLUnstructuredGridReader.h>
 
+// When VTK is built as a ThirdParty dependency it is not available at configure
+// time, so vtk_module_autoinit() cannot be used to register the object factory
+// of the rendering backend. Do it here instead; without the factory overrides
+// vtkActor::New() and friends report "no override found" and return nullptr.
+#ifdef NEKTAR_VTK_AUTOINIT_OPENGL2
+#include <vtkAutoInit.h>
+VTK_MODULE_INIT(vtkRenderingOpenGL2);
+#endif
+
 #include <iostream>
 using namespace std;
+
+namespace
+{
+/// Aborts with a readable message if @p obj could not be created. The rendering
+/// classes are instantiated through the VTK object factory and return a null
+/// pointer when the backend implementation module has not been registered.
+template <typename T> T *CheckCreated(T *obj, const char *name)
+{
+    if (!obj)
+    {
+        cerr << "Error: unable to create a " << name << ". The VTK rendering "
+             << "backend is not available in this build." << endl;
+        exit(-1);
+    }
+    return obj;
+}
+} // namespace
 
 int main(int argc, char *argv[])
 {
@@ -82,7 +108,18 @@ int main(int argc, char *argv[])
 
     vtkSmartPointer<vtkDataSet> data =
         vtkSmartPointer<vtkDataSet>(reader->GetOutputAsDataSet());
-    data->GetPointData()->SetActiveScalars("u");
+    if (!data || data->GetNumberOfPoints() == 0)
+    {
+        cerr << "Error: unable to read a dataset from '" << vInput << "'."
+             << endl;
+        exit(-1);
+    }
+
+    if (data->GetPointData()->SetActiveScalars("u") < 0)
+    {
+        cerr << "Error: no point data field 'u' in '" << vInput << "'." << endl;
+        exit(-1);
+    }
 
     double scalar_range[2];
     data->GetScalarRange(scalar_range);
@@ -121,7 +158,8 @@ int main(int argc, char *argv[])
     // mapper->SetScalarRange(data->GetScalarRange());
     mapper->SetLookupTable(lookup);
 
-    vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+    vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::Take(
+        CheckCreated(vtkActor::New(), "vtkActor"));
     actor->SetMapper(mapper);
 
     // Configure camera position and direction
@@ -130,9 +168,11 @@ int main(int argc, char *argv[])
     camera->SetFocalPoint(0, 0, 0);
 
     // A renderer and render window
-    vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
+    vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::Take(
+        CheckCreated(vtkRenderer::New(), "vtkRenderer"));
     vtkSmartPointer<vtkRenderWindow> renderWindow =
-        vtkSmartPointer<vtkRenderWindow>::New();
+        vtkSmartPointer<vtkRenderWindow>::Take(
+            CheckCreated(vtkRenderWindow::New(), "vtkRenderWindow"));
     renderWindow->SetOffScreenRendering(1);
     renderWindow->AddRenderer(renderer);
 

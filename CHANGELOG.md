@@ -59,6 +59,7 @@ v5.11.0
 - Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
 - Fix C++20 ambiguous reversed operator warning (!2703)
 - Tidy stop using boost ignore unused (!2751)
+- Fix VtkToPng segfault with VTK 9 by linking and auto-initialising the rendering backend module that provides the object factory overrides (!2764)
 
 v5.10.0
 -------
