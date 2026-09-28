@@ -245,6 +245,43 @@ make install -C $ACPP_HOME/AdaptiveCpp/build/ -j 8
 export LD_LIBRARY_PATH=$ACPP_HOME/AdaptiveCpp/build/lib/:${LD_LIBRARY_PATH}
 ```
 
+### Intel GPU - EXPERIMENTAL
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-Intel \
+         -DNEKTAR_DEVICE_ARCH=arch \
+         -DCMAKE_C_COMPILER=icx \
+         -DCMAKE_CXX_COMPILER=icpx
+```
+
+Note:
+1. For device architecture `NEKTAR_DEVICE_ARCH`, please use the following
+values:
+
+```
+ - Data Center GPU Max 1100/1350/1550 (Ponte Vecchio): `arch=pvc`
+ - Data Center GPU Max with VG (Ponte Vecchio VG):     `arch=pvc_vg`
+ - Data Center GPU Flex 170 (Arctic Sound, ACM-G10):   `arch=acm_g10`
+ - Data Center GPU Flex 140 (Arctic Sound, ACM-G11):   `arch=acm_g11`
+```
+
+The names known to your installation can be listed with:
+
+```
+ocloc compile --help
+```
+
+and a single name checked with `ocloc ids arch`, for example `ocloc ids pvc`.
+The architecture of the GPUs present on a machine is reported by
+`sycl-ls --verbose`.
+
+2. `NEKTAR_DEVICE_ARCH` triggers ahead-of-time compilation, so the resulting
+binary only runs on the architecture it was built for. If it is omitted, the
+kernels are compiled just-in-time (`-fsycl-targets=spir64`) instead and the
+build runs on any Intel GPU, at the cost of a one-off compilation delay when
+the solver starts.
+
+
 ### Intel LLVM SYCL (CUDA) - EXPERIMENTAL
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \

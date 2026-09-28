@@ -729,7 +729,8 @@ NEK_FORCE_INLINE static void DivideByJacobian(const size_t nelmt,
 // layout.
 
 // 1D Case - Non-interleaved
-#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
 template <
     unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
     typename TData,
@@ -803,7 +804,8 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(const unsigned int nq0,
 }
 
 // 2D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
 template <
     unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
     typename TData,
@@ -883,7 +885,8 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(
 }
 
 // 3D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
 template <
     unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
     typename TData,
@@ -979,7 +982,8 @@ NEK_DEVICE_KERNEL void VolumeKernelLauncher(
 // every component after the first was then read from the wrong offset.
 //
 // 1D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
 template <
     template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
     bool DEFORMED, typename TthreadBlock, typename TData,
@@ -1055,7 +1059,8 @@ NEK_DEVICE_KERNEL void IntegralKernelLauncher(
 }
 
 // 2D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
 template <
     template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
     bool DEFORMED, typename TthreadBlock, typename TData,
@@ -1142,7 +1147,8 @@ NEK_DEVICE_KERNEL void IntegralKernelLauncher(
 }
 
 // 3D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) && defined(__ADAPTIVECPP__))
+#if !(defined(SYCL_ENABLE_CPU) &&                                              \
+      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
 template <
     template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
     bool DEFORMED, typename TthreadBlock, typename TData,
