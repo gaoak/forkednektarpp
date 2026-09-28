@@ -119,7 +119,7 @@ struct Device
 #elif defined(SYCL_ENABLE_CPU)
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int maximumBlockSize = 256u;
-#if defined(__ADAPTIVECPP__)
+#if defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)
     static constexpr unsigned int warpSize = 1u;
 #elif defined(__DPCPP_COMPILER)
     static constexpr unsigned int warpSize = 8u;

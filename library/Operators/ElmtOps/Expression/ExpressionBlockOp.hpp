@@ -60,6 +60,14 @@ public:
 
     static inline const std::string name = "BlockExpression";
 
+    static std::vector<std::string> GetEvarsNames(
+        const LibUtilities::EquationSharedPtr &expression)
+    {
+        std::vector<std::string> vnames;
+        boost::split(vnames, expression->GetVlist(), boost::is_any_of(", "));
+        return vnames;
+    }
+
     void SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs)
     {
@@ -112,14 +120,6 @@ protected:
 
     virtual void v_SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
-
-    static std::vector<std::string> GetEvarsNames(
-        const LibUtilities::EquationSharedPtr &expression)
-    {
-        std::vector<std::string> vnames;
-        boost::split(vnames, expression->GetVlist(), boost::is_any_of(", "));
-        return vnames;
-    }
 };
 
 } // namespace Nektar::Operators
