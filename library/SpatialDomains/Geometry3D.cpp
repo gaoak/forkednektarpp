@@ -69,10 +69,8 @@ Geometry3D::Geometry3D(const int coordim, Curve *curve)
 NekDouble Geometry3D::v_GetCoord(const int i,
                                  const Array<OneD, const NekDouble> &Lcoord)
 {
-    if (m_state != ePtsFilled)
-    {
-        NEKERROR(ErrorUtil::ewarning, "Geometry is not in physical space");
-    }
+    // Evaluating the mapping needs the coefficients, so make sure they exist.
+    FillGeom();
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);

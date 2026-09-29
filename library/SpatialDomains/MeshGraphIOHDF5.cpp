@@ -1324,7 +1324,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
         m_meshGraph->GetTriGeom(data[2]), m_meshGraph->GetTriGeom(data[3])};
 
     auto geom = m_meshGraph->CreateTetGeom(id, faces);
-    m_meshGraph->PopulateFaceToElMap(geom, TetGeom::kNfaces);
+    m_meshGraph->PopulateFacetToElMap(geom);
 }
 
 /// @copydoc MeshGraphIOHDF5::ConstructGeomObject
@@ -1340,7 +1340,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
                                          m_meshGraph->GetGeometry2D(data[4])};
 
     auto geom = m_meshGraph->CreatePyrGeom(id, faces);
-    m_meshGraph->PopulateFaceToElMap(geom, PyrGeom::kNfaces);
+    m_meshGraph->PopulateFacetToElMap(geom);
 }
 
 /// @copydoc MeshGraphIOHDF5::ConstructGeomObject
@@ -1356,7 +1356,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
                                          m_meshGraph->GetGeometry2D(data[4])};
 
     auto geom = m_meshGraph->CreatePrismGeom(id, faces);
-    m_meshGraph->PopulateFaceToElMap(geom, PrismGeom::kNfaces);
+    m_meshGraph->PopulateFacetToElMap(geom);
 }
 
 /// @copydoc MeshGraphIOHDF5::ConstructGeomObject
@@ -1371,7 +1371,7 @@ void MeshGraphIOHDF5::ConstructGeomObject(
         m_meshGraph->GetQuadGeom(data[4]), m_meshGraph->GetQuadGeom(data[5])};
 
     auto geom = m_meshGraph->CreateHexGeom(id, faces);
-    m_meshGraph->PopulateFaceToElMap(geom, HexGeom::kNfaces);
+    m_meshGraph->PopulateFacetToElMap(geom);
 }
 
 /**

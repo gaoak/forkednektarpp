@@ -37,6 +37,8 @@
 
 #include <unordered_map>
 
+#include <boost/container/flat_map.hpp>
+
 #include <LibUtilities/BasicUtils/DomainRange.h>
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
@@ -59,7 +61,8 @@ class TiXmlDocument;
 namespace Nektar::SpatialDomains
 {
 
-template <typename T> using GeomMap = std::map<int, unique_ptr_objpool<T>>;
+template <typename T>
+using GeomMap = boost::container::flat_map<int, unique_ptr_objpool<T>>;
 
 // Point geom type defs
 typedef unique_ptr_objpool<PointGeom> PointGeomUniquePtr;
@@ -180,6 +183,100 @@ struct ExpansionInfo
 typedef std::map<std::string, std::string> GeomInfoMap;
 typedef std::shared_ptr<std::vector<std::pair<Geometry *, int>>>
     GeometryLinkSharedPtr;
+
+/**
+ * @brief Structure to describe the elements bordering a facet, and which of
+ * their local facets it corresponds to.
+ *
+ * A facet is the codimension-one entity of an element, i.e. an edge of a
+ * two-dimensional element, or a face of a three-dimensional one. The same
+ * lookup is wanted in both cases, so it is held once, in terms of facets.
+ *
+ * Because it is codimension one, a facet separates two elements or bounds the
+ * domain, so two entries are held inline and the link lives by value in the
+ * map.
+ *
+ * Two is not a hard limit: periodic alignment, tetrahedron splitting and
+ * boundary layer splitting all attach more than two, so anything past the
+ * second spills to a vector. That path is rare enough not to matter and the
+ * common case never allocates.
+ */
+struct FacetElementLink
+{
+    typedef std::pair<Geometry *, int> value_type;
+    static constexpr size_t kInline = 2;
+
+    void push_back(const value_type &v)
+    {
+        if (m_num < kInline)
+        {
+            m_link[m_num++] = v;
+            return;
+        }
+        m_spill.push_back(v);
+        ++m_num;
+    }
+
+    size_t size() const
+    {
+        return m_num;
+    }
+    bool empty() const
+    {
+        return m_num == 0;
+    }
+    const value_type &operator[](size_t i) const
+    {
+        return i < kInline ? m_link[i] : m_spill[i - kInline];
+    }
+    const value_type &at(size_t i) const
+    {
+        ASSERTL1(i < m_num, "Facet-element link index out of range.");
+        return (*this)[i];
+    }
+
+    /// Iteration has to walk both halves, so it is an index rather than a
+    /// pointer.
+    class Iterator
+    {
+    public:
+        Iterator(const FacetElementLink *l, size_t i) : m_l(l), m_i(i)
+        {
+        }
+        const value_type &operator*() const
+        {
+            return (*m_l)[m_i];
+        }
+        Iterator &operator++()
+        {
+            ++m_i;
+            return *this;
+        }
+        bool operator!=(const Iterator &o) const
+        {
+            return m_i != o.m_i;
+        }
+
+    private:
+        const FacetElementLink *m_l;
+        size_t m_i;
+    };
+
+    Iterator begin() const
+    {
+        return Iterator(this, 0);
+    }
+    Iterator end() const
+    {
+        return Iterator(this, m_num);
+    }
+
+private:
+    std::array<value_type, kInline> m_link{};
+    /// Empty, and so unallocated, for every facet that has at most two.
+    std::vector<value_type> m_spill;
+    size_t m_num = 0;
+};
 
 // Forward declaration
 class RefRegion;
@@ -1089,11 +1186,11 @@ public:
         }
     }
 
-    SPATIAL_DOMAINS_EXPORT std::unordered_map<Geometry2D *,
-                                              GeometryLinkSharedPtr> &
-    GetAllFaceToElMap()
+    SPATIAL_DOMAINS_EXPORT std::unordered_map<Geometry *, FacetElementLink> &
+    GetAllFacetToElMap()
     {
-        return m_faceToElMap;
+        BuildFacetToElMap();
+        return m_facetToElMap;
     }
 
     SPATIAL_DOMAINS_EXPORT std::vector<PointGeomUniquePtr> &GetAllCurveNodes()
@@ -1149,11 +1246,20 @@ public:
         return nullptr;
     };
 
-    SPATIAL_DOMAINS_EXPORT GeometryLinkSharedPtr
-    GetElementsFromEdge(Geometry1D *edge);
+    /// The elements bordering @p facet. Valid for whichever entity is
+    /// codimension one in this graph: an edge in 2D, a face in 3D.
+    SPATIAL_DOMAINS_EXPORT const FacetElementLink &GetElementsFromFacet(
+        Geometry *facet);
 
-    SPATIAL_DOMAINS_EXPORT GeometryLinkSharedPtr
-    GetElementsFromFace(Geometry2D *face);
+    /// @copydoc MeshGraph::GetElementsFromFacet
+    /// Typed front door for a two-dimensional graph.
+    SPATIAL_DOMAINS_EXPORT const FacetElementLink &GetElementsFromEdge(
+        Geometry1D *edge);
+
+    /// @copydoc MeshGraph::GetElementsFromFacet
+    /// Typed front door for a three-dimensional graph.
+    SPATIAL_DOMAINS_EXPORT const FacetElementLink &GetElementsFromFace(
+        Geometry2D *face);
 
     void SetPartition(SpatialDomains::MeshGraphSharedPtr graph);
 
@@ -1206,8 +1312,10 @@ public:
 
     void Clear();
 
-    SPATIAL_DOMAINS_EXPORT void PopulateFaceToElMap(Geometry3D *element,
-                                                    int kNfaces);
+    /// Fill #m_facetToElMap from the elements in the graph, if it is not
+    /// already filled. Cheap once built.
+    SPATIAL_DOMAINS_EXPORT void BuildFacetToElMap();
+    SPATIAL_DOMAINS_EXPORT void PopulateFacetToElMap(Geometry *element);
 
     bool GetMeshPartitioned()
     {
@@ -1301,7 +1409,9 @@ protected:
 
     ExpansionInfoMapShPtrMap m_expansionMapShPtrMap;
 
-    std::unordered_map<Geometry2D *, GeometryLinkSharedPtr> m_faceToElMap;
+    std::unordered_map<Geometry *, FacetElementLink> m_facetToElMap;
+    /// Whether #m_facetToElMap reflects the elements currently in the graph.
+    bool m_facetToElMapBuilt = false;
 
     TiXmlElement *m_xmlGeom;
 

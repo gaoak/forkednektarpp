@@ -70,7 +70,7 @@ ELSE()
         EXTERNALPROJECT_ADD(
             lapack-3.7.1
             PREFIX ${TPSRC}
-            URL http://www.netlib.org/lapack/lapack-3.7.1.tgz
+            URL ${TPURL}/lapack-3.7.1.tgz
             URL_MD5 "dcdeeed73de152c4643ccc5b1aeb453c"
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}

@@ -507,10 +507,10 @@ void HOSurfaceMesh::Process()
         element->Reset(m_mesh->m_meshGraph->GetCurvedEdges(),
                        m_mesh->m_meshGraph->GetCurvedFaces());
         element->FillGeom();
-        StdRegions::StdExpansionSharedPtr xmap = element->GetXmap();
-        Array<OneD, NekDouble> coeffs0         = element->GetCoeffs(0);
-        Array<OneD, NekDouble> coeffs1         = element->GetCoeffs(1);
-        Array<OneD, NekDouble> coeffs2         = element->GetCoeffs(2);
+        StdRegions::StdExpansion *xmap = element->GetXmap();
+        Array<OneD, NekDouble> coeffs0 = element->GetCoeffs(0);
+        Array<OneD, NekDouble> coeffs1 = element->GetCoeffs(1);
+        Array<OneD, NekDouble> coeffs2 = element->GetCoeffs(2);
 
         Array<OneD, NekDouble> xc(xmap->GetTotPoints());
         Array<OneD, NekDouble> yc(xmap->GetTotPoints());

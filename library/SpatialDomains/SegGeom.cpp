@@ -84,6 +84,10 @@ SegGeom::SegGeom(const SegGeom &in) : Geometry1D(in)
     m_state = in.m_state;
 }
 
+/**
+ * @brief The \f$\chi\f$ map for this segment, shared with every other segment
+ * of the same order.
+ */
 void SegGeom::SetUpXmap()
 {
     if (m_curve)
@@ -92,14 +96,14 @@ void SegGeom::SetUpXmap()
         LibUtilities::PointsKey pkey(npts + 1,
                                      LibUtilities::eGaussLobattoLegendre);
         const LibUtilities::BasisKey B(LibUtilities::eModified_A, npts, pkey);
-        m_xmap = MemoryManager<StdRegions::StdSegExp>::AllocateSharedPtr(B);
+        m_xmap = GetStdSegFactory().CreateInstance({B}).get();
     }
     else
     {
         const LibUtilities::BasisKey B(
             LibUtilities::eModified_A, 2,
             LibUtilities::PointsKey(2, LibUtilities::eGaussLobattoLegendre));
-        m_xmap = MemoryManager<StdRegions::StdSegExp>::AllocateSharedPtr(B);
+        m_xmap = GetStdSegFactory().CreateInstance({B}).get();
     }
 }
 
@@ -171,10 +175,8 @@ LibUtilities::ShapeType SegGeom::v_GetShapeType() const
 NekDouble SegGeom::v_GetCoord(const int i,
                               const Array<OneD, const NekDouble> &Lcoord)
 {
-    if (m_state != ePtsFilled)
-    {
-        NEKERROR(ErrorUtil::ewarning, "Geometry is not in physical space");
-    }
+    // Evaluating the mapping needs the coefficients, so make sure they exist.
+    FillGeom();
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);
@@ -227,7 +229,6 @@ GeomType SegGeom::v_CalcGeomType([[maybe_unused]] IsoParam &iso)
     {
         SegGeom::v_Setup();
     }
-    SegGeom::v_FillGeom();
 
     SpatialDomains::GeomType gType = eRegular;
 
@@ -242,6 +243,7 @@ GeomType SegGeom::v_CalcGeomType([[maybe_unused]] IsoParam &iso)
 GeomFactorsUniquePtr SegGeom::v_GenGeomFactors(
     LibUtilities::PointsKeyVector &keyTgt)
 {
+    FillGeom();
     GeomType Gtype = CalcGeomType();
     return ObjPoolManager<GeomFactors>::AllocateUniquePtr(
         Gtype, m_coordim, m_xmap, m_coeffs, keyTgt);
@@ -249,69 +251,63 @@ GeomFactorsUniquePtr SegGeom::v_GenGeomFactors(
 
 void SegGeom::v_FillGeom()
 {
-    if (m_state != ePtsFilled)
+    int i;
+
+    if (m_coordim > 0 && m_curve)
     {
-        int i;
+        int npts = m_curve->m_points.size();
+        LibUtilities::PointsKey pkey(npts + 1,
+                                     LibUtilities::eGaussLobattoLegendre);
+        Array<OneD, NekDouble> tmp(npts);
 
-        if (m_coordim > 0 && m_curve)
+        if (m_verts[0]->dist(*(m_curve->m_points[0])) >
+            NekConstants::kVertexTheSameDouble)
         {
-            int npts = m_curve->m_points.size();
-            LibUtilities::PointsKey pkey(npts + 1,
-                                         LibUtilities::eGaussLobattoLegendre);
-            Array<OneD, NekDouble> tmp(npts);
-
-            if (m_verts[0]->dist(*(m_curve->m_points[0])) >
-                NekConstants::kVertexTheSameDouble)
-            {
-                std::string err =
-                    "Vertex 0 is separated from first point by more than ";
-                std::stringstream strstrm;
-                strstrm << NekConstants::kVertexTheSameDouble << " in edge "
-                        << m_globalID;
-                err += strstrm.str();
-                NEKERROR(ErrorUtil::ewarning, err.c_str());
-            }
-
-            if (m_verts[1]->dist(*(m_curve->m_points[npts - 1])) >
-                NekConstants::kVertexTheSameDouble)
-            {
-                std::string err =
-                    "Vertex 1 is separated from last point by more than ";
-                std::stringstream strstrm;
-                strstrm << NekConstants::kVertexTheSameDouble << " in edge "
-                        << m_globalID;
-                err += strstrm.str();
-                NEKERROR(ErrorUtil::ewarning, err.c_str());
-            }
-
-            LibUtilities::PointsKey fkey(npts, m_curve->m_ptype);
-            DNekMatSharedPtr I0 =
-                LibUtilities::PointsManager()[fkey]->GetI(pkey);
-            NekVector<NekDouble> out(npts + 1);
-
-            for (int i = 0; i < m_coordim; ++i)
-            {
-                // Load up coordinate values into tmp
-                for (int j = 0; j < npts; ++j)
-                {
-                    tmp[j] = (m_curve->m_points[j]->GetPtr())[i];
-                }
-
-                // Interpolate to GLL points
-                NekVector<NekDouble> in(npts, tmp, eWrapper);
-                out = (*I0) * in;
-
-                m_xmap->FwdTrans(out.GetPtr(), m_coeffs[i]);
-            }
+            std::string err =
+                "Vertex 0 is separated from first point by more than ";
+            std::stringstream strstrm;
+            strstrm << NekConstants::kVertexTheSameDouble << " in edge "
+                    << m_globalID;
+            err += strstrm.str();
+            NEKERROR(ErrorUtil::ewarning, err.c_str());
         }
 
-        for (i = 0; i < m_coordim; ++i)
+        if (m_verts[1]->dist(*(m_curve->m_points[npts - 1])) >
+            NekConstants::kVertexTheSameDouble)
         {
-            m_coeffs[i][0] = (*m_verts[0])[i];
-            m_coeffs[i][1] = (*m_verts[1])[i];
+            std::string err =
+                "Vertex 1 is separated from last point by more than ";
+            std::stringstream strstrm;
+            strstrm << NekConstants::kVertexTheSameDouble << " in edge "
+                    << m_globalID;
+            err += strstrm.str();
+            NEKERROR(ErrorUtil::ewarning, err.c_str());
         }
 
-        m_state = ePtsFilled;
+        LibUtilities::PointsKey fkey(npts, m_curve->m_ptype);
+        DNekMatSharedPtr I0 = LibUtilities::PointsManager()[fkey]->GetI(pkey);
+        NekVector<NekDouble> out(npts + 1);
+
+        for (int i = 0; i < m_coordim; ++i)
+        {
+            // Load up coordinate values into tmp
+            for (int j = 0; j < npts; ++j)
+            {
+                tmp[j] = (m_curve->m_points[j]->GetPtr())[i];
+            }
+
+            // Interpolate to GLL points
+            NekVector<NekDouble> in(npts, tmp, eWrapper);
+            out = (*I0) * in;
+
+            m_xmap->FwdTrans(out.GetPtr(), m_coeffs[i]);
+        }
+    }
+
+    for (i = 0; i < m_coordim; ++i)
+    {
+        m_coeffs[i][0] = (*m_verts[0])[i];
+        m_coeffs[i][1] = (*m_verts[1])[i];
     }
 }
 
@@ -377,7 +373,6 @@ void SegGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     }
 
     SetUpXmap();
-    SetUpCoeffs(m_xmap->GetNcoeffs());
 }
 
 void SegGeom::v_Setup()
@@ -385,7 +380,6 @@ void SegGeom::v_Setup()
     if (!m_setupState)
     {
         SetUpXmap();
-        SetUpCoeffs(m_xmap->GetNcoeffs());
         m_setupState = true;
     }
 }

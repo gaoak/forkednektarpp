@@ -609,11 +609,22 @@ velocity system allows the introduction of a spatially varying
 viscosity, which arise for non-Newtonian flows, with only minor
 modifications.
 
-\begin{notebox}
-  The coupled solver is only supported for two-dimensional or quasi-3D problems,
-  and only using a direct solver (e.g. \inltt{DirectStaticCond}) which prevents
-  its use in parallel.
-\end{notebox}
+\begin{warningbox}
+  The coupled solver (\inltt{CoupledLinearisedNS}) \emph{must be run in
+  serial}. It is only supported for two-dimensional or quasi-3D problems, and
+  the globally coupled velocity-pressure system is assembled into a single
+  rank-local matrix and inverted with a direct static-condensation solve
+  (\inltt{DirectStaticCond}). There is no distributed assembly of that system,
+  so it cannot presently be run under MPI, either with spatial partitioning or
+  with \inlsh{--npz}. Attempting to do so aborts with an error; earlier
+  releases instead ran to completion having silently solved a set of decoupled
+  per-partition problems, returning plausible-looking but incorrect results.
+
+  This restriction applies to every solver mode that uses
+  \inltt{CoupledLinearisedNS}, including steady Stokes and Oseen solves, steady
+  Navier-Stokes, and direct-solver linear stability analysis (see
+  Sec.~\ref{SecStabFile}).
+\end{warningbox}
 
 We consider the weak form of the Stokes problem for the velocity field
 $\boldsymbol{u}=[u,v]^{T}$ and the pressure field $p$:
@@ -1801,6 +1812,17 @@ When using the direct solver for stability analysis it is necessary to specify a
 This is required since we need to tell the solver to use the existing
 field as a forcing function to the direct matrix inverse as part of
 the Arnoldi iteration.
+
+\begin{warningbox}
+  Stability analysis with the direct solver
+  (\inltt{SolverType=CoupledLinearisedNS}) must be run in serial, since the
+  coupled solver has no distributed implementation of its globally coupled
+  velocity-pressure system. Running it under MPI aborts with an error. For
+  stability analysis in parallel, use a time-stepping solver such as
+  \inltt{VelocityCorrectionScheme} with the \inltt{ModifiedArnoldi} driver; the
+  Arnoldi iteration itself is fully parallel. Note that \inltt{Arpack} is also
+  serial-only, independently of the choice of solver.
+\end{warningbox}
 
 If the \inltt{Driver} is \texttt{ModifiedArnoldi}, instead of using the whole flow field, a subdomain or a subgroup of variables can be selected to calculate eigenvalues.
 

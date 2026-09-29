@@ -28,6 +28,9 @@ v5.11.0
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
 - Trace-frame expansions and parallel mesh orderings (!2712)
 - Move point location out of Geometry into a new GeometryLocator class that callers build on demand, so geometry that is never searched no longer carries an inverse mapping (!2747)
+- Fix a bug in LowEnergyBlock preconditioner which may causes divergence in Hex meshes (!2765)
+- Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
+- Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -47,6 +50,9 @@ v5.11.0
 - Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
 
+**IncNavierStokesSolver**
+- Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)
+
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
 - Move using namespace std to avoid name clashes (!2618)
@@ -57,6 +63,7 @@ v5.11.0
 - Use std::enable_if_t<...> instead of std::enable_if<...>::type (!2645)
 - Fix C++20 ambiguous reversed operator warning (!2703)
 - Tidy stop using boost ignore unused (!2751)
+- Fix VtkToPng segfault with VTK 9 by linking and auto-initialising the rendering backend module that provides the object factory overrides (!2764)
 
 v5.10.0
 -------

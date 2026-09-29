@@ -948,10 +948,10 @@ void ProcessBL::BoundaryLayer3D()
             // 1/3/8 of the prism )
             edge->FillGeom();
 
-            StdRegions::StdExpansionSharedPtr xmap = edge->GetXmap();
-            Array<OneD, NekDouble> coeffs0         = edge->GetCoeffs(0);
-            Array<OneD, NekDouble> coeffs1         = edge->GetCoeffs(1);
-            Array<OneD, NekDouble> coeffs2         = edge->GetCoeffs(2);
+            StdRegions::StdExpansion *xmap = edge->GetXmap();
+            Array<OneD, NekDouble> coeffs0 = edge->GetCoeffs(0);
+            Array<OneD, NekDouble> coeffs1 = edge->GetCoeffs(1);
+            Array<OneD, NekDouble> coeffs2 = edge->GetCoeffs(2);
             Array<OneD, NekDouble> xc(xmap->GetTotPoints());
             Array<OneD, NekDouble> yc(xmap->GetTotPoints());
             Array<OneD, NekDouble> zc(xmap->GetTotPoints());
@@ -1046,10 +1046,10 @@ void ProcessBL::BoundaryLayer3D()
         // 3.2. Create the expansion of the Macro Prism Element
         el_macro->FillGeom();
 
-        StdRegions::StdExpansionSharedPtr xmap = el_macro->GetXmap();
-        Array<OneD, NekDouble> coeffs0         = el_macro->GetCoeffs(0);
-        Array<OneD, NekDouble> coeffs1         = el_macro->GetCoeffs(1);
-        Array<OneD, NekDouble> coeffs2         = el_macro->GetCoeffs(2);
+        StdRegions::StdExpansion *xmap = el_macro->GetXmap();
+        Array<OneD, NekDouble> coeffs0 = el_macro->GetCoeffs(0);
+        Array<OneD, NekDouble> coeffs1 = el_macro->GetCoeffs(1);
+        Array<OneD, NekDouble> coeffs2 = el_macro->GetCoeffs(2);
 
         Array<OneD, NekDouble> xc(xmap->GetTotPoints());
         Array<OneD, NekDouble> yc(xmap->GetTotPoints());

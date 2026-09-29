@@ -1235,19 +1235,18 @@ void DisContField::FindPeriodicTraces(
                             c->m_geomVec[i]);
                     ASSERTL0(segGeom, "Unable to cast to SegGeom*");
 
-                    SpatialDomains::GeometryLinkSharedPtr elmt =
+                    const SpatialDomains::FacetElementLink &elmt =
                         m_graph->GetElementsFromEdge(segGeom);
-                    ASSERTL0(elmt->size() == 1,
+                    ASSERTL0(elmt.size() == 1,
                              "The periodic boundaries belong to "
                              "more than one element of the mesh");
 
                     SpatialDomains::Geometry2D *geom =
                         dynamic_cast<SpatialDomains::Geometry2D *>(
-                            elmt->at(0).first);
+                            elmt.at(0).first);
 
-                    allEdges[c->m_geomVec[i]->GetGlobalID()] =
-                        make_pair(elmt->at(0).second,
-                                  geom->GetEorient(elmt->at(0).second));
+                    allEdges[c->m_geomVec[i]->GetGlobalID()] = make_pair(
+                        elmt.at(0).second, geom->GetEorient(elmt.at(0).second));
 
                     // In serial mesh partitioning will not have occurred so
                     // need to fill composite ordering map manually.
@@ -4452,12 +4451,12 @@ void DisContField::v_GetBoundaryToElmtMap(Array<OneD, int> &ElmtID,
                                     ->as<LocalRegions::Expansion1D>();
 
                         // Use edge to element map from MeshGraph.
-                        SpatialDomains::GeometryLinkSharedPtr tmp =
+                        const SpatialDomains::FacetElementLink &tmp =
                             m_graph->GetElementsFromEdge(exp1d->GetGeom1D());
 
                         m_BCtoElmMap[cnt] =
-                            globalIdMap[(*tmp)[0].first->GetGlobalID()];
-                        m_BCtoTraceMap[cnt] = (*tmp)[0].second;
+                            globalIdMap[tmp[0].first->GetGlobalID()];
+                        m_BCtoTraceMap[cnt] = tmp[0].second;
                     }
                 }
             }
@@ -4500,11 +4499,11 @@ void DisContField::v_GetBoundaryToElmtMap(Array<OneD, int> &ElmtID,
                                     ->GetExp(i)
                                     ->as<LocalRegions::Expansion2D>();
 
-                        SpatialDomains::GeometryLinkSharedPtr tmp =
+                        const SpatialDomains::FacetElementLink &tmp =
                             m_graph->GetElementsFromFace(exp2d->GetGeom2D());
                         m_BCtoElmMap[cnt] =
-                            globalIdMap[tmp->at(0).first->GetGlobalID()];
-                        m_BCtoTraceMap[cnt] = tmp->at(0).second;
+                            globalIdMap[tmp.at(0).first->GetGlobalID()];
+                        m_BCtoTraceMap[cnt] = tmp.at(0).second;
                     }
                 }
             }

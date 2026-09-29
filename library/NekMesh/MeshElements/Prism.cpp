@@ -599,7 +599,6 @@ struct prismHelper
                 id, faces, edges, vertex, true);
         auto prismPtr = prismGeom.get();
         meshGraph->AddGeom<SpatialDomains::PrismGeom>(id, std::move(prismGeom));
-        meshGraph->PopulateFaceToElMap(prismPtr, 5);
 
         // Interior nodes, kept as a curve on the element: edges and faces are
         // shared and hold their own curvature, but the inside of an element
