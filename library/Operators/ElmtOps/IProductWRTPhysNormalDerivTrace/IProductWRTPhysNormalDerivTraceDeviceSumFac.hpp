@@ -550,12 +550,18 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            IProductWRTPhysNormalDerivTraceWorkSpaceSize(nelmtPad, sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
 
         // Per-element strides of the packed trace input, the volume-shaped
         // output and the factor array.
@@ -568,17 +574,11 @@ protected:
         const size_t jacCompStride = nelmtPad * numDataJac;
 
         // Set Kernel parameters.
+        const unsigned int shmemsize = 0;
         const unsigned int blocksize =
             GetDeviceBlockSize<Operators::SumFac>(sizeParam.nmMax());
-        const unsigned int gridsize =
-            GetDeviceGridSize<Operators::SumFac>(nelmtPad, blocksize, 0);
-
-        // Get static workspace pointer.
-        const size_t wspSize =
-            IProductWRTPhysNormalDerivTraceWorkSpaceSize(nelmtPad, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
+        const unsigned int gridsize = GetDeviceGridSize<Operators::SumFac>(
+            nelmtPad, blocksize, shmemsize);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -592,7 +592,7 @@ protected:
         DEVICE_2DGRID_KERNEL_LAUNCHER(
             (IProductWRTPhysNormalDerivTraceKernelLauncher<SHAPE_TYPE,
                                                            DEFORMED>),
-            gridsize, ncomp, blocksize, 1, 0, m_streamID, sizeParam,
+            gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
             m_B[ind0]..., m_DB[ind0]..., nelmtPad, numDataIn, numDataOut,
             numDataJac, jacCompStride, m_B[sizeof...(ind0) + ind1]...,
             m_DB[sizeof...(ind0) + ind1]..., m_W[ind1]...,

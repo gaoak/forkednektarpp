@@ -124,9 +124,9 @@ public:
                     LibUtilities::eTwoOverOneMinusZero)));
         }
 
-        if ((m_shapeType == LibUtilities::eNodalTri) ||
-            (m_shapeType == LibUtilities::eNodalTet) ||
-            (m_shapeType == LibUtilities::eNodalPrism))
+        if ((m_shapeType == LibUtilities::NodalTri) ||
+            (m_shapeType == LibUtilities::NodalPrism) ||
+            (m_shapeType == LibUtilities::NodalTet))
         {
             std::vector<LibUtilities::BasisKey> basisKeys(
                 m_dimension, LibUtilities::NullBasisKey);
@@ -408,10 +408,10 @@ protected:
         const auto nqTot = sizeParam.nqTot();
 
         const unsigned int ndf = ndim * m_coordDim;
-        unsigned int dfSize    = 1;
+        unsigned int dfsize    = 1;
         if constexpr (DEFORMED)
         {
-            dfSize *= nqTot;
+            dfsize *= nqTot;
         }
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -486,8 +486,8 @@ protected:
                 }
 
                 // Increment pointers for the next elmt group.
-                dfptr += dfSize * ndf * simd_t::width;
-                jacptr += dfSize * simd_t::width;
+                dfptr += dfsize * ndf * simd_t::width;
+                jacptr += dfsize * simd_t::width;
                 advVelPtr += nqTot * simd_t::width;
                 inptr += nmTot * simd_t::width;
                 outptr += nmTot * simd_t::width;

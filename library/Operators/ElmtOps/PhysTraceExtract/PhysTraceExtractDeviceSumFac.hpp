@@ -753,11 +753,10 @@ protected:
     {
         // Get static workspace pointer.
         const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize<Implementation>(nelmtPad, sizeParam) *
-            ncomp;
+            PhysTraceExtractWorkSpaceSize<Implementation>(nelmtPad, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
@@ -996,23 +995,22 @@ protected:
     {
         const auto nelmt         = inblock.GetNumElementsWithPadding();
         const unsigned int nmTot = sizeParam.nmTot();
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-
         // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
         const size_t wspSize =
-            PhysTraceExtractWorkSpaceSize<Implementation>(nelmt, sizeParam) *
-            ncomp;
+            PhysTraceExtractWorkSpaceSize<Implementation>(nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
+                wspSize * ncomp, m_streamID);
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
         const unsigned int nqTotOut =

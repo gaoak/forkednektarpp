@@ -487,7 +487,7 @@ protected:
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        auto wspSize =
+        const size_t wspSize =
             BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(

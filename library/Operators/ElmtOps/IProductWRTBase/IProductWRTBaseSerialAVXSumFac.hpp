@@ -193,9 +193,9 @@ public:
                     exp->GetBasis(d)->GetBasisKey(), LibUtilities::eWeights)));
         }
 
-        if ((m_shapeType == LibUtilities::eNodalTri) ||
-            (m_shapeType == LibUtilities::eNodalPrism) ||
-            (m_shapeType == LibUtilities::eNodalTet))
+        if ((m_shapeType == LibUtilities::NodalTri) ||
+            (m_shapeType == LibUtilities::NodalPrism) ||
+            (m_shapeType == LibUtilities::NodalTet))
         {
             std::vector<LibUtilities::BasisKey> basisKeys(
                 m_dimension, LibUtilities::NullBasisKey);

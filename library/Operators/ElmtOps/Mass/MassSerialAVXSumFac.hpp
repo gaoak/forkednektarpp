@@ -201,9 +201,10 @@ public:
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(), LibUtilities::eWeights)));
         }
-        if ((m_shapeType == LibUtilities::eNodalTri) ||
-            (m_shapeType == LibUtilities::eNodalTet) ||
-            (m_shapeType == LibUtilities::eNodalPrism))
+
+        if ((m_shapeType == LibUtilities::NodalTri) ||
+            (m_shapeType == LibUtilities::NodalPrism) ||
+            (m_shapeType == LibUtilities::NodalTet))
         {
             std::vector<LibUtilities::BasisKey> basisKeys(
                 m_dimension, LibUtilities::NullBasisKey);
@@ -342,8 +343,6 @@ protected:
     /// Jacobians of the block, interleaved at #m_implInterleaveWidth: one
     /// value per element, or one per quadrature point on a deformed block.
     const TData *m_jacptr;
-    /// Declared but never assigned or read in this implementation.
-    const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
     // is saturated with warnings
@@ -370,6 +369,7 @@ protected:
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         m_warnOnce = true;
 #endif
+
         switch (m_shapeType)
         {
             // Segment

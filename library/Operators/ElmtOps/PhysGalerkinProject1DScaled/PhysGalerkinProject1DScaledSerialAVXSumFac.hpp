@@ -56,7 +56,7 @@
 // machinery used by BwdTrans (and reused by PhysInterp1DScaled for the
 // forward interpolation direction); it is agnostic to which of nm/nq is
 // larger, so it is reused here for the reverse (fine -> native) direction.
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -350,11 +350,14 @@ protected:
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -368,7 +371,7 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         nmTot, (TData *)inptr);
 
                     // Appending reads the pre-existing output values (which
@@ -381,8 +384,8 @@ protected:
                     if (this->m_append)
                     {
                         LibUtilities::ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nqTot, (TData *)outptr);
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, nqTot, (TData *)outptr);
                     }
                 }
 
@@ -408,12 +411,12 @@ protected:
                 if (e % width_ratio == width_ratio - 1)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
@@ -426,7 +429,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

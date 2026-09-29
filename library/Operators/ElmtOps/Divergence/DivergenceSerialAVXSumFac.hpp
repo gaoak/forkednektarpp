@@ -187,6 +187,7 @@ protected:
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         m_warnOnce = true;
 #endif
+
         switch (m_shapeType)
         {
             // Segment
@@ -313,22 +314,11 @@ protected:
         ASSERTL1(inblock.GetNumComponents() >= ndim,
                  "Input block does not have enough components");
 
-        unsigned int dfsize = ndim * ndim;
-        if constexpr (ndim == 1)
-        {
-            dfsize = sizeParam.ncoord();
-        }
+        unsigned int dfsize = ndim * m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
-
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Offsets between the components of a block: one component spans all
         // of the planes.
@@ -343,6 +333,13 @@ protected:
         {
             inptr[d] = inbase + d * compOffset;
         }
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
         // Loop over the planes. Each holds one xy divergence, over the same
         // geometry, so the derivative factors restart with every plane while

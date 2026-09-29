@@ -132,11 +132,12 @@ protected:
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nqTot, 1.0, 0.0);
 
-        // Loop over components.
+        // Offsets between the components of a block.
         const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
         const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
-        const auto outoffset_vec =
-            outblock.CompSize() * outblock.GetNumHomoModes() / simd_t::width;
+        const auto outoffset_vec = outoffset / simd_t::width;
+
+        // Loop over components.
         for (unsigned int n = 0;
              n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
         {
@@ -199,7 +200,7 @@ protected:
                     }
                 }
 
-                // Increment pointer.
+                // Increment pointers.
                 inptr += m_nqTot * simd_t::width;
                 outptr += m_nqTot * simd_t::width;
             }

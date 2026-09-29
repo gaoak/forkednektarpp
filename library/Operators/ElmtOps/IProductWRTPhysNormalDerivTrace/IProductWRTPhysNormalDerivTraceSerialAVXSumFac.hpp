@@ -193,7 +193,7 @@ public:
         // direction, and its derivative.
         for (unsigned int dir = 0; dir < m_dimension; ++dir)
         {
-            auto bkey = this->m_exp->GetBasis(dir)->GetBasisKey();
+            auto bkey = exp->GetBasis(dir)->GetBasisKey();
             m_nm.push_back(exp->GetNumPoints(dir));
 
             unsigned int ntrace =
@@ -236,7 +236,7 @@ public:
             auto tr = m_dimension - 1 - dim;
             for (unsigned int d = 0; d < m_dimension - 1; ++d)
             {
-                auto dir      = this->m_exp->GetGeom()->GetDir(tr, d);
+                auto dir      = exp->GetGeom()->GetDir(tr, d);
                 auto trBKey   = exp->GetTraceBasisKey(tr, d);
                 auto trPtsKey = trBKey.GetPointsKey();
                 auto nq       = trPtsKey.GetNumPoints();
@@ -245,7 +245,7 @@ public:
                 m_nq.push_back(nq);
                 m_traceDir.push_back(dir);
 
-                auto dirBKey = this->m_exp->GetBasis(dir)->GetBasisKey();
+                auto dirBKey = exp->GetBasis(dir)->GetBasisKey();
 
                 m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<simd_t>(
@@ -294,7 +294,7 @@ public:
                 m_twoOverOneMinusZ[dir] =
                     this->m_dataWarehouse->template GetData<MemSpace>(
                         LibUtilities::BasisDataKey<simd_t>(
-                            this->m_exp->GetBasis(dir)->GetBasisKey(),
+                            exp->GetBasis(dir)->GetBasisKey(),
                             LibUtilities::eTwoOverOneMinusZero));
             }
         }

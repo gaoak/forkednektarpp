@@ -49,14 +49,14 @@ namespace Nektar::Operators::detail
 // sweep, so the collapsed coordinate correction, the chain rule and the curl
 // are applied together rather than in three separate passes.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void Curl2DScalarSumFacKernel(
-    const unsigned nq0, const unsigned nq1, const unsigned int outdim,
+NEK_FORCE_INLINE static void Curl2DScalarSumFacKernel(
+    const unsigned nq0, const unsigned nq1, const unsigned int ncoord,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *tderiv0_0,
     const simd_type *tderiv1_0, const simd_type *tderiv0_1,
     const simd_type *tderiv1_1, simd_type *out)
 {
-    const unsigned int ndf = 2 * outdim;
+    const unsigned int ndf = 2 * ncoord;
     simd_type df_tmp[4];
 
     if constexpr (!DEFORMED)
@@ -70,8 +70,8 @@ NEK_FORCE_INLINE void Curl2DScalarSumFacKernel(
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm1;
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             xfrm1 = f1[j]; // Load 1x
         }
@@ -83,8 +83,8 @@ NEK_FORCE_INLINE void Curl2DScalarSumFacKernel(
             simd_type d0v = tderiv0_1[cnt_ji]; // Load 1x
             simd_type d1v = tderiv1_1[cnt_ji]; // Load 1x
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 // Moving from standard to collapsed coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
@@ -119,13 +119,13 @@ NEK_FORCE_INLINE void Curl2DScalarSumFacKernel(
 // Both output components come out of the same sweep, so the sign flip does
 // not need a pass of its own.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void Curl2DVectorSumFacKernel(
-    const unsigned nq0, const unsigned nq1, const unsigned int outdim,
+NEK_FORCE_INLINE static void Curl2DVectorSumFacKernel(
+    const unsigned nq0, const unsigned nq1, const unsigned int ncoord,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
     simd_type *out0, simd_type *out1)
 {
-    const unsigned int ndf = 2 * outdim;
+    const unsigned int ndf = 2 * ncoord;
     simd_type df_tmp[4];
 
     if constexpr (!DEFORMED)
@@ -139,8 +139,8 @@ NEK_FORCE_INLINE void Curl2DVectorSumFacKernel(
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm1;
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             xfrm1 = f1[j]; // Load 1x
         }
@@ -150,8 +150,8 @@ NEK_FORCE_INLINE void Curl2DVectorSumFacKernel(
             simd_type d0 = tderiv0[cnt_ji]; // Load 1x
             simd_type d1 = tderiv1[cnt_ji]; // Load 1x
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 // Moving from standard to collapsed coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
@@ -186,7 +186,7 @@ NEK_FORCE_INLINE void Curl2DVectorSumFacKernel(
 // sweep. Only the six off-diagonal physical derivatives are formed, the
 // diagonal ones cancel out.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void Curl3DSumFacKernel(
+NEK_FORCE_INLINE static void Curl3DSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
@@ -216,7 +216,7 @@ NEK_FORCE_INLINE void Curl3DSumFacKernel(
     for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
     {
         simd_type xfrm_eta2;
-        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        if constexpr (SHAPE_TYPE != LibUtilities::Hex)
         {
             xfrm_eta2 = f2[k];
         }
@@ -224,12 +224,12 @@ NEK_FORCE_INLINE void Curl3DSumFacKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 xfrm_eta1 = f1[j];
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                               SHAPE_TYPE == LibUtilities::eNodalTet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                               SHAPE_TYPE == LibUtilities::NodalTet)
             {
                 xfrm_eta1 = f1[j];
                 xfrm      = f1m[j] * xfrm_eta2;
@@ -250,29 +250,27 @@ NEK_FORCE_INLINE void Curl3DSumFacKernel(
 
                 // Chain-rule to construct cartesian derivatives for non Hex
                 // shapes. Applied to each component in turn.
-                if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+                if constexpr (SHAPE_TYPE != LibUtilities::Hex)
                 {
                     const simd_type xfrm_eta0 = f0[i]; // Load 1x
 
                     auto collapse = [&](simd_type &a0, simd_type &a1,
                                         simd_type &a2) {
-                        if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
-                                      (SHAPE_TYPE == LibUtilities::eNodalPrism))
+                        if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                                      (SHAPE_TYPE == LibUtilities::NodalPrism))
                         {
                             a0 *= xfrm_eta2;
                             a2.fma(xfrm_eta0, a0);
                         }
-                        else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                         {
                             a0 *= xfrm_eta2;
                             a1 *= xfrm_eta2;
                             a2.fma(xfrm_eta0, a0);
                             a2.fma(xfrm_eta1, a1);
                         }
-                        else if constexpr (SHAPE_TYPE ==
-                                               LibUtilities::eTetrahedron ||
-                                           SHAPE_TYPE ==
-                                               LibUtilities::eNodalTet)
+                        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                           SHAPE_TYPE == LibUtilities::NodalTet)
                         {
                             a0 *= xfrm;
                             simd_type tmp0 = xfrm_eta0 * a0;

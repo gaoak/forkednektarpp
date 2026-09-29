@@ -191,6 +191,7 @@ protected:
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         m_warnOnce = true;
 #endif
+
         switch (m_shapeType)
         {
             // Segment
@@ -334,9 +335,9 @@ protected:
             else
             {
                 // 3DH1 planes are two-dimensional and 3DH2 is not wired at
-                // all. The guard is L0: without it the loop below would take
-                // the extra planes for extra variables and come back
-                // silently wrong in a release build.
+                // all. The guard is L0: without it the sweep below would
+                // ignore the extra planes and come back silently wrong in a
+                // release build.
                 NEKERROR(ErrorUtil::efatal,
                          "CurlCurlBlockOp supports homogeneous expansions "
                          "only on two-dimensional planes.");
@@ -349,29 +350,16 @@ protected:
         ASSERTL1(inblock.GetNumComponents() >= ndim,
                  "Input block does not have enough components");
 
-        unsigned int dfsize = ndim * ndim;
-        if constexpr (ndim == 1)
-        {
-            dfsize = sizeParam.ncoord();
-        }
+        unsigned int dfsize = ndim * m_coordDim;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
 
-        // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
-
         // Pointer offset between the components of the input and
         // output blocks.
-        const auto inCompOffset =
-            inblock.CompSize() * inblock.GetNumHomoModes();
-        const auto outCompOffset =
-            outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto inCompOffset  = inblock.CompSize();
+        const auto outCompOffset = outblock.CompSize();
 
         // Initialize pointers.
         auto inbase  = inblock.template GetPtr<MemSpace, ReadOnly>();
@@ -384,60 +372,61 @@ protected:
             outptr[d] = outbase + d * outCompOffset;
         }
 
-        // Loop over components.
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes() / ndim;
-             ++n)
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        auto dfptr = m_dfptr;
+
+        // Loop over element groups.
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
+             ++e)
         {
-            auto dfptr = m_dfptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
+            // Reshape, if necessary.
+            if (e % width_ratio == 0)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    for (unsigned int d = 0; d < ndim; ++d)
-                    {
-                        LibUtilities::ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, interleaveWidth, chunkSize,
-                            nqTot, (TData *)inptr[d]);
-                    }
-                }
-
-                // CurlCurl kernel.
-                CurlCurlKernelLauncher<SHAPE_TYPE, DEFORMED>(
-                    sizeParam, m_D[ind0]..., m_f[ind1]...,
-                    reinterpret_cast<const simd_t *>(dfptr), m_wsp.data(),
-                    reinterpret_cast<const simd_t *>(inptr[ind0])...,
-                    reinterpret_cast<simd_t *>(outptr[ind0])...);
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    for (unsigned int d = 0; d < ndim; ++d)
-                    {
-                        LibUtilities::ReshapeStorage<ExecSpace>(
-                            interleaveWidth, m_implInterleaveWidth, chunkSize,
-                            nqTot,
-                            (TData *)inptr[d] -
-                                (width_ratio - 1) * nqTot * simd_t::width);
-                        LibUtilities::ReshapeStorage<ExecSpace>(
-                            interleaveWidth, m_implInterleaveWidth, chunkSize,
-                            nqTot,
-                            (TData *)outptr[d] -
-                                (width_ratio - 1) * nqTot * simd_t::width);
-                    }
-                }
-
-                // Increment pointers for the next elmt group.
-                dfptr += dfsize * simd_t::width;
                 for (unsigned int d = 0; d < ndim; ++d)
                 {
-                    inptr[d] += nqTot * simd_t::width;
-                    outptr[d] += nqTot * simd_t::width;
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        nqTot, (TData *)inptr[d]);
                 }
+            }
+
+            // CurlCurl kernel.
+            CurlCurlKernelLauncher<SHAPE_TYPE, DEFORMED>(
+                sizeParam, m_D[ind0]..., m_f[ind1]...,
+                reinterpret_cast<const simd_t *>(dfptr), m_wsp.data(),
+                reinterpret_cast<const simd_t *>(inptr[ind0])...,
+                reinterpret_cast<simd_t *>(outptr[ind0])...);
+
+            // Reshape back, if necessary.
+            if (e % width_ratio == width_ratio - 1)
+            {
+                for (unsigned int d = 0; d < ndim; ++d)
+                {
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)inptr[d] -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        nqTot,
+                        (TData *)outptr[d] -
+                            (width_ratio - 1) * nqTot * simd_t::width);
+                }
+            }
+
+            // Increment pointers for the next elmt group.
+            dfptr += dfsize * simd_t::width;
+            for (unsigned int d = 0; d < ndim; ++d)
+            {
+                inptr[d] += nqTot * simd_t::width;
+                outptr[d] += nqTot * simd_t::width;
             }
         }
 

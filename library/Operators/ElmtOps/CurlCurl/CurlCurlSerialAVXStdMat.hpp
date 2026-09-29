@@ -160,9 +160,9 @@ protected:
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_dimension * m_nqTot, m_nqTot, 1.0, 0.0);
 
-        // Loop over components.
-        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        // Offsets between the components of a block.
+        const auto inoffset  = inblock.CompSize();
+        const auto outoffset = outblock.CompSize();
 
         auto dfptr = m_dfptr;
 

@@ -206,10 +206,10 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+            const unsigned int nmTot = sizeParam3D.nmTot();
+            const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
             return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + 4 * nq0 * nq1 * nq2 +
-                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2 +
-                   nm0 * (nm0 + 1) * nm0 / 2;
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nmTot;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {

@@ -67,8 +67,11 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                 }
             }
 
-            // Write.
-            bwdptr[idx] *= scale * jac;
+            // Write. bwdptr is left unset when scale is zero.
+            if (scale != 0.0)
+            {
+                bwdptr[idx] *= scale * jac;
+            }
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
@@ -145,7 +148,11 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                 {
                     outptr[d * outsize + nqTot * e + i] = tmp[d] * jac;
                 }
-                bwdptr[nqTot * e + i] *= scale * jac;
+                // bwdptr is left unset when scale is zero.
+                if (scale != 0.0)
+                {
+                    bwdptr[nqTot * e + i] *= scale * jac;
+                }
             }
         }
     }

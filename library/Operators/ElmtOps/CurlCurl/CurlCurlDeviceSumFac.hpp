@@ -318,6 +318,14 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Get static workspace pointer. The fused kernel only needs storage
+        // for the intermediate omega = curl(u).
+        const size_t wspSize =
+            CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize, m_streamID);
+
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
@@ -331,14 +339,6 @@ protected:
             GetDeviceGridSize<Implementation>(nelmt, blocksize, shmemsize);
 
         const auto inoffset = outblock.CompSize();
-
-        // Get static workspace pointer. The fused kernel only needs storage
-        // for the intermediate omega = curl(u).
-        auto wspSize =
-            CurlCurlWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize, m_streamID);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

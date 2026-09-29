@@ -276,8 +276,9 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir2DKernel(
     const simd_type *dtbasis1, const simd_type *tw0, const simd_type *tw1,
     const simd_type *twoOver1, const simd_type *jac, const simd_type *in,
     simd_type *wsp, simd_type *volwsp, simd_type *out, const unsigned traceDir0,
-    const unsigned traceDir1, const bool append, const bool isColl0,
-    const bool isColl1, const bool endPtsColl0, const bool endPtsColl1)
+    const unsigned traceDir1, const bool append, const bool isCollocated0,
+    const bool isCollocated1, const bool endPtsCollocated0,
+    const bool endPtsCollocated1)
 {
     const bool c1 = CompNeedsCollapsedFac(SHAPE_TYPE, derivDir, 1);
 
@@ -293,10 +294,10 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir2DKernel(
     const simd_type *nb1 = (1 == derivDir) ? dnbasis1 : nbasis1;
     const simd_type *tb0 = (traceDir0 == derivDir) ? dtbasis0 : tbasis0;
     const simd_type *tb1 = (traceDir1 == derivDir) ? dtbasis1 : tbasis1;
-    const bool cd0       = (traceDir0 == derivDir) ? false : isColl0;
-    const bool cd1       = (traceDir1 == derivDir) ? false : isColl1;
-    const bool epd0      = (0 == derivDir) ? false : endPtsColl0;
-    const bool epd1      = (1 == derivDir) ? false : endPtsColl1;
+    const bool cd0       = (traceDir0 == derivDir) ? false : isCollocated0;
+    const bool cd1       = (traceDir1 == derivDir) ? false : isCollocated1;
+    const bool epd0      = (0 == derivDir) ? false : endPtsCollocated0;
+    const bool epd1      = (1 == derivDir) ? false : endPtsCollocated1;
 
     // The groups are written out so that each keeps its constant normal
     // direction; the term is a run-time index, so this body is
@@ -461,9 +462,11 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir3DKernel(
     simd_type *out, const unsigned traceDir00, const unsigned traceDir01,
     const unsigned traceDir10, const unsigned traceDir11,
     const unsigned traceDir20, const unsigned traceDir21, const bool append,
-    const bool isColl00, const bool isColl01, const bool isColl10,
-    const bool isColl11, const bool isColl20, const bool isColl21,
-    const bool endPtsColl0, const bool endPtsColl1, const bool endPtsColl2)
+    const bool isCollocated00, const bool isCollocated01,
+    const bool isCollocated10, const bool isCollocated11,
+    const bool isCollocated20, const bool isCollocated21,
+    const bool endPtsCollocated0, const bool endPtsCollocated1,
+    const bool endPtsCollocated2)
 {
     const bool c1 = CompNeedsCollapsedFac(SHAPE_TYPE, derivDir, 1);
     const bool c2 = CompNeedsCollapsedFac(SHAPE_TYPE, derivDir, 2);
@@ -485,15 +488,15 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir3DKernel(
     const simd_type *tb11 = (traceDir11 == derivDir) ? dtbasis11 : tbasis11;
     const simd_type *tb20 = (traceDir20 == derivDir) ? dtbasis20 : tbasis20;
     const simd_type *tb21 = (traceDir21 == derivDir) ? dtbasis21 : tbasis21;
-    const bool cd00       = (traceDir00 == derivDir) ? false : isColl00;
-    const bool cd01       = (traceDir01 == derivDir) ? false : isColl01;
-    const bool cd10       = (traceDir10 == derivDir) ? false : isColl10;
-    const bool cd11       = (traceDir11 == derivDir) ? false : isColl11;
-    const bool cd20       = (traceDir20 == derivDir) ? false : isColl20;
-    const bool cd21       = (traceDir21 == derivDir) ? false : isColl21;
-    const bool epd0       = (0 == derivDir) ? false : endPtsColl0;
-    const bool epd1       = (1 == derivDir) ? false : endPtsColl1;
-    const bool epd2       = (2 == derivDir) ? false : endPtsColl2;
+    const bool cd00       = (traceDir00 == derivDir) ? false : isCollocated00;
+    const bool cd01       = (traceDir01 == derivDir) ? false : isCollocated01;
+    const bool cd10       = (traceDir10 == derivDir) ? false : isCollocated10;
+    const bool cd11       = (traceDir11 == derivDir) ? false : isCollocated11;
+    const bool cd20       = (traceDir20 == derivDir) ? false : isCollocated20;
+    const bool cd21       = (traceDir21 == derivDir) ? false : isCollocated21;
+    const bool epd0       = (0 == derivDir) ? false : endPtsCollocated0;
+    const bool epd1       = (1 == derivDir) ? false : endPtsCollocated1;
+    const bool epd2       = (2 == derivDir) ? false : endPtsCollocated2;
 
     // The groups are written out so that each keeps its constant normal
     // direction; the term is a run-time index, so this body is
@@ -590,8 +593,8 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const simd_type *jac, const size_t jacCompStride, simd_type *wsp,
     simd_type *volwsp, const simd_type *in, simd_type *out,
     const unsigned traceDir0, const unsigned traceDir1, const bool append,
-    const bool isColl0, const bool isColl1, const bool endPtsColl0,
-    const bool endPtsColl1)
+    const bool isCollocated0, const bool isCollocated1,
+    const bool endPtsCollocated0, const bool endPtsCollocated1)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
@@ -613,7 +616,8 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
             d, nm0, nm1, tnq00, tnq10, nbasis0, nbasis1, dnbasis0, dnbasis1,
             tbasis0, tbasis1, dtbasis0, dtbasis1, tw0, tw1, twoOver1,
             jac + d * jacCompStride, in, wsp, volwsp, out, traceDir0, traceDir1,
-            append || d > 0, isColl0, isColl1, endPtsColl0, endPtsColl1);
+            append || d > 0, isCollocated0, isCollocated1, endPtsCollocated0,
+            endPtsCollocated1);
     }
 }
 
@@ -669,9 +673,11 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const unsigned traceDir00, const unsigned traceDir01,
     const unsigned traceDir10, const unsigned traceDir11,
     const unsigned traceDir20, const unsigned traceDir21, const bool append,
-    const bool isColl00, const bool isColl01, const bool isColl10,
-    const bool isColl11, const bool isColl20, const bool isColl21,
-    const bool endPtsColl0, const bool endPtsColl1, const bool endPtsColl2)
+    const bool isCollocated00, const bool isCollocated01,
+    const bool isCollocated10, const bool isCollocated11,
+    const bool isCollocated20, const bool isCollocated21,
+    const bool endPtsCollocated0, const bool endPtsCollocated1,
+    const bool endPtsCollocated2)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
@@ -701,9 +707,10 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
             dtbasis10, dtbasis11, dtbasis20, dtbasis21, tw00, tw01, tw10, tw11,
             tw20, tw21, twoOver1, twoOver2, jac + d * jacCompStride, in, wsp0,
             wsp1, volwsp, out, traceDir00, traceDir01, traceDir10, traceDir11,
-            traceDir20, traceDir21, append || d > 0, isColl00, isColl01,
-            isColl10, isColl11, isColl20, isColl21, endPtsColl0, endPtsColl1,
-            endPtsColl2);
+            traceDir20, traceDir21, append || d > 0, isCollocated00,
+            isCollocated01, isCollocated10, isCollocated11, isCollocated20,
+            isCollocated21, endPtsCollocated0, endPtsCollocated1,
+            endPtsCollocated2);
     }
 }
 

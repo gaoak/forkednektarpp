@@ -312,19 +312,18 @@ protected:
                                          : interleaveWidth / m_implInterleaveWidth;
         const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
 
-        // Loop over components.
-        const unsigned int outDim =
-            (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
-        const auto compOffset =
-            outblock.GetNumElmtGroups(m_implInterleaveWidth) * nqTot *
-            outblock.GetNumHomoModes();
+        // Offsets between the components of a block, in simd_t units.
+        const auto nhomo          = outblock.GetNumHomoModes();
+        const unsigned int outDim = (nhomo > 1) ? 3u : m_coordDim;
+        const auto compOffset     = outblock.CompSize() * nhomo / simd_t::width;
         simd_t *outvec[3];
         for (unsigned int k = 0; k < outDim; ++k)
         {
             outvec[k] = reinterpret_cast<simd_t *>(outptr) + k * compOffset;
         }
-        for (unsigned int n = 0;
-             n < inblock.GetNumComponents() * inblock.GetNumHomoModes(); ++n)
+
+        // Loop over components.
+        for (unsigned int n = 0; n < inblock.GetNumComponents() * nhomo; ++n)
         {
             auto dfptr = m_dfptr;
 
@@ -373,9 +372,9 @@ protected:
                 }
             }
 
-            // Advance  by ncoord-1 components since have already
+            // Advance by ncoord-1 components since have already
             // advanced one component in the above.
-            if ((n + 1) % outblock.GetNumHomoModes() == 0)
+            if ((n + 1) % nhomo == 0)
             {
                 for (unsigned int k = 0; k < outDim; ++k)
                 {

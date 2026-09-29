@@ -69,9 +69,12 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                 tmp0.fma(advVel[k * advelsize + idx], tmp[k]);
             }
 
-            // Write.
-            bwdptr[idx] *= scale * jac;
-            bwdptr[idx].fma(tmp0, jac);
+            // Write. bwdptr is left unset when scale is zero.
+            if (scale != 0.0)
+            {
+                tmp0 += scale * bwdptr[idx];
+            }
+            bwdptr[idx] = tmp0 * jac;
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
@@ -120,9 +123,12 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
                     tmp0.fma(advVel[k * advelsize + nqTot * e + i], tmp[k]);
                 }
 
-                // Write.
-                bwdptr[idx] *= scale * jac;
-                bwdptr[idx].fma(tmp0, jac);
+                // Write. bwdptr is left unset when scale is zero.
+                if (scale != 0.0)
+                {
+                    tmp0 += scale * bwdptr[idx];
+                }
+                bwdptr[idx] = tmp0 * jac;
 
                 // Compute metric.
                 for (unsigned int d = 0; d < dimension; d++)

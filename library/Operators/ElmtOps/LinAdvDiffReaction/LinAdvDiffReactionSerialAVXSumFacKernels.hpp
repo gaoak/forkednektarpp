@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
-#include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
 
 #include <Operators/ElmtOps/ElmtHelper.hpp>
 
@@ -73,7 +73,7 @@ NEK_FORCE_INLINE static void AddAdvection1DKernel(
         // Set deformed derivative factors.
         if constexpr (DEFORMED)
         {
-            df0 = df_ptr[i];
+            df0 = df_ptr[i * ncoord];
             if (ncoord > 1)
             {
                 df1 = df_ptr[i * ncoord + 1];
@@ -137,7 +137,7 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
         df1 = df_ptr[1];
         df2 = df_ptr[2];
         df3 = df_ptr[3];
-        if (ncoord)
+        if (ncoord == 3)
         {
             df4 = df_ptr[4];
             df5 = df_ptr[5];
@@ -147,8 +147,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
     // Apply metrics on all quad points.
     for (unsigned int q = 0; q < nq1; ++q)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             h1 = hfac1[q];
         }
@@ -182,8 +182,8 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
             d0 = deriv0[cnt];
             d1 = deriv1[cnt];
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 h0 = hfac0[p];
                 d0 *= h1;
@@ -248,17 +248,7 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     // Apply metrics on all quad points.
     for (unsigned int r = 0; r < nq2; ++r)
     {
-        if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
-                      (SHAPE_TYPE == LibUtilities::NodalPrism))
-        {
-            h3 = hfac3[r];
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            h3 = hfac3[r];
-        }
-        else if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
-                           (SHAPE_TYPE == LibUtilities::NodalTet))
+        if constexpr (SHAPE_TYPE != LibUtilities::Hex)
         {
             h3 = hfac3[r];
         }

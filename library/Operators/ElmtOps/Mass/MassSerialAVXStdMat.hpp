@@ -287,14 +287,6 @@ protected:
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
-        // Dispatch kernel.
-        auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
-        auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
-        auto mass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nmTot, 1.0, 0.0);
-
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
         const auto width_ratio     = (interleaveWidth == 1)
@@ -304,8 +296,18 @@ protected:
 
         // Get static workspace pointer.
         auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                simd_t::width * m_nqTot);
+            (m_isDeformed)
+                ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                      simd_t::width * m_nqTot)
+                : nullptr;
+
+        // Dispatch kernel.
+        auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
+        auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+        auto mass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
+            simd_t::width, m_nmTot, m_nmTot, 1.0, 0.0);
 
         // Loop over components.
         for (unsigned int n = 0;

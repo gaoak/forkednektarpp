@@ -43,8 +43,8 @@ namespace Nektar::Operators::detail
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>
-NEK_FORCE_INLINE void Advection1DKernel(
-    const unsigned int nq0, const unsigned int ndf, const simd_type *df_ptr,
+NEK_FORCE_INLINE static void Advection1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const simd_type *df_ptr,
     const simd_type *advVel0_ptr, [[maybe_unused]] const simd_type *advVel1_ptr,
     [[maybe_unused]] const simd_type *advVel2_ptr, simd_type *deriv0,
     simd_type *out, const typename simd_type::scalarType scale)
@@ -55,11 +55,11 @@ NEK_FORCE_INLINE void Advection1DKernel(
     {
         // unroll very small loops
         df_tmp[0] = df_ptr[0];
-        if (ndf >= 2)
+        if (ncoord >= 2)
         {
             df_tmp[1] = df_ptr[1];
         }
-        if (ndf == 3)
+        if (ncoord == 3)
         {
             df_tmp[2] = df_ptr[2];
         }
@@ -69,14 +69,14 @@ NEK_FORCE_INLINE void Advection1DKernel(
     {
         if constexpr (DEFORMED)
         {
-            df_tmp[0] = df_ptr[j * ndf]; // load 1x
-            if (ndf >= 2)
+            df_tmp[0] = df_ptr[j * ncoord]; // load 1x
+            if (ncoord >= 2)
             {
-                df_tmp[1] = df_ptr[j * ndf + 1]; // load 1x
+                df_tmp[1] = df_ptr[j * ncoord + 1]; // load 1x
             }
-            if (ndf == 3)
+            if (ncoord == 3)
             {
-                df_tmp[2] = df_ptr[j * ndf + 2]; // load 1x
+                df_tmp[2] = df_ptr[j * ncoord + 2]; // load 1x
             }
         }
 
@@ -85,12 +85,12 @@ NEK_FORCE_INLINE void Advection1DKernel(
         in = deriv0[j]; // Load 1x
         // Multiply by derivative factor, and Vx
         tmp = df_tmp[0] * advVel0_ptr[j];
-        if (ndf >= 2)
+        if (ncoord >= 2)
         {
             // Multiply by derivative factor, and Vy
             tmp.fma(df_tmp[1], advVel1_ptr[j]);
         }
-        if (ndf == 3)
+        if (ncoord == 3)
         {
             // Multiply by derivative factor, and Vz
             tmp.fma(df_tmp[2], advVel2_ptr[j]);
@@ -109,15 +109,15 @@ NEK_FORCE_INLINE void Advection1DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>
-NEK_FORCE_INLINE void Advection2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int outdim,
+NEK_FORCE_INLINE static void Advection2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *advVel0_ptr,
     const simd_type *advVel1_ptr, [[maybe_unused]] const simd_type *advVel2_ptr,
     simd_type *deriv0, simd_type *deriv1, simd_type *out,
     const typename simd_type::scalarType scale)
 {
-    auto ndf = 2 * outdim;
+    auto ndf = 2 * ncoord;
     simd_type vx, vy, df_tmp[6];
 
     if constexpr (!DEFORMED)
@@ -127,7 +127,7 @@ NEK_FORCE_INLINE void Advection2DKernel(
         df_tmp[2] = df_ptr[2];
         df_tmp[3] = df_ptr[3];
 
-        if (outdim == 3)
+        if (ncoord == 3)
         {
             df_tmp[4] = df_ptr[4];
             df_tmp[5] = df_ptr[5];
@@ -137,8 +137,8 @@ NEK_FORCE_INLINE void Advection2DKernel(
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm1;
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             xfrm1 = f1[j]; // Load 1x
         }
@@ -153,8 +153,8 @@ NEK_FORCE_INLINE void Advection2DKernel(
             vx = advVel0_ptr[cnt_ji];
             vy = advVel1_ptr[cnt_ji];
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 // Moving from standard to collapsed coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
@@ -169,7 +169,7 @@ NEK_FORCE_INLINE void Advection2DKernel(
                 df_tmp[2] = df_ptr[cnt_ji * ndf + 2];
                 df_tmp[3] = df_ptr[cnt_ji * ndf + 3];
 
-                if (outdim == 3)
+                if (ncoord == 3)
                 {
                     df_tmp[4] = df_ptr[cnt_ji * ndf + 4];
                     df_tmp[5] = df_ptr[cnt_ji * ndf + 5];
@@ -188,7 +188,7 @@ NEK_FORCE_INLINE void Advection2DKernel(
             // Multiply advection vel, Vy
             tmp0.fma(tmp, vy);
 
-            if (outdim == 3)
+            if (ncoord == 3)
             {
                 simd_type vz = advVel2_ptr[cnt_ji];
                 tmp          = d0 * df_tmp[4]; // d0 * df4 + d1 * df5
@@ -211,7 +211,7 @@ NEK_FORCE_INLINE void Advection2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>
-NEK_FORCE_INLINE void Advection3DKernel(
+NEK_FORCE_INLINE static void Advection3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
@@ -239,7 +239,7 @@ NEK_FORCE_INLINE void Advection3DKernel(
     for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
     {
         simd_type xfrm_eta2;
-        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        if constexpr (SHAPE_TYPE != LibUtilities::Hex)
         {
             xfrm_eta2 = f2[k];
         }
@@ -247,12 +247,12 @@ NEK_FORCE_INLINE void Advection3DKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 xfrm_eta1 = f1[j];
             }
-            else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                     SHAPE_TYPE == LibUtilities::eNodalTet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                               SHAPE_TYPE == LibUtilities::NodalTet)
             {
                 xfrm_eta1 = f1[j];
                 xfrm      = f1m[j] * xfrm_eta2;
@@ -274,14 +274,14 @@ NEK_FORCE_INLINE void Advection3DKernel(
 
                 // Chain-rule  to construct cartesian  derivatives for non
                 // Hex shapes
-                if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
-                              (SHAPE_TYPE == LibUtilities::eNodalPrism))
+                if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                              (SHAPE_TYPE == LibUtilities::NodalPrism))
                 {
                     d0 *= xfrm_eta2;
                     xfrm_eta0 = f0[i];
                     d2.fma(xfrm_eta0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
                     d0 *= xfrm_eta2;
                     d1 *= xfrm_eta2;
@@ -289,8 +289,8 @@ NEK_FORCE_INLINE void Advection3DKernel(
                     d2.fma(xfrm_eta0, d0);
                     d2.fma(xfrm_eta1, d1);
                 }
-                else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                         SHAPE_TYPE == LibUtilities::eNodalTet)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                   SHAPE_TYPE == LibUtilities::NodalTet)
                 {
                     d0 *= xfrm;
                     xfrm_eta0 = f0[i] * d0;

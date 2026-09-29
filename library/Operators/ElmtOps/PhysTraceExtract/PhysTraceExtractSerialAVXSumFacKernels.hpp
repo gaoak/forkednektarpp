@@ -637,7 +637,7 @@ NEK_FORCE_INLINE static void PhysExtractEdgeN1Kernel(
  * @param   endPtsCollocated1   Direction-1 volume rule contains the
  *                              domain endpoints.
  */
-template <Nektar::LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void PhysTraceExtractEdgeKernel(
     const unsigned edge, const unsigned nm0, const unsigned nm1,
     const unsigned nq00, const unsigned nq10,
@@ -653,11 +653,11 @@ NEK_FORCE_INLINE static void PhysTraceExtractEdgeKernel(
     // a direction still indexes at that stride, so it cannot be taken
     // from the loop bound.
     constexpr unsigned tstride0 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
     constexpr unsigned tstride1 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
 
-    if constexpr (SHAPE_TYPE == Nektar::LibUtilities::Tri)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         switch (edge)
         {
@@ -704,7 +704,7 @@ NEK_FORCE_INLINE static void PhysTraceExtractEdgeKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Unrecognised edge input");
+                NEKERROR(ErrorUtil::efatal, "Unrecognised edge input");
                 break;
         }
     }
@@ -769,7 +769,7 @@ NEK_FORCE_INLINE static void PhysTraceExtractEdgeKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Unrecognised edge input");
+                NEKERROR(ErrorUtil::efatal, "Unrecognised edge input");
                 break;
         }
     }
@@ -1294,7 +1294,7 @@ NEK_FORCE_INLINE static void PhysExtractFaceN2Kernel(
  * @param   endPtsCollocated1   The same for direction 1.
  * @param   endPtsCollocated2   The same for direction 2.
  */
-template <Nektar::LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
     const unsigned face, const unsigned nm0, const unsigned nm1,
     const unsigned nm2, const unsigned nq00, const unsigned nq01,
@@ -1319,13 +1319,13 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
     // a direction still indexes at that stride, so it cannot be taken
     // from the loop bound.
     constexpr unsigned tstride0 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
     constexpr unsigned tstride1 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
     constexpr unsigned tstride2 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][2];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][2];
 
-    if constexpr (SHAPE_TYPE == Nektar::LibUtilities::Tet)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         switch (face)
         {
@@ -1394,12 +1394,12 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Face not valid");
+                NEKERROR(ErrorUtil::efatal, "Face not valid");
                 break;
         }
     }
-    else if constexpr (SHAPE_TYPE == Nektar::LibUtilities::Prism ||
-                       SHAPE_TYPE == Nektar::LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::Pyr)
     {
         switch (face)
         {
@@ -1484,11 +1484,11 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Face not valid");
+                NEKERROR(ErrorUtil::efatal, "Face not valid");
                 break;
         }
     }
-    else if constexpr (SHAPE_TYPE == Nektar::LibUtilities::Hex)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         switch (face)
         {
@@ -1589,13 +1589,13 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Face not valid");
+                NEKERROR(ErrorUtil::efatal, "Face not valid");
                 break;
         }
     }
     else
     {
-        NEKERROR(Nektar::ErrorUtil::efatal, "Shape not recognised");
+        NEKERROR(ErrorUtil::efatal, "Shape not recognised");
     }
 }
 
@@ -1621,15 +1621,14 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
  * @tparam SHAPE_TYPE   Seg; unread, the path being the same for every
  *                      one-dimensional expansion.
  */
-template <Nektar::LibUtilities::ShapeType SHAPE_TYPE,
-          typename TTraceSizeParameter1D, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter1D,
+          typename simd_type>
 NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     const TTraceSizeParameter1D sizeParam1D,
     const typename simd_type::scalarType *ntbasis0, const simd_type *in,
     simd_type *out, const bool endPtsCollocated0)
 {
-    static_assert(Nektar::Operators::detail::IsTraceSizeParameter1D_v<
-                      TTraceSizeParameter1D>,
+    static_assert(IsTraceSizeParameter1D_v<TTraceSizeParameter1D>,
                   "Template argument must be either of type "
                   "NonTemplatedTraceSizeParameter1D or "
                   "TemplatedTraceSizeParameter1D.");
@@ -1690,8 +1689,8 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
  * @param   endPtsCollocated1   Direction-1 volume rule contains the
  *                              domain endpoints.
  */
-template <Nektar::LibUtilities::ShapeType SHAPE_TYPE,
-          typename TTraceSizeParameter2D, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter2D,
+          typename simd_type>
 NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     const TTraceSizeParameter2D sizeParam2D,
     const typename simd_type::scalarType *ntbasis0,
@@ -1702,8 +1701,7 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     const bool isCollocated10, const bool endPtsCollocated0,
     const bool endPtsCollocated1)
 {
-    static_assert(Nektar::Operators::detail::IsTraceSizeParameter2D_v<
-                      TTraceSizeParameter2D>,
+    static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
                   "NonTemplatedTraceSizeParameter2D or "
                   "TemplatedTraceSizeParameter2D.");
@@ -1718,9 +1716,9 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     // a direction still indexes at that stride, so it cannot be taken
     // from the loop bound.
     constexpr unsigned tstride0 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
     constexpr unsigned tstride1 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
 
     // edges with dir0 normals (1 & 3 in quads)
     if (endPtsCollocated0)
@@ -1808,8 +1806,8 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
  * @param   endPtsCollocated1   The same for direction 1.
  * @param   endPtsCollocated2   The same for direction 2.
  */
-template <Nektar::LibUtilities::ShapeType SHAPE_TYPE,
-          typename TTraceSizeParameter3D, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter3D,
+          typename simd_type>
 NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     const TTraceSizeParameter3D sizeParam3D,
     const typename simd_type::scalarType *ntbasis0,
@@ -1828,8 +1826,7 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     const bool endPtsCollocated0, const bool endPtsCollocated1,
     const bool endPtsCollocated2)
 {
-    static_assert(Nektar::Operators::detail::IsTraceSizeParameter3D_v<
-                      TTraceSizeParameter3D>,
+    static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
                   "NonTemplatedTraceSizeParameter3D or "
                   "TemplatedTraceSizeParameter3D.");
@@ -1849,11 +1846,11 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     // a direction still indexes at that stride, so it cannot be taken
     // from the loop bound.
     constexpr unsigned tstride0 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][0];
     constexpr unsigned tstride1 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
     constexpr unsigned tstride2 =
-        Nektar::LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][2];
+        LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][2];
 
     // faces with dir0 normals (4 & 2 in hex)
     if (endPtsCollocated0)

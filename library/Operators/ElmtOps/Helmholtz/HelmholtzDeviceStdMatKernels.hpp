@@ -44,13 +44,13 @@ namespace Nektar::Operators::detail
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
+    const unsigned int dimension, const size_t nelmt, const unsigned int ncomp,
     const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
     const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
     TData *bwdptr, const TData scale, const TthreadBlock &threadBlock)
 {
     const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
+    const auto nsize = nqTot * nelmt * ncomp;
 
     const size_t idx0   = getGlobalIdx(threadBlock);
     const size_t stride = getGlobalRange(threadBlock);
@@ -83,8 +83,11 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                 }
             }
 
-            // Write.
-            bwdptr[idx] *= scale * jac;
+            // Write. bwdptr is left unset when scale is zero.
+            if (scale != 0.0)
+            {
+                bwdptr[idx] *= scale * jac;
+            }
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
@@ -149,7 +152,11 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 outptr[d * outoffset + idx] = tmp[d] * jac;
             }
-            bwdptr[idx] *= scale * jac;
+            // bwdptr is left unset when scale is zero.
+            if (scale != 0.0)
+            {
+                bwdptr[idx] *= scale * jac;
+            }
         }
     }
 }

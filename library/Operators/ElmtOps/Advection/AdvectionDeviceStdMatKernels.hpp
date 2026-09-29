@@ -56,18 +56,19 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
     {
         Nektar::parallel_for<ExecSpace>(
             0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t idx0 = idx % (nelmt * nqTot);
-                size_t e    = idx0 / nqTot;
+                size_t islot = idx % (nelmt * nqTot);
+                size_t e     = islot / nqTot;
+                size_t i     = islot - e * nqTot;
                 TData tmp[3], tmp0 = 0;
                 for (unsigned int k = 0; k < ncoord; k++)
                 {
-                    tmp[k] = dfptr[(ndf - 1) * nqTot * e +
-                                   nqTot * (k * dimension) + idx0] *
-                             inptr[idx];
+                    tmp[k] =
+                        dfptr[ndf * nqTot * e + (k * dimension) * nqTot + i] *
+                        inptr[idx];
                     for (unsigned int d = 1; d < dimension; d++)
                     {
-                        tmp[k] += dfptr[(ndf - 1) * nqTot * e +
-                                        nqTot * (k * dimension + d) + idx0] *
+                        tmp[k] += dfptr[ndf * nqTot * e +
+                                        (k * dimension + d) * nqTot + i] *
                                   inptr[idx + d * inoffset];
                     }
                     tmp0 += advVel[k * advelsize + idx] * tmp[k];
