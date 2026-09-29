@@ -1,38 +1,36 @@
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //
-//  File: Geometry.cpp
+// File: Geometry.cpp
 //
-//  For more information, please see: http://www.nektar.info/
+// For more information, please see: http://www.nektar.info
 //
-//  The MIT License
+// The MIT License
 //
-//  Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
-//  Department of Aeronautics, Imperial College London (UK), and Scientific
-//  Computing and Imaging Institute, University of Utah (USA).
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
 //
-//  Permission is hereby granted, free of charge, to any person obtaining a
-//  copy of this software and associated documentation files (the "Software"),
-//  to deal in the Software without restriction, including without limitation
-//  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-//  and/or sell copies of the Software, and to permit persons to whom the
-//  Software is furnished to do so, subject to the following conditions:
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
 //
-//  The above copyright notice and this permission notice shall be included
-//  in all copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
 //
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-//  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-//  THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-//  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-//  DEALINGS IN THE SOFTWARE.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
 //
-//  Description:  This file contains the base class implementation for the
-//                Geometry class.
+// Description: Base class implementation for the Geometry class.
 //
-//
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 #include <SpatialDomains/Curve.hpp>
 #include <SpatialDomains/Geometry.h>
@@ -42,31 +40,25 @@
 namespace Nektar::SpatialDomains
 {
 
-/**
- * @brief Default constructor.
- */
 Geometry::Geometry()
-    : m_coordim(0), m_state(eNotFilled), m_setupState(false),
-      m_shapeType(LibUtilities::eNoShapeType), m_globalID(-1),
-      m_geomType(eNoGeomType)
+    : m_coordim(0), m_shapeType(LibUtilities::eNoShapeType),
+      m_state(eNotFilled), m_geomType(eNoGeomType), m_setupState(false),
+      m_globalID(-1)
 {
 }
 
-/**
- * @brief Constructor when supplied a coordinate dimension.
- */
 Geometry::Geometry(const int coordim)
-    : m_coordim(coordim), m_state(eNotFilled), m_setupState(false),
-      m_shapeType(LibUtilities::eNoShapeType), m_globalID(-1),
-      m_geomType(eNoGeomType)
+    : m_coordim(coordim), m_shapeType(LibUtilities::eNoShapeType),
+      m_state(eNotFilled), m_geomType(eNoGeomType), m_setupState(false),
+      m_globalID(-1)
 {
 }
 
 Geometry::Geometry(const Geometry &that)
-    : m_coordim(that.m_coordim), m_xmap(that.m_xmap), m_state(that.m_state),
-      m_setupState(that.m_setupState), m_shapeType(that.m_shapeType),
-      m_globalID(that.m_globalID), m_coeffs(that.m_coeffs),
-      m_geomType(that.m_geomType)
+    : m_coordim(that.m_coordim), m_shapeType(that.m_shapeType),
+      m_state(that.m_state), m_geomType(that.m_geomType),
+      m_setupState(that.m_setupState), m_globalID(that.m_globalID),
+      m_xmap(that.m_xmap), m_coeffs(that.m_coeffs)
 {
 }
 
@@ -87,9 +79,6 @@ Geometry &Geometry::operator=(const Geometry &that)
 }
 
 /**
- * @brief A straight-sided element is one whose every \f$\chi\f$ basis is
- * linear.
- *
  * Derived from m_xmap, so it must be established on demand rather than in
  * Setup(), which does not re-run when Reset() rebuilds the mapping.
  */
@@ -110,10 +99,7 @@ bool Geometry::HasLinearXmap()
 }
 
 /**
- * @copydoc Geometry::CalcGeomType()
- *
- * Also hands back the isoparametric coefficients settled on the way, which is
- * what a locator needs in order to invert the mapping.
+ * The coefficients are what a locator needs in order to invert the mapping.
  */
 GeomType Geometry::CalcGeomType(IsoParam &iso)
 {
@@ -126,9 +112,8 @@ GeomType Geometry::CalcGeomType(IsoParam &iso)
 }
 
 /**
- * A geometric shape is considered regular if it has constant geometric
- * information, and deformed if this information changes throughout the
- * shape.
+ * Regular means the geometric information is constant over the shape, deformed
+ * that it varies.
  *
  * Deciding this *is* testing whether the nonlinear isoparametric coefficients
  * vanish, so the answer arrives together with those coefficients. When the
@@ -323,7 +308,7 @@ GeomFactorsUniquePtr Geometry::v_GenGeomFactors(
 /**
  * @copydoc Geometry::GetXmap()
  */
-StdRegions::StdExpansionSharedPtr Geometry::v_GetXmap() const
+StdRegions::StdExpansion *Geometry::v_GetXmap() const
 {
     return m_xmap;
 }
@@ -396,7 +381,11 @@ NekDouble Geometry::v_GetCoord(
 }
 
 /**
- * @copydoc Geometry::FillGeom()
+ * Called only by FillGeom(), which guarantees that the geometry has been set
+ * up, that the coefficients have been allocated, and that it is not already
+ * filled.
+ *
+ * @see Geometry::FillGeom()
  */
 void Geometry::v_FillGeom()
 {

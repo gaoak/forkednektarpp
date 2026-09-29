@@ -69,8 +69,7 @@ class GeomFactors
 public:
     /// Constructor for GeomFactors class.
     SPATIAL_DOMAINS_EXPORT GeomFactors(
-        const GeomType gtype, const int coordim,
-        const StdRegions::StdExpansionSharedPtr &xmap,
+        const GeomType gtype, const int coordim, StdRegions::StdExpansion *xmap,
         const std::vector<Array<OneD, NekDouble>> &coords,
         const LibUtilities::PointsKeyVector &keyTgt);
 
@@ -141,7 +140,8 @@ protected:
     enum GeomMMF m_MMFDir;
 
     /// Stores information about the expansion.
-    StdRegions::StdExpansionSharedPtr m_xmap;
+    /// Not owned; see Geometry::m_xmap.
+    StdRegions::StdExpansion *m_xmap;
     /// Stores coordinates of the geometry.
     std::vector<Array<OneD, NekDouble>> m_coords;
     /// Jacobian vector
@@ -153,7 +153,7 @@ protected:
     /// Indicates whether stored derivative factors have been populated
     bool m_derivFacComputed = false;
     /// Return the Xmap;
-    inline StdRegions::StdExpansionSharedPtr &GetXmap();
+    inline StdRegions::StdExpansion *GetXmap();
 
 private:
     /// Tests if the element is valid and not self-intersecting.
@@ -327,7 +327,7 @@ inline size_t GeomFactors::GetHash()
     return hash;
 }
 
-StdRegions::StdExpansionSharedPtr &GeomFactors::GetXmap(void)
+StdRegions::StdExpansion *GeomFactors::GetXmap(void)
 {
     return m_xmap;
 }

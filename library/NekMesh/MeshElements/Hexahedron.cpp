@@ -282,7 +282,6 @@ struct hexahedronHelper
                 id, faces, edges, vertex, true);
         auto hexPtr = hexGeom.get();
         meshGraph->AddGeom<SpatialDomains::HexGeom>(id, std::move(hexGeom));
-        meshGraph->PopulateFaceToElMap(hexPtr, 6);
 
         return hexPtr;
     }

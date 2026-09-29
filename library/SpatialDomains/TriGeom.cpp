@@ -148,10 +148,8 @@ TriGeom::TriGeom(const int id, std::array<SegGeom *, kNverts> edges,
 NekDouble TriGeom::v_GetCoord(const int i,
                               const Array<OneD, const NekDouble> &Lcoord)
 {
-    if (m_state != ePtsFilled)
-    {
-        NEKERROR(ErrorUtil::ewarning, "Geometry is not in physical space");
-    }
+    // Evaluating the mapping needs the coefficients, so make sure they exist.
+    FillGeom();
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);
@@ -281,7 +279,6 @@ GeomType TriGeom::v_CalcGeomType(IsoParam &iso)
     {
         TriGeom::v_Setup();
     }
-    TriGeom::v_FillGeom();
 
     GeomType Gtype = eRegular;
 
@@ -342,6 +339,7 @@ GeomType TriGeom::v_CalcGeomType(IsoParam &iso)
 GeomFactorsUniquePtr TriGeom::v_GenGeomFactors(
     LibUtilities::PointsKeyVector &keyTgt)
 {
+    FillGeom();
     GeomType Gtype = CalcGeomType();
 
     return ObjPoolManager<GeomFactors>::AllocateUniquePtr(
@@ -355,11 +353,6 @@ GeomFactorsUniquePtr TriGeom::v_GenGeomFactors(
  */
 void TriGeom::v_FillGeom()
 {
-    // check to see if geometry structure is already filled
-    if (m_state == ePtsFilled)
-    {
-        return;
-    }
 
     int i, j, k;
     int nEdgeCoeffs = m_xmap->GetTraceNcoeffs(0);
@@ -566,8 +559,6 @@ void TriGeom::v_FillGeom()
             }
         }
     }
-
-    m_state = ePtsFilled;
 }
 
 std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> TriGeom::v_MakeOrder(
@@ -685,7 +676,6 @@ void TriGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     }
 
     SetUpXmap();
-    SetUpCoeffs(m_xmap->GetNcoeffs());
 }
 
 void TriGeom::v_ResetLite()
@@ -710,7 +700,6 @@ void TriGeom::v_Setup()
             m_edges[i]->Setup();
         }
         SetUpXmap();
-        SetUpCoeffs(m_xmap->GetNcoeffs());
 
         m_setupState = true;
     }
@@ -733,7 +722,7 @@ void TriGeom::SetUpXmap()
             LibUtilities::PointsKey(order1,
                                     LibUtilities::eGaussRadauMAlpha1Beta0))};
 
-    m_xmap = GetStdTriFactory().CreateInstance(basis);
+    m_xmap = GetStdTriFactory().CreateInstance(basis).get();
 }
 
 } // namespace Nektar::SpatialDomains

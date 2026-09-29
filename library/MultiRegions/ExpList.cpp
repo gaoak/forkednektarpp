@@ -1271,14 +1271,13 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 else // get bkey from Tri or Quad
                 {
                     // First, create the element stdExp that the edge belongs to
-                    SpatialDomains::GeometryLinkSharedPtr elmts =
+                    const SpatialDomains::FacetElementLink &elmts =
                         graph->GetElementsFromEdge(SegGeom);
-                    // elmts -> std::vector<std::pair<GeometrySharedPtr, int> >
                     // Currently we assume the elements adjacent to the edge
                     // have the same type. So we directly fetch the first
                     // element.
-                    SpatialDomains::Geometry *geom = elmts->at(0).first;
-                    int edge_id                    = elmts->at(0).second;
+                    SpatialDomains::Geometry *geom = elmts.at(0).first;
+                    int edge_id                    = elmts.at(0).second;
                     SpatialDomains::ExpansionInfoShPtr expInfo =
                         graph->GetExpansionInfo(geom, variable);
                     LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
@@ -1311,13 +1310,13 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                           compIt.second->m_geomVec[j])))
             {
                 // First, create the element stdExp that the face belongs to
-                SpatialDomains::GeometryLinkSharedPtr elmts =
+                const SpatialDomains::FacetElementLink &elmts =
                     graph->GetElementsFromFace(TriGeom);
                 // elmts -> std::vector<std::pair<GeometrySharedPtr, int> >
                 // Currently we assume the elements adjacent to the face have
                 // the same type. So we directly fetch the first element.
-                SpatialDomains::Geometry *geom = elmts->at(0).first;
-                int face_id                    = elmts->at(0).second;
+                SpatialDomains::Geometry *geom = elmts.at(0).first;
+                int face_id                    = elmts.at(0).second;
                 auto expInfo = expansions.find(geom->GetGlobalID());
                 if (expInfo == expansions.end())
                 {
@@ -1378,13 +1377,13 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                           compIt.second->m_geomVec[j])))
             {
                 // First, create the element stdExp that the face belongs to
-                SpatialDomains::GeometryLinkSharedPtr elmts =
+                const SpatialDomains::FacetElementLink &elmts =
                     graph->GetElementsFromFace(QuadGeom);
                 // elmts -> std::vector<std::pair<GeometrySharedPtr, int> >
                 // Currently we assume the elements adjacent to the face have
                 // the same type. So we directly fetch the first element.
-                SpatialDomains::Geometry *geom = elmts->at(0).first;
-                int face_id                    = elmts->at(0).second;
+                SpatialDomains::Geometry *geom = elmts.at(0).first;
+                int face_id                    = elmts.at(0).second;
                 auto expInfo = expansions.find(geom->GetGlobalID());
                 if (expInfo == expansions.end())
                 {

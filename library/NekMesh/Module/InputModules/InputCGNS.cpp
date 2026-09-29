@@ -481,8 +481,7 @@ void InputCGNS::SetupElements()
         {
             // if face only has one element link and no tag id needs to store
             // the face as it is new and unique
-            if (m_mesh->m_meshGraph->GetElementsFromFace(it.second)->size() ==
-                1)
+            if (m_mesh->m_meshGraph->GetElementsFromFace(it.second).size() == 1)
             {
                 facelist.insert(it.second);
             }

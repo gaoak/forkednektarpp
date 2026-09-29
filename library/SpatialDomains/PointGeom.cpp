@@ -42,6 +42,21 @@
 namespace Nektar::SpatialDomains
 {
 
+/**
+ * @brief The \f$\chi\f$ map shared by every point.
+ *
+ * A point's map takes no basis, so one instance serves the whole mesh; there
+ * is nothing to key a cache on. It used to be allocated per point, which on a
+ * mesh with a million vertices meant a million identical objects. Held by a
+ * function-local static so that it outlives every geometry pointing at it.
+ */
+static StdRegions::StdExpansionSharedPtr GetStdPointExp()
+{
+    static StdRegions::StdExpansionSharedPtr xmap =
+        MemoryManager<StdRegions::StdPointExp>::AllocateSharedPtr();
+    return xmap;
+}
+
 PointGeom::PointGeom() : NekPoint<NekDouble>(0.0, 0.0, 0.0)
 {
     m_shapeType = LibUtilities::ePoint;
@@ -266,7 +281,7 @@ bool operator!=(const PointGeom *x, const PointGeom &y)
 GeomFactorsUniquePtr PointGeom::v_GenGeomFactors(
     [[maybe_unused]] LibUtilities::PointsKeyVector &keyTgt)
 {
-    m_xmap = MemoryManager<StdRegions::StdPointExp>::AllocateSharedPtr();
+    m_xmap = GetStdPointExp().get();
     SetUpCoeffs(m_xmap->GetNcoeffs());
 
     // Points are always regular

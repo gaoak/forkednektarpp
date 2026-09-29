@@ -87,7 +87,6 @@ GeomType PyrGeom::v_CalcGeomType(IsoParam &iso)
     {
         v_Setup();
     }
-    v_FillGeom();
 
     GeomType Gtype = eRegular;
 
@@ -150,6 +149,7 @@ GeomType PyrGeom::v_CalcGeomType(IsoParam &iso)
 GeomFactorsUniquePtr PyrGeom::v_GenGeomFactors(
     LibUtilities::PointsKeyVector &keyTgt)
 {
+    FillGeom();
     GeomType Gtype = CalcGeomType();
 
     return ObjPoolManager<GeomFactors>::AllocateUniquePtr(
@@ -392,289 +392,116 @@ void PyrGeom::SetUpEdgeOrientation()
 
 void PyrGeom::SetUpFaceOrientation()
 {
-    int f, i;
+    // This 2D array holds the local id's of all the vertices for every face,
+    // in the cyclic order in which they bound that face. Faces 1 to 4 are
+    // triangles and use only the first three entries.
+    const unsigned int faceVerts[kNfaces][QuadGeom::kNverts] = {
+        {0, 1, 2, 3}, {0, 1, 4, 0}, {1, 2, 4, 0}, {3, 2, 4, 0}, {0, 3, 4, 0}};
 
-    // These arrays represent the vector of the A and B coordinate of
-    // the local elemental coordinate system where A corresponds with
-    // the coordinate direction xi_i with the lowest index i (for that
-    // particular face) Coordinate 'B' then corresponds to the other
-    // local coordinate (i.e. with the highest index)
-    Array<OneD, NekDouble> elementAaxis(m_coordim);
-    Array<OneD, NekDouble> elementBaxis(m_coordim);
+    // Quadrilateral faces: the face geometry runs around the same four points
+    // as the element's face does, so its vertex list is that cycle started at
+    // some vertex and traversed in one of the two directions. Those eight
+    // cases are exactly the eight quadrilateral orientations.
+    const StdRegions::Orientation quadFwd[QuadGeom::kNverts] = {
+        StdRegions::eDir1FwdDir1_Dir2FwdDir2, // starts at face vertex 0
+        StdRegions::eDir1BwdDir2_Dir2FwdDir1, // starts at face vertex 1
+        StdRegions::eDir1BwdDir1_Dir2BwdDir2, // starts at face vertex 2
+        StdRegions::eDir1FwdDir2_Dir2BwdDir1  // starts at face vertex 3
+    };
+    const StdRegions::Orientation quadBwd[QuadGeom::kNverts] = {
+        StdRegions::eDir1FwdDir2_Dir2FwdDir1, // starts at face vertex 0
+        StdRegions::eDir1BwdDir1_Dir2FwdDir2, // starts at face vertex 1
+        StdRegions::eDir1BwdDir2_Dir2BwdDir1, // starts at face vertex 2
+        StdRegions::eDir1FwdDir1_Dir2BwdDir2  // starts at face vertex 3
+    };
 
-    // These arrays correspond to the local coordinate
-    // system of the face itself (i.e. the Geometry2D)
-    // faceAaxis correspond to the xi_0 axis
-    // faceBaxis correspond to the xi_1 axis
-    Array<OneD, NekDouble> faceAaxis(m_coordim);
-    Array<OneD, NekDouble> faceBaxis(m_coordim);
-
-    // This is the base vertex of the face (i.e. the Geometry2D) This
-    // corresponds to thevertex with local ID 0 of the Geometry2D
-    unsigned int baseVertex;
-
-    // The lenght of the vectors above
-    NekDouble elementAaxis_length;
-    NekDouble elementBaxis_length;
-    NekDouble faceAaxis_length;
-    NekDouble faceBaxis_length;
-
-    // This 2D array holds the local id's of all the vertices for every
-    // face. For every face, they are ordered in such a way that the
-    // implementation below allows a unified approach for all faces.
-    const unsigned int faceVerts[kNfaces][4] = {
-        {0, 1, 2, 3},
-        {0, 1, 4, 0}, // Last four elements are triangles which only
-        {1, 2, 4, 0}, // require three vertices.
-        {3, 2, 4, 0},
-        {0, 3, 4, 0}};
-
-    NekDouble dotproduct1 = 0.0;
-    NekDouble dotproduct2 = 0.0;
-
-    unsigned int orientation;
-
-    // Loop over all the faces to set up the orientation
-    for (f = 0; f < kNqfaces + kNtfaces; f++)
+    for (int f = 0; f < kNfaces; ++f)
     {
-        // initialisation
-        elementAaxis_length = 0.0;
-        elementBaxis_length = 0.0;
-        faceAaxis_length    = 0.0;
-        faceBaxis_length    = 0.0;
+        const int nVerts  = m_faces[f]->GetNumVerts();
+        const int baseVid = m_faces[f]->GetVid(0);
 
-        dotproduct1 = 0.0;
-        dotproduct2 = 0.0;
-
-        baseVertex = m_faces[f]->GetVid(0);
-
-        // We are going to construct the vectors representing the A and
-        // B axis of every face. These vectors will be constructed as a
-        // vector-representation of the edges of the face. However, for
-        // both coordinate directions, we can represent the vectors by
-        // two different edges. That's why we need to make sure that we
-        // pick the edge to which the baseVertex of the
-        // Geometry2D-representation of the face belongs...
-
-        // Compute the length of edges on a base-face
-        if (f > 0)
+        // Which of the element's face vertices the face geometry starts at.
+        int base = -1;
+        for (int v = 0; v < nVerts; ++v)
         {
-            if (baseVertex == m_verts[faceVerts[f][0]]->GetGlobalID())
+            if (baseVid == m_verts[faceVerts[f][v]]->GetGlobalID())
             {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][1]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                }
+                base = v;
+                break;
             }
-            else if (baseVertex == m_verts[faceVerts[f][1]]->GetGlobalID())
+        }
+
+        if (base < 0)
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "Face " + std::to_string(f) + " of pyramid " +
+                         std::to_string(m_globalID) +
+                         " does not start at any of the element vertices that "
+                         "bound it.");
+        }
+        else if (nVerts == TriGeom::kNverts)
+        {
+            // Triangular face. SetUpLocalVertices has already put the vertices
+            // in a canonical order by the time this runs, which leaves three
+            // of the six permutations reachable; the other three all give an
+            // orientation in which Dir2 is aligned with Dir1, which the vector
+            // implementation this replaced rejected outright.
+            const int nextVid = m_faces[f]->GetVid(1);
+
+            if (base == 0 && nextVid == m_verts[faceVerts[f][1]]->GetGlobalID())
             {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][1]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][1]])[i];
-                }
+                // Face vertices are element face vertices (0, 1, 2).
+                m_forient[f] = StdRegions::eDir1FwdDir1_Dir2FwdDir2;
             }
-            else if (baseVertex == m_verts[faceVerts[f][2]]->GetGlobalID())
+            else if (base == 1 &&
+                     nextVid == m_verts[faceVerts[f][0]]->GetGlobalID())
             {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][1]])[i] -
-                                      (*m_verts[faceVerts[f][2]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                }
+                // Face vertices are element face vertices (1, 0, 2).
+                m_forient[f] = StdRegions::eDir1BwdDir1_Dir2FwdDir2;
+            }
+            else if (base == 2 &&
+                     nextVid == m_verts[faceVerts[f][1]]->GetGlobalID())
+            {
+                // Face vertices are element face vertices (2, 1, 0).
+                m_forient[f] = StdRegions::eDir1FwdDir1_Dir2BwdDir2;
             }
             else
             {
                 NEKERROR(ErrorUtil::efatal,
-                         "Could not find matching vertex for the face");
+                         "Orientation of triangular face (id = " +
+                             std::to_string(m_faces[f]->GetGlobalID()) +
+                             ") is inconsistent with face " +
+                             std::to_string(f) + " of pyramid element (id = " +
+                             std::to_string(m_globalID) +
+                             ") since Dir2 is aligned with Dir1. Mesh setup "
+                             "needs investigation");
             }
         }
         else
         {
-            if (baseVertex == m_verts[faceVerts[f][0]]->GetGlobalID())
+            const int nextVid = m_faces[f]->GetVid(1);
+
+            if (nextVid == m_verts[faceVerts[f][(base + 1) % QuadGeom::kNverts]]
+                               ->GetGlobalID())
             {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][1]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][3]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                }
+                m_forient[f] = quadFwd[base];
             }
-            else if (baseVertex == m_verts[faceVerts[f][1]]->GetGlobalID())
+            else if (nextVid ==
+                     m_verts[faceVerts[f][(base + 3) % QuadGeom::kNverts]]
+                         ->GetGlobalID())
             {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][1]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][1]])[i];
-                }
-            }
-            else if (baseVertex == m_verts[faceVerts[f][2]]->GetGlobalID())
-            {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][3]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][1]])[i];
-                }
-            }
-            else if (baseVertex == m_verts[faceVerts[f][3]]->GetGlobalID())
-            {
-                for (i = 0; i < m_coordim; i++)
-                {
-                    elementAaxis[i] = (*m_verts[faceVerts[f][2]])[i] -
-                                      (*m_verts[faceVerts[f][3]])[i];
-                    elementBaxis[i] = (*m_verts[faceVerts[f][3]])[i] -
-                                      (*m_verts[faceVerts[f][0]])[i];
-                }
+                m_forient[f] = quadBwd[base];
             }
             else
             {
                 NEKERROR(ErrorUtil::efatal,
-                         "Could not find matching vertex for the face");
+                         "The second vertex of quadrilateral face " +
+                             std::to_string(f) + " of pyramid " +
+                             std::to_string(m_globalID) +
+                             " is not adjacent to its first one, so the face "
+                             "does not traverse the element's face cycle.");
             }
         }
-
-        // Now, construct the edge-vectors of the local coordinates of
-        // the Geometry2D-representation of the face
-        for (i = 0; i < m_coordim; i++)
-        {
-            int v = m_faces[f]->GetNumVerts() - 1;
-            faceAaxis[i] =
-                (*m_faces[f]->GetVertex(1))[i] - (*m_faces[f]->GetVertex(0))[i];
-            faceBaxis[i] =
-                (*m_faces[f]->GetVertex(v))[i] - (*m_faces[f]->GetVertex(0))[i];
-
-            elementAaxis_length += pow(elementAaxis[i], 2);
-            elementBaxis_length += pow(elementBaxis[i], 2);
-            faceAaxis_length += pow(faceAaxis[i], 2);
-            faceBaxis_length += pow(faceBaxis[i], 2);
-        }
-
-        elementAaxis_length = sqrt(elementAaxis_length);
-        elementBaxis_length = sqrt(elementBaxis_length);
-        faceAaxis_length    = sqrt(faceAaxis_length);
-        faceBaxis_length    = sqrt(faceBaxis_length);
-
-        // Calculate the inner product of both the A-axis
-        // (i.e. Elemental A axis and face A axis)
-        for (i = 0; i < m_coordim; i++)
-        {
-            dotproduct1 += elementAaxis[i] * faceAaxis[i];
-        }
-
-        NekDouble norm =
-            fabs(dotproduct1) / elementAaxis_length / faceAaxis_length;
-        orientation = 0;
-
-        // if the innerproduct is equal to the (absolute value of the ) products
-        // of the lengths of both vectors, then, the coordinate systems will NOT
-        // be transposed
-        if (fabs(norm - 1.0) < NekConstants::kNekZeroTol)
-        {
-            // if the inner product is negative, both A-axis point
-            // in reverse direction
-            if (dotproduct1 < 0.0)
-            {
-                orientation += 2;
-            }
-
-            // calculate the inner product of both B-axis
-            for (i = 0; i < m_coordim; i++)
-            {
-                dotproduct2 += elementBaxis[i] * faceBaxis[i];
-            }
-
-            norm = fabs(dotproduct2) / elementBaxis_length / faceBaxis_length;
-
-            // check that both these axis are indeed parallel
-            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
-            {
-                NEKERROR(ErrorUtil::ewarning,
-                         "These vectors should be parallel");
-            }
-
-            // if the inner product is negative, both B-axis point
-            // in reverse direction
-            if (dotproduct2 < 0.0)
-            {
-                orientation++;
-            }
-        }
-        // The coordinate systems are transposed
-        else
-        {
-            orientation = 4;
-
-            // Calculate the inner product between the elemental A-axis
-            // and the B-axis of the face (which are now the corresponding axis)
-            dotproduct1 = 0.0;
-            for (i = 0; i < m_coordim; i++)
-            {
-                dotproduct1 += elementAaxis[i] * faceBaxis[i];
-            }
-
-            norm = fabs(dotproduct1) / elementAaxis_length / faceBaxis_length;
-            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
-            {
-                NEKERROR(ErrorUtil::ewarning,
-                         "These vectors should be parallel");
-            }
-
-            // if the result is negative, both axis point in reverse
-            // directions
-            if (dotproduct1 < 0.0)
-            {
-                orientation += 2;
-            }
-
-            // Do the same for the other two corresponding axis
-            dotproduct2 = 0.0;
-            for (i = 0; i < m_coordim; i++)
-            {
-                dotproduct2 += elementBaxis[i] * faceAaxis[i];
-            }
-
-            norm = fabs(dotproduct2) / elementBaxis_length / faceAaxis_length;
-
-            // check that both these axis are indeed parallel
-            if (fabs(norm - 1.0) >= NekConstants::kNekZeroTol)
-            {
-                NEKERROR(ErrorUtil::ewarning,
-                         "These vectors should be parallel");
-            }
-
-            if (dotproduct2 < 0.0)
-            {
-                orientation++;
-            }
-        }
-
-        orientation = orientation + 5;
-
-        if (f != 0) // check triangle orientation
-        {
-            ASSERTL0(
-                orientation < StdRegions::eDir1FwdDir2_Dir2FwdDir1,
-                "Orientation of triangular face (id = " +
-                    std::to_string(m_faces[f]->GetGlobalID()) +
-                    ") is inconsistent with face " + std::to_string(f) +
-                    " of pyramid element (id = " + std::to_string(m_globalID) +
-                    ") since Dir2 is aligned with Dir1. Mesh setup "
-                    "needs investigation");
-        }
-
-        // Fill the m_forient array
-        m_forient[f] = (StdRegions::Orientation)orientation;
     }
 }
 
@@ -688,7 +515,6 @@ void PyrGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     }
 
     SetUpXmap();
-    SetUpCoeffs(m_xmap->GetNcoeffs());
 }
 
 void PyrGeom::v_ResetLite()
@@ -706,7 +532,6 @@ void PyrGeom::v_Setup()
             m_faces[i]->Setup();
         }
         SetUpXmap();
-        SetUpCoeffs(m_xmap->GetNcoeffs());
 
         m_setupState = true;
     }
@@ -774,7 +599,7 @@ void PyrGeom::SetUpXmap()
             LibUtilities::PointsKey(order2,
                                     LibUtilities::eGaussRadauMAlpha2Beta0))};
 
-    m_xmap = GetStdPyrFactory().CreateInstance(basis);
+    m_xmap = GetStdPyrFactory().CreateInstance(basis).get();
 }
 
 /**
@@ -787,10 +612,6 @@ void PyrGeom::SetUpXmap()
  */
 void PyrGeom::v_FillGeom()
 {
-    if (m_state == ePtsFilled)
-    {
-        return;
-    }
 
     if (m_curve)
     {
@@ -887,8 +708,6 @@ void PyrGeom::v_FillGeom()
             }
         }
     }
-
-    m_state = ePtsFilled;
 }
 
 std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> PyrGeom::v_MakeOrder(

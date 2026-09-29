@@ -224,8 +224,8 @@ void ProcessWallNormalData::v_Process(po::variables_map &vm)
     ASSERTL0(isInside, "Failed to find the sampling origin on the boundary.");
 
     // Then Update the precise sampling position
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
-    const int npts                            = bndXmap->GetTotPoints();
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
+    const int npts                    = bndXmap->GetTotPoints();
     Array<OneD, Array<OneD, NekDouble>> pts(nCoordDim);
     Array<OneD, Array<OneD, const NekDouble>> bndCoeffs(nCoordDim);
 
@@ -601,10 +601,10 @@ bool ProcessWallNormalData::BisectionForLocCoordOnBndElmt(
     etaLR[1] = 1.0;                  // right
     NekDouble tmpL, tmpR;            // tmp values for L/R
 
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
-    locCoord[0]                               = -2.0;
-    int cnt                                   = 0;
-    bool isConverge                           = false;
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
+    locCoord[0]                       = -2.0;
+    int cnt                           = 0;
+    bool isConverge                   = false;
     while (cnt < iterMax)
     {
         tmpL = bndXmap->PhysEvaluate(etaLR, pts[dirUse[0]]);
@@ -649,7 +649,7 @@ bool ProcessWallNormalData::NewtonIterForLocCoordOnBndElmt(
 
     const NekDouble LcoordDiv = 15.0;
 
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
 
     LibUtilities::PointsKeyVector ptsKeys = bndXmap->GetPointsKeys();
     Array<OneD, const NekDouble> Jac =
@@ -803,8 +803,8 @@ bool ProcessWallNormalData::BndElmtContainsPoint(
     const NekDouble maxDist, const NekDouble iterTol)
 {
     // Get variables
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
-    const int npts                            = bndXmap->GetTotPoints();
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
+    const int npts                    = bndXmap->GetTotPoints();
     const int nCoordDim = m_f->m_exp[0]->GetCoordim(0); // =2 for 2.5D cases
 
     Array<OneD, Array<OneD, const NekDouble>> bndCoeffs(nCoordDim);
@@ -952,7 +952,7 @@ void ProcessWallNormalData::GetNormals(
     Array<OneD, NekDouble> &normals)
 {
     const int nCoordDim = m_f->m_exp[0]->GetCoordim(0); // =2 for 2.5D cases
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
     Array<OneD, Array<OneD, NekDouble>> pts(m_spacedim);
     Array<OneD, Array<OneD, const NekDouble>> bndCoeffs(m_spacedim);
     int npts = bndXmap->GetTotPoints();

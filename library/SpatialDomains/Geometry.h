@@ -1,38 +1,36 @@
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 //
-//  File: Geometry.h
+// File: Geometry.h
 //
-//  For more information, please see: http://www.nektar.info/
+// For more information, please see: http://www.nektar.info
 //
-//  The MIT License
+// The MIT License
 //
-//  Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
-//  Department of Aeronautics, Imperial College London (UK), and Scientific
-//  Computing and Imaging Institute, University of Utah (USA).
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
 //
-//  Permission is hereby granted, free of charge, to any person obtaining a
-//  copy of this software and associated documentation files (the "Software"),
-//  to deal in the Software without restriction, including without limitation
-//  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-//  and/or sell copies of the Software, and to permit persons to whom the
-//  Software is furnished to do so, subject to the following conditions:
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
 //
-//  The above copyright notice and this permission notice shall be included
-//  in all copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
 //
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-//  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-//  THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-//  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-//  DEALINGS IN THE SOFTWARE.
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
 //
-//  Description:  This file contains the base class specification for the
-//                Geometry class.
+// Description: Base class specification for the Geometry class.
 //
-//
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 #ifndef NEKTAR_SPATIALDOMAINS_GEOMETRY_H
 #define NEKTAR_SPATIALDOMAINS_GEOMETRY_H
@@ -74,54 +72,107 @@ SPATIAL_DOMAINS_EXPORT bool SortByGlobalId(const Geometry *&lhs,
 SPATIAL_DOMAINS_EXPORT bool GlobalIdEquality(const Geometry *&lhs,
                                              const Geometry *&rhs);
 
-/// Base class for shape geometry information
+/**
+ * @brief Base class for the geometry of an element and of its boundary.
+ *
+ * A Geometry is a shape: its topology, given by the vertices, edges and faces
+ * it is built from, and its position in space, given by the mapping
+ * \f$\chi:\xi\mapsto x\f$ from the reference element to the physical one.
+ * The mapping is held as an expansion, #GetXmap(), together with the
+ * coefficients #GetCoeffs() that express each physical coordinate in it. The
+ * coefficients come from the boundary -- a face takes them from its edges, an
+ * element from its faces -- so a Geometry only describes itself completely
+ * once #FillGeom() has gathered them, which happens on first use rather than
+ * at construction.
+ *
+ * Shapes derive from Geometry through a per-dimension intermediate
+ * (#Geometry1D, #Geometry2D, #Geometry3D), which is where the entities of one
+ * dimension lower are held. The lowest dimension, #PointGeom, is the only one
+ * that carries coordinates directly; everything above it refers to the same
+ * shared points, so moving a point moves every entity built on it.
+ *
+ * Deciding whether the mapping is affine (#eRegular) or not (#eDeformed) is
+ * #CalcGeomType(); the metric terms derived from it are #GeomFactors. Point
+ * location -- inverting \f$\chi\f$ to ask which element contains a physical
+ * coordinate -- is not part of a Geometry: it is an algorithm applied to one,
+ * and lives in #GeometryLocator.
+ */
 class Geometry
 {
 public:
+    /// Construct with no coordinate dimension set.
     SPATIAL_DOMAINS_EXPORT Geometry();
+    /// Construct for a space of dimension @p coordim.
     SPATIAL_DOMAINS_EXPORT Geometry(int coordim);
     SPATIAL_DOMAINS_EXPORT virtual ~Geometry() = default;
 
-    /// The point-location cache is not copied; the copy rebuilds it on demand.
+    /// Copy: the point-location cache is not copied, and is rebuilt on demand.
     SPATIAL_DOMAINS_EXPORT Geometry(const Geometry &that);
+    /// Assign: the point-location cache is dropped, and is rebuilt on demand.
     SPATIAL_DOMAINS_EXPORT Geometry &operator=(const Geometry &that);
 
     //---------------------------------------
     // Helper functions
     //---------------------------------------
 
+    /// Dimension of the space this object is embedded in.
     SPATIAL_DOMAINS_EXPORT inline int GetCoordim() const;
+    /// Set the dimension of the space this object is embedded in.
     SPATIAL_DOMAINS_EXPORT inline void SetCoordim(int coordim);
+    /// Build the #GeomFactors for this object at the quadrature points
+    /// @p keyTgt.
     SPATIAL_DOMAINS_EXPORT GeomFactorsUniquePtr
     GenGeomFactors(LibUtilities::PointsKeyVector &keyTgt);
+    /// The shape this object is, as a LibUtilities::ShapeType.
     SPATIAL_DOMAINS_EXPORT LibUtilities::ShapeType GetShapeType(void);
 
     //---------------------------------------
     // Set and get ID
     //---------------------------------------
+
+    /// Get the ID of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetGlobalID(void) const;
+    /// Set the ID of this object.
     SPATIAL_DOMAINS_EXPORT inline void SetGlobalID(int globalid);
 
     //---------------------------------------
     // Vertex, edge and face access
     //---------------------------------------
+
+    /// Get the ID of vertex @p i of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetVid(int i) const;
+    /// Get the ID of edge @p i of this object.
     SPATIAL_DOMAINS_EXPORT int GetEid(int i) const;
+    /// Get the ID of face @p i of this object.
     SPATIAL_DOMAINS_EXPORT int GetFid(int i) const;
+    /// Get the ID of trace @p i of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetTid(int i) const;
+    /// Get vertex @p i of this object.
     SPATIAL_DOMAINS_EXPORT inline PointGeom *GetVertex(int i) const;
+    /// Get edge @p i of this object.
     SPATIAL_DOMAINS_EXPORT inline Geometry1D *GetEdge(int i) const;
+    /// Get face @p i of this object.
     SPATIAL_DOMAINS_EXPORT inline Geometry2D *GetFace(int i) const;
+    /// How edge @p i sits against the standard element's ordering of edges.
     SPATIAL_DOMAINS_EXPORT inline StdRegions::Orientation GetEorient(
         const int i) const;
+    /// How face @p i sits against the standard element's ordering of faces.
     SPATIAL_DOMAINS_EXPORT inline StdRegions::Orientation GetForient(
         const int i) const;
+    /// Get the number of vertices of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetNumVerts() const;
+    /// Get the number of edges of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetNumEdges() const;
+    /// Get the number of faces of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetNumFaces() const;
+    /// Get the number of facets of this object.
     SPATIAL_DOMAINS_EXPORT inline int GetNumFacets() const;
+    /// Get facet @p i of this object.
     SPATIAL_DOMAINS_EXPORT inline Geometry *GetFacet(int i) const;
+    /// Dimension of the shape itself, which may be less than #GetCoordim().
     SPATIAL_DOMAINS_EXPORT inline int GetShapeDim() const;
+    /// The curvature attached to this object, or nullptr if it is
+    /// straight-sided. Only valid for shapes that can carry one.
     SPATIAL_DOMAINS_EXPORT virtual Curve *GetCurve()
     {
         ASSERTL0(false, "GetCurve() not valid for this geometry type");
@@ -131,15 +182,23 @@ public:
     //---------------------------------------
     // \chi mapping access
     //---------------------------------------
-    SPATIAL_DOMAINS_EXPORT inline StdRegions::StdExpansionSharedPtr GetXmap()
-        const;
+
+    /// The expansion holding the mapping \f$\chi\f$ from the standard element
+    /// to this one. Shared between geometries and not owned.
+    SPATIAL_DOMAINS_EXPORT inline StdRegions::StdExpansion *GetXmap() const;
+    /// The coefficients of \f$\chi\f$ in coordinate direction @p i, filling
+    /// them first if that has not happened yet.
     SPATIAL_DOMAINS_EXPORT inline const Array<OneD, const NekDouble> &GetCoeffs(
-        const int i) const;
+        const int i);
+    /// Gather the coefficients of \f$\chi\f$ from this object's boundary,
+    /// unless that has already been done.
     SPATIAL_DOMAINS_EXPORT inline void FillGeom();
-    /// Evaluate the mapping: physical coordinate in direction @p i at the
-    /// local collapsed coordinate @p Lcoord.
+    /// Evaluate the mapping: physical coordinate in direction @p i at the local
+    /// collapsed coordinate @p Lcoord.
     SPATIAL_DOMAINS_EXPORT inline NekDouble GetCoord(
         const int i, const Array<OneD, const NekDouble> &Lcoord);
+    /// Re-express this object's curvature at polynomial order @p order,
+    /// returning the curve and the points generated for it.
     SPATIAL_DOMAINS_EXPORT std::pair<CurveUniquePtr,
                                      std::vector<PointGeomUniquePtr>>
     MakeOrder(int order, const LibUtilities::PointsType pType);
@@ -147,49 +206,70 @@ public:
     //---------------------------------------
     // Misc. helper functions
     //---------------------------------------
+
+    /// The @p j'th standard element edge connected to vertex @p i.
     SPATIAL_DOMAINS_EXPORT inline int GetVertexEdgeMap(int i, int j) const;
+    /// The @p j'th standard element face connected to vertex @p i.
     SPATIAL_DOMAINS_EXPORT inline int GetVertexFaceMap(int i, int j) const;
+    /// The @p j'th standard element face connected to edge @p i.
     SPATIAL_DOMAINS_EXPORT inline int GetEdgeFaceMap(int i, int j) const;
+    /// The @p j'th standard element edge normal to face @p i.
     SPATIAL_DOMAINS_EXPORT inline int GetEdgeNormalToFaceVert(int i,
                                                               int j) const;
+    /// The element coordinate direction that face direction @p j of face @p i
+    /// runs along.
     SPATIAL_DOMAINS_EXPORT inline int GetDir(const int i,
                                              const int j = 0) const;
+    /// Classify whether this shape is regular or deformed.
     SPATIAL_DOMAINS_EXPORT GeomType CalcGeomType();
-    /// Classify, and hand back the isoparametric coefficients settled on the
-    /// way. Used by GeometryLocator, which needs both.
+    /// Classify whether this shape is regular or deformed, and hand back the
+    /// isoparametric coefficients computed as part of this decision. Used by
+    /// #GeometryLocator.
     SPATIAL_DOMAINS_EXPORT GeomType CalcGeomType(IsoParam &iso);
     /// True if every \f$\chi\f$ basis is linear.
     SPATIAL_DOMAINS_EXPORT bool HasLinearXmap();
 
+    /// Re-read this object's curvature and rebuild everything derived from
+    /// it, recursing into the entities it is built from.
     SPATIAL_DOMAINS_EXPORT inline void Reset(CurveMap &curvedEdges,
                                              CurveMap &curvedFaces);
+    /// Re-derive only the orientations, leaving the mapping alone.
     SPATIAL_DOMAINS_EXPORT inline void ResetLite();
+    /// As #Reset(), but without recursing into this object's boundary.
     SPATIAL_DOMAINS_EXPORT inline void ResetNonRecursive(CurveMap &curvedEdges,
                                                          CurveMap &curvedFaces);
 
+    /// Build the mapping \f$\chi\f$, unless it has already been built.
     SPATIAL_DOMAINS_EXPORT inline void Setup();
 
 protected:
+    // Note that we use a bitfield approach to compress the first five items
+    // below, since these are small enough to share one word between them. This
+    // provides considerable memory compression for meshes containing large
+    // numbers of geometry objects.
+
     /// Coordinate dimension of this geometry object.
-    int m_coordim;
-    /// \f$\chi\f$ mapping containing isoparametric transformation.
-    StdRegions::StdExpansionSharedPtr m_xmap;
-    /// Enumeration to dictate whether coefficients are filled.
-    GeomState m_state;
-    /// Wether or not the setup routines have been run
-    bool m_setupState;
+    unsigned int m_coordim : 3;
     /// Type of shape.
-    LibUtilities::ShapeType m_shapeType;
+    LibUtilities::ShapeType m_shapeType : 6;
+    /// Enumeration to dictate whether coefficients are filled.
+    GeomState m_state : 3;
+    /// Cached regular/deformed classification; eNoGeomType until computed.
+    GeomType m_geomType : 3;
+    /// Whether or not the setup routines have been run
+    bool m_setupState : 1;
     /// Global ID
     int m_globalID;
+    /// \f$\chi\f$ mapping containing isoparametric transformation.
+    ///
+    /// This is not owned by the Geometry object: every map comes from a cache
+    /// that lives for the length of the process generated by #XmapFactory.
+    StdRegions::StdExpansion *m_xmap = nullptr;
     /// Array containing expansion coefficients of @p m_xmap
     std::vector<Array<OneD, NekDouble>> m_coeffs;
-    /// Cached regular/deformed classification; eNoGeomType until computed.
-    /// Cheap enough to keep on every geometry.
-    GeomType m_geomType;
 
     //---------------------------------------
-    // Helper functions
+    // Virtual functions (see above)
     //---------------------------------------
     virtual int v_GetVid(int i) const;
     virtual PointGeom *v_GetVertex(const int i) const;
@@ -206,7 +286,9 @@ protected:
 
     virtual GeomFactorsUniquePtr v_GenGeomFactors(
         LibUtilities::PointsKeyVector &keyTgt);
-    virtual StdRegions::StdExpansionSharedPtr v_GetXmap() const;
+    virtual StdRegions::StdExpansion *v_GetXmap() const;
+
+    /// Fill Geometry::m_coeffs from this shape's vertices, edges and faces.
     virtual void v_FillGeom();
     virtual std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> v_MakeOrder(
         int order, const LibUtilities::PointsType pType);
@@ -219,15 +301,6 @@ protected:
     virtual int v_GetEdgeFaceMap(int i, int j) const;
     virtual int v_GetEdgeNormalToFaceVert(const int i, const int j) const;
     virtual int v_GetDir(const int faceidx, const int facedir) const;
-
-    /// Classify this geometry as regular or deformed, filling @p loc with the
-    /// isoparametric data derived along the way.
-    ///
-    /// Classification and inverse-mapping setup share this one implementation
-    /// because deciding regularity *is* testing whether the nonlinear
-    /// isoparametric coefficients vanish. Callers that only want the
-    /// classification pass scratch storage and discard it; callers that intend
-    /// to invert the mapping pass the geometry's own locator.
     virtual GeomType v_CalcGeomType(IsoParam &iso);
     virtual void v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces);
     virtual void v_ResetLite();
@@ -260,19 +333,11 @@ struct GeometryHash
     }
 };
 
-/**
- * @brief Return the coordinate dimension of this object (i.e. the dimension of
- * the space in which this object is embedded).
- */
 inline int Geometry::GetCoordim() const
 {
     return m_coordim;
 }
 
-/**
- * @brief Sets the coordinate dimension of this object (i.e. the dimension of
- * the space in which this object is embedded).
- */
 inline void Geometry::SetCoordim(int dim)
 {
     m_coordim = dim;
@@ -286,17 +351,11 @@ inline LibUtilities::ShapeType Geometry::GetShapeType()
     return m_shapeType;
 }
 
-/**
- * @brief Get the ID of this object.
- */
 inline int Geometry::GetGlobalID(void) const
 {
     return m_globalID;
 }
 
-/**
- * @brief Set the ID of this object.
- */
 inline void Geometry::SetGlobalID(int globalid)
 {
     m_globalID = globalid;
@@ -317,75 +376,46 @@ inline int Geometry::GetTid(int i) const
                        : 0;
 }
 
-/**
- * @brief Returns global id of vertex @p i of this object.
- */
 inline int Geometry::GetVid(int i) const
 {
     return v_GetVid(i);
 }
 
-/**
- * @brief Returns vertex @p i of this object.
- */
 inline PointGeom *Geometry::GetVertex(int i) const
 {
     return v_GetVertex(i);
 }
 
-/**
- * @brief Returns edge @p i of this object.
- */
 inline Geometry1D *Geometry::GetEdge(int i) const
 {
     return v_GetEdge(i);
 }
 
-/**
- * @brief Returns face @p i of this object.
- */
 inline Geometry2D *Geometry::GetFace(int i) const
 {
     return v_GetFace(i);
 }
 
-/**
- * @brief Returns the orientation of edge @p i with respect to the ordering of
- * edges in the standard element.
- */
 inline StdRegions::Orientation Geometry::GetEorient(const int i) const
 {
     return v_GetEorient(i);
 }
 
-/**
- * @brief Returns the orientation of face @p i with respect to the ordering of
- * faces in the standard element.
- */
 inline StdRegions::Orientation Geometry::GetForient(const int i) const
 {
     return v_GetForient(i);
 }
 
-/**
- * @brief Get the number of vertices of this object.
- */
 inline int Geometry::GetNumVerts() const
 {
     return v_GetNumVerts();
 }
 
-/**
- * @brief Get the number of edges of this object.
- */
 inline int Geometry::GetNumEdges() const
 {
     return v_GetNumEdges();
 }
 
-/**
- * @brief Get the number of faces of this object.
- */
 inline int Geometry::GetNumFaces() const
 {
     return v_GetNumFaces();
@@ -402,9 +432,6 @@ inline int Geometry::GetNumFacets() const
     return v_GetNumFacets();
 }
 
-/**
- * @brief Returns facet @p i of this object.
- */
 inline Geometry *Geometry::GetFacet(int i) const
 {
     return v_GetFacet(i);
@@ -430,22 +457,17 @@ inline GeomFactorsUniquePtr Geometry::GenGeomFactors(
     return v_GenGeomFactors(keyTgt);
 }
 
-/**
- * @brief Return the mapping object Geometry::m_xmap that represents the
- * coordinate transformation from standard element to physical element.
- */
-inline StdRegions::StdExpansionSharedPtr Geometry::GetXmap() const
+inline StdRegions::StdExpansion *Geometry::GetXmap() const
 {
     return v_GetXmap();
 }
 
-/**
- * @brief Return the coefficients of the transformation Geometry::m_xmap in
- * coordinate direction @p i.
- */
-inline const Array<OneD, const NekDouble> &Geometry::GetCoeffs(
-    const int i) const
+inline const Array<OneD, const NekDouble> &Geometry::GetCoeffs(const int i)
 {
+    // The coefficients are allocated and filled on demand, so asking for them
+    // is what triggers it.
+    FillGeom();
+
     return m_coeffs[i];
 }
 
@@ -457,20 +479,28 @@ inline const Array<OneD, const NekDouble> &Geometry::GetCoeffs(
  */
 inline void Geometry::FillGeom()
 {
-    // If the element is built with ElementLite, we don't have m_coeff, hence we
-    // need Setup.
+    // Every v_FillGeom() returns immediately when the geometry is already
+    // filled, and being filled implies having been set up, so answer that case
+    // here rather than paying a virtual call for it.
+    if (m_state == ePtsFilled)
+    {
+        return;
+    }
+
+    // Everything a fill needs beyond the shape-specific part is done here, so
+    // that v_FillGeom() is only ever the fill itself. A geometry built through
+    // ElementLite has not been set up, and the coefficients are allocated on
+    // first fill rather than at setup, so both happen on the way in.
     if (!m_setupState)
     {
         v_Setup();
     }
 
+    SetUpCoeffs(m_xmap->GetNcoeffs());
     v_FillGeom();
+    m_state = ePtsFilled;
 }
 
-/**
- * @brief Given local collapsed coordinate @p Lcoord, return the value of
- * physical coordinate in direction @p i.
- */
 inline NekDouble Geometry::GetCoord(const int i,
                                     const Array<OneD, const NekDouble> &Lcoord)
 {
@@ -478,9 +508,6 @@ inline NekDouble Geometry::GetCoord(const int i,
 }
 
 /**
- * @brief Returns the standard element edge IDs that are connected to a given
- * vertex.
- *
  * For example, on a prism, vertex 0 is connnected to edges 0, 3, and 4;
  * `GetVertexEdgeMap(0,j)` would therefore return the values 0, 1 and 4
  * respectively. We assume that @p j runs between 0 and 2 inclusive, which is
@@ -500,9 +527,6 @@ inline int Geometry::GetVertexEdgeMap(int i, int j) const
 }
 
 /**
- * @brief Returns the standard element face IDs that are connected to a given
- * vertex.
- *
  * For example, on a hexahedron, vertex 0 is connnected to faces 0, 1, and 4;
  * `GetVertexFaceMap(0,j)` would therefore return the values 0, 1 and 4
  * respectively. We assume that @p j runs between 0 and 2 inclusive, which is
@@ -522,9 +546,6 @@ inline int Geometry::GetVertexFaceMap(int i, int j) const
 }
 
 /**
- * @brief Returns the standard element edge IDs that are connected to a given
- * face.
- *
  * For example, on a prism, edge 0 is connnected to faces 0 and 1;
  * `GetEdgeFaceMap(0,j)` would therefore return the values 0 and 1
  * respectively. We assume that @p j runs between 0 and 1 inclusive, since every
@@ -543,40 +564,27 @@ inline int Geometry::GetEdgeFaceMap(int i, int j) const
 }
 
 /**
- * @brief Returns the standard lement edge IDs that are normal to a given face
- * vertex.
- *
- * For example, on a hexahedron, on face 0 at vertices 0,1,2,3 the
- * edges normal to that face are 4,5,6,7, ; so
- * `GetEdgeNormalToFaceVert(0,j)` would therefore return the values 4,
- * 5, 6 and 7 respectively. We assume that @p j runs between 0 and 3
- * inclusive on a quadrilateral face and between 0 and 2 inclusive on
- * a triangular face.
+ * For example, on a hexahedron, on face 0 at vertices 0,1,2,3 the edges normal
+ * to that face are 4,5,6,7; so `GetEdgeNormalToFaceVert(0,j)` would therefore
+ * return the values 4, 5, 6 and 7 respectively. We assume that @p j runs
+ * between 0 and 3 inclusive on a quadrilateral face and between 0 and 2
+ * inclusive on a triangular face.
  *
  * This is used to help set up a length scale normal to an face
  *
  * @param i  The face to query for the normal edge
  * @param j  The local vertex index between 0 and nverts on this face
- *
  */
 inline int Geometry::GetEdgeNormalToFaceVert(int i, int j) const
 {
     return v_GetEdgeNormalToFaceVert(i, j);
 }
 
-/**
- * @brief Returns the element coordinate direction corresponding to a given face
- * coordinate direction
- */
 inline int Geometry::GetDir(const int faceidx, const int facedir) const
 {
     return v_GetDir(faceidx, facedir);
 }
 
-/**
- * @brief Reset this geometry object: unset the current state, zero
- * Geometry::m_coeffs and remove allocated GeomFactors.
- */
 inline void Geometry::Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
 {
     m_geomType = eNoGeomType;
@@ -599,10 +607,6 @@ inline void Geometry::ResetLite()
     v_ResetLite();
 }
 
-/**
- * @brief Reset this geometry object non-recursively: unset the current state,
- * zero Geometry::m_coeffs and remove allocated GeomFactors.
- */
 inline void Geometry::ResetNonRecursive(CurveMap &curvedEdges,
                                         CurveMap &curvedFaces)
 {

@@ -916,7 +916,7 @@ void MeshGraphIOXmlCompressed::v_ReadElements3D()
 
                 auto tetGeom =
                     ObjPoolManager<TetGeom>::AllocateUniquePtr(indx, tfaces);
-                m_meshGraph->PopulateFaceToElMap(tetGeom.get(), 4);
+                m_meshGraph->PopulateFacetToElMap(tetGeom.get());
                 m_meshGraph->AddGeom(indx, std::move(tetGeom));
             }
         }
@@ -962,7 +962,7 @@ void MeshGraphIOXmlCompressed::v_ReadElements3D()
 
                 auto pyrGeom =
                     ObjPoolManager<PyrGeom>::AllocateUniquePtr(indx, faces);
-                m_meshGraph->PopulateFaceToElMap(pyrGeom.get(), 5);
+                m_meshGraph->PopulateFacetToElMap(pyrGeom.get());
                 m_meshGraph->AddGeom(indx, std::move(pyrGeom));
             }
         }
@@ -1007,7 +1007,7 @@ void MeshGraphIOXmlCompressed::v_ReadElements3D()
 
                 auto prismGeom =
                     ObjPoolManager<PrismGeom>::AllocateUniquePtr(indx, faces);
-                m_meshGraph->PopulateFaceToElMap(prismGeom.get(), 5);
+                m_meshGraph->PopulateFacetToElMap(prismGeom.get());
                 m_meshGraph->AddGeom(indx, std::move(prismGeom));
             }
         }
@@ -1028,7 +1028,7 @@ void MeshGraphIOXmlCompressed::v_ReadElements3D()
 
                 auto hexGeom =
                     ObjPoolManager<HexGeom>::AllocateUniquePtr(indx, faces);
-                m_meshGraph->PopulateFaceToElMap(hexGeom.get(), 6);
+                m_meshGraph->PopulateFacetToElMap(hexGeom.get());
                 m_meshGraph->AddGeom(indx, std::move(hexGeom));
             }
         }

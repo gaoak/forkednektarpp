@@ -461,7 +461,6 @@ struct pyramidHelper
                                                                        faces);
         auto pyrPtr = pyrGeom.get();
         meshGraph->AddGeom<SpatialDomains::PyrGeom>(id, std::move(pyrGeom));
-        meshGraph->PopulateFaceToElMap(pyrPtr, 5);
 
         // Interior nodes, kept as a curve on the element: edges and faces are
         // shared and hold their own curvature, but the inside of an element
