@@ -388,15 +388,15 @@ protected:
     /// permutations (faceHex/face5/faceTet), matched by hand.
     static constexpr unsigned int
         m_shapeTraceIDtoJacOff[LibUtilities::SIZE_ShapeType][6] = {
-            {2, 1, 0, 0, 0, 0}, // eTriangle
-            {2, 1, 3, 0, 0, 0}, // eQuadrilateral
-            {3, 2, 1, 0, 0, 0}, // eTetrahedron
-            {4, 2, 1, 3, 0, 0}, // ePyramid
-            {4, 2, 1, 3, 0, 0}, // ePrism
-            {4, 2, 1, 3, 0, 5}, // eHexahedron
-            {2, 1, 0, 0, 0, 0}, // eNodalTtri
-            {3, 2, 1, 0, 0, 0}, // eNodalTet
-            {4, 2, 1, 3, 0, 0}  // eNodalPrism
+            {2, 1, 0, 0, 0, 0}, // Tri
+            {2, 1, 3, 0, 0, 0}, // Quad
+            {3, 2, 1, 0, 0, 0}, // Tet
+            {4, 2, 1, 3, 0, 0}, // Pyr
+            {4, 2, 1, 3, 0, 0}, // Prism
+            {4, 2, 1, 3, 0, 5}, // Hex
+            {2, 1, 0, 0, 0, 0}, // NodalTri
+            {3, 2, 1, 0, 0, 0}, // NodalTet
+            {4, 2, 1, 3, 0, 0}  // NodalPrism
         };
 
     /**
@@ -1017,12 +1017,19 @@ protected:
                 ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
                 : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
+        // Get static workspace pointer.
+        const unsigned int ncomp =
+            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        const size_t wspSize =
+            IProductWRTPhysTraceWorkSpaceSize<Implementation>(nelmtPad,
+                                                              sizeParam);
+        auto wspptr =
+            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                wspSize * ncomp, m_streamID);
+
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
-
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
 
         // Per-element strides of the packed trace input, the
         // volume-shaped output and the trace Jacobian.
@@ -1041,14 +1048,6 @@ protected:
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =
             GetDeviceGridSize<Implementation>(nelmtPad, blocksize, shmemsize);
-
-        // Get static workspace pointer.
-        const size_t wspSize =
-            IProductWRTPhysTraceWorkSpaceSize<Implementation>(nelmtPad,
-                                                              sizeParam);
-        auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize * ncomp, m_streamID);
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

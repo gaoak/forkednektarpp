@@ -152,7 +152,7 @@ protected:
         // Get static workspace pointer.
         auto derivptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                m_coordDim * nelmt * ncomp * m_nqTot, m_streamID);
+                m_dimension * nelmt * ncomp * m_nqTot, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -164,7 +164,7 @@ protected:
         // planes as the input, so one of its components spans all of them.
         const auto advelsize =
             m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) * nhomo;
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto outoffset   = outblock.CompSize() * nhomo;
         const auto derivoffset = m_nqTot * nelmt * ncomp;
 
         // Reshape, if necessary.

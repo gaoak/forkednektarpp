@@ -327,7 +327,7 @@ protected:
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        auto wspSize =
+        const size_t wspSize =
             BwdTransWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt, sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
@@ -339,7 +339,8 @@ protected:
         const TData *nodToMod = nullptr;
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
@@ -352,13 +353,13 @@ protected:
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         if (this->m_append)
         {
             LibUtilities::ReshapeStorage<ExecSpace>(
-                m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
                 outblock.GetNumData(), (TData *)outptr, m_streamID);
 
             // PhysGalerkinProject1DScaled kernel.
@@ -380,14 +381,14 @@ protected:
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

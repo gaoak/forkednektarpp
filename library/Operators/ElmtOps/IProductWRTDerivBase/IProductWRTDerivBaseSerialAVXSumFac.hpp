@@ -36,7 +36,6 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOp.hpp"
 
@@ -86,10 +85,15 @@ public:
             m_nm.push_back(exp->GetBasisNumModes(d));
             m_nq.push_back(exp->GetNumPoints(d));
 
-            // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(
-                    exp->GetBasis(d)->GetBasisKey(), LibUtilities::eBasis)));
+            // Fetch basis data. Only the coefficient-space output takes
+            // the inner product with the basis.
+            if constexpr (TFieldOut == FieldState::Coeff)
+            {
+                m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
+                    LibUtilities::BasisDataKey<TData>(
+                        exp->GetBasis(d)->GetBasisKey(),
+                        LibUtilities::eBasis)));
+            }
             m_D.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<TData>(
                     exp->GetBasis(d)->GetBasisKey(),
@@ -132,9 +136,10 @@ public:
                     LibUtilities::eTwoOverOneMinusZero)));
         }
 
-        if ((m_shapeType == LibUtilities::eNodalTri) ||
-            (m_shapeType == LibUtilities::eNodalTet) ||
-            (m_shapeType == LibUtilities::eNodalPrism))
+        if (TFieldOut == FieldState::Coeff &&
+            ((m_shapeType == LibUtilities::NodalTri) ||
+             (m_shapeType == LibUtilities::NodalPrism) ||
+             (m_shapeType == LibUtilities::NodalTet)))
         {
             std::vector<LibUtilities::BasisKey> basisKeys(
                 m_dimension, LibUtilities::NullBasisKey);
@@ -154,10 +159,6 @@ public:
                     basisKeys, m_shapeType, StdRegions::eNodalToModalTranspose,
                     nodalType));
         }
-        else
-        {
-            m_nodToModTrans = (const simd_t *)nullptr;
-        }
 
         // Fetch Jacobian and deriv factors.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
@@ -169,25 +170,31 @@ public:
         // Workspace for kernels - also checks preconditions.
         m_df = std::vector<simd_t, tinysimd::allocator<simd_t>>(m_dimension *
                                                                 m_coordDim);
-        if (m_dimension == 2)
+        // The inner product with the basis, taken only for the
+        // coefficient-space output, needs its own workspaces.
+        if constexpr (TFieldOut == FieldState::Coeff)
         {
-            unsigned int wsp0Size = 0;
-            IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0], m_nq[1],
-                                wsp0Size);
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
-        }
-        else if (m_dimension == 3)
-        {
-            unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
-            IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
-                                m_nq[1], m_nq[2], wsp0Size, wsp1Size, wsp2Size);
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size));
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size));
+            if (m_dimension == 2)
+            {
+                unsigned int wsp0Size = 0;
+                IProduct2DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nq[0],
+                                    m_nq[1], wsp0Size);
+                m_wsp.push_back(
+                    std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
+            }
+            else if (m_dimension == 3)
+            {
+                unsigned int wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
+                IProduct3DWorkspace(m_shapeType, m_nm[0], m_nm[1], m_nm[2],
+                                    m_nq[0], m_nq[1], m_nq[2], wsp0Size,
+                                    wsp1Size, wsp2Size);
+                m_wsp.push_back(
+                    std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp0Size));
+                m_wsp.push_back(
+                    std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp1Size));
+                m_wsp.push_back(
+                    std::vector<simd_t, tinysimd::allocator<simd_t>>(wsp2Size));
+            }
         }
 
         // One tensorial derivative per direction, plus the array holding
@@ -237,7 +244,7 @@ protected:
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_wsp;
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_tmp;
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_tmpsum;
-    const simd_t *m_nodToModTrans;
+    const simd_t *m_nodToModTrans = nullptr;
     const TData *m_jacptr;
     const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
@@ -460,10 +467,11 @@ protected:
                 // IProductWRTDerivBase kernel.
                 IProductWRTDerivBaseKernelLauncher<SHAPE_TYPE, DEFORMED>(
                     sizeParam, m_coordDim,
-                    reinterpret_cast<const simd_t *>(dfptr), m_df, inoffset_vec,
-                    reinterpret_cast<const simd_t *>(inptr), m_f[ind2]...,
-                    reinterpret_cast<const simd_t *>(jacptr), m_W[ind0]...,
-                    m_D[ind0]..., m_tmp[ind0].data()..., m_tmpsum.data());
+                    reinterpret_cast<const simd_t *>(dfptr), m_df.data(),
+                    inoffset_vec, reinterpret_cast<const simd_t *>(inptr),
+                    m_f[ind2]..., reinterpret_cast<const simd_t *>(jacptr),
+                    m_W[ind0]..., m_D[ind0]..., m_tmp[ind0].data()...,
+                    m_tmpsum.data());
 
                 if (this->m_append)
                 {

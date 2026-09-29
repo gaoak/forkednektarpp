@@ -128,13 +128,16 @@ inline constexpr size_t LaplacianWorkSpaceSize(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
+        wspsize =
+            (4 * nq0 * nq1 * nq2 + nq1 * nq2 + std::max(nq2, nm0)) * nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         const unsigned int nmTot = sizeParam3D.nmTot();
 
-        wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nmTot) * nelmt;
+        wspsize =
+            (4 * nq0 * nq1 * nq2 + nq1 * nq2 + std::max(nq2, nm0) + nmTot) *
+            nelmt;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {

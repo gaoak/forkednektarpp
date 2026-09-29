@@ -36,6 +36,9 @@
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
+namespace Nektar::Operators::detail
+{
+
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
@@ -172,3 +175,5 @@ NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
 
     Nektar::LoopExecutionSetStreamID(0);
 }
+
+} // namespace Nektar::Operators::detail

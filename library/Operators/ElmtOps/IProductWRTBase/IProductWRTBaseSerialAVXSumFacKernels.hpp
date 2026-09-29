@@ -116,7 +116,7 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
     [[maybe_unused]] const unsigned int nq0, const unsigned int nq1,
     unsigned int &wsp0Size)
 {
-    if (SHAPE_TYPE == LibUtilities::eNodalTri)
+    if (SHAPE_TYPE == LibUtilities::NodalTri)
     {
         wsp0Size = std::max(wsp0Size, nq1 + nm0 * (nm0 + 1) / 2);
     }
@@ -151,12 +151,12 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
     const unsigned int nq2, unsigned int &wsp0Size, unsigned int &wsp1Size,
     unsigned int &wsp2Size)
 {
-    if (SHAPE_TYPE == LibUtilities::eNodalTet)
+    if (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         wsp0Size =
             std::max(wsp0Size, nq1 * nq2 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
     }
-    else if (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         wsp0Size = std::max(wsp0Size, nq1 * nq2 + nm0 * nm0 * (nm0 + 1) / 2);
     }
@@ -305,7 +305,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     const unsigned int nq0                    = sizeParam2D.nq0();
     const unsigned int nq1                    = sizeParam2D.nq1();
 
-    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     {
         simd_type *outtmp = wsp0 + nq1;
 
@@ -314,7 +314,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
             outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         IProductTriKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nq0, nq1,
                                                    isModified, in, B0, B1, w0,
@@ -364,7 +364,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     const unsigned int nq0                    = sizeParam2D.nq0();
     const unsigned int nq1                    = sizeParam2D.nq1();
 
-    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     {
         simd_type *outtmp = wsp0 + nq1;
 
@@ -372,7 +372,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
                                          B1, wsp0, outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         IProductTriKernel<SCALE, APPEND>(nm0, nm1, nq0, nq1, isModified, in, B0,
                                          B1, wsp0, out, scale);
@@ -449,19 +449,19 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     const unsigned int nq0                    = sizeParam3D.nq0();
     const unsigned int nq1                    = sizeParam3D.nq1();
     const unsigned int nq2                    = sizeParam3D.nq2();
-    if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         IProductHexKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nm2, nq0, nq1, nq2,
                                                    in, B0, B1, B2, w0, w1, w2,
                                                    jac, wsp0, wsp1, out, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         IProductTetKernel<SCALE, APPEND, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, out, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
@@ -470,13 +470,13 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
             w2, jac, wsp0, wsp1, outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         IProductPrismKernel<SCALE, APPEND, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, wsp2, out, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
@@ -485,7 +485,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
             w2, jac, wsp0, wsp1, wsp2, outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         IProductPyrKernel<SCALE, APPEND, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
@@ -533,18 +533,18 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     const unsigned int nq0                    = sizeParam3D.nq0();
     const unsigned int nq1                    = sizeParam3D.nq1();
     const unsigned int nq2                    = sizeParam3D.nq2();
-    if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         IProductHexKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, in, B0,
                                          B1, B2, wsp0, wsp1, out, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         IProductTetKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, in, B0, B1, B2, wsp0, wsp1,
                                          out, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
@@ -553,13 +553,13 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
                                          outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         IProductPrismKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
                                            isModified, in, B0, B1, B2, wsp0,
                                            wsp1, wsp2, out, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
@@ -568,7 +568,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
                                            wsp1, wsp2, outtmp, scale);
         MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         IProductPyrKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, in, B0, B1, B2, wsp0, wsp1,

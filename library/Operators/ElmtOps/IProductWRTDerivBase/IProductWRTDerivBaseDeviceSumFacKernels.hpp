@@ -946,7 +946,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             TData *wsp0 =
                 wsp + 4 * nqTot * nelmt * nmode * ncomp +
                 nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
-            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+            TData *wsp1 = wsp +
+                          (4 * nqTot + nq1 * nq2) * nelmt * nmode * ncomp +
                           nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseTetSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
@@ -960,8 +961,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             TData *wsp0 =
                 wsp + (4 * nqTot + nmTot) * nelmt * nmode * ncomp +
                 nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
-            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt +
-                          nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
+            TData *wsp1 =
+                wsp + (4 * nqTot + nq1 * nq2 + nmTot) * nelmt * nmode * ncomp +
+                nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBaseTetSumFacKernel<true, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, deriv, out1ptr, wsp0, wsp1, scale);
@@ -1004,7 +1006,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             TData *wsp0 =
                 wsp + 4 * nqTot * nelmt * nmode * ncomp +
                 nq1 * nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
-            TData *wsp1 = wsp + (4 * nqTot + nq1 * nq2) * nelmt +
+            TData *wsp1 = wsp +
+                          (4 * nqTot + nq1 * nq2) * nelmt * nmode * ncomp +
                           nq2 * (nelmt * (nmode * c + m) + warpsize * iwarp);
             IProductWRTBasePyrSumFacKernel<true, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,

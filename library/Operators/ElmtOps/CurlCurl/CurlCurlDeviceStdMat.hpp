@@ -247,7 +247,7 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             interleaveWidth, m_implInterleaveWidth, m_coordDim * nelmt,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
@@ -276,10 +276,10 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
     {
         // A curl needs all three components whichever way round it is taken.
-        constexpr unsigned int nComp = 3u;
+        constexpr unsigned int ncomp = 3u;
 
-        ASSERTL1(inblock.GetNumComponents() == nComp &&
-                     outblock.GetNumComponents() == nComp,
+        ASSERTL1(inblock.GetNumComponents() == ncomp &&
+                     outblock.GetNumComponents() == ncomp,
                  "The homogeneous curl needs all three components");
 
         // Get BLAS handle.
@@ -301,7 +301,7 @@ protected:
         const auto derivoffset = m_nqTot * nelmtTot;
         auto derivptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                nComp * m_dimension * derivoffset, m_streamID);
+                ncomp * m_dimension * derivoffset, m_streamID);
         auto derivzptr = derivptr + 2u * m_dimension * derivoffset;
 
         // Get interleave parameter.
@@ -309,12 +309,12 @@ protected:
 
         // Offsets between the components of a block: one component spans all
         // of the planes.
-        const auto compoffset = inblock.CompSize() * nhomo;
-        const auto outoffset  = outblock.CompSize() * nhomo;
+        const auto inoffset  = inblock.CompSize() * nhomo;
+        const auto outoffset = outblock.CompSize() * nhomo;
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nComp * nelmtTot,
+            m_implInterleaveWidth, interleaveWidth, nelmtTot * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Standard derivatives of the first two components, ordered as the
@@ -328,7 +328,7 @@ protected:
         // kernel reads them.
         NekBlas::GemmStridedBatched(
             handle, "N", "N", m_nqTot, nelmtTot, m_nqTot, (TData)1.0, m_matptr,
-            m_nqTot, m_nqTot * m_nqTot, inptr + 2u * compoffset, m_nqTot, 0,
+            m_nqTot, m_nqTot * m_nqTot, inptr + 2u * inoffset, m_nqTot, 0,
             (TData)0.0, derivzptr, m_nqTot, derivoffset, m_dimension);
 
         // The third component, df_y/dx - df_x/dy.
@@ -361,11 +361,11 @@ protected:
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nComp * nelmtTot,
+            interleaveWidth, m_implInterleaveWidth, nelmtTot * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nComp * nelmtTot,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
+            interleaveWidth, m_implInterleaveWidth, nelmtTot * ncomp,
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

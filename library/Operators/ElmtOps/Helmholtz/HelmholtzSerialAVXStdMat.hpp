@@ -132,8 +132,8 @@ protected:
     unsigned int m_nqTot;
     const TData *m_bwdmat;
     const TData *m_ipbmat;
-    const TData *m_ipdmat;
     const TData *m_derivmat;
+    const TData *m_ipdmat;
     const TData *m_jacptr;
     const TData *m_dfptr;
 

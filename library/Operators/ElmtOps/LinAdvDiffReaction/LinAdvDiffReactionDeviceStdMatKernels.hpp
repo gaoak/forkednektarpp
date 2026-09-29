@@ -92,8 +92,12 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                 tmp0 += advVel[k * adveloffset + advidx] * tmp[k];
             }
 
-            // Write.
-            bwdptr[idx] = (scale * bwdptr[idx] + tmp0) * jac;
+            // Write. bwdptr is left unset when scale is zero.
+            if (scale != 0.0)
+            {
+                tmp0 += scale * bwdptr[idx];
+            }
+            bwdptr[idx] = tmp0 * jac;
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)
@@ -140,8 +144,12 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                 tmp0 += advVel[k * adveloffset + advidx] * tmp[k];
             }
 
-            // Write.
-            bwdptr[idx] = (scale * bwdptr[idx] + tmp0) * jac;
+            // Write. bwdptr is left unset when scale is zero.
+            if (scale != 0.0)
+            {
+                tmp0 += scale * bwdptr[idx];
+            }
+            bwdptr[idx] = tmp0 * jac;
 
             // Compute metric.
             for (unsigned int d = 0; d < dimension; d++)

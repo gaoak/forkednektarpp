@@ -289,8 +289,10 @@ protected:
 
         // Get static workspace pointer.
         auto wspptr =
-            BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                nelmt * ncomp * m_nqTot, m_streamID);
+            (m_isDeformed)
+                ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                      nelmt * ncomp * m_nqTot, m_streamID)
+                : nullptr;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();

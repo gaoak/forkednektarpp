@@ -108,11 +108,11 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     [[maybe_unused]] const unsigned int nq0,
     [[maybe_unused]] const unsigned int nq1, unsigned int &wsp0Size)
 {
-    if (SHAPE_TYPE == LibUtilities::eNodalTri)
+    if (SHAPE_TYPE == LibUtilities::NodalTri)
     {
         wsp0Size = std::max(wsp0Size, nm0 + nm0 * (nm0 + 1) / 2);
     }
-    else if (SHAPE_TYPE == LibUtilities::eTriangle)
+    else if (SHAPE_TYPE == LibUtilities::Tri)
     {
         wsp0Size = std::max(wsp0Size, nm0);
     }
@@ -147,18 +147,18 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     [[maybe_unused]] const unsigned int nq2, unsigned int &wsp0Size,
     unsigned int &wsp1Size)
 {
-    if (SHAPE_TYPE == LibUtilities::eHexahedron)
+    if (SHAPE_TYPE == LibUtilities::Hex)
     {
         wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2);
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2);
     }
-    else if (SHAPE_TYPE == LibUtilities::eNodalTet)
+    else if (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         wsp0Size =
             std::max(wsp0Size, nm0 * nm1 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
         wsp1Size = std::max(wsp1Size, nm0);
     }
-    else if (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         wsp0Size = std::max(wsp0Size, nm0 * nm1 + nm0 * nm0 * (nm0 + 1) / 2);
         wsp1Size = std::max(wsp1Size, nm0);
@@ -257,7 +257,7 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
     const unsigned int nq0                    = sizeParam2D.nq0();
     const unsigned int nq1                    = sizeParam2D.nq1();
 
-    if constexpr (SHAPE_TYPE == LibUtilities::eNodalTri)
+    if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     {
         simd_type *in1 = wsp0 + nm0;
 
@@ -265,7 +265,7 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
         BwdTransTriKernel<APPEND>(nm0, nm1, nq0, nq1, isModified, basis0,
                                   basis1, wsp0, in1, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         BwdTransTriKernel<APPEND>(nm0, nm1, nq0, nq1, isModified, basis0,
                                   basis1, wsp0, in, out);
@@ -328,17 +328,17 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
     const unsigned int nq1                    = sizeParam3D.nq1();
     const unsigned int nq2                    = sizeParam3D.nq2();
 
-    if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         BwdTransHexKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1,
                                   basis2, wsp0, wsp1, in, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         BwdTransTetKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                                   basis0, basis1, basis2, wsp0, wsp1, in, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalTet)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
     {
         simd_type *in1 = wsp0 + nm0 * nm1;
 
@@ -346,13 +346,13 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
         BwdTransTetKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                                   basis0, basis1, basis2, wsp0, wsp1, in1, out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         BwdTransPrismKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                                     basis0, basis1, basis2, wsp0, wsp1, in,
                                     out);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::eNodalPrism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         simd_type *in1 = wsp0 + nm0 * nm1;
 

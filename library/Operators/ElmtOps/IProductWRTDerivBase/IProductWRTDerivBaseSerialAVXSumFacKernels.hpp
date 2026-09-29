@@ -42,62 +42,16 @@ namespace Nektar::Operators::detail
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t insize, const simd_type *in, simd_type *out)
-{
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    if constexpr (!DEFORMED)
-    {
-        // unroll very small loops
-        df_tmp[0] = df_ptr[0];
-        if (indim >= 2)
-        {
-            df_tmp[1] = df_ptr[1];
-        }
-        if (indim == 3)
-        {
-            df_tmp[2] = df_ptr[2];
-        }
-    }
-
-    for (unsigned int i = 0; i < nq0; ++i)
-    {
-        if constexpr (DEFORMED)
-        {
-            df_tmp[0] = df_ptr[i * indim];
-            if (indim >= 2)
-            {
-                df_tmp[1] = df_ptr[i * indim + 1];
-            }
-            if (indim == 3)
-            {
-                df_tmp[2] = df_ptr[i * indim + 2];
-            }
-        }
-
-        simd_type sum = 0.0;
-        for (unsigned int d = 0; d < indim; ++d)
-        {
-            simd_type inval = in[d * insize + i]; // possibly large stride
-            sum.fma(inval, df_tmp[d]);
-        }
-        out[i] = sum;
-    }
-}
-
-template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void StdAlignDerivBase1D(
-    const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t insize, const simd_type *in, simd_type *out,
-    const simd_type *jac_Ptr, const typename simd_type::scalarType *w)
+    simd_type *df_tmp, const size_t inoffset, const simd_type *in,
+    simd_type *out, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w)
 {
     simd_type jac = 1.0;
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if constexpr (!DEFORMED)
     {
         // unroll very small loops
-        jac       = jac_Ptr[0];
+        jac       = jac_ptr[0];
         df_tmp[0] = df_ptr[0];
         if (indim >= 2)
         {
@@ -113,7 +67,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     {
         if constexpr (DEFORMED)
         {
-            jac       = jac_Ptr[i];
+            jac       = jac_ptr[i];
             df_tmp[0] = df_ptr[i * indim];
             if (indim >= 2)
             {
@@ -128,7 +82,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
         simd_type sum = 0.0;
         for (unsigned int d = 0; d < indim; ++d)
         {
-            simd_type inval = in[d * insize + i];
+            simd_type inval = in[d * inoffset + i];
             sum.fma(inval, df_tmp[d]);
         }
         out[i] = sum * jac * w[i];
@@ -138,11 +92,10 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int indim,
-    const simd_type *df_Ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const simd_type *inptr, simd_type *out[2],
+    const simd_type *df_ptr, simd_type *df_tmp, const size_t inoffset,
+    const simd_type *inptr, simd_type *out[2],
     [[maybe_unused]] const simd_type *Fac0,
-    [[maybe_unused]] const simd_type *Fac1, const simd_type *jac_Ptr,
+    [[maybe_unused]] const simd_type *Fac1, const simd_type *jac_ptr,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1)
 {
@@ -152,16 +105,16 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if constexpr (!DEFORMED)
     {
-        jac       = jac_Ptr[0];
-        df_tmp[0] = df_Ptr[0];
-        df_tmp[1] = df_Ptr[1];
-        df_tmp[2] = df_Ptr[2];
-        df_tmp[3] = df_Ptr[3];
+        jac       = jac_ptr[0];
+        df_tmp[0] = df_ptr[0];
+        df_tmp[1] = df_ptr[1];
+        df_tmp[2] = df_ptr[2];
+        df_tmp[3] = df_ptr[3];
 
         if (indim == 3)
         {
-            df_tmp[4] = df_Ptr[4];
-            df_tmp[5] = df_Ptr[5];
+            df_tmp[4] = df_ptr[4];
+            df_tmp[5] = df_ptr[5];
         }
     }
 
@@ -169,8 +122,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     unsigned int cnt_ji = 0;
     for (unsigned int j = 0; j < nq1; ++j)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             f1 = simd_type(Fac1[j]);
         }
@@ -179,16 +132,16 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
         {
             if constexpr (DEFORMED)
             {
-                jac       = jac_Ptr[cnt_ji];
-                df_tmp[0] = df_Ptr[cnt_ji * ndf];
-                df_tmp[1] = df_Ptr[cnt_ji * ndf + 1];
-                df_tmp[2] = df_Ptr[cnt_ji * ndf + 2];
-                df_tmp[3] = df_Ptr[cnt_ji * ndf + 3];
+                jac       = jac_ptr[cnt_ji];
+                df_tmp[0] = df_ptr[cnt_ji * ndf];
+                df_tmp[1] = df_ptr[cnt_ji * ndf + 1];
+                df_tmp[2] = df_ptr[cnt_ji * ndf + 2];
+                df_tmp[3] = df_ptr[cnt_ji * ndf + 3];
 
                 if (indim == 3)
                 {
-                    df_tmp[4] = df_Ptr[cnt_ji * ndf + 4];
-                    df_tmp[5] = df_Ptr[cnt_ji * ndf + 5];
+                    df_tmp[4] = df_ptr[cnt_ji * ndf + 4];
+                    df_tmp[5] = df_ptr[cnt_ji * ndf + 5];
                 }
             }
 
@@ -208,8 +161,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
                 out1.fma(df_tmp[5], in2);
             }
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 // Multiply by geometric factors
                 simd_type f0 = Fac0[i];
@@ -232,12 +185,11 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const simd_type *df_Ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, [[maybe_unused]] const simd_type *Fac0,
+    const simd_type *df_ptr, simd_type *df_tmp, const size_t inoffset,
+    [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
-    [[maybe_unused]] const simd_type *Fac1a,
-    [[maybe_unused]] const simd_type *Fac2, const simd_type *jac_Ptr,
+    [[maybe_unused]] const simd_type *Fac1m,
+    [[maybe_unused]] const simd_type *Fac2, const simd_type *jac_ptr,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2, const simd_type *inptr,
@@ -249,37 +201,37 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if constexpr (!DEFORMED)
     {
-        jac       = jac_Ptr[0];
-        df_tmp[0] = df_Ptr[0];
-        df_tmp[1] = df_Ptr[1];
-        df_tmp[2] = df_Ptr[2];
-        df_tmp[3] = df_Ptr[3];
-        df_tmp[4] = df_Ptr[4];
-        df_tmp[5] = df_Ptr[5];
-        df_tmp[6] = df_Ptr[6];
-        df_tmp[7] = df_Ptr[7];
-        df_tmp[8] = df_Ptr[8];
+        jac       = jac_ptr[0];
+        df_tmp[0] = df_ptr[0];
+        df_tmp[1] = df_ptr[1];
+        df_tmp[2] = df_ptr[2];
+        df_tmp[3] = df_ptr[3];
+        df_tmp[4] = df_ptr[4];
+        df_tmp[5] = df_ptr[5];
+        df_tmp[6] = df_ptr[6];
+        df_tmp[7] = df_ptr[7];
+        df_tmp[8] = df_ptr[8];
     }
 
     unsigned int cnt_kji = 0;
-    simd_type f0, f1, f1a, f2;
+    simd_type f0, f1, f1m, f2;
 
     for (unsigned int k = 0; k < nq2; ++k)
     {
-        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        if constexpr (SHAPE_TYPE != LibUtilities::Hex)
         {
             f2 = simd_type(Fac2[k]);
         }
 
         for (unsigned int j = 0; j < nq1; ++j)
         {
-            if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
-                          (SHAPE_TYPE == LibUtilities::eNodalTet))
+            if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
+                          (SHAPE_TYPE == LibUtilities::NodalTet))
             {
                 f1  = simd_type(Fac1[j]);
-                f1a = simd_type(Fac1a[j]);
+                f1m = simd_type(Fac1m[j]);
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 f1 = simd_type(Fac1[j]);
             }
@@ -290,16 +242,16 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
             {
                 if constexpr (DEFORMED)
                 {
-                    jac       = jac_Ptr[cnt_kji];
-                    df_tmp[0] = df_Ptr[cnt_kji * ndf];
-                    df_tmp[1] = df_Ptr[cnt_kji * ndf + 1];
-                    df_tmp[2] = df_Ptr[cnt_kji * ndf + 2];
-                    df_tmp[3] = df_Ptr[cnt_kji * ndf + 3];
-                    df_tmp[4] = df_Ptr[cnt_kji * ndf + 4];
-                    df_tmp[5] = df_Ptr[cnt_kji * ndf + 5];
-                    df_tmp[6] = df_Ptr[cnt_kji * ndf + 6];
-                    df_tmp[7] = df_Ptr[cnt_kji * ndf + 7];
-                    df_tmp[8] = df_Ptr[cnt_kji * ndf + 8];
+                    jac       = jac_ptr[cnt_kji];
+                    df_tmp[0] = df_ptr[cnt_kji * ndf];
+                    df_tmp[1] = df_ptr[cnt_kji * ndf + 1];
+                    df_tmp[2] = df_ptr[cnt_kji * ndf + 2];
+                    df_tmp[3] = df_ptr[cnt_kji * ndf + 3];
+                    df_tmp[4] = df_ptr[cnt_kji * ndf + 4];
+                    df_tmp[5] = df_ptr[cnt_kji * ndf + 5];
+                    df_tmp[6] = df_ptr[cnt_kji * ndf + 6];
+                    df_tmp[7] = df_ptr[cnt_kji * ndf + 7];
+                    df_tmp[8] = df_ptr[cnt_kji * ndf + 8];
                 }
 
                 simd_type in0 = inptr[cnt_kji];
@@ -318,19 +270,19 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 out2.fma(df_tmp[5], in1);
                 out2.fma(df_tmp[8], in2);
 
-                if constexpr ((SHAPE_TYPE == LibUtilities::eTetrahedron) ||
-                              (SHAPE_TYPE == LibUtilities::eNodalTet))
+                if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
+                              (SHAPE_TYPE == LibUtilities::NodalTet))
                 {
                     // (out0 + (out1 + out2)*(1+z0)/2) * 2/(1 - z1) * 2/(1 - z2)
                     f0 = Fac0[i];
                     out0.fma(out1 + out2, f0);
-                    out0 *= f1a * f2;
+                    out0 *= f1m * f2;
 
                     // (out1 + out2 * (1+z1)/2 ) * 2/(1 - z2)
                     out1.fma(out2, f1);
                     out1 *= f2;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
                     f0 = Fac0[i];
@@ -341,8 +293,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     out1.fma(out2, f1);
                     out1 *= f2;
                 }
-                else if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
-                                   (SHAPE_TYPE == LibUtilities::eNodalPrism))
+                else if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                                   (SHAPE_TYPE == LibUtilities::NodalPrism))
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
                     f0 = Fac0[i];
@@ -364,9 +316,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
     const TSizeParameter1D sizeParam1D, const unsigned int indim,
-    const simd_type *df_ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const simd_type *in, const simd_type *jac,
+    const simd_type *df_ptr, simd_type *df_tmp, const size_t inoffset,
+    const simd_type *in, const simd_type *jac,
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *D0, simd_type *tmp0, simd_type *out)
 {
@@ -389,11 +340,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
     const TSizeParameter2D sizeParam2D, const unsigned int indim,
-    const simd_type *df_ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const simd_type *in, const simd_type *f0,
-    const simd_type *f1, const simd_type *jac,
-    const typename simd_type::scalarType *w0,
+    const simd_type *df_ptr, simd_type *df_tmp, const size_t inoffset,
+    const simd_type *in, const simd_type *f0, const simd_type *f1,
+    const simd_type *jac, const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *D0,
     const typename simd_type::scalarType *D1, simd_type *tmp0, simd_type *tmp1,
@@ -423,10 +372,10 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
 NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
     const TSizeParameter3D sizeParam3D,
     [[maybe_unused]] const unsigned int indim, const simd_type *df_ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const simd_type *in, const simd_type *f0,
-    const simd_type *f1, const simd_type *f1m, const simd_type *f2,
-    const simd_type *jac, const typename simd_type::scalarType *w0,
+    simd_type *df_tmp, const size_t inoffset, const simd_type *in,
+    const simd_type *f0, const simd_type *f1, const simd_type *f1m,
+    const simd_type *f2, const simd_type *jac,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2,
     const typename simd_type::scalarType *D0,

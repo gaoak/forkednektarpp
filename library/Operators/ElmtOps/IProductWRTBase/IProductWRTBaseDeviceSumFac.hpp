@@ -183,9 +183,9 @@ public:
                     exp->GetBasis(d)->GetBasisKey(), LibUtilities::eWeights)));
         }
 
-        if ((m_shapeType == LibUtilities::eNodalTri) ||
-            (m_shapeType == LibUtilities::eNodalPrism) ||
-            (m_shapeType == LibUtilities::eNodalTet))
+        if ((m_shapeType == LibUtilities::NodalTri) ||
+            (m_shapeType == LibUtilities::NodalPrism) ||
+            (m_shapeType == LibUtilities::NodalTet))
         {
             std::vector<LibUtilities::BasisKey> basisKeys(
                 m_dimension, LibUtilities::NullBasisKey);
@@ -521,8 +521,9 @@ protected:
         // Get static workspace pointer.
         const unsigned int ncomp =
             inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        auto wspSize = IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(
-            nelmt, sizeParam);
+        const size_t wspSize =
+            IProductWRTBaseWorkSpaceSize<SHAPE_TYPE, Implementation>(nelmt,
+                                                                     sizeParam);
         auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                 wspSize * ncomp, m_streamID);

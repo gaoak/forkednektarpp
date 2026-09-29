@@ -234,11 +234,11 @@ public:
         // set up end points interplation expansion in normal direction
         for (unsigned int dir = 0; dir < m_dimension; ++dir)
         {
-            auto bkey = this->m_exp->GetBasis(dir)->GetBasisKey();
+            auto bkey = exp->GetBasis(dir)->GetBasisKey();
 
             // set up end point interpolation depending on number of faces
             unsigned int ntrace =
-                LibUtilities::ShapeTypeNumTraceInDir[exp->DetShapeType()][dir];
+                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
 
             // used GLwithM nodes to get z=-1 as zero if ntrace = 1 otherwise
             // GLL
@@ -275,7 +275,7 @@ public:
             // trace directions
             for (unsigned int d = 0; d < m_dimension - 1; ++d)
             {
-                auto dir      = this->m_exp->GetGeom()->GetDir(tr, d);
+                auto dir      = exp->GetGeom()->GetDir(tr, d);
                 auto trBKey   = exp->GetTraceBasisKey(tr, d);
                 auto trPtsKey = trBKey.GetPointsKey();
                 auto nq       = trPtsKey.GetNumPoints();
@@ -294,7 +294,7 @@ public:
                 // Fetch basis data.
                 m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<TData>(
-                        this->m_exp->GetBasis(dir)->GetBasisKey(),
+                        exp->GetBasis(dir)->GetBasisKey(),
                         LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
             }
         }
@@ -314,10 +314,10 @@ public:
         // and so needs none.
         if (m_dimension == 2)
         {
-            // The edge block the normal-direction stage produces,
-            // before the tangential interpolation reads it.
+            // The values of an edge pair the normal-direction stage
+            // extracts, before the tangential interpolation reads them.
             m_wsp.push_back(std::vector<simd_t, tinysimd::allocator<simd_t>>(
-                std::max(m_nq[0] * m_nm[1], m_nq[1] * m_nm[0])));
+                2 * std::max(m_nm[0], m_nm[1])));
         }
         else if (m_dimension == 3)
         {
@@ -511,9 +511,9 @@ protected:
 
                 switch (m_shapeType)
                 {
-                    // Segment
                     // Quads
                     case LibUtilities::Quad:
+                    {
                         PhysTraceExtractEdgeKernel<LibUtilities::Quad>(
                             traceid, m_nm[0], m_nm[1], m_nq[0], m_nq[1], m_B[0],
                             m_B[1], m_B[2], m_B[3], m_wsp[0].data(),
@@ -522,6 +522,7 @@ protected:
                             this->m_isCollocated[0], this->m_isCollocated[1],
                             m_endPtsCollocated[0], m_endPtsCollocated[1]);
                         break;
+                    }
                     // Nodal Triangles
                     case LibUtilities::Tri:
                     case LibUtilities::NodalTri:

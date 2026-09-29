@@ -231,19 +231,19 @@ public:
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
-        m_dimension = exp->GetShapeDimension();
         m_isDeformed =
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
+        m_dimension = exp->GetShapeDimension();
 
         // set up end points interplation expansion in normal direction
         for (unsigned int dir = 0; dir < m_dimension; ++dir)
         {
-            auto bkey = this->m_exp->GetBasis(dir)->GetBasisKey();
+            auto bkey = exp->GetBasis(dir)->GetBasisKey();
             m_nm.push_back(exp->GetNumPoints(dir));
 
             // set up end point interpolation depending on number of faces
             unsigned int ntrace =
-                LibUtilities::ShapeTypeNumTraceInDir[exp->DetShapeType()][dir];
+                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
 
             // used GLwithM nodes to get z=-1 as zero if ntrace = 1 otherwise
             // GLL
@@ -278,7 +278,7 @@ public:
             // trace directions
             for (unsigned int d = 0; d < m_dimension - 1; ++d)
             {
-                auto dir      = this->m_exp->GetGeom()->GetDir(tr, d);
+                auto dir      = exp->GetGeom()->GetDir(tr, d);
                 auto trBKey   = exp->GetTraceBasisKey(tr, d);
                 auto trPtsKey = trBKey.GetPointsKey();
                 auto nq       = trPtsKey.GetNumPoints();
@@ -296,7 +296,7 @@ public:
                 // Fetch basis data.
                 m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<simd_t>(
-                        this->m_exp->GetBasis(dir)->GetBasisKey(),
+                        exp->GetBasis(dir)->GetBasisKey(),
                         LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
 
                 // Fetch associated Weights
@@ -412,9 +412,9 @@ protected:
     /// trace: one value per trace quadrature point when deformed, one
     /// per trace otherwise. Held as TData, interleaved to
     /// #m_implInterleaveWidth, and reinterpret_cast to simd_t at every
-    /// call site. Left unset in one dimension, where a trace is a point
+    /// call site. Left null in one dimension, where a trace is a point
     /// and carries no surface measure and no path reads it.
-    const TData *m_jacptr; // trace Jacobian in each direction
+    const TData *m_jacptr = nullptr; // trace Jacobian in each direction
     /// Kernel workspaces, allocated once by the constructor and indexed
     /// by the third index sequence OperatorND() is handed: none in one
     /// dimension, the trace-mode buffer in two, and in three the face

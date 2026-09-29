@@ -122,8 +122,8 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nmTot;
     unsigned int m_nqTot;
-    const TData *m_ipdmat;
     const TData *m_derivmat;
+    const TData *m_ipdmat;
     const TData *m_jacptr;
     const TData *m_dfptr;
 

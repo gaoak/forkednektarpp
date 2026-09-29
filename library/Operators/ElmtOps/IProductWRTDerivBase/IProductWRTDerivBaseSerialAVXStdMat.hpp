@@ -178,11 +178,11 @@ protected:
         // still consumes only m_coordDim of them.
         const auto inDim = (inblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
 
-        // Loop over components.
+        // Offsets between the components of a block.
         const auto inoffset = inblock.CompSize() * inblock.GetNumHomoModes();
-        const auto inoffset_vec =
-            inblock.CompSize() * inblock.GetNumHomoModes() / simd_t::width;
-        const auto wspsize = m_nqTot;
+        const auto inoffset_vec = inoffset / simd_t::width;
+
+        // Loop over components.
         for (unsigned int n = 0;
              n < outblock.GetNumComponents() * outblock.GetNumHomoModes(); ++n)
         {
@@ -218,7 +218,7 @@ protected:
                     {
                         JacobianDerivFactorKernel<ExecSpace, true>(
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(inptr),
                             reinterpret_cast<simd_t *>(wspptr),
@@ -231,7 +231,7 @@ protected:
                     {
                         JacobianDerivFactorKernel<ExecSpace, false>(
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(inptr),
                             reinterpret_cast<simd_t *>(wspptr),
@@ -246,7 +246,7 @@ protected:
                     {
                         JacobianDerivFactorWeightsKernel<ExecSpace, true>(
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(m_weights),
                             reinterpret_cast<const simd_t *>(inptr),
@@ -260,7 +260,7 @@ protected:
                     {
                         JacobianDerivFactorWeightsKernel<ExecSpace, false>(
                             m_nqTot, m_coordDim, m_dimension, 1, inoffset_vec,
-                            wspsize, reinterpret_cast<const simd_t *>(jacptr),
+                            m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                             reinterpret_cast<const simd_t *>(dfptr),
                             reinterpret_cast<const simd_t *>(m_weights),
                             reinterpret_cast<const simd_t *>(inptr),

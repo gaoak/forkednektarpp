@@ -42,10 +42,10 @@ namespace Nektar::Operators::detail
 {
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
-                                        const unsigned int ndf,
-                                        const simd_type *df_ptr,
-                                        simd_type *out[3])
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
+                                               const unsigned int ncoord,
+                                               const simd_type *df_ptr,
+                                               simd_type *out[3])
 {
     simd_type df_tmp[3] = {};
 
@@ -53,11 +53,11 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
     {
         // unroll very small loops
         df_tmp[0] = df_ptr[0];
-        if (ndf >= 2)
+        if (ncoord >= 2)
         {
             df_tmp[1] = df_ptr[1];
         }
-        if (ndf == 3)
+        if (ncoord == 3)
         {
             df_tmp[2] = df_ptr[2];
         }
@@ -67,26 +67,26 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
     {
         if constexpr (DEFORMED)
         {
-            df_tmp[0] = df_ptr[j * ndf]; // load 1x
-            if (ndf >= 2)
+            df_tmp[0] = df_ptr[j * ncoord]; // load 1x
+            if (ncoord >= 2)
             {
-                df_tmp[1] = df_ptr[j * ndf + 1]; // load 1x
+                df_tmp[1] = df_ptr[j * ncoord + 1]; // load 1x
             }
-            if (ndf == 3)
+            if (ncoord == 3)
             {
-                df_tmp[2] = df_ptr[j * ndf + 2]; // load 1x
+                df_tmp[2] = df_ptr[j * ncoord + 2]; // load 1x
             }
         }
 
         // Multiply by derivative factors
         simd_type in, tmp;
         in = out[0][j]; // Load 1x
-        if (ndf == 3)
+        if (ncoord == 3)
         {
             tmp       = in * df_tmp[2];
             out[2][j] = tmp;
         }
-        if (ndf >= 2)
+        if (ncoord >= 2)
         {
             tmp       = in * df_tmp[1];
             out[1][j] = tmp;
@@ -98,10 +98,11 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const unsigned int nq0,
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           unsigned int DIR, typename simd_type>
-NEK_FORCE_INLINE void PhysDerivDir1DKernel(const unsigned int nq0,
-                                           const unsigned int ndf,
-                                           const simd_type *df_ptr,
-                                           const simd_type *in, simd_type *out)
+NEK_FORCE_INLINE static void PhysDerivDir1DKernel(const unsigned int nq0,
+                                                  const unsigned int ncoord,
+                                                  const simd_type *df_ptr,
+                                                  const simd_type *in,
+                                                  simd_type *out)
 {
     simd_type df_tmp;
 
@@ -115,7 +116,7 @@ NEK_FORCE_INLINE void PhysDerivDir1DKernel(const unsigned int nq0,
     {
         if constexpr (DEFORMED)
         {
-            df_tmp = df_ptr[j * ndf + DIR]; // load 1x
+            df_tmp = df_ptr[j * ncoord + DIR]; // load 1x
         }
 
         // Multiply by derivative factors
@@ -131,12 +132,12 @@ NEK_FORCE_INLINE void PhysDerivDir1DKernel(const unsigned int nq0,
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void PhysDeriv2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int outdim,
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, simd_type *out[3])
 {
-    const unsigned int ndf = 2 * outdim;
+    const unsigned int ndf = 2 * ncoord;
     simd_type df_tmp[6]    = {};
 
     if constexpr (!DEFORMED)
@@ -146,7 +147,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
         df_tmp[2] = df_ptr[2];
         df_tmp[3] = df_ptr[3];
 
-        if (outdim == 3)
+        if (ncoord == 3)
         {
             df_tmp[4] = df_ptr[4];
             df_tmp[5] = df_ptr[5];
@@ -156,8 +157,8 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm1;
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             xfrm1 = f1[j]; // Load 1x
         }
@@ -168,8 +169,8 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             d0 = out[0][cnt_ji]; // Load 1x
             d1 = out[1][cnt_ji]; // Load 1x
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 // Moving from standard to collapsed coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
@@ -184,7 +185,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
                 df_tmp[2] = df_ptr[cnt_ji * ndf + 2];
                 df_tmp[3] = df_ptr[cnt_ji * ndf + 3];
 
-                if (outdim == 3)
+                if (ncoord == 3)
                 {
                     df_tmp[4] = df_ptr[cnt_ji * ndf + 4];
                     df_tmp[5] = df_ptr[cnt_ji * ndf + 5];
@@ -201,7 +202,7 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
             tmp.fma(d1, df_tmp[3]);
             out[1][cnt_ji] = tmp;
 
-            if (outdim == 3)
+            if (ncoord == 3)
             {
                 tmp = d0 * df_tmp[4]; // d0 * df4 + d1 * df5
                 tmp.fma(d1, df_tmp[5]);
@@ -213,13 +214,13 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           unsigned int DIR, typename simd_type>
-NEK_FORCE_INLINE void PhysDerivDir2DKernel(
-    const unsigned nq0, const unsigned nq1, const unsigned int outdim,
+NEK_FORCE_INLINE static void PhysDerivDir2DKernel(
+    const unsigned nq0, const unsigned nq1, const unsigned int ncoord,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     const simd_type *df_ptr, const simd_type *tderiv0, const simd_type *tderiv1,
     simd_type *out)
 {
-    const unsigned int ndf = 2 * outdim;
+    const unsigned int ndf = 2 * ncoord;
     simd_type df_tmp[2];
 
     if constexpr (!DEFORMED)
@@ -231,8 +232,8 @@ NEK_FORCE_INLINE void PhysDerivDir2DKernel(
     for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
     {
         simd_type xfrm1;
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                      SHAPE_TYPE == LibUtilities::eNodalTri)
+        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                      SHAPE_TYPE == LibUtilities::NodalTri)
         {
             xfrm1 = f1[j]; // Load 1x
         }
@@ -243,8 +244,8 @@ NEK_FORCE_INLINE void PhysDerivDir2DKernel(
             d0 = tderiv0[cnt_ji]; // Load 1x
             d1 = tderiv1[cnt_ji]; // Load 1x
 
-            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle ||
-                          SHAPE_TYPE == LibUtilities::eNodalTri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                          SHAPE_TYPE == LibUtilities::NodalTri)
             {
                 // Moving from standard to collapsed coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
@@ -275,7 +276,7 @@ NEK_FORCE_INLINE void PhysDerivDir2DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE void PhysDeriv3DKernel(
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
@@ -301,7 +302,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
     {
         simd_type xfrm_eta2;
-        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        if constexpr (SHAPE_TYPE != LibUtilities::Hex)
         {
             xfrm_eta2 = f2[k];
         }
@@ -309,12 +310,12 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 xfrm_eta1 = f1[j];
             }
-            else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                     SHAPE_TYPE == LibUtilities::eNodalTet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                               SHAPE_TYPE == LibUtilities::NodalTet)
             {
                 xfrm_eta1 = f1[j];
                 xfrm      = f1m[j] * xfrm_eta2;
@@ -331,14 +332,14 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
 
                 // Chain-rule  to construct cartesian  derivatives for non
                 // Hex shapes
-                if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
-                              (SHAPE_TYPE == LibUtilities::eNodalPrism))
+                if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                              (SHAPE_TYPE == LibUtilities::NodalPrism))
                 {
                     d0 *= xfrm_eta2;
                     xfrm_eta0 = f0[i];
                     d2.fma(xfrm_eta0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
                     d0 *= xfrm_eta2;
                     d1 *= xfrm_eta2;
@@ -346,8 +347,8 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
                     d2.fma(xfrm_eta0, d0);
                     d2.fma(xfrm_eta1, d1);
                 }
-                else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                         SHAPE_TYPE == LibUtilities::eNodalTet)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                   SHAPE_TYPE == LibUtilities::NodalTet)
                 {
                     d0 *= xfrm;
                     xfrm_eta0 = f0[i] * d0;
@@ -392,7 +393,7 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           unsigned int DIR, typename simd_type>
-NEK_FORCE_INLINE void PhysDerivDir3DKernel(
+NEK_FORCE_INLINE static void PhysDerivDir3DKernel(
     const unsigned nq0, const unsigned nq1, const unsigned nq2,
     [[maybe_unused]] const simd_type *f0, [[maybe_unused]] const simd_type *f1,
     [[maybe_unused]] const simd_type *f1m, [[maybe_unused]] const simd_type *f2,
@@ -412,7 +413,7 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
     for (unsigned int k = 0, cnt_ijk = 0; k < nq2; ++k)
     {
         simd_type xfrm_eta2;
-        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        if constexpr (SHAPE_TYPE != LibUtilities::Hex)
         {
             xfrm_eta2 = f2[k];
         }
@@ -420,12 +421,12 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 xfrm_eta1 = f1[j];
             }
-            else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                     SHAPE_TYPE == LibUtilities::eNodalTet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                               SHAPE_TYPE == LibUtilities::NodalTet)
             {
                 xfrm_eta1 = f1[j];
                 xfrm      = f1m[j] * xfrm_eta2;
@@ -442,14 +443,14 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
 
                 // Chain-rule to construct cartesian  derivatives for non
                 // Hex shapes
-                if constexpr ((SHAPE_TYPE == LibUtilities::ePrism) ||
-                              (SHAPE_TYPE == LibUtilities::eNodalPrism))
+                if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
+                              (SHAPE_TYPE == LibUtilities::NodalPrism))
                 {
                     d0 *= xfrm_eta2;
                     xfrm_eta0 = f0[i];
                     d2.fma(xfrm_eta0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                 {
                     d0 *= xfrm_eta2;
                     d1 *= xfrm_eta2;
@@ -457,8 +458,8 @@ NEK_FORCE_INLINE void PhysDerivDir3DKernel(
                     d2.fma(xfrm_eta0, d0);
                     d2.fma(xfrm_eta1, d1);
                 }
-                else if (SHAPE_TYPE == LibUtilities::eTetrahedron ||
-                         SHAPE_TYPE == LibUtilities::eNodalTet)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                   SHAPE_TYPE == LibUtilities::NodalTet)
                 {
                     d0 *= xfrm;
                     xfrm_eta0 = f0[i] * d0;

@@ -135,9 +135,9 @@ protected:
         // output has 3 slots per component (x, y, z) regardless of base mesh
         // coordDim, leaving slot 2 free for the z-derivative written by
         // DerivZOpImpl.
-        const auto outDim = (outblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
-        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto outDim    = (nhomo > 1) ? 3u : m_coordDim;
+        const auto inoffset  = inblock.CompSize() * nhomo;
+        const auto outoffset = outblock.CompSize() * nhomo;
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -182,7 +182,7 @@ protected:
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             interleaveWidth, m_implInterleaveWidth, nelmt * ncomp * outDim,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

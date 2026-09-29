@@ -34,6 +34,9 @@
 
 #pragma once
 
+namespace Nektar::Operators::detail
+{
+
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
@@ -143,3 +146,5 @@ NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
         }
     }
 }
+
+} // namespace Nektar::Operators::detail

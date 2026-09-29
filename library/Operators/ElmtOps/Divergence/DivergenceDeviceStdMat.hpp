@@ -150,7 +150,7 @@ protected:
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, ncomp * nelmt,
+            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
 
         // Standard derivatives of all the components.
@@ -205,11 +205,11 @@ protected:
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, ncomp * nelmt,
+            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
             interleaveWidth, m_implInterleaveWidth, nelmt * nhomo,
-            outblock.GetNumData(), (TData *)outptr, m_streamID);
+            outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);

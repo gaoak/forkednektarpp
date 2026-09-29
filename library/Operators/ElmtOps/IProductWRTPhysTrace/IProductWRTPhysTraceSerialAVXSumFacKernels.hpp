@@ -657,7 +657,7 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
     constexpr unsigned tstride1 =
         LibUtilities::ShapeTypeNumTraceInDir[SHAPE_TYPE][1];
 
-    if constexpr (SHAPE_TYPE == Nektar::LibUtilities::Tri)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         switch (edge)
         {
@@ -708,7 +708,7 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Unrecognised edge input");
+                NEKERROR(ErrorUtil::efatal, "Unrecognised edge input");
                 break;
         }
     }
@@ -777,7 +777,7 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceEdgeKernel(
                 }
                 break;
             default:
-                NEKERROR(Nektar::ErrorUtil::efatal, "Unrecognised edge input");
+                NEKERROR(ErrorUtil::efatal, "Unrecognised edge input");
                 break;
         }
     }

@@ -124,7 +124,7 @@ public:
             LocalRegions::DerivFactorKey<TData>(block_idx,
                                                 m_implInterleaveWidth, false));
 
-        // Allocate workspace
+        // Allocate workspace.
         unsigned int nqTot = 1;
         for (unsigned int d = 0; d < m_dimension; d++)
         {
@@ -166,7 +166,6 @@ protected:
     std::vector<const simd_t *> m_f;
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
     const TData *m_dfptr;
-
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
     // is saturated with warnings

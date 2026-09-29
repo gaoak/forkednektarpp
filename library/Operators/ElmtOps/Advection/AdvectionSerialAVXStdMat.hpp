@@ -148,10 +148,10 @@ protected:
         const auto chunkSize =
             std::max(m_implInterleaveWidth, inInterleaveWidth);
 
-        // Get static workspace pointers.
+        // Get static workspace pointer.
         auto derivptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                m_coordDim * simd_t::width * m_nqTot);
+                m_dimension * simd_t::width * m_nqTot);
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
@@ -187,7 +187,7 @@ protected:
                 }
 
                 // Perform matrix-matrix multiply.
-                for (unsigned int d = 0; d < m_coordDim; d++)
+                for (unsigned int d = 0; d < m_dimension; d++)
                 {
                     gemm_kernel(inptr, m_matptr + d * m_nqTot * m_nqTot,
                                 derivptr + d * m_nqTot * simd_t::width);

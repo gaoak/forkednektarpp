@@ -128,7 +128,7 @@
 #include "Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp"
 
 // interpolation is just a bwd trans from a nodal basis so using these kernels
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).

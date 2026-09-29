@@ -156,8 +156,6 @@ protected:
             for (size_t e = 0;
                  e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
-
-                // du/dx
                 // Reshape, if necessary.
                 if (e % width_ratio == 0)
                 {
@@ -166,7 +164,6 @@ protected:
                         m_nqTot, (TData *)inptr);
                 }
 
-                // calculate dudx
                 // Perform matrix-matrix multiply.
                 for (unsigned int d = 0; d < m_dimension; d++)
                 {
@@ -195,7 +192,7 @@ protected:
                 // Calculate dv/dy & dw/dz
                 for (unsigned c = 1; c < m_dimension; ++c)
                 {
-
+                    // Reshape, if necessary.
                     if (e % width_ratio == 0)
                     {
                         LibUtilities::ReshapeStorage<ExecSpace>(
@@ -249,7 +246,7 @@ protected:
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                 }
 
-                // Increment pointer.
+                // Increment pointers.
                 dfptr +=
                     (m_isDeformed)
                         ? m_coordDim * m_dimension * m_nqTot * simd_t::width

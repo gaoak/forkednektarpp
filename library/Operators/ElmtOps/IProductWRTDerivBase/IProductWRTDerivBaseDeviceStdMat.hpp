@@ -147,9 +147,8 @@ protected:
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         // Get block sizes.
-        const auto nhomo = inblock.GetNumHomoModes();
-        const auto ncomp =
-            outblock.GetNumComponents() * outblock.GetNumHomoModes();
+        const auto nhomo    = inblock.GetNumHomoModes();
+        const auto ncomp    = outblock.GetNumComponents() * nhomo;
         const auto nelmt    = inblock.GetNumElementsWithPadding();
         const auto nelmtTot = nelmt * nhomo;
 
@@ -173,13 +172,13 @@ protected:
         // (nhomo > 1) there are always three (x, y, z) regardless of the base
         // mesh coordDim, the z slot being the one DerivZOp reads; the xy pass
         // still consumes only m_coordDim of them.
-        const auto inDim = (inblock.GetNumHomoModes() > 1) ? 3u : m_coordDim;
+        const auto inDim = (nhomo > 1) ? 3u : m_coordDim;
 
         // Offsets between the components of a block. The metric of every
         // component is held at once, so the offset between two directions of
         // the workspace spans all of them.
-        const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto inoffset  = inblock.CompSize() * nhomo;
+        const auto outoffset = outblock.CompSize() * nhomo;
         const auto wspoffset = m_nqTot * nelmt * ncomp;
 
         // Reshape, if necessary.
