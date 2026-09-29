@@ -28,6 +28,8 @@ v5.11.0
 - Trace-frame expansions and parallel mesh orderings (!2712)
 - Move point location out of Geometry into a new GeometryLocator class that callers build on demand, so geometry that is never searched no longer carries an inverse mapping (!2747)
 - Fix a bug in LowEnergyBlock preconditioner which may causes divergence in Hex meshes (!2765)
+- Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
+- Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

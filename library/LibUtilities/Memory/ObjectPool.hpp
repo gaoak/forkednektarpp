@@ -45,11 +45,20 @@
 namespace Nektar
 {
 
+/// Chunks per block when a pool first grows, and the ceiling it grows to.
+constexpr unsigned int kPoolNextSize = 32;
+/// Maximum pool size.
+///
+/// Boost doubles the block size every time a pool is exhausted, and by default
+/// never stops; capping the block size bounds that waste to one block per pool
+/// instead of a fraction of the whole, at the cost of a few more calls to the
+/// underlying allocator.
+constexpr unsigned int kPoolMaxSize = 4096;
+
 template <typename DataType>
-using PoolAllocator =
-    boost::fast_pool_allocator<DataType,
-                               boost::default_user_allocator_new_delete,
-                               boost::details::pool::null_mutex>;
+using PoolAllocator = boost::fast_pool_allocator<
+    DataType, boost::default_user_allocator_new_delete,
+    boost::details::pool::null_mutex, kPoolNextSize, kPoolMaxSize>;
 
 /**
  * @brief Generic object pool allocator/deallocator.

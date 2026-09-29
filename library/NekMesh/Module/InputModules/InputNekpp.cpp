@@ -95,9 +95,7 @@ void InputNekpp::Process()
         {
             for (SpatialDomains::Geometry *geomPtr : pair.second->m_geomVec)
             {
-                m_mesh->m_meshGraph->PopulateFaceToElMap(
-                    static_cast<SpatialDomains::Geometry3D *>(geomPtr),
-                    geomPtr->GetNumFaces());
+                m_mesh->m_meshGraph->PopulateFacetToElMap(geomPtr);
             }
         }
     }

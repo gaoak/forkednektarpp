@@ -164,16 +164,14 @@ void QuadGeom::SetUpXmap()
             LibUtilities::PointsKey(order1 + 1,
                                     LibUtilities::eGaussLobattoLegendre))};
 
-    m_xmap = GetStdQuadFactory().CreateInstance(basis);
+    m_xmap = GetStdQuadFactory().CreateInstance(basis).get();
 }
 
 NekDouble QuadGeom::v_GetCoord(const int i,
                                const Array<OneD, const NekDouble> &Lcoord)
 {
-    if (m_state != ePtsFilled)
-    {
-        NEKERROR(ErrorUtil::efatal, "Geometry is not in physical space");
-    }
+    // Evaluating the mapping needs the coefficients, so make sure they exist.
+    FillGeom();
 
     Array<OneD, NekDouble> tmp(m_xmap->GetTotPoints());
     m_xmap->BwdTrans(m_coeffs[i], tmp);
@@ -311,7 +309,6 @@ GeomType QuadGeom::v_CalcGeomType(IsoParam &iso)
     {
         QuadGeom::v_Setup();
     }
-    QuadGeom::v_FillGeom();
 
     GeomType Gtype = eRegular;
 
@@ -409,6 +406,7 @@ GeomType QuadGeom::v_CalcGeomType(IsoParam &iso)
 GeomFactorsUniquePtr QuadGeom::v_GenGeomFactors(
     LibUtilities::PointsKeyVector &keyTgt)
 {
+    FillGeom();
     GeomType Gtype = CalcGeomType();
 
     return ObjPoolManager<GeomFactors>::AllocateUniquePtr(
@@ -422,84 +420,77 @@ GeomFactorsUniquePtr QuadGeom::v_GenGeomFactors(
  */
 void QuadGeom::v_FillGeom()
 {
-    // check to see if geometry structure is already filled
-    if (m_state != ePtsFilled)
+    int i, j, k;
+    int nEdgeCoeffs;
+
+    if (m_curve)
     {
-        int i, j, k;
-        int nEdgeCoeffs;
+        int npts     = m_curve->m_points.size();
+        int nEdgePts = (int)sqrt(static_cast<NekDouble>(npts));
+        Array<OneD, NekDouble> tmp(npts);
+        Array<OneD, NekDouble> tmp2(m_xmap->GetTotPoints());
+        LibUtilities::PointsKey curveKey(nEdgePts, m_curve->m_ptype);
 
-        if (m_curve)
+        // Sanity checks:
+        // - Curved faces should have square number of points;
+        // - Each edge should have sqrt(npts) points.
+        ASSERTL0(nEdgePts * nEdgePts == npts,
+                 "NUMPOINTS should be a square number in"
+                 " quadrilteral " +
+                     std::to_string(m_globalID));
+
+        for (i = 0; i < kNedges; ++i)
         {
-            int npts     = m_curve->m_points.size();
-            int nEdgePts = (int)sqrt(static_cast<NekDouble>(npts));
-            Array<OneD, NekDouble> tmp(npts);
-            Array<OneD, NekDouble> tmp2(m_xmap->GetTotPoints());
-            LibUtilities::PointsKey curveKey(nEdgePts, m_curve->m_ptype);
-
-            // Sanity checks:
-            // - Curved faces should have square number of points;
-            // - Each edge should have sqrt(npts) points.
-            ASSERTL0(nEdgePts * nEdgePts == npts,
-                     "NUMPOINTS should be a square number in"
-                     " quadrilteral " +
+            ASSERTL0(m_edges[i]->GetXmap()->GetNcoeffs() == nEdgePts,
+                     "Number of edge points does not correspond to "
+                     "number of face points in quadrilateral " +
                          std::to_string(m_globalID));
-
-            for (i = 0; i < kNedges; ++i)
-            {
-                ASSERTL0(m_edges[i]->GetXmap()->GetNcoeffs() == nEdgePts,
-                         "Number of edge points does not correspond to "
-                         "number of face points in quadrilateral " +
-                             std::to_string(m_globalID));
-            }
-
-            for (i = 0; i < m_coordim; ++i)
-            {
-                for (j = 0; j < npts; ++j)
-                {
-                    tmp[j] = (m_curve->m_points[j]->GetPtr())[i];
-                }
-
-                // Interpolate m_curve points to GLL points
-                LibUtilities::Interp2D(curveKey, curveKey, tmp,
-                                       m_xmap->GetBasis(0)->GetPointsKey(),
-                                       m_xmap->GetBasis(1)->GetPointsKey(),
-                                       tmp2);
-
-                // Forwards transform to get coefficient space.
-                m_xmap->FwdTrans(tmp2, m_coeffs[i]);
-            }
         }
 
-        // Now fill in edges.
-        Array<OneD, unsigned int> mapArray;
-        Array<OneD, int> signArray;
-
-        for (i = 0; i < kNedges; i++)
+        for (i = 0; i < m_coordim; ++i)
         {
-            m_edges[i]->FillGeom();
-            m_xmap->GetTraceToElementMap(i, mapArray, signArray, m_eorient[i]);
-
-            nEdgeCoeffs = m_edges[i]->GetXmap()->GetNcoeffs();
-
-            ASSERTL0(nEdgeCoeffs <= (int)mapArray.size(),
-                     "Edge " + std::to_string(i) + " of quadrilateral " +
-                         std::to_string(m_globalID) +
-                         " carries more coefficients than the face's map has "
-                         "room for. The edge has been curved since the face "
-                         "was set up: call MeshGraph::ResetGeometry() after "
-                         "adding curvature.");
-
-            for (j = 0; j < m_coordim; j++)
+            for (j = 0; j < npts; ++j)
             {
-                for (k = 0; k < nEdgeCoeffs; k++)
-                {
-                    m_coeffs[j][mapArray[k]] =
-                        signArray[k] * (m_edges[i]->GetCoeffs(j))[k];
-                }
+                tmp[j] = (m_curve->m_points[j]->GetPtr())[i];
+            }
+
+            // Interpolate m_curve points to GLL points
+            LibUtilities::Interp2D(curveKey, curveKey, tmp,
+                                   m_xmap->GetBasis(0)->GetPointsKey(),
+                                   m_xmap->GetBasis(1)->GetPointsKey(), tmp2);
+
+            // Forwards transform to get coefficient space.
+            m_xmap->FwdTrans(tmp2, m_coeffs[i]);
+        }
+    }
+
+    // Now fill in edges.
+    Array<OneD, unsigned int> mapArray;
+    Array<OneD, int> signArray;
+
+    for (i = 0; i < kNedges; i++)
+    {
+        m_edges[i]->FillGeom();
+        m_xmap->GetTraceToElementMap(i, mapArray, signArray, m_eorient[i]);
+
+        nEdgeCoeffs = m_edges[i]->GetXmap()->GetNcoeffs();
+
+        ASSERTL0(nEdgeCoeffs <= (int)mapArray.size(),
+                 "Edge " + std::to_string(i) + " of quadrilateral " +
+                     std::to_string(m_globalID) +
+                     " carries more coefficients than the face's map has "
+                     "room for. The edge has been curved since the face "
+                     "was set up: call MeshGraph::ResetGeometry() after "
+                     "adding curvature.");
+
+        for (j = 0; j < m_coordim; j++)
+        {
+            for (k = 0; k < nEdgeCoeffs; k++)
+            {
+                m_coeffs[j][mapArray[k]] =
+                    signArray[k] * (m_edges[i]->GetCoeffs(j))[k];
             }
         }
-
-        m_state = ePtsFilled;
     }
 }
 
@@ -631,7 +622,6 @@ void QuadGeom::v_Reset(CurveMap &curvedEdges, CurveMap &curvedFaces)
     }
 
     SetUpXmap();
-    SetUpCoeffs(m_xmap->GetNcoeffs());
 }
 
 void QuadGeom::v_ResetLite()
@@ -659,7 +649,6 @@ void QuadGeom::v_Setup()
             m_edges[i]->Setup();
         }
         SetUpXmap();
-        SetUpCoeffs(m_xmap->GetNcoeffs());
 
         m_setupState = true;
     }

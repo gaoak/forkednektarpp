@@ -86,7 +86,7 @@ namespace Nektar::SpatialDomains
  *                      and derivative factors
  */
 GeomFactors::GeomFactors(const GeomType gtype, const int coordim,
-                         const StdRegions::StdExpansionSharedPtr &xmap,
+                         StdRegions::StdExpansion *xmap,
                          const std::vector<Array<OneD, NekDouble>> &coords,
                          const LibUtilities::PointsKeyVector &keyTgt)
     : m_type(gtype), m_expDim(xmap->GetShapeDimension()), m_coordDim(coordim),

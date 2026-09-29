@@ -473,7 +473,7 @@ void LinearMeshGraph::LinMeshSetUp1DGeom(int nsplit, int voffset, bool UseGLL)
 
     for (auto [id, edgegeom] : m_graph->GetGeomMap<SegGeom>())
     {
-        StdRegions::StdExpansionSharedPtr Xmap = edgegeom->GetXmap();
+        StdRegions::StdExpansion *Xmap = edgegeom->GetXmap();
 
         Array<OneD, NekDouble> tmp(Xmap->GetTotPoints());
         if (UseGLL) // get GLL points
@@ -598,7 +598,7 @@ void LinearMeshGraph::LinMeshSetUp2DGeom(
     // add vertices, edges for tri geoms
     for (auto [id, geom] : m_graph->GetGeomMap<TriGeom>())
     {
-        StdRegions::StdExpansionSharedPtr Xmap = geom->GetXmap();
+        StdRegions::StdExpansion *Xmap = geom->GetXmap();
 
         Array<OneD, NekDouble> tmp(Xmap->GetTotPoints());
 
@@ -711,7 +711,7 @@ void LinearMeshGraph::LinMeshSetUp2DGeom(
     // add vertices, edges for quad geoms
     for (auto [id, quadgeom] : m_graph->GetGeomMap<QuadGeom>())
     {
-        StdRegions::StdExpansionSharedPtr Xmap = quadgeom->GetXmap();
+        StdRegions::StdExpansion *Xmap = quadgeom->GetXmap();
 
         Array<OneD, NekDouble> tmp(Xmap->GetTotPoints());
 
@@ -1362,7 +1362,7 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
             cnt += nsplit - j - 1;
         }
 
-        StdRegions::StdExpansionSharedPtr Xmap = geom->GetXmap();
+        StdRegions::StdExpansion *Xmap = geom->GetXmap();
 
         Array<OneD, NekDouble> tmp(Xmap->GetTotPoints());
 
@@ -1579,8 +1579,8 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
                             ObjPoolManager<SpatialDomains::TetGeom>::
                                 AllocateUniquePtr(newtetid, faces);
                         m_linMesh->AddGeom(newtetid, std::move(tet));
-                        m_linMesh->PopulateFaceToElMap(
-                            m_linMesh->GetTetGeom(newtetid), TetGeom::kNfaces);
+                        m_linMesh->PopulateFacetToElMap(
+                            m_linMesh->GetTetGeom(newtetid));
                     }
 
                     if (i < nsplit - k - j - 1)
@@ -1728,8 +1728,8 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
                             ObjPoolManager<SpatialDomains::TetGeom>::
                                 AllocateUniquePtr(newtetid, faces);
                         m_linMesh->AddGeom(newtetid, std::move(tet0));
-                        m_linMesh->PopulateFaceToElMap(
-                            m_linMesh->GetTetGeom(newtetid), 4);
+                        m_linMesh->PopulateFacetToElMap(
+                            m_linMesh->GetTetGeom(newtetid));
 
                         // Tet 1
                         newtetid = elmtid * nsplit * nsplit * nsplit + cnt++;
@@ -1743,8 +1743,8 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
                             ObjPoolManager<SpatialDomains::TetGeom>::
                                 AllocateUniquePtr(newtetid, faces);
                         m_linMesh->AddGeom(newtetid, std::move(tet1));
-                        m_linMesh->PopulateFaceToElMap(
-                            m_linMesh->GetTetGeom(newtetid), 4);
+                        m_linMesh->PopulateFacetToElMap(
+                            m_linMesh->GetTetGeom(newtetid));
 
                         // Tet 2
                         newtetid = elmtid * nsplit * nsplit * nsplit + cnt++;
@@ -1758,8 +1758,8 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
                             ObjPoolManager<SpatialDomains::TetGeom>::
                                 AllocateUniquePtr(newtetid, faces);
                         m_linMesh->AddGeom(newtetid, std::move(tet2));
-                        m_linMesh->PopulateFaceToElMap(
-                            m_linMesh->GetTetGeom(newtetid), 4);
+                        m_linMesh->PopulateFacetToElMap(
+                            m_linMesh->GetTetGeom(newtetid));
 
                         // Tet 3
                         newtetid = elmtid * nsplit * nsplit * nsplit + cnt++;
@@ -1773,8 +1773,8 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
                             ObjPoolManager<SpatialDomains::TetGeom>::
                                 AllocateUniquePtr(newtetid, faces);
                         m_linMesh->AddGeom(newtetid, std::move(tet3));
-                        m_linMesh->PopulateFaceToElMap(
-                            m_linMesh->GetTetGeom(newtetid), 4);
+                        m_linMesh->PopulateFacetToElMap(
+                            m_linMesh->GetTetGeom(newtetid));
                     }
 
                     /* bottom Corner Tet */
@@ -1791,8 +1791,8 @@ void LinearMeshGraph::LinMeshSetUpTetGeom(
                         SpatialDomains::TetGeom>::AllocateUniquePtr(newtetid,
                                                                     faces);
                     m_linMesh->AddGeom(newtetid, std::move(tet));
-                    m_linMesh->PopulateFaceToElMap(
-                        m_linMesh->GetTetGeom(newtetid), 4);
+                    m_linMesh->PopulateFacetToElMap(
+                        m_linMesh->GetTetGeom(newtetid));
                 }
             }
         }
@@ -1913,7 +1913,7 @@ void LinearMeshGraph::LinMeshSetUpPrismGeom(
         int fcnt   = 0;
         int elmtid = geom->GetGlobalID();
 
-        StdRegions::StdExpansionSharedPtr Xmap = geom->GetXmap();
+        StdRegions::StdExpansion *Xmap = geom->GetXmap();
 
         /* face 0 - Quad */
         int fid        = geom->GetFace(0)->GetGlobalID();
@@ -2333,8 +2333,8 @@ void LinearMeshGraph::LinMeshSetUpPrismGeom(
                             ObjPoolManager<SpatialDomains::PrismGeom>::
                                 AllocateUniquePtr(newprismid, faces);
                         m_linMesh->AddGeom(newprismid, std::move(prism));
-                        m_linMesh->PopulateFaceToElMap(
-                            m_linMesh->GetPrismGeom(newprismid), 5);
+                        m_linMesh->PopulateFacetToElMap(
+                            m_linMesh->GetPrismGeom(newprismid));
                     }
 
                     if (j < nsplit - 1)
@@ -2375,8 +2375,8 @@ void LinearMeshGraph::LinMeshSetUpPrismGeom(
                             AllocateUniquePtr(newprismid, faces);
                     m_linMesh->AddGeom(newprismid, std::move(prism));
 
-                    m_linMesh->PopulateFaceToElMap(
-                        m_linMesh->GetPrismGeom(newprismid), 5);
+                    m_linMesh->PopulateFacetToElMap(
+                        m_linMesh->GetPrismGeom(newprismid));
                 }
             }
         }

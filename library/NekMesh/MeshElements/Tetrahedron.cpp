@@ -94,8 +94,8 @@ struct tetrahedronHelper
 
         // Reorient the tet to ensure collapsed coordinates align between
         // adjacent elements.
-        Array<OneD, int> orientationMap(4);
-        Array<OneD, int> origVertMap(4);
+        std::array<int, 4> orientationMap{};
+        std::array<int, 4> origVertMap{};
         if (conf.m_reorient)
         {
             std::tie(orientationMap, origVertMap) = OrientTet(vertex);
@@ -474,7 +474,6 @@ struct tetrahedronHelper
                 id, faces, edges, vertex, true);
         auto tetPtr = tetGeom.get();
         meshGraph->AddGeom<SpatialDomains::TetGeom>(id, std::move(tetGeom));
-        meshGraph->PopulateFaceToElMap(tetPtr, 4);
 
         // Interior nodes, kept as a curve on the element. Edges and faces are
         // shared and so hold their own curvature; the inside of an element
@@ -535,7 +534,17 @@ struct tetrahedronHelper
      * lowest ID. These vertices are swapped if the element is incorrectly
      * oriented.
      */
-    static std::pair<Array<OneD, int>, Array<OneD, int>> OrientTet(
+    /**
+     * @brief Put the vertices in a canonical order and report how they moved.
+     *
+     * The degeneracy checks compare squared quantities. |dist| / area is
+     * 2|c.n| / |n|^2 with n the unnormalised cross product, so neither the
+     * square root nor the three divisions the normalisation used to do are
+     * needed on the common path -- only inside the warning, which does not
+     * fire. Two of the three checks are diagnostic only; just the first
+     * decides anything, and only through the sign of the triple product.
+     */
+    static std::pair<std::array<int, 4>, std::array<int, 4>> OrientTet(
         std::array<SpatialDomains::PointGeom *, 4> &vertex)
     {
         // Create a copy of the original vertex ordering. This is used to
@@ -567,84 +576,47 @@ struct tetrahedronHelper
                 return t1->GetGlobalID() < t2->GetGlobalID();
             });
 
-        // Calculate a.(b x c) if negative, reverse order of
-        // non-degenerate points to correctly orientate the tet.
-        NekDouble ax = (*vertex[1])(0) - (*vertex[0])(0);
-        NekDouble ay = (*vertex[1])(1) - (*vertex[0])(1);
-        NekDouble az = (*vertex[1])(2) - (*vertex[0])(2);
-        NekDouble bx = (*vertex[2])(0) - (*vertex[0])(0);
-        NekDouble by = (*vertex[2])(1) - (*vertex[0])(1);
-        NekDouble bz = (*vertex[2])(2) - (*vertex[0])(2);
-        NekDouble cx = (*vertex[3])(0) - (*vertex[0])(0);
-        NekDouble cy = (*vertex[3])(1) - (*vertex[0])(1);
-        NekDouble cz = (*vertex[3])(2) - (*vertex[0])(2);
+        const NekDouble ax = (*vertex[1])(0) - (*vertex[0])(0);
+        const NekDouble ay = (*vertex[1])(1) - (*vertex[0])(1);
+        const NekDouble az = (*vertex[1])(2) - (*vertex[0])(2);
+        const NekDouble bx = (*vertex[2])(0) - (*vertex[0])(0);
+        const NekDouble by = (*vertex[2])(1) - (*vertex[0])(1);
+        const NekDouble bz = (*vertex[2])(2) - (*vertex[0])(2);
+        const NekDouble cx = (*vertex[3])(0) - (*vertex[0])(0);
+        const NekDouble cy = (*vertex[3])(1) - (*vertex[0])(1);
+        const NekDouble cz = (*vertex[3])(2) - (*vertex[0])(2);
 
-        NekDouble nx   = (ay * bz - az * by);
-        NekDouble ny   = (az * bx - ax * bz);
-        NekDouble nz   = (ax * by - ay * bx);
-        NekDouble nmag = sqrt(nx * nx + ny * ny + nz * nz);
-        nx /= nmag;
-        ny /= nmag;
-        nz /= nmag;
+        auto check = [](NekDouble nx, NekDouble ny, NekDouble nz, NekDouble dx,
+                        NekDouble dy, NekDouble dz, const char *which) {
+            const NekDouble nsq  = nx * nx + ny * ny + nz * nz;
+            const NekDouble trip = dx * nx + dy * ny + dz * nz;
+            if (2.0 * fabs(trip) <= 1e-4 * nsq)
+            {
+                std::cerr << "Warning: degenerate tetrahedron, " << which
+                          << " vertex is = " << trip / sqrt(nsq) << " from face"
+                          << std::endl;
+            }
+            return trip;
+        };
 
-        NekDouble area = 0.5 * nmag;
-
-        // distance of top vertex from base
-        NekDouble dist = cx * nx + cy * ny + cz * nz;
-
-        if (fabs(dist) / area <= 1e-4)
-        {
-            std::cerr << "Warning: degenerate tetrahedron, 3rd vertex is = "
-                      << dist << " from face" << std::endl;
-        }
-
-        if (dist < 0)
+        // Calculate a.(b x c); if negative, reverse the order of the
+        // non-degenerate points to orientate the tet correctly.
+        const NekDouble trip = check(ay * bz - az * by, az * bx - ax * bz,
+                                     ax * by - ay * bx, cx, cy, cz, "3rd");
+        if (trip < 0)
         {
             std::swap(vertex[0], vertex[1]);
         }
 
-        nx   = (ay * cz - az * cy);
-        ny   = (az * cx - ax * cz);
-        nz   = (ax * cy - ay * cx);
-        nmag = sqrt(nx * nx + ny * ny + nz * nz);
-        nx /= nmag;
-        ny /= nmag;
-        nz /= nmag;
-
-        area = 0.5 * nmag;
-
-        // distance of top vertex from base
-        dist = bx * nx + by * ny + bz * nz;
-
-        if (fabs(dist) / area <= 1e-4)
-        {
-            std::cerr << "Warning: degenerate tetrahedron, 2nd vertex is = "
-                      << dist << " from face" << std::endl;
-        }
-
-        nx   = (by * cz - bz * cy);
-        ny   = (bz * cx - bx * cz);
-        nz   = (bx * cy - by * cx);
-        nmag = sqrt(nx * nx + ny * ny + nz * nz);
-        nx /= nmag;
-        ny /= nmag;
-        nz /= nmag;
-
-        area = 0.5 * nmag;
-
-        // distance of top vertex from base
-        dist = ax * nx + ay * ny + az * nz;
-
-        if (fabs(dist) / area <= 1e-4)
-        {
-            std::cerr << "Warning: degenerate tetrahedron, 1st vertex is = "
-                      << dist << " from face" << std::endl;
-        }
+        check(ay * cz - az * cy, az * cx - ax * cz, ax * cy - ay * cx, bx, by,
+              bz, "2nd");
+        check(by * cz - bz * cy, bz * cx - bx * cz, bx * cy - by * cx, ax, ay,
+              az, "1st");
 
         // Search for the face in the original set of face nodes. Then use
         // this to construct the #orientationMap.
-        Array<OneD, int> orientationMap(4);
-        Array<OneD, int> origVertMap(4);
+        std::array<int, 4> orientationMap{};
+        std::array<int, 4> origVertMap{};
         for (int i = 0; i < 4; ++i)
         {
             int v0id = vertex[faceVertMap[i][0]]->GetGlobalID();

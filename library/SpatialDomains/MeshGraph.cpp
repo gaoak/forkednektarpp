@@ -168,7 +168,7 @@ void MeshGraph::SetPartition(SpatialDomains::MeshGraphSharedPtr graph)
     // m_segMapView = std::move(graph->m_segMapView);
     // m_triMapView = std::move(graph->m_pointMapView);
 
-    m_faceToElMap = graph->GetAllFaceToElMap();
+    m_facetToElMap = graph->GetAllFacetToElMap();
 }
 
 void MeshGraph::FillGraph()
@@ -4293,100 +4293,103 @@ void MeshGraph::ReadExpansionInfo(TiXmlElement *expansionTypes)
     }
 }
 
-GeometryLinkSharedPtr MeshGraph::GetElementsFromEdge(Geometry1D *edge)
+const FacetElementLink &MeshGraph::GetElementsFromFacet(Geometry *facet)
 {
-    // Search tris and quads
-    // Need to iterate through vectors because there may be multiple
-    // occurrences.
+    BuildFacetToElMap();
 
-    GeometryLinkSharedPtr ret =
-        GeometryLinkSharedPtr(new std::vector<std::pair<Geometry *, int>>);
+    auto it = m_facetToElMap.find(facet);
 
-    TriGeom *triGeomPtr;
-    QuadGeom *quadGeomPtr;
-
-    for (auto &d : m_domain)
-    {
-        for (auto &compIter : d.second)
-        {
-            for (auto &geomIter : compIter.second->m_geomVec)
-            {
-                triGeomPtr  = static_cast<TriGeom *>(geomIter);
-                quadGeomPtr = static_cast<QuadGeom *>(geomIter);
-
-                if (triGeomPtr || quadGeomPtr)
-                {
-                    if (triGeomPtr)
-                    {
-                        for (int i = 0; i < triGeomPtr->GetNumEdges(); i++)
-                        {
-                            if (triGeomPtr->GetEdge(i)->GetGlobalID() ==
-                                edge->GetGlobalID())
-                            {
-                                ret->push_back(std::make_pair(triGeomPtr, i));
-                                break;
-                            }
-                        }
-                    }
-                    else if (quadGeomPtr)
-                    {
-                        for (int i = 0; i < quadGeomPtr->GetNumEdges(); i++)
-                        {
-                            if (quadGeomPtr->GetEdge(i)->GetGlobalID() ==
-                                edge->GetGlobalID())
-                            {
-                                ret->push_back(std::make_pair(quadGeomPtr, i));
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return ret;
-}
-
-GeometryLinkSharedPtr MeshGraph::GetElementsFromFace(Geometry2D *face)
-{
-    auto it = m_faceToElMap.find(face);
-
-    ASSERTL0(it != m_faceToElMap.end(), "Unable to find corresponding face!");
+    ASSERTL0(it != m_facetToElMap.end(),
+             "No element borders facet " +
+                 std::to_string(facet->GetGlobalID()) +
+                 ". Facets are the codimension-one entities of this graph's "
+                 "elements: edges in 2D, faces in 3D.");
 
     return it->second;
 }
 
+const FacetElementLink &MeshGraph::GetElementsFromEdge(Geometry1D *edge)
+{
+    ASSERTL1(m_meshDimension == 2,
+             "An edge is only a facet of a two-dimensional mesh.");
+    return GetElementsFromFacet(edge);
+}
+
+const FacetElementLink &MeshGraph::GetElementsFromFace(Geometry2D *face)
+{
+    ASSERTL1(m_meshDimension == 3,
+             "A face is only a facet of a three-dimensional mesh.");
+    return GetElementsFromFacet(face);
+}
+
 /**
  * @brief Given a 3D geometry object #element, populate the face to
- * element map #m_faceToElMap which maps faces to their corresponding
+ * element map #m_facetToElMap which maps faces to their corresponding
  * element(s).
  *
  * @param element  Element to process.
  * @param kNfaces  Number of faces of #element. Should be removed and
  * put into Geometry3D as a virtual member function.
  */
-void MeshGraph::PopulateFaceToElMap(Geometry3D *element, int kNfaces)
+/**
+ * @brief Fill the face to element map from the graph's own elements.
+ *
+ * This used to be done as each element was constructed, which cost an entry
+ * for every face of every element whether or not anything ever asked for one.
+ * On a 5.3M element conversion that was 10.6M entries, around 1.7GB and 7s,
+ * for a map only the prism ordering, CGNS input and graph copying read. It is
+ * now filled on first use instead.
+ */
+void MeshGraph::BuildFacetToElMap()
 {
-    // Set up face -> element map
-    for (int i = 0; i < kNfaces; ++i)
+    if (m_facetToElMapBuilt)
     {
-        Geometry2D *face = element->GetFace(i);
+        return;
+    }
 
-        // Search map to see if face already exists.
-        auto it = m_faceToElMap.find(face);
+    // Set before populating: PopulateFacetToElMap() also marks the map built,
+    // and the flag has to survive the loop.
+    m_facetToElMapBuilt = true;
 
-        if (it == m_faceToElMap.end())
+    // Elements are those of the mesh dimension; their facets are one below it.
+    // Geometry::GetFacet() already resolves that, so this does not need to
+    // know which it is.
+    auto populate = [this](auto &geomMap) {
+        for (auto &[id, geom] : geomMap)
         {
-            GeometryLinkSharedPtr tmp = GeometryLinkSharedPtr(
-                new std::vector<std::pair<Geometry *, int>>);
-            tmp->push_back(std::make_pair(element, i));
-            m_faceToElMap[face] = tmp;
+            PopulateFacetToElMap(geom.get());
         }
-        else
-        {
-            it->second->push_back(std::make_pair(element, i));
-        }
+    };
+
+    switch (m_meshDimension)
+    {
+        case 3:
+            populate(m_tetGeoms);
+            populate(m_pyrGeoms);
+            populate(m_prismGeoms);
+            populate(m_hexGeoms);
+            break;
+        case 2:
+            populate(m_triGeoms);
+            populate(m_quadGeoms);
+            break;
+        default:
+            // A one-dimensional mesh has points for facets, which nothing
+            // looks up, so the map stays empty.
+            break;
+    }
+}
+
+void MeshGraph::PopulateFacetToElMap(Geometry *element)
+{
+    // Whoever fills it by hand owns it from then on.
+    m_facetToElMapBuilt = true;
+
+    const int nFacets = element->GetNumFacets();
+    for (int i = 0; i < nFacets; ++i)
+    {
+        m_facetToElMap[element->GetFacet(i)].push_back(
+            std::make_pair(element, i));
     }
 }
 
@@ -4577,7 +4580,7 @@ void MeshGraph::Clear()
     m_compositesLabels.clear();
     m_domain.clear();
     m_expansionMapShPtrMap.clear();
-    m_faceToElMap.clear();
+    m_facetToElMap.clear();
 
     // Every geometry has just gone, so all of the CAD associations key on freed
     // addresses. The CAD system itself is kept: it describes the model, not the

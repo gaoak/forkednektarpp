@@ -366,10 +366,10 @@ bool ProcessBodyFittedVelocity::LocCoordForNearestPntOnBndElmt_2D(
     NekDouble tmpLx, tmpLy, tmpRx, tmpRy; // tmp values for L/R
     NekDouble distL2, distR2;             // distance square
 
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
-    locCoord[0]                               = -2.0;
-    int cnt                                   = 0;
-    bool isConverge                           = false;
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
+    locCoord[0]                       = -2.0;
+    int cnt                           = 0;
+    bool isConverge                   = false;
     while (cnt < iterMax)
     {
         tmpLx = bndXmap->PhysEvaluate(etaLR, pts[0]);
@@ -434,8 +434,8 @@ bool ProcessBodyFittedVelocity::LocCoordForNearestPntOnBndElmt(
     bool isConverge     = false;
     const int nCoordDim = m_f->m_exp[0]->GetCoordim(0); // =2 for 2.5D cases
 
-    StdRegions::StdExpansionSharedPtr bndXmap = bndGeom->GetXmap();
-    int nBndPts                               = bndXmap->GetTotPoints();
+    StdRegions::StdExpansion *bndXmap = bndGeom->GetXmap();
+    int nBndPts                       = bndXmap->GetTotPoints();
 
     Array<OneD, Array<OneD, const NekDouble>> bndCoeffs(nCoordDim);
     Array<OneD, Array<OneD, NekDouble>> bndPts(nCoordDim);
@@ -530,7 +530,7 @@ void ProcessBodyFittedVelocity::GenPntwiseBodyFittedCoordSys(
 
     // Vars in the loop
     SpatialDomains::Geometry *bndGeom;
-    StdRegions::StdExpansionSharedPtr bndXmap;
+    StdRegions::StdExpansion *bndXmap;
     Array<OneD, Array<OneD, NekDouble>> bndCoeffs(nCoordDim);
     Array<OneD, Array<OneD, NekDouble>> bndPts(nCoordDim);
 

@@ -587,12 +587,10 @@ void Module::ReorderPrisms(PerMap &perFaces)
     }
 
     // Face to Element to get neighbour el links
-    m_graph->GetAllFaceToElMap().clear();
+    m_graph->GetAllFacetToElMap().clear();
     for (auto &el : m_mesh->m_elementTags[3])
     {
-        m_graph->PopulateFaceToElMap(
-            static_cast<SpatialDomains::Geometry3D *>(el.first),
-            el.first->GetNumFaces());
+        m_graph->PopulateFacetToElMap(el.first);
     }
 
     // Destroy existing node numbering.
@@ -949,12 +947,10 @@ void Module::ReorderPrisms(PerMap &perFaces)
     }
 
     // Rebuild the face to element map now that the elements have changed.
-    m_graph->GetAllFaceToElMap().clear();
+    m_graph->GetAllFacetToElMap().clear();
     for (auto &el : m_mesh->m_elementTags[3])
     {
-        m_graph->PopulateFaceToElMap(
-            static_cast<SpatialDomains::Geometry3D *>(el.first),
-            el.first->GetNumFaces());
+        m_graph->PopulateFacetToElMap(el.first);
     }
 
     ProcessElements();
@@ -992,7 +988,7 @@ void Module::PrismLines(int prism, PerMap &perFaces, set<int> &prismsDone,
         {
             int id2 = it2->second.first->GetGlobalID();
             nextId  = m_graph->GetElementsFromFace(it2->second.first)
-                         ->at(0)
+                         .at(0)
                          .first->GetGlobalID();
             perFaces.erase(it2);
             perFaces.erase(id2);
@@ -1000,17 +996,17 @@ void Module::PrismLines(int prism, PerMap &perFaces, set<int> &prismsDone,
         }
 
         // Nothing else connected to this face.
-        SpatialDomains::GeometryLinkSharedPtr elLink =
+        const SpatialDomains::FacetElementLink &elLink =
             m_graph->GetElementsFromFace(f);
-        if (elLink->size() == 1)
+        if (elLink.size() == 1)
         {
             continue;
         }
 
-        nextId = elLink->at(0).first->GetGlobalID();
+        nextId = elLink.at(0).first->GetGlobalID();
         if (nextId == prism)
         {
-            nextId = elLink->at(1).first->GetGlobalID();
+            nextId = elLink.at(1).first->GetGlobalID();
         }
 
         PrismLines(nextId, perFaces, prismsDone, line);
