@@ -219,37 +219,13 @@ protected:
     void v_SetScaleFactor(const TData &scale) override
     {
         this->m_scale = scale;
-        m_nq.clear();
+        // The scaled (source) point counts, shared with
+        // PhysInterp1DScaledOp so both arrive at the same grid.
+        m_nq = this->GetScaledNumPoints(m_nm, this->m_scale);
         m_B.clear();
         m_wsp.clear();
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            // Scaled (source) point count - the identical formula
-            // PhysInterp1DScaledOp uses for its own m_nq, so both operators
-            // arrive at the same integer counts for the grid between them.
-            if (d == 0)
-            {
-                m_nq.push_back(this->m_scale * m_nm[0]);
-            }
-            else if (d == 1)
-            {
-                // if delta between nm0 and nm1 is 1 then keep this delta
-                // for new points to capitalise on switch templating
-                const auto nq1 =
-                    (m_nm[0] - m_nm[1] == 1)
-                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
-                        : (unsigned int)(this->m_scale * m_nm[1]);
-                m_nq.push_back(nq1);
-            }
-            else if (d == 2)
-            {
-                const auto nq2 =
-                    (m_nm[0] - m_nm[2] == 1)
-                        ? (unsigned int)(this->m_scale * m_nm[0]) - 1
-                        : (unsigned int)(this->m_scale * m_nm[2]);
-                m_nq.push_back(nq2);
-            }
-
             // Fetch the Galerkin projection matrix: from the scaled grid
             // (m_nq[d] points) down to this basis' native quadrature
             // (m_nm[d] points).

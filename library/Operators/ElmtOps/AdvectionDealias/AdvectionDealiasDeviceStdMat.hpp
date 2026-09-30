@@ -70,9 +70,10 @@ public:
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
             m_dimension, LibUtilities::NullBasisKey);
+        std::vector<unsigned int> nq;
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            m_nq.push_back(exp->GetNumPoints(d));
+            nq.push_back(exp->GetNumPoints(d));
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
@@ -94,40 +95,23 @@ public:
             LocalRegions::DerivFactorKey<TData>(block_idx,
                                                 m_implInterleaveWidth, true));
 
-        // Fine (over-integrated) point counts - same tie-break formula the
-        // rest of AdvectionDealiasOp's backends use.
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            unsigned int nqFine;
-            if (d == 0)
-            {
-                nqFine = static_cast<unsigned int>(m_dealiasScale * m_nq[0]);
-            }
-            else
-            {
-                nqFine =
-                    (m_nq[0] - m_nq[d] == 1)
-                        ? static_cast<unsigned int>(m_dealiasScale * m_nq[0]) -
-                              1
-                        : static_cast<unsigned int>(m_dealiasScale * m_nq[d]);
-            }
-            m_nqFine.push_back(nqFine);
-        }
-        m_nqFineTot = NqTot(m_nqFine);
+        // Fine (over-integrated) point counts.
+        const auto nqFine = this->GetScaledNumPoints(nq, m_dealiasScale);
+        m_nqFineTot       = NqTot(nqFine);
 
         // Stage B matrix: native -> fine, same matrix PhysInterp1DScaledOp's
         // own Device StdMat backend uses.
         m_interpMatPtr = dataWarehouse->template GetData<MemSpace>(
             StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
                                          StdRegions::ePhysInterpStdMat,
-                                         nodalType, m_nqFine));
+                                         nodalType, nqFine));
 
         // Stage D matrix: fine -> native (the new StdMatType added for this
         // operator - see StdMatDataWarehouse.hpp/StdMatDataWarehouseDef.hpp).
         m_projectMatPtr = dataWarehouse->template GetData<MemSpace>(
             StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
                                          StdRegions::eGalerkinProjectStdMat,
-                                         nodalType, m_nqFine));
+                                         nodalType, nqFine));
     }
 
     // className - for BlockOperatorFactory
@@ -156,8 +140,6 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nqTot;
     unsigned int m_nqFineTot;
-    std::vector<unsigned int> m_nq;
-    std::vector<unsigned int> m_nqFine;
     const TData *m_derivMatPtr;
     const TData *m_interpMatPtr;
     const TData *m_projectMatPtr;
@@ -186,7 +168,8 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr, m_streamID);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
@@ -236,9 +219,8 @@ protected:
         // fine-grid gradient of every component are held at once, so the
         // offset between two directions spans all of them, while the
         // advection velocity is shared by them.
-        const auto advVelOffset =
-            this->m_advVel->CompSize() * this->m_advVel->GetNumHomoModes();
-        const auto outoffset = outblock.CompSize() * outblock.GetNumHomoModes();
+        const auto advVelOffset   = this->m_advVel->CompSize() * nhomo;
+        const auto outoffset      = outblock.CompSize() * nhomo;
         const auto derivoffset    = m_nqTot * nelmt * ncomp;
         const auto gradoffset     = m_nqFineTot * nelmt * ncomp;
         const auto compoffset     = m_nqTot * nelmtTot;

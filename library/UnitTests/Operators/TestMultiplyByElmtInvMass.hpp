@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <MultiRegions/ExpListHomogeneous1D.h>
+
 #include "TestOp.hpp"
 
 #include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
@@ -89,10 +91,35 @@ public:
         Array<OneD, TData> incoeffs = this->fixt_in->ToArray();
         Array<OneD, TData> outcoeffs(ncoeffs * numComp), tmp;
 
-        for (unsigned int i = 0; i < numComp; ++i)
+        // MultiplyByElmtInvMass is not virtual and builds its block matrix
+        // from the expansion list's own elements, so a homogeneous list is
+        // driven one plane at a time. The planes of a variable are
+        // consecutive within that variable's slice.
+        auto homoExpList =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                this->fixt_explist);
+        const unsigned int nhomo = this->fixt_in->GetNumHomoModes();
+
+        if (homoExpList && nhomo > 1)
         {
-            this->fixt_explist->MultiplyByElmtInvMass(
-                incoeffs + i * ncoeffs, tmp = outcoeffs + i * ncoeffs);
+            const size_t planeNcoeffs = ncoeffs / nhomo;
+            for (unsigned int i = 0; i < numComp; ++i)
+            {
+                for (unsigned int pl = 0; pl < nhomo; ++pl)
+                {
+                    const size_t offset = i * ncoeffs + pl * planeNcoeffs;
+                    homoExpList->GetPlane(pl)->MultiplyByElmtInvMass(
+                        incoeffs + offset, tmp = outcoeffs + offset);
+                }
+            }
+        }
+        else
+        {
+            for (unsigned int i = 0; i < numComp; ++i)
+            {
+                this->fixt_explist->MultiplyByElmtInvMass(
+                    incoeffs + i * ncoeffs, tmp = outcoeffs + i * ncoeffs);
+            }
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
@@ -168,3 +195,46 @@ TEST(TetVarP, "run/tet_varp.xml")
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 
 TEST(CubeAllElements, "run/cube_all_elements.xml")
+
+template <typename TData>
+class TestMultiplyByElmtInvMassFFT : public TestMultiplyByElmtInvMass<TData>
+{
+public:
+    TestMultiplyByElmtInvMassFFT() = default;
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestMultiplyByElmtInvMassFFT<float>                              \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestMultiplyByElmtInvMassFFT<double>                                    \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+// clang-format on
+
+TEST_FFT(QuadFFT, "run/square.xml")
+TEST_FFT(TriFFT, "run/tri.xml")
+TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")

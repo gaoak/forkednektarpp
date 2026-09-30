@@ -469,11 +469,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter1D sizeParam1D, const size_t nelmt,
-    const unsigned int ncomp, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
-    const TData *NEK_RESTRICT Bproject0, const TData scale,
-    const TData *NEK_RESTRICT in, const size_t inCompStride,
-    const TData *NEK_RESTRICT advVel, const size_t advVelCompStride,
+    const unsigned int ncomp, const unsigned int nhomo,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Bproject0,
+    const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
+    const TData *NEK_RESTRICT advVel, const size_t advVelPlaneStride,
     TData *NEK_RESTRICT out, const size_t outCompStride,
     TData *NEK_RESTRICT elmtWsp, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
@@ -489,9 +489,11 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int nq0      = sizeParam1D.nq0();
     const unsigned int nq0Fine  = AdvectionDealiasFineSize(nq0, nq0);
 
-    const unsigned int nqTotNative = nq0;
-    const unsigned int nqTotFine   = nq0Fine;
-    const unsigned int dfsize      = DEFORMED ? nqTotNative : 1u;
+    const unsigned int nqTot     = nq0;
+    const unsigned int nqTotFine = nq0Fine;
+    const unsigned int dfsize    = DEFORMED ? nqTot : 1u;
+
+    const size_t advVelCompStride = advVelPlaneStride * nhomo;
 
     // The workspace split, from the same two helpers the host sized the
     // allocation with: block-local memory holds a suffix of the layout, and
@@ -505,15 +507,16 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             sizeParam1D, LOCAL_PIPELINE, SHARED_SCRATCH);
     const unsigned int staticSize = wspSize - sharedWspSize;
 
-    size_t e = getBlockIdx<0>(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr       = df + coordDim * dfsize * e;
-        const TData *inGroup     = in + nqTotNative * e;
-        const TData *advVelGroup = advVel + nqTotNative * e;
-        TData *outGroup          = out + nqTotNative * e;
+        const TData *inGroup     = in + nqTot * e;
+        const TData *advVelGroup = advVel + p * advVelPlaneStride + nqTot * e;
+        TData *outGroup          = out + nqTot * e;
 
-        TData *staticBase = elmtWsp + staticSize * e;
+        TData *staticBase = elmtWsp + staticSize * (nelmt * p + e);
         TData *sharedBase = (TData *)shmemptr;
 
         if constexpr (LOCAL_PIPELINE)
@@ -525,14 +528,15 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             // pointer's address space known to the compiler, so the
             // block-local buffers compile to block-local loads and stores.
             TData *derivOut = staticBase;
-            TData *fineTemp = staticBase + coordDim * nqTotNative;
+            TData *fineTemp = staticBase + coordDim * nqTot;
             TData *combined = sharedBase;
 
             for (unsigned int c = 0u; c < ncomp; ++c)
             {
                 PhysDeriv1DSumFacTOPKernel<DEFORMED>(
-                    coordDim, nq0, nqTotNative, D0, dfptr,
-                    inGroup + c * inCompStride, derivOut, threadBlock);
+                    coordDim, nq0, nqTot, D0, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut,
+                    threadBlock);
 
                 for (unsigned int d = 0u; d < coordDim; ++d)
                 {
@@ -544,20 +548,20 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     if (d == 0u)
                     {
                         BwdTransSegSumFacTOPMultiplyKernel<false>(
-                            nq0, nq0Fine, Binterp0, derivOut + d * nqTotNative,
+                            nq0, nq0Fine, Binterp0, derivOut + d * nqTot,
                             fineTemp, combined, scale, threadBlock);
                     }
                     else
                     {
                         BwdTransSegSumFacTOPMultiplyKernel<true>(
-                            nq0, nq0Fine, Binterp0, derivOut + d * nqTotNative,
+                            nq0, nq0Fine, Binterp0, derivOut + d * nqTot,
                             fineTemp, combined, scale, threadBlock);
                     }
                 }
 
                 BwdTransSegSumFacTOPKernel<APPEND>(
                     nq0Fine, nq0, Bproject0, combined,
-                    outGroup + c * outCompStride, threadBlock);
+                    outGroup + (c * nhomo + p) * outCompStride, threadBlock);
             }
         }
         else
@@ -567,7 +571,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             // intermediates still earn block-local memory on their own where
             // they fit, which is the only thing SHARED_SCRATCH changes.
             TData *derivGroup = staticBase;
-            TData *fineGroup  = derivGroup + ncomp * coordDim * nqTotNative;
+            TData *fineGroup  = derivGroup + ncomp * coordDim * nqTot;
             TData *combinedGroup =
                 fineGroup + (coordDim + ncomp * coordDim) * nqTotFine;
 
@@ -580,19 +584,20 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
             for (unsigned int c = 0u; c < ncomp; ++c)
             {
-                TData *derivOut = derivGroup + c * coordDim * nqTotNative;
+                TData *derivOut = derivGroup + c * coordDim * nqTot;
                 TData *gradFine =
                     fineGroup + (coordDim + c * coordDim) * nqTotFine;
                 TData *combinedOut = combinedGroup + c * nqTotFine;
 
                 PhysDeriv1DSumFacTOPKernel<DEFORMED>(
-                    coordDim, nq0, nqTotNative, D0, dfptr,
-                    inGroup + c * inCompStride, derivOut, threadBlock);
+                    coordDim, nq0, nqTot, D0, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut,
+                    threadBlock);
 
                 for (unsigned int d = 0u; d < coordDim; ++d)
                 {
                     BwdTransSegSumFacTOPKernel<false>(
-                        nq0, nq0Fine, Binterp0, derivOut + d * nqTotNative,
+                        nq0, nq0Fine, Binterp0, derivOut + d * nqTot,
                         gradFine + d * nqTotFine, threadBlock);
                 }
 
@@ -602,7 +607,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
                 BwdTransSegSumFacTOPKernel<APPEND>(
                     nq0Fine, nq0, Bproject0, combinedOut,
-                    outGroup + c * outCompStride, threadBlock);
+                    outGroup + (c * nhomo + p) * outCompStride, threadBlock);
             }
         }
 
@@ -617,13 +622,14 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter2D sizeParam2D, const size_t nelmt,
-    const unsigned int ncomp, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Binterp1,
-    const TData *NEK_RESTRICT Bproject0, const TData *NEK_RESTRICT Bproject1,
-    const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
-    const TData *NEK_RESTRICT advVel, const size_t advVelCompStride,
+    const unsigned int ncomp, const unsigned int nhomo,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
+    const TData *NEK_RESTRICT Binterp1, const TData *NEK_RESTRICT Bproject0,
+    const TData *NEK_RESTRICT Bproject1, const TData scale,
+    const TData *NEK_RESTRICT in, const size_t inCompStride,
+    const TData *NEK_RESTRICT advVel, const size_t advVelPlaneStride,
     TData *NEK_RESTRICT out, const size_t outCompStride,
     TData *NEK_RESTRICT elmtWsp, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
@@ -635,15 +641,17 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
-    const unsigned int coordDim    = sizeParam2D.ncoord();
-    const unsigned int nq0         = sizeParam2D.nq0();
-    const unsigned int nq1         = sizeParam2D.nq1();
-    const unsigned int nq0Fine     = AdvectionDealiasFineSize(nq0, nq0);
-    const unsigned int nq1Fine     = AdvectionDealiasFineSize(nq0, nq1);
-    const unsigned int nqTotNative = nq0 * nq1;
-    const unsigned int nqTotFine   = nq0Fine * nq1Fine;
-    const unsigned int ndf         = 2u * coordDim;
-    const unsigned int dfsize      = DEFORMED ? nqTotNative : 1u;
+    const unsigned int coordDim  = sizeParam2D.ncoord();
+    const unsigned int nq0       = sizeParam2D.nq0();
+    const unsigned int nq1       = sizeParam2D.nq1();
+    const unsigned int nq0Fine   = AdvectionDealiasFineSize(nq0, nq0);
+    const unsigned int nq1Fine   = AdvectionDealiasFineSize(nq0, nq1);
+    const unsigned int nqTot     = nq0 * nq1;
+    const unsigned int nqTotFine = nq0Fine * nq1Fine;
+    const unsigned int ndf       = 2u * coordDim;
+    const unsigned int dfsize    = DEFORMED ? nqTot : 1u;
+
+    const size_t advVelCompStride = advVelPlaneStride * nhomo;
 
     // The workspace split, from the same two helpers the host sized the
     // allocation with: block-local memory holds a suffix of the layout, and
@@ -657,15 +665,16 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             sizeParam2D, LOCAL_PIPELINE, SHARED_SCRATCH);
     const unsigned int staticSize = wspSize - sharedWspSize;
 
-    size_t e = getBlockIdx<0>(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr       = df + ndf * dfsize * e;
-        const TData *inGroup     = in + nqTotNative * e;
-        const TData *advVelGroup = advVel + nqTotNative * e;
-        TData *outGroup          = out + nqTotNative * e;
+        const TData *inGroup     = in + nqTot * e;
+        const TData *advVelGroup = advVel + p * advVelPlaneStride + nqTot * e;
+        TData *outGroup          = out + nqTot * e;
 
-        TData *staticBase = elmtWsp + staticSize * e;
+        TData *staticBase = elmtWsp + staticSize * (nelmt * p + e);
         TData *sharedBase = (TData *)shmemptr;
 
         if constexpr (LOCAL_PIPELINE)
@@ -677,15 +686,16 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             // pointer's address space known to the compiler, so the
             // block-local buffers compile to block-local loads and stores.
             TData *derivOut = staticBase;
-            TData *fineTemp = staticBase + coordDim * nqTotNative;
+            TData *fineTemp = staticBase + coordDim * nqTot;
             TData *combined = sharedBase;
             TData *wsp0     = combined + nqTotFine;
 
             for (unsigned int c = 0u; c < ncomp; ++c)
             {
                 PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                    coordDim, nq0, nq1, nqTotNative, D0, D1, f0, f1, dfptr,
-                    inGroup + c * inCompStride, derivOut, threadBlock);
+                    coordDim, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut,
+                    threadBlock);
 
                 for (unsigned int d = 0u; d < coordDim; ++d)
                 {
@@ -698,21 +708,21 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     {
                         BwdTransQuadSumFacTOPMultiplyKernel<false>(
                             nq0, nq1, nq0Fine, nq1Fine, nqTotFine, Binterp0,
-                            Binterp1, derivOut + d * nqTotNative, fineTemp,
-                            combined, scale, wsp0, threadBlock);
+                            Binterp1, derivOut + d * nqTot, fineTemp, combined,
+                            scale, wsp0, threadBlock);
                     }
                     else
                     {
                         BwdTransQuadSumFacTOPMultiplyKernel<true>(
                             nq0, nq1, nq0Fine, nq1Fine, nqTotFine, Binterp0,
-                            Binterp1, derivOut + d * nqTotNative, fineTemp,
-                            combined, scale, wsp0, threadBlock);
+                            Binterp1, derivOut + d * nqTot, fineTemp, combined,
+                            scale, wsp0, threadBlock);
                     }
                 }
 
                 BwdTransQuadSumFacTOPKernel<APPEND>(
-                    nq0Fine, nq1Fine, nq0, nq1, nqTotNative, Bproject0,
-                    Bproject1, combined, outGroup + c * outCompStride, wsp0,
+                    nq0Fine, nq1Fine, nq0, nq1, nqTot, Bproject0, Bproject1,
+                    combined, outGroup + (c * nhomo + p) * outCompStride, wsp0,
                     threadBlock);
             }
         }
@@ -723,7 +733,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             // intermediates still earn block-local memory on their own where
             // they fit, which is the only thing SHARED_SCRATCH changes.
             TData *derivGroup = staticBase;
-            TData *fineGroup  = derivGroup + ncomp * coordDim * nqTotNative;
+            TData *fineGroup  = derivGroup + ncomp * coordDim * nqTot;
             TData *combinedGroup =
                 fineGroup + (coordDim + ncomp * coordDim) * nqTotFine;
             // if constexpr, not a select: a pointer that could be either
@@ -748,20 +758,21 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
             for (unsigned int c = 0u; c < ncomp; ++c)
             {
-                TData *derivOut = derivGroup + c * coordDim * nqTotNative;
+                TData *derivOut = derivGroup + c * coordDim * nqTot;
                 TData *gradFine =
                     fineGroup + (coordDim + c * coordDim) * nqTotFine;
                 TData *combinedOut = combinedGroup + c * nqTotFine;
 
                 PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                    coordDim, nq0, nq1, nqTotNative, D0, D1, f0, f1, dfptr,
-                    inGroup + c * inCompStride, derivOut, threadBlock);
+                    coordDim, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut,
+                    threadBlock);
 
                 for (unsigned int d = 0u; d < coordDim; ++d)
                 {
                     BwdTransQuadSumFacTOPKernel<false>(
                         nq0, nq1, nq0Fine, nq1Fine, nqTotFine, Binterp0,
-                        Binterp1, derivOut + d * nqTotNative,
+                        Binterp1, derivOut + d * nqTot,
                         gradFine + d * nqTotFine, wsp0, threadBlock);
                 }
 
@@ -770,9 +781,9 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     nqTotFine, combinedOut, scale, threadBlock);
 
                 BwdTransQuadSumFacTOPKernel<APPEND>(
-                    nq0Fine, nq1Fine, nq0, nq1, nqTotNative, Bproject0,
-                    Bproject1, combinedOut, outGroup + c * outCompStride, wsp0,
-                    threadBlock);
+                    nq0Fine, nq1Fine, nq0, nq1, nqTot, Bproject0, Bproject1,
+                    combinedOut, outGroup + (c * nhomo + p) * outCompStride,
+                    wsp0, threadBlock);
             }
         }
 
@@ -787,26 +798,26 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
               Enable = true>
 NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const TPhysSizeParameter3D sizeParam3D, const size_t nelmt,
-    const unsigned int ncomp, const TData *NEK_RESTRICT D0,
-    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT Binterp0,
-    const TData *NEK_RESTRICT Binterp1, const TData *NEK_RESTRICT Binterp2,
-    const TData *NEK_RESTRICT Bproject0, const TData *NEK_RESTRICT Bproject1,
-    const TData *NEK_RESTRICT Bproject2, const TData scale,
-    const TData *NEK_RESTRICT in, const size_t inCompStride,
-    const TData *NEK_RESTRICT advVel, const size_t advVelCompStride,
+    const unsigned int ncomp, const unsigned int nhomo,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT Binterp0, const TData *NEK_RESTRICT Binterp1,
+    const TData *NEK_RESTRICT Binterp2, const TData *NEK_RESTRICT Bproject0,
+    const TData *NEK_RESTRICT Bproject1, const TData *NEK_RESTRICT Bproject2,
+    const TData scale, const TData *NEK_RESTRICT in, const size_t inCompStride,
+    const TData *NEK_RESTRICT advVel, const size_t advVelPlaneStride,
     TData *NEK_RESTRICT out, const size_t outCompStride,
     TData *NEK_RESTRICT elmtWsp, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
-    FETCH_SHARED_MEMORY(shmemptr);
-
     static_assert(
         IsPhysSizeParameter3D_v<TPhysSizeParameter3D>,
         "Template argument must be either of type "
         "NonTemplatedPhysSizeParameter3D or TemplatedPhysSizeParameter3D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
 
     const unsigned int nq0            = sizeParam3D.nq0();
     const unsigned int nq1            = sizeParam3D.nq1();
@@ -815,14 +826,16 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
     const unsigned int nq1Fine        = AdvectionDealiasFineSize(nq0, nq1);
     const unsigned int nq2Fine        = AdvectionDealiasFineSize(nq0, nq2);
     constexpr unsigned int coordDim3D = 3u;
-    const unsigned int nqTotNative    = nq0 * nq1 * nq2;
+    const unsigned int nqTot          = nq0 * nq1 * nq2;
     const unsigned int nqTotFine      = nq0Fine * nq1Fine * nq2Fine;
     constexpr unsigned int ndf        = 9u;
-    const unsigned int dfsize         = DEFORMED ? nqTotNative : 1u;
+    const unsigned int dfsize         = DEFORMED ? nqTot : 1u;
     // wsp1 starts past wsp0, so it needs the same span
     // AdvectionDealiasWorkSpaceSize gave it.
     const unsigned int wsp0Stride = AdvectionDealiasScratchSize(
         nq0Fine * nq1 * nq2, nq0 * nq1Fine * nq2Fine);
+
+    const size_t advVelCompStride = advVelPlaneStride * nhomo;
 
     // The workspace split, from the same two helpers the host sized the
     // allocation with: block-local memory holds a suffix of the layout, and
@@ -836,15 +849,16 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             sizeParam3D, LOCAL_PIPELINE, SHARED_SCRATCH);
     const unsigned int staticSize = wspSize - sharedWspSize;
 
-    size_t e = getBlockIdx<0>(threadBlock);
+    size_t e             = getBlockIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *dfptr       = df + ndf * dfsize * e;
-        const TData *inGroup     = in + nqTotNative * e;
-        const TData *advVelGroup = advVel + nqTotNative * e;
-        TData *outGroup          = out + nqTotNative * e;
+        const TData *inGroup     = in + nqTot * e;
+        const TData *advVelGroup = advVel + p * advVelPlaneStride + nqTot * e;
+        TData *outGroup          = out + nqTot * e;
 
-        TData *staticBase = elmtWsp + staticSize * e;
+        TData *staticBase = elmtWsp + staticSize * (nelmt * p + e);
         TData *sharedBase = (TData *)shmemptr;
 
         if constexpr (LOCAL_PIPELINE)
@@ -856,7 +870,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             // pointer's address space known to the compiler, so the
             // block-local buffers compile to block-local loads and stores.
             TData *derivOut = staticBase;
-            TData *fineTemp = staticBase + coordDim3D * nqTotNative;
+            TData *fineTemp = staticBase + coordDim3D * nqTot;
             TData *combined = sharedBase;
             TData *wsp0     = combined + nqTotFine;
             TData *wsp1     = wsp0 + wsp0Stride;
@@ -864,8 +878,9 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             for (unsigned int c = 0u; c < ncomp; ++c)
             {
                 PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, nqTotNative, D0, D1, D2, f0, f1, f1m, f2,
-                    dfptr, inGroup + c * inCompStride, derivOut, threadBlock);
+                    nq0, nq1, nq2, nqTot, D0, D1, D2, f0, f1, f1m, f2, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut,
+                    threadBlock);
 
                 for (unsigned int d = 0u; d < coordDim3D; ++d)
                 {
@@ -879,24 +894,23 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     {
                         BwdTransHexSumFacTOPMultiplyKernel<false>(
                             nq0, nq1, nq2, nq0Fine, nq1Fine, nq2Fine, nqTotFine,
-                            Binterp0, Binterp1, Binterp2,
-                            derivOut + d * nqTotNative, fineTemp, combined,
-                            scale, wsp0, wsp1, threadBlock);
+                            Binterp0, Binterp1, Binterp2, derivOut + d * nqTot,
+                            fineTemp, combined, scale, wsp0, wsp1, threadBlock);
                     }
                     else
                     {
                         BwdTransHexSumFacTOPMultiplyKernel<true>(
                             nq0, nq1, nq2, nq0Fine, nq1Fine, nq2Fine, nqTotFine,
-                            Binterp0, Binterp1, Binterp2,
-                            derivOut + d * nqTotNative, fineTemp, combined,
-                            scale, wsp0, wsp1, threadBlock);
+                            Binterp0, Binterp1, Binterp2, derivOut + d * nqTot,
+                            fineTemp, combined, scale, wsp0, wsp1, threadBlock);
                     }
                 }
 
                 BwdTransHexSumFacTOPKernel<APPEND>(
-                    nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, nqTotNative,
-                    Bproject0, Bproject1, Bproject2, combined,
-                    outGroup + c * outCompStride, wsp0, wsp1, threadBlock);
+                    nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, nqTot, Bproject0,
+                    Bproject1, Bproject2, combined,
+                    outGroup + (c * nhomo + p) * outCompStride, wsp0, wsp1,
+                    threadBlock);
             }
         }
         else
@@ -906,7 +920,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
             // intermediates still earn block-local memory on their own where
             // they fit, which is the only thing SHARED_SCRATCH changes.
             TData *derivGroup = staticBase;
-            TData *fineGroup  = derivGroup + ncomp * coordDim3D * nqTotNative;
+            TData *fineGroup  = derivGroup + ncomp * coordDim3D * nqTot;
             TData *combinedGroup =
                 fineGroup + (coordDim3D + ncomp * coordDim3D) * nqTotFine;
             // if constexpr, not a select: a pointer that could be either
@@ -933,22 +947,22 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
             for (unsigned int c = 0u; c < ncomp; ++c)
             {
-                TData *derivOut = derivGroup + c * coordDim3D * nqTotNative;
+                TData *derivOut = derivGroup + c * coordDim3D * nqTot;
                 TData *gradFine =
                     fineGroup + (coordDim3D + c * coordDim3D) * nqTotFine;
                 TData *combinedOut = combinedGroup + c * nqTotFine;
 
                 PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, nqTotNative, D0, D1, D2, f0, f1, f1m, f2,
-                    dfptr, inGroup + c * inCompStride, derivOut, threadBlock);
+                    nq0, nq1, nq2, nqTot, D0, D1, D2, f0, f1, f1m, f2, dfptr,
+                    inGroup + (c * nhomo + p) * inCompStride, derivOut,
+                    threadBlock);
 
                 for (unsigned int d = 0u; d < coordDim3D; ++d)
                 {
                     BwdTransHexSumFacTOPKernel<false>(
                         nq0, nq1, nq2, nq0Fine, nq1Fine, nq2Fine, nqTotFine,
-                        Binterp0, Binterp1, Binterp2,
-                        derivOut + d * nqTotNative, gradFine + d * nqTotFine,
-                        wsp0, wsp1, threadBlock);
+                        Binterp0, Binterp1, Binterp2, derivOut + d * nqTot,
+                        gradFine + d * nqTotFine, wsp0, wsp1, threadBlock);
                 }
 
                 AdvectionDealiasCombineSumFacTOPKernel<false>(
@@ -956,9 +970,10 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     nqTotFine, combinedOut, scale, threadBlock);
 
                 BwdTransHexSumFacTOPKernel<APPEND>(
-                    nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, nqTotNative,
-                    Bproject0, Bproject1, Bproject2, combinedOut,
-                    outGroup + c * outCompStride, wsp0, wsp1, threadBlock);
+                    nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, nqTot, Bproject0,
+                    Bproject1, Bproject2, combinedOut,
+                    outGroup + (c * nhomo + p) * outCompStride, wsp0, wsp1,
+                    threadBlock);
             }
         }
 

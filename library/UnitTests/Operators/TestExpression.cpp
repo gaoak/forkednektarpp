@@ -54,6 +54,20 @@
         }                                                                      \
     }
 
+#define TEST_EXPRESSION3DH1(test_name, test, tol)                              \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure3DH1(16);                                                     \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteExpression)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -76,6 +90,10 @@ TEST_EXPRESSION(expression_seg_evars, Seg_3C_Evars, 1.0E-12)
 TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 1.0E-12)
 
 TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 1.0E-12)
+
+TEST_EXPRESSION3DH1(expression_helmholtz2d_3dh1, Helmholtz2DFFT, 1.0E-12)
+
+TEST_EXPRESSION3DH1(expression_quad_tri_evars_3dh1, QuadTri2CEvarsFFT, 1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

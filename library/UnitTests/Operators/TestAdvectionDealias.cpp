@@ -55,6 +55,22 @@
         }                                                                      \
     }
 
+#define TEST_ADVECTIONDEALIAS3DH1(test_name, test, tol)                        \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure3DH1(16);                                                     \
+        SetTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            RunTestCase(false);                                                \
+            BOOST_TEST(Compare(tol));                                          \
+            RunTestCase(true);                                                 \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteAdvectionDealias)
 
 // Same fixture set as test_advection.cpp's TestVGradU, excluding its disabled
@@ -107,6 +123,13 @@ TEST_ADVECTIONDEALIAS(advectiondealias_cube_prism_hex, CubePrismHex, 1.0E-10)
 
 TEST_ADVECTIONDEALIAS(advectiondealias_cube_all_elements, CubeAllElements,
                       1.0E-9)
+
+TEST_ADVECTIONDEALIAS3DH1(advectiondealias_quad_3dh1, QuadFFT, 1.0E-9)
+
+TEST_ADVECTIONDEALIAS3DH1(advectiondealias_tri_3dh1, TriFFT, 1.0E-9)
+
+TEST_ADVECTIONDEALIAS3DH1(advectiondealias_square_all_elements_3dh1,
+                          SquareAllElementsFFT, 1.0E-9)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
