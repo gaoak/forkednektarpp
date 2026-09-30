@@ -38,7 +38,6 @@
 #include <string>
 #include <vector>
 
-#include "LibUtilities/Backends/SYCL_Host_API.hpp"
 #include "Operators/ElmtOps/Expression/ExpressionDeviceGenericHelper.hpp"
 
 #if defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)

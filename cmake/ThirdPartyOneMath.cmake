@@ -8,24 +8,51 @@
 
 # Intel targets, CPU and GPU alike, are served by MKL's own SYCL interfaces
 # rather than by oneMath: MKL covers both device kinds through the same
-# oneapi/mkl.hpp headers. That interface is DPC++ only, so under AdaptiveCpp
-# these configurations are left without a backend and the sources take their
-# fallback path.
+# oneapi/mkl.hpp headers. That interface is DPC++ only, so under any other
+# implementation these configurations are left without a backend and the
+# sources take their fallback path.
 IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU" OR
     NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
-    IF (${AdaptiveCpp_FOUND})
-       # Do nothing.
-    ELSEIF (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
-        FIND_PACKAGE(MKL CONFIG REQUIRED)
-        ADD_DEFINITIONS(-DNEKTAR_ENABLE_ONEMKL)
-        SET(ONEMATH_LIBRARY MKL::MKL_SYCL)
+    IF (NEKTAR_SYCL_COMPILER STREQUAL "DPC++")
+        # Whether MKL has to be there is a separate question from which
+        # implementation this is, and the compiler ID is what answers it:
+        # MKL ships as part of oneAPI, so under icpx its absence means a
+        # broken installation and should stop the configure. A DPC++ clang
+        # built from source has no such guarantee, so it gets MKL when MKL
+        # is present and the fallback path when it is not.
+        IF (CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR
+            CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+            FIND_PACKAGE(MKL CONFIG REQUIRED)
+        ELSE()
+            FIND_PACKAGE(MKL CONFIG)
+        ENDIF()
+
+        IF (MKL_FOUND)
+            ADD_DEFINITIONS(-DNEKTAR_ENABLE_ONEMKL)
+            SET(ONEMATH_LIBRARY MKL::MKL_SYCL)
+        ELSE()
+            MESSAGE(STATUS
+                "MKL not found: ${NEKTAR_ENABLE_DEVICE} will use the "
+                "fallback linear algebra path")
+        ENDIF()
     ENDIF()
 ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
     SET(NEKTAR_USE_ONEMATH ON)
-    IF (${AdaptiveCpp_FOUND})
+    # AdaptiveCpp_DIR is only meaningful to the sub-build when that sub-build
+    # is being configured for AdaptiveCpp; under DPC++ it was being passed
+    # down empty. Both arms are positive tests, matching the dispatch in the
+    # root CMakeLists, so an implementation added later has to say what
+    # oneMath should be told rather than silently inheriting "dpc++".
+    IF (NEKTAR_SYCL_COMPILER STREQUAL "AdaptiveCpp")
         SET(ONEMATH_SYCL_IMPLEMENTATION "adaptivecpp")
-    ELSE()
+        SET(ONEMATH_IMPLEMENTATION_ARGS -DAdaptiveCpp_DIR=${AdaptiveCpp_DIR})
+    ELSEIF (NEKTAR_SYCL_COMPILER STREQUAL "DPC++")
         SET(ONEMATH_SYCL_IMPLEMENTATION "dpc++")
+        SET(ONEMATH_IMPLEMENTATION_ARGS "")
+    ELSE()
+        MESSAGE(FATAL_ERROR
+            "oneMath has no mapping for NEKTAR_SYCL_COMPILER="
+            "${NEKTAR_SYCL_COMPILER}; it accepts adaptivecpp or dpc++.")
     ENDIF()
 
     FIND_PATH(ONEMATH_INCLUDE_DIR oneapi/math.hpp)
@@ -73,8 +100,8 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
                         -DCUDA_CUDA_LIBRARY=${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so
                         -DOPENCL_INCLUDE_DIR=${OPENCL_INCLUDE_DIR}
-                        -DAdaptiveCpp_DIR=${AdaptiveCpp_DIR}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}
+                        ${ONEMATH_IMPLEMENTATION_ARGS}
                         -DENABLE_GENERIC_BLAS_BACKEND=OFF
                         -DENABLE_ARMPL_BACKEND=OFF
                         -DENABLE_NETLIB_BACKEND=OFF
@@ -117,7 +144,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -DHIP_TARGETS=${NEKTAR_DEVICE_ARCH}
                         -DCMAKE_PREFIX_PATH=${ROCM_PATH}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}
-                        -DAdaptiveCpp_DIR=${AdaptiveCpp_DIR}
+                        ${ONEMATH_IMPLEMENTATION_ARGS}
                         -DENABLE_GENERIC_BLAS_BACKEND=OFF
                         -DENABLE_ARMPL_BACKEND=OFF
                         -DENABLE_NETLIB_BACKEND=OFF
