@@ -54,6 +54,10 @@
 namespace Nektar::SpatialDomains
 {
 
+/// Compression level for geometry blocks. See ZlibEncode(): we use the minimum
+/// as in experimentation this has the best compression to CPU usage ratio.
+static constexpr int kGeomZlibLevel = 1;
+
 std::string MeshGraphIOXmlCompressed::className =
     GetMeshGraphIOFactory().RegisterCreatorFunction(
         "XmlCompressed", MeshGraphIOXmlCompressed::create,
@@ -1080,7 +1084,8 @@ void MeshGraphIOXmlCompressed::v_WriteVertices(TiXmlElement *geomTag,
                           LibUtilities::CompressData::GetBitSizeStr());
 
     std::string vertStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(vertInfo, vertStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(vertInfo, vertStr,
+                                                      kGeomZlibLevel);
 
     vertTag->LinkEndChild(new TiXmlText(vertStr));
 
@@ -1126,7 +1131,8 @@ void MeshGraphIOXmlCompressed::v_WriteEdges(TiXmlElement *geomTag,
     }
 
     std::string edgeStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(edgeInfo, edgeStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(edgeInfo, edgeStr,
+                                                      kGeomZlibLevel);
 
     edgeTag->SetAttribute("COMPRESSED",
                           LibUtilities::CompressData::GetCompressString());
@@ -1187,7 +1193,8 @@ void MeshGraphIOXmlCompressed::v_WriteTris(TiXmlElement *faceTag,
 
     TiXmlElement *x = new TiXmlElement(tag);
     std::string triStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(triInfo, triStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(triInfo, triStr,
+                                                      kGeomZlibLevel);
 
     x->SetAttribute("COMPRESSED",
                     LibUtilities::CompressData::GetCompressString());
@@ -1239,7 +1246,8 @@ void MeshGraphIOXmlCompressed::v_WriteQuads(TiXmlElement *faceTag,
 
     TiXmlElement *x = new TiXmlElement(tag);
     std::string quadStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(quadInfo, quadStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(quadInfo, quadStr,
+                                                      kGeomZlibLevel);
 
     x->SetAttribute("COMPRESSED",
                     LibUtilities::CompressData::GetCompressString());
@@ -1293,7 +1301,8 @@ void MeshGraphIOXmlCompressed::v_WriteHexs(TiXmlElement *elmtTag,
 
     TiXmlElement *x = new TiXmlElement(tag);
     std::string elStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr,
+                                                      kGeomZlibLevel);
 
     x->SetAttribute("COMPRESSED",
                     LibUtilities::CompressData::GetCompressString());
@@ -1316,6 +1325,7 @@ void WritePrism(PrismGeom *prism, std::vector<MeshPrism> &elementInfo,
     e.f[4] = prism->GetFid(4);
     elementInfo.push_back(e);
 }
+
 void MeshGraphIOXmlCompressed::v_WritePrisms(TiXmlElement *elmtTag,
                                              std::vector<int> keysToWrite)
 {
@@ -1347,7 +1357,8 @@ void MeshGraphIOXmlCompressed::v_WritePrisms(TiXmlElement *elmtTag,
 
     TiXmlElement *x = new TiXmlElement(tag);
     std::string elStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr,
+                                                      kGeomZlibLevel);
 
     x->SetAttribute("COMPRESSED",
                     LibUtilities::CompressData::GetCompressString());
@@ -1400,7 +1411,8 @@ void MeshGraphIOXmlCompressed::v_WritePyrs(TiXmlElement *elmtTag,
 
     TiXmlElement *x = new TiXmlElement(tag);
     std::string elStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr,
+                                                      kGeomZlibLevel);
 
     x->SetAttribute("COMPRESSED",
                     LibUtilities::CompressData::GetCompressString());
@@ -1452,7 +1464,8 @@ void MeshGraphIOXmlCompressed::v_WriteTets(TiXmlElement *elmtTag,
 
     TiXmlElement *x = new TiXmlElement(tag);
     std::string elStr;
-    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr);
+    LibUtilities::CompressData::ZlibEncodeToBase64Str(elementInfo, elStr,
+                                                      kGeomZlibLevel);
 
     x->SetAttribute("COMPRESSED",
                     LibUtilities::CompressData::GetCompressString());
@@ -1588,7 +1601,8 @@ void MeshGraphIOXmlCompressed::v_WriteCurves(TiXmlElement *geomTag,
     {
         TiXmlElement *x = new TiXmlElement("E");
         std::string dataStr;
-        LibUtilities::CompressData::ZlibEncodeToBase64Str(edgeInfo, dataStr);
+        LibUtilities::CompressData::ZlibEncodeToBase64Str(edgeInfo, dataStr,
+                                                          kGeomZlibLevel);
 
         x->LinkEndChild(new TiXmlText(dataStr));
         curveTag->LinkEndChild(x);
@@ -1598,7 +1612,8 @@ void MeshGraphIOXmlCompressed::v_WriteCurves(TiXmlElement *geomTag,
     {
         TiXmlElement *x = new TiXmlElement("F");
         std::string dataStr;
-        LibUtilities::CompressData::ZlibEncodeToBase64Str(faceInfo, dataStr);
+        LibUtilities::CompressData::ZlibEncodeToBase64Str(faceInfo, dataStr,
+                                                          kGeomZlibLevel);
 
         x->LinkEndChild(new TiXmlText(dataStr));
         curveTag->LinkEndChild(x);
@@ -1610,14 +1625,14 @@ void MeshGraphIOXmlCompressed::v_WriteCurves(TiXmlElement *geomTag,
         x->SetAttribute("ID", curvedPts.id);
         TiXmlElement *subx = new TiXmlElement("INDEX");
         std::string dataStr;
-        LibUtilities::CompressData::ZlibEncodeToBase64Str(curvedPts.index,
-                                                          dataStr);
+        LibUtilities::CompressData::ZlibEncodeToBase64Str(
+            curvedPts.index, dataStr, kGeomZlibLevel);
         subx->LinkEndChild(new TiXmlText(dataStr));
         x->LinkEndChild(subx);
 
         subx = new TiXmlElement("POINTS");
-        LibUtilities::CompressData::ZlibEncodeToBase64Str(curvedPts.pts,
-                                                          dataStr);
+        LibUtilities::CompressData::ZlibEncodeToBase64Str(
+            curvedPts.pts, dataStr, kGeomZlibLevel);
         subx->LinkEndChild(new TiXmlText(dataStr));
         x->LinkEndChild(subx);
         curveTag->LinkEndChild(x);

@@ -1069,6 +1069,20 @@ void InputGmsh::Process()
             if (m_version >= 4.0)
             {
                 s >> nEBlocks;
+                // The edge and face sets are filled once per element and never
+                // shrink, so sizing them up front avoids rehashing the whole
+                // table roughly every time it doubles.
+                long nElmTotal = 0;
+                {
+                    std::stringstream sCount(line);
+                    long dummy = 0;
+                    sCount >> dummy >> nElmTotal;
+                }
+                if (nElmTotal > 0)
+                {
+                    m_mesh->m_faceSet.reserve(2 * nElmTotal);
+                    m_mesh->m_edgeSet.reserve(2 * nElmTotal);
+                }
 
                 for (int i = 0; i < nEBlocks; ++i)
                 {
