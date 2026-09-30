@@ -66,9 +66,15 @@ LIB_UTILITIES_EXPORT std::string GetCompressString(void);
 LIB_UTILITIES_EXPORT std::string GetBitSizeStr(void);
 
 /**
- * Compress a vector of NekDouble values into a string using zlib.
+ * @brief Deflate @p in into @p out.
+ *
+ * @p level is a zlib compression level. The default is what zlib calls default,
+ * which is 6, but some applications (e.g. mesh generation) do not require
+ * particularly high levels of compression.
  */
-template <class T> int ZlibEncode(std::vector<T> &in, std::string &out)
+template <class T>
+int ZlibEncode(std::vector<T> &in, std::string &out,
+               int level = Z_DEFAULT_COMPRESSION)
 {
     int ret;
     unsigned have;
@@ -81,7 +87,7 @@ template <class T> int ZlibEncode(std::vector<T> &in, std::string &out)
     strm.zalloc = Z_NULL;
     strm.zfree  = Z_NULL;
     strm.opaque = Z_NULL;
-    ret         = deflateInit(&strm, Z_DEFAULT_COMPRESSION);
+    ret         = deflateInit(&strm, level);
 
     ASSERTL0(ret == Z_OK, "Error initializing Zlib.");
 
@@ -101,7 +107,7 @@ template <class T> int ZlibEncode(std::vector<T> &in, std::string &out)
         ASSERTL0(ret != Z_STREAM_ERROR, "Zlib stream error");
 
         have = CHUNK - strm.avail_out;
-        out += buffer.substr(0, have);
+        out.append(buffer, 0, have);
     } while (strm.avail_out == 0);
 
     // Check all input was processed.
@@ -126,11 +132,12 @@ LIB_UTILITIES_EXPORT void BinaryStrToBase64Str(
  * Compress a vector of NekDouble values into a base64 string.
  */
 template <class T>
-int ZlibEncodeToBase64Str(std::vector<T> &in, std::string &out64)
+int ZlibEncodeToBase64Str(std::vector<T> &in, std::string &out64,
+                          int level = Z_DEFAULT_COMPRESSION)
 {
     std::string out;
 
-    int ok = ZlibEncode(in, out);
+    int ok = ZlibEncode(in, out, level);
 
     BinaryStrToBase64Str(out, out64);
 
@@ -144,11 +151,7 @@ int ZlibEncodeToBase64Str(std::vector<T> &in, std::string &out64)
 template <class T> int ZlibDecode(std::string &in, std::vector<T> &out)
 {
     int ret;
-    unsigned have;
     z_stream strm;
-    std::string buffer;
-    buffer.resize(CHUNK);
-    std::string output;
 
     strm.zalloc   = Z_NULL;
     strm.zfree    = Z_NULL;
@@ -161,10 +164,26 @@ template <class T> int ZlibDecode(std::string &in, std::vector<T> &out)
     strm.avail_in = (unsigned int)in.size();
     strm.next_in  = (unsigned char *)(&in[0]);
 
+    // Inflate straight into the destination, growing it geometrically. The
+    // decompressed size is not known in advance, but going via an
+    // intermediate string costs a temporary per chunk, a reallocation of the
+    // whole block on every doubling, and one final copy of all of it.
+    const size_t perElmt = sizeof(T);
+    size_t nElmts        = CHUNK / perElmt > 1 ? CHUNK / perElmt : 1;
+    size_t written       = 0;
+    out.resize(nElmts);
+
     do
     {
-        strm.avail_out = CHUNK;
-        strm.next_out  = (unsigned char *)(&buffer[0]);
+        size_t capacity = out.size() * perElmt;
+        if (capacity == written)
+        {
+            out.resize(out.size() * 2);
+            capacity = out.size() * perElmt;
+        }
+
+        strm.avail_out = (unsigned int)(capacity - written);
+        strm.next_out  = (unsigned char *)out.data() + written;
 
         ret = inflate(&strm, Z_NO_FLUSH);
 
@@ -178,25 +197,25 @@ template <class T> int ZlibDecode(std::string &in, std::vector<T> &out)
             case Z_DATA_ERROR:
             case Z_MEM_ERROR:
                 (void)inflateEnd(&strm);
+                out.clear();
                 return ret;
         }
 
-        have = CHUNK - strm.avail_out;
-        output += buffer.substr(0, have);
+        written = capacity - strm.avail_out;
     } while (strm.avail_out == 0);
 
     (void)inflateEnd(&strm);
 
     if (ret == Z_STREAM_END)
     {
-        T *readFieldData = (T *)output.c_str();
-        unsigned int len =
-            (unsigned int)output.size() * sizeof(*output.c_str()) / sizeof(T);
-        out.assign(readFieldData, readFieldData + len);
+        // Any trailing bytes that do not make up a whole element are dropped,
+        // as they were when this decoded via a string.
+        out.resize(written / perElmt);
         return Z_OK;
     }
     else
     {
+        out.clear();
         return Z_DATA_ERROR;
     }
 }
