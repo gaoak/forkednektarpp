@@ -375,21 +375,92 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
         ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
 
+        # NEKTAR_SYCL_COMPILER names the implementation in use: AdaptiveCpp,
+        # DPC++ or SimSYCL. Everything downstream that has to know which one
+        # it is reads this rather than re-deriving it -- ThirdPartyOneMath is
+        # the current caller, for the MKL-versus-oneMath split and for
+        # ONEMATH_SYCL_IMPLEMENTATION.
+        #
         # SimSYCL is a simulator rather than a SYCL compiler, and is opt-in.
         # The library itself is found or built by ThirdPartySimSYCL, which
         # has to run after ThirdPartyBoost because SimSYCL requires
         # Boost.context. All that happens here is recording the choice, and
         # the requirements it places on the rest of the configuration.
         IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-SIMSYCL")
+            SET(NEKTAR_SYCL_COMPILER "SimSYCL")
             INCLUDE(NektarSimSYCL)
         ELSE ()
-            FIND_PACKAGE(AdaptiveCpp QUIET)
-            IF(${AdaptiveCpp_FOUND})
+            # Which SYCL toolchain is in use follows from CMAKE_CXX_COMPILER,
+            # so ask the compiler rather than searching for an AdaptiveCpp
+            # installation. The back-end files below put --acpp-targets or
+            # -fsycl straight into CMAKE_CXX_FLAGS, which only the compiler
+            # named at configure time can act on; a package search answers a
+            # different question, and on a machine carrying both toolchains
+            # it finds AdaptiveCpp whichever compiler was selected and then
+            # hands --acpp-targets to icpx.
+            #
+            # AdaptiveCpp identifies itself. __ADAPTIVECPP__ is the macro
+            # the sources already take as meaning AdaptiveCpp -- see the
+            # thirty or so sites in Backends.hpp, UtilsDeviceKernels.hpp and
+            # oneMath.cpp -- and nothing in this build system defines it, so
+            # the driver does. The other three spellings cover the hipSYCL
+            # and OpenSYCL releases. None of them needs flags of its own,
+            # which is what lets this run before a back-end file has chosen
+            # any.
+            INCLUDE(CheckCXXSourceCompiles)
+            CHECK_CXX_SOURCE_COMPILES("
+                #if !defined(__ADAPTIVECPP__) && !defined(__ACPP__) && !defined(__OPENSYCL__) && !defined(__HIPSYCL__)
+                #error not AdaptiveCpp
+                #endif
+                int main() { return 0; }"
+                NEKTAR_SYCL_IS_ADAPTIVECPP)
+
+            # The DPC++ family has no macro that would do the same job:
+            # __INTEL_LLVM_COMPILER is icpx only, and NektarIntelSYCL
+            # deliberately serves the open-source clang as well (its
+            # native_cpu path), which defines nothing distinctive until
+            # -fsycl is passed. So ask what the compiler can do rather than
+            # who it is -- does -fsycl put it into SYCL mode -- using
+            # SYCL_LANGUAGE_VERSION, which SYCL 2020 requires every
+            # implementation to define. An implementation that does not
+            # exist yet passes this as long as it took the -fsycl spelling
+            # with it, which is how every DPC++ derivative so far has begun.
+            SET(CMAKE_REQUIRED_FLAGS "-fsycl")
+            CHECK_CXX_SOURCE_COMPILES("
+                #include <sycl/sycl.hpp>
+                #if !defined(SYCL_LANGUAGE_VERSION)
+                #error -fsycl did not enable SYCL
+                #endif
+                int main() { return 0; }"
+                NEKTAR_SYCL_IS_DPCPP)
+            UNSET(CMAKE_REQUIRED_FLAGS)
+
+            # Both probes are positive tests, so an unrecognised compiler
+            # fails here with something readable instead of being handed to
+            # NektarIntelSYCL and failing later on an unknown argument.
+            IF (NEKTAR_SYCL_IS_ADAPTIVECPP)
+                SET(NEKTAR_SYCL_COMPILER "AdaptiveCpp")
                 INCLUDE(NektarAdaptiveCpp)
-            ELSE()
+            ELSEIF (NEKTAR_SYCL_IS_DPCPP)
+                SET(NEKTAR_SYCL_COMPILER "DPC++")
                 INCLUDE(NektarIntelSYCL)
+            ELSE()
+                MESSAGE(FATAL_ERROR
+                    "NEKTAR_ENABLE_DEVICE=${NEKTAR_ENABLE_DEVICE} needs a "
+                    "SYCL compiler, and ${CMAKE_CXX_COMPILER} "
+                    "(${CMAKE_CXX_COMPILER_ID} "
+                    "${CMAKE_CXX_COMPILER_VERSION}) is not one. It defines "
+                    "none of __ADAPTIVECPP__, __ACPP__, __OPENSYCL__ or "
+                    "__HIPSYCL__, so it is not the AdaptiveCpp driver, and "
+                    "it does not report SYCL_LANGUAGE_VERSION under -fsycl, "
+                    "so it is neither icpx nor a SYCL-enabled clang. Set "
+                    "CMAKE_CXX_COMPILER to acpp or to a DPC++ compiler; see "
+                    "CMakeFiles/CMakeError.log for what each probe did.")
             ENDIF()
         ENDIF()
+
+        MESSAGE(STATUS "SYCL implementation: ${NEKTAR_SYCL_COMPILER} "
+            "(${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION})")
     ENDIF()
 
     # Default execution spaces.

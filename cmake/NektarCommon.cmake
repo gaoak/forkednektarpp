@@ -52,6 +52,12 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 SET(SOURCE_EXT cpp)
             ENDIF()
 
+            IF ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+                SET(ExecName "SerialAVX")
+            ELSE()
+                SET(ExecName "Device")
+            ENDIF()
+
             # Loop through each possible data type.
             FOREACH (TData IN LISTS DataTypes)
                 # Set up the name used for the .cpp declaration file.
@@ -71,6 +77,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 # Found a impl header.
                 IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
                     SET(IMPL_HEADER "#include \"${abs_dir}/${name}OpImpl.hpp\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} execution space: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+                # Found a ExecName header.
+                ELSEIF(EXISTS "${abs_dir}/${name}${ExecName}.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}${ExecName}.hpp\"")
                     MESSAGE("Adding operator with a ${ExecSpace} execution space: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
                 # No implementation, skip.
                 ELSE()
