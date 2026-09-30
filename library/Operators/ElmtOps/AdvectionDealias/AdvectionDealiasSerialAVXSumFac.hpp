@@ -89,30 +89,30 @@ public:
         {
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<simd_t>(
-                    this->m_exp->GetBasis(0)->GetBasisKey(),
+                    exp->GetBasis(0)->GetBasisKey(),
                     LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<simd_t>(
-                    this->m_exp->GetBasis(1)->GetBasisKey(),
+                    exp->GetBasis(1)->GetBasisKey(),
                     LibUtilities::eTwoOverOneMinusZero)));
         }
         else if (m_dimension == 3)
         {
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<simd_t>(
-                    this->m_exp->GetBasis(0)->GetBasisKey(),
+                    exp->GetBasis(0)->GetBasisKey(),
                     LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<simd_t>(
-                    this->m_exp->GetBasis(1)->GetBasisKey(),
+                    exp->GetBasis(1)->GetBasisKey(),
                     LibUtilities::eHalfMultOnePlusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<simd_t>(
-                    this->m_exp->GetBasis(1)->GetBasisKey(),
+                    exp->GetBasis(1)->GetBasisKey(),
                     LibUtilities::eTwoOverOneMinusZero)));
             m_f.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
                 LibUtilities::BasisDataKey<simd_t>(
-                    this->m_exp->GetBasis(2)->GetBasisKey(),
+                    exp->GetBasis(2)->GetBasisKey(),
                     LibUtilities::eTwoOverOneMinusZero)));
         }
 
@@ -121,36 +121,24 @@ public:
             LocalRegions::DerivFactorKey<TData>(block_idx,
                                                 m_implInterleaveWidth, false));
 
-        // Fine (over-integrated) point counts
+        // Fine (over-integrated) point counts.
+        m_nqFine = this->GetScaledNumPoints(m_nq, m_dealiasScale);
+
+        // Fetch interpolation and projection basis data.
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            unsigned int nqFine;
-            if (d == 0)
-            {
-                nqFine = static_cast<unsigned int>(m_dealiasScale * m_nq[0]);
-            }
-            else
-            {
-                nqFine =
-                    (m_nq[0] - m_nq[d] == 1)
-                        ? static_cast<unsigned int>(m_dealiasScale * m_nq[0]) -
-                              1
-                        : static_cast<unsigned int>(m_dealiasScale * m_nq[d]);
-            }
-            m_nqFine.push_back(nqFine);
-
             // Interpolation matrix: native -> fine.
             m_Binterp.push_back(
                 this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<TData>(
-                        this->m_exp->GetBasis(d)->GetBasisKey(),
-                        LibUtilities::eInterp, nqFine)));
+                        exp->GetBasis(d)->GetBasisKey(), LibUtilities::eInterp,
+                        m_nqFine[d])));
             // Galerkin projection matrix: fine -> native.
             m_Bproject.push_back(
                 this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<TData>(
-                        this->m_exp->GetBasis(d)->GetBasisKey(),
-                        LibUtilities::eGalerkinProject, nqFine)));
+                        exp->GetBasis(d)->GetBasisKey(),
+                        LibUtilities::eGalerkinProject, m_nqFine[d])));
         }
 
         // Reuse the same tensor-product workspace for interpolation and
@@ -184,9 +172,9 @@ public:
         // Main workspace. Only one component's derivative, gradient and
         // combined-result are held at a time - the fine-grid advection
         // velocity is shared across all components.
-        const unsigned int nqTotNative      = NqTot(m_nq);
+        const unsigned int nqTot            = NqTot(m_nq);
         const unsigned int nqTotFine        = NqTot(m_nqFine);
-        const unsigned int derivSize        = m_coordDim * nqTotNative;
+        const unsigned int derivSize        = m_coordDim * nqTot;
         const unsigned int advVelFineSize   = m_coordDim * nqTotFine;
         const unsigned int gradFineSize     = m_coordDim * nqTotFine;
         const unsigned int combinedFineSize = nqTotFine;
@@ -387,34 +375,29 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
         }
 
         // Shape size.
-        const unsigned int nqTotNative = sizeParam.nqTot();
-        const unsigned int nqTotFine   = NqTot(m_nqFine);
-
-        auto derivNative  = m_wsp.data();
-        auto advVelFine   = derivNative + m_coordDim * nqTotNative;
-        auto gradFine     = advVelFine + m_coordDim * nqTotFine;
-        auto combinedFine = gradFine + m_coordDim * nqTotFine;
+        const unsigned int nqTot     = sizeParam.nqTot();
+        const unsigned int nqTotFine = NqTot(m_nqFine);
 
         unsigned int dfsize = m_coordDim * DIM;
         if constexpr (DEFORMED)
         {
-            dfsize *= nqTotNative;
+            dfsize *= nqTot;
         }
 
         // Initialize pointers.
-        auto inptr     = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr    = (this->m_append)
-                             ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                             : outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto advVelPtr = this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
-        auto dfptr     = m_dfptr;
+        auto inbase     = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outbase    = (this->m_append)
+                              ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                              : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto advVelBase = this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -426,105 +409,133 @@ protected:
         const auto chunkSize =
             std::max(m_implInterleaveWidth, inInterleaveWidth);
 
-        // Loop over element groups.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        // Get workspace pointers.
+        auto derivNative  = m_wsp.data();
+        auto advVelFine   = derivNative + m_coordDim * nqTot;
+        auto gradFine     = advVelFine + m_coordDim * nqTotFine;
+        auto combinedFine = gradFine + m_coordDim * nqTotFine;
+
+        // Offsets between the components of a block.
+        const auto nhomo       = inblock.GetNumHomoModes();
+        const auto nComp       = inblock.GetNumComponents();
         const auto inCompSize  = inblock.CompSize();
         const auto outCompSize = outblock.CompSize();
+        // The velocity is shared by the variables but not by the planes, so
+        // one component of it spans them all and one plane of it steps
+        // within that.
+        const auto advVelPlaneSize = this->m_advVel->CompSize();
         const auto advVelCompSize =
-            this->m_advVel->CompSize() * this->m_advVel->GetNumHomoModes();
+            advVelPlaneSize * this->m_advVel->GetNumHomoModes();
 
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
-             ++e)
+        // Loop over the planes.
+        for (unsigned int p = 0; p < nhomo; ++p)
         {
-            // Interpolate the advection velocity to the fine grid once - it
-            // is shared by every advected component below.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
-            {
-                const simd_t *src = reinterpret_cast<const simd_t *>(
-                    (TData *)advVelPtr + d * advVelCompSize);
-                simd_t *dst = advVelFine + d * nqTotFine;
-                InterpKernel<DIM, false>(src, dst);
-            }
+            // Every plane walks the same elements, so the element pointers
+            // restart here.
+            auto inptr     = inbase;
+            auto outptr    = outbase;
+            auto advVelPtr = advVelBase;
+            auto dfptr     = m_dfptr;
 
-            // Loop over components.
-            for (unsigned int c = 0; c < ncomp; ++c)
+            // Loop over element groups.
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
-                TData *inCompPtr  = (TData *)inptr + c * inCompSize;
-                TData *outCompPtr = (TData *)outptr + c * outCompSize;
-
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                // Every variable on this plane advects with this plane's
+                // velocity, so it is interpolated to the fine grid once here
+                // rather than once per variable.
+                for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
-                        nqTotNative, inCompPtr);
-                    if (this->m_append)
+                    InterpKernel<DIM, false>(
+                        reinterpret_cast<const simd_t *>((TData *)advVelPtr +
+                                                         d * advVelCompSize +
+                                                         p * advVelPlaneSize),
+                        advVelFine + d * nqTotFine);
+                }
+
+                // Loop over components.
+                for (unsigned int c = 0; c < nComp; ++c)
+                {
+                    // The planes of a variable are consecutive.
+                    TData *inCompPtr =
+                        (TData *)inptr + (c * nhomo + p) * inCompSize;
+                    TData *outCompPtr =
+                        (TData *)outptr + (c * nhomo + p) * outCompSize;
+
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
                         LibUtilities::ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, outInterleaveWidth,
-                            chunkSize, nqTotNative, outCompPtr);
+                            m_implInterleaveWidth, inInterleaveWidth, chunkSize,
+                            nqTot, inCompPtr);
+                        if (this->m_append)
+                        {
+                            LibUtilities::ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, nqTot, outCompPtr);
+                        }
+                    }
+
+                    simd_t *derivOut[3] = {nullptr, nullptr, nullptr};
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        derivOut[d] = derivNative + d * nqTot;
+                    }
+
+                    // PhysDeriv kernel.
+                    PhysDerivKernelLauncher<SHAPE_TYPE, DEFORMED>(
+                        sizeParam, m_D[ind0]..., m_f[ind1]...,
+                        reinterpret_cast<const simd_t *>(dfptr),
+                        reinterpret_cast<const simd_t *>(inCompPtr), derivOut);
+
+                    // Interpolate the physical gradient to the fine grid.
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        InterpKernel<DIM, false>(derivNative + d * nqTot,
+                                                 gradFine + d * nqTotFine);
+                    }
+
+                    // Form scale * advVel . grad(u) on the fine grid.
+                    AdvectionDealiasCombineKernel(
+                        nqTotFine, m_coordDim, advVelFine, nqTotFine, gradFine,
+                        nqTotFine, combinedFine, this->m_scale);
+
+                    // Project directly into this component's output.
+                    if (this->m_append)
+                    {
+                        ProjectKernel<DIM, true>(
+                            combinedFine,
+                            reinterpret_cast<simd_t *>(outCompPtr));
+                    }
+                    else
+                    {
+                        ProjectKernel<DIM, false>(
+                            combinedFine,
+                            reinterpret_cast<simd_t *>(outCompPtr));
+                    }
+
+                    // Reshape back, if necessary.
+                    if (e % width_ratio == width_ratio - 1)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            inCompPtr -
+                                (width_ratio - 1) * nqTot * simd_t::width);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                            nqTot,
+                            outCompPtr -
+                                (width_ratio - 1) * nqTot * simd_t::width);
                     }
                 }
 
-                auto inCompSimd = reinterpret_cast<const simd_t *>(inCompPtr);
-                simd_t *derivOut[3] = {nullptr, nullptr, nullptr};
-                for (unsigned int d = 0; d < m_coordDim; ++d)
-                {
-                    derivOut[d] = derivNative + d * nqTotNative;
-                }
-
-                // PhysDeriv kernel.
-                PhysDerivKernelLauncher<SHAPE_TYPE, DEFORMED>(
-                    sizeParam, m_D[ind0]..., m_f[ind1]...,
-                    reinterpret_cast<const simd_t *>(dfptr), inCompSimd,
-                    derivOut);
-
-                // Interpolate the physical gradient to the fine grid.
-                for (unsigned int d = 0; d < m_coordDim; ++d)
-                {
-                    const simd_t *src = derivNative + d * nqTotNative;
-                    simd_t *dst       = gradFine + d * nqTotFine;
-                    InterpKernel<DIM, false>(src, dst);
-                }
-
-                // Form scale * advVel . grad(u) on the fine grid.
-                AdvectionDealiasCombineKernel(nqTotFine, m_coordDim, advVelFine,
-                                              nqTotFine, gradFine, nqTotFine,
-                                              combinedFine, this->m_scale);
-
-                // Project directly into this component's output.
-                simd_t *outCompSimd = reinterpret_cast<simd_t *>(outCompPtr);
-                if (this->m_append)
-                {
-                    ProjectKernel<DIM, true>(combinedFine, outCompSimd);
-                }
-                else
-                {
-                    ProjectKernel<DIM, false>(combinedFine, outCompSimd);
-                }
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTotNative,
-                        inCompPtr -
-                            (width_ratio - 1) * nqTotNative * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        nqTotNative,
-                        outCompPtr -
-                            (width_ratio - 1) * nqTotNative * simd_t::width);
-                }
+                // Increment pointers for the next elmt group.
+                dfptr += dfsize * simd_t::width;
+                inptr += nqTot * simd_t::width;
+                advVelPtr += nqTot * simd_t::width;
+                outptr += nqTot * simd_t::width;
             }
-
-            // Increment pointers for the next elmt group.
-            dfptr += dfsize * simd_t::width;
-            inptr += nqTotNative * simd_t::width;
-            advVelPtr += nqTotNative * simd_t::width;
-            outptr += nqTotNative * simd_t::width;
         }
 
         // Set output block to input interleave.

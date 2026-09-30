@@ -34,12 +34,14 @@
 
 #pragma once
 
+#include <Operators/ElmtOps/ElmtHelper.hpp>
+
 namespace Nektar::Operators::detail
 {
 
 template <typename simd_type>
-NEK_FORCE_INLINE void AdvectionDealiasCombineKernel(
-    const unsigned int nqTot, const unsigned int coordDim,
+NEK_FORCE_INLINE static void AdvectionDealiasCombineKernel(
+    const unsigned int nqTot, const unsigned int ncoord,
     const simd_type *advVelPtr, const unsigned int advVelOffset,
     const simd_type *gradPtr, const unsigned int gradOffset, simd_type *out,
     const typename simd_type::scalarType scale)
@@ -47,7 +49,7 @@ NEK_FORCE_INLINE void AdvectionDealiasCombineKernel(
     for (unsigned int j = 0; j < nqTot; ++j)
     {
         simd_type tmp = advVelPtr[j] * gradPtr[j];
-        for (unsigned int d = 1; d < coordDim; ++d)
+        for (unsigned int d = 1; d < ncoord; ++d)
         {
             tmp.fma(advVelPtr[d * advVelOffset + j],
                     gradPtr[d * gradOffset + j]);

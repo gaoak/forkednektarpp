@@ -72,9 +72,10 @@ public:
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
             m_dimension, LibUtilities::NullBasisKey);
+        std::vector<unsigned int> nq;
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            m_nq.push_back(exp->GetNumPoints(d));
+            nq.push_back(exp->GetNumPoints(d));
             basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
         }
 
@@ -92,38 +93,22 @@ public:
             LocalRegions::DerivFactorKey<TData>(block_idx,
                                                 m_implInterleaveWidth, false));
 
-        // Fine (3/2 over-integrated) point counts
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            unsigned int nqFine;
-            if (d == 0)
-            {
-                nqFine = static_cast<unsigned int>(m_dealiasScale * m_nq[0]);
-            }
-            else
-            {
-                nqFine =
-                    (m_nq[0] - m_nq[d] == 1)
-                        ? static_cast<unsigned int>(m_dealiasScale * m_nq[0]) -
-                              1
-                        : static_cast<unsigned int>(m_dealiasScale * m_nq[d]);
-            }
-            m_nqFine.push_back(nqFine);
-        }
-        m_nqFineTot = NqTot(m_nqFine);
+        // Fine (over-integrated) point counts.
+        const auto nqFine = this->GetScaledNumPoints(nq, m_dealiasScale);
+        m_nqFineTot       = NqTot(nqFine);
 
         // Fetch interpolation matrix, native -> fine quadrature.
         m_interpMatPtr = dataWarehouse->template GetData<MemSpace>(
             StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
                                          StdRegions::ePhysInterpStdMatTranspose,
-                                         nodalType, m_nqFine));
+                                         nodalType, nqFine));
 
         // Fetch Galerkin projection matrix, fine -> native quadrature.
         m_projectMatPtr = dataWarehouse->template GetData<MemSpace>(
             StdRegions::StdMatKey<TData>(
                 basisKeys, m_shapeType,
                 StdRegions::eGalerkinProjectStdMatTranspose, nodalType,
-                m_nqFine));
+                nqFine));
     }
 
     // className - for BlockOperatorFactory
@@ -151,12 +136,11 @@ protected:
     unsigned int m_coordDim;
     unsigned int m_nqTot;
     unsigned int m_nqFineTot;
-    std::vector<unsigned int> m_nq;
-    std::vector<unsigned int> m_nqFine;
     const TData *m_derivMatPtr;
     const TData *m_interpMatPtr;
     const TData *m_projectMatPtr;
     const TData *m_dfptr;
+
     static unsigned int NqTot(const std::vector<unsigned int> &nq)
     {
         unsigned int total = 1;
@@ -179,19 +163,19 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
         }
 
         // Initialize pointers.
-        auto inptr     = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr    = (this->m_append)
-                             ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                             : outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto advVelPtr = this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
-        auto dfptr     = m_dfptr;
+        auto inbase     = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outbase    = (this->m_append)
+                              ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                              : outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto advVelBase = this->m_advVel->template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
@@ -228,117 +212,138 @@ protected:
             simd_t::width, m_nqTot, m_nqFineTot, 1.0,
             this->m_append ? 1.0 : 0.0);
 
-        // Loop over element groups.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
+        // Offsets between the components of a block.
+        const auto nhomo       = inblock.GetNumHomoModes();
+        const auto nComp       = inblock.GetNumComponents();
         const auto inCompSize  = inblock.CompSize();
         const auto outCompSize = outblock.CompSize();
+        // The velocity is shared by the variables but not by the planes, so
+        // one component of it spans them all and one plane of it steps
+        // within that.
+        const auto advVelPlaneSize = this->m_advVel->CompSize();
         const auto advVelCompSize =
-            this->m_advVel->CompSize() * this->m_advVel->GetNumHomoModes();
+            advVelPlaneSize * this->m_advVel->GetNumHomoModes();
         const unsigned int dfsize = m_isDeformed
                                         ? m_coordDim * m_dimension * m_nqTot
                                         : m_coordDim * m_dimension;
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
-             ++e)
+
+        // Loop over the planes.
+        for (unsigned int p = 0; p < nhomo; ++p)
         {
-            // Interpolate the advection velocity to the fine grid once - it
-            // is shared by every advected component below.
-            for (unsigned int d = 0; d < m_coordDim; ++d)
-            {
-                TData *dst = reinterpret_cast<TData *>(advVelFine) +
-                             d * m_nqFineTot * simd_t::width;
-                gemm_interp((TData *)advVelPtr + d * advVelCompSize,
-                            m_interpMatPtr, dst);
-            }
+            // Every plane walks the same elements, so the element pointers
+            // restart here.
+            auto inptr     = inbase;
+            auto outptr    = outbase;
+            auto advVelPtr = advVelBase;
+            auto dfptr     = m_dfptr;
 
-            // Loop over components. Each reshapes its own chunk in and
-            // back around its own work - components touch only their own
-            // slice of the input and output.
-            for (unsigned int c = 0; c < ncomp; ++c)
+            // Loop over element groups.
+            for (size_t e = 0;
+                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
             {
-                TData *inCompPtr  = (TData *)inptr + c * inCompSize;
-                TData *outCompPtr = (TData *)outptr + c * outCompSize;
-
-                // Reshape this component's chunk, if necessary.
-                if (e % width_ratio == 0)
+                // Every variable on this plane advects with this plane's
+                // velocity, so it is interpolated to the fine grid once here
+                // rather than once per variable.
+                for (unsigned int d = 0; d < m_coordDim; ++d)
                 {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
-                        m_nqTot, inCompPtr);
-                    if (this->m_append)
+                    gemm_interp((TData *)advVelPtr + d * advVelCompSize +
+                                    p * advVelPlaneSize,
+                                m_interpMatPtr,
+                                reinterpret_cast<TData *>(advVelFine) +
+                                    d * m_nqFineTot * simd_t::width);
+                }
+
+                // Loop over components. Each reshapes only its own slice
+                // of the input and output.
+                for (unsigned int c = 0; c < nComp; ++c)
+                {
+                    // The planes of a variable are consecutive.
+                    TData *inCompPtr =
+                        (TData *)inptr + (c * nhomo + p) * inCompSize;
+                    TData *outCompPtr =
+                        (TData *)outptr + (c * nhomo + p) * outCompSize;
+
+                    // Reshape this component's chunk, if necessary.
+                    if (e % width_ratio == 0)
                     {
                         LibUtilities::ReshapeStorage<ExecSpace>(
-                            m_implInterleaveWidth, outInterleaveWidth,
-                            chunkSize, m_nqTot, outCompPtr);
+                            m_implInterleaveWidth, inInterleaveWidth, chunkSize,
+                            m_nqTot, inCompPtr);
+                        if (this->m_append)
+                        {
+                            LibUtilities::ReshapeStorage<ExecSpace>(
+                                m_implInterleaveWidth, outInterleaveWidth,
+                                chunkSize, m_nqTot, outCompPtr);
+                        }
+                    }
+
+                    TData *derivOutData =
+                        reinterpret_cast<TData *>(derivNative);
+
+                    // Native-grid reference derivatives of this component.
+                    for (unsigned int d = 0; d < m_dimension; ++d)
+                    {
+                        gemm_deriv(inCompPtr,
+                                   m_derivMatPtr + d * m_nqTot * m_nqTot,
+                                   derivOutData + d * m_nqTot * simd_t::width);
+                    }
+
+                    // Apply derivative factors to get the physical gradient.
+                    if (m_isDeformed)
+                    {
+                        MultiplyByDerivFactorKernel<ExecSpace, true>(
+                            m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                            m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                            derivNative, derivNative);
+                    }
+                    else
+                    {
+                        MultiplyByDerivFactorKernel<ExecSpace, false>(
+                            m_nqTot, m_coordDim, m_dimension, 1, m_nqTot,
+                            m_nqTot, reinterpret_cast<const simd_t *>(dfptr),
+                            derivNative, derivNative);
+                    }
+
+                    // Interpolate the physical gradient to the fine grid.
+                    for (unsigned int d = 0; d < m_coordDim; ++d)
+                    {
+                        gemm_interp(derivOutData + d * m_nqTot * simd_t::width,
+                                    m_interpMatPtr,
+                                    reinterpret_cast<TData *>(gradFine) +
+                                        d * m_nqFineTot * simd_t::width);
+                    }
+
+                    // Form scale * advVel . grad(u) on the fine grid.
+                    AdvectionDealiasCombineKernel(
+                        m_nqFineTot, m_coordDim, advVelFine, m_nqFineTot,
+                        gradFine, m_nqFineTot, combinedFine, this->m_scale);
+
+                    // Project directly into this component's output.
+                    gemm_project(reinterpret_cast<TData *>(combinedFine),
+                                 m_projectMatPtr, outCompPtr);
+
+                    // Reshape back, if necessary.
+                    if (e % width_ratio == width_ratio - 1)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nqTot,
+                            inCompPtr -
+                                (width_ratio - 1) * m_nqTot * simd_t::width);
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            inInterleaveWidth, m_implInterleaveWidth, chunkSize,
+                            m_nqTot,
+                            outCompPtr -
+                                (width_ratio - 1) * m_nqTot * simd_t::width);
                     }
                 }
 
-                TData *derivOutData = reinterpret_cast<TData *>(derivNative);
-
-                // Native-grid reference derivatives of this component.
-                for (unsigned int d = 0; d < m_dimension; ++d)
-                {
-                    gemm_deriv(inCompPtr, m_derivMatPtr + d * m_nqTot * m_nqTot,
-                               derivOutData + d * m_nqTot * simd_t::width);
-                }
-
-                // Apply derivative factors to get the physical gradient.
-                if (m_isDeformed)
-                {
-                    MultiplyByDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, 1, m_nqTot, m_nqTot,
-                        reinterpret_cast<const simd_t *>(dfptr), derivNative,
-                        derivNative);
-                }
-                else
-                {
-                    MultiplyByDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, 1, m_nqTot, m_nqTot,
-                        reinterpret_cast<const simd_t *>(dfptr), derivNative,
-                        derivNative);
-                }
-
-                // Interpolate the physical gradient to the fine grid.
-                for (unsigned int d = 0; d < m_coordDim; ++d)
-                {
-                    const TData *src =
-                        derivOutData + d * m_nqTot * simd_t::width;
-                    TData *dst = reinterpret_cast<TData *>(gradFine) +
-                                 d * m_nqFineTot * simd_t::width;
-                    gemm_interp(src, m_interpMatPtr, dst);
-                }
-
-                // Form scale * advVel . grad(u) on the fine grid.
-                AdvectionDealiasCombineKernel(
-                    m_nqFineTot, m_coordDim, advVelFine, m_nqFineTot, gradFine,
-                    m_nqFineTot, combinedFine, this->m_scale);
-
-                // Project directly into this component's output.
-                const TData *combinedPtr =
-                    reinterpret_cast<TData *>(combinedFine);
-                gemm_project(combinedPtr, m_projectMatPtr, outCompPtr);
-
-                // Reshape back, if necessary.
-                if (e % width_ratio == width_ratio - 1)
-                {
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nqTot,
-                        inCompPtr -
-                            (width_ratio - 1) * m_nqTot * simd_t::width);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
-                        m_nqTot,
-                        outCompPtr -
-                            (width_ratio - 1) * m_nqTot * simd_t::width);
-                }
+                // Increment pointers.
+                inptr += m_nqTot * simd_t::width;
+                outptr += m_nqTot * simd_t::width;
+                advVelPtr += m_nqTot * simd_t::width;
+                dfptr += dfsize * simd_t::width;
             }
-
-            // Increment pointers.
-            inptr += m_nqTot * simd_t::width;
-            outptr += m_nqTot * simd_t::width;
-            advVelPtr += m_nqTot * simd_t::width;
-            dfptr += dfsize * simd_t::width;
         }
 
         // Set output block to input interleave.

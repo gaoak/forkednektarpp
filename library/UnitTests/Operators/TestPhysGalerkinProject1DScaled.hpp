@@ -69,31 +69,9 @@ public:
         // Native-sized blocks are the *output* of this operator.
         auto outblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
-        std::vector<BlockAttributes<FieldState::Phys>> inblockAttr;
-
-        size_t eid = 0;
-        for (unsigned int blk = 0; blk < outblockAttr.size(); ++blk)
-        {
-            auto expPtr = this->fixt_explist->GetExp(eid);
-
-            unsigned int npts0 = expPtr->GetNumPoints(0);
-            unsigned int ndata = 1;
-            for (unsigned int d = 0; d < expPtr->GetNumBases(); ++d)
-            {
-                unsigned int npts = expPtr->GetNumPoints(d);
-                ndata *= (npts0 - npts == 1) ? (int)(npts0 * this->scale - 1)
-                                             : (int)(npts * this->scale);
-            }
-
-            BlockAttributes<FieldState::Phys> new_block(
-                outblockAttr[blk].GetNumElements(),
-                outblockAttr[blk].GetNumElementsWithPadding(), ndata,
-                outblockAttr[blk].GetInterleaveWidth());
-
-            inblockAttr.push_back(new_block);
-
-            eid += outblockAttr[blk].GetNumElements();
-        }
+        // The over-integrated blocks are its input.
+        auto inblockAttr = GetScaledBlockAttributes<TData, FieldState::Phys>(
+            this->fixt_explist, this->scale);
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);

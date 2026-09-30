@@ -215,3 +215,44 @@ TEST(Seg_3C_Evars, "run/segment_multicomponent_evars.xml")
 TEST(QuadTri_2C_Evars, "run/quadtri_multicomponent_evars.xml")
 
 TEST(Hex_3C_Evars, "run/hex_multicomponent_evars.xml")
+
+template <typename TData> class TestExpressionFFT : public TestExpression<TData>
+{
+public:
+    TestExpressionFFT() = default;
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFTFLOAT(type, filename)                                          \
+    class type##float : public TestExpressionFFT<float>                              \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFTDOUBLE(type, filename)                                         \
+    class type : public TestExpressionFFT<double>                                    \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFTDOUBLE(type, filename)
+#endif
+#define TEST_FFT(type, filename)                                               \
+    TEST_FFTFLOAT(type, filename)                                              \
+    TEST_FFTDOUBLE(type, filename)
+// clang-format on
+
+TEST_FFT(Helmholtz2DFFT, "run/Helmholtz2D_P7_AllBCs.xml")
+TEST_FFT(QuadTri2CEvarsFFT, "run/quadtri_multicomponent_evars.xml")

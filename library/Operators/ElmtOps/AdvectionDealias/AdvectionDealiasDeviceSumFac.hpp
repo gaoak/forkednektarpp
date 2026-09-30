@@ -122,34 +122,22 @@ public:
             LocalRegions::DerivFactorKey<TData>(
                 block_idx, m_implInterleaveWidth, transpose));
 
+        // Fine (over-integrated) point counts.
+        m_nqFine = this->GetScaledNumPoints(m_nq, m_dealiasScale);
+
         // Fetch interpolation basis data.
         for (unsigned int d = 0; d < m_dimension; d++)
         {
-            unsigned int nqFine;
-            if (d == 0)
-            {
-                nqFine = static_cast<unsigned int>(m_dealiasScale * m_nq[0]);
-            }
-            else
-            {
-                nqFine =
-                    (m_nq[0] - m_nq[d] == 1)
-                        ? static_cast<unsigned int>(m_dealiasScale * m_nq[0]) -
-                              1
-                        : static_cast<unsigned int>(m_dealiasScale * m_nq[d]);
-            }
-            m_nqFine.push_back(nqFine);
-
             m_Binterp.push_back(
                 this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<TData>(
                         exp->GetBasis(d)->GetBasisKey(), LibUtilities::eInterp,
-                        nqFine)));
+                        m_nqFine[d])));
             m_Bproject.push_back(
                 this->m_dataWarehouse->template GetData<MemSpace>(
                     LibUtilities::BasisDataKey<TData>(
                         exp->GetBasis(d)->GetBasisKey(),
-                        LibUtilities::eGalerkinProject, nqFine)));
+                        LibUtilities::eGalerkinProject, m_nqFine[d])));
         }
     }
 
@@ -332,14 +320,14 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, this->m_advVel->GetInterleaveWidth(),
                 this->m_advVel->GetNumElementsWithPadding() *
-                    this->m_exp->GetCoordim(),
+                    this->m_advVel->GetNumComponents() *
+                    this->m_advVel->GetNumHomoModes(),
                 this->m_advVel->GetNumData(), advVelPtr, m_streamID);
             this->m_advVel->template SetInterleaveWidth<TData>(
                 m_implInterleaveWidth);
         }
 
-        // Shape size. The fine grid is the one the kernels are sized on;
-        // the native one now comes from the blocks themselves.
+        // Shape size.
         const auto nqTotFine = NqTot(m_nqFine);
 
         const auto nelmt = inblock.GetNumElementsWithPadding();
@@ -356,23 +344,13 @@ protected:
         // Initialize advVel pointers.
         auto advVelPtr =
             this->m_advVel->template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        const auto advVelCompStride =
-            this->m_advVel->CompSize() * this->m_advVel->GetNumHomoModes();
+        const auto advVelPlaneStride = this->m_advVel->CompSize();
 
-        // Get static workspace pointer. AdvectionDealiasWorkSpaceSize lays
-        // out the per-element regions and the kernels address them in the
-        // same order; AdvectionDealiasSharedMemorySize returns what of it
-        // SumFacTOP keeps in block-local memory, or the collapsed-coordinate
-        // broadcast tables SumFac keeps there instead.
-        const unsigned int ncomp =
-            inblock.GetNumComponents() * inblock.GetNumHomoModes();
-        // SumFacTOP takes what it can of the per-element workspace into
-        // block-local memory: the fused pipeline first, then the
-        // tensor-contraction intermediates alone. The fused gate is half the
-        // per-block capacity because GetDeviceGridSize divides the
-        // per-multiprocessor capacity by the request to size the grid.
-        // Only ask where there is something to weigh - SumFac keeps none of
-        // the workspace there, and Seg has no intermediates to promote.
+        // Choose the shared-memory tier. SumFacTOP moves what fits of the
+        // per-element workspace into block-local memory: the fused pipeline,
+        // else the tensor-contraction scratch alone. The fused gate is half
+        // the per-block capacity because GetDeviceGridSize divides the
+        // per-multiprocessor capacity by the request.
         bool localPipeline = false;
         bool sharedScratch = false;
         if constexpr (std::is_same_v<Implementation, Operators::SumFacTOP>)
@@ -395,27 +373,30 @@ protected:
             }
         }
 
+        // Get static workspace pointer. Each plane has its own slab, less
+        // the part block-local memory holds.
+        const unsigned int nvar  = inblock.GetNumComponents();
+        const unsigned int nhomo = inblock.GetNumHomoModes();
+        const unsigned int ncomp = nvar * nhomo;
         const size_t wspSize =
             AdvectionDealiasWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                nelmt, m_coordDim, ncomp, sizeParam, localPipeline);
-        // What block-local memory holds comes out of the static allocation.
-        // What SumFac keeps there instead is no part of the workspace.
-        const unsigned int sharedWspSize =
-            AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
-                sizeParam, localPipeline, sharedScratch);
-        const unsigned int sharedSize =
-            AdvectionDealiasSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam, localPipeline, sharedScratch);
-        auto elmtWsp =
+                nelmt, m_coordDim, nvar, sizeParam, localPipeline) -
+            nelmt *
+                AdvectionDealiasSharedWorkSpaceSize<SHAPE_TYPE, Implementation>(
+                    sizeParam, localPipeline, sharedScratch);
+        auto wspptr =
             BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
-                wspSize - sharedWspSize * nelmt, m_streamID);
+                wspSize * nhomo, m_streamID);
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
-        const unsigned int shmemsize = sizeof(TData) * sharedSize;
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            AdvectionDealiasSharedMemorySize<SHAPE_TYPE, Implementation>(
+                sizeParam, localPipeline, sharedScratch);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(nqTotFine);
         const unsigned int gridsize =
@@ -436,27 +417,37 @@ protected:
 
             if (localPipeline)
             {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    true, DEFORMED, true,
-                                                    true>),
-                    gridsize, 1, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                    nelmt, ncomp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                    m_Binterp[ind0]..., m_Bproject[ind0]..., this->m_scale,
-                    inptr, inCompStride, advVelPtr, advVelCompStride, outptr,
-                    outCompStride, elmtWsp);
+                if constexpr (std::is_same_v<Implementation,
+                                             Operators::SumFacTOP>)
+                {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
+                                                        Implementation, true,
+                                                        DEFORMED, true, true>),
+                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
+                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
+                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
+                        wspptr);
+                }
             }
             else if (sharedScratch)
             {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    true, DEFORMED, false,
-                                                    true>),
-                    gridsize, 1, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                    nelmt, ncomp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                    m_Binterp[ind0]..., m_Bproject[ind0]..., this->m_scale,
-                    inptr, inCompStride, advVelPtr, advVelCompStride, outptr,
-                    outCompStride, elmtWsp);
+                if constexpr (std::is_same_v<Implementation,
+                                             Operators::SumFacTOP>)
+                {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
+                                                        Implementation, true,
+                                                        DEFORMED, false, true>),
+                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
+                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
+                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
+                        wspptr);
+                }
             }
             else
             {
@@ -464,38 +455,48 @@ protected:
                     (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
                                                     true, DEFORMED, false,
                                                     false>),
-                    gridsize, 1, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                    nelmt, ncomp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                    m_Binterp[ind0]..., m_Bproject[ind0]..., this->m_scale,
-                    inptr, inCompStride, advVelPtr, advVelCompStride, outptr,
-                    outCompStride, elmtWsp);
+                    gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
+                    sizeParam, nelmt, nvar, nhomo, m_D[ind0]..., m_f[ind1]...,
+                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
+                    this->m_scale, inptr, inCompStride, advVelPtr,
+                    advVelPlaneStride, outptr, outCompStride, wspptr);
             }
         }
         else
         {
             if (localPipeline)
             {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    false, DEFORMED, true,
-                                                    true>),
-                    gridsize, 1, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                    nelmt, ncomp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                    m_Binterp[ind0]..., m_Bproject[ind0]..., this->m_scale,
-                    inptr, inCompStride, advVelPtr, advVelCompStride, outptr,
-                    outCompStride, elmtWsp);
+                if constexpr (std::is_same_v<Implementation,
+                                             Operators::SumFacTOP>)
+                {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
+                                                        Implementation, false,
+                                                        DEFORMED, true, true>),
+                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
+                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
+                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
+                        wspptr);
+                }
             }
             else if (sharedScratch)
             {
-                DEVICE_2DGRID_KERNEL_LAUNCHER(
-                    (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
-                                                    false, DEFORMED, false,
-                                                    true>),
-                    gridsize, 1, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                    nelmt, ncomp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                    m_Binterp[ind0]..., m_Bproject[ind0]..., this->m_scale,
-                    inptr, inCompStride, advVelPtr, advVelCompStride, outptr,
-                    outCompStride, elmtWsp);
+                if constexpr (std::is_same_v<Implementation,
+                                             Operators::SumFacTOP>)
+                {
+                    DEVICE_2DGRID_KERNEL_LAUNCHER(
+                        (AdvectionDealiasKernelLauncher<SHAPE_TYPE,
+                                                        Implementation, false,
+                                                        DEFORMED, false, true>),
+                        gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
+                        sizeParam, nelmt, nvar, nhomo, m_D[ind0]...,
+                        m_f[ind1]..., m_dfptr, m_Binterp[ind0]...,
+                        m_Bproject[ind0]..., this->m_scale, inptr, inCompStride,
+                        advVelPtr, advVelPlaneStride, outptr, outCompStride,
+                        wspptr);
+                }
             }
             else
             {
@@ -503,11 +504,11 @@ protected:
                     (AdvectionDealiasKernelLauncher<SHAPE_TYPE, Implementation,
                                                     false, DEFORMED, false,
                                                     false>),
-                    gridsize, 1, blocksize, 1, shmemsize, m_streamID, sizeParam,
-                    nelmt, ncomp, m_D[ind0]..., m_f[ind1]..., m_dfptr,
-                    m_Binterp[ind0]..., m_Bproject[ind0]..., this->m_scale,
-                    inptr, inCompStride, advVelPtr, advVelCompStride, outptr,
-                    outCompStride, elmtWsp);
+                    gridsize, nhomo, blocksize, 1, shmemsize, m_streamID,
+                    sizeParam, nelmt, nvar, nhomo, m_D[ind0]..., m_f[ind1]...,
+                    m_dfptr, m_Binterp[ind0]..., m_Bproject[ind0]...,
+                    this->m_scale, inptr, inCompStride, advVelPtr,
+                    advVelPlaneStride, outptr, outCompStride, wspptr);
             }
         }
 

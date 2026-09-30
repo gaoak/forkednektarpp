@@ -122,6 +122,16 @@ template <typename TPadding, FieldState TState>
 MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
 GetLocTraceBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
                            const unsigned interleave_width = 1);
+
+/// As GetBlockAttributes(), but sized for the @p scale over-integrated grid
+/// the 1D interpolation and Galerkin projection matrices are built for:
+/// direction 0 scales outright, and a direction carrying one point fewer
+/// than direction 0 keeps that offset.
+template <typename TPadding, FieldState TState>
+MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
+GetScaledBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
+                         const NekDouble scale,
+                         const unsigned interleave_width = 1);
 #endif
 
 /// Base class for all multi-elemental spectral/hp expansions.

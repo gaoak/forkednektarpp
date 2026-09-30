@@ -154,12 +154,13 @@ protected:
             auto dmatptr = this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>(
                 m_streamID);
 
-            // Perform batched matrix-matrix multiply, one multiply per element,
-            // with the components held in the columns.
+            // Perform batched matrix-matrix multiply, one multiply per
+            // element, with the variables and the homogeneous modes held in
+            // the columns.
             NekBlas::GemmStridedBatched(
                 handle, "N", "N", m_nmTot, ncomp, m_nmTot, (TData)1.0, dmatptr,
-                m_nmTot, m_nmTot * m_nmTot, inptr, inoffset, m_nmTot,
-                (TData)0.0, outptr, outoffset, m_nmTot, nelmtTot);
+                m_nmTot, m_nmTot * m_nmTot, inptr, inblock.CompSize(), m_nmTot,
+                (TData)0.0, outptr, outblock.CompSize(), m_nmTot, nelmt);
         }
         else
         {

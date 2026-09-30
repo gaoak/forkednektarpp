@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "Operators/ElmtOps/ElmtBlockOp.hpp"
 
 namespace Nektar::Operators
@@ -87,6 +89,31 @@ protected:
     }
 
     ~AdvectionDealiasBlockOp() override = default;
+
+    /// \brief The per-direction point counts of the @p scale over-integrated
+    /// grid this operator's interpolation and projection matrices are built
+    /// for.
+    ///
+    /// Direction 0 scales outright, and a direction carrying one point fewer
+    /// than direction 0 keeps that offset, which is what lets the switch
+    /// templating see the same relationship on the over-integrated grid as on
+    /// the native one.
+    static std::vector<unsigned int> GetScaledNumPoints(
+        const std::vector<unsigned int> &nq, const NekDouble scale)
+    {
+        std::vector<unsigned int> nqScaled;
+        nqScaled.reserve(nq.size());
+
+        for (size_t d = 0; d < nq.size(); ++d)
+        {
+            nqScaled.push_back((d != 0 && nq[0] - nq[d] == 1)
+                                   ? static_cast<unsigned int>(scale * nq[0]) -
+                                         1
+                                   : static_cast<unsigned int>(scale * nq[d]));
+        }
+
+        return nqScaled;
+    }
 };
 
 } // namespace Nektar::Operators

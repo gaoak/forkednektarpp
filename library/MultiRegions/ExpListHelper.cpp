@@ -206,4 +206,71 @@ template std::vector<BlockAttributes<FieldState::Phys>> GetLocTraceBlockAttribut
     float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
                              const unsigned interleave_width);
 
+/**
+ * @brief As GetBlockAttributes(), but on the @p scale over-integrated grid.
+ *
+ * The point counts are the ones the 1D interpolation and Galerkin projection
+ * matrices are built for: direction 0 scales outright, and a direction
+ * carrying one point fewer than direction 0 keeps that offset so the
+ * collapsed coordinate of a triangle or tetrahedron lines up.
+ *
+ * @param explist          Expansion list to size the blocks from.
+ * @param scale            Over-integration factor, 1.5 for the 3/2 rule.
+ * @param interleave_width Vector width to use for the field.
+ * @return std::vector<BlockAttributes>
+ */
+template <typename TPadding, FieldState TState>
+std::vector<BlockAttributes<TState>> GetScaledBlockAttributes(
+    const MultiRegions::ExpListSharedPtr explist, const NekDouble scale,
+    const unsigned interleave_width)
+{
+    // The TPadding type is use to dertermine the padding requirement and must
+    // be of floating point type.
+    static_assert(std::is_floating_point_v<TPadding>,
+                  "GetScaledBlockAttributes: Data type must be float or "
+                  "double.");
+
+    static_assert(TState == FieldState::Phys,
+                  "GetScaledBlockAttributes: only a quadrature grid is "
+                  "over-integrated.");
+
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TPadding>::value;
+
+    std::vector<BlockAttributes<TState>> blockAttr;
+
+    auto colls = GetCollections(explist);
+    for (auto &coll : colls)
+    {
+        auto expPtr               = coll.GetExpVector()[0];
+        const size_t num_elements = coll.GetExpVector().size();
+
+        const unsigned int npts0 = expPtr->GetNumPoints(0);
+        unsigned int ndata       = 1;
+        for (unsigned int d = 0; d < expPtr->GetNumBases(); ++d)
+        {
+            const unsigned int npts = expPtr->GetNumPoints(d);
+            ndata *= (d != 0 && npts0 - npts == 1)
+                         ? static_cast<unsigned int>(scale * npts0) - 1
+                         : static_cast<unsigned int>(scale * npts);
+        }
+
+        size_t num_elements_with_padding =
+            ((num_elements + vector_width - 1) / vector_width) * vector_width;
+        blockAttr.push_back(
+            {num_elements, num_elements_with_padding, ndata, interleave_width});
+    }
+
+    return blockAttr;
+}
+
+template std::vector<BlockAttributes<FieldState::Phys>> GetScaledBlockAttributes<
+    double, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                              const NekDouble scale,
+                              const unsigned interleave_width);
+template std::vector<BlockAttributes<FieldState::Phys>> GetScaledBlockAttributes<
+    float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
+                             const NekDouble scale,
+                             const unsigned interleave_width);
+
 } // namespace Nektar::MultiRegions
