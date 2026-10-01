@@ -183,18 +183,42 @@ public:
                 NektarSpaces::GetVectorWidth<TData>(execStr));
         }
 
-        auto op     = HelmSolveOp<TData>::Create(this->m_expList,
+        m_op        = HelmSolveOp<TData>::Create(this->m_expList,
                                                  this->m_session->GetVariables());
         auto precon = PreconOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables(), "Diagonal");
-        auto linsolve = LinearSolverOp<TData>::Create(
+        m_linsolve = LinearSolverOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables(), method);
-        op->SetLambda(m_lambda);
-        op->SetDiffCoeff(m_diffCoeff);
-        op->SetLinearSolver(linsolve);
-        op->SetPrecon(precon);
-        op->UpdatePrecon();
-        op->Apply(this->m_in, this->m_out);
+        m_op->SetLambda(m_lambda);
+        m_op->SetDiffCoeff(m_diffCoeff);
+        m_op->SetLinearSolver(m_linsolve);
+        m_op->SetPrecon(precon);
+        m_op->UpdatePrecon();
+        m_op->Apply(this->m_in, this->m_out);
+    }
+
+    /**
+     * @brief Solve again with the current output as the initial guess.
+     */
+    void RepeatSolve()
+    {
+        m_op->Apply(this->m_in, this->m_out);
+    }
+
+    /**
+     * @brief Set a GLOBALSYSSOLNINFO property for the first variable only,
+     * which the linear solver applies to all variables solved together.
+     */
+    void SetGlobalSysSolnInfo(const std::string &property,
+                              const std::string &value)
+    {
+        this->m_session->SetGlobalSysSolnInfo(
+            this->m_session->GetVariables()[0], property, value);
+    }
+
+    unsigned int GetNiterations()
+    {
+        return m_linsolve->GetNiterations();
     }
 
     void ExpectedSolution()
@@ -251,6 +275,8 @@ protected:
     unsigned int m_coordDim;
     TData m_lambda;
     std::vector<TData> m_diffCoeff;
+    std::shared_ptr<HelmSolveOp<TData>> m_op;
+    std::shared_ptr<LinearSolverOp<TData>> m_linsolve;
 };
 
 // clang-format off

@@ -34,8 +34,12 @@
 
 #pragma once
 
+#include <optional>
 #include <ostream>
 #include <sstream>
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
@@ -157,6 +161,7 @@ protected:
     TData m_tol                = 0.0;
     unsigned int m_maxIter     = 0;
     unsigned int m_niter       = 0;
+    bool m_absoluteTolerance   = false;
     bool m_leftPreconditioner  = false;
     bool m_rightPreconditioner = false;
     bool m_verboseOutput       = false;
@@ -212,9 +217,10 @@ protected:
         }
 
         std::cout << GetVerboseName(solverName)
-                  << " iterations made = " << m_niter << " using tolerance of "
-                  << m_tol << " " << residualName << " = " << residual
-                  << " rhs_mag = " << std::sqrt(rhsMagnitude);
+                  << " iterations made = " << m_niter << " using "
+                  << (m_absoluteTolerance ? "absolute" : "relative")
+                  << " tolerance of " << m_tol << " " << residualName << " = "
+                  << residual << " rhs_mag = " << std::sqrt(rhsMagnitude);
         extraPrinter(std::cout);
         std::cout << std::endl;
     }
@@ -226,6 +232,25 @@ protected:
     {
         PrintVerboseOutput(solverName, residualName, residual, rhsMagnitude,
                            [](std::ostream &) {});
+    }
+
+    /**
+     * @brief Squared magnitude the convergence test is relative to.
+     *
+     * One for an absolute tolerance; otherwise @p inMagnitude, the squared
+     * magnitude of the right-hand side passed to Apply(). For the linear
+     * systems this is the residual \f$b - Ax_0\f$ of the initial guess. A
+     * vanishing magnitude is replaced by one so that a zero right-hand side
+     * does not demand an exact solve.
+     */
+    TData GetRhsMagnitude(const TData inMagnitude) const
+    {
+        if (m_absoluteTolerance)
+        {
+            return 1.0;
+        }
+
+        return (inMagnitude > 1.0e-6) ? inMagnitude : 1.0;
     }
 
     template <typename ExecSpace> void SetLinearSolver(void)
@@ -246,12 +271,75 @@ protected:
         this->m_verboseOutput = session->DefinesCmdLineArgument("verbose");
 
         // Set parameters.
-        session->LoadParameter("NekLinSysMaxIterations", this->m_maxIter, 5000);
-        session->LoadParameter("IterativeSolverTolerance", this->m_tol,
-                               1.0E-09);
+        LoadSetting(session, "NekLinSysMaxIterations", this->m_maxIter, 5000u);
+        LoadSetting(session, "IterativeSolverTolerance", this->m_tol,
+                    static_cast<TData>(1.0E-09));
+        auto absoluteTolerance =
+            GetGlobalSysSolnInfo(session, "AbsoluteTolerance");
+        this->m_absoluteTolerance =
+            absoluteTolerance && boost::iequals(*absoluteTolerance, "True");
 
         // Set math helper function.
         this->m_math = Math::MathHelper(ExecSpace::name);
+    }
+
+    /**
+     * @brief GLOBALSYSSOLNINFO property of the solved variables.
+     *
+     * Components solved together share one iteration and therefore one
+     * setting: the property of the first component is used, with a warning
+     * if another component defines it differently. Empty if the first
+     * component does not define it.
+     */
+    std::optional<std::string> GetGlobalSysSolnInfo(
+        const LibUtilities::SessionReaderSharedPtr &session,
+        const std::string &property) const
+    {
+        std::optional<std::string> value;
+        const std::string &var0 = this->m_components[0];
+        if (session->DefinesGlobalSysSolnInfo(var0, property))
+        {
+            value = session->GetGlobalSysSolnInfo(var0, property);
+        }
+
+        for (size_t i = 1; i < this->m_components.size(); ++i)
+        {
+            const std::string &var = this->m_components[i];
+            if (session->DefinesGlobalSysSolnInfo(var, property) &&
+                (!value ||
+                 session->GetGlobalSysSolnInfo(var, property) != *value))
+            {
+                WARNINGL0(false, "GLOBALSYSSOLNINFO " + property +
+                                     " of variable " + var +
+                                     " is ignored: it is solved together "
+                                     "with " +
+                                     var0 + ", whose setting is used.");
+            }
+        }
+
+        return value;
+    }
+
+    /**
+     * @brief Load a solver setting.
+     *
+     * Takes the GLOBALSYSSOLNINFO property of the solved variables if
+     * defined, else the session parameter of the same name, else
+     * @p defaultValue.
+     */
+    template <typename T>
+    void LoadSetting(const LibUtilities::SessionReaderSharedPtr &session,
+                     const std::string &name, T &value,
+                     const T &defaultValue) const
+    {
+        if (auto info = GetGlobalSysSolnInfo(session, name))
+        {
+            value = boost::lexical_cast<T>(*info);
+        }
+        else
+        {
+            session->LoadParameter(name, value, defaultValue);
+        }
     }
 
     void DirectSolve(std::vector<std::vector<TData>> &A, std::vector<TData> &b)

@@ -99,6 +99,12 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
     m_session->LoadParameter("NumSteps", m_steps, 0);
     m_session->LoadParameter("FinTime", m_fintime, 0.0);
 
+    // Checkpoints are written only by the Checkpoint filter.
+    WARNINGL0(!m_session->DefinesParameter("IO_CheckSteps") &&
+                  !m_session->DefinesParameter("IO_CheckTime"),
+              "IO_CheckSteps and IO_CheckTime are ignored and no checkpoints "
+              "are written for them. Define a Checkpoint filter instead.");
+
     // Cadence of the in-flight NaN and abort-file tests.
     m_session->LoadParameter("CheckAbortSteps", m_abortSteps, 1);
     if (m_session->DefinesSolverInfo("CheckAbortFile"))

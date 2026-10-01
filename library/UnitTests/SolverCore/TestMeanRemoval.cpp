@@ -234,6 +234,9 @@ BOOST_AUTO_TEST_CASE(MeanRemoval_MeanSubtraction)
     const std::vector<Case> cases = {
         {"run/square.xml"}, // 2D quads, regular
         {"run/hex.xml"},    // 3D hexes, variable order + one deformed element
+        // Blocks with fewer elements than the interleave width, all padded.
+        {"run/square_all_elements.xml"},
+        {"run/cube_all_elements.xml"},
     };
 
     RunCases(execStr, cases);

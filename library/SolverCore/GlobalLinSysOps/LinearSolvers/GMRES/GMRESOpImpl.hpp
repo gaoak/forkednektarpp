@@ -177,7 +177,6 @@ protected:
 
     LibUtilities::MemoryRegion<TData> m_vExchange;
 
-    TData rhsMagnitude = NekConstants::kNekUnsetDouble;
     bool m_flexible;
     bool m_truncted;
     bool m_isModifiedGramSchmidt = true;
@@ -202,17 +201,14 @@ protected:
         this->m_niter   = 0;
         unsigned int ii = 0, outerIterations = 0;
         bool converged    = false;
-        TData prec_factor = 1.0, eps, eps0 = 1.0;
+        TData prec_factor = 1.0, eps = 0.0, eps0 = 1.0;
 
         // Calculate rhs magnitude.
-        if (rhsMagnitude == NekConstants::kNekUnsetDouble)
-        {
-            this->m_assmbScatrOp->Apply(in, m_w);
-            rhsMagnitude = this->m_math.ddot(in, m_w);
-            this->m_rowComm->AllReduce(rhsMagnitude,
-                                       Nektar::LibUtilities::ReduceSum);
-            rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
-        }
+        this->m_assmbScatrOp->Apply(in, m_w);
+        TData rhsMagnitude = this->m_math.ddot(in, m_w);
+        this->m_rowComm->AllReduce(rhsMagnitude,
+                                   Nektar::LibUtilities::ReduceSum);
+        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
 
         // Calculate prefactor.
         if (this->m_leftPreconditioner)

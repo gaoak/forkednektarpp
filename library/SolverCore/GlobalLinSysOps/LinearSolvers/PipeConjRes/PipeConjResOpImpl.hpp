@@ -182,7 +182,7 @@ protected:
         auto exchangeHost =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-        rhsMagnitude = (exchangeHost[1] > 1.0e-6) ? exchangeHost[1] : 1.0;
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
         eps          = exchangeHost[0];
         scale        = exchangeHost[2] / eps;
 

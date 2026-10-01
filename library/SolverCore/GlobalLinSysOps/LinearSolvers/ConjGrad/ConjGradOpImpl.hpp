@@ -210,12 +210,15 @@ protected:
         auto exchangeHost =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-        rhsMagnitude = (exchangeHost[1] > 1.0e-6) ? exchangeHost[1] : 1.0;
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
         eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
+            this->PrintVerboseOutput(this->name, "error",
+                                     std::sqrt(eps / rhsMagnitude),
+                                     rhsMagnitude);
             return;
         }
 

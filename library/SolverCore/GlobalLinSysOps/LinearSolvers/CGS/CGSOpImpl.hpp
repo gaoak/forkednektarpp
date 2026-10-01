@@ -142,7 +142,7 @@ protected:
         rhsMagnitude = this->m_math.ddot(in, m_r);
         this->m_rowComm->AllReduce(rhsMagnitude,
                                    Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
+        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.

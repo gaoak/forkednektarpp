@@ -328,7 +328,9 @@ public:
     }
 
     /**
-     * @brief Copy the data to a std::vector
+     * @brief Copy the data to a std::vector, component by component and
+     * element by element, without padding, whatever the interleave width of
+     * each block.
      *
      * @return std::vector
      */
@@ -356,31 +358,15 @@ public:
         std::vector<TDataOut, Alloc> array(compSize * this->GetNumComponents() *
                                            this->GetNumHomoModes());
 
-        // Copy the data from the input field.
-        auto dst = array.data();
-        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
-        {
-            auto src =
-                this->GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            const auto nSize  = this->GetBlocks()[blk].CompSize();
-            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            const auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0;
-                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
-            {
-                std::copy(src, src + nElmts * nPts, dst + n * compSize);
-                src += nSize;
-            }
-
-            dst += nElmts * nPts;
-        }
+        DeInterleaveToHostPtr(array.data(), compSize);
 
         return array;
     }
 
     /**
-     * @brief Copy the data to a Nektar::Array
+     * @brief Copy the data to a Nektar::Array, component by component and
+     * element by element, without padding, whatever the interleave width of
+     * each block.
      *
      * @return Array<Nektar::OneD, TDataOut>
      */
@@ -408,25 +394,7 @@ public:
         Nektar::Array<Nektar::OneD, TDataOut> array(
             compSize * this->GetNumComponents() * this->GetNumHomoModes());
 
-        // Copy the data from the input field.
-        auto dst = array.data();
-        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
-        {
-            auto src =
-                this->GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            const auto nSize  = this->GetBlocks()[blk].CompSize();
-            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            const auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0;
-                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
-            {
-                std::copy(src, src + nElmts * nPts, dst + n * compSize);
-                src += nSize;
-            }
-
-            dst += nElmts * nPts;
-        }
+        DeInterleaveToHostPtr(array.data(), compSize);
 
         return array;
     }
@@ -489,7 +457,8 @@ public:
 
     /**
      * @brief Templated copy method. This method copies data from a
-     *        std::vector
+     *        std::vector laid out as ToVector() returns it, and interleaves
+     *        it to the width of each block.
      *
      * @param array - std::vector to copy from
      *
@@ -527,31 +496,13 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        // Copy the data to the array.
-        auto src = array.data();
-        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
-        {
-            const unsigned int streamID = blk + 1;
-
-            auto offset       = 0;
-            const auto nSize  = this->GetBlocks()[blk].CompSize();
-            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            const auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0;
-                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
-            {
-                this->GetBlocks()[blk]
-                    .m_memory_region.template CopyFromHostPtr<MemSpace>(
-                        src + n * compSize, nElmts * nPts, offset, streamID);
-                offset += nSize;
-            }
-            src += nElmts * nPts;
-        }
+        InterleaveFromHostPtr<MemSpace>(array.data(), compSize);
     }
 
     /**
      * @brief Templated copy method. This method copies data from a
-     *        Nektar::Array<Nektar::OneD, TDataIn>
+     *        Nektar::Array<Nektar::OneD, TDataIn> laid out as ToArray()
+     *        returns it, and interleaves it to the width of each block.
      *
      * @param array - Nektar::Array to copy from
      *
@@ -588,26 +539,7 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        // Copy the data to the array.
-        auto src = array.data();
-        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
-        {
-            const unsigned int streamID = blk + 1;
-
-            auto offset       = 0;
-            const auto nSize  = this->GetBlocks()[blk].CompSize();
-            const auto nElmts = this->GetBlocks()[blk].GetNumElements();
-            const auto nPts   = this->GetBlocks()[blk].GetNumData();
-            for (auto n = 0;
-                 n < this->GetNumComponents() * this->GetNumHomoModes(); n++)
-            {
-                this->GetBlocks()[blk]
-                    .m_memory_region.template CopyFromHostPtr<MemSpace>(
-                        src + n * compSize, nElmts * nPts, offset, streamID);
-                offset += nSize;
-            }
-            src += nElmts * nPts;
-        }
+        InterleaveFromHostPtr<MemSpace>(array.data(), compSize);
     }
 
     /**
@@ -790,6 +722,102 @@ protected:
                     src += field->GetBlocks()[blk].m_memory_region.size();
                 }
             }
+        }
+    }
+
+    /**
+     * @brief Copy the data to host memory, component by component and element
+     * by element, without padding. Each block is de-interleaved from its own
+     * interleave width during the copy; the field itself is left unchanged.
+     *
+     * @param dst      - host memory to copy to
+     * @param compSize - number of values of one component in @p dst
+     */
+    template <typename TDataOut>
+    void DeInterleaveToHostPtr(TDataOut *dst, const size_t compSize)
+    {
+        const unsigned int nCompHomo =
+            this->GetNumComponents() * this->GetNumHomoModes();
+        for (auto &block : this->GetBlocks())
+        {
+            auto src =
+                block.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            const size_t nSize                 = block.CompSize();
+            const size_t nElmts                = block.GetNumElements();
+            const unsigned int npts            = block.GetNumData();
+            const unsigned int interleaveWidth = block.GetInterleaveWidth();
+            const unsigned int elmtGroupSize   = npts * interleaveWidth;
+            const size_t numElmtGroups =
+                (nElmts + interleaveWidth - 1) / interleaveWidth;
+            for (unsigned int n = 0; n < nCompHomo; ++n)
+            {
+                if (interleaveWidth == 1)
+                {
+                    std::copy(src, src + nElmts * npts, dst + n * compSize);
+                }
+                else
+                {
+                    for (size_t e = 0; e < numElmtGroups; ++e)
+                    {
+                        for (unsigned int vecElem = 0;
+                             vecElem < interleaveWidth &&
+                             e * interleaveWidth + vecElem < nElmts;
+                             ++vecElem)
+                        {
+                            const TData *elmtSrc =
+                                src + e * elmtGroupSize + vecElem;
+                            TDataOut *elmtDst =
+                                dst + n * compSize +
+                                (e * interleaveWidth + vecElem) * npts;
+                            for (unsigned int idx = 0; idx < npts; ++idx)
+                            {
+                                elmtDst[idx] = elmtSrc[idx * interleaveWidth];
+                            }
+                        }
+                    }
+                }
+                src += nSize;
+            }
+            dst += nElmts * npts;
+        }
+    }
+
+    /**
+     * @brief Copy data from host memory, laid out component by component and
+     * element by element without padding, to the storage in @p MemSpace. Each
+     * block is copied with an interleave width of 1 and its storage is then
+     * reshaped back to its own interleave width.
+     *
+     * @param src      - host memory to copy from
+     * @param compSize - number of values of one component in @p src
+     */
+    template <typename MemSpace, typename TDataIn>
+    void InterleaveFromHostPtr(const TDataIn *src, const size_t compSize)
+    {
+        const unsigned int nCompHomo =
+            this->GetNumComponents() * this->GetNumHomoModes();
+        const std::string execSpace =
+            std::is_same_v<MemSpace, NektarSpaces::HostSpace> ? "Serial"
+                                                              : "Device";
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
+        {
+            const unsigned int streamID        = blk + 1;
+            auto &block                        = this->GetBlocks()[blk];
+            const size_t nSize                 = block.CompSize();
+            const size_t nElmts                = block.GetNumElements();
+            const unsigned int npts            = block.GetNumData();
+            const unsigned int interleaveWidth = block.GetInterleaveWidth();
+            for (unsigned int n = 0; n < nCompHomo; ++n)
+            {
+                block.m_memory_region.template CopyFromHostPtr<MemSpace>(
+                    src + n * compSize, nElmts * npts, n * nSize, streamID);
+            }
+            if (interleaveWidth != 1)
+            {
+                block.template SetInterleaveWidth<TData>(1);
+                block.ReshapeStorage(interleaveWidth, execSpace, streamID);
+            }
+            src += nElmts * npts;
         }
     }
 

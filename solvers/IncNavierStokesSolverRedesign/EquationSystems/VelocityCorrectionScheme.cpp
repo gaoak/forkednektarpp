@@ -331,8 +331,10 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         m_fieldsSolveOp->SetPrecon(m_preconFieldsOpMap[dt_inv_gamma]);
     }
 
-    // Solve diffusion problem for each component
-    m_math.zero(m_fields_coeff);
+    // Solve diffusion problem for each component. m_fields_coeff holds the
+    // continuous solution of the previous solve, or the initial condition,
+    // and is the initial guess; the solve replaces its Dirichlet
+    // coefficients by the boundary values.
     m_fieldsSolveOp->UpdateBndCoeffs(time);
     m_fieldsSolveOp->Apply(m_wsp_phys, m_fields_coeff);
 
@@ -383,18 +385,27 @@ void VelocityCorrectionScheme::EvaluateAdvectionContribution(
     LibUtilities::Field<double, FieldState::Phys> &out,
     [[maybe_unused]] const double &time, const double &dt)
 {
-    m_math.zero(out);
-    m_math.copy(in, m_advVel);
+    // The advection operators overwrite out, so it is not zeroed first.
+    // The linear-implicit formulation scales m_advVel in place later, in
+    // SolveUnsteadyStokesSystem(), so it needs its own copy of the velocity;
+    // otherwise the operators read the velocity from in directly.
+    LibUtilities::Field<double, FieldState::Phys> *advVel = &in;
+    if (m_implicitAdvection)
+    {
+        m_math.copy(in, m_advVel);
+        advVel = &m_advVel;
+    }
+
     if (m_specHPDealiasing)
     {
         m_advectionDealiasOp->SetScale(-dt);
-        m_advectionDealiasOp->SetAdvVel(m_advVel);
+        m_advectionDealiasOp->SetAdvVel(*advVel);
         m_advectionDealiasOp->Apply(in, out);
     }
     else
     {
         m_advectionOp->SetScale(-dt);
-        m_advectionOp->SetAdvVel(m_advVel);
+        m_advectionOp->SetAdvVel(*advVel);
         m_advectionOp->Apply(in, out);
     }
 }
@@ -574,12 +585,12 @@ void VelocityCorrectionScheme::v_InitialiseFields()
     // Create fields
     m_wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
         "wsp_phys", bAtr_phys, m_variablesFields.size(), m_npointsZ);
-    m_advVel = LibUtilities::Field<double, FieldState::Phys>(
-        "explicit advection velocity", bAtr_phys, m_variablesVel.size(),
-        m_npointsZ);
 
     if (m_implicitAdvection)
     {
+        m_advVel = LibUtilities::Field<double, FieldState::Phys>(
+            "explicit advection velocity", bAtr_phys, m_variablesVel.size(),
+            m_npointsZ);
         m_wsp_fields_rhs = LibUtilities::Field<double, FieldState::Phys>(
             "wsp_fields_rhs", bAtr_phys, m_variablesFields.size(), m_npointsZ);
         m_wsp_explicit_adv_rhs = LibUtilities::Field<double, FieldState::Phys>(
@@ -877,11 +888,14 @@ void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
  * The incompressible equations carry no acoustic wave - pressure is
  * enforced rather than propagated - so the transport speed is the velocity
  * alone and there is no sound speed to weight.
+ *
+ * The velocity is read from the solution, whose leading components are the
+ * velocity. m_advVel exists only for the linear-implicit formulation.
  */
 LibUtilities::Field<double, FieldState::Phys> &VelocityCorrectionScheme::
     v_GetCFLVelocityField()
 {
-    return m_advVel;
+    return m_fields;
 }
 
 } // namespace Nektar
