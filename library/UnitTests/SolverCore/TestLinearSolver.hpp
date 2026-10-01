@@ -56,6 +56,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
@@ -97,8 +98,8 @@ public:
 
     /**
      * @brief Compare the computed field to the expected one, with absolute
-     * tolerance tol. The two must have the same storage shape and the same
-     * components.
+     * tolerance tol. The two must have the same blocks and components; their
+     * interleave widths may differ.
      *
      * @return bool
      */
@@ -125,8 +126,14 @@ public:
             return false;
         }
 
-        ReshapeToScalar(m_out);
-        ReshapeToScalar(m_expected);
+        // ToVector() returns every component element by element, whatever
+        // the interleave width of each block, and leaves the fields as they
+        // are.
+        const std::vector<TData> out = m_out.template ToVector<TData>();
+        const std::vector<TData> expected =
+            m_expected.template ToVector<TData>();
+        const size_t compSize =
+            out.size() / (m_out.GetNumComponents() * m_out.GetNumHomoModes());
 
         bool isMatch = true;
 
@@ -135,35 +142,31 @@ public:
             printf("#elm #pts output               expected            "
                    "difference\n");
         }
+        size_t blkOffset = 0;
         for (unsigned int blk = 0; blk < m_out.GetBlocks().size(); ++blk)
         {
-            const TData *outptr =
-                m_out.GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            const TData *expptr =
-                m_expected.GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
-            if ((m_out.GetBlocks()[blk].GetNumElements() !=
-                 m_expected.GetBlocks()[blk].GetNumElements()) ||
-                (m_out.GetBlocks()[blk].GetNumData() !=
-                 m_expected.GetBlocks()[blk].GetNumData()))
+            const auto &outBlock = m_out.GetBlocks()[blk];
+            const auto &expBlock = m_expected.GetBlocks()[blk];
+            if ((outBlock.GetNumElements() != expBlock.GetNumElements()) ||
+                (outBlock.GetNumData() != expBlock.GetNumData()))
             {
                 std::cout << "Mismatch of block structure." << std::endl;
                 return false;
             }
+            const size_t nElmts     = outBlock.GetNumElements();
+            const unsigned int nPts = outBlock.GetNumData();
 
             for (unsigned int n = 0;
                  n < m_out.GetNumComponents() * m_out.GetNumHomoModes(); ++n)
             {
+                const TData *outptr = out.data() + n * compSize + blkOffset;
+                const TData *expptr =
+                    expected.data() + n * compSize + blkOffset;
                 size_t MisMatchcnt = 0, total = 0;
 
-                for (size_t el = 0, cnt = 0;
-                     el < m_out.GetBlocks()[blk].GetNumElements(); ++el)
+                for (size_t el = 0, cnt = 0; el < nElmts; ++el)
                 {
-                    for (unsigned int pts = 0;
-                         pts < m_out.GetBlocks()[blk].GetNumData();
-                         ++pts, ++cnt)
+                    for (unsigned int pts = 0; pts < nPts; ++pts, ++cnt)
                     {
                         if (std::isnan(outptr[cnt]) ||
                             std::isinf(outptr[cnt]) ||
@@ -178,9 +181,6 @@ public:
                     }
                 }
 
-                outptr += m_out.GetBlocks()[blk].CompSize();
-                expptr += m_expected.GetBlocks()[blk].CompSize();
-
                 if (MisMatchcnt)
                 {
                     std::cout << "Number of mismatches in component " << n
@@ -190,6 +190,7 @@ public:
                     isMatch = false;
                 }
             }
+            blkOffset += nElmts * nPts;
         }
 
         return isMatch;
@@ -251,11 +252,6 @@ protected:
             Field<TData, FieldState::Coeff>("f_out", outBlockAttr, ncomp, 1);
         m_expected = Field<TData, FieldState::Coeff>("f_expected", outBlockAttr,
                                                      ncomp, 1);
-    }
-
-    void ReshapeToScalar(Field<TData, FieldState::Coeff> &in)
-    {
-        in.ReshapeStorage(1, "Serial");
     }
 };
 

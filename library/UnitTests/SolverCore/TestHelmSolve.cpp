@@ -222,6 +222,59 @@
         }                                                                      \
     }
 
+// Solving again from the converged solution must not iterate to the
+// tolerance a second time. This needs an absolute tolerance: a relative one
+// is measured against the residual of the initial guess.
+#define TEST_HELMSOLVE_CG_WARM_START(test_name, test, tol)                     \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        SetGlobalSysSolnInfo("AbsoluteTolerance", "True");                     \
+        SetGlobalSysSolnInfo("IterativeSolverTolerance", "1e-13");             \
+        RunTestCase("ConjGrad");                                               \
+        BOOST_TEST(Compare(tol));                                              \
+        const unsigned int coldIterations = GetNiterations();                  \
+        RepeatSolve();                                                         \
+        BOOST_TEST(GetNiterations() <= 2u);                                    \
+        BOOST_TEST(GetNiterations() < coldIterations);                         \
+        BOOST_TEST(Compare(tol));                                              \
+    }
+
+// The GLOBALSYSSOLNINFO of the first variable overrides the session
+// parameters for all variables solved together. It is set after
+// SetTestCase(), whose mesh read re-initialises the session.
+#define TEST_HELMSOLVE_CG_SOLN_INFO(test_name, test)                           \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        RunTestCase("ConjGrad");                                               \
+        const unsigned int defaultIterations = GetNiterations();               \
+                                                                               \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        SetGlobalSysSolnInfo("IterativeSolverTolerance", "1e-3");              \
+        RunTestCase("ConjGrad");                                               \
+        BOOST_TEST(GetNiterations() < defaultIterations);                      \
+                                                                               \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        SetGlobalSysSolnInfo("NekLinSysMaxIterations", "2");                   \
+        BOOST_CHECK_THROW(RunTestCase("ConjGrad"), ErrorUtil::NekError);       \
+                                                                               \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        SetGlobalSysSolnInfo("AbsoluteTolerance", "True");                     \
+        SetGlobalSysSolnInfo("IterativeSolverTolerance", "1e30");              \
+        RunTestCase("ConjGrad");                                               \
+        BOOST_TEST(GetNiterations() == 0u);                                    \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteHelmSolve)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -336,6 +389,14 @@ TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-10)
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_hex, Helmholtz3D_Hex, 1.0E-10)
 TEST_HELMSOLVE_FGMRES(helmsolve_fgmres_tet, Helmholtz3D_Tet, 1.0E-10)
 #endif
+
+TEST_HELMSOLVE_CG_WARM_START(helmsolve_cg_warm_start_all_bcs,
+                             Helmholtz2D_AllBCs, 1.0E-10)
+TEST_HELMSOLVE_CG_WARM_START(helmsolve_cg_warm_start_hex_3c, Helmholtz3D_Hex_3C,
+                             1.0E-10)
+TEST_HELMSOLVE_CG_SOLN_INFO(helmsolve_cg_soln_info_all_bcs, Helmholtz2D_AllBCs)
+TEST_HELMSOLVE_CG_SOLN_INFO(helmsolve_cg_soln_info_tri_quad_3c,
+                            Helmholtz2D_Tri_Quad_3C)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

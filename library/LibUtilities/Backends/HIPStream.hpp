@@ -95,14 +95,8 @@ public:
 
     static void RecordEvent(unsigned int id)
     {
-        // Note: cannot use `events.find(id) == events.end()` as the sole
-        // "does this event need creating" check -- GetEvent() below also
-        // lazily inserts a nullptr placeholder for ids that have never been
-        // recorded (used by SetStreamDependencies() to mean "no event to
-        // wait on yet"), which would otherwise be mistaken here for an
-        // already-created, valid event and passed straight to
-        // hipEventRecord as a null handle.
-        if (events.find(id) == events.end() || events[id] == nullptr)
+        // Create the event on its first record.
+        if (events.find(id) == events.end())
         {
             hipEvent_t e;
             CHECK_HIPCUDA_ERROR(
@@ -114,14 +108,10 @@ public:
             hipEventRecord(events[id], HIPStream::GetInstance(id)));
     }
 
-    static hipEvent_t &GetEvent(unsigned int id)
+    static hipEvent_t GetEvent(unsigned int id)
     {
-        if (events.find(id) == events.end())
-        {
-            events[id] = nullptr;
-        }
-
-        return events[id];
+        const auto event = events.find(id);
+        return event == events.end() ? nullptr : event->second;
     }
 
     static std::unordered_map<unsigned int, hipEvent_t> &GetAllEvents(void)

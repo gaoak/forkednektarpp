@@ -305,8 +305,8 @@ public:
 
     /**
      * @brief Compare this field to another field, with absolute
-     * tolerance tol. Two fields must have same storage shape
-     * and same components.
+     * tolerance tol. The two must have the same blocks and components; their
+     * interleave widths may differ.
      *
      * @return bool
      */
@@ -336,8 +336,16 @@ public:
             return false;
         }
 
-        ReshapeToScalar(*this->fixt_out);
-        ReshapeToScalar(*this->fixt_expected);
+        // ToVector() returns every component element by element, whatever
+        // the interleave width of each block, and leaves the fields as they
+        // are.
+        const std::vector<TData> out =
+            this->fixt_out->template ToVector<TData>();
+        const std::vector<TData> expected =
+            this->fixt_expected->template ToVector<TData>();
+        const unsigned int nCompHomo = this->fixt_out->GetNumComponents() *
+                                       this->fixt_out->GetNumHomoModes();
+        const size_t compSize = out.size() / nCompHomo;
 
         bool isMatch = true;
 
@@ -346,38 +354,31 @@ public:
             printf("#elm #pts output               expected            "
                    "difference\n");
         }
+        size_t blkOffset = 0;
         for (unsigned int blk = 0; blk < this->fixt_out->GetBlocks().size();
              ++blk)
         {
-            const TData *outptr =
-                this->fixt_out->GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            const TData *expptr =
-                this->fixt_expected->GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
-            if ((this->fixt_out->GetBlocks()[blk].GetNumElements() !=
-                 this->fixt_expected->GetBlocks()[blk].GetNumElements()) ||
-                (this->fixt_out->GetBlocks()[blk].GetNumData() !=
-                 this->fixt_expected->GetBlocks()[blk].GetNumData()))
+            const auto &outBlock = this->fixt_out->GetBlocks()[blk];
+            const auto &expBlock = this->fixt_expected->GetBlocks()[blk];
+            if ((outBlock.GetNumElements() != expBlock.GetNumElements()) ||
+                (outBlock.GetNumData() != expBlock.GetNumData()))
             {
                 std::cout << "Mismatch of block structure." << std::endl;
                 return false;
             }
+            const size_t nElmts     = outBlock.GetNumElements();
+            const unsigned int nPts = outBlock.GetNumData();
 
-            for (unsigned int n = 0; n < this->fixt_out->GetNumComponents() *
-                                             this->fixt_out->GetNumHomoModes();
-                 ++n)
+            for (unsigned int n = 0; n < nCompHomo; ++n)
             {
+                const TData *outptr = out.data() + n * compSize + blkOffset;
+                const TData *expptr =
+                    expected.data() + n * compSize + blkOffset;
                 size_t MisMatchcnt = 0, total = 0;
 
-                for (size_t el = 0, cnt = 0;
-                     el < this->fixt_out->GetBlocks()[blk].GetNumElements();
-                     ++el)
+                for (size_t el = 0, cnt = 0; el < nElmts; ++el)
                 {
-                    for (unsigned int pts = 0;
-                         pts < this->fixt_out->GetBlocks()[blk].GetNumData();
-                         ++pts, ++cnt)
+                    for (unsigned int pts = 0; pts < nPts; ++pts, ++cnt)
                     {
                         if (std::isnan(outptr[cnt]) ||
                             std::isinf(outptr[cnt]) ||
@@ -392,9 +393,6 @@ public:
                     }
                 }
 
-                outptr += this->fixt_out->GetBlocks()[blk].CompSize();
-                expptr += this->fixt_expected->GetBlocks()[blk].CompSize();
-
                 if (MisMatchcnt)
                 {
                     std::cout << "Number of mismatches in component " << n
@@ -404,21 +402,10 @@ public:
                     isMatch = false;
                 }
             }
+            blkOffset += nElmts * nPts;
         }
 
-        if (isMatch)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    template <FieldState state> void ReshapeToScalar(Field<TData, state> &in)
-    {
-        in.ReshapeStorage(1, "Serial");
+        return isMatch;
     }
 
 protected:
