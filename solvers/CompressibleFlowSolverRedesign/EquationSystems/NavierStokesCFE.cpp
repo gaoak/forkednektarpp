@@ -33,7 +33,19 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyPressureCFE/BndCondEnforceEntropyPressureCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyTotalEnthalpyCFE/BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyVelocityCFE/BndCondEnforceEntropyVelocityCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondExtrapOrder0CFE/BndCondExtrapOrder0CFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondPressureOutflowCFE/BndCondPressureOutflowCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondRiemannInvariantCFE/BndCondRiemannInvariantCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondSlipWallCFE/BndCondSlipWallCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondWallCFE/BndCondWallCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.h>
+#include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 
 namespace Nektar
 {
@@ -47,7 +59,7 @@ std::string NavierStokesCFE::className =
 NavierStokesCFE::NavierStokesCFE(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : UnsteadySystem(pSession, pGraph), m_gamma(1.4)
+    : UnsteadySystem(pSession, pGraph)
 {
     ASSERTL0(m_projectionType == MultiRegions::eDiscontinuous,
              "The NavierStokesCFE is only implemented for projectionType "
@@ -68,9 +80,6 @@ void NavierStokesCFE::v_InitObject(bool declareExpansionLists)
 
     /// Create Field for solution m_fields and others
     InitialiseFields();
-
-    // Load physical parameters
-    InitialiseParameters();
 
     // Create and initialise all operators
     InitialiseOperators();
@@ -111,8 +120,8 @@ void NavierStokesCFE::v_GenerateSummary(SummaryList &s)
  * @brief Assemble the explicit Navier-Stokes increment.
  *
  * The field-based TimeOp stores stage increments, so this routine returns
- * dt * RHS rather than the unscaled RHS used by the legacy time-integration
- * interface.  The explicit conservative Navier-Stokes RHS is
+ * dt * RHS rather than the unscaled RHS. The explicit conservative
+ * Navier-Stokes RHS is
  *
  *     RHS = -advection + diffusion.
  *
@@ -124,14 +133,9 @@ void NavierStokesCFE::DoOdeRhs(
     LibUtilities::Field<double, FieldState::Phys> &out,
     [[maybe_unused]] const double &time, const double &dt)
 {
-    // out = -dt * advection.
-    m_advectionWeakDGOp->SetScale(-dt);
-    m_advectionWeakDGOp->Apply(in, out);
-
-    // out += dt * diffusion.
-    m_diffusionIPOp->SetScale(dt);
-    m_diffusionIPOp->SetAppend(true);
-    m_diffusionIPOp->Apply(in, out);
+    // out = dt * (-advection + diffusion)
+    m_advDiffusionOp->SetScale(dt);
+    m_advDiffusionOp->Apply(in, out);
 }
 
 /*
@@ -141,42 +145,102 @@ void NavierStokesCFE::v_InitialiseOperators()
 {
     EquationSystem::v_InitialiseOperators();
 
+    std::string execName =
+        Operators::Operator<double>::GetOpExecSpace(m_session);
+
     // Create advection operators
-    m_advectionWeakDGOp =
-        AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables);
-    std::string execName      = Operator<double>::GetOpExecSpace(m_session);
-    std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
-
-    // Euler trace and volume ops
-    m_riemannSolverOp = CompressibleSolverOp<double>::Create(
-        m_expansionLists[0], m_variables, riemannMethod, execName);
-    m_eulerVolFluxOp =
-        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
-
-    // Set volume flux and Riemann solver for advection operator
-    m_advectionWeakDGOp->SetVolumeFluxOp(m_eulerVolFluxOp);
-    m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
-
-    // Diffusion volume and trace ops
-    m_diffusionVolFluxOp =
-        DiffusionCFEVolFluxOp<double>::Create(m_expansionLists[0], m_variables);
-    m_diffusionTraceFluxOp = DiffusionCFETraceFluxOp<double>::Create(
+    m_advDiffusionOp = AdvWeakDGDiffusionIPOp<double>::Create(
         m_expansionLists[0], m_variables);
 
-    // Create diffusion operator
-    m_diffusionIPOp =
-        DiffusionIPOp<double>::Create(m_expansionLists[0], m_variables);
-    m_diffusionIPOp->SetVolumeFluxOp(m_diffusionVolFluxOp);
-    m_diffusionIPOp->SetTraceFluxOp(m_diffusionTraceFluxOp);
+    std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
+
+    std::string EqnOfState =
+        boost::to_upper_copy(m_session->GetEquationOfState().type);
+
+    std::string AdvDiffMethod = "AdvDiffTraceFluxCFE" + riemannMethod +
+                                EqnOfState; // add prefix for local version
+    auto advDiffusionTraceFluxOp = SolverCore::TraceFluxOp<double>::Create(
+        m_expansionLists[0], m_variables, AdvDiffMethod);
+    m_advDiffusionOp->SetAdvDiffTraceFlux(advDiffusionTraceFluxOp);
+
+    auto eulerVolFluxOp =
+        EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
+    m_advDiffusionOp->SetAdvVolFlux(eulerVolFluxOp);
+
+    auto diffusionVolFluxOp =
+        DiffusionCFEVolFluxOp<double>::Create(m_expansionLists[0], m_variables);
+    m_advDiffusionOp->SetDiffVolFlux(diffusionVolFluxOp);
+
+    SetUpBoundaryConditions();
 }
 
 /**
- * @brief Load CFS parameters from the session file.
+ * @brief Attach the boundary conditions this system supports.
+ *
+ * Each operator claims only the regions carrying its tag and costs nothing
+ * when there are none, so all of them are attached unconditionally.
  */
-void NavierStokesCFE::InitialiseParameters()
+void NavierStokesCFE::SetUpBoundaryConditions()
 {
-    // Get gamma parameter from session file.
-    m_session->LoadParameter("Gamma", m_gamma, 1.4);
+    // Viscous wall states are functions of the interior trace rather than of
+    // the session, so they are recomputed each apply and written into the same
+    // boundary storage the trace flux gathers from. Attached unconditionally:
+    // the operator claims only the regions tagged as walls and costs nothing
+    // when there are none.
+    auto bndCondWallOp =
+        BndCondWallCFEOp<double>::Create(m_expansionLists[0], m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondWallOp);
+
+    // Likewise for a pressure outflow, which extrapolates the interior state
+    // and imposes only the static pressure. Each of these claims its own
+    // regions by USERDEFINEDTYPE, so attaching both is not a conflict.
+    auto bndCondPressureOutflowOp = BndCondPressureOutflowCFEOp<double>::Create(
+        m_expansionLists[0], m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondPressureOutflowOp);
+
+    // And for the entropy inflow, which is a condition on the inviscid state
+    // and so belongs on both this path and the Euler one.
+    auto bndCondEntropyVelocityOp =
+        BndCondEnforceEntropyVelocityCFEOp<double>::Create(m_expansionLists[0],
+                                                           m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondEntropyVelocityOp);
+
+    // Its two siblings, which fill the same degree of freedom with the
+    // pressure or the total enthalpy instead.
+    auto bndCondEntropyPressureOp =
+        BndCondEnforceEntropyPressureCFEOp<double>::Create(m_expansionLists[0],
+                                                           m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondEntropyPressureOp);
+
+    auto bndCondEntropyTotalEnthalpyOp =
+        BndCondEnforceEntropyTotalEnthalpyCFEOp<double>::Create(
+            m_expansionLists[0], m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondEntropyTotalEnthalpyOp);
+
+    // An inviscid wall and a symmetry plane, which mirror the momentum, and a
+    // zeroth order extrapolation, which claims its regions so they are seeded
+    // with the interior state and then leaves them alone.
+    auto bndCondSlipWallOp =
+        BndCondSlipWallCFEOp<double>::Create(m_expansionLists[0], m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondSlipWallOp);
+
+    auto bndCondExtrapOrder0Op = BndCondExtrapOrder0CFEOp<double>::Create(
+        m_expansionLists[0], m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondExtrapOrder0Op);
+
+    // The characteristic farfield, which takes its freestream from the session
+    // parameters rather than from the region's boundary values.
+    auto bndCondRiemannInvariantOp =
+        BndCondRiemannInvariantCFEOp<double>::Create(m_expansionLists[0],
+                                                     m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondRiemannInvariantOp);
+
+    // And the reservoir inflow, whose session values are a stagnation state
+    // and a flow direction rather than a conserved state.
+    auto bndCondStagnationInflowOp =
+        BndCondStagnationInflowCFEOp<double>::Create(m_expansionLists[0],
+                                                     m_variables);
+    m_advDiffusionOp->AddBndCondUpdateOp(bndCondStagnationInflowOp);
 }
 
 } // namespace Nektar

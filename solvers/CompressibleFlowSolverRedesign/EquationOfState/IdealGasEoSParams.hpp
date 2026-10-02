@@ -47,6 +47,7 @@ namespace Nektar::detail
 template <typename TData> struct IdealGasEoS
 {
     // Specialised constructor for updating
+
     IdealGasEoS(TData gamma, TData gasConst)
         : m_gamma(gamma), m_gasConst(gasConst)
     {

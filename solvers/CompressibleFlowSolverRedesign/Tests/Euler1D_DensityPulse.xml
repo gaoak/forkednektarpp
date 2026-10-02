@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="1" SPACE="1">
+        <VERTEX>
+            <V ID="0">0.0000000000000000e+00 0.0 0.0</V>
+            <V ID="1">5.0000000000000003e-02 0.0 0.0</V>
+            <V ID="2">1.0000000000000001e-01 0.0 0.0</V>
+            <V ID="3">1.4999999999999999e-01 0.0 0.0</V>
+            <V ID="4">2.0000000000000001e-01 0.0 0.0</V>
+            <V ID="5">2.5000000000000000e-01 0.0 0.0</V>
+            <V ID="6">2.9999999999999999e-01 0.0 0.0</V>
+            <V ID="7">3.4999999999999998e-01 0.0 0.0</V>
+            <V ID="8">4.0000000000000002e-01 0.0 0.0</V>
+            <V ID="9">4.5000000000000001e-01 0.0 0.0</V>
+            <V ID="10">5.0000000000000000e-01 0.0 0.0</V>
+            <V ID="11">5.5000000000000004e-01 0.0 0.0</V>
+            <V ID="12">5.9999999999999998e-01 0.0 0.0</V>
+            <V ID="13">6.5000000000000002e-01 0.0 0.0</V>
+            <V ID="14">6.9999999999999996e-01 0.0 0.0</V>
+            <V ID="15">7.5000000000000000e-01 0.0 0.0</V>
+            <V ID="16">8.0000000000000004e-01 0.0 0.0</V>
+            <V ID="17">8.4999999999999998e-01 0.0 0.0</V>
+            <V ID="18">9.0000000000000002e-01 0.0 0.0</V>
+            <V ID="19">9.4999999999999996e-01 0.0 0.0</V>
+            <V ID="20">1.0000000000000000e+00 0.0 0.0</V>
+        </VERTEX>
+        <ELEMENT>
+            <S ID="0">0 1</S>
+            <S ID="1">1 2</S>
+            <S ID="2">2 3</S>
+            <S ID="3">3 4</S>
+            <S ID="4">4 5</S>
+            <S ID="5">5 6</S>
+            <S ID="6">6 7</S>
+            <S ID="7">7 8</S>
+            <S ID="8">8 9</S>
+            <S ID="9">9 10</S>
+            <S ID="10">10 11</S>
+            <S ID="11">11 12</S>
+            <S ID="12">12 13</S>
+            <S ID="13">13 14</S>
+            <S ID="14">14 15</S>
+            <S ID="15">15 16</S>
+            <S ID="16">16 17</S>
+            <S ID="17">17 18</S>
+            <S ID="18">18 19</S>
+            <S ID="19">19 20</S>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> S[0-19] </C>
+            <C ID="1"> V[0] </C>
+            <C ID="2"> V[20] </C>
+        </COMPOSITE>
+        <DOMAIN> C[0] </DOMAIN>
+    </GEOMETRY>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="rho,rhou,E" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType"           VALUE="EulerCFE" />
+            <I PROPERTY="Projection"       VALUE="DisContinuous" />
+            <I PROPERTY="AdvectionType"    VALUE="WeakDG" />
+            <I PROPERTY="UpwindType"       VALUE="Roe" />
+        </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <EquationOfState>
+            <Type> IdealGas </Type>
+            <Parameters>
+                <Gamma>       Gamma </Gamma>
+                <GasConstant> GasConstant </GasConstant>
+            </Parameters>
+        </EquationOfState>
+        <PARAMETERS>
+            <P> TimeStep  = 0.0005 </P>
+            <P> NumSteps  = 200 </P>
+            <P> FinTime   = TimeStep*NumSteps </P>
+            <P> IO_CheckSteps = 0 </P>
+            <P> IO_InfoSteps = 0 </P>
+            <P> Gamma = 1.4 </P>
+            <P> GasConstant = 287.058 </P>
+            <P> uInf = 1.0 </P>
+            <P> pInf = 1.0 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0"> rho </V>
+            <V ID="1"> rhou </V>
+            <V ID="2"> E </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <P VAR="rho"  VALUE="[1]" />
+                <P VAR="rhou" VALUE="[1]" />
+                <P VAR="E"    VALUE="[1]" />
+            </REGION>
+            <REGION REF="1">
+                <P VAR="rho"  VALUE="[0]" />
+                <P VAR="rhou" VALUE="[0]" />
+                <P VAR="E"    VALUE="[0]" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="rho"  VALUE="1.0 + 0.2*exp(-100*(x-0.5)*(x-0.5))" />
+            <E VAR="rhou" VALUE="uInf*(1.0 + 0.2*exp(-100*(x-0.5)*(x-0.5)))" />
+            <E VAR="E"    VALUE="pInf/(Gamma-1) + 0.5*uInf*uInf*(1.0 + 0.2*exp(-100*(x-0.5)*(x-0.5)))" />
+        </FUNCTION>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="rho"  VALUE="1.0 + 0.2*exp(-100*(x-uInf*t-0.5)*(x-uInf*t-0.5))" />
+            <E VAR="rhou" VALUE="uInf*(1.0 + 0.2*exp(-100*(x-uInf*t-0.5)*(x-uInf*t-0.5)))" />
+            <E VAR="E"    VALUE="pInf/(Gamma-1) + 0.5*uInf*uInf*(1.0 + 0.2*exp(-100*(x-uInf*t-0.5)*(x-uInf*t-0.5)))" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

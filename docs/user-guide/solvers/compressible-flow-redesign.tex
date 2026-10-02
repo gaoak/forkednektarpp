@@ -1,0 +1,392 @@
+\chapter{Compressible Flow Solver (Redesign)}
+\label{chap:compressibleFlowRedesign}
+
+\section{Synopsis}
+The CompressibleFlowSolverRedesign solves the same unsteady compressible
+Euler and Navier-Stokes equations in conservative variables as the
+CompressibleFlowSolver described in the previous chapter -- see
+Eq.~(\ref{eq:euler}) and following for the governing equations, which are
+unchanged. It is built on the redesigned operator framework, in which every
+step of the discretisation (basis transforms, volume fluxes, Riemann
+solvers, boundary conditions, diffusion) is an operator with
+interchangeable implementations for each execution space. The same session
+file therefore runs
+
+\begin{itemize}
+\item in \inltt{Serial} on a single core,
+\item in \inltt{AVX} using SIMD vectorisation (AVX2/AVX512 on x86, NEON on
+  Arm), and
+\item on a \inltt{Device} (CUDA, HIP or SYCL GPU back-ends),
+\end{itemize}
+
+and in parallel under MPI, where the trace exchange overlaps interior work
+with communication. The discretisation is discontinuous Galerkin (weak DG
+for the advection terms and an interior penalty scheme for the viscous
+terms); a continuous projection is not available in this solver.
+
+The solver currently provides:
+
+\begin{itemize}
+\item the Euler and Navier-Stokes equations in conservative variables
+  (\inltt{EulerCFE} and \inltt{NavierStokesCFE}) with explicit time
+  integration, in 1D, 2D and 3D;
+\item equations of state as a templated property of every operator that
+  needs one: ideal gas and Van der Waals gas;
+\item Riemann solvers: \inltt{Average}, \inltt{AUSM0}--\inltt{AUSM3},
+  \inltt{HLL}, \inltt{HLLC}, \inltt{LaxFriedrichs} and \inltt{Roe};
+\item constant and Sutherland's law viscosity;
+\item slip and no-slip (adiabatic or isothermal, including per-region wall
+  temperatures) walls, farfield conditions based on Riemann invariants,
+  entropy-consistent inflows, pressure outflow, stagnation inflow and
+  zeroth-order extrapolation;
+\item restart from checkpoint (\inltt{.fld}) files, including at a
+  different polynomial order from the one the file was written at.
+\end{itemize}
+
+Features of the legacy solver that are not yet available here include the
+implicit (JFNK) path, shock capturing and artificial viscosity, de-aliasing,
+axisymmetric flows, quasi-1D nozzle flows and the forcing and filter
+frameworks.
+
+\section{Usage}
+\begin{lstlisting}[style=BashInputStyle]
+CompressibleFlowSolverRedesign session.xml
+\end{lstlisting}
+
+The execution space may be chosen on the command line without touching the
+session file:
+
+\begin{lstlisting}[style=BashInputStyle]
+CompressibleFlowSolverRedesign --opExecSpace Device session.xml
+\end{lstlisting}
+
+The implementation used within a space (for example \inltt{SumFac} or
+\inltt{StdMat} element kernels) can likewise be forced for every operator
+at once with \inltt{--opImpl}. Both choices may equally be made from
+within the session file, through the \inltt{OperatorExecSpace} and
+\inltt{OperatorImplementation} properties under Solver info below, with
+the command line taking precedence, which makes it convenient to run one
+session file across execution spaces without editing it. When neither the
+command line nor the session specifies a space, the solver defaults to
+the most capable one the build supports and prints a warning saying so.
+
+\section{Session file configuration}
+\label{sec:sessionFileCompRedesign}
+The session file follows the structure described in
+Section~\ref{sec:sessionFileComp} for the legacy solver; below we describe
+the sections that differ, and the options currently understood.
+
+\subsection*{Parameters}
+\begin{lstlisting}[style=XmlStyle]
+<PARAMETERS>
+  <P> TimeStep        = 0.0000001         </P>
+  <P> FinTime         = 1.0               </P>
+  <P> NumSteps        = FinTime/TimeStep  </P>
+  <P> IO_InfoSteps    = 100               </P>
+  <P> Twall           = 300.15            </P>
+</PARAMETERS>
+\end{lstlisting}
+\begin{itemize}
+\item \inltt{TimeStep} is the time-step. It is always required: the
+  redesign solver integrates with a fixed step and, unlike the legacy
+  solver, does not (yet) let the CFL number drive the step size.
+\item \inltt{FinTime}, \inltt{NumSteps} and \inltt{IO\_InfoSteps} behave as
+  in the legacy solver.
+\item \inltt{Twall} sets the wall temperature for every isothermal
+  (\inltt{WallViscous}) boundary at once; individual regions can override
+  it as described under boundary conditions. Default value = 300.15 $K$.
+\end{itemize}
+
+\subsection*{Time integration scheme}
+The \inltt{<TIMEINTEGRATIONSCHEME>} block is unchanged from the legacy
+solver:
+\begin{lstlisting}[style=XmlStyle]
+<TIMEINTEGRATIONSCHEME>
+  <METHOD> RungeKutta </METHOD>
+  <ORDER> 4 </ORDER>
+</TIMEINTEGRATIONSCHEME>
+\end{lstlisting}
+The compressible systems are integrated explicitly, so the explicit
+families (\inltt{ForwardEuler}, \inltt{RungeKutta} and its SSP variants,
+\inltt{AdamsBashforth}) are the relevant ones.
+
+\subsection*{Solver info}
+\begin{lstlisting}[style=XmlStyle]
+<SOLVERINFO>
+  <I PROPERTY="EQType"            VALUE="NavierStokesCFE"  />
+  <I PROPERTY="Projection"        VALUE="DisContinuous"    />
+  <I PROPERTY="AdvectionType"     VALUE="WeakDG"           />
+  <I PROPERTY="DiffusionType"     VALUE="InteriorPenalty"  />
+  <I PROPERTY="UpwindType"        VALUE="Roe"              />
+  <I PROPERTY="ViscosityType"     VALUE="Constant"         />
+</SOLVERINFO>
+\end{lstlisting}
+\begin{itemize}
+\item \inltt{EQType} selects the equations:
+  \begin{itemize}
+  \item \inltt{EulerCFE} -- compressible Euler equations;
+  \item \inltt{NavierStokesCFE} -- compressible Navier-Stokes equations.
+  \end{itemize}
+\item \inltt{Projection} must be \inltt{DisContinuous}.
+\item \inltt{AdvectionType} must be \inltt{WeakDG}.
+\item \inltt{DiffusionType} (Navier-Stokes only) must be
+  \inltt{InteriorPenalty}.
+\item \inltt{UpwindType} selects the Riemann solver for the inviscid trace
+  flux: \inltt{Average}, \inltt{AUSM0}, \inltt{AUSM1}, \inltt{AUSM2},
+  \inltt{AUSM3}, \inltt{HLL}, \inltt{HLLC}, \inltt{LaxFriedrichs} or
+  \inltt{Roe}. This property is required.
+\item \inltt{ViscosityType} (Navier-Stokes only) is \inltt{Constant}
+  (default) or \inltt{Variable} for Sutherland's law.
+\item \inltt{OperatorExecSpace} selects the execution space
+  (\inltt{Serial}, \inltt{AVX} or \inltt{Device}) from within the session
+  file; the \inltt{--opExecSpace} command-line argument overrides it.
+\item \inltt{OperatorImplementation} sets the elemental implementation,
+  either \inltt{SumFac} or \inltt{StdMat}, for every operator at once;
+  the \inltt{--opImpl} command-line argument overrides it. When
+  neither is
+  given, individual operators may be assigned their own implementation
+  per execution space through the \inltt{OPTIMISATION} section,
+\begin{lstlisting}[style=XmlStyle]
+<OPTIMISATION>
+  <OPERATORS>
+    <AVXBACKEND>
+      <MASS> StdMat </MASS>
+    </AVXBACKEND>
+  </OPERATORS>
+</OPTIMISATION>
+\end{lstlisting}
+  where \inltt{SERIALBACKEND}, \inltt{AVXBACKEND} and
+  \inltt{DEVICEBACKEND} sections each list operators by name with their
+  implementation. Anything still unspecified defaults to \inltt{SumFac}
+  with a warning.
+\item \inltt{ProjectInitialConditions}, when set to \inltt{True}, performs
+  an element-local Galerkin projection of expression-based initial
+  conditions instead of the default collocation interpolation, which is
+  useful when comparing against a projected reference solution. The
+  default (\inltt{False}) matches the legacy solver's behaviour.
+\end{itemize}
+
+\subsection*{Equation of state}
+Where the legacy solver selects the equation of state through
+\inltt{SOLVERINFO} and reads its constants from \inltt{PARAMETERS}, the
+redesign solver has a dedicated session block, and every operator that
+needs the gas law (Riemann solvers, viscous fluxes, boundary
+conditions) is compiled for each equation of state:
+\begin{lstlisting}[style=XmlStyle]
+<EquationOfState>
+  <Type> IdealGas </Type>
+  <Parameters>
+    <Gamma>       1.4 </Gamma>
+    <GasConstant> 287 </GasConstant>
+  </Parameters>
+</EquationOfState>
+\end{lstlisting}
+Two types are available:
+\begin{itemize}
+\item \inltt{IdealGas} with parameters \inltt{Gamma} and
+  \inltt{GasConstant};
+\item \inltt{VanDerWaals} with parameters \inltt{Gamma},
+  \inltt{GasConstant}, \inltt{Tcrit} and \inltt{Pcrit}.
+\end{itemize}
+The parameters are required -- there are no silent defaults -- and may be
+expressions in terms of \inltt{PARAMETERS} entries.
+
+\subsection*{Reference values}
+The gas transport properties of the Navier-Stokes system come from a
+\inltt{ReferenceValues} block rather than from the parameters:
+\begin{lstlisting}[style=XmlStyle]
+<ReferenceValues>
+  <Viscosity>   mu     </Viscosity>
+  <Prandtl>     Pr     </Prandtl>
+  <Density>     rhoInf </Density>
+  <Pressure>    pInf   </Pressure>
+</ReferenceValues>
+\end{lstlisting}
+\begin{itemize}
+\item \inltt{Viscosity} is the (reference) dynamic viscosity. Default
+  value = 1.78e-05 $Pa\,s$.
+\item \inltt{Prandtl} is the Prandtl number (default value = 0.72).
+\item \inltt{thermalConductivity} may be given in its place, the Prandtl
+  number then being computed from it; only one of the two may be set.
+\item \inltt{Density} and \inltt{Pressure} are the reference density and
+  pressure. Default values = 1.225 $Kg/m^{3}$ and 101325 $Pa$.
+\item \inltt{Temperature} and \inltt{Tsutherland} are read when
+  \inltt{ViscosityType} is \inltt{Variable} and set the reference and
+  Sutherland temperatures of Sutherland's law. Default values = 288.15 $K$
+  and 110 $K$.
+\end{itemize}
+Anything omitted falls back to its default with a warning, so it is good
+practice to state every value the case depends on explicitly.
+
+\subsection*{Boundary conditions}
+Boundary regions and the conserved variables are declared exactly as in
+the legacy solver. The following \inltt{USERDEFINEDTYPE} tags are
+available; each is implemented as a boundary operator that claims the
+regions carrying its tag.
+\begin{center}
+  \begin{tabular}{l|l}
+  \toprule
+  \inltt{USERDEFINEDTYPE} & Behaviour \\
+  \midrule
+  \inltt{Wall}, \inltt{Symmetry} & Slip (inviscid) wall / symmetry plane \\
+  \inltt{WallViscous} & No-slip isothermal wall at \inltt{Twall} \\
+  \inltt{WallAdiabatic} & No-slip adiabatic wall \\
+  \inltt{RiemannInvariant} & Farfield in/outflow via Riemann invariants \\
+  \inltt{PressureOutflow} & Outflow imposing only the static pressure \\
+  \inltt{StagnationInflow} & Inflow from stagnation conditions \\
+  \inltt{EnforceEntropyPressure} & Entropy-consistent inflow, pressure form \\
+  \inltt{EnforceEntropyTotalEnthalpy} & Entropy-consistent inflow, total-enthalpy form \\
+  \inltt{EnforceEntropyVelocity} & Entropy-consistent inflow, velocity form \\
+  \inltt{ExtrapOrder0} & Zeroth-order extrapolation of the interior state \\
+  \bottomrule
+  \end{tabular}
+\end{center}
+For example, a farfield region reads:
+\begin{lstlisting}[style=XmlStyle]
+<REGION REF="0">
+  <D VAR="rho"  USERDEFINEDTYPE="RiemannInvariant" VALUE="0" />
+  <D VAR="rhou" USERDEFINEDTYPE="RiemannInvariant" VALUE="0" />
+  <D VAR="rhov" USERDEFINEDTYPE="RiemannInvariant" VALUE="0" />
+  <D VAR="E"    USERDEFINEDTYPE="RiemannInvariant" VALUE="0" />
+</REGION>
+\end{lstlisting}
+A boundary tag can carry parameters of its own: an isothermal wall may be
+given a temperature that differs from the session-wide \inltt{Twall} with
+\begin{lstlisting}[style=XmlStyle]
+<D VAR="rho" USERDEFINEDTYPE="WallViscous:twall=350.0" VALUE="0" />
+\end{lstlisting}
+which is how, for instance, a channel heated on one side is set up.
+Ordinary Dirichlet values and periodic boundaries are also supported, the
+latter across processor partitions in parallel runs.
+
+\subsection*{Initial conditions and restarts}
+Initial conditions are given either as expressions, as in the legacy
+solver, or from a field file:
+\begin{lstlisting}[style=XmlStyle]
+<FUNCTION NAME="InitialConditions">
+  <F VAR="rho,rhou,rhov,E" FILE="restart.fld" />
+</FUNCTION>
+\end{lstlisting}
+Restart files may be read at a different polynomial order from the one
+they were written at, and modal (orthogonal) as well as modified expansion
+bases round-trip; the coefficients are interpolated element by element. A
+warning is printed at $t=0$ if a projected initial state would be lossy at
+the current order.
+
+\section{Porting a legacy session}
+A session written for the legacy \inltt{CompressibleFlowSolver} will usually
+run under the redesign without complaint and give quietly wrong answers,
+because several inputs are now read from different places. Each case below
+leaves the session valid, the solver silent apart from a warning, and the
+physics changed. Work through them in order.
+
+\subsection*{Gas properties move to \texttt{<EquationOfState>}}
+\inltt{Gamma} and \inltt{GasConstant} are no longer read from
+\inltt{<PARAMETERS>}:
+\begin{lstlisting}[style=XmlStyle]
+<EquationOfState>
+  <Type> IdealGas </Type>
+  <Parameters>
+    <Gamma>       Gamma       </Gamma>
+    <GasConstant> GasConstant </GasConstant>
+  </Parameters>
+</EquationOfState>
+\end{lstlisting}
+The values may reference existing \inltt{<PARAMETERS>} entries by name, as
+above, and leaving those parameters in place is harmless: the session reader
+warns that the equation-of-state definition wins. The block itself is not
+optional. Without it the operator key resolves with an empty
+equation-of-state suffix and creation fails with a misleading
+\begin{lstlisting}[style=BashInputStyle]
+No such operator: AdvDiffTraceFluxCFERoeSerial
+\end{lstlisting}
+which looks like a missing Riemann solver and is not.
+
+\subsection*{Transport properties move to \texttt{<ReferenceValues>}}
+A \inltt{<ReferenceValues>} section carries everything else the legacy
+solver read as a parameter; the values and their defaults are listed under
+Section~\ref{sec:sessionFileCompRedesign} above.
+
+This is the case that bites. The legacy solver read the viscosity as the
+parameter \inltt{mu}; the redesign reads the reference value
+\inltt{Viscosity}. A session that sets \inltt{mu = rhoInf*L*uInf/Re}
+therefore gives the legacy solver whatever that evaluates to and the
+redesign the built-in default -- a factor of thousands apart in a typical
+case -- with nothing failing. State every value the case depends on, even
+where the default happens to match, since a default that is right today is
+still a silent dependency on a number defined elsewhere.
+
+\subsection*{Read the startup warnings}
+Every fallback to a default is announced, one line per missing value, among a
+good deal of other output. Treat any of them as a porting error rather than as
+noise:
+\begin{lstlisting}[style=BashInputStyle]
+CompressibleFlowSolverRedesign case.xml 2>&1 | grep "Setting default value"
+\end{lstlisting}
+A correctly ported viscous case prints none.
+
+\subsection*{Schemes and forcings the redesign does not have}
+\inltt{Euler}/\inltt{Forward} is not registered; use \inltt{RungeKutta} of
+order 1, which is the same scheme. That one announces itself, failing with
+\inltt{No such operator}.
+
+A \inltt{<FORCING>} block does not. Forcing types are registered separately
+from the solver, and a session naming one the redesign does not implement runs
+to completion with the forcing simply absent, without a warning. The signature
+is a partial disagreement: the quantities the forcing drives are wrong while
+everything else matches. Check the block against the registered forcings, and
+if the forcing is unavailable, delete it from the session rather than leave it
+implying support that is not there.
+
+\subsection*{Porting a regression test}
+The interior-penalty diffusion of the redesign is not a different
+discretisation from the legacy solver's, so the expectation is that a ported
+case reproduces the legacy numbers to the legacy tolerances. Keep the legacy
+metrics until you have proved you cannot: a gap of a few percent looks like an
+acceptable discretisation difference and is more often a porting error or a
+bug, and writing the redesign's own value into the \inltt{.tst} freezes that
+bug in as the expected answer. If the numbers genuinely cannot be matched, say
+which operator differs and why, rather than quoting a percentage.
+
+Agreement with the legacy solver is not by itself evidence that either is
+right. Where the case has an analytic handle, check it -- a wall heat flux
+against $k\,\mathrm{d}T/\mathrm{d}n$ with $k = \mu c_p/\mathit{Pr}$, for
+instance. That check is what exposes a viscosity read from the wrong place,
+which is otherwise self-consistent: the wrong viscosity enters both sides.
+Confirm too that the test can fail, by running it with the feature under test
+disabled and checking that the error moves by decades.
+
+Re-mesh when the case has outgrown its mesh, and hold two things fixed when
+you do. Keep the element mix: a mesh of one element type is a weaker test,
+because the boundary storage, the trace gathers and the interpolation between
+differently shaped faces all vary with element type. And re-verify against the
+legacy solver on the new mesh, since the reference values belong to the mesh
+rather than to the case.
+
+Finally, assert the handedness of any mesh you generate. Nektar++ does not
+reject an element whose local axes are left-handed: it runs, it converges, and
+it is quietly wrong. The reference prism runs $\xi_1$ along $v_0 \to v_1$,
+$\xi_2$ along $v_0 \to v_3$ and $\xi_3$ along $v_0 \to v_4$, so
+$(e_1 \times e_2) \cdot e_3$ must be positive; splitting a hexahedral cell
+into two prisms on a diagonal and extruding, the obvious anticlockwise
+winding gives exactly the wrong sign. The symptom is subtle rather than
+catastrophic, so give the case a quantity that is exactly zero by symmetry to
+check against.
+
+\section{Examples}
+The regression tests under
+\inltt{solvers/CompressibleFlowSolverRedesign/Tests} are working examples
+of every feature above, including:
+\begin{itemize}
+\item \inltt{IsentropicVortex.xml} -- 2D Euler, ideal gas, Lax-Friedrichs
+  upwinding, periodic boundaries;
+\item the \inltt{Couette\_WeakDG\_IP\_MODIFIED} cases, adiabatic and
+  isothermal -- 2D Navier-Stokes with the interior
+  penalty diffusion, no-slip walls, reference
+  values and the equation-of-state block;
+\item \inltt{RiemannInvariant\_2D\_mix.xml} and the
+  \inltt{EnforceEntropy*\_2D\_mix.xml} cases -- the farfield and
+  entropy-consistent boundary conditions on a mixed
+  quadrilateral-triangle mesh;
+\item \inltt{TGVFlow3D\_Hex8.xml} -- the 3D Taylor-Green vortex.
+\end{itemize}

@@ -52,16 +52,7 @@ class TraceEssentialCreator;
 enum class IPTraceScalarData
 {
     LengthRecip,
-    IPPenaltyFactor,
-    // Kept for the interior-penalty consumers not yet moved to
-    // IPPenaltyFactor; removed with the last of them.
-    BwdWeightAver,
-    // Kept for the interior-penalty consumers not yet moved to
-    // IPPenaltyFactor; removed with the last of them.
-    BwdWeightJump,
-    // Kept for the interior-penalty consumers not yet moved to
-    // IPPenaltyFactor; removed with the last of them.
-    PenaltyFactor,
+    IPPenaltyFactor
 };
 
 /**
@@ -112,10 +103,6 @@ private:
  * skipped, so the caller must pass the ordinal it recorded at construction
  * rather than the block index.
  */
-/// Former name of GlobalTraceNormalKey, kept for the interior-penalty
-/// trace-flux operators not yet moved to it; removed with the last of them.
-template <typename TData> using IPTraceNormalKey = GlobalTraceNormalKey<TData>;
-
 template <typename TData> class BndCondNormalKey : public LibUtilities::BaseKey
 {
     friend class TraceEssentialCreator;

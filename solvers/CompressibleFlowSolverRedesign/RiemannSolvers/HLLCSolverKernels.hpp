@@ -47,9 +47,10 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
 struct HLLCSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
-                                      const size_t blksize, const TScalar *fwd,
-                                      const TScalar *bwd, TScalar *flux)
+    NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                          const size_t blksize,
+                                          const TScalar *fwd,
+                                          const TScalar *bwd, TScalar *flux)
     {
         // Explicit vectorisation for AVX backend, vec_t =
         // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.

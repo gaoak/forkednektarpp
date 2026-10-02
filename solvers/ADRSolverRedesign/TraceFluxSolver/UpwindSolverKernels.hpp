@@ -64,9 +64,8 @@ template <typename ExecSpace> struct UpwindSolverKernel
                 ? tinysimd::simd<TScalar>::width
                 : 1;
 
-        ASSERTL1(
-            blksize % vec_width == 0,
-            "Routine assumes blksize is exact integer multiple of vec_width");
+        // Assumes blksize is a whole number of vectors; checked on the host
+        // by FluxKernelLauncher, since a kernel may not assert.
 
         // Parallelize over points; each i is independent
         const size_t groupsize = blksize / vec_width;

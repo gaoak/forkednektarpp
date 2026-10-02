@@ -107,8 +107,7 @@ std::vector<TData> GetIPTraceLengthRecip(const ExpListSharedPtr &expansionList)
     // its element length is halved and mirrored instead of being paired with
     // the neighbour's. The interior penalty is inversely proportional to that
     // length, so the flux is wrong on exactly the traces the partitioner made,
-    // and only there. Legacy does the same exchange at the same point, in
-    // DiffusionIP::v_InitObject.
+    // and only there.
     if (auto traceMap = expansionList->GetTraceMap())
     {
         traceMap->GetAssemblyCommDG()->PerformExchange(lengthFwd, lengthBwd);
@@ -359,33 +358,6 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
             {
                 scalarData[i] *= lenrecip[i];
             }
-            break;
-        }
-        case IPTraceScalarData::BwdWeightAver:
-        {
-            Array<OneD, double> bwdWeightAver(nTracePts, 0.0);
-            Array<OneD, double> bwdWeightJump(nTracePts, 0.0);
-            m_expansionList->GetBwdWeight(bwdWeightAver, bwdWeightJump);
-            for (size_t i = 0; i < nTracePts; ++i)
-            {
-                scalarData[i] = bwdWeightAver[i];
-            }
-            break;
-        }
-        case IPTraceScalarData::BwdWeightJump:
-        {
-            Array<OneD, double> bwdWeightAver(nTracePts, 0.0);
-            Array<OneD, double> bwdWeightJump(nTracePts, 0.0);
-            m_expansionList->GetBwdWeight(bwdWeightAver, bwdWeightJump);
-            for (size_t i = 0; i < nTracePts; ++i)
-            {
-                scalarData[i] = bwdWeightJump[i];
-            }
-            break;
-        }
-        case IPTraceScalarData::PenaltyFactor:
-        {
-            scalarData = GetIPTracePenaltyFactor<TData>(m_expansionList);
             break;
         }
     }

@@ -35,12 +35,9 @@
 
 #pragma once
 
-#include <CompressibleFlowSolverRedesign/DiffusionCFETraceFlux/DiffusionCFETraceFluxOp.hpp>
-#include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp>
-#include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
-#include <CompressibleFlowSolverRedesign/RiemannSolvers/CompressibleSolverOp.hpp>
-#include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
-#include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
 namespace Nektar
@@ -68,16 +65,8 @@ public:
     static std::string className;
 
 protected:
-    // Parameters for Navier-Stokes equations
-    double m_gamma;
-
     // Initialise operators
-    std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
-    std::shared_ptr<DiffusionIPOp<double>> m_diffusionIPOp;
-    std::shared_ptr<CompressibleSolverOp<double>> m_riemannSolverOp;
-    std::shared_ptr<EulerVolumeFluxOp<double>> m_eulerVolFluxOp;
-    std::shared_ptr<DiffusionCFEVolFluxOp<double>> m_diffusionVolFluxOp;
-    std::shared_ptr<DiffusionCFETraceFluxOp<double>> m_diffusionTraceFluxOp;
+    std::shared_ptr<AdvDiffusionOp<double>> m_advDiffusionOp;
     std::shared_ptr<ExpressionOp<double>> m_initialOp;
     std::shared_ptr<ExpressionOp<double>> m_velOp;
 
@@ -92,6 +81,9 @@ protected:
                   [[maybe_unused]] const double &factor);
 
     void v_InitObject(bool declareExpansionLists = true) override;
+
+    /// Attach the boundary conditions this system supports.
+    void SetUpBoundaryConditions();
 
     void v_GenerateSummary(SummaryList &s) override;
 

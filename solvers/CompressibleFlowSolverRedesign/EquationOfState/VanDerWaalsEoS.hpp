@@ -121,4 +121,40 @@ NEK_HOSTDEVICE_INLINE TData GetTemperature(const VanDerWaalsEoS<TScalar> &EoS,
     return (e + TData(EoS.a()) * rho) * TData(EoS.gammaMoneOgasConst());
 }
 
+/**
+ * @brief Specific internal energy at a prescribed pressure; the inverse of
+ * GetPressure() in its second argument.
+ *
+ * Needed by a pressure outflow, which prescribes p and extrapolates rho, and
+ * must recover the energy state that goes with the pair. Inverting
+ *
+ *     p = (e + a rho)(gamma - 1)/(1/rho - b) - a rho^2
+ *
+ * for e gives the expression below.
+ */
+template <typename TData, typename TScalar>
+NEK_HOSTDEVICE_INLINE TData GetIntEnergyFromPressure(
+    const VanDerWaalsEoS<TScalar> &EoS, const TData &rho, const TData &p)
+{
+    return (p + TData(EoS.a()) * rho * rho) *
+               (TData(1.0) / rho - TData(EoS.b())) /
+               (TData(EoS.gamma()) - TData(1.0)) -
+           TData(EoS.a()) * rho;
+}
+
+/**
+ * @brief Specific internal energy at a prescribed temperature; the inverse of
+ * GetTemperature().
+ *
+ * Needed by an isothermal wall, which prescribes T and must recover the energy
+ * state that goes with it. Unlike the ideal gas the result depends on density
+ * through the cohesion term.
+ */
+template <typename TData, typename TScalar>
+NEK_HOSTDEVICE_INLINE TData GetIntEnergyFromTemperature(
+    const VanDerWaalsEoS<TScalar> &EoS, const TData &rho, const TData &T)
+{
+    return T / TData(EoS.gammaMoneOgasConst()) - TData(EoS.a()) * rho;
+}
+
 } // namespace Nektar::detail

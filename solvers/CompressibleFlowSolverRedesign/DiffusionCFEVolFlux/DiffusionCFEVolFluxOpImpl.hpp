@@ -147,11 +147,22 @@ protected:
             const size_t outStride       = outblock.CompSize();
             const unsigned int nvarComps = inblock.GetNumComponents();
 
-            DiffusionCFEVolFluxKernel<ExecSpace, EqnOfSParams>(
-                m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
-                outStride, this->m_Prandtl, this->m_muRef, this->m_isMuVariable,
-                this->m_oneOverTstar, this->m_TRatioSutherland, inbase, qbase,
-                outbase, streamID);
+            if (this->m_append)
+            {
+                DiffusionCFEVolFluxKernel<true, ExecSpace, EqnOfSParams>(
+                    m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
+                    outStride, this->m_Prandtl, this->m_muRef,
+                    this->m_isMuVariable, this->m_oneOverTstar,
+                    this->m_TRatioSutherland, inbase, qbase, outbase, streamID);
+            }
+            else
+            {
+                DiffusionCFEVolFluxKernel<false, ExecSpace, EqnOfSParams>(
+                    m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
+                    outStride, this->m_Prandtl, this->m_muRef,
+                    this->m_isMuVariable, this->m_oneOverTstar,
+                    this->m_TRatioSutherland, inbase, qbase, outbase, streamID);
+            }
         }
     }
 };

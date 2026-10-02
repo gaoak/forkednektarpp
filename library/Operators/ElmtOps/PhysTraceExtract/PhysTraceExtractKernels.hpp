@@ -39,6 +39,7 @@
 
 #include <type_traits>
 
+#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "LibUtilities/BasicUtils/NekInline.hpp"
 
 namespace Nektar::Operators::detail
@@ -85,6 +86,7 @@ NEK_HOSTDEVICE_INLINE static void PhysInterpEdgeKernel(
 {
     if (isCollocated)
     {
+        NEK_HOSTDEVICE_ASSERTL1(nqto == nqfrom, "Basis is not collocated");
         for (unsigned i = 0; i < nqto * nedg; ++i)
         {
             out[i] = in[i];
@@ -170,6 +172,7 @@ NEK_HOSTDEVICE_INLINE static void PhysInterpFaceKernel(
 {
     if (isCollocated1) // interpolate dir 0 direction directly to output
     {
+        NEK_HOSTDEVICE_ASSERTL1(nqfrom1 == nqto1, "Basis is not collocated");
         for (unsigned f = 0, cnt_fjp = 0, cnt_fji = 0; f < nfac; ++f)
         {
             for (unsigned j = 0; j < nqfrom1; ++j)
@@ -196,6 +199,7 @@ NEK_HOSTDEVICE_INLINE static void PhysInterpFaceKernel(
     }
     else if (isCollocated0) // interplate in dir 1
     {
+        NEK_HOSTDEVICE_ASSERTL1(nqfrom0 == nqto0, "Basis is not collocated");
         for (unsigned f = 0; f < nfac; ++f)
         {
             for (unsigned i = 0; i < nqto0; ++i)

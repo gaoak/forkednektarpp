@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionCFETraceFluxOp.hpp
+// File: BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,57 +28,61 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Volume Flux for the Compressible Flow Equations (CFE) diffusion
-// operators
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "SolverCore/Diffusion/DiffusionTraceFluxOp.hpp"
+#include <SolverCore/BndCond/BndCondUpdateOp.hpp>
 
 namespace Nektar
 {
 
-// Upwind base class
-// Defines the apply operator to enforce apply parameter types
+/**
+ * @brief Subsonic Riemann boundary holding the entropy and the total enthalpy.
+ *
+ * The stagnation variant: the remaining degree of freedom at a subsonic inflow
+ * is filled by the total enthalpy rather than by a static quantity, which is
+ * the natural choice when the upstream reservoir is what is known. The sound
+ * speed is then no longer available directly and comes from a quadratic; see
+ * EntropyTotalEnthalpyStar().
+ *
+ * Its subsonic outflow is the same isentropic pressure branch the
+ * entropy-pressure condition uses.
+ *
+ * @see Ganlin Lyu, Chao Chen, Xi Du and Spencer J. Sherwin, *Stable,
+ * entropy-pressure compatible subsonic Riemann boundary condition for embedded
+ * DG compressible flow simulations*, arXiv:2205.14257, for the analysis these
+ * conditions come from.
+ */
 template <typename TData>
-class DiffusionCFETraceFluxOp : public SolverCore::DiffusionTraceFluxOp<TData>
+class BndCondEnforceEntropyTotalEnthalpyCFEOp
+    : public SolverCore::BndCondUpdateOp<TData>
 {
 public:
-    static std::shared_ptr<DiffusionCFETraceFluxOp<TData>> Create(
+    static std::shared_ptr<BndCondEnforceEntropyTotalEnthalpyCFEOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        std::string EoSName;
-
-        if (expansionList->GetSession()->DefinesEquationOfState())
-        {
-            EoSName = boost::to_upper_copy(
-                expansionList->GetSession()->GetEquationOfState().type);
-        }
-        else
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "No EquationOfState section defined in session file");
-        }
-
-        return std::dynamic_pointer_cast<DiffusionCFETraceFluxOp<TData>>(
-            SolverCore::DiffusionTraceFluxOp<TData>::Create(
-                expansionList, components, name + EoSName, execStr));
+        return Operators::Operator<TData>::template Create<
+            BndCondEnforceEntropyTotalEnthalpyCFEOp>(expansionList, components,
+                                                     execStr);
     }
 
-    static inline const std::string name = "DiffusionCFETraceFlux";
+    static inline const std::string name =
+        "BndCondEnforceEntropyTotalEnthalpyCFEOp";
 
 protected:
-    DiffusionCFETraceFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                            const std::vector<std::string> &components)
-        : SolverCore::DiffusionTraceFluxOp<TData>(expansionList, components)
+    BndCondEnforceEntropyTotalEnthalpyCFEOp(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+        : SolverCore::BndCondUpdateOp<TData>(expansionList, components)
     {
     }
 
-    ~DiffusionCFETraceFluxOp() override = default;
+    ~BndCondEnforceEntropyTotalEnthalpyCFEOp() override = default;
 };
 
 } // namespace Nektar

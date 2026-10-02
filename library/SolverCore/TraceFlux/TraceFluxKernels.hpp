@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 #include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractKernels.hpp"
 
@@ -45,15 +46,16 @@ namespace Nektar::SolverCore::detail
 using LocalRegions::ReOrientFaceKernel;
 // Host and device: called from the host loops of the per-trace gather/scatter
 // helpers and from inside the block launchers' parallel_for kernels.
-// No asserts in these kernels: a device build has no pass in which an
-// assert message compiles out, and the conditions they would check, distinct
-// input and output and a known orientation, are settled on the host before
-// the launch.
+// Their checks are host-device asserts: live on the host paths, nothing in
+// device code, where an assert message cannot be built.
 template <bool APPEND, bool NEGATE_INPUT, typename TData>
 NEK_HOSTDEVICE_INLINE static void ReOrientEdgeKernel(
     const StdRegions::Orientation orient, const unsigned nq0, const TData *in,
     TData *out)
 {
+    NEK_HOSTDEVICE_ASSERTL1(
+        in != out, "This routine cannot use the same input and output");
+
     // Input sign change if required.
     TData sign = (NEGATE_INPUT) ? -1.0 : 1.0;
 
@@ -100,9 +102,68 @@ NEK_HOSTDEVICE_INLINE static void ReOrientEdgeKernel(
         }
         break;
         default:
-            // No assert: this runs on the device, where an assert would
-            // bring a std::string into the kernel. The orientation comes
-            // from geometry validated on the host.
+            NEK_HOSTDEVICE_ASSERTL1(false, "Unknown orientation");
+            break;
+    }
+}
+
+// Version with input and output offsets for interleaving, the edge
+// counterpart of the offset ReOrientFaceKernel() below.
+template <bool APPEND, bool NEGATE_INPUT, typename TData>
+NEK_HOSTDEVICE_INLINE static void ReOrientEdgeKernel(
+    const StdRegions::Orientation orient, const unsigned nq0, const TData *in,
+    const unsigned inOffset, TData *out, const unsigned outOffset)
+{
+    NEK_HOSTDEVICE_ASSERTL1(
+        in != out, "This routine cannot use the same input and output");
+
+    // Input sign change if required.
+    TData sign = (NEGATE_INPUT) ? -1.0 : 1.0;
+
+    switch (orient)
+    {
+        case StdRegions::eForwards:
+            // straight copy and add
+            if constexpr (APPEND)
+            {
+                for (unsigned i = 0; i < nq0; ++i)
+                {
+                    out[i * outOffset] += sign * in[i * inOffset];
+                }
+            }
+            else
+            {
+                for (unsigned i = 0; i < nq0; ++i)
+                {
+                    out[i * outOffset] = sign * in[i * inOffset];
+                }
+            }
+            break;
+        case StdRegions::eBackwards:
+        {
+            TData store;
+            if constexpr (APPEND)
+            {
+                for (unsigned i = 0; i < (nq0 + 1u) / 2; ++i)
+                {
+                    store = sign * in[i * inOffset];
+                    out[i * outOffset] += sign * in[(nq0 - 1u - i) * inOffset];
+                    out[(nq0 - 1u - i) * outOffset] += store;
+                }
+            }
+            else
+            {
+                for (unsigned i = 0; i < (nq0 + 1u) / 2; ++i)
+                {
+                    store              = sign * in[i * inOffset];
+                    out[i * outOffset] = sign * in[(nq0 - 1u - i) * inOffset];
+                    out[(nq0 - 1u - i) * outOffset] = store;
+                }
+            }
+        }
+        break;
+        default:
+            NEK_HOSTDEVICE_ASSERTL1(false, "Unknown orientation");
             break;
     }
 }
@@ -120,6 +181,9 @@ NEK_HOSTDEVICE_INLINE static void ReOrientFaceKernel(
     const unsigned nq1, const TData *in, const unsigned inOffset, TData *out,
     const unsigned outOffset, bool Forwards)
 {
+    NEK_HOSTDEVICE_ASSERTL1(
+        in != out, "This routine cannot use the same input and output");
+
     // Input sign change if required.
     TData sign = (NEGATE_INPUT) ? -1.0 : 1.0;
     switch (orient)
@@ -500,9 +564,7 @@ NEK_HOSTDEVICE_INLINE static void ReOrientFaceKernel(
         }
         break;
         default:
-            // No assert: this runs on the device, where an assert would
-            // bring a std::string into the kernel. The orientation comes
-            // from geometry validated on the host.
+            NEK_HOSTDEVICE_ASSERTL1(false, "Unknown orientation");
             break;
     }
 }
@@ -527,6 +589,17 @@ struct TraceBlockView
     const size_t *compSize  = nullptr;
     const int *orient       = nullptr;
     size_t numTrace         = 0;
+    /// Distance between consecutive points of one local edge or face: the
+    /// element-local field's interleave width, whose layout @p offset then
+    /// addresses. A point trace has one point, so its gather needs no stride.
+    unsigned stride = 1;
+    /// Per-point reorientation, built for the Device only: for trace @p t and
+    /// global-trace point @p p, `ptMapFwd[t * ptsPerTrace + p]` is the local
+    /// point that lands there; `ptMapBwd` is the same the other way, local
+    /// point to the global point it takes. Null where no map was built.
+    const unsigned *ptMapFwd = nullptr;
+    const unsigned *ptMapBwd = nullptr;
+    unsigned ptsPerTrace     = 0;
 };
 
 /**
@@ -594,6 +667,431 @@ NEK_HOSTDEVICE_INLINE static void ReorientedFaceExtents(
 }
 
 /**
+ * @brief Gather every local trace of a block into the global trace, one
+ * thread per point.
+ *
+ * The Device form of LocEdgeToGloEdgeTraces() and LocFaceToGloFaceTraces()
+ * for a collocated side. Consecutive threads write consecutive points of the
+ * global trace, so a warp's stores coalesce, and each reads its source through
+ * the block's point map, which holds the reorientation the per-trace loop
+ * would perform; the trace's dimension is already folded into the map, so
+ * edges and faces share this kernel.
+ *
+ * @param numComp   - Components per trace point.
+ * @param T         - Per-trace metadata for the local side of the block,
+ *                    with its point map built.
+ * @param npts      - Points per trace, local and global alike.
+ * @param inPtr     - Element-local input, at the field base.
+ * @param outPtr    - Packed global-trace output, at the base of the block.
+ * @param outOffset - Component stride within @p outPtr.
+ */
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void LocTraceToGloTracePoints(
+    const unsigned numComp, const TraceBlockView &T, const unsigned npts,
+    const TData *inPtr, TData *outPtr, const unsigned outOffset)
+{
+    ASSERTL1(T.ptMapFwd != nullptr && T.ptsPerTrace == npts,
+             "No point map for this block at this size");
+
+    const size_t numTrace = T.numTrace;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp * npts, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t p = idx % npts;
+            const size_t r = idx / npts;
+            const size_t t = r % numTrace;
+            const size_t n = r / numTrace;
+
+            const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t];
+            outPtr[npts * t + n * outOffset + p] =
+                in[T.ptMapFwd[t * npts + p] * T.stride];
+        });
+}
+
+/**
+ * @brief Scatter the global trace of a block back onto every local trace, one
+ * thread per point.
+ *
+ * The inverse of LocTraceToGloTracePoints(): one thread per local point,
+ * reading the global point the map assigns it and writing the element-local
+ * field contiguously, with the sign and the append folded in.
+ *
+ * @tparam APPEND       Accumulate into @p outPtr rather than overwriting it.
+ * @tparam NEGATE_INPUT Negate on the way out; see GloEdgeToLocEdgeBlock().
+ *
+ * @param numComp  - Components per trace point.
+ * @param T        - Per-trace metadata for the local side of the block, with
+ *                   its point map built.
+ * @param npts     - Points per trace, local and global alike.
+ * @param inPtr    - Packed global-trace input, at the base of the block.
+ * @param inOffset - Component stride within @p inPtr.
+ * @param outPtr   - Element-local output, at the field base.
+ */
+template <bool APPEND, typename ExecSpace, bool NEGATE_INPUT, typename TData>
+NEK_FORCE_INLINE static void GloTraceToLocTracePoints(
+    const unsigned numComp, const TraceBlockView &T, const unsigned npts,
+    const TData *inPtr, const unsigned inOffset, TData *outPtr)
+{
+    ASSERTL1(T.ptMapBwd != nullptr && T.ptsPerTrace == npts,
+             "No point map for this block at this size");
+
+    const size_t numTrace = T.numTrace;
+    const TData sign      = NEGATE_INPUT ? TData(-1.0) : TData(1.0);
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp * npts, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t q = idx % npts;
+            const size_t r = idx / npts;
+            const size_t t = r % numTrace;
+            const size_t n = r / numTrace;
+
+            const TData v =
+                sign *
+                inPtr[npts * t + n * inOffset + T.ptMapBwd[t * npts + q]];
+            TData &o = outPtr[T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t] + q * T.stride];
+            if (APPEND)
+            {
+                o += v;
+            }
+            else
+            {
+                o = v;
+            }
+        });
+}
+
+/**
+ * @brief Gather every local edge of a block into the global trace, one
+ * thread per global point, interpolating on the way.
+ *
+ * The Device form of LocEdgeToGloEdgeTraces() for a side that does not share
+ * the global trace's point distribution. Each thread forms one global point
+ * as the interpolation of the local points, read through the block's point
+ * map, which holds the reorientation; the matrix is the one the per-trace
+ * loop hands to PhysInterpEdgeKernel(), in its layout.
+ *
+ * @param numComp   - Components per trace point.
+ * @param T         - Per-trace metadata for the local side, with its point
+ *                    map built.
+ * @param interp    - Local-to-global interpolation, `nptsIn` by `nptsOut`,
+ *                    entry `[i * nptsOut + p]`.
+ * @param nptsIn    - Points on the local edge.
+ * @param inPtr     - Element-local input, at the field base.
+ * @param nptsOut   - Points on the global edge.
+ * @param outPtr    - Packed global-trace output, at the base of the block.
+ * @param outOffset - Component stride within @p outPtr.
+ */
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void LocEdgeToGloEdgePoints(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp,
+    const unsigned nptsIn, const TData *inPtr, const unsigned nptsOut,
+    TData *outPtr, const unsigned outOffset)
+{
+    ASSERTL1(T.ptMapFwd != nullptr && T.ptsPerTrace == nptsIn,
+             "No point map for this block at this size");
+
+    const size_t numTrace = T.numTrace;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp * nptsOut, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t p = idx % nptsOut;
+            const size_t r = idx / nptsOut;
+            const size_t t = r % numTrace;
+            const size_t n = r / numTrace;
+
+            const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t];
+            const unsigned *map = T.ptMapFwd + t * nptsIn;
+
+            TData sum = 0.0;
+            for (unsigned i = 0; i < nptsIn; ++i)
+            {
+                sum += in[map[i] * T.stride] * interp[i * nptsOut + p];
+            }
+            outPtr[nptsOut * t + n * outOffset + p] = sum;
+        });
+}
+
+/**
+ * @brief Scatter the global trace of a block back onto every local edge, one
+ * thread per local point, interpolating on the way.
+ *
+ * The inverse of LocEdgeToGloEdgePoints(): each thread forms one local point
+ * from the global points through the global-to-local matrix, at the index
+ * the backward map assigns it, with the sign and the append folded in.
+ *
+ * @tparam APPEND       Accumulate into @p outPtr rather than overwriting it.
+ * @tparam NEGATE_INPUT Negate on the way out; see GloEdgeToLocEdgeBlock().
+ *
+ * @param numComp  - Components per trace point.
+ * @param T        - Per-trace metadata for the local side, with its point
+ *                   map built.
+ * @param interp   - Global-to-local interpolation, `nptsIn` by `nptsOut`,
+ *                   entry `[p * nptsOut + k]`.
+ * @param nptsIn   - Points on the global edge.
+ * @param inPtr    - Packed global-trace input, at the base of the block.
+ * @param inOffset - Component stride within @p inPtr.
+ * @param nptsOut  - Points on the local edge.
+ * @param outPtr   - Element-local output, at the field base.
+ */
+template <bool APPEND, typename ExecSpace, bool NEGATE_INPUT, typename TData>
+NEK_FORCE_INLINE static void GloEdgeToLocEdgePoints(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp,
+    const unsigned nptsIn, const TData *inPtr, const unsigned inOffset,
+    const unsigned nptsOut, TData *outPtr)
+{
+    ASSERTL1(T.ptMapBwd != nullptr && T.ptsPerTrace == nptsOut,
+             "No point map for this block at this size");
+
+    const size_t numTrace = T.numTrace;
+    const TData sign      = NEGATE_INPUT ? TData(-1.0) : TData(1.0);
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp * nptsOut, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t q = idx % nptsOut;
+            const size_t r = idx / nptsOut;
+            const size_t t = r % numTrace;
+            const size_t n = r / numTrace;
+
+            const TData *in  = inPtr + nptsIn * t + n * inOffset;
+            const unsigned k = T.ptMapBwd[t * nptsOut + q];
+
+            TData sum = 0.0;
+            for (unsigned p = 0; p < nptsIn; ++p)
+            {
+                sum += in[p] * interp[p * nptsOut + k];
+            }
+            TData &o = outPtr[T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t] + q * T.stride];
+            if (APPEND)
+            {
+                o += sign * sum;
+            }
+            else
+            {
+                o = sign * sum;
+            }
+        });
+}
+
+/**
+ * @brief Gather every local face of a block into the global trace, one
+ * thread per global point, interpolating on the way.
+ *
+ * The face form of LocEdgeToGloEdgePoints(). The local points are read in
+ * the global frame through the point map, whose extents are the local ones
+ * reordered by the trace's orientation (ReorientedFaceExtents()), and the
+ * two-direction interpolation is summed directly; a collocated direction
+ * contributes the identity, as in PhysInterpFaceKernel().
+ *
+ * @param numComp     - Components per trace point.
+ * @param T           - Per-trace metadata for the local side, with its point
+ *                      map built.
+ * @param interp0     - Local-to-global interpolation in trace direction 0,
+ *                      null if that direction is collocated.
+ * @param interp1     - As @p interp0, for direction 1.
+ * @param nptsIn0     - Points on the local face in direction 0.
+ * @param nptsIn1     - Points on the local face in direction 1.
+ * @param inPtr       - Element-local input, at the field base.
+ * @param nptsOut0    - Points on the global face in direction 0.
+ * @param nptsOut1    - Points on the global face in direction 1.
+ * @param outPtr      - Packed global-trace output, at the base of the block.
+ * @param outOffset   - Component stride within @p outPtr.
+ * @param Collocated0 - Direction 0 needs no interpolation.
+ * @param Collocated1 - Direction 1 needs no interpolation.
+ */
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void LocFaceToGloFacePoints(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp0,
+    const TData *interp1, const unsigned nptsIn0, const unsigned nptsIn1,
+    const TData *inPtr, const unsigned nptsOut0, const unsigned nptsOut1,
+    TData *outPtr, const unsigned outOffset, const bool Collocated0,
+    const bool Collocated1)
+{
+    const auto nptsIn  = nptsIn0 * nptsIn1;
+    const auto nptsOut = nptsOut0 * nptsOut1;
+
+    ASSERTL1(T.ptMapFwd != nullptr && T.ptsPerTrace == nptsIn,
+             "No point map for this block at this size");
+
+    const size_t numTrace = T.numTrace;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp * nptsOut, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t p = idx % nptsOut;
+            const size_t r = idx / nptsOut;
+            const size_t t = r % numTrace;
+            const size_t n = r / numTrace;
+
+            const unsigned p0 = p % nptsOut0;
+            const unsigned p1 = p / nptsOut0;
+
+            const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t];
+            const unsigned *map = T.ptMapFwd + t * nptsIn;
+
+            // Extents of the local points once reoriented into the global
+            // frame, which is the frame the map and the matrices work in.
+            unsigned nRe0, nRe1;
+            ReorientedFaceExtents(StdRegions::Orientation(T.orient[t]), nptsIn0,
+                                  nptsIn1, nRe0, nRe1);
+
+            // A collocated direction takes the one matching point.
+            const unsigned i0 = Collocated0 ? p0 : 0u;
+            const unsigned i1 = Collocated0 ? p0 + 1u : nRe0;
+            const unsigned j0 = Collocated1 ? p1 : 0u;
+            const unsigned j1 = Collocated1 ? p1 + 1u : nRe1;
+
+            TData sum = 0.0;
+            for (unsigned j = j0; j < j1; ++j)
+            {
+                const TData w1 =
+                    Collocated1 ? TData(1.0) : interp1[j * nptsOut1 + p1];
+                for (unsigned i = i0; i < i1; ++i)
+                {
+                    const TData w0 =
+                        Collocated0 ? TData(1.0) : interp0[i * nptsOut0 + p0];
+                    sum += in[map[i + j * nRe0] * T.stride] * w0 * w1;
+                }
+            }
+            outPtr[nptsOut * t + n * outOffset + p] = sum;
+        });
+}
+
+/**
+ * @brief Scatter the global trace of a block back onto every local face, one
+ * thread per local point, interpolating on the way.
+ *
+ * The inverse of LocFaceToGloFacePoints(): the backward map gives each local
+ * point its index in the reoriented frame, whose extents are the local ones
+ * reordered by the orientation, and the two-direction interpolation from the
+ * global points is summed there, with the sign and the append folded in.
+ *
+ * @param numComp     - Components per trace point.
+ * @param T           - Per-trace metadata for the local side, with its point
+ *                      map built.
+ * @param interp0     - Global-to-local interpolation in trace direction 0,
+ *                      null if that direction is collocated.
+ * @param interp1     - As @p interp0, for direction 1.
+ * @param nptsIn0     - Points on the global face in direction 0.
+ * @param nptsIn1     - Points on the global face in direction 1.
+ * @param inPtr       - Packed global-trace input, at the base of the block.
+ * @param inOffset    - Component stride within @p inPtr.
+ * @param nptsOut0    - Points on the local face in direction 0.
+ * @param nptsOut1    - Points on the local face in direction 1.
+ * @param outPtr      - Element-local output, at the field base.
+ * @param Collocated0 - Direction 0 needs no interpolation.
+ * @param Collocated1 - Direction 1 needs no interpolation.
+ */
+template <bool APPEND, typename ExecSpace, bool NEGATE_INPUT, typename TData>
+NEK_FORCE_INLINE static void GloFaceToLocFacePoints(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp0,
+    const TData *interp1, const unsigned nptsIn0, const unsigned nptsIn1,
+    const TData *inPtr, const unsigned inOffset, const unsigned nptsOut0,
+    const unsigned nptsOut1, TData *outPtr, const bool Collocated0,
+    const bool Collocated1)
+{
+    const auto nptsIn  = nptsIn0 * nptsIn1;
+    const auto nptsOut = nptsOut0 * nptsOut1;
+
+    ASSERTL1(T.ptMapBwd != nullptr && T.ptsPerTrace == nptsOut,
+             "No point map for this block at this size");
+
+    const size_t numTrace = T.numTrace;
+    const TData sign      = NEGATE_INPUT ? TData(-1.0) : TData(1.0);
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp * nptsOut, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t q = idx % nptsOut;
+            const size_t r = idx / nptsOut;
+            const size_t t = r % numTrace;
+            const size_t n = r / numTrace;
+
+            const TData *in = inPtr + nptsIn * t + n * inOffset;
+
+            unsigned nRe0, nRe1;
+            ReorientedFaceExtents(StdRegions::Orientation(T.orient[t]),
+                                  nptsOut0, nptsOut1, nRe0, nRe1);
+
+            const unsigned k  = T.ptMapBwd[t * nptsOut + q];
+            const unsigned k0 = k % nRe0;
+            const unsigned k1 = k / nRe0;
+
+            const unsigned p00 = Collocated0 ? k0 : 0u;
+            const unsigned p01 = Collocated0 ? k0 + 1u : nptsIn0;
+            const unsigned p10 = Collocated1 ? k1 : 0u;
+            const unsigned p11 = Collocated1 ? k1 + 1u : nptsIn1;
+
+            TData sum = 0.0;
+            for (unsigned p1 = p10; p1 < p11; ++p1)
+            {
+                const TData w1 =
+                    Collocated1 ? TData(1.0) : interp1[p1 * nRe1 + k1];
+                for (unsigned p0 = p00; p0 < p01; ++p0)
+                {
+                    const TData w0 =
+                        Collocated0 ? TData(1.0) : interp0[p0 * nRe0 + k0];
+                    sum += in[p0 + p1 * nptsIn0] * w0 * w1;
+                }
+            }
+            TData &o = outPtr[T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t] + q * T.stride];
+            if (APPEND)
+            {
+                o += sign * sum;
+            }
+            else
+            {
+                o = sign * sum;
+            }
+        });
+}
+
+// One thread per trace: the loop LocEdgeToGloEdgeBlock() runs on Serial and
+// AVX.
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void LocEdgeToGloEdgeTraces(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp,
+    const unsigned nptsIn, const TData *inPtr, TData *wsp,
+    const unsigned nptsOut, TData *outPtr, const unsigned outOffset,
+    const bool Collocated)
+{
+    ASSERTL1(!Collocated || (nptsIn == nptsOut), "Input is not collocated");
+
+    const size_t numTrace = T.numTrace;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t t = idx % numTrace;
+            const size_t n = idx / numTrace;
+
+            const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
+                              n * T.compSize[t];
+            TData *out = outPtr + nptsOut * t + n * outOffset;
+
+            const auto orient = StdRegions::Orientation(T.orient[t]);
+
+            if (Collocated)
+            {
+                ReOrientEdgeKernel<false, false>(orient, nptsIn, in, T.stride,
+                                                 out, 1u);
+            }
+            else
+            {
+                // Private slice: every thread reorients before interpolating.
+                TData *w = wsp + idx * nptsIn;
+
+                ReOrientEdgeKernel<false, false>(orient, nptsIn, in, T.stride,
+                                                 w, 1u);
+                Operators::detail::PhysInterpEdgeKernel<TData>(
+                    1u, nptsIn, nptsOut, interp, w, out, false);
+            }
+        });
+}
+
+/**
  * @brief Gather every edge trace of a block onto the global trace.
  *
  * One launch covers all `numTrace * numComp` edges. Each thread owns one
@@ -625,7 +1123,43 @@ NEK_FORCE_INLINE static void LocEdgeToGloEdgeBlock(
     const unsigned numComp, const TraceBlockView &T, const TData *interp,
     const unsigned nptsIn, const TData *inPtr, TData *wsp,
     const unsigned nptsOut, TData *outPtr, const unsigned outOffset,
-    const bool Collocated)
+    const bool Collocated, const unsigned int streamID = 0)
+{
+    Nektar::LoopExecutionSetStreamID(streamID);
+
+    // The device runs one thread per point through the block's point map,
+    // interpolating in the thread where the side needs it; Serial and AVX
+    // run one thread per trace.
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+        if (Collocated)
+        {
+            LocTraceToGloTracePoints<ExecSpace>(numComp, T, nptsIn, inPtr,
+                                                outPtr, outOffset);
+        }
+        else
+        {
+            LocEdgeToGloEdgePoints<ExecSpace>(numComp, T, interp, nptsIn, inPtr,
+                                              nptsOut, outPtr, outOffset);
+        }
+    }
+    else
+    {
+        LocEdgeToGloEdgeTraces<ExecSpace>(numComp, T, interp, nptsIn, inPtr,
+                                          wsp, nptsOut, outPtr, outOffset,
+                                          Collocated);
+    }
+
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
+// One thread per trace: the loop GloEdgeToLocEdgeBlock() runs on Serial and
+// AVX.
+template <bool APPEND, typename ExecSpace, bool NEGATE_INPUT, typename TData>
+NEK_FORCE_INLINE static void GloEdgeToLocEdgeTraces(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp,
+    const unsigned nptsIn, const TData *inPtr, const unsigned inOffset,
+    TData *wsp, const unsigned nptsOut, TData *outPtr, const bool Collocated)
 {
     ASSERTL1(!Collocated || (nptsIn == nptsOut), "Input is not collocated");
 
@@ -636,24 +1170,26 @@ NEK_FORCE_INLINE static void LocEdgeToGloEdgeBlock(
             const size_t t = idx % numTrace;
             const size_t n = idx / numTrace;
 
-            const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
-                              n * T.compSize[t];
-            TData *out = outPtr + nptsOut * t + n * outOffset;
+            const TData *in = inPtr + nptsIn * t + n * inOffset;
+            TData *out      = outPtr + T.offset_st[t] * numComp + T.offset[t] +
+                         n * T.compSize[t];
 
             const auto orient = StdRegions::Orientation(T.orient[t]);
 
             if (Collocated)
             {
-                ReOrientEdgeKernel<false, false>(orient, nptsIn, in, out);
+                ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsIn, in, 1u,
+                                                         out, T.stride);
             }
             else
             {
-                // Private slice: every thread reorients before interpolating.
-                TData *w = wsp + idx * nptsIn;
+                // Private slice: every thread interpolates before reorienting.
+                TData *w = wsp + idx * nptsOut;
 
-                ReOrientEdgeKernel<false, false>(orient, nptsIn, in, w);
                 Operators::detail::PhysInterpEdgeKernel<TData>(
-                    1u, nptsIn, nptsOut, interp, w, out, false);
+                    1u, nptsIn, nptsOut, interp, in, w, false);
+                ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsOut, w, 1u,
+                                                         out, T.stride);
             }
         });
 }
@@ -695,70 +1231,41 @@ template <bool APPEND, typename ExecSpace, bool NEGATE_INPUT, typename TData>
 NEK_FORCE_INLINE static void GloEdgeToLocEdgeBlock(
     const unsigned numComp, const TraceBlockView &T, const TData *interp,
     const unsigned nptsIn, const TData *inPtr, const unsigned inOffset,
-    TData *wsp, const unsigned nptsOut, TData *outPtr, const bool Collocated)
+    TData *wsp, const unsigned nptsOut, TData *outPtr, const bool Collocated,
+    const unsigned int streamID = 0)
 {
-    ASSERTL1(!Collocated || (nptsIn == nptsOut), "Input is not collocated");
+    Nektar::LoopExecutionSetStreamID(streamID);
 
-    const size_t numTrace = T.numTrace;
+    // The device runs one thread per point through the block's point map,
+    // interpolating in the thread where the side needs it; Serial and AVX
+    // run one thread per trace.
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+        if (Collocated)
+        {
+            GloTraceToLocTracePoints<APPEND, ExecSpace, NEGATE_INPUT>(
+                numComp, T, nptsOut, inPtr, inOffset, outPtr);
+        }
+        else
+        {
+            GloEdgeToLocEdgePoints<APPEND, ExecSpace, NEGATE_INPUT>(
+                numComp, T, interp, nptsIn, inPtr, inOffset, nptsOut, outPtr);
+        }
+    }
+    else
+    {
+        GloEdgeToLocEdgeTraces<APPEND, ExecSpace, NEGATE_INPUT>(
+            numComp, T, interp, nptsIn, inPtr, inOffset, wsp, nptsOut, outPtr,
+            Collocated);
+    }
 
-    Nektar::parallel_for<ExecSpace>(
-        0u, numTrace * numComp, NEKTAR_LAMBDA(const size_t idx) {
-            const size_t t = idx % numTrace;
-            const size_t n = idx / numTrace;
-
-            const TData *in = inPtr + nptsIn * t + n * inOffset;
-            TData *out      = outPtr + T.offset_st[t] * numComp + T.offset[t] +
-                         n * T.compSize[t];
-
-            const auto orient = StdRegions::Orientation(T.orient[t]);
-
-            if (Collocated)
-            {
-                ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsIn, in,
-                                                         out);
-            }
-            else
-            {
-                // Private slice: every thread interpolates before reorienting.
-                TData *w = wsp + idx * nptsOut;
-
-                Operators::detail::PhysInterpEdgeKernel<TData>(
-                    1u, nptsIn, nptsOut, interp, in, w, false);
-                ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsOut, w,
-                                                         out);
-            }
-        });
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
-/**
- * @brief Gather every face trace of a block onto the global trace.
- *
- * The face counterpart of LocEdgeToGloEdgeBlock(): one launch, one thread per
- * (trace, component) pair, inputs addressed through @p T, and each thread
- * writing its own `nptsOut0 * nptsOut1` points.
- *
- * @param numComp    - Components per trace point.
- * @param T          - Per-trace metadata for this side of the block.
- * @param interp0    - Local-to-global interpolation in trace direction 0,
- *                     null if that direction is collocated.
- * @param interp1    - As @p interp0, for direction 1.
- * @param nptsIn0    - Points on the local trace in direction 0.
- * @param nptsIn1    - Points on the local trace in direction 1.
- * @param inPtr      - Physical-space input, block layout, at the field base.
- * @param loc_wsp    - Scratch holding the reoriented local trace, at least
- *                     `numTrace * numComp * nptsIn0 * nptsIn1`.
- * @param wsp        - Scratch for the interpolation itself, at least
- *                     `numTrace * numComp * nptsOut0 * nptsIn1`. Both are
- *                     unused when the trace is collocated in both directions.
- * @param nptsOut0   - Points on the global trace in direction 0.
- * @param nptsOut1   - Points on the global trace in direction 1.
- * @param outPtr     - Packed global-trace output, at the base of the block.
- * @param outOffset  - Component stride within @p outPtr.
- * @param Collocated0 - Direction 0 needs no interpolation.
- * @param Collocated1 - Direction 1 needs no interpolation.
- */
+// One thread per trace: the loop LocFaceToGloFaceBlock() runs on Serial and
+// AVX.
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void LocFaceToGloFaceBlock(
+NEK_FORCE_INLINE static void LocFaceToGloFaceTraces(
     const unsigned numComp, const TraceBlockView &T, const TData *interp0,
     const TData *interp1, const unsigned nptsIn0, const unsigned nptsIn1,
     const TData *inPtr, TData *loc_wsp, TData *wsp, const unsigned nptsOut0,
@@ -798,7 +1305,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFaceBlock(
             if (Collocated0 && Collocated1)
             {
                 ReOrientFaceKernel<false, false>(orient, nptsIn0, nptsIn1, in,
-                                                 out, true);
+                                                 T.stride, out, 1u, true);
             }
             else
             {
@@ -806,7 +1313,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFaceBlock(
                 TData *lw = loc_wsp + idx * nptsIn;
 
                 ReOrientFaceKernel<false, false>(orient, nptsIn0, nptsIn1, in,
-                                                 lw, true);
+                                                 T.stride, lw, 1u, true);
 
                 // The interpolation runs on the reoriented data, so it needs
                 // the extents reordered into the global frame.
@@ -816,6 +1323,133 @@ NEK_FORCE_INLINE static void LocFaceToGloFaceBlock(
                 Operators::detail::PhysInterpFaceKernel<TData>(
                     1u, nRe0, nRe1, nptsOut0, nptsOut1, interp0, interp1,
                     wsp + idx * wspStride, lw, out, Collocated0, Collocated1);
+            }
+        });
+}
+
+/**
+ * @brief Gather every face trace of a block onto the global trace.
+ *
+ * The face counterpart of LocEdgeToGloEdgeBlock(): one launch, one thread per
+ * (trace, component) pair, inputs addressed through @p T, and each thread
+ * writing its own `nptsOut0 * nptsOut1` points.
+ *
+ * @param numComp    - Components per trace point.
+ * @param T          - Per-trace metadata for this side of the block.
+ * @param interp0    - Local-to-global interpolation in trace direction 0,
+ *                     null if that direction is collocated.
+ * @param interp1    - As @p interp0, for direction 1.
+ * @param nptsIn0    - Points on the local trace in direction 0.
+ * @param nptsIn1    - Points on the local trace in direction 1.
+ * @param inPtr      - Physical-space input, block layout, at the field base.
+ * @param loc_wsp    - Scratch holding the reoriented local trace, at least
+ *                     `numTrace * numComp * nptsIn0 * nptsIn1`.
+ * @param wsp        - Scratch for the interpolation itself, at least
+ *                     `numTrace * numComp * nptsOut0 * nptsIn1`. Both are
+ *                     unused when the trace is collocated in both directions.
+ * @param nptsOut0   - Points on the global trace in direction 0.
+ * @param nptsOut1   - Points on the global trace in direction 1.
+ * @param outPtr     - Packed global-trace output, at the base of the block.
+ * @param outOffset  - Component stride within @p outPtr.
+ * @param Collocated0 - Direction 0 needs no interpolation.
+ * @param Collocated1 - Direction 1 needs no interpolation.
+ */
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void LocFaceToGloFaceBlock(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp0,
+    const TData *interp1, const unsigned nptsIn0, const unsigned nptsIn1,
+    const TData *inPtr, TData *loc_wsp, TData *wsp, const unsigned nptsOut0,
+    const unsigned nptsOut1, TData *outPtr, const unsigned outOffset,
+    const bool Collocated0, const bool Collocated1,
+    const unsigned int streamID = 0)
+{
+    Nektar::LoopExecutionSetStreamID(streamID);
+
+    // The device runs one thread per point through the block's point map,
+    // interpolating in the thread where the side needs it; Serial and AVX
+    // run one thread per trace.
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+        if (Collocated0 && Collocated1)
+        {
+            LocTraceToGloTracePoints<ExecSpace>(numComp, T, nptsIn0 * nptsIn1,
+                                                inPtr, outPtr, outOffset);
+        }
+        else
+        {
+            LocFaceToGloFacePoints<ExecSpace>(
+                numComp, T, interp0, interp1, nptsIn0, nptsIn1, inPtr, nptsOut0,
+                nptsOut1, outPtr, outOffset, Collocated0, Collocated1);
+        }
+    }
+    else
+    {
+        LocFaceToGloFaceTraces<ExecSpace>(
+            numComp, T, interp0, interp1, nptsIn0, nptsIn1, inPtr, loc_wsp, wsp,
+            nptsOut0, nptsOut1, outPtr, outOffset, Collocated0, Collocated1);
+    }
+
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
+// One thread per trace: the loop GloFaceToLocFaceBlock() runs on Serial and
+// AVX.
+template <bool APPEND, typename ExecSpace, bool NEGATE_INPUT, typename TData>
+NEK_FORCE_INLINE static void GloFaceToLocFaceTraces(
+    const unsigned numComp, const TraceBlockView &T, const TData *interp0,
+    const TData *interp1, const unsigned nptsIn0, const unsigned nptsIn1,
+    const TData *inPtr, const unsigned inOffset, TData *glo_wsp, TData *wsp,
+    const unsigned nptsOut0, const unsigned nptsOut1, TData *outPtr,
+    const bool Collocated0, const bool Collocated1)
+{
+    ASSERTL1(!(Collocated0 && Collocated1) ||
+                 (nptsIn0 * nptsIn1 == nptsOut0 * nptsOut1),
+             "Input is not collocated");
+
+    const size_t numTrace = T.numTrace;
+    const auto nptsIn     = nptsIn0 * nptsIn1;
+    const auto nptsOut    = nptsOut0 * nptsOut1;
+
+    // Scratch one PhysInterpFaceKernel() call consumes: its nqto0 by its
+    // nqfrom1. Here nqto0 is the reoriented local extent, so nptsOut0 or
+    // nptsOut1 depending on the trace's orientation - take the larger, as
+    // LocFaceToGloFaceBlock() does on its own side.
+    const auto wspStride = std::max(nptsOut0, nptsOut1) * nptsIn1;
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, numTrace * numComp, NEKTAR_LAMBDA(const size_t idx) {
+            const size_t t = idx % numTrace;
+            const size_t n = idx / numTrace;
+
+            const TData *in = inPtr + nptsIn * t + n * inOffset;
+            TData *out      = outPtr + T.offset_st[t] * numComp + T.offset[t] +
+                         n * T.compSize[t];
+
+            const auto orient = StdRegions::Orientation(T.orient[t]);
+
+            // nptsOut0/nptsOut1 are the local extents, which is what the
+            // reorientation wants.
+            if (Collocated0 && Collocated1)
+            {
+                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(
+                    orient, nptsOut0, nptsOut1, in, 1u, out, T.stride, false);
+            }
+            else
+            {
+                // Private slices: every thread interpolates then reorients.
+                TData *gw = glo_wsp + idx * nptsOut;
+
+                // The interpolation feeds the reorientation, so it targets the
+                // local extents reordered into the global frame.
+                unsigned nRe0, nRe1;
+                ReorientedFaceExtents(orient, nptsOut0, nptsOut1, nRe0, nRe1);
+
+                Operators::detail::PhysInterpFaceKernel<TData>(
+                    1u, nptsIn0, nptsIn1, nRe0, nRe1, interp0, interp1,
+                    wsp + idx * wspStride, in, gw, Collocated0, Collocated1);
+
+                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(
+                    orient, nptsOut0, nptsOut1, gw, 1u, out, T.stride, false);
             }
         });
 }
@@ -862,58 +1496,36 @@ NEK_FORCE_INLINE static void GloFaceToLocFaceBlock(
     const TData *interp1, const unsigned nptsIn0, const unsigned nptsIn1,
     const TData *inPtr, const unsigned inOffset, TData *glo_wsp, TData *wsp,
     const unsigned nptsOut0, const unsigned nptsOut1, TData *outPtr,
-    const bool Collocated0, const bool Collocated1)
+    const bool Collocated0, const bool Collocated1,
+    const unsigned int streamID = 0)
 {
-    ASSERTL1(!(Collocated0 && Collocated1) ||
-                 (nptsIn0 * nptsIn1 == nptsOut0 * nptsOut1),
-             "Input is not collocated");
+    Nektar::LoopExecutionSetStreamID(streamID);
 
-    const size_t numTrace = T.numTrace;
-    const auto nptsIn     = nptsIn0 * nptsIn1;
-    const auto nptsOut    = nptsOut0 * nptsOut1;
+    // The device runs one thread per point through the block's point map,
+    // interpolating in the thread where the side needs it; Serial and AVX
+    // run one thread per trace.
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+        if (Collocated0 && Collocated1)
+        {
+            GloTraceToLocTracePoints<APPEND, ExecSpace, NEGATE_INPUT>(
+                numComp, T, nptsOut0 * nptsOut1, inPtr, inOffset, outPtr);
+        }
+        else
+        {
+            GloFaceToLocFacePoints<APPEND, ExecSpace, NEGATE_INPUT>(
+                numComp, T, interp0, interp1, nptsIn0, nptsIn1, inPtr, inOffset,
+                nptsOut0, nptsOut1, outPtr, Collocated0, Collocated1);
+        }
+    }
+    else
+    {
+        GloFaceToLocFaceTraces<APPEND, ExecSpace, NEGATE_INPUT>(
+            numComp, T, interp0, interp1, nptsIn0, nptsIn1, inPtr, inOffset,
+            glo_wsp, wsp, nptsOut0, nptsOut1, outPtr, Collocated0, Collocated1);
+    }
 
-    // Scratch one PhysInterpFaceKernel() call consumes: its nqto0 by its
-    // nqfrom1. Here nqto0 is the reoriented local extent, so nptsOut0 or
-    // nptsOut1 depending on the trace's orientation - take the larger, as
-    // LocFaceToGloFaceBlock() does on its own side.
-    const auto wspStride = std::max(nptsOut0, nptsOut1) * nptsIn1;
-
-    Nektar::parallel_for<ExecSpace>(
-        0u, numTrace * numComp, NEKTAR_LAMBDA(const size_t idx) {
-            const size_t t = idx % numTrace;
-            const size_t n = idx / numTrace;
-
-            const TData *in = inPtr + nptsIn * t + n * inOffset;
-            TData *out      = outPtr + T.offset_st[t] * numComp + T.offset[t] +
-                         n * T.compSize[t];
-
-            const auto orient = StdRegions::Orientation(T.orient[t]);
-
-            // nptsOut0/nptsOut1 are the local extents, which is what the
-            // reorientation wants.
-            if (Collocated0 && Collocated1)
-            {
-                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(
-                    orient, nptsOut0, nptsOut1, in, out, false);
-            }
-            else
-            {
-                // Private slices: every thread interpolates then reorients.
-                TData *gw = glo_wsp + idx * nptsOut;
-
-                // The interpolation feeds the reorientation, so it targets the
-                // local extents reordered into the global frame.
-                unsigned nRe0, nRe1;
-                ReorientedFaceExtents(orient, nptsOut0, nptsOut1, nRe0, nRe1);
-
-                Operators::detail::PhysInterpFaceKernel<TData>(
-                    1u, nptsIn0, nptsIn1, nRe0, nRe1, interp0, interp1,
-                    wsp + idx * wspStride, in, gw, Collocated0, Collocated1);
-
-                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(
-                    orient, nptsOut0, nptsOut1, gw, out, false);
-            }
-        });
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -973,8 +1585,10 @@ NEK_FORCE_INLINE static void FillNeuBCDerivBlock(
     const TOff *off, const TOff *cOff, const TData *const *bases,
     const TCode *bcType, const unsigned numBCComp, const unsigned neuCode,
     const size_t npTot, const size_t npTBlock, const TData *norms,
-    const TData *gloDerivT0, TData *gloDerivT1)
+    const TData *gloDerivT0, TData *gloDerivT1, const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numBlock * numComp, NEKTAR_LAMBDA(const size_t idx) {
             const size_t t = idx % numBlock;
@@ -1020,6 +1634,8 @@ NEK_FORCE_INLINE static void FillNeuBCDerivBlock(
                 }
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1054,8 +1670,11 @@ NEK_FORCE_INLINE static void FillDirBCTraceBlock(
     const size_t compStride, const TBlk *blk, const TOff *off, const TOff *cOff,
     const TData *const *bases, const TCode *bcType, const unsigned numBCComp,
     const unsigned dirCode, const size_t npTot, const size_t npTBlock,
-    const unsigned np0, const unsigned np1, const TData *gloT0, TData *gloT1)
+    const unsigned np0, const unsigned np1, const TData *gloT0, TData *gloT1,
+    const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numBlock * numComp, NEKTAR_LAMBDA(const size_t idx) {
             const size_t t = idx % numBlock;
@@ -1102,6 +1721,8 @@ NEK_FORCE_INLINE static void FillDirBCTraceBlock(
                     gloT1 + npTot * t + n * npTBlock, true);
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1126,8 +1747,11 @@ template <typename ExecSpace, typename TData, typename TBlk, typename TOff,
 NEK_FORCE_INLINE static void ScatterGloTraceToBndStore(
     const unsigned numComp, const size_t numBlock, const size_t npTot,
     const size_t npTBlock, const TBlk *blk, const TOff *off, const TOff *cOff,
-    const TFlag *owned, TData *const *bases, const TData *gloT0)
+    const TFlag *owned, TData *const *bases, const TData *gloT0,
+    const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numBlock * numComp, NEKTAR_LAMBDA(const size_t idx) {
             const size_t t = idx % numBlock;
@@ -1148,6 +1772,8 @@ NEK_FORCE_INLINE static void ScatterGloTraceToBndStore(
                 out[i] = in[i];
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1164,13 +1790,17 @@ NEK_FORCE_INLINE static void ScatterGloTraceToBndStore(
  * @param bufOffset - Where each entry starts in the send buffer.
  * @param inPtr     - Element-local input, at the field base.
  * @param sendPtr   - Send buffer, at its base.
+ * @param stride    - Point stride of @p inPtr, its interleave width.
  */
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void PackParallelSendBlock(
     const size_t numEntry, const unsigned numComp, const size_t *offset_st,
     const size_t *offset, const size_t *compSize, const size_t *npts,
-    const size_t *bufOffset, const TData *inPtr, TData *sendPtr)
+    const size_t *bufOffset, const TData *inPtr, TData *sendPtr,
+    const unsigned stride, const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numEntry * numComp, NEKTAR_LAMBDA(const size_t idx) {
             const size_t e = idx % numEntry;
@@ -1182,9 +1812,11 @@ NEK_FORCE_INLINE static void PackParallelSendBlock(
 
             for (size_t i = 0; i < npts[e]; ++i)
             {
-                dst[i] = src[i];
+                dst[i] = src[i * stride];
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1203,8 +1835,11 @@ NEK_FORCE_INLINE static void PackParallelSendBlock(
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void CopyGloTraceFwdToBwd(
     const unsigned numComp, const size_t numBlock, const size_t npTot,
-    const size_t npTBlock, const TData *gloT0, TData *gloT1)
+    const size_t npTBlock, const TData *gloT0, TData *gloT1,
+    const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numBlock * numComp * npTot, NEKTAR_LAMBDA(const size_t idx) {
             const size_t i = idx % npTot;
@@ -1215,6 +1850,8 @@ NEK_FORCE_INLINE static void CopyGloTraceFwdToBwd(
             const auto k = n * npTBlock + npTot * t + i;
             gloT1[k]     = gloT0[k];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1232,12 +1869,12 @@ NEK_FORCE_INLINE static void CopyGloTraceFwdToBwd(
  * @param npTBlock - Component stride within @p outPtr.
  */
 template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void LocPointToGloPointBlock(const unsigned numComp,
-                                                     const TraceBlockView &T,
-                                                     const TData *inPtr,
-                                                     TData *outPtr,
-                                                     const size_t npTBlock)
+NEK_FORCE_INLINE static void LocPointToGloPointBlock(
+    const unsigned numComp, const TraceBlockView &T, const TData *inPtr,
+    TData *outPtr, const size_t npTBlock, const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const size_t numTrace = T.numTrace;
 
     Nektar::parallel_for<ExecSpace>(
@@ -1248,13 +1885,18 @@ NEK_FORCE_INLINE static void LocPointToGloPointBlock(const unsigned numComp,
             outPtr[n * npTBlock + t] = inPtr[T.offset_st[t] * numComp +
                                              T.offset[t] + n * T.compSize[t]];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 template <bool APPEND, typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void GloPointToLocPointBlock(
     const unsigned numComp, const TraceBlockView &T, const size_t npTBlock,
-    const TData sign, const TData *inPtr, TData *outPtr)
+    const TData sign, const TData *inPtr, TData *outPtr,
+    const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const size_t numTrace = T.numTrace;
 
     Nektar::parallel_for<ExecSpace>(
@@ -1278,6 +1920,8 @@ NEK_FORCE_INLINE static void GloPointToLocPointBlock(
                 *out = v;
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1313,8 +1957,10 @@ template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void GatherGloTraceComponentsKernel(
     const size_t numTrace, const size_t npTot, const size_t npTBlock,
     const unsigned numComp, const TData *srcBase, const GloTraceOffsetView &G,
-    TData *dst)
+    TData *dst, const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numTrace * npTot, NEKTAR_LAMBDA(const size_t idx) {
             const size_t t = idx / npTot;
@@ -1329,6 +1975,8 @@ NEK_FORCE_INLINE static void GatherGloTraceComponentsKernel(
                 dst[o + n * npTBlock] = src[i + n * stride];
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1361,8 +2009,11 @@ template <typename ExecSpace, bool AVERAGE, typename TData>
 NEK_FORCE_INLINE static void ScatterGloTraceComponentsKernel(
     const size_t numTrace, const size_t npTot, const size_t npTBlock,
     const unsigned numComp, const TData *srcT0, const TData *srcT1,
-    const GloTraceOffsetView &G, TData *dstBase)
+    const GloTraceOffsetView &G, TData *dstBase,
+    const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numTrace * npTot, NEKTAR_LAMBDA(const size_t idx) {
             const size_t t = idx / npTot;
@@ -1389,6 +2040,8 @@ NEK_FORCE_INLINE static void ScatterGloTraceComponentsKernel(
                 }
             }
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1413,8 +2066,11 @@ NEK_FORCE_INLINE static void ScatterGloTraceComponentsKernel(
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void MakeDirichletGhostStateKernel(
     const size_t numTrace, const size_t npTot, const size_t npTBlock,
-    const unsigned numflux, const TData *gloT0, TData *gloT1)
+    const unsigned numflux, const TData *gloT0, TData *gloT1,
+    const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     const size_t npTrace = numTrace * npTot;
 
     Nektar::parallel_for<ExecSpace>(
@@ -1426,6 +2082,8 @@ NEK_FORCE_INLINE static void MakeDirichletGhostStateKernel(
 
             gloT1[o] = TData(2.0) * gloT1[o] - gloT0[o];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1449,8 +2107,10 @@ NEK_FORCE_INLINE static void MakeDirichletGhostStateKernel(
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void GatherGloTraceScalarKernel(
     const size_t numTrace, const size_t npTot, const TData *srcBase,
-    const GloTraceOffsetView &G, TData *dst)
+    const GloTraceOffsetView &G, TData *dst, const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numTrace * npTot, NEKTAR_LAMBDA(const size_t idx) {
             const size_t t = idx / npTot;
@@ -1458,6 +2118,8 @@ NEK_FORCE_INLINE static void GatherGloTraceScalarKernel(
 
             dst[npTot * t + i] = srcBase[G.scalarOffset[t] + i];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 /**
@@ -1478,12 +2140,16 @@ NEK_FORCE_INLINE static void GatherGloTraceScalarKernel(
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void BroadcastGloTraceValueKernel(
     const size_t numTrace, const size_t npTot, const TData *valuePerTrace,
-    TData *dst)
+    TData *dst, const unsigned int streamID = 0)
 {
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, numTrace * npTot, NEKTAR_LAMBDA(const size_t idx) {
             dst[idx] = valuePerTrace[idx / npTot];
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::SolverCore::detail

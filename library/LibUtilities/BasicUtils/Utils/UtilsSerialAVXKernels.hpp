@@ -55,6 +55,20 @@ NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
     }
 }
 
+// Scratch for interleave() and deInterleave(): one grow-only buffer per
+// thread and type. The AVX element operators call them per 4-element chunk,
+// ~10^6 times a step, and a fresh std::vector per call (malloc, zero-fill,
+// free) was a quarter of their cost.
+template <typename TData> inline TData *ReshapeWorkspace(const size_t n)
+{
+    thread_local std::vector<TData> wsp;
+    if (wsp.size() < n)
+    {
+        wsp.resize(n);
+    }
+    return wsp.data();
+}
+
 template <typename ExecSpace, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -66,11 +80,11 @@ inline void interleave(const unsigned int interleaveWidth,
                        [[maybe_unused]] const unsigned int streamID)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
-    std::vector<TData> wsp(elmtGroupSize);
+    TData *wsp                       = ReshapeWorkspace<TData>(elmtGroupSize);
 
     for (size_t e = 0; e < numElmtGroups; ++e)
     {
-        std::copy(inout, inout + elmtGroupSize, wsp.data());
+        std::copy(inout, inout + elmtGroupSize, wsp);
 
         for (unsigned int idx = 0; idx < npts; ++idx)
         {
@@ -95,11 +109,11 @@ inline void deInterleave(const unsigned int interleaveWidth,
                          [[maybe_unused]] const unsigned int streamID)
 {
     const unsigned int elmtGroupSize = npts * interleaveWidth;
-    std::vector<TData> wsp(elmtGroupSize);
+    TData *wsp                       = ReshapeWorkspace<TData>(elmtGroupSize);
 
     for (size_t e = 0; e < numElmtGroups; ++e)
     {
-        std::copy(inout, inout + elmtGroupSize, wsp.data());
+        std::copy(inout, inout + elmtGroupSize, wsp);
 
         for (unsigned int idx = 0; idx < npts; ++idx)
         {

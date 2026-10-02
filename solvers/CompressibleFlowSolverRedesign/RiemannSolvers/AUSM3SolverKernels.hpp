@@ -48,10 +48,11 @@ namespace Nektar::detail
 struct AUSM3Upwinding
 {
     template <typename TData>
-    NEK_DEVICE_INLINE void operator()(const TData &cA, const TData &rhoL,
-                                      const TData &rhoR, const TData &pL,
-                                      const TData &pR, const TData &ML,
-                                      const TData &MR, TData &pbar, TData &Mbar)
+    NEK_HOSTDEVICE_INLINE void operator()(const TData &cA, const TData &rhoL,
+                                          const TData &rhoR, const TData &pL,
+                                          const TData &pR, const TData &ML,
+                                          const TData &MR, TData &pbar,
+                                          TData &Mbar)
     {
         // Parameters for specify the upwinding
         // Note: if fa = 1 then AUSM3 = AUSM2
@@ -82,9 +83,10 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
 struct AUSM3SolverKernel
 {
     template <typename TData>
-    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
-                                      const size_t blksize, const TData *fwd,
-                                      const TData *bwd, TData *flux)
+    NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                          const size_t blksize,
+                                          const TData *fwd, const TData *bwd,
+                                          TData *flux)
     {
         AUSMSolverKernel<ExecSpace, EqnOfStParams, NDIM, AUSM3Upwinding>()(
             EoS, blksize, fwd, bwd, flux);

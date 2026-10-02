@@ -277,6 +277,9 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
         # 3D discontinous advection
         # SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m10_DG_hex_periodic_nodal) # Failing due to memery on device
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_m12_DG_hex_periodic)
+        IF (NEKTAR_USE_MPI)
+            SET_HOST_SUMFAC_SOLVER_TEST(ADRSolverRedesign Advection3D_m12_DG_hex_periodic_par)
+        ENDIF()
         # face rotation test
         SET_ALL_SOLVER_TEST(ADRSolverRedesign Advection3D_DG_prism_varP)
 

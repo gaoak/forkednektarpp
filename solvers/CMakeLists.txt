@@ -35,6 +35,33 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
               --opExecSpace=Serial --opImpl=SumFac)
     ENDMACRO()
 
+    # One implementation in every execution space, for sessions whose subject
+    # is a boundary condition. A boundary condition acts on the trace storage
+    # and does not depend on the element implementation, so the StdMat
+    # variants add nothing to what SumFac already checks, while the execution
+    # spaces still differ in the kernels that apply it.
+    MACRO(SET_SUMFAC_SOLVER_TEST solver session)
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+            ADD_TEST(NAME ${solver}_${session}_${ExecSpace}_SumFac
+                 COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                  --opExecSpace=${ExecSpace} --opImpl=SumFac)
+        ENDFOREACH ()
+    ENDMACRO()
+
+    # One implementation in the host execution spaces only, for sessions that
+    # run on several ranks. Their subject is the exchange between partitions,
+    # which the element implementation does not touch, and the test cluster
+    # has one GPU, which ranks on Device would contend for.
+    MACRO(SET_HOST_SUMFAC_SOLVER_TEST solver session)
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+            IF( ("${ExecSpace}" STREQUAL "Serial") OR ("${ExecSpace}" STREQUAL "AVX") )
+                ADD_TEST(NAME ${solver}_${session}_${ExecSpace}_SumFac
+                     COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                      --opExecSpace=${ExecSpace} --opImpl=SumFac)
+            ENDIF()
+        ENDFOREACH ()
+    ENDMACRO()
+
 ENDIF()
 
 MACRO(SOLVER_COMPONENT_NAME name var)
