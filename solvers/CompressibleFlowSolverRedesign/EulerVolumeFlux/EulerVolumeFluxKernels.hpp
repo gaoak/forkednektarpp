@@ -41,12 +41,13 @@
 
 namespace Nektar::detail
 {
-template <typename ExecSpace, typename EqnOfSParams, typename TData>
+template <bool APPEND, typename ExecSpace, typename EqnOfSParams,
+          typename TData>
 NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
     const EqnOfSParams EoS, const unsigned int npts, const unsigned int ndim,
     const unsigned int nvarComps, const unsigned int inStride,
     const unsigned int outStride, const TData *inbase, TData *outbase,
-    const unsigned int streamID)
+    const TData scale, const unsigned int streamID)
 {
     // Check that we have the right number of variables for Euler
     if (nvarComps != ndim + 2)
@@ -95,31 +96,71 @@ NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
 
             // ---- Fluxes ----
             // rho equation: F_rho,d = rho*u_d = mom[d]
-            for (unsigned int d = 0; d < ndim; ++d)
+            //
+            // Plain if, not if constexpr: nvcc refuses an extended lambda
+            // whose first capture of a variable (outvec, scale) sits inside
+            // an if-constexpr branch. APPEND is a template constant either
+            // way, so the dead branch still folds.
+            if (APPEND)
             {
-                outvec[(0u * ndim + d) * outVecStride + i] = mom[d];
-            }
+                for (unsigned int d = 0; d < ndim; ++d)
+                {
+                    outvec[(0u * ndim + d) * outVecStride + i] +=
+                        mom[d] * scale;
+                }
 
-            // momentum equations:
-            // F_{mom_a,d} = (rho*u_a)*u_d + p*delta_{a,d}
-            for (unsigned a = 0; a < ndim; ++a)
-            {
+                // momentum equations:
+                // F_{mom_a,d} = (rho*u_a)*u_d + p*delta_{a,d}
+                for (unsigned a = 0; a < ndim; ++a)
+                {
+                    for (unsigned d = 0; d < ndim; ++d)
+                    {
+                        vec_t val = mom[a] * vel[d];
+                        if (a == d)
+                        {
+                            val += p;
+                        }
+                        outvec[((1u + a) * ndim + d) * outVecStride + i] +=
+                            val * scale;
+                    }
+                }
+
+                // energy equation: F_E,d = (E+p)*u_d
                 for (unsigned d = 0; d < ndim; ++d)
                 {
-                    vec_t val = mom[a] * vel[d];
-                    if (a == d)
-                    {
-                        val += p;
-                    }
-                    outvec[((1u + a) * ndim + d) * outVecStride + i] = val;
+                    outvec[((ndim + 1u) * ndim + d) * outVecStride + i] +=
+                        ePlusP * vel[d] * scale;
                 }
             }
-
-            // energy equation: F_E,d = (E+p)*u_d
-            for (unsigned d = 0; d < ndim; ++d)
+            else
             {
-                outvec[((ndim + 1u) * ndim + d) * outVecStride + i] =
-                    ePlusP * vel[d];
+                for (unsigned int d = 0; d < ndim; ++d)
+                {
+                    outvec[(0u * ndim + d) * outVecStride + i] = mom[d] * scale;
+                }
+
+                // momentum equations:
+                // F_{mom_a,d} = (rho*u_a)*u_d + p*delta_{a,d}
+                for (unsigned a = 0; a < ndim; ++a)
+                {
+                    for (unsigned d = 0; d < ndim; ++d)
+                    {
+                        vec_t val = mom[a] * vel[d];
+                        if (a == d)
+                        {
+                            val += p;
+                        }
+                        outvec[((1u + a) * ndim + d) * outVecStride + i] =
+                            val * scale;
+                    }
+                }
+
+                // energy equation: F_E,d = (E+p)*u_d
+                for (unsigned d = 0; d < ndim; ++d)
+                {
+                    outvec[((ndim + 1u) * ndim + d) * outVecStride + i] =
+                        ePlusP * vel[d] * scale;
+                }
             }
         });
 

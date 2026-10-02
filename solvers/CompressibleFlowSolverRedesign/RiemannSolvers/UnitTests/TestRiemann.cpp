@@ -41,7 +41,8 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
-#include "../CompressibleSolverOp.hpp"
+#include "CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp"
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
 #include <UnitTests/TestGlobalConfiguration.hpp>
@@ -347,9 +348,9 @@ static void ApplyRiemannOperator(
 
     auto vars = session->GetVariables();
 
-    auto op = CompressibleSolverOp<double>::Create(dg, vars, method, execStr);
+    auto op = AdvTraceFluxCFEOp<double>::Create(dg, vars, method, execStr);
     op->SetTraceNormals(normalsField);
-    op->Apply(fwdField, bwdField, flxField);
+    op->ApplyUnitTest(fwdField, bwdField, flxField);
 
     UnflattenCompMajor(flxField.ToArray(), flx, nFields, npts);
 }
@@ -576,6 +577,11 @@ static void CheckNormalFlipAntisymmetry(
     Array<OneD, double> n(spaceDim, 0.0);
     n[0] = 1.0;
 
+    //--------------------------------------------------------------------
+    // Equation of state string - currently only setup for Ideal Gas
+    //---------------------------------------------------------------------
+    const std::vector<std::string> EoS = {"IDEALGAS"};
+
     // ---------------------------------------------------------------------
     // Case family 1: Consistency for WL==WR across Mach list (ALL ops).
     // ---------------------------------------------------------------------
@@ -639,7 +645,8 @@ static void CheckNormalFlipAntisymmetry(
                                << ", ML=" << ML << ", MR=" << MR)
             {
                 Array<OneD, double> flux;
-                RunOneRiemannCase(xml, method, execStr, WL, WR, n, flux, gamma);
+                RunOneRiemannCase(xml, method + EoS[0], execStr, WL, WR, n,
+                                  flux, gamma);
                 CheckFinite(flux);
                 CheckCloseRel(flux, fluxRef, tol);
             }
@@ -757,7 +764,8 @@ static void CheckNormalFlipAntisymmetry(
                                << method << ", SpaceDim=" << spaceDim)
             {
                 Array<OneD, double> flux;
-                RunOneRiemannCase(xml, method, execStr, WL, WR, n, flux, gamma);
+                RunOneRiemannCase(xml, method + EoS[0], execStr, WL, WR, n,
+                                  flux, gamma);
                 CheckFinite(flux);
 
                 Array<OneD, double> fluxRef =
@@ -807,7 +815,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Average)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("Average", execStr, cases);
+    RunCasesForOp("AverageIDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_LaxFriedrichs)
@@ -821,7 +829,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_LaxFriedrichs)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("LaxFriedrichs", execStr, cases);
+    RunCasesForOp("LaxFriedrichsIDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_HLL)
@@ -835,7 +843,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_HLL)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("HLL", execStr, cases);
+    RunCasesForOp("HLLIDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_HLLC)
@@ -849,7 +857,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_HLLC)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("HLLC", execStr, cases);
+    RunCasesForOp("HLLCIDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM0)
@@ -863,7 +871,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM0)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("AUSM0", execStr, cases);
+    RunCasesForOp("AUSM0IDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM1)
@@ -877,7 +885,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM1)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("AUSM1", execStr, cases);
+    RunCasesForOp("AUSM1IDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM2)
@@ -891,7 +899,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM2)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("AUSM2", execStr, cases);
+    RunCasesForOp("AUSM2IDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM3)
@@ -905,7 +913,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_AUSM3)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("AUSM3", execStr, cases);
+    RunCasesForOp("AUSM3IDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Roe)
@@ -919,7 +927,7 @@ BOOST_AUTO_TEST_CASE(Riemann_ConstState_AllOps_Roe)
         {"run/hex_Euler.xml", 2},
     };
 
-    RunCasesForOp("Roe", execStr, cases);
+    RunCasesForOp("RoeIDEALGAS", execStr, cases);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -931,9 +939,10 @@ BOOST_AUTO_TEST_CASE(Riemann_MachTest_2D_square)
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
 
-    const std::vector<std::string> ops = {"Average", "LaxFriedrichs", "HLL",
-                                          "HLLC",    "AUSM0",         "AUSM1",
-                                          "AUSM2",   "AUSM3",         "Roe"};
+    const std::vector<std::string> ops = {
+        "AverageIDEALGAS", "LaxFriedrichsIDEALGAS", "HLLIDEALGAS",
+        "HLLCIDEALGAS",    "AUSM0IDEALGAS",         "AUSM1IDEALGAS",
+        "AUSM2IDEALGAS",   "AUSM3IDEALGAS",         "RoeIDEALGAS"};
 
     RunMachTest("run/square_Euler.xml", ops, execStr, 1.4);
 }
@@ -943,9 +952,10 @@ BOOST_AUTO_TEST_CASE(Riemann_MachTest_3D_hex)
     std::string execStr(
         boost::unit_test::framework::master_test_suite().argv[1]);
 
-    const std::vector<std::string> ops = {"Average", "LaxFriedrichs", "HLL",
-                                          "HLLC",    "AUSM0",         "AUSM1",
-                                          "AUSM2",   "AUSM3",         "Roe"};
+    const std::vector<std::string> ops = {
+        "AverageIDEALGAS", "LaxFriedrichsIDEALGAS", "HLLIDEALGAS",
+        "HLLCIDEALGAS",    "AUSM0IDEALGAS",         "AUSM1IDEALGAS",
+        "AUSM2IDEALGAS",   "AUSM3IDEALGAS",         "RoeIDEALGAS"};
 
     RunMachTest("run/hex_Euler.xml", ops, execStr, 1.4);
 }

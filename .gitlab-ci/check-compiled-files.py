@@ -80,13 +80,8 @@ ignore_sources = [
     "library/LibUtilities/LinearAlgebra/NekBlas/hipBlasHandle.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/oneMath.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.cpp",
-    # CompressibleFlowSolverRedesign, built off by default while its advection
-    # path is the one this branch replaces. The flux-framework rewrite turns
-    # the solver back on and takes these five entries out again.
-    "solvers/CompressibleFlowSolverRedesign/CompressibleFlowSolverRedesign.cpp",
-    "solvers/CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.cpp",
-    "solvers/CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.cpp",
-    "solvers/CompressibleFlowSolverRedesign/RiemannSolvers/UnitTests/TestRiemann.cpp",
+    # CompressibleFlowSolverRedesign: the Riemann profiler predates the flux
+    # framework and is not built.
     "solvers/CompressibleFlowSolverRedesign/RiemannSolvers/Profilers/ProfilerRiemannOps.cpp",
 ]
 

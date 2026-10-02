@@ -95,9 +95,18 @@ protected:
 
             const auto nvarComps = inblock.GetNumComponents();
 
-            EulerVolumeFluxKernel<ExecSpace, EqnOfSParams>(
-                m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
-                inbase, outbase, streamID);
+            if (this->m_append)
+            {
+                EulerVolumeFluxKernel<true, ExecSpace, EqnOfSParams>(
+                    m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
+                    inbase, outbase, this->m_scale, streamID);
+            }
+            else
+            {
+                EulerVolumeFluxKernel<false, ExecSpace, EqnOfSParams>(
+                    m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
+                    inbase, outbase, this->m_scale, streamID);
+            }
         }
     }
 };

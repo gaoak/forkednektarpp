@@ -43,17 +43,16 @@ namespace Nektar::detail
 {
 
 template <typename TData>
-NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
-    const unsigned int nDim, const unsigned int fluxDirection,
-    const unsigned int derivDirection, const TData *inAverage,
-    const TData *inJump, const TData mu, const TData gamma, const TData prandtl,
-    TData *outarray)
+NEK_HOSTDEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
+    const unsigned nDim, const unsigned fluxDirection,
+    const unsigned derivDirection, const TData *inAverage, const TData *inJump,
+    const TData mu, const TData gamma, const TData prandtl, TData *outarray)
 {
     // Viscous bilinear form for one flux-direction / derivative-direction
     // pair in conservative variables.
-    const unsigned int nDimPlusOne  = nDim + 1;
-    const unsigned int fluxPlusOne  = fluxDirection + 1;
-    const unsigned int derivPlusOne = derivDirection + 1;
+    const unsigned nDimPlusOne  = nDim + 1;
+    const unsigned fluxPlusOne  = fluxDirection + 1;
+    const unsigned derivPlusOne = derivDirection + 1;
 
     const TData gammaOverPr         = gamma / prandtl;
     const TData oneMinusGammaOverPr = TData(1.0) - gammaOverPr;
@@ -72,7 +71,7 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
         TData u2[3] = {TData(0.0), TData(0.0), TData(0.0)};
         TData u2sum = TData(0.0);
 
-        for (unsigned int d = 0; d < nDim; ++d)
+        for (unsigned d = 0; d < nDim; ++d)
         {
             u[d]  = inAverage[d + 1] * invRho;
             u2[d] = u[d] * u[d];
@@ -88,9 +87,9 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
         TData tmp2 = gammaOverPr * inJump[nDimPlusOne] - tmp1;
 
         TData outTmpE = TData(0.0);
-        for (unsigned int d = 0; d < nDim; ++d)
+        for (unsigned d = 0; d < nDim; ++d)
         {
-            const unsigned int dPlusOne = d + 1;
+            const unsigned dPlusOne = d + 1;
             TData outTmpD = (inJump[dPlusOne] - u[d] * inJump[0]) * nu;
 
             outTmpE += oneMinusGammaOverPr * u[d] * inJump[dPlusOne];
@@ -115,11 +114,11 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
 
         TData u[3] = {TData(0.0), TData(0.0), TData(0.0)};
 
-        for (unsigned int d = 0; d < nDim; ++d)
+        for (unsigned d = 0; d < nDim; ++d)
         {
-            const unsigned int dPlusOne = d + 1;
-            u[d]                        = inAverage[dPlusOne] * invRho;
-            outarray[dPlusOne]          = TData(0.0);
+            const unsigned dPlusOne = d + 1;
+            u[d]                    = inAverage[dPlusOne] * invRho;
+            outarray[dPlusOne]      = TData(0.0);
         }
 
         TData nu = mu * invRho;
@@ -139,7 +138,8 @@ NEK_DEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
     }
 }
 
-template <typename ExecSpace, typename EqnOfSParams, typename TData>
+template <bool APPEND, typename ExecSpace, typename EqnOfSParams,
+          typename TData>
 NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
     const EqnOfSParams EoS, const size_t npts, const unsigned int nDim,
     const unsigned int nvarComps, const size_t inStride,
@@ -195,10 +195,17 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
 
             for (unsigned int fluxDir = 0; fluxDir < nDim; ++fluxDir)
             {
-                for (unsigned int f = 0; f < nvarComps; ++f)
+                // Plain if, not if constexpr: nvcc refuses an extended lambda
+                // whose first capture of a variable (outvec here) sits inside
+                // an if-constexpr branch. APPEND is a template constant
+                // either way, so the dead branch still folds.
+                if (!APPEND)
                 {
-                    outvec[(f * nDim + fluxDir) * outVecStride + i] =
-                        vec_t(0.0);
+                    for (unsigned int f = 0; f < nvarComps; ++f)
+                    {
+                        outvec[(f * nDim + fluxDir) * outVecStride + i] =
+                            vec_t(0.0);
+                    }
                 }
 
                 for (unsigned int derivDir = 0; derivDir < nDim; ++derivDir)

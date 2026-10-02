@@ -47,9 +47,10 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
 struct LaxFriedrichsSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const EqnOfStParams EoS,
-                                      const size_t blksize, const TScalar *fwd,
-                                      const TScalar *bwd, TScalar *flux)
+    NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams EoS,
+                                          const size_t blksize,
+                                          const TScalar *fwd,
+                                          const TScalar *bwd, TScalar *flux)
     {
         using std::abs;
         using std::sqrt;

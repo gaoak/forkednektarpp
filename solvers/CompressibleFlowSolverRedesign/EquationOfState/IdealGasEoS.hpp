@@ -89,4 +89,33 @@ NEK_HOSTDEVICE_INLINE TData GetTemperature(const IdealGasEoS<TScalar> &EoS,
     return e * TData(EoS.gammaMoneOgasConst());
 }
 
+/**
+ * @brief Specific internal energy at a prescribed pressure; the inverse of
+ * GetPressure() in its second argument.
+ *
+ * Needed by a pressure outflow, which prescribes p and extrapolates rho, and
+ * must recover the energy state that goes with the pair.
+ */
+template <typename TData, typename TScalar>
+NEK_HOSTDEVICE_INLINE TData GetIntEnergyFromPressure(
+    const IdealGasEoS<TScalar> &EoS, const TData &rho, const TData &p)
+{
+    return p / ((TData(EoS.gamma()) - TData(1.0)) * rho);
+}
+
+/**
+ * @brief Specific internal energy at a prescribed temperature; the inverse of
+ * GetTemperature().
+ *
+ * Needed by an isothermal wall, which prescribes T and must recover the energy
+ * state that goes with it.
+ */
+template <typename TData, typename TScalar>
+NEK_HOSTDEVICE_INLINE TData
+GetIntEnergyFromTemperature(const IdealGasEoS<TScalar> &EoS,
+                            [[maybe_unused]] const TData &rho, const TData &T)
+{
+    return T / TData(EoS.gammaMoneOgasConst());
+}
+
 } // namespace Nektar::detail

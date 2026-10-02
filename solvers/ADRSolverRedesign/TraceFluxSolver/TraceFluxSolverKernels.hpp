@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
+
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
@@ -60,6 +62,10 @@ NEK_FORCE_INLINE static void FluxKernelLauncher(
             ? tinysimd::simd<TData>::width
             : 1;
 
+    // Checked here, on the host: the kernels below assume it and may not
+    // assert.
+    ASSERTL1(blksize % vec_width == 0,
+             "The block size is not a multiple of the vector width.");
     const size_t groupsize = (blksize + vec_width - 1) / vec_width;
 
     Nektar::parallel_for<ExecSpace>(

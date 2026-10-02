@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CompressibleSolverOp.hpp
+// File: BndCondSlipWallCFEOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,57 +28,60 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: CompressibleSolver operator base class.
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "SolverCore/RiemannSolver/RiemannSolverOp.hpp"
-
-#include "EquationOfState/SupportedEoS.hpp"
+#include <SolverCore/BndCond/BndCondUpdateOp.hpp>
 
 namespace Nektar
 {
 
-// CompressibleSolver operator base class
+/**
+ * @brief Inviscid slip wall and symmetry plane.
+ *
+ * Both mirror the momentum in the boundary plane,
+ *
+ *     m* = m - 2 (m.n) n
+ *
+ * leaving density and energy alone, so the *averaged* normal velocity across
+ * the trace vanishes while the tangential velocity passes through untouched.
+ * That is the difference from the no-slip wall of BndCondWallCFEOp, which
+ * reverses the whole momentum vector and so brings the tangential velocity to
+ * zero as well.
+ *
+ * One operator claims both `Wall` and `Symmetry` because they are the same
+ * statement about the flow: no mass crosses the surface and
+ * nothing is dissipated on it. This mirrors BndCondWallCFEOp holding both
+ * `WallViscous` and `WallAdiabatic`.
+ *
+ * @see BndCondSlipWallCFEOpImpl.
+ */
 template <typename TData>
-class CompressibleSolverOp : public SolverCore::RiemannSolverOp<TData>
+class BndCondSlipWallCFEOp : public SolverCore::BndCondUpdateOp<TData>
 {
 public:
-    static std::shared_ptr<CompressibleSolverOp<TData>> Create(
+    static std::shared_ptr<BndCondSlipWallCFEOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components, const std::string &method,
-        const std::string &execStr)
+        const std::vector<std::string> &components,
+        const std::string &execStr = "")
     {
-        std::string EoSName;
-
-        if (expansionList->GetSession()->DefinesEquationOfState())
-        {
-            EoSName = boost::to_upper_copy(
-                expansionList->GetSession()->GetEquationOfState().type);
-        }
-        else
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "No EquationOfState section defined in session file");
-        }
-
-        return std::static_pointer_cast<CompressibleSolverOp<TData>>(
-            SolverCore::RiemannSolverOp<TData>::Create(
-                expansionList, components, name + method + EoSName, execStr));
+        return Operators::Operator<TData>::template Create<
+            BndCondSlipWallCFEOp>(expansionList, components, execStr);
     }
 
-    static inline const std::string name = "CompressibleSolver";
+    static inline const std::string name = "BndCondSlipWallCFEOp";
 
 protected:
-    CompressibleSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
+    BndCondSlipWallCFEOp(const MultiRegions::ExpListSharedPtr &expansionList,
                          const std::vector<std::string> &components)
-        : SolverCore::RiemannSolverOp<TData>(expansionList, components)
+        : SolverCore::BndCondUpdateOp<TData>(expansionList, components)
     {
     }
 
-    ~CompressibleSolverOp() override = default;
+    ~BndCondSlipWallCFEOp() override = default;
 };
 
 } // namespace Nektar

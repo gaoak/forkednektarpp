@@ -45,7 +45,7 @@
 namespace Nektar::detail
 {
 
-template <typename TData> NEK_DEVICE_INLINE TData M1Function(int A, TData M)
+template <typename TData> NEK_HOSTDEVICE_INLINE TData M1Function(int A, TData M)
 {
     TData out;
 
@@ -61,7 +61,7 @@ template <typename TData> NEK_DEVICE_INLINE TData M1Function(int A, TData M)
     return out;
 }
 
-template <typename TData> NEK_DEVICE_INLINE TData M2Function(int A, TData M)
+template <typename TData> NEK_HOSTDEVICE_INLINE TData M2Function(int A, TData M)
 {
     TData out;
 
@@ -78,7 +78,7 @@ template <typename TData> NEK_DEVICE_INLINE TData M2Function(int A, TData M)
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE TData M4Function(int A, TData beta, TData M)
+NEK_HOSTDEVICE_INLINE TData M4Function(int A, TData beta, TData M)
 {
     TData out;
 
@@ -104,7 +104,7 @@ NEK_DEVICE_INLINE TData M4Function(int A, TData beta, TData M)
 }
 
 template <typename TData>
-NEK_DEVICE_INLINE TData P5Function(int A, TData alpha, TData M)
+NEK_HOSTDEVICE_INLINE TData P5Function(int A, TData alpha, TData M)
 {
     TData out;
 
@@ -134,9 +134,10 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM,
 struct AUSMSolverKernel
 {
     template <typename TScalar>
-    NEK_DEVICE_INLINE void operator()(const EqnOfStParams &EoS,
-                                      const size_t blksize, const TScalar *fwd,
-                                      const TScalar *bwd, TScalar *flux)
+    NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
+                                          const size_t blksize,
+                                          const TScalar *fwd,
+                                          const TScalar *bwd, TScalar *flux)
     {
         // Explicit vectorisation for AVX backend, vec_t =
         // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.

@@ -173,11 +173,32 @@ protected:
         // field. Append is applied only at this final output stage so all
         // internal workspaces remain overwrite-style temporaries.
         m_bwdTransOp->Apply(m_coeff, out);
+        ReshapeToWidth(out, 1u);
     }
 
     void v_SetAppend(const bool &append) override
     {
         m_bwdTransOp->SetAppend(append);
+    }
+
+    // Interleave width the AVX element operators work at. The volume fields
+    // and the element-local traces are carried at it for the whole RHS, so
+    // each operator's per-chunk reshape is a no-op, and the trace
+    // gather/scatter addresses the traces at it directly. The caller's fields
+    // enter and leave at width 1.
+    static constexpr unsigned int m_rhsInterleaveWidth =
+        std::is_same_v<ExecSpace, NektarSpaces::AVX>
+            ? tinysimd::simd<TData>::width
+            : 1u;
+
+    template <typename TField>
+    static void ReshapeToWidth(TField &field,
+                               [[maybe_unused]] const unsigned int width)
+    {
+        if constexpr (m_rhsInterleaveWidth != 1u)
+        {
+            field.ReshapeStorage(width, ExecSpace::name);
+        }
     }
 
     void AdvDiffCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -190,6 +211,8 @@ protected:
                  "AdvWeakDGDiffusionIPOp requires a diffusion volume flux op.");
         ASSERTL1(this->m_advDiffTraceFluxOp,
                  "AdvWeakDGDiffusionIPOp requires a trace flux op.");
+
+        ReshapeToWidth(in, m_rhsInterleaveWidth);
 
         // Step 0: Extract trace from "in"
         m_physTraceExtractOp->Apply(in, m_trace);
@@ -236,6 +259,10 @@ protected:
 
         this->m_advVolFluxOpNegOut->Apply(in, m_fluxvector);
         this->m_diffVolFluxOpAppend->Apply(in, m_deriv, m_fluxvector);
+        // The volume flux kernels are pointwise and leave the width attribute
+        // alone; their output has the layout of their inputs.
+        m_fluxvector.SetInterleaveWidth(in);
+        ReshapeToWidth(in, 1u);
 
         // Step 4: integrate the volume flux contribution against derivative
         // bases in physical space and negate output
@@ -244,6 +271,9 @@ protected:
         // Step 5: evaluate negative of advection and diffusion trace fluxes
         // on the interior and boundary traces, which need nothing from the
         // exchanges, so this too overlaps the messages.
+        // The trace flux zeroes m_numflux and scatters into it at the width
+        // the field declares, so taking the traces' width needs no reshape.
+        m_numflux.SetInterleaveWidth(m_trace);
         this->m_advDiffTraceFluxOp->Apply(m_trace, m_traceDeriv, m_numflux);
 
         // Both exchanges have to have landed before the parallel traces' flux

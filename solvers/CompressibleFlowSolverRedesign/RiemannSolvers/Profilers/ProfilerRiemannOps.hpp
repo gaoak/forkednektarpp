@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
@@ -47,7 +49,7 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include "../CompressibleSolverOp.hpp"
+#include "CompressibleSolver/CompressibleSolverOp.hpp"
 
 // Add likwid support
 #ifdef LIKWID_PERFMON
@@ -165,9 +167,10 @@ void GetExpectedResults(unsigned int spaceDim, size_t npts,
 /// total information for each rank. Caution: for many ranks and many
 /// blocks, setting verbose may cause the display content too big to read.
 template <FieldState TState>
-void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
-                    const std::vector<BlockAttributes<TState>> &blockAttr,
-                    std::vector<double> &rankL1Err)
+void PrintBlockInfo(
+    const MultiRegions::ExpListSharedPtr &expList,
+    const std::vector<LibUtilities::BlockAttributes<TState>> &blockAttr,
+    std::vector<double> &rankL1Err)
 {
     auto comm                 = expList->GetComm();
     unsigned int nrank        = comm->GetSize();
@@ -313,7 +316,7 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
 template <typename TData, FieldState TState>
 void PrintProfileResult(
     const CommSharedPtr comm, std::vector<double> &rankElapsed,
-    const std::vector<BlockAttributes<TState>> &traceblockAttr)
+    const std::vector<LibUtilities::BlockAttributes<TState>> &traceblockAttr)
 {
     // Collect elapsed time and compute the max, min, and average.
     unsigned int nrank  = comm->GetSize();

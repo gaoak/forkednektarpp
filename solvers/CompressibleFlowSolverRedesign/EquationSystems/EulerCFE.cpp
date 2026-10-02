@@ -33,7 +33,17 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "LibUtilities/BasicUtils/Math/Math.hpp"
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyPressureCFE/BndCondEnforceEntropyPressureCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyTotalEnthalpyCFE/BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyVelocityCFE/BndCondEnforceEntropyVelocityCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondExtrapOrder0CFE/BndCondExtrapOrder0CFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondPressureOutflowCFE/BndCondPressureOutflowCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondRiemannInvariantCFE/BndCondRiemannInvariantCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondSlipWallCFE/BndCondSlipWallCFEOp.hpp>
+#include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
+#include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 #include <iomanip>
 
 namespace Nektar
@@ -47,7 +57,7 @@ std::string EulerCFE::className =
 
 EulerCFE::EulerCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
                    const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : UnsteadySystem(pSession, pGraph), m_gamma(1.4)
+    : UnsteadySystem(pSession, pGraph)
 {
     ASSERTL0(m_projectionType == MultiRegions::eDiscontinuous,
              "The NavierStokesCFE is only implemented for projectionType "
@@ -68,9 +78,6 @@ void EulerCFE::v_InitObject(bool declareExpansionLists)
 
     /// Create Field for solution m_fields and others
     InitialiseFields();
-
-    // Load physical parameters
-    InitialiseParameters();
 
     // Create and initialise all operators
     InitialiseOperators();
@@ -140,25 +147,86 @@ void EulerCFE::v_InitialiseOperators()
     // Create operators
     m_advectionWeakDGOp =
         AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables);
-    std::string execName      = Operator<double>::GetOpExecSpace(m_session);
+    std::string execName =
+        Operators::Operator<double>::GetOpExecSpace(m_session);
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
-    m_riemannSolverOp         = CompressibleSolverOp<double>::Create(
-        m_expansionLists[0], m_variables, riemannMethod, execName);
-    m_volumeFluxOp =
+    auto volumeFluxOp =
         EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);
 
-    // Set volume flux and Riemann solver for advection operator
-    m_advectionWeakDGOp->SetVolumeFluxOp(m_volumeFluxOp);
-    m_advectionWeakDGOp->SetRiemannSolver(m_riemannSolverOp);
+    // Set volume flux and for advection operator
+    m_advectionWeakDGOp->SetVolumeFluxOp(volumeFluxOp);
+
+    std::string EqnOfState =
+        boost::to_upper_copy(m_session->GetEquationOfState().type);
+    riemannMethod    = "AdvTraceFluxCFE" + riemannMethod + EqnOfState;
+    auto traceFluxOp = SolverCore::TraceFluxOp<double>::Create(
+        m_expansionLists[0], m_variables, riemannMethod, execName);
+
+    // Set trace flux and Riemann solver for advection operator
+    m_advectionWeakDGOp->SetTraceFlux(traceFluxOp);
+
+    SetUpBoundaryConditions();
 }
 
 /**
- * @brief Load CFS parameters from the session file.
+ * @brief Attach the boundary conditions this system supports.
+ *
+ * Each operator claims only the regions carrying its tag and costs nothing
+ * when there are none, so all of them are attached unconditionally.
  */
-void EulerCFE::InitialiseParameters()
+void EulerCFE::SetUpBoundaryConditions()
 {
-    // Get gamma parameter from session file.
-    m_session->LoadParameter("GasConstant", m_gasConstant, 287);
+    // A pressure outflow extrapolates the interior state and imposes only the
+    // static pressure, so it is a condition on the inviscid state and belongs
+    // here as much as on the viscous path. Attached unconditionally: the
+    // operator claims only the regions tagged PressureOutflow and costs nothing
+    // when there are none.
+    auto bndCondPressureOutflowOp = BndCondPressureOutflowCFEOp<double>::Create(
+        m_expansionLists[0], m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondPressureOutflowOp);
+
+    // A subsonic entropy inflow is likewise a condition on the inviscid state.
+    auto bndCondEntropyVelocityOp =
+        BndCondEnforceEntropyVelocityCFEOp<double>::Create(m_expansionLists[0],
+                                                           m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondEntropyVelocityOp);
+
+    // Its two siblings, which fill the same degree of freedom with the
+    // pressure or the total enthalpy instead.
+    auto bndCondEntropyPressureOp =
+        BndCondEnforceEntropyPressureCFEOp<double>::Create(m_expansionLists[0],
+                                                           m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondEntropyPressureOp);
+
+    auto bndCondEntropyTotalEnthalpyOp =
+        BndCondEnforceEntropyTotalEnthalpyCFEOp<double>::Create(
+            m_expansionLists[0], m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondEntropyTotalEnthalpyOp);
+
+    // An inviscid wall and a symmetry plane, which mirror the momentum, and a
+    // zeroth order extrapolation, which claims its regions so they are seeded
+    // with the interior state and then leaves them alone.
+    auto bndCondSlipWallOp =
+        BndCondSlipWallCFEOp<double>::Create(m_expansionLists[0], m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondSlipWallOp);
+
+    auto bndCondExtrapOrder0Op = BndCondExtrapOrder0CFEOp<double>::Create(
+        m_expansionLists[0], m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondExtrapOrder0Op);
+
+    // The characteristic farfield, which takes its freestream from the session
+    // parameters rather than from the region's boundary values.
+    auto bndCondRiemannInvariantOp =
+        BndCondRiemannInvariantCFEOp<double>::Create(m_expansionLists[0],
+                                                     m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondRiemannInvariantOp);
+
+    // And the reservoir inflow, whose session values are a stagnation state
+    // and a flow direction rather than a conserved state.
+    auto bndCondStagnationInflowOp =
+        BndCondStagnationInflowCFEOp<double>::Create(m_expansionLists[0],
+                                                     m_variables);
+    m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondStagnationInflowOp);
 }
 
 } // namespace Nektar

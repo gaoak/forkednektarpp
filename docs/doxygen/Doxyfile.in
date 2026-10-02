@@ -763,10 +763,9 @@ INPUT                  = @CMAKE_SOURCE_DIR@/docs/doxygen/ \
                          @CMAKE_SOURCE_DIR@/library/Operators/AssmbScatr/ \
                          @CMAKE_SOURCE_DIR@/library/Operators/ElmtOps/ \
                          @CMAKE_SOURCE_DIR@/library/Operators/BndCondOps/ \
-                         @CMAKE_SOURCE_DIR@/library/Operators/GetFwdBwdTracePhys/ \
-                         @CMAKE_SOURCE_DIR@/library/Operators/AddTraceIntegral/ \
                          @CMAKE_SOURCE_DIR@/library/LocalRegions/ \
                          @CMAKE_SOURCE_DIR@/library/MultiRegions/ \
+                         @CMAKE_SOURCE_DIR@/library/Operators/ \
                          @CMAKE_SOURCE_DIR@/library/GlobalMapping/ \
                          @CMAKE_SOURCE_DIR@/library/FieldUtils/ \
                          @CMAKE_SOURCE_DIR@/library/SolverUtils/ \
