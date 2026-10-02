@@ -557,8 +557,14 @@ int AssemblyMapCG::CreateGraph(
         BoostGraph;
     BoostGraph boostGraphObj;
 
+    // Vertices, edges and faces that will be reordered by boost below. Only
+    // entities that actually hold degrees of freedom are given a graph vertex:
+    // at low polynomial order most edges and faces have no interior modes, and
+    // adding them would inflate the graph without changing the numbering. The
+    // consequence is that graph[1] and graph[2] are not guaranteed to hold an
+    // entry for every mesh edge/face, so lookups into them must go through
+    // find() rather than operator[].
     vector<map<int, int>> tempGraph(3);
-    map<int, int> vwgts_map;
     Array<OneD, int> localVerts;
     Array<OneD, int> localEdges;
     Array<OneD, int> localFaces;
@@ -580,7 +586,7 @@ int AssemblyMapCG::CreateGraph(
     m_numNonDirVertexModes = 0;
     m_numNonDirEdges       = 0;
     m_numNonDirFaces       = 0;
-    m_numNonDirFaceModes   = 0;
+    m_numNonDirEdgeModes   = 0;
     m_numNonDirFaceModes   = 0;
     m_numLocalBndCoeffs    = 0;
 
@@ -623,7 +629,6 @@ int AssemblyMapCG::CreateGraph(
             }
         }
 
-        faceCnt = 0;
         for (j = 0; j < nFaces; ++j)
         {
             meshFaceId = exp->GetGeom()->GetFid(j);
@@ -636,7 +641,6 @@ int AssemblyMapCG::CreateGraph(
             {
                 FaceSize[meshFaceId] = exp->GetTraceIntNcoeffs(j);
             }
-            FaceSize[meshFaceId] = exp->GetTraceIntNcoeffs(j);
         }
     }
 
@@ -746,7 +750,6 @@ int AssemblyMapCG::CreateGraph(
                 }
                 localVerts[localVertOffset + vertCnt++] =
                     tempGraph[0][meshVertId];
-                vwgts_map[tempGraph[0][meshVertId]] = 1;
             }
         }
 
@@ -808,6 +811,13 @@ int AssemblyMapCG::CreateGraph(
             continue;
         }
 
+        // An edge that carries no interior degrees of freedom contributes
+        // nothing to the global system, so it needs no graph vertex.
+        if (EdgeSize[meshEdgeId] == 0)
+        {
+            continue;
+        }
+
         // Otherwise, see if a edge ID has already been set.
         for (i = 0; i < pIt.second.size(); ++i)
         {
@@ -848,20 +858,23 @@ int AssemblyMapCG::CreateGraph(
         {
             meshEdgeId     = exp->GetGeom()->GetEid(j);
             nEdgeIntCoeffs = EdgeSize[meshEdgeId];
-            if (graph[1].count(meshEdgeId) == 0)
-            {
-                if (tempGraph[1].count(meshEdgeId) == 0)
-                {
-                    boost::add_vertex(boostGraphObj);
-                    tempGraph[1][meshEdgeId] = tempGraphVertId++;
-                    m_numNonDirEdgeModes += nEdgeIntCoeffs;
 
-                    m_numNonDirEdges++;
-                }
-                localEdges[localEdgeOffset + edgeCnt++] =
-                    tempGraph[1][meshEdgeId];
-                vwgts_map[tempGraph[1][meshEdgeId]] = nEdgeIntCoeffs;
+            // Dirichlet edges are already numbered, and an edge with no
+            // interior degrees of freedom needs no graph vertex.
+            if (nEdgeIntCoeffs == 0 || graph[1].count(meshEdgeId) > 0)
+            {
+                continue;
             }
+
+            if (tempGraph[1].count(meshEdgeId) == 0)
+            {
+                boost::add_vertex(boostGraphObj);
+                tempGraph[1][meshEdgeId] = tempGraphVertId++;
+                m_numNonDirEdgeModes += nEdgeIntCoeffs;
+
+                m_numNonDirEdges++;
+            }
+            localEdges[localEdgeOffset + edgeCnt++] = tempGraph[1][meshEdgeId];
         }
 
         localEdgeOffset += nEdges;
@@ -870,6 +883,13 @@ int AssemblyMapCG::CreateGraph(
     /// - Periodic faces
     for (auto &pIt : periodicFaces)
     {
+        // As for edges above, a face with no interior degrees of freedom
+        // needs no graph vertex.
+        if (FaceSize[pIt.first] == 0)
+        {
+            continue;
+        }
+
         if (!pIt.second[0].isLocal)
         {
             // The face mapped to is on another process.
@@ -906,22 +926,25 @@ int AssemblyMapCG::CreateGraph(
         faceCnt = 0;
         for (j = 0; j < nFaces; ++j)
         {
-            nFaceIntCoeffs = exp->GetTraceIntNcoeffs(j);
             meshFaceId     = exp->GetGeom()->GetFid(j);
-            if (graph[2].count(meshFaceId) == 0)
-            {
-                if (tempGraph[2].count(meshFaceId) == 0)
-                {
-                    boost::add_vertex(boostGraphObj);
-                    tempGraph[2][meshFaceId] = tempGraphVertId++;
-                    m_numNonDirFaceModes += nFaceIntCoeffs;
+            nFaceIntCoeffs = FaceSize[meshFaceId];
 
-                    m_numNonDirFaces++;
-                }
-                localFaces[localFaceOffset + faceCnt++] =
-                    tempGraph[2][meshFaceId];
-                vwgts_map[tempGraph[2][meshFaceId]] = nFaceIntCoeffs;
+            // Dirichlet faces are already numbered, and a face with no
+            // interior degrees of freedom needs no graph vertex.
+            if (nFaceIntCoeffs == 0 || graph[2].count(meshFaceId) > 0)
+            {
+                continue;
             }
+
+            if (tempGraph[2].count(meshFaceId) == 0)
+            {
+                boost::add_vertex(boostGraphObj);
+                tempGraph[2][meshFaceId] = tempGraphVertId++;
+                m_numNonDirFaceModes += nFaceIntCoeffs;
+
+                m_numNonDirFaces++;
+            }
+            localFaces[localFaceOffset + faceCnt++] = tempGraph[2][meshFaceId];
         }
         m_numLocalBndCoeffs += exp->NumBndryCoeffs();
 
@@ -1552,7 +1575,13 @@ AssemblyMapCG::AssemblyMapCG(
                 nEdgeInteriorCoeffs = exp->GetTraceNcoeffs(j) - 2;
             }
             meshEdgeId = exp->GetGeom()->GetEid(j);
-            graphVertOffset[graph[1][meshEdgeId] + 1] = dofs[1][meshEdgeId];
+
+            // Edges with no interior modes have no graph vertex.
+            auto gIt = graph[1].find(meshEdgeId);
+            if (gIt != graph[1].end())
+            {
+                graphVertOffset[gIt->second + 1] = dofs[1][meshEdgeId];
+            }
 
             // Need a sign vector for modal expansions if nEdgeCoeffs
             // >=3 (not 4 because of variable order case)
@@ -1566,7 +1595,13 @@ AssemblyMapCG::AssemblyMapCG(
         for (j = 0; j < exp->GetGeom()->GetNumFaces(); ++j)
         {
             meshFaceId = exp->GetGeom()->GetFid(j);
-            graphVertOffset[graph[2][meshFaceId] + 1] = dofs[2][meshFaceId];
+
+            // Faces with no interior modes have no graph vertex.
+            auto gIt = graph[2].find(meshFaceId);
+            if (gIt != graph[2].end())
+            {
+                graphVertOffset[gIt->second + 1] = dofs[2][meshFaceId];
+            }
         }
     }
 
@@ -2131,10 +2166,12 @@ AssemblyMapCG::AssemblyMapCG(
                 {
                     meshEdgeId = exp->GetGeom()->GetEid(j);
 
-                    if (graph[1][meshEdgeId] >= firstNonDirGraphVertId)
+                    // Edges with no interior modes have no graph vertex.
+                    auto gIt = graph[1].find(meshEdgeId);
+                    if (gIt != graph[1].end() &&
+                        gIt->second >= firstNonDirGraphVertId)
                     {
-                        vwgts_perm[graph[1][meshEdgeId] -
-                                   firstNonDirGraphVertId] =
+                        vwgts_perm[gIt->second - firstNonDirGraphVertId] =
                             dofs[1][meshEdgeId];
                     }
                 }
@@ -2143,10 +2180,12 @@ AssemblyMapCG::AssemblyMapCG(
                 {
                     meshFaceId = exp->GetGeom()->GetFid(j);
 
-                    if (graph[2][meshFaceId] >= firstNonDirGraphVertId)
+                    // Faces with no interior modes have no graph vertex.
+                    auto gIt = graph[2].find(meshFaceId);
+                    if (gIt != graph[2].end() &&
+                        gIt->second >= firstNonDirGraphVertId)
                     {
-                        vwgts_perm[graph[2][meshFaceId] -
-                                   firstNonDirGraphVertId] =
+                        vwgts_perm[gIt->second - firstNonDirGraphVertId] =
                             dofs[2][meshFaceId];
                     }
                 }
