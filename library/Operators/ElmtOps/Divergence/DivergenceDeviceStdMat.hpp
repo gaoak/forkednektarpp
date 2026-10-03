@@ -141,6 +141,11 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions of
         // the workspace spans all of them, planes included: a component's
@@ -171,34 +176,39 @@ protected:
             {
                 if (c == 0)
                 {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, false, true>(
-                        c, m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr, m_streamID);
+                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (MultiplyByDerivDirFactorKernel<false, true>), gridSize,
+                        nhomo, blockSize, 1, m_streamID, c, m_nqTot, m_coordDim,
+                        m_dimension, nelmt, m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr);
                 }
                 else
                 {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, true, true>(
-                        c, m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr, m_streamID);
+                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (MultiplyByDerivDirFactorKernel<true, true>), gridSize,
+                        nhomo, blockSize, 1, m_streamID, c, m_nqTot, m_coordDim,
+                        m_dimension, nelmt, m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr);
                 }
             }
             else
             {
                 if (c == 0)
                 {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, false, false>(
-                        c, m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
+                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (MultiplyByDerivDirFactorKernel<false, false>),
+                        gridSize, nhomo, blockSize, 1, m_streamID, c, m_nqTot,
+                        m_coordDim, m_dimension, nelmt,
                         m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr, m_streamID);
+                        derivptr + c * derivoffset, outptr);
                 }
                 else
                 {
-                    MultiplyByDerivDirFactorKernel<ExecSpace, true, false>(
-                        c, m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr, m_streamID);
+                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                        (MultiplyByDerivDirFactorKernel<true, false>), gridSize,
+                        nhomo, blockSize, 1, m_streamID, c, m_nqTot, m_coordDim,
+                        m_dimension, nelmt, m_dimension * derivoffset, m_dfptr,
+                        derivptr + c * derivoffset, outptr);
                 }
             }
         }

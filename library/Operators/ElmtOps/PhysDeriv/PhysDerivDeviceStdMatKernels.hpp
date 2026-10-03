@@ -34,139 +34,123 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
 
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void MultiplyByDerivFactorKernel(
     const unsigned nqTot, const unsigned ncoord, const unsigned dimension,
-    const size_t nelmt, const unsigned nhomo, const size_t inoffset,
-    const size_t outoffset, const TData *dfptr, const TData *inptr,
-    TData *outptr, const unsigned int streamID)
+    const unsigned outDim, const size_t nelmt, const size_t inoffset,
+    const size_t outoffset, const TData *dfptr, const TData *in, TData *out,
+    const TthreadBlock &threadBlock)
 {
-    Nektar::LoopExecutionSetStreamID(streamID);
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
-
-    if constexpr (DEFORMED)
+    size_t idx               = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const TData *inptr       = in + nsize * (outDim * nmode * c + m);
+    TData *outptr            = out + nsize * (outDim * nmode * c + m);
+    while (idx < nsize)
     {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t idx0 = idx % (nelmt * nqTot);
-                size_t e    = idx0 / nqTot;
-                TData tmp[3];
-                for (unsigned int k = 0; k < ncoord; k++)
-                {
-                    tmp[k] = dfptr[(ndf - 1) * nqTot * e +
-                                   nqTot * (k * dimension) + idx0] *
-                             inptr[idx];
-                    for (unsigned int d = 1; d < dimension; d++)
-                    {
-                        tmp[k] += dfptr[(ndf - 1) * nqTot * e +
-                                        nqTot * (k * dimension + d) + idx0] *
-                                  inptr[idx + d * inoffset];
-                    }
-                }
-                for (unsigned int k = 0; k < ncoord; k++)
-                {
-                    outptr[k * outoffset + idx] = tmp[k];
-                }
-            });
-    }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = (idx % (nelmt * nqTot)) / nqTot;
-                TData tmp[3];
-                for (unsigned int k = 0; k < ncoord; k++)
-                {
-                    tmp[k] = dfptr[(ndf * e + k * dimension)] * inptr[idx];
-                    for (unsigned int d = 1; d < dimension; d++)
-                    {
-                        tmp[k] += dfptr[(ndf * e + k * dimension + d)] *
-                                  inptr[idx + d * inoffset];
-                    }
-                }
-                for (unsigned int k = 0; k < ncoord; k++)
-                {
-                    outptr[k * outoffset + idx] = tmp[k];
-                }
-            });
-    }
+        const size_t e = idx / nqTot;
 
-    Nektar::LoopExecutionSetStreamID(0);
+        TData tmp[3];
+        if constexpr (DEFORMED)
+        {
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                tmp[k] = dfptr[(ndf - 1) * nqTot * e + nqTot * (k * dimension) +
+                               idx] *
+                         inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k] += dfptr[(ndf - 1) * nqTot * e +
+                                    nqTot * (k * dimension + d) + idx] *
+                              inptr[idx + d * inoffset];
+                }
+            }
+        }
+        else
+        {
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                tmp[k] = dfptr[(ndf * e + k * dimension)] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
+                {
+                    tmp[k] += dfptr[(ndf * e + k * dimension + d)] *
+                              inptr[idx + d * inoffset];
+                }
+            }
+        }
+
+        for (unsigned int k = 0; k < ncoord; k++)
+        {
+            outptr[k * outoffset + idx] = tmp[k];
+        }
+
+        idx += getGlobalRange<0>(threadBlock);
+    }
 }
 
-template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void MultiplyByDerivDirFactorKernel(
     const unsigned dir, const unsigned nqTot, const unsigned ncoord,
-    const unsigned dimension, const size_t nelmt, const unsigned nhomo,
-    const size_t inoffset, const TData *dfptr, const TData *inptr,
-    TData *outptr, const unsigned int streamID)
+    const unsigned dimension, const size_t nelmt, const size_t inoffset,
+    const TData *dfptr, const TData *in, TData *out,
+    const TthreadBlock &threadBlock)
 {
-    Nektar::LoopExecutionSetStreamID(streamID);
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    // Every plane is one more block of elements over the same geometry, so
-    // they all run in this one launch and the element index wraps back to
-    // the same derivative factors on each.
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
-
-    if constexpr (DEFORMED)
+    size_t idx           = getGlobalIdx<0>(threadBlock);
+    const unsigned int p = getBlockIdx<1>(threadBlock);
+    const TData *inptr   = in + nsize * p;
+    TData *outptr        = out + nsize * p;
+    while (idx < nsize)
     {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t idx0 = idx % (nelmt * nqTot);
-                size_t e    = idx0 / nqTot;
-                TData tmp;
-                tmp = dfptr[(ndf - 1) * nqTot * e + nqTot * (dir * dimension) +
-                            idx0] *
-                      inptr[idx];
-                for (unsigned int d = 1; d < dimension; d++)
-                {
-                    tmp += dfptr[(ndf - 1) * nqTot * e +
-                                 nqTot * (dir * dimension + d) + idx0] *
-                           inptr[idx + d * inoffset];
-                }
+        const size_t e = idx / nqTot;
 
-                if (APPEND)
-                {
-                    outptr[idx] += tmp;
-                }
-                else
-                {
-                    outptr[idx] = tmp;
-                }
-            });
-    }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = (idx % (nelmt * nqTot)) / nqTot;
-                TData tmp;
-                tmp = dfptr[(ndf * e + dir * dimension)] * inptr[idx];
-                for (unsigned int d = 1; d < dimension; d++)
-                {
-                    tmp += dfptr[(ndf * e + dir * dimension + d)] *
-                           inptr[idx + d * inoffset];
-                }
-                if (APPEND)
-                {
-                    outptr[idx] += tmp;
-                }
-                else
-                {
-                    outptr[idx] = tmp;
-                }
-            });
-    }
+        TData tmp;
+        if constexpr (DEFORMED)
+        {
+            tmp =
+                dfptr[(ndf - 1) * nqTot * e + nqTot * (dir * dimension) + idx] *
+                inptr[idx];
+            for (unsigned int d = 1; d < dimension; d++)
+            {
+                tmp += dfptr[(ndf - 1) * nqTot * e +
+                             nqTot * (dir * dimension + d) + idx] *
+                       inptr[idx + d * inoffset];
+            }
+        }
+        else
+        {
+            tmp = dfptr[(ndf * e + dir * dimension)] * inptr[idx];
+            for (unsigned int d = 1; d < dimension; d++)
+            {
+                tmp += dfptr[(ndf * e + dir * dimension + d)] *
+                       inptr[idx + d * inoffset];
+            }
+        }
 
-    Nektar::LoopExecutionSetStreamID(0);
+        if constexpr (APPEND)
+        {
+            outptr[idx] += tmp;
+        }
+        else
+        {
+            outptr[idx] = tmp;
+        }
+
+        idx += getGlobalRange<0>(threadBlock);
+    }
 }
+#endif
 
 } // namespace Nektar::Operators::detail

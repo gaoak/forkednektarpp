@@ -215,6 +215,13 @@ protected:
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+        const unsigned int gridSizeFine =
+            (nelmt * m_nqFineTot + blockSize - 1u) / blockSize;
+
         // Offsets between the components of a block. The derivative and the
         // fine-grid gradient of every component are held at once, so the
         // offset between two directions spans all of them, while the
@@ -223,7 +230,6 @@ protected:
         const auto outoffset      = outblock.CompSize() * nhomo;
         const auto derivoffset    = m_nqTot * nelmt * ncomp;
         const auto gradoffset     = m_nqFineTot * nelmt * ncomp;
-        const auto compoffset     = m_nqTot * nelmtTot;
         const auto compFineOffset = m_nqFineTot * nelmtTot;
 
         // Reshape, if necessary.
@@ -253,25 +259,23 @@ protected:
             m_derivMatPtr, m_nqTot, m_nqTot * m_nqTot, inptr, m_nqTot, 0,
             (TData)0.0, derivWsp, m_nqTot, derivoffset, m_dimension);
 
-        // Multiply by derivative factor. The derivative factors are indexed
-        // by the elements of a single component, so the components are taken
-        // one at a time.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
+        // Multiply by derivative factor, the planes and components on the
+        // second and third grid dimensions.
+        if (m_isDeformed)
         {
-            if (m_isDeformed)
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_dfptr, derivWsp + n * compoffset,
-                    derivWsp + n * compoffset, m_streamID);
-            }
-            else
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, derivoffset,
-                    derivoffset, m_dfptr, derivWsp + n * compoffset,
-                    derivWsp + n * compoffset, m_streamID);
-            }
+            DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (MultiplyByDerivFactorKernel<true>), gridSize, nhomo,
+                inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                m_nqTot, m_coordDim, m_dimension, 1u, nelmt, derivoffset,
+                derivoffset, m_dfptr, derivWsp, derivWsp);
+        }
+        else
+        {
+            DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (MultiplyByDerivFactorKernel<false>), gridSize, nhomo,
+                inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                m_nqTot, m_coordDim, m_dimension, 1u, nelmt, derivoffset,
+                derivoffset, m_dfptr, derivWsp, derivWsp);
         }
 
         // Interpolate the physical gradient to the fine grid. One multiply
@@ -282,16 +286,13 @@ protected:
             m_interpMatPtr, m_nqFineTot, 0, derivWsp, m_nqTot, derivoffset,
             (TData)0.0, gradFineWsp, m_nqFineTot, gradoffset, m_coordDim);
 
-        // Form scale * advVel . grad(u) on the fine grid. The advection
-        // velocity is indexed by the elements of a single component, so the
-        // components are taken one at a time.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
-        {
-            AdvectionDealiasCombineStdMatKernel<ExecSpace, false>(
-                compFineOffset, m_coordDim, advVelFineWsp, compFineOffset,
-                gradFineWsp + n * compFineOffset, gradoffset,
-                combinedWsp + n * compFineOffset, this->m_scale, m_streamID);
-        }
+        // Form scale * advVel . grad(u) on the fine grid, the variables and
+        // planes together on the second grid dimension.
+        DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+            (AdvectionDealiasCombineStdMatKernel<false>), gridSizeFine, ncomp,
+            blockSize, 1, m_streamID, m_nqFineTot * nelmt, m_coordDim,
+            advVelFineWsp, compFineOffset, nhomo, gradFineWsp, gradoffset,
+            combinedWsp, this->m_scale);
 
         // Project back onto the native grid. One multiply per component, with
         // the homogeneous modes held in the columns.

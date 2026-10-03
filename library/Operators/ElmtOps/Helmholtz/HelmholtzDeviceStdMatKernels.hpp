@@ -41,35 +41,32 @@ namespace Nektar::Operators::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+// The variables and planes run together on the second grid dimension.
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int ncomp,
-    const size_t inoffset, const size_t outoffset, const TData *diffCoeff,
-    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr,
-    TData *bwdptr, const TData scale, const TthreadBlock &threadBlock)
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const size_t outoffset, const TData *diffCoeff, const TData *jacptr,
+    const TData *dfptr, const TData *in, TData *out, TData *bwd,
+    const TData scale, const TthreadBlock &threadBlock)
 {
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * ncomp;
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    const size_t idx0   = getGlobalIdx(threadBlock);
-    const size_t stride = getGlobalRange(threadBlock);
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
+    size_t idx           = getGlobalIdx<0>(threadBlock);
+    const unsigned int c = getBlockIdx<1>(threadBlock);
+    const TData *inptr   = in + nsize * c;
+    TData *outptr        = out + nsize * c;
+    TData *bwdptr        = bwd + nsize * c;
+    while (idx < nsize)
     {
         if constexpr (DEFORMED)
         {
-            // The geometry is the same on every slice, so one modulo
-            // takes idx down to the element and the point within it, and
-            // the point then comes off that with a multiply and a subtract
-            // rather than a second modulo. islot rather than idx0, which is
-            // this thread's own starting index.
-            size_t islot = idx % (nelmt * nqTot);
-            size_t e     = islot / nqTot;
-            size_t i     = islot - e * nqTot;
+            size_t e     = idx / nqTot;
+            size_t i     = idx - e * nqTot;
             TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
 
-            auto jac = jacptr[islot];
+            auto jac = jacptr[idx];
 
             for (unsigned int k = 0; k < ncoord; ++k)
             {
@@ -117,7 +114,7 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
         }
         else
         {
-            size_t e     = (idx % (nelmt * nqTot)) / nqTot;
+            size_t e     = idx / nqTot;
             TData tmp[3] = {0.0}, metric[3];
 
             // Compute metric.
@@ -158,6 +155,8 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                 bwdptr[idx] *= scale * jac;
             }
         }
+
+        idx += getGlobalRange<0>(threadBlock);
     }
 }
 #endif
