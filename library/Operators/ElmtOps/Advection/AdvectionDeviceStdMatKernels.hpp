@@ -34,85 +34,75 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
 
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
-    const size_t inoffset, const TData *dfptr, const TData *advVel,
-    const size_t advelsize, const TData *inptr, TData *outptr,
-    const TData scale, const unsigned int streamID)
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const TData *dfptr, const TData *advVel, const size_t advelsize,
+    const unsigned int nhomo, const TData *in, TData *out, const TData scale,
+    const TthreadBlock &threadBlock)
 {
-    Nektar::LoopExecutionSetStreamID(streamID);
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
-
-    if constexpr (DEFORMED)
+    size_t idx             = getGlobalIdx<0>(threadBlock);
+    const unsigned int c   = getBlockIdx<1>(threadBlock);
+    const TData *inptr     = in + nsize * c;
+    TData *outptr          = out + nsize * c;
+    const TData *advVelPtr = advVel + nsize * (c % nhomo);
+    while (idx < nsize)
     {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t islot = idx % (nelmt * nqTot);
-                size_t e     = islot / nqTot;
-                size_t i     = islot - e * nqTot;
-                TData tmp[3], tmp0 = 0;
-                for (unsigned int k = 0; k < ncoord; k++)
-                {
-                    tmp[k] =
-                        dfptr[ndf * nqTot * e + (k * dimension) * nqTot + i] *
-                        inptr[idx];
-                    for (unsigned int d = 1; d < dimension; d++)
-                    {
-                        tmp[k] += dfptr[ndf * nqTot * e +
-                                        (k * dimension + d) * nqTot + i] *
-                                  inptr[idx + d * inoffset];
-                    }
-                    tmp0 += advVel[k * advelsize + idx] * tmp[k];
-                }
+        const size_t e = idx / nqTot;
 
-                if (APPEND)
+        TData tmp[3], tmp0 = 0;
+        if constexpr (DEFORMED)
+        {
+            const size_t i = idx - e * nqTot;
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                tmp[k] = dfptr[ndf * nqTot * e + (k * dimension) * nqTot + i] *
+                         inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
                 {
-                    outptr[idx] += scale * tmp0;
+                    tmp[k] += dfptr[ndf * nqTot * e +
+                                    (k * dimension + d) * nqTot + i] *
+                              inptr[idx + d * inoffset];
                 }
-                else
+                tmp0 += advVelPtr[k * advelsize + idx] * tmp[k];
+            }
+        }
+        else
+        {
+            for (unsigned int k = 0; k < ncoord; k++)
+            {
+                tmp[k] = dfptr[(ndf * e + k * dimension)] * inptr[idx];
+                for (unsigned int d = 1; d < dimension; d++)
                 {
-                    outptr[idx] = scale * tmp0;
+                    tmp[k] += dfptr[(ndf * e + k * dimension + d)] *
+                              inptr[idx + d * inoffset];
                 }
-            });
+                tmp0 += advVelPtr[k * advelsize + idx] * tmp[k];
+            }
+        }
+
+        if constexpr (APPEND)
+        {
+            outptr[idx] += scale * tmp0;
+        }
+        else
+        {
+            outptr[idx] = scale * tmp0;
+        }
+
+        idx += getGlobalRange<0>(threadBlock);
     }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = (idx % (nelmt * nqTot)) / nqTot;
-                TData tmp[3], tmp0 = 0;
-                for (unsigned int k = 0; k < ncoord; k++)
-                {
-                    tmp[k] = dfptr[(ndf * e + k * dimension)] * inptr[idx];
-                    for (unsigned int d = 1; d < dimension; d++)
-                    {
-                        tmp[k] += dfptr[(ndf * e + k * dimension + d)] *
-                                  inptr[idx + d * inoffset];
-                    }
-                    tmp0 += advVel[k * advelsize + idx] * tmp[k];
-                }
-
-                if (APPEND)
-                {
-                    outptr[idx] += scale * tmp0;
-                }
-                else
-                {
-                    outptr[idx] = scale * tmp0;
-                }
-            });
-    }
-
-    Nektar::LoopExecutionSetStreamID(0);
 }
+#endif
 
 } // namespace Nektar::Operators::detail

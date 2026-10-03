@@ -135,10 +135,9 @@ protected:
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
         // Get block sizes.
-        const auto nhomo    = inblock.GetNumHomoModes();
-        const auto ncomp    = inblock.GetNumComponents() * nhomo;
-        const auto nelmt    = inblock.GetNumElementsWithPadding();
-        const auto nelmtTot = nelmt * nhomo;
+        const auto nhomo = inblock.GetNumHomoModes();
+        const auto ncomp = inblock.GetNumComponents() * nhomo;
+        const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
         auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
@@ -158,13 +157,17 @@ protected:
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions
         // spans all of them, and the advection velocity carries the same
         // planes as the input, so one of its components spans all of them.
         const auto advelsize =
             m_nqTot * inblock.GetNumElmtGroups(m_implInterleaveWidth) * nhomo;
-        const auto outoffset   = outblock.CompSize() * nhomo;
         const auto derivoffset = m_nqTot * nelmt * ncomp;
 
         // Reshape, if necessary.
@@ -185,52 +188,48 @@ protected:
             m_matptr, m_nqTot, m_nqTot * m_nqTot, inptr, m_nqTot, 0, (TData)0.0,
             derivptr, m_nqTot, derivoffset, m_dimension);
 
-        // Multiply by derivative factor. The advection velocity is indexed by
-        // the elements of one component over all its planes, so the components
-        // are taken one at a time.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
+        // Multiply by derivative factor, the variables and planes together on
+        // the second grid dimension.
+        if (m_isDeformed)
         {
-            if (m_isDeformed)
+            if (this->m_append)
             {
-                if (this->m_append)
-                {
-                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
-                                                           true>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        derivoffset, m_dfptr, advVelPtr, advelsize,
-                        derivptr + n * m_nqTot * nelmtTot,
-                        outptr + n * outoffset, this->m_scale, m_streamID);
-                }
-                else
-                {
-                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
-                                                           true>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        derivoffset, m_dfptr, advVelPtr, advelsize,
-                        derivptr + n * m_nqTot * nelmtTot,
-                        outptr + n * outoffset, this->m_scale, m_streamID);
-                }
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (MultiplyByDerivFactorAndAdvecVelKernel<true, true>),
+                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
+                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
+                    advVelPtr, advelsize, nhomo, derivptr, outptr,
+                    this->m_scale);
             }
             else
             {
-                if (this->m_append)
-                {
-                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, true,
-                                                           false>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        derivoffset, m_dfptr, advVelPtr, advelsize,
-                        derivptr + n * m_nqTot * nelmtTot,
-                        outptr + n * outoffset, this->m_scale, m_streamID);
-                }
-                else
-                {
-                    MultiplyByDerivFactorAndAdvecVelKernel<ExecSpace, false,
-                                                           false>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        derivoffset, m_dfptr, advVelPtr, advelsize,
-                        derivptr + n * m_nqTot * nelmtTot,
-                        outptr + n * outoffset, this->m_scale, m_streamID);
-                }
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (MultiplyByDerivFactorAndAdvecVelKernel<false, true>),
+                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
+                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
+                    advVelPtr, advelsize, nhomo, derivptr, outptr,
+                    this->m_scale);
+            }
+        }
+        else
+        {
+            if (this->m_append)
+            {
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (MultiplyByDerivFactorAndAdvecVelKernel<true, false>),
+                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
+                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
+                    advVelPtr, advelsize, nhomo, derivptr, outptr,
+                    this->m_scale);
+            }
+            else
+            {
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (MultiplyByDerivFactorAndAdvecVelKernel<false, false>),
+                    gridSize, ncomp, blockSize, 1, m_streamID, m_nqTot,
+                    m_coordDim, m_dimension, nelmt, derivoffset, m_dfptr,
+                    advVelPtr, advelsize, nhomo, derivptr, outptr,
+                    this->m_scale);
             }
         }
 

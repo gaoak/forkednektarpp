@@ -35,42 +35,45 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
 
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, bool APPEND, typename TData>
-NEK_FORCE_INLINE static void AdvectionDealiasCombineStdMatKernel(
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+template <bool APPEND, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void AdvectionDealiasCombineStdMatKernel(
     const size_t nsize, const unsigned int coordDim, const TData *advVel,
-    const size_t advVelOffset, const TData *grad, const size_t gradOffset,
-    TData *out, const TData scale, const unsigned int streamID)
+    const size_t advVelOffset, const unsigned int nhomo, const TData *grad,
+    const size_t gradOffset, TData *out, const TData scale,
+    const TthreadBlock &threadBlock)
 {
-    Nektar::LoopExecutionSetStreamID(streamID);
+    size_t idx             = getGlobalIdx<0>(threadBlock);
+    const unsigned int c   = getBlockIdx<1>(threadBlock);
+    const TData *gradptr   = grad + nsize * c;
+    TData *outptr          = out + nsize * c;
+    const TData *advVelPtr = advVel + nsize * (c % nhomo);
+    while (idx < nsize)
+    {
+        TData tmp = advVelPtr[idx] * gradptr[idx];
+        for (unsigned int d = 1u; d < coordDim; ++d)
+        {
+            tmp += advVelPtr[d * advVelOffset + idx] *
+                   gradptr[d * gradOffset + idx];
+        }
 
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-            TData tmp = advVel[idx] * grad[idx];
-            for (unsigned int d = 1u; d < coordDim; ++d)
-            {
-                tmp +=
-                    advVel[d * advVelOffset + idx] * grad[d * gradOffset + idx];
-            }
+        if constexpr (APPEND)
+        {
+            outptr[idx] += scale * tmp;
+        }
+        else
+        {
+            outptr[idx] = scale * tmp;
+        }
 
-            // Plain runtime `if`, not `if constexpr`: nvcc's extended
-            // __device__ lambda rejects first-capturing a variable inside a
-            // constexpr-if branch.
-            if (APPEND)
-            {
-                out[idx] += scale * tmp;
-            }
-            else
-            {
-                out[idx] = scale * tmp;
-            }
-        });
-
-    Nektar::LoopExecutionSetStreamID(0);
+        idx += getGlobalRange<0>(threadBlock);
+    }
 }
+#endif
 
 } // namespace Nektar::Operators::detail

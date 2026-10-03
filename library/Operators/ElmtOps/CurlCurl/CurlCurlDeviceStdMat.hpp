@@ -152,6 +152,11 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Offsets between the components of a block.
         const auto outoffset   = outblock.CompSize();
         const auto derivoffset = m_nqTot * nelmt;
@@ -174,30 +179,34 @@ protected:
         {
             if (m_isDeformed)
             {
-                Curl2DScalarStdMatKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, 1u, derivoffset, m_dfptr, derivptr,
-                    omegaptr, m_streamID);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl2DScalarStdMatKernel<true>), gridSize, 1u, blockSize,
+                    1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr,
+                    derivptr, omegaptr);
             }
             else
             {
-                Curl2DScalarStdMatKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, 1u, derivoffset, m_dfptr, derivptr,
-                    omegaptr, m_streamID);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl2DScalarStdMatKernel<false>), gridSize, 1u, blockSize,
+                    1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr,
+                    derivptr, omegaptr);
             }
         }
         else
         {
             if (m_isDeformed)
             {
-                Curl3DStdMatKernel<ExecSpace, true>(
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl3DStdMatKernel<true>), gridSize, blockSize, m_streamID,
                     m_nqTot, nelmt, derivoffset, derivoffset, m_dfptr, derivptr,
-                    omegaptr, m_streamID);
+                    omegaptr);
             }
             else
             {
-                Curl3DStdMatKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, derivoffset, derivoffset, m_dfptr, derivptr,
-                    omegaptr, m_streamID);
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl3DStdMatKernel<false>), gridSize, blockSize,
+                    m_streamID, m_nqTot, nelmt, derivoffset, derivoffset,
+                    m_dfptr, derivptr, omegaptr);
             }
         }
 
@@ -214,30 +223,34 @@ protected:
         {
             if (m_isDeformed)
             {
-                Curl2DVectorStdMatKernel<ExecSpace, true>(
-                    m_nqTot, nelmt, 1u, derivoffset, outoffset, m_dfptr,
-                    derivptr, outptr, m_streamID);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl2DVectorStdMatKernel<true>), gridSize, 1u, blockSize,
+                    1, m_streamID, m_nqTot, nelmt, derivoffset, outoffset,
+                    m_dfptr, derivptr, outptr);
             }
             else
             {
-                Curl2DVectorStdMatKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, 1u, derivoffset, outoffset, m_dfptr,
-                    derivptr, outptr, m_streamID);
+                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl2DVectorStdMatKernel<false>), gridSize, 1u, blockSize,
+                    1, m_streamID, m_nqTot, nelmt, derivoffset, outoffset,
+                    m_dfptr, derivptr, outptr);
             }
         }
         else
         {
             if (m_isDeformed)
             {
-                Curl3DStdMatKernel<ExecSpace, true>(
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl3DStdMatKernel<true>), gridSize, blockSize, m_streamID,
                     m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
-                    outptr, m_streamID);
+                    outptr);
             }
             else
             {
-                Curl3DStdMatKernel<ExecSpace, false>(
-                    m_nqTot, nelmt, derivoffset, outoffset, m_dfptr, derivptr,
-                    outptr, m_streamID);
+                DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (Curl3DStdMatKernel<false>), gridSize, blockSize,
+                    m_streamID, m_nqTot, nelmt, derivoffset, outoffset, m_dfptr,
+                    derivptr, outptr);
             }
         }
 
@@ -307,6 +320,11 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Offsets between the components of a block: one component spans all
         // of the planes.
         const auto inoffset  = inblock.CompSize() * nhomo;
@@ -334,29 +352,33 @@ protected:
         // The third component, df_y/dx - df_x/dy.
         if (m_isDeformed)
         {
-            Curl2DScalarStdMatKernel<ExecSpace, true>(
-                m_nqTot, nelmt, nhomo, derivoffset, m_dfptr, derivptr,
-                outptr + 2u * outoffset, m_streamID);
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (Curl2DScalarStdMatKernel<true>), gridSize, nhomo, blockSize, 1,
+                m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr, derivptr,
+                outptr + 2u * outoffset);
         }
         else
         {
-            Curl2DScalarStdMatKernel<ExecSpace, false>(
-                m_nqTot, nelmt, nhomo, derivoffset, m_dfptr, derivptr,
-                outptr + 2u * outoffset, m_streamID);
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (Curl2DScalarStdMatKernel<false>), gridSize, nhomo, blockSize,
+                1, m_streamID, m_nqTot, nelmt, derivoffset, m_dfptr, derivptr,
+                outptr + 2u * outoffset);
         }
 
         // The first two components, {df_z/dy, -df_z/dx}.
         if (m_isDeformed)
         {
-            Curl2DVectorStdMatKernel<ExecSpace, true>(
-                m_nqTot, nelmt, nhomo, derivoffset, outoffset, m_dfptr,
-                derivzptr, outptr, m_streamID);
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (Curl2DVectorStdMatKernel<true>), gridSize, nhomo, blockSize, 1,
+                m_streamID, m_nqTot, nelmt, derivoffset, outoffset, m_dfptr,
+                derivzptr, outptr);
         }
         else
         {
-            Curl2DVectorStdMatKernel<ExecSpace, false>(
-                m_nqTot, nelmt, nhomo, derivoffset, outoffset, m_dfptr,
-                derivzptr, outptr, m_streamID);
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (Curl2DVectorStdMatKernel<false>), gridSize, nhomo, blockSize,
+                1, m_streamID, m_nqTot, nelmt, derivoffset, outoffset, m_dfptr,
+                derivzptr, outptr);
         }
 
         // Reshape back, if necessary.

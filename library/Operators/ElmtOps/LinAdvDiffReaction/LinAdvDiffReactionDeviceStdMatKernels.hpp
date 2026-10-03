@@ -41,42 +41,34 @@ namespace Nektar::Operators::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+// The variables and planes run together on the second grid dimension.
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int ncomp,
-    const unsigned int nhomo, const size_t inoffset, const size_t outoffset,
-    const size_t adveloffset, const TData *diffCoeff, const TData *jacptr,
-    const TData *dfptr, const TData *advVel, const TData *inptr, TData *outptr,
-    TData *bwdptr, const TData scale, const TthreadBlock &threadBlock)
+    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
+    const size_t inoffset, const size_t outoffset, const size_t adveloffset,
+    const TData *diffCoeff, const TData *jacptr, const TData *dfptr,
+    const TData *advVel, const TData *in, TData *out, TData *bwd,
+    const TData scale, const TthreadBlock &threadBlock)
 {
-    const auto ndf = ncoord * dimension;
-    // One slice is one variable on one plane, and ncomp counts them all, so
-    // sliceSize is how far apart two of them sit.
-    const auto sliceSize = nelmt * nqTot;
-    const auto nsize     = sliceSize * ncomp;
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    const size_t idx0   = getGlobalIdx(threadBlock);
-    const size_t stride = getGlobalRange(threadBlock);
-
-    for (size_t idx = idx0; idx < nsize; idx += stride)
+    size_t idx             = getGlobalIdx<0>(threadBlock);
+    const unsigned int c   = getBlockIdx<1>(threadBlock);
+    const TData *inptr     = in + nsize * c;
+    TData *outptr          = out + nsize * c;
+    TData *bwdptr          = bwd + nsize * c;
+    const TData *advVelPtr = advVel + nsize * (c % nhomo);
+    while (idx < nsize)
     {
-        // The geometry is the same on every slice, so the whole slice comes
-        // off idx for the element and the point within it. The advection
-        // velocity is shared by the variables but not by the planes, so it
-        // keeps the plane, which strips one level up.
-        const size_t islot  = idx % sliceSize;
-        const size_t advidx = idx % (nhomo * sliceSize);
-
         if constexpr (DEFORMED)
         {
-            // The point within the element comes off islot with a
-            // multiply and a subtract rather than another modulo.
-            size_t e     = islot / nqTot;
-            size_t i     = islot - e * nqTot;
+            size_t e     = idx / nqTot;
+            size_t i     = idx - e * nqTot;
             TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
 
-            auto jac = jacptr[islot];
+            auto jac = jacptr[idx];
 
             tmp0 = 0.0;
             for (unsigned int k = 0; k < ncoord; ++k)
@@ -89,7 +81,7 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                                     (k * dimension + d) * nqTot + i] *
                               inptr[idx + d * inoffset];
                 }
-                tmp0 += advVel[k * adveloffset + advidx] * tmp[k];
+                tmp0 += advVelPtr[k * adveloffset + idx] * tmp[k];
             }
 
             // Write. bwdptr is left unset when scale is zero.
@@ -127,7 +119,7 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
         }
         else
         {
-            size_t e     = islot / nqTot;
+            size_t e     = idx / nqTot;
             TData tmp[3] = {0.0}, tmp0 = 0.0, metric[3];
 
             auto jac = jacptr[e];
@@ -141,7 +133,7 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                     tmp[k] += dfptr[ndf * e + k * dimension + d] *
                               inptr[idx + d * inoffset];
                 }
-                tmp0 += advVel[k * adveloffset + advidx] * tmp[k];
+                tmp0 += advVelPtr[k * adveloffset + idx] * tmp[k];
             }
 
             // Write. bwdptr is left unset when scale is zero.
@@ -176,6 +168,8 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
                 outptr[d * outoffset + idx] = tmp0 * jac;
             }
         }
+
+        idx += getGlobalRange<0>(threadBlock);
     }
 }
 #endif

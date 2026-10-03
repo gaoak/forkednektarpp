@@ -34,146 +34,133 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
 
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void JacobianDerivFactorKernel(
+#if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+// The planes and variables run on the second and third grid dimensions.
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void JacobianDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
-    const size_t inoffset, const size_t outoffset, const TData *jacptr,
-    const TData *dfptr, const TData *inptr, TData *outptr,
-    const unsigned int streamID)
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const size_t outoffset, const TData *jacptr, const TData *dfptr,
+    const TData *in, TData *out, const TthreadBlock &threadBlock)
 {
-    Nektar::LoopExecutionSetStreamID(streamID);
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
-
-    if constexpr (DEFORMED)
+    size_t idx               = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
+    const TData *inptr       = in + nsize * (inDim * nmode * c + m);
+    TData *outptr            = out + nsize * (nmode * c + m);
+    while (idx < nsize)
     {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t idx0 = idx % (nelmt * nqTot);
-                size_t e    = idx0 / nqTot;
-                TData tmp[3];
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    tmp[d] = dfptr[(ndf - 1) * nqTot * e + nqTot * d + idx0] *
-                             inptr[idx];
-                    for (unsigned int k = 1; k < ncoord; ++k)
-                    {
-                        tmp[d] += dfptr[(ndf - 1) * nqTot * e +
-                                        nqTot * (k * dimension + d) + idx0] *
-                                  inptr[idx + k * inoffset];
-                    }
-                }
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    outptr[d * outoffset + idx] = tmp[d] * jacptr[idx0];
-                }
-            });
-    }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                size_t e = (idx % (nelmt * nqTot)) / nqTot;
-                TData tmp[3];
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    tmp[d] = dfptr[(ndf * e + d)] * inptr[idx];
-                    for (unsigned int k = 1; k < ncoord; ++k)
-                    {
-                        tmp[d] += dfptr[(ndf * e + k * dimension + d)] *
-                                  inptr[idx + k * inoffset];
-                    }
-                }
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    outptr[d * outoffset + idx] = tmp[d] * jacptr[e];
-                }
-            });
-    }
+        const size_t e = idx / nqTot;
 
-    Nektar::LoopExecutionSetStreamID(0);
+        TData tmp[3];
+        if constexpr (DEFORMED)
+        {
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                tmp[d] =
+                    dfptr[(ndf - 1) * nqTot * e + nqTot * d + idx] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d] += dfptr[(ndf - 1) * nqTot * e +
+                                    nqTot * (k * dimension + d) + idx] *
+                              inptr[idx + k * inoffset];
+                }
+            }
+        }
+        else
+        {
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                tmp[d] = dfptr[(ndf * e + d)] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d] += dfptr[(ndf * e + k * dimension + d)] *
+                              inptr[idx + k * inoffset];
+                }
+            }
+        }
+
+        const auto wj = DEFORMED ? jacptr[idx] : jacptr[e];
+        for (unsigned int d = 0; d < dimension; d++)
+        {
+            outptr[d * outoffset + idx] = tmp[d] * wj;
+        }
+
+        idx += getGlobalRange<0>(threadBlock);
+    }
 }
 
-template <typename ExecSpace, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void JacobianDerivFactorWeightsKernel(
+// The planes and variables run on the second and third grid dimensions.
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_KERNEL static void JacobianDerivFactorWeightsKernel(
     const unsigned int nqTot, const unsigned int ncoord,
-    const unsigned int dimension, const size_t nelmt, const unsigned int nhomo,
-    const size_t inoffset, const size_t outoffset, const TData *jacptr,
-    const TData *dfptr, const TData *weights, const TData *inptr, TData *outptr,
-    const unsigned int streamID)
+    const unsigned int dimension, const size_t nelmt, const size_t inoffset,
+    const size_t outoffset, const TData *jacptr, const TData *dfptr,
+    const TData *weights, const TData *in, TData *out,
+    const TthreadBlock &threadBlock)
 {
-    Nektar::LoopExecutionSetStreamID(streamID);
+    const auto ndf     = ncoord * dimension;
+    const size_t nsize = nqTot * nelmt;
 
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt * nhomo;
-
-    if constexpr (DEFORMED)
+    size_t idx               = getGlobalIdx<0>(threadBlock);
+    const unsigned int m     = getBlockIdx<1>(threadBlock);
+    const unsigned int c     = getBlockIdx<2>(threadBlock);
+    const unsigned int nmode = getBlockRange<1>(threadBlock);
+    const unsigned int inDim = (nmode > 1) ? 3u : ncoord;
+    const TData *inptr       = in + nsize * (inDim * nmode * c + m);
+    TData *outptr            = out + nsize * (nmode * c + m);
+    while (idx < nsize)
     {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                // idx0 is the point's slot on its own plane. Stripping the
-                // plane costs the one modulo; the point within the element
-                // then comes off idx0 with a multiply and a subtract rather
-                // than a second modulo.
-                size_t idx0 = idx % (nelmt * nqTot);
-                size_t e    = idx0 / nqTot;
-                size_t i    = idx0 - e * nqTot;
-                TData tmp[3];
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    tmp[d] = dfptr[(ndf - 1) * nqTot * e + nqTot * d + idx0] *
-                             inptr[idx];
-                    for (unsigned int k = 1; k < ncoord; ++k)
-                    {
-                        tmp[d] += dfptr[(ndf - 1) * nqTot * e +
-                                        nqTot * (k * dimension + d) + idx0] *
-                                  inptr[idx + k * inoffset];
-                    }
-                }
-                auto wj = jacptr[idx0] * weights[i];
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    outptr[d * outoffset + idx] = tmp[d] * wj;
-                }
-            });
-    }
-    else
-    {
-        Nektar::parallel_for<ExecSpace>(
-            0, nsize, NEKTAR_LAMBDA(const size_t idx) {
-                // idx0 is the point's slot on its own plane. Stripping the
-                // plane costs the one modulo; the point within the element
-                // then comes off idx0 with a multiply and a subtract rather
-                // than a second modulo.
-                size_t idx0 = idx % (nelmt * nqTot);
-                size_t e    = idx0 / nqTot;
-                size_t i    = idx0 - e * nqTot;
-                TData tmp[3];
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    tmp[d] = dfptr[(ndf * e + d)] * inptr[idx];
-                    for (unsigned int k = 1; k < ncoord; ++k)
-                    {
-                        tmp[d] += dfptr[(ndf * e + k * dimension + d)] *
-                                  inptr[idx + k * inoffset];
-                    }
-                }
-                auto wj = jacptr[e] * weights[i];
-                for (unsigned int d = 0; d < dimension; d++)
-                {
-                    outptr[d * outoffset + idx] = tmp[d] * wj;
-                }
-            });
-    }
+        const size_t e = idx / nqTot;
 
-    Nektar::LoopExecutionSetStreamID(0);
+        TData tmp[3];
+        if constexpr (DEFORMED)
+        {
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                tmp[d] =
+                    dfptr[(ndf - 1) * nqTot * e + nqTot * d + idx] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d] += dfptr[(ndf - 1) * nqTot * e +
+                                    nqTot * (k * dimension + d) + idx] *
+                              inptr[idx + k * inoffset];
+                }
+            }
+        }
+        else
+        {
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                tmp[d] = dfptr[(ndf * e + d)] * inptr[idx];
+                for (unsigned int k = 1; k < ncoord; ++k)
+                {
+                    tmp[d] += dfptr[(ndf * e + k * dimension + d)] *
+                              inptr[idx + k * inoffset];
+                }
+            }
+        }
+
+        const size_t i = idx - e * nqTot;
+        const auto wj  = (DEFORMED ? jacptr[idx] : jacptr[e]) * weights[i];
+        for (unsigned int d = 0; d < dimension; d++)
+        {
+            outptr[d * outoffset + idx] = tmp[d] * wj;
+        }
+
+        idx += getGlobalRange<0>(threadBlock);
+    }
 }
+#endif
 
 } // namespace Nektar::Operators::detail

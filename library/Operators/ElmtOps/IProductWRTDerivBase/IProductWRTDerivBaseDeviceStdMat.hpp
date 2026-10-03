@@ -168,6 +168,11 @@ protected:
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
         const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Directions held per variable in the input block. In 3DH1
         // (nhomo > 1) there are always three (x, y, z) regardless of the base
         // mesh coordDim, the z slot being the one DerivZOp reads; the xy pass
@@ -192,48 +197,46 @@ protected:
                 outblock.GetNumData(), (TData *)outptr, m_streamID);
         }
 
-        // Multiply by derivative factor and Jacobian. The coordinate
-        // directions of a component are held in m_coordDim slots of the input
-        // block, so the components are taken one at a time.
-        for (unsigned int n = 0; n < outblock.GetNumComponents(); ++n)
+        // Multiply by derivative factor and Jacobian, the planes and
+        // components on the second and third grid dimensions. The coordinate
+        // directions of a component are held in inDim slots of the input
+        // block.
+        if constexpr (TFieldOut == FieldState::Coeff)
         {
-            if constexpr (TFieldOut == FieldState::Coeff)
+            if (m_isDeformed)
             {
-                if (m_isDeformed)
-                {
-                    JacobianDerivFactorKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        inoffset, wspoffset, m_jacptr, m_dfptr,
-                        inptr + n * inDim * inoffset,
-                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
-                }
-                else
-                {
-                    JacobianDerivFactorKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        inoffset, wspoffset, m_jacptr, m_dfptr,
-                        inptr + n * inDim * inoffset,
-                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
-                }
+                DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (JacobianDerivFactorKernel<true>), gridSize, nhomo,
+                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
+                    wspoffset, m_jacptr, m_dfptr, inptr, wspptr);
             }
             else
             {
-                if (m_isDeformed)
-                {
-                    JacobianDerivFactorWeightsKernel<ExecSpace, true>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        inoffset, wspoffset, m_jacptr, m_dfptr, m_weights,
-                        inptr + n * inDim * inoffset,
-                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
-                }
-                else
-                {
-                    JacobianDerivFactorWeightsKernel<ExecSpace, false>(
-                        m_nqTot, m_coordDim, m_dimension, nelmt, nhomo,
-                        inoffset, wspoffset, m_jacptr, m_dfptr, m_weights,
-                        inptr + n * inDim * inoffset,
-                        wspptr + n * m_nqTot * nelmtTot, m_streamID);
-                }
+                DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (JacobianDerivFactorKernel<false>), gridSize, nhomo,
+                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
+                    wspoffset, m_jacptr, m_dfptr, inptr, wspptr);
+            }
+        }
+        else
+        {
+            if (m_isDeformed)
+            {
+                DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (JacobianDerivFactorWeightsKernel<true>), gridSize, nhomo,
+                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
+                    wspoffset, m_jacptr, m_dfptr, m_weights, inptr, wspptr);
+            }
+            else
+            {
+                DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                    (JacobianDerivFactorWeightsKernel<false>), gridSize, nhomo,
+                    outblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                    m_nqTot, m_coordDim, m_dimension, nelmt, inoffset,
+                    wspoffset, m_jacptr, m_dfptr, m_weights, inptr, wspptr);
             }
         }
 

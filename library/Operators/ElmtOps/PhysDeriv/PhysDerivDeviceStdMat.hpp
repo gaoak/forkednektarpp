@@ -131,6 +131,11 @@ protected:
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
 
+        // Set Kernel parameters.
+        const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+        const unsigned int gridSize =
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
+
         // Offsets between the components of a block. In 3DH1 (nhomo > 1) the
         // output has 3 slots per component (x, y, z) regardless of base mesh
         // coordDim, leaving slot 2 free for the z-derivative written by
@@ -155,25 +160,24 @@ protected:
                 outDim * outoffset, inblock.GetNumComponents());
         }
 
-        // Multiply by derivative factor. The directions of a component are
-        // held in outDim slots of the output block, so the components are
-        // taken one at a time.
-        for (unsigned int n = 0; n < inblock.GetNumComponents(); ++n)
+        // Multiply by derivative factor, the planes and components on the
+        // second and third grid dimensions. The directions of a component are
+        // held in outDim slots of the output block.
+        if (m_isDeformed)
         {
-            if (m_isDeformed)
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, true>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, m_dfptr, outptr + n * outDim * outoffset,
-                    outptr + n * outDim * outoffset, m_streamID);
-            }
-            else
-            {
-                MultiplyByDerivFactorKernel<ExecSpace, false>(
-                    m_nqTot, m_coordDim, m_dimension, nelmt, nhomo, outoffset,
-                    outoffset, m_dfptr, outptr + n * outDim * outoffset,
-                    outptr + n * outDim * outoffset, m_streamID);
-            }
+            DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (MultiplyByDerivFactorKernel<true>), gridSize, nhomo,
+                inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                m_nqTot, m_coordDim, m_dimension, outDim, nelmt, outoffset,
+                outoffset, m_dfptr, outptr, outptr);
+        }
+        else
+        {
+            DEVICE_3DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (MultiplyByDerivFactorKernel<false>), gridSize, nhomo,
+                inblock.GetNumComponents(), blockSize, 1, 1, m_streamID,
+                m_nqTot, m_coordDim, m_dimension, outDim, nelmt, outoffset,
+                outoffset, m_dfptr, outptr, outptr);
         }
 
         // Reshape back, if necessary.

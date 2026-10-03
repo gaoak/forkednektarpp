@@ -154,7 +154,7 @@ protected:
         // Set Kernel parameters.
         const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
         const unsigned int gridSize =
-            (nelmt * m_nqTot * ncomp + blockSize - 1u) / blockSize;
+            (nelmt * m_nqTot + blockSize - 1u) / blockSize;
 
         // Offsets between the components of a block. The derivatives of every
         // component are held at once, so the offset between two directions
@@ -180,19 +180,19 @@ protected:
         if (m_isDeformed)
         {
 
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (ApplyMetricKernel<true>), gridSize, blockSize, m_streamID,
-                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp, derivoffset,
-                derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
-                derivptr);
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (ApplyMetricKernel<true>), gridSize, ncomp, blockSize, 1,
+                m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
+                derivoffset, derivoffset, diffCoeffPtr, m_jacptr, m_dfptr,
+                derivptr, derivptr);
         }
         else
         {
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (ApplyMetricKernel<false>), gridSize, blockSize, m_streamID,
-                m_nqTot, m_coordDim, m_dimension, nelmt, ncomp, derivoffset,
-                derivoffset, diffCoeffPtr, m_jacptr, m_dfptr, derivptr,
-                derivptr);
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (ApplyMetricKernel<false>), gridSize, ncomp, blockSize, 1,
+                m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
+                derivoffset, derivoffset, diffCoeffPtr, m_jacptr, m_dfptr,
+                derivptr, derivptr);
         }
 
         // Step 3: IProductWRTDerivBase
