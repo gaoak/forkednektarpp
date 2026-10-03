@@ -43,6 +43,7 @@ v5.11.0
 - Fix trixie GitLab CI slowdown (!2701)
 - Fix collection autotuning selection and record results per polynomial order (!2635)
 - Fix noble full build CI (!2742)
+- Fix intermittent Cwipi test failures by capturing the output of each command in a multi-command parallel test separately (!2780)
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)
