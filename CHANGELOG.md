@@ -54,6 +54,7 @@ v5.11.0
 **CompressibleFlowSolver**
 - Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
+- Remove the rotation onto the trace normal from all compressible Riemann solvers (!2779)
 
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)

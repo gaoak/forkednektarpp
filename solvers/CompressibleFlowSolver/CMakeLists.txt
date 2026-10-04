@@ -62,7 +62,6 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         RiemannSolvers/HLLCSolver.cpp
         RiemannSolvers/LaxFriedrichsSolver.cpp
         RiemannSolvers/RoeSolver.cpp
-        RiemannSolvers/RoeSolverSIMD.cpp
         Preconditioner/PreconCfs.cpp
         Preconditioner/PreconCfsBRJ.cpp
         )
@@ -118,7 +117,6 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         RiemannSolvers/HLLSolver.h
         RiemannSolvers/LaxFriedrichsSolver.h
         RiemannSolvers/RoeSolver.h
-        RiemannSolvers/RoeSolverSIMD.h
         )
         # Create separate library. No need to pass source files, as the executable's LIBRARY_SOURCES objects will be reused
         ADD_SOLVER_LIBRARY(CompressibleFlowSolver HEADERS ${CompressibleFlowSolverHeaders} DEPENDS SolverUtils)
@@ -139,6 +137,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
     ADD_NEKTAR_TEST(Euler1D)
     ADD_NEKTAR_TEST(IsentropicVortex16_P1)
     ADD_NEKTAR_TEST(IsentropicVortex16_P3)
+    ADD_NEKTAR_TEST(IsentropicVortex16_P3_Average)
     ADD_NEKTAR_TEST(IsentropicVortex16_P3_SEM)
     ADD_NEKTAR_TEST(IsentropicVortex16_P8 LENGTHY)
     IF (NOT APPLE OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")

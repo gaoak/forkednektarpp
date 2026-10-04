@@ -51,44 +51,42 @@ LaxFriedrichsSolver::LaxFriedrichsSolver(
 /**
  * @brief Lax-Friedrichs Riemann solver
  *
+ * Written directly in Cartesian components against the trace normal; see
+ * CompressibleSolver::v_PointSolve for why no rotation is needed.
+ *
  * @param rhoL      Density left state.
- * @param rhoR      Density right state.
- * @param rhouL     x-momentum component left state.
- * @param rhouR     x-momentum component right state.
- * @param rhovL     y-momentum component left state.
- * @param rhovR     y-momentum component right state.
- * @param rhowL     z-momentum component left state.
- * @param rhowR     z-momentum component right state.
+ * @param momL      Momentum vector (3 components) left state.
  * @param EL        Energy left state.
+ * @param rhoR      Density right state.
+ * @param momR      Momentum vector (3 components) right state.
  * @param ER        Energy right state.
+ * @param normal    Unit trace normal (3 components).
  * @param rhof      Computed Riemann flux for density.
- * @param rhouf     Computed Riemann flux for x-momentum component
- * @param rhovf     Computed Riemann flux for y-momentum component
- * @param rhowf     Computed Riemann flux for z-momentum component
+ * @param momf      Computed Riemann flux for momentum (3 components).
  * @param Ef        Computed Riemann flux for energy.
  */
-void LaxFriedrichsSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
-                                       double rhowL, double EL, double rhoR,
-                                       double rhouR, double rhovR, double rhowR,
-                                       double ER, double &rhof, double &rhouf,
-                                       double &rhovf, double &rhowf, double &Ef)
+void LaxFriedrichsSolver::v_PointSolve(NekDouble rhoL, const NekDouble *momL,
+                                       NekDouble EL, NekDouble rhoR,
+                                       const NekDouble *momR, NekDouble ER,
+                                       const NekDouble *normal, NekDouble &rhof,
+                                       NekDouble *momf, NekDouble &Ef)
 {
-    // Left and right velocities
-    NekDouble uL = rhouL / rhoL;
-    NekDouble vL = rhovL / rhoL;
-    NekDouble wL = rhowL / rhoL;
-    NekDouble uR = rhouR / rhoR;
-    NekDouble vR = rhovR / rhoR;
-    NekDouble wR = rhowR / rhoR;
+    // Left and right velocities and normal velocities
+    NekDouble uL[3], uR[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uL[d] = momL[d] / rhoL;
+        uR[d] = momR[d] / rhoR;
+    }
+    NekDouble unL = RiemannDot(uL, normal);
+    NekDouble unR = RiemannDot(uR, normal);
 
     // Internal energy (per unit mass)
-    NekDouble eL = (EL - 0.5 * (rhouL * uL + rhovL * vL + rhowL * wL)) / rhoL;
-    NekDouble eR = (ER - 0.5 * (rhouR * uR + rhovR * vR + rhowR * wR)) / rhoR;
-
+    NekDouble eL = (EL - 0.5 * RiemannDot(momL, uL)) / rhoL;
+    NekDouble eR = (ER - 0.5 * RiemannDot(momR, uR)) / rhoR;
     // Pressure
     NekDouble pL = m_eos->GetPressure(rhoL, eL);
     NekDouble pR = m_eos->GetPressure(rhoR, eR);
-
     // Left and right total enthalpy
     NekDouble HL = (EL + pL) / rhoL;
     NekDouble HR = (ER + pR) / rhoR;
@@ -99,23 +97,32 @@ void LaxFriedrichsSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
     NekDouble srLR = srL + srR;
 
     // Roe average state
-    NekDouble uRoe  = (srL * uL + srR * uR) / srLR;
-    NekDouble vRoe  = (srL * vL + srR * vR) / srLR;
-    NekDouble wRoe  = (srL * wL + srR * wR) / srLR;
-    NekDouble URoe2 = uRoe * uRoe + vRoe * vRoe + wRoe * wRoe;
+    NekDouble uRoe[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
+    }
+    NekDouble unRoe = RiemannDot(uRoe, normal);
+    NekDouble URoe2 = RiemannDot(uRoe, uRoe);
     NekDouble HRoe  = (srL * HL + srR * HR) / srLR;
     NekDouble cRoe  = GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
                                        srR, HRoe, URoe2, srLR);
 
     // Maximum eigenvalue
-    NekDouble URoe = fabs(uRoe) + cRoe;
+    NekDouble URoe = fabs(unRoe) + cRoe;
+
+    // Mass flux through the interface from each side
+    NekDouble mnL = rhoL * unL;
+    NekDouble mnR = rhoR * unR;
 
     // Lax-Friedrichs flux formula
-    rhof  = 0.5 * (rhouL + rhouR - URoe * (rhoR - rhoL));
-    rhouf = 0.5 * (pL + rhouL * uL + pR + rhouR * uR - URoe * (rhouR - rhouL));
-    rhovf = 0.5 * (rhouL * vL + rhouR * vR - URoe * (rhovR - rhovL));
-    rhowf = 0.5 * (rhouL * wL + rhouR * wR - URoe * (rhowR - rhowL));
-    Ef    = 0.5 * (uL * (EL + pL) + uR * (ER + pR) - URoe * (ER - EL));
+    rhof = 0.5 * (mnL + mnR - URoe * (rhoR - rhoL));
+    for (size_t d = 0; d < 3; ++d)
+    {
+        momf[d] = 0.5 * (mnL * uL[d] + mnR * uR[d] -
+                         URoe * (momR[d] - momL[d]) + (pL + pR) * normal[d]);
+    }
+    Ef = 0.5 * (unL * (EL + pL) + unR * (ER + pR) - URoe * (ER - EL));
 }
 
 } // namespace Nektar

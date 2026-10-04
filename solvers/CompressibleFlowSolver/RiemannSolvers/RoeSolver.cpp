@@ -43,67 +43,54 @@ std::string RoeSolver::solverName =
     SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
         "Roe", RoeSolver::create, "Roe Riemann solver");
 
+/// Retained so that sessions selecting the former RoeSolverSIMD keep working.
+/// That solver existed only to apply the rotation onto the trace normal
+/// pointwise in registers rather than through array operations; with the
+/// rotation gone it was the same calculation as this one.
+std::string RoeSolver::solverNameOpt =
+    SolverUtils::GetRiemannSolverFactory().RegisterCreatorFunction(
+        "RoeOpt", RoeSolver::create, "Roe Riemann solver (alias of Roe)");
+
 RoeSolver::RoeSolver(const LibUtilities::SessionReaderSharedPtr &pSession)
     : CompressibleSolver(pSession)
 {
-    // m_pointSolve = false;
 }
 
 /// programmatic ctor
 RoeSolver::RoeSolver() : CompressibleSolver()
 {
-    // m_pointSolve = false;
 }
 
-/**
- * @brief Roe Riemann solver.
- *
- * Stated equations numbers are from:
- *
- *   "Riemann Solvers and Numerical Methods for Fluid Dynamics: A Practical
- *   Introduction", E. F. Toro (3rd edition, 2009).
- *
- * We follow the algorithm prescribed following equation 11.70.
- *
- * @param rhoL      Density left state.
- * @param rhoR      Density right state.
- * @param rhouL     x-momentum component left state.
- * @param rhouR     x-momentum component right state.
- * @param rhovL     y-momentum component left state.
- * @param rhovR     y-momentum component right state.
- * @param rhowL     z-momentum component left state.
- * @param rhowR     z-momentum component right state.
- * @param EL        Energy left state.
- * @param ER        Energy right state.
- * @param rhof      Computed Riemann flux for density.
- * @param rhouf     Computed Riemann flux for x-momentum component
- * @param rhovf     Computed Riemann flux for y-momentum component
- * @param rhowf     Computed Riemann flux for z-momentum component
- * @param Ef        Computed Riemann flux for energy.
- */
-void RoeSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
-                             double rhowL, double EL, double rhoR, double rhouR,
-                             double rhovR, double rhowR, double ER,
-                             double &rhof, double &rhouf, double &rhovf,
-                             double &rhowf, double &Ef)
+namespace
 {
-    static NekDouble gamma = m_params["gamma"]();
-
-    RoeKernel(rhoL, rhouL, rhovL, rhowL, EL, rhoR, rhouR, rhovR, rhowR, ER,
-              rhof, rhouf, rhovf, rhowf, Ef, gamma);
-}
 
 /**
+ * @brief Vectorised Roe flux across a whole trace.
  *
+ * The spatial dimension is a template parameter rather than a run-time value
+ * so that the per-point loops over components unroll completely and the
+ * three-component arrays stay in registers. With a run-time bound the compiler
+ * cannot establish the trip count, the loops are left rolled and the arrays
+ * spill to the stack, which costs around a sixth of the run time of this
+ * routine.
+ *
+ * Components above @p DIM are left zero throughout, so one kernel serves 1D,
+ * 2D and 3D.
+ *
+ * @param gamma     Ratio of specific heats.
+ * @param normals   Unit trace normals.
+ * @param fwd       Forwards trace space.
+ * @param bwd       Backwards trace space.
+ * @param flux      Resultant flux along trace space.
  */
-void RoeSolver::v_ArraySolve(
-    const Array<OneD, const Array<OneD, NekDouble>> &fwd,
-    const Array<OneD, const Array<OneD, NekDouble>> &bwd,
-    Array<OneD, Array<OneD, NekDouble>> &flux)
+template <size_t DIM>
+void RoeArraySolveImpl(NekDouble gamma,
+                       const Array<OneD, const Array<OneD, NekDouble>> &normals,
+                       const Array<OneD, const Array<OneD, NekDouble>> &fwd,
+                       const Array<OneD, const Array<OneD, NekDouble>> &bwd,
+                       Array<OneD, Array<OneD, NekDouble>> &flux)
 {
-    static auto gamma      = m_params["gamma"]();
-    static size_t nVars    = fwd.size();
-    static size_t spaceDim = nVars - 2;
+    constexpr size_t nVars = DIM + 2;
 
     using namespace tinysimd;
     using vec_t = simd<NekDouble>;
@@ -116,47 +103,33 @@ void RoeSolver::v_ArraySolve(
     size_t i = 0;
     for (; i < sizeVec; i += vec_t::width)
     {
-        vec_t rhoL{}, rhouL{}, rhovL{}, rhowL{}, EL{};
-        vec_t rhoR{}, rhouR{}, rhovR{}, rhowR{}, ER{};
+        vec_t rhoL{}, EL{}, rhoR{}, ER{};
 
         // load
         rhoL.load(&(fwd[0][i]), is_not_aligned);
-        rhouL.load(&(fwd[1][i]), is_not_aligned);
-        EL.load(&(fwd[spaceDim + 1][i]), is_not_aligned);
+        EL.load(&(fwd[DIM + 1][i]), is_not_aligned);
         rhoR.load(&(bwd[0][i]), is_not_aligned);
-        rhouR.load(&(bwd[1][i]), is_not_aligned);
-        ER.load(&(bwd[spaceDim + 1][i]), is_not_aligned);
+        ER.load(&(bwd[DIM + 1][i]), is_not_aligned);
 
-        if (spaceDim == 2)
+        // components above DIM stay zero
+        vec_t momL[3]{}, momR[3]{}, n[3]{};
+        for (size_t d = 0; d < DIM; ++d)
         {
-            rhovL.load(&(fwd[2][i]), is_not_aligned);
-            rhovR.load(&(bwd[2][i]), is_not_aligned);
-        }
-        else if (spaceDim == 3)
-        {
-            rhovL.load(&(fwd[2][i]), is_not_aligned);
-            rhowL.load(&(fwd[3][i]), is_not_aligned);
-            rhovR.load(&(bwd[2][i]), is_not_aligned);
-            rhowR.load(&(bwd[3][i]), is_not_aligned);
+            momL[d].load(&(fwd[d + 1][i]), is_not_aligned);
+            momR[d].load(&(bwd[d + 1][i]), is_not_aligned);
+            n[d].load(&(normals[d][i]), is_not_aligned);
         }
 
-        vec_t rhof{}, rhouf{}, rhovf{}, rhowf{}, Ef{};
+        vec_t rhof{}, momf[3]{}, Ef{};
 
-        RoeKernel(rhoL, rhouL, rhovL, rhowL, EL, rhoR, rhouR, rhovR, rhowR, ER,
-                  rhof, rhouf, rhovf, rhowf, Ef, gamma);
+        RoeKernel(rhoL, momL, EL, rhoR, momR, ER, n, rhof, momf, Ef, gamma);
 
         // store
         rhof.store(&(flux[0][i]), is_not_aligned);
-        rhouf.store(&(flux[1][i]), is_not_aligned);
         Ef.store(&(flux[nVars - 1][i]), is_not_aligned);
-        if (spaceDim == 2)
+        for (size_t d = 0; d < DIM; ++d)
         {
-            rhovf.store(&(flux[2][i]), is_not_aligned);
-        }
-        else if (spaceDim == 3)
-        {
-            rhovf.store(&(flux[2][i]), is_not_aligned);
-            rhowf.store(&(flux[3][i]), is_not_aligned);
+            momf[d].store(&(flux[d + 1][i]), is_not_aligned);
         }
 
     } // avx loop
@@ -164,50 +137,71 @@ void RoeSolver::v_ArraySolve(
     // spillover loop
     for (; i < sizeScalar; ++i)
     {
-        NekDouble rhoL{}, rhouL{}, rhovL{}, rhowL{}, EL{};
-        NekDouble rhoR{}, rhouR{}, rhovR{}, rhowR{}, ER{};
-
         // load
-        rhoL  = fwd[0][i];
-        rhouL = fwd[1][i];
-        EL    = fwd[spaceDim + 1][i];
-        rhoR  = bwd[0][i];
-        rhouR = bwd[1][i];
-        ER    = bwd[spaceDim + 1][i];
+        NekDouble rhoL = fwd[0][i];
+        NekDouble EL   = fwd[DIM + 1][i];
+        NekDouble rhoR = bwd[0][i];
+        NekDouble ER   = bwd[DIM + 1][i];
 
-        if (spaceDim == 2)
+        NekDouble momL[3] = {0.0, 0.0, 0.0};
+        NekDouble momR[3] = {0.0, 0.0, 0.0};
+        NekDouble n[3]    = {0.0, 0.0, 0.0};
+        for (size_t d = 0; d < DIM; ++d)
         {
-            rhovL = fwd[2][i];
-            rhovR = bwd[2][i];
-        }
-        else if (spaceDim == 3)
-        {
-            rhovL = fwd[2][i];
-            rhowL = fwd[3][i];
-            rhovR = bwd[2][i];
-            rhowR = bwd[3][i];
+            momL[d] = fwd[d + 1][i];
+            momR[d] = bwd[d + 1][i];
+            n[d]    = normals[d][i];
         }
 
-        NekDouble rhof{}, rhouf{}, rhovf{}, rhowf{}, Ef{};
+        NekDouble rhof{}, momf[3]{}, Ef{};
 
-        RoeKernel(rhoL, rhouL, rhovL, rhowL, EL, rhoR, rhouR, rhovR, rhowR, ER,
-                  rhof, rhouf, rhovf, rhowf, Ef, gamma);
+        RoeKernel(rhoL, momL, EL, rhoR, momR, ER, n, rhof, momf, Ef, gamma);
 
         // store
         flux[0][i]         = rhof;
-        flux[1][i]         = rhouf;
         flux[nVars - 1][i] = Ef;
-        if (spaceDim == 2)
+        for (size_t d = 0; d < DIM; ++d)
         {
-            flux[2][i] = rhovf;
-        }
-        else if (spaceDim == 3)
-        {
-            flux[2][i] = rhovf;
-            flux[3][i] = rhowf;
+            flux[d + 1][i] = momf[d];
         }
 
     } // loop
+}
+
+} // namespace
+
+/**
+ * @brief Dispatch to the vectorised kernel for the dimension of this trace.
+ *
+ * The session-dependent quantities are fetched once here rather than being
+ * cached in function-local statics, which were shared across every instance of
+ * the solver and only ever initialised by whichever one ran first.
+ */
+void RoeSolver::v_Solve([[maybe_unused]] const int nDim,
+                        const Array<OneD, const Array<OneD, NekDouble>> &fwd,
+                        const Array<OneD, const Array<OneD, NekDouble>> &bwd,
+                        Array<OneD, Array<OneD, NekDouble>> &flux)
+{
+    NekDouble gamma = m_params["gamma"]();
+
+    ASSERTL1(CheckVectors("N"), "N not defined.");
+    const Array<OneD, const Array<OneD, NekDouble>> normals = m_vectors["N"]();
+
+    switch (fwd.size() - 2)
+    {
+        case 1:
+            RoeArraySolveImpl<1>(gamma, normals, fwd, bwd, flux);
+            break;
+        case 2:
+            RoeArraySolveImpl<2>(gamma, normals, fwd, bwd, flux);
+            break;
+        case 3:
+            RoeArraySolveImpl<3>(gamma, normals, fwd, bwd, flux);
+            break;
+        default:
+            NEKERROR(ErrorUtil::efatal, "Invalid space dimension.");
+            break;
+    }
 }
 
 } // namespace Nektar

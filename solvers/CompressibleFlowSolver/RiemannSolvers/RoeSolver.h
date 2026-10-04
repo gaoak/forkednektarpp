@@ -50,6 +50,8 @@ public:
     }
 
     static std::string solverName;
+    /// Registration of the "RoeOpt" alias, kept for backwards compatibility.
+    static std::string solverNameOpt;
 
     /// programmatic ctor
     RoeSolver();
@@ -59,38 +61,58 @@ protected:
 
     using ND = NekDouble;
 
-    void v_PointSolve(ND rhoL, ND rhouL, ND rhovL, ND rhowL, ND EL, ND rhoR,
-                      ND rhouR, ND rhovR, ND rhowR, ND ER, ND &rhof, ND &rhouf,
-                      ND &rhovf, ND &rhowf, ND &Ef) final;
-
-    void v_ArraySolve(const Array<OneD, const Array<OneD, ND>> &Fwd,
-                      const Array<OneD, const Array<OneD, ND>> &Bwd,
-                      Array<OneD, Array<OneD, ND>> &flux) final;
+    void v_Solve(const int nDim, const Array<OneD, const Array<OneD, ND>> &Fwd,
+                 const Array<OneD, const Array<OneD, ND>> &Bwd,
+                 Array<OneD, Array<OneD, ND>> &flux) final;
 };
 
+/**
+ * @brief Roe Riemann solver, in Cartesian components.
+ *
+ * Stated equation numbers are from:
+ *
+ *   "Riemann Solvers and Numerical Methods for Fluid Dynamics: A Practical
+ *   Introduction", E. F. Toro (3rd edition, 2009).
+ *
+ * The algorithm is the one prescribed following equation 11.70, but written
+ * against the trace normal @p normal rather than against a rotated frame whose
+ * first axis is the normal. The two are algebraically identical: in the
+ * rotated frame the tangential components enter only through the kinetic
+ * energy and through the pair of shear waves, and the latter contribute
+ * \f$\alpha_2 \mathbf{e}_2 + \alpha_3 \mathbf{e}_3\f$, which is the
+ * momentum jump projected onto the tangent plane. That projection needs no
+ * basis for the tangent plane, which is why the rotation -- whose tangential
+ * axes were always an arbitrary choice -- is not required.
+ *
+ * Components of @p momL, @p momR and @p normal above the problem dimension are
+ * expected to be zero; the corresponding entries of @p momf are then zero too.
+ */
 template <class T, std::enable_if_t<std::is_floating_point_v<T> ||
                                         tinysimd::is_vector_floating_point_v<T>,
                                     bool>
                        Enable = true>
-inline void RoeKernel(T &rhoL, T &rhouL, T &rhovL, T &rhowL, T &EL, T &rhoR,
-                      T &rhouR, T &rhovR, T &rhowR, T &ER, T &rhof, T &rhouf,
-                      T &rhovf, T &rhowf, T &Ef, NekDouble gamma)
+inline void RoeKernel(T &rhoL, T *momL, T &EL, T &rhoR, T *momR, T &ER,
+                      T *normal, T &rhof, T *momf, T &Ef, NekDouble gamma)
 {
     // Left and right velocities
-    T uL = rhouL / rhoL;
-    T vL = rhovL / rhoL;
-    T wL = rhowL / rhoL;
-    T uR = rhouR / rhoR;
-    T vR = rhovR / rhoR;
-    T wR = rhowR / rhoR;
+    T uL[3], uR[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uL[d] = momL[d] / rhoL;
+        uR[d] = momR[d] / rhoR;
+    }
 
     // Left and right pressures
-    T pL = (gamma - 1.0) * (EL - 0.5 * (rhouL * uL + rhovL * vL + rhowL * wL));
-    T pR = (gamma - 1.0) * (ER - 0.5 * (rhouR * uR + rhovR * vR + rhowR * wR));
+    T pL = (gamma - 1.0) * (EL - 0.5 * RiemannDot(momL, uL));
+    T pR = (gamma - 1.0) * (ER - 0.5 * RiemannDot(momR, uR));
 
     // Left and right enthalpy
     T hL = (EL + pL) / rhoL;
     T hR = (ER + pR) / rhoR;
+
+    // Left and right normal velocities
+    T unL = RiemannDot(uL, normal);
+    T unR = RiemannDot(uR, normal);
 
     // Square root of rhoL and rhoR.
     T srL  = sqrt(rhoL);
@@ -98,65 +120,86 @@ inline void RoeKernel(T &rhoL, T &rhouL, T &rhovL, T &rhowL, T &EL, T &rhoR,
     T srLR = srL + srR;
 
     // Velocity, enthalpy and sound speed Roe averages (equation 11.60).
-    T uRoe = (srL * uL + srR * uR) / srLR;
-    T vRoe = (srL * vL + srR * vR) / srLR;
-    T wRoe = (srL * wL + srR * wR) / srLR;
-    T hRoe = (srL * hL + srR * hR) / srLR;
-    T URoe = (uRoe * uRoe + vRoe * vRoe + wRoe * wRoe);
-    T cRoe = sqrt((gamma - 1.0) * (hRoe - 0.5 * URoe));
-
-    // Compute eigenvectors (equation 11.59).
-    T k[5][5] = {{1., uRoe - cRoe, vRoe, wRoe, hRoe - uRoe * cRoe},
-                 {1., uRoe, vRoe, wRoe, 0.5 * URoe},
-                 {0., 0., 1., 0., vRoe},
-                 {0., 0., 0., 1., wRoe},
-                 {1., uRoe + cRoe, vRoe, wRoe, hRoe + uRoe * cRoe}};
+    T uRoe[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
+    }
+    T hRoe  = (srL * hL + srR * hR) / srLR;
+    T URoe  = RiemannDot(uRoe, uRoe);
+    T cRoe  = sqrt((gamma - 1.0) * (hRoe - 0.5 * URoe));
+    T unRoe = RiemannDot(uRoe, normal);
 
     // Calculate jumps \Delta u_i (defined preceding equation 11.67).
-    T jump[5] = {rhoR - rhoL, rhouR - rhouL, rhovR - rhovL, rhowR - rhowL,
-                 ER - EL};
+    T jumpRho = rhoR - rhoL;
+    T jumpE   = ER - EL;
+    T jumpMom[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        jumpMom[d] = momR[d] - momL[d];
+    }
+    T jumpMn = RiemannDot(jumpMom, normal);
+
+    // The two shear waves of the rotated system combine into the part of the
+    // momentum jump lying in the tangent plane. This is the only place the
+    // tangential directions appear, and projecting them out requires no basis.
+    T shear[3];
+    {
+        T q[3];
+        for (size_t d = 0; d < 3; ++d)
+        {
+            q[d] = jumpMom[d] - jumpRho * uRoe[d];
+        }
+        T qn = RiemannDot(q, normal);
+        for (size_t d = 0; d < 3; ++d)
+        {
+            shear[d] = q[d] - qn * normal[d];
+        }
+    }
 
     // Define \Delta u_5 (equation 11.70).
-    T jumpbar = jump[4] - (jump[2] - vRoe * jump[0]) * vRoe -
-                (jump[3] - wRoe * jump[0]) * wRoe;
+    T jumpbar = jumpE - RiemannDot(shear, uRoe);
 
     // Compute wave amplitudes (equations 11.68, 11.69).
-    T alpha[5];
-    alpha[1] = (gamma - 1.0) *
-               (jump[0] * (hRoe - uRoe * uRoe) + uRoe * jump[1] - jumpbar) /
+    T alpha1 = (gamma - 1.0) *
+               (jumpRho * (hRoe - unRoe * unRoe) + unRoe * jumpMn - jumpbar) /
                (cRoe * cRoe);
-    alpha[0] =
-        (jump[0] * (uRoe + cRoe) - jump[1] - cRoe * alpha[1]) / (2.0 * cRoe);
-    alpha[4] = jump[0] - (alpha[0] + alpha[1]);
-    alpha[2] = jump[2] - vRoe * jump[0];
-    alpha[3] = jump[3] - wRoe * jump[0];
-
-    // Compute average of left and right fluxes needed for equation 11.29.
-    rhof  = 0.5 * (rhoL * uL + rhoR * uR);
-    rhouf = 0.5 * (pL + rhoL * uL * uL + pR + rhoR * uR * uR);
-    rhovf = 0.5 * (rhoL * uL * vL + rhoR * uR * vR);
-    rhowf = 0.5 * (rhoL * uL * wL + rhoR * uR * wR);
-    Ef    = 0.5 * (uL * (EL + pL) + uR * (ER + pR));
+    T alpha0 =
+        (jumpRho * (unRoe + cRoe) - jumpMn - cRoe * alpha1) / (2.0 * cRoe);
+    T alpha4 = jumpRho - (alpha0 + alpha1);
 
     // Needed to get right overload resolution for std::abs
     using std::abs;
 
-    // Compute eigenvalues \lambda_i (equation 11.58).
-    T uRoeAbs   = abs(uRoe);
-    T lambda[5] = {abs(uRoe - cRoe), uRoeAbs, uRoeAbs, uRoeAbs,
-                   abs(uRoe + cRoe)};
+    // Wave strengths scaled by the eigenvalues \lambda_i (equation 11.58).
+    // The two shear waves share the eigenvalue |u.n|.
+    T unRoeAbs = abs(unRoe);
+    T s0       = 0.5 * alpha0 * abs(unRoe - cRoe);
+    T s1       = 0.5 * alpha1 * unRoeAbs;
+    T s4       = 0.5 * alpha4 * abs(unRoe + cRoe);
+    T ss       = 0.5 * unRoeAbs;
 
-    // Finally perform summation (11.29).
-    for (size_t i = 0; i < 5; ++i)
+    // Average of the left and right directional fluxes F.n needed for
+    // equation 11.29.
+    rhof = 0.5 * (rhoL * unL + rhoR * unR);
+    for (size_t d = 0; d < 3; ++d)
     {
-        uRoeAbs = 0.5 * alpha[i] * lambda[i];
-
-        rhof -= uRoeAbs * k[i][0];
-        rhouf -= uRoeAbs * k[i][1];
-        rhovf -= uRoeAbs * k[i][2];
-        rhowf -= uRoeAbs * k[i][3];
-        Ef -= uRoeAbs * k[i][4];
+        momf[d] = 0.5 * (rhoL * unL * uL[d] + rhoR * unR * uR[d] +
+                         (pL + pR) * normal[d]);
     }
+    Ef = 0.5 * (unL * (EL + pL) + unR * (ER + pR));
+
+    // Finally perform the summation (11.29). Rotated back to Cartesian
+    // components the acoustic eigenvectors carry momentum u -/+ c n and the
+    // entropy wave carries u, while the shear waves carry the tangential jump.
+    rhof -= s0 + s1 + s4;
+    for (size_t d = 0; d < 3; ++d)
+    {
+        momf[d] -= s0 * (uRoe[d] - cRoe * normal[d]) + s1 * uRoe[d] +
+                   s4 * (uRoe[d] + cRoe * normal[d]) + ss * shear[d];
+    }
+    Ef -= s0 * (hRoe - unRoe * cRoe) + s1 * 0.5 * URoe +
+          s4 * (hRoe + unRoe * cRoe) + ss * RiemannDot(shear, uRoe);
 }
 
 } // namespace Nektar
