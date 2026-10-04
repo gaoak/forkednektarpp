@@ -53,6 +53,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -141,6 +142,31 @@ std::vector<std::string> SplitForwardedOptions(
         }
     }
     return ret;
+}
+
+/**
+ * @brief Wrap @p arg in single quotes so that a POSIX shell passes it through
+ * as a single, literal argument.
+ *
+ * Embedded single quotes are emitted as '\'' : the quoted section is closed, an
+ * escaped quote is appended, and a new quoted section is opened.
+ */
+std::string EscapeShellArg(const std::string &arg)
+{
+    std::string out = "'";
+    for (char c : arg)
+    {
+        if (c == '\'')
+        {
+            out += R"('\'')";
+        }
+        else
+        {
+            out += c;
+        }
+    }
+    out += "'";
+    return out;
 }
 
 #ifdef _WIN32
@@ -345,6 +371,22 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
         // Construct test command to run. Output from stdout and stderr are
         // directed to the files output.out and output.err, respectively.
 
+        // Determine whether several commands are launched simultaneously under
+        // a single mpiexec (MPMD). In that case the launcher merges the
+        // processes' stdout/stderr into one stream at arbitrary byte
+        // boundaries, which splits individual lines and corrupts the output
+        // the metrics are matched against. Capture each command separately and
+        // concatenate afterwards so that every line stays intact.
+        unsigned int nParallelCmds = 0;
+        for (unsigned int j = 0; j < test->GetNumCommands(); ++j)
+        {
+            if (test->GetCommand(j).m_commandType == eParallel)
+            {
+                ++nParallelCmds;
+            }
+        }
+        const bool mpmd = nParallelCmds > 1;
+
         bool mpiAdded = false;
         for (unsigned int j = 0; j < test->GetNumCommands(); ++j)
         {
@@ -443,38 +485,55 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
             }
 
             std::string pathString = LibUtilities::PortablePath(execPath);
-            command += pathString;
+
+            // Build the command itself, without any redirection.
+            std::string thisCmd = pathString;
             if (HaveOptFile && cmd.m_executable.filename().string().find(
                                    "FieldConvert") == std::string::npos)
             {
-                command += " --use-opt-file test.opt ";
+                thisCmd += " --use-opt-file test.opt ";
             }
 
             if (SetExecSpace)
             {
-                command += " ";
-                command += "--opExecSpace=";
-                command += vm["opExecSpace"].as<string>();
+                thisCmd += " ";
+                thisCmd += "--opExecSpace=";
+                thisCmd += vm["opExecSpace"].as<string>();
             }
 
             if (SetImpl)
             {
-                command += " ";
-                command += "--opImpl=";
-                command += vm["opImpl"].as<string>();
+                thisCmd += " ";
+                thisCmd += "--opImpl=";
+                thisCmd += vm["opImpl"].as<string>();
             }
 
             if (SetSolverOptions)
             {
                 AppendForwardedArguments(
-                    command,
+                    thisCmd,
                     SplitForwardedOptions(
                         vm["solver-options"].as<std::vector<std::string>>()));
             }
 
-            command += " ";
-            command += cmd.m_parameters;
-            command += " 1>output.out 2>output.err";
+            thisCmd += " ";
+            thisCmd += cmd.m_parameters;
+
+            if (mpmd)
+            {
+                // Redirections placed inline in an MPMD argument list are
+                // parsed by the shell as applying to the whole mpiexec, not to
+                // the individual segment, so wrap each segment in its own
+                // shell to give it a private pair of output files.
+                thisCmd += " 1>output_" + std::to_string(j) + ".out";
+                thisCmd += " 2>output_" + std::to_string(j) + ".err";
+                command += "sh -c " + EscapeShellArg("exec " + thisCmd);
+            }
+            else
+            {
+                command += thisCmd;
+                command += " 1>output.out 2>output.err";
+            }
         }
 
         status = 0;
@@ -497,6 +556,34 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
             cerr << "Error occurred running test:" << endl;
             cerr << "Command: " << command << endl;
             status = 1;
+        }
+
+        // For MPMD runs each command wrote to its own pair of files; join them
+        // back together, in command order, into the files the metrics expect.
+        // Each command only ever emits lines for its own variables, so the
+        // metrics still see their matches in the order they expect.
+        if (mpmd)
+        {
+            for (const std::string &ext :
+                 {std::string("out"), std::string("err")})
+            {
+                ofstream combined("output." + ext, ios::binary);
+                for (unsigned int j = 0; j < test->GetNumCommands(); ++j)
+                {
+                    std::string part =
+                        "output_" + std::to_string(j) + "." + ext;
+                    if (!fs::exists(part))
+                    {
+                        continue;
+                    }
+                    ifstream in(part, ios::binary);
+                    // Inserting an empty streambuf would set failbit, so copy
+                    // through a buffer instead.
+                    std::string contents((std::istreambuf_iterator<char>(in)),
+                                         std::istreambuf_iterator<char>());
+                    combined << contents;
+                }
+            }
         }
 
         // Check output files exist

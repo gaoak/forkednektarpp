@@ -1291,9 +1291,15 @@ CommSharedPtr Comm::DistGraphCreateAdjacent(T &sources, T &sourceweights,
                    ? (int *)CommDataTypeTraits<T>::GetPointer(sourceweights)
                    : nullptr;
 
-    return v_DistGraphCreateAdjacent(
-        indegree, (const int *)CommDataTypeTraits<T>::GetPointer(sources),
-        (const int *)ptr, reorder);
+    // A rank with no neighbours is legitimate (a serial run, an isolated
+    // partition), but GetPointer() asserts on an empty container, so hand MPI
+    // a null source list instead; it reads none of it at indegree 0.
+    const int *srcPtr =
+        indegree > 0 ? (const int *)CommDataTypeTraits<T>::GetPointer(sources)
+                     : nullptr;
+
+    return v_DistGraphCreateAdjacent(indegree, srcPtr, (const int *)ptr,
+                                     reorder);
 }
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)

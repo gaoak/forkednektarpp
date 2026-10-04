@@ -42,7 +42,7 @@
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <LibUtilities/Communication/EntityResolver.hpp>
+#include <LibUtilities/Communication/SharedPayloadResolver.hpp>
 #include <SpatialDomains/MeshGraphIOHDF5.h>
 #include <SpatialDomains/MeshPartition.h>
 #include <SpatialDomains/Movement/Movement.h>
@@ -805,6 +805,18 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                     for (auto &sharer : facetRes.GetSharedPayloads(
                              static_cast<int64_t>(facet)))
                     {
+                        // GetSharedPayloads() includes this rank's own
+                        // contributions. Our own element already carries this
+                        // facet from the read, so adding it again duplicates
+                        // the entry, and CreateGraph() then turns the repeat
+                        // into a self-loop on that element's graph vertex --
+                        // which ParMetis and Scotch both disallow, and which
+                        // corrupts the heap rather than failing cleanly.
+                        if (sharer.first == interRank)
+                        {
+                            continue;
+                        }
+
                         const GhostId &p = sharer.second;
                         auto it          = partElmts.find(p.id);
                         if (it == partElmts.end())
@@ -847,10 +859,14 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                     partitionerName, session, interComm, meshDimension,
                     partElmts, CreateCompositeDescriptor(id2row));
 
+            t2.Stop();
             TIME_RESULT(verbRoot2, "  - partitioner setup", t2);
+            t2.Start();
 
             partitioner->PartitionMesh(interSize, true, false, nLocal);
+            t2.Stop();
             TIME_RESULT(verbRoot2, "  - partitioning", t2);
+            t2.Start();
 
             // Now construct a second graph that is partitioned in serial by
             // this rank.

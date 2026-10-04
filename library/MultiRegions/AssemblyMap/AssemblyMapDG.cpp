@@ -55,7 +55,6 @@ AssemblyMapDG::AssemblyMapDG() : m_numDirichletBndPhys(0)
 
 AssemblyMapDG::~AssemblyMapDG()
 {
-    Gs::Finalise(m_bndGsh);
 }
 
 AssemblyMapDG::AssemblyMapDG(
@@ -815,8 +814,9 @@ void AssemblyMapDG::SetUpUniversalDGMap(const ExpList &locExp)
                        ? m_comm->GetTimeComm()->GetRank() == 0
                        : true;
 
-    m_bndGsh = m_gsh = Gs::Init(tmp, m_comm->GetRowComm(), verbose);
-    Gs::Unique(tmp, m_comm->GetRowComm());
+    m_bndGsh = m_gsh = LibUtilities::GatherScatter::Create(
+        tmp, m_comm->GetRowComm(), m_gsConfig, verbose);
+    m_gsh->Unique(tmp);
     for (i = 0; i < m_globalToUniversalBndMap.size(); ++i)
     {
         m_globalToUniversalBndMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
@@ -973,7 +973,7 @@ void AssemblyMapDG::v_Assemble(const NekVector<NekDouble> &loc,
 
 void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
-    Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
+    m_gsh->Gather(pGlobal, LibUtilities::GatherScatterOp::eAdd);
 }
 
 int AssemblyMapDG::v_GetFullSystemBandWidth() const

@@ -85,6 +85,32 @@ for this run. By default the CI system runs using this option.
 \hangindent=1.5cm
 Partition the \inlsh{Hdf5}-format mesh in parallel to avoid one single thread runs out of memory in serial partitioning.
 
+\lstinline[style=BashInputStyle]{--gather-scatter [method]}\\
+\hangindent=1.5cm
+Select the gather-scatter used by the assembly maps to exchange coefficients
+between partitions. The default, \inltt{gslib}, uses the gslib library.
+The alternatives use \nekpp{}'s own \inltt{SharedIdPlan} with the named
+exchange backend: \inltt{pairwise} posts one non-blocking send and receive
+per neighbour, \inltt{neighbour} performs a single
+\inlsh{MPI\_Neighbor\_alltoallv} over a distributed-graph communicator, and
+\inltt{crystal} routes the exchange through a crystal router in
+\inlsh{O(log P)} rounds regardless of how many neighbours a rank has. All
+methods produce the same result; they differ only in how the exchange is
+performed. \inltt{pairwise} and \inltt{neighbour} are the fastest on a
+typical mesh; \inltt{crystal} is the one to try when a rank has far more
+neighbours than \inlsh{log P}. Has no effect in serial.
+
+\lstinline[style=BashInputStyle]{--gather-scatter-discovery [transport]}\\
+\hangindent=1.5cm
+Select the transport used for the one-off discovery step that builds a
+\inltt{SharedIdPlan}, which establishes which ranks share each universal
+degree of freedom. The default, \inltt{crystal}, uses a crystal router:
+\inlsh{O(log P)} rounds and no arrays sized by the number of ranks, so it is
+the option to use at large rank counts. \inltt{a2a} uses
+\inlsh{MPI\_Alltoallv} instead, which is simpler but keeps arrays sized by the
+number of ranks and is best restricted to modest rank counts. Ignored when
+\inltt{--gather-scatter gslib} is in use.
+
 \lstinline[style=BashInputStyle]{--set-start-chknumber [int]}\\
 \hangindent=1.5cm
 Set the starting number of the checkpoint file. This overwrites the checkpoint number in the file-type initial condition.

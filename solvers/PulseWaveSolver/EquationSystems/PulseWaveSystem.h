@@ -36,6 +36,7 @@
 #ifndef NEKTAR_SOLVERS_PULSEWAVESOLVER_EQUATIONSYSTEMS_PULSEWAVESYSTEM_H
 #define NEKTAR_SOLVERS_PULSEWAVESOLVER_EQUATIONSYSTEMS_PULSEWAVESYSTEM_H
 
+#include <LibUtilities/Communication/GsLib.hpp>
 #include <PulseWaveSolver/EquationSystems/PulseWavePressureArea.h>
 #include <SolverUtils/UnsteadySystem.h>
 

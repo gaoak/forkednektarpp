@@ -4,6 +4,7 @@ Changelog
 v5.11.0
 -------
 **Library**
+- Simplify AssemblyMapCG graph construction in the case where edges/faces have no dofs (!2441)
 - Add parallel HDF5 mesh output (!2588)
 - Add Eigen value estimation to ConjGrad and GMRES (!2578)
 - Fix HDF5 thirdparty compilation with MPI (!2610)
@@ -23,6 +24,9 @@ v5.11.0
 - Set up physical normals once per field in DG boundary-condition setup and reuse normals across fields sharing expansions (!2699)
 - Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
 - Fix non-deterministic CWIPI coupling by zero-initialising received fields and refreshing stale extrapolation weights (!2690)
+- Add scalable rendezvous-based shared entity discovery (ConnectivityResolver, SharedIdPlan, SharedPayloadResolver), and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
+- Trace-frame expansions and parallel mesh orderings (!2712)
+- Add a gather-scatter abstraction over the assembly maps' universal exchange, plus a CommBenchmark demo comparing them against gslib (!2739)
 - Fix ReduceOrderCoeffs: the tetrahedral truncation copied misaligned rows, the quadrilateral and hexahedral ones assumed isotropic order, and the triangular one only truncated one order (!2735)
 - Fix the artificial viscosity's density floor, which was an absolute number and so made the viscosity depend on the units a session was written in; it is now a fraction of rhoInf (!2735)
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
@@ -31,6 +35,7 @@ v5.11.0
 - Fix a bug in LowEnergyBlock preconditioner which may causes divergence in Hex meshes (!2765)
 - Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
+- Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -42,6 +47,7 @@ v5.11.0
 - Fix trixie GitLab CI slowdown (!2701)
 - Fix collection autotuning selection and record results per polynomial order (!2635)
 - Fix noble full build CI (!2742)
+- Fix intermittent Cwipi test failures by capturing the output of each command in a multi-command parallel test separately (!2780)
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)

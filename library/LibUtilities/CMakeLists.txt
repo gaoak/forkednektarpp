@@ -82,7 +82,12 @@ SET(CommunicationHeaders
     ./Communication/Comm.h
     ./Communication/CommSerial.h
     ./Communication/CommDataType.h
+    ./Communication/ConnectivityResolver.hpp
+    ./Communication/SharedPayloadResolver.hpp
+    ./Communication/GatherScatter.h
     ./Communication/GsLib.hpp
+    ./Communication/SharedIdPlan.hpp
+    ./Communication/Transport.hpp
     ./Communication/Transposition.h
     ./Communication/Xxt.hpp
 )
@@ -91,6 +96,7 @@ SET(CommunicationSources
     ./Communication/Comm.cpp
     ./Communication/CommDataType.cpp
     ./Communication/CommSerial.cpp
+    ./Communication/GatherScatter.cpp
     ./Communication/Transposition.cpp
 )
 

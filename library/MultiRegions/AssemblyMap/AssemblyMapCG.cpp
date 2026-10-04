@@ -557,8 +557,14 @@ int AssemblyMapCG::CreateGraph(
         BoostGraph;
     BoostGraph boostGraphObj;
 
+    // Vertices, edges and faces that will be reordered by boost below. Only
+    // entities that actually hold degrees of freedom are given a graph vertex:
+    // at low polynomial order most edges and faces have no interior modes, and
+    // adding them would inflate the graph without changing the numbering. The
+    // consequence is that graph[1] and graph[2] are not guaranteed to hold an
+    // entry for every mesh edge/face, so lookups into them must go through
+    // find() rather than operator[].
     vector<map<int, int>> tempGraph(3);
-    map<int, int> vwgts_map;
     Array<OneD, int> localVerts;
     Array<OneD, int> localEdges;
     Array<OneD, int> localFaces;
@@ -580,7 +586,7 @@ int AssemblyMapCG::CreateGraph(
     m_numNonDirVertexModes = 0;
     m_numNonDirEdges       = 0;
     m_numNonDirFaces       = 0;
-    m_numNonDirFaceModes   = 0;
+    m_numNonDirEdgeModes   = 0;
     m_numNonDirFaceModes   = 0;
     m_numLocalBndCoeffs    = 0;
 
@@ -623,7 +629,6 @@ int AssemblyMapCG::CreateGraph(
             }
         }
 
-        faceCnt = 0;
         for (j = 0; j < nFaces; ++j)
         {
             meshFaceId = exp->GetGeom()->GetFid(j);
@@ -636,7 +641,6 @@ int AssemblyMapCG::CreateGraph(
             {
                 FaceSize[meshFaceId] = exp->GetTraceIntNcoeffs(j);
             }
-            FaceSize[meshFaceId] = exp->GetTraceIntNcoeffs(j);
         }
     }
 
@@ -746,7 +750,6 @@ int AssemblyMapCG::CreateGraph(
                 }
                 localVerts[localVertOffset + vertCnt++] =
                     tempGraph[0][meshVertId];
-                vwgts_map[tempGraph[0][meshVertId]] = 1;
             }
         }
 
@@ -808,6 +811,13 @@ int AssemblyMapCG::CreateGraph(
             continue;
         }
 
+        // An edge that carries no interior degrees of freedom contributes
+        // nothing to the global system, so it needs no graph vertex.
+        if (EdgeSize[meshEdgeId] == 0)
+        {
+            continue;
+        }
+
         // Otherwise, see if a edge ID has already been set.
         for (i = 0; i < pIt.second.size(); ++i)
         {
@@ -848,20 +858,23 @@ int AssemblyMapCG::CreateGraph(
         {
             meshEdgeId     = exp->GetGeom()->GetEid(j);
             nEdgeIntCoeffs = EdgeSize[meshEdgeId];
-            if (graph[1].count(meshEdgeId) == 0)
-            {
-                if (tempGraph[1].count(meshEdgeId) == 0)
-                {
-                    boost::add_vertex(boostGraphObj);
-                    tempGraph[1][meshEdgeId] = tempGraphVertId++;
-                    m_numNonDirEdgeModes += nEdgeIntCoeffs;
 
-                    m_numNonDirEdges++;
-                }
-                localEdges[localEdgeOffset + edgeCnt++] =
-                    tempGraph[1][meshEdgeId];
-                vwgts_map[tempGraph[1][meshEdgeId]] = nEdgeIntCoeffs;
+            // Dirichlet edges are already numbered, and an edge with no
+            // interior degrees of freedom needs no graph vertex.
+            if (nEdgeIntCoeffs == 0 || graph[1].count(meshEdgeId) > 0)
+            {
+                continue;
             }
+
+            if (tempGraph[1].count(meshEdgeId) == 0)
+            {
+                boost::add_vertex(boostGraphObj);
+                tempGraph[1][meshEdgeId] = tempGraphVertId++;
+                m_numNonDirEdgeModes += nEdgeIntCoeffs;
+
+                m_numNonDirEdges++;
+            }
+            localEdges[localEdgeOffset + edgeCnt++] = tempGraph[1][meshEdgeId];
         }
 
         localEdgeOffset += nEdges;
@@ -870,6 +883,13 @@ int AssemblyMapCG::CreateGraph(
     /// - Periodic faces
     for (auto &pIt : periodicFaces)
     {
+        // As for edges above, a face with no interior degrees of freedom
+        // needs no graph vertex.
+        if (FaceSize[pIt.first] == 0)
+        {
+            continue;
+        }
+
         if (!pIt.second[0].isLocal)
         {
             // The face mapped to is on another process.
@@ -906,22 +926,25 @@ int AssemblyMapCG::CreateGraph(
         faceCnt = 0;
         for (j = 0; j < nFaces; ++j)
         {
-            nFaceIntCoeffs = exp->GetTraceIntNcoeffs(j);
             meshFaceId     = exp->GetGeom()->GetFid(j);
-            if (graph[2].count(meshFaceId) == 0)
-            {
-                if (tempGraph[2].count(meshFaceId) == 0)
-                {
-                    boost::add_vertex(boostGraphObj);
-                    tempGraph[2][meshFaceId] = tempGraphVertId++;
-                    m_numNonDirFaceModes += nFaceIntCoeffs;
+            nFaceIntCoeffs = FaceSize[meshFaceId];
 
-                    m_numNonDirFaces++;
-                }
-                localFaces[localFaceOffset + faceCnt++] =
-                    tempGraph[2][meshFaceId];
-                vwgts_map[tempGraph[2][meshFaceId]] = nFaceIntCoeffs;
+            // Dirichlet faces are already numbered, and a face with no
+            // interior degrees of freedom needs no graph vertex.
+            if (nFaceIntCoeffs == 0 || graph[2].count(meshFaceId) > 0)
+            {
+                continue;
             }
+
+            if (tempGraph[2].count(meshFaceId) == 0)
+            {
+                boost::add_vertex(boostGraphObj);
+                tempGraph[2][meshFaceId] = tempGraphVertId++;
+                m_numNonDirFaceModes += nFaceIntCoeffs;
+
+                m_numNonDirFaces++;
+            }
+            localFaces[localFaceOffset + faceCnt++] = tempGraph[2][meshFaceId];
         }
         m_numLocalBndCoeffs += exp->NumBndryCoeffs();
 
@@ -1102,27 +1125,27 @@ int AssemblyMapCG::CreateGraph(
         // the vertices and edges respectively to identify those
         // vertices and edges which are located on partition boundary.
         Array<OneD, long> vertArray(unique_verts, &procVerts[0]);
-        Gs::gs_data *tmp1 = Gs::Init(vertArray, vRowComm, verbose);
+        auto tmp1 = LibUtilities::GatherScatter::Create(vertArray, vRowComm,
+                                                        m_gsConfig, verbose);
         Array<OneD, NekDouble> tmp4(unique_verts, 1.0);
         Array<OneD, NekDouble> tmp5(unique_edges, 1.0);
         Array<OneD, NekDouble> tmp6(unique_faces, 1.0);
-        Gs::Gather(tmp4, Gs::gs_add, tmp1);
-        Gs::Finalise(tmp1);
+        tmp1->Gather(tmp4, LibUtilities::GatherScatterOp::eAdd);
 
         if (unique_edges > 0)
         {
             Array<OneD, long> edgeArray(unique_edges, &procEdges[0]);
-            Gs::gs_data *tmp2 = Gs::Init(edgeArray, vRowComm, verbose);
-            Gs::Gather(tmp5, Gs::gs_add, tmp2);
-            Gs::Finalise(tmp2);
+            auto tmp2 = LibUtilities::GatherScatter::Create(
+                edgeArray, vRowComm, m_gsConfig, verbose);
+            tmp2->Gather(tmp5, LibUtilities::GatherScatterOp::eAdd);
         }
 
         if (unique_faces > 0)
         {
             Array<OneD, long> faceArray(unique_faces, &procFaces[0]);
-            Gs::gs_data *tmp3 = Gs::Init(faceArray, vRowComm, verbose);
-            Gs::Gather(tmp6, Gs::gs_add, tmp3);
-            Gs::Finalise(tmp3);
+            auto tmp3 = LibUtilities::GatherScatter::Create(
+                faceArray, vRowComm, m_gsConfig, verbose);
+            tmp3->Gather(tmp6, LibUtilities::GatherScatterOp::eAdd);
         }
 
         // Finally, fill the partVerts set with all non-Dirichlet
@@ -1419,9 +1442,9 @@ AssemblyMapCG::AssemblyMapCG(
         edgeId[i]    = dofIt.first + 1;
         edgeDof[i++] = (NekDouble)dofIt.second;
     }
-    Gs::gs_data *tmp = Gs::Init(edgeId, vRowComm, verbose);
-    Gs::Gather(edgeDof, Gs::gs_min, tmp);
-    Gs::Finalise(tmp);
+    auto tmp = LibUtilities::GatherScatter::Create(edgeId, vRowComm, m_gsConfig,
+                                                   verbose);
+    tmp->Gather(edgeDof, LibUtilities::GatherScatterOp::eMin);
     for (i = 0; i < dofs[1].size(); i++)
     {
         dofs[1][edgeId[i] - 1] = (int)(edgeDof[i] + 0.5);
@@ -1452,10 +1475,10 @@ AssemblyMapCG::AssemblyMapCG(
         faceP[i]  = (NekDouble)dofIt->second;
         faceQ[i]  = (NekDouble)dofIt2->second;
     }
-    Gs::gs_data *tmp2 = Gs::Init(faceId, vRowComm, verbose);
-    Gs::Gather(faceP, Gs::gs_min, tmp2);
-    Gs::Gather(faceQ, Gs::gs_min, tmp2);
-    Gs::Finalise(tmp2);
+    auto tmp2 = LibUtilities::GatherScatter::Create(faceId, vRowComm,
+                                                    m_gsConfig, verbose);
+    tmp2->Gather(faceP, LibUtilities::GatherScatterOp::eMin);
+    tmp2->Gather(faceQ, LibUtilities::GatherScatterOp::eMin);
     for (i = 0; i < faceModes[0].size(); i++)
     {
         faceModes[0][faceId[i] - 1] = (int)(faceP[i] + 0.5);
@@ -1552,7 +1575,13 @@ AssemblyMapCG::AssemblyMapCG(
                 nEdgeInteriorCoeffs = exp->GetTraceNcoeffs(j) - 2;
             }
             meshEdgeId = exp->GetGeom()->GetEid(j);
-            graphVertOffset[graph[1][meshEdgeId] + 1] = dofs[1][meshEdgeId];
+
+            // Edges with no interior modes have no graph vertex.
+            auto gIt = graph[1].find(meshEdgeId);
+            if (gIt != graph[1].end())
+            {
+                graphVertOffset[gIt->second + 1] = dofs[1][meshEdgeId];
+            }
 
             // Need a sign vector for modal expansions if nEdgeCoeffs
             // >=3 (not 4 because of variable order case)
@@ -1566,7 +1595,13 @@ AssemblyMapCG::AssemblyMapCG(
         for (j = 0; j < exp->GetGeom()->GetNumFaces(); ++j)
         {
             meshFaceId = exp->GetGeom()->GetFid(j);
-            graphVertOffset[graph[2][meshFaceId] + 1] = dofs[2][meshFaceId];
+
+            // Faces with no interior modes have no graph vertex.
+            auto gIt = graph[2].find(meshFaceId);
+            if (gIt != graph[2].end())
+            {
+                graphVertOffset[gIt->second + 1] = dofs[2][meshFaceId];
+            }
         }
     }
 
@@ -2064,7 +2099,7 @@ AssemblyMapCG::AssemblyMapCG(
     // Use parallel boundary communication to set parallel
     // dirichlet values on all processors Needs to be after
     // SetupUuniversialC0ContMap
-    Gs::Gather(gloParaDirBnd, Gs::gs_max, m_bndGsh);
+    m_bndGsh->Gather(gloParaDirBnd, LibUtilities::GatherScatterOp::eMax);
 
     // copy global ids back to local values in partition to
     // initialise gs communicator.
@@ -2099,7 +2134,8 @@ AssemblyMapCG::AssemblyMapCG(
         }
     }
 
-    m_dirBndGsh = Gs::Init(paraDirBnd, vRowComm, verbose);
+    m_dirBndGsh = LibUtilities::GatherScatter::Create(paraDirBnd, vRowComm,
+                                                      m_gsConfig, verbose);
 
     // Set up the local to global map for the next level when using
     // multi-level static condensation
@@ -2135,10 +2171,12 @@ AssemblyMapCG::AssemblyMapCG(
                 {
                     meshEdgeId = exp->GetGeom()->GetEid(j);
 
-                    if (graph[1][meshEdgeId] >= firstNonDirGraphVertId)
+                    // Edges with no interior modes have no graph vertex.
+                    auto gIt = graph[1].find(meshEdgeId);
+                    if (gIt != graph[1].end() &&
+                        gIt->second >= firstNonDirGraphVertId)
                     {
-                        vwgts_perm[graph[1][meshEdgeId] -
-                                   firstNonDirGraphVertId] =
+                        vwgts_perm[gIt->second - firstNonDirGraphVertId] =
                             dofs[1][meshEdgeId];
                     }
                 }
@@ -2147,10 +2185,12 @@ AssemblyMapCG::AssemblyMapCG(
                 {
                     meshFaceId = exp->GetGeom()->GetFid(j);
 
-                    if (graph[2][meshFaceId] >= firstNonDirGraphVertId)
+                    // Faces with no interior modes have no graph vertex.
+                    auto gIt = graph[2].find(meshFaceId);
+                    if (gIt != graph[2].end() &&
+                        gIt->second >= firstNonDirGraphVertId)
                     {
-                        vwgts_perm[graph[2][meshFaceId] -
-                                   firstNonDirGraphVertId] =
+                        vwgts_perm[gIt->second - firstNonDirGraphVertId] =
                             dofs[2][meshFaceId];
                     }
                 }
@@ -2181,8 +2221,6 @@ AssemblyMapCG::AssemblyMapCG(
  */
 AssemblyMapCG::~AssemblyMapCG()
 {
-    Gs::Finalise(m_gsh);
-    Gs::Finalise(m_bndGsh);
 }
 
 /**
@@ -2532,15 +2570,13 @@ void AssemblyMapCG::SetUpUniversalC0ContMap(const ExpList &locExp,
         tmp[i] = m_globalToUniversalMap[i];
     }
 
-    m_bndGsh = Gs::Init(tmp2, vRowComm, verbose);
-    // note we are still initialising m_gsh here since it is used in other
-    // operations beyond just assembly that is replaced below
-    m_gsh = Gs::Init(tmp, vRowComm, verbose);
-
+    m_gsh =
+        LibUtilities::GatherScatter::Create(tmp, vRowComm, m_gsConfig, verbose);
+    m_bndGsh = LibUtilities::GatherScatter::Create(tmp2, vRowComm, m_gsConfig,
+                                                   verbose);
     // this is needed for device support calls to DataWarehouse
     m_cgcomm = std::make_unique<AssemblyComm<double>>(vRowComm, tmp);
-
-    Gs::Unique(tmp, vRowComm);
+    m_gsh->Unique(tmp);
 
     for (unsigned int i = 0; i < m_numGlobalCoeffs; ++i)
     {
@@ -2639,6 +2675,8 @@ AssemblyMapSharedPtr AssemblyMapCG::v_LinearSpaceMap(const ExpList &locexp,
         }
     }
 
+    returnval->m_gsConfig = m_gsConfig;
+
     // Set up global to universal map
     if (m_globalToUniversalMap.size())
     {
@@ -2665,8 +2703,9 @@ AssemblyMapSharedPtr AssemblyMapCG::v_LinearSpaceMap(const ExpList &locexp,
             tmp[i] = returnval->m_globalToUniversalMap[i];
         }
 
-        returnval->m_gsh = Gs::Init(tmp, vRowComm, verbose);
-        Gs::Unique(tmp, vRowComm);
+        returnval->m_gsh = LibUtilities::GatherScatter::Create(
+            tmp, vRowComm, m_gsConfig, verbose);
+        returnval->m_gsh->Unique(tmp);
 
         for (unsigned int i = 0; i < nglocoeffs; ++i)
         {
@@ -2812,7 +2851,7 @@ void AssemblyMapCG::v_LocalToGlobal(const Array<OneD, const NekDouble> &loc,
     // ensure all values are unique by calling a max
     if (useComm)
     {
-        Gs::Gather(global, Gs::gs_max, m_gsh);
+        m_gsh->Gather(global, LibUtilities::GatherScatterOp::eMax);
     }
 }
 
@@ -2908,7 +2947,7 @@ void AssemblyMapCG::v_Assemble(const NekVector<NekDouble> &loc,
 
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
-    Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
+    m_gsh->Gather(pGlobal, LibUtilities::GatherScatterOp::eAdd);
 }
 
 int AssemblyMapCG::v_GetFullSystemBandWidth() const

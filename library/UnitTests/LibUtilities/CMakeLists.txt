@@ -8,7 +8,7 @@ SET(LibUtilitiesUnitTestSources
     TestInterpCoeff.cpp
     TestPolylib.cpp
     TestCrystalRouter.cpp
-    TestEntityResolver.cpp
+    TestSharedIdResolvers.cpp
     main.cpp
     ../util.cpp
 )
@@ -39,17 +39,17 @@ IF(NEKTAR_ENABLE_DEVICE)
     ADD_TEST(NAME DeviceFFTUnitTests COMMAND DeviceFFTUnitTests --detect_memory_leaks=0)
 ENDIF()
 
-# EntityResolver's MPI transports can only be exercised under mpirun at more
-# than one rank, so this one lives outside the (serial) Boost test binary and is
-# driven by the Tester. The rank counts (2, 3, 5, 8) live as sibling <test>
+# The MPI transports can only be exercised under mpirun at more than one rank,
+# so this one lives outside the (serial) Boost test binary and is driven by the
+# Tester. The rank counts (2, 3, 5, 8) live as sibling <test>
 # elements in a single .tst file, and include non-powers of two, where the
 # crystal router's odd splits are.
 IF(NEKTAR_USE_MPI)
-    ADD_NEKTAR_EXECUTABLE(EntityResolverMPITest
+    ADD_NEKTAR_EXECUTABLE(SharedIdResolversMPITest
         COMPONENT unit-test DEPENDS LibUtilities
-        SOURCES EntityResolverMPITest.cpp)
+        SOURCES SharedIdResolversMPITest.cpp)
 
-    ADD_NEKTAR_TEST(EntityResolverMPI)
+    ADD_NEKTAR_TEST(SharedIdResolversMPI)
 ENDIF()
 
 # Math and Comm unit tests. These exercise the LibUtilities math kernels and
