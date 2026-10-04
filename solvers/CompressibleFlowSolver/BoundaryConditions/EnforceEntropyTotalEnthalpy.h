@@ -92,24 +92,6 @@ protected:
                  Array<OneD, Array<OneD, NekDouble>> &physarray,
                  const NekDouble &time) override;
 
-    void GenerateRotationMatrices(
-        const Array<OneD, const Array<OneD, NekDouble>> &normals);
-
-    void FromToRotation(Array<OneD, const NekDouble> &from,
-                        Array<OneD, const NekDouble> &to, NekDouble *mat);
-
-    SOLVER_UTILS_EXPORT void rotateToNormal(
-        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-        const Array<OneD, const Array<OneD, NekDouble>> &normals,
-        const Array<OneD, const Array<OneD, NekDouble>> &vecLocs,
-        Array<OneD, Array<OneD, NekDouble>> &outarray);
-
-    SOLVER_UTILS_EXPORT void rotateFromNormal(
-        const Array<OneD, const Array<OneD, NekDouble>> &inarray,
-        const Array<OneD, const Array<OneD, NekDouble>> &normals,
-        const Array<OneD, const Array<OneD, NekDouble>> &vecLocs,
-        Array<OneD, Array<OneD, NekDouble>> &outarray);
-
 private:
     EnforceEntropyTotalEnthalpy(
         const LibUtilities::SessionReaderSharedPtr &pSession,

@@ -43,10 +43,20 @@ using namespace Nektar::SolverUtils;
 namespace Nektar
 {
 
+/**
+ * @brief Dot product of two three-component arrays.
+ *
+ * Defined for both scalar and SIMD value types so that the Riemann kernels can
+ * be written in vector notation without a rotation to the trace normal.
+ */
+template <class T> inline T RiemannDot(const T *a, const T *b)
+{
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
 class CompressibleSolver : public RiemannSolver
 {
 protected:
-    bool m_pointSolve;
     EquationOfStateSharedPtr m_eos;
     bool m_idealGas;
 
@@ -58,28 +68,50 @@ protected:
 
     using ND = NekDouble;
 
+    /**
+     * @brief Default implementation: apply v_PointSolve at each trace point.
+     *
+     * Solvers that can work on whole arrays at a time, and so vectorise,
+     * override this directly instead of implementing v_PointSolve.
+     */
     void v_Solve(const int nDim, const Array<OneD, const Array<OneD, ND>> &Fwd,
                  const Array<OneD, const Array<OneD, ND>> &Bwd,
                  Array<OneD, Array<OneD, ND>> &flux) override;
 
-    virtual void v_ArraySolve(
-        [[maybe_unused]] const Array<OneD, const Array<OneD, ND>> &Fwd,
-        [[maybe_unused]] const Array<OneD, const Array<OneD, ND>> &Bwd,
-        [[maybe_unused]] Array<OneD, Array<OneD, ND>> &flux)
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "This function should be defined by subclasses.");
-    }
-
+    /**
+     * @brief Solve the Riemann problem across a trace point directly in
+     * Cartesian components.
+     *
+     * The Euler equations are rotationally invariant, so the interface flux
+     * could equivalently be obtained by rotating the states onto the trace
+     * normal, applying a one-dimensional solver and rotating back. That
+     * rotation is unnecessary: the tangential velocity components only ever
+     * enter through rotationally-invariant combinations (the kinetic energy
+     * and the shear jump projected onto the tangent plane), which is exactly
+     * why the tangential basis could be chosen arbitrarily. Working in
+     * Cartesian components throughout avoids building, storing and applying a
+     * rotation matrix per quadrature point.
+     *
+     * @param rhoL      Density, left state.
+     * @param momL      Momentum vector (3 components), left state.
+     * @param EL        Energy, left state.
+     * @param rhoR      Density, right state.
+     * @param momR      Momentum vector (3 components), right state.
+     * @param ER        Energy, right state.
+     * @param normal    Unit trace normal (3 components).
+     * @param rhof      Computed Riemann flux for density.
+     * @param momf      Computed Riemann flux for momentum (3 components).
+     * @param Ef        Computed Riemann flux for energy.
+     *
+     * Components of @p momL, @p momR and @p normal above the problem dimension
+     * are zero on entry; the corresponding entries of @p momf are ignored.
+     */
     virtual void v_PointSolve(
-        [[maybe_unused]] ND rhoL, [[maybe_unused]] ND rhouL,
-        [[maybe_unused]] ND rhovL, [[maybe_unused]] ND rhowL,
+        [[maybe_unused]] ND rhoL, [[maybe_unused]] const ND *momL,
         [[maybe_unused]] ND EL, [[maybe_unused]] ND rhoR,
-        [[maybe_unused]] ND rhouR, [[maybe_unused]] ND rhovR,
-        [[maybe_unused]] ND rhowR, [[maybe_unused]] ND ER,
-        [[maybe_unused]] ND &rhof, [[maybe_unused]] ND &rhouf,
-        [[maybe_unused]] ND &rhovf, [[maybe_unused]] ND &rhowf,
-        [[maybe_unused]] ND &Ef)
+        [[maybe_unused]] const ND *momR, [[maybe_unused]] ND ER,
+        [[maybe_unused]] const ND *normal, [[maybe_unused]] ND &rhof,
+        [[maybe_unused]] ND *momf, [[maybe_unused]] ND &Ef)
     {
         NEKERROR(ErrorUtil::efatal,
                  "This function should be defined by subclasses.");

@@ -50,39 +50,39 @@ AUSM3Solver::AUSM3Solver(const LibUtilities::SessionReaderSharedPtr &pSession)
 /**
  * @brief AUSM3 Riemann solver
  *
+ * Written directly in Cartesian components against the trace normal; see
+ * CompressibleSolver::v_PointSolve for why no rotation is needed.
+ *
  * @param rhoL      Density left state.
- * @param rhoR      Density right state.
- * @param rhouL     x-momentum component left state.
- * @param rhouR     x-momentum component right state.
- * @param rhovL     y-momentum component left state.
- * @param rhovR     y-momentum component right state.
- * @param rhowL     z-momentum component left state.
- * @param rhowR     z-momentum component right state.
+ * @param momL      Momentum vector (3 components) left state.
  * @param EL        Energy left state.
+ * @param rhoR      Density right state.
+ * @param momR      Momentum vector (3 components) right state.
  * @param ER        Energy right state.
+ * @param normal    Unit trace normal (3 components).
  * @param rhof      Computed Riemann flux for density.
- * @param rhouf     Computed Riemann flux for x-momentum component
- * @param rhovf     Computed Riemann flux for y-momentum component
- * @param rhowf     Computed Riemann flux for z-momentum component
+ * @param momf      Computed Riemann flux for momentum (3 components).
  * @param Ef        Computed Riemann flux for energy.
  */
-void AUSM3Solver::v_PointSolve(double rhoL, double rhouL, double rhovL,
-                               double rhowL, double EL, double rhoR,
-                               double rhouR, double rhovR, double rhowR,
-                               double ER, double &rhof, double &rhouf,
-                               double &rhovf, double &rhowf, double &Ef)
+void AUSM3Solver::v_PointSolve(NekDouble rhoL, const NekDouble *momL,
+                               NekDouble EL, NekDouble rhoR,
+                               const NekDouble *momR, NekDouble ER,
+                               const NekDouble *normal, NekDouble &rhof,
+                               NekDouble *momf, NekDouble &Ef)
 {
-    // Left and Right velocities
-    NekDouble uL = rhouL / rhoL;
-    NekDouble vL = rhovL / rhoL;
-    NekDouble wL = rhowL / rhoL;
-    NekDouble uR = rhouR / rhoR;
-    NekDouble vR = rhovR / rhoR;
-    NekDouble wR = rhowR / rhoR;
+    // Left and Right velocities and normal velocities
+    NekDouble uL[3], uR[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uL[d] = momL[d] / rhoL;
+        uR[d] = momR[d] / rhoR;
+    }
+    NekDouble unL = RiemannDot(uL, normal);
+    NekDouble unR = RiemannDot(uR, normal);
 
     // Internal energy (per unit mass)
-    NekDouble eL = (EL - 0.5 * (rhouL * uL + rhovL * vL + rhowL * wL)) / rhoL;
-    NekDouble eR = (ER - 0.5 * (rhouR * uR + rhovR * vR + rhowR * wR)) / rhoR;
+    NekDouble eL = (EL - 0.5 * RiemannDot(momL, uL)) / rhoL;
+    NekDouble eR = (ER - 0.5 * RiemannDot(momR, uR)) / rhoR;
     // Pressure
     NekDouble pL = m_eos->GetPressure(rhoL, eL);
     NekDouble pR = m_eos->GetPressure(rhoR, eR);
@@ -93,9 +93,9 @@ void AUSM3Solver::v_PointSolve(double rhoL, double rhouL, double rhovL,
     // Average speeds of sound
     NekDouble cA = 0.5 * (cL + cR);
 
-    // Local Mach numbers
-    NekDouble ML = uL / cA;
-    NekDouble MR = uR / cA;
+    // Local Mach numbers, based on the velocity normal to the trace
+    NekDouble ML = unL / cA;
+    NekDouble MR = unR / cA;
 
     // Parameters for specify the upwinding
     // Note: if fa = 1 then AUSM3 = AUSM3
@@ -119,21 +119,25 @@ void AUSM3Solver::v_PointSolve(double rhoL, double rhouL, double rhovL,
     NekDouble pbar =
         pL * P5Function(0, alpha, ML) + pR * P5Function(1, alpha, MR) + pu;
 
+    // The convective part is the mass flux times the upwinded velocity
+    // vector, and the pressure part acts along the trace normal.
     if (Mbar >= 0.0)
     {
-        rhof  = cA * Mbar * rhoL;
-        rhouf = cA * Mbar * rhoL * uL + pbar;
-        rhovf = cA * Mbar * rhoL * vL;
-        rhowf = cA * Mbar * rhoL * wL;
-        Ef    = cA * Mbar * (EL + pL);
+        rhof = cA * Mbar * rhoL;
+        for (size_t d = 0; d < 3; ++d)
+        {
+            momf[d] = cA * Mbar * rhoL * uL[d] + pbar * normal[d];
+        }
+        Ef = cA * Mbar * (EL + pL);
     }
     else
     {
-        rhof  = cA * Mbar * rhoR;
-        rhouf = cA * Mbar * rhoR * uR + pbar;
-        rhovf = cA * Mbar * rhoR * vR;
-        rhowf = cA * Mbar * rhoR * wR;
-        Ef    = cA * Mbar * (ER + pR);
+        rhof = cA * Mbar * rhoR;
+        for (size_t d = 0; d < 3; ++d)
+        {
+            momf[d] = cA * Mbar * rhoR * uR[d] + pbar * normal[d];
+        }
+        Ef = cA * Mbar * (ER + pR);
     }
 }
 
