@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <tests>
     <test>
-        <description>EntityResolver: rendezvous resolve over MPI on 2 ranks</description>
-        <executable>EntityResolverMPITest</executable>
+        <description>Shared-id resolvers: rendezvous and plan over MPI on 2 ranks</description>
+        <executable>SharedIdResolversMPITest</executable>
         <parameters />
         <processes>2</processes>
         <metrics>
@@ -18,8 +18,8 @@
         </metrics>
     </test>
     <test>
-        <description>EntityResolver: rendezvous resolve over MPI on 3 ranks</description>
-        <executable>EntityResolverMPITest</executable>
+        <description>Shared-id resolvers: rendezvous and plan over MPI on 3 ranks</description>
+        <executable>SharedIdResolversMPITest</executable>
         <parameters />
         <processes>3</processes>
         <metrics>
@@ -35,8 +35,8 @@
         </metrics>
     </test>
     <test>
-        <description>EntityResolver: rendezvous resolve over MPI on 5 ranks</description>
-        <executable>EntityResolverMPITest</executable>
+        <description>Shared-id resolvers: rendezvous and plan over MPI on 5 ranks</description>
+        <executable>SharedIdResolversMPITest</executable>
         <parameters />
         <processes>5</processes>
         <metrics>
@@ -52,8 +52,8 @@
         </metrics>
     </test>
     <test>
-        <description>EntityResolver: rendezvous resolve over MPI on 8 ranks</description>
-        <executable>EntityResolverMPITest</executable>
+        <description>Shared-id resolvers: rendezvous and plan over MPI on 8 ranks</description>
+        <executable>SharedIdResolversMPITest</executable>
         <parameters />
         <processes>8</processes>
         <metrics>

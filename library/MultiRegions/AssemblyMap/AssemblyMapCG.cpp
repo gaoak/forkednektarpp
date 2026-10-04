@@ -1125,27 +1125,27 @@ int AssemblyMapCG::CreateGraph(
         // the vertices and edges respectively to identify those
         // vertices and edges which are located on partition boundary.
         Array<OneD, long> vertArray(unique_verts, &procVerts[0]);
-        Gs::gs_data *tmp1 = Gs::Init(vertArray, vRowComm, verbose);
+        auto tmp1 = LibUtilities::GatherScatter::Create(vertArray, vRowComm,
+                                                        m_gsConfig, verbose);
         Array<OneD, NekDouble> tmp4(unique_verts, 1.0);
         Array<OneD, NekDouble> tmp5(unique_edges, 1.0);
         Array<OneD, NekDouble> tmp6(unique_faces, 1.0);
-        Gs::Gather(tmp4, Gs::gs_add, tmp1);
-        Gs::Finalise(tmp1);
+        tmp1->Gather(tmp4, LibUtilities::GatherScatterOp::eAdd);
 
         if (unique_edges > 0)
         {
             Array<OneD, long> edgeArray(unique_edges, &procEdges[0]);
-            Gs::gs_data *tmp2 = Gs::Init(edgeArray, vRowComm, verbose);
-            Gs::Gather(tmp5, Gs::gs_add, tmp2);
-            Gs::Finalise(tmp2);
+            auto tmp2 = LibUtilities::GatherScatter::Create(
+                edgeArray, vRowComm, m_gsConfig, verbose);
+            tmp2->Gather(tmp5, LibUtilities::GatherScatterOp::eAdd);
         }
 
         if (unique_faces > 0)
         {
             Array<OneD, long> faceArray(unique_faces, &procFaces[0]);
-            Gs::gs_data *tmp3 = Gs::Init(faceArray, vRowComm, verbose);
-            Gs::Gather(tmp6, Gs::gs_add, tmp3);
-            Gs::Finalise(tmp3);
+            auto tmp3 = LibUtilities::GatherScatter::Create(
+                faceArray, vRowComm, m_gsConfig, verbose);
+            tmp3->Gather(tmp6, LibUtilities::GatherScatterOp::eAdd);
         }
 
         // Finally, fill the partVerts set with all non-Dirichlet
@@ -1442,9 +1442,9 @@ AssemblyMapCG::AssemblyMapCG(
         edgeId[i]    = dofIt.first + 1;
         edgeDof[i++] = (NekDouble)dofIt.second;
     }
-    Gs::gs_data *tmp = Gs::Init(edgeId, vRowComm, verbose);
-    Gs::Gather(edgeDof, Gs::gs_min, tmp);
-    Gs::Finalise(tmp);
+    auto tmp = LibUtilities::GatherScatter::Create(edgeId, vRowComm, m_gsConfig,
+                                                   verbose);
+    tmp->Gather(edgeDof, LibUtilities::GatherScatterOp::eMin);
     for (i = 0; i < dofs[1].size(); i++)
     {
         dofs[1][edgeId[i] - 1] = (int)(edgeDof[i] + 0.5);
@@ -1475,10 +1475,10 @@ AssemblyMapCG::AssemblyMapCG(
         faceP[i]  = (NekDouble)dofIt->second;
         faceQ[i]  = (NekDouble)dofIt2->second;
     }
-    Gs::gs_data *tmp2 = Gs::Init(faceId, vRowComm, verbose);
-    Gs::Gather(faceP, Gs::gs_min, tmp2);
-    Gs::Gather(faceQ, Gs::gs_min, tmp2);
-    Gs::Finalise(tmp2);
+    auto tmp2 = LibUtilities::GatherScatter::Create(faceId, vRowComm,
+                                                    m_gsConfig, verbose);
+    tmp2->Gather(faceP, LibUtilities::GatherScatterOp::eMin);
+    tmp2->Gather(faceQ, LibUtilities::GatherScatterOp::eMin);
     for (i = 0; i < faceModes[0].size(); i++)
     {
         faceModes[0][faceId[i] - 1] = (int)(faceP[i] + 0.5);
@@ -2099,7 +2099,7 @@ AssemblyMapCG::AssemblyMapCG(
     // Use parallel boundary communication to set parallel
     // dirichlet values on all processors Needs to be after
     // SetupUuniversialC0ContMap
-    Gs::Gather(gloParaDirBnd, Gs::gs_max, m_bndGsh);
+    m_bndGsh->Gather(gloParaDirBnd, LibUtilities::GatherScatterOp::eMax);
 
     // copy global ids back to local values in partition to
     // initialise gs communicator.
@@ -2130,7 +2130,8 @@ AssemblyMapCG::AssemblyMapCG(
         }
     }
 
-    m_dirBndGsh = Gs::Init(paraDirBnd, vRowComm, verbose);
+    m_dirBndGsh = LibUtilities::GatherScatter::Create(paraDirBnd, vRowComm,
+                                                      m_gsConfig, verbose);
 
     // Set up the local to global map for the next level when using
     // multi-level static condensation
@@ -2216,8 +2217,6 @@ AssemblyMapCG::AssemblyMapCG(
  */
 AssemblyMapCG::~AssemblyMapCG()
 {
-    Gs::Finalise(m_gsh);
-    Gs::Finalise(m_bndGsh);
 }
 
 /**
@@ -2567,9 +2566,11 @@ void AssemblyMapCG::SetUpUniversalC0ContMap(const ExpList &locExp,
         tmp[i] = m_globalToUniversalMap[i];
     }
 
-    m_gsh    = Gs::Init(tmp, vRowComm, verbose);
-    m_bndGsh = Gs::Init(tmp2, vRowComm, verbose);
-    Gs::Unique(tmp, vRowComm);
+    m_gsh =
+        LibUtilities::GatherScatter::Create(tmp, vRowComm, m_gsConfig, verbose);
+    m_bndGsh = LibUtilities::GatherScatter::Create(tmp2, vRowComm, m_gsConfig,
+                                                   verbose);
+    m_gsh->Unique(tmp);
     for (unsigned int i = 0; i < m_numGlobalCoeffs; ++i)
     {
         m_globalToUniversalMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
@@ -2666,6 +2667,8 @@ AssemblyMapSharedPtr AssemblyMapCG::v_LinearSpaceMap(const ExpList &locexp,
         }
     }
 
+    returnval->m_gsConfig = m_gsConfig;
+
     // Set up global to universal map
     if (m_globalToUniversalMap.size())
     {
@@ -2692,8 +2695,9 @@ AssemblyMapSharedPtr AssemblyMapCG::v_LinearSpaceMap(const ExpList &locexp,
             tmp[i] = returnval->m_globalToUniversalMap[i];
         }
 
-        returnval->m_gsh = Gs::Init(tmp, vRowComm, verbose);
-        Gs::Unique(tmp, vRowComm);
+        returnval->m_gsh = LibUtilities::GatherScatter::Create(
+            tmp, vRowComm, m_gsConfig, verbose);
+        returnval->m_gsh->Unique(tmp);
 
         for (unsigned int i = 0; i < nglocoeffs; ++i)
         {
@@ -2839,7 +2843,7 @@ void AssemblyMapCG::v_LocalToGlobal(const Array<OneD, const NekDouble> &loc,
     // ensure all values are unique by calling a max
     if (useComm)
     {
-        Gs::Gather(global, Gs::gs_max, m_gsh);
+        m_gsh->Gather(global, LibUtilities::GatherScatterOp::eMax);
     }
 }
 
@@ -2935,7 +2939,7 @@ void AssemblyMapCG::v_Assemble(const NekVector<NekDouble> &loc,
 
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
-    Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
+    m_gsh->Gather(pGlobal, LibUtilities::GatherScatterOp::eAdd);
 }
 
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,

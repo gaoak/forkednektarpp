@@ -29,7 +29,7 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Unit tests for the crystal-router routing decisions used by
-// EntityResolver's CrystalRouterTransport.
+// the shared-id module's CrystalRouterTransport.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -44,10 +44,10 @@
 // two) bugs.
 //
 // The resolver logic layered on top of the transport is tested separately in
-// TestEntityResolver.cpp; the real MPI transports are covered by
-// EntityResolverMPITest.cpp.
+// TestSharedIdResolvers.cpp; the real MPI transports are covered by
+// SharedIdResolversMPITest.cpp.
 
-#include <LibUtilities/Communication/EntityResolver.hpp>
+#include <LibUtilities/Communication/Transport.hpp>
 
 #include <boost/test/unit_test.hpp>
 

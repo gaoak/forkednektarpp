@@ -240,9 +240,11 @@ CoupledAssemblyMap::CoupledAssemblyMap(
     }
 
     LibUtilities::CommSharedPtr vCommRow = m_comm->GetRowComm();
-    m_gsh                                = Gs::Init(tmp, vCommRow);
-    m_bndGsh                             = Gs::Init(tmp2, vCommRow);
-    Gs::Unique(tmp, vCommRow);
+    m_gsh =
+        LibUtilities::GatherScatter::Create(tmp, vCommRow, m_gsConfig, true);
+    m_bndGsh =
+        LibUtilities::GatherScatter::Create(tmp2, vCommRow, m_gsConfig, true);
+    m_gsh->Unique(tmp);
     for (unsigned int i = 0; i < m_numGlobalCoeffs; ++i)
     {
         m_globalToUniversalMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
