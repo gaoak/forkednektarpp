@@ -39,6 +39,19 @@ ADD_NEKTAR_EXECUTABLE(Project1D
 ADD_NEKTAR_EXECUTABLE(Project2D
      COMPONENT demos DEPENDS MultiRegions SOURCES Project2D.cpp)
 
+IF(NEKTAR_USE_MPI)
+    ADD_NEKTAR_EXECUTABLE(CommBenchmark
+         COMPONENT demos DEPENDS MultiRegions SOURCES CommBenchmark.cpp)
+    IF(WIN32)
+        # CommBenchmark calls gslib directly for the rows it times against
+        # SharedIdPlan. On Windows the static gsmpi symbols are not
+        # re-exported by the LibUtilities DLL, so link them here, as the
+        # solvers that call gslib directly do.
+        TARGET_LINK_LIBRARIES(CommBenchmark LINK_PRIVATE ${GSMPI_LIBRARY}
+                              ${XXT_LIBRARY})
+    ENDIF(WIN32)
+ENDIF()
+
 ADD_NEKTAR_TEST(Project1d4Cont)
 ADD_NEKTAR_TEST(Project1d5Cont)
 ADD_NEKTAR_TEST(Project1d6Cont)
@@ -135,6 +148,7 @@ IF (NEKTAR_USE_MPI)
         ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_Modes_AllBCs_iter_ml_par3)
         ADD_NEKTAR_TEST(Helmholtz2D_CG_P7_Modes_xxt_ml)
         ADD_NEKTAR_TEST(Helmholtz3D_CG_Hex_AllBCs_iter_ml_par3)
+        ADD_NEKTAR_TEST(Helmholtz3D_CG_Hex_AllBCs_iter_ml_par3_gs_pairwise)
     ENDIF ()
     ADD_NEKTAR_TEST(Helmholtz3D_CG_Prism_iter_ml_par5)
     ADD_NEKTAR_TEST(Helmholtz3D_CG_Hex_AllBCs_xxt_sc_par3 LENGTHY)
@@ -148,6 +162,7 @@ IF (NEKTAR_USE_MPI)
     ADD_NEKTAR_TEST(Helmholtz2D_HDG_P7_Modes_AllBCs_par2 LENGTHY)
     ADD_NEKTAR_TEST(Helmholtz3D_HDG_Prism_par2)
     ADD_NEKTAR_TEST(Helmholtz3D_HDG_Hex_AllBCs_par2)
+    ADD_NEKTAR_TEST(Helmholtz3D_HDG_Hex_AllBCs_par2_gs_neighbour)
 
     IF (NEKTAR_USE_METIS)
         IF (NOT WIN32)
@@ -164,3 +179,7 @@ IF (NEKTAR_USE_MPI)
         ADD_NEKTAR_TEST(Helmholtz3D_CG_Hex_AllBCs_petsc_sc_shell_par3)
     ENDIF (NEKTAR_USE_PETSC)
 ENDIF (NEKTAR_USE_MPI)
+
+IF(NEKTAR_USE_MPI)
+    ADD_NEKTAR_TEST(CommBenchmark_par3)
+ENDIF()

@@ -81,7 +81,10 @@ AssemblyMap::AssemblyMap()
       m_numGlobalBndCoeffs(0), m_numLocalDirBndCoeffs(0),
       m_numGlobalDirBndCoeffs(0), m_solnType(eNoSolnType),
       m_bndSystemBandWidth(0), m_successiveRHS(0),
-      m_linSysIterSolver("ConjugateGradient"), m_gsh(nullptr), m_bndGsh(nullptr)
+      m_linSysIterSolver("ConjugateGradient"),
+      m_gsh(LibUtilities::GatherScatter::CreateNoOp()),
+      m_bndGsh(LibUtilities::GatherScatter::CreateNoOp()),
+      m_dirBndGsh(LibUtilities::GatherScatter::CreateNoOp())
 {
 }
 
@@ -92,7 +95,11 @@ AssemblyMap::AssemblyMap(const LibUtilities::SessionReaderSharedPtr &pSession,
       m_numLocalBndCoeffs(0), m_numGlobalBndCoeffs(0),
       m_numLocalDirBndCoeffs(0), m_numGlobalDirBndCoeffs(0),
       m_bndSystemBandWidth(0), m_successiveRHS(0),
-      m_linSysIterSolver("ConjugateGradient"), m_gsh(nullptr), m_bndGsh(nullptr)
+      m_linSysIterSolver("ConjugateGradient"),
+      m_gsConfig(LibUtilities::GatherScatterConfig::FromSession(pSession)),
+      m_gsh(LibUtilities::GatherScatter::CreateNoOp()),
+      m_bndGsh(LibUtilities::GatherScatter::CreateNoOp()),
+      m_dirBndGsh(LibUtilities::GatherScatter::CreateNoOp())
 {
     // Default value from Solver Info
     m_solnType =
@@ -173,7 +180,8 @@ AssemblyMap::AssemblyMap(
       m_preconType(oldLevelMap->m_preconType),
       m_successiveRHS(oldLevelMap->m_successiveRHS),
       m_linSysIterSolver(oldLevelMap->m_linSysIterSolver),
-      m_gsh(oldLevelMap->m_gsh), m_bndGsh(oldLevelMap->m_bndGsh),
+      m_gsConfig(oldLevelMap->m_gsConfig), m_gsh(oldLevelMap->m_gsh),
+      m_bndGsh(oldLevelMap->m_bndGsh), m_dirBndGsh(oldLevelMap->m_dirBndGsh),
       m_lowestStaticCondLevel(oldLevelMap->m_lowestStaticCondLevel)
 {
     int i;
@@ -1139,7 +1147,7 @@ void AssemblyMap::LocalBndToGlobal(const Array<OneD, const NekDouble> &loc,
     // Ensure each processor has unique value with a max gather.
     if (UseComm)
     {
-        Gs::Gather(tmp, Gs::gs_max, m_bndGsh);
+        m_bndGsh->Gather(tmp, LibUtilities::GatherScatterOp::eMax);
     }
     Vmath::Vcopy(m_numGlobalBndCoeffs - offset, tmp.data() + offset, 1,
                  global.data(), 1);
@@ -1166,7 +1174,7 @@ void AssemblyMap::LocalBndToGlobal(const Array<OneD, const NekDouble> &loc,
     }
     if (UseComm)
     {
-        Gs::Gather(global, Gs::gs_max, m_bndGsh);
+        m_bndGsh->Gather(global, LibUtilities::GatherScatterOp::eMax);
     }
 }
 
@@ -1280,7 +1288,7 @@ void AssemblyMap::AssembleBnd(const Array<OneD, const NekDouble> &loc,
 void AssemblyMap::UniversalAssembleBnd(Array<OneD, NekDouble> &pGlobal) const
 {
     ASSERTL1(pGlobal.size() >= m_numGlobalBndCoeffs, "Wrong size.");
-    Gs::Gather(pGlobal, Gs::gs_add, m_bndGsh);
+    m_bndGsh->Gather(pGlobal, LibUtilities::GatherScatterOp::eAdd);
 }
 
 void AssemblyMap::UniversalAssembleBnd(NekVector<NekDouble> &pGlobal) const
@@ -1305,7 +1313,7 @@ void AssemblyMap::UniversalAssembleBnd(Array<OneD, NekDouble> &pGlobal,
 
 void AssemblyMap::UniversalAbsMaxBnd(Array<OneD, NekDouble> &bndvals)
 {
-    Gs::Gather(bndvals, Gs::gs_amax, m_dirBndGsh);
+    m_dirBndGsh->Gather(bndvals, LibUtilities::GatherScatterOp::eAbsMax);
 }
 
 int AssemblyMap::GetBndSystemBandWidth() const

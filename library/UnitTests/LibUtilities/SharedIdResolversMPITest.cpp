@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: EntityResolverMPITest.cpp
+// File: SharedIdResolversMPITest.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,24 +28,27 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Real-MPI integration test for EntityResolver over both
-// shipped transports.
+// Description: Real-MPI integration test for the shared-id resolvers over
+// both shipped transports.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 // Real-MPI integration test, driven by the Tester through
-// Tests/EntityResolverMPI_np*.tst at several rank counts. For the current
+// Tests/SharedIdResolversMPI.tst at several rank counts. For the current
 // communicator it:
 //
 //   1. Builds a workload with ring edges, a multi-rank corner vertex, a
 //      periodic pair, purely local entities, and a duplicate registration.
-//   2. Resolves it with BOTH transports and asserts they agree
+//   2. Discovers it with BOTH transports and asserts they agree
 //      (the cross-transport validation).
-//   3. Asserts the resolved max-orders and sharer sets against an analytic
+//   3. Asserts the reduced max-orders and sharer sets against an analytic
 //      oracle computed the same way on every rank.
+//   4. Replays each plan over every exchange backend, with values that change
+//      between rounds, so a stale plan shows up as the previous answer.
 //
 // The resolver logic itself, and the crystal router's routing decisions, are
-// unit tested serially in TestEntityResolver.cpp and TestCrystalRouter.cpp;
+// unit tested serially in TestSharedIdResolvers.cpp and
+// TestCrystalRouter.cpp;
 // this test is what exercises them over real MPI.
 //
 // A single line "np=<n>  PASS" is printed on rank 0 and matched by the .tst
@@ -53,13 +56,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <LibUtilities/Communication/EntityResolver.hpp>
+#include <LibUtilities/Communication/SharedPayloadResolver.hpp>
 
 using namespace Nektar::LibUtilities;
 
@@ -70,6 +74,7 @@ struct Workload
 {
     std::vector<std::pair<int64_t, int>> myRegs; // this rank's (id, order)
     std::map<int64_t, int> oracleMax;            // id -> max order
+    std::map<int64_t, long> oracleSum;           // id -> sum of orders
     std::map<int64_t, std::vector<int>>
         oracleShare; // id -> sorted, unique ranks
 };
@@ -94,6 +99,7 @@ Workload BuildWorkload(int rank, int np)
                               ? std::max(w.oracleMax[id], OrderFor(who, id))
                               : OrderFor(who, id);
         w.oracleShare[id].push_back(who);
+        w.oracleSum[id] += OrderFor(who, id);
         if (who == rank)
         {
             w.myRegs.emplace_back(id, OrderFor(rank, id));
@@ -145,7 +151,21 @@ Workload BuildWorkload(int rank, int np)
     return w;
 }
 
-// Resolve the workload with a given transport; return id -> (value, sharers).
+// This rank's slot ids and values, one entry per registration (so rank 0's
+// duplicate id appears twice, as it would in a real assembly map).
+void SlotArrays(const Workload &w, std::vector<int64_t> &ids,
+                std::vector<int> &vals)
+{
+    ids.clear();
+    vals.clear();
+    for (auto &pr : w.myRegs)
+    {
+        ids.push_back(pr.first);
+        vals.push_back(pr.second);
+    }
+}
+
+// Discover the workload with a given transport; return id -> (value, sharers).
 struct Resolved
 {
     std::map<int64_t, int> value;
@@ -154,27 +174,101 @@ struct Resolved
 
 Resolved RunWith(std::shared_ptr<ITransport> transport, const Workload &w)
 {
-    EntityResolver<int> res(transport);
-    for (auto &pr : w.myRegs)
-    {
-        res.Register(pr.first, pr.second);
-    }
-    res.Resolve([](int a, int b) { return std::max(a, b); });
+    std::vector<int64_t> ids;
+    std::vector<int> vals;
+    SlotArrays(w, ids, vals);
+
+    SharedIdPlan plan(transport, ids, ExchangeBackend::ePairwise);
+    std::vector<int> uniq(plan.NumUnique());
+    plan.Reduce(vals.data(), uniq.data(),
+                [](int a, int b) { return std::max(a, b); });
 
     Resolved out;
-    for (auto &pr : w.myRegs)
+    for (size_t u = 0; u < plan.NumUnique(); ++u)
     {
-        const int64_t id = pr.first;
-        if (out.value.count(id))
-        {
-            continue;
-        }
-        out.value[id] = res.GetResolved(id);
-        auto sh       = res.GetSharers(id);
-        std::sort(sh.begin(), sh.end());
-        out.sharers[id] = std::move(sh);
+        const int64_t id = plan.UniqueIds()[u];
+        out.value[id]    = uniq[u];
+        out.sharers[id]  = plan.GetSharers(u);
     }
     return out;
+}
+
+// Persistent layer over real MPI: for every discovery transport and every
+// exchange backend, a SharedIdPlan must reproduce the oracle and keep doing so
+// over repeated calls with changing values -- which is the point.
+void CheckPlans(const std::vector<std::shared_ptr<ITransport>> &transports,
+                const Workload &w,
+                const std::function<void(const std::string &)> &fail)
+{
+    const ExchangeBackend backends[] = {ExchangeBackend::ePairwise,
+                                        ExchangeBackend::eNeighbourCollective,
+                                        ExchangeBackend::eTransport};
+
+    std::vector<int64_t> ids;
+    std::vector<int> orders;
+    SlotArrays(w, ids, orders);
+    std::vector<long> vals(orders.begin(), orders.end());
+
+    for (size_t t = 0; t < transports.size(); ++t)
+    {
+        for (ExchangeBackend b : backends)
+        {
+            const std::string where =
+                "transport " + std::to_string(t) + ", backend " +
+                std::to_string(static_cast<int>(b)) + ": ";
+
+            SharedIdPlan plan(transports[t], ids, b);
+
+            // Gather(+): every slot ends up holding the global sum. Values
+            // change every round, so a plan that quietly kept the previous
+            // round's data would show up here.
+            for (int round = 0; round < 3; ++round)
+            {
+                // Scaling every contribution scales the sum, whatever an
+                // id's multiplicity across ranks.
+                std::vector<long> v(vals.size());
+                for (size_t s = 0; s < vals.size(); ++s)
+                {
+                    v[s] = vals[s] * (round + 1);
+                }
+                plan.Gather(v.data(), std::plus<long>{});
+                for (size_t s = 0; s < ids.size(); ++s)
+                {
+                    if (v[s] != w.oracleSum.at(ids[s]) * (round + 1))
+                    {
+                        fail(where + "Gather sum wrong for id " +
+                             std::to_string(ids[s]));
+                        break;
+                    }
+                }
+            }
+
+            // Reduce(max) into per-unique results, with the sharer sets the
+            // plan discovered.
+            for (int round = 0; round < 3; ++round)
+            {
+                std::vector<int> v(orders.size());
+                for (size_t s = 0; s < orders.size(); ++s)
+                {
+                    v[s] = orders[s] + 100 * round;
+                }
+                std::vector<int> uniq(plan.NumUnique());
+                plan.Reduce(v.data(), uniq.data(),
+                            [](int x, int y) { return std::max(x, y); });
+                for (size_t u = 0; u < plan.NumUnique(); ++u)
+                {
+                    const int64_t id = plan.UniqueIds()[u];
+                    if (uniq[u] != w.oracleMax.at(id) + 100 * round ||
+                        plan.GetSharers(u) != w.oracleShare.at(id))
+                    {
+                        fail(where + "persistent plan wrong for id " +
+                             std::to_string(id));
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 } // namespace
@@ -223,6 +317,8 @@ int main(int argc, char **argv)
             fail("sharer mismatch for id " + std::to_string(id));
         }
     }
+
+    CheckPlans({alltoallv, crystal}, w, fail);
 
     // Reduce pass/fail across all ranks.
     comm->AllReduce(localOk, ReduceMin);

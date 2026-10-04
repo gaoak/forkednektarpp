@@ -36,7 +36,7 @@
 #define MULTIREGIONS_ASSEMBLY_MAP_H
 
 #include <LibUtilities/Communication/Comm.h>
-#include <LibUtilities/Communication/GsLib.hpp>
+#include <LibUtilities/Communication/GatherScatter.h>
 #include <MultiRegions/MultiRegions.hpp>
 #include <MultiRegions/MultiRegionsDeclspec.h>
 #include <MultiRegions/SubStructuredGraph.h>
@@ -429,10 +429,17 @@ protected:
     /// Iterative solver: Conjugate Gradient, GMRES
     std::string m_linSysIterSolver;
 
-    Gs::gs_data *m_gsh;
-    Gs::gs_data *m_bndGsh;
+    /// Gather-scatter implementation for every handle this map creates, from
+    /// the `--gather-scatter` command-line options.
+    LibUtilities::GatherScatterConfig m_gsConfig;
+    /// Gather-scatter over the local-to-universal map. Never null: a map
+    /// level that sets up no exchange of its own keeps the do-nothing handle
+    /// the constructors install, which is what the gslib implementation's
+    /// null `gs_data *` used to express.
+    LibUtilities::GatherScatterSharedPtr m_gsh;
+    LibUtilities::GatherScatterSharedPtr m_bndGsh;
     /// gs gather communication to impose Dirhichlet BCs.
-    Gs::gs_data *m_dirBndGsh;
+    LibUtilities::GatherScatterSharedPtr m_dirBndGsh;
 
     /// The level of recursion in the case of multi-level static
     /// condensation.

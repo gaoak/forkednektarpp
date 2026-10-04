@@ -36,7 +36,7 @@
 #include <MultiRegions/AssemblyMap/AssemblyCommDG.h>
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 
-#include <LibUtilities/Communication/EntityResolver.hpp>
+#include <LibUtilities/Communication/ConnectivityResolver.hpp>
 
 #include <utility>
 
