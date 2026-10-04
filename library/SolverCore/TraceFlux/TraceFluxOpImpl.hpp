@@ -45,7 +45,7 @@
 #include "SolverCore/TraceFlux/TraceFluxKernels.hpp"
 #include "SolverCore/TraceFlux/TraceFluxOp.hpp"
 
-#include "LibUtilities/Communication/EntityResolver.hpp"
+#include "LibUtilities/Communication/SharedPayloadResolver.hpp"
 #include "MultiRegions/AssemblyMap/AssemblyComm.h"
 #include "MultiRegions/AssemblyMap/AssemblyMapDG.h"
 
