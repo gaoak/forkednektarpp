@@ -21,6 +21,7 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
     # registers under.
     SET(CFEVolFluxes  EulerVolumeFlux
                       DiffusionCFEVolFlux
+                      CFLVelocityCFE
                       BndCondOps/BndCondPressureOutflowCFE
                       BndCondOps/BndCondWallCFE)
 

@@ -56,8 +56,6 @@ template <typename TData>
 class MeanRemovalOp : public Operators::Operator<TData>
 {
 public:
-    ~MeanRemovalOp() override = default;
-
     static std::shared_ptr<MeanRemovalOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -118,6 +116,8 @@ protected:
         : Operators::Operator<TData>(expansionList, components)
     {
     }
+
+    ~MeanRemovalOp() override = default;
 
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;

@@ -229,4 +229,52 @@ void EulerCFE::SetUpBoundaryConditions()
     m_advectionWeakDGOp->AddBndCondUpdateOp(bndCondStagnationInflowOp);
 }
 
+/**
+ * @brief Supply the Courant estimate with the compressible wave speed.
+ *
+ * The conserved state is converted to velocity and sound speed on demand,
+ * so a run that asks for no Courant estimate builds neither the operator
+ * nor the field it writes into.
+ */
+LibUtilities::Field<double, FieldState::Phys> &EulerCFE::v_GetCFLVelocityField()
+{
+    if (!m_cflVelocityOp)
+    {
+        // The kernel works in the shape dimension while the reduction reads
+        // the coordinate dimension; they part company only on a manifold,
+        // which the compressible solver does not support.
+        ASSERTL0(m_expansionLists[0]->GetExp(0)->GetShapeDimension() ==
+                     m_coordim,
+                 "The Courant estimate expects the shape and coordinate "
+                 "dimensions to agree.");
+
+        std::vector<std::string> components;
+        for (unsigned int i = 0; i < m_coordim; ++i)
+        {
+            components.push_back("u" + std::to_string(i));
+        }
+        components.push_back("c");
+
+        m_cflVelocityOp =
+            CFLVelocityCFEOp<double>::Create(m_expansionLists[0], components);
+
+        auto bAtr_phys =
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]);
+
+        m_cflVelocity = LibUtilities::Field<double, FieldState::Phys>(
+            "cflVelocity", bAtr_phys, m_coordim + 1, m_npointsZ);
+    }
+
+    m_cflVelocityOp->Apply(m_fields, m_cflVelocity);
+
+    return m_cflVelocity;
+}
+
+double EulerCFE::v_GetSoundSpeedFactor()
+{
+    // The last component is a sound speed, so it counts in full.
+    return 1.0;
+}
+
 } // namespace Nektar

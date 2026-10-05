@@ -105,8 +105,6 @@ template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class ElmtOp : public Operator<TData>
 {
 public:
-    ~ElmtOp() override = default;
-
     /**
      * @brief Build a complete element operator: the whole-field
      * interface object plus one block operator per element block.
@@ -329,6 +327,8 @@ protected:
         : Operator<TData>(expansionList, components)
     {
     }
+
+    ~ElmtOp() override = default;
 
     /**
      * @brief Implementation hook for Apply().

@@ -287,8 +287,6 @@ protected:
 template <typename TData> class AssmbScatrZeroDirOp : public AssmbScatrOp<TData>
 {
 public:
-    ~AssmbScatrZeroDirOp() override = default;
-
     /**
      * @brief Create an implementation of this operator through the
      * operator factory.
@@ -335,6 +333,8 @@ protected:
         : AssmbScatrOp<TData>(expansionList, components)
     {
     }
+
+    ~AssmbScatrZeroDirOp() override = default;
 };
 
 } // namespace Nektar::Operators
