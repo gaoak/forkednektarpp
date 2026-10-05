@@ -44,8 +44,6 @@ namespace Nektar::SolverCore
 template <typename TData> class NormLinfOp : public Operators::Operator<TData>
 {
 public:
-    ~NormLinfOp() override = default;
-
     static std::shared_ptr<NormLinfOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -112,6 +110,8 @@ protected:
         : Operators::Operator<TData>(expansionList, components)
     {
     }
+
+    ~NormLinfOp() override = default;
 
     virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) = 0;
 };

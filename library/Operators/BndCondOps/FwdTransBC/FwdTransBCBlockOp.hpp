@@ -43,8 +43,6 @@ namespace Nektar::Operators
 template <typename TData> class FwdTransBCBlockOp : public BlockOperator<TData>
 {
 public:
-    ~FwdTransBCBlockOp() override = default;
-
     static std::shared_ptr<FwdTransBCBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -82,6 +80,8 @@ protected:
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
+
+    ~FwdTransBCBlockOp() override = default;
 
     virtual void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,

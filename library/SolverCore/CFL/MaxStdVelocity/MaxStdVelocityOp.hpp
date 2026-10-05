@@ -75,8 +75,6 @@ template <typename TData>
 class MaxStdVelocityOp : public Operators::Operator<TData>
 {
 public:
-    ~MaxStdVelocityOp() override = default;
-
     static std::shared_ptr<MaxStdVelocityOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -163,6 +161,8 @@ protected:
         : Operators::Operator<TData>(expansionList, components)
     {
     }
+
+    ~MaxStdVelocityOp() override = default;
 
     virtual TData v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) = 0;
 };

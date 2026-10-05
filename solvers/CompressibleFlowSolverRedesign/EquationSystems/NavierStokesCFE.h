@@ -35,6 +35,7 @@
 
 #pragma once
 
+#include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
 #include <SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp>
@@ -90,6 +91,16 @@ protected:
     void v_InitialiseOperators() override;
 
     void InitialiseParameters();
+
+    LibUtilities::Field<double, FieldState::Phys> &v_GetCFLVelocityField()
+        override;
+
+    double v_GetSoundSpeedFactor() override;
+
+    /// Velocity components followed by the speed of sound, filled from the
+    /// conserved variables only when a Courant estimate is asked for.
+    std::shared_ptr<CFLVelocityCFEOp<double>> m_cflVelocityOp;
+    LibUtilities::Field<double, FieldState::Phys> m_cflVelocity;
 };
 
 } // namespace Nektar
