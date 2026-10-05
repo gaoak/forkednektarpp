@@ -118,9 +118,9 @@ public:
     {
         // GetCoords() and Equation::Evaluate() take double arrays, whatever
         // TData is; the values are narrowed when copied into the field.
-        Array<OneD, double> x(this->m_expList->GetTotPoints());
-        Array<OneD, double> y(this->m_expList->GetTotPoints());
-        Array<OneD, double> z(this->m_expList->GetTotPoints());
+        Array<OneD, double> x(this->m_expList->GetTotPoints(), 0.0);
+        Array<OneD, double> y(this->m_expList->GetTotPoints(), 0.0);
+        Array<OneD, double> z(this->m_expList->GetTotPoints(), 0.0);
         Array<OneD, double> fce(this->m_expList->GetTotPoints());
         this->m_expList->GetCoords(x, y, z);
 

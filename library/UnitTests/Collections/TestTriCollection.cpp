@@ -2213,7 +2213,7 @@ BOOST_AUTO_TEST_CASE(TestTriPhysDeriv_MatrixFree_UniformP_Deformed_3D)
     c.Initialise(Collections::ePhysDeriv);
 
     const int nq = Exp->GetTotPoints();
-    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq);
+    Array<OneD, NekDouble> xc(nq, 0.0), yc(nq, 0.0), zc(nq, 0.0);
     Array<OneD, NekDouble> phys(nq), tmp, tmp1;
     Array<OneD, NekDouble> diffRef(3 * nq);
     Array<OneD, NekDouble> diff(3 * nq);
@@ -2751,7 +2751,7 @@ BOOST_AUTO_TEST_CASE(
     Array<OneD, NekDouble> coeffsRef(nelmts * nm);
     Array<OneD, NekDouble> coeffs(nelmts * nm);
 
-    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq), tmp;
+    Array<OneD, NekDouble> xc(nq, 0.0), yc(nq, 0.0), zc(nq, 0.0), tmp;
 
     Exp->GetCoords(xc, yc, zc);
 
@@ -3277,7 +3277,7 @@ BOOST_AUTO_TEST_CASE(
 
     const int nq = Exp->GetTotPoints();
     const int nm = Exp->GetNcoeffs();
-    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq), tmp, tmp1;
+    Array<OneD, NekDouble> xc(nq, 0.0), yc(nq, 0.0), zc(nq, 0.0), tmp, tmp1;
     Array<OneD, NekDouble> phys1(nelmts * nq);
     Array<OneD, NekDouble> phys2(nelmts * nq);
     Array<OneD, NekDouble> phys3(nelmts * nq);

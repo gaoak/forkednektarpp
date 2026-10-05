@@ -218,7 +218,7 @@ void setupContFieldSolve(fs::path &ph,
     // Get coordinates to evaluate functions
     unsigned int npoints = Exp->GetNpoints();
     unsigned int coordim = Exp->GetCoordim(0);
-    Array<OneD, NekDouble> x0(npoints), x1(npoints), x2(npoints);
+    Array<OneD, NekDouble> x0(npoints, 0.0), x1(npoints, 0.0), x2(npoints, 0.0);
     Array<OneD, NekDouble> d00(npoints, 0.0), d00B(npoints, 0.0),
         fcePhys(npoints);
 

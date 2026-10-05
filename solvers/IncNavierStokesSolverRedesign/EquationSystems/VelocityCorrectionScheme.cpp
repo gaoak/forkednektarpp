@@ -762,6 +762,9 @@ void VelocityCorrectionScheme::InitialiseParameters()
     m_session->LoadParameter("Kinvis", m_kinvis, 1.0);
 
     // Get semi-implicit or linear-implicit time-stepping
+    ASSERTL0(m_session->DefinesSolverInfo("FORMULATION"),
+             "SolverInfo FORMULATION must be set to 'semiimplicit' or "
+             "'linearimplicit'.");
     auto formulation = m_session->GetSolverInfo("FORMULATION");
     std::transform(formulation.begin(), formulation.end(), formulation.begin(),
                    [](unsigned char c) { return std::tolower(c); });

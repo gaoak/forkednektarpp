@@ -57,17 +57,13 @@ public:
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_wk(LibUtilities::Field<TData, FieldState::Coeff>(
-              "GMRES wk",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
           m_r0(LibUtilities::Field<TData, FieldState::Coeff>(
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
+        this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
@@ -164,7 +160,6 @@ public:
 
 protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_w;
-    LibUtilities::Field<TData, FieldState::Coeff> m_wk;
     LibUtilities::Field<TData, FieldState::Coeff> m_r0;
     std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_V;
     std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_Z;
@@ -202,6 +197,9 @@ protected:
         unsigned int ii = 0, outerIterations = 0;
         bool converged    = false;
         TData prec_factor = 1.0, eps = 0.0, eps0 = 1.0;
+
+        // Reshape mask if required.
+        this->template ReshapeMask<ExecSpace>(in);
 
         // Calculate rhs magnitude.
         this->m_assmbScatrOp->Apply(in, m_w);
@@ -265,24 +263,20 @@ protected:
                 Math::sub<ExecSpace>(in, m_r0, m_r0);
             }
 
+            // Assemble the residual. The search vectors are assembled and
+            // scattered, with zero Dirichlet coefficients, so that each
+            // global coefficient has one value however many elements share
+            // it.
+            this->m_assmbScatrZeroDirOp->Apply(m_r0);
+
             // Apply preconditioner.
             if (this->m_leftPreconditioner)
             {
-                this->m_assmbScatrZeroDirOp->Apply(m_r0);
                 this->m_precon->Apply(m_r0, m_r0);
             }
 
             // Norm of (r0)
-            if (m_isModifiedGramSchmidt)
-            {
-                this->m_assmbScatrZeroDirOp->Apply(m_r0, m_wk);
-                eps = this->m_math.ddot(m_r0, m_wk);
-            }
-            else
-            {
-                this->m_assmbScatrZeroDirOp->Apply(m_r0);
-                eps = this->m_math.ddot(m_r0, m_r0);
-            }
+            eps = this->m_math.ddot(this->m_mask, m_r0, m_r0);
             this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
             if (this->m_leftPreconditioner && outerIterations == 0)
             {
@@ -338,23 +332,18 @@ protected:
                 // Apply preconditioner.
                 if (this->m_rightPreconditioner)
                 {
-                    this->m_assmbScatrZeroDirOp->Apply(V1, Z1);
-                    this->m_precon->Apply(Z1, Z1);
+                    this->m_precon->Apply(V1, Z1);
                 }
 
                 // -- Begin Arnoldi --
-                // Apply lhs.
+                // Apply lhs and assemble.
                 this->m_lhs->Apply(Z1, m_w);
                 this->m_robBndCondOp->Apply(Z1, m_w);
-                if (!m_isModifiedGramSchmidt)
-                {
-                    this->m_assmbScatrZeroDirOp->Apply(m_w);
-                }
+                this->m_assmbScatrZeroDirOp->Apply(m_w);
 
                 // Apply preconditioner.
                 if (this->m_leftPreconditioner)
                 {
-                    this->m_assmbScatrZeroDirOp->Apply(m_w);
                     this->m_precon->Apply(m_w, m_w);
                     Math::mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w,
                                          m_w);
@@ -365,16 +354,14 @@ protected:
                     // Modified Gram-Schmidt.
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
-                        this->m_assmbScatrZeroDirOp->Apply(m_V[i], m_wk);
-                        h1[i] = this->m_math.ddot(m_w, m_wk);
+                        h1[i] = this->m_math.ddot(this->m_mask, m_w, m_V[i]);
                         this->m_rowComm->AllReduce(h1[i],
                                                    LibUtilities::ReduceSum);
                         Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
                     }
 
                     // Calculate the L2 norm and normalize.
-                    this->m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
-                    h1[endtem] = this->m_math.ddot(m_w, m_wk);
+                    h1[endtem] = this->m_math.ddot(this->m_mask, m_w, m_w);
                     this->m_rowComm->AllReduce(h1[endtem],
                                                LibUtilities::ReduceSum);
                     h1[endtem] = std::sqrt(h1[endtem]);
@@ -388,7 +375,8 @@ protected:
                     // Classical Gram-Schmidt.
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
-                        Math::ddot<ExecSpace>(m_w, m_V[i], exchange + i);
+                        Math::ddot<ExecSpace>(this->m_mask, m_w, m_V[i],
+                                              exchange + i);
                     }
                     this->m_rowComm->template AllReduce<MemSpace>(
                         m_vExchange, LibUtilities::ReduceSum);
@@ -404,7 +392,7 @@ protected:
                     }
 
                     // Calculate the L2 norm and normalize.
-                    h1[endtem] = this->m_math.ddot(m_w, m_w);
+                    h1[endtem] = this->m_math.ddot(this->m_mask, m_w, m_w);
                     this->m_rowComm->AllReduce(h1[endtem],
                                                LibUtilities::ReduceSum);
                     h1[endtem] = std::sqrt(h1[endtem]);
@@ -494,7 +482,6 @@ protected:
             // Apply preconditioner.
             if (!m_flexible && this->m_rightPreconditioner)
             {
-                this->m_assmbScatrZeroDirOp->Apply(m_w);
                 this->m_precon->Apply(m_w, m_w);
             }
 

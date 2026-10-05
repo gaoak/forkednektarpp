@@ -1171,7 +1171,7 @@ BOOST_AUTO_TEST_CASE(TestSegPhysDeriv_MatrixFree_UniformP_MultiElmt_3D)
     c.Initialise(Collections::ePhysDeriv);
 
     const int nq = Exp->GetTotPoints();
-    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq);
+    Array<OneD, NekDouble> xc(nq, 0.0), yc(nq, 0.0), zc(nq, 0.0);
     Array<OneD, NekDouble> phys(nelmts * nq), tmp, tmp1, tmp2;
     Array<OneD, NekDouble> diff1(3 * nelmts * nq);
     Array<OneD, NekDouble> diff2(3 * nelmts * nq);
