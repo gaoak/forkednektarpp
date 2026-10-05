@@ -36,8 +36,16 @@
 #define NEKTAR_SOLVERUTILS_FILTERS_FILTERHISTORYPOINTS_H
 
 #include "LibUtilities/BasicConst/NektarUnivTypeDefs.hpp"
+#include "LibUtilities/BasicUtils/PtsField.h"
 #include "LibUtilities/BasicUtils/SharedArray.hpp"
 #include <SolverUtils/Filters/Filter.h>
+
+namespace Nektar::LibUtilities
+{
+// Forward declaration: only defined when Nektar++ is built with HDF5 support,
+// so that this (installed) header does not depend on the HDF5 configuration.
+class PtsIOHdf5;
+} // namespace Nektar::LibUtilities
 
 namespace Nektar::SolverUtils
 {
@@ -87,6 +95,9 @@ protected:
                                          const int &numFields,
                                          const NekDouble &time);
 
+    void WriteDataHdf5(const Array<OneD, NekDouble> &data, const int numFields,
+                       const NekDouble time);
+
     Array<OneD, Array<OneD, const NekDouble>> m_historyPoints =
         Array<OneD, Array<OneD, const NekDouble>>(0);
     size_t m_historyPointsSize = 0;
@@ -114,6 +125,21 @@ protected:
     unsigned int m_outputIndex = 0;
     bool m_outputOneFile;
     bool m_adaptive;
+
+private:
+    SOLVER_UTILS_EXPORT void InitialiseHdf5(
+        const LibUtilities::CommSharedPtr &pComm, const int numFields,
+        const NekDouble &time);
+
+    /// True if history data is to be written in HDF5 rather than ASCII format.
+    bool m_useHdf5 = false;
+    /// HDF5 writer; only allocated when #m_useHdf5 is true. The member is
+    /// present whether or not Nektar++ was built with HDF5, so that the
+    /// layout of this class does not depend on that; see InitialiseHdf5.
+    std::shared_ptr<LibUtilities::PtsIOHdf5> m_Hdf5Writer = nullptr;
+    /// Holds the point coordinates and field names for the HDF5 writer; the
+    /// field values are overwritten on each output.
+    LibUtilities::PtsFieldSharedPtr m_Hdf5PtsField = nullptr;
 };
 
 } // namespace Nektar::SolverUtils

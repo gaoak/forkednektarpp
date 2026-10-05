@@ -242,6 +242,9 @@ public:
     OpenDataSet(const std::string &name,
                 PListSharedPtr accessPL = PList::Default()) const;
 
+    /// Returns true if this object contains a link called @p nm. Note that
+    /// only the existence of the link is tested, so this is also true of a
+    /// group or any other named object.
     LIB_UTILITIES_EXPORT bool ContainsDataSet(std::string nm);
 
     hsize_t GetNumElements()
@@ -483,6 +486,9 @@ public:
         PListSharedPtr accessPL = PList::Default());
     LIB_UTILITIES_EXPORT ~File() override;
 
+    /// Flush all buffered data for this file to disk.
+    LIB_UTILITIES_EXPORT void Flush();
+
 protected:
     LIB_UTILITIES_EXPORT void v_Close() override;
     LIB_UTILITIES_EXPORT hsize_t v_GetNumElements() override;
@@ -515,6 +521,11 @@ class DataSet : public CanHaveAttributes
 public:
     LIB_UTILITIES_EXPORT ~DataSet() override;
     LIB_UTILITIES_EXPORT DataSpaceSharedPtr GetSpace() const;
+
+    /// Change the dimensions of a chunked dataset. Dimensions may grow up to
+    /// the maximum given when the dataset was created, and may also shrink, in
+    /// which case the data beyond the new extent is lost.
+    LIB_UTILITIES_EXPORT void SetExtent(const std::vector<hsize_t> &dims);
 
     template <class T> void Write(const std::vector<T> &data)
     {

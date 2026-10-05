@@ -35,6 +35,7 @@ v5.11.0
 - Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
+- Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
