@@ -119,9 +119,9 @@ public:
         Array<OneD, TData> fce(nVariables * nphys);
 
         // Get coordinate data for function evaluation
-        Array<OneD, TData> x(nphys);
-        Array<OneD, TData> y(nphys);
-        Array<OneD, TData> z(nphys);
+        Array<OneD, TData> x(nphys, 0.0);
+        Array<OneD, TData> y(nphys, 0.0);
+        Array<OneD, TData> z(nphys, 0.0);
         this->fixt_explist->GetCoords(x, y, z);
 
         // Copy this->fixt_in into NektarArray

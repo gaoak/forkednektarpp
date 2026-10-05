@@ -79,11 +79,6 @@ public:
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_mask(LibUtilities::Field<std::uint8_t, FieldState::Coeff>(
-              "ConjGrad mask",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(4, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
@@ -107,27 +102,7 @@ public:
                  "ConjGradOpImpl: Only left preconditioner is supported");
 
         // Fill mask.
-        auto maskptr =
-            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-                MultiRegions::LocalToGlobalMaskKey<TData>(this->m_components));
-        unsigned cnt = 0;
-        for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
-        {
-            auto &block = m_mask.GetBlocks()[blk];
-            auto ptr =
-                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-
-            // The scalar local-to-global mask is identical for each component.
-            for (unsigned n = 0;
-                 n < block.GetNumComponents() * m_mask.GetNumHomoModes(); ++n)
-            {
-                for (unsigned i = 0; i < block.CompSize(); ++i)
-                {
-                    ptr[n * block.CompSize() + i] = maskptr[cnt + i];
-                }
-            }
-            cnt += block.CompSize();
-        }
+        this->template SetMask<ExecSpace>();
     }
 
     // className - for OperatorFactory
@@ -148,7 +123,6 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_r;
     LibUtilities::Field<TData, FieldState::Coeff> m_q;
     LibUtilities::Field<TData, FieldState::Coeff> m_p;
-    LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
     LibUtilities::MemoryRegion<TData> m_vExchange;
 
     bool m_flexible;
@@ -157,27 +131,7 @@ protected:
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Reshape mask if required.
-        for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            const unsigned int streamID = blk + 1;
-
-            auto &inblk   = in.GetBlocks()[blk];
-            auto &maskblk = m_mask.GetBlocks()[blk];
-
-            if (inblk.GetInterleaveWidth() != maskblk.GetInterleaveWidth())
-            {
-                auto maskPtr =
-                    maskblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-                auto numComp = maskblk.GetNumComponents();
-
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    inblk.GetInterleaveWidth(), maskblk.GetInterleaveWidth(),
-                    maskblk.GetNumElementsWithPadding() * numComp,
-                    maskblk.GetNumData(), maskPtr, streamID);
-                maskblk.template SetInterleaveWidth<TData>(
-                    inblk.GetInterleaveWidth());
-            }
-        }
+        this->template ReshapeMask<ExecSpace>(in);
 
         // Convergence parameters.
         this->m_niter = 0;
@@ -275,12 +229,12 @@ protected:
                                                          m_p, m_q, m_r, out);
 
                 // <r_{k+1}, r_{k+1}>
-                Math::ddot<ExecSpace>(m_mask, m_r, m_r, exchange + 0);
+                Math::ddot<ExecSpace>(this->m_mask, m_r, m_r, exchange + 0);
 
                 if (m_flexible)
                 {
                     // <r_{k+1}, w_{k}>
-                    Math::ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 3);
+                    Math::ddot<ExecSpace>(this->m_mask, m_r, m_w, exchange + 3);
                 }
 
                 // Apply preconditioner - output is assumeed holding global dof
@@ -295,7 +249,7 @@ protected:
             }
 
             // <r_{k+1}, w_{k+1}>
-            Math::ddot<ExecSpace>(m_mask, m_r, m_w, exchange + 1);
+            Math::ddot<ExecSpace>(this->m_mask, m_r, m_w, exchange + 1);
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_w, m_s);

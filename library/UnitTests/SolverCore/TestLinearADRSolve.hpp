@@ -81,9 +81,9 @@ public:
         const size_t nphys = this->m_expList->GetTotPoints();
         m_coordDim         = this->m_expList->GetCoordim(0);
 
-        Array<OneD, TData> x(nphys);
-        Array<OneD, TData> y(nphys);
-        Array<OneD, TData> z(nphys);
+        Array<OneD, TData> x(nphys, 0.0);
+        Array<OneD, TData> y(nphys, 0.0);
+        Array<OneD, TData> z(nphys, 0.0);
         Array<OneD, TData> fce(numComp * nphys, 0.0);
         this->m_expList->GetCoords(x, y, z);
         this->m_in.template Initialize<NektarSpaces::HostSpace>(0.0);
@@ -226,7 +226,7 @@ public:
         auto op = LinearADRSolveOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables());
         auto precon = PreconOp<TData>::Create(
-            this->m_expList, this->m_session->GetVariables(), "Diagonal");
+            this->m_expList, this->m_session->GetVariables(), m_preconName);
         auto linsolve = LinearSolverOp<TData>::Create(
             this->m_expList, this->m_session->GetVariables(), method);
         op->SetLambda(m_lambda);
@@ -395,6 +395,8 @@ protected:
         }
     }
 
+    // Name of the preconditioner RunTestCase() creates.
+    std::string m_preconName = "Diagonal";
     unsigned int m_coordDim;
     TData m_lambda;
     std::vector<TData> m_diffCoeff;

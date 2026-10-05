@@ -151,22 +151,24 @@
         }                                                                      \
     }
 
+// The GMRES options are set after SetTestCase(), whose mesh read
+// re-initialises the session and so clears any parameter set before it.
 #define TEST_HELMSOLVE_GMRES(test_name, test, tol)                             \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        SetTestCase();                                                         \
         int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int GMRESDeltaDirection = 3;                                           \
-        int LinSysMaxStorage    = 10;                                          \
+        int LinSysMaxStorage    = 20;                                          \
         this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
         this->m_session->SetParameter("LinSysRightPrecon", LinSysRightPrecon); \
         this->m_session->SetParameter("GMRESDeltaDirection",                   \
                                       GMRESDeltaDirection);                    \
         this->m_session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);   \
-        SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -180,16 +182,16 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        SetTestCase();                                                         \
         int LinSysLeftPrecon    = 1;                                           \
         int LinSysRightPrecon   = 0;                                           \
         int GMRESDeltaDirection = 3;                                           \
-        int LinSysMaxStorage    = 10;                                          \
+        int LinSysMaxStorage    = 20;                                          \
         this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
         this->m_session->SetParameter("LinSysRightPrecon", LinSysRightPrecon); \
         this->m_session->SetParameter("GMRESDeltaDirection",                   \
                                       GMRESDeltaDirection);                    \
         this->m_session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);   \
-        SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -203,6 +205,7 @@
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
+        SetTestCase();                                                         \
         int LinSysLeftPrecon    = 0;                                           \
         int LinSysRightPrecon   = 1;                                           \
         int FlexibleGMRES       = 1;                                           \
@@ -214,7 +217,6 @@
         this->m_session->SetParameter("GMRESDeltaDirection",                   \
                                       GMRESDeltaDirection);                    \
         this->m_session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);   \
-        SetTestCase();                                                         \
         RunTestCase("GMRES");                                                  \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \

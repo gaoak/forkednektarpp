@@ -155,6 +155,8 @@ protected:
     std::shared_ptr<Operators::RobBndCondOp<TData>> m_robBndCondOp;
     std::unique_ptr<Operators::AssmbScatrOp<TData>> m_assmbScatrOp;
     std::unique_ptr<Operators::AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
+    // Selects one local copy of each global coefficient: see SetMask().
+    LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
     Math::MathHelper m_math;
     bool m_root;
 
@@ -281,6 +283,76 @@ protected:
 
         // Set math helper function.
         this->m_math = Math::MathHelper(ExecSpace::name);
+    }
+
+    /**
+     * @brief Fill the mask of the global inner product.
+     *
+     * The mask is one on the first local copy of each global coefficient,
+     * unique across ranks, and zero elsewhere. Summed over the coefficients
+     * it selects, the product of two assembled and scattered vectors is the
+     * inner product of the global vectors.
+     */
+    template <typename ExecSpace> void SetMask(void)
+    {
+        this->m_mask = LibUtilities::Field<std::uint8_t, FieldState::Coeff>(
+            "LinearSolver mask",
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                this->m_expansionList),
+            this->m_components, 1);
+
+        auto maskptr =
+            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+                MultiRegions::LocalToGlobalMaskKey<TData>(this->m_components));
+        unsigned cnt = 0;
+        for (unsigned blk = 0; blk < m_mask.GetBlocks().size(); ++blk)
+        {
+            auto &block = m_mask.GetBlocks()[blk];
+            auto ptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+            // The scalar local-to-global mask is identical for each component.
+            for (unsigned n = 0;
+                 n < block.GetNumComponents() * m_mask.GetNumHomoModes(); ++n)
+            {
+                for (unsigned i = 0; i < block.CompSize(); ++i)
+                {
+                    ptr[n * block.CompSize() + i] = maskptr[cnt + i];
+                }
+            }
+            cnt += block.CompSize();
+        }
+    }
+
+    /**
+     * @brief Reshape the mask to the interleave width of @p field.
+     */
+    template <typename ExecSpace>
+    void ReshapeMask(LibUtilities::Field<TData, FieldState::Coeff> &field)
+    {
+        using MemSpace = typename ExecSpace::memory_space;
+
+        for (unsigned blk = 0; blk < field.GetBlocks().size(); ++blk)
+        {
+            const unsigned int streamID = blk + 1;
+
+            auto &fieldblk = field.GetBlocks()[blk];
+            auto &maskblk  = m_mask.GetBlocks()[blk];
+
+            if (fieldblk.GetInterleaveWidth() != maskblk.GetInterleaveWidth())
+            {
+                auto maskPtr =
+                    maskblk.template GetPtr<MemSpace, ReadWrite>(streamID);
+                auto numComp = maskblk.GetNumComponents();
+
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    fieldblk.GetInterleaveWidth(), maskblk.GetInterleaveWidth(),
+                    maskblk.GetNumElementsWithPadding() * numComp,
+                    maskblk.GetNumData(), maskPtr, streamID);
+                maskblk.template SetInterleaveWidth<TData>(
+                    fieldblk.GetInterleaveWidth());
+            }
+        }
     }
 
     /**

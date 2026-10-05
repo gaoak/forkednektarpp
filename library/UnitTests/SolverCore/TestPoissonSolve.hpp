@@ -57,9 +57,9 @@ public:
         const size_t nphys = this->m_expList->GetTotPoints();
         m_coordDim         = this->m_expList->GetCoordim(0);
 
-        Array<OneD, TData> x(nphys);
-        Array<OneD, TData> y(nphys);
-        Array<OneD, TData> z(nphys);
+        Array<OneD, TData> x(nphys, 0.0);
+        Array<OneD, TData> y(nphys, 0.0);
+        Array<OneD, TData> z(nphys, 0.0);
         Array<OneD, TData> fce(numComp * nphys, 0.0);
         this->m_expList->GetCoords(x, y, z);
 
