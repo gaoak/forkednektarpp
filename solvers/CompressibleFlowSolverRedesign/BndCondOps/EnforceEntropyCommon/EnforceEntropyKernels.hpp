@@ -89,7 +89,11 @@ NEK_HOSTDEVICE_INLINE EntropyStarState<TData> EntropyVelocityStar(
     const TData VnInf, const TData gamma, const TData gamM1,
     [[maybe_unused]] const TData twoOverGamM1)
 {
+#if defined(__SYCL_DEVICE_ONLY__)
+    using sycl::pow;
+#else
     using std::pow;
+#endif
 
     const TData s = pBC / pow(rhoBC, gamma);
     const TData c = cInt;
@@ -151,8 +155,13 @@ NEK_HOSTDEVICE_INLINE EntropyStarState<TData> EntropyTotalEnthalpyStar(
     const TData VnInf, const TData gamma, [[maybe_unused]] const TData gamM1,
     const TData twoOverGamM1)
 {
+#if defined(__SYCL_DEVICE_ONLY__)
+    using sycl::pow;
+    using sycl::sqrt;
+#else
     using std::pow;
     using std::sqrt;
+#endif
 
     const TData rR   = EntropyRiemannInvariant(vn, cInt, twoOverGamM1);
     const TData vnBC = -VnInf;
@@ -191,8 +200,13 @@ NEK_HOSTDEVICE_INLINE EntropyStarState<TData> EntropyPressureOutflowStar(
     [[maybe_unused]] const TData rhoBC, const TData pBC, const TData gamma,
     const TData twoOverGamM1)
 {
+#if defined(__SYCL_DEVICE_ONLY__)
+    using sycl::pow;
+    using sycl::sqrt;
+#else
     using std::pow;
     using std::sqrt;
+#endif
 
     const TData rR = EntropyRiemannInvariant(vn, cInt, twoOverGamM1);
 

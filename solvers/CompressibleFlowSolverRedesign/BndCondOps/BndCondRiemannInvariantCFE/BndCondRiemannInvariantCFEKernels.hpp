@@ -99,8 +99,13 @@ NEK_FORCE_INLINE static void ApplyRiemannInvariantBlock(
 
     Nektar::parallel_for<ExecSpace>(
         0u, stride, NEKTAR_LAMBDA(const size_t i) {
-            using std::pow;
-            using std::sqrt;
+#if defined(__SYCL_DEVICE_ONLY__)
+            using sycl::pow;
+            using sycl::sqrt;
+#else
+    using std::pow;
+    using std::sqrt;
+#endif
 
             // The storage holds the interior state.
             const TData rhoInt = bndPtr[i];

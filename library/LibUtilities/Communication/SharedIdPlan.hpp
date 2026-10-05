@@ -121,7 +121,7 @@ template <typename T>
 inline T LoadAt(const std::vector<std::byte> &buf, size_t i)
 {
     T v;
-    std::memcpy(&v, buf.data() + i * sizeof(T), sizeof(T));
+    std::memcpy(static_cast<void *>(&v), buf.data() + i * sizeof(T), sizeof(T));
     return v;
 }
 
