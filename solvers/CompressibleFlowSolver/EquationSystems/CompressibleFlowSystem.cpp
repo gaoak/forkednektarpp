@@ -184,8 +184,10 @@ void CompressibleFlowSystem::InitAdvection()
                                    this);
     }
 
-    // Setting up Riemann solver for advection operator
-    m_session->LoadSolverInfo("UpwindType", riemName, "Average");
+    // Setting up Riemann solver for advection operator. The default is an
+    // upwinded flux: "Average" is a central flux carrying no dissipation, and
+    // is a poor choice for anything but a smooth problem.
+    m_session->LoadSolverInfo("UpwindType", riemName, "Roe");
 
     SolverUtils::RiemannSolverSharedPtr riemannSolver;
     riemannSolver = SolverUtils::GetRiemannSolverFactory().CreateInstance(

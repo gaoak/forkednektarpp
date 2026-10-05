@@ -261,14 +261,9 @@ DataSetSharedPtr CanHaveGroupsDataSets::OpenDataSet(
 
 bool CanHaveGroupsDataSets::ContainsDataSet(std::string nm)
 {
-    for (auto it = begin(); it != end(); ++it)
-    {
-        if (it.GetName() == nm)
-        {
-            return true;
-        }
-    }
-    return false;
+    htri_t ret = H5Lexists(m_Id, nm.c_str(), H5P_DEFAULT);
+    ASSERTL0(ret >= 0, "HDF5 error in API function H5Lexists");
+    return ret > 0;
 }
 
 CanHaveGroupsDataSets::LinkIterator CanHaveGroupsDataSets::begin()
@@ -660,6 +655,11 @@ File::~File()
     }
 }
 
+void File::Flush()
+{
+    H5_CALL(H5Fflush, (m_Id, H5F_SCOPE_GLOBAL));
+}
+
 void File::v_Close()
 {
     H5_CALL(H5Fclose, (m_Id));
@@ -725,5 +725,10 @@ void DataSet::v_Close()
 DataSpaceSharedPtr DataSet::GetSpace() const
 {
     return DataSpaceSharedPtr(new DataSpace(H5Dget_space(m_Id)));
+}
+
+void DataSet::SetExtent(const std::vector<hsize_t> &dims)
+{
+    H5_CALL(H5Dset_extent, (m_Id, &dims[0]));
 }
 } // namespace Nektar::LibUtilities::H5

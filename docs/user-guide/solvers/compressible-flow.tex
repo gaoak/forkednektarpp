@@ -342,12 +342,14 @@ Under this section it is possible to set the solver information.
       \item \inltt{AUSM1}.
       \item \inltt{AUSM2}.
       \item \inltt{AUSM3}.
-      \item \inltt{Average}.
+      \item \inltt{Average} (a central flux, carrying no dissipation; suitable
+        only for smooth problems).
       \item \inltt{ExactToro}.
       \item \inltt{HLL}.
       \item \inltt{HLLC}.
       \item \inltt{LaxFriedrichs}.
-      \item \inltt{Roe}.
+      \item \inltt{Roe} (default option). \inltt{RoeOpt} is accepted as an
+        alias.
     \end{itemize}
   \item \inltt{ViscosityType} is the viscosity type we want to use:
     \begin{itemize}

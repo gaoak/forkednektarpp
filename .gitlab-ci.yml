@@ -1080,21 +1080,29 @@ ubuntu-noble-full-acpp-cuda-cluster-warnings:
     - docker tag $IMAGE $IMAGE:latest
     - docker push $IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $IMAGE:latest
+    - docker rmi $IMAGE:$CI_COMMIT_SHORT_SHA $IMAGE:latest
 
-# Docker Hub test template, which runs an image from the gitlab container
-# registry on a particular SHA commit.
+# Docker Hub test template, which runs a test script inside an image from the
+# gitlab container registry on a particular SHA commit. The image is run through
+# docker, rather than as the job image, so that the temporary SHA-tagged image
+# can be removed from the runner afterwards (a job cannot remove its own image).
+# The test script and the files it needs (test_paths, relative to the project
+# root) are copied into /tmp of the container.
 .dockerhub-test-template: &dockerhub_test_template
   <<: *execution-conditions
-  image: ${CI_REGISTRY_IMAGE}/${image_name}:$CI_COMMIT_SHORT_SHA
+  image: docker:stable
   stage: package-test
   script:
-    - mpirun -n 3 IncNavierStokesSolver $CI_PROJECT_DIR/solvers/IncNavierStokesSolver/Tests/ChanFlow_m3_par.xml
-    - test_output=`IncNavierStokesSolver $CI_PROJECT_DIR/solvers/IncNavierStokesSolver/Tests/ChanFlow_m3_par.xml | grep "L 2 error (variable u)" | awk '{print ($7 < 1e-7)}'`
-    - if [ "$test_output" -eq 0 ]; then echo "Tolerance test failed on parallel IncNavierStokesSolver run"; exit 1; fi
-    - cd $CI_PROJECT_DIR/library/Demos/Python/MultiRegions
-    - mpirun -n 2 python3 Helmholtz2D.py ../../MultiRegions/Tests/Helmholtz2D_P7.xml
-    - test_output=`mpirun -n 2 python3 Helmholtz2D.py ../../MultiRegions/Tests/Helmholtz2D_P7.xml | grep "L 2 error (variable nek)" | awk '{print ($7 < 1e-4)}'`
-    - if [ "$test_output" -eq 0 ]; then echo "Tolerance test failed on parallel Python run"; exit 1; fi
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - IMAGE=$CI_REGISTRY_IMAGE/${image_name}:$CI_COMMIT_SHORT_SHA
+    - CONTAINER=dockerhub-test-$CI_JOB_ID
+    - docker pull $IMAGE
+    - docker create --name $CONTAINER $IMAGE bash /tmp/${test_script}
+    - tar -c -C $CI_PROJECT_DIR ${test_script} ${test_paths} | docker cp - $CONTAINER:/tmp
+    - docker start -a $CONTAINER
+  after_script:
+    - docker rm -f dockerhub-test-$CI_JOB_ID || true
+    - docker rmi $CI_REGISTRY_IMAGE/${image_name}:$CI_COMMIT_SHORT_SHA || true
 
 # Docker Hub deployment template. Only builds for master or tags on the main
 # Nektar repository. The strategy is to login to the container registry and pull
@@ -1218,31 +1226,33 @@ dockerhub-test-nektar:
   needs: [ "dockerhub-build-nektar" ]
   variables:
     image_name: nektar
+    test_script: .gitlab-ci/docker-test-nektar.sh
+    test_paths: solvers/IncNavierStokesSolver/Tests library/Demos/Python/MultiRegions library/Demos/MultiRegions/Tests
 
 dockerhub-test-nektar-dev:
   <<: *dockerhub_test_template
   needs: [ "dockerhub-build-dev" ]
   variables:
     image_name: nektar-dev
-  script:
-    - cd $CI_PROJECT_DIR/templates/executable
-    - ./test.sh /usr/local/lib64/nektar++/cmake 3 /usr/bin/cmake
+    test_script: .gitlab-ci/docker-test-nektar-dev.sh
+    test_paths: templates/executable
 
 # For NekMesh, test that a simple conversion works
 dockerhub-test-nekmesh:
-  <<: *execution-conditions
+  <<: *dockerhub_test_template
   needs: [ "dockerhub-build-nekmesh" ]
-  image: ${CI_REGISTRY_IMAGE}/nekmesh:$CI_COMMIT_SHORT_SHA
-  stage: package-test
-  script:
-    - cd $CI_PROJECT_DIR/utilities/NekMesh/Tests/MeshGen/STEP
-    - NekMesh -v -m jac:list 3d_bl_cyl.mcf 3d_bl_cyl-out.xml
+  variables:
+    image_name: nekmesh
+    test_script: .gitlab-ci/docker-test-nekmesh.sh
+    test_paths: utilities/NekMesh/Tests/MeshGen/STEP
 
 dockerhub-test-workbook:
   <<: *dockerhub_test_template
   needs: [ "dockerhub-build-workbook" ]
   variables:
     image_name: nektar-workbook
+    test_script: .gitlab-ci/docker-test-nektar.sh
+    test_paths: solvers/IncNavierStokesSolver/Tests library/Demos/Python/MultiRegions library/Demos/MultiRegions/Tests
 
 # Deployment
 dockerhub-deploy-nektar:

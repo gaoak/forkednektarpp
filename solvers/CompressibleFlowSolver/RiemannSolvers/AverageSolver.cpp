@@ -45,29 +45,20 @@ AverageSolver::AverageSolver(
     const LibUtilities::SessionReaderSharedPtr &pSession)
     : CompressibleSolver(pSession)
 {
-    m_pointSolve = false;
 }
 
 /**
  * @brief Average Riemann solver.
  *
- * @param rhoL      Density left state.
- * @param rhoR      Density right state.
- * @param rhouL     x-momentum component left state.
- * @param rhouR     x-momentum component right state.
- * @param rhovL     y-momentum component left state.
- * @param rhovR     y-momentum component right state.
- * @param rhowL     z-momentum component left state.
- * @param rhowR     z-momentum component right state.
- * @param EL        Energy left state.
- * @param ER        Energy right state.
- * @param rhof      Computed Riemann flux for density.
- * @param rhouf     Computed Riemann flux for x-momentum component
- * @param rhovf     Computed Riemann flux for y-momentum component
- * @param rhowf     Computed Riemann flux for z-momentum component
- * @param Ef        Computed Riemann flux for energy.
+ * Written directly in Cartesian components against the trace normal; see
+ * CompressibleSolver::v_PointSolve for why no rotation is needed.
+ *
+ * @param Fwd   Forwards trace space.
+ * @param Bwd   Backwards trace space.
+ * @param flux  Resultant flux along trace space.
  */
-void AverageSolver::v_ArraySolve(
+void AverageSolver::v_Solve(
+    [[maybe_unused]] const int nDim,
     const Array<OneD, const Array<OneD, NekDouble>> &Fwd,
     const Array<OneD, const Array<OneD, NekDouble>> &Bwd,
     Array<OneD, Array<OneD, NekDouble>> &flux)
@@ -75,11 +66,16 @@ void AverageSolver::v_ArraySolve(
     size_t expDim = Fwd.size() - 2;
     size_t i, j;
 
+    ASSERTL1(CheckVectors("N"), "N not defined.");
+    const Array<OneD, const Array<OneD, NekDouble>> normals = m_vectors["N"]();
+
+    Array<OneD, NekDouble> Ufwd(expDim);
+    Array<OneD, NekDouble> Ubwd(expDim);
+
     for (j = 0; j < Fwd[0].size(); ++j)
     {
         NekDouble tmp1 = 0.0, tmp2 = 0.0;
-        Array<OneD, NekDouble> Ufwd(expDim);
-        Array<OneD, NekDouble> Ubwd(expDim);
+        NekDouble unFwd = 0.0, unBwd = 0.0;
 
         for (i = 0; i < expDim; ++i)
         {
@@ -87,6 +83,8 @@ void AverageSolver::v_ArraySolve(
             Ubwd[i] = Bwd[i + 1][j] / Bwd[0][j];
             tmp1 += Ufwd[i] * Fwd[i + 1][j];
             tmp2 += Ubwd[i] * Bwd[i + 1][j];
+            unFwd += Ufwd[i] * normals[i][j];
+            unBwd += Ubwd[i] * normals[i][j];
         }
 
         // Internal energy
@@ -96,19 +94,21 @@ void AverageSolver::v_ArraySolve(
         NekDouble Pfwd = m_eos->GetPressure(Fwd[0][j], eFwd);
         NekDouble Pbwd = m_eos->GetPressure(Bwd[0][j], eBwd);
 
-        // Compute the average flux
-        flux[0][j]          = 0.5 * (Fwd[1][j] + Bwd[1][j]);
-        flux[expDim + 1][j] = 0.5 * (Ufwd[0] * (Fwd[expDim + 1][j] + Pfwd) +
-                                     Ubwd[0] * (Bwd[expDim + 1][j] + Pbwd));
+        // Mass flux through the interface from each side
+        NekDouble mnFwd = Fwd[0][j] * unFwd;
+        NekDouble mnBwd = Bwd[0][j] * unBwd;
 
+        // Compute the average flux
+        flux[0][j]          = 0.5 * (mnFwd + mnBwd);
+        flux[expDim + 1][j] = 0.5 * (unFwd * (Fwd[expDim + 1][j] + Pfwd) +
+                                     unBwd * (Bwd[expDim + 1][j] + Pbwd));
+
+        // Momentum flux, including the pressure contribution along the normal
         for (i = 0; i < expDim; ++i)
         {
-            flux[i + 1][j] = 0.5 * (Fwd[0][j] * Ufwd[0] * Ufwd[i] +
-                                    Bwd[0][j] * Ubwd[0] * Ubwd[i]);
+            flux[i + 1][j] = 0.5 * (mnFwd * Ufwd[i] + mnBwd * Ubwd[i] +
+                                    (Pfwd + Pbwd) * normals[i][j]);
         }
-
-        // Add in pressure contribution to u field
-        flux[1][j] += 0.5 * (Pfwd + Pbwd);
     }
 }
 

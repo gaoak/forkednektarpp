@@ -49,46 +49,45 @@ HLLSolver::HLLSolver(const LibUtilities::SessionReaderSharedPtr &pSession)
 /**
  * @brief HLL Riemann solver
  *
+ * Written directly in Cartesian components against the trace normal; see
+ * CompressibleSolver::v_PointSolve for why no rotation is needed.
+ *
  * @param rhoL      Density left state.
- * @param rhoR      Density right state.
- * @param rhouL     x-momentum component left state.
- * @param rhouR     x-momentum component right state.
- * @param rhovL     y-momentum component left state.
- * @param rhovR     y-momentum component right state.
- * @param rhowL     z-momentum component left state.
- * @param rhowR     z-momentum component right state.
+ * @param momL      Momentum vector (3 components) left state.
  * @param EL        Energy left state.
+ * @param rhoR      Density right state.
+ * @param momR      Momentum vector (3 components) right state.
  * @param ER        Energy right state.
+ * @param normal    Unit trace normal (3 components).
  * @param rhof      Computed Riemann flux for density.
- * @param rhouf     Computed Riemann flux for x-momentum component
- * @param rhovf     Computed Riemann flux for y-momentum component
- * @param rhowf     Computed Riemann flux for z-momentum component
+ * @param momf      Computed Riemann flux for momentum (3 components).
  * @param Ef        Computed Riemann flux for energy.
  */
-void HLLSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
-                             double rhowL, double EL, double rhoR, double rhouR,
-                             double rhovR, double rhowR, double ER,
-                             double &rhof, double &rhouf, double &rhovf,
-                             double &rhowf, double &Ef)
+void HLLSolver::v_PointSolve(NekDouble rhoL, const NekDouble *momL,
+                             NekDouble EL, NekDouble rhoR,
+                             const NekDouble *momR, NekDouble ER,
+                             const NekDouble *normal, NekDouble &rhof,
+                             NekDouble *momf, NekDouble &Ef)
 {
-    // Left and Right velocities
-    NekDouble uL = rhouL / rhoL;
-    NekDouble vL = rhovL / rhoL;
-    NekDouble wL = rhowL / rhoL;
-    NekDouble uR = rhouR / rhoR;
-    NekDouble vR = rhovR / rhoR;
-    NekDouble wR = rhowR / rhoR;
+    // Left and right velocities and normal velocities
+    NekDouble uL[3], uR[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uL[d] = momL[d] / rhoL;
+        uR[d] = momR[d] / rhoR;
+    }
+    NekDouble unL = RiemannDot(uL, normal);
+    NekDouble unR = RiemannDot(uR, normal);
 
     // Internal energy (per unit mass)
-    NekDouble eL = (EL - 0.5 * (rhouL * uL + rhovL * vL + rhowL * wL)) / rhoL;
-    NekDouble eR = (ER - 0.5 * (rhouR * uR + rhovR * vR + rhowR * wR)) / rhoR;
+    NekDouble eL = (EL - 0.5 * RiemannDot(momL, uL)) / rhoL;
+    NekDouble eR = (ER - 0.5 * RiemannDot(momR, uR)) / rhoR;
     // Pressure
     NekDouble pL = m_eos->GetPressure(rhoL, eL);
     NekDouble pR = m_eos->GetPressure(rhoR, eR);
     // Speed of sound
     NekDouble cL = m_eos->GetSoundSpeed(rhoL, eL);
     NekDouble cR = m_eos->GetSoundSpeed(rhoR, eR);
-
     // Left and right total enthalpy
     NekDouble HL = (EL + pL) / rhoL;
     NekDouble HR = (ER + pR) / rhoR;
@@ -99,50 +98,59 @@ void HLLSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
     NekDouble srLR = srL + srR;
 
     // Roe average state
-    NekDouble uRoe  = (srL * uL + srR * uR) / srLR;
-    NekDouble vRoe  = (srL * vL + srR * vR) / srLR;
-    NekDouble wRoe  = (srL * wL + srR * wR) / srLR;
-    NekDouble URoe2 = uRoe * uRoe + vRoe * vRoe + wRoe * wRoe;
+    NekDouble uRoe[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
+    }
+    NekDouble unRoe = RiemannDot(uRoe, normal);
+    NekDouble URoe2 = RiemannDot(uRoe, uRoe);
     NekDouble HRoe  = (srL * HL + srR * HR) / srLR;
     NekDouble cRoe  = GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
                                        srR, HRoe, URoe2, srLR);
 
+    // Mass flux through the interface from each side
+    NekDouble mnL = rhoL * unL;
+    NekDouble mnR = rhoR * unR;
+
     // Maximum wave speeds
-    NekDouble SL = std::min(uL - cL, uRoe - cRoe);
-    NekDouble SR = std::max(uR + cR, uRoe + cRoe);
+    NekDouble SL = std::min(unL - cL, unRoe - cRoe);
+    NekDouble SR = std::max(unR + cR, unRoe + cRoe);
 
     // HLL Riemann fluxes (positive case)
     if (SL >= 0)
     {
-        rhof  = rhouL;
-        rhouf = rhouL * uL + pL;
-        rhovf = rhouL * vL;
-        rhowf = rhouL * wL;
-        Ef    = uL * (EL + pL);
+        rhof = mnL;
+        for (size_t d = 0; d < 3; ++d)
+        {
+            momf[d] = mnL * uL[d] + pL * normal[d];
+        }
+        Ef = unL * (EL + pL);
     }
     // HLL Riemann fluxes (negative case)
     else if (SR <= 0)
     {
-        rhof  = rhouR;
-        rhouf = rhouR * uR + pR;
-        rhovf = rhouR * vR;
-        rhowf = rhouR * wR;
-        Ef    = uR * (ER + pR);
+        rhof = mnR;
+        for (size_t d = 0; d < 3; ++d)
+        {
+            momf[d] = mnR * uR[d] + pR * normal[d];
+        }
+        Ef = unR * (ER + pR);
     }
     // HLL Riemann fluxes (general case (SL < 0 | SR > 0)
     else
     {
         NekDouble tmp1 = 1.0 / (SR - SL);
         NekDouble tmp2 = SR * SL;
-        rhof  = (SR * rhouL - SL * rhouR + tmp2 * (rhoR - rhoL)) * tmp1;
-        rhouf = (SR * (rhouL * uL + pL) - SL * (rhouR * uR + pR) +
-                 tmp2 * (rhouR - rhouL)) *
+        rhof           = (SR * mnL - SL * mnR + tmp2 * (rhoR - rhoL)) * tmp1;
+        for (size_t d = 0; d < 3; ++d)
+        {
+            momf[d] =
+                (SR * mnL * uL[d] - SL * mnR * uR[d] +
+                 tmp2 * (momR[d] - momL[d]) + (SR * pL - SL * pR) * normal[d]) *
                 tmp1;
-        rhovf =
-            (SR * rhouL * vL - SL * rhouR * vR + tmp2 * (rhovR - rhovL)) * tmp1;
-        rhowf =
-            (SR * rhouL * wL - SL * rhouR * wR + tmp2 * (rhowR - rhowL)) * tmp1;
-        Ef = (SR * uL * (EL + pL) - SL * uR * (ER + pR) + tmp2 * (ER - EL)) *
+        }
+        Ef = (SR * unL * (EL + pL) - SL * unR * (ER + pR) + tmp2 * (ER - EL)) *
              tmp1;
     }
 }

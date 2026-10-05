@@ -646,6 +646,43 @@ or
   </FILTER>
 \end{lstlisting}
 
+\subsubsection{HDF5 output}
+
+By default the history is written as text, in a file with the extension
+\inltt{.his}. Giving \inltt{OutputFile} an extension of \inltt{.h5} or
+\inltt{.hdf5} instead writes it as HDF5, which requires Nektar++ to have been
+built with \inltt{NEKTAR\_USE\_HDF5} enabled:
+
+\begin{lstlisting}[style=XMLStyle,gobble=2]
+  <FILTER TYPE="HistoryPoints">
+      <PARAM NAME="OutputFile">TimeValues.h5</PARAM>
+      <PARAM NAME="OutputFrequency">10</PARAM>
+      <PARAM NAME="line">3,1,0.5,0,3,0.5,0</PARAM>
+  </FILTER>
+\end{lstlisting}
+
+The file holds the point coordinates, written once, and one dataset per field:
+
+\begin{lstlisting}[gobble=2]
+  NEKTAR/
+    COORDINATES/
+      x, y, z     - one value per history point
+    TIME-DATA/
+      <field>     - ntimes x (npoints + 1); column 0 is the time and the
+                    remaining columns are that field's value at each point
+\end{lstlisting}
+
+Because each field is a single array, the whole time history of a variable can
+be read in one go, and for more than a few history points the file is
+considerably smaller than the equivalent \inltt{.his} file.
+
+Unlike the text output, HDF5 output is always written to one file, so
+\inltt{OutputOneFile} must not be set to false. Restarting a simulation
+appends to an existing file, discarding any times at or after the time the
+restart begins, so that the history remains a single consistent series. The
+file is therefore never renamed out of the way, whether or not backups are
+enabled.
+
 \subsection{Kinetic energy and enstrophy}\label{filters:Energy}
 
 \begin{notebox}

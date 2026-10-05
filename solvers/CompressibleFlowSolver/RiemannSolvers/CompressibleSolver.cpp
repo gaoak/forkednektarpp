@@ -40,9 +40,11 @@ namespace Nektar
 
 CompressibleSolver::CompressibleSolver(
     const LibUtilities::SessionReaderSharedPtr &pSession)
-    : RiemannSolver(pSession), m_pointSolve(true)
+    : RiemannSolver(pSession)
 {
-    m_requiresRotation = true;
+    // The compressible solvers work directly in Cartesian components; see
+    // CompressibleSolver::v_PointSolve for why no rotation is needed.
+    m_requiresRotation = false;
 
     // Create equation of state object
     std::string eosType;
@@ -52,10 +54,9 @@ CompressibleSolver::CompressibleSolver(
     m_idealGas = boost::iequals(eosType, "IdealGas");
 }
 
-CompressibleSolver::CompressibleSolver()
-    : RiemannSolver(), m_pointSolve(true), m_idealGas(true)
+CompressibleSolver::CompressibleSolver() : RiemannSolver(), m_idealGas(true)
 {
-    m_requiresRotation = true;
+    m_requiresRotation = false;
 }
 
 /**
@@ -66,44 +67,36 @@ void CompressibleSolver::v_Solve(
     const Array<OneD, const Array<OneD, NekDouble>> &Bwd,
     Array<OneD, Array<OneD, NekDouble>> &flux)
 {
-    if (m_pointSolve)
-    {
-        size_t expDim = nDim;
-        NekDouble rhouf{}, rhovf{};
+    ASSERTL1(CheckVectors("N"), "N not defined.");
+    const Array<OneD, const Array<OneD, NekDouble>> normals = m_vectors["N"]();
 
-        if (expDim == 1)
-        {
-            for (size_t i = 0; i < Fwd[0].size(); ++i)
-            {
-                v_PointSolve(Fwd[0][i], Fwd[1][i], 0.0, 0.0, Fwd[2][i],
-                             Bwd[0][i], Bwd[1][i], 0.0, 0.0, Bwd[2][i],
-                             flux[0][i], flux[1][i], rhouf, rhovf, flux[2][i]);
-            }
-        }
-        else if (expDim == 2)
-        {
-            for (size_t i = 0; i < Fwd[0].size(); ++i)
-            {
-                v_PointSolve(Fwd[0][i], Fwd[1][i], Fwd[2][i], 0.0, Fwd[3][i],
-                             Bwd[0][i], Bwd[1][i], Bwd[2][i], 0.0, Bwd[3][i],
-                             flux[0][i], flux[1][i], flux[2][i], rhovf,
-                             flux[3][i]);
-            }
-        }
-        else if (expDim == 3)
-        {
-            for (size_t i = 0; i < Fwd[0].size(); ++i)
-            {
-                v_PointSolve(Fwd[0][i], Fwd[1][i], Fwd[2][i], Fwd[3][i],
-                             Fwd[4][i], Bwd[0][i], Bwd[1][i], Bwd[2][i],
-                             Bwd[3][i], Bwd[4][i], flux[0][i], flux[1][i],
-                             flux[2][i], flux[3][i], flux[4][i]);
-            }
-        }
-    }
-    else
+    const size_t expDim = nDim;
+    const size_t nPts   = Fwd[0].size();
+
+    // Components above the problem dimension stay zero throughout, so the
+    // same kernel serves 1D, 2D and 3D without branching per point.
+    NekDouble momL[3] = {0.0, 0.0, 0.0};
+    NekDouble momR[3] = {0.0, 0.0, 0.0};
+    NekDouble n[3]    = {0.0, 0.0, 0.0};
+    NekDouble momf[3] = {0.0, 0.0, 0.0};
+
+    for (size_t i = 0; i < nPts; ++i)
     {
-        v_ArraySolve(Fwd, Bwd, flux);
+        for (size_t d = 0; d < expDim; ++d)
+        {
+            momL[d] = Fwd[d + 1][i];
+            momR[d] = Bwd[d + 1][i];
+            n[d]    = normals[d][i];
+        }
+
+        v_PointSolve(Fwd[0][i], momL, Fwd[expDim + 1][i], Bwd[0][i], momR,
+                     Bwd[expDim + 1][i], n, flux[0][i], momf,
+                     flux[expDim + 1][i]);
+
+        for (size_t d = 0; d < expDim; ++d)
+        {
+            flux[d + 1][i] = momf[d];
+        }
     }
 }
 

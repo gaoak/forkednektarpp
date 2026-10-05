@@ -54,10 +54,10 @@ public:
 protected:
     HLLSolver(const LibUtilities::SessionReaderSharedPtr &pSession);
 
-    void v_PointSolve(double rhoL, double rhouL, double rhovL, double rhowL,
-                      double EL, double rhoR, double rhouR, double rhovR,
-                      double rhowR, double ER, double &rhof, double &rhouf,
-                      double &rhovf, double &rhowf, double &Ef) override;
+    void v_PointSolve(NekDouble rhoL, const NekDouble *momL, NekDouble EL,
+                      NekDouble rhoR, const NekDouble *momR, NekDouble ER,
+                      const NekDouble *normal, NekDouble &rhof, NekDouble *momf,
+                      NekDouble &Ef) override;
 };
 
 } // namespace Nektar

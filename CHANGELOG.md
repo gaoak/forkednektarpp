@@ -36,6 +36,7 @@ v5.11.0
 - Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
+- Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -48,6 +49,7 @@ v5.11.0
 - Fix collection autotuning selection and record results per polynomial order (!2635)
 - Fix noble full build CI (!2742)
 - Fix intermittent Cwipi test failures by capturing the output of each command in a multi-command parallel test separately (!2780)
+- Delete temporary images from local runners (!2782)
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)
@@ -55,6 +57,7 @@ v5.11.0
 **CompressibleFlowSolver**
 - Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
+- Remove the rotation onto the trace normal from all compressible Riemann solvers (!2779)
 
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)

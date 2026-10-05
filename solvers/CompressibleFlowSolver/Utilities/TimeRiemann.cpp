@@ -42,7 +42,6 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 
 #include "../RiemannSolvers/RoeSolver.h"
-#include "../RiemannSolvers/RoeSolverSIMD.h"
 
 using namespace Nektar;
 
@@ -69,8 +68,7 @@ int main(int argc, char const *argv[])
     std::cout << "number of faces\t" << nEle
               << "\t(assuming 4*4 nodes per face)\n";
 
-    // auto riemannSolver = RoeSolver();
-    auto riemannSolver = RoeSolverSIMD();
+    auto riemannSolver = RoeSolver();
     // Setting up parameters for Riemann solver
     NekDouble gamma = 1.4;
     riemannSolver.SetParam("gamma",

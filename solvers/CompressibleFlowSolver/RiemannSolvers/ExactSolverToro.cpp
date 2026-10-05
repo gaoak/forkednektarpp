@@ -55,15 +55,19 @@ ExactSolverToro::ExactSolverToro(
  * calculate an initial pressure for the Newton-Raphson scheme.
  *
  * @param g      Array of calculated gamma values.
- * @param rhoL   Density left state.
- * @param rhoR   Density right state.
- * @param uL     x-velocity component left state.
- * @param uR     x-velocity component right state.
- * @param pL     Pressure component left state.
- * @param pR     Pressure component right state.
- * @param cL     Sound speed component left state.
- * @param cR     Sound speed component right state.
- * @return       Computed initial guess for the Newton-Raphson scheme.
+ * Written directly in Cartesian components against the trace normal; see
+ * CompressibleSolver::v_PointSolve for why no rotation is needed.
+ *
+ * @param rhoL      Density left state.
+ * @param momL      Momentum vector (3 components) left state.
+ * @param EL        Energy left state.
+ * @param rhoR      Density right state.
+ * @param momR      Momentum vector (3 components) right state.
+ * @param ER        Energy right state.
+ * @param normal    Unit trace normal (3 components).
+ * @param rhof      Computed Riemann flux for density.
+ * @param momf      Computed Riemann flux for momentum (3 components).
+ * @param Ef        Computed Riemann flux for energy.
  */
 inline NekDouble guessp(NekDouble g[], NekDouble rhoL, NekDouble uL,
                         NekDouble pL, NekDouble cL, NekDouble rhoR,
@@ -166,27 +170,30 @@ inline void prefun(NekDouble *g, NekDouble p, NekDouble dk, NekDouble pk,
  * @param rhowf     Computed Riemann flux for z-momentum component
  * @param Ef        Computed Riemann flux for energy.
  */
-void ExactSolverToro::v_PointSolve(
-    NekDouble rhoL, NekDouble rhouL, NekDouble rhovL, NekDouble rhowL,
-    NekDouble EL, NekDouble rhoR, NekDouble rhouR, NekDouble rhovR,
-    NekDouble rhowR, NekDouble ER, NekDouble &rhof, NekDouble &rhouf,
-    NekDouble &rhovf, NekDouble &rhowf, NekDouble &Ef)
+void ExactSolverToro::v_PointSolve(NekDouble rhoL, const NekDouble *momL,
+                                   NekDouble EL, NekDouble rhoR,
+                                   const NekDouble *momR, NekDouble ER,
+                                   const NekDouble *normal, NekDouble &rhof,
+                                   NekDouble *momf, NekDouble &Ef)
 {
     static NekDouble gamma = m_params["gamma"]();
 
-    // Left and right variables.
-    NekDouble uL = rhouL / rhoL;
-    NekDouble vL = rhovL / rhoL;
-    NekDouble wL = rhowL / rhoL;
-    NekDouble uR = rhouR / rhoR;
-    NekDouble vR = rhovR / rhoR;
-    NekDouble wR = rhowR / rhoR;
+    // Left and right velocity vectors. The one-dimensional Riemann problem
+    // below is solved for the velocity component normal to the trace, so uL
+    // and uR here are the normal components; the tangential part of each
+    // velocity is advected unchanged and is reinstated at the end.
+    NekDouble velL[3], velR[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        velL[d] = momL[d] / rhoL;
+        velR[d] = momR[d] / rhoR;
+    }
+    NekDouble uL = RiemannDot(velL, normal);
+    NekDouble uR = RiemannDot(velR, normal);
 
     // Left and right pressure.
-    NekDouble pL =
-        (gamma - 1.0) * (EL - 0.5 * (rhouL * uL + rhovL * vL + rhowL * wL));
-    NekDouble pR =
-        (gamma - 1.0) * (ER - 0.5 * (rhouR * uR + rhovR * vR + rhowR * wR));
+    NekDouble pL = (gamma - 1.0) * (EL - 0.5 * RiemannDot(momL, velL));
+    NekDouble pR = (gamma - 1.0) * (ER - 0.5 * RiemannDot(momR, velR));
 
     // Compute gammas.
     NekDouble g[] = {gamma,
@@ -246,7 +253,11 @@ void ExactSolverToro::v_PointSolve(
     const NekDouble S = 0.0;
 
     // Computed primitive variables.
-    NekDouble outRho, outU, outV, outW, outP;
+    NekDouble outRho, outU, outP;
+
+    // Which side the sampled point takes its tangential velocity from.
+    const NekDouble *velSide = velL;
+    NekDouble unSide         = uL;
 
     if (S <= u)
     {
@@ -257,11 +268,11 @@ void ExactSolverToro::v_PointSolve(
             if (S <= shL)
             {
                 // Sampled point is left data state.
-                outRho = rhoL;
-                outU   = uL;
-                outV   = vL;
-                outW   = wL;
-                outP   = pL;
+                outRho  = rhoL;
+                outU    = uL;
+                velSide = velL;
+                unSide  = uL;
+                outP    = pL;
             }
             else
             {
@@ -271,11 +282,11 @@ void ExactSolverToro::v_PointSolve(
                 if (S > stL)
                 {
                     // Sampled point is star left state
-                    outRho = rhoL * pow(p / pL, 1.0 / gamma);
-                    outU   = u;
-                    outV   = vL;
-                    outW   = wL;
-                    outP   = p;
+                    outRho  = rhoL * pow(p / pL, 1.0 / gamma);
+                    outU    = u;
+                    velSide = velL;
+                    unSide  = uL;
+                    outP    = p;
                 }
                 else
                 {
@@ -283,8 +294,8 @@ void ExactSolverToro::v_PointSolve(
                     NekDouble c = g[5] * (cL + g[7] * (uL - S));
                     outRho      = rhoL * pow(c / cL, g[4]);
                     outU        = g[5] * (cL + g[7] * uL + S);
-                    outV        = vL;
-                    outW        = wL;
+                    velSide     = velL;
+                    unSide      = uL;
                     outP        = pL * pow(c / cL, g[3]);
                 }
             }
@@ -297,20 +308,20 @@ void ExactSolverToro::v_PointSolve(
             if (S <= SL)
             {
                 // Sampled point is left data state
-                outRho = rhoL;
-                outU   = uL;
-                outV   = vL;
-                outW   = wL;
-                outP   = pL;
+                outRho  = rhoL;
+                outU    = uL;
+                velSide = velL;
+                unSide  = uL;
+                outP    = pL;
             }
             else
             {
                 // Sampled point is star left state
-                outRho = rhoL * (pmL + g[6]) / (pmL * g[6] + 1.0);
-                outU   = u;
-                outV   = vL;
-                outW   = wL;
-                outP   = p;
+                outRho  = rhoL * (pmL + g[6]) / (pmL * g[6] + 1.0);
+                outU    = u;
+                velSide = velL;
+                unSide  = uL;
+                outP    = p;
             }
         }
     }
@@ -324,20 +335,20 @@ void ExactSolverToro::v_PointSolve(
             if (S >= SR)
             {
                 // Sampled point is right data state
-                outRho = rhoR;
-                outU   = uR;
-                outV   = vR;
-                outW   = wR;
-                outP   = pR;
+                outRho  = rhoR;
+                outU    = uR;
+                velSide = velR;
+                unSide  = uR;
+                outP    = pR;
             }
             else
             {
                 // Sampled point is star right state
-                outRho = rhoR * (pmR + g[6]) / (pmR * g[6] + 1.0);
-                outU   = u;
-                outV   = vR;
-                outW   = wR;
-                outP   = p;
+                outRho  = rhoR * (pmR + g[6]) / (pmR * g[6] + 1.0);
+                outU    = u;
+                velSide = velR;
+                unSide  = uR;
+                outP    = p;
             }
         }
         else
@@ -348,11 +359,11 @@ void ExactSolverToro::v_PointSolve(
             if (S >= shR)
             {
                 // Sampled point is right data state
-                outRho = rhoR;
-                outU   = uR;
-                outV   = vR;
-                outW   = wR;
-                outP   = pR;
+                outRho  = rhoR;
+                outU    = uR;
+                velSide = velR;
+                unSide  = uR;
+                outP    = pR;
             }
             else
             {
@@ -362,11 +373,11 @@ void ExactSolverToro::v_PointSolve(
                 if (S <= stR)
                 {
                     // Sampled point is star right state
-                    outRho = rhoR * pow(p / pR, 1.0 / gamma);
-                    outU   = u;
-                    outV   = vR;
-                    outW   = wR;
-                    outP   = p;
+                    outRho  = rhoR * pow(p / pR, 1.0 / gamma);
+                    outU    = u;
+                    velSide = velR;
+                    unSide  = uR;
+                    outP    = p;
                 }
                 else
                 {
@@ -374,22 +385,32 @@ void ExactSolverToro::v_PointSolve(
                     NekDouble c = g[5] * (cR - g[7] * (uR - S));
                     outRho      = rhoR * pow(c / cR, g[4]);
                     outU        = g[5] * (-cR + g[7] * uR + S);
-                    outV        = vR;
-                    outW        = wR;
+                    velSide     = velR;
+                    unSide      = uR;
                     outP        = pR * pow(c / cR, g[3]);
                 }
             }
         }
     }
 
+    // Reinstate the tangential velocity of the sampled side: only the normal
+    // component is altered by the Riemann problem, so in Cartesian components
+    // the sampled velocity is u_side + (outU - u_side.n) n. No tangential
+    // basis, and hence no rotation, is needed to express this.
+    NekDouble uStar[3];
+    for (size_t d = 0; d < 3; ++d)
+    {
+        uStar[d] = velSide[d] + (outU - unSide) * normal[d];
+    }
+
     // Transform computed primitive variables to fluxes.
-    rhof  = outRho * outU;
-    rhouf = outP + outRho * outU * outU;
-    rhovf = outRho * outU * outV;
-    rhowf = outRho * outU * outW;
-    Ef    = outU *
-         (outP / (gamma - 1.0) +
-          0.5 * outRho * (outU * outU + outV * outV + outW * outW) + outP);
+    rhof = outRho * outU;
+    for (size_t d = 0; d < 3; ++d)
+    {
+        momf[d] = outRho * outU * uStar[d] + outP * normal[d];
+    }
+    Ef = outU * (outP / (gamma - 1.0) +
+                 0.5 * outRho * RiemannDot(uStar, uStar) + outP);
 }
 
 } // namespace Nektar
