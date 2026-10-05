@@ -40,6 +40,10 @@
 #include <SolverUtils/Filters/FilterHistoryPoints.h>
 #include <boost/format.hpp>
 
+#ifdef NEKTAR_USE_HDF5
+#include <LibUtilities/BasicUtils/PtsIOHdf5.h>
+#endif
+
 using namespace std;
 
 namespace Nektar::SolverUtils
@@ -61,9 +65,46 @@ FilterHistoryPoints::FilterHistoryPoints(
     const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
-    // OutputFile
-    std::string ext = ".his";
-    m_outputFile    = Filter::SetupOutput(ext, pParams);
+    // OutputFile. The extension supplied by the user selects the output
+    // format: a .h5 or .hdf5 extension requests HDF5 output, anything else
+    // (including no extension at all) gives the default ASCII .his format.
+    std::string ext     = ".his";
+    std::string outFile = m_session->GetSessionName();
+
+    auto itFile = pParams.find("OutputFile");
+    if (itFile != pParams.end())
+    {
+        ASSERTL0(itFile->second.length() > 0,
+                 "Missing parameter 'OutputFile'.");
+        outFile           = itFile->second;
+        std::string inExt = fs::path(outFile).extension().string();
+        if (inExt == ".h5" || inExt == ".hdf5")
+        {
+            m_useHdf5 = true;
+            ext       = inExt;
+        }
+    }
+
+#ifndef NEKTAR_USE_HDF5
+    ASSERTL0(!m_useHdf5,
+             "HDF5 history point output was requested through the OutputFile "
+             "extension, but Nektar++ has been built without HDF5 support.");
+#endif
+
+    if (m_useHdf5)
+    {
+        // The HDF5 writer appends to an existing file and removes only those
+        // time steps that are at or after the restart time, so no previously
+        // written data can be lost. The backup mechanism exists to prevent
+        // exactly that loss, so it is deliberately bypassed here: renaming the
+        // file out of the way would instead discard the earlier history and
+        // restart the time-step numbering from zero.
+        m_outputFile = fs::path(outFile).replace_extension("").string() + ext;
+    }
+    else
+    {
+        m_outputFile = Filter::SetupOutput(ext, pParams);
+    }
 
     // OutputFrequency
     auto it = pParams.find("OutputFrequency");
@@ -89,6 +130,13 @@ FilterHistoryPoints::FilterHistoryPoints(
         m_outputOneFile     = (boost::iequals(sOption, "true")) ||
                           (boost::iequals(sOption, "yes"));
     }
+
+    // The HDF5 writer appends to a single file, so it has no equivalent of
+    // the one-file-per-output behaviour. Rather than quietly ignoring the
+    // request, say so.
+    ASSERTL0(m_outputOneFile || !m_useHdf5,
+             "'OutputOneFile' cannot be false for HDF5 history point output, "
+             "which always writes a single file.");
 
     // OutputPlane
     m_session->MatchSolverInfo("Homogeneous", "1D", m_isHomogeneous1D, false);
@@ -445,6 +493,14 @@ void FilterHistoryPoints::v_Initialise(
         m_session->MatchSolverInfo("Driver", "Adaptive", m_adaptive, false);
     }
 
+    // The HDF5 writer sizes its datasets from the history points, so it can
+    // only be set up once they have been established above, and must be set
+    // up before any output is taken.
+    if (m_useHdf5)
+    {
+        InitialiseHdf5(vComm, pFields.size(), time);
+    }
+
     if (m_updateOnInitialise)
     {
         v_Update(pFields, time);
@@ -584,8 +640,16 @@ void FilterHistoryPoints::v_Update(
     // This could be improved to reduce communication but works for now
     vComm->AllReduce(data, LibUtilities::ReduceSum);
 
-    // TODO: Why not only call this routine if we are rank 0?
-    v_WriteData(vComm->GetRank(), data, numFields, time);
+    // Write data to file
+    if (m_useHdf5)
+    {
+        WriteDataHdf5(data, numFields, time);
+    }
+    else
+    {
+        // TODO: Why not only call this routine if we are rank 0?
+        v_WriteData(vComm->GetRank(), data, numFields, time);
+    }
 }
 
 void FilterHistoryPoints::v_WriteData(const int &rank,
@@ -682,12 +746,112 @@ void FilterHistoryPoints::v_WriteData(const int &rank,
 }
 
 /**
+ * @brief Sets up the HDF5 writer and the PtsField used to feed it.
+ *
+ * The PtsField holds the point coordinates, which are fixed, and the field
+ * names; its field values are overwritten by each call to WriteDataHdf5. Only
+ * the root process holds the history points, so only there does it describe
+ * anything; the other processes still construct the writer, which takes part
+ * in no communication but keeps the call sites free of rank tests.
+ */
+void FilterHistoryPoints::InitialiseHdf5(
+    [[maybe_unused]] const LibUtilities::CommSharedPtr &pComm,
+    [[maybe_unused]] const int numFields,
+    [[maybe_unused]] const NekDouble &time)
+{
+#ifdef NEKTAR_USE_HDF5
+    const size_t nPts = m_historyPoints.size();
+
+    Array<OneD, Array<OneD, NekDouble>> pts(3);
+    for (size_t i = 0; i < 3; ++i)
+    {
+        pts[i] = Array<OneD, NekDouble>(nPts, 0.0);
+        for (size_t j = 0; j < nPts; ++j)
+        {
+            pts[i][j] = m_historyPoints[j][i];
+        }
+    }
+
+    m_Hdf5PtsField =
+        MemoryManager<LibUtilities::PtsField>::AllocateSharedPtr(3, pts);
+
+    for (int i = 0; i < numFields; ++i)
+    {
+        m_Hdf5PtsField->AddField(Array<OneD, NekDouble>(nPts, 0.0),
+                                 m_session->GetVariable(i));
+    }
+
+    // Tell the writer roughly how many outputs to expect, so that it can size
+    // its chunks: without this a short run allocates a chunk sized for a long
+    // one. Getting this wrong costs nothing but a less-than-ideal chunk.
+    size_t expectedRows = 0;
+    if (m_session->DefinesParameter("NumSteps"))
+    {
+        expectedRows =
+            static_cast<size_t>(m_session->GetParameter("NumSteps")) /
+                std::max(1u, m_outputFrequency) +
+            1;
+    }
+
+    m_Hdf5Writer = MemoryManager<LibUtilities::PtsIOHdf5>::AllocateSharedPtr(
+        pComm, m_outputFile, time, m_Hdf5PtsField, expectedRows);
+#else
+    // Every other use of these members is compiled out in this configuration,
+    // and they are deliberately not guarded with #ifdef, since that would
+    // change the layout of this class depending on how Nektar++ was built
+    (void)m_Hdf5Writer;   // unused
+    (void)m_Hdf5PtsField; // unused
+
+    NEKERROR(ErrorUtil::efatal,
+             "HDF5 history point output requires Nektar++ to be built with "
+             "HDF5 support.");
+#endif
+}
+
+/**
+ * @brief Writes one time's worth of history data to the HDF5 file.
+ */
+void FilterHistoryPoints::WriteDataHdf5(
+    [[maybe_unused]] const Array<OneD, NekDouble> &data,
+    [[maybe_unused]] const int numFields, [[maybe_unused]] const NekDouble time)
+{
+#ifdef NEKTAR_USE_HDF5
+    ASSERTL1(m_Hdf5Writer,
+             "FilterHistoryPoints::m_Hdf5Writer is not allocated");
+
+    const size_t nPts = m_historyPoints.size();
+
+    for (int i = 0; i < numFields; ++i)
+    {
+        Array<OneD, NekDouble> field = m_Hdf5PtsField->GetPts(i + 3);
+        for (size_t j = 0; j < nPts; ++j)
+        {
+            field[j] = data[j * numFields + i];
+        }
+    }
+
+    m_Hdf5Writer->Write(m_Hdf5PtsField, time);
+#else
+    NEKERROR(ErrorUtil::efatal,
+             "HDF5 history point output requires Nektar++ to be built with "
+             "HDF5 support.");
+#endif
+}
+
+/**
  *
  */
 void FilterHistoryPoints::v_Finalise(
     const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const NekDouble &time)
 {
+#ifdef NEKTAR_USE_HDF5
+    if (m_Hdf5Writer)
+    {
+        m_Hdf5Writer->Close();
+    }
+#endif
+
     if (pFields[0]->GetComm()->GetRank() == 0 && m_outputOneFile)
     {
         if (m_outputStream.is_open())

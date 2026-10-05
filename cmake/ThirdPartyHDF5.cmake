@@ -19,6 +19,10 @@ OPTION(NEKTAR_USE_HDF5
 UNSET(NEKTAR_DEFAULT_HDF5)
 
 IF (NEKTAR_USE_HDF5)
+    # Make HDF5 availability visible to the C++ sources, so that optional
+    # HDF5 code paths can be compiled out when HDF5 support is disabled.
+    ADD_DEFINITIONS(-DNEKTAR_USE_HDF5)
+
     # Try to find parallel system HDF5 first.
     IF (NEKTAR_USE_MPI)
         SET(HDF5_PREFER_PARALLEL ON)
