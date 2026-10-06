@@ -31,10 +31,15 @@ export DISABLE_CWIPI=${17}
 export DISABLE_MCA=${18}
 export ENABLE_ALIGN_MEM=${19}
 export DO_COVERAGE=${20}
-export NUM_CPUS=${21}
-export LD_PRELOAD=${22}
-export PYTHON_EXECUTABLE=${23}
-export APPTAINER_FLAGS=${24}
+export LD_PRELOAD=${21}
+export PYTHON_EXECUTABLE=${22}
+export APPTAINER_FLAGS=${23}
+export CI_COMMIT_REF_NAME=${24}
+export CI_PROJECT_ID=${25}
+export CI_PROJECT_URL=${26}
+export CI_MERGE_REQUEST_PROJECT_URL=${27}
+
+export NUM_CPUS=12
 
 trigger_gate(){
     JOB_ID=""
@@ -44,8 +49,9 @@ trigger_gate(){
         ((count++))
         sleep 1
         # Get job id
-        JOB_ID=$(curl --header "Content-Type: application/json" \
-        "https://gitlab.nektar.info/api/v4/projects/2/pipelines/${CI_PIPELINE_ID}/jobs?scope=manual" \
+        JOB_ID=$(curl --header "PRIVATE-TOKEN: ${PRIVATE_TOKEN}" \
+        --header "Content-Type: application/json" \
+        "https://gitlab.nektar.info/api/v4/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?scope=manual" \
         | tac | tac | python3 -c "import sys,json; print([x['id'] for x in json.load(sys.stdin) if x['name'] == \"${POSTPROCESS_JOBNAME}\"][0])")
         if [ "$JOB_ID" != "" ]; then
             break
@@ -58,7 +64,7 @@ trigger_gate(){
     # Call pipeline
     curl -X POST --header "PRIVATE-TOKEN: ${PRIVATE_TOKEN}" \
     --header "Content-Type: application/json" \
-    "https://gitlab.nektar.info/api/v4/projects/2/jobs/${JOB_ID}/play"
+    "https://gitlab.nektar.info/api/v4/projects/${CI_PROJECT_ID}/jobs/${JOB_ID}/play"
 }
     
 JOB_NAME=$(echo $CI_JOB_NAME | rev | cut -d- -f2- | rev)
@@ -73,8 +79,9 @@ mkdir -p ${CI_PIPELINE_ID} && cd ${CI_PIPELINE_ID}
 rm -rf ${JOB_NAME}
 mkdir -p ${JOB_NAME} && cd ${JOB_NAME}
 
-# Git clone master branch
-command="git clone https://gitlab.nektar.info/nektar/nektar.git --branch master nektar"
+# Initialise an empty repository, so that only the commit under test is
+# fetched (merge request head, or the branch/tag the pipeline runs on)
+command="git init nektar"
 echo ${command} > $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 error_code=$?
@@ -84,9 +91,10 @@ if (( $error_code )); then
     exit $error_code
 fi
 cd nektar
-
-# Fetch merge request branch
-command="git fetch origin merge-requests/${CI_MERGE_REQUEST_IID}/head:MR${CI_MERGE_REQUEST_IID}" 
+# Merge request refs live in the target project, branches and tags in the
+# project the pipeline runs in (which may be a fork)
+GIT_URL=${CI_MERGE_REQUEST_PROJECT_URL:-${CI_PROJECT_URL}}
+command="git remote add origin ${GIT_URL}.git"
 echo ${command} >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
 error_code=$?
@@ -95,14 +103,47 @@ if (( $error_code )); then
     trigger_gate
     exit $error_code
 fi
-command="git checkout MR${CI_MERGE_REQUEST_IID}" 
-echo ${command} >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
-${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
-error_code=$?
-if (( $error_code )); then 
-    echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
-    trigger_gate
-    exit $error_code
+
+# Fetch merge request branch
+if (( ${CI_MERGE_REQUEST_IID} )); then
+    command="git fetch --depth 1 origin merge-requests/${CI_MERGE_REQUEST_IID}/head:MR${CI_MERGE_REQUEST_IID}" 
+    echo ${command} >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    error_code=$?
+    if (( $error_code )); then 
+        echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+        trigger_gate
+        exit $error_code
+    fi
+    command="git checkout MR${CI_MERGE_REQUEST_IID}" 
+    echo ${command} >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    error_code=$?
+    if (( $error_code )); then 
+        echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+        trigger_gate
+        exit $error_code
+    fi
+# Fetch the branch or tag the pipeline runs on
+else
+    command="git fetch --depth 1 origin ${CI_COMMIT_REF_NAME}"
+    echo ${command} >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    error_code=$?
+    if (( $error_code )); then 
+        echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+        trigger_gate
+        exit $error_code
+    fi
+    command="git checkout FETCH_HEAD" 
+    echo ${command} >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    ${command} &>> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+    error_code=$?
+    if (( $error_code )); then 
+        echo "JOB FAILED" >> $rootdir/${CI_PIPELINE_ID}/${JOB_NAME}/outfile.log
+        trigger_gate
+        exit $error_code
+    fi
 fi
 
 # Load modules
