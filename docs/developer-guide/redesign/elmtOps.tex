@@ -66,8 +66,7 @@ figure \ref{fig:elmtops} from doxygen all of these classes inherit
 public methods from the \texttt{OperatorElmt} class which is defined
 in \texttt{OperatorElmt.hpp} which also inherits from the
 \texttt{Operator} class defined in the file
-\texttt{Common/OPerator.hpp} file in the main director of the Operator
-library.
+\texttt{Common/Operator.hpp} file in the MultiRegions library.
 
 
 \begin{figure}[htbp]
@@ -115,7 +114,7 @@ class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
         TData>::type;
 \end{lstlisting}
 
-where \texttt{simd\_type\_if} is defind in \texttt{Common/Operator.hpp} as 
+where \texttt{simd\_type\_if} is defind in \texttt{MultiRegions/Common/Operator.hpp} as 
 
 
 \begin{lstlisting}[style=C++Style]

@@ -93,16 +93,16 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 ## Layering and namespaces
 
 17. **A file's namespace follows the library it lives in.** Under
-    `library/Operators` that is `Nektar::Operators`, or
-    `Nektar::Operators::detail` below the interface; under
+    `library/MultiRegions` that is `Nektar::MultiRegions`, or
+    `Nektar::MultiRegions::detail` below an operator's interface; under
     `library/SolverCore`, `Nektar::SolverCore[::detail]`. A solver's own
     operators are not in the library's namespace: plain `Nektar` for the
     operator header, `Nektar::detail` for kernels, implementations and
     generated registrations, with `OPNAMESPACE` set to match. Library
-    facilities a solver calls keep their `Operators::` qualification, written
-    at each use rather than implied by an enclosing namespace.
-18. **`Operators` does not depend on `SolverCore`.** A class under
-    `library/Operators` that needs an include from `SolverCore` is in the
+    facilities a solver calls keep their `MultiRegions::` qualification,
+    written at each use rather than implied by an enclosing namespace.
+18. **`MultiRegions` does not depend on `SolverCore`.** An operator under
+    `library/MultiRegions` that needs an include from `SolverCore` is in the
     wrong library: move it rather than add the include.
 19. **A solver includes `...Op.hpp`, never `...OpImpl.hpp`.** The
     implementation is reached through the factory, and the registrations

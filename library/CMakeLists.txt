@@ -18,6 +18,5 @@ IF (NEKTAR_BUILD_PYTHON)
 ENDIF()
 
 if (NEKTAR_ENABLE_DEVICE_SUPPORT)
-    SUBDIRS(Operators)
     SUBDIRS(SolverCore)
 endif()

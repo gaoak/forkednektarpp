@@ -38,12 +38,12 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
 #include "SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp"
-#include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
-#include <Operators/ElmtOps/Laplacian/LaplacianOp.hpp>
-#include <Operators/ElmtOps/Mass/MassOp.hpp>
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
+#include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
+#include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
+#include <MultiRegions/ElmtOps/Mass/MassOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
@@ -69,7 +69,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 using namespace Nektar::SolverCore;
 
 /// Print the profiler results, computed from the elapsed time and the total

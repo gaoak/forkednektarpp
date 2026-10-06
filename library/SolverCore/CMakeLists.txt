@@ -243,7 +243,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     ADD_NEKTAR_LIBRARY(SolverCore
         SOURCES ${SOLVER_CORE_SOURCES}
         HEADERS ${SOLVER_CORE_HEADERS}
-        DEPENDS MultiRegions Operators
+        DEPENDS MultiRegions
         SUMMARY "Nektar++ SolverCore library"
         DESCRIPTION "Minimal standalone solver core for device support solvers.")
 ENDIF(NEKTAR_ENABLE_DEVICE_SUPPORT)

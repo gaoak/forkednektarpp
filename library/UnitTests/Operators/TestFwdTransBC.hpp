@@ -34,7 +34,7 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/BndCondOps/FwdTransBC/FwdTransBCOp.hpp"
+#include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCOp.hpp>
 
 #include <SpatialDomains/Conditions.h>
 
@@ -43,7 +43,7 @@
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestFwdTransBC : public TestOp<TData, FieldState::Phys, FieldState::Coeff>

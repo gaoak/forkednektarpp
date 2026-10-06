@@ -34,13 +34,13 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // Flux operator factory base class.
-template <typename TData> class FluxOp : public Operators::Operator<TData>
+template <typename TData> class FluxOp : public MultiRegions::Operator<TData>
 {
 public:
     static std::shared_ptr<FluxOp<TData>> Create(
@@ -54,13 +54,13 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
         std::string requestedKey = method0 + execStr0;
 
-        Operators::OperatorFactory<TData> &factory =
-            Operators::GetOperatorFactory<TData>();
+        MultiRegions::OperatorFactory<TData> &factory =
+            MultiRegions::GetOperatorFactory<TData>();
 
         // No suitable operator was found.
         if (!factory.ModuleExists(requestedKey))
@@ -92,7 +92,7 @@ protected:
 
     FluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

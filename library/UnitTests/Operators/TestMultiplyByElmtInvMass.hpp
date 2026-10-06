@@ -36,11 +36,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestMultiplyByElmtInvMass

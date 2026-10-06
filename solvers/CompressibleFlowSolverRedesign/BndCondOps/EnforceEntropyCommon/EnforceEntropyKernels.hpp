@@ -38,7 +38,7 @@
 #include <cmath>
 
 #include <LibUtilities/LoopExecution/LoopExecution.hpp>
-#include <Operators/Common/Operator.hpp>
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::detail
 {

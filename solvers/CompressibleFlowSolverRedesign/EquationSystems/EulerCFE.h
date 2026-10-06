@@ -37,14 +37,14 @@
 
 #include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
 namespace Nektar
 {
 using namespace SolverCore;
-using namespace Operators;
+using namespace MultiRegions;
 
 class EulerCFE : public UnsteadySystem
 {

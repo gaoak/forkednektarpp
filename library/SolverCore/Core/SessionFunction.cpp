@@ -126,7 +126,7 @@ void SessionFunction::EvaluateExpression(
 
     // Initialise operators
     auto initialOp =
-        Operators::ExpressionOp<double>::Create(m_expList, variables);
+        MultiRegions::ExpressionOp<double>::Create(m_expList, variables);
 
     // Read initial conditions and configure operator
     std::vector<LibUtilities::EquationSharedPtr> initialConditons;

@@ -38,11 +38,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
+#include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestHelmholtz : public TestOp<TData, FieldState::Coeff, FieldState::Coeff>

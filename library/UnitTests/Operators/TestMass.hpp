@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
+#include <MultiRegions/ElmtOps/Mass/MassOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestMass : public TestOp<TData, FieldState::Coeff, FieldState::Coeff>

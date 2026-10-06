@@ -38,14 +38,14 @@
 #include <iostream>
 #include <set>
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
-#include "Operators/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceOp.hpp"
-#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp"
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceOp.hpp>
+#include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 /**
  * The operator under test evaluates, for every expansion mode phi of every

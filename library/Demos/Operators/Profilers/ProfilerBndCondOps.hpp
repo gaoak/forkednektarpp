@@ -36,8 +36,8 @@
 #include <iomanip>
 #include <iostream>
 
-#include <Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp>
-#include <Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
+#include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
+#include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
@@ -63,7 +63,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 
 /// Print the block information. If _verbose_=true, then print the block
 /// information for each rank. If _verbose_=false, then only print the

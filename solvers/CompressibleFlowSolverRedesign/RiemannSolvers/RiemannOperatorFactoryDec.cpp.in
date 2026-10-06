@@ -55,7 +55,7 @@ namespace Nektar::detail
 template <>
 std::string @OPERATOR@OpImpl<@SolverType@SolverKernel,@EOS_TYPE@<@TData@>,
                               NektarSpaces::@ExecSpace@, @TData@>::className =
-    Operators::GetOperatorFactory<@TData@>().RegisterCreatorFunction(
+    MultiRegions::GetOperatorFactory<@TData@>().RegisterCreatorFunction(
         @OPERATOR@Op<@TData@>::name + "@SolverType@" + @EOS_TYPE@<@TData@>::name +
         "@ExecSpace@" , @OPERATOR@OpImpl<@SolverType@SolverKernel,@EOS_TYPE@<@TData@>,
         NektarSpaces::@ExecSpace@,  @TData@>::Instantiate,

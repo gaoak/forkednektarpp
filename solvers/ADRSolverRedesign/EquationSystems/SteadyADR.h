@@ -43,7 +43,7 @@
 namespace Nektar
 {
 using namespace SolverCore;
-using namespace Operators;
+using namespace MultiRegions;
 
 class SteadyADR : public EquationSystem
 {

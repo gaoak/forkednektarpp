@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
+#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestRobin : public TestOp<TData, FieldState::Coeff, FieldState::Coeff,

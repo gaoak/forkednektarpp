@@ -34,18 +34,18 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
-#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGKernels.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp"
-#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp"
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp>
+#include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 namespace Nektar::SolverCore::detail
 {
@@ -91,24 +91,24 @@ public:
                   expansionList),
               components.size(), 1))
     {
-        m_bwdTransOp = Operators::BwdTransOp<TData>::Create(
+        m_bwdTransOp = MultiRegions::BwdTransOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_physTraceExtractOp = Operators::PhysTraceExtractOp<TData>::Create(
+        m_physTraceExtractOp = MultiRegions::PhysTraceExtractOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_iProductWRTDerivBaseOpNegOut =
-            Operators::IProductWRTDerivBaseOp<FieldState::Phys, TData>::Create(
-                expansionList, components, ExecSpace::name);
+        m_iProductWRTDerivBaseOpNegOut = MultiRegions::IProductWRTDerivBaseOp<
+            FieldState::Phys, TData>::Create(expansionList, components,
+                                             ExecSpace::name);
         m_iProductWRTDerivBaseOpNegOut->SetScale(-1.0);
         m_iProductWRTPhysTraceOpAppend =
-            Operators::IProductWRTPhysTraceOp<TData>::Create(
+            MultiRegions::IProductWRTPhysTraceOp<TData>::Create(
                 expansionList, components, ExecSpace::name);
         m_iProductWRTPhysTraceOpAppend->SetAppend(true);
 
-        m_BTransposeOp = Operators::IProductWRTBaseOp<TData>::Create(
+        m_BTransposeOp = MultiRegions::IProductWRTBaseOp<TData>::Create(
             expansionList, components, ExecSpace::name);
         m_BTransposeOp->SetIntegration(false);
         m_multiplyByElmtInvMassOp =
-            Operators::MultiplyByElmtInvMassOp<TData>::Create(
+            MultiRegions::MultiplyByElmtInvMassOp<TData>::Create(
                 expansionList, components, ExecSpace::name);
     }
 
@@ -116,7 +116,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
+    static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -128,14 +128,16 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_coefftmp;
     LibUtilities::Field<TData, FieldState::Phys> m_fluxvector, m_numflux,
         m_trace, m_phystmp;
-    std::shared_ptr<Operators::PhysTraceExtractOp<TData>> m_physTraceExtractOp;
-    std::shared_ptr<Operators::IProductWRTPhysTraceOp<TData>>
+    std::shared_ptr<MultiRegions::PhysTraceExtractOp<TData>>
+        m_physTraceExtractOp;
+    std::shared_ptr<MultiRegions::IProductWRTPhysTraceOp<TData>>
         m_iProductWRTPhysTraceOpAppend;
-    std::shared_ptr<Operators::IProductWRTDerivBaseOp<FieldState::Phys, TData>>
+    std::shared_ptr<
+        MultiRegions::IProductWRTDerivBaseOp<FieldState::Phys, TData>>
         m_iProductWRTDerivBaseOpNegOut;
-    std::shared_ptr<Operators::IProductWRTBaseOp<TData>> m_BTransposeOp;
-    std::shared_ptr<Operators::BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<Operators::MultiplyByElmtInvMassOp<TData>>
+    std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>> m_BTransposeOp;
+    std::shared_ptr<MultiRegions::BwdTransOp<TData>> m_bwdTransOp;
+    std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<TData>>
         m_multiplyByElmtInvMassOp;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,

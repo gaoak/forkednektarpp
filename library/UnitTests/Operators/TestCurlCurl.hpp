@@ -38,11 +38,11 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
-#include "Operators/ElmtOps/CurlCurl/CurlCurlOp.hpp"
+#include <MultiRegions/ElmtOps/CurlCurl/CurlCurlOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestCurlCurl : public TestOp<TData, FieldState::Phys, FieldState::Phys>

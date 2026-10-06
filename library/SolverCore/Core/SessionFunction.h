@@ -38,8 +38,8 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <MultiRegions/ExpList.h>
 
-#include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 
 #include <SolverCore/SolverCoreDeclspec.h>
 

@@ -77,14 +77,14 @@ public:
         // do, so the lookup cannot go through Operator::Create<TOperator>(),
         // which builds the key from the class name alone.
         const std::string execStr0 =
-            (execStr == "") ? Operators::Operator<TData>::GetOpExecSpace(
+            (execStr == "") ? MultiRegions::Operator<TData>::GetOpExecSpace(
                                   expansionList->GetSession())
                             : execStr;
 
         const std::string requestedKey = name + EoSName + execStr0;
 
-        Operators::OperatorFactory<TData> &factory =
-            Operators::GetOperatorFactory<TData>();
+        MultiRegions::OperatorFactory<TData> &factory =
+            MultiRegions::GetOperatorFactory<TData>();
 
         if (!factory.ModuleExists(requestedKey))
         {

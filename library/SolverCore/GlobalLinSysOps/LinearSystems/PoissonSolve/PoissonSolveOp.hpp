@@ -39,7 +39,7 @@
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include "SolverCore/SolverCore.hpp"
 
-#include "Operators/ElmtOps/Laplacian/LaplacianOp.hpp"
+#include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -59,7 +59,7 @@ public:
         // by the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
-        return Operators::Operator<TData>::template Create<PoissonSolveOp>(
+        return MultiRegions::Operator<TData>::template Create<PoissonSolveOp>(
             expansionList, components, execStr);
     }
 
@@ -67,7 +67,8 @@ public:
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        std::dynamic_pointer_cast<Operators::LaplacianOp<TData>>(this->m_ElmtOp)
+        std::dynamic_pointer_cast<MultiRegions::LaplacianOp<TData>>(
+            this->m_ElmtOp)
             ->SetDiffCoeff(diffCoeff);
     }
 

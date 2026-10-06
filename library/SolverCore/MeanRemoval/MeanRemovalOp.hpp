@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
 #include "SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp"
 #include "SolverCore/SolverCore.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -53,7 +53,7 @@ namespace Nektar::SolverCore
 // operator -- callers just do MeanRemovalOp<TData>::Create(...)->Apply(field),
 // with no execution-space conditionals of their own.
 template <typename TData>
-class MeanRemovalOp : public Operators::Operator<TData>
+class MeanRemovalOp : public MultiRegions::Operator<TData>
 {
 public:
     static std::shared_ptr<MeanRemovalOp<TData>> Create(
@@ -70,10 +70,10 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
-        auto op = Operators::Operator<TData>::template Create<MeanRemovalOp>(
+        auto op = MultiRegions::Operator<TData>::template Create<MeanRemovalOp>(
             expansionList, components, execStr0);
 
         auto blockAttr =
@@ -113,7 +113,7 @@ protected:
 
     MeanRemovalOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

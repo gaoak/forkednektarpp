@@ -32,11 +32,11 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         # These operator have an additional argument for the FieldState
         # which requires two delcarations.
         IF("${name}" STREQUAL "IProductWRTDerivBase")
-            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDecTwoOutStates.cpp.in)
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/Common/OpFactoryDecTwoOutStates.cpp.in)
         ELSEIF("${name}" STREQUAL "AssmbScatr")
-            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/AssmbScatr/AssmbScatrFactoryDec.cpp.in)
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/AssmbScatr/AssmbScatrFactoryDec.cpp.in)
         ELSE()
-            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/OpFactoryDec.cpp.in)
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/Common/OpFactoryDec.cpp.in)
         ENDIF()
 
         # Loop through each possible execution space.
@@ -143,7 +143,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 
         # These operator have an additional argument for the FieldState
         # which requires two delcarations.
-        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/Operators/Common/BlockOperatorFactoryDec.cpp.in)
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/Common/BlockOperatorFactoryDec.cpp.in)
 
         # Loop through each possible execution space.
         FOREACH (ExecSpace IN LISTS ExecSpaces)

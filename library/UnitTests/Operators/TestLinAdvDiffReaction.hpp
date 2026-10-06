@@ -38,11 +38,11 @@
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
+#include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestLinAdvDiffReaction

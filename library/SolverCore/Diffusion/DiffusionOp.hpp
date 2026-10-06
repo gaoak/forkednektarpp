@@ -35,15 +35,16 @@
 #pragma once
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "Operators/Common/Operator.hpp"
 #include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
 #include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // Diffusion operator base class
-template <typename TData> class DiffusionOp : public Operators::Operator<TData>
+template <typename TData>
+class DiffusionOp : public MultiRegions::Operator<TData>
 {
 public:
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -87,7 +88,7 @@ protected:
 
     DiffusionOp(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

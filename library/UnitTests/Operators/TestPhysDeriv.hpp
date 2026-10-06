@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp"
+#include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestPhysDeriv : public TestOp<TData, FieldState::Phys, FieldState::Phys>

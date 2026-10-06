@@ -82,7 +82,7 @@ public:
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 this->m_expansionList,
-                Operators::Operator<TData>::GetDefaultInterleaveWidth(
+                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
                     this->m_expansionList->GetSession()));
         this->m_solutions.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(

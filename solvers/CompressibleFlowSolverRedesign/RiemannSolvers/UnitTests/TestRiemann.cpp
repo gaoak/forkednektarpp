@@ -55,7 +55,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 using namespace Nektar::SolverCore;
 
 NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);

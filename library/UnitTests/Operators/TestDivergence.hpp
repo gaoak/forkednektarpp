@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/Divergence/DivergenceOp.hpp"
+#include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestDivergence : public TestOp<TData, FieldState::Phys, FieldState::Phys>

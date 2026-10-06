@@ -172,7 +172,7 @@ public:
 
         // Interleaved case.
         std::string execStr =
-            Operators::Operator<TData>::GetOpExecSpace(m_session);
+            MultiRegions::Operator<TData>::GetOpExecSpace(m_session);
         m_in.ReshapeStorage(NektarSpaces::GetVectorWidth<TData>(execStr),
                             execStr);
 

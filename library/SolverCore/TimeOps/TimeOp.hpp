@@ -36,7 +36,7 @@
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
-#include "Operators/Common/Operator.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 #include <deque>
 #include <memory>
@@ -84,7 +84,7 @@ template <typename TData> GEMOpFactory<TData> &GetGEMOpFactory();
 template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory();
 
 // TimeIntegration base class
-template <typename TData> class TimeOp : public Operators::Operator<TData>
+template <typename TData> class TimeOp : public MultiRegions::Operator<TData>
 {
 public:
     ~TimeOp() override = default;
@@ -110,7 +110,7 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
         // Set key.
@@ -353,7 +353,7 @@ public:
                  "Explicit contribution history is shorter than the current "
                  "coefficient list.");
 
-        const auto execSpace = Operators::Operator<TData>::GetOpExecSpace(
+        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
             this->m_expansionList->GetSession());
         Math::MathHelper math(execSpace);
 
@@ -495,7 +495,7 @@ protected:
 
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> components)
-        : Operators::Operator<TData>(expansionList, components),
+        : MultiRegions::Operator<TData>(expansionList, components),
           m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
     {
         this->m_timestep =
@@ -507,7 +507,7 @@ protected:
            const std::vector<std::string> components,
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant)
-        : Operators::Operator<TData>(expansionList, components),
+        : MultiRegions::Operator<TData>(expansionList, components),
           m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
     {
         this->m_timestep =
@@ -520,7 +520,7 @@ protected:
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant,
            [[maybe_unused]] const std::vector<TData> &freeParams)
-        : Operators::Operator<TData>(expansionList, components),
+        : MultiRegions::Operator<TData>(expansionList, components),
           m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
     {
         this->m_timestep =
@@ -575,7 +575,7 @@ protected:
         ASSERTL0(history.size() == coeffs.size(),
                  "History size must match extrapolation coefficient count.");
 
-        const auto execSpace = Operators::Operator<TData>::GetOpExecSpace(
+        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
             this->m_expansionList->GetSession());
         Math::MathHelper math(execSpace);
 

@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
+#include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestNeumann : public TestOp<TData, FieldState::Coeff, FieldState::Coeff,

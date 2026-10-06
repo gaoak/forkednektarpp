@@ -36,16 +36,17 @@
 
 #include <SolverCore/SolverCore.hpp>
 
-#include "Operators/Common/Operator.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
-#include "Operators/BndCondOps/BndCondPhys/BndCondPhysOp.hpp"
 #include "SolverCore/BndCond/BndCondUpdateOp.hpp"
+#include <MultiRegions/BndCondOps/BndCondPhys/BndCondPhysOp.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // TraceFlux operator base class
-template <typename TData> class TraceFluxOp : public Operators::Operator<TData>
+template <typename TData>
+class TraceFluxOp : public MultiRegions::Operator<TData>
 {
 
 public:
@@ -70,13 +71,13 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
         std::string requestedKey = method0 + execStr0;
 
-        Operators::OperatorFactory<TData> &factory =
-            Operators::GetOperatorFactory<TData>();
+        MultiRegions::OperatorFactory<TData> &factory =
+            MultiRegions::GetOperatorFactory<TData>();
 
         // No suitable operator was found.
         if (!factory.ModuleExists(requestedKey))
@@ -280,7 +281,7 @@ public:
     /// The boundary values this operator gathers from. Handed out so that an
     /// operator computing boundary states can write into the same storage,
     /// leaving the gather here unchanged.
-    const std::shared_ptr<Operators::BndCondPhysOp<TData>> &GetBndCondPhysOp()
+    const std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> &GetBndCondPhysOp()
         const
     {
         return m_BndCondOp;
@@ -394,7 +395,7 @@ protected:
     /// mesh-derived default must not overwrite them after that; see
     /// SetTraceNormals().
     bool m_traceNormalsOverridden = false;
-    std::shared_ptr<Operators::BndCondPhysOp<TData>> m_BndCondOp;
+    std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> m_BndCondOp;
     std::vector<std::shared_ptr<BndCondUpdateOp<TData>>> m_bndCondUpdateOps;
     /// Block-to-condition lookup, built on first use by GetBndCondUpdateOp()
     /// and dropped whenever a condition is attached.
@@ -537,7 +538,7 @@ protected:
 
     TraceFluxOp(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
         const auto &vars =
             components.size() ==
@@ -545,7 +546,7 @@ protected:
                 ? components
                 : expansionList->GetSession()->GetVariables();
         m_BndCondOp =
-            Operators::BndCondPhysOp<TData>::Create(expansionList, vars);
+            MultiRegions::BndCondPhysOp<TData>::Create(expansionList, vars);
     }
 
     ~TraceFluxOp() override = default;

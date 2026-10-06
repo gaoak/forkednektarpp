@@ -56,9 +56,9 @@ IF (NEKTAR_USE_SIMSYCL)
     # A Debug build will not LINK without this. SimSYCL wraps every device
     # operation in several layers of templates, and at -O0 none of them
     # inline: each layer emits a standalone out-of-line function, across all
-    # ~630 device kernel objects in Operators. The result is more code and
+    # ~630 device kernel objects in MultiRegions. The result is more code and
     # more symbols than ld64 survives, and it dies linking
-    # libOperators-g.dylib with a bare
+    # libMultiRegions-g.dylib with a bare
     #     c++: error: unable to execute command: Segmentation fault: 11
     # that says nothing about the cause.
     #

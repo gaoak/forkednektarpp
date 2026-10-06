@@ -51,14 +51,14 @@ public:
                    const std::vector<std::string> &components)
         : FwdTransOp<TData>(expansionList, components)
     {
-        this->m_IProdOp = Operators::IProductWRTBaseOp<TData>::Create(
+        this->m_IProdOp = MultiRegions::IProductWRTBaseOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
-        this->m_ElmtOp = Operators::MassOp<TData>::Create(
+        this->m_ElmtOp = MultiRegions::MassOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
         // Add default Dirichlet BC
-        this->m_DirBCOps.push_back(Operators::DirBndCondOp<TData>::Create(
+        this->m_DirBCOps.push_back(MultiRegions::DirBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name));
-        this->m_RobBCOp = Operators::RobBndCondOp<TData>::Create(
+        this->m_RobBCOp = MultiRegions::RobBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
     }
 
@@ -66,7 +66,7 @@ public:
     static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
+    static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {

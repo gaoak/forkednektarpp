@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestBwdTrans : public TestOp<TData, FieldState::Coeff, FieldState::Phys>

@@ -34,13 +34,13 @@
 
 #pragma once
 
-#include "Operators/Common/BlockOperator.hpp"
+#include <MultiRegions/Common/BlockOperator.hpp>
 
 namespace Nektar::SolverCore
 {
 
 template <typename TData>
-class MeanRemovalBlockOp : public Operators::BlockOperator<TData>
+class MeanRemovalBlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
     ~MeanRemovalBlockOp() override = default;
@@ -51,7 +51,7 @@ public:
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
         const std::string &execStr)
     {
-        return Operators::BlockOperator<TData>::template Create<
+        return MultiRegions::BlockOperator<TData>::template Create<
             MeanRemovalBlockOp>(block_idx, exp, dataWarehouse, execStr);
     }
 
@@ -74,7 +74,7 @@ protected:
     MeanRemovalBlockOp(const unsigned int block_idx,
                        const LocalRegions::ExpansionSharedPtr &exp,
                        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : Operators::BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : MultiRegions::BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 

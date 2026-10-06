@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestIProductWRTBase

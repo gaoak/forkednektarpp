@@ -64,7 +64,7 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
     ENDMACRO()
 
     ADD_SOLVER_EXECUTABLE(IncNavierStokesSolverRedesign
-        DEPENDS SolverCore Operators
+        DEPENDS SolverCore
         SOURCES
             IncNavierStokesSolverRedesign.cpp
             EquationSystems/VelocityCorrectionScheme.cpp

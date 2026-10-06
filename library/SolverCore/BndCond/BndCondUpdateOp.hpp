@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/BndCondOps/BndCondPhys/BndCondPhysOp.hpp"
-#include "Operators/Common/Operator.hpp"
+#include <MultiRegions/BndCondOps/BndCondPhys/BndCondPhysOp.hpp>
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -57,7 +57,7 @@ namespace Nektar::SolverCore
  * compressible flow solver.
  */
 template <typename TData>
-class BndCondUpdateOp : public Operators::Operator<TData>
+class BndCondUpdateOp : public MultiRegions::Operator<TData>
 {
 
 public:
@@ -66,7 +66,7 @@ public:
     /// Storage to write into. Must be the same instance the trace flux
     /// operator gathers from, or the computed values go nowhere.
     void SetBndCondPhysOp(
-        const std::shared_ptr<Operators::BndCondPhysOp<TData>> &ptr)
+        const std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> &ptr)
     {
         m_bndCondPhysOp = ptr;
         v_SetBndCondPhysOp();
@@ -210,11 +210,11 @@ public:
     }
 
 protected:
-    std::shared_ptr<Operators::BndCondPhysOp<TData>> m_bndCondPhysOp;
+    std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> m_bndCondPhysOp;
 
     BndCondUpdateOp(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 
