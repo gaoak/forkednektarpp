@@ -72,6 +72,7 @@ v5.11.0
 - Fix C++20 ambiguous reversed operator warning (!2703)
 - Tidy stop using boost ignore unused (!2751)
 - Fix VtkToPng segfault with VTK 9 by linking and auto-initialising the rendering backend module that provides the object factory overrides (!2764)
+- Add support for FlexiBlas (!2796)
 
 v5.10.0
 -------
