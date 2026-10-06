@@ -36,7 +36,7 @@
 #pragma once
 
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
-#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
+#include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
@@ -48,7 +48,7 @@
 namespace Nektar
 {
 using namespace SolverCore;
-using namespace Operators;
+using namespace MultiRegions;
 
 class UnsteadyADR : public UnsteadySystem
 {

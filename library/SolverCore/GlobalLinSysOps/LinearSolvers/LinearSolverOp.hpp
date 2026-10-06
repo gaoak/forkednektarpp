@@ -41,12 +41,13 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
-#include "Operators/ElmtOps/ElmtOp.hpp"
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include "SolverCore/SolverCore.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
+#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
+#include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
+#include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
@@ -56,7 +57,7 @@ namespace Nektar::SolverCore
 
 // LinearSolver base class
 template <typename TData>
-class LinearSolverOp : public Operators::Operator<TData>
+class LinearSolverOp : public MultiRegions::Operator<TData>
 {
 public:
     static std::shared_ptr<LinearSolverOp<TData>> Create(
@@ -92,13 +93,13 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
         std::string requestedKey = method0 + execStr0;
 
-        Operators::OperatorFactory<TData> &factory =
-            Operators::GetOperatorFactory<TData>();
+        MultiRegions::OperatorFactory<TData> &factory =
+            MultiRegions::GetOperatorFactory<TData>();
 
         // No suitable operator was found.
         if (!factory.ModuleExists(requestedKey))
@@ -125,7 +126,7 @@ public:
         this->v_Apply(in, out);
     }
 
-    void SetLHS(const std::shared_ptr<Operators::ElmtOp<
+    void SetLHS(const std::shared_ptr<MultiRegions::ElmtOp<
                     FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
         this->m_lhs = ptr;
@@ -149,13 +150,12 @@ public:
 protected:
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
     std::shared_ptr<
-        Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+        MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_lhs;
     std::shared_ptr<PreconOp<TData>> m_precon;
-    std::shared_ptr<Operators::RobBndCondOp<TData>> m_robBndCondOp;
-    std::unique_ptr<Operators::AssmbScatrOp<TData>> m_assmbScatrOp;
-    std::unique_ptr<Operators::AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
-    // Selects one local copy of each global coefficient: see SetMask().
+    std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_robBndCondOp;
+    std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrOp;
+    std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
     LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
     Math::MathHelper m_math;
     bool m_root;
@@ -170,7 +170,7 @@ protected:
 
     LinearSolverOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 
@@ -260,13 +260,12 @@ protected:
         auto session = this->m_expansionList->GetSession();
 
         // Set operators.
-        this->m_assmbScatrOp = std::make_unique<
-            Operators::detail::AssmbScatrOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, this->m_components);
-        this->m_assmbScatrZeroDirOp = std::make_unique<
-            Operators::detail::AssmbScatrZeroDirOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, this->m_components);
-        this->m_robBndCondOp = Operators::RobBndCondOp<TData>::Create(
+        this->m_assmbScatrOp = MultiRegions::AssmbScatrOp<TData>::Create(
+            this->m_expansionList, this->m_components, ExecSpace::name);
+        this->m_assmbScatrZeroDirOp =
+            MultiRegions::AssmbScatrZeroDirOp<TData>::Create(
+                this->m_expansionList, this->m_components, ExecSpace::name);
+        this->m_robBndCondOp = MultiRegions::RobBndCondOp<TData>::Create(
             this->m_expansionList, this->m_components, ExecSpace::name);
         this->m_rowComm       = session->GetComm()->GetRowComm();
         this->m_root          = this->m_rowComm->GetRank() == 0;

@@ -34,14 +34,15 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
 #include "SolverCore/NormOps/NormLinf/NormLinfBlockOp.hpp"
 #include "SolverCore/SolverCore.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
 
-template <typename TData> class NormLinfOp : public Operators::Operator<TData>
+template <typename TData>
+class NormLinfOp : public MultiRegions::Operator<TData>
 {
 public:
     static std::shared_ptr<NormLinfOp<TData>> Create(
@@ -58,10 +59,10 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
-        auto op = Operators::Operator<TData>::template Create<NormLinfOp>(
+        auto op = MultiRegions::Operator<TData>::template Create<NormLinfOp>(
             expansionList, components, execStr0);
 
         auto blockAttr =
@@ -107,7 +108,7 @@ protected:
 
     NormLinfOp(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

@@ -68,7 +68,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 
 // Helpers: flatten/unflatten component-major
 template <typename TData>

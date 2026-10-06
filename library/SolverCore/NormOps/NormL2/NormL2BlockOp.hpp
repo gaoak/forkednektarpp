@@ -34,13 +34,13 @@
 
 #pragma once
 
-#include "Operators/Common/BlockOperator.hpp"
+#include <MultiRegions/Common/BlockOperator.hpp>
 
 namespace Nektar::SolverCore
 {
 
 template <typename TData>
-class NormL2BlockOp : public Operators::BlockOperator<TData>
+class NormL2BlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
     ~NormL2BlockOp() override = default;
@@ -51,8 +51,8 @@ public:
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
         const std::string &execStr)
     {
-        return Operators::BlockOperator<TData>::template Create<NormL2BlockOp>(
-            block_idx, exp, dataWarehouse, execStr);
+        return MultiRegions::BlockOperator<TData>::template Create<
+            NormL2BlockOp>(block_idx, exp, dataWarehouse, execStr);
     }
 
     static inline const std::string name = "BlockNormL2";
@@ -81,7 +81,7 @@ protected:
     NormL2BlockOp(const unsigned int block_idx,
                   const LocalRegions::ExpansionSharedPtr &exp,
                   LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : Operators::BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : MultiRegions::BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 

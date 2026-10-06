@@ -37,7 +37,7 @@
 #include <string>
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <SolverCore/Forcing/Forcing.h>
 #include <SolverCore/SolverCoreDeclspec.h>
 
@@ -82,7 +82,7 @@ protected:
 
 private:
     std::string m_funcName;
-    std::shared_ptr<Operators::ExpressionOp<double>> m_forceOp;
+    std::shared_ptr<MultiRegions::ExpressionOp<double>> m_forceOp;
 
     ForcingBody(const LibUtilities::SessionReaderSharedPtr &session,
                 const MultiRegions::ExpListSharedPtr &expList,

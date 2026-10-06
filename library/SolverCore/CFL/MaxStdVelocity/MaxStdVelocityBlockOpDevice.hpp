@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/ElmtBlockOp.hpp"
 #include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp"
+#include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 
 #include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOpDeviceKernels.hpp"
 
@@ -116,13 +116,15 @@ protected:
         const unsigned int shmemsize = 0;
         const unsigned int blocksize =
             (interleaveWidth == 1)
-                ? Operators::GetDeviceBlockSize<Operators::SumFacTOP>(m_nqTot)
-                : Operators::GetDeviceBlockSize<Operators::SumFac>(m_nqTot);
+                ? MultiRegions::GetDeviceBlockSize<MultiRegions::SumFacTOP>(
+                      m_nqTot)
+                : MultiRegions::GetDeviceBlockSize<MultiRegions::SumFac>(
+                      m_nqTot);
         const unsigned int gridsize =
             (interleaveWidth == 1)
-                ? Operators::GetDeviceGridSize<Operators::SumFacTOP>(
+                ? MultiRegions::GetDeviceGridSize<MultiRegions::SumFacTOP>(
                       nelmtPad, blocksize, shmemsize)
-                : Operators::GetDeviceGridSize<Operators::SumFac>(
+                : MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
                       nelmtPad, blocksize, shmemsize);
 
         if (m_isDeformed)
@@ -130,7 +132,8 @@ protected:
             if (interleaveWidth == 1)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MaxStdVelocityKernelLauncher<Operators::SumFacTOP, true>),
+                    (MaxStdVelocityKernelLauncher<MultiRegions::SumFacTOP,
+                                                  true>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
                     m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
                     m_dfptr1, inptr, dataptr + this->m_block_idx);
@@ -138,7 +141,7 @@ protected:
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MaxStdVelocityKernelLauncher<Operators::SumFac, true>),
+                    (MaxStdVelocityKernelLauncher<MultiRegions::SumFac, true>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
                     m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
                     m_dfptr2, inptr, dataptr + this->m_block_idx);
@@ -149,7 +152,8 @@ protected:
             if (interleaveWidth == 1)
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MaxStdVelocityKernelLauncher<Operators::SumFacTOP, false>),
+                    (MaxStdVelocityKernelLauncher<MultiRegions::SumFacTOP,
+                                                  false>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
                     m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
                     m_dfptr1, inptr, dataptr + this->m_block_idx);
@@ -157,7 +161,7 @@ protected:
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (MaxStdVelocityKernelLauncher<Operators::SumFac, false>),
+                    (MaxStdVelocityKernelLauncher<MultiRegions::SumFac, false>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
                     m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
                     m_dfptr2, inptr, dataptr + this->m_block_idx);

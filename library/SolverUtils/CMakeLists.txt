@@ -138,21 +138,12 @@ IF (NEKTAR_BUILD_PYTHON)
         Filters/FilterPython.h)
 ENDIF()
 
-IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
-    ADD_NEKTAR_LIBRARY(SolverUtils
-        SOURCES ${SOLVER_UTILS_SOURCES}
-        HEADERS ${SOLVER_UTILS_HEADERS}
-        DEPENDS FieldUtils Operators
-        SUMMARY "Nektar++ SolverUtils library"
-        DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
-ELSE()
-    ADD_NEKTAR_LIBRARY(SolverUtils
-        SOURCES ${SOLVER_UTILS_SOURCES}
-        HEADERS ${SOLVER_UTILS_HEADERS}
-        DEPENDS FieldUtils
-        SUMMARY "Nektar++ SolverUtils library"
-        DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
-ENDIF()
+ADD_NEKTAR_LIBRARY(SolverUtils
+    SOURCES ${SOLVER_UTILS_SOURCES}
+    HEADERS ${SOLVER_UTILS_HEADERS}
+    DEPENDS FieldUtils
+    SUMMARY "Nektar++ SolverUtils library"
+    DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
 
 IF (NEKTAR_BUILD_PYTHON)
     TARGET_LINK_LIBRARIES(SolverUtils LINK_PRIVATE ${Python3_LIBRARIES})

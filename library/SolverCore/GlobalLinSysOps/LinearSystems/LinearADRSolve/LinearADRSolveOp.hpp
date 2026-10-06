@@ -39,7 +39,7 @@
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include "SolverCore/SolverCore.hpp"
 
-#include "Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp"
+#include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -59,7 +59,7 @@ public:
         // dropped by the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
-        return Operators::Operator<TData>::template Create<LinearADRSolveOp>(
+        return MultiRegions::Operator<TData>::template Create<LinearADRSolveOp>(
             expansionList, components, execStr);
     }
 
@@ -67,21 +67,21 @@ public:
 
     void SetLambda(const TData &lambda)
     {
-        std::dynamic_pointer_cast<Operators::LinAdvDiffReactionOp<TData>>(
+        std::dynamic_pointer_cast<MultiRegions::LinAdvDiffReactionOp<TData>>(
             this->m_ElmtOp)
             ->SetLambda(lambda);
     }
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        std::dynamic_pointer_cast<Operators::LinAdvDiffReactionOp<TData>>(
+        std::dynamic_pointer_cast<MultiRegions::LinAdvDiffReactionOp<TData>>(
             this->m_ElmtOp)
             ->SetDiffCoeff(diffCoeff);
     }
 
     void SetAdvVel(LibUtilities::Field<TData, FieldState::Phys> &Vel)
     {
-        std::dynamic_pointer_cast<Operators::LinAdvDiffReactionOp<TData>>(
+        std::dynamic_pointer_cast<MultiRegions::LinAdvDiffReactionOp<TData>>(
             this->m_ElmtOp)
             ->SetAdvVel(Vel);
     }

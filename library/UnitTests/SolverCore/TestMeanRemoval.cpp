@@ -49,7 +49,7 @@
 #include <UnitTests/TestGlobalConfiguration.hpp>
 
 using namespace Nektar;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 using namespace Nektar::SolverCore;
 
 NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);

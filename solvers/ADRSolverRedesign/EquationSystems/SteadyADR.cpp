@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
@@ -41,7 +41,7 @@
 
 namespace Nektar
 {
-using namespace Operators;
+using namespace MultiRegions;
 
 std::string SteadyADR::className1 =
     GetEquationSystemFactory().RegisterCreatorFunction("Poisson",

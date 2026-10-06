@@ -39,7 +39,7 @@
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include "SolverCore/SolverCore.hpp"
 
-#include "Operators/ElmtOps/Mass/MassOp.hpp"
+#include <MultiRegions/ElmtOps/Mass/MassOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -59,7 +59,7 @@ public:
         // the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
-        return Operators::Operator<TData>::template Create<FwdTransOp>(
+        return MultiRegions::Operator<TData>::template Create<FwdTransOp>(
             expansionList, components, execStr);
     }
 

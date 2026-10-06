@@ -35,11 +35,11 @@
 
 #include <IncNavierStokesSolverRedesign/EquationSystems/VelocityCorrectionScheme.h>
 
-#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
-#include <Operators/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
-#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
-#include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
+#include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
+#include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
+#include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
@@ -62,7 +62,7 @@
 
 namespace Nektar
 {
-using namespace Operators;
+using namespace MultiRegions;
 
 std::string VelocityCorrectionScheme::className =
     GetEquationSystemFactory().RegisterCreatorFunction(

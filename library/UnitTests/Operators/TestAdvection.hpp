@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/Advection/AdvectionOp.hpp"
+#include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestAdvection : public TestOp<TData, FieldState::Phys, FieldState::Phys>

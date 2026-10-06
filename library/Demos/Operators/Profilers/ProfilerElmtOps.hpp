@@ -36,20 +36,20 @@
 #include <iomanip>
 #include <iostream>
 
-#include <Operators/ElmtOps/Advection/AdvectionOp.hpp>
-#include <Operators/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
-#include <Operators/ElmtOps/BwdTrans/BwdTransOp.hpp>
-#include <Operators/ElmtOps/CurlCurl/CurlCurlOp.hpp>
-#include <Operators/ElmtOps/Divergence/DivergenceOp.hpp>
-#include <Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp>
-#include <Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
-#include <Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
-#include <Operators/ElmtOps/Laplacian/LaplacianOp.hpp>
-#include <Operators/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp>
-#include <Operators/ElmtOps/Mass/MassOp.hpp>
-#include <Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
-#include <Operators/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
-#include <Operators/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp>
+#include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
+#include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <MultiRegions/ElmtOps/CurlCurl/CurlCurlOp.hpp>
+#include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
+#include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
+#include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
+#include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionOp.hpp>
+#include <MultiRegions/ElmtOps/Mass/MassOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
+#include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
+#include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledOp.hpp>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
@@ -77,7 +77,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 
 /// Compute the expected results of certain operator from the expList
 void GetExpectedResults(const std::string &opName,

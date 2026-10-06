@@ -49,7 +49,7 @@
 
 namespace Nektar
 {
-using namespace Operators;
+using namespace MultiRegions;
 
 std::string NavierStokesCFE::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
@@ -146,7 +146,7 @@ void NavierStokesCFE::v_InitialiseOperators()
     EquationSystem::v_InitialiseOperators();
 
     std::string execName =
-        Operators::Operator<double>::GetOpExecSpace(m_session);
+        MultiRegions::Operator<double>::GetOpExecSpace(m_session);
 
     // Create advection operators
     m_advDiffusionOp = AdvWeakDGDiffusionIPOp<double>::Create(

@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/BlockOperator.hpp"
+#include <MultiRegions/Common/BlockOperator.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -65,7 +65,7 @@ namespace Nektar::SolverCore
  * @see MaxStdVelocityOp for the whole-field reduction and the order weighting.
  */
 template <typename TData>
-class MaxStdVelocityBlockOp : public Operators::BlockOperator<TData>
+class MaxStdVelocityBlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
     ~MaxStdVelocityBlockOp() override = default;
@@ -76,7 +76,7 @@ public:
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
         const std::string &execStr)
     {
-        return Operators::BlockOperator<TData>::template Create<
+        return MultiRegions::BlockOperator<TData>::template Create<
             MaxStdVelocityBlockOp>(block_idx, exp, dataWarehouse, execStr);
     }
 
@@ -117,7 +117,7 @@ protected:
     MaxStdVelocityBlockOp(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
                           LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : Operators::BlockOperator<TData>(block_idx, exp, dataWarehouse)
+        : MultiRegions::BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 

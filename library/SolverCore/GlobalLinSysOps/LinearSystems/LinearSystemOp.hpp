@@ -34,22 +34,22 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondOp.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
-#include "Operators/ElmtOps/ElmtOp.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
 #include "SolverCore/PreconOps/PreconOp.hpp"
+#include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
+#include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
+#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
+#include <MultiRegions/ElmtOps/ElmtOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // LinearSystem base class
 template <typename TData>
-class LinearSystemOp : public Operators::Operator<TData>
+class LinearSystemOp : public MultiRegions::Operator<TData>
 {
 public:
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -96,13 +96,13 @@ public:
     }
 
     void AddDirichletBCOp(
-        const std::shared_ptr<Operators::DirBndCondOp<TData>> &op)
+        const std::shared_ptr<MultiRegions::DirBndCondOp<TData>> &op)
     {
         m_DirBCOps.push_back(op);
     }
 
     void AddNeumannBCOp(
-        const std::shared_ptr<Operators::NeuBndCondOp<TData>> &op)
+        const std::shared_ptr<MultiRegions::NeuBndCondOp<TData>> &op)
     {
         m_NeuBCOps.push_back(op);
     }
@@ -110,19 +110,19 @@ public:
 protected:
     std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<
-        Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+        MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_ElmtOp;
-    std::vector<std::shared_ptr<Operators::DirBndCondOp<TData>>> m_DirBCOps;
-    std::shared_ptr<Operators::IProductWRTBaseOp<TData>> m_IProdOp;
-    std::vector<std::shared_ptr<Operators::NeuBndCondOp<TData>>> m_NeuBCOps;
-    std::shared_ptr<Operators::RobBndCondOp<TData>> m_RobBCOp;
+    std::vector<std::shared_ptr<MultiRegions::DirBndCondOp<TData>>> m_DirBCOps;
+    std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>> m_IProdOp;
+    std::vector<std::shared_ptr<MultiRegions::NeuBndCondOp<TData>>> m_NeuBCOps;
+    std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_RobBCOp;
 
     LibUtilities::Field<TData, FieldState::Coeff> m_rhs;
     LibUtilities::Field<TData, FieldState::Coeff> m_tmp;
 
     LinearSystemOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components),
+        : MultiRegions::Operator<TData>(expansionList, components),
           m_rhs(LibUtilities::Field<TData, FieldState::Coeff>(
               "LinearSystem RHS",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(

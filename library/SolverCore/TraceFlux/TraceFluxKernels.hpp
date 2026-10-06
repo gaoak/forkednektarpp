@@ -36,7 +36,7 @@
 
 #include "LibUtilities/BasicUtils/ErrorUtil.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
-#include "Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractKernels.hpp"
+#include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractKernels.hpp>
 
 #include "LocalRegions/ReOrientFaceKernel.hpp"
 #include "StdRegions/StdRegions.hpp"
@@ -1085,7 +1085,7 @@ NEK_FORCE_INLINE static void LocEdgeToGloEdgeTraces(
 
                 ReOrientEdgeKernel<false, false>(orient, nptsIn, in, T.stride,
                                                  w, 1u);
-                Operators::detail::PhysInterpEdgeKernel<TData>(
+                MultiRegions::detail::PhysInterpEdgeKernel<TData>(
                     1u, nptsIn, nptsOut, interp, w, out, false);
             }
         });
@@ -1186,7 +1186,7 @@ NEK_FORCE_INLINE static void GloEdgeToLocEdgeTraces(
                 // Private slice: every thread interpolates before reorienting.
                 TData *w = wsp + idx * nptsOut;
 
-                Operators::detail::PhysInterpEdgeKernel<TData>(
+                MultiRegions::detail::PhysInterpEdgeKernel<TData>(
                     1u, nptsIn, nptsOut, interp, in, w, false);
                 ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsOut, w, 1u,
                                                          out, T.stride);
@@ -1320,7 +1320,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFaceTraces(
                 unsigned nRe0, nRe1;
                 ReorientedFaceExtents(orient, nptsIn0, nptsIn1, nRe0, nRe1);
 
-                Operators::detail::PhysInterpFaceKernel<TData>(
+                MultiRegions::detail::PhysInterpFaceKernel<TData>(
                     1u, nRe0, nRe1, nptsOut0, nptsOut1, interp0, interp1,
                     wsp + idx * wspStride, lw, out, Collocated0, Collocated1);
             }
@@ -1444,7 +1444,7 @@ NEK_FORCE_INLINE static void GloFaceToLocFaceTraces(
                 unsigned nRe0, nRe1;
                 ReorientedFaceExtents(orient, nptsOut0, nptsOut1, nRe0, nRe1);
 
-                Operators::detail::PhysInterpFaceKernel<TData>(
+                MultiRegions::detail::PhysInterpFaceKernel<TData>(
                     1u, nptsIn0, nptsIn1, nRe0, nRe1, interp0, interp1,
                     wsp + idx * wspStride, in, gw, Collocated0, Collocated1);
 

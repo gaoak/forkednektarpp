@@ -34,11 +34,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondOp.hpp"
+#include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestDirichlet : public TestOp<TData, FieldState::Coeff, FieldState::Coeff,

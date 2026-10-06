@@ -35,6 +35,10 @@
 #pragma once
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+
+namespace Nektar::SolverCore::detail
+{
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateConjGradSearchDirection(
@@ -89,3 +93,5 @@ NEK_FORCE_INLINE static void UpdateConjGradSearchDirection(
 
     Nektar::LoopExecutionSetStreamID(0);
 }
+
+} // namespace Nektar::SolverCore::detail

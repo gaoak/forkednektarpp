@@ -36,14 +36,13 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledOp.hpp"
+#include <MultiRegions/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledOp.hpp>
 
 #include <LibUtilities/Foundations/PhysGalerkinProject.h>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 
 template <typename TData>
 class TestPhysGalerkinProject1DScaled

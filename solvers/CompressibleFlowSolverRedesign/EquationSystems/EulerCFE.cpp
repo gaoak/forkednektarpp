@@ -48,7 +48,7 @@
 
 namespace Nektar
 {
-using namespace Operators;
+using namespace MultiRegions;
 
 std::string EulerCFE::className =
     GetEquationSystemFactory().RegisterCreatorFunction(
@@ -148,7 +148,7 @@ void EulerCFE::v_InitialiseOperators()
     m_advectionWeakDGOp =
         AdvectionWeakDGOp<double>::Create(m_expansionLists[0], m_variables);
     std::string execName =
-        Operators::Operator<double>::GetOpExecSpace(m_session);
+        MultiRegions::Operator<double>::GetOpExecSpace(m_session);
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
     auto volumeFluxOp =
         EulerVolumeFluxOp<double>::Create(m_expansionLists[0], m_variables);

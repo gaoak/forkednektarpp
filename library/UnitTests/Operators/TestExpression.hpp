@@ -34,12 +34,12 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/Expression/ExpressionOp.hpp"
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestExpression : public TestOp<TData, FieldState::Phys, FieldState::Phys,

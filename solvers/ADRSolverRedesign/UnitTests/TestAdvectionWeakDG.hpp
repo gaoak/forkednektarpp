@@ -35,7 +35,7 @@
 #include "ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
 #include "SolverCore/TraceFlux/TraceFluxOp.hpp"
-#include <Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <SolverUtils/RiemannSolvers/UpwindSolver.h>
@@ -45,7 +45,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 using namespace Nektar::SolverCore;
 
 template <typename TData>

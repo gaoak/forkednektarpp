@@ -190,7 +190,7 @@ public:
      *
      * @return A new operator instance, owned by the caller.
      */
-    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
+    static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {

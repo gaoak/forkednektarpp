@@ -72,7 +72,7 @@ EquationSystem::EquationSystem(
 
     // Initialise Math
     std::string execName =
-        Operators::Operator<double>::GetOpExecSpace(m_session);
+        MultiRegions::Operator<double>::GetOpExecSpace(m_session);
     m_math = Math::MathHelper(execName);
 
     // Check and set definitions for homogeneous/Fourier dimensions
@@ -136,7 +136,7 @@ void EquationSystem::v_InitialiseFields()
 {
     // Get interleave width
     auto interleaveWidth =
-        Operators::Operator<double>::GetDefaultInterleaveWidth(m_session);
+        MultiRegions::Operator<double>::GetDefaultInterleaveWidth(m_session);
 
     // Create solution fields in physical space (at quadrature points)
     auto bAtr_phys = MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
@@ -211,7 +211,7 @@ void EquationSystem::v_PrintNorms(std::ostream &out)
     // is recomputed from the session rather than read off m_fields' blocks
     // since GetBlocks() can be empty on a rank with no local elements.
     const auto interleaveWidth =
-        Operators::Operator<double>::GetDefaultInterleaveWidth(m_session);
+        MultiRegions::Operator<double>::GetDefaultInterleaveWidth(m_session);
     auto wsp_phys = LibUtilities::Field<double, FieldState::Phys>(
         "exact solution",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
@@ -549,19 +549,20 @@ void EquationSystem::v_InitialiseOperators()
             // the forward direction is not m_fwdTransOp, which is a global
             // mass matrix solve carrying boundary conditions, but the element
             // local M^-1 B^T W that a discontinuous field calls for.
-            m_bwdTransOp = Operators::BwdTransOp<double>::Create(
+            m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
                 m_expansionLists[0], m_variables);
-            m_iProductWRTBaseOp = Operators::IProductWRTBaseOp<double>::Create(
-                m_expansionLists[0], m_variables);
+            m_iProductWRTBaseOp =
+                MultiRegions::IProductWRTBaseOp<double>::Create(
+                    m_expansionLists[0], m_variables);
             m_multiplyByElmtInvMassOp =
-                Operators::MultiplyByElmtInvMassOp<double>::Create(
+                MultiRegions::MultiplyByElmtInvMassOp<double>::Create(
                     m_expansionLists[0], m_variables);
             break;
         }
         case MultiRegions::eGalerkin:
         {
             // Continuous projection
-            m_bwdTransOp = Operators::BwdTransOp<double>::Create(
+            m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
                 m_expansionLists[0], m_variables);
 
             // Projection operators

@@ -38,14 +38,13 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp"
+#include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 
 #include <LibUtilities/Foundations/PhysGalerkinProject.h>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 
 template <typename TData>
 class TestAdvectionDealias

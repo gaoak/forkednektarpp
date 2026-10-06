@@ -34,8 +34,7 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
 #include <MultiRegions/ContField.h>
@@ -47,8 +46,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
-using namespace Nektar::Operators::detail;
 
 template <typename TData>
 class TestAssmbScatr

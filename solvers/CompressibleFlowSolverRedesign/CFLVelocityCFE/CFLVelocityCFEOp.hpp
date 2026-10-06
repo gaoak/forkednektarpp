@@ -36,7 +36,7 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 
-#include "Operators/Common/Operator.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 #include "EquationOfState/SupportedEoS.hpp"
 
@@ -55,7 +55,7 @@ namespace Nektar
  * speed to supply.
  */
 template <typename TData>
-class CFLVelocityCFEOp : public Operators::Operator<TData>
+class CFLVelocityCFEOp : public MultiRegions::Operator<TData>
 {
 public:
     static std::shared_ptr<CFLVelocityCFEOp<TData>> Create(
@@ -78,7 +78,7 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
         // The key carries the equation of state between the name and the
@@ -87,8 +87,8 @@ public:
         // time.
         const std::string requestedKey = name + EoSName + execStr0;
 
-        Operators::OperatorFactory<TData> &factory =
-            Operators::GetOperatorFactory<TData>();
+        MultiRegions::OperatorFactory<TData> &factory =
+            MultiRegions::GetOperatorFactory<TData>();
 
         if (!factory.ModuleExists(requestedKey))
         {
@@ -119,7 +119,7 @@ public:
 protected:
     CFLVelocityCFEOp(const MultiRegions::ExpListSharedPtr &expansionList,
                      const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

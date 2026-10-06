@@ -45,10 +45,10 @@
 #include <SpatialDomains/Conditions.h>
 #include <iosfwd>
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransOp.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp"
-#include "Operators/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp"
 #include "SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -233,15 +233,16 @@ protected:
     LibUtilities::Field<double, FieldState::Phys> m_fields;
     LibUtilities::Field<double, FieldState::Coeff> m_fields_coeff;
 
-    std::shared_ptr<BwdTransOp<double>> m_bwdTransOp = nullptr;
-    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp = nullptr;
+    std::shared_ptr<MultiRegions::BwdTransOp<double>> m_bwdTransOp = nullptr;
+    std::shared_ptr<FwdTransOp<double>> m_fwdTransOp               = nullptr;
 
     /// Phys to coeff projection for a discontinuous field, which is element
     /// local and so cannot use m_fwdTransOp: that is a global mass matrix
     /// solve carrying boundary conditions. Only built for eDiscontinuous.
-    std::shared_ptr<IProductWRTBaseOp<double>> m_iProductWRTBaseOp = nullptr;
-    std::shared_ptr<MultiplyByElmtInvMassOp<double>> m_multiplyByElmtInvMassOp =
-        nullptr;
+    std::shared_ptr<MultiRegions::IProductWRTBaseOp<double>>
+        m_iProductWRTBaseOp = nullptr;
+    std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<double>>
+        m_multiplyByElmtInvMassOp = nullptr;
     LibUtilities::Field<double, FieldState::Coeff> m_fields_coeff_tmp;
 
     /// HOMOGENEOUS setup

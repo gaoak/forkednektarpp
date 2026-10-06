@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/ElmtOp.hpp"
 #include "SolverCore/SolverCore.hpp"
+#include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -43,7 +43,7 @@ namespace Nektar::SolverCore
 // Precon base class
 template <typename TData>
 class PreconOp
-    : public Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
+    : public MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
     static std::shared_ptr<PreconOp<TData>> Create(
@@ -72,13 +72,13 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
         std::string requestedKey = method0 + "Precon" + execStr0;
 
-        Operators::OperatorFactory<TData> &factory =
-            Operators::GetOperatorFactory<TData>();
+        MultiRegions::OperatorFactory<TData> &factory =
+            MultiRegions::GetOperatorFactory<TData>();
 
         // No suitable operator was found.
         if (!factory.ModuleExists(requestedKey))
@@ -93,9 +93,8 @@ public:
             factory.CreateInstance(requestedKey, expansionList, components));
     }
 
-    void Configure(
-        const std::shared_ptr<
-            Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> &op)
+    void Configure(const std::shared_ptr<MultiRegions::ElmtOp<
+                       FieldState::Coeff, FieldState::Coeff, TData>> &op)
     {
         v_Configure(op);
     }
@@ -103,7 +102,7 @@ public:
 protected:
     PreconOp(const MultiRegions::ExpListSharedPtr &expansionList,
              const std::vector<std::string> &components)
-        : Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(
+        : MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList, components)
     {
     }
@@ -112,7 +111,7 @@ protected:
 
     virtual void v_Configure(
         const std::shared_ptr<
-            Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+            MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
             &op) = 0;
 };
 

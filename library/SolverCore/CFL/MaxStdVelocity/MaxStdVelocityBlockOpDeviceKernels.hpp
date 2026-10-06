@@ -60,7 +60,7 @@ namespace Nektar::SolverCore::detail
 template <
     typename Implementation, bool DEFORMED, typename TthreadBlock,
     typename TData,
-    std::enable_if_t<std::is_same_v<Implementation, Operators::SumFac>, bool>
+    std::enable_if_t<std::is_same_v<Implementation, MultiRegions::SumFac>, bool>
         Enable = true>
 NEK_DEVICE_KERNEL void MaxStdVelocityKernelLauncher(
     const size_t nelmt, const size_t compSize, const unsigned int dimension,
@@ -134,11 +134,11 @@ NEK_DEVICE_KERNEL void MaxStdVelocityKernelLauncher(
     blockReduceMax(acc, threadBlock, out);
 }
 
-template <
-    typename Implementation, bool DEFORMED, typename TthreadBlock,
-    typename TData,
-    std::enable_if_t<std::is_same_v<Implementation, Operators::SumFacTOP>, bool>
-        Enable = true>
+template <typename Implementation, bool DEFORMED, typename TthreadBlock,
+          typename TData,
+          std::enable_if_t<
+              std::is_same_v<Implementation, MultiRegions::SumFacTOP>, bool>
+              Enable = true>
 NEK_DEVICE_KERNEL void MaxStdVelocityKernelLauncher(
     const size_t nelmt, const size_t compSize, const unsigned int dimension,
     const unsigned int coordDim, const unsigned int nqTot,

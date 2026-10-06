@@ -225,7 +225,7 @@ void CheckEqual(const std::vector<double> &result,
     const auto variables = session->GetVariables();
     const size_t ncoeffs = explist->GetNcoeffs();
     const auto interleaveWidth =
-        Operators::Operator<double>::GetDefaultInterleaveWidth(session);
+        MultiRegions::Operator<double>::GetDefaultInterleaveWidth(session);
     auto &coeffs = system->Coeffs();
     CheckInterleaveWidth(coeffs, interleaveWidth);
 

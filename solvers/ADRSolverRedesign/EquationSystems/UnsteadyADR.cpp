@@ -35,8 +35,8 @@
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
 #include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
 #include <ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp>
-#include <Operators/ElmtOps/Expression/ExpressionOp.hpp>
-#include <Operators/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
+#include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
@@ -46,7 +46,7 @@
 
 namespace Nektar
 {
-using namespace Operators;
+using namespace MultiRegions;
 
 std::string UnsteadyADR::className0 =
     GetEquationSystemFactory().RegisterCreatorFunction("UnsteadyAdvection",

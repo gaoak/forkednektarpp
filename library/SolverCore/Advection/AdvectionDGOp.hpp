@@ -34,17 +34,17 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
 #include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 #include "SolverCore/BndCond/BndCondUpdateOp.hpp"
 #include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // Advection operator base class
 template <typename TData>
-class AdvectionDGOp : public Operators::Operator<TData>
+class AdvectionDGOp : public MultiRegions::Operator<TData>
 {
 public:
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -124,7 +124,7 @@ protected:
 
     AdvectionDGOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

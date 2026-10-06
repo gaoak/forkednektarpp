@@ -74,19 +74,19 @@
 #error "@OPERATOR@ @Impl@ names no switch for its generated ShapeBlock"
 #endif
 
-namespace Nektar::Operators::detail
+namespace Nektar::MultiRegions::detail
 {
 template <>
 template <>
-void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
+void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, MultiRegions::@Impl@,
                            @TData@>::
     ShapeBlock<LibUtilities::@Shape@>(InBlock &inblock, OutBlock &outblock)
 {
     // The following will use predefined code generated from one of the
-    // switch templates in LibUtilities/BasicUtils/Switch, or Operators/Common
-    // for the trace switch, to import boost_pp code to make wrapper code to
-    // call the OperatorND method with the size parameter matching the shape:
-    // 1D for Segs, 2D for Tris and Quads and 3D otherwise
+    // switch templates in LibUtilities/BasicUtils/Switch, to import boost_pp
+    // code to make wrapper code to call the OperatorND method with the size
+    // parameter matching the shape: 1D for Segs, 2D for Tris and Quads and 3D
+    // otherwise
     //
     // To see the full code from this macros,  Compile the .cpp file with make
     // VERBOSE=1 copy the full compile command and add in --preprocess after the
@@ -111,4 +111,4 @@ void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, Operators::@Impl@,
 #error "@OPERATOR@ @Impl@ names no switch for its generated ShapeBlock"
 #endif
 }
-} // namespace Nektar::Operators::detail
+} // namespace Nektar::MultiRegions::detail

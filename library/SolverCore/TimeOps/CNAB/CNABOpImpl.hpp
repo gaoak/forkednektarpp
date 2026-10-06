@@ -114,7 +114,7 @@ protected:
                  "CNABOp->DefineImplicit().");
 
         const auto interleaveWidth =
-            Operators::Operator<TData>::GetDefaultInterleaveWidth(
+            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
                 this->m_expansionList->GetSession());
 
         // Startup.

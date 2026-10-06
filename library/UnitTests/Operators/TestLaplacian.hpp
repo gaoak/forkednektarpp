@@ -36,11 +36,11 @@
 
 #include "TestOp.hpp"
 
-#include "Operators/ElmtOps/Laplacian/LaplacianOp.hpp"
+#include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 template <typename TData>
 class TestLaplacian : public TestOp<TData, FieldState::Coeff, FieldState::Coeff>

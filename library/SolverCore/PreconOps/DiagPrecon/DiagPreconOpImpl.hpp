@@ -37,8 +37,9 @@
 #include "SolverCore/PreconOps/DiagPrecon/DiagPreconOp.hpp"
 
 #include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
-#include "Operators/AssmbScatr/AssmbScatrOpImpl.hpp"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondOp.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
+#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 
 #include "SolverCore/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 
@@ -57,10 +58,9 @@ public:
                      const std::vector<std::string> &components)
         : DiagPreconOp<TData>(expansionList, components)
     {
-        m_assmbScatrNoSignOp = std::make_unique<
-            Operators::detail::AssmbScatrNoSignOpImpl<ExecSpace, TData>>(
-            this->m_expansionList, components);
-        m_robBCOp = Operators::RobBndCondOp<TData>::Create(
+        m_assmbScatrNoSignOp = MultiRegions::AssmbScatrNoSignOp<TData>::Create(
+            this->m_expansionList, components, ExecSpace::name);
+        m_robBCOp = MultiRegions::RobBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
     }
 
@@ -68,7 +68,7 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operators::Operator<TData>> Instantiate(
+    static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
     {
@@ -77,9 +77,8 @@ public:
     }
 
 protected:
-    std::unique_ptr<Operators::detail::AssmbScatrNoSignOpImpl<ExecSpace, TData>>
-        m_assmbScatrNoSignOp;
-    std::shared_ptr<Operators::RobBndCondOp<TData>> m_robBCOp;
+    std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrNoSignOp;
+    std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_robBCOp;
 
     LibUtilities::Field<TData, FieldState::Coeff> m_invDiag;
 
@@ -132,8 +131,8 @@ protected:
 
     void v_Configure(
         const std::shared_ptr<
-            Operators::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>> &op)
-        override
+            MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
+            &op) override
     {
         // Create block attributes.
         auto blockAttr =

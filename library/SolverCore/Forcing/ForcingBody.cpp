@@ -84,7 +84,8 @@ void ForcingBody::v_InitObject(const TiXmlElement *force)
         }
     }
 
-    m_forceOp = Operators::ExpressionOp<double>::Create(m_expList, m_variables);
+    m_forceOp =
+        MultiRegions::ExpressionOp<double>::Create(m_expList, m_variables);
     m_forceOp->SetExpressions(forcingEquations);
     m_forceOp->SetAppend(true);
 }

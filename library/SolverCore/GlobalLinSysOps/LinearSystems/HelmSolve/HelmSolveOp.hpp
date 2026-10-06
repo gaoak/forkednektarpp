@@ -39,7 +39,7 @@
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include "SolverCore/SolverCore.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
+#include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -59,7 +59,7 @@ public:
         // the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
-        return Operators::Operator<TData>::template Create<HelmSolveOp>(
+        return MultiRegions::Operator<TData>::template Create<HelmSolveOp>(
             expansionList, components, execStr);
     }
 
@@ -67,13 +67,15 @@ public:
 
     void SetLambda(const TData &lambda)
     {
-        std::dynamic_pointer_cast<Operators::HelmholtzOp<TData>>(this->m_ElmtOp)
+        std::dynamic_pointer_cast<MultiRegions::HelmholtzOp<TData>>(
+            this->m_ElmtOp)
             ->SetLambda(lambda);
     }
 
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        std::dynamic_pointer_cast<Operators::HelmholtzOp<TData>>(this->m_ElmtOp)
+        std::dynamic_pointer_cast<MultiRegions::HelmholtzOp<TData>>(
+            this->m_ElmtOp)
             ->SetDiffCoeff(diffCoeff);
     }
 

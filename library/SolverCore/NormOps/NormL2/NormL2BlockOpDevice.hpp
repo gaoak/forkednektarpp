@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <Operators/ElmtOps/ElmtBlockOp.hpp>
+#include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 #include <SolverCore/NormOps/NormL2/NormL2BlockOp.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
@@ -174,13 +174,15 @@ protected:
         const unsigned int shmemsize = 0;
         const unsigned int blocksize =
             (interleaveWidth == 1)
-                ? Operators::GetDeviceBlockSize<Operators::SumFacTOP>(m_nqTot)
-                : Operators::GetDeviceBlockSize<Operators::SumFac>(m_nqTot);
+                ? MultiRegions::GetDeviceBlockSize<MultiRegions::SumFacTOP>(
+                      m_nqTot)
+                : MultiRegions::GetDeviceBlockSize<MultiRegions::SumFac>(
+                      m_nqTot);
         const unsigned int gridsize =
             (interleaveWidth == 1)
-                ? Operators::GetDeviceGridSize<Operators::SumFacTOP>(
+                ? MultiRegions::GetDeviceGridSize<MultiRegions::SumFacTOP>(
                       nelmtPad, blocksize, shmemsize)
-                : Operators::GetDeviceGridSize<Operators::SumFac>(
+                : MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
                       nelmtPad, blocksize, shmemsize);
 
         // Compute volume.

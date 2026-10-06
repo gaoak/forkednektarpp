@@ -198,7 +198,7 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
     # their source and header files.
     #
     # Boundary condition operators live under BndCondOps, mirroring the
-    # library's own Operators/BndCondOps grouping, and are picked up by
+    # library's own MultiRegions/BndCondOps grouping, and are picked up by
     # wildcard: a new one is registered by creating its directory, with no
     # change needed here. ADD_OPERATOR takes the directory's basename, so
     # nesting does not affect the name an operator is registered under.
@@ -223,7 +223,7 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
     # ADD_SUBDIRECTORY(RiemannSolvers/Profilers)
 
     ADD_SOLVER_EXECUTABLE(CompressibleFlowSolverRedesign
-        DEPENDS SolverCore Operators
+        DEPENDS SolverCore
         SOURCES
         CompressibleFlowSolverRedesign.cpp
         EquationSystems/EulerCFE.cpp

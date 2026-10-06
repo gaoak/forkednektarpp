@@ -34,18 +34,18 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
 #include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 #include "SolverCore/BndCond/BndCondUpdateOp.hpp"
 #include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
 #include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // AdvDiffusion operator base class
 template <typename TData>
-class AdvDiffusionOp : public Operators::Operator<TData>
+class AdvDiffusionOp : public MultiRegions::Operator<TData>
 {
 public:
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -120,7 +120,7 @@ protected:
 
     AdvDiffusionOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

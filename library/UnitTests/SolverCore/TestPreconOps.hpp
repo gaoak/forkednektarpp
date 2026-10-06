@@ -37,8 +37,8 @@
 
 #pragma once
 
-#include "Operators/AssmbScatr/AssmbScatrOp.hpp"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzOp.hpp"
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
+#include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 #include <SolverCore/PreconOps/PreconOp.hpp>
 
 #include <LibUtilities/Backends/Backends.hpp>
@@ -64,7 +64,6 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
-using namespace Nektar::Operators;
 using namespace Nektar::SolverCore;
 
 NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::ExecAndImpl);

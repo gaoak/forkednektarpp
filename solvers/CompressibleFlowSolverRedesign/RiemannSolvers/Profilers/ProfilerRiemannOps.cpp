@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 
     // Print GPU properties.
     if (session->GetComm()->GetRank() == 0 &&
-        Operators::Operator<double>::GetOpExecSpace(session) == "Device")
+        MultiRegions::Operator<double>::GetOpExecSpace(session) == "Device")
     {
         PrintDeviceProperties();
     }

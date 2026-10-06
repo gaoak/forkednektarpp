@@ -58,7 +58,7 @@ public:
         // library, and the operator registrations go with it.
         EnsureLinked();
 
-        return Operators::Operator<TData>::template Create<DiffusionIPOp>(
+        return MultiRegions::Operator<TData>::template Create<DiffusionIPOp>(
             expansionList, components, execStr);
     }
 

@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Operators/Common/Operator.hpp"
 #include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp"
 #include "SolverCore/SolverCore.hpp"
+#include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -72,7 +72,7 @@ namespace Nektar::SolverCore
  * a compressible one appends the speed of sound.
  */
 template <typename TData>
-class MaxStdVelocityOp : public Operators::Operator<TData>
+class MaxStdVelocityOp : public MultiRegions::Operator<TData>
 {
 public:
     static std::shared_ptr<MaxStdVelocityOp<TData>> Create(
@@ -89,11 +89,12 @@ public:
 
         std::string execStr0 =
             (execStr == "")
-                ? Operators::Operator<TData>::GetOpExecSpace(session)
+                ? MultiRegions::Operator<TData>::GetOpExecSpace(session)
                 : execStr;
 
-        auto op = Operators::Operator<TData>::template Create<MaxStdVelocityOp>(
-            expansionList, components, execStr0);
+        auto op =
+            MultiRegions::Operator<TData>::template Create<MaxStdVelocityOp>(
+                expansionList, components, execStr0);
 
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
@@ -158,7 +159,7 @@ protected:
 
     MaxStdVelocityOp(const MultiRegions::ExpListSharedPtr &expansionList,
                      const std::vector<std::string> &components)
-        : Operators::Operator<TData>(expansionList, components)
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
     }
 

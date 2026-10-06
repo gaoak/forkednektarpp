@@ -48,14 +48,14 @@
 
 namespace Nektar
 {
-namespace Operators
+namespace MultiRegions
 {
 template <typename TData> class AdvectionOp;
 template <typename TData> class AdvectionDealiasOp;
 template <typename TData> class BwdTransOp;
 template <typename TData> class DivergenceOp;
 template <typename TData> class PhysDerivOp;
-} // namespace Operators
+} // namespace MultiRegions
 
 namespace SolverCore
 {
@@ -67,7 +67,7 @@ template <typename TData> class PoissonSolveOp;
 } // namespace SolverCore
 
 using namespace SolverCore;
-using namespace Operators;
+using namespace MultiRegions;
 
 class VelocityCorrectionScheme : public UnsteadySystem
 {

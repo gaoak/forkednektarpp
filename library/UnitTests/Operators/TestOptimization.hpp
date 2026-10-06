@@ -32,13 +32,13 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Operators/Common/Operator.hpp"
-#include "Operators/ElmtOps/ElmtOp.hpp"
 #include "TestOp.hpp"
+#include <MultiRegions/Common/Operator.hpp>
+#include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-using namespace Nektar::Operators;
+using namespace Nektar::MultiRegions;
 
 class TestOptimization
 {
