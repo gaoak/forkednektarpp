@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --account=aero_ci
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:nvidia_a40:1
+#SBATCH --partition=gpu-gh200
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-gpu=12 
-#SBATCH --mem=64GB
-#SBATCH --time=4:00:00
+#SBATCH --gpus=1
+#SBATCH --ntasks-per-gpu=72 
+#SBATCH --mem=96GB
+#SBATCH --time=2:00:00
 #SBATCH --job-name=nektar-cluster-test
 
 # Import bash script arguments
@@ -39,7 +39,7 @@ export CI_PROJECT_ID=${25}
 export CI_PROJECT_URL=${26}
 export CI_MERGE_REQUEST_PROJECT_URL=${27}
 
-export NUM_CPUS=12
+export NUM_CPUS=72
 
 trigger_gate(){
     JOB_ID=""
@@ -170,7 +170,17 @@ fi
 export OS_DISTRO=$(echo $CI_JOB_NAME | cut -d- -f 1)
 export OS_VERSION=$(echo $CI_JOB_NAME | cut -d- -f 2)
 export BUILD_TYPE=$(echo $CI_JOB_NAME | cut -d- -f 3)
-export ENV_NAME=env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE}
+
+# The cluster nodes are aarch64, so they cannot run the images the build-env
+# jobs push: those are built by x86-64 runners. The aarch64 image is built and
+# pushed by hand instead -- see "Cluster environment images" in
+# docker/nektar-env/README.md -- under its own tag rather than sharing
+# env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE} with them, because a
+# single-platform push replaces whatever is at a tag: a multi-architecture
+# manifest there would last only until the next build-env job ran, and this
+# job would then pull an x86-64 image without anything saying so.
+export ENV_ARCH=arm64
+export ENV_NAME=env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE}-${ENV_ARCH}
 
 # Configure, build, and run merge request branch
 command="apptainer run $APPTAINER_FLAGS \
