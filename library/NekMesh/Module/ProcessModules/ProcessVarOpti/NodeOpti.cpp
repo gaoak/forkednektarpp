@@ -52,17 +52,7 @@ NodeOptiFactory &GetNodeOptiFactory()
     return asd;
 }
 
-void NodeOpti::CalcMinJac()
-{
-    m_minJac = numeric_limits<double>::max();
-    for (auto &typeIt : m_data)
-    {
-        for (int i = 0; i < typeIt.second.size(); i++)
-        {
-            m_minJac = min(m_minJac, typeIt.second[i]->GetMinJac());
-        }
-    }
-}
+std::mutex NodeOpti::mtx;
 
 int NodeOpti2D2D::m_type = GetNodeOptiFactory().RegisterCreatorFunction(
     22, NodeOpti2D2D::create, "2D2D");
@@ -80,7 +70,7 @@ void NodeOpti2D2D::Optimise()
         NekDouble xc = (*m_node)[0];
         NekDouble yc = (*m_node)[1];
 
-        vector<NekDouble> sk(2);
+        NekDouble sk[2];
         NekDouble val;
 
         // Calculate minimum eigenvalue
@@ -93,27 +83,37 @@ void NodeOpti2D2D::Optimise()
             m_grad[4] += 1e-6 - val;
         }
 
-        sk[0] = -1.0 / (m_grad[2] * m_grad[4] - m_grad[3] * m_grad[3]) *
-                (m_grad[4] * m_grad[0] - m_grad[3] * m_grad[1]);
-        sk[1] = -1.0 / (m_grad[2] * m_grad[4] - m_grad[3] * m_grad[3]) *
-                (m_grad[2] * m_grad[1] - m_grad[3] * m_grad[0]);
+        NewtonDirection<2>(m_grad.data(), sk);
 
         bool found   = false;
         NekDouble pg = (m_grad[0] * sk[0] + m_grad[1] * sk[1]);
-        // normal gradient line Search
+
+        // A direction that does not point downhill lets the Wolfe condition
+        // below accept a step that raises the energy, since c1*alpha*pg is
+        // then positive. Fall back on steepest descent.
+        if (pg >= 0.0)
+        {
+            sk[0] = -m_grad[0];
+            sk[1] = -m_grad[1];
+            pg    = -(m_grad[0] * m_grad[0] + m_grad[1] * m_grad[1]);
+        }
+
+        // normal gradient line Search. The node is left where it is and the
+        // step offered to the functional instead, so that a rejected step
+        // costs nothing to undo and the derivatives of the mapping, which do
+        // not depend on the step, are not recomputed for each one.
         NekDouble alpha = 1.0;
 
         while (alpha > alphaTol())
         {
-            // Update node
-            (*m_node)[0] = xc + alpha * sk[0];
-            (*m_node)[1] = yc + alpha * sk[1];
+            NekDouble offset[2] = {alpha * sk[0], alpha * sk[1]};
 
-            newVal = GetFunctional<2>(minJacNew, false);
+            newVal = GetFunctionalAt<2>(offset, minJacNew);
 
             // Wolfe conditions
             if (newVal <= currentW + c1() * (alpha * pg))
             {
+                MoveNode<2>(offset);
                 found = true;
                 break;
             }
@@ -123,18 +123,12 @@ void NodeOpti2D2D::Optimise()
 
         if (!found)
         {
-            // reset the node
-            (*m_node)[0] = xc;
-            (*m_node)[1] = yc;
-
             mtx.lock();
             m_res->nReset[2]++;
             mtx.unlock();
         }
         else
         {
-            m_minJac = minJacNew;
-
             mtx.lock();
             if (alpha < 1.0)
             {
@@ -172,7 +166,7 @@ void NodeOpti3D3D::Optimise()
         NekDouble yc = (*m_node)[1];
         NekDouble zc = (*m_node)[2];
 
-        vector<NekDouble> sk(3);
+        NekDouble sk[3];
         NekDouble val;
 
         // Calculate minimum eigenvalue
@@ -186,48 +180,36 @@ void NodeOpti3D3D::Optimise()
             m_grad[8] += 1e-6 - val;
         }
 
-        // calculate sk
-        NekDouble det =
-            m_grad[3] * (m_grad[6] * m_grad[8] - m_grad[7] * m_grad[7]) -
-            m_grad[4] * (m_grad[4] * m_grad[8] - m_grad[5] * m_grad[7]) +
-            m_grad[5] * (m_grad[4] * m_grad[7] - m_grad[5] * m_grad[6]);
-
-        sk[0] = m_grad[0] * (m_grad[6] * m_grad[8] - m_grad[7] * m_grad[7]) +
-                m_grad[1] * (m_grad[5] * m_grad[7] - m_grad[4] * m_grad[8]) +
-                m_grad[2] * (m_grad[4] * m_grad[7] - m_grad[3] * m_grad[7]);
-        sk[1] = m_grad[0] * (m_grad[7] * m_grad[5] - m_grad[4] * m_grad[5]) +
-                m_grad[1] * (m_grad[3] * m_grad[8] - m_grad[5] * m_grad[5]) +
-                m_grad[2] * (m_grad[4] * m_grad[5] - m_grad[3] * m_grad[7]);
-        sk[2] = m_grad[0] * (m_grad[4] * m_grad[7] - m_grad[6] * m_grad[5]) +
-                m_grad[1] * (m_grad[4] * m_grad[5] - m_grad[3] * m_grad[7]) +
-                m_grad[2] * (m_grad[3] * m_grad[6] - m_grad[4] * m_grad[4]);
-
-        sk[0] /= det * -1.0;
-        sk[1] /= det * -1.0;
-        sk[2] /= det * -1.0;
+        NewtonDirection<3>(m_grad.data(), sk);
 
         bool found = false;
 
         NekDouble pg =
             (m_grad[0] * sk[0] + m_grad[1] * sk[1] + m_grad[2] * sk[2]);
 
-        // normal gradient line Search
+        // See the note in NodeOpti2D2D::Optimise.
+        if (pg >= 0.0)
+        {
+            sk[0] = -m_grad[0];
+            sk[1] = -m_grad[1];
+            sk[2] = -m_grad[2];
+            pg    = -(m_grad[0] * m_grad[0] + m_grad[1] * m_grad[1] +
+                   m_grad[2] * m_grad[2]);
+        }
+
+        // normal gradient line Search; see the note in NodeOpti2D2D.
         NekDouble alpha = 1.0;
 
         while (alpha > alphaTol())
         {
-            // Update node
-            (*m_node)[0] = xc + alpha * sk[0];
-            (*m_node)[1] = yc + alpha * sk[1];
-            (*m_node)[2] = zc + alpha * sk[2];
+            NekDouble offset[3] = {alpha * sk[0], alpha * sk[1], alpha * sk[2]};
 
-            newVal = GetFunctional<3>(minJacNew, false);
-            // dont need the hessian again this function updates G to be the new
-            // location
-            //
+            newVal = GetFunctionalAt<3>(offset, minJacNew);
+
             // Wolfe conditions
             if (newVal <= currentW + c1() * alpha * pg)
             {
+                MoveNode<3>(offset);
                 found = true;
                 break;
             }
@@ -237,18 +219,12 @@ void NodeOpti3D3D::Optimise()
 
         if (!found)
         {
-            (*m_node)[0] = xc;
-            (*m_node)[1] = yc;
-            (*m_node)[2] = zc;
-
             mtx.lock();
             m_res->nReset[2]++;
             mtx.unlock();
         }
         else
         {
-            m_minJac = minJacNew;
-
             mtx.lock();
             if (alpha < 1.0)
             {
@@ -269,8 +245,4 @@ void NodeOpti3D3D::Optimise()
     mtx.unlock();
 }
 
-NodeOptiJob *NodeOpti::GetJob()
-{
-    return new NodeOptiJob(this);
-}
 } // namespace Nektar::NekMesh

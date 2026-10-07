@@ -115,6 +115,9 @@ protected:
 
     void v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p) override;
 
+    NormalVector v_GetAlignedTraceNormal(
+        const int vertex, const StdRegions::StdExpansion &traceExp) override;
+
 private:
 };
 

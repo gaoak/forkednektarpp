@@ -1607,7 +1607,7 @@ void StdHexExp::v_GetEdgeInteriorToElementMap(
                 IdxRange[1][0] = 1;
                 IdxRange[1][1] = nummodes[1] - 1;
 
-                if (edgeOrient == eForwards)
+                if (edgeOrient == eBackwards)
                 {
                     reverseOrdering = true;
                 }
@@ -1617,7 +1617,7 @@ void StdHexExp::v_GetEdgeInteriorToElementMap(
                 IdxRange[1][0] = 2;
                 IdxRange[1][1] = nummodes[1];
 
-                if (edgeOrient == eForwards)
+                if (edgeOrient == eBackwards)
                 {
                     signChange = true;
                 }
@@ -1687,7 +1687,7 @@ void StdHexExp::v_GetEdgeInteriorToElementMap(
                 IdxRange[0][0] = 1;
                 IdxRange[0][1] = nummodes[0] - 1;
 
-                if (edgeOrient == eForwards)
+                if (edgeOrient == eBackwards)
                 {
                     reverseOrdering = true;
                 }
@@ -1697,7 +1697,7 @@ void StdHexExp::v_GetEdgeInteriorToElementMap(
                 IdxRange[0][0] = 2;
                 IdxRange[0][1] = nummodes[0];
 
-                if (edgeOrient == eForwards)
+                if (edgeOrient == eBackwards)
                 {
                     signChange = true;
                 }

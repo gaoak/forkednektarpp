@@ -123,7 +123,7 @@ template <> int NodeOpti::IsIndefinite<3>()
 
     if (eval(0, 0) < 0.0 || eval(1, 1) < 0.0 || eval(2, 2) < 0.0)
     {
-        if (eval(0, 0) < 0.0 && eval(1, 1) < 0.0 && eval(2, 2))
+        if (eval(0, 0) < 0.0 && eval(1, 1) < 0.0 && eval(2, 2) < 0.0)
         {
             return 2;
         }

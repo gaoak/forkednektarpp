@@ -703,4 +703,18 @@ void Expansion1D::v_TraceNormLen([[maybe_unused]] const int traceid,
     p = m_ncoeffs - 1;
 }
 
+NormalVector Expansion1D::v_GetAlignedTraceNormal(
+    const int vertex, [[maybe_unused]] const StdRegions::StdExpansion &traceExp)
+{
+    // A vertex trace is a single point, with no quadrature or orientation to
+    // match, so the stored normal is already aligned.
+    const NormalVector &normals = GetTraceNormal(vertex);
+    NormalVector aligned(normals.size());
+    for (size_t i = 0; i < normals.size(); ++i)
+    {
+        aligned[i] = normals[i];
+    }
+    return aligned;
+}
+
 } // namespace Nektar::LocalRegions

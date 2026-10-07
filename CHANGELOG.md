@@ -64,10 +64,12 @@ v5.11.0
 
 
 
+- Fix NaNs from IncNavierStokesSolver restarts: write lower-order pressure checkpoints in the output expansion, and match trace normals to boundary quadrature and orientation in NormVectorIProductWRTBase and FilterAeroForces (!2792)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
 - Fix modules that add curvature leaving the surrounding faces and elements set up for the linear mesh, so that later modules measured the mesh as it was before projection (!2747)
+- Overhaul the variational optimiser: correct its search direction, the Hessian of two of its functionals and its three-dimensional strain tensor; regularise the Jacobian against the whole mesh, under a cap that stops one inverted element flattening the energy everywhere, and measure convergence against the mesh's size; let nodes on the CAD slide again and leave alone those belonging to no element, which a boundary-layer mesh has thousands of and which ended the run; fix the node ordering of prisms and support hexahedra; and evaluate the energy from derivatives the elements keep, which is three to four times faster in a third of the memory (!2789)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
@@ -85,6 +87,9 @@ v5.11.0
 - Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
 - Remove the rotation onto the trace normal from all compressible Riemann solvers (!2779)
+
+**FieldConvert**
+- Add compressiblefields module to compute velocity, pressure, temperature, entropy, sound speed and Mach number from compressible flow fields (!2417)
 
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)

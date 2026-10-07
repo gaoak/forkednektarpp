@@ -37,6 +37,7 @@
 #include <SpatialDomains/HexGeom.h>
 #include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/PrismGeom.h>
+#include <SpatialDomains/PyrGeom.h>
 #include <SpatialDomains/QuadGeom.h>
 #include <SpatialDomains/SegGeom.h>
 #include <SpatialDomains/TetGeom.h>
@@ -553,19 +554,130 @@ static void BuildPrism(PrismParts &p,
     p.prism->Setup();
 }
 
+/**
+ * @brief The point distributions Mesh::MakeOrder pairs with each other, by
+ * the one it uses for the prism itself.
+ */
+struct PrismPointTypes
+{
+    LibUtilities::PointsType seg, tri, quad, prism;
+};
+
+static const PrismPointTypes prismEvenlySpaced = {
+    LibUtilities::ePolyEvenlySpaced, LibUtilities::eNodalTriEvenlySpaced,
+    LibUtilities::ePolyEvenlySpaced, LibUtilities::eNodalPrismEvenlySpaced};
+
+static const PrismPointTypes prismElectrostatic = {
+    LibUtilities::eGaussLobattoLegendre, LibUtilities::eNodalTriElec,
+    LibUtilities::eGaussLobattoLegendre, LibUtilities::eNodalPrismElec};
+
+static NekDouble ElevateAndMeasurePrism(PrismParts &p, int order,
+                                        const PrismPointTypes &pt);
+
 BOOST_AUTO_TEST_CASE(TestPrismMakeOrderNodesLieOnMapping)
 {
-    PrismParts p;
-    BuildPrism(p, {{{{0.0, 0.0, 0.0}},
-                    {{1.0, 0.0, 0.0}},
-                    {{1.2, 1.0, 0.0}},
-                    {{0.0, 1.1, 0.0}},
-                    {{0.1, 0.2, 1.0}},
-                    {{0.0, 1.0, 1.2}}}});
+    // Both nodal prism distributions. They lay their nodes out the same way
+    // now, but they did not always: eNodalPrismEvenlySpaced transposed
+    // vertices 2 and 3 with respect to the standard element and
+    // eNodalPrismElec ran two of the edges the other way, so MakeOrder had to
+    // follow whichever it was handed. Only the evenly spaced one was covered
+    // here, and the electrostatic one, which is what a mesh raised in order
+    // through NekMesh actually uses, came out with its quadrilateral faces
+    // folded over on themselves.
+    for (const PrismPointTypes &pt : {prismEvenlySpaced, prismElectrostatic})
+    {
+        PrismParts p;
+        BuildPrism(p, {{{{0.0, 0.0, 0.0}},
+                        {{1.0, 0.0, 0.0}},
+                        {{1.2, 1.0, 0.0}},
+                        {{0.0, 1.1, 0.0}},
+                        {{0.1, 0.2, 1.0}},
+                        {{0.0, 1.0, 1.2}}}});
 
-    const int order   = 5;
+        BOOST_CHECK_SMALL(ElevateAndMeasurePrism(p, 5, pt), 1e-9);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Pyramid
+// ---------------------------------------------------------------------------
+
+/// Storage for the entities a pyramid is built from, which must outlive it.
+struct PyrParts
+{
+    std::array<SpatialDomains::PointGeomUniquePtr, 5> verts;
+    std::array<SpatialDomains::SegGeomUniquePtr, 8> edges;
+    SpatialDomains::QuadGeomUniquePtr base;
+    std::array<SpatialDomains::TriGeomUniquePtr, 4> tris;
+    SpatialDomains::PyrGeomUniquePtr pyr;
+    std::vector<SpatialDomains::PointGeomUniquePtr> nodes;
+    std::vector<SpatialDomains::CurveUniquePtr> curves;
+};
+
+static void BuildPyr(PyrParts &p,
+                     const std::array<std::array<NekDouble, 3>, 5> &x)
+{
+    for (int i = 0; i < 5; ++i)
+    {
+        p.verts[i] = SpatialDomains::PointGeomUniquePtr(
+            new SpatialDomains::PointGeom(3, i, x[i][0], x[i][1], x[i][2]));
+    }
+
+    // PyrGeom::SetUpEdgeOrientation()'s table.
+    const std::array<std::array<int, 2>, 8> edgeVerts = {{{{0, 1}},
+                                                          {{1, 2}},
+                                                          {{3, 2}},
+                                                          {{0, 3}},
+                                                          {{0, 4}},
+                                                          {{1, 4}},
+                                                          {{2, 4}},
+                                                          {{3, 4}}}};
+    for (int i = 0; i < 8; ++i)
+    {
+        std::array<SpatialDomains::PointGeom *, 2> ev = {
+            p.verts[edgeVerts[i][0]].get(), p.verts[edgeVerts[i][1]].get()};
+        p.edges[i] = SpatialDomains::SegGeomUniquePtr(
+            new SpatialDomains::SegGeom(i, 3, ev));
+    }
+
+    // The edges bounding each face, in the cyclic order the face walks them.
+    const std::array<std::array<int, 4>, 5> faceEdges = {{{{0, 1, 2, 3}},
+                                                          {{0, 5, 4, -1}},
+                                                          {{1, 6, 5, -1}},
+                                                          {{2, 6, 7, -1}},
+                                                          {{3, 7, 4, -1}}}};
+
+    std::array<SpatialDomains::Geometry2D *, 5> faces;
+    {
+        std::array<SpatialDomains::SegGeom *, 4> f;
+        for (int j = 0; j < 4; ++j)
+        {
+            f[j] = p.edges[faceEdges[0][j]].get();
+        }
+        p.base = SpatialDomains::QuadGeomUniquePtr(
+            new SpatialDomains::QuadGeom(0, f));
+        faces[0] = p.base.get();
+    }
+    for (int i = 1; i < 5; ++i)
+    {
+        std::array<SpatialDomains::SegGeom *, 3> f;
+        for (int j = 0; j < 3; ++j)
+        {
+            f[j] = p.edges[faceEdges[i][j]].get();
+        }
+        p.tris[i - 1] =
+            SpatialDomains::TriGeomUniquePtr(new SpatialDomains::TriGeom(i, f));
+        faces[i] = p.tris[i - 1].get();
+    }
+
+    p.pyr =
+        SpatialDomains::PyrGeomUniquePtr(new SpatialDomains::PyrGeom(0, faces));
+    p.pyr->Setup();
+}
+
+static NekDouble ElevateAndMeasurePyr(PyrParts &p, int order)
+{
     const int nPoints = order + 1;
-
     auto keep =
         [&p](std::pair<SpatialDomains::CurveUniquePtr,
                        std::vector<SpatialDomains::PointGeomUniquePtr>> &&cd) {
@@ -576,63 +688,66 @@ BOOST_AUTO_TEST_CASE(TestPrismMakeOrderNodesLieOnMapping)
             }
         };
 
-    // Fill everything, then elevate everything.
-    for (int i = 0; i < 9; ++i)
+    for (int i = 0; i < 8; ++i)
     {
         p.edges[i]->FillGeom();
     }
-    for (int i = 0; i < 2; ++i)
+    p.base->FillGeom();
+    for (int i = 0; i < 4; ++i)
     {
         p.tris[i]->FillGeom();
     }
-    for (int i = 0; i < 3; ++i)
-    {
-        p.quads[i]->FillGeom();
-    }
-    p.prism->FillGeom();
+    p.pyr->FillGeom();
 
-    for (int i = 0; i < 9; ++i)
+    for (int i = 0; i < 8; ++i)
     {
         keep(p.edges[i]->MakeOrder(order, LibUtilities::ePolyEvenlySpaced));
     }
-    for (int i = 0; i < 2; ++i)
+    keep(p.base->MakeOrder(order, LibUtilities::ePolyEvenlySpaced));
+    for (int i = 0; i < 4; ++i)
     {
         keep(p.tris[i]->MakeOrder(order, LibUtilities::eNodalTriEvenlySpaced));
     }
-    for (int i = 0; i < 3; ++i)
-    {
-        keep(p.quads[i]->MakeOrder(order, LibUtilities::ePolyEvenlySpaced));
-    }
-    keep(p.prism->MakeOrder(order, LibUtilities::eNodalPrismEvenlySpaced));
+    keep(p.pyr->MakeOrder(order, LibUtilities::eNodalPyrEvenlySpaced));
 
     Array<OneD, NekDouble> px, py, pz;
-    LibUtilities::PointsManager()[LibUtilities::PointsKey(
-                                      nPoints,
-                                      LibUtilities::eNodalPrismEvenlySpaced)]
-        ->GetPoints(px, py, pz);
+    LibUtilities::PointsManager()
+        [LibUtilities::PointsKey(nPoints, LibUtilities::eNodalPyrEvenlySpaced)]
+            ->GetPoints(px, py, pz);
 
-    SpatialDomains::Curve *c = p.prism->GetCurve();
-    BOOST_REQUIRE(c != nullptr);
-    const int nPrismPts = nPoints * (nPoints + 1) / 2 * nPoints;
-    BOOST_REQUIRE_EQUAL(c->m_points.size(), static_cast<size_t>(nPrismPts));
-
-    NekDouble worst = 0.0;
-    for (int i = 0; i < nPrismPts; ++i)
+    SpatialDomains::Curve *c = p.pyr->GetCurve();
+    const int nPts           = nPoints * (nPoints + 1) * (2 * nPoints + 1) / 6;
+    NekDouble worst          = 0.0;
+    for (int i = 0; i < nPts; ++i)
     {
         Array<OneD, NekDouble> xi(3);
         xi[0] = px[i];
         xi[1] = py[i];
         xi[2] = pz[i];
-
-        BOOST_REQUIRE(c->m_points[i] != nullptr);
         for (int j = 0; j < 3; ++j)
         {
             worst = std::max(
-                worst, std::abs((*c->m_points[i])(j)-p.prism->GetCoord(j, xi)));
+                worst, std::abs((*c->m_points[i])(j)-p.pyr->GetCoord(j, xi)));
         }
     }
+    return worst;
+}
 
-    BOOST_CHECK_SMALL(worst, 1e-9);
+BOOST_AUTO_TEST_CASE(TestPyrMakeOrderNodesLieOnMapping)
+{
+    // The pyramid has only the one nodal distribution, and MakeOrder reads
+    // the element's vertices, edges and faces straight into its blocks. If
+    // the distribution and PyrGeom ever disagree about which corner is vertex
+    // 2, or which way an edge runs, the nodes land somewhere the element's
+    // own mapping does not put them.
+    PyrParts p;
+    BuildPyr(p, {{{{0.0, 0.0, 0.0}},
+                  {{1.0, 0.0, 0.0}},
+                  {{1.2, 1.0, 0.0}},
+                  {{0.0, 1.1, 0.0}},
+                  {{0.4, 0.5, 1.0}}}});
+
+    BOOST_CHECK_SMALL(ElevateAndMeasurePyr(p, 5), 1e-9);
 }
 
 // ---------------------------------------------------------------------------
@@ -687,7 +802,8 @@ static NekDouble ElevateAndMeasureHex(HexParts &p, int order)
     return worst;
 }
 
-static NekDouble ElevateAndMeasurePrism(PrismParts &p, int order)
+static NekDouble ElevateAndMeasurePrism(PrismParts &p, int order,
+                                        const PrismPointTypes &pt)
 {
     const int nPoints = order + 1;
     auto keep =
@@ -716,22 +832,20 @@ static NekDouble ElevateAndMeasurePrism(PrismParts &p, int order)
 
     for (int i = 0; i < 9; ++i)
     {
-        keep(p.edges[i]->MakeOrder(order, LibUtilities::ePolyEvenlySpaced));
+        keep(p.edges[i]->MakeOrder(order, pt.seg));
     }
     for (int i = 0; i < 2; ++i)
     {
-        keep(p.tris[i]->MakeOrder(order, LibUtilities::eNodalTriEvenlySpaced));
+        keep(p.tris[i]->MakeOrder(order, pt.tri));
     }
     for (int i = 0; i < 3; ++i)
     {
-        keep(p.quads[i]->MakeOrder(order, LibUtilities::ePolyEvenlySpaced));
+        keep(p.quads[i]->MakeOrder(order, pt.quad));
     }
-    keep(p.prism->MakeOrder(order, LibUtilities::eNodalPrismEvenlySpaced));
+    keep(p.prism->MakeOrder(order, pt.prism));
 
     Array<OneD, NekDouble> px, py, pz;
-    LibUtilities::PointsManager()[LibUtilities::PointsKey(
-                                      nPoints,
-                                      LibUtilities::eNodalPrismEvenlySpaced)]
+    LibUtilities::PointsManager()[LibUtilities::PointsKey(nPoints, pt.prism)]
         ->GetPoints(px, py, pz);
 
     SpatialDomains::Curve *c = p.prism->GetCurve();
@@ -811,7 +925,8 @@ BOOST_AUTO_TEST_CASE(TestMakeOrderFaceOrientationSweep)
                 {
                     prismSeen.insert(p.prism->GetForient(f));
                 }
-                BOOST_CHECK_SMALL(ElevateAndMeasurePrism(p, order), 1e-9);
+                BOOST_CHECK_SMALL(
+                    ElevateAndMeasurePrism(p, order, prismEvenlySpaced), 1e-9);
                 ++prismBuilt;
             }
             catch (const std::exception &)

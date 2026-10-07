@@ -9,6 +9,7 @@ SET(LibUtilitiesUnitTestSources
     TestInterpCoeff.cpp
     TestPolylib.cpp
     TestCrystalRouter.cpp
+    TestNodalPointOrdering.cpp
     TestSharedIdResolvers.cpp
     main.cpp
     ../util.cpp

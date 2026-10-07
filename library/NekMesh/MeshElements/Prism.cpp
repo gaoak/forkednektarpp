@@ -612,12 +612,7 @@ struct prismHelper
 
         if (conf.m_volumeNodes && nInt > 0 && (int)nodeList.size() == nPrismPts)
         {
-            std::vector<SpatialDomains::PointGeom *> nodal = nodeList;
-
-            // The nodal distribution numbers its vertices in raster order,
-            // which puts the third and fourth the other way round from the
-            // standard element. Everything after them already agrees.
-            std::swap(nodal[2], nodal[3]);
+            std::vector<SpatialDomains::PointGeom *> &nodal = nodeList;
 
             std::vector<int> listIds(6), elmtIds(6);
             for (int i = 0; i < 6; ++i)

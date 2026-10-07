@@ -187,12 +187,12 @@ inline NekDouble ScalarProd<3>(NekDouble (&in1)[3], NekDouble (&in2)[3])
  * @param out  Output matrix \f$ F^\top F - I \f$
  */
 template <int DIM>
-inline void EMatrix([[maybe_unused]] NekDouble in[][DIM],
+inline void EMatrix([[maybe_unused]] const NekDouble in[][DIM],
                     [[maybe_unused]] NekDouble out[][DIM])
 {
 }
 
-template <> inline void EMatrix<2>(NekDouble in[][2], NekDouble out[][2])
+template <> inline void EMatrix<2>(const NekDouble in[][2], NekDouble out[][2])
 {
     out[0][0] = 0.5 * (in[0][0] * in[0][0] + in[1][0] * in[1][0] - 1.0);
     out[1][0] = 0.5 * (in[0][0] * in[0][1] + in[1][0] * in[1][1]);
@@ -200,12 +200,12 @@ template <> inline void EMatrix<2>(NekDouble in[][2], NekDouble out[][2])
     out[1][1] = 0.5 * (in[1][1] * in[1][1] + in[0][1] * in[0][1] - 1.0);
 }
 
-template <> inline void EMatrix<3>(NekDouble in[][3], NekDouble out[][3])
+template <> inline void EMatrix<3>(const NekDouble in[][3], NekDouble out[][3])
 {
     out[0][0] = 0.5 * (in[0][0] * in[0][0] + in[1][0] * in[1][0] +
                        in[2][0] * in[2][0] - 1.0);
     out[1][0] =
-        0.5 * (in[0][0] * in[1][0] + in[1][0] * in[1][1] + in[2][0] * in[2][1]);
+        0.5 * (in[0][0] * in[0][1] + in[1][0] * in[1][1] + in[2][0] * in[2][1]);
     out[0][1] = out[1][0];
     out[2][0] =
         0.5 * (in[0][0] * in[0][2] + in[1][0] * in[1][2] + in[2][0] * in[2][2]);
@@ -217,6 +217,58 @@ template <> inline void EMatrix<3>(NekDouble in[][3], NekDouble out[][3])
     out[2][1] = out[1][2];
     out[2][2] = 0.5 * (in[0][2] * in[0][2] + in[1][2] * in[1][2] +
                        in[2][2] * in[2][2] - 1.0);
+}
+
+/**
+ * @brief Solve \f$ H s_k = -G \f$ for the Newton search direction.
+ *
+ * @param grad  The packed gradient and Hessian that NodeOpti::GetFunctional()
+ *              produces: DIM gradient entries followed by the upper triangle
+ *              of the Hessian, row by row.
+ * @param sk    The search direction.
+ *
+ * The Hessian is symmetric and at most 3x3, so it is inverted through its
+ * cofactors rather than by a linear algebra package. The regularisation
+ * applied before this is called is meant to leave it positive definite, and
+ * hence sk pointing downhill; the caller still has to check, because on a
+ * badly conditioned Hessian round-off can leave it pointing uphill, and the
+ * Wolfe condition accepts an uphill step if it is handed one.
+ */
+template <int DIM>
+inline void NewtonDirection([[maybe_unused]] const NekDouble *grad,
+                            [[maybe_unused]] NekDouble (&sk)[DIM])
+{
+}
+
+template <>
+inline void NewtonDirection<2>(const NekDouble *grad, NekDouble (&sk)[2])
+{
+    // H = [ g2 g3 ]
+    //     [ g3 g4 ]
+    NekDouble det = grad[2] * grad[4] - grad[3] * grad[3];
+
+    sk[0] = -(grad[4] * grad[0] - grad[3] * grad[1]) / det;
+    sk[1] = -(grad[2] * grad[1] - grad[3] * grad[0]) / det;
+}
+
+template <>
+inline void NewtonDirection<3>(const NekDouble *grad, NekDouble (&sk)[3])
+{
+    // H = [ g3 g4 g5 ]
+    //     [ g4 g6 g7 ]
+    //     [ g5 g7 g8 ]
+    NekDouble c00 = grad[6] * grad[8] - grad[7] * grad[7];
+    NekDouble c01 = grad[5] * grad[7] - grad[4] * grad[8];
+    NekDouble c02 = grad[4] * grad[7] - grad[5] * grad[6];
+    NekDouble c11 = grad[3] * grad[8] - grad[5] * grad[5];
+    NekDouble c12 = grad[4] * grad[5] - grad[3] * grad[7];
+    NekDouble c22 = grad[3] * grad[6] - grad[4] * grad[4];
+
+    NekDouble det = grad[3] * c00 + grad[4] * c01 + grad[5] * c02;
+
+    sk[0] = -(c00 * grad[0] + c01 * grad[1] + c02 * grad[2]) / det;
+    sk[1] = -(c01 * grad[0] + c11 * grad[1] + c12 * grad[2]) / det;
+    sk[2] = -(c02 * grad[0] + c12 * grad[1] + c22 * grad[2]) / det;
 }
 
 /**

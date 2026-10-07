@@ -2451,6 +2451,31 @@ void Expansion2D::v_SetUpPhysNormals(const int edge)
     v_ComputeTraceNormal(edge);
 }
 
+NormalVector Expansion2D::v_GetAlignedTraceNormal(
+    const int edge, const StdRegions::StdExpansion &traceExp)
+{
+    // Edge normals are already stored in the orientation of the edge
+    // geometry (see v_ComputeTraceNormal), so only the points may differ.
+    const NormalVector &normals        = GetTraceNormal(edge);
+    const LibUtilities::PointsKey from = GetTraceBasisKey(edge).GetPointsKey();
+    const LibUtilities::PointsKey to   = traceExp.GetBasis(0)->GetPointsKey();
+
+    NormalVector aligned(normals.size());
+    for (size_t i = 0; i < normals.size(); ++i)
+    {
+        if (from == to)
+        {
+            aligned[i] = normals[i];
+        }
+        else
+        {
+            aligned[i] = Array<OneD, NekDouble>(to.GetNumPoints());
+            LibUtilities::Interp1D(from, normals[i], to, aligned[i]);
+        }
+    }
+    return aligned;
+}
+
 void Expansion2D::v_ReOrientTracePhysVals(
     const StdRegions::Orientation orient,
     const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out,

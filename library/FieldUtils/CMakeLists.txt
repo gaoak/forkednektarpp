@@ -24,6 +24,7 @@ SET(FieldUtilsHeaders
     ProcessModules/ProcessBoundaryExtract.h
     ProcessModules/ProcessCFL.h
     ProcessModules/ProcessCombineAvg.h
+    ProcessModules/ProcessCompressibleFields.h
     ProcessModules/ProcessConcatenateFld.h
     ProcessModules/ProcessCreateExp.h
     ProcessModules/ProcessDeform.h
@@ -97,6 +98,7 @@ SET(FieldUtilsSources
     ProcessModules/ProcessBoundaryExtract.cpp
     ProcessModules/ProcessCFL.cpp
     ProcessModules/ProcessCombineAvg.cpp
+    ProcessModules/ProcessCompressibleFields.cpp
     ProcessModules/ProcessConcatenateFld.cpp
     ProcessModules/ProcessCreateExp.cpp
     ProcessModules/ProcessDeform.cpp

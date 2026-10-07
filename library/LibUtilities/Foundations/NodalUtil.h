@@ -267,9 +267,8 @@ public:
         int cnt1      = 0;
         for (int j = 0; j < nq - 2; ++j)
         {
-            sorted[cnt++] = 4 + 2 * (nq - 2) + nq - 3 -
-                            j; // edge 2 (counter-clockwise ordering)
-            for (int i = 0; i < nq - 3 - j; ++i) // face 0
+            sorted[cnt++] = 4 + 2 * (nq - 2) + j; // edge 2
+            for (int i = 0; i < nq - 3 - j; ++i)  // face 0
             {
                 sorted[cnt++] = 4 + 6 * (nq - 2) + cnt1++;
             }
@@ -374,18 +373,17 @@ public:
         int cnt1      = 0;
         for (int j = 0; j < nq - 2; ++j)
         {
-            sorted[cnt++] = 6 + 3 * (nq - 2) + nq - 3 -
-                            j; // edge 3 (counter-clockwise ordering)
-            for (int i = 0; i < nq - 2; ++i) // face 0
+            sorted[cnt++] = 6 + 3 * (nq - 2) + j; // edge 3
+            for (int i = 0; i < nq - 2; ++i)      // face 0
             {
                 sorted[cnt++] = 6 + 9 * (nq - 2) + cnt1++;
             }
             sorted[cnt++] = 6 + (nq - 2) + j; // edge 1
         }
         sorted[cnt++] = 3;               /* vertex 3  */
-        for (int i = 0; i < nq - 2; ++i) // edge 2 (counter-clockwise ordering)
+        for (int i = 0; i < nq - 2; ++i) // edge 2
         {
-            sorted[cnt++] = 6 + 2 * (nq - 2) + nq - 3 - i;
+            sorted[cnt++] = 6 + 2 * (nq - 2) + i;
         }
         sorted[cnt++] = 2; /* vertex 2  */
 
@@ -559,11 +557,11 @@ public:
                     }
                     else if (x == 0 && y == nq - 1 && z == 0)
                     {
-                        sorted[cnt] = 2;
+                        sorted[cnt] = 3;
                     }
                     else if (x == nq - 1 && y == nq - 1 && z == 0)
                     {
-                        sorted[cnt] = 3;
+                        sorted[cnt] = 2;
                     }
                     else if (x == 0 && y == 0 && z == nq - 1)
                     {

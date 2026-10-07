@@ -241,6 +241,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(InterfaceAdvection2D_VCSLevelSet)
 
     IF(NOT WIN32 AND NEKTAR_UTILITY_FIELDCONVERT)
+        ADD_NEKTAR_TEST(MixedOrderFilterRegression)
         ADD_NEKTAR_TEST(ScaleReynoldsShearFilter_ThermalChannel2D)
         ADD_NEKTAR_TEST(ScaleReynoldsShearFilter_ThermalChannel3DH1D)
     ENDIF()

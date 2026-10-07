@@ -35,6 +35,7 @@
 #ifndef UTILITIES_NEKMESH_NODEOPTI
 #define UTILITIES_NEKMESH_NODEOPTI
 
+#include <algorithm>
 #include <mutex>
 #include <ostream>
 
@@ -42,6 +43,7 @@
 #include <LibUtilities/BasicUtils/Thread.h>
 
 #include "Evaluator.hxx"
+#include "Functionals.hxx"
 #include "ProcessVarOpti.h"
 
 namespace Nektar::NekMesh
@@ -51,33 +53,94 @@ class NodeOptiJob;
 
 class NodeOpti
 {
-    // Typedef for derivative storage, we use boost::multi_array so we can pass
-    // this to functions easily
-    typedef boost::multi_array<NekDouble, 4> DerivArray;
-
 public:
     NodeOpti(SpatialDomains::PointGeom *n, std::vector<ElUtilSharedPtr> e,
              ResidualSharedPtr r,
              std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> d,
-             optiType o, [[maybe_unused]] int dim, SpatialDomains::MeshGraph *g)
-        : m_node(n), m_graph(g), m_res(r), m_derivUtils(d), m_opti(o)
+             optiType o, int dim, SpatialDomains::MeshGraph *g)
+        : m_node(n), m_graph(g), m_res(r), m_opti(o)
     {
-        // filter element types within d vector
-        for (int i = 0; i < e.size(); i++)
+        // Group the elements by shape. Held as a flat list with a block per
+        // shape rather than as a map keyed by shape: this object exists once
+        // per free node of the mesh, and a std::map of each thing it needs
+        // came to more memory than the data.
+        std::map<LibUtilities::ShapeType, std::vector<ElUtil *>> byShape;
+        for (auto &el : e)
         {
-            m_data[e[i]->GetEl()->GetShapeType()].push_back(e[i]);
+            byShape[el->GetEl()->GetShapeType()].push_back(el.get());
         }
+
+        for (auto &[shape, els] : byShape)
+        {
+            auto it = d.find(shape);
+            ASSERTL0(it != d.end(),
+                     std::string("No integration rule for element type ") +
+                         LibUtilities::ShapeTypeMap[shape]);
+
+            m_elements.insert(m_elements.end(), els.begin(), els.end());
+        }
+
+        // Where this node sits in each of those elements' node lists. Looked
+        // up once here rather than on every evaluation: it is the column of
+        // the derivative operator the whole local problem is built around.
+        m_nodeIds.reserve(m_elements.size());
+        for (ElUtil *el : m_elements)
+        {
+            m_nodeIds.push_back(el->NodeId(n));
+        }
+
+        (void)dim;
     }
 
     virtual ~NodeOpti() {};
 
-    void CalcMinJac();
-
     virtual void Optimise() = 0;
-    NodeOptiJob *GetJob();
 
+    /**
+     * @brief Evaluate the functional at the node's current position, and with
+     * @p gradient its derivatives too, which are left in m_grad.
+     */
     template <int DIM>
     NekDouble GetFunctional(NekDouble &minJacNew, bool gradient = true);
+
+    /**
+     * @brief Evaluate the functional with the node displaced by @p offset,
+     * without moving it.
+     *
+     * Only one node moves, and the mapping is linear in its position, so the
+     * derivatives each element holds change by a rank-one update, which is
+     * applied as they are read. A line search can therefore try a step
+     * without touching the mesh, and a rejected one costs nothing to undo.
+     */
+    template <int DIM>
+    NekDouble GetFunctionalAt(const NekDouble *offset, NekDouble &minJacNew);
+
+    /**
+     * @brief Move the node by @p offset, and carry the change through to the
+     * derivatives its elements hold.
+     */
+    template <int DIM> void MoveNode(const NekDouble *offset)
+    {
+        for (int d = 0; d < DIM; ++d)
+        {
+            (*m_node)[d] += offset[d];
+        }
+
+        for (size_t i = 0; i < m_elements.size(); ++i)
+        {
+            m_elements[i]->MoveNode(m_nodeIds[i], offset, DIM);
+        }
+    }
+
+    /**
+     * @brief The gradient and Hessian that the last evaluation left behind:
+     * DIM gradient entries followed by the upper triangle of the Hessian,
+     * row by row.
+     */
+    const std::array<NekDouble, 9> &GetGrad() const
+    {
+        return m_grad;
+    }
 
     template <int DIM> void MinEigen(NekDouble &val);
 
@@ -86,15 +149,32 @@ protected:
     /// Holds the node to CAD association; only the CAD-constrained subclasses
     /// use it.
     SpatialDomains::MeshGraph *m_graph;
-    std::mutex mtx;
-    std::map<LibUtilities::ShapeType, std::vector<ElUtilSharedPtr>> m_data;
-    std::vector<NekDouble> m_grad;
+    /// Guards the shared Residual. One mutex for all nodes: a per-object one
+    /// locks nothing, since each node holds its own.
+    NEKMESH_EXPORT static std::mutex mtx;
+    /// The elements around the node, ordered so that each block of m_blocks
+    /// is contiguous. Not owning: ProcessVarOpti::m_dataSet holds them.
+    std::vector<ElUtil *> m_elements;
+    /// This node's index within each of those elements' node lists.
+    std::vector<int> m_nodeIds;
+    /// The gradient and Hessian of the last evaluation. Only live while this
+    /// node is being optimised, so it could belong to the thread rather than
+    /// to the node -- but it is written in the innermost loop, and reaching
+    /// it through thread-local storage there costs more than the seventy-two
+    /// bytes per node are worth.
+    std::array<NekDouble, 9> m_grad;
 
     template <int DIM> int IsIndefinite();
 
-    NekDouble m_minJac;
+    template <int DIM>
+    NekDouble Evaluate(const NekDouble *offset, NekDouble &minJacNew,
+                       bool gradient);
+
+    template <int DIM, typename Energy>
+    NekDouble Integrate(const NekDouble *offset, NekDouble &minJacNew,
+                        bool gradient);
+
     ResidualSharedPtr m_res;
-    std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> m_derivUtils;
     optiType m_opti;
 
     static NekDouble c1()
@@ -118,7 +198,7 @@ typedef LibUtilities::NekFactory<
     optiType, SpatialDomains::MeshGraph *>
     NodeOptiFactory;
 
-NodeOptiFactory &GetNodeOptiFactory();
+NEKMESH_EXPORT NodeOptiFactory &GetNodeOptiFactory();
 
 class NodeOpti3D3D : public NodeOpti // 1D optimsation in 3D space
 {
@@ -176,20 +256,33 @@ public:
 private:
 };
 
+/**
+ * @brief Optimises a run of nodes from one colour set.
+ *
+ * A job per node meant one allocation, one lock of the queue and one
+ * broadcast for every node of the mesh on every iteration, to do a few
+ * microseconds of work. The nodes of a colour set are independent of each
+ * other by construction, so any run of them can be handed over together.
+ */
 class NodeOptiJob : public Thread::ThreadJob
 {
 public:
-    NodeOptiJob(NodeOpti *no) : node(no)
+    NodeOptiJob(NodeOptiSharedPtr *nodes, int count)
+        : m_nodes(nodes), m_count(count)
     {
     }
 
     void Run() override
     {
-        node->Optimise();
+        for (int i = 0; i < m_count; ++i)
+        {
+            m_nodes[i]->Optimise();
+        }
     }
 
 private:
-    NodeOpti *node;
+    NodeOptiSharedPtr *m_nodes;
+    int m_count;
 };
 /**
  * @brief Evaluate functional for elements connected to a node.
@@ -200,780 +293,271 @@ private:
 template <int DIM>
 NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
 {
-    std::map<LibUtilities::ShapeType, DerivArray> derivs;
+    const NekDouble noOffset[3] = {0.0, 0.0, 0.0};
+    return Evaluate<DIM>(noOffset, minJacNew, gradient);
+}
 
-    for (auto &typeIt : m_data)
-    {
-        const int ptsStd = m_derivUtils[typeIt.first]->ptsStd;
-        const int pts    = m_derivUtils[typeIt.first]->pts;
-        const int nElmt  = typeIt.second.size();
-        const int totpts = m_derivUtils[typeIt.first]->ptsStd * nElmt;
-        std::vector<NekDouble> X(DIM * totpts);
+template <int DIM>
+NekDouble NodeOpti::GetFunctionalAt(const NekDouble *offset,
+                                    NekDouble &minJacNew)
+{
+    return Evaluate<DIM>(offset, minJacNew, false);
+}
 
-        // Store x/y components of each element sequentially in memory
-        for (int i = 0, cnt = 0; i < nElmt; ++i)
-        {
-            for (int j = 0; j < ptsStd; ++j)
-            {
-                for (int d = 0; d < DIM; ++d)
-                {
-                    X[cnt + d * ptsStd + j] = *(typeIt.second[i]->nodes[j][d]);
-                }
-            }
-            cnt += DIM * ptsStd;
-        }
-
-        // Storage for derivatives, ordered by:
-        //   - standard coordinate direction
-        //   - number of elements
-        //   - cartesian coordinate direction
-        //   - quadrature points
-        derivs.insert(std::make_pair(
-            typeIt.first,
-            DerivArray(boost::extents[DIM][nElmt][DIM]
-                                     [m_derivUtils[typeIt.first]->pts])));
-
-        // Calculate x- and y-gradients
-        for (int d = 0; d < DIM; ++d)
-        {
-            Blas::Dgemm('N', 'N', pts, DIM * nElmt, ptsStd, 1.0,
-                        m_derivUtils[typeIt.first]->VdmD[d].GetRawPtr(), pts,
-                        &X[0], ptsStd, 0.0, &derivs[typeIt.first][d][0][0][0],
-                        pts);
-        }
-    }
-
-    minJacNew          = std::numeric_limits<double>::max();
-    NekDouble integral = 0.0;
-    NekDouble ep =
-        m_minJac < 0.0 ? sqrt(1e-8 + 0.04 * m_minJac * m_minJac) : 1e-4;
-    NekDouble jacIdeal[DIM][DIM], jacDet;
-    m_grad = vector<NekDouble>(DIM == 2 ? 5 : 9, 0.0);
-
+template <int DIM>
+NekDouble NodeOpti::Evaluate(const NekDouble *offset, NekDouble &minJacNew,
+                             bool gradient)
+{
     switch (m_opti)
     {
         case eLinEl:
-        {
-            const NekDouble nu = 0.49;
-            const NekDouble mu = 1.0 / 2.0 / (1.0 + nu);
-            const NekDouble K  = 1.0 / 3.0 / (1.0 - 2.0 * nu);
-
-            for (auto &typeIt : m_data)
-            {
-                const int nElmt = typeIt.second.size();
-                const int pts   = m_derivUtils[typeIt.first]->pts;
-
-                NekVector<NekDouble> &quadW = m_derivUtils[typeIt.first]->quadW;
-
-                for (int i = 0; i < nElmt; ++i)
-                {
-                    for (int k = 0; k < pts; ++k)
-                    {
-                        NekDouble phiM[DIM][DIM];
-                        for (int l = 0; l < DIM; ++l)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                phiM[n][l] = derivs[typeIt.first][l][i][n][k];
-                            }
-                        }
-
-                        // begin CalcIdealJac
-                        for (int m = 0; m < DIM; ++m)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacIdeal[n][m] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacIdeal[n][m] +=
-                                        phiM[n][l] *
-                                        typeIt.second[i]->maps[k][m * 3 + l];
-                                }
-                            }
-                        }
-                        jacDet = Determinant(jacIdeal);
-                        // end CalcIdealJac
-
-                        NekDouble absIdealMapDet =
-                            fabs(typeIt.second[i]->maps[k][9]);
-                        minJacNew = min(minJacNew, jacDet);
-
-                        NekDouble Emat[DIM][DIM];
-                        EMatrix<DIM>(jacIdeal, Emat);
-
-                        NekDouble trEtE = FrobProd<DIM>(Emat, Emat);
-                        NekDouble sigma =
-                            0.5 *
-                            (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
-
-                        if (sigma < numeric_limits<double>::min() && !gradient)
-                        {
-                            return numeric_limits<double>::max();
-                        }
-                        ASSERTL0(sigma > numeric_limits<double>::min(),
-                                 std::string("dividing by zero ") +
-                                     boost::lexical_cast<string>(sigma) + " " +
-                                     boost::lexical_cast<string>(jacDet) + " " +
-                                     boost::lexical_cast<string>(ep));
-
-                        NekDouble lsigma = log(sigma);
-                        integral += quadW[k] * absIdealMapDet *
-                                    (K * 0.5 * lsigma * lsigma + mu * trEtE);
-
-                        if (gradient)
-                        {
-                            NekDouble jacDerivPhi[DIM];
-                            NekDouble jacDetDeriv[DIM];
-
-                            NekDouble derivDet = Determinant<DIM>(phiM);
-                            NekDouble jacInvTrans[DIM][DIM];
-                            InvTrans<DIM>(phiM, jacInvTrans);
-
-                            NekDouble basisDeriv[DIM];
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                basisDeriv[m] =
-                                    *(m_derivUtils[typeIt.first]->VdmD[m])(
-                                        k, typeIt.second[i]->NodeId(m_node));
-                            }
-                            // jacDeriv is actually a tensor,
-                            // but can be stored as a vector, as 18 out of 27
-                            // entries are zero and the other 9 entries are
-                            // three triplets this is due to the delta function
-                            // in jacDeriv
-                            NekDouble jacDeriv[DIM];
-                            for (int l = 0; l < DIM; ++l)
-                            {
-                                jacDeriv[l] = basisDeriv[l];
-                            }
-
-                            // jacDerivPhi is actually a tensor,
-                            // but can be stored as a vector due to the simple
-                            // form of jacDeriv
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacDerivPhi[n] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacDerivPhi[n] +=
-                                        jacDeriv[l] *
-                                        typeIt.second[i]->maps[k][l + 3 * n];
-                                }
-                            }
-
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                jacDetDeriv[m] = 0.0;
-                                for (int n = 0; n < DIM; ++n)
-                                {
-                                    jacDetDeriv[m] +=
-                                        jacInvTrans[m][n] * basisDeriv[n];
-                                }
-                                jacDetDeriv[m] *= derivDet / absIdealMapDet;
-                            }
-                            // end of common part to all four versionsNekDouble
-
-                            NekDouble M2[DIM][DIM][DIM];
-                            // use the delta function in jacDeriv and do some
-                            // tensor calculus to come up with this simplified
-                            // expression for: LEM2<DIM>(jacIdeal, jacDerivPhi,
-                            // M2);
-                            for (int d = 0; d < DIM; d++)
-                            {
-                                for (int m = 0; m < DIM; ++m)
-                                {
-                                    for (int n = 0; n < DIM; ++n)
-                                    {
-                                        M2[d][m][n] =
-                                            0.5 *
-                                            (jacDerivPhi[m] * jacIdeal[d][n] +
-                                             jacIdeal[d][m] * jacDerivPhi[n]);
-                                    }
-                                }
-                            }
-
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                NekDouble frobProdA =
-                                    FrobProd<DIM>(M2[m], Emat);
-
-                                m_grad[m] += quadW[k] * absIdealMapDet *
-                                             (2.0 * mu * frobProdA +
-                                              K * lsigma * jacDetDeriv[m] /
-                                                  (2.0 * sigma - jacDet));
-                            }
-
-                            int ct = 0;
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                for (int l = m; l < DIM; ++l, ct++)
-                                {
-                                    NekDouble frobProdBC =
-                                        FrobProd<DIM>(M2[m], M2[l]);
-                                    NekDouble M3[DIM][DIM];
-                                    // use the delta function in jacDeriv and do
-                                    // some tensor calculus to come up with this
-                                    // simplified expression for:
-                                    // LEM3<DIM>(jacDerivPhi, M3);
-                                    if (m == l)
-                                    {
-                                        for (int p = 0; p < DIM; ++p)
-                                        {
-                                            for (int q = 0; q < DIM; ++q)
-                                            {
-                                                M3[p][q] = jacDerivPhi[p] *
-                                                           jacDerivPhi[q];
-                                            }
-                                        }
-                                        frobProdBC += FrobProd<DIM>(M3, Emat);
-                                    }
-
-                                    m_grad[ct + DIM] +=
-                                        quadW[k] * absIdealMapDet *
-                                        (2.0 * mu * frobProdBC +
-                                         jacDetDeriv[m] * jacDetDeriv[l] * K /
-                                             (2.0 * sigma - jacDet) /
-                                             (2.0 * sigma - jacDet) *
-                                             (1.0 -
-                                              jacDet * lsigma /
-                                                  (2.0 * sigma - jacDet)));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            break;
-        }
-
+            return Integrate<DIM, LinearElasticEnergy>(offset, minJacNew,
+                                                       gradient);
         case eHypEl:
-        {
-            const NekDouble nu = 0.49;
-            const NekDouble mu = 1.0 / 2.0 / (1.0 + nu);
-            const NekDouble K  = 1.0 / 3.0 / (1.0 - 2.0 * nu);
-
-            for (auto &typeIt : m_data)
-            {
-                const int nElmt = typeIt.second.size();
-                const int pts   = m_derivUtils[typeIt.first]->pts;
-
-                NekVector<NekDouble> &quadW = m_derivUtils[typeIt.first]->quadW;
-
-                for (int i = 0; i < nElmt; ++i)
-                {
-                    for (int k = 0; k < pts; ++k)
-                    {
-                        NekDouble phiM[DIM][DIM];
-                        for (int l = 0; l < DIM; ++l)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                phiM[n][l] = derivs[typeIt.first][l][i][n][k];
-                            }
-                        }
-                        // begin CalcIdealJac
-                        for (int m = 0; m < DIM; ++m)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacIdeal[n][m] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacIdeal[n][m] +=
-                                        phiM[n][l] *
-                                        typeIt.second[i]->maps[k][m * 3 + l];
-                                }
-                            }
-                        }
-                        jacDet = Determinant(jacIdeal);
-                        // end CalcIdealJac
-
-                        minJacNew = min(minJacNew, jacDet);
-
-                        NekDouble absIdealMapDet =
-                            fabs(typeIt.second[i]->maps[k][9]);
-
-                        NekDouble I1 = FrobeniusNorm(jacIdeal);
-
-                        NekDouble sigma =
-                            0.5 *
-                            (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
-
-                        if (sigma < numeric_limits<double>::min() && !gradient)
-                        {
-                            return numeric_limits<double>::max();
-                        }
-
-                        ASSERTL0(sigma > numeric_limits<double>::min(),
-                                 std::string("dividing by zero ") +
-                                     boost::lexical_cast<string>(sigma) + " " +
-                                     boost::lexical_cast<string>(jacDet) + " " +
-                                     boost::lexical_cast<string>(ep));
-
-                        NekDouble lsigma = log(sigma);
-                        integral += quadW[k] * absIdealMapDet *
-                                    (0.5 * mu * (I1 - 3.0 - 2.0 * lsigma) +
-                                     0.5 * K * lsigma * lsigma);
-
-                        // Derivative of basis function in each direction
-                        if (gradient)
-                        {
-                            NekDouble jacDerivPhi[DIM];
-                            NekDouble jacDetDeriv[DIM];
-
-                            NekDouble derivDet = Determinant<DIM>(phiM);
-                            NekDouble jacInvTrans[DIM][DIM];
-                            InvTrans<DIM>(phiM, jacInvTrans);
-
-                            NekDouble basisDeriv[DIM];
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                basisDeriv[m] = *(
-                                    m_derivUtils[typeIt.first]
-                                        ->VdmD[m]
-                                        .GetRawPtr() +
-                                    typeIt.second[i]->NodeId(m_node) * pts + k);
-                            }
-
-                            // jacDeriv is actually a tensor,
-                            // but can be stored as a vector, as 18 out of 27
-                            // entries are zero and the other 9 entries are
-                            // three triplets this is due to the delta function
-                            // in jacDeriv
-                            NekDouble jacDeriv[DIM];
-                            for (int l = 0; l < DIM; ++l)
-                            {
-                                jacDeriv[l] = basisDeriv[l];
-                            }
-
-                            // jacDerivPhi is actually a tensor,
-                            // but can be stored as a vector due to the simple
-                            // form of jacDeriv
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacDerivPhi[n] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacDerivPhi[n] +=
-                                        jacDeriv[l] *
-                                        typeIt.second[i]->maps[k][l + 3 * n];
-                                }
-                            }
-
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                jacDetDeriv[m] = 0.0;
-                                for (int n = 0; n < DIM; ++n)
-                                {
-                                    jacDetDeriv[m] +=
-                                        jacInvTrans[m][n] * basisDeriv[n];
-                                }
-                                jacDetDeriv[m] *= derivDet / absIdealMapDet;
-                            }
-                            // end of common part to all four versionsNekDouble
-
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                // because of the zero entries of the tensor
-                                // jacDerivPhi, the Frobenius-product becomes a
-                                // scalar product
-                                NekDouble frobProd =
-                                    ScalarProd<DIM>(jacIdeal[m], jacDerivPhi);
-
-                                m_grad[m] +=
-                                    quadW[k] * absIdealMapDet *
-                                    (mu * frobProd +
-                                     (jacDetDeriv[m] / (2.0 * sigma - jacDet) *
-                                      (K * lsigma - mu)));
-                            }
-
-                            int ct = 0;
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                for (int l = m; l < DIM; ++l, ct++)
-                                {
-                                    NekDouble frobProdHes = 0.0;
-                                    // because of the zero entries of the tensor
-                                    // jacDerivPhi, the matrix frobProdHes has
-                                    // only diagonal entries
-                                    if (m == l)
-                                    {
-                                        // because of the zero entries of the
-                                        // tensor jacDerivPhi, the
-                                        // Frobenius-product becomes a scalar
-                                        // product
-                                        frobProdHes = ScalarProd<DIM>(
-                                            jacDerivPhi, jacDerivPhi);
-                                    }
-
-                                    m_grad[ct + DIM] +=
-                                        quadW[k] * absIdealMapDet *
-                                        (mu * frobProdHes +
-                                         jacDetDeriv[m] * jacDetDeriv[l] /
-                                             (2.0 * sigma - jacDet) /
-                                             (2.0 * sigma - jacDet) *
-                                             (K - jacDet * (K * lsigma - mu) /
-                                                      (2.0 * sigma - jacDet)));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            break;
-        }
-
+            return Integrate<DIM, HyperElasticEnergy>(offset, minJacNew,
+                                                      gradient);
         case eRoca:
+            return Integrate<DIM, DistortionEnergy>(offset, minJacNew,
+                                                    gradient);
+        case eWins:
+            return Integrate<DIM, WinslowEnergy>(offset, minJacNew, gradient);
+    }
+
+    NEKERROR(ErrorUtil::efatal, "unknown optimisation functional");
+    return 0.0;
+}
+
+/**
+ * @brief Integrate an energy functional, and its derivatives with respect to
+ * the node being optimised, over the elements connected to that node.
+ *
+ * @param offset     Displacement of the node from where it currently is.
+ * @param minJacNew  Set to the smallest Jacobian seen.
+ * @param gradient   If true, leave the gradient and Hessian in m_grad.
+ *
+ * Everything here is common to the four functionals: all that distinguishes
+ * them is how @p Energy combines the quantities gathered into Deformation.
+ * They used to be four copies of this loop, and each copy had drifted --
+ * two of them weighted the Hessian wrongly and a third built its strain
+ * tensor wrongly, in each case without disturbing the other three.
+ */
+template <int DIM, typename Energy>
+NekDouble NodeOpti::Integrate(const NekDouble *offset, NekDouble &minJacNew,
+                              bool gradient)
+{
+    constexpr int nHess = HessianSize(DIM);
+
+    minJacNew          = std::numeric_limits<double>::max();
+    NekDouble integral = 0.0;
+
+    // The Jacobian regularisation parameter. Keeping it small even where the
+    // elements are valid is what lets the same functional untangle an invalid
+    // one; see section 2.2 of the paper. It belongs to the mesh rather than
+    // to this node, so that every local problem of an iteration minimises the
+    // same functional.
+    //
+    // It is capped. Tying it to the worst Jacobian in the mesh keeps J_R
+    // comfortably above zero for a badly inverted element, but J here is
+    // normalised -- a perfect element has J = 1 -- and as delta approaches
+    // that, J_R tends to delta for everything and the functional stops
+    // telling a good element from a degenerate one. One catastrophically
+    // inverted element can then flatten the energy over the whole mesh,
+    // which is what a boundary layer mesh with a few broken elements does:
+    // the minimum Jacobian runs away, delta follows it, and the optimiser
+    // stalls. The cap is the largest delta that leaves J_R within about six
+    // percent of J for a perfect element. Note that delta also had to track
+    // the worst Jacobian to keep the old form of J_R away from its
+    // cancellation, which is no longer a reason: it is computed stably below.
+    constexpr NekDouble epMax = 0.25;
+
+    const NekDouble minJac = m_res->minJac;
+    const NekDouble ep =
+        minJac < 0.0 ? std::min(sqrt(1e-8 + 0.04 * minJac * minJac), epMax)
+                     : 1e-4;
+
+    m_grad.fill(0.0);
+
+    // Hoisted out of the quadrature loop below, and zeroed because the energy
+    // leaves them alone when no derivatives were asked for.
+    NekDouble dW[DIM]    = {};
+    NekDouble d2W[nHess] = {};
+
+    for (size_t e = 0; e < m_elements.size(); ++e)
+    {
+        ElUtil *el                  = m_elements[e];
+        DerivUtil *derivUtil        = el->GetDerivUtil();
+        const int pts               = derivUtil->pts;
+        NekVector<NekDouble> &quadW = derivUtil->quadW;
+
+        // The column of the derivative operator belonging to the node being
+        // moved is the same at every integration point, and is both the
+        // rank-one update of the element's derivatives and the basis
+        // derivative the gradient needs.
+        const int nodeId = m_nodeIds[e];
+
+        const NekDouble *basis[DIM];
+        for (int d = 0; d < DIM; ++d)
         {
-            for (auto &typeIt : m_data)
-            {
-                const int nElmt = typeIt.second.size();
-                const int pts   = m_derivUtils[typeIt.first]->pts;
-
-                NekVector<NekDouble> &quadW = m_derivUtils[typeIt.first]->quadW;
-
-                for (int i = 0; i < nElmt; ++i)
-                {
-                    for (int k = 0; k < pts; ++k)
-                    {
-                        NekDouble phiM[DIM][DIM];
-                        for (int l = 0; l < DIM; ++l)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                phiM[n][l] = derivs[typeIt.first][l][i][n][k];
-                            }
-                        }
-                        // begin CalcIdealJac
-                        for (int m = 0; m < DIM; ++m)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacIdeal[n][m] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacIdeal[n][m] +=
-                                        phiM[n][l] *
-                                        typeIt.second[i]->maps[k][m * 3 + l];
-                                }
-                            }
-                        }
-                        jacDet = Determinant(jacIdeal);
-                        // end CalcIdealJac
-
-                        NekDouble absIdealMapDet =
-                            fabs(typeIt.second[i]->maps[k][9]);
-                        minJacNew      = min(minJacNew, jacDet);
-                        NekDouble frob = FrobeniusNorm(jacIdeal);
-                        NekDouble sigma =
-                            0.5 *
-                            (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
-
-                        if (sigma < numeric_limits<double>::min() && !gradient)
-                        {
-                            return numeric_limits<double>::max();
-                        }
-
-                        ASSERTL0(sigma > numeric_limits<double>::min(),
-                                 std::string("dividing by zero ") +
-                                     boost::lexical_cast<string>(sigma) + " " +
-                                     boost::lexical_cast<string>(jacDet) + " " +
-                                     boost::lexical_cast<string>(ep));
-
-                        NekDouble W = frob / DIM / pow(fabs(sigma), 2.0 / DIM);
-                        integral += quadW[k] * absIdealMapDet * W;
-
-                        // Derivative of basis function in each direction
-                        if (gradient)
-                        {
-                            NekDouble jacDerivPhi[DIM];
-                            NekDouble jacDetDeriv[DIM];
-
-                            NekDouble derivDet = Determinant<DIM>(phiM);
-                            NekDouble jacInvTrans[DIM][DIM];
-                            InvTrans<DIM>(phiM, jacInvTrans);
-
-                            NekDouble basisDeriv[DIM];
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                basisDeriv[m] =
-                                    *(m_derivUtils[typeIt.first]->VdmD[m])(
-                                        k, typeIt.second[i]->NodeId(m_node));
-                            }
-                            // jacDeriv is actually a tensor,
-                            // but can be stored as a vector, as 18 out of 27
-                            // entries are zero and the other 9 entries are
-                            // three triplets this is due to the delta function
-                            // in jacDeriv
-                            NekDouble jacDeriv[DIM];
-                            for (int l = 0; l < DIM; ++l)
-                            {
-                                jacDeriv[l] = basisDeriv[l];
-                            }
-
-                            // jacDerivPhi is actually a tensor,
-                            // but can be stored as a vector due to the simple
-                            // form of jacDeriv
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacDerivPhi[n] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacDerivPhi[n] +=
-                                        jacDeriv[l] *
-                                        typeIt.second[i]->maps[k][l + 3 * n];
-                                }
-                            }
-
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                jacDetDeriv[m] = 0.0;
-                                for (int n = 0; n < DIM; ++n)
-                                {
-                                    jacDetDeriv[m] +=
-                                        jacInvTrans[m][n] * basisDeriv[n];
-                                }
-                                jacDetDeriv[m] *= derivDet / absIdealMapDet;
-                            }
-                            // end of common part to all four versionsNekDouble
-
-                            NekDouble frobProd[DIM];
-                            NekDouble inc[DIM];
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                // because of the zero entries of the tensor
-                                // jacDerivPhi, the Frobenius-product becomes a
-                                // scalar product
-                                frobProd[m] =
-                                    ScalarProd<DIM>(jacIdeal[m], jacDerivPhi);
-
-                                inc[m] = quadW[k] * absIdealMapDet *
-                                         (2.0 * W *
-                                          (frobProd[m] / frob -
-                                           jacDetDeriv[m] / DIM /
-                                               (2.0 * sigma - jacDet)));
-                                m_grad[m] += inc[m];
-                            }
-
-                            int ct = 0;
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                for (int l = m; l < DIM; ++l, ct++)
-                                {
-                                    NekDouble frobProdHes = 0.0;
-                                    // because of the zero entries of the tensor
-                                    // jacDerivPhi, the matrix frobProdHes has
-                                    // only diagonal entries
-                                    if (m == l)
-                                    {
-                                        // because of the zero entries of the
-                                        // tensor jacDerivPhi, the
-                                        // Frobenius-product becomes a scalar
-                                        // product
-                                        frobProdHes = ScalarProd<DIM>(
-                                            jacDerivPhi, jacDerivPhi);
-                                    }
-
-                                    m_grad[ct + DIM] +=
-                                        quadW[k] * absIdealMapDet *
-                                        (inc[m] * inc[l] / W +
-                                         2.0 * W *
-                                             (frobProdHes / frob -
-                                              2.0 * frobProd[m] * frobProd[l] /
-                                                  frob / frob +
-                                              jacDetDeriv[m] * jacDetDeriv[l] *
-                                                  jacDet /
-                                                  (2.0 * sigma - jacDet) /
-                                                  (2.0 * sigma - jacDet) /
-                                                  (2.0 * sigma - jacDet) /
-                                                  DIM));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            break;
+            basis[d] = derivUtil->VdmD[d].GetRawPtr() + nodeId * pts;
         }
 
-        case eWins:
+        const NekDouble *elDeriv = el->deriv.data();
+
         {
-            for (auto &typeIt : m_data)
+            for (int k = 0; k < pts; ++k)
             {
-                const int nElmt = typeIt.second.size();
-                const int pts   = m_derivUtils[typeIt.first]->pts;
+                const NekDouble *map = &el->maps[k * el->mapStride];
 
-                NekVector<NekDouble> &quadW = m_derivUtils[typeIt.first]->quadW;
+                Deformation<DIM> d;
 
-                for (int i = 0; i < nElmt; ++i)
+                NekDouble basisDeriv[DIM];
+                for (int m = 0; m < DIM; ++m)
                 {
-                    for (int k = 0; k < pts; ++k)
+                    basisDeriv[m] = basis[m][k];
+                }
+
+                NekDouble phiM[DIM][DIM];
+                for (int l = 0; l < DIM; ++l)
+                {
+                    for (int n = 0; n < DIM; ++n)
                     {
-                        NekDouble phiM[DIM][DIM];
+                        phiM[n][l] = elDeriv[(l * DIM + n) * pts + k] +
+                                     offset[n] * basisDeriv[l];
+                    }
+                }
+
+                for (int m = 0; m < DIM; ++m)
+                {
+                    for (int n = 0; n < DIM; ++n)
+                    {
+                        d.jacIdeal[n][m] = 0.0;
                         for (int l = 0; l < DIM; ++l)
                         {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                phiM[n][l] = derivs[typeIt.first][l][i][n][k];
-                            }
-                        }
-                        // begin CalcIdealJac
-                        for (int m = 0; m < DIM; ++m)
-                        {
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacIdeal[n][m] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacIdeal[n][m] +=
-                                        phiM[n][l] *
-                                        typeIt.second[i]->maps[k][m * 3 + l];
-                                }
-                            }
-                        }
-                        jacDet = Determinant(jacIdeal);
-                        // end CalcIdealJac
-
-                        NekDouble absIdealMapDet =
-                            fabs(typeIt.second[i]->maps[k][9]);
-                        minJacNew      = min(minJacNew, jacDet);
-                        NekDouble frob = FrobeniusNorm(jacIdeal);
-                        NekDouble sigma =
-                            0.5 *
-                            (jacDet + sqrt(jacDet * jacDet + 4.0 * ep * ep));
-
-                        if (sigma < numeric_limits<double>::min() && !gradient)
-                        {
-                            return numeric_limits<double>::max();
-                        }
-
-                        ASSERTL0(sigma > numeric_limits<double>::min(),
-                                 std::string("dividing by zero ") +
-                                     boost::lexical_cast<string>(sigma) + " " +
-                                     boost::lexical_cast<string>(jacDet) + " " +
-                                     boost::lexical_cast<string>(ep));
-
-                        NekDouble W = frob / sigma;
-                        integral += quadW[k] * absIdealMapDet * W;
-
-                        // Derivative of basis function in each direction
-                        if (gradient)
-                        {
-                            NekDouble jacDerivPhi[DIM];
-                            NekDouble jacDetDeriv[DIM];
-
-                            NekDouble derivDet = Determinant<DIM>(phiM);
-                            NekDouble jacInvTrans[DIM][DIM];
-                            InvTrans<DIM>(phiM, jacInvTrans);
-
-                            NekDouble basisDeriv[DIM];
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                basisDeriv[m] =
-                                    *(m_derivUtils[typeIt.first]->VdmD[m])(
-                                        k, typeIt.second[i]->NodeId(m_node));
-                            }
-                            // jacDeriv is actually a tensor,
-                            // but can be stored as a vector, as 18 out of 27
-                            // entries are zero and the other 9 entries are
-                            // three triplets this is due to the delta function
-                            // in jacDeriv
-                            NekDouble jacDeriv[DIM];
-                            for (int l = 0; l < DIM; ++l)
-                            {
-                                jacDeriv[l] = basisDeriv[l];
-                            }
-
-                            // jacDerivPhi is actually a tensor,
-                            // but can be stored as a vector due to the simple
-                            // form of jacDeriv
-                            for (int n = 0; n < DIM; ++n)
-                            {
-                                jacDerivPhi[n] = 0.0;
-                                for (int l = 0; l < DIM; ++l)
-                                {
-                                    jacDerivPhi[n] +=
-                                        jacDeriv[l] *
-                                        typeIt.second[i]->maps[k][l + 3 * n];
-                                }
-                            }
-
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                jacDetDeriv[m] = 0.0;
-                                for (int n = 0; n < DIM; ++n)
-                                {
-                                    jacDetDeriv[m] +=
-                                        jacInvTrans[m][n] * basisDeriv[n];
-                                }
-                                jacDetDeriv[m] *= derivDet / absIdealMapDet;
-                            }
-                            // end of common part to all four versionsNekDouble
-
-                            NekDouble frobProd[DIM];
-                            NekDouble inc[DIM];
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                // because of the zero entries of the tensor
-                                // jacDerivPhi, the Frobenius-product becomes a
-                                // scalar product
-                                frobProd[m] =
-                                    ScalarProd<DIM>(jacIdeal[m], jacDerivPhi);
-
-                                inc[m] = quadW[k] * absIdealMapDet *
-                                         (W * (2.0 * frobProd[m] / frob -
-                                               jacDetDeriv[m] /
-                                                   (2.0 * sigma - jacDet)));
-                                m_grad[m] += inc[m];
-                            }
-
-                            int ct = 0;
-                            for (int m = 0; m < DIM; ++m)
-                            {
-                                for (int l = m; l < DIM; ++l, ct++)
-                                {
-                                    NekDouble frobProdHes = 0.0;
-                                    // because of the zero entries of the tensor
-                                    // jacDerivPhi, the matrix frobProdHes has
-                                    // only diagonal entries
-                                    if (m == l)
-                                    {
-                                        // because of the zero entries of the
-                                        // tensor jacDerivPhi, the
-                                        // Frobenius-product becomes a scalar
-                                        // product
-                                        frobProdHes = ScalarProd<DIM>(
-                                            jacDerivPhi, jacDerivPhi);
-                                    }
-
-                                    m_grad[ct + DIM] +=
-                                        quadW[k] * absIdealMapDet *
-                                        (inc[m] * inc[l] / W +
-                                         2.0 * W *
-                                             (frobProdHes / frob -
-                                              2.0 * frobProd[m] * frobProd[l] /
-                                                  frob / frob +
-                                              0.5 * jacDetDeriv[m] *
-                                                  jacDetDeriv[l] * jacDet /
-                                                  (2.0 * sigma - jacDet) /
-                                                  (2.0 * sigma - jacDet) /
-                                                  (2.0 * sigma - jacDet)));
-                                }
-                            }
+                            d.jacIdeal[n][m] += phiM[n][l] * map[m * 3 + l];
                         }
                     }
                 }
+
+                d.jacDet  = Determinant<DIM>(d.jacIdeal);
+                minJacNew = std::min(minJacNew, d.jacDet);
+
+                // The ideal mapping does not move with the node, so its
+                // determinant is a constant here. It is the volume element of
+                // the integral, for which only its magnitude is wanted, and it
+                // also divides det(grad phi_M) to give J, for which its sign
+                // matters: a straight-sided element that is itself inverted
+                // has a negative one, and taking the magnitude there points
+                // dJ/dx the wrong way.
+                const NekDouble idealMapDet    = map[9];
+                const NekDouble absIdealMapDet = fabs(idealMapDet);
+
+                // The regularised Jacobian, J_R = (J + sqrt(4 d^2 + J^2))/2.
+                // Written that way it loses every significant digit once J is
+                // negative and much larger than d: the square root rounds to
+                // -J, the sum cancels to zero, ln(J_R) is -inf and the node
+                // goes to NaN. The conjugate form is the same number without
+                // the cancellation, and J is only ever negative while
+                // untangling, which is where this has to hold up.
+                const NekDouble root =
+                    sqrt(d.jacDet * d.jacDet + 4.0 * ep * ep);
+
+                d.sigma = d.jacDet >= 0.0 ? 0.5 * (d.jacDet + root)
+                                          : 2.0 * ep * ep / (root - d.jacDet);
+
+                // 2 J_R - J is the square root exactly; forming it by
+                // subtraction would reintroduce the cancellation above.
+                d.twoSigmaMinusJ = root;
+
+                // sigma is now positive for any finite J, so this catches
+                // only a node that has already been taken somewhere
+                // non-finite. Refuse the configuration rather than bringing
+                // the run down: in a line search the step is rejected, and
+                // when the gradient was asked for the node is left alone,
+                // since a zero gradient reads as already optimal.
+                if (!(d.sigma > 0.0))
+                {
+                    m_grad.fill(0.0);
+
+                    if (gradient)
+                    {
+                        // Only count it where the node is genuinely being
+                        // left alone, rather than on a trial position in a
+                        // line search, which is refused and moved on from.
+                        mtx.lock();
+                        m_res->nSkipped++;
+                        mtx.unlock();
+                    }
+
+                    return std::numeric_limits<double>::max();
+                }
+
+                d.frob = FrobeniusNorm<DIM>(d.jacIdeal);
+
+                if (gradient)
+                {
+                    for (int n = 0; n < DIM; ++n)
+                    {
+                        d.jacDerivPhi[n] = 0.0;
+                        for (int l = 0; l < DIM; ++l)
+                        {
+                            d.jacDerivPhi[n] += basisDeriv[l] * map[l + 3 * n];
+                        }
+                    }
+
+                    // d(det A)/dx = det(A) tr(A^-1 dA/dx), rescaled by the
+                    // ideal mapping to give the derivative of J rather than
+                    // of det(grad phi_M).
+                    const NekDouble derivDet = Determinant<DIM>(phiM);
+                    NekDouble jacInvTrans[DIM][DIM];
+                    InvTrans<DIM>(phiM, jacInvTrans);
+
+                    for (int m = 0; m < DIM; ++m)
+                    {
+                        d.jacDetDeriv[m] = 0.0;
+                        for (int n = 0; n < DIM; ++n)
+                        {
+                            d.jacDetDeriv[m] +=
+                                jacInvTrans[m][n] * basisDeriv[n];
+                        }
+                        d.jacDetDeriv[m] *= derivDet / idealMapDet;
+                    }
+
+                    for (int m = 0; m < DIM; ++m)
+                    {
+                        d.frobProd[m] =
+                            ScalarProd<DIM>(d.jacIdeal[m], d.jacDerivPhi);
+                    }
+                    d.frobProdHes =
+                        ScalarProd<DIM>(d.jacDerivPhi, d.jacDerivPhi);
+                }
+
+                const NekDouble W =
+                    Energy::template Evaluate<DIM>(d, gradient, dW, d2W);
+
+                // The quadrature weight is applied once, to the integrand and
+                // to each of its derivatives alike.
+                const NekDouble wq = quadW[k] * absIdealMapDet;
+
+                integral += wq * W;
+
+                if (gradient)
+                {
+                    for (int m = 0; m < DIM; ++m)
+                    {
+                        m_grad[m] += wq * dW[m];
+                    }
+                    for (int ct = 0; ct < nHess; ++ct)
+                    {
+                        m_grad[ct + DIM] += wq * d2W[ct];
+                    }
+                }
             }
-            break;
         }
     }
 
-    // ASSERTL0(std::isfinite(integral),"inf in integral");
-
     return integral;
-    // return sqrt(m_grad[0]*m_grad[0] + m_grad[1]*m_grad[1]);
 }
+
 } // namespace Nektar::NekMesh
 
 #endif

@@ -47,6 +47,8 @@
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Foundations/NodalUtil.h>
+#include <iomanip>
+#include <sstream>
 
 #include <SpatialDomains/CADSystem/CADAssociation.h>
 #include <boost/algorithm/string.hpp>
@@ -182,10 +184,43 @@ void ProcessVarOpti::Process()
                      << std::endl;
     }
 
-    // Safety feature: limit over-integration order for high-order triangles
-    // over order 5.
+    // The symmetric positive integration rules used for triangles, tetrahedra
+    // and prisms are only tabulated up to eleven points, so the order of the
+    // mesh and the over-integration together cannot exceed that. Quadrilateral
+    // and hexahedral elements are built from Gauss-Lobatto points and have no
+    // such limit, so this only binds where the mesh has an element with a
+    // triangular face.
+    const int maxSimplexPts = 11;
+
+    bool hasSimplex = false;
+    for (auto &[geom, tag] : m_mesh->m_elementTags[meshDim])
+    {
+        LibUtilities::ShapeType shape = geom->GetShapeType();
+        hasSimplex = hasSimplex || shape == LibUtilities::eTriangle ||
+                     shape == LibUtilities::eTetrahedron ||
+                     shape == LibUtilities::ePrism;
+    }
+
     int intOrder = m_config["overint"].as<int>();
-    intOrder     = m_nummode + intOrder <= 11 ? intOrder : 11 - m_nummode;
+
+    if (hasSimplex && m_nummode > maxSimplexPts)
+    {
+        m_log(FATAL) << "Cannot optimise a mesh of order " << m_nummode - 1
+                     << " containing triangles, tetrahedra or prisms: the "
+                     << "integration rules for those stop at order "
+                     << maxSimplexPts - 1 << "." << endl;
+    }
+
+    if (hasSimplex && m_nummode + intOrder > maxSimplexPts)
+    {
+        const int capped = maxSimplexPts - m_nummode;
+        m_log(WARNING) << "Over-integration reduced from " << intOrder << " to "
+                       << capped << ": the integration rules for "
+                       << "triangles, tetrahedra and prisms stop at order "
+                       << maxSimplexPts - 1 << ". Marginally invalid elements "
+                       << "may fail to untangle as a result." << endl;
+        intOrder = capped;
+    }
 
     m_log(VERBOSE) << "  - Identified mesh order as: " << m_nummode - 1 << endl;
 
@@ -207,16 +242,18 @@ void ProcessVarOpti::Process()
     }
 
     map<LibUtilities::ShapeType, DerivUtilSharedPtr> derivUtils =
-        BuildDerivUtil(intOrder);
+        BuildDerivUtil(m_nummode, intOrder);
 
     GetElementMap(intOrder, derivUtils);
 
     m_res->startInv = 0;
     m_res->worstJac = numeric_limits<double>::max();
+    m_res->minJac   = numeric_limits<double>::max();
     for (int i = 0; i < m_dataSet.size(); i++)
     {
         m_dataSet[i]->Evaluate();
-        m_dataSet[i]->InitialMinJac();
+        m_dataSet[i]->CalcDeriv();
+        m_dataSet[i]->CalcMinJac();
     }
 
     vector<ElUtilSharedPtr> elLock;
@@ -280,9 +317,21 @@ void ProcessVarOpti::Process()
                     optiKind, freenodes[i][j], it->second, m_res, derivUtils,
                     m_opti, m_mesh->m_meshGraph.get()));
             }
+
+            // The optimiser has taken what it needs from this node's entry,
+            // and each node has exactly one. Letting them go here rather than
+            // all at the end keeps both copies of the mesh's node-to-element
+            // incidence from being live at once, which is where this module
+            // reaches its high-water mark.
+            m_nodeElMap.erase(it);
         }
         optiNodes.push_back(ns);
     }
+
+    // Nothing reads these once the optimisers hold what they need.
+    NodeElMap().swap(m_nodeElMap);
+    freenodes.clear();
+    freenodes.shrink_to_fit();
 
     int nset = optiNodes.size();
     int p    = 0;
@@ -317,11 +366,63 @@ void ProcessVarOpti::Process()
                    << m_res->worstJac << endl;
     m_log(VERBOSE) << "  - # free nodes       : " << m_res->n << endl;
     m_log(VERBOSE) << "  - # DoF              : " << m_res->nDoF << endl;
+    m_log(VERBOSE) << "  - # sliding on CAD   : " << m_res->nOnCAD << endl;
     m_log(VERBOSE) << "  - # color sets       : " << nset << endl;
     m_log(VERBOSE) << "  - Avg set colors     : " << scientific << p / nset
                    << endl;
     m_log(VERBOSE) << "  - Min set            : " << mn << endl;
     m_log(VERBOSE) << "  - Max set            : " << mx << endl;
+    // The residual the iteration below watches is the furthest any node
+    // moved, which is a length and so says nothing on its own: the same mesh
+    // would converge at a different point measured in metres and in
+    // millimetres. Divide it by the size of the problem, taken as the
+    // diagonal of the mesh's bounding box, so that the tolerance is a
+    // fraction of that and means the same thing for any mesh.
+    NekDouble charLen = 0.0;
+    {
+        std::array<NekDouble, 3> lo, hi;
+        lo.fill(numeric_limits<NekDouble>::max());
+        hi.fill(-numeric_limits<NekDouble>::max());
+
+        for (auto &[id, vert] :
+             m_mesh->m_meshGraph->GetGeomMap<SpatialDomains::PointGeom>())
+        {
+            for (int d = 0; d < 3; ++d)
+            {
+                lo[d] = min(lo[d], (*vert)[d]);
+                hi[d] = max(hi[d], (*vert)[d]);
+            }
+        }
+
+        for (int d = 0; d < 3; ++d)
+        {
+            charLen += (hi[d] - lo[d]) * (hi[d] - lo[d]);
+        }
+        charLen = sqrt(charLen);
+    }
+
+    if (!(charLen > 0.0))
+    {
+        m_log(FATAL) << "Mesh has no extent; cannot optimise." << endl;
+    }
+
+    // What the elements hold is the bulk of this module's memory, and it
+    // grows with the over-integration order -- as the cube of it for
+    // hexahedra. Worth saying out loud before spending minutes on a mesh that
+    // will not fit.
+    size_t elBytes = 0;
+    for (auto &el : m_dataSet)
+    {
+        elBytes += el->Footprint();
+    }
+
+    std::ostringstream elMem;
+    elMem << std::fixed << std::setprecision(1) << elBytes / 1048576.0;
+
+    m_log(VERBOSE) << "  - Element storage    : " << elMem.str() << " MB"
+                   << endl;
+    m_log(VERBOSE) << "  - Characteristic len : " << scientific << charLen
+                   << endl;
     m_log(VERBOSE) << "  - Residual tolerance : " << scientific << restol
                    << endl;
 
@@ -352,15 +453,6 @@ void ProcessVarOpti::Process()
         resFile.open(m_config["resfile"].as<string>().c_str());
     }
 
-    for (int i = 0; i < optiNodes.size(); i++)
-    {
-        vector<Thread::ThreadJob *> jobs(optiNodes[i].size());
-        for (int j = 0; j < optiNodes[i].size(); j++)
-        {
-            optiNodes[i][j]->CalcMinJac();
-        }
-    }
-
     m_log(VERBOSE) << "Beginning iterations..." << endl;
 
     while (m_res->val > restol && ctr < maxIter)
@@ -372,12 +464,21 @@ void ProcessVarOpti::Process()
         m_res->nReset[1] = 0;
         m_res->nReset[2] = 0;
         m_res->alphaI    = 0;
+        m_res->nSkipped  = 0;
         for (int i = 0; i < optiNodes.size(); i++)
         {
-            vector<Thread::ThreadJob *> jobs(optiNodes[i].size());
-            for (int j = 0; j < optiNodes[i].size(); j++)
+            // Enough jobs to keep every thread fed and to even out the cost
+            // of nodes with differently sized patches, but far fewer than one
+            // per node.
+            const int n     = optiNodes[i].size();
+            const int chunk = max(1, (n + 4 * nThreads - 1) / (4 * nThreads));
+
+            vector<Thread::ThreadJob *> jobs;
+            jobs.reserve((n + chunk - 1) / chunk);
+            for (int j = 0; j < n; j += chunk)
             {
-                jobs[j] = optiNodes[i][j]->GetJob();
+                jobs.push_back(
+                    new NodeOptiJob(&optiNodes[i][j], min(chunk, n - j)));
             }
 
             tm->SetNumWorkers(0);
@@ -386,8 +487,13 @@ void ProcessVarOpti::Process()
             tm->Wait();
         }
 
+        // Every node has moved, so turn the furthest distance any of them
+        // travelled into the fraction of the mesh that it represents.
+        m_res->val /= charLen;
+
         m_res->startInv = 0;
         m_res->worstJac = numeric_limits<double>::max();
+        m_res->minJac   = numeric_limits<double>::max();
 
         bool updateCAD = (m_radaptCAD && (ctr % subIter) == 0);
         bool updateFile =
@@ -427,6 +533,13 @@ void ProcessVarOpti::Process()
                        << "\tReset nodes: " << m_res->nReset[0] << "/"
                        << m_res->nReset[1] << "/" << m_res->nReset[2]
                        << "\tFunctional: " << m_res->func << endl;
+
+        if (m_res->nSkipped)
+        {
+            m_log(WARNING) << "    => " << m_res->nSkipped << " node(s) left "
+                           << "alone: the energy around them was not a finite "
+                           << "number." << endl;
+        }
 
         if (ctr >= maxIter)
         {
@@ -559,15 +672,17 @@ void ProcessVarOpti::Analytics()
 
                 // Build deriv utils and element map.
                 map<LibUtilities::ShapeType, DerivUtilSharedPtr> derivUtils =
-                    BuildDerivUtil(i);
+                    BuildDerivUtil(m_nummode, i);
 
                 // Reconstruct element map
                 GetElementMap(i, derivUtils);
 
+                m_res->minJac = numeric_limits<double>::max();
                 for (int j = 0; j < m_dataSet.size(); j++)
                 {
                     m_dataSet[j]->Evaluate();
-                    m_dataSet[j]->InitialMinJac();
+                    m_dataSet[j]->CalcDeriv();
+                    m_dataSet[j]->CalcMinJac();
                 }
 
                 // Create NodeOpti object.
@@ -580,7 +695,6 @@ void ProcessVarOpti::Analytics()
                 minJacNew = 0.0;
 
                 // Evaluate functional.
-                nodeOpti->CalcMinJac();
                 m_log(VERBOSE) << nodeOpti->GetFunctional<2>(minJacNew) << " ";
             }
 

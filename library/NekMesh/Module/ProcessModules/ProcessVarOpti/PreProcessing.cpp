@@ -146,8 +146,8 @@ BuildFacetElementMap(MeshSharedPtr mesh, int meshDim)
 
 } // namespace
 
-map<LibUtilities::ShapeType, DerivUtilSharedPtr> ProcessVarOpti::BuildDerivUtil(
-    int o)
+map<LibUtilities::ShapeType, DerivUtilSharedPtr> BuildDerivUtil(int nummode,
+                                                                int o)
 {
     // build Vandermonde information
     map<LibUtilities::ShapeType, DerivUtilSharedPtr> ret;
@@ -160,7 +160,7 @@ map<LibUtilities::ShapeType, DerivUtilSharedPtr> ProcessVarOpti::BuildDerivUtil(
 
     map<LibUtilities::ShapeType, PTypes> typeMap;
 
-    if (m_nummode + o <= 11)
+    if (nummode + o <= 11)
     {
         typeMap[LibUtilities::eTriangle] =
             PTypes(LibUtilities::eNodalTriSPI, LibUtilities::eNodalTriElec);
@@ -170,21 +170,24 @@ map<LibUtilities::ShapeType, DerivUtilSharedPtr> ProcessVarOpti::BuildDerivUtil(
             PTypes(LibUtilities::eNodalPrismSPI, LibUtilities::eNodalPrismElec);
     }
 
+    // Quadrilaterals and hexahedra are built from Gauss-Lobatto points, which
+    // are available at any order, so unlike the shapes above they are not
+    // limited by the tabulated symmetric rules.
     typeMap[LibUtilities::eQuadrilateral] =
         PTypes(LibUtilities::eNodalQuadElec, LibUtilities::eNodalQuadElec);
-    // typeMap[LibUtilities::eHexahedron] =
-    //    PTypes(LibUtilities::eNodalHexElec, LibUtilities::eNodalHexElec);
+    typeMap[LibUtilities::eHexahedron] =
+        PTypes(LibUtilities::eNodalHexElec, LibUtilities::eNodalHexElec);
 
     for (auto &it : typeMap)
     {
         PTypes pType           = it.second;
         DerivUtilSharedPtr der = std::shared_ptr<DerivUtil>(new DerivUtil());
 
-        LibUtilities::PointsKey pkey1(m_nummode, pType.second);
-        LibUtilities::PointsKey pkey2(m_nummode + o, pType.first);
+        LibUtilities::PointsKey pkey1(nummode, pType.second);
+        LibUtilities::PointsKey pkey2(nummode + o, pType.first);
 
         const int pDim  = pkey1.GetPointsDim();
-        const int order = m_nummode - 1;
+        const int order = nummode - 1;
 
         Array<OneD, Array<OneD, NekDouble>> u1(pDim), u2(pDim);
 
@@ -295,8 +298,30 @@ vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
         }
     }
 
-    // Create the set of nodes on the boundary of the mesh, which must not
-    // move. A facet reached by only one element lies on that boundary.
+    // Null when the mesh has no CAD attached. Fetched once: asking the graph
+    // for it creates it.
+    SpatialDomains::CADAssociationSharedPtr cad =
+        m_mesh->m_meshGraph->HasCAD() ? m_mesh->m_meshGraph->GetCADAssociation()
+                                      : nullptr;
+
+    // Whether a node on the boundary is free to move along the CAD it belongs
+    // to. Without CAD nothing says where a boundary node could go, so it
+    // stays put; with CAD it is instead confined to its curve or surface and
+    // may slide within it, which is the only way a surface mesh that is
+    // itself invalid can ever be repaired. A node on a CAD vertex is where
+    // two curves meet and has nowhere to go.
+    auto slidesOnCAD = [&cad](SpatialDomains::PointGeom *n) {
+        if (cad == nullptr || cad->GetVert(n) != nullptr)
+        {
+            return false;
+        }
+
+        return cad->Has(n, SpatialDomains::CADType::eCurve) ||
+               cad->Has(n, SpatialDomains::CADType::eSurf);
+    };
+
+    // The nodes on the boundary of the mesh that are not free to move. A
+    // facet reached by only one element lies on that boundary.
     std::unordered_set<SpatialDomains::PointGeom *> boundaryNodes;
 
     for (auto &[facet, elmts] : BuildFacetElementMap(m_mesh, meshDim))
@@ -308,7 +333,10 @@ vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
 
         for (auto *n : AllNodes(facet))
         {
-            boundaryNodes.insert(n);
+            if (!slidesOnCAD(n))
+            {
+                boundaryNodes.insert(n);
+            }
         }
     }
 
@@ -318,9 +346,12 @@ vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
     vector<SpatialDomains::PointGeom *> remainEdgeVertex;
     vector<SpatialDomains::PointGeom *> remainFace;
     vector<SpatialDomains::PointGeom *> remainVolume;
-    m_res->nDoF = 0;
+    m_res->nDoF   = 0;
+    m_res->nOnCAD = 0;
 
     const int spaceDim = m_mesh->m_meshGraph->GetSpaceDimension();
+
+    int orphans = 0;
 
     auto consider = [&](SpatialDomains::PointGeom *n,
                         vector<SpatialDomains::PointGeom *> &remain) {
@@ -330,12 +361,31 @@ vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
             return;
         }
 
+        // The candidates are gathered from the mesh graph, which can hold
+        // nodes that no element of the mesh dimension uses -- a surface mesh
+        // the volume mesher did not take up, say, of which a boundary layer
+        // case can leave thousands. There is no energy attached to such a
+        // node and nothing to optimise, and reaching for the elements around
+        // it is what used to end the run.
+        if (m_nodeElMap.find(n) == m_nodeElMap.end())
+        {
+            ++orphans;
+            return;
+        }
+
         remain.push_back(n);
 
-        // With no CAD attached, every free node may move in all directions.
-        // Nodes constrained to a CAD curve or surface would contribute 1 or 2
-        // degrees of freedom instead.
-        m_res->nDoF += spaceDim;
+        // A node confined to a CAD curve has one degree of freedom and one
+        // confined to a surface two; everything else moves in the full space.
+        // The order of the two tests matches the one Process() uses to decide
+        // which optimiser a node gets.
+        const bool onCurve =
+            cad != nullptr && cad->Has(n, SpatialDomains::CADType::eCurve);
+        const bool onSurf = !onCurve && cad != nullptr &&
+                            cad->Has(n, SpatialDomains::CADType::eSurf);
+
+        m_res->nOnCAD += (onCurve || onSurf) ? 1 : 0;
+        m_res->nDoF += onCurve ? 1 : onSurf ? 2 : spaceDim;
     };
 
     for (auto &[id, vert] :
@@ -379,6 +429,12 @@ vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
                 consider(n, remainVolume);
             }
         }
+    }
+
+    if (orphans)
+    {
+        m_log(VERBOSE) << "  - Nodes in no element: " << orphans
+                       << " (left alone)" << endl;
     }
 
     // size of all free nodes to be included in the coloursets
@@ -450,72 +506,103 @@ vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::GetColouredNodes(
     return ret;
 }
 
+/**
+ * @brief Split @p remain into sets of nodes that share no element.
+ *
+ * Greedy: sweep the nodes in order, take one whenever none of the elements
+ * around it has already been claimed for this colour, and claim its elements.
+ * Whatever is left over goes round again as the next colour. Each set can then
+ * be optimised in parallel, since no two of its nodes touch the same element.
+ *
+ * The order the nodes are swept in, and so the colouring produced, is the one
+ * the caller handed over; nothing here reorders them.
+ */
 vector<vector<SpatialDomains::PointGeom *>> ProcessVarOpti::CreateColoursets(
     vector<SpatialDomains::PointGeom *> remain)
 {
     vector<vector<SpatialDomains::PointGeom *>> retPart;
 
-    // loop until all free nodes have been sorted
-    while (remain.size() > 0)
+    // The elements around each node, resolved once and flattened to their
+    // ids. m_nodeElMap is keyed by node pointer, so a node that is not taken
+    // for a while is looked up again on every pass, and reaching an id from
+    // there is three dependent loads -- shared_ptr, ElUtil, Geometry. Both
+    // are most of the work on a mesh of any size.
+    struct Candidate
     {
-        vector<SpatialDomains::PointGeom *> layer; // one colourset
-        set<int> locked;
-        std::unordered_set<SpatialDomains::PointGeom *> completed;
-        for (int i = 0; i < remain.size(); i++)
+        SpatialDomains::PointGeom *node;
+        /// Where this node's element ids start in elIds, and how many.
+        int offset;
+        int count;
+    };
+
+    vector<Candidate> left;
+    vector<int> elIds;
+    left.reserve(remain.size());
+
+    int maxId = -1;
+    for (auto *n : remain)
+    {
+        auto it = m_nodeElMap.find(n);
+        ASSERTL0(it != m_nodeElMap.end(), "could not find node");
+
+        left.push_back({n, static_cast<int>(elIds.size()),
+                        static_cast<int>(it->second.size())});
+
+        for (auto &el : it->second)
         {
-            // Try to find node within all elements
-            auto it = m_nodeElMap.find(remain[i]);
-            ASSERTL0(it != m_nodeElMap.end(), "could not find node");
+            elIds.push_back(el->GetId());
+            maxId = std::max(maxId, elIds.back());
+        }
+    }
 
-            // identify the vector of all associated elements of the node
-            vector<ElUtilSharedPtr> &elUtils = it->second;
+    // Which colour each element is claimed for. Stamping with the colour
+    // number rather than marking and clearing means the marks left by the
+    // previous colour need not be visited again, and the test is one array
+    // read where it used to be a search of a std::set.
+    vector<unsigned int> claimedBy(maxId + 1, 0);
+    unsigned int colour = 0;
 
-            // suppose node is not locked
+    while (!left.empty())
+    {
+        ++colour;
+
+        vector<SpatialDomains::PointGeom *> layer;
+        size_t keep = 0;
+
+        for (size_t i = 0; i < left.size(); ++i)
+        {
+            const int *ids = elIds.data() + left[i].offset;
+            const int nIds = left[i].count;
+
             bool islocked = false;
-
-            // loop over all associated elements of the node
-            for (int j = 0; j < elUtils.size(); j++)
+            for (int j = 0; j < nIds; ++j)
             {
-                // check all nodes of the element. if node is within the set of
-                // locked nodes then lock node and go to the next node
-                if (locked.find(elUtils[j]->GetId()) != locked.end())
+                if (claimedBy[ids[j]] == colour)
                 {
                     islocked = true;
                     break;
                 }
             }
 
-            // if the node is not locked, insert it into the colourset and
-            // insert sorted node into the completed list. Then, loop over all
-            // other nodes of the same element and mark them as locked.
-            if (!islocked)
+            if (islocked)
             {
-                layer.push_back(remain[i]);
-                completed.insert(remain[i]);
-                for (int j = 0; j < elUtils.size(); j++)
-                {
-                    locked.insert(elUtils[j]->GetId());
-                }
+                // Still waiting for a colour; compacted in place, which keeps
+                // the sweep order for the passes to come.
+                left[keep++] = left[i];
+                continue;
+            }
+
+            layer.push_back(left[i].node);
+            for (int j = 0; j < nIds; ++j)
+            {
+                claimedBy[ids[j]] = colour;
             }
         }
 
-        // identify nodes which are not sorted, yet and create new "remain"
-        // vector
-        vector<SpatialDomains::PointGeom *> tmp = remain;
-        remain.clear();
-        for (int i = 0; i < tmp.size(); i++)
-        {
-            if (completed.find(tmp[i]) == completed.end())
-            {
-                remain.push_back(tmp[i]);
-            }
-        }
+        left.resize(keep);
+        retPart.push_back(std::move(layer));
 
-        // include layer or colourset into vector of coloursets
-        retPart.push_back(layer);
-
-        // print out progress
-        m_log(VERBOSE).Progress(m_res->n - remain.size(), m_res->n,
+        m_log(VERBOSE).Progress(m_res->n - left.size(), m_res->n,
                                 "Node Coloring");
     }
 

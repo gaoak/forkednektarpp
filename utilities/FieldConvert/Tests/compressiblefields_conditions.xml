@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EquationOfState" VALUE="IdealGas" />
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> Mach        = 3.0                      </P>
+            <P> Gamma       = 1.4                      </P>
+            <P> GasConstant = 1.0/(Gamma*Mach*Mach)    </P>
+        </PARAMETERS>
+    </CONDITIONS>
+</NEKTAR>

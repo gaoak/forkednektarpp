@@ -229,9 +229,9 @@ void SegExp::v_NormVectorIProductWRTBase(const Array<OneD, const NekDouble> &Fx,
 
     // @TODO: This routine no longer makes sense as a normal is not unique to an
     // edge
-    const Array<OneD, const Array<OneD, NekDouble>> &normals =
-        GetLeftAdjacentElementExp()->GetTraceNormal(
-            GetLeftAdjacentElementTrace());
+    const NormalVector normals =
+        GetLeftAdjacentElementExp()->GetAlignedTraceNormal(
+            GetLeftAdjacentElementTrace(), *this);
     Vmath::Vmul(nq, &Fx[0], 1, &normals[0][0], 1, &Fn[0], 1);
     Vmath::Vvtvp(nq, &Fy[0], 1, &normals[1][0], 1, &Fn[0], 1, &Fn[0], 1);
 

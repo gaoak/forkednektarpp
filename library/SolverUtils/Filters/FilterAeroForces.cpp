@@ -989,14 +989,13 @@ void FilterAeroForces::CalculateForces(
                         // identify boundary of element
                         boundary = m_BCtoTraceID[cnt];
 
-                        // Dimension specific part for obtaining values
-                        //   at boundary and normal vector
-                        Array<OneD, Array<OneD, NekDouble>> normals =
-                            elmt->GetTraceNormal(boundary);
-
                         // Get expansion on boundary
                         LocalRegions::ExpansionSharedPtr bc =
                             BndExp[n]->GetExp(i);
+
+                        // Normals at the boundary expansion's points
+                        const LocalRegions::NormalVector normals =
+                            elmt->GetAlignedTraceNormal(boundary, *bc);
 
                         // Get number of points on the boundary
                         int nbc = bc->GetTotPoints();
@@ -1642,15 +1641,13 @@ void FilterAeroForces::CalculateForcesMapping(
                         // identify boundary of element
                         boundary = m_BCtoTraceID[cnt];
 
-                        // Dimension specific part for obtaining values
-                        //   at boundary and normal vector
-                        Array<OneD, Array<OneD, NekDouble>> normals;
-                        // Get normals
-                        normals = elmt->GetTraceNormal(boundary);
-
                         // Get expansion on boundary
                         LocalRegions::ExpansionSharedPtr bc =
                             BndExp[n]->GetExp(i);
+
+                        // Normals at the boundary expansion's points
+                        const LocalRegions::NormalVector normals =
+                            elmt->GetAlignedTraceNormal(boundary, *bc);
 
                         // Get number of points on the boundary
                         int nbc = bc->GetTotPoints();

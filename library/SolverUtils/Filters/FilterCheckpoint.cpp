@@ -127,15 +127,28 @@ void FilterCheckpoint::v_Update(
         pFields[0]->GetFieldDefinitions();
     std::vector<std::vector<NekDouble>> FieldData(FieldDef.size());
 
-    // copy Data into FieldData and set variable
+    // Output definitions use pFields[0]. Convert fields with a different
+    // expansion (such as the lower-order pressure field) before serialising.
+    std::vector<Array<OneD, NekDouble>> fieldCoeffs(pFields.size());
     for (int j = 0; j < pFields.size(); ++j)
     {
+        if (pFields[j]->GetNcoeffs() == pFields[0]->GetNcoeffs())
+        {
+            fieldCoeffs[j] = pFields[j]->UpdateCoeffs();
+        }
+        else
+        {
+            fieldCoeffs[j] =
+                Array<OneD, NekDouble>(pFields[0]->GetNcoeffs(), 0.0);
+            pFields[0]->ExtractCoeffsToCoeffs(
+                pFields[j], pFields[j]->GetCoeffs(), fieldCoeffs[j]);
+        }
+
         for (int i = 0; i < FieldDef.size(); ++i)
         {
-            // Could do a search here to find correct variable
             FieldDef[i]->m_fields.push_back(m_session->GetVariable(j));
             pFields[0]->AppendFieldData(FieldDef[i], FieldData[i],
-                                        pFields[j]->UpdateCoeffs());
+                                        fieldCoeffs[j]);
         }
     }
     auto equationSys = m_equ.lock();

@@ -789,31 +789,29 @@ std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> PrismGeom::
 
     m_curve = c;
 
-    // The nodal distribution numbers its vertices in raster order, which
-    // transposes v2 and v3 with respect to the standard element: nodal slot 2
-    // is at (-1, 1, -1), which is where the standard element puts vertex 3.
-    const int vertPerm[kNverts] = {0, 1, 3, 2, 4, 5};
     for (int i = 0; i < kNverts; ++i)
     {
-        c->m_points[i] = m_verts[vertPerm[i]];
+        c->m_points[i] = m_verts[i];
     }
 
-    // Edge interiors. Measured against eNodalPrismEvenlySpaced: the blocks
-    // come in edgeVerts order and each runs along its edge, so unlike the
-    // tetrahedron there is no block to reverse.
+    // Edge interiors.
     for (int e = 0; e < kNedges; ++e)
     {
         Curve *edgeCurve = m_edges[e]->GetCurve();
         ASSERTL1(edgeCurve != nullptr,
                  "Edge curve not set; call MakeOrder on edges before volumes");
 
+        // Every edge block of the distribution runs along the element's own
+        // direction for that edge, so m_eorient alone decides which way the
+        // segment's own curve is read.
+        const bool forward = (m_eorient[e] == StdRegions::eForwards);
+
         const int offset = kNverts + e * nEdgeNodes;
         for (int j = 0; j < nEdgeNodes; ++j)
         {
             c->m_points[offset + j] =
-                (m_eorient[e] == StdRegions::eForwards)
-                    ? edgeCurve->m_points[j + 1]
-                    : edgeCurve->m_points[nPoints - 2 - j];
+                forward ? edgeCurve->m_points[j + 1]
+                        : edgeCurve->m_points[nPoints - 2 - j];
         }
     }
 
