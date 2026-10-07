@@ -177,38 +177,7 @@ public:
      */
     ~MemoryRegion()
     {
-        if (m_device && m_device_owned)
-        {
-            const unsigned int streamID = 0;
-            deviceFree(m_device, m_size * sizeof(TData), streamID,
-                       m_memAllocType);
-            nekStreamSynchronize(streamID);
-        }
-
-        if (m_host && m_host_owned)
-        {
-            if (m_memAllocType == eHostPinned)
-            {
-                hostFreePinned(m_host);
-            }
-            else if (m_memAllocType == eHostPageable)
-            {
-                hostFree(m_host, m_alignment);
-            }
-        }
-
-        m_instantiated = false;
-        m_host_owned   = true;
-        m_device_owned = true;
-        m_host_valid   = false;
-        m_device_valid = false;
-        m_host         = nullptr;
-        m_host_aligned = nullptr;
-        m_device       = nullptr;
-        m_size         = 0;
-        m_alignment    = NektarSpaces::host_memory_alignment;
-        m_name         = "";
-        m_memAllocType = eHostPageable;
+        ReleaseStorage();
     }
 
     /**
@@ -227,6 +196,16 @@ public:
      */
     MemoryRegion &operator=(MemoryRegion &&rhs)
     {
+        if (this == &rhs)
+        {
+            return *this;
+        }
+
+        // The storage this region already owns is released before it takes
+        // over the storage of rhs; overwriting the pointers alone would leak
+        // it.
+        ReleaseStorage();
+
         m_instantiated = rhs.m_instantiated;
         m_host_owned   = rhs.m_host_owned;
         m_device_owned = rhs.m_device_owned;
@@ -899,6 +878,49 @@ public:
     typedef TData value_type;
 
 private:
+    /**
+     * @brief Free the host and device storage this region owns and return it
+     * to the default, uninstantiated state.
+     *
+     * Storage set from outside with SetHostStorage() or SetDeviceStorage() is
+     * not owned and is left alone.
+     */
+    void ReleaseStorage()
+    {
+        if (m_device && m_device_owned)
+        {
+            const unsigned int streamID = 0;
+            deviceFree(m_device, m_size * sizeof(TData), streamID,
+                       m_memAllocType);
+            nekStreamSynchronize(streamID);
+        }
+
+        if (m_host && m_host_owned)
+        {
+            if (m_memAllocType == eHostPinned)
+            {
+                hostFreePinned(m_host);
+            }
+            else if (m_memAllocType == eHostPageable)
+            {
+                hostFree(m_host, m_alignment);
+            }
+        }
+
+        m_instantiated = false;
+        m_host_owned   = true;
+        m_device_owned = true;
+        m_host_valid   = false;
+        m_device_valid = false;
+        m_host         = nullptr;
+        m_host_aligned = nullptr;
+        m_device       = nullptr;
+        m_size         = 0;
+        m_alignment    = NektarSpaces::host_memory_alignment;
+        m_name         = "";
+        m_memAllocType = eHostPageable;
+    }
+
     /**
      * @brief Templated copy method.
      *

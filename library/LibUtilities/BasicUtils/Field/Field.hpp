@@ -54,30 +54,7 @@ public:
     Field() = default;
     ~Field()
     {
-        if (m_device)
-        {
-            const unsigned int streamID = 0;
-            deviceFree(m_device, this->size() * sizeof(TData), streamID,
-                       m_memAllocType);
-            nekStreamSynchronize(streamID);
-        }
-
-        if (m_host)
-        {
-            if (m_memAllocType == eHostPageable)
-            {
-                hostFree(m_host, m_alignment);
-            }
-            else if (m_memAllocType == eHostPinned)
-            {
-                hostFreePinned(m_host);
-            }
-        }
-
-        m_instantiated = false;
-        m_host         = nullptr;
-        m_device       = nullptr;
-        m_alignment    = NektarSpaces::host_memory_alignment;
+        ReleaseStorage();
     }
 
     /**
@@ -231,6 +208,18 @@ public:
      */
     Field &operator=(Field &&rhs)
     {
+        if (this == &rhs)
+        {
+            return *this;
+        }
+
+        // The contiguous storage this field already owns is released before
+        // it takes over the storage of rhs; its blocks only point into it, so
+        // replacing the blocks and pointers alone would leak it. This has to
+        // come before the blocks are replaced: the device size is taken from
+        // them.
+        ReleaseStorage();
+
         m_instantiated    = std::move(rhs.m_instantiated);
         m_name            = std::move(rhs.m_name);
         m_component_names = std::move(rhs.m_component_names);
@@ -652,6 +641,41 @@ public:
     typedef TData value_type;
 
 protected:
+    /**
+     * @brief Free the contiguous host and device storage this field owns,
+     * allocated by AllocateFieldStorage(), and mark the field uninstantiated.
+     *
+     * The blocks' memory regions only point into this storage and do not own
+     * it; storage a block allocated for itself is freed with the block.
+     */
+    void ReleaseStorage()
+    {
+        if (m_device)
+        {
+            const unsigned int streamID = 0;
+            deviceFree(m_device, this->size() * sizeof(TData), streamID,
+                       m_memAllocType);
+            nekStreamSynchronize(streamID);
+        }
+
+        if (m_host)
+        {
+            if (m_memAllocType == eHostPageable)
+            {
+                hostFree(m_host, m_alignment);
+            }
+            else if (m_memAllocType == eHostPinned)
+            {
+                hostFreePinned(m_host);
+            }
+        }
+
+        m_instantiated = false;
+        m_host         = nullptr;
+        m_device       = nullptr;
+        m_alignment    = NektarSpaces::host_memory_alignment;
+    }
+
     /**
      * @brief Allocate contiguous host OR device memory accross all MemoryRegion
      * objects belonging to a Field object pointer.

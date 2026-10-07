@@ -3,6 +3,7 @@ SET(LibUtilitiesUnitTestSources
     TestRawType.cpp
     TestInterpreter.cpp
     TestSharedArray.cpp
+    TestFieldStorage.cpp
     TestCheckedCast.cpp
     TestRealComparison.cpp
     TestInterpCoeff.cpp
