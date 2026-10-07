@@ -949,6 +949,34 @@ but the basic usage is:
 where type can be \texttt{hyperelastic}, \texttt{linearelastic},
 \texttt{winslow} or \texttt{roca}.
 
+The optimisation stops once no node has moved further than
+\texttt{restol} (by default $10^{-6}$) times the diagonal of the mesh's
+bounding box, or after \texttt{maxiter} iterations, whichever comes
+first. The tolerance is a fraction rather than a distance, so it does not
+depend on the units the mesh is written in.
+
+The energy is regularised so that an invalid element has a finite energy and
+is driven out of inversion. How strongly is set by the worst element in the
+mesh, up to a limit: without one, a single badly inverted element makes the
+regularisation so strong that the energy can no longer tell a good element
+from a degenerate one.
+
+Triangles, quadrilaterals, tetrahedra, prisms and hexahedra are supported.
+Pyramids are not: raising the order of a pyramid needs a nodal point
+distribution whose restriction to a face matches the ones its neighbours
+use, and no such distribution exists for that shape.
+
+The \texttt{overint} option sets how many orders above the mesh the energy
+is integrated at, and both the run time and the memory grow with it. For
+triangles, tetrahedra and prisms it is capped so that the mesh order plus
+the over-integration stays within the tabulated symmetric rules, and you are
+told when that happens. Quadrilaterals and hexahedra are integrated on a
+tensor product of Gauss--Lobatto points, so there is no such limit and the
+number of points grows as the square or the cube: a fourth-order hexahedron
+at the default \texttt{overint} of 6 carries over a thousand integration
+points. The module reports how much memory the elements are holding before
+it begins, which is the figure to watch if a large mesh is tight.
+
 \subsection{\emph{r}-adaptation: interpolation file}
 This module can deform an existing mesh by using the variational optimiser
 presented above. A file must be provided that contains a list of points

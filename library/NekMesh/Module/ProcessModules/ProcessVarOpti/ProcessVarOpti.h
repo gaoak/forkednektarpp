@@ -55,6 +55,20 @@ struct DerivUtil
 };
 typedef std::shared_ptr<DerivUtil> DerivUtilSharedPtr;
 
+/**
+ * @brief Build the derivative and interpolation operators, and the quadrature
+ * weights, for each element type the optimiser supports.
+ *
+ * @param nummode  Number of modes of the mesh, i.e. its polynomial order + 1.
+ * @param overInt  Orders of over-integration to use when evaluating the
+ *                 functional, over and above the order of the mesh.
+ *
+ * A free function rather than a member so that the evaluation of the
+ * functional can be set up, and checked, without a mesh or a module.
+ */
+NEKMESH_EXPORT std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> BuildDerivUtil(
+    int nummode, int overInt);
+
 enum optiType
 {
     eLinEl,
@@ -68,11 +82,23 @@ struct Residual
     NekDouble val;
     int n;
     int nDoF;
+    /// Free nodes confined to a CAD curve or surface, which slide along it
+    /// rather than moving through space. Zero without CAD, and zero with it
+    /// if the boundary is being held fixed.
+    int nOnCAD;
     int startInv;
     int nReset[3];
     NekDouble worstJac;
+    /// The smallest Jacobian anywhere in the mesh, at the integration points,
+    /// as of the start of the current iteration. The Jacobian regularisation
+    /// is set from this: it is a property of the mesh rather than of any one
+    /// node, so that every local problem within an iteration minimises the
+    /// same functional.
+    NekDouble minJac;
     NekDouble func;
     int alphaI;
+    /// Nodes left alone because the functional there was not a finite number.
+    int nSkipped;
 };
 
 typedef std::shared_ptr<Residual> ResidualSharedPtr;
@@ -106,7 +132,6 @@ private:
                                std::vector<ElUtilSharedPtr>>
         NodeElMap;
 
-    std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> BuildDerivUtil(int o);
     void GetElementMap(
         int o, std::map<LibUtilities::ShapeType, DerivUtilSharedPtr> derMap);
     std::vector<ElUtilSharedPtr> GetLockedElements(NekDouble thres);

@@ -525,10 +525,16 @@ void HexGeom::SetUpEdgeOrientation()
 
     // This 2D array holds the local id's of all the vertices
     // for every edge. For every edge, they are ordered to what we
-    // define as being Forwards
-    const unsigned int edgeVerts[kNedges][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0},
+    // define as being Forwards.
+    //
+    // The two quadrilateral faces run 0->1, 1->2, 3->2, 0->3 rather than all
+    // the way round, as the quadrilateral, the prism and the pyramid do.
+    // Edges 2, 3, 10 and 11 used to be stored the other way, as the cycle
+    // 2->3->0 and 6->7->4, and StdHexExp::GetEdgeInteriorMap inverted its
+    // orientation test for exactly those four to put them back.
+    const unsigned int edgeVerts[kNedges][2] = {{0, 1}, {1, 2}, {3, 2}, {0, 3},
                                                 {0, 4}, {1, 5}, {2, 6}, {3, 7},
-                                                {4, 5}, {5, 6}, {6, 7}, {7, 4}};
+                                                {4, 5}, {5, 6}, {7, 6}, {4, 7}};
 
     int i;
     for (i = 0; i < kNedges; i++)

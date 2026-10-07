@@ -4,6 +4,7 @@ SET(NekMeshUnitTestsSources
     TestHOAlignment.cpp
     TestTaggedEntities.cpp
     TestTetrahedron.cpp
+    TestVarOptiDerivatives.cpp
 )
 
 ADD_DEFINITIONS(-DENABLE_NEKTAR_EXCEPTIONS)

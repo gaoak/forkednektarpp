@@ -162,7 +162,7 @@ void NodalTetEvenlySpaced::NodalPointReorder3d()
     vector<int> vertex;
     vector<int> iEdge_01;             // interior edge 0
     vector<int> iEdge_12;             // interior edge 1
-    vector<int> iEdge_20;             // interior edge 2
+    vector<int> iEdge_02;             // interior edge 2
     vector<int> iEdge_03;             // interior edge 3
     vector<int> iEdge_13;             // interior edge 4
     vector<int> iEdge_23;             // interior edge 5
@@ -202,7 +202,7 @@ void NodalTetEvenlySpaced::NodalPointReorder3d()
                     else if (isEdge_20(x, y, z, npts))
                     { // interior edge 2
 
-                        iEdge_20.insert(iEdge_20.begin(), index);
+                        iEdge_02.push_back(index);
                     }
                     else if (isEdge_03(x, y, z, npts))
                     { // interior edge 3
@@ -273,10 +273,10 @@ void NodalTetEvenlySpaced::NodalPointReorder3d()
         map.push_back(iEdge_12[n]);
     }
 
-    for (size_t n = 0; n < iEdge_20.size(); ++n)
+    for (size_t n = 0; n < iEdge_02.size(); ++n)
     {
 
-        map.push_back(iEdge_20[n]);
+        map.push_back(iEdge_02[n]);
     }
 
     for (size_t n = 0; n < iEdge_03.size(); ++n)

@@ -41,8 +41,6 @@ using namespace Nektar::NekMesh;
 namespace Nektar::NekMesh
 {
 
-std::mutex mtx;
-
 int NodeOpti1D3D::m_type = GetNodeOptiFactory().RegisterCreatorFunction(
     13, NodeOpti1D3D::create, "1D3D");
 
@@ -95,13 +93,20 @@ void NodeOpti1D3D::Optimise()
                 continue;
             }
 
-            curve->P(nt, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
+            // The step along the curve is a step in space like any other, so
+            // it is offered to the functional as a displacement rather than
+            // written into the node and taken back out again.
+            std::array<NekDouble, 3> p;
+            curve->P(nt, p[0], p[1], p[2]);
 
-            newVal = GetFunctional<3>(minJacNew, false);
+            NekDouble offset[3] = {p[0] - xc, p[1] - yc, p[2] - zc};
+
+            newVal = GetFunctionalAt<3>(offset, minJacNew);
 
             // Wolfe conditions
             if (newVal <= currentW + c1() * alpha * pg)
             {
+                MoveNode<3>(offset);
                 found = true;
                 break;
             }
@@ -111,9 +116,7 @@ void NodeOpti1D3D::Optimise()
 
         if (!found)
         {
-            // reset the node
             nt = tc;
-            curve->P(nt, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
 
             mtx.lock();
             m_res->nReset[0]++;
@@ -121,7 +124,6 @@ void NodeOpti1D3D::Optimise()
         }
         else
         {
-            m_minJac = minJacNew;
             m_graph->GetCADAssociation()->Add(m_node, {curve, {nt, 0.0}});
         }
         mtx.lock();
@@ -162,7 +164,7 @@ void NodeOpti2D3D::Optimise()
         std::array<NekDouble, 4> bd;
         surf->GetBounds(bd[0], bd[1], bd[2], bd[3]);
 
-        std::array<NekDouble, 2> sk;
+        NekDouble sk[2];
         NekDouble val;
 
         // Calculate minimum eigenvalue
@@ -175,13 +177,21 @@ void NodeOpti2D3D::Optimise()
             m_grad[4] += 1e-6 - val;
         }
 
-        sk[0] = -1.0 / (m_grad[2] * m_grad[4] - m_grad[3] * m_grad[3]) *
-                (m_grad[4] * m_grad[0] - m_grad[3] * m_grad[1]);
-        sk[1] = -1.0 / (m_grad[2] * m_grad[4] - m_grad[3] * m_grad[3]) *
-                (m_grad[2] * m_grad[1] - m_grad[3] * m_grad[0]);
+        // Note that here the two directions are the surface's parameters, not
+        // Cartesian coordinates: ProcessGradient() above has already mapped
+        // the gradient and Hessian into them.
+        NewtonDirection<2>(m_grad.data(), sk);
 
         bool found   = false;
         NekDouble pg = (m_grad[0] * sk[0] + m_grad[1] * sk[1]);
+
+        // See the note in NodeOpti2D2D::Optimise.
+        if (pg >= 0.0)
+        {
+            sk[0] = -m_grad[0];
+            sk[1] = -m_grad[1];
+            pg    = -(m_grad[0] * m_grad[0] + m_grad[1] * m_grad[1]);
+        }
 
         // normal gradient line Search
         NekDouble alpha = 1.0;
@@ -197,13 +207,19 @@ void NodeOpti2D3D::Optimise()
                 continue;
             }
 
-            surf->P(uvt, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
+            // See the note in NodeOpti1D3D: the move across the surface is
+            // offered as a displacement rather than written into the node.
+            std::array<NekDouble, 3> p;
+            surf->P(uvt, p[0], p[1], p[2]);
 
-            newVal = GetFunctional<3>(minJacNew, false);
+            NekDouble offset[3] = {p[0] - xc, p[1] - yc, p[2] - zc};
+
+            newVal = GetFunctionalAt<3>(offset, minJacNew);
 
             // Wolfe conditions
             if (newVal <= currentW + c1() * (alpha * pg))
             {
+                MoveNode<3>(offset);
                 found = true;
                 break;
             }
@@ -213,16 +229,12 @@ void NodeOpti2D3D::Optimise()
 
         if (!found)
         {
-            // reset the node
-            surf->P(uvc, (*m_node)[0], (*m_node)[1], (*m_node)[2]);
-
             mtx.lock();
             m_res->nReset[1]++;
             mtx.unlock();
         }
         else
         {
-            m_minJac = minJacNew;
             m_graph->GetCADAssociation()->Add(m_node, {surf, uvt});
         }
 
@@ -297,17 +309,22 @@ void NodeOpti1D2D::Optimise()
                 continue;
             }
 
-            p            = curve->P(nt);
-            (*m_node)[0] = p[0];
-            (*m_node)[1] = p[1];
-            (*m_node)[2] = p[2];
+            // See the note in NodeOpti1D3D: the move along the curve is
+            // offered as a displacement rather than written into the node.
+            p = curve->P(nt);
 
-            newVal = GetFunctional<2>(minJacNew, false);
+            NekDouble offset[2] = {p[0] - xc, p[1] - yc};
+
+            newVal = GetFunctionalAt<2>(offset, minJacNew);
 
             // Wolfe conditions
             if (newVal <= currentW + c1() * alpha * pg)
             {
-                found = true;
+                MoveNode<2>(offset);
+                // The node keeps the curve's third coordinate, which a 2D
+                // mesh does not use but the CAD association does.
+                (*m_node)[2] = p[2];
+                found        = true;
                 break;
             }
 
@@ -316,12 +333,7 @@ void NodeOpti1D2D::Optimise()
 
         if (!found)
         {
-            // reset the node
-            nt           = tc;
-            p            = curve->P(nt);
-            (*m_node)[0] = p[0];
-            (*m_node)[1] = p[1];
-            (*m_node)[2] = p[2];
+            nt = tc;
 
             mtx.lock();
             m_res->nReset[0]++;
@@ -329,7 +341,6 @@ void NodeOpti1D2D::Optimise()
         }
         else
         {
-            m_minJac = minJacNew;
             m_graph->GetCADAssociation()->Add(m_node, {curve, {nt, 0.0}});
         }
 
@@ -350,8 +361,11 @@ void NodeOpti1D3D::ProcessGradient()
 {
     NekDouble tc =
         m_graph->GetCADAssociation()->GetCurveT(m_node, curve->GetId());
-    vector<NekDouble> grad = m_grad;
-    m_grad                 = vector<NekDouble>(2, 0.0);
+    // The gradient and Hessian arrive in Cartesian coordinates and are
+    // rewritten here in the CAD's parameters, so the whole of m_grad is
+    // read before any of it is overwritten.
+    std::array<NekDouble, 9> grad = m_grad;
+    m_grad.fill(0.0);
 
     // Grab first and second order CAD derivatives
     auto d2 = curve->D2(tc);
@@ -371,8 +385,11 @@ void NodeOpti2D3D::ProcessGradient()
 {
     auto uvc = m_graph->GetCADAssociation()->GetSurfUV(m_node, surf->GetId());
 
-    vector<NekDouble> grad = m_grad;
-    m_grad                 = vector<NekDouble>(5, 0.0);
+    // The gradient and Hessian arrive in Cartesian coordinates and are
+    // rewritten here in the CAD's parameters, so the whole of m_grad is
+    // read before any of it is overwritten.
+    std::array<NekDouble, 9> grad = m_grad;
+    m_grad.fill(0.0);
 
     auto d2 = surf->D2(uvc);
     // r[0]   x
@@ -430,8 +447,11 @@ void NodeOpti1D2D::ProcessGradient()
 {
     NekDouble tc =
         m_graph->GetCADAssociation()->GetCurveT(m_node, curve->GetId());
-    vector<NekDouble> grad = m_grad;
-    m_grad                 = vector<NekDouble>(2, 0.0);
+    // The gradient and Hessian arrive in Cartesian coordinates and are
+    // rewritten here in the CAD's parameters, so the whole of m_grad is
+    // read before any of it is overwritten.
+    std::array<NekDouble, 9> grad = m_grad;
+    m_grad.fill(0.0);
 
     // Grab first and second order CAD derivatives
     auto d2 = curve->D2(tc);

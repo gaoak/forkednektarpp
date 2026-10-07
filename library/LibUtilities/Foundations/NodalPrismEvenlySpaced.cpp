@@ -281,6 +281,11 @@ void NodalPrismEvenlySpaced::NodalPointReorder3d()
         }
     }
 
+    // The lattice walks the base in raster order, which puts the corner at
+    // (-1, 1, -1) third; the standard prism numbers that corner 3, so the
+    // two middle slots are the wrong way round.
+    std::swap(vertex[2], vertex[3]);
+
     for (size_t n = 0; n < vertex.size(); ++n)
     {
         map.push_back(vertex[n]);

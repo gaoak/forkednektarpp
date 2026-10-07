@@ -71,8 +71,8 @@ class ElUtilJob;
 class ElUtil : public std::enable_shared_from_this<ElUtil>
 {
 public:
-    ElUtil(SpatialDomains::Geometry *e, DerivUtilSharedPtr d, ResidualSharedPtr,
-           int n, int o);
+    NEKMESH_EXPORT ElUtil(SpatialDomains::Geometry *e, DerivUtilSharedPtr d,
+                          ResidualSharedPtr, int n, int o);
 
     ElUtilJob *GetJob(bool update = false);
     ElUtilJob *GetAdaptJob(AdaptCurveVector &adaptCurves, NekDouble scale,
@@ -84,30 +84,102 @@ public:
     }
 
     // Leaving these varibles as public for sake of efficiency
-    std::vector<std::vector<NekDouble *>> nodes;
-    std::vector<std::vector<NekDouble>> maps, mapsStd;
+    /// Pointers to the coordinates of each node, as nodes[i * dim + c].
+    std::vector<NekDouble *> nodes;
+    /// The inverse ideal mapping at each integration point (maps) and at each
+    /// nodal point (mapsStd), ten entries per point: the nine matrix entries
+    /// and then its determinant. Flat rather than a vector per point, since
+    /// the innermost loop of the optimiser reads one point after another.
+    std::vector<NekDouble> maps, mapsStd;
+    /// The stride between points of the arrays above, which is zero where the
+    /// mapping does not vary over the element -- as it does not for a
+    /// triangle or a tetrahedron, whose ideal element is affine.
+    int mapStride = 10, mapStdStride = 10;
 
     void Evaluate();
-    void InitialMinJac();
+    /// Find the smallest Jacobian of this element at the integration points,
+    /// and reduce it into the residual's mesh-wide minimum.
+    NEKMESH_EXPORT void CalcMinJac();
+
+    /**
+     * @brief Differentiate the element's mapping at the integration points
+     * into @p deriv.
+     *
+     * Held per element rather than worked out per node: an element belongs to
+     * the patch of every one of its nodes, so computing this where it is used
+     * did the same multiplication once for each of them -- around thirty-five
+     * times over for a fourth-order tetrahedron.
+     */
+    NEKMESH_EXPORT void CalcDeriv();
+
+    /// d x_c / d xi_d at integration point k, as deriv[(d * dim + c) * pts +
+    /// k]. Kept current by CalcDeriv() once per iteration and by the rank-one
+    /// update below as each node moves.
+    std::vector<NekDouble> deriv;
+
+    /**
+     * @brief Move node @p id of this element by @p offset, and carry the
+     * change through to deriv.
+     *
+     * The mapping is linear in the node positions, so moving one node changes
+     * its derivatives by a rank-one update rather than by anything that needs
+     * recomputing.
+     */
+    NEKMESH_EXPORT void MoveNode(int id, const NekDouble *offset, int dim);
+
+    /**
+     * @brief Roughly how much memory this element holds for the optimiser.
+     *
+     * Dominated by the derivatives and the ideal mapping, both of which carry
+     * an entry per integration point, so it grows with the over-integration
+     * order -- steeply for a quadrilateral or hexahedron, whose rules are
+     * tensor products.
+     */
+    size_t Footprint() const
+    {
+        return sizeof(ElUtil) + deriv.capacity() * sizeof(NekDouble) +
+               maps.capacity() * sizeof(NekDouble) +
+               mapsStd.capacity() * sizeof(NekDouble) +
+               m_orig.capacity() * sizeof(NekDouble) +
+               m_origStd.capacity() * sizeof(NekDouble) +
+               nodes.capacity() * sizeof(NekDouble *);
+    }
+
+    DerivUtil *GetDerivUtil()
+    {
+        return m_derivUtil.get();
+    }
 
     SpatialDomains::Geometry *GetEl()
     {
         return m_el;
     }
 
+    /**
+     * @brief Where @p in sits in this element's node list.
+     *
+     * A linear scan: this is asked once per element when the optimiser is
+     * built and not in any loop that matters, and the map it replaces cost
+     * more memory than the node list itself.
+     */
     int NodeId(SpatialDomains::PointGeom *in)
     {
-        return m_idmap[in];
+        const NekDouble *x = &(*in)[0];
+        for (int i = 0; i < m_nNodes; ++i)
+        {
+            if (nodes[i * m_dim] == x)
+            {
+                return i;
+            }
+        }
+
+        NEKERROR(ErrorUtil::efatal, "node is not one of this element's");
+        return -1;
     }
 
     NekDouble GetScaledJac()
     {
         return m_scaledJac;
-    }
-
-    NekDouble &GetMinJac()
-    {
-        return m_minJac;
     }
 
     void SetScaling(LibUtilities::Interpolator interp)
@@ -140,10 +212,11 @@ private:
     int m_dim;
     int m_mode;
     int m_order;
-    std::unordered_map<SpatialDomains::PointGeom *, int> m_idmap;
+    int m_nNodes = 0;
+    /// Whether the ideal mapping is the same at every point.
+    bool m_constantMap = false;
 
     NekDouble m_scaledJac;
-    NekDouble m_minJac;
 
     PtsFieldSharedPtr m_interpField;
     LibUtilities::Interpolator m_interp;
@@ -151,8 +224,11 @@ private:
     DerivUtilSharedPtr m_derivUtil;
     ResidualSharedPtr m_res;
 
-    // Initial maps
+    /// Scratch for building the mappings, emptied once they are flattened.
     std::vector<std::vector<NekDouble>> m_maps, m_mapsStd;
+    /// The unscaled mappings, kept only once an r-adaptation scaling has been
+    /// applied and the originals are needed to work from.
+    std::vector<NekDouble> m_orig, m_origStd;
     // r-adaption
     bool m_radapt;
     std::vector<SpatialDomains::CADCurveSharedPtr> m_adaptcurves;
@@ -183,6 +259,10 @@ public:
     void Run() override
     {
         el->Evaluate();
+        // CalcMinJac reads what CalcDeriv leaves behind, so the order here
+        // matters.
+        el->CalcDeriv();
+        el->CalcMinJac();
 
         if (m_update)
         {
