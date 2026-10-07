@@ -15,7 +15,6 @@ v5.11.0
 - Fix FFTW ThirdParty build for single precision (!2650)
 - Fix GeomFactors for Points (!2658)
 - Fix v_FwdTransBndConstrained in TriExp.cpp (!2658)
-- Added NEON support to feature/redesign (!2666)
 - Fix read orthgonal field files without a session (!2664)
 - Fix Hdf5 output with very large hash value (!2654)
 - Fix MPIRequest free in destructor and MeshParitioning deadlock on non-shared filesystem (!2686)
