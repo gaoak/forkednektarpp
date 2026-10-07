@@ -3103,6 +3103,48 @@ void Expansion3D::v_GenAlignedTraceExp(const int traceid,
         m_geom->GetFace(traceid));
 }
 
+NormalVector Expansion3D::v_GetAlignedTraceNormal(
+    const int face, const StdRegions::StdExpansion &traceExp)
+{
+    // Face normals are stored on GetTraceBasisKey(face, 0/1), in this
+    // element's local face frame. traceExp is ordered like the face geometry,
+    // whose directions are exchanged for transposing orientations. Follow
+    // GetTracePhysVals(): interpolate in the local frame, then reorient.
+    const NormalVector &normals          = GetTraceNormal(face);
+    const StdRegions::Orientation orient = GetTraceOrient(face);
+    const bool transposed = orient >= StdRegions::eDir1FwdDir2_Dir2FwdDir1;
+
+    const LibUtilities::PointsKey from0 =
+        GetTraceBasisKey(face, 0).GetPointsKey();
+    const LibUtilities::PointsKey from1 =
+        GetTraceBasisKey(face, 1).GetPointsKey();
+    const LibUtilities::PointsKey to0 =
+        traceExp.GetBasis(transposed ? 1 : 0)->GetPointsKey();
+    const LibUtilities::PointsKey to1 =
+        traceExp.GetBasis(transposed ? 0 : 1)->GetPointsKey();
+    const bool samePoints = from0 == to0 && from1 == to1;
+
+    NormalVector aligned(normals.size());
+    for (size_t i = 0; i < normals.size(); ++i)
+    {
+        if (samePoints && orient == StdRegions::eDir1FwdDir1_Dir2FwdDir2)
+        {
+            aligned[i] = normals[i];
+        }
+        else
+        {
+            aligned[i] =
+                Array<OneD, NekDouble>(to0.GetNumPoints() * to1.GetNumPoints());
+            LibUtilities::Interp2D(from0, from1, normals[i], to0, to1,
+                                   aligned[i]);
+            v_ReOrientTracePhysVals(orient, aligned[i], aligned[i],
+                                    to0.GetNumPoints(), to1.GetNumPoints(),
+                                    true);
+        }
+    }
+    return aligned;
+}
+
 /**
  * @breif This will take the in-values and apply the reorientation of the
  * points given by orient to output

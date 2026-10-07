@@ -1,6 +1,7 @@
 SET(LocalRegionsUnitTestsSources
     main.cpp
     TestGetCoords.cpp
+    TestAlignedTraceNormal.cpp
     TestReOrientFacePhysMap.cpp
     TestReduceOrderCoeffs.cpp
 )

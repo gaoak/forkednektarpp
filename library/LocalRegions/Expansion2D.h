@@ -171,6 +171,8 @@ protected:
                                  const int nq1, bool Forwards) override;
 
     void v_SetUpPhysNormals(const int edge) override;
+    NormalVector v_GetAlignedTraceNormal(
+        const int edge, const StdRegions::StdExpansion &traceExp) override;
     NekDouble v_VectorFlux(
         const Array<OneD, Array<OneD, NekDouble>> &vec) override;
     void v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p) override;

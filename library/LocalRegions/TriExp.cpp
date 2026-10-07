@@ -354,18 +354,24 @@ void TriExp::v_NormVectorIProductWRTBase(const Array<OneD, const NekDouble> &Fx,
     int nq = m_base[0]->GetNumPoints() * m_base[1]->GetNumPoints();
     Array<OneD, NekDouble> Fn(nq);
 
-    const Array<OneD, const Array<OneD, NekDouble>> &normals =
-        GetLeftAdjacentElementExp()->GetTraceNormal(
-            GetLeftAdjacentElementTrace());
+    ExpansionSharedPtr adjacent = GetLeftAdjacentElementExp();
+    int trace                   = GetLeftAdjacentElementTrace();
 
     if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
     {
+        // The adjacent element stores its normals in its own face frame and
+        // quadrature, which may differ from this expansion's.
+        const NormalVector normals =
+            adjacent->GetAlignedTraceNormal(trace, *this);
+
         Vmath::Vvtvvtp(nq, &normals[0][0], 1, &Fx[0], 1, &normals[1][0], 1,
                        &Fy[0], 1, &Fn[0], 1);
         Vmath::Vvtvp(nq, &normals[2][0], 1, &Fz[0], 1, &Fn[0], 1, &Fn[0], 1);
     }
     else
     {
+        const NormalVector &normals = adjacent->GetTraceNormal(trace);
+
         Vmath::Svtsvtp(nq, normals[0][0], &Fx[0], 1, normals[1][0], &Fy[0], 1,
                        &Fn[0], 1);
         Vmath::Svtvp(nq, normals[2][0], &Fz[0], 1, &Fn[0], 1, &Fn[0], 1);

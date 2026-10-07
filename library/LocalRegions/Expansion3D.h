@@ -185,6 +185,9 @@ protected:
     void v_GenAlignedTraceExp(const int traceid,
                               ExpansionSharedPtr &exp) override;
 
+    NormalVector v_GetAlignedTraceNormal(
+        const int face, const StdRegions::StdExpansion &traceExp) override;
+
     void GetPhysFaceVarCoeffsFromElement(
         const int face, ExpansionSharedPtr &FaceExp,
         const Array<OneD, const NekDouble> &varcoeff,
