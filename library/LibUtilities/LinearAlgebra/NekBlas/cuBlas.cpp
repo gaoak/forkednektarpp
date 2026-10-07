@@ -34,8 +34,46 @@
 
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
+#include <LibUtilities/Backends/CUDAStream.hpp>
+
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+#include <stdexcept>
+
+#include <cublas_v2.h>
+
+#define CUBLAS_CHECK(condition)                                                \
+    {                                                                          \
+        const cublasStatus_t status = condition;                               \
+        if (status != CUBLAS_STATUS_SUCCESS)                                   \
+        {                                                                      \
+            std::cerr << "cuBLAS error encountered: \""                        \
+                      << cublasGetStatusString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
+        }                                                                      \
+    }
+
 namespace Nektar::NekBlas
 {
+cublasHandle_t cuBlasHandle::handle = nullptr;
+
+cublasHandle_t &cuBlasHandle::GetInstance(const unsigned int streamID)
+{
+    if (!handle)
+    {
+        if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
+        {
+            printf("cuBLAS initialization failed\n");
+        }
+    }
+
+    CUBLAS_CHECK(cublasSetStream(handle, CUDAStream::GetInstance(streamID)));
+
+    return handle;
+}
+
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
 void Gemm(THandle handle, std::string transposeA, std::string transposeB,
@@ -130,6 +168,16 @@ void GemvStridedBatched(THandle handle, std::string transpose, const int M,
     }
 }
 
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
+void GeamStridedBatched(THandle, std::string, std::string, const int, const int,
+                        const TData, const TData *, const int, const int,
+                        const TData, const TData *, const int, const int,
+                        TData *, const int, const int, const int)
+{
+    throw std::runtime_error("GeamStridedBatched is not available for cuBLAS");
+}
+
 template void Gemm<cublasHandle_t, float>(
     cublasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
@@ -177,4 +225,18 @@ template void GemvStridedBatched<cublasHandle_t, double>(
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
+
+template void GeamStridedBatched<cublasHandle_t, float>(
+    cublasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float beta, const float *b, const int ldb,
+    const int strideB, float *c, const int ldc, const int strideC,
+    const int batchSize);
+
+template void GeamStridedBatched<cublasHandle_t, double>(
+    cublasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const double alpha, const double *a,
+    const int lda, const int strideA, const double beta, const double *b,
+    const int ldb, const int strideB, double *c, const int ldc,
+    const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

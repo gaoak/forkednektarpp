@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: xsmmHandle.hpp
+// File: xsmm.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -43,15 +43,7 @@ class xsmmHandle_t
 class xsmmHandle
 {
 public:
-    static xsmmHandle_t &GetInstance()
-    {
-        if (!handle)
-        {
-            handle = new xsmmHandle_t;
-        }
-
-        return *handle;
-    }
+    static xsmmHandle_t &GetInstance();
 
 private:
     static xsmmHandle_t *handle;

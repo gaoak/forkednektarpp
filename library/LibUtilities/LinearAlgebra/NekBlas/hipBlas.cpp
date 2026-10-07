@@ -34,10 +34,44 @@
 
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
+#include <LibUtilities/Backends/HIPStream.hpp>
+
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+
+#include <hipblas/hipblas.h>
+
+#define HIPBLAS_CHECK(condition)                                               \
+    {                                                                          \
+        const hipblasStatus_t status = condition;                              \
+        if (status != HIPBLAS_STATUS_SUCCESS)                                  \
+        {                                                                      \
+            std::cerr << "hipBLAS error encountered: \""                       \
+                      << hipblasStatusToString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
+        }                                                                      \
+    }
 
 namespace Nektar::NekBlas
 {
+hipblasHandle_t hipBlasHandle::handle = nullptr;
+
+hipblasHandle_t &hipBlasHandle::GetInstance(const unsigned int streamID)
+{
+    if (!handle)
+    {
+        if (hipblasCreate(&handle) != HIPBLAS_STATUS_SUCCESS)
+        {
+            printf("hipBLAS initialization failed\n");
+        }
+    }
+
+    HIPBLAS_CHECK(hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
+    return handle;
+}
+
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
 void Gemm(THandle handle, std::string transposeA, std::string transposeB,
@@ -132,6 +166,32 @@ void GemvStridedBatched(THandle handle, std::string transpose, const int M,
     }
 }
 
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
+void GeamStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData beta, const TData *b,
+                        const int ldb, const int strideB, TData *c,
+                        const int ldc, const int strideC, const int batchSize)
+{
+    auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
+    auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
+
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        HIPBLAS_CHECK(hipblasSgeamStridedBatched(
+            handle, transA, transB, M, N, &alpha, a, lda, strideA, &beta, b,
+            ldb, strideB, c, ldc, strideC, batchSize));
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        HIPBLAS_CHECK(hipblasDgeamStridedBatched(
+            handle, transA, transB, M, N, &alpha, a, lda, strideA, &beta, b,
+            ldb, strideB, c, ldc, strideC, batchSize));
+    }
+}
+
 template void Gemm<hipblasHandle_t, float>(
     hipblasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
@@ -179,4 +239,18 @@ template void GemvStridedBatched<hipblasHandle_t, double>(
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
+
+template void GeamStridedBatched<hipblasHandle_t, float>(
+    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float beta, const float *b, const int ldb,
+    const int strideB, float *c, const int ldc, const int strideC,
+    const int batchSize);
+
+template void GeamStridedBatched<hipblasHandle_t, double>(
+    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const double alpha, const double *a,
+    const int lda, const int strideA, const double beta, const double *b,
+    const int ldb, const int strideB, double *c, const int ldc,
+    const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

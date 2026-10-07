@@ -71,15 +71,10 @@ ignore_sources = [
     # Profiler
     # NekBlas
     "library/LibUtilities/LinearAlgebra/NekBlas/magma.cpp",
-    "library/LibUtilities/LinearAlgebra/NekBlas/magmaHandle.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/xsmm.cpp",
-    "library/LibUtilities/LinearAlgebra/NekBlas/xsmmHandle.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/cuBlas.cpp",
-    "library/LibUtilities/LinearAlgebra/NekBlas/cuBlasHandle.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/hipBlas.cpp",
-    "library/LibUtilities/LinearAlgebra/NekBlas/hipBlasHandle.cpp",
     "library/LibUtilities/LinearAlgebra/NekBlas/oneMath.cpp",
-    "library/LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.cpp",
     # CompressibleFlowSolverRedesign: the Riemann profiler predates the flux
     # framework and is not built.
     "solvers/CompressibleFlowSolverRedesign/RiemannSolvers/Profilers/ProfilerRiemannOps.cpp",

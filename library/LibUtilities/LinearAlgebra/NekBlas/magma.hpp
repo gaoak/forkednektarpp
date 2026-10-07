@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: cuBlasHandle.cpp
+// File: magma.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "cuBlasHandle.hpp"
+#pragma once
+
+#include <unordered_map>
+
+// Matches magma_types.h; the vendor header stays private to NekBlas.
+struct magma_queue;
+typedef struct magma_queue *magma_queue_t;
 
 namespace Nektar::NekBlas
 {
-cublasHandle_t cuBlasHandle::handle = nullptr;
-}
+class magmaHandle
+{
+public:
+    static magma_queue_t &GetInstance(const unsigned int streamID);
+
+private:
+    static std::unordered_map<unsigned int, magma_queue_t> handle;
+};
+} // namespace Nektar::NekBlas

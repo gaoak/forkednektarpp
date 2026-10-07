@@ -34,6 +34,11 @@
 
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
+#include <LibUtilities/Backends/SYCLQueue.hpp>
+
+#include <stdexcept>
+#include <vector>
+
 #if defined(NEKTAR_ENABLE_ONEMATH)
 #include "oneapi/math.hpp"
 using namespace oneapi::math;
@@ -44,6 +49,19 @@ using namespace oneapi::mkl;
 
 namespace Nektar::NekBlas
 {
+std::unordered_map<unsigned int, oneMathHandle_t *> oneMathHandle::handle;
+
+oneMathHandle_t &oneMathHandle::GetInstance(const unsigned int streamID)
+{
+    if (handle.find(streamID) == handle.end())
+    {
+        handle[streamID] =
+            new oneMathHandle_t(SYCLQueue::GetInstance(streamID), streamID);
+    }
+
+    return *handle[streamID];
+}
+
 [[maybe_unused]] static std::vector<
     sycl::event> inline setOneMathExecutionDependency(const unsigned int
                                                           streamID)
@@ -191,7 +209,7 @@ void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
     sycl::queue &Q = handle.GetQueue();
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
 #if defined(NEKTAR_ENABLE_ONEMATH)
-    ASSERTL0(false, "gemv_batch not yet implemented in oneMath")
+    throw std::runtime_error("gemv_batch not yet implemented in oneMath");
 #endif
     auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv_batch(
@@ -217,6 +235,18 @@ void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
     // clang-format on
 #endif
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
+}
+
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
+void GeamStridedBatched(THandle, std::string, std::string, const std::int64_t,
+                        const std::int64_t, const TData, const TData *,
+                        const std::int64_t, const std::int64_t, const TData,
+                        const TData *, const std::int64_t, const std::int64_t,
+                        TData *, const std::int64_t, const std::int64_t,
+                        const std::int64_t)
+{
+    throw std::runtime_error("GeamStridedBatched is not available for oneMath");
 }
 
 template void Gemm<oneMathHandle_t, float>(
@@ -277,4 +307,20 @@ template void GemvStridedBatched<oneMathHandle_t, double>(
     const std::int64_t incx, const std::int64_t strideX, const double beta,
     double *y, const std::int64_t incy, const std::int64_t strideY,
     const std::int64_t batchSize);
+
+template void GeamStridedBatched<oneMathHandle_t, float>(
+    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
+    const std::int64_t M, const std::int64_t N, const float alpha,
+    const float *a, const std::int64_t lda, const std::int64_t strideA,
+    const float beta, const float *b, const std::int64_t ldb,
+    const std::int64_t strideB, float *c, const std::int64_t ldc,
+    const std::int64_t strideC, const std::int64_t batchSize);
+
+template void GeamStridedBatched<oneMathHandle_t, double>(
+    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
+    const std::int64_t M, const std::int64_t N, const double alpha,
+    const double *a, const std::int64_t lda, const std::int64_t strideA,
+    const double beta, const double *b, const std::int64_t ldb,
+    const std::int64_t strideB, double *c, const std::int64_t ldc,
+    const std::int64_t strideC, const std::int64_t batchSize);
 } // namespace Nektar::NekBlas

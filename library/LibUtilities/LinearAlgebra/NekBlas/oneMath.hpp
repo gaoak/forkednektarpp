@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: blasHandle.hpp
+// File: oneMath.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,26 +34,41 @@
 
 #pragma once
 
+#include <unordered_map>
+
+#include <LibUtilities/Backends/SYCLQueue.hpp>
+
 namespace Nektar::NekBlas
 {
-class blasHandle_t
-{
-};
-
-class blasHandle
+class oneMathHandle_t
 {
 public:
-    static blasHandle_t &GetInstance()
+    oneMathHandle_t(sycl::queue &queue, const unsigned streamID)
+        : queue(queue), streamID(streamID)
     {
-        if (!handle)
-        {
-            handle = new blasHandle_t;
-        }
+    }
 
-        return *handle;
+    sycl::queue &GetQueue(void)
+    {
+        return queue;
+    }
+
+    unsigned int GetStreamID(void) const
+    {
+        return streamID;
     }
 
 private:
-    static blasHandle_t *handle;
+    sycl::queue &queue;
+    const unsigned int streamID;
+};
+
+class oneMathHandle
+{
+public:
+    static oneMathHandle_t &GetInstance(const unsigned int streamID);
+
+private:
+    static std::unordered_map<unsigned int, oneMathHandle_t *> handle;
 };
 } // namespace Nektar::NekBlas
