@@ -39,6 +39,34 @@ v5.11.0
 - Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
 - Assemble every Krylov vector of the redesign GMRES solver and take its inner products with the global inner-product mask, which it now shares with the redesign CG solver, so that tight tolerances no longer stall (!TBD)
 
+- Add `MemoryRegion` host/device memory abstraction with lazy synchronisation through `ReadOnly`/`WriteOnly`/`ReadWrite` access qualifiers, pinned and pooled memory, contiguous allocation and stream support (!1774, !1833, !2043, !2050, !2204, !2483, !2598)
+- Add block-based `Field`, `BlockAttributes` and `BlockAccessor` storage, typed by `FieldState` (coefficient/physical), with padding and interleaving so that each SIMD or warp lane owns one element (!1906, !1911, !1912, !1941, !1949, !2271)
+- Allow the redesign to be compiled in single and/or double precision (!1947)
+- Add data warehouses for shared basis, standard matrix, geometric factor, mode index, local-to-global and trace data (!2029, !2037, !2065, !2343)
+- Add portable back-ends: CUDA, HIP and SYCL (Intel DPC++ and AdaptiveCpp), plus SimSYCL for development. These replace the earlier Kokkos and DeviceOnHost back-ends (!1847, !2046, !2067, !2078, !2087, !2677, !2693)
+- Add `LoopExecution` (`parallel_for`, `parallel_reduce`, atomics) and unified device API, kernel launchers and streams/events across back-ends (!1854, !2018, !2021, !2320, !2589, !2607)
+- Add ARM NEON support to the SIMD library (!2666)
+- Add multi-GPU support with one MPI rank per device, automatic rank-to-GPU binding and GPU-aware MPI communication of `MemoryRegion` data (!1932, !2195, !2207, !2415, !2467, !2527)
+- Add `NekBlas` wrappers over BLAS, cuBLAS, hipBLAS, oneMath, MAGMA and LibXSMM, including strided-batched GEMM/GEMV/GEAM, and a portable Math kernel library (!2017, !2044, !2157, !2165, !2174, !2535, !2657, !2669, !2793)
+- Add device FFT (cuFFT/cuFFTDx, hipFFT, SYCL) and 3DH1D/3DH2D support for element operators (!2186, !2570, !2746, !2752, !2753, !2754, !2756, !2759, !2767)
+- Add two-level `Operator`/`BlockOperator` framework: string-keyed factory, CMake-generated registration, compile-time size specialisation, and run-time selection of execution space (Serial/AVX/Device) and implementation (StdMat/SumFac/SumFacTOP) (!1839, !1970, !2034, !2036, !2168, !2420, !2423, !2594, !2711)
+- Add StdMat (generic, LibXSMM, cuBLAS), SumFac and SumFacTOP implementation strategies shared by Serial, AVX and Device back-ends (!1842, !1903, !2150, !2153, !2154, !2162, !2450)
+- Add element operators: BwdTrans, IProductWRTBase, IProductWRTDerivBase, PhysDeriv, Mass, Helmholtz, MultiplyByElmtInvMass, PhysInterp1DScaled, LinAdvDiffReaction, Expression, Laplacian, Divergence, Advection, CurlCurl and AdvectionDealias, with nodal basis support (!1767, !1772, !1959, !1962, !1973, !2027, !2090, !2121, !2342, !2444, !2452, !2531, !2675)
+- Add trace operators: PhysTraceExtract, IProductWRTPhysTrace, IProductWRTPhysNormalDerivTrace and parallel DG trace exchange (!1835, !2426, !2469, !2684, !2712, !2730, !2734)
+- Add boundary-condition operators: Dirichlet, Neumann, Robin, FwdTransBC, DG and time-dependent conditions, with multi-component processing that no longer calls legacy `ExpList` (!1836, !2256, !2258, !2469, !2592)
+- Add assembly/scatter operator for continuous Galerkin on all back-ends (!1854, !2201)
+- Introduce the `SolverCore` library: Driver, EquationSystem, UnsteadySystem, filters, forcing and restarts (!2540, !2673, !2685, !2738)
+- Add time-integration operators: Adams-Bashforth/Moulton, BDF, Runge-Kutta (incl. SSP), DIRK, CNAB/MCNAB, IMEX, IMEX-DIRK, SDC and extrapolation (!2192, !2212, !2216, !2217, !2218, !2223, !2224, !2229, !2233, !2235, !2243, !2245, !2264)
+- Add linear systems (FwdTrans, Helmholtz, Poisson, linear ADR) and run-time selectable Krylov solvers: CG, pipelined CG/CR, GMRES/LGMRES, BiCGSTAB, BiCGSTAB(l), BiCGSTAB-R, CGS, CR, GCR, IDR(s), MINRES, TFQMR and Richardson (!1815, !2095, !2230, !2336, !2340, !2372, !2373, !2374, !2375, !2377, !2378, !2380, !2382, !2386, !2390, !2393, !2394, !2401)
+- Add run-time selectable preconditioners (null, diagonal) with left preconditioning (!2346, !2396)
+- Add run-time selectable Riemann solvers: Lax-Friedrichs, HLL, HLLC, Roe, AUSM variants and average (!2408, !2419, !2433, !2434, !2435, !2449)
+- Add DG flux framework with weak-DG advection and interior-penalty diffusion (!2543, !2557, !2580, !2713, !2714)
+- Add CFL estimation operator (!2694)
+- Add developer documentation for the redesign and coding practices for redesign code (!2406, !2719, !2731, !2749, !2755)
+
+
+
+
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
 - Fix modules that add curvature leaving the surrounding faces and elements set up for the linear mesh, so that later modules measured the mesh as it was before projection (!2747)
@@ -62,6 +90,23 @@ v5.11.0
 
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)
+
+**ADRSolverRedesign**
+- Add `ADRSolverRedesign` built on the redesign operators and `SolverCore` (!2416)
+- Add steady Poisson, Helmholtz and steady ADR solvers, unified into a single equation system (!2403, !2466)
+- Add unsteady diffusion and unsteady ADR, including reaction-diffusion and multi-component support (!2128, !2510)
+- Add CG and DG unsteady advection, with DG advection and interior-penalty diffusion on the flux framework (!2478, !2545, !2546, !2713, !2714)
+
+**CompressibleFlowSolverRedesign**
+- Add `CompressibleFlowSolverRedesign` with the Euler equations (!2237)
+- Add Navier-Stokes equations with interior-penalty diffusion (!2543)
+- Port the solver to the DG flux framework with run-time selectable Riemann solvers, equations of state and boundary conditions (!2715)
+- Add CFL-based time-step estimate (!2691)
+
+**IncNavierStokesSolverRedesign**
+- Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)
+- Add high-order pressure boundary conditions using the CurlCurl operator (!2531)
+- Add linear-implicit time-stepping (!2585)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
