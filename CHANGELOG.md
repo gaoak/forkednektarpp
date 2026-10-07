@@ -60,6 +60,9 @@ v5.11.0
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
 - Remove the rotation onto the trace normal from all compressible Riemann solvers (!2779)
 
+**FieldConvert**
+- Add compressiblefields module to compute velocity, pressure, temperature, entropy, sound speed and Mach number from compressible flow fields (!2417)
+
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)
 
