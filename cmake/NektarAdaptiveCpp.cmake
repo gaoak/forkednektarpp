@@ -36,12 +36,18 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
     ADD_DEFINITIONS(-DSYCL_ENABLE_INTEL)
 ENDIF()
 
+IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET(ACPP_OPT_FLAG "-Os")
+ELSE()
+    SET(ACPP_OPT_FLAG "-O3")
+ENDIF()
+
 FIND_PACKAGE(AdaptiveCpp REQUIRED)
 
 IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -march=native -Wno-nan-infinity-disabled -Wno-pass-failed ")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} ${ACPP_OPT_FLAG} -march=native -Wno-nan-infinity-disabled -Wno-pass-failed ")
 ELSE()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} -O3 -Wno-nan-infinity-disabled -Wno-pass-failed")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} ${ACPP_OPT_FLAG} -Wno-nan-infinity-disabled -Wno-pass-failed")
 ENDIF()
 
 IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" AND _SYSTEM_PROCESSOR STREQUAL "aarch64")
