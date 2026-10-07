@@ -519,36 +519,17 @@ inline void interleave(const unsigned int interleaveWidth,
         // HIP specific optimisation
         if constexpr (std::is_floating_point_v<TData>)
         {
-#if defined(NEKTAR_USE_MAGMA)
-            auto queue =
-                NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
-            auto handle = magma_queue_get_hipblas_handle(queue);
-#else
             auto handle =
                 NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
-#endif
 
             TData alpha   = 1.0;
             TData beta    = 0.0;
             TData *buffer = (TData *)internalInterleaveDeviceBuffer[streamID];
-            if constexpr (std::is_same_v<TData, float>)
-            {
-                // Use SgeamStridedBatched.
-                HIPBLAS_CHECK(hipblasSgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
-                    &alpha, inout, npts, interleaveWidth * npts, &beta,
-                    (TData *)nullptr, npts, interleaveWidth * npts, buffer,
-                    interleaveWidth, interleaveWidth * npts, numElmtGroups));
-            }
-            else if constexpr (std::is_same_v<TData, double>)
-            {
-                // Use SgeamStridedBatched.
-                HIPBLAS_CHECK(hipblasDgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, interleaveWidth, npts,
-                    &alpha, inout, npts, interleaveWidth * npts, &beta,
-                    (TData *)nullptr, npts, interleaveWidth * npts, buffer,
-                    interleaveWidth, interleaveWidth * npts, numElmtGroups));
-            }
+            NekBlas::GeamStridedBatched(
+                handle, "T", "T", interleaveWidth, npts, alpha, inout, npts,
+                interleaveWidth * npts, beta, (TData *)nullptr, npts,
+                interleaveWidth * npts, buffer, interleaveWidth,
+                interleaveWidth * npts, numElmtGroups);
             deviceMemcpy<DeviceToDevice>(inout, buffer, bufferSize, streamID);
             return;
         }
@@ -628,38 +609,17 @@ inline void deInterleave(const unsigned int interleaveWidth,
         // HIP specific optimisation
         if constexpr (std::is_floating_point_v<TData>)
         {
-#if defined(NEKTAR_USE_MAGMA)
-            auto queue =
-                NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
-            auto handle = magma_queue_get_hipblas_handle(queue);
-#else
             auto handle =
                 NekBlas::Handle<NektarSpaces::Device>::GetInstance(streamID);
-#endif
 
             TData alpha   = 1.0;
             TData beta    = 0.0;
             TData *buffer = (TData *)internalInterleaveDeviceBuffer[streamID];
-            if constexpr (std::is_same_v<TData, float>)
-            {
-                // Use SgeamStridedBatched.
-                HIPBLAS_CHECK(hipblasSgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
-                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
-                    &beta, (TData *)nullptr, interleaveWidth,
-                    interleaveWidth * npts, buffer, npts,
-                    interleaveWidth * npts, numElmtGroups));
-            }
-            else if constexpr (std::is_same_v<TData, double>)
-            {
-                // Use SgeamStridedBatched.
-                HIPBLAS_CHECK(hipblasDgeamStridedBatched(
-                    handle, HIPBLAS_OP_T, HIPBLAS_OP_T, npts, interleaveWidth,
-                    &alpha, inout, interleaveWidth, interleaveWidth * npts,
-                    &beta, (TData *)nullptr, interleaveWidth,
-                    interleaveWidth * npts, buffer, npts,
-                    interleaveWidth * npts, numElmtGroups));
-            }
+            NekBlas::GeamStridedBatched(
+                handle, "T", "T", npts, interleaveWidth, alpha, inout,
+                interleaveWidth, interleaveWidth * npts, beta, (TData *)nullptr,
+                interleaveWidth, interleaveWidth * npts, buffer, npts,
+                interleaveWidth * npts, numElmtGroups);
             deviceMemcpy<DeviceToDevice>(inout, buffer, bufferSize, streamID);
             return;
         }

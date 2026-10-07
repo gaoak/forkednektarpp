@@ -139,37 +139,43 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     Generic code including a `*SerialAVXKernels.hpp` header is a layering
     mistake, not a missing marker.
 
+25. **Vendor BLAS is reached only through NekBlas.** cuBLAS, hipBLAS, MAGMA
+    and oneMath routines are not called directly; use the `NekBlas`
+    interface (`LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp`), adding the
+    routine there if it is missing, with every backend that lacks it raising
+    an error. This keeps the vendor libraries private to `NekBlas`.
+
 ## Tests
 
-25. **A test of an operator that couples elements across a partition fills its
+26. **A test of an operator that couples elements across a partition fills its
     input from the quadrature point coordinates**, not from the storage index.
     A storage index is a property of the partition: the same element takes
     different values at different rank counts, so serial and parallel runs do
     not start from the same field, and the values grow with the mesh, which
     inflates an absolute tolerance. Element-local operators have no such
     constraint.
-26. **A test that writes beside its input needs a working directory of its
+27. **A test that writes beside its input needs a working directory of its
     own.** A parallel run partitions its session into `run/<session>_xml/`
     next to the mesh, so two tests sharing a directory race over the same
     files under a parallel `ctest`.
 
 ## Device memory
 
-27. **Synchronise every block, not the first.** Memory is synchronised a block
+28. **Synchronise every block, not the first.** Memory is synchronised a block
     at a time, while a kernel walks a field from its first block's pointer;
     taking that pointer leaves every later block on the wrong side of the
     device boundary. The fields an operator holds need not share a block
     count, so each is walked to its own length. A host build collapses the
     access modes and cannot see the fault; on a device the symptom is wrong
     values, not a failure.
-28. **A stream is used consistently or not at all.** Passing a stream at some
+29. **A stream is used consistently or not at all.** Passing a stream at some
     launch sites of an operator and not others implies an overlap that does
     not happen, and a launch that sets the stream leaves it set for whatever
     runs next.
 
 ## Kernels and launches
 
-29. **A `parallel_for` belongs in a wrapper, not in a member function.** The
+30. **A `parallel_for` belongs in a wrapper, not in a member function.** The
     launch goes in a free function in the `detail` namespace, in a
     `*Kernels.hpp` file, taking what it needs as arguments. A lambda inside a
     member function must be reached through a public enclosing function under
@@ -178,7 +184,7 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     capture, so the wrapper may also use `if constexpr` where the lambda could
     not.
 
-30. **No assert, of any level, inside a function a kernel can call.** An
+31. **No assert, of any level, inside a function a kernel can call.** An
     assert builds a `std::string` for its message, and a single-pass device
     compiler has no device pass in which that compiles out, so even a level-1
     assert in a host-device function puts the string into the kernel and the
@@ -188,7 +194,7 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 
 ## Shared operators
 
-31. **State on a shared operator is set where it is used.** An operator held
+32. **State on a shared operator is set where it is used.** An operator held
     through a `shared_ptr` can be reached by another holder, so a flag or a
     scale set once when it is attached can be changed before it is read. Set
     it immediately before the `Apply()` that depends on it.

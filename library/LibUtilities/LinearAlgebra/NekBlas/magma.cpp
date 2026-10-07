@@ -34,8 +34,81 @@
 
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
+#include <cstdlib>
+#include <iostream>
+#include <stdexcept>
+
+#include <magma_v2.h>
+
+#if defined(NEKTAR_ENABLE_CUDA)
+#include <LibUtilities/Backends/CUDAStream.hpp>
+
+#define CUBLAS_CHECK(condition)                                                \
+    {                                                                          \
+        const cublasStatus_t status = condition;                               \
+        if (status != CUBLAS_STATUS_SUCCESS)                                   \
+        {                                                                      \
+            std::cerr << "cuBLAS error encountered: \""                        \
+                      << cublasGetStatusString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
+        }                                                                      \
+    }
+#elif defined(NEKTAR_ENABLE_HIP)
+#include <LibUtilities/Backends/HIPStream.hpp>
+
+#define HIPBLAS_CHECK(condition)                                               \
+    {                                                                          \
+        const hipblasStatus_t status = condition;                              \
+        if (status != HIPBLAS_STATUS_SUCCESS)                                  \
+        {                                                                      \
+            std::cerr << "hipBLAS error encountered: \""                       \
+                      << hipblasStatusToString(status) << "\" at " << __FILE__ \
+                      << ':' << __LINE__ << std::endl;                         \
+            exit(0);                                                           \
+        }                                                                      \
+    }
+#endif
+
 namespace Nektar::NekBlas
 {
+std::unordered_map<unsigned int, magma_queue_t> magmaHandle::handle;
+
+magma_queue_t &magmaHandle::GetInstance(const unsigned int streamID)
+{
+    if (handle.find(streamID) == handle.end())
+    {
+        magma_queue_t magma_queue;
+        int device_rank = 0;
+#if defined(NEKTAR_ENABLE_CUDA)
+        (void)cudaGetDevice(&device_rank);
+        cudaStream_t stream = CUDAStream::GetInstance(streamID);
+        cublasHandle_t cublas_handle;
+        cusparseHandle_t cusparse_handle;
+        CUBLAS_CHECK(cublasCreate(&cublas_handle));
+        (void)cusparseCreate(&cusparse_handle);
+        CUBLAS_CHECK(cublasSetStream(cublas_handle, stream));
+        (void)cusparseSetStream(cusparse_handle, stream);
+        magma_queue_create_from_cuda(device_rank, stream, cublas_handle,
+                                     cusparse_handle, &magma_queue);
+#elif defined(NEKTAR_ENABLE_HIP)
+        (void)hipGetDevice(&device_rank);
+        hipStream_t stream = HIPStream::GetInstance(streamID);
+        hipblasHandle_t hipblas_handle;
+        hipsparseHandle_t hipsparse_handle;
+        HIPBLAS_CHECK(hipblasCreate(&hipblas_handle));
+        (void)hipsparseCreate(&hipsparse_handle);
+        HIPBLAS_CHECK(hipblasSetStream(hipblas_handle, stream));
+        (void)hipsparseSetStream(hipsparse_handle, stream);
+        magma_queue_create_from_hip(device_rank, stream, hipblas_handle,
+                                    hipsparse_handle, &magma_queue);
+#endif
+        handle[streamID] = magma_queue;
+    }
+
+    return handle[streamID];
+}
+
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
 void Gemm(THandle handle, std::string transposeA, std::string transposeB,
@@ -128,6 +201,42 @@ void GemvStridedBatched(THandle handle, std::string transpose, const int M,
     }
 }
 
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
+void GeamStridedBatched(
+    [[maybe_unused]] THandle handle, [[maybe_unused]] std::string transposeA,
+    [[maybe_unused]] std::string transposeB, [[maybe_unused]] const int M,
+    [[maybe_unused]] const int N, [[maybe_unused]] const TData alpha,
+    [[maybe_unused]] const TData *a, [[maybe_unused]] const int lda,
+    [[maybe_unused]] const int strideA, [[maybe_unused]] const TData beta,
+    [[maybe_unused]] const TData *b, [[maybe_unused]] const int ldb,
+    [[maybe_unused]] const int strideB, [[maybe_unused]] TData *c,
+    [[maybe_unused]] const int ldc, [[maybe_unused]] const int strideC,
+    [[maybe_unused]] const int batchSize)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    throw std::runtime_error(
+        "GeamStridedBatched is not available for MAGMA with CUDA");
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto hipblasHandle = magma_queue_get_hipblas_handle(handle);
+    auto transA        = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
+    auto transB        = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
+
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        HIPBLAS_CHECK(hipblasSgeamStridedBatched(
+            hipblasHandle, transA, transB, M, N, &alpha, a, lda, strideA, &beta,
+            b, ldb, strideB, c, ldc, strideC, batchSize));
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        HIPBLAS_CHECK(hipblasDgeamStridedBatched(
+            hipblasHandle, transA, transB, M, N, &alpha, a, lda, strideA, &beta,
+            b, ldb, strideB, c, ldc, strideC, batchSize));
+    }
+#endif
+}
+
 template void Gemm<magma_queue_t, float>(
     magma_queue_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
@@ -175,4 +284,18 @@ template void GemvStridedBatched<magma_queue_t, double>(
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
+
+template void GeamStridedBatched<magma_queue_t, float>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float beta, const float *b, const int ldb,
+    const int strideB, float *c, const int ldc, const int strideC,
+    const int batchSize);
+
+template void GeamStridedBatched<magma_queue_t, double>(
+    magma_queue_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const double alpha, const double *a,
+    const int lda, const int strideA, const double beta, const double *b,
+    const int ldb, const int strideB, double *c, const int ldc,
+    const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

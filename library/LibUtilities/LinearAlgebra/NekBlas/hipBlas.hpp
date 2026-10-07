@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: cuBlasHandle.hpp
+// File: hipBlas.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,48 +34,17 @@
 
 #pragma once
 
-#include <iostream>
-#include <stdio.h>
-#include <unordered_map>
-
-#include <cublas_v2.h>
-
-#include <LibUtilities/Backends/CUDAStream.hpp>
+// Matches hipblas.h; the vendor header stays private to NekBlas.
+typedef void *hipblasHandle_t;
 
 namespace Nektar::NekBlas
 {
-#define CUBLAS_CHECK(condition)                                                \
-    {                                                                          \
-        const cublasStatus_t status = condition;                               \
-        if (status != CUBLAS_STATUS_SUCCESS)                                   \
-        {                                                                      \
-            std::cerr << "cuBLAS error encountered: \""                        \
-                      << cublasGetStatusString(status) << "\" at " << __FILE__ \
-                      << ':' << __LINE__ << std::endl;                         \
-            exit(0);                                                           \
-        }                                                                      \
-    }
-
-class cuBlasHandle
+class hipBlasHandle
 {
 public:
-    static cublasHandle_t &GetInstance(const unsigned int streamID)
-    {
-        if (!handle)
-        {
-            if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
-            {
-                printf("cuBLAS initialization failed\n");
-            }
-        }
-
-        CUBLAS_CHECK(
-            cublasSetStream(handle, CUDAStream::GetInstance(streamID)));
-
-        return handle;
-    }
+    static hipblasHandle_t &GetInstance(const unsigned int streamID);
 
 private:
-    static cublasHandle_t handle;
+    static hipblasHandle_t handle;
 };
 } // namespace Nektar::NekBlas

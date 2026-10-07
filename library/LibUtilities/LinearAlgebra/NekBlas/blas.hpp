@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: xsmmHandle.cpp
+// File: blas.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,20 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "xsmmHandle.hpp"
+#pragma once
 
 namespace Nektar::NekBlas
 {
-xsmmHandle_t *xsmmHandle::handle = nullptr;
-}
+class blasHandle_t
+{
+};
+
+class blasHandle
+{
+public:
+    static blasHandle_t &GetInstance();
+
+private:
+    static blasHandle_t *handle;
+};
+} // namespace Nektar::NekBlas

@@ -36,8 +36,22 @@
 
 #include <LibUtilities/LinearAlgebra/Blas.hpp>
 
+#include <stdexcept>
+
 namespace Nektar::NekBlas
 {
+blasHandle_t *blasHandle::handle = nullptr;
+
+blasHandle_t &blasHandle::GetInstance()
+{
+    if (!handle)
+    {
+        handle = new blasHandle_t;
+    }
+
+    return *handle;
+}
+
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
 void Gemm([[maybe_unused]] THandle handle, std::string transposeA,
@@ -101,6 +115,16 @@ void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
     }
 }
 
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool>>
+void GeamStridedBatched(THandle, std::string, std::string, const int, const int,
+                        const TData, const TData *, const int, const int,
+                        const TData, const TData *, const int, const int,
+                        TData *, const int, const int, const int)
+{
+    throw std::runtime_error("GeamStridedBatched is not available for BLAS");
+}
+
 template void Gemm<blasHandle_t, float>(
     blasHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
@@ -148,4 +172,18 @@ template void GemvStridedBatched<blasHandle_t, double>(
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
+
+template void GeamStridedBatched<blasHandle_t, float>(
+    blasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float beta, const float *b, const int ldb,
+    const int strideB, float *c, const int ldc, const int strideC,
+    const int batchSize);
+
+template void GeamStridedBatched<blasHandle_t, double>(
+    blasHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const double alpha, const double *a,
+    const int lda, const int strideA, const double beta, const double *b,
+    const int ldb, const int strideB, double *c, const int ldc,
+    const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

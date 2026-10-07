@@ -34,22 +34,25 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <type_traits>
 
 #include "LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp"
 
-#include "LibUtilities/LinearAlgebra/NekBlas/blasHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/blas.hpp"
 #if defined(NEKTAR_ENABLE_SIMD)
-#include "LibUtilities/LinearAlgebra/NekBlas/xsmmHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/xsmm.hpp"
 #endif
 #if defined(NEKTAR_USE_MAGMA)
-#include "LibUtilities/LinearAlgebra/NekBlas/magmaHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/magma.hpp"
 #elif defined(NEKTAR_ENABLE_CUDA)
-#include "LibUtilities/LinearAlgebra/NekBlas/cuBlasHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/cuBlas.hpp"
 #elif defined(NEKTAR_ENABLE_HIP)
-#include "LibUtilities/LinearAlgebra/NekBlas/hipBlasHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/hipBlas.hpp"
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "LibUtilities/LinearAlgebra/NekBlas/oneMathHandle.hpp"
+#include "LibUtilities/LinearAlgebra/NekBlas/oneMath.hpp"
 #endif
 
 #include <LibUtilities/Backends/Backends.hpp>
@@ -331,6 +334,63 @@ void GemvStridedBatched(THandle handle, std::string transpose,
                         const TData *x, const std::int64_t incx,
                         const std::int64_t strideX, const TData beta, TData *y,
                         const std::int64_t incy, const std::int64_t strideY,
+                        const std::int64_t batchSize);
+#endif
+
+// GeamStridedBatched
+template <
+    typename THandle, typename TData,
+    std::enable_if_t<std::is_same_v<THandle, blasHandle_t>, bool> Enable = true>
+void GeamStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData beta, const TData *b,
+                        const int ldb, const int strideB, TData *c,
+                        const int ldc, const int strideC, const int batchSize);
+#if defined(NEKTAR_ENABLE_SIMD)
+template <
+    typename THandle, typename TData,
+    std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool> Enable = true>
+void GeamStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData beta, const TData *b,
+                        const int ldb, const int strideB, TData *c,
+                        const int ldc, const int strideC, const int batchSize);
+#endif
+template <
+    typename THandle, typename TData,
+#if defined(NEKTAR_USE_MAGMA)
+    std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool> Enable = true
+#elif defined(NEKTAR_ENABLE_CUDA)
+    std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool> Enable =
+        true
+#elif defined(NEKTAR_ENABLE_HIP)
+    std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool> Enable =
+        true
+#else
+    std::enable_if_t<std::is_same_v<THandle, std::nullptr_t>, bool> Enable =
+        true
+#endif
+    >
+void GeamStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData beta, const TData *b,
+                        const int ldb, const int strideB, TData *c,
+                        const int ldc, const int strideC, const int batchSize);
+#if defined(NEKTAR_ENABLE_SYCL)
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>
+              Enable = true>
+void GeamStridedBatched(THandle handle, std::string transposeA,
+                        std::string transposeB, const std::int64_t M,
+                        const std::int64_t N, const TData alpha, const TData *a,
+                        const std::int64_t lda, const std::int64_t strideA,
+                        const TData beta, const TData *b,
+                        const std::int64_t ldb, const std::int64_t strideB,
+                        TData *c, const std::int64_t ldc,
+                        const std::int64_t strideC,
                         const std::int64_t batchSize);
 #endif
 } // namespace Nektar::NekBlas

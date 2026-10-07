@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: magmaHandle.cpp
+// File: cuBlas.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,20 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "magmaHandle.hpp"
+#pragma once
+
+// Matches cublas_api.h; the vendor header stays private to NekBlas.
+struct cublasContext;
+typedef struct cublasContext *cublasHandle_t;
 
 namespace Nektar::NekBlas
 {
-std::unordered_map<unsigned int, magma_queue_t> magmaHandle::handle;
-}
+class cuBlasHandle
+{
+public:
+    static cublasHandle_t &GetInstance(const unsigned int streamID);
+
+private:
+    static cublasHandle_t handle;
+};
+} // namespace Nektar::NekBlas

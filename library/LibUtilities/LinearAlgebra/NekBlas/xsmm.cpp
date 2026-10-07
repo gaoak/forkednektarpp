@@ -39,6 +39,18 @@
 
 namespace Nektar::NekBlas
 {
+xsmmHandle_t *xsmmHandle::handle = nullptr;
+
+xsmmHandle_t &xsmmHandle::GetInstance()
+{
+    if (!handle)
+    {
+        handle = new xsmmHandle_t;
+    }
+
+    return *handle;
+}
+
 template <typename THandle, typename TData,
           std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
 void Gemm([[maybe_unused]] THandle handle, std::string transposeA,
@@ -152,6 +164,16 @@ void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
     }
 }
 
+template <typename THandle, typename TData,
+          std::enable_if_t<std::is_same_v<THandle, xsmmHandle_t>, bool>>
+void GeamStridedBatched(THandle, std::string, std::string, const int, const int,
+                        const TData, const TData *, const int, const int,
+                        const TData, const TData *, const int, const int,
+                        TData *, const int, const int, const int)
+{
+    ASSERTL0(false, "GeamStridedBatched is not available for libxsmm");
+}
+
 template void Gemm<xsmmHandle_t, float>(
     xsmmHandle_t handle, std::string transposeA, std::string transposeB,
     const int M, const int N, const int K, const float alpha, const float *a,
@@ -199,4 +221,18 @@ template void GemvStridedBatched<xsmmHandle_t, double>(
     const double alpha, const double *a, const int lda, const int strideA,
     const double *x, const int incx, const int strideX, const double beta,
     double *y, const int incy, const int strideY, const int batchSize);
+
+template void GeamStridedBatched<xsmmHandle_t, float>(
+    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float beta, const float *b, const int ldb,
+    const int strideB, float *c, const int ldc, const int strideC,
+    const int batchSize);
+
+template void GeamStridedBatched<xsmmHandle_t, double>(
+    xsmmHandle_t handle, std::string transposeA, std::string transposeB,
+    const int M, const int N, const double alpha, const double *a,
+    const int lda, const int strideA, const double beta, const double *b,
+    const int ldb, const int strideB, double *c, const int ldc,
+    const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas
