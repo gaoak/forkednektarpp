@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+
 namespace Nektar::SolverCore::detail
 {
 
@@ -279,7 +281,9 @@ NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
     constexpr auto coeff =
         GetRungeKuttaStageCoefficients<Scheme, IntOrder, TData>();
 
-    out[idx] = solution[idx] + ((explicits[idx] * coeff[indStart + ind]) + ...);
+    out[idx] = solution[idx] + (ScaledTerm<coeff[indStart + ind] == TData(0)>(
+                                    explicits, idx, coeff[indStart + ind]) +
+                                ...);
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
@@ -295,7 +299,9 @@ NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
 {
     constexpr auto coeff = GetRungeKuttaCoefficients<Scheme, IntOrder, TData>();
 
-    out[idx] = solution[idx] + ((explicits[idx] * coeff[ind]) + ...);
+    out[idx] =
+        solution[idx] +
+        (ScaledTerm<coeff[ind] == TData(0)>(explicits, idx, coeff[ind]) + ...);
 }
 
 } // namespace Nektar::SolverCore::detail

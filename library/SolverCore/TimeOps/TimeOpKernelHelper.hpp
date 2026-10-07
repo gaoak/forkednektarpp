@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BDFKernelLaunchers.hpp
+// File: TimeOpKernelHelper.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,59 +28,32 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Helpers shared by the TimeOps kernel implementations.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::SolverCore::detail
 {
 
-class BDFScheme;
-
-template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetBDFCoefficients(void)
+// Returns x[idx] * coeff, or -0.0 (the additive identity) without reading x
+// when the compile-time coefficient is zero.
+template <bool isZero, typename TData>
+NEK_DEVICE_INLINE static constexpr TData ScaledTerm(
+    [[maybe_unused]] const TData *__restrict x,
+    [[maybe_unused]] const size_t idx, [[maybe_unused]] const TData coeff)
 {
-    // 2nd order
-    if constexpr (IntOrder == 2)
+    if constexpr (isZero)
     {
-        return std::array<TData, 2>{4.0 / 3.0, -1.0 / 3.0};
+        return TData(-0.0);
     }
-    // 3rd order
-    else if constexpr (IntOrder == 3)
+    else
     {
-        return std::array<TData, 3>{18.0 / 11.0, -9.0 / 11.0, 2.0 / 11.0};
+        return x[idx] * coeff;
     }
-    // 4th order
-    else if constexpr (IntOrder == 4)
-    {
-        return std::array<TData, 4>{48.0 / 25.0, -36.0 / 25.0, 16.0 / 25.0,
-                                    -3.0 / 25.0};
-    }
-}
-
-template <
-    typename Scheme, typename TData, unsigned int... ind, typename... TDatas,
-    std::enable_if_t<std::is_same_v<Scheme, BDFScheme>, bool> Enable = true>
-NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
-    const size_t idx, TData *__restrict inout,
-    std::integer_sequence<unsigned int, ind...>,
-    const TDatas *__restrict... solutions)
-{
-    constexpr unsigned int nSolution = sizeof...(solutions);
-    constexpr unsigned int IntOrder  = nSolution + 1;
-
-    constexpr auto coeff = GetBDFCoefficients<IntOrder, TData>();
-
-    TData tmp =
-        (ScaledTerm<coeff[ind] == TData(0)>(solutions, idx, coeff[ind]) + ...);
-    tmp += inout[idx] * coeff[nSolution];
-    inout[idx] = tmp;
 }
 
 } // namespace Nektar::SolverCore::detail
-
-#include "SolverCore/TimeOps/TimeOpHelper.hpp"

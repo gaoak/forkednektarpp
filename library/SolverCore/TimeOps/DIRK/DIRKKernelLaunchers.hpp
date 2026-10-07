@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+
 namespace Nektar::SolverCore::detail
 {
 
@@ -296,6 +298,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
         return std::array<TData, 3>{
                     (-1.0 + 6.0 * lambda - 4 * lambda * lambda) / (4 * lambda),
                     ( 1.0 - 2.0 * lambda) / (4 * lambda), lambda};
+        // clang-format on
     }
     else if constexpr (IntOrder == 3)
     {
@@ -310,6 +313,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
                                    -2374.0 * (1.0 + 2.0 * ConstSqrt2) /
                                        (2835.0 * (5.0 + 3.0 * ConstSqrt2)),
                                    5827.0 / 7560.0, 9.0 / 40.0};
+        // clang-format on
     }
     // 4th order
     else if constexpr (IntOrder == 4)
@@ -325,6 +329,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
             -16.0 * (-22922.0 + 3525.0 * ConstSqrt2) / 571953.0,
             -15625.0 * (97.0 + 376.0 * ConstSqrt2) / 90749876.0,
             0.25};
+        // clang-format on
     }
 }
 
@@ -382,36 +387,41 @@ NEK_DEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas,
-          std::enable_if_t<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, bool> Enable = true>
-NEK_DEVICE_INLINE static
-    void
-    UpdateStageKernelImpl(const size_t idx, TData *__restrict out,
-                          const TData *__restrict solution,
-                          std::integer_sequence<unsigned int, ind...>,
-                          const TDatas *__restrict... implicits)
+          std::enable_if_t<std::is_same_v<Scheme, DIRKScheme> ||
+                               std::is_same_v<Scheme, DIRK_ESScheme>,
+                           bool>
+              Enable = true>
+NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
+    const size_t idx, TData *__restrict out, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... implicits)
 {
     constexpr unsigned int stage    = sizeof...(implicits);
     constexpr unsigned int indStart = (stage * (stage - 1)) / 2;
 
     constexpr auto coeff = GetDIRKStageCoefficients<Scheme, IntOrder, TData>();
 
-    out[idx] =
-        solution[idx] + ((implicits[idx] * coeff[indStart + ind]) + ...);
+    out[idx] = solution[idx] + (ScaledTerm<coeff[indStart + ind] == TData(0)>(
+                                    implicits, idx, coeff[indStart + ind]) +
+                                ...);
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData,
           unsigned int... ind, typename... TDatas,
-          std::enable_if_t<std::is_same_v<Scheme, DIRKScheme> || std::is_same_v<Scheme, DIRK_ESScheme>, bool> Enable = true>
-NEK_DEVICE_INLINE static
-    void
-    UpdateSolutionKernelImpl(const size_t idx, TData *__restrict out,
-                             const TData *__restrict solution,
-                             std::integer_sequence<unsigned int, ind...>,
-                             const TDatas *__restrict... implicits)
+          std::enable_if_t<std::is_same_v<Scheme, DIRKScheme> ||
+                               std::is_same_v<Scheme, DIRK_ESScheme>,
+                           bool>
+              Enable = true>
+NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
+    const size_t idx, TData *__restrict out, const TData *__restrict solution,
+    std::integer_sequence<unsigned int, ind...>,
+    const TDatas *__restrict... implicits)
 {
     constexpr auto coeff = GetDIRKCoefficients<Scheme, IntOrder, TData>();
 
-    out[idx] = solution[idx] + ((implicits[idx] * coeff[ind]) + ...);
+    out[idx] =
+        solution[idx] +
+        (ScaledTerm<coeff[ind] == TData(0)>(implicits, idx, coeff[ind]) + ...);
 }
 
 } // namespace Nektar::SolverCore::detail

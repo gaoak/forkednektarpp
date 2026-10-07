@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+
 namespace Nektar::SolverCore::detail
 {
 
@@ -72,7 +74,8 @@ NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
 
     constexpr auto coeff = GetAdamsMoultonCoefficients<IntOrder, TData>();
 
-    inout[idx] += ((implicits[idx] * coeff[ind]) + ...);
+    inout[idx] +=
+        (ScaledTerm<coeff[ind] == TData(0)>(implicits, idx, coeff[ind]) + ...);
 }
 
 } // namespace Nektar::SolverCore::detail

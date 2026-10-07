@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+
 namespace Nektar::SolverCore::detail
 {
 
@@ -424,7 +426,9 @@ NEK_DEVICE_INLINE static void UpdateStageKernelImpl(
     constexpr auto coeff =
         GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder, TData>();
 
-    out[idx] = solution[idx] + ((residuals[idx] * coeff[indStart + ind]) + ...);
+    out[idx] = solution[idx] + (ScaledTerm<coeff[indStart + ind] == TData(0)>(
+                                    residuals, idx, coeff[indStart + ind]) +
+                                ...);
 }
 
 template <typename Scheme, unsigned int ImpStage, unsigned int ExpStage,
@@ -440,7 +444,9 @@ NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
     constexpr auto coeff =
         GetIMEXdirkCoefficients<ImpStage, ExpStage, IntOrder, TData>();
 
-    out[idx] = solution[idx] + ((residuals[idx] * coeff[ind]) + ...);
+    out[idx] =
+        solution[idx] +
+        (ScaledTerm<coeff[ind] == TData(0)>(residuals, idx, coeff[ind]) + ...);
 }
 
 } // namespace Nektar::SolverCore::detail
