@@ -38,7 +38,6 @@ v5.11.0
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
 - Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
 - Assemble every Krylov vector of the redesign GMRES solver and take its inner products with the global inner-product mask, which it now shares with the redesign CG solver, so that tight tolerances no longer stall (!TBD)
-
 - Add `MemoryRegion` host/device memory abstraction with lazy synchronisation through `ReadOnly`/`WriteOnly`/`ReadWrite` access qualifiers, pinned and pooled memory, contiguous allocation and stream support (!1774, !1833, !2043, !2050, !2204, !2483, !2598)
 - Add block-based `Field`, `BlockAttributes` and `BlockAccessor` storage, typed by `FieldState` (coefficient/physical), with padding and interleaving so that each SIMD or warp lane owns one element (!1906, !1911, !1912, !1941, !1949, !2271)
 - Allow the redesign to be compiled in single and/or double precision (!1947)
