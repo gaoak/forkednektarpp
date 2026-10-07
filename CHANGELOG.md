@@ -50,7 +50,7 @@ v5.11.0
 - Fix collection autotuning selection and record results per polynomial order (!2635)
 - Fix noble full build CI (!2742)
 - Fix intermittent Cwipi test failures by capturing the output of each command in a multi-command parallel test separately (!2780)
-- Delete temporary images from local runners (!2782)
+- Delete temporary images from local runners (!2782, !2795)
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)
@@ -74,6 +74,7 @@ v5.11.0
 - Fix C++20 ambiguous reversed operator warning (!2703)
 - Tidy stop using boost ignore unused (!2751)
 - Fix VtkToPng segfault with VTK 9 by linking and auto-initialising the rendering backend module that provides the object factory overrides (!2764)
+- Add support for FlexiBlas (!2796)
 
 v5.10.0
 -------

@@ -1137,6 +1137,13 @@ ubuntu-noble-full-acpp-cuda-cluster-warnings:
   <<: *execution-conditions
   image: docker:28.5.0-dind
   stage: cleanup
+  # Run whether the jobs waited for below passed or not. A SHA-tagged image is
+  # just as unwanted after a failed test as after a passing one, and nothing
+  # else removes it: the registry's expiration policy only matches tags named
+  # pipeline.*, so one left behind here stays for good. The cost is that a
+  # failed deploy on master loses the tag it would have been retried from, and
+  # the image has to be rebuilt; that is rarer than a failing test.
+  when: always
 #  except:
 #    refs:
 #      - master@nektar/nektar
@@ -1148,7 +1155,9 @@ ubuntu-noble-full-acpp-cuda-cluster-warnings:
     - curl --fail-with-body --location "https://www.nektar.info/thirdparty/regctl" > /usr/bin/regctl
     - chmod 755 /usr/bin/regctl
     - regctl registry login ${CI_REGISTRY} -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD}
-    - regctl tag rm $CI_IMAGE
+    # Nothing to remove if the build never pushed one, which `when: always`
+    # above makes reachable.
+    - regctl tag rm $CI_IMAGE || echo "No $CI_IMAGE in the registry"
 
 # Docker pushrm template: used to automatically deploy the README.md files to
 # the Dockerhub description of each image.
@@ -1317,8 +1326,8 @@ dockerhub-pushrm-nekmesh:
 # Cleanup (if not deploying)
 dockerhub-cleanup-nekmesh:
   <<: *dockerhub_cleanup_template
-  needs: 
-    - job: dockerhub-build-nekmesh
+  needs:
+    - job: dockerhub-test-nekmesh
     - job: dockerhub-deploy-nekmesh
       optional: true
   variables:
@@ -1327,7 +1336,7 @@ dockerhub-cleanup-nekmesh:
 dockerhub-cleanup-workbook:
   <<: *dockerhub_cleanup_template
   needs:
-    - job: dockerhub-build-workbook
+    - job: dockerhub-test-workbook
     - job: dockerhub-deploy-nektar-workbook
       optional: true
   variables:
