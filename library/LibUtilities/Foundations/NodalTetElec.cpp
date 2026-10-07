@@ -327,13 +327,14 @@ void NodalTetElec::NodalPointReorder3d()
         }
     }
 
-    // bubble sort edge 3 (counterclockwise numbering)
+    // bubble sort edge 3, from vertex 0 to vertex 2, the direction
+    // TetGeom gives edge 2
     iend = istart + nEdgeInteriorPoints;
     for (size_t i = istart; i < iend; i++)
     {
         for (size_t j = istart + 1; j < iend; j++)
         {
-            if (m_points[1][j] > m_points[1][j - 1])
+            if (m_points[1][j] < m_points[1][j - 1])
             {
                 std::swap(m_points[0][j], m_points[0][j - 1]);
                 std::swap(m_points[1][j], m_points[1][j - 1]);

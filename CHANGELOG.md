@@ -40,6 +40,7 @@ v5.11.0
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
 - Fix modules that add curvature leaving the surrounding faces and elements set up for the linear mesh, so that later modules measured the mesh as it was before projection (!2747)
+- Overhaul the variational optimiser: correct its search direction, the Hessian of two of its functionals and its three-dimensional strain tensor; regularise the Jacobian against the whole mesh, under a cap that stops one inverted element flattening the energy everywhere, and measure convergence against the mesh's size; let nodes on the CAD slide again and leave alone those belonging to no element, which a boundary-layer mesh has thousands of and which ended the run; fix the node ordering of prisms and support hexahedra; and evaluate the energy from derivatives the elements keep, which is three to four times faster in a third of the memory (!2789)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)

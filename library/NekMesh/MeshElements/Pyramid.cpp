@@ -478,11 +478,6 @@ struct pyramidHelper
                     id, LibUtilities::eNodalPyrEvenlySpaced);
             curve->m_points = nodeList;
 
-            // The nodal distribution numbers its vertices in raster order,
-            // which puts the third and fourth the other way round from the
-            // standard element. Everything after them already agrees.
-            std::swap(curve->m_points[2], curve->m_points[3]);
-
             pyrPtr->SetCurve(curve.get());
             meshGraph->AddCurvedVolume(std::move(curve));
         }

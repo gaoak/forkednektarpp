@@ -745,20 +745,13 @@ std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> PyrGeom::v_MakeOrder(
 
     m_curve = c;
 
-    // As for the prism, the nodal distribution numbers the base vertices in
-    // raster order, which transposes v2 and v3 with respect to the standard
-    // element: nodal slot 2 is at (-1, 1, -1), which is where the standard
-    // element puts vertex 3. The apex is unaffected.
-    const int vertPerm[kNverts] = {0, 1, 3, 2, 4};
     for (int i = 0; i < kNverts; ++i)
     {
-        c->m_points[i] = m_verts[vertPerm[i]];
+        c->m_points[i] = m_verts[i];
     }
 
-    // Edge interiors. Measured against eNodalPyrEvenlySpaced: the blocks come
-    // in edgeVerts order and each runs along its edge, so as with the prism
-    // there is no block to reverse. Note this relies on edges 2 and 3 being
-    // stored as 3->2 and 0->3, which is the direction the distribution emits.
+    // Edge interiors. The blocks come in edgeVerts order and each runs along
+    // its edge, so there is no block to reverse.
     for (int e = 0; e < kNedges; ++e)
     {
         Curve *edgeCurve = m_edges[e]->GetCurve();

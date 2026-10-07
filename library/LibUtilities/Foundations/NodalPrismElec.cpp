@@ -270,9 +270,9 @@ void NodalPrismElec::NodalPointReorder3d()
 
     // sort vertices
     std::swap(vertex[2], vertex[4]);
-    // sort edges
-    std::reverse(iEdge_23.begin(), iEdge_23.end());
-    std::reverse(iEdge_30.begin(), iEdge_30.end());
+    // sort edges. Edges 2 and 3 are emitted by the lattice as 3 -> 2 and
+    // 0 -> 3, which is the direction PrismGeom gives them, so they are left
+    // alone.
     std::reverse(iEdge_04.begin(), iEdge_04.end());
     std::reverse(iEdge_35.begin(), iEdge_35.end());
 

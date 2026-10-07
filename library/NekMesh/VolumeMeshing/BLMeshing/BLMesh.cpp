@@ -198,6 +198,18 @@ void BLMesh::Mesh()
             m_log(TRACE) << "validity error " << el->GetGlobalID() << endl;
         }
     }
+
+    // The pseudo surface is tagged with the CAD surface its prisms grew from
+    // so that GrowLayers can group it by surface, but it is not on that
+    // surface: it is the far face of the layer, and once the layers have
+    // stopped growing it is an interior face of the mesh. Anything later that
+    // trusts the association -- MakeOrder projects a CAD-associated face's
+    // nodes on to the CAD -- would pull the face back down on to the wall and
+    // fold the prism flat, so drop it here.
+    for (auto *T : m_psuedoSurface)
+    {
+        m_mesh->m_meshGraph->GetCADAssociation()->Remove(T);
+    }
 }
 
 map<SpatialDomains::PointGeom *, SpatialDomains::PointGeom *> BLMesh::

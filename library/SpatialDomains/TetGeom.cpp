@@ -665,12 +665,10 @@ std::pair<CurveUniquePtr, std::vector<PointGeomUniquePtr>> TetGeom::v_MakeOrder(
         ASSERTL1(edgeCurve != nullptr,
                  "Edge curve not set; call MakeOrder on edges before volumes");
 
-        // The nodal distribution emits edge 2 running from vertex 2 to
-        // vertex 0, whereas edgeVerts[2] is {0, 2}, so that one block is
-        // traversed against the element's local edge direction. Verified
-        // against eNodalTetEvenlySpaced rather than assumed.
-        const bool alongLocal = (m_eorient[e] == StdRegions::eForwards);
-        const bool forward    = (e == 2) ? !alongLocal : alongLocal;
+        // Every edge block of the distribution runs along the element's own
+        // direction for that edge, so m_eorient alone decides which way the
+        // segment's own curve is read.
+        const bool forward = (m_eorient[e] == StdRegions::eForwards);
 
         const int offset = kNverts + e * nEdgeNodes;
         for (int j = 0; j < nEdgeNodes; ++j)

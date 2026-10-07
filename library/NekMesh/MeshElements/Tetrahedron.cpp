@@ -498,15 +498,8 @@ struct tetrahedronHelper
                 elmtIds[i] = tetPtr->GetVertex(i)->GetGlobalID();
             }
 
-            // The nodal distribution runs local edge 2 from vertex 2 to
-            // vertex 0, against the direction the caller lists it in.
-            const int nEdgeNodes                           = nPoints - 2;
-            std::vector<SpatialDomains::PointGeom *> nodal = nodeList;
-            std::reverse(nodal.begin() + 4 + 2 * nEdgeNodes,
-                         nodal.begin() + 4 + 3 * nEdgeNodes);
-
             SpatialDomains::HOTetrahedron<SpatialDomains::PointGeom *> hoTet(
-                listIds, nodal, nPoints);
+                listIds, nodeList, nPoints);
             hoTet.Align(elmtIds);
 
             auto curve =
