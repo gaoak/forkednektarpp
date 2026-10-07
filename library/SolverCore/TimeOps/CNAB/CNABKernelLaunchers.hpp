@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+
 namespace Nektar::SolverCore::detail
 {
 
@@ -69,7 +71,8 @@ NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
 
     constexpr auto coeff = GetCNABCoefficients<Scheme, TData>();
 
-    TData tmp = ((solutions[idx] * coeff[ind]) + ...);
+    TData tmp =
+        (ScaledTerm<coeff[ind] == TData(0)>(solutions, idx, coeff[ind]) + ...);
     tmp += inout[idx] * coeff[nSolution];
     inout[idx] = tmp;
 }
