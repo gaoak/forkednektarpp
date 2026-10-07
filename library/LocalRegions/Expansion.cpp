@@ -1076,6 +1076,15 @@ void Expansion::v_ComputeTraceNormal([[maybe_unused]] const int id)
     ASSERTL0(false, "Cannot compute trace normal for this expansion.");
 }
 
+NormalVector Expansion::v_GetAlignedTraceNormal(
+    [[maybe_unused]] const int traceid,
+    [[maybe_unused]] const StdRegions::StdExpansion &traceExp)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "Method does not exist for this shape or library");
+    return NormalVector();
+}
+
 void Expansion::GetTraceNormalDerivFactors(
     const LibUtilities::PointsKeyVector &ptsKeys,
     Array<TwoD, const NekDouble> &df, Array<OneD, const NekDouble> &jac)

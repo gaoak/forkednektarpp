@@ -36,6 +36,7 @@ v5.11.0
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
 - Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
+- Fix NaNs from IncNavierStokesSolver restarts: write lower-order pressure checkpoints in the output expansion, and match trace normals to boundary quadrature and orientation in NormVectorIProductWRTBase and FilterAeroForces (!2792)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

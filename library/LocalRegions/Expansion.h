@@ -259,6 +259,26 @@ public:
     LOCAL_REGIONS_EXPORT const std::map<int, NormalVector> &GetTraceNormals(
         void);
 
+    /**
+     * @brief Return the normals of trace @p traceid at the quadrature points
+     * of @p traceExp, in the frame of the shared trace geometry.
+     *
+     * GetTraceNormal() returns normals on this element's own trace basis and,
+     * in 3D, in its local face frame. Boundary expansions are defined on the
+     * trace geometry and may use a different quadrature (e.g. GLL points on
+     * triangular faces of continuous expansions), so the normals are
+     * reoriented and interpolated to match @p traceExp, as is done for its
+     * physical values in GetTracePhysVals().
+     *
+     * The inner arrays may be shared with the cached trace normals and must
+     * not be modified.
+     */
+    inline NormalVector GetAlignedTraceNormal(
+        const int traceid, const StdRegions::StdExpansion &traceExp)
+    {
+        return v_GetAlignedTraceNormal(traceid, traceExp);
+    }
+
     inline void ComputeTraceNormal(const int id)
     {
         v_ComputeTraceNormal(id);
@@ -479,6 +499,9 @@ protected:
                                          bool Forwards);
 
     virtual void v_ComputeTraceNormal(const int id);
+
+    virtual NormalVector v_GetAlignedTraceNormal(
+        const int traceid, const StdRegions::StdExpansion &traceExp);
 
     virtual const Array<OneD, const NekDouble> &v_GetPhysNormals();
 
