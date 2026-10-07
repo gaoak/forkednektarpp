@@ -106,11 +106,11 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     fi
     if [[ $BUILD_DEVICE == "CUDA" ]]; then
         # Load CUDA on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda/13.0.2
+        [[ $OS_VERSION != "macos" ]] && module load cuda/12.6.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=CUDA")
-        CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_86")
+        CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_90")
         CMAKEARGS+=("-DNEKTAR_USE_CUFFTDX:BOOL=ON")
     elif [[ $BUILD_DEVICE == "SYCL-CPU" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
@@ -133,18 +133,20 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-SIMSYCL")
     elif [[ $BUILD_DEVICE == "SYCL-CUDA" ]]; then
-        if [[ $BUILD_CXX == "acpp" ]]; then
-            # This hack is necessary to compile oneMath when using Apptainer
-            export PATH=$PATH:/apps/cuda/12.6.2/lib64/stubs/
-            # Load LLVM support on Linux
-            [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
-        elif [[ $BUILD_CXX == "icpx" ]]; then
-            # Load CUDA and Intel compiler module for SYCL support on Linux
-            [[ $OS_VERSION != "macos" ]] && module load cuda/12.6.2 llvm/intel-6.2.0
-        fi
+        # This hack is necessary to compile oneMath when using Apptainer
+        export PATH=$PATH:/apps/cuda/12.6.2/lib64/stubs/
+        # Load LLVM support on Linux
+        [[ $OS_VERSION != "macos" ]] && module load adaptive-cpp
+        export OMPI_CC=clang-18
+        export OMPI_CXX=acpp
+        # The AdaptiveCpp clang predates the loaded CUDA toolkit
+        export CXXFLAGS="$CXXFLAGS -Wno-unknown-cuda-version"
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=SYCL-CUDA")
+        CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_90")
+        CMAKEARGS+=("-DCMAKE_LINKER=lld")
+        CMAKEARGS+=("-DCMAKE_SHARED_LINKER_FLAGS=\"-fuse-ld=lld\"")
     fi
     if [[ $BUILD_SINGLE_PRECISION == "on" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SINGLE_PRECISION:BOOL=ON")

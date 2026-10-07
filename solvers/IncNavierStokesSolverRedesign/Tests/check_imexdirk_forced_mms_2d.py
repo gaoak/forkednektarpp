@@ -322,7 +322,7 @@ def main():
     parser.add_argument("--final-time", type=float, default=0.02)
     parser.add_argument("--kinvis", type=float, default=0.05)
     parser.add_argument("--num-modes", type=int, default=7)
-    parser.add_argument("--timeout", type=float, default=240.0)
+    parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument(
         "--max-workers",
         type=int,

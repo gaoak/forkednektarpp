@@ -16,10 +16,10 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "web"
 
 stages:
-  - cluster-submit
-  - cluster-post-process
   - build-env-default
   - build-env-full
+  - cluster-submit
+  - cluster-post-process
   - build-and-test
   - quality-checks
   - package-env
@@ -56,6 +56,25 @@ include:
     refs:
       - /^pkg\/.*$/
 
+# The aarch64 environment images are built under emulation, which is far slower
+# than the native x86-64 builds. Rebuild them only when what goes into them
+# changes, rather than on the conditions above: every merge request touching
+# library/ would otherwise pay for an emulated rebuild that cannot differ from
+# the one before it.
+.execution-conditions-arm64: &execution-conditions-arm64
+  only:
+    refs:
+      - merge_requests
+      - master@nektar/nektar
+      - tags@nektar/nektar
+      - web
+    changes:
+      - "docker/nektar-env/**/*"
+      - .gitlab-ci.yml
+  except:
+    refs:
+      - /^pkg\/.*$/
+
 .build-env-template: &build-env-template
   <<: *execution-conditions
   stage: build-env
@@ -73,6 +92,47 @@ include:
     - export IMAGE=$CI_REGISTRY_IMAGE:env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE}
     - docker pull $IMAGE || true
     - docker build --pull --build-arg "REMOVE_UCX=${REMOVE_UCX}" --build-arg "PIP_FLAGS=${PIP_FLAGS}" -t $IMAGE .
+    - docker push $IMAGE
+
+# The cluster runs on aarch64 nodes and there is no Linux aarch64 runner, so
+# these images are cross-built here under QEMU. This is deliberately a separate
+# template rather than a variant of the one above: the emulated build needs
+# steps injected into the middle of that script, and it must not put the jobs
+# that depend on the x86-64 images at risk.
+.build-env-template-arm64: &build-env-template-arm64
+  <<: *execution-conditions-arm64
+  image: docker:28.5.0-dind
+  # An emulated build of these package sets is far slower than the 1h the
+  # native build-env jobs are given.
+  timeout: 3h
+  variables:
+    PIP_FLAGS: ""
+  script:
+    - OS_DISTRO=$(echo $CI_JOB_NAME | cut -d- -f 1)
+    - OS_VERSION=$(echo $CI_JOB_NAME | cut -d- -f 2)
+    - BUILD_TYPE=$(echo $CI_JOB_NAME | cut -d- -f 3)
+    # Register QEMU's aarch64 handler, so the RUN steps of an aarch64 image can
+    # execute on this x86-64 runner. Registration is per host and additive, so
+    # repeating it costs nothing and affects no other job.
+    - docker run --privileged --rm tonistiigi/binfmt --install arm64
+    - sed -e "s %%OS_DISTRO%% $OS_DISTRO g" -e "s %%OS_VERSION%% $OS_VERSION g" -e "s %%REGISTRY%% $CI_REGISTRY_IMAGE g" docker/nektar-env/Dockerfile_${OS_DISTRO}_${BUILD_TYPE} > Dockerfile
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - export BASE=$CI_REGISTRY_IMAGE:env-${OS_DISTRO}-${OS_VERSION}-default
+    - export IMAGE=$CI_REGISTRY_IMAGE:env-${OS_DISTRO}-${OS_VERSION}-${BUILD_TYPE}-arm64
+    - |
+      if [ "$BUILD_TYPE" = "default" ]; then
+        # Refresh the aarch64 base image, as the x86-64 jobs do for theirs.
+        PULL_ARG=--pull
+      else
+        # The FROM line of Dockerfile_*_full names the default image without an
+        # architecture. Pull the aarch64 one and give it that name locally so
+        # this build layers on aarch64, and leave --pull off: it would undo the
+        # retagging by fetching the x86-64 image of the same name.
+        PULL_ARG=
+        docker pull $BASE-arm64
+        docker tag $BASE-arm64 $BASE
+      fi
+    - docker build $PULL_ARG --platform linux/arm64 --build-arg "PIP_FLAGS=${PIP_FLAGS}" -t $IMAGE .
     - docker push $IMAGE
 
 .build-and-test-template: &build-and-test-template
@@ -1003,32 +1063,55 @@ win10-mpi-default-build-and-test:
   timeout: 4h
 
 ##################################################
+############## CLUSTER ENV BUILD #################
+##################################################
+
+ubuntu-noble-default-arm64-build-env:
+  <<: *build-env-template-arm64
+  stage: build-env-default
+
+ubuntu-noble-full-arm64-build-env:
+  <<: *build-env-template-arm64
+  stage: build-env-full
+  needs: ["ubuntu-noble-default-arm64-build-env"]
+  variables:
+    PIP_FLAGS: "--break-system-packages --ignore-installed"
+
+##################################################
 ############## CLUSTER SUBMISSION ################
 ##################################################
 
 ubuntu-noble-full-cuda-cluster-submit:
   <<: *cluster-submit-template
-  needs: []
+  # Optional: the build-env job above runs only when the environment itself
+  # changes, and in every other pipeline this job starts immediately and uses
+  # the image already in the registry.
+  needs:
+    - job: ubuntu-noble-full-arm64-build-env
+      optional: true
   variables:
     BUILD_DEVICE: CUDA
     APPTAINER_FLAGS: "--cleanenv --nv --mount type=bind,src=/apps,dst=/apps \
                       --bind /etc/profile.d/modules.sh:/etc/profile.d/modules.sh \
                       --bind /usr/share/modules:/usr/share/modules \
-                      --bind /usr/lib/x86_64-linux-gnu/modulecmd.tcl:/usr/lib/x86_64-linux-gnu/modulecmd.tcl \
+                      --bind /usr/lib/aarch64-linux-gnu/modulecmd.tcl:/usr/lib/aarch64-linux-gnu/modulecmd.tcl \
                       --env MODULEPATH=/apps/modules/ \
                       --env MODULES_CMD=/usr/share/modules/libexec/modulecmd.tcl"
 
 ubuntu-noble-full-acpp-cuda-cluster-submit:
   <<: *cluster-submit-template
-  needs: []
+  needs:
+    - job: ubuntu-noble-full-arm64-build-env
+      optional: true
   variables:
     DISABLE_CWIPI: true
-    BUILD_CXX: acpp
+    BUILD_CC: mpicc
+    BUILD_CXX: mpicxx
     BUILD_DEVICE: SYCL-CUDA
     APPTAINER_FLAGS: "--cleanenv --nv --mount type=bind,src=/apps,dst=/apps \
                       --bind /etc/profile.d/modules.sh:/etc/profile.d/modules.sh \
                       --bind /usr/share/modules:/usr/share/modules \
-                      --bind /usr/lib/x86_64-linux-gnu/modulecmd.tcl:/usr/lib/x86_64-linux-gnu/modulecmd.tcl \
+                      --bind /usr/lib/aarch64-linux-gnu/modulecmd.tcl:/usr/lib/aarch64-linux-gnu/modulecmd.tcl \
                       --env MODULEPATH=/apps/modules/ \
                       --env MODULES_CMD=/usr/share/modules/libexec/modulecmd.tcl"
 
