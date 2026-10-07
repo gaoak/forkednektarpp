@@ -36,6 +36,7 @@
 #define FIELDUTILS_OUTPUTVTK
 
 #include "OutputVtkBase.h"
+#include <LibUtilities/BasicUtils/VtkUtil.hpp>
 #include <tinyxml.h>
 
 #include <vtkNew.h>

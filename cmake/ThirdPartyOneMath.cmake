@@ -98,6 +98,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -B <BINARY_DIR>
                         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                        -DCMAKE_CXX_FLAGS:STRING=-w
                         -DCUDA_CUDA_LIBRARY=${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so
                         -DOPENCL_INCLUDE_DIR=${OPENCL_INCLUDE_DIR}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}
@@ -141,6 +142,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -B <BINARY_DIR>
                         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                        -DCMAKE_CXX_FLAGS:STRING=-w
                         -DHIP_TARGETS=${NEKTAR_DEVICE_ARCH}
                         -DCMAKE_PREFIX_PATH=${ROCM_PATH}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}

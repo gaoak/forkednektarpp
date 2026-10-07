@@ -28,12 +28,30 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Workarounds needed before including VTK headers.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+#ifndef NEKTAR_LIBUTILITIES_BASICUTILS_VTKUTIL_HPP
+#define NEKTAR_LIBUTILITIES_BASICUTILS_VTKUTIL_HPP
 
 #if NEKTAR_HAS_VTK_6_0_0
 #include <vtkMathConfigure.h>
 #undef VTK_HAS_ISNAN
 #undef VTK_HAS_ISINF
+#endif
+
+// Clang in CUDA mode, which AdaptiveCpp uses for a cuda:sm_XX target, declares
+// only __device__ overloads of isinf, isnan and isfinite in the global
+// namespace. The inline vtkMath::IsInf, IsNan and IsFinite call these
+// unqualified from host code, which then fails to resolve. Bring the host
+// overloads from <cmath> into the global namespace, as libstdc++'s <math.h>
+// does.
+#if defined(__CUDA__)
+#include <cmath>
+using std::isfinite;
+using std::isinf;
+using std::isnan;
+#endif
+
 #endif
