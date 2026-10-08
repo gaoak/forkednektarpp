@@ -39,6 +39,7 @@
 #if __has_include("libxsmm.h")
 #include "libxsmm.h"
 #else
+#include "LibUtilities/LinearAlgebra/Blas.hpp"
 #define LIBXSMM_PREFETCH_NONE 0
 template <typename TData> class libxsmm_mmfunction
 {
@@ -50,26 +51,11 @@ public:
     {
     }
 
+    // Without libxsmm the product goes through the BLAS library the build
+    // links.
     void operator()(const TData *a, const TData *b, TData *c)
     {
-        for (int j = 0; j < n; j++)
-        {
-            for (int i = 0; i < m; i++)
-            {
-                TData tmp = 0.0;
-                for (int l = 0; l < k; l++)
-                {
-                    tmp += a[i + l * m] * b[l + j * k];
-                }
-                // Follow the BLAS/libxsmm contract: when beta is zero C is
-                // not read on input, so it need not be initialised. Reading
-                // it here would propagate NaN/Inf from uninitialised output
-                // buffers, since 0.0 * NaN is NaN rather than 0.
-                c[i + j * m] = (beta == static_cast<TData>(0.0))
-                                   ? alpha * tmp
-                                   : alpha * tmp + beta * c[i + j * m];
-            }
-        }
+        Blas::Gemm('N', 'N', m, n, k, alpha, a, m, b, k, beta, c, m);
     }
 
 private:

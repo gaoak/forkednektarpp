@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: NekBlas backend for the Device execution space (oneMath/oneMKL).
+// Vendor headers are included here, never in NekBlas.hpp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -49,24 +50,11 @@ using namespace oneapi::mkl;
 
 namespace Nektar::NekBlas
 {
-std::unordered_map<unsigned int, oneMathHandle_t *> oneMathHandle::handle;
-
-oneMathHandle_t &oneMathHandle::GetInstance(const unsigned int streamID)
-{
-    if (handle.find(streamID) == handle.end())
-    {
-        handle[streamID] =
-            new oneMathHandle_t(SYCLQueue::GetInstance(streamID), streamID);
-    }
-
-    return *handle[streamID];
-}
-
 [[maybe_unused]] static std::vector<
     sycl::event> inline setOneMathExecutionDependency(const unsigned int
                                                           streamID)
 {
-    // Set SYCL depedencies to reproduce CUDA/HIP default stream behavior.
+    // Set SYCL dependencies to reproduce CUDA/HIP default stream behavior.
     std::vector<sycl::event> dependencies;
     if (streamID == 0)
     {
@@ -88,15 +76,13 @@ oneMathHandle_t &oneMathHandle::GetInstance(const unsigned int streamID)
     return dependencies;
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
-void Gemm([[maybe_unused]] THandle handle, std::string transposeA,
-          std::string transposeB, const std::int64_t M, const std::int64_t N,
-          const std::int64_t K, const TData alpha, const TData *a,
-          const std::int64_t lda, const TData *b, const std::int64_t ldb,
-          const TData beta, TData *c, const std::int64_t ldc)
+template <typename TData>
+void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
+          std::string transposeB, const int M, const int N, const int K,
+          const TData alpha, const TData *a, const int lda, const TData *b,
+          const int ldb, const TData beta, TData *c, const int ldc)
 {
-    sycl::queue &Q = handle.GetQueue();
+    sycl::queue &Q = SYCLQueue::GetInstance(handle.GetStreamID());
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
     auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
@@ -113,8 +99,9 @@ void Gemm([[maybe_unused]] THandle handle, std::string transposeA,
         cgh.host_task(
 #endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-                Gemm(blasHandle_t(), transposeA, transposeB, M, N, K, alpha, 
-                        a, lda, b, ldb, beta, c, ldc);
+                Gemm(Handle<NektarSpaces::Serial>::GetInstance(0),
+                    transposeA, transposeB, M, N, K, alpha, a, lda, b, ldb,
+                    beta, c, ldc);
             });
     });
     // clang-format on
@@ -122,19 +109,16 @@ void Gemm([[maybe_unused]] THandle handle, std::string transposeA,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
-void GemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
-                        std::string transposeB, const std::int64_t M,
-                        const std::int64_t N, const std::int64_t K,
-                        const TData alpha, const TData *a,
-                        const std::int64_t lda, const std::int64_t strideA,
-                        const TData *b, const std::int64_t ldb,
-                        const std::int64_t strideB, const TData beta, TData *c,
-                        const std::int64_t ldc, const std::int64_t strideC,
-                        const std::int64_t batchSize)
+template <typename TData>
+void GemmStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transposeA, std::string transposeB,
+                        const int M, const int N, const int K,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *b, const int ldb,
+                        const int strideB, const TData beta, TData *c,
+                        const int ldc, const int strideC, const int batchSize)
 {
-    sycl::queue &Q = handle.GetQueue();
+    sycl::queue &Q = SYCLQueue::GetInstance(handle.GetStreamID());
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
     auto transA   = (transposeA == "N") ? transpose::N : transpose::T;
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
@@ -152,9 +136,10 @@ void GemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
         cgh.host_task(
 #endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-                GemmStridedBatched(blasHandle_t(), transposeA, transposeB, 
-                    M, N, K, alpha, a, lda, strideA, b, ldb, strideB, beta, c,
-                    ldc, strideC, batchSize);
+                GemmStridedBatched(
+                    Handle<NektarSpaces::Serial>::GetInstance(0), transposeA,
+                    transposeB, M, N, K, alpha, a, lda, strideA, b, ldb,
+                    strideB, beta, c, ldc, strideC, batchSize);
             });
     });
     // clang-format on
@@ -162,15 +147,13 @@ void GemmStridedBatched([[maybe_unused]] THandle handle, std::string transposeA,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
-void Gemv([[maybe_unused]] THandle handle, std::string transpose,
-          const std::int64_t M, const std::int64_t N, const TData alpha,
-          const TData *a, const std::int64_t lda, const TData *x,
-          const std::int64_t incx, const TData beta, TData *y,
-          const std::int64_t incy)
+template <typename TData>
+void Gemv(Handle<NektarSpaces::Device> handle, std::string transpose,
+          const int M, const int N, const TData alpha, const TData *a,
+          const int lda, const TData *x, const int incx, const TData beta,
+          TData *y, const int incy)
 {
-    sycl::queue &Q = handle.GetQueue();
+    sycl::queue &Q = SYCLQueue::GetInstance(handle.GetStreamID());
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
     auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv(
@@ -186,8 +169,8 @@ void Gemv([[maybe_unused]] THandle handle, std::string transpose,
         cgh.host_task(
 #endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-                Gemv(blasHandle_t(), transpose, M, N, alpha, a, lda, x, incx,
-                        beta, y, incy);
+                Gemv(Handle<NektarSpaces::Serial>::GetInstance(0),
+                    transpose, M, N, alpha, a, lda, x, incx, beta, y, incy);
             });
     });
     // clang-format on
@@ -195,18 +178,15 @@ void Gemv([[maybe_unused]] THandle handle, std::string transpose,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
-void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
-                        const std::int64_t M, const std::int64_t N,
-                        const TData alpha, const TData *a,
-                        const std::int64_t lda, const std::int64_t strideA,
-                        const TData *x, const std::int64_t incx,
-                        const std::int64_t strideX, const TData beta, TData *y,
-                        const std::int64_t incy, const std::int64_t strideY,
-                        const std::int64_t batchSize)
+template <typename TData>
+void GemvStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transpose, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *x, const int incx,
+                        const int strideX, const TData beta, TData *y,
+                        const int incy, const int strideY, const int batchSize)
 {
-    sycl::queue &Q = handle.GetQueue();
+    sycl::queue &Q = SYCLQueue::GetInstance(handle.GetStreamID());
 #if defined(NEKTAR_ENABLE_ONEMATH) || defined(NEKTAR_ENABLE_ONEMKL)
 #if defined(NEKTAR_ENABLE_ONEMATH)
     throw std::runtime_error("gemv_batch not yet implemented in oneMath");
@@ -227,9 +207,10 @@ void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
         cgh.host_task(
 #endif
             [=]([[maybe_unused]] sycl::interop_handle ih) {
-                GemvStridedBatched(blasHandle_t(), transpose, M, N, alpha,
-                    a, lda, strideA, x, incx, strideX, beta, y, incy, strideY,
-                    batchSize);
+                GemvStridedBatched(
+                    Handle<NektarSpaces::Serial>::GetInstance(0), transpose,
+                    M, N, alpha, a, lda, strideA, x, incx, strideX, beta, y,
+                    incy, strideY, batchSize);
             });
     });
     // clang-format on
@@ -237,90 +218,81 @@ void GemvStridedBatched([[maybe_unused]] THandle handle, std::string transpose,
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, oneMathHandle_t>, bool>>
-void GeamStridedBatched(THandle, std::string, std::string, const std::int64_t,
-                        const std::int64_t, const TData, const TData *,
-                        const std::int64_t, const std::int64_t, const TData,
-                        const TData *, const std::int64_t, const std::int64_t,
-                        TData *, const std::int64_t, const std::int64_t,
-                        const std::int64_t)
+template <typename TData>
+void GeamStridedBatched(Handle<NektarSpaces::Device>, std::string, std::string,
+                        const int, const int, const TData, const TData *,
+                        const int, const int, const TData, const TData *,
+                        const int, const int, TData *, const int, const int,
+                        const int)
 {
     throw std::runtime_error("GeamStridedBatched is not available for oneMath");
 }
 
-template void Gemm<oneMathHandle_t, float>(
-    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const std::int64_t K,
-    const float alpha, const float *a, const std::int64_t lda, const float *b,
-    const std::int64_t ldb, const float beta, float *c, const std::int64_t ldc);
+template void Gemm<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transposeA, std::string transposeB,
+                          const int M, const int N, const int K,
+                          const float alpha, const float *a, const int lda,
+                          const float *b, const int ldb, const float beta,
+                          float *c, const int ldc);
 
-template void Gemm<oneMathHandle_t, double>(
-    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const std::int64_t K,
-    const double alpha, const double *a, const std::int64_t lda,
-    const double *b, const std::int64_t ldb, const double beta, double *c,
-    const std::int64_t ldc);
+template void Gemm<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transposeA, std::string transposeB,
+                           const int M, const int N, const int K,
+                           const double alpha, const double *a, const int lda,
+                           const double *b, const int ldb, const double beta,
+                           double *c, const int ldc);
 
-template void GemmStridedBatched<oneMathHandle_t, float>(
-    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const std::int64_t K,
-    const float alpha, const float *a, const std::int64_t lda,
-    const std::int64_t strideA, const float *b, const std::int64_t ldb,
-    const std::int64_t strideB, const float beta, float *c,
-    const std::int64_t ldc, const std::int64_t strideC,
-    const std::int64_t batchSize);
+template void GemmStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
+    const float alpha, const float *a, const int lda, const int strideA,
+    const float *b, const int ldb, const int strideB, const float beta,
+    float *c, const int ldc, const int strideC, const int batchSize);
 
-template void GemmStridedBatched<oneMathHandle_t, double>(
-    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const std::int64_t K,
-    const double alpha, const double *a, const std::int64_t lda,
-    const std::int64_t strideA, const double *b, const std::int64_t ldb,
-    const std::int64_t strideB, const double beta, double *c,
-    const std::int64_t ldc, const std::int64_t strideC,
-    const std::int64_t batchSize);
+template void GemmStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
+    const double alpha, const double *a, const int lda, const int strideA,
+    const double *b, const int ldb, const int strideB, const double beta,
+    double *c, const int ldc, const int strideC, const int batchSize);
 
-template void Gemv<oneMathHandle_t, float>(
-    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
-    const std::int64_t N, const float alpha, const float *a,
-    const std::int64_t lda, const float *x, const std::int64_t incx,
-    const float beta, float *y, const std::int64_t incy);
+template void Gemv<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transpose, const int M, const int N,
+                          const float alpha, const float *a, const int lda,
+                          const float *x, const int incx, const float beta,
+                          float *y, const int incy);
 
-template void Gemv<oneMathHandle_t, double>(
-    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
-    const std::int64_t N, const double alpha, const double *a,
-    const std::int64_t lda, const double *x, const std::int64_t incx,
-    const double beta, double *y, const std::int64_t incy);
+template void Gemv<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transpose, const int M, const int N,
+                           const double alpha, const double *a, const int lda,
+                           const double *x, const int incx, const double beta,
+                           double *y, const int incy);
 
-template void GemvStridedBatched<oneMathHandle_t, float>(
-    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
-    const std::int64_t N, const float alpha, const float *a,
-    const std::int64_t lda, const std::int64_t strideA, const float *x,
-    const std::int64_t incx, const std::int64_t strideX, const float beta,
-    float *y, const std::int64_t incy, const std::int64_t strideY,
-    const std::int64_t batchSize);
+template void GemvStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float *x, const int incx, const int strideX,
+    const float beta, float *y, const int incy, const int strideY,
+    const int batchSize);
 
-template void GemvStridedBatched<oneMathHandle_t, double>(
-    oneMathHandle_t handle, std::string transpose, const std::int64_t M,
-    const std::int64_t N, const double alpha, const double *a,
-    const std::int64_t lda, const std::int64_t strideA, const double *x,
-    const std::int64_t incx, const std::int64_t strideX, const double beta,
-    double *y, const std::int64_t incy, const std::int64_t strideY,
-    const std::int64_t batchSize);
+template void GemvStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const double alpha, const double *a, const int lda,
+    const int strideA, const double *x, const int incx, const int strideX,
+    const double beta, double *y, const int incy, const int strideY,
+    const int batchSize);
 
-template void GeamStridedBatched<oneMathHandle_t, float>(
-    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const float alpha,
-    const float *a, const std::int64_t lda, const std::int64_t strideA,
-    const float beta, const float *b, const std::int64_t ldb,
-    const std::int64_t strideB, float *c, const std::int64_t ldc,
-    const std::int64_t strideC, const std::int64_t batchSize);
+template void GeamStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const float alpha,
+    const float *a, const int lda, const int strideA, const float beta,
+    const float *b, const int ldb, const int strideB, float *c, const int ldc,
+    const int strideC, const int batchSize);
 
-template void GeamStridedBatched<oneMathHandle_t, double>(
-    oneMathHandle_t handle, std::string transposeA, std::string transposeB,
-    const std::int64_t M, const std::int64_t N, const double alpha,
-    const double *a, const std::int64_t lda, const std::int64_t strideA,
-    const double beta, const double *b, const std::int64_t ldb,
-    const std::int64_t strideB, double *c, const std::int64_t ldc,
-    const std::int64_t strideC, const std::int64_t batchSize);
+template void GeamStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const double alpha,
+    const double *a, const int lda, const int strideA, const double beta,
+    const double *b, const int ldb, const int strideB, double *c, const int ldc,
+    const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

@@ -574,48 +574,53 @@ The matrix visualized by black dots show the operator matrix $\mathbf{B}$, which
 \label{fig:stdmat_viz}
 \end{figure}
 
-In \texttt{Nektar++}, the actual matrix-matrix multiplication is performed using the \texttt{NekGemm} function, which in turn calls 
-\texttt{blas}, \texttt{cublas}, or \texttt{hipblas} depending on the \texttt{implStr} with which the operator was initialized. An example call to \texttt{NekGemm} from within the \texttt{Apply()} function of the Backward transform operator is shown in listing \ref{lst:NekGemmWrapper}.
+In \texttt{Nektar++}, the actual matrix-matrix multiplication is performed using the \texttt{NekBlas::Gemm} function, which in turn calls
+\texttt{blas}, \texttt{cublas}, or \texttt{hipblas} depending on the execution space of the operator and the device backend Nektar++ was built with.
+The generic interface \path{NekBlas.hpp} takes an opaque \texttt{NekBlas::Handle<ExecSpace>}, which only carries the stream ID; it includes no BLAS library header.
+Each backend implements the routines in its own compilation unit (\path{blas.cpp}, \path{cuBlas.cpp}, \path{hipBlas.cpp}, ...), where it looks up its library handle for the stream.
+The cuBLAS implementation of \texttt{NekBlas::Gemm} is shown in listing \ref{lst:NekGemmWrapper}.
 \begin{minipage}{\textwidth}
 \begin{lstlisting}[
     style=C++Style,
-    caption={C++ wrapper for cuBLAS GEMM operations (cublasSgemm, cublasDgemm).},
+    caption={cuBLAS implementation of NekBlas::Gemm (cublasSgemm, cublasDgemm).},
     label={lst:NekGemmWrapper}
 ]
-template <typename THandle, typename TData>
-typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemm(
-    THandle handle, std::string transposeA, std::string transposeB, const int M,
-    const int N, const int K, const TData alpha, const TData *a, const int lda,
-    const TData *b, const int ldb, const TData beta, TData *c, const int ldc)
+template <typename TData>
+void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
+          std::string transposeB, const int M, const int N, const int K,
+          const TData alpha, const TData *a, const int lda, const TData *b,
+          const int ldb, const TData beta, TData *c, const int ldc)
 {
+    auto cublasHandle = GetCuBlasHandle(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
     auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                 lda, b, ldb, &beta, c, ldc));
+        CUBLAS_CHECK(cublasSgemm(cublasHandle, transA, transB, M, N, K,
+                                 &alpha, a, lda, b, ldb, &beta, c, ldc));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                 lda, b, ldb, &beta, c, ldc));
+        CUBLAS_CHECK(cublasDgemm(cublasHandle, transA, transB, M, N, K,
+                                 &alpha, a, lda, b, ldb, &beta, c, ldc));
     }
 }
 \end{lstlisting}
 \end{minipage}
 
-The arguments of the NekGemm call and their meanings are listed in table \ref{tab:nekgemm_params_full}.
+The arguments of the NekBlas::Gemm call and their meanings are listed in table \ref{tab:nekgemm_params_full}.
 
 \begin{table}[h!]
 \centering
-\caption{NekGemm Parameters with Roles and Values from the Example.}
+\caption{NekBlas::Gemm Parameters with Roles and Values from the Example.}
 \label{tab:nekgemm_params_full}
 \begin{tabularx}{\textwidth}{l p{6.5cm} X}
 \toprule
 \textbf{Parameter} & \textbf{Role in the Matrix Equation ($Z = \alpha \cdot X \cdot Y + \beta \cdot Z$)} & \textbf{Value in BwdTrans} \\
 \midrule
-\texttt{handle}     & The library handle for the execution context. & \path{NekHandle<ExecSpace>::GetInstance()} \\
+\texttt{handle}     & Opaque handle for the execution space and stream. & \path{NekBlas::Handle<ExecSpace>::GetInstance(streamID)} \\
 \texttt{transposeA} & Specifies if matrix $\boldsymbol{X}$ should be transposed. & "N" $\rightarrow$ no transpose \\
 \texttt{transposeB} & Specifies if matrix $\boldsymbol{Y}$ should be transposed. & "N" $\rightarrow$ no transpose \\
 \texttt{M}          & Number of rows in matrices $\boldsymbol{X}$ and $\boldsymbol{Z}$. & $Q^2$ \\

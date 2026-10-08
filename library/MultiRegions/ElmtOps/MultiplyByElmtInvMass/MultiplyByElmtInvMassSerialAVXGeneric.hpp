@@ -39,7 +39,8 @@
 #include <LocalRegions/Expansion.h>
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp>
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassBlockOp.hpp>
 
 namespace Nektar::MultiRegions::detail
@@ -124,6 +125,10 @@ protected:
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
+        // Get BLAS handle. Always BLAS: the libxsmm Gemv does not support
+        // strided vectors, which the AVX layout needs.
+        auto handle = NekBlas::Handle<NektarSpaces::Serial>::GetInstance(0);
+
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
@@ -161,18 +166,17 @@ protected:
                     if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                     {
                         NekBlas::GemvStridedBatched(
-                            NekBlas::blasHandle_t(), "N", m_nmTot, m_nmTot,
-                            (TData)1.0, dmatptr, m_nmTot, m_nmTot * m_nmTot,
-                            inptr, simd_t::width, 1, (TData)0.0, outptr,
-                            simd_t::width, 1, simd_t::width);
+                            handle, "N", m_nmTot, m_nmTot, (TData)1.0, dmatptr,
+                            m_nmTot, m_nmTot * m_nmTot, inptr, simd_t::width, 1,
+                            (TData)0.0, outptr, simd_t::width, 1,
+                            simd_t::width);
                     }
                     else
                     {
                         NekBlas::GemvStridedBatched(
-                            NekBlas::blasHandle_t(), "N", m_nmTot, m_nmTot,
-                            (TData)1.0, dmatptr, m_nmTot, m_nmTot * m_nmTot,
-                            inptr, 1, m_nmTot, (TData)0.0, outptr, 1, m_nmTot,
-                            simd_t::width);
+                            handle, "N", m_nmTot, m_nmTot, (TData)1.0, dmatptr,
+                            m_nmTot, m_nmTot * m_nmTot, inptr, 1, m_nmTot,
+                            (TData)0.0, outptr, 1, m_nmTot, simd_t::width);
                     }
 
                     // Reshape back, if necessary.

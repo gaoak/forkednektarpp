@@ -36,7 +36,7 @@ v5.11.0
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
 - Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
-- Assemble every Krylov vector of the redesign GMRES solver and take its inner products with the global inner-product mask, which it now shares with the redesign CG solver, so that tight tolerances no longer stall (!TBD)
+- Assemble every Krylov vector of the redesign GMRES solver and take its inner products with the global inner-product mask, which it now shares with the redesign CG solver, so that tight tolerances no longer stall (!2786)
 - Add `MemoryRegion` host/device memory abstraction with lazy synchronisation through `ReadOnly`/`WriteOnly`/`ReadWrite` access qualifiers, pinned and pooled memory, contiguous allocation and stream support (!1774, !1833, !2043, !2050, !2204, !2483, !2598)
 - Add block-based `Field`, `BlockAttributes` and `BlockAccessor` storage, typed by `FieldState` (coefficient/physical), with padding and interleaving so that each SIMD or warp lane owns one element (!1906, !1911, !1912, !1941, !1949, !2271)
 - Allow the redesign to be compiled in single and/or double precision (!1947)
@@ -49,22 +49,19 @@ v5.11.0
 - Add device FFT (cuFFT/cuFFTDx, hipFFT, SYCL) and 3DH1D/3DH2D support for element operators (!2186, !2570, !2746, !2752, !2753, !2754, !2756, !2759, !2767)
 - Add two-level `Operator`/`BlockOperator` framework: string-keyed factory, CMake-generated registration, compile-time size specialisation, and run-time selection of execution space (Serial/AVX/Device) and implementation (StdMat/SumFac/SumFacTOP) (!1839, !1970, !2034, !2036, !2168, !2420, !2423, !2594, !2711)
 - Add StdMat (generic, LibXSMM, cuBLAS), SumFac and SumFacTOP implementation strategies shared by Serial, AVX and Device back-ends (!1842, !1903, !2150, !2153, !2154, !2162, !2450)
-- Add element operators: BwdTrans, IProductWRTBase, IProductWRTDerivBase, PhysDeriv, Mass, Helmholtz, MultiplyByElmtInvMass, PhysInterp1DScaled, LinAdvDiffReaction, Expression, Laplacian, Divergence, Advection, CurlCurl and AdvectionDealias, with nodal basis support (!1767, !1772, !1959, !1962, !1973, !2027, !2090, !2121, !2342, !2444, !2452, !2531, !2675)
-- Add trace operators: PhysTraceExtract, IProductWRTPhysTrace, IProductWRTPhysNormalDerivTrace and parallel DG trace exchange (!1835, !2426, !2469, !2684, !2712, !2730, !2734)
-- Add boundary-condition operators: Dirichlet, Neumann, Robin, FwdTransBC, DG and time-dependent conditions, with multi-component processing that no longer calls legacy `ExpList` (!1836, !2256, !2258, !2469, !2592)
+- Add element Operator classes: BwdTrans, IProductWRTBase, IProductWRTDerivBase, PhysDeriv, Mass, Helmholtz, MultiplyByElmtInvMass, PhysInterp1DScaled, LinAdvDiffReaction, Expression, Laplacian, Divergence, Advection, CurlCurl and AdvectionDealias for Serial, AVX, and Device back-ends (!1767, !1772, !1959, !1962, !1973, !2027, !2090, !2121, !2342, !2444, !2452, !2531, !2675)
+- Add trace operators: PhysTraceExtract, IProductWRTPhysTrace, IProductWRTPhysNormalDerivTrace and parallel DG trace exchange for Serial, AVX, and Device back-ends (!1835, !2426, !2469, !2684, !2712, !2730, !2734)
+- Add boundary-condition operators: Dirichlet, Neumann, Robin, FwdTransBC, DG and time-dependent conditions, with multi-component processing for Serial, AVX, and Device back-ends (!1836, !2256, !2258, !2469, !2592)
 - Add assembly/scatter operator for continuous Galerkin on all back-ends (!1854, !2201)
 - Introduce the `SolverCore` library: Driver, EquationSystem, UnsteadySystem, filters, forcing and restarts (!2540, !2673, !2685, !2738)
-- Add time-integration operators: Adams-Bashforth/Moulton, BDF, Runge-Kutta (incl. SSP), DIRK, CNAB/MCNAB, IMEX, IMEX-DIRK, SDC and extrapolation (!2192, !2212, !2216, !2217, !2218, !2223, !2224, !2229, !2233, !2235, !2243, !2245, !2264)
-- Add linear systems (FwdTrans, Helmholtz, Poisson, linear ADR) and run-time selectable Krylov solvers: CG, pipelined CG/CR, GMRES/LGMRES, BiCGSTAB, BiCGSTAB(l), BiCGSTAB-R, CGS, CR, GCR, IDR(s), MINRES, TFQMR and Richardson (!1815, !2095, !2230, !2336, !2340, !2372, !2373, !2374, !2375, !2377, !2378, !2380, !2382, !2386, !2390, !2393, !2394, !2401)
-- Add run-time selectable preconditioners (null, diagonal) with left preconditioning (!2346, !2396)
-- Add run-time selectable Riemann solvers: Lax-Friedrichs, HLL, HLLC, Roe, AUSM variants and average (!2408, !2419, !2433, !2434, !2435, !2449)
-- Add DG flux framework with weak-DG advection and interior-penalty diffusion (!2543, !2557, !2580, !2713, !2714)
+- Add time-integration operators for all back-ends: Adams-Bashforth/Moulton, BDF, Runge-Kutta (incl. SSP), DIRK, CNAB/MCNAB, IMEX, IMEX-DIRK, SDC and extrapolation (!2192, !2212, !2216, !2217, !2218, !2223, !2224, !2229, !2233, !2235, !2243, !2245, !2264)
+- Add linear systems (FwdTrans, Helmholtz, Poisson, linear ADR) and run-time selectable Krylov solvers for all back-ends: CG, pipelined CG/CR, GMRES/LGMRES, BiCGSTAB, BiCGSTAB(l), BiCGSTAB-R, CGS, CR, GCR, IDR(s), MINRES, TFQMR and Richardson (!1815, !2095, !2230, !2336, !2340, !2372, !2373, !2374, !2375, !2377, !2378, !2380, !2382, !2386, !2390, !2393, !2394, !2401)
+- Add run-time selectable preconditioners (null, diagonal) for all back-ends (!2346, !2396)
+- Add run-time selectable Riemann solvers for all back-ends: Lax-Friedrichs, HLL, HLLC, Roe, AUSM variants and average (!2408, !2419, !2433, !2434, !2435, !2449)
+- Add DG flux framework with weak-DG advection and interior-penalty diffusion for all back-ends (!2543, !2557, !2580, !2713, !2714)
 - Add CFL estimation operator (!2694)
 - Add developer documentation for the redesign and coding practices for redesign code (!2406, !2719, !2731, !2749, !2755)
-
-
-
-- Fix NaNs from IncNavierStokesSolver restarts: write lower-order pressure checkpoints in the output expansion, and match trace normals to boundary quadrature and orientation in NormVectorIProductWRTBase and FilterAeroForces (!2792)
+- Make the NekBlas interface vendor agnostic: NekBlas.hpp now takes an opaque NekBlas::Handle<ExecSpace> carrying only the stream ID and no longer includes any BLAS library header, with each backend looking up its library handle in its own compilation unit (!2808)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -93,6 +90,7 @@ v5.11.0
 
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)
+- Fix NaNs from IncNavierStokesSolver restarts: write lower-order pressure checkpoints in the output expansion, and match trace normals to boundary quadrature and orientation in NormVectorIProductWRTBase and FilterAeroForces (!2792)
 
 **ADRSolverRedesign**
 - Add `ADRSolverRedesign` built on the redesign operators and `SolverCore` (!2416)
