@@ -41,7 +41,7 @@ v5.11.0
 - Add block-based `Field`, `BlockAttributes` and `BlockAccessor` storage, typed by `FieldState` (coefficient/physical), with padding and interleaving so that each SIMD or warp lane owns one element (!1906, !1911, !1912, !1941, !1949, !2271)
 - Allow the redesign to be compiled in single and/or double precision (!1947)
 - Add data warehouses for shared basis, standard matrix, geometric factor, mode index, local-to-global and trace data (!2029, !2037, !2065, !2343)
-- Add portable back-ends: CUDA, HIP and SYCL (Intel DPC++ and AdaptiveCpp), plus SimSYCL for development. These replace the earlier Kokkos and DeviceOnHost back-ends (!1847, !2046, !2067, !2078, !2087, !2677, !2693)
+- Add portable back-ends: CUDA, HIP and SYCL (Intel DPC++ and AdaptiveCpp), plus SimSYCL for development. (!1847, !2046, !2067, !2078, !2087, !2677, !2693)
 - Add `LoopExecution` (`parallel_for`, `parallel_reduce`, atomics) and unified device API, kernel launchers and streams/events across back-ends (!1854, !2018, !2021, !2320, !2589, !2607)
 - Add ARM NEON support to the SIMD library (!2666)
 - Add multi-GPU support with one MPI rank per device, automatic rank-to-GPU binding and GPU-aware MPI communication of `MemoryRegion` data (!1932, !2195, !2207, !2415, !2467, !2527)
