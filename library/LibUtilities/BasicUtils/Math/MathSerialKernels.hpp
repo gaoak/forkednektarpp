@@ -202,6 +202,49 @@ inline void daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
 }
 
 template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+inline void daxpbyKernel(const size_t nsize, const TData alpha, const TData *x,
+                         const TData beta, const TData *y, TData *z,
+                         [[maybe_unused]] const unsigned int streamID = 0)
+{
+    std::transform(x, x + nsize, y, z, [&](const TData &xi, const TData &yi) {
+        return alpha * xi + beta * yi;
+    });
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+inline void daxpbypzKernel(const size_t nsize, const TData alpha,
+                           const TData *x, const TData beta, const TData *y,
+                           const TData *z, TData *w,
+                           [[maybe_unused]] const unsigned int streamID = 0)
+{
+    for (size_t i = 0; i < nsize; ++i)
+    {
+        w[i] = alpha * x[i] + beta * y[i] + z[i];
+    }
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+inline void daxpbypczKernel(const size_t nsize, const TData alpha,
+                            const TData *x, const TData beta, const TData *y,
+                            const TData gamma, const TData *z, TData *w,
+                            [[maybe_unused]] const unsigned int streamID = 0)
+{
+    for (size_t i = 0; i < nsize; ++i)
+    {
+        w[i] = alpha * x[i] + beta * y[i] + gamma * z[i];
+    }
+}
+
+template <
     typename ExecSpace, bool init, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
         Enable = true>

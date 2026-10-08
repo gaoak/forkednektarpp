@@ -344,6 +344,57 @@ public:
         }
     }
 
+    void daxpby(TData alpha, TData beta)
+    {
+        for (unsigned int blk = 0; blk < this->m_in1->GetBlocks().size(); ++blk)
+        {
+            auto x = this->m_in1->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto y = this->m_in2->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto z = this->m_expected->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto size = this->m_in1->GetBlocks()[blk].GetNumElements() *
+                        this->m_in1->GetBlocks()[blk].GetNumData();
+            auto stride = this->m_in1->GetBlocks()[blk].CompSize();
+
+            for (unsigned int nc = 0; nc < this->m_in1->GetNumComponents();
+                 ++nc, x += stride, y += stride, z += stride)
+            {
+                std::transform(x, x + size, y, z,
+                               [=](const TData &xi, const TData &yi) {
+                                   return alpha * xi + beta * yi;
+                               });
+            }
+        }
+    }
+
+    /// w = alpha x + beta y + gamma z, with z = x.
+    void daxpbypcz(TData alpha, TData beta, TData gamma)
+    {
+        for (unsigned int blk = 0; blk < this->m_in1->GetBlocks().size(); ++blk)
+        {
+            auto x = this->m_in1->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto y = this->m_in2->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto z = this->m_expected->GetBlocks()[blk]
+                         .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            auto size = this->m_in1->GetBlocks()[blk].GetNumElements() *
+                        this->m_in1->GetBlocks()[blk].GetNumData();
+            auto stride = this->m_in1->GetBlocks()[blk].CompSize();
+
+            for (unsigned int nc = 0; nc < this->m_in1->GetNumComponents();
+                 ++nc, x += stride, y += stride, z += stride)
+            {
+                std::transform(x, x + size, y, z,
+                               [=](const TData &xi, const TData &yi) {
+                                   return alpha * xi + beta * yi + gamma * xi;
+                               });
+            }
+        }
+    }
+
     TData sum()
     {
         TData out = 0;

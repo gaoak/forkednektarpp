@@ -109,6 +109,22 @@ public:
                                T &z, const std::string &execSpace = "");
 
     template <typename T>
+    LIB_MATH_EXPORT void daxpby(const typename T::value_type alpha, T &x,
+                                const typename T::value_type beta, T &y, T &z,
+                                const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void daxpbypz(const typename T::value_type alpha, T &x,
+                                  const typename T::value_type beta, T &y, T &z,
+                                  T &w, const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void daxpbypcz(const typename T::value_type alpha, T &x,
+                                   const typename T::value_type beta, T &y,
+                                   const typename T::value_type gamma, T &z,
+                                   T &w, const std::string &execSpace = "");
+
+    template <typename T>
     LIB_MATH_EXPORT typename T::value_type reduceSum(
         T &x, const std::string &execSpace = "");
 

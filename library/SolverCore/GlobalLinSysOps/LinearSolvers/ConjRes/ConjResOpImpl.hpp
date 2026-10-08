@@ -76,7 +76,8 @@ public:
               "ConjRes p",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
-              components, 1))
+              components, 1)),
+          m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -114,6 +115,7 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_r;
     LibUtilities::Field<TData, FieldState::Coeff> m_q;
     LibUtilities::Field<TData, FieldState::Coeff> m_p;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
@@ -127,20 +129,30 @@ protected:
         out.template Initialize<MemSpace>(0);
         out.SetInterleaveWidth(in);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = this->m_math.ddot(in, m_r);
-        this->m_rowComm->AllReduce(rhsMagnitude,
-                                   Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrZeroDirOp->Apply(m_r);
-        eps = this->m_math.ddot(in, m_r);
-        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 0);
+
+        // Communication.
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
+        eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)

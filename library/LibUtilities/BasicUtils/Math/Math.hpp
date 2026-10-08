@@ -392,7 +392,7 @@ void add(LibUtilities::MemoryRegion<TData> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -415,7 +415,7 @@ void add(LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -559,7 +559,7 @@ void sub(LibUtilities::MemoryRegion<TData> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -582,7 +582,7 @@ void sub(LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -643,7 +643,7 @@ void mul(LibUtilities::MemoryRegion<TData> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -698,7 +698,7 @@ void mul(LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -759,7 +759,7 @@ void div(LibUtilities::MemoryRegion<TData> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -814,7 +814,7 @@ void div(LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -854,7 +854,7 @@ void daxpy(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -877,7 +877,7 @@ void daxpy(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    if (x.size() != y.size() && y.size() != z.size())
+    if (x.size() != y.size() || y.size() != z.size())
     {
         std::stringstream msg;
 
@@ -906,6 +906,226 @@ void daxpy(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
         daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr, streamID);
 
         z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void daxpby(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+            const TData beta, LibUtilities::MemoryRegion<TData> &y,
+            LibUtilities::MemoryRegion<TData> &z)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() || y.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpby - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    daxpbyKernel<ExecSpace>(nsize, alpha, xptr, beta, yptr, zptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void daxpby(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
+            const TData beta, LibUtilities::Field<TData, TFieldState> &y,
+            LibUtilities::Field<TData, TFieldState> &z)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() || y.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpby - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                      y.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernel::daxpby - Inconsistent interleave format between "
+                  "input Fields");
+
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        daxpbyKernel<ExecSpace>(size, alpha, xptr, beta, yptr, zptr, streamID);
+
+        z.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void daxpbypz(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+              const TData beta, LibUtilities::MemoryRegion<TData> &y,
+              LibUtilities::MemoryRegion<TData> &z,
+              LibUtilities::MemoryRegion<TData> &w)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() || y.size() != z.size() || z.size() != w.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpbypz - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, ReadOnly>();
+    auto wptr  = w.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    daxpbypzKernel<ExecSpace>(nsize, alpha, xptr, beta, yptr, zptr, wptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void daxpbypz(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
+              const TData beta, LibUtilities::Field<TData, TFieldState> &y,
+              LibUtilities::Field<TData, TFieldState> &z,
+              LibUtilities::Field<TData, TFieldState> &w)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() || y.size() != z.size() || z.size() != w.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpbypz - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                          y.GetBlocks()[blk].GetInterleaveWidth() &&
+                      y.GetBlocks()[blk].GetInterleaveWidth() ==
+                          z.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernel::daxpbypz - Inconsistent interleave format "
+                  "between input Fields");
+
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto wptr =
+            w.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        daxpbypzKernel<ExecSpace>(size, alpha, xptr, beta, yptr, zptr, wptr,
+                                  streamID);
+
+        w.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+            x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
+template <typename ExecSpace, typename TData>
+void daxpbypcz(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
+               const TData beta, LibUtilities::MemoryRegion<TData> &y,
+               const TData gamma, LibUtilities::MemoryRegion<TData> &z,
+               LibUtilities::MemoryRegion<TData> &w)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    // Without a z term, z is not read.
+    if (gamma == 0.0)
+    {
+        daxpby<ExecSpace>(alpha, x, beta, y, w);
+        return;
+    }
+
+    if (x.size() != y.size() || y.size() != z.size() || z.size() != w.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpbypcz - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, ReadOnly>();
+    auto wptr  = w.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    daxpbypczKernel<ExecSpace>(nsize, alpha, xptr, beta, yptr, gamma, zptr,
+                               wptr);
+}
+
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void daxpbypcz(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
+               const TData beta, LibUtilities::Field<TData, TFieldState> &y,
+               const TData gamma, LibUtilities::Field<TData, TFieldState> &z,
+               LibUtilities::Field<TData, TFieldState> &w)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    // Without a z term, z is not read.
+    if (gamma == 0.0)
+    {
+        daxpby<ExecSpace>(alpha, x, beta, y, w);
+        return;
+    }
+
+    if (x.size() != y.size() || y.size() != z.size() || z.size() != w.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::daxpbypcz - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                          y.GetBlocks()[blk].GetInterleaveWidth() &&
+                      y.GetBlocks()[blk].GetInterleaveWidth() ==
+                          z.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernel::daxpbypcz - Inconsistent interleave format "
+                  "between input Fields");
+
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto wptr =
+            w.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        daxpbypczKernel<ExecSpace>(size, alpha, xptr, beta, yptr, gamma, zptr,
+                                   wptr, streamID);
+
+        w.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }

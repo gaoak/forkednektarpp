@@ -38,6 +38,7 @@
 
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
+#include <limits>
 #include <memory>
 
 #if defined(_MSC_VER)
@@ -186,6 +187,91 @@ BOOST_FIXTURE_TEST_CASE(daxpykernel, TestMath<double>)
 
     // Backend results
     m_math.daxpy(alpha, *m_in1, *m_in2, *m_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-14));
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(daxpbykernel, TestMath<double>)
+{
+    Configure();
+    SetTestCase();
+    double alpha = 1.5;
+    double beta  = -0.75;
+
+    // std results
+    TestMath<double>::daxpby(alpha, beta);
+
+    // Backend results
+    m_math.daxpby(alpha, *m_in1, beta, *m_in2, *m_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-14));
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(daxpbypzkernel, TestMath<double>)
+{
+    Configure();
+    SetTestCase();
+    double alpha = 1.5;
+    double beta  = -0.75;
+
+    // std results
+    TestMath<double>::daxpbypcz(alpha, beta, 1.0);
+
+    // Backend results, with z = x
+    m_math.daxpbypz(alpha, *m_in1, beta, *m_in2, *m_in1, *m_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-14));
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(daxpbypczkernel, TestMath<double>)
+{
+    Configure();
+    SetTestCase();
+    double alpha = 1.5;
+    double beta  = -0.75;
+    double gamma = 0.25;
+
+    // std results
+    TestMath<double>::daxpbypcz(alpha, beta, gamma);
+
+    // Backend results, with z = x
+    m_math.daxpbypcz(alpha, *m_in1, beta, *m_in2, gamma, *m_in1, *m_out);
+
+    // Check results
+    boost::test_tools::output_test_stream output;
+    {
+        BOOST_TEST(Compare(1.0E-14));
+    }
+}
+
+// Without a z term, z is not read: a NaN in it must not reach the result,
+// here written in place of z.
+BOOST_FIXTURE_TEST_CASE(daxpbypczkernel_nogamma, TestMath<double>)
+{
+    Configure();
+    SetTestCase();
+    double alpha = 1.5;
+    double beta  = -0.75;
+
+    // std results
+    TestMath<double>::daxpby(alpha, beta);
+
+    // Backend results
+    m_out->Initialize<NektarSpaces::HostSpace>(
+        std::numeric_limits<double>::quiet_NaN());
+    m_math.daxpbypcz(alpha, *m_in1, beta, *m_in2, 0.0, *m_out, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;

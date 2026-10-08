@@ -36,6 +36,8 @@
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjRes/PipeConjResOp.hpp"
 
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjRes/PipeConjResKernels.hpp"
+
 #include <iomanip>
 
 using namespace Nektar;
@@ -283,21 +285,22 @@ protected:
             rho   = rho_new;
 
             // Update search vectors.
+            // Math::daxpy<ExecSpace>(beta, m_z, m_s, m_z);
+            // Math::daxpy<ExecSpace>(beta, m_q, m_wk, m_q);
+            // Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+            // Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+            // Math::daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
+            // Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
             if (this->m_niter == 1)
             {
-                m_z.template Copy<MemSpace>(m_s);
-                m_q.template Copy<MemSpace>(m_wk);
-                m_p.template Copy<MemSpace>(m_r);
+                UpdatePipeConjResSearchDirection<ExecSpace, 0>(
+                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out);
             }
             else
             {
-                Math::daxpy<ExecSpace>(beta, m_z, m_s, m_z);
-                Math::daxpy<ExecSpace>(beta, m_q, m_wk, m_q);
-                Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+                UpdatePipeConjResSearchDirection<ExecSpace, 1>(
+                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out);
             }
-            Math::daxpy<ExecSpace>(alpha, m_p, out, out);
-            Math::daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
-            Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
         }
     }
 };
