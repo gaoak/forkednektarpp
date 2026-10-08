@@ -57,14 +57,9 @@ namespace
 static_assert(sizeof(DFTPlan<double> *) <= sizeof(std::uintptr_t),
               "NekDeviceFFT.h stores FFT plan handles as uintptr_t");
 
-inline sycl::queue &AsQueue(void *p)
+inline sycl::queue &AsQueue(unsigned int streamID)
 {
-    return *static_cast<sycl::queue *>(p);
-}
-
-inline sycl::event &AsEvent(void *p)
-{
-    return *static_cast<sycl::event *>(p);
+    return SYCLQueue::GetInstance(streamID);
 }
 
 template <typename TData> inline DFTPlan<TData> *AsPlan(std::uintptr_t h)
@@ -170,25 +165,13 @@ std::string NekDeviceFFTImpl<float>::className =
         "NekDeviceFFT", NekDeviceFFTImpl<float>::create);
 
 template <typename TData>
-NekDeviceFFTImpl<TData>::NekDeviceFFTImpl(int N, int M, bool highPriorityStream)
-    : NektarFFT<TData>(N), m_halfN(N / 2), m_batch(M)
+NekDeviceFFTImpl<TData>::NekDeviceFFTImpl(int N, int M, unsigned int streamID)
+    : NektarFFT<TData>(N), m_halfN(N / 2), m_batch(M), m_streamID(streamID)
 {
     const std::size_t nPhys  = static_cast<std::size_t>(M) * N;
     const std::size_t nCmplx = static_cast<std::size_t>(M) * (m_halfN + 1);
 
-    {
-        // SYCLQueue owns the registry queues and hands out no private ones,
-        // and SYCL has no queue priority, so highPriorityStream has nothing
-        // to select here: this object gets a queue of its own either way.
-        (void)highPriorityStream;
-        sycl::queue *queue =
-            new sycl::queue(SYCLQueue::GetInstance(0).get_context(),
-                            SYCLQueue::GetInstance(0).get_device(),
-                            sycl::property::queue::in_order());
-        m_stream = queue;
-    }
-
-    sycl::queue &Q = AsQueue(m_stream);
+    sycl::queue &Q = AsQueue(m_streamID);
 
     m_d_phys    = sycl::malloc_device<TData>(nPhys, Q);
     m_d_cmplx   = sycl::malloc_device<DFTCmplx<TData>>(nCmplx, Q);
@@ -228,7 +211,10 @@ template <typename TData> NekDeviceFFTImpl<TData>::~NekDeviceFFTImpl()
 {
     DestroyGraph();
 
-    sycl::queue &Q = AsQueue(m_stream);
+    // The queue is shared through the registry, so drain it before freeing
+    // memory that work still on it may use.
+    sycl::queue &Q = AsQueue(m_streamID);
+    Q.wait();
 
     DestroyDFTPlan(*AsPlan<TData>(m_planForward));
     delete AsPlan<TData>(m_planForward);
@@ -237,9 +223,6 @@ template <typename TData> NekDeviceFFTImpl<TData>::~NekDeviceFFTImpl()
     sycl::free(m_d_phys, Q);
     sycl::free(m_d_cmplx, Q);
     sycl::free(m_h_staging, Q);
-
-    delete static_cast<sycl::queue *>(m_stream);
-    m_stream = nullptr;
 }
 
 template <typename TData> void NekDeviceFFTImpl<TData>::DestroyGraph()
@@ -264,7 +247,7 @@ template <typename TData> void NekDeviceFFTImpl<TData>::ComputeKernelParams()
 
 template <typename TData> void NekDeviceFFTImpl<TData>::WarmUpPlans()
 {
-    sycl::queue &Q = AsQueue(m_stream);
+    sycl::queue &Q = AsQueue(m_streamID);
 
     Q.memset(m_d_phys, 0,
              static_cast<std::size_t>(m_batch) * this->m_N * sizeof(TData));
@@ -279,7 +262,7 @@ template <typename TData>
 void NekDeviceFFTImpl<TData>::LaunchWavenumberMultiplyImpl(TData beta,
                                                            TData normScale)
 {
-    WavenumberMultiplyKernel(AsQueue(m_stream), AsCmplx<TData>(m_d_cmplx),
+    WavenumberMultiplyKernel(AsQueue(m_streamID), AsCmplx<TData>(m_d_cmplx),
                              static_cast<size_t>(m_batch), m_halfN, beta,
                              normScale);
 }
@@ -288,7 +271,7 @@ template <typename TData>
 void NekDeviceFFTImpl<TData>::LaunchComplexToCoefImpl()
 {
     ComplexToCoefKernel<TData, false>(
-        AsQueue(m_stream), AsCmplx<TData>(m_d_cmplx), m_d_phys,
+        AsQueue(m_streamID), AsCmplx<TData>(m_d_cmplx), m_d_phys,
         static_cast<size_t>(m_batch), this->m_N, m_halfN, TData(0));
 }
 
@@ -297,15 +280,16 @@ void NekDeviceFFTImpl<TData>::LaunchScaledComplexToCoefImpl()
 {
     const TData invN = TData(1) / static_cast<TData>(this->m_N);
     ComplexToCoefKernel<TData, true>(
-        AsQueue(m_stream), AsCmplx<TData>(m_d_cmplx), m_d_phys,
+        AsQueue(m_streamID), AsCmplx<TData>(m_d_cmplx), m_d_phys,
         static_cast<size_t>(m_batch), this->m_N, m_halfN, invN);
 }
 
 template <typename TData>
 void NekDeviceFFTImpl<TData>::LaunchCoefToComplexImpl()
 {
-    CoefToComplexKernel(AsQueue(m_stream), m_d_phys, AsCmplx<TData>(m_d_cmplx),
-                        static_cast<size_t>(m_batch), this->m_N, m_halfN);
+    CoefToComplexKernel(AsQueue(m_streamID), m_d_phys,
+                        AsCmplx<TData>(m_d_cmplx), static_cast<size_t>(m_batch),
+                        this->m_N, m_halfN);
 }
 
 template <typename TData>
@@ -313,23 +297,26 @@ void NekDeviceFFTImpl<TData>::LaunchScaleRealsImpl(TData alpha)
 {
     const std::size_t nComplex =
         static_cast<std::size_t>(m_batch) * (m_halfN + 1);
-    ScaleComplexKernel(AsQueue(m_stream), AsCmplx<TData>(m_d_cmplx), nComplex,
+    ScaleComplexKernel(AsQueue(m_streamID), AsCmplx<TData>(m_d_cmplx), nComplex,
                        alpha);
 }
 
-template <typename TData> void NekDeviceFFTImpl<TData>::WaitOnEvent(void *event)
+template <typename TData>
+void NekDeviceFFTImpl<TData>::WaitOnStream(unsigned int producerStreamID)
 {
-    if (event != nullptr)
+    if (producerStreamID != m_streamID)
     {
+        [[maybe_unused]] sycl::event &event =
+            SYCLQueue::GetEvent(producerStreamID);
 #if defined(__ADAPTIVECPP__)
-        AsQueue(m_stream).submit([&](sycl::handler &cgh) {
-            cgh.depends_on(AsEvent(event));
+        AsQueue(m_streamID).submit([&](sycl::handler &cgh) {
+            cgh.depends_on(event);
             cgh.AdaptiveCpp_enqueue_custom_operation(
                 [=]([[maybe_unused]] sycl::interop_handle ih) {});
         });
 #elif defined(__DPCPP_COMPILER)
-        AsQueue(m_stream).submit([&](sycl::handler &cgh) {
-            cgh.ext_oneapi_barrier({AsEvent(event)});
+        AsQueue(m_streamID).submit([&](sycl::handler &cgh) {
+            cgh.ext_oneapi_barrier({event});
         });
 #endif
     }
@@ -341,7 +328,7 @@ void NekDeviceFFTImpl<TData>::UploadPhys(const TData *phys)
     const std::size_t nBytes =
         static_cast<std::size_t>(m_batch) * this->m_N * sizeof(TData);
     std::memcpy(m_h_staging, phys, nBytes);
-    AsQueue(m_stream).memcpy(m_d_phys, m_h_staging, nBytes);
+    AsQueue(m_streamID).memcpy(m_d_phys, m_h_staging, nBytes);
 }
 
 template <typename TData>
@@ -349,8 +336,8 @@ void NekDeviceFFTImpl<TData>::DownloadPhys(TData *phys)
 {
     const std::size_t nBytes =
         static_cast<std::size_t>(m_batch) * this->m_N * sizeof(TData);
-    AsQueue(m_stream).memcpy(m_h_staging, m_d_phys, nBytes);
-    AsQueue(m_stream).wait();
+    AsQueue(m_streamID).memcpy(m_h_staging, m_d_phys, nBytes);
+    AsQueue(m_streamID).wait();
     std::memcpy(phys, m_h_staging, nBytes);
 }
 
@@ -363,7 +350,7 @@ void NekDeviceFFTImpl<TData>::UploadCoef(const TData *coef)
         static_cast<std::size_t>(m_batch) * this->m_N * sizeof(TData);
     std::memcpy(m_h_staging, coef, nBytes);
 
-    AsQueue(m_stream).memcpy(m_d_phys, m_h_staging, nBytes);
+    AsQueue(m_streamID).memcpy(m_d_phys, m_h_staging, nBytes);
 
     LaunchCoefToComplexImpl();
 }
@@ -376,15 +363,15 @@ void NekDeviceFFTImpl<TData>::DownloadCoef(TData *coef)
 
     LaunchComplexToCoefImpl();
 
-    AsQueue(m_stream).memcpy(m_h_staging, m_d_phys, nBytes);
+    AsQueue(m_streamID).memcpy(m_h_staging, m_d_phys, nBytes);
 
-    AsQueue(m_stream).wait();
+    AsQueue(m_streamID).wait();
     std::memcpy(coef, m_h_staging, nBytes);
 }
 
 template <typename TData> void NekDeviceFFTImpl<TData>::FFTFwdTransDevice()
 {
-    ComputeForward(AsQueue(m_stream), *AsPlan<TData>(m_planForward), m_d_phys,
+    ComputeForward(AsQueue(m_streamID), *AsPlan<TData>(m_planForward), m_d_phys,
                    AsCmplx<TData>(m_d_cmplx));
 
     LaunchScaleRealsImpl(TData(1) / static_cast<TData>(this->m_N));
@@ -392,15 +379,15 @@ template <typename TData> void NekDeviceFFTImpl<TData>::FFTFwdTransDevice()
 
 template <typename TData> void NekDeviceFFTImpl<TData>::FFTBwdTransDevice()
 {
-    ComputeBackward(AsQueue(m_stream), *AsPlan<TData>(m_planForward),
+    ComputeBackward(AsQueue(m_streamID), *AsPlan<TData>(m_planForward),
                     AsCmplx<TData>(m_d_cmplx), m_d_phys);
 }
 
 template <typename TData> void NekDeviceFFTImpl<TData>::FFTExecOnlyDevice()
 {
-    ComputeForward(AsQueue(m_stream), *AsPlan<TData>(m_planForward), m_d_phys,
+    ComputeForward(AsQueue(m_streamID), *AsPlan<TData>(m_planForward), m_d_phys,
                    AsCmplx<TData>(m_d_cmplx));
-    ComputeBackward(AsQueue(m_stream), *AsPlan<TData>(m_planForward),
+    ComputeBackward(AsQueue(m_streamID), *AsPlan<TData>(m_planForward),
                     AsCmplx<TData>(m_d_cmplx), m_d_phys);
 }
 
@@ -444,13 +431,13 @@ void NekDeviceFFTImpl<TData>::v_FFTFwdTrans(TData *inarray, TData *outarray)
 
     UploadPhys(inarray);
 
-    ComputeForward(AsQueue(m_stream), *AsPlan<TData>(m_planForward), m_d_phys,
+    ComputeForward(AsQueue(m_streamID), *AsPlan<TData>(m_planForward), m_d_phys,
                    AsCmplx<TData>(m_d_cmplx));
 
     LaunchScaledComplexToCoefImpl();
 
-    AsQueue(m_stream).memcpy(m_h_staging, m_d_phys, nBytes);
-    AsQueue(m_stream).wait();
+    AsQueue(m_streamID).memcpy(m_h_staging, m_d_phys, nBytes);
+    AsQueue(m_streamID).wait();
     std::memcpy(outarray, m_h_staging, nBytes);
 }
 

@@ -62,6 +62,7 @@ v5.11.0
 - Add CFL estimation operator (!2694)
 - Add developer documentation for the redesign and coding practices for redesign code (!2406, !2719, !2731, !2749, !2755)
 - Make the NekBlas interface vendor agnostic: NekBlas.hpp now takes an opaque NekBlas::Handle<ExecSpace> carrying only the stream ID and no longer includes any BLAS library header, with each backend looking up its library handle in its own compilation unit (!2808)
+- Consistently use streamID for DeviceFFT (!2810)
 - Minimise memory traffic for LinearSolvers (!2809)
 
 **NekMesh**
