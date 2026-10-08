@@ -368,6 +368,116 @@ template void MathHelper::daxpy<LibUtilities::Field<float, FieldState::Coeff>>(
     LibUtilities::Field<float, FieldState::Coeff> &z,
     const std::string &execSpace);
 
+// daxpby template specialization.
+template void MathHelper::daxpby<LibUtilities::MemoryRegion<double>>(
+    const double alpha, LibUtilities::MemoryRegion<double> &x,
+    const double beta, LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z, const std::string &execSpace);
+template void MathHelper::daxpby<LibUtilities::MemoryRegion<float>>(
+    const float alpha, LibUtilities::MemoryRegion<float> &x, const float beta,
+    LibUtilities::MemoryRegion<float> &y, LibUtilities::MemoryRegion<float> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpby<LibUtilities::Field<double, FieldState::Phys>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Phys> &x,
+    const double beta, LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpby<LibUtilities::Field<float, FieldState::Phys>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Phys> &x,
+    const float beta, LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpby<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Coeff> &x,
+    const double beta, LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template void MathHelper::daxpby<LibUtilities::Field<float, FieldState::Coeff>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Coeff> &x,
+    const float beta, LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+
+// daxpbypz template specialization.
+template void MathHelper::daxpbypz<LibUtilities::MemoryRegion<double>>(
+    const double alpha, LibUtilities::MemoryRegion<double> &x,
+    const double beta, LibUtilities::MemoryRegion<double> &y,
+    LibUtilities::MemoryRegion<double> &z,
+    LibUtilities::MemoryRegion<double> &w, const std::string &execSpace);
+template void MathHelper::daxpbypz<LibUtilities::MemoryRegion<float>>(
+    const float alpha, LibUtilities::MemoryRegion<float> &x, const float beta,
+    LibUtilities::MemoryRegion<float> &y, LibUtilities::MemoryRegion<float> &z,
+    LibUtilities::MemoryRegion<float> &w, const std::string &execSpace);
+template void MathHelper::daxpbypz<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Phys> &x,
+    const double beta, LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    LibUtilities::Field<double, FieldState::Phys> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypz<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Phys> &x,
+    const float beta, LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    LibUtilities::Field<float, FieldState::Phys> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypz<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Coeff> &x,
+    const double beta, LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    LibUtilities::Field<double, FieldState::Coeff> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypz<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Coeff> &x,
+    const float beta, LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    LibUtilities::Field<float, FieldState::Coeff> &w,
+    const std::string &execSpace);
+
+// daxpbypcz template specialization.
+template void MathHelper::daxpbypcz<LibUtilities::MemoryRegion<double>>(
+    const double alpha, LibUtilities::MemoryRegion<double> &x,
+    const double beta, LibUtilities::MemoryRegion<double> &y,
+    const double gamma, LibUtilities::MemoryRegion<double> &z,
+    LibUtilities::MemoryRegion<double> &w, const std::string &execSpace);
+template void MathHelper::daxpbypcz<LibUtilities::MemoryRegion<float>>(
+    const float alpha, LibUtilities::MemoryRegion<float> &x, const float beta,
+    LibUtilities::MemoryRegion<float> &y, const float gamma,
+    LibUtilities::MemoryRegion<float> &z, LibUtilities::MemoryRegion<float> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypcz<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Phys> &x,
+    const double beta, LibUtilities::Field<double, FieldState::Phys> &y,
+    const double gamma, LibUtilities::Field<double, FieldState::Phys> &z,
+    LibUtilities::Field<double, FieldState::Phys> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypcz<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Phys> &x,
+    const float beta, LibUtilities::Field<float, FieldState::Phys> &y,
+    const float gamma, LibUtilities::Field<float, FieldState::Phys> &z,
+    LibUtilities::Field<float, FieldState::Phys> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypcz<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    const double alpha, LibUtilities::Field<double, FieldState::Coeff> &x,
+    const double beta, LibUtilities::Field<double, FieldState::Coeff> &y,
+    const double gamma, LibUtilities::Field<double, FieldState::Coeff> &z,
+    LibUtilities::Field<double, FieldState::Coeff> &w,
+    const std::string &execSpace);
+template void MathHelper::daxpbypcz<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    const float alpha, LibUtilities::Field<float, FieldState::Coeff> &x,
+    const float beta, LibUtilities::Field<float, FieldState::Coeff> &y,
+    const float gamma, LibUtilities::Field<float, FieldState::Coeff> &z,
+    LibUtilities::Field<float, FieldState::Coeff> &w,
+    const std::string &execSpace);
+
 // reduceSum template specialization.
 template double MathHelper::reduceSum<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);

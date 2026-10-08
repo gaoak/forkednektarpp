@@ -345,6 +345,51 @@ __global__ __launch_bounds__(blockSize) void daxpyKernel(const size_t nsize,
     }
 }
 
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void daxpbyKernel(
+    const size_t nsize, const TData alpha, const TData *x, const TData beta,
+    const TData *y, TData *z)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        z[idx] = alpha * x[idx] + beta * y[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void daxpbypzKernel(
+    const size_t nsize, const TData alpha, const TData *x, const TData beta,
+    const TData *y, const TData *z, TData *w)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        w[idx] = alpha * x[idx] + beta * y[idx] + z[idx];
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void daxpbypczKernel(
+    const size_t nsize, const TData alpha, const TData *x, const TData beta,
+    const TData *y, const TData gamma, const TData *z, TData *w)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        w[idx] = alpha * x[idx] + beta * y[idx] + gamma * z[idx];
+    }
+}
+
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void reduceSumKernel(const size_t nsize,
@@ -1790,6 +1835,74 @@ inline void daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
 #endif
 
     daxpyKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, y, z);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpbyKernel(const size_t nsize, const TData alpha, const TData *x,
+                         const TData beta, const TData *y, TData *z,
+                         const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    daxpbyKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, beta, y,
+                                                     z);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpbypzKernel(const size_t nsize, const TData alpha,
+                           const TData *x, const TData beta, const TData *y,
+                           const TData *z, TData *w,
+                           const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    daxpbypzKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, beta, y,
+                                                       z, w);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpbypczKernel(const size_t nsize, const TData alpha,
+                            const TData *x, const TData beta, const TData *y,
+                            const TData gamma, const TData *z, TData *w,
+                            const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    daxpbypczKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, beta,
+                                                        y, gamma, z, w);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

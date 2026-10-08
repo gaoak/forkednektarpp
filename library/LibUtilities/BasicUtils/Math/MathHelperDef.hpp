@@ -397,6 +397,97 @@ void MathHelper::daxpy(const typename T::value_type alpha, T &x, T &y, T &z,
 }
 
 template <typename T>
+void MathHelper::daxpby(const typename T::value_type alpha, T &x,
+                        const typename T::value_type beta, T &y, T &z,
+                        const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::daxpby<NektarSpaces::Serial>(alpha, x, beta, y, z);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::daxpby<NektarSpaces::AVX>(alpha, x, beta, y, z);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::daxpby<NektarSpaces::Device>(alpha, x, beta, y, z);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
+void MathHelper::daxpbypz(const typename T::value_type alpha, T &x,
+                          const typename T::value_type beta, T &y, T &z, T &w,
+                          const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::daxpbypz<NektarSpaces::Serial>(alpha, x, beta, y, z, w);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::daxpbypz<NektarSpaces::AVX>(alpha, x, beta, y, z, w);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::daxpbypz<NektarSpaces::Device>(alpha, x, beta, y, z, w);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
+void MathHelper::daxpbypcz(const typename T::value_type alpha, T &x,
+                           const typename T::value_type beta, T &y,
+                           const typename T::value_type gamma, T &z, T &w,
+                           const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::daxpbypcz<NektarSpaces::Serial>(alpha, x, beta, y, gamma,
+                                                      z, w);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::daxpbypcz<NektarSpaces::AVX>(alpha, x, beta, y, gamma, z,
+                                                   w);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::daxpbypcz<NektarSpaces::Device>(alpha, x, beta, y, gamma,
+                                                      z, w);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
 typename T::value_type MathHelper::reduceSum(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;

@@ -161,13 +161,13 @@ protected:
         out.template Initialize<MemSpace>(0);
         out.SetInterleaveWidth(in);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate inital rhs magnitude.
         m_r[0].template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r[0]);
-        rhsMagnitude = this->m_math.ddot(in, m_r[0]);
-        this->m_rowComm->AllReduce(rhsMagnitude,
-                                   Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
+        Math::ddot<ExecSpace>(in, m_r[0], exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
@@ -179,8 +179,18 @@ protected:
             this->m_precon->Apply(m_r[0], m_r[0]);
         }
 
-        eps = this->m_math.ddot(m_r[0], m_r[0]);
-        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        Math::ddot<ExecSpace>(m_r[0], m_r[0], exchange + 0);
+
+        // Communication.
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
+        eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -339,7 +349,7 @@ protected:
 
             //  --- Polynomial part ---
             // Reset device memory.
-            auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+            exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
             for (unsigned int ii = 0, cnt = 0; ii <= m_stage; ++ii)
             {
                 for (unsigned int i = 0; i <= ii; ++i, ++cnt)
@@ -351,7 +361,7 @@ protected:
                 m_vExchange, Nektar::LibUtilities::ReduceSum);
 
             // Device-to-host copy.
-            auto exchangeHost =
+            exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
             for (unsigned int ii = 0, cnt = 0; ii <= m_stage; ++ii)

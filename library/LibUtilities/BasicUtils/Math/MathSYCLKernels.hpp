@@ -285,6 +285,62 @@ inline void daxpyKernel(const size_t nsize, const TData alpha, const TData *x,
     SYCLQueue::SetEvent(streamID, e);
 }
 
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpbyKernel(const size_t nsize, const TData alpha, const TData *x,
+                         const TData beta, const TData *y, TData *z,
+                         const unsigned int streamID = 0)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            z[indx] = alpha * x[indx] + beta * y[indx];
+        });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpbypzKernel(const size_t nsize, const TData alpha,
+                           const TData *x, const TData beta, const TData *y,
+                           const TData *z, TData *w,
+                           const unsigned int streamID = 0)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            w[indx] = alpha * x[indx] + beta * y[indx] + z[indx];
+        });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void daxpbypczKernel(const size_t nsize, const TData alpha,
+                            const TData *x, const TData beta, const TData *y,
+                            const TData gamma, const TData *z, TData *w,
+                            const unsigned int streamID = 0)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            w[indx] = alpha * x[indx] + beta * y[indx] + gamma * z[indx];
+        });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
 template <bool init, typename TData>
 void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const unsigned int streamID, const size_t nsize,

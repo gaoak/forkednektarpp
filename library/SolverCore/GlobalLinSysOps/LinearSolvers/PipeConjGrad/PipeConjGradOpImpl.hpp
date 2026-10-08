@@ -36,6 +36,8 @@
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad/PipeConjGradOp.hpp"
 
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad/PipeConjGradKernels.hpp"
+
 #include <iomanip>
 
 using namespace Nektar;
@@ -293,24 +295,26 @@ protected:
             }
 
             // Compute new search direction.
+            // Math::daxpy<ExecSpace>(beta, m_z, m_n, m_z);
+            // Math::daxpy<ExecSpace>(beta, m_q, m_m, m_q);
+            // Math::daxpy<ExecSpace>(beta, m_s, m_w, m_s);
+            // Math::daxpy<ExecSpace>(beta, m_p, m_u, m_p);
+            // Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+            // Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            // Math::daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
+            // Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
             if (this->m_niter == 1)
             {
-                m_z.template Copy<MemSpace>(m_n);
-                m_q.template Copy<MemSpace>(m_m);
-                m_s.template Copy<MemSpace>(m_w);
-                m_p.template Copy<MemSpace>(m_u);
+                UpdatePipeConjGradSearchDirection<ExecSpace, 0>(
+                    alpha, beta, m_n, m_m, m_z, m_q, m_s, m_p, m_u, m_w, m_r,
+                    out);
             }
             else
             {
-                Math::daxpy<ExecSpace>(beta, m_z, m_n, m_z);
-                Math::daxpy<ExecSpace>(beta, m_q, m_m, m_q);
-                Math::daxpy<ExecSpace>(beta, m_s, m_w, m_s);
-                Math::daxpy<ExecSpace>(beta, m_p, m_u, m_p);
+                UpdatePipeConjGradSearchDirection<ExecSpace, 1>(
+                    alpha, beta, m_n, m_m, m_z, m_q, m_s, m_p, m_u, m_w, m_r,
+                    out);
             }
-            Math::daxpy<ExecSpace>(alpha, m_p, out, out);
-            Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
-            Math::daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
-            Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
         }
     }
 };

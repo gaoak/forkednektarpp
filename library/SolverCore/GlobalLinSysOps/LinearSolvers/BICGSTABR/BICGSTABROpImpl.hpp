@@ -205,8 +205,8 @@ protected:
             // Update search vectors.
             if (this->m_niter > 0)
             {
-                Math::daxpy<ExecSpace>(-omega, m_v, m_p, m_p);
-                Math::daxpy<ExecSpace>(beta, m_p, m_r, m_p);
+                Math::daxpbypz<ExecSpace>(-beta * omega, m_v, beta, m_p, m_r,
+                                          m_p);
             }
 
             // Perform the method-specific matrix-vector multiply operation.

@@ -84,9 +84,11 @@ public:
             session->DefinesParameter("LinSysRightPrecon")
                 ? session->GetParameter("LinSysRightPrecon")
                 : true;
-        m_stage = session->DefinesParameter("IDRstage")
-                      ? session->GetParameter("IDRstage")
-                      : 4;
+        m_stage     = session->DefinesParameter("IDRstage")
+                          ? session->GetParameter("IDRstage")
+                          : 4;
+        m_vExchange = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 2u),
+                                                        eHostPinned);
 
         // Set-up storage.
         std::random_device rd;
@@ -142,6 +144,7 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_v;
     LibUtilities::Field<TData, FieldState::Coeff> m_w;
     LibUtilities::Field<TData, FieldState::Coeff> m_r;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     unsigned int m_stage = 0;
 
@@ -194,13 +197,13 @@ protected:
         out.template Initialize<MemSpace>(0);
         out.SetInterleaveWidth(in);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = this->m_math.ddot(in, m_r);
-        this->m_rowComm->AllReduce(rhsMagnitude,
-                                   Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
@@ -212,8 +215,18 @@ protected:
             this->m_precon->Apply(m_r, m_r);
         }
 
-        eps = this->m_math.ddot(in, m_r);
-        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 0);
+
+        // Communication.
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
+        eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -234,12 +247,24 @@ protected:
         }
         while (true)
         {
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
             // Compute Phi.
             for (unsigned int k = 0; k < m_stage; k++)
             {
-                Phi[k] = this->m_math.ddot(m_P[k], m_r);
+                Math::ddot<ExecSpace>(m_P[k], m_r, exchange + k);
             }
-            this->m_rowComm->AllReduce(Phi, Nektar::LibUtilities::ReduceSum);
+
+            // Communication.
+            this->m_rowComm->template AllReduce<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+            // Device-to-host copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            std::copy_n(exchangeHost, m_stage, Phi.begin());
 
             // Inner iteration.
             for (unsigned int k = 0; k < m_stage; k++)
@@ -302,13 +327,13 @@ protected:
                 }
                 else
                 {
-                    Math::mul<ExecSpace>(gamma[k], m_U[k], m_U[k]);
+                    Math::daxpby<ExecSpace>(omega, m_v, gamma[k], m_U[k],
+                                            m_U[k]);
                     for (unsigned int i = k + 1; i < m_stage; i++)
                     {
                         Math::daxpy<ExecSpace>(gamma[i], m_U[i], m_U[k],
                                                m_U[k]);
                     }
-                    Math::daxpy<ExecSpace>(omega, m_v, m_U[k], m_U[k]);
                 }
 
                 // Perform the method-specific matrix-vector Math::multiply
@@ -332,13 +357,27 @@ protected:
                     Math::daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
                 }
 
+                // Reset device memory.
+                m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
                 // Update Mu.
                 for (unsigned int i = k; i < m_stage; i++)
                 {
-                    TData mu = this->m_math.ddot(m_P[i], m_G[k]);
-                    this->m_rowComm->AllReduce(mu,
-                                               Nektar::LibUtilities::ReduceSum);
-                    Mu[i][k] = mu;
+                    Math::ddot<ExecSpace>(m_P[i], m_G[k], exchange + i - k);
+                }
+
+                // Communication.
+                this->m_rowComm->template AllReduce<MemSpace>(
+                    m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+                // Device-to-host copy.
+                exchangeHost =
+                    m_vExchange
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+                for (unsigned int i = k; i < m_stage; i++)
+                {
+                    Mu[i][k] = exchangeHost[i - k];
                 }
 
                 if (Mu[k][k] == 0.0)
@@ -423,15 +462,25 @@ protected:
                 this->m_precon->Apply(m_w, m_w);
             }
 
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
             // Update coefficients.
-            omega0 = this->m_math.ddot(m_w, m_r);
-            this->m_rowComm->AllReduce(omega0, LibUtilities::ReduceSum);
-            omega1 = this->m_math.ddot(m_w, m_w);
-            this->m_rowComm->AllReduce(omega1, LibUtilities::ReduceSum);
-            omega = omega0 / omega1;
-            rho   = this->m_math.ddot(m_r, m_r);
-            this->m_rowComm->AllReduce(rho, LibUtilities::ReduceSum);
-            rho = std::abs(omega0 / (std::sqrt(omega1) * std::sqrt(rho)));
+            Math::ddot<ExecSpace>(m_w, m_r, exchange + 0);
+            Math::ddot<ExecSpace>(m_w, m_w, exchange + 1);
+
+            // Communication.
+            this->m_rowComm->template AllReduce<MemSpace>(
+                m_vExchange, LibUtilities::ReduceSum);
+
+            // Device-to-host copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            omega0 = exchangeHost[0];
+            omega1 = exchangeHost[1];
+            omega  = omega0 / omega1;
+            rho    = std::abs(omega0 / (std::sqrt(omega1) * std::sqrt(eps)));
             if (rho < kappa)
             {
                 omega *= kappa / rho;

@@ -81,7 +81,8 @@ public:
               "MINRESOp r1",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
-              components, 1))
+              components, 1)),
+          m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -120,6 +121,7 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_p1;
     LibUtilities::Field<TData, FieldState::Coeff> m_v0;
     LibUtilities::Field<TData, FieldState::Coeff> m_v1;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
@@ -140,13 +142,13 @@ protected:
         out.template Initialize<MemSpace>(0);
         out.SetInterleaveWidth(in);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate inital rhs magnitude.
         m_v0.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_v0);
-        rhsMagnitude = this->m_math.ddot(in, m_v0);
-        this->m_rowComm->AllReduce(rhsMagnitude,
-                                   Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
+        Math::ddot<ExecSpace>(in, m_v0, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial vector.
@@ -156,9 +158,19 @@ protected:
         {
             this->m_precon->Apply(m_w, m_w);
         }
-        eps = this->m_math.ddot(m_v0, m_w);
-        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
-        beta1 = std::sqrt(eps);
+        Math::ddot<ExecSpace>(m_v0, m_w, exchange + 0);
+
+        // Communication.
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
+        eps          = exchangeHost[0];
+        beta1        = std::sqrt(eps);
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -201,14 +213,13 @@ protected:
             // Update search vector.
             if (this->m_niter > 0)
             {
-                Math::mul<ExecSpace>(-beta1, m_v1, m_v1);
-                Math::daxpy<ExecSpace>(-alpha, m_v0, m_v1, m_v1);
+                Math::daxpbypz<ExecSpace>(-alpha, m_v0, -beta1, m_v1, m_q,
+                                          m_v1);
             }
             else
             {
-                Math::mul<ExecSpace>(-alpha, m_v0, m_v1);
+                Math::daxpy<ExecSpace>(-alpha, m_v0, m_q, m_v1);
             }
-            Math::add<ExecSpace>(m_v1, m_q, m_v1);
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
@@ -242,14 +253,14 @@ protected:
             else if (this->m_niter == 1)
             {
                 // m_p0 = 0
-                Math::mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
-                Math::daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
+                Math::daxpby<ExecSpace>((TData)1.0 / alpha1, m_w,
+                                        -alpha2 / alpha1, m_p1, m_p0);
             }
             else
             {
-                Math::mul<ExecSpace>(-alpha3 / alpha1, m_p0, m_p0);
-                Math::daxpy<ExecSpace>(-alpha2 / alpha1, m_p1, m_p0, m_p0);
-                Math::daxpy<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0, m_p0);
+                Math::daxpbypcz<ExecSpace>(-alpha2 / alpha1, m_p1,
+                                           (TData)1.0 / alpha1, m_w,
+                                           -alpha3 / alpha1, m_p0, m_p0);
             }
             Math::daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
 

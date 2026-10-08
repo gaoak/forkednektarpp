@@ -291,7 +291,6 @@ protected:
 
             if (this->m_leftPreconditioner)
             {
-                Math::mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_r0, m_r0);
                 eta[0] = std::sqrt(prec_factor * eps / eps0);
             }
             else
@@ -300,7 +299,7 @@ protected:
             }
 
             // Initial search vector.
-            Math::mul<ExecSpace>((TData)1.0 / eta[0], m_r0, m_V[0]);
+            Math::mul<ExecSpace>((TData)1.0 / std::sqrt(eps), m_r0, m_V[0]);
 
             // Inner loop.
             while (true)
@@ -341,12 +340,13 @@ protected:
                 this->m_robBndCondOp->Apply(Z1, m_w);
                 this->m_assmbScatrZeroDirOp->Apply(m_w);
 
-                // Apply preconditioner.
+                // Apply preconditioner. Its scaling of m_w is applied with
+                // the first Gram-Schmidt update.
+                TData wScale = 1.0;
                 if (this->m_leftPreconditioner)
                 {
                     this->m_precon->Apply(m_w, m_w);
-                    Math::mul<ExecSpace>(std::sqrt(prec_factor / eps0), m_w,
-                                         m_w);
+                    wScale = std::sqrt(prec_factor / eps0);
                 }
 
                 if (m_isModifiedGramSchmidt)
@@ -357,7 +357,16 @@ protected:
                         h1[i] = this->m_math.ddot(this->m_mask, m_w, m_V[i]);
                         this->m_rowComm->AllReduce(h1[i],
                                                    LibUtilities::ReduceSum);
-                        Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                        if (i == starttem)
+                        {
+                            h1[i] *= wScale;
+                            Math::daxpby<ExecSpace>(-h1[i], m_V[i], wScale, m_w,
+                                                    m_w);
+                        }
+                        else
+                        {
+                            Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                        }
                     }
 
                     // Calculate the L2 norm and normalize.
@@ -387,8 +396,16 @@ protected:
                                                     ReadOnly>();
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
-                        h1[i] = exchangeHost[i];
-                        Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                        h1[i] = wScale * exchangeHost[i];
+                        if (i == starttem)
+                        {
+                            Math::daxpby<ExecSpace>(-h1[i], m_V[i], wScale, m_w,
+                                                    m_w);
+                        }
+                        else
+                        {
+                            Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                        }
                     }
 
                     // Calculate the L2 norm and normalize.
