@@ -1,0 +1,258 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: TestLinearSolver.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description: Fixture base shared by the linear system unit tests -
+// FwdTrans, HelmSolve, PoissonSolve and LinearADRSolve. It owns the session,
+// the expansion list and the physical input / coefficient output fields they
+// all work on, and compares the computed field against an expected one.
+//
+// This carries only what those four tests use. In particular there is no
+// homogeneous (3DH1/3DH2) setup and no plain ExpList branch: every one of
+// them solves a global system on a ContField.
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/SessionReader.h>
+#include <MultiRegions/ContField.h>
+#include <SpatialDomains/MeshGraphIO.h>
+
+#include <UnitTests/TestBoostSetup.hpp>
+#include <UnitTests/TestGlobalConfiguration.hpp>
+
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+
+NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::ExecAndImpl);
+
+/**
+ * @class TestLinearSolver
+ *
+ * A test fixture holding the session, expansion list and fields that the
+ * linear system operators are exercised on: a physical space input, a
+ * coefficient space output, and the coefficient space result the operator is
+ * expected to produce.
+ *
+ * The fixture constructor (destructor) is called before (after) each call to
+ * the BOOST_FIXTURE_TEST_CASE(<test name>, <fixture>) macro.
+ *
+ * See "Single test case fixture" on the Boost.Test documentation for more
+ * details:
+ * https://www.boost.org/doc/libs/1_82_0/libs/test/doc/html/boost_test/tests_organization/fixtures/case.html
+ */
+template <typename TData> class TestLinearSolver
+{
+public:
+    TestLinearSolver()          = default;
+    virtual ~TestLinearSolver() = default;
+
+    /**
+     * @brief Read the session, build the expansion list and allocate the
+     * fields the test cases work on.
+     */
+    void Configure()
+    {
+        SetSession();
+        SetExpList();
+        SetFixture();
+    }
+
+    /**
+     * @brief Compare the computed field to the expected one, with absolute
+     * tolerance tol. The two must have the same blocks and components; their
+     * interleave widths may differ.
+     *
+     * @return bool
+     */
+    bool Compare(TData tol)
+    {
+        auto rank = m_session->GetComm()->GetRank();
+
+        if (m_expected.GetNumComponents() != m_out.GetNumComponents())
+        {
+            std::cout << "Mismatch of number of components." << std::endl;
+            return false;
+        }
+
+        if (m_expected.GetNumHomoModes() != m_out.GetNumHomoModes())
+        {
+            std::cout << "Mismatch of number of homogeneous modes."
+                      << std::endl;
+            return false;
+        }
+
+        if (m_expected.GetBlocks().size() != m_out.GetBlocks().size())
+        {
+            std::cout << "Mismatch of block size." << std::endl;
+            return false;
+        }
+
+        // ToVector() returns every component element by element, whatever
+        // the interleave width of each block, and leaves the fields as they
+        // are.
+        const std::vector<TData> out = m_out.template ToVector<TData>();
+        const std::vector<TData> expected =
+            m_expected.template ToVector<TData>();
+        const size_t compSize =
+            out.size() / (m_out.GetNumComponents() * m_out.GetNumHomoModes());
+
+        bool isMatch = true;
+
+        if (rank == 0)
+        {
+            printf("#elm #pts output               expected            "
+                   "difference\n");
+        }
+        size_t blkOffset = 0;
+        for (unsigned int blk = 0; blk < m_out.GetBlocks().size(); ++blk)
+        {
+            const auto &outBlock = m_out.GetBlocks()[blk];
+            const auto &expBlock = m_expected.GetBlocks()[blk];
+            if ((outBlock.GetNumElements() != expBlock.GetNumElements()) ||
+                (outBlock.GetNumData() != expBlock.GetNumData()))
+            {
+                std::cout << "Mismatch of block structure." << std::endl;
+                return false;
+            }
+            const size_t nElmts     = outBlock.GetNumElements();
+            const unsigned int nPts = outBlock.GetNumData();
+
+            for (unsigned int n = 0;
+                 n < m_out.GetNumComponents() * m_out.GetNumHomoModes(); ++n)
+            {
+                const TData *outptr = out.data() + n * compSize + blkOffset;
+                const TData *expptr =
+                    expected.data() + n * compSize + blkOffset;
+                size_t MisMatchcnt = 0, total = 0;
+
+                for (size_t el = 0, cnt = 0; el < nElmts; ++el)
+                {
+                    for (unsigned int pts = 0; pts < nPts; ++pts, ++cnt)
+                    {
+                        if (std::isnan(outptr[cnt]) ||
+                            std::isinf(outptr[cnt]) ||
+                            std::abs(outptr[cnt] - expptr[cnt]) > tol)
+                        {
+                            printf("%04lu %04u %20.16f %20.16f %20.16f\n", el,
+                                   pts, outptr[cnt], expptr[cnt],
+                                   std::abs(outptr[cnt] - expptr[cnt]));
+                            MisMatchcnt++;
+                        }
+                        total++;
+                    }
+                }
+
+                if (MisMatchcnt)
+                {
+                    std::cout << "Number of mismatches in component " << n
+                              << " on block " << blk << " is " << MisMatchcnt
+                              << " out of " << total << " on rank: " << rank
+                              << std::endl;
+                    isMatch = false;
+                }
+            }
+            blkOffset += nElmts * nPts;
+        }
+
+        return isMatch;
+    }
+
+protected:
+    std::string m_meshName = "";
+    SessionReaderSharedPtr m_session;
+    ExpListSharedPtr m_expList;
+    Field<TData, FieldState::Phys> m_in;
+    Field<TData, FieldState::Coeff> m_out;
+    Field<TData, FieldState::Coeff> m_expected;
+
+    void SetSession()
+    {
+        std::string execStr(GlobalConfiguration::ExecStr());
+        std::string implStr(GlobalConfiguration::ImplStr());
+
+        BOOST_TEST_MESSAGE("Creating input and output fields");
+
+        // Construct a fake command-line argument array to be fed to
+        // Session::Reader::CreateInstance. The first element stands for
+        // the name of the executable which, in our case, doesn't matter.
+        int argc    = 4;
+        char **argv = new char *[argc];
+        argv[0]     = strdup("exe_name");
+        argv[1]     = strdup(m_meshName.data());
+        argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
+        argv[3]     = strdup(("--opImpl=" + implStr).c_str());
+
+        m_session = SessionReader::CreateInstance(argc, argv);
+
+        for (int i = 0; i < argc; ++i)
+        {
+            free(argv[i]);
+        }
+        delete[] argv;
+    }
+
+    void SetExpList()
+    {
+        auto graph = SpatialDomains::MeshGraphIO::Read(m_session);
+
+        m_expList = MemoryManager<ContField>::AllocateSharedPtr(
+            m_session, graph, "u", true, false, Collections::eNoCollection);
+        m_expList->SetDataWarehouse();
+    }
+
+    void SetFixture()
+    {
+        const unsigned int ncomp = m_session->GetVariables().size();
+        auto inBlockAttr =
+            GetBlockAttributes<TData, FieldState::Phys>(m_expList);
+        auto outBlockAttr =
+            GetBlockAttributes<TData, FieldState::Coeff>(m_expList);
+
+        m_in = Field<TData, FieldState::Phys>("f_in", inBlockAttr, ncomp, 1);
+        m_out =
+            Field<TData, FieldState::Coeff>("f_out", outBlockAttr, ncomp, 1);
+        m_expected = Field<TData, FieldState::Coeff>("f_expected", outBlockAttr,
+                                                     ncomp, 1);
+    }
+};
+
+#include <UnitTests/TestBoostTeardown.hpp>

@@ -97,6 +97,34 @@ protected:
         const Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &qfield,
         Array<OneD, Array<OneD, Array<OneD, NekDouble>>> &viscousTensor);
 
+    // The InteriorPenalty counterparts of GetFluxVector(). DiffusionIP never
+    // reads m_fluxVector: it drives four functors of its own, and one left
+    // unbound is a bad_function_call on the first right-hand-side evaluation
+    // rather than an error at setup. All four apply the same diffusivity
+    // (epsilon, d00/d11/d22) as GetFluxVector(), so LDG and InteriorPenalty
+    // solve the same equation.
+    void GetFluxVectorCons(const int nDim,
+                           const Array<OneD, Array<OneD, NekDouble>> &inarray,
+                           const TensorOfArray3D<NekDouble> &qfield,
+                           TensorOfArray3D<NekDouble> &viscousTensor,
+                           Array<OneD, int> &nonZeroIndex,
+                           const Array<OneD, Array<OneD, NekDouble>> &normal);
+
+    void GetFluxVectorConsTrace(
+        const int nDim, const Array<OneD, Array<OneD, NekDouble>> &inarray,
+        const TensorOfArray3D<NekDouble> &qfield,
+        TensorOfArray3D<NekDouble> &viscousTensor,
+        Array<OneD, int> &nonZeroIndex,
+        const Array<OneD, Array<OneD, NekDouble>> &normal);
+
+    void GetSymmFluxVectorCons(
+        const int nDim, const Array<OneD, Array<OneD, NekDouble>> &inaverg,
+        const Array<OneD, Array<OneD, NekDouble>> &injumps,
+        TensorOfArray3D<NekDouble> &outarray, Array<OneD, int> &nonZeroIndex,
+        const Array<OneD, Array<OneD, NekDouble>> &normal);
+
+    void SpecialBndTreat(Array<OneD, Array<OneD, NekDouble>> &consvar);
+
     void v_GenerateSummary(SummaryList &s) override;
 };
 

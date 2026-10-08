@@ -37,6 +37,7 @@
 
 #include "avx2.hpp"
 #include "avx512.hpp"
+#include "neon.hpp"
 #include "scalar.hpp"
 #include "sse2.hpp"
 #include "sve.hpp"
@@ -87,7 +88,8 @@ template <typename T, int width> struct default_abi
     using type = typename first_not_void_of<
         typename sve<T, width>::type, typename avx512<T, width>::type,
         typename avx2<T, width>::type, typename sse2<T, width>::type,
-        typename simd64<T>::type, typename scalar<T>::type>::type;
+        typename neon<T, width>::type, typename simd64<T>::type,
+        typename scalar<T>::type>::type;
 
     static_assert(!std::is_void_v<type>, "unsupported SIMD type");
 };
@@ -118,12 +120,16 @@ public:
 static constexpr unsigned int PACKSIZE =
     abi::default_longsimd_width<double>::value;
 
+#if defined(__CUDACC__) || defined(__NEK_HIPCC__)
+#define TINYSIMD_PRAGMA_UNROLL
+#else
 #if defined(__clang__)
 #define TINYSIMD_PRAGMA_UNROLL _Pragma("clang loop unroll(full)")
 #elif defined(__GNUC__)
 #define TINYSIMD_PRAGMA_UNROLL _Pragma("GCC unroll 16")
 #else
 #define TINYSIMD_PRAGMA_UNROLL
+#endif
 #endif
 
 // light wrapper for default types
@@ -490,6 +496,11 @@ using avx2Double8 = details::long_simd<avx2Double4, 8>;
 
 #if defined(__AVX512F__) && defined(NEKTAR_ENABLE_SIMD_AVX512)
 using avx512Double16 = details::long_simd<avx512Double8, 16>;
+#endif
+
+#if defined(__aarch64__) && defined(__ARM_NEON) &&                             \
+    defined(NEKTAR_ENABLE_SIMD_NEON)
+using neonDouble4 = details::long_simd<neonDouble2, 4>;
 #endif
 
 template <typename SimdType, unsigned int Width>

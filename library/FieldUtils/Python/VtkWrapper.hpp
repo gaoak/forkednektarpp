@@ -35,6 +35,8 @@
 #ifndef NEKTAR_FIELDUTILS_PYTHON_VTKWRAPPER_HPP
 #define NEKTAR_FIELDUTILS_PYTHON_VTKWRAPPER_HPP
 
+#include <LibUtilities/BasicUtils/VtkUtil.hpp>
+
 #include <vtkObjectBase.h>
 #include <vtkSmartPointer.h>
 #include <vtkVersion.h>

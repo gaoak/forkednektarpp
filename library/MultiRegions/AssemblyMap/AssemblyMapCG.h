@@ -41,6 +41,8 @@
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/MultiRegionsDeclspec.h>
 
+#include <MultiRegions/AssemblyMap/AssemblyComm.h>
+
 namespace Nektar::MultiRegions
 {
 static std::map<int, int> NullIntIntMap;
@@ -101,6 +103,34 @@ public:
         return m_parallelDirBndSign;
     }
 
+    /// Per-local-coefficient universal id mask used to build the Dirichlet
+    /// boundary gather-scatter handle (m_dirBndGsh). Entry @p i is non-zero
+    /// (the universal id of the corresponding dof) only for local Dirichlet
+    /// coefficients whose value has to be reconciled across partitions --
+    /// i.e. those that at least one partition cannot fill from its own
+    /// boundary condition expansion -- and zero everywhere else. This is
+    /// exactly the mask for which m_parallelDirBndSign reconciles local sign
+    /// conventions, so it is also the only set over which an absolute-maximum
+    /// combine of duplicated values is well defined. Exposed so that a
+    /// device-resident universal Dirichlet assembly can reproduce
+    /// Gs::Gather(..., Gs::gs_amax, m_dirBndGsh) exactly, without having to
+    /// re-derive (and possibly widen) the mask from the public global maps.
+    MULTI_REGIONS_EXPORT const Array<OneD, long> &GetParaDirBnd() const
+    {
+        return m_paraDirBnd;
+    }
+
+    // Get Send Receive entries for CG Comm
+    MULTI_REGIONS_EXPORT const std::vector<size_t> &GetSREntries() const
+    {
+        return m_cgcomm->GetSREntries();
+    }
+    /// Get Rank from which recieved ranks is sent
+    MULTI_REGIONS_EXPORT const std::vector<unsigned> &GetFromRank() const
+    {
+        return m_cgcomm->GetFromRank();
+    }
+
 protected:
     /// Integer map of local coeffs to global space
     Array<OneD, int> m_localToGlobalMap;
@@ -142,6 +172,12 @@ protected:
     /// Set indicating the local coeffs just touching parallel
     /// dirichlet boundary that have a sign change
     std::set<int> m_parallelDirBndSign;
+    /// Per-local-coefficient universal id mask that m_dirBndGsh is built
+    /// from; see GetParaDirBnd(). Empty for assembly maps built through a
+    /// path that does not set up m_dirBndGsh.
+    Array<OneD, long> m_paraDirBnd;
+    std::unique_ptr<AssemblyComm<double>> m_cgcomm;
+    std::unique_ptr<AssemblyComm<double>> m_cgcommBnd;
 
     MULTI_REGIONS_EXPORT int CreateGraph(
         const ExpList &locExp, const BndCondExp &bndCondExp,
@@ -209,9 +245,6 @@ protected:
 
     MULTI_REGIONS_EXPORT void v_UniversalAssemble(
         Array<OneD, NekDouble> &pGlobal) const override;
-
-    MULTI_REGIONS_EXPORT void v_UniversalAssemble(
-        Array<OneD, NekDouble> &pGlobal, int offset) const override;
 
     MULTI_REGIONS_EXPORT int v_GetFullSystemBandWidth() const override;
 

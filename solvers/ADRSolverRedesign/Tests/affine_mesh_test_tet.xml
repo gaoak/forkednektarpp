@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYEAGH/aj04yo8vbo8kzY9cPVMeOXt2fBb789K3777dmwy8PVseOXtwcARicihQAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1jjkOwDAMw5ymR3of/39sJg4lYC+GaUlQxH9Ksgft0F3FuUflwKfEPye+RT7+TRz9Kh35m/TwXXrmUC79TvWHX0nvWzr4oxz4q57wT73hHb9gASgA</EDGE>
+        <FACE>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJyFkUsSgCAMQ1HBHwri/Q/rJln4Zhi6yTRJQ4EQ/jUJZ/SuKFw6vjTwJfD2rcJNuMNv/RjMnfAxz3oE78qd8zJ67++8S3gL/R4ZehWWztwDH/OsF6Dv0cBX8C/2Zp51v0+Dz7r/5QP39wJl</T>
+        </FACE>
+        <ELEMENT>
+            <A COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxdzTkSwDAIBEGMT8mX9P/POhkFHpKuglo24j8TJs7aL7jihrtyh3JFufG34okX3up71PNi09+RS907fkhwANUA</A>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="1"> F[0,10] </C>
+            <C ID="2"> F[6,15] </C>
+            <C ID="3"> F[8,4] </C>
+            <C ID="4"> F[14,11] </C>
+            <C ID="5"> F[12,17] </C>
+            <C ID="6"> F[3,9] </C>
+            <C ID="7"> A[0-5] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[7] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/v5.8.0</GitBranch>
+            <GitSHA1>837223d7a51da426127052d535297d97f413bef7</GitSHA1>
+            <Hostname>workstation</Hostname>
+            <NektarVersion>5.8.0</NektarVersion>
+            <Timestamp>31-Mar-2026 14:47:21</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>cubeTet2_mesh.msh cubeTet2_mesh.xml </NekMeshCommandLine>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[7]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v,w" />
+    </EXPANSIONS>
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE> BodyForce </BODYFORCE>
+        </FORCE>
+    </FORCING>
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> TimeStep       = 0.0001             </P>
+            <P> NumSteps       = 1                  </P>
+            <P> IO_InfoSteps   = 1                  </P>
+            <P> FinTime        = NumSteps*TimeStep  </P>
+            <P> epsilon        = 0.5                </P>
+            <P> IterativeSolverTolerance = 1e-14    </P>
+            <P> advx           = 0.5                </P>
+            <P> advy           = 0.5                </P>
+            <P> advz           = 0.5                </P>
+        </PARAMETERS>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+        <SOLVERINFO>
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyAdvectionDiffusion" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="Preconditioner" VALUE="Diagonal" />
+            <I PROPERTY="LinSysIterSolver" VALUE="GMRES" />
+            <I PROPERTY="DiffusionAdvancement" VALUE="Implicit" />
+            <I PROPERTY="AdvectionAdvancement" VALUE="Explicit" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1-6] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="x+y+z" />
+                <D VAR="v" VALUE="0.5*(x+y+z)" />
+                <D VAR="w" VALUE="-0.25*(x+y+z)" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="x+y+z" />
+            <E VAR="v" VALUE="0.5*(x+y+z)" />
+            <E VAR="w" VALUE="-0.25*(x+y+z)" />
+        </FUNCTION>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="x+y+z" />
+            <E VAR="v" VALUE="0.5*(x+y+z)" />
+            <E VAR="w" VALUE="-0.25*(x+y+z)" />
+        </FUNCTION>
+        <FUNCTION NAME="BodyForce">
+            <E VAR="u" VALUE="advx+advy+advz" />
+            <E VAR="v" VALUE="0.5*(advx+advy+advz)" />
+            <E VAR="w" VALUE="-0.25*(advx+advy+advz)" />
+        </FUNCTION>
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+            <E VAR="Vy" VALUE="advy" />
+            <E VAR="Vz" VALUE="advz" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

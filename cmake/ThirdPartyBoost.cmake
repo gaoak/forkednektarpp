@@ -19,6 +19,26 @@ IF (NEKTAR_USE_BOOST_FILESYSTEM)
     SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} filesystem)
 ENDIF()
 
+# SimSYCL links Boost.context, which Nektar does not otherwise need.
+IF (NEKTAR_USE_SIMSYCL)
+    SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} context)
+ENDIF()
+
+IF( BOOST_TEST_DYN_LINK )
+#    Currently only supported in
+#    library/UnitTests/Operators/TestOp.hpp
+#    ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)
+    ADD_DEFINITIONS(-DOPERATORS_BOOST_TEST_DYN_LINK)
+    SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} unit_test_framework)
+ENDIF()
+
+IF( BOOST_TEST_NO_MAIN )
+#    Currently only supported in
+#    library/UnitTests/Operators/TestOp.hpp
+#    ADD_DEFINITIONS(-DBOOST_TEST_NO_MAIN)
+    ADD_DEFINITIONS(-DOPERATORS_BOOST_TEST_NO_MAIN)
+ENDIF()
+
 SET(Boost_NO_BOOST_CMAKE ON)
 SET(Boost_USE_STATIC_LIBS OFF)
 
@@ -79,7 +99,11 @@ IF (THIRDPARTY_BUILD_BOOST)
 
     # Only build the libraries needed
     FOREACH(boostlib ${NEEDED_BOOST_LIBS})
-        LIST(APPEND BOOST_LIB_LIST --with-${boostlib})
+        IF( ${boostlib} STREQUAL "unit_test_framework" )
+            LIST(APPEND BOOST_LIB_LIST --with-test)
+        ELSE()
+            LIST(APPEND BOOST_LIB_LIST --with-${boostlib})
+        ENDIF ()
     ENDFOREACH()
 
     IF (NOT WIN32)

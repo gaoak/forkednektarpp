@@ -455,9 +455,12 @@ void Basis::GenBasis()
                 }
             }
 
-            // Define derivative basis
+            // Define derivative basis. A pyramid holds
+            // numModes*(numModes+1)*(2*numModes+1)/6 modes, not the
+            // tetrahedral numModes*(numModes+1)*(numModes+2)/6: with the
+            // latter the highest modes were left without a derivative.
             Blas::Dgemm('n', 'n', numPoints,
-                        numModes * (numModes + 1) * (numModes + 2) / 6,
+                        numModes * (numModes + 1) * (2 * numModes + 1) / 6,
                         numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
                         0.0, m_dbdata.data(), numPoints);
         }

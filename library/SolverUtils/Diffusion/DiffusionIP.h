@@ -50,7 +50,25 @@ public:
 
     static std::string type;
 
+    /**
+     * @brief Average the fields as independent scalars rather than as
+     * compressible conservative variables.
+     *
+     * ConsVarAve() is otherwise hard-wired to the layout
+     * [density, momentum..., energy] and divides by the first field; see the
+     * note there. An equation system whose fields are plain scalars - the ADR
+     * solver - must set this or produce NaN wherever its first field is zero
+     * on a trace.
+     */
+    void SetScalarAveraging(const bool scalarAveraging)
+    {
+        m_scalarAveraging = scalarAveraging;
+    }
+
 protected:
+    /// See SetScalarAveraging(). Defaults to the compressible behaviour.
+    bool m_scalarAveraging = false;
+
     DiffusionIP();
 
     void v_InitObject(
@@ -136,6 +154,24 @@ private:
         int nveled           = nEngy;
 
         T Fweight = 1.0 - Bweight;
+
+        // Everything below this point is written for the compressible
+        // variable layout [density, momentum..., energy]: the last field is
+        // averaged through the internal energy, which divides by the first.
+        // For independent scalars that arithmetic is not merely wrong, it is
+        // 0 * (1/vFwd[0]) - NaN wherever the first field is zero on a trace,
+        // which a homogeneous Dirichlet problem guarantees on its whole
+        // boundary. The equation system knows which case it is in and says so
+        // through SetScalarAveraging(); the default preserves the compressible
+        // behaviour exactly.
+        if (m_scalarAveraging)
+        {
+            for (size_t v = 0; v < nConvectiveFields; ++v)
+            {
+                aver[v] = Fweight * vFwd[v] + Bweight * vBwd[v];
+            }
+            return;
+        }
         for (size_t v = 0; v < nEngy; ++v)
         {
             aver[v] = Fweight * vFwd[v] + Bweight * vBwd[v];

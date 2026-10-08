@@ -1,0 +1,290 @@
+// clang-format off
+#if defined(SHAPE_TYPE_Seg)
+    const auto nm0         = m_nm[0];
+    const unsigned int nq0 = this->m_scale * m_nm[0];
+
+        // Default case
+#undef PHYSINTERP1D_DEF
+#define PHYSINTERP1D_DEF                                                       \
+    OperatorND<LibUtilities::Seg>(                                             \
+        inblock, outblock, NonTemplatedSizeParameter1D(m_nm[0], m_nq[0]));
+
+        // Inner loop case over quarature points Shape dependent
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Seg>(                                         \
+            inblock, outblock, TemplatedSizeParameter1D<NM(i), NQ(i)>());      \
+        break;
+
+        // outer loop case over modes
+#undef PHYSINTERP1D_M
+#define PHYSINTERP1D_M(r, i)                                                   \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i),                                 \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, PHYSINTERP1D_Q)           \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                PHYSINTERP1D_DEF                                               \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+            // templated cases on equi-ordered modes and standard quad usage
+            // where quad order goes from mode order to 2(*mode order)
+    switch (nm0)
+       {
+            BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                         PHYSINTERP1D_M)
+       default:
+           {                                                            
+               WARNINGL0( m_warnOnceTemplate,                           
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+               m_warnOnceTemplate = true;                               
+               PHYSINTERP1D_DEF                                        
+           }                                                            
+           break;
+        }
+        
+#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+    const auto nm0 = m_nm[0];
+    const auto nm1 = m_nm[1];
+
+    const unsigned int nq0 = this->m_scale * m_nm[0];
+    const unsigned int nq1 = this->m_scale * m_nm[1];
+
+        // Default case
+#undef PHYSINTERP1D_DEF
+#define PHYSINTERP1D_DEF                                                       \
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::Quad, m_nm[0], m_nm[1]);                             \
+        OperatorND<LibUtilities::Quad>(                                        \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter2D(m_nm[0], m_nm[1], nmTot, m_nq[0],      \
+                                        m_nq[1]));                             \
+    }
+
+        // Inner loop case over quarature points Shape dependent
+#if defined(SHAPE_TYPE_Quad)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Quad, NM(i), NM(i));                                 \
+        OperatorND<LibUtilities::Quad>(                                        \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ(i)>());    \
+    }                                                                          \
+    break;
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Quad, NM(i), NM_M1(i));                              \
+        OperatorND<LibUtilities::Quad>(                                        \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM_M1(i), nmTot, NQ(i),            \
+                                     NQ_M1(i)>());                             \
+    }                                                                          \
+    break;
+#endif
+
+        // outer loop case over modes
+#undef PHYSINTERP1D_M
+#define PHYSINTERP1D_M(r, i)                                                   \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i),                                 \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, PHYSINTERP1D_Q)           \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                PHYSINTERP1D_DEF                                               \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+        // templated cases on equi-ordered modes and standard quad
+        // usage where quad order goes from mode order to 2(*mode
+        // order) Note this will likely not work on cases wtih nquad,
+        // nquad+1 distributions
+#if defined(SHAPE_TYPE_Quad)
+        if ((nm0 == nm1) && (nq0 == nq1))
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+        if ((nm0 == nm1 + 1) && (nq0 == nq1 + 1))
+#endif
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             PHYSINTERP1D_M)
+                default:
+                {                                                       
+                    WARNINGL0( m_warnOnceTemplate,                      
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+                    m_warnOnceTemplate = true;                          
+                    PHYSINTERP1D_DEF                           
+                }                                               
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,                              
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+            m_warnOnceTemplate = true;                                  
+            PHYSINTERP1D_DEF                                           
+        }
+#else
+    const auto nm0 = m_nm[0];
+    const auto nm1 = m_nm[1];
+    const auto nm2 = m_nm[2];
+
+    const unsigned int nq0 = this->m_scale * m_nm[0];
+    const unsigned int nq1 = this->m_scale * m_nm[1];
+    const unsigned int nq2 = this->m_scale * m_nm[2];
+
+        // Default case
+#undef PHYSINTERP1D_DEF
+#define PHYSINTERP1D_DEF                                                       \
+    {                                                                          \
+        const unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(      \
+            LibUtilities::Hex, m_nm[0], m_nm[1], m_nm[2]);                     \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            NonTemplatedSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], nmTot,      \
+                                        m_nq[0], m_nq[1], m_nq[2]));           \
+    }
+
+        // Inner loop case over quarature points Shape dependent
+#if defined(SHAPE_TYPE_Hex)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Hex, NM(i), NM(i), NM(i));                           \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ(i)>());                                \
+    }                                                                          \
+    break;
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
+    defined(SHAPE_TYPE_Pyr)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Hex, NM(i), NM(i), NM_M1(i));                        \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM_M1(i), nmTot, NQ(i),     \
+                                     NQ(i), NQ_M1(i)>());                      \
+    }                                                                          \
+    break;
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::Hex, NM(i), NM_M1(i), NM_M1(i));                     \
+        OperatorND<LibUtilities::Hex>(                                         \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM_M1(i), NM_M1(i), nmTot, NQ(i),  \
+                                     NQ_M1(i), NQ_M1(i)>());                   \
+    }                                                                          \
+    break;
+#endif
+
+        // outer loop case over modes
+#undef PHYSINTERP1D_M
+#define PHYSINTERP1D_M(r, i)                                                   \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i),                                 \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, PHYSINTERP1D_Q)           \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                PHYSINTERP1D_DEF                                               \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+        // templated cases on equi-ordered modes and standard quad usage
+        // where quad order goes from mode order to 2(*mode order)
+#if defined(SHAPE_TYPE_Hex)
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1) && (nq1 == nq2))
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
+        if ((nm0 == nm1) && (nm1 == nm2+1) &&
+            (nq0 == nq1) && (nq1 == nq2 + 1))
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+        if ((nm0 == nm1+1) && (nm1 == nm2) &&
+            (nq0 == nq1 + 1) && (nq1 == nq2))
+#endif
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             PHYSINTERP1D_M)
+                default:
+                {                                                       
+                    WARNINGL0( m_warnOnceTemplate,                      
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator"); 
+                    m_warnOnceTemplate = true;                          
+                    PHYSINTERP1D_DEF                                   
+                }                                                       
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,                              
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator"); 
+            m_warnOnceTemplate = true;                                  
+            PHYSINTERP1D_DEF
+        }
+#endif
+// clang-format on

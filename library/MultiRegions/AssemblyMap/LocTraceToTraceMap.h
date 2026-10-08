@@ -328,6 +328,16 @@ public:
         return m_nLocTracePts;
     }
 
+    MULTI_REGIONS_EXPORT inline int GetNFwdCoeffs()
+    {
+        return m_nTraceCoeffs[0];
+    }
+
+    MULTI_REGIONS_EXPORT inline int GetNBwdCoeffs()
+    {
+        return m_nTraceCoeffs[1];
+    }
+
     MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, bool>> &
     GetLeftRightAdjacentExpFlag() const
     {
@@ -352,6 +362,25 @@ public:
     GetTraceCoeffToLeftRightExpCoeffSign() const
     {
         return m_traceCoeffToLeftRightExpCoeffSign;
+    }
+
+    //
+    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>> &
+    GetTraceCoeffsToElmtMap() const
+    {
+        return m_traceCoeffsToElmtMap;
+    }
+
+    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>> &
+    GetTraceCoeffsToElmtTrace() const
+    {
+        return m_traceCoeffsToElmtTrace;
+    }
+
+    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>> &
+    GetTraceCoeffsToElmtSign() const
+    {
+        return m_traceCoeffsToElmtSign;
     }
 
     MULTI_REGIONS_EXPORT inline const Array<OneD, int> &GetElemNeighbsNumb()

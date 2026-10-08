@@ -74,7 +74,6 @@
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyAdvection"   />
             <I PROPERTY="Projection"            VALUE="Continuous"          />
             <I PROPERTY="AdvectionType"         VALUE="NonConservative"     />
-            <I PROPERTY="FRSchemeRecovered"     VALUE="DG"                  />
             <I PROPERTY="UpwindType"            VALUE="Upwind"              />
         </SOLVERINFO>
 

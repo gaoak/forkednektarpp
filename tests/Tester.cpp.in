@@ -54,6 +54,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -72,6 +73,76 @@ using namespace Nektar;
 
 // Define some namespace aliases
 namespace po = boost::program_options;
+
+std::string ShellQuote(const std::string &value)
+{
+#ifdef _WIN32
+    std::string ret          = "\"";
+    unsigned int backslashes = 0;
+    for (char c : value)
+    {
+        if (c == '\\')
+        {
+            ret += c;
+            ++backslashes;
+        }
+        else if (c == '"')
+        {
+            ret.append(backslashes, '\\');
+            ret += "\\\"";
+            backslashes = 0;
+        }
+        else
+        {
+            ret += c;
+            backslashes = 0;
+        }
+    }
+    ret.append(backslashes, '\\');
+    ret += "\"";
+    return ret;
+#else
+    std::string ret = "'";
+    for (char c : value)
+    {
+        if (c == '\'')
+        {
+            ret += "'\\''";
+        }
+        else
+        {
+            ret += c;
+        }
+    }
+    ret += "'";
+    return ret;
+#endif
+}
+
+void AppendForwardedArguments(std::string &command,
+                              const std::vector<std::string> &arguments)
+{
+    for (const auto &argument : arguments)
+    {
+        command += " " + ShellQuote(argument);
+    }
+}
+
+std::vector<std::string> SplitForwardedOptions(
+    const std::vector<std::string> &options)
+{
+    std::vector<std::string> ret;
+    for (const auto &option : options)
+    {
+        std::istringstream stream(option);
+        std::string token;
+        while (stream >> token)
+        {
+            ret.push_back(token);
+        }
+    }
+    return ret;
+}
 
 /**
  * @brief Wrap @p arg in single quotes so that a POSIX shell passes it through
@@ -122,6 +193,9 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
 {
     int status = 0;
     string command;
+    bool SetExecSpace     = vm.count("opExecSpace");
+    bool SetImpl          = vm.count("opImpl");
+    bool SetSolverOptions = vm.count("solver-options");
 
     if (verbose && test->GetNumMetrics() > 0)
     {
@@ -420,6 +494,28 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
                 thisCmd += " --use-opt-file test.opt ";
             }
 
+            if (SetExecSpace)
+            {
+                thisCmd += " ";
+                thisCmd += "--opExecSpace=";
+                thisCmd += vm["opExecSpace"].as<string>();
+            }
+
+            if (SetImpl)
+            {
+                thisCmd += " ";
+                thisCmd += "--opImpl=";
+                thisCmd += vm["opImpl"].as<string>();
+            }
+
+            if (SetSolverOptions)
+            {
+                AppendForwardedArguments(
+                    thisCmd,
+                    SplitForwardedOptions(
+                        vm["solver-options"].as<std::vector<std::string>>()));
+            }
+
             thisCmd += " ";
             thisCmd += cmd.m_parameters;
 
@@ -448,7 +544,14 @@ int RunTest(TestData *test, bool verbose, po::variables_map &vm,
         }
 
         // Run executable to perform test.
-        if (system(command.c_str()))
+#ifdef _WIN32
+        // cmd /c strips the first and last quote of a line that starts with
+        // one, so wrap the line to keep the quoting of the command itself.
+        const std::string shellCommand = "\"" + command + "\"";
+#else
+        const std::string shellCommand = command;
+#endif
+        if (system(shellCommand.c_str()))
         {
             cerr << "Error occurred running test:" << endl;
             cerr << "Command: " << command << endl;
@@ -659,7 +762,11 @@ int main(int argc, char *argv[])
                                            po::value<vector<int>>(),
                                            "Generate a single metric.")(
         "generate-all-metrics,a", "Generate all metrics.")(
-        "executable,e", po::value<string>(), "Use specified executable.");
+        "executable,e", po::value<string>(), "Use specified executable.")(
+        "opExecSpace,s", po::value<string>(), "Use specified ExecSpace")(
+        "opImpl,i", po::value<string>(), "Use specified implementation")(
+        "solver-options", po::value<vector<string>>()->composing(),
+        "Forward an option string to the executable");
 
     po::options_description hidden("Hidden options");
     hidden.add_options()("input-file", po::value<string>(), "Input filename");
@@ -698,6 +805,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Check if arguments are set
     bool verbose = vm.count("verbose");
 
     // Set up set containing metrics to be generated.

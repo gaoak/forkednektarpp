@@ -33,6 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 template <typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivTensor1DKernel(
     const unsigned int nq0, const simd_type *in,

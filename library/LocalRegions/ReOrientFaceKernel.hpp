@@ -51,9 +51,10 @@ namespace Nektar::LocalRegions
  * @p Forwards selects the direction the data travels:
  *
  *   - `true`  - @p in is the element's local face, @p out the global trace.
- *               This is the gather, used by LocFaceToGloFaceBlock().
+ *               This is the gather, from the element's local face layout
+ *               to the shared trace layout.
  *   - `false` - @p in is the global trace, @p out the element's local face.
- *               This is the scatter, used by GloFaceToLocFaceBlock().
+ *               This is the scatter, the inverse of the gather.
  *
  * The two are inverses of each other for the same @p orient, so a gather
  * followed by a scatter returns the original data.
@@ -91,12 +92,16 @@ namespace Nektar::LocalRegions
  *                      side of an interior trace the opposite normal
  *                      without a second pass over the data.
  */
+// Called from host code and from inside device kernels; its checks are
+// host-device asserts, live on the host and nothing in device code, where an
+// assert message cannot be built.
 template <bool APPEND, bool NEGATE_INPUT, typename TData>
 NEK_HOSTDEVICE_INLINE static void ReOrientFaceKernel(
     const StdRegions::Orientation orient, const unsigned nq0,
     const unsigned nq1, const TData *in, TData *out, bool Forwards)
 {
-    ASSERTL1(in != out, "This routine cannot use the same input and output");
+    NEK_HOSTDEVICE_ASSERTL1(
+        in != out, "This routine cannot use the same input and output");
 
     // Input sign change if required.
     TData sign = (NEGATE_INPUT) ? -1.0 : 1.0;
@@ -431,7 +436,7 @@ NEK_HOSTDEVICE_INLINE static void ReOrientFaceKernel(
         }
         break;
         default:
-            ASSERTL1(false, "Unknow orientation");
+            NEK_HOSTDEVICE_ASSERTL1(false, "Unknown orientation");
             break;
     }
 }

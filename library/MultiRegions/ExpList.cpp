@@ -67,6 +67,19 @@
 #include <MultiRegions/GlobalMatrixKey.h> // for GlobalMatrixKey
 #include <iomanip>
 
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp>
+
+#include <StdRegions/DataWarehouse/StdMatDataWarehouse.hpp>
+
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
+
+#include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
+#endif
+
 using namespace std;
 
 namespace Nektar::MultiRegions
@@ -1021,10 +1034,7 @@ ExpList::ExpList(
     SetupCoeffPhys(DeclareCoeffPhysArrays);
 
     // Set up collections
-    if (m_expType != e0D)
-    {
-        CreateCollections(ImpType);
-    }
+    CreateCollections(ImpType);
 
     // Setup element to expansion ID maps for the trace elements
     // Loop in reverse order so that in case where using a
@@ -1181,10 +1191,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     SetupCoeffPhys(DeclareCoeffPhysArrays);
 
     // Set up collections
-    if (m_expType != e0D)
-    {
-        CreateCollections(ImpType);
-    }
+    CreateCollections(ImpType);
 }
 
 /**
@@ -1554,10 +1561,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     // Set up m_coeffs, m_phys and offset arrays.
     SetupCoeffPhys(DeclareCoeffPhysArrays);
 
-    if (m_expType != e0D)
-    {
-        CreateCollections(ImpType);
-    }
+    CreateCollections(ImpType);
 }
 
 /**
@@ -1881,6 +1885,29 @@ ExpansionType ExpList::GetExpType(void)
 
 ExpList::~ExpList()
 {
+}
+
+void ExpList::SetDataWarehouse(void)
+{
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    std::shared_ptr<ExpList> vExpList = GetSharedThisPtr();
+    Collections::CollectionVector collections =
+        MultiRegions::GetCollections(vExpList);
+
+    m_dataWarehouse = std::make_shared<LibUtilities::NekDataWarehouse>();
+    m_dataWarehouse->RegisterDataCreatorClass<LibUtilities::BasisDataCreator>();
+    m_dataWarehouse->RegisterDataCreatorClass<LibUtilities::ModeIndexCreator>();
+    m_dataWarehouse->RegisterDataCreatorClass<StdRegions::StdMatDataCreator>();
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<LocalRegions::GeometricDataCreator>(
+            collections);
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<MultiRegions::LocalToGlobalDataCreator>(
+            vExpList);
+    m_dataWarehouse
+        ->RegisterDataCreatorClass<MultiRegions::TraceEssentialCreator>(
+            vExpList);
+#endif
 }
 
 /**
@@ -4239,6 +4266,36 @@ void ExpList::v_AppendFieldData(
     }
 }
 
+void ExpList::v_AppendFieldData(
+    LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+    std::vector<NekDouble> &fielddata, std::vector<NekDouble> &coeffs)
+{
+    // Determine mapping from element ids to location in
+    // expansion list
+    map<int, int> ElmtID_to_ExpID;
+
+    for (unsigned int i = 0; i < (*m_exp).size(); ++i)
+    {
+        ElmtID_to_ExpID[(*m_exp)[i]->GetGeom()->GetGlobalID()] = i;
+    }
+
+    for (unsigned int i = 0; i < fielddef->m_elementIDs.size(); ++i)
+    {
+        int eid     = ElmtID_to_ExpID[fielddef->m_elementIDs[i]];
+        int datalen = (*m_exp)[eid]->GetNcoeffs();
+        if ((*m_exp)[eid]->IsNodalNonTensorialExp())
+        {
+            ASSERTL0(false, "Elemental NodalToModal transformation not "
+                            "implemented for std::vector input.")
+        }
+        else
+        {
+            fielddata.insert(fielddata.end(), &coeffs[m_coeff_offset[eid]],
+                             &coeffs[m_coeff_offset[eid]] + datalen);
+        }
+    }
+}
+
 /// Extract the data in fielddata into the coeffs
 void ExpList::ExtractDataToCoeffs(
     LibUtilities::FieldDefinitionsSharedPtr &fielddef,
@@ -4246,6 +4303,23 @@ void ExpList::ExtractDataToCoeffs(
     Array<OneD, NekDouble> &coeffs, std::unordered_map<int, int> zIdToPlane)
 {
     v_ExtractDataToCoeffs(fielddef, fielddata, field, coeffs, zIdToPlane);
+}
+
+void ExpList::ExtractDataToCoeffs(
+    LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+    std::vector<NekDouble> &fielddata, std::string &field,
+    std::vector<NekDouble> &coeffs, std::unordered_map<int, int> zIdToPlane)
+{
+    // Seed the temporary with what the caller already holds rather than
+    // with zero. The Array overload fills only the coefficients of the
+    // elements this field definition covers and leaves the rest untouched,
+    // so it is meant to be called once per definition, accumulating. Copying
+    // a zeroed temporary back over the whole vector discarded every earlier
+    // definition's contribution, leaving all but the last shape at zero.
+    Array<OneD, NekDouble> tmp(coeffs.size());
+    std::copy(coeffs.begin(), coeffs.end(), tmp.begin());
+    ExtractDataToCoeffs(fielddef, fielddata, field, tmp, zIdToPlane);
+    std::copy(tmp.begin(), tmp.end(), coeffs.begin());
 }
 
 void ExpList::ExtractCoeffsToCoeffs(
@@ -5908,7 +5982,33 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
 
     vector<LocalRegions::ExpansionSharedPtr> collExp;
     LocalRegions::ExpansionSharedPtr exp = (*m_exp)[0];
-    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(exp);
+    Collections::OperatorImpMap impTypes;
+
+    // Handle 0D case
+    if (exp->DetShapeType() == LibUtilities::Point)
+    {
+        // Add first expansion to collection
+        collExp.push_back((*m_exp)[0]);
+
+        // Add all other expansions to collection
+        for (int i = 1; i < (*m_exp).size(); i++)
+        {
+            exp = (*m_exp)[i];
+            collExp.push_back(exp);
+        }
+
+        // Create NoCollection impTypes
+        for (int it = 0; it < Collections::SIZE_OperatorType; ++it)
+        {
+            impTypes[static_cast<Collections::OperatorType>(it)] =
+                Collections::eNoImpType;
+        }
+
+        m_collections.push_back(Collections::Collection(collExp, impTypes));
+        return;
+    }
+
+    impTypes = colOpt.GetOperatorImpMap(exp);
 
     // add the first element to the collection - initialization
     collExp.push_back(exp);

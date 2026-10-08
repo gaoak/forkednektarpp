@@ -1,0 +1,286 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{MemoryRegion Class}
+This chapter describes the \lstinline[style=C++Style]!MemoryRegion!
+class which is responsible of the memory management of a contiguous
+chunk of memory between the host and device. This class encapsulates
+various functionalities related to memory allocation, initialization,
+and host/device synchronization. The
+\lstinline[style=C++Style]!MemoryRegion! class is the lowest level of
+direct memory management control provided to developers.
+
+Note: Multi-device capabilities are not yet fully implemented.
+
+\section{MemoryRegion}
+\subsection{Description}
+\lstinline[style=C++Style]!MemoryRegion! is a templated class
+containing a pointer to a \lstinline[style=C++Style]!MemoryStorage!
+class. The \lstinline[style=C++Style]!MemoryStorage! class should 
+never be used directly. Instead the
+\lstinline[style=C++Style]!MemoryRegion! class should be used as a
+higher level memory management object encapsulating the
+functionalities of the
+\lstinline[style=C++Style]!MemoryStorage! class. The
+\lstinline[style=C++Style]!MemoryRegion! class has a default
+constructor and a default destructor but no copy constructor and only
+move semantics is allowed after object instantiation.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegion
+{
+    ...
+
+    MemoryRegion() = default; // Default removes implicit moves
+    MemoryRegion(const MemoryRegion &) = delete;
+    ~MemoryRegion() = default; // Default removes implicit moves
+
+    ...
+
+protected:
+    ...
+
+    // Member variables:
+    std::unique_ptr<MemoryStorage<TData>> m_storage = nullptr;
+};
+\end{lstlisting}
+
+\subsection{Instantiation}
+An instance of \lstinline[style=C++Style]!MemoryRegion! object should be created using the \lstinline[style=C++Style]!Create! member function. The \lstinline[style=C++Style]!size! argument indicates the number of elements of type \lstinline[style=C++Style]!TData! to allocate memory for, while the \lstinline[style=C++Style]!alignment! argument indicates the desired memory alignment.
+\begin{lstlisting}[style=C++Style]
+static MemoryRegion<TData> Create(
+    const std::string name, const size_t size, const size_t alignment,
+    const size_t device_rank                = 0)
+{
+    ...
+}
+\end{lstlisting}
+
+For example, an instance of \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! can be instantiated as follow:
+\begin{lstlisting}[style=C++Style]
+auto MR = MemoryRegion<TData>::Create(name, size, alignment);
+\end{lstlisting}
+
+\subsection{Interoperability}
+To allow interoperability with legacy \emph{Nektar++}, a \lstinline[style=C++Style]!FromArray! templated member function is provided for the instantion of a \lstinline[style=C++Style]!MemoryRegion! object with data copy from an \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataIn>! object.
+\begin{lstlisting}[style=C++Style]
+template <typename MemSpace, typename TDataIn>
+static MemoryRegion<TData> FromArray(
+    const std::string name,
+    Nektar::Array<Nektar::OneD, TDataIn> const &array,
+    const size_t alignment, const size_t device_rank = 0)
+{
+    ...
+}
+\end{lstlisting}
+
+For example, a \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! can be instantiated from a \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataIn>! object \lstinline[style=C++Style]!array! as follow:
+\begin{lstlisting}[style=C++Style]
+auto MR = MemoryRegion<TData>::template FromArray<NektarSpaces::HostSpace>(array, alignment);
+\end{lstlisting}
+
+Similiar capabilities are provided for a \lstinline[style=C++Style]!std::vector<TDataIn, Alloc>! with the \lstinline[style=C++Style]!FromVector! templated member function.
+\begin{lstlisting}[style=C++Style]
+template <typename MemSpace, typename TDataIn,
+          class Alloc = std::allocator<TDataIn>>
+static MemoryRegion<TData> FromVector(
+    const std::string name, std::vector<TDataIn, Alloc> const &array,
+    const size_t alignment, const size_t device_rank = 0)
+{
+    ...
+}
+\end{lstlisting}
+
+Additionally, the \lstinline[style=C++Style]!CopyArray! and \lstinline[style=C++Style]!CopyVector! templated member functions are provided to allow data copy from respectively a \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataIn>! or a \lstinline[style=C++Style]!std::vector<TDataIn, Alloc>! to an already instantiated \lstinline[style=C++Style]!MemoryRegion! object.
+\begin{lstlisting}[style=C++Style]
+template <typename MemSpace, typename TDataIn,
+          typename MemCopy = HostToDevice>
+void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
+{
+    ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=C++Style]
+template <typename MemSpace, typename TDataIn,
+          typename MemCopy = HostToDevice,
+          class Alloc      = std::allocator<TDataIn>>
+void CopyVector(const std::vector<TDataIn, Alloc> &array)
+{
+    ...
+}
+\end{lstlisting}
+
+For example, an \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataIn>! object \lstinline[style=C++Style]!array! can be copied to a \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! as follow
+\begin{lstlisting}[style=C++Style]
+MR.template CopyArray<NektarSpaces::HostSpace>(array);
+\end{lstlisting}
+
+To further provide interoperability, the \lstinline[style=C++Style]!ToArray! and the \lstinline[style=C++Style]!ToVector! allow respectively the creation of a new instance of a \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataOut>! or a \lstinline[style=C++Style]!std::vector<TDataOut, Alloc>! object with data copy from a \lstinline[style=C++Style]!MemoryRegion! object.
+\begin{lstlisting}[style=C++Style]
+template <typename TDataOut = TData>
+Nektar::Array<Nektar::OneD, TDataOut> ToArray()
+{
+    ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=C++Style]
+template <typename TDataOut = TData, class Alloc = std::allocator<TData>>
+std::vector<TDataOut, Alloc> ToVector()
+{
+    ...
+}
+\end{lstlisting}
+
+For example, a new instance of a \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataOut>! object \lstinline[style=C++Style]!array! can be created from a \lstinline[style=C++Style]!MemoryRegion! object \lstinline[style=C++Style]!MR! as follow:
+\begin{lstlisting}[style=C++Style]
+ Nektar::Array<Nektar::OneD, TDataOut> array = MR.ToArray();
+\end{lstlisting}
+
+\subsection{Memory Access}
+Three types of memory access qualifier are used along the \lstinline[style=C++Style]!MemoryRegion! class: \lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!. Memory access is performed by calling a \lstinline[style=C++Style]!GetPtr<MemSpace, MemAccess>()! member function, where \lstinline[style=C++Style]!MemSpace! is again a template parameter indicating on which memory space (host or device) the data access is required, while \lstinline[style=C++Style]!MemAccess! is the template parameter for the memory access qualifier (\lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!). For example, the various memrory access mode can be requested on the device as follow:
+\begin{lstlisting}[style=C++Style]
+ auto ptr0 = MR.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>;
+ auto ptr1 = MR.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>;
+ auto ptr2 = MR.template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>;
+\end{lstlisting}
+
+The \lstinline[style=C++Style]!ReadOnly! memory access qualifier should be used when the data is not modified on the requested memory space. Memory copy occurs only if necessary. The requested memory space is then marked as valid. This memory access qualifier prevent a data copy if the data is subsequently requested on the opposite memory space.
+
+The \lstinline[style=C++Style]!WriteOnly! memory access qualifier prevents a copy to the requested memory space as it is assumed that the data is overwritten. The requested memory space is then marked as valid while the opposite memory space is marked as invalid. Memory copy will occur if the data is subsequently requested on the opposite memory space.
+
+The \lstinline[style=C++Style]!ReadWrite! memory access qualifier should be used when the data is both modified on the requested memory space and read access is necessary. Memory copy occurs only if necessary. The requested memory space is then marked as valid while the opposite memory space is marked as invalid. Memory copy will occur if the data is subsequently requested on the opposite memory space.
+
+\section{MemoryStorage}
+\lstinline[style=C++Style]!MemoryStorage! is a templated class designed to manage the memory allocation/deallocation on the host side. As mentionned previously, the \lstinline[style=C++Style]!MemoryStorage! class shall never be used directly and should only be accessed through the \lstinline[style=C++Style]!MemoryRegion! class. As such, the \lstinline[style=C++Style]!MemoryStorage! class is made to be a \lstinline[style=C++Style]!friend! of the \lstinline[style=C++Style]!MemoryRegion! class and all its member functions (except constructor/destructor) and variables are made protected. The member variables of the  \lstinline[style=C++Style]!MemoryStorage! class are:
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryStorage
+{
+    friend class MemoryRegion<TData>;                                               
+
+    ...
+protected:
+
+    ...
+
+    bool m_owned = true; // Flag indicating if the host pointer is owned
+                         // by the current object.
+    TData *m_host      = nullptr; /// < Host memory pointer
+    TData *m_device    = nullptr; ///< Device memory pointer
+    size_t m_size      = 0;
+    size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+
+    bool m_host_valid    = false; // Flag indicating that the host data is valid
+    bool m_device_valid  = false; ///< Flag indicating the device data is valid
+    size_t m_device_rank = 0;     // Index indicating device ID.
+    std::string m_name{""};
+    MemAllocType m_memAllocType{eHostDevice};
+};
+\end{lstlisting}
+
+The \lstinline[style=C++Style]!MemoryStorage! templated class does not have neither a default nor a copy constructors. As well, the assignment operator has been deleted and only move semantics is allowed once the \lstinline[style=C++Style]!MemoryStorage! object has been created.
+
+\begin{lstlisting}[style=C++Style]
+MemoryStorage()                                    = delete;
+MemoryStorage(const MemoryStorage &rhs)            = delete;
+MemoryStorage &operator=(const MemoryStorage &rhs) = delete;
+\end{lstlisting}
+
+The \lstinline[style=C++Style]!MemoryStorage! templated class has a custom constructor allowing provision to allocate a contiguous memory chunk with a specified \lstinline[style=C++Style]!alignment! and number of elements \lstinline[style=C++Style]!size! of type \lstinline[style=C++Style]!TData!. However, the requested memory is not allocated during construction, but allocated only if a memory access is requested.
+
+\begin{lstlisting}[style=C++Style]
+MemoryStorage(const std::string name, const size_t size,
+              const size_t alignment, const unsigned int device_rank,
+              const MemAllocType &memAllocType)
+{
+    m_owned        = true;
+    m_name         = name;
+    m_size         = size;
+    m_alignment    = alignment;
+    m_device_rank  = device_rank;
+    m_memAllocType = memAllocType;
+
+    m_host         = nullptr;
+    m_device       = nullptr;
+    m_host_valid   = false;
+    m_device_valid = false;
+}
+\end{lstlisting}
+
+The \lstinline[style=C++Style]!MemoryStorage! class has member functions responsible of host-to-device and device-to-memory copy. Memory copy is only performed if necessary by keeping track of when the data is modified on either the host or the device with the member variables \lstinline[style=C++Style]!m_host_valid! and \lstinline[style=C++Style]!m_device_valid!.
+
+\begin{lstlisting}[style=C++Style]
+void HostToDeviceCopy(void)
+{     
+    ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=C++Style]
+void DeviceToHostCopy(void)
+{  
+    ...
+}
+\end{lstlisting}
+
+Backend-specific memory management functionalities are encapsulated inside functions. For example, the \lstinline[style=C++Style]!deviceMalloc! function is used to allocate memory for the device side and the support for various backends is achieved using macro. As a consequence, only a single device backend can be supported at time for a given compilation configurations.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData>
+void deviceMalloc(TData *&src, const unsigned int size,
+                  [[maybe_unused]] const unsigned int device_rank)
+{
+   ...
+#if defined(NEKTAR_ENABLE_CUDA)
+   ...
+#elif defined(NEKTAR_ENABLE_HIP)
+   ...
+#elif defined(NEKTAR_ENABLE_SYCL)
+   ...
+#elif defined(NEKTAR_ENABLE_KOKKOS)
+   ...
+#else
+   ...
+#endif
+}
+\end{lstlisting}
+
+Similar approach is used for the \lstinline[style=C++Style]!deviceFree!, \lstinline[style=C++Style]!deviceMemset!, \lstinline[style=C++Style]!deviceFill!, and \lstinline[style=C++Style]!deviceMemcpy! functions.
+\begin{lstlisting}[style=C++Style]
+template <typename TData>
+void deviceFree(TData *src, [[maybe_unused]] const unsigned int device_rank)
+{
+   ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData>
+void deviceMemset(TData *dst, const int val, const unsigned int size,
+                  [[maybe_unused]] const unsigned int device_rank)
+{
+   ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData>
+void deviceFill(TData *dst, const TData val, const unsigned int size,
+                [[maybe_unused]] const unsigned int device_rank)
+{
+   ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=C++Style]
+template <typename MemCopy, typename TData>
+void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
+                  [[maybe_unused]] const unsigned int device_rank)
+{
+   ...
+}
+\end{lstlisting}
+
+The \lstinline[style=C++Style]!MemCopy! template parameter in \lstinline[style=C++Style]!deviceMemcpy! is a memory copy qualifier use to determine the direction of the memory copy. The following values are supported \lstinline[style=C++Style]!HostToHost!, \lstinline[style=C++Style]!DeviceToHost!, \lstinline[style=C++Style]!HostToDevice!, and \lstinline[style=C++Style]!DeviceToDevice!.
+
+

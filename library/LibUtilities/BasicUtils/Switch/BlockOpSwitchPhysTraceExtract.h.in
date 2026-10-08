@@ -1,0 +1,405 @@
+// clang-format off
+/* One level switch over the single point count that sizes a trace
+   operator's block.
+
+   Unlike the SumFac switches this one has no mode order in it. The
+   operators that name NEKTAR_BLOCKOP_SWITCH_PHYSTRACE -- PhysTraceExtract,
+   IProductWRTPhysTrace and IProductWRTPhysNormalDerivTrace -- fill m_nm
+   with GetNumPoints, that is with volume quadrature counts, and m_nq with
+   the trace quadrature counts. Both levels of a two level switch would
+   therefore be quadrature counts, and the inner range of one, running from
+   the mode order to twice it, would have no meaning.
+
+   The two counts are not independent either. A trace rule is the rule of
+   the volume direction the trace direction runs along, promoted to the
+   next Gauss-Lobatto rule where that volume direction is collapsed
+   (StdRegions::EvaluateQuadFaceBasisKey and EvaluateTriFaceBasisKey), so
+   every shape's trace counts follow its volume counts with the same
+   collapsed-direction pattern and nq00 == nm0 throughout. One case per
+   point count in [MIN1D, MAX1D] covers every combination that can occur,
+   and the guards below send anything else to the non-templated call, as
+   a point count outside the compiled range already goes.
+
+   NQ(i) is that point count and NQ_M1(i) is one less, which is what a
+   collapsed direction carries. */
+
+#if defined(SHAPE_TYPE_Seg)
+    const auto nm0 = m_nm[0];
+
+    if (m_isDeformed)
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock, NonTemplatedTraceSizeParameter1D(m_nm[0], m_nq[0]));
+
+        // Loop case over the point count, Shape dependent
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter1D<NQ(i), NQ(i)>());                    \
+        break;
+
+        // A segment's traces are its end points and carry no rule of their
+        // own, so the implementations set m_nq[0] to m_nm[0] and the two
+        // counts always agree.
+        switch (nm0)
+        {
+            BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+            default:
+            {
+                WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF
+            }
+            break;
+        }
+    }
+    else
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock, NonTemplatedTraceSizeParameter1D(m_nm[0], m_nq[0]));
+
+        // Loop case over the point count, Shape dependent
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter1D<NQ(i), NQ(i)>());                    \
+        break;
+
+        switch (nm0)
+        {
+            BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+            default:
+            {
+                WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF
+            }
+            break;
+        }
+    }
+
+#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+    const auto nm0 = m_nm[0];
+    const auto nm1 = m_nm[1];
+
+    const auto nq0 = m_nq[0];
+    const auto nq1 = m_nq[1];
+
+    if (m_isDeformed)
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock,                                                     \
+        NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1], m_nq[0], m_nq[1]));
+
+        // Loop case over the point count, Shape dependent
+#if defined(SHAPE_TYPE_Quad)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ(i), NQ(i), NQ(i)>());      \
+        break;
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ_M1(i), NQ(i), NQ(i)>());   \
+        break;
+#endif
+
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts. Note this will likely not
+        // work on cases with nquad, nquad+1 distributions
+#if defined(SHAPE_TYPE_Quad)
+        if ((nm0 == nm1) && (nq0 == nq1) && (nq0 == nm0))
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+        if ((nm0 == nm1 + 1) && (nq0 == nq1) && (nq0 == nm0))
+#endif
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF
+        }
+    }
+    else
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock,                                                     \
+        NonTemplatedTraceSizeParameter2D(m_nm[0], m_nm[1], m_nq[0], m_nq[1]));
+
+        // Loop case over the point count, Shape dependent
+#if defined(SHAPE_TYPE_Quad)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ(i), NQ(i), NQ(i)>());      \
+        break;
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ_M1(i), NQ(i), NQ(i)>());   \
+        break;
+#endif
+
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts. Note this will likely not
+        // work on cases with nquad, nquad+1 distributions
+#if defined(SHAPE_TYPE_Quad)
+        if ((nm0 == nm1) && (nq0 == nq1) && (nq0 == nm0))
+#elif defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+        if ((nm0 == nm1 + 1) && (nq0 == nq1) && (nq0 == nm0))
+#endif
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF
+        }
+    }
+#else
+    const auto nm0 = m_nm[0];
+    const auto nm1 = m_nm[1];
+    const auto nm2 = m_nm[2];
+
+    const auto nq00 = m_nq[0];
+    const auto nq01 = m_nq[1];
+    const auto nq10 = m_nq[2];
+    const auto nq11 = m_nq[3];
+    const auto nq20 = m_nq[4];
+    const auto nq21 = m_nq[5];
+
+    if (m_isDeformed)
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock,                                                     \
+        NonTemplatedTraceSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], m_nq[0],   \
+                                         m_nq[1], m_nq[2], m_nq[3], m_nq[4],   \
+                                         m_nq[5]));
+
+        // Loop case over the point count, Shape dependent
+#if defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i)>());                           \
+        break;
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
+    defined(SHAPE_TYPE_Pyr)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
+                                          NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
+                                          NQ(i)>());                           \
+        break;
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i), NQ(i),    \
+                                          NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
+                                          NQ_M1(i)>());                        \
+        break;
+#endif
+
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts
+#if defined(SHAPE_TYPE_Hex)
+        if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq10) && (nq00 == nq20) &&
+            (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
+            (nq00 == nm0))
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
+    defined(SHAPE_TYPE_Pyr)
+        if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
+            (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
+            (nq00 == nm0))
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+        if ((nm0 == nm1+1) && (nm1 == nm2) && (nq00 == nq10) &&
+            (nq00 == nq20)  && (nq00 == nq01+1) && (nq10 == nq11+1) &&
+            (nq20 == nq21+1) && (nq00 == nm0))
+#endif
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF
+        }
+    }
+    else
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock,                                                     \
+        NonTemplatedTraceSizeParameter3D(m_nm[0], m_nm[1], m_nm[2], m_nq[0],   \
+                                         m_nq[1], m_nq[2], m_nq[3], m_nq[4],   \
+                                         m_nq[5]));
+
+        // Loop case over the point count, Shape dependent
+#if defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i)>());                           \
+        break;
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
+    defined(SHAPE_TYPE_Pyr)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ_M1(i), NQ(i),       \
+                                          NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
+                                          NQ(i)>());                           \
+        break;
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i), NQ(i),    \
+                                          NQ_M1(i), NQ(i), NQ_M1(i), NQ(i),    \
+                                          NQ_M1(i)>());                        \
+        break;
+#endif
+
+        // templated cases on the standard point distributions, where the
+        // trace counts follow the volume counts
+#if defined(SHAPE_TYPE_Hex)
+        if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq10) && (nq00 == nq20) &&
+            (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
+            (nq00 == nm0))
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
+    defined(SHAPE_TYPE_Pyr)
+        if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
+            (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
+            (nq00 == nm0))
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+        if ((nm0 == nm1+1) && (nm1 == nm2) && (nq00 == nq10) &&
+            (nq00 == nq20)  && (nq00 == nq01+1) && (nq10 == nq11+1) &&
+            (nq20 == nq21+1) && (nq00 == nm0))
+#endif
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_Q)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF
+        }
+    }
+#endif
+// clang-format on

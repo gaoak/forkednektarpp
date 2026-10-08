@@ -107,8 +107,12 @@ public:
         const std::vector<Array<OneD, const NekDouble>> points,
         Array<OneD, NekDouble> &result) const;
 
+    LIB_UTILITIES_EXPORT std::map<std::string, NekDouble> GetParameters(void);
+
     LIB_UTILITIES_EXPORT void SetParameter(const std::string &name,
                                            NekDouble value);
+
+    LIB_UTILITIES_EXPORT std::map<std::string, NekDouble> GetConstants(void);
 
     LIB_UTILITIES_EXPORT void SetConstants(
         const std::map<std::string, NekDouble> &constants);

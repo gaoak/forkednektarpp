@@ -437,8 +437,19 @@ void DisContField::SetUpDG(const std::string variable,
         }
     }
 
-    m_locTraceToTraceMap = MemoryManager<LocTraceToTraceMap>::AllocateSharedPtr(
-        *this, m_trace, elmtToTrace, m_leftAdjacentTraces);
+    // The local-trace map is built from coefficient-space trace maps, which
+    // an orthogonal basis does not provide. A Gauss-point basis has no
+    // boundary-interior decomposition either, but its trace maps are well
+    // defined and consumers such as DiffusionIP require the map, so only
+    // the orthogonal bases are skipped here.
+    auto btype = (*m_exp)[0]->GetBasisType(0);
+    if (btype != LibUtilities::eOrtho_A && btype != LibUtilities::eOrtho_B &&
+        btype != LibUtilities::eOrtho_C && btype != LibUtilities::eOrthoPyr_C)
+    {
+        m_locTraceToTraceMap =
+            MemoryManager<LocTraceToTraceMap>::AllocateSharedPtr(
+                *this, m_trace, elmtToTrace, m_leftAdjacentTraces);
+    }
 }
 
 /**
@@ -4096,8 +4107,20 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
 
                     Vmath::Vmul(npoints, valuesExp, 1, valuesFile, 1,
                                 locExpList->UpdatePhys(), 1);
-                    locExpList->FwdTransBndConstrained(
-                        locExpList->GetPhys(), locExpList->UpdateCoeffs());
+                    // FwdTransBndConstrained solves for the interior modes
+                    // against fixed boundary modes, so it needs a
+                    // boundary-interior decomposition; without one the
+                    // elemental forward transform is the whole job.
+                    if (locExpList->GetExp(0)->IsBoundaryInteriorExpansion())
+                    {
+                        locExpList->FwdTransBndConstrained(
+                            locExpList->GetPhys(), locExpList->UpdateCoeffs());
+                    }
+                    else
+                    {
+                        locExpList->FwdTransLocalElmt(
+                            locExpList->GetPhys(), locExpList->UpdateCoeffs());
+                    }
                 }
                 else if (m_bndConditions[i]->GetBoundaryConditionType() ==
                          SpatialDomains::eNeumann)

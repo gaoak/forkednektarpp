@@ -21,9 +21,15 @@ Testing
 *.sublime-workspace
 # CLion build directories
 cmake-build-*
+# Caches and temporary files
+a.out
+.ccls-cache/
+.cache
+*.opt
 # Any python cache directories
 __pycache__
 # Generated CardiacEPSolver CellModel class
 solvers/CardiacEPSolver/CellModels/CellMLTest.*
 # Generated source files
 library/MatrixFreeOps/SwitchLimits.h
+library/LibUtilities/BasicUtils/Switch/SwitchLimits.h

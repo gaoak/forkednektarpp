@@ -1,0 +1,1202 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: MemoryRegion.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Memory/MemoryAlloc.hpp>
+
+namespace Nektar
+{
+
+/**
+ * @brief Possible states for Field data.
+ *
+ * These identify the mathematical representation of the field data. The two
+ * main states are *Phys*, representing the field at the quadrature points,
+ * and *Coeff*, representing the field in terms of its spectral/hp element
+ * basis coefficients.
+ */
+enum class FieldState
+{
+    Phys,
+    Coeff
+};
+
+template <FieldState TFieldState> std::string FieldStateToString(void)
+{
+    if constexpr (TFieldState == FieldState::Coeff)
+    {
+        return "Coeff";
+    }
+    else if constexpr (TFieldState == FieldState::Phys)
+    {
+        return "Phys";
+    }
+}
+
+// Memory access qualifier
+struct ReadOnly
+{
+};
+struct WriteOnly
+{
+};
+struct ReadWrite
+{
+};
+
+} // namespace Nektar
+
+namespace Nektar::LibUtilities
+{
+
+template <typename TData, FieldState TState> class Field;
+
+// Use by NekDataWarehouse.hpp
+class MemoryRegionBase
+{
+};
+
+/**
+ * @brief A MemoryRegion represents a memory region
+ * @tparam TData  The data type representation used by the MemoryRegion.
+ */
+template <typename TData> class MemoryRegion : public MemoryRegionBase
+{
+    template <typename TDataField, FieldState TState> friend class Field;
+
+public:
+    MemoryRegion() = default;
+
+    /**
+     * @brief Constructor methods - create a new memory region.
+     *
+     * @param name         - name
+     * @param size         - size of memory
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
+     * @param alignment    - memory alignment
+     */
+    MemoryRegion(const std::string name, const size_t size,
+                 const MemAllocType &memAllocType = eHostPageable,
+                 const size_t alignment = NektarSpaces::host_memory_alignment)
+    {
+        m_instantiated = true;
+        m_host_owned   = true;
+        m_device_owned = true;
+        m_host_valid   = false;
+        m_device_valid = false;
+        m_host         = nullptr;
+        m_host_aligned = nullptr;
+        m_device       = nullptr;
+
+        m_size         = size;
+        m_alignment    = alignment;
+        m_name         = name;
+        m_memAllocType = memAllocType;
+    }
+
+    /**
+     * @brief Constructor methods - create a new memory region.
+     *
+     * @param size         - size of memory
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
+     * @param alignment    - memory alignment
+     */
+    MemoryRegion(const size_t size,
+                 const MemAllocType &memAllocType = eHostPageable,
+                 const size_t alignment = NektarSpaces::host_memory_alignment)
+        : MemoryRegion<TData>("", size, memAllocType, alignment)
+    {
+    }
+
+    /**
+     * @brief Constructor methods - move from another MemoryRegion
+     *
+     * @param rhs - MemoryRegion to move from
+     */
+    MemoryRegion(MemoryRegion &&rhs)
+        : m_instantiated(rhs.m_instantiated), m_host_owned(rhs.m_host_owned),
+          m_device_owned(rhs.m_device_owned), m_host_valid(rhs.m_host_valid),
+          m_device_valid(rhs.m_device_valid), m_host(rhs.m_host),
+          m_host_aligned(rhs.m_host_aligned), m_device(rhs.m_device),
+          m_size(rhs.m_size), m_alignment(rhs.m_alignment), m_name(rhs.m_name),
+          m_memAllocType(rhs.m_memAllocType)
+    {
+        rhs.m_instantiated = false;
+        rhs.m_host_owned   = true;
+        rhs.m_device_owned = true;
+        rhs.m_host_valid   = false;
+        rhs.m_device_valid = false;
+        rhs.m_host         = nullptr;
+        rhs.m_host_aligned = nullptr;
+        rhs.m_device       = nullptr;
+        rhs.m_size         = 0;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
+        rhs.m_name         = "";
+        rhs.m_memAllocType = eHostPageable;
+    }
+
+    /**
+     * @brief Destructor method.
+     *
+     */
+    ~MemoryRegion()
+    {
+        ReleaseStorage();
+    }
+
+    /**
+     * @brief Constructor methods - No copy methods
+     *
+     */
+    MemoryRegion(const MemoryRegion &)            = delete;
+    MemoryRegion &operator=(const MemoryRegion &) = delete;
+
+    /**
+     * @brief Move assignment operator.
+     *
+     * @param rhs - MemoryRegion to move from
+     *
+     * @return    - MemoryRegion&
+     */
+    MemoryRegion &operator=(MemoryRegion &&rhs)
+    {
+        if (this == &rhs)
+        {
+            return *this;
+        }
+
+        // The storage this region already owns is released before it takes
+        // over the storage of rhs; overwriting the pointers alone would leak
+        // it.
+        ReleaseStorage();
+
+        m_instantiated = rhs.m_instantiated;
+        m_host_owned   = rhs.m_host_owned;
+        m_device_owned = rhs.m_device_owned;
+        m_host_valid   = rhs.m_host_valid;
+        m_device_valid = rhs.m_device_valid;
+        m_host         = rhs.m_host;
+        m_host_aligned = rhs.m_host_aligned;
+        m_device       = rhs.m_device;
+        m_size         = rhs.m_size;
+        m_alignment    = rhs.m_alignment;
+        m_name         = rhs.m_name;
+        m_memAllocType = rhs.m_memAllocType;
+
+        rhs.m_instantiated = false;
+        rhs.m_host_owned   = true;
+        rhs.m_device_owned = true;
+        rhs.m_host_valid   = false;
+        rhs.m_device_valid = false;
+        rhs.m_host         = nullptr;
+        rhs.m_host_aligned = nullptr;
+        rhs.m_device       = nullptr;
+        rhs.m_size         = 0;
+        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
+        rhs.m_name         = "";
+        rhs.m_memAllocType = eHostPageable;
+
+        return *this;
+    }
+
+    /**
+     * @brief Get the pointer to the host/device memory.
+     *
+     * @return    - TData*
+     */
+    template <typename MemSpace, typename MemAccess>
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr(
+        [[maybe_unused]] const unsigned int streamID = 0)
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::GetPtr - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            // The API returns an error message if the data has not been
+            // previously initialized by using a WriteOnly memory access. Memory
+            // transfer occurs if the data in the host memory space was marked
+            // as invalid. A constant pointer is returned by the API and the
+            // data in the host memory space is now marked as valid. The
+            // data in the device memory space remain valid.
+            if constexpr (std::is_same_v<MemAccess, ReadOnly>)
+            {
+                if (!m_host_aligned && !m_device && m_size > 0)
+                {
+                    // Throw an error.
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to access host "
+                             "memory (" +
+                                 m_name + ") without it being allocated.");
+                }
+
+                if (!m_host_valid && !m_device_valid)
+                {
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to get a host "
+                             "pointer (" +
+                                 m_name + ") before the data is initialized.");
+                }
+
+                DeviceToHostCopy(streamID); // Move to host if necessary
+
+                m_host_valid = true;
+
+                return m_host_aligned;
+            }
+            // Memory is allocated and marked as initialized, if not yet
+            // allocated. No memory transfer occurs and a non-constant pointer
+            // is returned by the API. The data in the host memory space is
+            // now marked as valid, while the data in the device memory space
+            // is marked as invalid.
+            else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
+            {
+                // Allocate host memory, if not yet allocated.
+                if (!m_host_aligned)
+                {
+                    if (m_memAllocType == eHostPinned)
+                    {
+                        // Add extra bytes for alignment provision.
+                        size_t aligned_bytes_size =
+                            m_size * sizeof(TData) + m_alignment;
+                        hostMallocPinned(&m_host, aligned_bytes_size);
+                        if ((size_t)m_host % m_alignment)
+                        {
+                            // Get aligned memory pointer by offsetting
+                            // non-aligned pinned memory.
+                            m_host_aligned =
+                                (TData *)((size_t)m_host + m_alignment -
+                                          (size_t)m_host % m_alignment);
+                        }
+                        else
+                        {
+                            m_host_aligned = m_host;
+                        }
+                    }
+                    else if (m_memAllocType == eHostPageable)
+                    {
+                        hostMalloc(&m_host, m_size * sizeof(TData),
+                                   m_alignment);
+                        m_host_aligned = m_host;
+                    }
+
+                    // Initialize memory to zero.
+                    std::memset((void *)m_host_aligned, 0,
+                                m_size * sizeof(TData));
+                }
+
+                m_host_valid   = true;
+                m_device_valid = false;
+
+                return m_host_aligned;
+            }
+            // The API returns an error message if the data have not been
+            // previously initialized by using a WriteOnly memory access. Memory
+            // transfer occurs if the data on the host memory space was
+            // marked as invalid and a non-constant pointer is returned by the
+            // API. The data in the host memory space is now marked as
+            // valid, while the data in the device memory space is marked as
+            // invalid.
+            else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
+            {
+                if (!m_host_aligned && !m_device && m_size > 0)
+                {
+                    // Throw an error.
+                    NEKERROR(
+                        Nektar::ErrorUtil::efatal,
+                        "MemoryRegion::GetPtr - attempt to access host data (" +
+                            m_name + ") without it being allocated.");
+                }
+
+                if (!m_host_valid && !m_device_valid)
+                {
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to get a host "
+                             "pointer (" +
+                                 m_name + ") before the data is initialized.");
+                }
+
+                DeviceToHostCopy(streamID); // Move to host if necessary
+
+                m_host_valid   = true;
+                m_device_valid = false;
+
+                return m_host_aligned;
+            }
+        }
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            // The API returns an error message if the data has not been
+            // previously initialized by using a WriteOnly memory access. Memory
+            // transfer occurs if the data in the device memory space was marked
+            // as invalid. A constant pointer is returned by the API and the
+            // data in the device memory space is now marked as valid. The
+            // data in the host memory space remain valid.
+            if constexpr (std::is_same_v<MemAccess, ReadOnly>)
+            {
+                if (!m_host_aligned && !m_device && m_size > 0)
+                {
+                    // Throw an error.
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to access device "
+                             "memory (" +
+                                 m_name + ") without it being allocated.");
+                }
+
+                if (!m_host_valid && !m_device_valid)
+                {
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to get a host "
+                             "pointer (" +
+                                 m_name + ") before the data is initialized.");
+                }
+
+                HostToDeviceCopy(streamID); // Move to device if necessary
+
+                m_device_valid = true;
+
+                return m_device;
+            }
+            // Memory is allocated and marked as initialized, if not yet
+            // allocated. No memory transfer occurs and a non-constant pointer
+            // is returned by the API. The data in the device memory space is
+            // now marked as valid, while the data in the host memory space
+            // is marked as invalid.
+            else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
+            {
+                // Allocate device memory, if not yet allocated.
+                if (!m_device)
+                {
+                    deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                                 m_memAllocType);
+
+                    // Initialize memory to zero.
+                    deviceMemset(m_device, 0, m_size * sizeof(TData), streamID);
+                }
+
+                m_host_valid   = false;
+                m_device_valid = true;
+
+                return m_device;
+            }
+            // The API returns an error message if the data have not been
+            // previously initialized by using a WriteOnly memory access. Memory
+            // transfer occurs if the data on the device memory space was
+            // marked as invalid and a non-constant pointer is returned by the
+            // API. The data in the device memory space is now marked as
+            // valid, while the data in the host memory space is marked as
+            // invalid.
+            else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
+            {
+                if (!m_host_aligned && !m_device && m_size > 0)
+                {
+                    // Throw an error.
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to access device "
+                             "memory (" +
+                                 m_name + ") without it being allocated.");
+                }
+
+                if (!m_host_valid && !m_device_valid)
+                {
+                    NEKERROR(Nektar::ErrorUtil::efatal,
+                             "MemoryRegion::GetPtr - attempt to get a host "
+                             "pointer (" +
+                                 m_name + ") before the data is initialized.");
+                }
+
+                HostToDeviceCopy(streamID); // Move to device if necessary
+
+                m_host_valid   = false;
+                m_device_valid = true;
+
+                return m_device;
+            }
+        }
+
+        return nullptr;
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion that copies data from a std::vector
+     *
+     * @param name         - name of the memory region
+     * @param array        - std::vector to copy from
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
+     * @param alignment    - Memory alignment to use.
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace, typename TDataIn,
+              class Alloc = std::allocator<TDataIn>>
+    static MemoryRegion<TData> FromVector(
+        const std::string name, std::vector<TDataIn, Alloc> const &array,
+        const unsigned int streamID      = 0,
+        const MemAllocType &memAllocType = eHostPageable,
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
+    {
+        auto mr =
+            MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
+        mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                              streamID);
+        return mr;
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion that copies data from a std::vector
+     *
+     * @param array        - std::vector to copy from
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
+     * @param alignment    - Memory alignment to use.
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace, typename TDataIn,
+              class Alloc = std::allocator<TDataIn>>
+    static MemoryRegion<TData> FromVector(
+        std::vector<TDataIn, Alloc> const &array,
+        const unsigned int streamID      = 0,
+        const MemAllocType &memAllocType = eHostPageable,
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
+    {
+        return MemoryRegion<TData>::template FromVector<MemSpace, TDataIn>(
+            "", array, streamID, memAllocType, alignment);
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion that copies data from a
+     *        Nektar::Array<Nektar::OneD, TDataIn>
+     *
+     * @param name         - name of the memory region
+     * @param array        - Nektar::Array to copy from
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
+     * @param alignment    - Memory alignment to use.
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace, typename TDataIn>
+    static MemoryRegion<TData> FromArray(
+        const std::string name,
+        Nektar::Array<Nektar::OneD, TDataIn> const &array,
+        const unsigned int streamID      = 0,
+        const MemAllocType &memAllocType = eHostPageable,
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
+    {
+        auto mr =
+            MemoryRegion<TData>(name, array.size(), memAllocType, alignment);
+        mr.template CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                              streamID);
+        return mr;
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion that copies data from an Nektar::Array
+     *
+     * @param array        - Nektar::Array to copy from
+     * @param memAllocType - [ eHostPageable,  eHostPinned, eDeviceMemoryPool,
+     * eHostPinnedDeviceMemoryPool]
+     * @param alignment    - Memory alignment to use.
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace, typename TDataIn>
+    static MemoryRegion<TData> FromArray(
+        Nektar::Array<Nektar::OneD, TDataIn> const &array,
+        const unsigned int streamID      = 0,
+        const MemAllocType &memAllocType = eHostPageable,
+        const size_t alignment           = NektarSpaces::host_memory_alignment)
+    {
+        return MemoryRegion<TData>::template FromArray<MemSpace, TDataIn>(
+            "", array, streamID, memAllocType, alignment);
+    }
+
+    /**
+     * @brief initialize the storage memory.
+     *
+     * @param val    - value to set
+     * @param count  - number of values
+     * @param offset - offset to m_host_aligned pointer
+     */
+    template <typename MemSpace>
+    void Initialize(const TData val, const size_t count = 0,
+                    const size_t offset = 0, const unsigned int streamID = 0)
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::Initialize - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
+        if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            // Allocate host memory, if not yet allocated.
+            if (!m_host_aligned)
+            {
+                if (m_memAllocType == eHostPinned)
+                {
+                    // Add extra bytes for alignment provision.
+                    size_t aligned_bytes_size =
+                        m_size * sizeof(TData) + m_alignment;
+                    hostMallocPinned(&m_host, aligned_bytes_size);
+                    if ((size_t)m_host % m_alignment)
+                    {
+                        // Get aligned memory pointer by offsetting non-aligned
+                        // pinned memory.
+                        m_host_aligned =
+                            (TData *)((size_t)m_host + m_alignment -
+                                      (size_t)m_host % m_alignment);
+                    }
+                    else
+                    {
+                        m_host_aligned = m_host;
+                    }
+                }
+                else if (m_memAllocType == eHostPageable)
+                {
+                    hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
+                    m_host_aligned = m_host;
+                }
+
+                // Initialize memory to zero.
+                std::memset((void *)m_host_aligned, 0, m_size * sizeof(TData));
+            }
+
+            auto size = (count == 0) ? m_size : count;
+
+            TData *dst = m_host_aligned + offset;
+
+            // Initialize memory to val.
+            if constexpr (std::is_floating_point_v<TData> ||
+                          std::is_integral_v<TData>)
+            {
+                // Zero value.
+                if (val == TData(0))
+                {
+                    std::memset(dst, 0, size * sizeof(TData));
+                }
+                // Nonzero value.
+                else
+                {
+                    std::fill(dst, dst + size, val);
+                }
+            }
+            else
+            {
+                std::fill(dst, dst + size, val);
+            }
+
+            m_host_valid   = true;
+            m_device_valid = false;
+        }
+        else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            // Allocate device memory, if not yet allocated.
+            if (!m_device)
+            {
+                deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                             m_memAllocType);
+
+                // Initialize memory to zero.
+                deviceMemset(m_device, 0, m_size * sizeof(TData), streamID);
+            }
+
+            auto size = (count == 0) ? m_size : count;
+
+            TData *dst = m_device + offset;
+
+            // Initialize memory to val.
+            if constexpr (std::is_floating_point_v<TData> ||
+                          std::is_integral_v<TData>)
+            {
+                // Zero value.
+                if (val == TData(0))
+                {
+                    deviceMemset(dst, 0, size * sizeof(TData), streamID);
+                }
+                // Nonzero value.
+                else
+                {
+                    deviceFill(dst, val, size, streamID);
+                }
+            }
+            else
+            {
+                deviceFill(dst, val, size, streamID);
+            }
+
+            m_host_valid   = false;
+            m_device_valid = true;
+        }
+    }
+
+    /**
+     * @brief Copy data from one region to another region.
+     *
+     * @param rhs - MemoryRegion to copy from
+     */
+    template <typename MemSpace>
+    void Copy(MemoryRegion &rhs,
+              [[maybe_unused]] const unsigned int streamID = 0)
+    {
+        if (this->size() != rhs.size())
+        {
+            std::stringstream msg;
+
+            msg << "MemoryRegion::Copy - "
+                << "Memory size mismatch between (" << rhs.GetName()
+                << ") and (" << this->GetName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+
+        auto dst = this->template GetPtr<MemSpace, WriteOnly>();
+        auto src = rhs.template GetPtr<MemSpace, ReadOnly>();
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            std::copy(src, src + this->size(), dst);
+        }
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            deviceMemcpy<DeviceToDevice>(dst, src, this->size() * sizeof(TData),
+                                         streamID);
+        }
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        std::vector
+     *
+     * @param array - std::vector to copy from
+     *
+     */
+    template <typename MemSpace, typename TDataIn,
+              class Alloc = std::allocator<TDataIn>>
+    void CopyVector(const std::vector<TDataIn, Alloc> &array,
+                    const unsigned int streamID = 0)
+    {
+        if (this->size() != array.size())
+        {
+            std::stringstream msg;
+
+            msg << "MemoryRegion::CopyVector - "
+                << "Memory size mismatch between (std::vector) and ("
+                << this->GetName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+
+        this->CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                        streamID);
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        Nektar::Array<Nektar::OneD, TDataIn>
+     *
+     * @param array - Nektar::Array to copy from
+     *
+     */
+    template <typename MemSpace, typename TDataIn>
+    void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array,
+                   const unsigned int streamID = 0)
+    {
+        if (this->size() != array.size())
+        {
+            std::stringstream msg;
+
+            msg << "MemoryRegion::CopyArray - "
+                << "Memory size mismatch between (Nektar::array) and ("
+                << this->GetName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+
+        this->CopyFromHostPtr<MemSpace>(array.data(), array.size(), 0,
+                                        streamID);
+    }
+
+    /**
+     * @brief Copy data to a std:vector.
+     *
+     * @return std::vector<TDataOut>
+     */
+    template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
+    std::vector<TDataOut, Alloc> ToVector()
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::ToVector - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
+        if constexpr (std::is_same_v<TDataOut, TData>)
+        {
+            return std::vector<TDataOut, Alloc>(
+                m_size,
+                this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
+        }
+        else
+        {
+            std::vector<TDataOut, Alloc> vector(m_size);
+
+            // Copy the data from the input field.
+            auto ptr =
+                this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto vecPtr = vector.data();
+
+            std::copy(ptr, ptr + m_size, vecPtr);
+
+            return vector;
+        }
+    }
+
+    /**
+     * @brief Copy data to a Nektar::Array
+     *
+     * @return Array<Nektar::OneD, TDataOut>
+     */
+    template <typename TDataOut = TData>
+    Nektar::Array<Nektar::OneD, TDataOut> ToArray()
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::ToArray - Object has not been instantiated "
+                     "by custom constructor.");
+        }
+
+        if constexpr (std::is_same_v<TDataOut, TData>)
+        {
+            return Nektar::Array<Nektar::OneD, TDataOut>(
+                m_size,
+                this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
+        }
+        else
+        {
+            Nektar::Array<Nektar::OneD, TDataOut> array(m_size);
+
+            // Copy the data from the input field.
+            auto ptr =
+                this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto arrPtr = array.data();
+
+            std::copy(ptr, ptr + m_size, arrPtr);
+
+            return array;
+        }
+    }
+
+    /**
+     * @brief Get the storage memory alignment.
+     *
+     * @return - size_t
+     */
+    size_t GetAlignment() const
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::GetAlignment - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
+        return m_alignment;
+    }
+
+    /**
+     * @brief Get the storage size
+     *
+     * @return - size_t
+     */
+    size_t size() const
+    {
+        return m_size;
+    }
+
+    /**
+     * @brief Get the storage name.
+     *
+     */
+    std::string GetName() const
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::GetName - Object has not been instantiated "
+                     "by custom constructor.");
+        }
+
+        return m_name;
+    }
+
+    typedef TData value_type;
+
+private:
+    /**
+     * @brief Free the host and device storage this region owns and return it
+     * to the default, uninstantiated state.
+     *
+     * Storage set from outside with SetHostStorage() or SetDeviceStorage() is
+     * not owned and is left alone.
+     */
+    void ReleaseStorage()
+    {
+        if (m_device && m_device_owned)
+        {
+            const unsigned int streamID = 0;
+            deviceFree(m_device, m_size * sizeof(TData), streamID,
+                       m_memAllocType);
+            nekStreamSynchronize(streamID);
+        }
+
+        if (m_host && m_host_owned)
+        {
+            if (m_memAllocType == eHostPinned)
+            {
+                hostFreePinned(m_host);
+            }
+            else if (m_memAllocType == eHostPageable)
+            {
+                hostFree(m_host, m_alignment);
+            }
+        }
+
+        m_instantiated = false;
+        m_host_owned   = true;
+        m_device_owned = true;
+        m_host_valid   = false;
+        m_device_valid = false;
+        m_host         = nullptr;
+        m_host_aligned = nullptr;
+        m_device       = nullptr;
+        m_size         = 0;
+        m_alignment    = NektarSpaces::host_memory_alignment;
+        m_name         = "";
+        m_memAllocType = eHostPageable;
+    }
+
+    /**
+     * @brief Templated copy method.
+     *
+     * @param src    - pointer data type TDataIn to copy from
+     * @param size   - number of element of type TDataIn to copy
+     * @param offset - offset to m_host_aligned pointer
+     */
+    template <typename MemSpace, typename TDataIn>
+    void CopyFromHostPtr(const TDataIn *src, const size_t size,
+                         const size_t offset         = 0,
+                         const unsigned int streamID = 0)
+    {
+        if (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            // Allocate host memory, if not yet allocated.
+            if (!m_host_aligned)
+            {
+                if (m_memAllocType == eHostPinned)
+                {
+                    // Add extra bytes for alignment provision.
+                    size_t aligned_bytes_size =
+                        m_size * sizeof(TData) + m_alignment;
+                    hostMallocPinned(&m_host, aligned_bytes_size);
+                    if ((size_t)m_host % m_alignment)
+                    {
+                        // Get aligned memory pointer by offsetting non-aligned
+                        // pinned memory.
+                        m_host_aligned =
+                            (TData *)((size_t)m_host + m_alignment -
+                                      (size_t)m_host % m_alignment);
+                    }
+                    else
+                    {
+                        m_host_aligned = m_host;
+                    }
+                }
+                else if (m_memAllocType == eHostPageable)
+                {
+                    hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
+                    m_host_aligned = m_host;
+                }
+
+                // Initialize memory to zero.
+                std::memset((void *)m_host_aligned, 0, m_size * sizeof(TData));
+            }
+
+            TData *dst = m_host_aligned + offset;
+
+            // Copy to host memory.
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                std::memcpy(dst, src, size * sizeof(TData));
+            }
+            else
+            {
+                std::vector<TData> tmp(size);
+                std::copy(src, src + size, tmp.data());
+                std::memcpy(dst, tmp.data(), size * sizeof(TData));
+            }
+
+            m_host_valid   = true;
+            m_device_valid = false;
+        }
+        else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            // Allocate device memory, if not yet allocated.
+            if (!m_device)
+            {
+                deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                             m_memAllocType);
+
+                // Allocate device memory, if not yet allocated.
+                deviceMemset(m_device, 0, m_size * sizeof(TData), streamID);
+            }
+
+            TData *dst = m_device + offset;
+
+            // Copy to device memory.
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                deviceMemcpy<HostToDevice>(dst, src, size * sizeof(TData),
+                                           streamID);
+            }
+            else
+            {
+                std::vector<TData> tmp(size);
+                std::copy(src, src + size, tmp.data());
+                deviceMemcpy<HostToDevice>(dst, tmp.data(),
+                                           size * sizeof(TData), streamID);
+            }
+            m_host_valid   = false;
+            m_device_valid = true;
+
+            // Synchronize stream to avoid host memory going out of scope before
+            // memory copy is complete.
+            nekStreamSynchronize(streamID);
+        }
+    }
+
+    /**
+     * @brief Perform a host to device copy.
+     *
+     */
+    void HostToDeviceCopy(const unsigned int streamID)
+    {
+        if (!m_device_valid)
+        {
+            if (!m_host_aligned && m_size > 0)
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "MemoryRegion::HostToDeviceCopy - attempt to transfer "
+                         "data from the host (" +
+                             m_name +
+                             ") without any valid host memory allocated.");
+            }
+
+            // Allocate device memory, if not yet allocated.
+            if (!m_device)
+            {
+                deviceMalloc(&m_device, m_size * sizeof(TData), streamID,
+                             m_memAllocType);
+            }
+
+            // Make sure the host data is valid. It might not be.
+            if (m_host_valid)
+            {
+                deviceMemcpy<HostToDevice>(m_device, m_host_aligned,
+                                           m_size * sizeof(TData), streamID);
+            }
+            else
+            {
+                // Throw an error.
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "MemoryRegion::HostToDeviceCopy - attempt to transfer "
+                         "data (" +
+                             m_name +
+                             ") to the device without any valid host data.");
+            }
+        }
+    }
+
+    /**
+     * @brief Perform a device to host copy.
+     *
+     */
+    void DeviceToHostCopy(const unsigned int streamID)
+    {
+        if (!m_host_valid)
+        {
+            if (!m_device && m_size > 0)
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "MemoryRegion::DeviceToHostCopy - attempt to transfer "
+                         "data from the device (" +
+                             m_name +
+                             ") without any valid device memory allocated.");
+            }
+
+            // Allocate host memory, if not yet allocated.
+            if (!m_host_aligned)
+            {
+                if (m_memAllocType == eHostPinned)
+                {
+                    // Add extra bytes for alignment provision.
+                    size_t aligned_bytes_size =
+                        m_size * sizeof(TData) + m_alignment;
+                    hostMallocPinned(&m_host, aligned_bytes_size);
+                    if ((size_t)m_host % m_alignment)
+                    {
+                        // Get aligned memory pointer by offsetting non-aligned
+                        // pinned memory.
+                        m_host_aligned =
+                            (TData *)((size_t)m_host + m_alignment -
+                                      (size_t)m_host % m_alignment);
+                    }
+                    else
+                    {
+                        m_host_aligned = m_host;
+                    }
+                }
+                else if (m_memAllocType == eHostPageable)
+                {
+                    hostMalloc(&m_host, m_size * sizeof(TData), m_alignment);
+                    m_host_aligned = m_host;
+                }
+            }
+
+            // Make sure the device data is valid. It might not be.
+            if (m_device_valid)
+            {
+                deviceMemcpy<DeviceToHost>(m_host_aligned, m_device,
+                                           m_size * sizeof(TData), streamID);
+            }
+            else
+            {
+                // Throw an error.
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "MemoryRegion::DeviceToHostCopy - attempt to transfer "
+                         "data (" +
+                             m_name +
+                             ") to the host without any valid device data.");
+            }
+        }
+    }
+
+    /**
+     * @brief Initialize host pointer for an existing (external) pointer.
+     * Specialized function used in Field.h to allocate a contiguous host memory
+     * accross all MemoryRegion objects from a Field object. This function
+     * should not be otherwise used.
+     *
+     * @param src - source pointer from Field
+     *
+     * Note: It is the user responsability to guarantee that src has the proper
+     * alignment.
+     */
+    void SetHostStorage(TData *src)
+    {
+        if (m_host)
+        {
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::SetHostStorage - Host storage has already "
+                     "been allocated");
+        }
+
+        m_host         = src;
+        m_host_aligned = src;
+        m_host_owned   = false;
+    }
+
+    /**
+     * @brief Initialize device pointer for an existing (external) pointer.
+     * Specialized function used in Field.h to allocate a contiguous device
+     * memory accross all MemoryRegion objects from a Field object. This
+     * function should not be otherwise used.
+     *
+     * @param src - source pointer from Field
+     *
+     */
+    void SetDeviceStorage(TData *src)
+    {
+        if (m_device)
+        {
+            // Throw an error.
+            NEKERROR(
+                Nektar::ErrorUtil::efatal,
+                "MemoryRegion::SetDeviceStorage - Device storage has already "
+                "been allocated");
+        }
+
+        m_device       = src;
+        m_device_owned = false;
+    }
+
+    // Member variables:
+    bool m_instantiated = false; ///< Flag indicating if the current object has
+                                 ///< been instantiated.
+    bool m_host_owned = true; ///< Flag indicating if the host pointer is owned
+                              ///< by the current object.
+    bool m_device_owned = true;  ///< Flag indicating if the device pointer is
+                                 ///< owned by the current object.
+    bool m_host_valid   = false; ///< Flag indicating if the host data is valid.
+    bool m_device_valid = false; ///< Flag indicating if the device data is
+                                 ///< valid.
+    TData *m_host         = nullptr; ///< Host memory pointer.
+    TData *m_host_aligned = nullptr; ///< Host (aligned) memory pointer.
+    TData *m_device       = nullptr; ///< Device memory pointer.
+    size_t m_size         = 0;       ///< Storage size (number of elements).
+    size_t m_alignment    = NektarSpaces::host_memory_alignment;
+
+    std::string m_name{""}; ///< Name to identify the current object.
+    MemAllocType m_memAllocType{
+        eHostPageable}; ///< Host memory allocation type
+                        ///< ( eHostPageable,  eHostPinned, eDeviceMemoryPool,
+                        ///< eHostPinnedDeviceMemoryPool).
+};
+
+} // namespace Nektar::LibUtilities

@@ -38,6 +38,11 @@
 
 #include <LibUtilities/Communication/CommMpi.h>
 
+#if __has_include(<mpi-ext.h>)
+/* Needed for MPIX_Query_*_support() */
+#include <mpi-ext.h> // OpenMPI
+#endif
+
 namespace Nektar::LibUtilities
 {
 
@@ -67,6 +72,34 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
         }
         // store bool to indicate that Nektar++ is in charge of finalizing MPI.
         m_controls_mpi = true;
+
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        // Bind local MPI rank to GPU. Skipped entirely when no device is
+        // visible to this process, as is the case for a build with device
+        // support enabled running on a machine without a GPU.
+        auto num_device = nekGetNumDevice();
+        if (num_device > 0)
+        {
+            MPI_Comm local_comm;
+            int local_rank, local_size;
+
+            // Split MPI_COMM_WORLD based on shared memory access (effectively
+            // per node).
+            MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+                                MPI_INFO_NULL, &local_comm);
+
+            // Get the rank and size in the new local communicator.
+            MPI_Comm_rank(local_comm, &local_rank);
+            MPI_Comm_size(local_comm, &local_size);
+
+            // Use round-Robin distribution.
+            auto device_rank = local_rank % num_device;
+            nekSetDevice(device_rank);
+
+            // Free communicator.
+            MPI_Comm_free(&local_comm);
+        }
+#endif
     }
     else
     {
@@ -84,6 +117,38 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
 #endif
 
     m_type = "Parallel MPI";
+
+// GPU-aware MPI
+#if defined(NEKTAR_ENABLE_CUDA) && defined(OMPI_HAVE_MPI_EXT_CUDA) &&          \
+    OMPI_HAVE_MPI_EXT_CUDA
+    // CUDA-aware OpenMPI/MVAPICH2
+    // https://docs.open-mpi.org/en/main/tuning-apps/networking/cuda.html
+    m_gpu_aware = (bool)MPIX_Query_cuda_support();
+#elif defined(NEKTAR_ENABLE_ROCM) && defined(OMPI_HAVE_MPI_EXT_ROCM) &&        \
+    OMPI_HAVE_MPI_EXT_ROCM
+    // ROCM-aware OpenMPI
+    // https://docs.open-mpi.org/en/main/tuning-apps/networking/rocm.html
+    // https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-gpu-aware-mpi-readme/
+    m_gpu_aware = (bool)MPIX_Query_rocm_support();
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+    // CUDA/ROCM-aware CRAY MPICH
+    // https://docs.nersc.gov/development/programming-models/mpi/cray-mpich/
+    // Note: Environment variable must bet set as follow:
+    //       export MPICH_GPU_SUPPORT_ENABLED=1
+    // Note: It is the user responsibilities to compile Nektar++ with Cray MPICH
+    // when using the MPICH_GPU_SUPPORT_ENABLED option.
+    m_gpu_aware = (bool)std::getenv("MPICH_GPU_SUPPORT_ENABLED");
+#endif
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(NEKTAR_ENABLE_SYCL)
+    // Can't automatically determine if MPI is GPU aware or not. Manually set
+    // GPU-aware flag. Note: Environment variable must bet set as follow:
+    //       export MPI_GPU_AWARE=1
+    // Note: It is the user responsibilities to compile Nektar++ with GPU-aware
+    // implementation when using the MPI_GPU_AWARE option.
+    m_gpu_aware = m_gpu_aware || (bool)std::getenv("MPI_GPU_AWARE");
+#endif
 }
 
 /**
@@ -254,6 +319,58 @@ void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
     int retval = MPI_Allreduce(MPI_IN_PLACE, buf, count, dt, vOp, m_comm);
 
     ASSERTL0(retval == MPI_SUCCESS, "MPI error performing All-reduce.");
+}
+
+/**
+ *
+ */
+void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
+                               enum ReduceOperator pOp,
+                               CommRequestSharedPtr request)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    MPI_Op vOp;
+    switch (pOp)
+    {
+        case ReduceMax:
+            vOp = MPI_MAX;
+            break;
+        case ReduceMin:
+            vOp = MPI_MIN;
+            break;
+        case ReduceSum:
+        default:
+            vOp = MPI_SUM;
+            break;
+    }
+    CommRequestMpiSharedPtr req =
+        std::static_pointer_cast<CommRequestMpi>(request);
+    int retval = MPI_Iallreduce(MPI_IN_PLACE, buf, count, dt, vOp, m_comm,
+                                req->GetRequest(0));
+
+    ASSERTL0(retval == MPI_SUCCESS, "MPI error performing All-reduce.");
+}
+
+/**
+ *
+ */
+void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    CommRequestMpiSharedPtr req =
+        std::static_pointer_cast<CommRequestMpi>(request);
+    if (req->GetNumRequest() != 0)
+    {
+        MPI_Wait(req->GetRequest(0), MPI_STATUS_IGNORE);
+    }
 }
 
 /**

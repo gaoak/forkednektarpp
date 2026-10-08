@@ -2103,7 +2103,11 @@ AssemblyMapCG::AssemblyMapCG(
 
     // copy global ids back to local values in partition to
     // initialise gs communicator.
-    Array<OneD, long> paraDirBnd(m_numLocalCoeffs);
+    // Retained as a member (see GetParaDirBnd()) so that a device-resident
+    // universal Dirichlet assembly can reproduce the gather-scatter this
+    // handle performs without re-deriving the mask.
+    m_paraDirBnd                  = Array<OneD, long>(m_numLocalCoeffs);
+    Array<OneD, long> &paraDirBnd = m_paraDirBnd;
     for (i = 0; i < numLocalCoeffs; ++i)
     {
         paraDirBnd[i] = 0.0;
@@ -2570,11 +2574,15 @@ void AssemblyMapCG::SetUpUniversalC0ContMap(const ExpList &locExp,
         LibUtilities::GatherScatter::Create(tmp, vRowComm, m_gsConfig, verbose);
     m_bndGsh = LibUtilities::GatherScatter::Create(tmp2, vRowComm, m_gsConfig,
                                                    verbose);
+    // this is needed for device support calls to DataWarehouse
+    m_cgcomm = std::make_unique<AssemblyComm<double>>(vRowComm, tmp);
     m_gsh->Unique(tmp);
+
     for (unsigned int i = 0; i < m_numGlobalCoeffs; ++i)
     {
         m_globalToUniversalMapUnique[i] = (tmp[i] >= 0 ? 1 : 0);
     }
+
     for (unsigned int i = 0; i < m_numGlobalBndCoeffs; ++i)
     {
         m_globalToUniversalBndMapUnique[i] = (tmp2[i] >= 0 ? 1 : 0);
@@ -2940,15 +2948,6 @@ void AssemblyMapCG::v_Assemble(const NekVector<NekDouble> &loc,
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
     m_gsh->Gather(pGlobal, LibUtilities::GatherScatterOp::eAdd);
-}
-
-void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                        int offset) const
-{
-    Array<OneD, NekDouble> tmp(offset);
-    Vmath::Vcopy(offset, pGlobal, 1, tmp, 1);
-    UniversalAssemble(pGlobal);
-    Vmath::Vcopy(offset, tmp, 1, pGlobal, 1);
 }
 
 int AssemblyMapCG::v_GetFullSystemBandWidth() const

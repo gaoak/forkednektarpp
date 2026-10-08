@@ -1,0 +1,105 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx90dkNAjEMBFDDcizncl9dUACa9mgKTUtTAj8btLHQ5MeSX+LYScRwiXWMGA3j8/3JPrYuNra+OEne13mVzNS6OPP1Mff9ofX1sQi/llbFlXes0/6SL5mNdXHrHV0vea5yYmdd3HvHIc1T9xFxtC6evOOcvP7HiIt18eodt//3/97nbl18eMcX579dXgAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1k9dWAkEQRFdwBRUki5INRDFgIqf//yle5j5wz9l96VPVNTU1M71RdP5dJNSUajoBR8KX4sGx/OGv5IsuI1/4bILvtfxYfyPM/rfS8+XEs19ePvB3CbkKwuQrKgd8KVTugdzlUGPxFa2HryoP56wpP/y9MH515edeHpSHe3mUDr4hX/pN5UbfUn7uty2MT0f56Xel4z162o/3eJIO/ln56b8oP/pX5eBd+8L4DJSf/jBU5oQ5GAkzB+NQU+In0nOON+k4xzRU5oR5ehfG70M85/iUjvn7Emb+ZsoD/63crPtRbvS/ysMc/wnj86/c9OfS8V4L7ce7L7Wed1zJh/9nLcz/s5E//FY5WLdTDvR75eE/PAjjc1Ru+ielsQ7Z</EDGE>
+        <FACE>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxd0NcKwkAUhGG7iIoaFGPBTmI3RrFhwfd/KW/+uXBy87HLZubsZjP/XxELmMcclrBs6wrWsWb7ym1iA6uW08LA8mQH23a+a7l9ywltPbC8oeWO7L+x5c6whxPLnVvuwnIjy41xjXqnKa5wg7q3era4R91LPQdMrWeJRzxZj86d8WI9O7yi3iW1czebVz0J3m1e9SjngS/r01xPfFufcj74tb4f3gQMEgAA</T>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1kclSAlEQBEFHRVARXEGUVVFxB0Rx//+f8lJ5MCOcS0a/7qqujimV/n7lcCVcVU1/PayEa2Eh3YbmCs1vhlXlqElPH91OuC1/dIXmtuTDHY1wL9zVPL5NzdXljy/6w/Dgn/m65valP9L+47ClHNQnem/Lt6P9+J8qB3Vb72fSdbW/F/alpx4q30C5R9qP/7neqdGT70I5x+FleBXy33vqT5TvWntuwlv5899H6qMn353y34cP4aPyjNWfKt9TyF2zcC5/8kzUR0++55A7FyH/70V58H8NuQsde7hrGb6F7/Kbqv+p/R/y/Qq/5U9/oT56cv6Ev5U5En4A</Q>
+        </FACE>
+        <ELEMENT>
+            <R COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxd0bcWwkAQQ1ETDZhgcsbknE34/z+jeSqQm1v4aLQ7GwT/XwazmMO8/S9gEUP7X7I5sowVjLBqfZpXw7rlG3auGJs2r4VtO3cHuzZP+R7qfn0c2LwhjuzcY5zYPOWnqD3NMME5LlD70v2XuMK15bUv5Ta4xR3urU/vccAjniyvPu35jBfUPq7Wp/e84R21D+XVp3s88Ikpvqxf7/jGD34tr/4fEb8I4QAA</R>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="1"> F[3,11,18,25,33,40,46,52] </C>
+            <C ID="2"> F[6,13,21,28,35,42,48,54] </C>
+            <C ID="3"> F[30,34,0,5] </C>
+            <C ID="4"> F[37,41,49,53] </C>
+            <C ID="5"> F[51,55,23,27] </C>
+            <C ID="6"> F[4,8,16,20] </C>
+            <C ID="7"> R[0-15] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[7] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/v5.8.0</GitBranch>
+            <GitSHA1>837223d7a51da426127052d535297d97f413bef7</GitSHA1>
+            <Hostname>workstation</Hostname>
+            <NektarVersion>5.8.0</NektarVersion>
+            <Timestamp>31-Mar-2026 14:48:16</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>-m peralign:surf1=5:surf2=3:dir=y -m peralign:surf1=4:surf2=6:dir=x -m peralign:surf1=1:surf2=2:dir=z cubePrism2_mesh.msh cubePrism2_mesh.xml </NekMeshCommandLine>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[7]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u,v,w" />
+    </EXPANSIONS>
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE> BodyForce </BODYFORCE>
+        </FORCE>
+    </FORCING>
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> TimeStep       = 0.0001             </P>
+            <P> NumSteps       = 1                  </P>
+            <P> IO_InfoSteps   = 1                  </P>
+            <P> FinTime        = NumSteps*TimeStep  </P>
+            <P> epsilon        = 0.5                </P>
+            <P> IterativeSolverTolerance = 1e-14    </P>
+            <P> advx           = 0.5                </P>
+            <P> advy           = 0.5                </P>
+            <P> advz           = 0.5                </P>
+        </PARAMETERS>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+        <SOLVERINFO>
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyAdvectionDiffusion" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="Preconditioner" VALUE="Diagonal" />
+            <I PROPERTY="LinSysIterSolver" VALUE="GMRES" />
+            <I PROPERTY="DiffusionAdvancement" VALUE="Implicit" />
+            <I PROPERTY="AdvectionAdvancement" VALUE="Explicit" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1-6] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="x+y+z" />
+                <D VAR="v" VALUE="0.5*(x+y+z)" />
+                <D VAR="w" VALUE="-0.25*(x+y+z)" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="x+y+z" />
+            <E VAR="v" VALUE="0.5*(x+y+z)" />
+            <E VAR="w" VALUE="-0.25*(x+y+z)" />
+        </FUNCTION>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="x+y+z" />
+            <E VAR="v" VALUE="0.5*(x+y+z)" />
+            <E VAR="w" VALUE="-0.25*(x+y+z)" />
+        </FUNCTION>
+        <FUNCTION NAME="BodyForce">
+            <E VAR="u" VALUE="advx+advy+advz" />
+            <E VAR="v" VALUE="0.5*(advx+advy+advz)" />
+            <E VAR="w" VALUE="-0.25*(advx+advy+advz)" />
+        </FUNCTION>
+        <FUNCTION NAME="AdvectionVelocity">
+            <E VAR="Vx" VALUE="advx" />
+            <E VAR="Vy" VALUE="advy" />
+            <E VAR="Vz" VALUE="advz" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

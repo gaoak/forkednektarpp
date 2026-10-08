@@ -85,6 +85,11 @@ protected:
 
     LIB_UTILITIES_EXPORT void v_AllReduce(void *buf, int count, CommDataType dt,
                                           enum ReduceOperator pOp) final;
+    LIB_UTILITIES_EXPORT void v_AllReduceBegin(
+        void *buf, int count, CommDataType dt, enum ReduceOperator pOp,
+        CommRequestSharedPtr request) final;
+    LIB_UTILITIES_EXPORT void v_AllReduceEnd(
+        CommRequestSharedPtr request) final;
 
     LIB_UTILITIES_EXPORT void v_AlltoAll(const void *sendbuf, int sendcount,
                                          CommDataType sendtype, void *recvbuf,

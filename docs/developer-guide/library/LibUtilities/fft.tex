@@ -1,9 +1,25 @@
 %
 \section{FFT}
 
-This directory contains files related to the use of Fast Fourier Transforms within {\nek}.  The two groups of files are as follows:
+This directory contains files related to the use of Fast Fourier Transforms within {\nek}.  The files are as follows:
 \begin{itemize}
-\item NekFFTW.h/NekFFTW.cpp : Wrapper around FFTW library; and
+\item \texttt{NektarFFT.h}/\texttt{NektarFFT.cpp}: Fast Fourier Transform
+  abstract base class.
 %
-\item NektarFFT.h/NektarFFT.cpp : Fast Fourier Transform base class in {\nek}.
+\item \texttt{NekFFTW.h}/\texttt{NekFFTW.cpp}: Wrapper around the FFTW
+  library (enabled by default when FFTW is found).
+%
+\item \texttt{NekCuFFT.h}/\texttt{NekCuFFT.cu}: cuFFT-backed implementation
+  used when \texttt{NEKTAR\_ENABLE\_DEVICE=CUDA}. Supports batched D2Z/Z2D
+  transforms, wavenumber multiplication, and optional CUDA graph capture.
+  Enable \texttt{NEKTAR\_USE\_CUFFT\_STATIC} to link cuFFT statically and
+  unlock store-callback support.
+%
+\item \texttt{PhysDerivZCuFFT.h}/\texttt{PhysDerivZCuFFT.cu}: Standalone
+  device z-derivative pipeline (D2Z + wavenumber multiply + Z2D) used by the
+  \texttt{DeviceSpace} specialisation of \texttt{PhysDerivZOp}. The header
+  declares the single entry point \texttt{PhysDerivZDirect}; the stages run
+  as cuFFT calls by default, or fused into one cuFFTDx kernel when
+  \texttt{NEKTAR\_USE\_CUFFTDX} is enabled. Both double and single precision
+  are supported either way.
 \end{itemize}

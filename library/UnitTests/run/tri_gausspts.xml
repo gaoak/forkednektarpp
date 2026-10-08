@@ -1,0 +1,49 @@
+<NEKTAR xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="http://www.nektar.info/schema/nektar.xsd">
+
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYMAPGKH098X/geC+Pbo8Exq/zANEPoCrY4bSlrwQcRgNk2fBausHuDwrVnMR8mw49MEAO5o8uj84sOpHmAMAv0cbKwAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1jssOgDAQAquttj77/3/raQ5Owl4IBBZK+d8ScA3IVfnhTZzcFny7OP4uP/khTu7QHv6e4vy7pNN3h/5HOv2vdPbNsPcDg5gA9QAA</EDGE>
+        <ELEMENT>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1zbkNACAMA0D+8LP/tjR2gSXSnGwlinPveBgk0wiT7DFnWGSfvcEqdw32zx37Aaf8YV7yx6Tf8MALRtgAzAAA</T>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="1"> E[0,9] </C>
+            <C ID="2"> E[11,14] </C>
+            <C ID="3"> E[8,15] </C>
+            <C ID="4"> E[2,6] </C>
+            <C ID="5"> T[0-3] </C>
+            <C ID="6"> T[4-7] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[5,6] </D>
+        </DOMAIN>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[5]"  BASISTYPE="Modified_A,Modified_A"
+            NUMMODES="4,4"
+            POINTSTYPE="GaussGaussLegendre,GaussGaussLegendre"
+            NUMPOINTS="5,4" FIELDS="u,v" />
+        <E COMPOSITE="C[6]"  BASISTYPE="Modified_A,Modified_A"
+            NUMMODES="4,4"
+            POINTSTYPE="GaussGaussLegendre,GaussGaussLegendre"
+            NUMPOINTS="5,4" FIELDS="u,v" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> Lambda    = 1 </P>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">u</V>
+            <V ID="1">v</V>
+        </VARIABLES>
+    </CONDITIONS>
+</NEKTAR>

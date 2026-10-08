@@ -705,6 +705,12 @@ void EquationSystem::v_InitObject(bool DeclareFields)
         }
         // Zero all physical fields initially
         ZeroPhysFields();
+
+        // Set the DataWarehouse for all expansion lists
+        for (i = 0; i < m_fields.size(); i++)
+        {
+            m_fields[i]->SetDataWarehouse();
+        }
     }
 
     // Set Default Parameter

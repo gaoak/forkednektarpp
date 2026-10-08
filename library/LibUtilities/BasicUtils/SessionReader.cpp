@@ -78,6 +78,19 @@ using namespace std;
 namespace po = boost::program_options;
 namespace io = boost::iostreams;
 
+namespace Nektar::Operators
+{
+
+std::string cmdOpExecSpace =
+    Nektar::LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "opExecSpace", "", "Specify default ExecSpace");
+
+std::string cmdOpImpl =
+    Nektar::LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "opImpl", "", "Specify default Implementation");
+
+} // namespace Nektar::Operators
+
 namespace Nektar::LibUtilities
 {
 /**
@@ -178,6 +191,42 @@ CmdLineArgMap &SessionReader::GetCmdLineArgMap()
 {
     static CmdLineArgMap cmdLineArguments;
     return cmdLineArguments;
+}
+
+/**
+ * Returns map that provide configured backend to run for operators executed on
+ * serial.
+ *
+ * This list is populated through the #ParseOptimisations member function that
+ * is called during session initialisation in #InitSession.
+ */
+BackendMap &SessionReader::GetSerialBackendMap()
+{
+    return this->m_serialBackendInfo;
+}
+
+/**
+ * Returns map that provide configured backend to run for operators executed on
+ * AVX.
+ *
+ * This list is populated through the #ParseOptimisations member function that
+ * is called during session initialisation in #InitSession.
+ */
+BackendMap &SessionReader::GetAVXBackendMap()
+{
+    return this->m_avxBackendInfo;
+}
+
+/**
+ * Returns map that provide configured backend to run for operators executed on
+ * device.
+ *
+ * This list is populated through the #ParseOptimisations member function that
+ * is called during session initialisation in #InitSession.
+ */
+BackendMap &SessionReader::GetDeviceBackendMap()
+{
+    return this->m_deviceBackendInfo;
 }
 
 /**
@@ -368,6 +417,10 @@ void SessionReader::InitSession(const std::vector<std::string> &filenames)
 
     // Verify SOLVERINFO values
     VerifySolverInfo();
+
+    // Parse optimisations from XML and fill #m_hostBackendInfo and
+    // #m_deviceBackendInfo
+    ParseOptimisations();
 
     // Disable backups if NEKTAR_DISABLE_BACKUPS is set.
     if (std::getenv("NEKTAR_DISABLE_BACKUPS") != nullptr)
@@ -934,6 +987,19 @@ void SessionReader::LoadParameter(const std::string &pName, size_t &pVar,
  *
  */
 void SessionReader::LoadParameter(const std::string &pName,
+                                  NekSingle &pVar) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    auto paramIter    = m_parameters.find(vName);
+    ASSERTL0(paramIter != m_parameters.end(),
+             "Required parameter '" + pName + "' not specified in session.");
+    pVar = paramIter->second;
+}
+
+/**
+ *
+ */
+void SessionReader::LoadParameter(const std::string &pName,
                                   NekDouble &pVar) const
 {
     std::string vName = boost::to_upper_copy(pName);
@@ -941,6 +1007,24 @@ void SessionReader::LoadParameter(const std::string &pName,
     ASSERTL0(paramIter != m_parameters.end(),
              "Required parameter '" + pName + "' not specified in session.");
     pVar = paramIter->second;
+}
+
+/**
+ *
+ */
+void SessionReader::LoadParameter(const std::string &pName, NekSingle &pVar,
+                                  const NekSingle &pDefault) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    auto paramIter    = m_parameters.find(vName);
+    if (paramIter != m_parameters.end())
+    {
+        pVar = paramIter->second;
+    }
+    else
+    {
+        pVar = pDefault;
+    }
 }
 
 /**
@@ -999,6 +1083,61 @@ void SessionReader::SetParameter(const std::string &pName, NekDouble &pVar)
     std::string vName   = boost::to_upper_copy(pName);
     m_parameters[vName] = pVar;
     m_interpreter->SetParameter(pName, pVar);
+}
+
+/**
+ *
+ */
+bool SessionReader::DefinesReferenceValue(const std::string &pName) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    return m_referenceValues.find(vName) != m_referenceValues.end();
+}
+
+/**
+ *
+ */
+void SessionReader::LoadReferenceValue(const std::string &pName,
+                                       NekSingle &pVar,
+                                       const NekSingle &pDefault) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    auto paramIter    = m_referenceValues.find(vName);
+    if (paramIter != m_referenceValues.end())
+    {
+        pVar = paramIter->second;
+    }
+    else
+    {
+        pVar = pDefault;
+
+        NEKERROR(ErrorUtil::ewarning,
+                 "Setting default value of " + pName + " = " +
+                     boost::lexical_cast<std::string>(pDefault));
+    }
+}
+
+/**
+ *
+ */
+void SessionReader::LoadReferenceValue(const std::string &pName,
+                                       NekDouble &pVar,
+                                       const NekDouble &pDefault) const
+{
+    std::string vName = boost::to_upper_copy(pName);
+    auto paramIter    = m_referenceValues.find(vName);
+    if (paramIter != m_referenceValues.end())
+    {
+        pVar = paramIter->second;
+    }
+    else
+    {
+        pVar = pDefault;
+
+        NEKERROR(ErrorUtil::ewarning,
+                 "Setting default value of " + pName + " = " +
+                     boost::lexical_cast<std::string>(pDefault));
+    }
 }
 
 /**
@@ -1176,6 +1315,42 @@ bool SessionReader::DefinesTimeIntScheme() const
 const TimeIntScheme &SessionReader::GetTimeIntScheme() const
 {
     return m_timeIntScheme;
+}
+
+/**
+ * @brief Returns true if the EQUATIONOFSTATE section is defined
+ * in the session file.
+ */
+bool SessionReader::DefinesEquationOfState() const
+{
+    return m_eqnOfStateScheme.type != "";
+}
+
+/**
+ * @brief Returns the equation of state scheme structure #m_eqnOfStateScheme
+ * from the session file.
+ */
+const EquationOfStateScheme &SessionReader::GetEquationOfState() const
+{
+    return m_eqnOfStateScheme;
+}
+
+/**
+ * @brief Returns true if the EQUATIONOFSTATE section is defined
+ * in the session file.
+ */
+bool SessionReader::DefinesReferenceValues() const
+{
+    return m_referenceValues.size();
+}
+
+/**
+ * @brief Returns the equation of state scheme structure #m_eqnOfStateScheme
+ * from the session file.
+ */
+const ParameterMap &SessionReader::GetReferenceValues() const
+{
+    return m_referenceValues;
 }
 
 /**
@@ -1684,6 +1859,8 @@ void SessionReader::ParseDocument()
     ReadSolverInfo(e);
     ReadGlobalSysSolnInfo(e);
     ReadTimeIntScheme(e);
+    ReadEquationOfState(e);
+    ReadReferenceValues(e);
     ReadVariables(e);
     ReadFunctions(e);
 
@@ -1719,6 +1896,90 @@ void SessionReader::CreateComm(int &argc, char *argv[])
         }
 
         m_comm = GetCommFactory().CreateInstance(vCommModule, argc, argv);
+    }
+}
+
+/**
+ * @brief Parse operator implementations from the session XML.
+ *
+ * Populates two maps:
+ *   - m_serialBackendInfo   from <OPTIMISATION>/<OPERATORS>/<SERIALBACKEND>
+ *   - m_avxBackendInfo   from <OPTIMISATION>/<OPERATORS>/<AVXBACKEND>
+ *   - m_deviceBackendInfo from <OPTIMISATION>/<OPERATORS>/<DEVICEBACKEND>
+ *
+ * For each child element under these backend sections, the element tag name
+ * (e.g. <MASS>) is uppercased and used as the operator key, and the element
+ * text (e.g. "StdMat") is stored as the implementation string.
+ *
+ * Example XML structure:
+ * @code
+ * <NEKTAR>
+ *   <OPTIMISATION>
+ *     <OPERATORS>
+ *       <SERIALBACKEND>
+ *         <MASS>StdMat</MASS>
+ *       </SERIALBACKEND>
+ *       <DEVICEBACKEND>
+ *         <MASS>StdMat</MASS>
+ *       </DEVICEBACKEND>
+ *     </OPERATORS>
+ *   </OPTIMISATION>
+ * </NEKTAR>
+ * @endcode
+ *
+ * Missing sections are skipped, existing maps are cleared on entry.
+ */
+void SessionReader::ParseOptimisations()
+{
+    // Reset previously parsed info.
+    m_serialBackendInfo.clear();
+    m_avxBackendInfo.clear();
+    m_deviceBackendInfo.clear();
+
+    // Navigate to <NEKTAR>/<OPTIMISATION>/<OPERATORS>.
+    TiXmlElement *optimisation =
+        m_xmlDoc->FirstChildElement("NEKTAR")->FirstChildElement(
+            "OPTIMISATION");
+    if (!optimisation)
+    {
+        return;
+    }
+
+    TiXmlElement *operators = optimisation->FirstChildElement("OPERATORS");
+    if (!operators)
+    {
+        return;
+    }
+
+    // Iterate over SERIAL, AVX, and DEVICE backends with a small (tag, map)
+    // table.
+    std::vector<std::pair<std::string, BackendMap *>> backends = {
+        {"SERIALBACKEND", &m_serialBackendInfo},
+        {"AVXBACKEND", &m_avxBackendInfo},
+        {"DEVICEBACKEND", &m_deviceBackendInfo}};
+
+    for (auto &b : backends)
+    {
+        TiXmlElement *backend = operators->FirstChildElement(b.first.c_str());
+        if (!backend)
+        {
+            continue; // backend section absent: skip
+        }
+
+        // Each child element is an operator: tag name is the operator,
+        // text content is the implementation string (e.g. "StdMat").
+        for (TiXmlElement *opElem = backend->FirstChildElement(); opElem;
+             opElem               = opElem->NextSiblingElement())
+        {
+            std::string opName = opElem->Value(); // e.g. "MASS"
+            boost::to_upper(opName);              // ensure UPPERCASE keys
+
+            const char *opImpl = opElem->GetText(); // e.g. "StdMat" / "SumFac"
+            if (opImpl && *opImpl)
+            {
+                (*b.second)[opName] = opImpl;
+            }
+        }
     }
 }
 
@@ -1809,6 +2070,7 @@ void SessionReader::ReadParameters(TiXmlElement *conditions)
 
     TiXmlElement *parametersElement =
         conditions->FirstChildElement("PARAMETERS");
+
     GetXMLElementTimeLevel(parametersElement, m_timeLevel);
 
     // See if we have parameters defined.  They are optional so we go on
@@ -2177,6 +2439,133 @@ void SessionReader::ReadTimeIntScheme(TiXmlElement *conditions)
                     cout << " " << x;
                 }
                 cout << endl;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Read the equation of state scheme structure, if present.
+ */
+void SessionReader::ReadEquationOfState(TiXmlElement *conditions)
+{
+    if (!conditions)
+    {
+        return;
+    }
+
+    TiXmlElement *EoSInt = conditions->FirstChildElement("EquationOfState");
+
+    if (!EoSInt)
+    {
+        return;
+    }
+
+    TiXmlElement *type   = EoSInt->FirstChildElement("Type");
+    TiXmlElement *params = EoSInt->FirstChildElement("Parameters");
+
+    // Only the type is required.
+    ASSERTL0(type, "Missing TYPE tag inside "
+                   "EquationOfState seection.");
+    m_eqnOfStateScheme.type = type->GetText();
+
+    if (params)
+    {
+        TiXmlElement *list = params->FirstChildElement();
+
+        while (list)
+        {
+            std::string name = list->Value();
+            std::string rhs  = list->GetText();
+
+            LibUtilities::Equation expession(m_interpreter, rhs);
+            double value = expession.Evaluate();
+
+            m_eqnOfStateScheme.params[boost::to_upper_copy(name)] = value;
+
+            list = list->NextSiblingElement();
+        }
+
+        if (m_comm && (m_comm->GetRank() == 0))
+        {
+            if (m_parameters.size())
+            {
+                for (auto &x : m_eqnOfStateScheme.params)
+                {
+                    if (m_parameters.count(x.first))
+                    {
+                        cout << "Parameter " << x.first
+                             << " defined in both Parameters and "
+                                "EquationofState section. EquationOfState "
+                                "definition will be used. "
+                             << endl;
+                    }
+                }
+            }
+        }
+    }
+
+    if (m_verbose && m_comm)
+    {
+        if (m_comm->GetRank() == 0)
+        {
+            cout << "Using equation of state scheme:" << endl;
+            cout << "\t Type : " << m_eqnOfStateScheme.type << endl;
+            if (m_eqnOfStateScheme.params.size() > 0)
+            {
+                cout << "\t Paramameters :\n ";
+                for (auto &x : m_eqnOfStateScheme.params)
+                {
+                    cout << "\t\t" << x.first << " : " << x.second << endl;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Read the equation of state scheme structure, if present.
+ */
+void SessionReader::ReadReferenceValues(TiXmlElement *conditions)
+{
+    if (!conditions)
+    {
+        return;
+    }
+
+    TiXmlElement *RefInt = conditions->FirstChildElement("ReferenceValues");
+
+    if (!RefInt)
+    {
+        return;
+    }
+
+    TiXmlElement *list = RefInt->FirstChildElement();
+
+    while (list)
+    {
+        std::string name = list->Value();
+        std::string rhs  = list->GetText();
+
+        LibUtilities::Equation expession(m_interpreter, rhs);
+        double value = expession.Evaluate();
+
+        m_referenceValues[boost::to_upper_copy(name)] = value;
+
+        list = list->NextSiblingElement();
+    }
+
+    if (m_verbose && m_comm)
+    {
+        if (m_comm->GetRank() == 0)
+        {
+            cout << "Reference Values:" << endl;
+            if (m_referenceValues.size() > 0)
+            {
+                for (auto &x : m_referenceValues)
+                {
+                    cout << "\t\t" << x.first << " : " << x.second << endl;
+                }
             }
         }
     }

@@ -1,3 +1,69 @@
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    # Macro
+    MACRO(SET_ALL_SOLVER_TEST solver session)
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+            # Add SumFac test for all execution spaces
+            SET(Implementation SumFac)
+            ADD_TEST(NAME ${solver}_${session}_${ExecSpace}_${Implementation}
+                 COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                  --opExecSpace=${ExecSpace} --opImpl=${Implementation})
+
+            # Check if Device or not and set implementation for available algorithm
+            IF( ("${ExecSpace}" STREQUAL "Serial") OR ("${ExecSpace}" STREQUAL "AVX") )
+                SET(Implementation StdMat)
+            ELSEIF( ("${ExecSpace}" STREQUAL "Device") )
+                SET(Implementation SumFacTOP)
+            ENDIF()
+
+            # Add test for either Serial/AVX + StdMat or Device + SumFacTOP
+            ADD_TEST(
+                    NAME ${solver}_${session}_${ExecSpace}_${Implementation}
+                    COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                    --opExecSpace=${ExecSpace} --opImpl=${Implementation})
+        ENDFOREACH ()
+    ENDMACRO()
+
+    # Reduced variant of SET_ALL_SOLVER_TEST for sessions where the varied
+    # parameter (basis type, mesh, dimension, ...) is orthogonal to
+    # opExecSpace/opImpl dispatch: a single Serial+SumFac smoke test is
+    # enough to catch a regression in that parameter, since execspace/impl
+    # correctness is already covered by the full matrix on a representative
+    # sibling session. See TEST_SUITE_NOTES.md section 9.
+    MACRO(SET_SERIAL_SUMFAC_SOLVER_TEST solver session)
+        ADD_TEST(NAME ${solver}_${session}_Serial_SumFac
+             COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+              --opExecSpace=Serial --opImpl=SumFac)
+    ENDMACRO()
+
+    # One implementation in every execution space, for sessions whose subject
+    # is a boundary condition. A boundary condition acts on the trace storage
+    # and does not depend on the element implementation, so the StdMat
+    # variants add nothing to what SumFac already checks, while the execution
+    # spaces still differ in the kernels that apply it.
+    MACRO(SET_SUMFAC_SOLVER_TEST solver session)
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+            ADD_TEST(NAME ${solver}_${session}_${ExecSpace}_SumFac
+                 COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                  --opExecSpace=${ExecSpace} --opImpl=SumFac)
+        ENDFOREACH ()
+    ENDMACRO()
+
+    # One implementation in the host execution spaces only, for sessions that
+    # run on several ranks. Their subject is the exchange between partitions,
+    # which the element implementation does not touch, and the test cluster
+    # has one GPU, which ranks on Device would contend for.
+    MACRO(SET_HOST_SUMFAC_SOLVER_TEST solver session)
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+            IF( ("${ExecSpace}" STREQUAL "Serial") OR ("${ExecSpace}" STREQUAL "AVX") )
+                ADD_TEST(NAME ${solver}_${session}_${ExecSpace}_SumFac
+                     COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${session}.tst -v
+                      --opExecSpace=${ExecSpace} --opImpl=SumFac)
+            ENDIF()
+        ENDFOREACH ()
+    ENDMACRO()
+
+ENDIF()
+
 MACRO(SOLVER_COMPONENT_NAME name var)
     # Lower-case solver name
     STRING(TOLOWER ${name} ${var})
@@ -8,10 +74,19 @@ ENDMACRO()
 MACRO(ADD_SOLVER_EXECUTABLE name)
     CMAKE_PARSE_ARGUMENTS(SOLVER "" "COMPONENT" "SOURCES;LIBRARY_SOURCES;DEPENDS" ${ARGN} )
 
+    IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        SET(SOLVER_TARGET_DEPENDS SolverUtils SolverCore)
+    ELSE()
+        SET(SOLVER_TARGET_DEPENDS SolverUtils)
+    ENDIF()
+    IF (SOLVER_DEPENDS)
+        SET(SOLVER_TARGET_DEPENDS ${SOLVER_DEPENDS})
+    ENDIF()
+
     IF (SOLVER_LIBRARY_SOURCES)
         ADD_LIBRARY(${name}-obj OBJECT ${SOLVER_LIBRARY_SOURCES})
         SET_PROPERTY(TARGET ${name}-obj PROPERTY POSITION_INDEPENDENT_CODE ON)
-        ADD_DEPENDENCIES(${name}-obj SolverUtils)
+        ADD_DEPENDENCIES(${name}-obj ${SOLVER_TARGET_DEPENDS})
         LIST(APPEND SOLVER_SOURCES $<TARGET_OBJECTS:${name}-obj>)
         SET_COMMON_PROPERTIES(${name}-obj)
     ENDIF()
@@ -21,7 +96,8 @@ MACRO(ADD_SOLVER_EXECUTABLE name)
     ENDIF()
 
     ADD_NEKTAR_EXECUTABLE(${name}
-        COMPONENT ${SOLVER_COMPONENT} DEPENDS SolverUtils SOURCES ${SOLVER_SOURCES})
+            COMPONENT ${SOLVER_COMPONENT} DEPENDS ${SOLVER_TARGET_DEPENDS}
+            SOURCES ${SOLVER_SOURCES})
 ENDMACRO()
 
 IF (NEKTAR_BUILD_SOLVER_LIBS)
@@ -37,13 +113,13 @@ IF (NEKTAR_BUILD_SOLVER_LIBS)
 
         # Append "Lib" suffix to target name, otherwise it clashes with the executable (final output will still be called ${name})
         ADD_NEKTAR_LIBRARY(${name}
-                        TARGET_SUFFIX Lib
-                        LINK_MODE PRIVATE
-                        SOURCES ${SOLVERLIB_SRCS_USED}
-                        HEADERS ${SOLVERLIB_HEADERS}
-                        DEPENDS ${SOLVERLIB_DEPENDS}
-                        SUMMARY "Nektar++ ${name} solver library"
-                        DESCRIPTION "This library provides functionality used by the ${name} solver.")
+                TARGET_SUFFIX Lib
+                LINK_MODE PRIVATE
+                SOURCES ${SOLVERLIB_SRCS_USED}
+                HEADERS ${SOLVERLIB_HEADERS}
+                DEPENDS ${SOLVERLIB_DEPENDS}
+                SUMMARY "Nektar++ ${name} solver library"
+                DESCRIPTION "This library provides functionality used by the ${name} solver.")
     ENDMACRO()
 ENDIF()
 
@@ -56,12 +132,12 @@ MACRO(ADD_SOLVER_UTILITY name solver)
 
     IF (UTIL_USELIBRARY)
         ADD_NEKTAR_EXECUTABLE(${name}
-            COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
-            SOURCES ${UTIL_SOURCES} $<TARGET_OBJECTS:${solver}-obj>)
+                COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
+                SOURCES ${UTIL_SOURCES} $<TARGET_OBJECTS:${solver}-obj>)
     ELSE()
         ADD_NEKTAR_EXECUTABLE(${name}
-            COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
-            SOURCES ${UTIL_SOURCES})
+                COMPONENT ${UTIL_COMPONENT} DEPENDS SolverUtils
+                SOURCES ${UTIL_SOURCES})
     ENDIF()
 ENDMACRO()
 

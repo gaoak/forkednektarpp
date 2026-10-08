@@ -1045,13 +1045,15 @@ void QuadExp::v_ExtractDataToCoeffs(
 
     switch (m_base[0]->GetBasisType())
     {
+        case LibUtilities::eOrtho_A:
         case LibUtilities::eModified_A:
         {
             int i;
             int cnt  = 0;
             int cnt1 = 0;
 
-            ASSERTL1(m_base[1]->GetBasisType() == LibUtilities::eModified_A,
+            ASSERTL1(m_base[1]->GetBasisType() == LibUtilities::eModified_A ||
+                         m_base[1]->GetBasisType() == LibUtilities::eOrtho_A,
                      "Extraction routine not set up for this basis");
 
             Vmath::Zero(m_ncoeffs, coeffs, 1);

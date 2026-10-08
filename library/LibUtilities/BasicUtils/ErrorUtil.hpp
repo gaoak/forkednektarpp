@@ -48,6 +48,12 @@
 #include <execinfo.h>
 #endif
 
+#if defined(__ADAPTIVECPP__)
+// Provides __acpp_if_target_host for the host-device asserts below. Included
+// here, outside the namespace, so its declarations stay global.
+#include <hipSYCL/sycl/libkernel/backend.hpp>
+#endif
+
 namespace Nektar
 {
 
@@ -273,6 +279,41 @@ private:
 #define ASSERTL2(condition, msg)
 #define WARNINGL2(condition, msg)
 #endif // NEKTAR_FULLDEBUG
+
+/// Asserts for a function that both host code and a device kernel can call.
+///
+/// An assert builds a std::string for its message, which no device pass can
+/// compile: nvcc drops the host call silently, and a single-pass compiler such
+/// as AdaptiveCpp's outlines it into the kernel, where the module then fails
+/// to load. These variants keep the check on the host and compile to nothing
+/// in device code, so a function marked NEK_HOSTDEVICE_INLINE carries on the
+/// Serial and AVX paths the check it cannot carry on the GPU. They are for
+/// helpers shared between host code and kernels; a kernel-only function
+/// asserts nothing, and its launcher checks the condition on the host before
+/// the launch.
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__) ||               \
+    defined(__SYCL_DEVICE_ONLY__)
+// The device pass of a two-pass compiler: nothing is built for the device.
+#define NEK_HOSTDEVICE_ASSERTL0(condition, msg)
+#define NEK_HOSTDEVICE_ASSERTL1(condition, msg)
+#define NEK_HOSTDEVICE_ASSERTL2(condition, msg)
+#elif defined(__ADAPTIVECPP__)
+// AdaptiveCpp compiles host and device from one pass; __acpp_if_target_host
+// keeps the enclosed code out of every device backend, which is the mechanism
+// it provides for host-only calls in kernels. Its header is included at the
+// top of this file, outside the namespace.
+#define NEK_HOSTDEVICE_ASSERTL0(condition, msg)                                \
+    __acpp_if_target_host(ASSERTL0(condition, msg))
+#define NEK_HOSTDEVICE_ASSERTL1(condition, msg)                                \
+    __acpp_if_target_host(ASSERTL1(condition, msg))
+#define NEK_HOSTDEVICE_ASSERTL2(condition, msg)                                \
+    __acpp_if_target_host(ASSERTL2(condition, msg))
+#else
+// Host compilation, with or without device support: the ordinary asserts.
+#define NEK_HOSTDEVICE_ASSERTL0(condition, msg) ASSERTL0(condition, msg)
+#define NEK_HOSTDEVICE_ASSERTL1(condition, msg) ASSERTL1(condition, msg)
+#define NEK_HOSTDEVICE_ASSERTL2(condition, msg) ASSERTL2(condition, msg)
+#endif
 
 } // namespace Nektar
 

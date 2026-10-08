@@ -106,7 +106,7 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
 constexpr unsigned int ShapeTypeNumTraces[SIZE_ShapeType] = {
     0, // Unknown
     0, // ePoint
-    0, // eSegment
+    2, // eSegment - its two vertices; a 0D trace is still a trace
     3, // eTriangle
     4, // eQuadrilateral
     4, // eTetrahedron
@@ -264,9 +264,9 @@ namespace StdHexData
 {
 inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
-    ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
-    ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
-    ASSERTL2(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL2(Na > 0, "Order in 'a' direction must be > 0.");
+    ASSERTL2(Nb > 0, "Order in 'b' direction must be > 0.");
+    ASSERTL2(Nc > 0, "Order in 'c' direction must be > 0.");
     return Na * Nb * Nc;
 }
 
@@ -298,9 +298,9 @@ namespace StdTetData
  */
 inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
-    ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
-    ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
-    ASSERTL2(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL2(Na > 0, "Order in 'a' direction must be > 0.");
+    ASSERTL2(Nb > 0, "Order in 'b' direction must be > 0.");
+    ASSERTL2(Nc > 0, "Order in 'c' direction must be > 0.");
     ASSERTL1(Na <= Nc, "order in 'a' direction is higher "
                        "than order in 'c' direction");
     ASSERTL1(Nb <= Nc, "order in 'b' direction is higher "
@@ -375,9 +375,9 @@ namespace StdPyrData
 {
 inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
-    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
-    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
-    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na > 0, "Order in 'a' direction must be > 0.");
+    ASSERTL1(Nb > 0, "Order in 'b' direction must be > 0.");
+    ASSERTL1(Nc > 0, "Order in 'c' direction must be > 0.");
     ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
                        "than order in 'c' direction.");
     ASSERTL1(Nb <= Nc, "Order in 'b' direction is higher "
@@ -469,9 +469,9 @@ namespace StdPrismData
 {
 inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
-    ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
-    ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
-    ASSERTL1(Nc > 1, "Order in 'c' direction must be > 1.");
+    ASSERTL1(Na > 0, "Order in 'a' direction must be > 0.");
+    ASSERTL1(Nb > 0, "Order in 'b' direction must be > 0.");
+    ASSERTL1(Nc > 0, "Order in 'c' direction must be > 0.");
     ASSERTL1(Na <= Nc, "Order in 'a' direction is higher "
                        "than order in 'c' direction.");
 

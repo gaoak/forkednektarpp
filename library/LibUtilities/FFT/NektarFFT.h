@@ -32,8 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILIITIES_FFT_NEKTARFFT_H
-#define NEKTAR_LIB_UTILIITIES_FFT_NEKTARFFT_H
+#ifndef NEKTAR_LIB_UTILITIES_FFT_NEKTARFFT_H
+#define NEKTAR_LIB_UTILITIES_FFT_NEKTARFFT_H
 
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
@@ -107,4 +107,4 @@ protected:
 
 } // namespace Nektar::LibUtilities
 // end of namespace Nektar
-#endif // NEKTAR_LIB_UTILIITIES_FFT_NEKTARFFT_H
+#endif // NEKTAR_LIB_UTILITIES_FFT_NEKTARFFT_H

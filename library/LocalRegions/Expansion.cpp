@@ -162,6 +162,14 @@ void Expansion::NormalTraceDerivFactors(
     return v_NormalTraceDerivFactors(factors, d0factors, d1factors);
 }
 
+void Expansion::TraceDerivFactors(
+    const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+    Array<OneD, Array<OneD, NekDouble>> &d1factors,
+    Array<OneD, Array<OneD, NekDouble>> &d2factors)
+{
+    return v_TraceDerivFactors(dir, d0factors, d1factors, d2factors);
+}
+
 DNekScalMatSharedPtr Expansion::GetLocMatrix(
     const StdRegions::MatrixType mtype,
     const StdRegions::ConstFactorMap &factors,
@@ -989,6 +997,17 @@ void Expansion::v_NormalTraceDerivFactors(
     [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &factors,
     [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d0factors,
     [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d1factors)
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This function is only valid for "
+             "shape expansion in LocalRegions, not parant class");
+}
+
+void Expansion::v_TraceDerivFactors(
+    [[maybe_unused]] const int dir,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d0factors,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d1factors,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d2factors)
 {
     NEKERROR(ErrorUtil::efatal,
              "This function is only valid for "

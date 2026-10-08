@@ -1,0 +1,573 @@
+// clang-format off
+#if defined(SHAPE_TYPE_Seg)
+const auto nq0 = m_nq[0];
+
+    if (m_isDeformed)
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
+
+        switch (m_coordDim)
+        {
+        case 1:
+        {
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::eSegment, true>(                              \
+            inblock, outblock, TemplatedPhysSizeParameter1D<1, NQ(i)>());      \
+        break;
+            
+            // loop case over quarature points 
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) + 
+                               " non-templated operator");              
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        break;
+        case 2:
+        {
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::eSegment, true>(                              \
+            inblock, outblock, TemplatedPhysSizeParameter1D<2, NQ(i)>());      \
+        break;
+            
+            // loop case over quarature points 
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) + 
+                               " non-templated operator");              
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        break;
+        case 3:
+        {
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::eSegment, true>(                              \
+            inblock, outblock, TemplatedPhysSizeParameter1D<3, NQ(i)>());      \
+        break;
+
+            // loop case over quarature points 
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) + 
+                               " non-templated operator");              
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        break;
+        }
+    }
+    else
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter1D(m_coordDim, m_nq[0]));
+
+        switch (m_coordDim)
+        {
+        case 1:
+        {
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::eSegment, false>(                             \
+            inblock, outblock, TemplatedPhysSizeParameter1D<1, NQ(i)>());      \
+        break;
+            
+            // loop case over quarature points 
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) + 
+                               " non-templated operator");              
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;
+                }
+                break;
+            }
+        }
+        break;
+        case 2:
+        {
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::eSegment, false>(                             \
+            inblock, outblock, TemplatedPhysSizeParameter1D<2, NQ(i)>());      \
+        break;
+            
+            // loop case over quarature points 
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) +
+                               " non-templated operator");               
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        break;
+        case 3:
+        {
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::eSegment, false>(                             \
+            inblock, outblock, TemplatedPhysSizeParameter1D<3, NQ(i)>());      \
+        break;
+
+            // loop case over quarature points 
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) + 
+                               " non-templated operator");              
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        break;
+        }
+    }
+#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri) || \
+    defined(SHAPE_TYPE_NodalTri)
+
+    const auto nq0 = m_nq[0];
+    const auto nq1 = m_nq[1];
+
+    if (m_isDeformed)
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, true>(                                   \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
+
+        switch (m_coordDim)
+        {
+        case 2:
+        {
+#undef OPERATOR
+#if defined(SHAPE_TYPE_Quad)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Quad, true>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ(i)>());                  \
+        break;
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, true>(                                   \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ_M1(i)>());               \
+        break;
+#endif
+            
+            // loop case over quarature points 
+#if defined(SHAPE_TYPE_Quad)
+            if (nq0 == nq1)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            if (nq0 == nq1 + 1)
+#endif
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,               
+                                   "Executing nq = " + std::to_string(nq0) + 
+                                   " non-templated operator");              
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;                                      
+                    }                                                  
+                    break;
+                }
+                break;
+            }
+            else
+            {
+                WARNINGL0( m_warnOnceTemplate,               
+                           "Executing nq = " + std::to_string(nq0) + 
+                           " non-templated operator");              
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF;                                      
+            }
+        }
+        break;
+        case 3:
+        {
+#undef OPERATOR
+#if defined(SHAPE_TYPE_Quad)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Quad, true>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ(i)>());                  \
+        break;
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, true>(                                   \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ_M1(i)>());               \
+        break;
+#endif
+            
+            // loop case over quarature points 
+#if defined(SHAPE_TYPE_Quad)
+            if (nq0 == nq1)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            if (nq0 == nq1 + 1)
+#endif
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,               
+                                   "Executing nq = " + std::to_string(nq0) + 
+                                   " non-templated operator");              
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;                                      
+                    }                                                  
+                    break;
+                }
+                break;
+            }
+            else
+            {
+                
+                WARNINGL0( m_warnOnceTemplate,               
+                           "Executing nq = " + std::to_string(nq0) + 
+                           " non-templated operator");              
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF;                                      
+            }
+        }
+        break;
+        }
+    }
+    else
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+    OperatorND<LibUtilities::@Shape@, false>(                                  \
+        inblock, outblock,                                                     \
+        NonTemplatedPhysSizeParameter2D(m_coordDim, m_nq[0], m_nq[1]));
+
+        switch (m_coordDim)
+        {
+        case 2:
+        {
+#undef OPERATOR
+#if defined(SHAPE_TYPE_Quad)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Quad, false>(                                 \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ(i)>());                  \
+        break;
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, false>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ_M1(i)>());               \
+        break;
+#endif
+            
+            // loop case over quarature points 
+#if defined(SHAPE_TYPE_Quad)
+            if (nq0 == nq1)
+#elif defined(SHAPE_TYPE_Tri)  || defined(SHAPE_TYPE_NodalTri)
+            if (nq0 == nq1 + 1)
+#endif
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,               
+                                   "Executing nq = " + std::to_string(nq0) + 
+                                   " non-templated operator");              
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;                                      
+                    }                                                  
+                    break;
+                }
+                break;
+            }
+            else
+            {
+                WARNINGL0( m_warnOnceTemplate,               
+                           "Executing nq = " + std::to_string(nq0) + 
+                           " non-templated operator");              
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF;                                      
+            }
+        }
+        break;
+        case 3:
+        {
+#undef OPERATOR
+#if defined(SHAPE_TYPE_Quad)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Quad, false>(                                 \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ(i)>());                  \
+        break;
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, false>(                                  \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ_M1(i)>());               \
+        break;
+#endif
+            
+            // loop case over quarature points 
+#if defined(SHAPE_TYPE_Quad)
+            if (nq0 == nq1)
+#elif defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            if (nq0 == nq1 + 1)
+#endif
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,               
+                                   "Executing nq = " + std::to_string(nq0) + 
+                                   " non-templated operator");              
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;                                      
+                    }                                                  
+                    break;
+                }
+                break;
+            }
+            else
+            {
+                WARNINGL0( m_warnOnceTemplate,               
+                           "Executing nq = " + std::to_string(nq0) + 
+                           " non-templated operator");              
+                m_warnOnceTemplate = true;
+                OPERATOR_DEF;                                      
+            }
+        }
+        break;
+        }
+    }
+#else
+    const auto nq0 = m_nq[0];
+    const auto nq1 = m_nq[1];
+    const auto nq2 = m_nq[2];
+
+    if (m_isDeformed)
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
+
+#if defined(SHAPE_TYPE_Hex)
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
+        break;
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
+        defined(SHAPE_TYPE_Pyr)
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ_M1(i)>());           \
+        break;
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i)>());        \
+        break;
+#endif
+
+            // loop case over quarature points 
+#if defined(SHAPE_TYPE_Hex)
+        if ((nq0 == nq1) && (nq1 == nq2))
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
+            defined(SHAPE_TYPE_Pyr)
+        if ((nq0 == nq1) && (nq1 == nq2 + 1))
+#elif defined(SHAPE_TYPE_Tet)|| defined(SHAPE_TYPE_NodalTet)
+        if ((nq0 == nq1 + 1) && (nq1 == nq2))
+#endif
+        {
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) +
+                               " non-templated operator");               
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,               
+                       "Executing nq = " + std::to_string(nq0) +
+                       " non-templated operator");               
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF;                                      
+        }
+    }
+    else
+    {
+        // Default case
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                                           \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            NonTemplatedPhysSizeParameter3D(m_nq[0], m_nq[1], m_nq[2]));
+
+#if defined(SHAPE_TYPE_Hex)
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
+        break;
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
+        defined(SHAPE_TYPE_Pyr)
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ_M1(i)>());           \
+        break;
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+#undef OPERATOR
+#define OPERATOR(r, i)                                                         \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i)>());        \
+        break;
+#endif
+
+            // loop case over quarature points 
+#if defined(SHAPE_TYPE_Hex)
+        if ((nq0 == nq1) && (nq1 == nq2))
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
+            defined(SHAPE_TYPE_Pyr)
+        if ((nq0 == nq1) && (nq1 == nq2 + 1))
+#elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
+        if ((nq0 == nq1 + 1) && (nq1 == nq2))
+#endif
+        {
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,               
+                               "Executing nq = " + std::to_string(nq0) +
+                               " non-templated operator");               
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;                                      
+                }                                                  
+                break;
+            }
+        }
+        else
+        {
+            WARNINGL0( m_warnOnceTemplate,               
+                       "Executing nq = " + std::to_string(nq0) +
+                       " non-templated operator");               
+            m_warnOnceTemplate = true;
+            OPERATOR_DEF;                                      
+        }
+    }
+#endif
+// clang-format on

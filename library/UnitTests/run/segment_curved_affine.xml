@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="1" SPACE="1">
+        <VERTEX>
+            <V ID="0"> -1.0  0.0  0.0</V>
+            <V ID="1"> -0.8  0.0  0.0</V>
+            <V ID="2"> -0.6  0.0  0.0</V>
+            <V ID="3"> -0.4  0.0  0.0</V>
+            <V ID="4"> -0.2  0.0  0.0</V>
+            <V ID="5">  0.0  0.0  0.0</V>
+            <V ID="6">  0.2  0.0  0.0</V>
+            <V ID="7">  0.4  0.0  0.0</V>
+            <V ID="8">  0.6  0.0  0.0</V>
+            <V ID="9">  0.8  0.0  0.0</V>
+            <V ID="10"> 1.1  0.0  0.0</V>
+        </VERTEX>
+
+        <ELEMENT>
+            <S ID="0">    0     1 </S>
+            <S ID="1">    1     2 </S>
+            <S ID="2">    2     3 </S>
+            <S ID="3">    3     4 </S>
+            <S ID="4">    4     5 </S>
+            <S ID="5">    5     6 </S>
+            <S ID="6">    6     7 </S>
+            <S ID="7">    7     8 </S>
+            <S ID="8">    8     9 </S>
+            <S ID="9">    9    10 </S>
+        </ELEMENT>
+
+        <COMPOSITE>
+            <C ID="0"> S[0-4] </C>
+            <C ID="3"> S[5-9] </C>
+            <C ID="1"> V[0]   </C>
+            <C ID="2"> V[10]  </C>
+        </COMPOSITE>
+
+        <DOMAIN> C[0,3] </DOMAIN>
+        <CURVED>
+            <E ID="0" EDGEID="0" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> -1.0000000000000000e+00 0.0 0.0  -9.0000000000000002e-01 0.0 0.0  -8.0000000000000004e-01 0.0 0.0 </E>
+            <E ID="1" EDGEID="1" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> -8.0000000000000004e-01 0.0 0.0  -6.9999999999999996e-01 0.0 0.0  -5.9999999999999998e-01 0.0 0.0 </E>
+            <E ID="2" EDGEID="2" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> -5.9999999999999998e-01 0.0 0.0  -5.0000000000000000e-01 0.0 0.0  -4.0000000000000002e-01 0.0 0.0 </E>
+            <E ID="3" EDGEID="3" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> -4.0000000000000002e-01 0.0 0.0  -3.0000000000000004e-01 0.0 0.0  -2.0000000000000001e-01 0.0 0.0 </E>
+            <E ID="4" EDGEID="4" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> -2.0000000000000001e-01 0.0 0.0  -1.0000000000000001e-01 0.0 0.0  0.0000000000000000e+00 0.0 0.0 </E>
+            <E ID="5" EDGEID="5" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> 0.0000000000000000e+00 0.0 0.0  1.0000000000000001e-01 0.0 0.0  2.0000000000000001e-01 0.0 0.0 </E>
+            <E ID="6" EDGEID="6" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> 2.0000000000000001e-01 0.0 0.0  3.0000000000000004e-01 0.0 0.0  4.0000000000000002e-01 0.0 0.0 </E>
+            <E ID="7" EDGEID="7" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> 4.0000000000000002e-01 0.0 0.0  5.0000000000000000e-01 0.0 0.0  5.9999999999999998e-01 0.0 0.0 </E>
+            <E ID="8" EDGEID="8" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> 5.9999999999999998e-01 0.0 0.0  6.9999999999999996e-01 0.0 0.0  8.0000000000000004e-01 0.0 0.0 </E>
+            <E ID="9" EDGEID="9" NUMPOINTS="3" TYPE="PolyEvenlySpaced"> 8.0000000000000004e-01 0.0 0.0  9.5000000000000007e-01 0.0 0.0  1.1000000000000001e+00 0.0 0.0 </E>
+        </CURVED>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" FIELDS="u,v" TYPE="MODIFIED" NUMMODES="4"/>
+        <E COMPOSITE="C[3]" FIELDS="u,v" TYPE="MODIFIED" NUMMODES="7"/>
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">u</V>
+            <V ID="1">v</V>
+        </VARIABLES>
+    </CONDITIONS>
+</NEKTAR>

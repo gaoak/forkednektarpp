@@ -137,9 +137,6 @@ protected:
 
     void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const override;
 
-    void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                             int offset) const override;
-
     int v_GetFullSystemBandWidth() const override;
 }; // class
 

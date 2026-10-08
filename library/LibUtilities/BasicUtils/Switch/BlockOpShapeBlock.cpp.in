@@ -1,0 +1,114 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: @OPERATOR@@ExecSpace@@Impl@@TData@@Shape@.cpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description: Cmake configuration for boilerplate code to generate the
+// shape specific ShapeBlock definition of a block operator, wrapped in the
+// switch statement the operator asks for.
+//
+// This file is shared by every element operator that splits ShapeBlock out
+// of its implementation header, whatever that implementation is. Its only
+// inputs are the substitutions made by CMake (@OPERATOR@, @ExecSpace@,
+// @Impl@, @TData@ and @Shape@); nothing else here is operator specific,
+// because the input and output field states come from the operator's
+// ElmtBlockOp base via the InBlock and OutBlock aliases, and the switch
+// construction from the NEKTAR_BLOCKOP_SWITCH_* macro that the operator's
+// implementation header defines. There is no default: an implementation
+// reaching this file without naming a switch is a compile error, not a
+// silent fall back to the two level switch.
+//
+// The switch is a performance optimisation -- it dispatches to OperatorND
+// instantiations templated on the mode and quadrature counts, falling back
+// to a non-templated call. An implementation that does not use it declares
+// no ShapeBlock, so CMake generates no per-shape sources for it and it
+// never reaches this file.
+//
+///////////////////////////////////////////////////////////////////////////////
+
+// clang-format off
+@IMPL_HEADER@
+
+// The switch the @OPERATOR@ @Impl@ implementation asked for, and the macro
+// definitions it is built from. Keep the branches here in step with the
+// shape specific switch code selected in the function body below.
+#if defined(NEKTAR_BLOCKOP_SWITCH_CODE)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_1DCOORDS)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
+#else
+// The @OPERATOR@ @Impl@ implementation header defines no
+// NEKTAR_BLOCKOP_SWITCH_<kind> macro. The kinds are CODE,
+// 1DCOORDS, PHYSINTERP1D and PHYSTRACE; an implementation that uses no
+// switch declares no ShapeBlock instead, and so generates no per-shape
+// sources at all.
+#error "@OPERATOR@ @Impl@ names no switch for its generated ShapeBlock"
+#endif
+
+namespace Nektar::MultiRegions::detail
+{
+template <>
+template <>
+void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, MultiRegions::@Impl@,
+                           @TData@>::
+    ShapeBlock<LibUtilities::@Shape@>(InBlock &inblock, OutBlock &outblock)
+{
+    // The following will use predefined code generated from one of the
+    // switch templates in LibUtilities/BasicUtils/Switch, to import boost_pp
+    // code to make wrapper code to call the OperatorND method with the size
+    // parameter matching the shape: 1D for Segs, 2D for Tris and Quads and 3D
+    // otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+
+#define SHAPE_TYPE_@Shape@
+#if defined(NEKTAR_BLOCKOP_SWITCH_CODE)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchCode@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_1DCOORDS)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitch1DCoordsCode@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchPhysInterp1D@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchPhysTraceExtract@Shape@.h"
+#else
+// The @OPERATOR@ @Impl@ implementation header defines no
+// NEKTAR_BLOCKOP_SWITCH_<kind> macro. The kinds are CODE,
+// 1DCOORDS, PHYSINTERP1D and PHYSTRACE; an implementation that uses no
+// switch declares no ShapeBlock instead, and so generates no per-shape
+// sources at all.
+#error "@OPERATOR@ @Impl@ names no switch for its generated ShapeBlock"
+#endif
+}
+} // namespace Nektar::MultiRegions::detail

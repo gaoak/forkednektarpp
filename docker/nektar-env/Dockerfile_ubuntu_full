@@ -6,6 +6,10 @@ LABEL maintainer="Nektar++ Development Team <nektar-users@imperial.ac.uk>"
 USER root
 COPY docker/nektar-env/${UBUNTU_VERSION}_full_packages.txt packages.txt
 
+RUN apt update && \
+        DEBIAN_FRONTEND=noninteractive apt install -y environment-modules && \
+        echo "/apps/modules" >> /etc/environment-modules/modulespath
+
 RUN export DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
 	apt-get install -y $(cat packages.txt) \

@@ -222,7 +222,7 @@ template <typename T> inline T UnpackPod(const std::byte *&cur)
                   "default-constructible type (T v; default-constructs "
                   "before the memcpy below)");
     T v;
-    std::memcpy(&v, cur, sizeof(T));
+    std::memcpy(static_cast<void *>(&v), cur, sizeof(T));
     cur += sizeof(T);
     return v;
 }

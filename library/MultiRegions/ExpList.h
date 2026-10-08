@@ -51,6 +51,15 @@
 #include <SpatialDomains/Movement/Movement.h>
 #include <tinyxml.h>
 
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#include <LibUtilities/BasicUtils/Field/Block.hpp>
+#endif
+
+namespace Nektar::LibUtilities
+{
+class NekDataWarehouse;
+}
+
 namespace Nektar::MultiRegions
 {
 
@@ -92,6 +101,38 @@ typedef std::map<GlobalMatrixKey, DNekScalBlkMatSharedPtr> BlockMatrixMap;
 typedef std::shared_ptr<BlockMatrixMap> BlockMatrixMapShPtr;
 /// Shared pointer to an ExpList object.
 typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+// Helper function
+MULTI_REGIONS_EXPORT Collections::Collection GetCollection(
+    MultiRegions::ExpListSharedPtr expansionList, unsigned int block_idx);
+
+MULTI_REGIONS_EXPORT Collections::CollectionVector GetCollections(
+    MultiRegions::ExpListSharedPtr expansionList);
+
+template <typename TPadding, FieldState TState>
+MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
+GetBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
+                   const unsigned interleave_width = 1);
+
+/// As GetBlockAttributes(), but sized for the element-local traces: one
+/// block per collection, each element carrying every point of every one
+/// of its traces.
+template <typename TPadding, FieldState TState>
+MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
+GetLocTraceBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
+                           const unsigned interleave_width = 1);
+
+/// As GetBlockAttributes(), but sized for the @p scale over-integrated grid
+/// the 1D interpolation and Galerkin projection matrices are built for:
+/// direction 0 scales outright, and a direction carrying one point fewer
+/// than direction 0 keeps that offset.
+template <typename TPadding, FieldState TState>
+MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
+GetScaledBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
+                         const NekDouble scale,
+                         const unsigned interleave_width = 1);
+#endif
 
 /// Base class for all multi-elemental spectral/hp expansions.
 class ExpList : public std::enable_shared_from_this<ExpList>
@@ -949,6 +990,13 @@ public:
     {
         v_AppendFieldData(fielddef, fielddata, coeffs);
     }
+
+    void AppendFieldData(LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+                         std::vector<NekDouble> &fielddata,
+                         std::vector<NekDouble> &coeffs)
+    {
+        v_AppendFieldData(fielddef, fielddata, coeffs);
+    }
     /** \brief Extract the data in fielddata into the coeffs
      * using the basic ExpList Elemental expansions rather
      * than planes in homogeneous case
@@ -972,6 +1020,12 @@ public:
         LibUtilities::FieldDefinitionsSharedPtr &fielddef,
         std::vector<NekDouble> &fielddata, std::string &field,
         Array<OneD, NekDouble> &coeffs,
+        std::unordered_map<int, int> zIdToPlane =
+            std::unordered_map<int, int>());
+    MULTI_REGIONS_EXPORT void ExtractDataToCoeffs(
+        LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+        std::vector<NekDouble> &fielddata, std::string &field,
+        std::vector<NekDouble> &coeffs,
         std::unordered_map<int, int> zIdToPlane =
             std::unordered_map<int, int>());
     // Extract data from file fileName and put coefficents into array coefffs
@@ -1081,6 +1135,19 @@ public:
         return it->second;
     }
 
+    MULTI_REGIONS_EXPORT const DNekScalBlkMatSharedPtr &GetBlockMatrix(
+        const GlobalMatrixKey &gkey);
+
+    MULTI_REGIONS_EXPORT void SetDataWarehouse();
+
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    MULTI_REGIONS_EXPORT std::shared_ptr<Nektar::LibUtilities::NekDataWarehouse>
+    GetDataWarehouseSharedPtr()
+    {
+        return m_dataWarehouse;
+    }
+#endif
+
     void MultiplyByBlockMatrix(const GlobalMatrixKey &gkey,
                                const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &outarray,
@@ -1111,6 +1178,10 @@ public:
     }
 
 protected:
+    /// Data Warehouse
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    std::shared_ptr<Nektar::LibUtilities::NekDataWarehouse> m_dataWarehouse;
+#endif
     /// Pointer holder for PulseWaveSolver
     SpatialDomains::EntityHolder1D m_holder;
     /// Expansion type
@@ -1208,7 +1279,6 @@ protected:
     /// This function assembles the block diagonal matrix of local
     /// matrices of the type \a mtype.
     const DNekScalBlkMatSharedPtr GenBlockMatrix(const GlobalMatrixKey &gkey);
-    const DNekScalBlkMatSharedPtr &GetBlockMatrix(const GlobalMatrixKey &gkey);
 
     /// Generates a global matrix from the given key and map.
     std::shared_ptr<GlobalMatrix> GenGlobalMatrix(
@@ -1465,6 +1535,9 @@ protected:
     virtual void v_AppendFieldData(
         LibUtilities::FieldDefinitionsSharedPtr &fielddef,
         std::vector<NekDouble> &fielddata, Array<OneD, NekDouble> &coeffs);
+    virtual void v_AppendFieldData(
+        LibUtilities::FieldDefinitionsSharedPtr &fielddef,
+        std::vector<NekDouble> &fielddata, std::vector<NekDouble> &coeffs);
     virtual void v_ExtractDataToCoeffs(
         LibUtilities::FieldDefinitionsSharedPtr &fielddef,
         std::vector<NekDouble> &fielddata, std::string &field,

@@ -54,7 +54,9 @@ TARGET_LINK_LIBRARIES(Tester
   optimized ${TINYXML_LIBRARY} debug ${TINYXML_LIBRARY}
 )
 ADD_DEPENDENCIES(Tester boost tinyxml-2.6.2)
-
+IF (NEKTAR_USE_SIMSYCL)
+    ADD_DEPENDENCIES(Tester simsycl-${SIMSYCL_VERSION})
+ENDIF()
 
 # Older gcc versions (6 <= version < 9) require libstdc++fs.
 IF (DEFINED NEKTAR_FILESYSTEM_LIBRARY)

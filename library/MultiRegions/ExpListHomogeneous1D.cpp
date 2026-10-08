@@ -1410,6 +1410,15 @@ void ExpListHomogeneous1D::v_PhysDeriv(
                 beta = sign * 2 * M_PI * (m_transposition->GetK(0)) / m_lhom;
 
                 Vmath::Smul(nP_pts, beta, temparray, 1, outarray, 1);
+
+                if (m_WaveSpace)
+                {
+                    out_d2 = outarray;
+                }
+                else
+                {
+                    HomogeneousBwdTrans(nT_pts, outarray, out_d2);
+                }
             }
             else if (m_homogeneousBasis->GetBasisType() ==
                      LibUtilities::eFourierHalfModeIm)
@@ -1417,12 +1426,21 @@ void ExpListHomogeneous1D::v_PhysDeriv(
                 beta = -sign * 2 * M_PI * (m_transposition->GetK(0)) / m_lhom;
 
                 Vmath::Smul(nP_pts, beta, temparray, 1, outarray, 1);
+
+                if (m_WaveSpace)
+                {
+                    out_d2 = outarray;
+                }
+                else
+                {
+                    HomogeneousBwdTrans(nT_pts, outarray, out_d2);
+                }
             }
 
             // Fully complex
             else
             {
-                for (int i = 0; i < m_planes.size(); i++)
+                for (int i = 0; i < static_cast<int>(m_planes.size()); i++)
                 {
                     beta =
                         -sign * 2 * M_PI * (m_transposition->GetK(i)) / m_lhom;
@@ -1432,15 +1450,15 @@ void ExpListHomogeneous1D::v_PhysDeriv(
 
                     sign = -1.0 * sign;
                 }
-            }
 
-            if (m_WaveSpace)
-            {
-                out_d2 = outarray;
-            }
-            else
-            {
-                HomogeneousBwdTrans(nT_pts, outarray, out_d2);
+                if (m_WaveSpace)
+                {
+                    out_d2 = outarray;
+                }
+                else
+                {
+                    HomogeneousBwdTrans(nT_pts, outarray, out_d2);
+                }
             }
         }
         else

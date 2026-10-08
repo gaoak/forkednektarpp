@@ -37,12 +37,35 @@
 
 #include <LibUtilities/BasicConst/NektarUnivConsts.hpp>
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <boost/math/special_functions/relative_difference.hpp>
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 
 namespace Nektar::LibUtilities
 {
+namespace detail
+{
+template <class T> inline T EpsilonDifference(T lhs, T rhs)
+{
+    if (lhs == rhs)
+    {
+        return T(0);
+    }
+
+    const T diff  = std::abs(lhs - rhs);
+    const T scale = (std::min)(std::abs(lhs), std::abs(rhs));
+    const T eps   = std::numeric_limits<T>::epsilon();
+
+    if (scale == T(0))
+    {
+        return diff / eps;
+    }
+
+    return diff / (scale * eps);
+}
+} // namespace detail
+
 /// compare reals of same type with relative tolerance
 template <
     class T1, class T2,
@@ -60,7 +83,7 @@ inline bool IsRealEqual(
     // Check precondition in debug mode
     ASSERTL1(factor >= 1, "real comparison factor needs to be >= 1");
     // Relative distance normalized by machine epsilon
-    return boost::math::epsilon_difference(lhs, rhs) < factor;
+    return detail::EpsilonDifference(lhs, rhs) < factor;
 }
 
 /// compare reals of same type with absolute tolerance

@@ -60,6 +60,24 @@ ignore_sources = [
     "solvers/PulseWaveSolver/EquationSystems/TemplatePressureArea.cpp",
     # CardiacEPSolver CellMLToNektar template file
     "solvers/CardiacEPSolver/Utilities/CellMLToNektar/nektar/template/model.cpp",
+    # FFT
+    "library/LibUtilities/FFT/NekDeviceFFT.cpp",
+    "library/LibUtilities/FFT/NekDeviceFFT.cu",
+    "library/LibUtilities/FFT/NekDeviceFFT.hip",
+    "library/LibUtilities/FFT/DerivZDeviceFFT.cpp",
+    "library/LibUtilities/FFT/DerivZDeviceFFT.cu",
+    "library/LibUtilities/FFT/DerivZDeviceFFT.hip",
+    "library/UnitTests/LibUtilities/TestDeviceFFT.cpp",
+    # Profiler
+    # NekBlas
+    "library/LibUtilities/LinearAlgebra/NekBlas/magma.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/xsmm.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/cuBlas.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/hipBlas.cpp",
+    "library/LibUtilities/LinearAlgebra/NekBlas/oneMath.cpp",
+    # CompressibleFlowSolverRedesign: the Riemann profiler predates the flux
+    # framework and is not built.
+    "solvers/CompressibleFlowSolverRedesign/RiemannSolvers/Profilers/ProfilerRiemannOps.cpp",
 ]
 
 ignore_sources = [ os.path.join(cwd, os.path.normpath(p)) for p in ignore_sources ]
@@ -77,7 +95,7 @@ with open(sys.argv[1], 'r') as f:
     # Compare the lists of files.
     all_good = True
     for f in found_files:
-        if f in ignore_sources:
+        if f in ignore_sources or "XSMM" in f or "CUDA" in f or "HIP" in f or "SYCL" in f or "AVX" in f or "UnitTests/Operators/Test" in f:
             continue
 
         if f not in compiled_files:

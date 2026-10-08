@@ -1,0 +1,163 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: @OPERATOR@@ExecSpace@@Impl@@TData@@Shape@.cpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description: Cmake configuration for boilerplate code to generate the
+// shape specific ShapeBlock definitions of a block operator that is
+// templated on its output field state, each wrapped in the switch statement
+// the operator asks for.
+//
+// This file is the two output state counterpart of BlockOpShapeBlock.cpp.in
+// and is shared by every element operator whose @OPERATOR@BlockOp is
+// templated on FieldState TFieldOut: such an operator has one ShapeBlock per
+// output state, and both are compiled into this one translation unit. Its
+// only
+// inputs are the substitutions made by CMake (@OPERATOR@, @ExecSpace@,
+// @Impl@, @TData@ and @Shape@); nothing else here is operator specific,
+// because the input and output field states come from the operator's
+// ElmtBlockOp base via the InBlock and OutBlock aliases, and the switch
+// construction from the NEKTAR_BLOCKOP_SWITCH_*_CoeffOut
+// and NEKTAR_BLOCKOP_SWITCH_*_PhysOut macros that the operator's
+// implementation header defines -- one per output state,
+// since the two need not use the same switch. There is no default: an output
+// state reaching this file without naming a switch is a compile error, not a
+// silent fall back to the two level switch.
+//
+// The switch is a performance optimisation -- it dispatches to OperatorND
+// instantiations templated on the mode and quadrature counts, falling back
+// to a non-templated call. An implementation that does not use it declares
+// no ShapeBlock, so CMake generates no per-shape sources for it and it
+// never reaches this file.
+//
+///////////////////////////////////////////////////////////////////////////////
+
+// clang-format off
+@IMPL_HEADER@
+
+namespace Nektar::MultiRegions::detail
+{
+// FieldState::Coeff output case. The switch level definitions are included
+// per output state because the two states may use different switches; the
+// defs headers are re-includable so that they may also use the same one.
+#if defined(NEKTAR_BLOCKOP_SWITCH_CODE_CoeffOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_1DCOORDS_CoeffOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D_CoeffOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE_CoeffOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
+#else
+// The @OPERATOR@ @Impl@ implementation header defines no
+// NEKTAR_BLOCKOP_SWITCH_<kind>_CoeffOut macro. The kinds are
+// CODE, 1DCOORDS, PHYSINTERP1D and PHYSTRACE.
+#error "@OPERATOR@ @Impl@ names no switch for its FieldState::Coeff output"
+#endif
+
+template <>
+template <>
+void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, MultiRegions::@Impl@,
+                           FieldState::Coeff, @TData@>::
+    ShapeBlock<LibUtilities::@Shape@>(InBlock &inblock, OutBlock &outblock)
+{
+    // The following will use predefined code generated from one of the
+    // switch templates in LibUtilities/BasicUtils/Switch, to import boost_pp
+    // code to make wrapper code to call the OperatorND method with the size
+    // parameter matching the shape: 1D for Segs, 2D for Tris and Quads and 3D
+    // otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+
+#define SHAPE_TYPE_@Shape@
+#if defined(NEKTAR_BLOCKOP_SWITCH_CODE_CoeffOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchCode@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_1DCOORDS_CoeffOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitch1DCoordsCode@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D_CoeffOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchPhysInterp1D@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE_CoeffOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchPhysTraceExtract@Shape@.h"
+#else
+#error "@OPERATOR@ @Impl@ names no switch for its FieldState::Coeff output"
+#endif
+}
+
+// FieldState::Phys output case. The switch level definitions are included
+// per output state because the two states may use different switches; the
+// defs headers are re-includable so that they may also use the same one.
+#if defined(NEKTAR_BLOCKOP_SWITCH_CODE_PhysOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_1DCOORDS_PhysOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D_PhysOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel2Defs.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE_PhysOut)
+#include "LibUtilities/BasicUtils/Switch/SwitchLevel1Defs.h"
+#else
+// The @OPERATOR@ @Impl@ implementation header defines no
+// NEKTAR_BLOCKOP_SWITCH_<kind>_PhysOut macro. The kinds are
+// CODE, 1DCOORDS, PHYSINTERP1D and PHYSTRACE.
+#error "@OPERATOR@ @Impl@ names no switch for its FieldState::Phys output"
+#endif
+
+template <>
+template <>
+void @OPERATOR@BlockOpImpl<NektarSpaces::@ExecSpace@, MultiRegions::@Impl@,
+                           FieldState::Phys, @TData@>::
+    ShapeBlock<LibUtilities::@Shape@>(InBlock &inblock, OutBlock &outblock)
+{
+    // The following will use predefined code generated from one of the
+    // switch templates in LibUtilities/BasicUtils/Switch, to import boost_pp
+    // code to make wrapper code to call the OperatorND method with the size
+    // parameter matching the shape: 1D for Segs, 2D for Tris and Quads and 3D
+    // otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+
+#define SHAPE_TYPE_@Shape@
+#if defined(NEKTAR_BLOCKOP_SWITCH_CODE_PhysOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchCode@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_1DCOORDS_PhysOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitch1DCoordsCode@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSINTERP1D_PhysOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchPhysInterp1D@Shape@.h"
+#elif defined(NEKTAR_BLOCKOP_SWITCH_PHYSTRACE_PhysOut)
+#include "@CMAKE_CURRENT_BINARY_DIR@/include/BlockOpSwitchPhysTraceExtract@Shape@.h"
+#else
+#error "@OPERATOR@ @Impl@ names no switch for its FieldState::Phys output"
+#endif
+}
+} // namespace Nektar::MultiRegions::detail
+// clang-format on

@@ -2604,6 +2604,92 @@ void Expansion2D::v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p)
     stabilisation and involves the product of the normal and
     geometric factors along the element trace.
 */
+void Expansion2D::v_TraceDerivFactors(
+    const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+    Array<OneD, Array<OneD, NekDouble>> &d1factors,
+    [[maybe_unused]] Array<OneD, Array<OneD, NekDouble>> &d2factors)
+{
+    // As v_NormalTraceDerivFactors(), without the contraction over the trace
+    // normal: the trace values of derivative factors d xi_e / d x_dir. The
+    // deformed branch interpolates df * J to the edge and divides by the
+    // edge's trace of J, exactly as the contracted routine does, so the two
+    // agree pointwise once the normal is folded back in.
+    const Array<TwoD, const NekDouble> &df  = m_geomFactors->GetDerivFactors();
+    const Array<OneD, const NekDouble> &Jac = m_geomFactors->GetJac();
+
+    unsigned ntrace = GetNtraces();
+
+    if (d0factors.size() != ntrace)
+    {
+        d0factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+        d1factors = Array<OneD, Array<OneD, NekDouble>>(ntrace);
+    }
+
+    Array<OneD, ExpansionSharedPtr> traceExp(ntrace);
+    Array<OneD, unsigned> nq_edge(ntrace);
+    unsigned nq_max = 0;
+    for (int i = 0; i < ntrace; ++i)
+    {
+        v_GenTraceExp(i, traceExp[i]);
+        nq_edge[i] = traceExp[i]->GetTotPoints();
+        if (d0factors[i].size() != nq_edge[i])
+        {
+            d0factors[i] = Array<OneD, NekDouble>(nq_edge[i]);
+            d1factors[i] = Array<OneD, NekDouble>(nq_edge[i]);
+        }
+        nq_max = max(nq_max, nq_edge[i]);
+    }
+
+    if (m_geomFactors->GetGtype() == SpatialDomains::eDeformed)
+    {
+        Array<OneD, Array<OneD, NekDouble>> fac(2);
+        for (int i = 0; i < 2; ++i)
+        {
+            fac[i] = Array<OneD, NekDouble>(nq_max);
+        }
+        Array<OneD, NekDouble> jac(nq_max);
+
+        // construct local copy of df multipled by jacobian so that
+        // interpolation is of a polynomial function to be accurate
+        Array<OneD, Array<OneD, NekDouble>> dfdj(2);
+        unsigned nqtot = GetTotPoints();
+        for (unsigned i = 0; i < 2; ++i)
+        {
+            dfdj[i] = Array<OneD, NekDouble>(nqtot);
+            Vmath::Vmul(nqtot, &(df[2 * dir + i][0]), 1, &(Jac[0]), 1,
+                        &(dfdj[i][0]), 1);
+        }
+
+        for (unsigned e = 0; e < ntrace; ++e)
+        {
+            v_GetLocTracePhysVals(e, traceExp[e], &(Jac[0]), jac,
+                                  StdRegions::eForwards);
+            Vmath::Sdiv(nq_edge[e], 1.0, jac, 1, jac, 1);
+            v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[0][0]), fac[0],
+                                  StdRegions::eForwards);
+            v_GetLocTracePhysVals(e, traceExp[e], &(dfdj[1][0]), fac[1],
+                                  StdRegions::eForwards);
+
+            for (int i = 0; i < nq_edge[e]; ++i)
+            {
+                d0factors[e][i] = fac[0][i] * jac[i];
+                d1factors[e][i] = fac[1][i] * jac[i];
+            }
+        }
+    }
+    else
+    {
+        for (unsigned e = 0; e < ntrace; ++e)
+        {
+            for (int i = 0; i < nq_edge[e]; ++i)
+            {
+                d0factors[e][i] = df[2 * dir][0];
+                d1factors[e][i] = df[2 * dir + 1][0];
+            }
+        }
+    }
+}
+
 void Expansion2D::v_NormalTraceDerivFactors(
     Array<OneD, Array<OneD, NekDouble>> &d0factors,
     Array<OneD, Array<OneD, NekDouble>> &d1factors,
@@ -2626,8 +2712,8 @@ void Expansion2D::v_NormalTraceDerivFactors(
     for (int i = 0; i < ntrace; ++i)
     {
         // Note we are using GenTraceExp to ensure we have local trace expansion
-        // not ont from shared trace which can happe if we use GetTraceExp since
-        // it can be set in DisContField::SetupDG
+        // not one from shared trace which can happen if we use GetTraceExp
+        // since it can be set in DisContField::SetupDG
         v_GenTraceExp(i, traceExp[i]);
         nq_edge[i] = traceExp[i]->GetTotPoints();
         if (d0factors[i].size() != nq_edge[i])

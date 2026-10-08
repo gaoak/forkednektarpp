@@ -293,6 +293,7 @@ git cherry-pick $cherryopts $commits
 ```
 which accepts the name of the source branch as the sole argument.
 
+
 ## Formatting guidelines
 Nektar++ uses C++, a language notorious for being easy to make obtuse and
 difficult to follow code. To hopefully alleviate this problem, there are a
@@ -331,6 +332,14 @@ changes are required before merging.
 - Put spaces around binary operators and constants.
 - Put spaces after `if`, `while`, etc., but not after function names (see the
   example above).
+- Use `unsigned int` for small non-negative integer quantities such as number 
+  (or index) of modes, quadrature, dimension, components, variables, blocks, 
+  memory region, vector/interleave width, etc.
+- Use `size_t` for large non-negative integer quantities such as number 
+  (or index) of elements, group elements, total degree of freedoms, global offset, 
+  etc., or for size parameter of general functions (e.g. blas) and memory allocation 
+  (e.g. alignment)
+
 
 ### Variables and naming
 - Please use sensible names and use camelCase as a broad naming convention.

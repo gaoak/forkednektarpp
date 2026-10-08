@@ -36,9 +36,36 @@
 
 #include <sstream>
 
+// triangle.h defines lower-case function-like macros (dest, org, apex, ...)
+// that clash with ordinary member names, so it is included last and only here.
+#define ANSI_DECLARATORS
+#define REAL double
+#define VOID void
+extern "C"
+{
+#include <triangle.h>
+}
+
 using namespace std;
 namespace Nektar::NekMesh
 {
+
+struct TriangleInterface::DelaunayTriangle
+{
+    void Run(char *cmd)
+    {
+        triangulate(cmd, &in, &out, nullptr);
+    }
+
+    struct triangulateio in, out;
+};
+
+TriangleInterface::TriangleInterface()
+    : dt(std::make_unique<DelaunayTriangle>())
+{
+}
+
+TriangleInterface::~TriangleInterface() = default;
 
 void TriangleInterface::Mesh(bool Quality)
 {
@@ -57,9 +84,9 @@ void TriangleInterface::Mesh(bool Quality)
 
     ASSERTL0(numPoints > 2, ss.str());
 
-    dt.in.numberofpoints          = numPoints;
-    dt.in.numberofpointattributes = 0;
-    dt.in.pointlist               = new double[dt.in.numberofpoints * 2];
+    dt->in.numberofpoints          = numPoints;
+    dt->in.numberofpointattributes = 0;
+    dt->in.pointlist               = new double[dt->in.numberofpoints * 2];
 
     int pointc = 0;
 
@@ -73,8 +100,8 @@ void TriangleInterface::Mesh(bool Quality)
             ASSERTL0(search != m_nodeUV.end(),
                      "no uv provided for bounding loop node");
 
-            dt.in.pointlist[pointc * 2 + 0] = search->second[0] * m_str;
-            dt.in.pointlist[pointc * 2 + 1] = search->second[1];
+            dt->in.pointlist[pointc * 2 + 0] = search->second[0] * m_str;
+            dt->in.pointlist[pointc * 2 + 1] = search->second[1];
         }
     }
 
@@ -85,33 +112,33 @@ void TriangleInterface::Mesh(bool Quality)
         auto search = m_nodeUV.find(m_stienerpoints[i]);
         ASSERTL0(search != m_nodeUV.end(), "no uv provided for stiener point");
 
-        dt.in.pointlist[pointc * 2 + 0] = search->second[0] * m_str;
-        dt.in.pointlist[pointc * 2 + 1] = search->second[1];
+        dt->in.pointlist[pointc * 2 + 0] = search->second[0] * m_str;
+        dt->in.pointlist[pointc * 2 + 1] = search->second[1];
     }
 
-    dt.in.numberofsegments = numSeg;
-    dt.in.segmentlist      = new int[dt.in.numberofsegments * 2];
-    pointc                 = 0;
+    dt->in.numberofsegments = numSeg;
+    dt->in.segmentlist      = new int[dt->in.numberofsegments * 2];
+    pointc                  = 0;
     for (int i = 0; i < m_boundingloops.size(); i++, pointc++)
     {
         int first = pointc;
         for (int j = 0; j < m_boundingloops[i].size() - 1; j++, pointc++)
         {
-            dt.in.segmentlist[pointc * 2 + 0] = pointc;
-            dt.in.segmentlist[pointc * 2 + 1] = pointc + 1;
+            dt->in.segmentlist[pointc * 2 + 0] = pointc;
+            dt->in.segmentlist[pointc * 2 + 1] = pointc + 1;
         }
-        dt.in.segmentlist[pointc * 2 + 0] = pointc;
-        dt.in.segmentlist[pointc * 2 + 1] = first;
+        dt->in.segmentlist[pointc * 2 + 0] = pointc;
+        dt->in.segmentlist[pointc * 2 + 1] = first;
     }
 
-    dt.in.numberofregions = 0;
-    dt.in.numberofholes   = m_centers.size() - 1;
-    dt.in.holelist        = new double[dt.in.numberofholes * 2];
+    dt->in.numberofregions = 0;
+    dt->in.numberofholes   = m_centers.size() - 1;
+    dt->in.holelist        = new double[dt->in.numberofholes * 2];
 
     for (int i = 1; i < m_centers.size(); i++)
     {
-        dt.in.holelist[(i - 1) * 2 + 0] = m_centers[i][0] * m_str;
-        dt.in.holelist[(i - 1) * 2 + 1] = m_centers[i][1];
+        dt->in.holelist[(i - 1) * 2 + 0] = m_centers[i][0] * m_str;
+        dt->in.holelist[(i - 1) * 2 + 1] = m_centers[i][1];
     }
 
     string cmd;
@@ -126,17 +153,17 @@ void TriangleInterface::Mesh(bool Quality)
     char *cstr = new char[cmd.length() + 1];
     strcpy(cstr, cmd.c_str());
 
-    dt.Run(cstr);
+    dt->Run(cstr);
 
     delete[] cstr;
 
     // Triangle silently discards input points that coincide, which renumbers
     // its output and breaks the index -> vertex mapping in Extract.
-    if (dt.out.numberofpoints != dt.in.numberofpoints)
+    if (dt->out.numberofpoints != dt->in.numberofpoints)
     {
         stringstream err;
-        err << "Triangle returned " << dt.out.numberofpoints << " points from "
-            << dt.in.numberofpoints << " input points on surface " << sid
+        err << "Triangle returned " << dt->out.numberofpoints << " points from "
+            << dt->in.numberofpoints << " input points on surface " << sid
             << "; coincident points in the parameter plane were merged.";
         ASSERTL0(false, err.str());
     }
@@ -144,75 +171,75 @@ void TriangleInterface::Mesh(bool Quality)
 
 void TriangleInterface::SetUp()
 {
-    dt.in.pointlist               = (double *)nullptr;
-    dt.in.pointattributelist      = (double *)nullptr;
-    dt.in.pointmarkerlist         = (int *)nullptr;
-    dt.in.numberofpoints          = 0;
-    dt.in.numberofpointattributes = 0;
+    dt->in.pointlist               = (double *)nullptr;
+    dt->in.pointattributelist      = (double *)nullptr;
+    dt->in.pointmarkerlist         = (int *)nullptr;
+    dt->in.numberofpoints          = 0;
+    dt->in.numberofpointattributes = 0;
     //
-    dt.in.trianglelist               = (int *)nullptr;
-    dt.in.triangleattributelist      = (double *)nullptr;
-    dt.in.trianglearealist           = (double *)nullptr;
-    dt.in.neighborlist               = (int *)nullptr;
-    dt.in.numberoftriangles          = 0;
-    dt.in.numberofcorners            = 0;
-    dt.in.numberoftriangleattributes = 0;
+    dt->in.trianglelist               = (int *)nullptr;
+    dt->in.triangleattributelist      = (double *)nullptr;
+    dt->in.trianglearealist           = (double *)nullptr;
+    dt->in.neighborlist               = (int *)nullptr;
+    dt->in.numberoftriangles          = 0;
+    dt->in.numberofcorners            = 0;
+    dt->in.numberoftriangleattributes = 0;
     //
-    dt.in.segmentlist       = (int *)nullptr;
-    dt.in.segmentmarkerlist = (int *)nullptr;
-    dt.in.numberofsegments  = 0;
+    dt->in.segmentlist       = (int *)nullptr;
+    dt->in.segmentmarkerlist = (int *)nullptr;
+    dt->in.numberofsegments  = 0;
     //
-    dt.in.holelist      = (double *)nullptr;
-    dt.in.numberofholes = 0;
+    dt->in.holelist      = (double *)nullptr;
+    dt->in.numberofholes = 0;
     //
-    dt.in.regionlist      = (double *)nullptr;
-    dt.in.numberofregions = 0;
+    dt->in.regionlist      = (double *)nullptr;
+    dt->in.numberofregions = 0;
     //
-    dt.in.edgelist       = (int *)nullptr;
-    dt.in.edgemarkerlist = (int *)nullptr;
-    dt.in.normlist       = (double *)nullptr;
-    dt.in.numberofedges  = 0;
+    dt->in.edgelist       = (int *)nullptr;
+    dt->in.edgemarkerlist = (int *)nullptr;
+    dt->in.normlist       = (double *)nullptr;
+    dt->in.numberofedges  = 0;
     //
-    dt.out.pointlist               = (double *)nullptr;
-    dt.out.pointattributelist      = (double *)nullptr;
-    dt.out.pointmarkerlist         = (int *)nullptr;
-    dt.out.numberofpoints          = 0;
-    dt.out.numberofpointattributes = 0;
+    dt->out.pointlist               = (double *)nullptr;
+    dt->out.pointattributelist      = (double *)nullptr;
+    dt->out.pointmarkerlist         = (int *)nullptr;
+    dt->out.numberofpoints          = 0;
+    dt->out.numberofpointattributes = 0;
     //
-    dt.out.trianglelist               = (int *)nullptr;
-    dt.out.triangleattributelist      = (double *)nullptr;
-    dt.out.trianglearealist           = (double *)nullptr;
-    dt.out.neighborlist               = (int *)nullptr;
-    dt.out.numberoftriangles          = 0;
-    dt.out.numberofcorners            = 0;
-    dt.out.numberoftriangleattributes = 0;
+    dt->out.trianglelist               = (int *)nullptr;
+    dt->out.triangleattributelist      = (double *)nullptr;
+    dt->out.trianglearealist           = (double *)nullptr;
+    dt->out.neighborlist               = (int *)nullptr;
+    dt->out.numberoftriangles          = 0;
+    dt->out.numberofcorners            = 0;
+    dt->out.numberoftriangleattributes = 0;
     //
-    dt.out.segmentlist       = (int *)nullptr;
-    dt.out.segmentmarkerlist = (int *)nullptr;
-    dt.out.numberofsegments  = 0;
+    dt->out.segmentlist       = (int *)nullptr;
+    dt->out.segmentmarkerlist = (int *)nullptr;
+    dt->out.numberofsegments  = 0;
     //
-    dt.out.holelist      = (double *)nullptr;
-    dt.out.numberofholes = 0;
+    dt->out.holelist      = (double *)nullptr;
+    dt->out.numberofholes = 0;
     //
-    dt.out.regionlist      = (double *)nullptr;
-    dt.out.numberofregions = 0;
+    dt->out.regionlist      = (double *)nullptr;
+    dt->out.numberofregions = 0;
     //
-    dt.out.edgelist       = (int *)nullptr;
-    dt.out.edgemarkerlist = (int *)nullptr;
-    dt.out.normlist       = (double *)nullptr;
-    dt.out.numberofedges  = 0;
+    dt->out.edgelist       = (int *)nullptr;
+    dt->out.edgemarkerlist = (int *)nullptr;
+    dt->out.normlist       = (double *)nullptr;
+    dt->out.numberofedges  = 0;
 }
 
 void TriangleInterface::Extract(
     std::vector<std::vector<SpatialDomains::PointGeom *>> &Connec)
 {
     Connec.clear();
-    for (int i = 0; i < dt.out.numberoftriangles; i++)
+    for (int i = 0; i < dt->out.numberoftriangles; i++)
     {
         map<int, SpatialDomains::PointGeom *>::iterator n1, n2, n3;
-        n1 = nodemap.find(dt.out.trianglelist[i * 3 + 0]);
-        n2 = nodemap.find(dt.out.trianglelist[i * 3 + 1]);
-        n3 = nodemap.find(dt.out.trianglelist[i * 3 + 2]);
+        n1 = nodemap.find(dt->out.trianglelist[i * 3 + 0]);
+        n2 = nodemap.find(dt->out.trianglelist[i * 3 + 1]);
+        n3 = nodemap.find(dt->out.trianglelist[i * 3 + 2]);
 
         ASSERTL0(n1 != nodemap.end() && n2 != nodemap.end() &&
                      n3 != nodemap.end(),

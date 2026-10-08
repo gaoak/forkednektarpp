@@ -2,11 +2,11 @@ SET(UnitTestSources
     main.cpp
     ScaledMatrixUnitTests.cpp
     BlockMatrixUnitTests.cpp
-    testLinearSystem.cpp
-    testNekMatrix.cpp
-    testNekPoint.cpp
-    testNekVector.cpp
-    testNekSharedArray.cpp
+    TestLinearSystem.cpp
+    TestNekMatrix.cpp
+    TestNekPoint.cpp
+    TestNekVector.cpp
+    TestNekSharedArray.cpp
     Memory/TestNekMemoryManager.cpp
     util.cpp
 )
@@ -17,4 +17,10 @@ ADD_NEKTAR_EXECUTABLE(UnitTests
     COMPONENT unit-test DEPENDS StdRegions SOURCES ${UnitTestSources})
 
 ADD_TEST(NAME UnitTests COMMAND UnitTests --detect_memory_leaks=0)
+
 SUBDIRS(LibUtilities StdRegions LocalRegions Collections MultiRegions SpatialDomains NekMesh)
+
+if (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    SUBDIRS(Operators)
+    SUBDIRS(SolverCore)
+endif()

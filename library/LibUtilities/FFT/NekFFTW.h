@@ -32,13 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_LIB_UTILIITIES_FFT_NEKFFTW_H
-#define NEKTAR_LIB_UTILIITIES_FFT_NEKFFTW_H
+#ifndef NEKTAR_LIB_UTILITIES_FFT_NEKFFTW_H
+#define NEKTAR_LIB_UTILITIES_FFT_NEKFFTW_H
 
 #include <LibUtilities/FFT/NektarFFT.h>
 
-#include <LibUtilities/BasicConst/NektarUnivConsts.hpp>
-#include <LibUtilities/BasicUtils/NekManager.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
@@ -84,4 +82,4 @@ using NekFFTWFloat = NekFFTWImpl<float>;
 using NekFFTWSharedPtr = std::shared_ptr<NekFFTW>;
 
 } // namespace Nektar::LibUtilities
-#endif // NEKTAR_LIB_UTILIITIES_FFT_NEKFFTW_H
+#endif // NEKTAR_LIB_UTILITIES_FFT_NEKFFTW_H

@@ -1,0 +1,225 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: TestAssmbScatr.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#include "TestOp.hpp"
+
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
+
+#include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
+#include <MultiRegions/ContField.h>
+#include <MultiRegions/GlobalLinSysIterativeFull.h>
+
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+
+using namespace Nektar;
+using namespace Nektar::LibUtilities;
+using namespace Nektar::MultiRegions;
+
+template <typename TData>
+class TestAssmbScatr
+    : public TestOp<TData, FieldState::Coeff, FieldState::Coeff, ContField>
+{
+public:
+    TestAssmbScatr() = default;
+
+public:
+    void SetTestCase(bool ZeroDir = false)
+    {
+        // Set initial conditions.
+        for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
+             ++blk)
+        {
+            auto &block = this->fixt_in->GetBlocks()[blk];
+            auto inptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            for (unsigned int nc = 0; nc < this->fixt_in->GetNumComponents();
+                 ++nc)
+            {
+                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
+                {
+                    for (unsigned int coeff = 0; coeff < block.GetNumData();
+                         ++coeff, ++cnt)
+                    {
+                        inptr[cnt] = coeff + nc;
+                    }
+                }
+                inptr += block.CompSize();
+            }
+        }
+
+        // Compute expected solution.
+        ExpectedSolution(ZeroDir);
+    }
+
+    void RunTestCase()
+    {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
+        // reshape this->fixt_in
+        if (execStr == "AVX")
+        {
+            this->fixt_in->ReshapeStorage(
+                NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
+        }
+
+        auto op = AssmbScatrOp<double>::Create(this->fixt_explist,
+                                               this->session->GetVariables());
+        op->Apply(*this->fixt_in, *this->fixt_out);
+    }
+
+    void RunTestCaseZeroDir()
+    {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
+        // reshape this->fixt_in
+        if (execStr == "AVX")
+        {
+            this->fixt_in->ReshapeStorage(
+                NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
+        }
+
+        auto op = AssmbScatrZeroDirOp<double>::Create(
+            this->fixt_explist, this->session->GetVariables());
+        op->Apply(*this->fixt_in, *this->fixt_out);
+    }
+
+    void ExpectedSolution(bool ZeroDir = false)
+    {
+        std::vector<std::string> variables = this->session->GetVariables();
+        std::vector<std::shared_ptr<MultiRegions::ContField>> contfields;
+        auto graph           = SpatialDomains::MeshGraphIO::Read(this->session);
+        unsigned int numComp = this->fixt_in->GetNumComponents();
+
+        for (auto &variable : variables)
+        {
+            contfields.push_back(
+                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                    this->session, graph, variable, true, false,
+                    Collections::eNoCollection));
+        }
+
+        // Calculate expected result from Nektar++.
+        size_t ncoeffs               = this->fixt_explist->GetNcoeffs();
+        Array<OneD, double> incoeffs = this->fixt_in->ToArray();
+        Array<OneD, double> outcoeffs(numComp * ncoeffs);
+
+        for (unsigned int i = 0; i < variables.size(); ++i)
+        {
+            Array<OneD, double> tmp;
+            auto map = contfields[i]->GetLocalToGlobalMap();
+            map->Assemble(incoeffs + i * ncoeffs,
+                          tmp = outcoeffs + i * ncoeffs);
+            if (ZeroDir)
+            {
+                Vmath::Zero(map->GetNumGlobalDirBndCoeffs(),
+                            tmp = outcoeffs + i * ncoeffs, 1);
+            }
+            map->GlobalToLocal(outcoeffs + i * ncoeffs,
+                               tmp = outcoeffs + i * ncoeffs);
+        }
+        this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
+            outcoeffs);
+    }
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TESTFLOAT(type, filename)                                              \
+    class type##float : public TestAssmbScatr<float>                           \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TESTDOUBLE(type, filename)                                             \
+    class type : public TestAssmbScatr<double>                                 \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TESTDOUBLE(type, filename)
+#endif
+#define TEST(type, filename)                                                   \
+    TESTFLOAT(type, filename)                                                  \
+    TESTDOUBLE(type, filename)
+// clang-format on
+
+TEST(Seg, "run/segment.xml")
+
+TEST(SegSEM, "run/line_sem.xml")
+
+TEST(Quad, "run/square.xml")
+
+TEST(QuadVarP, "run/square_varp.xml")
+
+TEST(QuadSEM, "run/square_sem.xml")
+
+TEST(Tri, "run/tri.xml")
+
+TEST(TriVarP, "run/tri_varp.xml")
+
+TEST(SquareAllElements, "run/square_all_elements.xml")
+
+TEST(Hex, "run/hex.xml")
+
+TEST(HexVarP, "run/hex_varp.xml")
+
+TEST(HexSEM, "run/hex_sem.xml")
+
+TEST(Prism, "run/prism.xml")
+
+TEST(PrismVarP, "run/prism_varp.xml")
+
+TEST(Pyr, "run/pyr.xml")
+
+TEST(PyrVarP, "run/pyr_varp.xml")
+
+TEST(Tet, "run/tet.xml")
+
+TEST(TetVarP, "run/tet_varp.xml")
+
+TEST(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST(CubeAllElements, "run/cube_all_elements.xml")

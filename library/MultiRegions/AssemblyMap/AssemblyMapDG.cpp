@@ -157,6 +157,78 @@ AssemblyMapDG::AssemblyMapDG(
         }
     }
 
+    // Expansions with no boundary-interior decomposition (orthogonal or
+    // Gauss-point bases) have no DG boundary numbering to build: the
+    // coefficient-space methods this constructor relies on, such as
+    // NumDGBndryCoeffs and GetTraceToElementMap, are only defined for a
+    // modified basis. Set up the boundary-condition trace map alone and
+    // return, leaving the numbering below to the boundary-interior case.
+    if (!expList[0]->IsBoundaryInteriorExpansion())
+    {
+        // call related
+        ExpListSharedPtr tr = std::dynamic_pointer_cast<ExpList>(trace);
+        m_assemblyComm      = AssemblyCommDGSharedPtr(
+            MemoryManager<AssemblyCommDG>::AllocateSharedPtr(
+                locExp, tr, m_elmtToTrace, bndCondExp, bndCond, periodicTrace));
+
+        int nbndexp       = 0;
+        int nrotperbndexp = 0;
+
+        cnt = 0;
+        for (i = 0; i < nbnd; ++i)
+        {
+            if (bndCond[i]->GetBoundaryConditionType() ==
+                SpatialDomains::ePeriodic)
+            {
+                if (boost::icontains(bndCond[i]->GetUserDefined(), "Rotated"))
+                {
+                    nrotperbndexp += bndCondExp[i]->GetExpSize();
+                }
+
+                continue;
+            }
+            cnt += bndCondExp[i]->GetNcoeffs();
+            nbndexp += bndCondExp[i]->GetExpSize();
+        }
+
+        m_bndCondIDToGlobalTraceID    = Array<OneD, int>(nbndexp);
+        m_perbndCondIDToGlobalTraceID = Array<OneD, int>(nrotperbndexp);
+
+        cnt        = 0;
+        int percnt = 0;
+        for (i = 0; i < bndCondExp.size(); ++i)
+        {
+            if (bndCond[i]->GetBoundaryConditionType() ==
+                SpatialDomains::ePeriodic)
+            {
+                if (boost::icontains(bndCond[i]->GetUserDefined(), "Rotated"))
+                {
+
+                    for (j = 0; j < bndCondExp[i]->GetExpSize(); ++j)
+                    {
+                        bndExp = bndCondExp[i]->GetExp(j);
+                        id     = bndExp->GetGeom()->GetGlobalID();
+
+                        int meshId = meshTraceId.find(id)->second;
+                        m_perbndCondIDToGlobalTraceID[percnt++] = meshId;
+                    }
+                }
+                continue;
+            }
+
+            for (j = 0; j < bndCondExp[i]->GetExpSize(); ++j)
+            {
+                bndExp = bndCondExp[i]->GetExp(j);
+                id     = bndExp->GetGeom()->GetGlobalID();
+
+                int meshId = meshTraceId.find(id)->second;
+                m_bndCondIDToGlobalTraceID[cnt++] = meshId;
+            }
+        }
+
+        return;
+    }
+
     // Set up integer mapping array and sign change for each degree of
     // freedom + initialise some more data members.
     m_staticCondLevel           = 0;
@@ -902,12 +974,6 @@ void AssemblyMapDG::v_Assemble(const NekVector<NekDouble> &loc,
 void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
     m_gsh->Gather(pGlobal, LibUtilities::GatherScatterOp::eAdd);
-}
-
-void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
-                                        int offset) const
-{
-    AssemblyMap::v_UniversalAssemble(pGlobal, offset);
 }
 
 int AssemblyMapDG::v_GetFullSystemBandWidth() const

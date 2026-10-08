@@ -95,14 +95,10 @@ bool MetricFileExists::v_Test([[maybe_unused]] std::istream &pStdout,
         // pattern provided. Count the number of files which match.
         for (auto &e : fs::directory_iterator(pwd))
         {
-            std::smatch matches;
             std::string filename = e.path().string();
-            if (std::regex_match(filename, matches, r))
+            if (std::regex_match(filename, r))
             {
-                if (matches.size() == 1)
-                {
-                    cnt++;
-                }
+                cnt++;
             }
         }
 
@@ -131,14 +127,10 @@ void MetricFileExists::v_Generate([[maybe_unused]] std::istream &pStdout,
         std::regex r(it->first.c_str());
         for (auto &e : fs::directory_iterator(pwd))
         {
-            std::smatch matches;
             std::string filename = e.path().string();
-            if (std::regex_match(filename, matches, r))
+            if (std::regex_match(filename, r))
             {
-                if (matches.size() == 1)
-                {
-                    cnt++;
-                }
+                cnt++;
             }
         }
         m_fileCounts[it->first] = cnt;

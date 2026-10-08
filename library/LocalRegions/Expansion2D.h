@@ -105,6 +105,11 @@ public:
         const int nvert, const StdRegions::Orientation orient, const int nq0,
         Array<OneD, int> &idmap);
 
+    LOCAL_REGIONS_EXPORT void v_TraceDerivFactors(
+        const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors) override;
+
     LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
         Array<OneD, Array<OneD, NekDouble>> &factors,
         Array<OneD, Array<OneD, NekDouble>> &d0factors,

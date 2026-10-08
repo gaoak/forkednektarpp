@@ -180,6 +180,11 @@ protected:
                                Array<OneD, NekDouble> &outarray,
                                StdRegions::Orientation orient) override;
 
+    void GetLocTracePhysValsOriented(
+        const int face, const StdRegions::StdExpansionSharedPtr &FaceExp,
+        const NekDouble *inarray, Array<OneD, NekDouble> &outarray,
+        StdRegions::Orientation orient);
+
     void v_GenTraceExp(const int traceid, ExpansionSharedPtr &exp) override;
 
     void v_GenAlignedTraceExp(const int traceid,
@@ -209,6 +214,11 @@ protected:
 
     LOCAL_REGIONS_EXPORT void v_TraceNormLen(const int traceid, NekDouble &h,
                                              NekDouble &p) override;
+
+    LOCAL_REGIONS_EXPORT void v_TraceDerivFactors(
+        const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors) override;
 
     LOCAL_REGIONS_EXPORT void v_NormalTraceDerivFactors(
         Array<OneD, Array<OneD, NekDouble>> &d0factors,

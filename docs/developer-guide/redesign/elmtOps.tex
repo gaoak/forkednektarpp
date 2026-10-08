@@ -1,0 +1,1148 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Element Operators}
+
+Currently element operators over a series of blocks of elements on
+different types of architecture and devices are to be found in the
+Operator library. These operators work on a block of elements with
+similar expansion bases, quadrature and are either \texttt{regular} or
+\texttt{deformed} geometries.
+
+Currently we have implementation for the operators
+
+    \begin {table}[htbp!]
+    \begin{center}
+    \scalebox{0.9}[1.]{
+    \begin{tabular}{ |l | l| l|}
+      \hline      
+      \textbf{Description} & \textbf{Function short name} & \textbf{ Mathematical formd} \\  
+      \hline
+Backward transform $\hat{u}_{pq}$ to $u(\beta_1, \eta_2)$ &  \texttt{BwdTrans}  &  $u(\eta_{1i}, \eta_{2j}) = \sum_{pq} \phi_{pq}(\eta_{1i}, \eta_{2j}) \hat{u}_{pq}$\\
+      \hline
+Inner Product of $f$ with respect to  &  \texttt{IPRoductWRTBase}  &  $I_{pq} = (\phi_{pq}, f)$\\
+the basis $\phi_{pq}$ &   & \\
+      \hline
+Inner Product of a vector  ${\bf f}$ with &  \texttt{IPRoductWRTDerivBase}  &  $I_{pq} = (\nabla \phi_{pq}, {\bf f})$\\
+respect to the grad of the basis $\phi_{pq}$ & & \\
+      \hline
+Derivative of $u$ in physical & \texttt{PhysDeriv} & ${\bf d} = \nabla u$  \\
+or quadrature space & & \\
+      \hline
+Mass matrix operator on $u = \sum_{rs} \phi_{rs} \hat{u}_{rs}$ & \texttt{Mass} & $ I_{pq}  = (\phi_{pq}, u) = (\phi_{pq}, \sum_{rs} \phi_{rs} \hat{u}_{rs})$  \\
+      \hline
+Weak Helmholtz operator on $u$& \texttt{Helmholtz} & $ I_{pq}  = (\nabla \phi_{pq}, \nabla u) + \lambda (\phi_{pq}, u)$  \\
+      \hline
+      Interpolate $u^P(\eta_1,\eta_2)$  to a 1D scaled  & \texttt{PhysInterp1DScaled} & 
+    $u(\eta^{\sigma P}_{1i}, \eta^{\sigma P}_{2j}) = $\\
+factor, $\sigma$, number of quad. points && \hspace{12pt} $\sum_{pq} h^P_{p}(\eta^{\sigma P}_{1i}) h^P_{q}(\eta^{\sigma P}_{2i}) u^P_{pq}$  \\
+      \hline
+Expression operator & \texttt{Expression} & Evaluates analytical expressions $f_{i} = f(x_i,y_i,z_i,t,u,v,\ldots)$  \\
+      \hline
+Forward transform BC & \texttt{FwdTransBC} & Evaluates Dirichlet forcing on boundaries for CG see chapter 4.3.2 in \cite{KaSh05} \\
+      \hline
+    \end{tabular}
+    }
+    \end{center}
+    \caption {Table of element operations and their mathematical form} \label{tab:elmtops} 
+    \end{table}
+
+
+
+\section{File structure}
+
+Within the \texttt{ElmtOps} directory there are a series of
+sub-directories which Function short name from table
+\ref{tab:elmtops}. In configuration using CMake the filename is used
+to identify which operators are available for compilation and so
+adding a new elemental operator \texttt{MyOps} would require a new
+directory of the same name.
+
+Also wihtin the \texttt{ElmtOps} directory you will find a series of
+.hpp files with the naming format
+\texttt{Operator\{FunctionShortName\}.hpp} where the
+\texttt{FunctionShortName} again refers to that provided in table
+\ref{tab:elmtops}. These files contain the parent class definition
+typically names \texttt{Operator\{FunctionShortName\}}. As indicated by
+figure \ref{fig:elmtops} from doxygen all of these classes inherit
+public methods from the \texttt{OperatorElmt} class which is defined
+in \texttt{OperatorElmt.hpp} which also inherits from the
+\texttt{Operator} class defined in the file
+\texttt{Common/Operator.hpp} file in the MultiRegions library.
+
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=1.0\textwidth]{img/operatorBwdTransInheritGraph.pdf}
+  \caption{inheritance of element operator class}
+  \label{fig:elmtops}
+\end{figure}
+
+As indicated in figure \ref{fig:elmtops}, three classes also inherit
+from the class \texttt{OperatorBwdTrans} and this relates to a CPU/AVX
+sum factorisation implementation, a Standard matrix CPU implementation
+and a GPU implementation with variants for Cuda, Kokkos and SYCL. We
+will next discuss this formatting for each of these implementations.
+
+\subsection{Sum factorisation Matrix operators on CPUs with and without AVX}
+
+Sum factorisation utilises the tensor product nature of the expansions
+and permits a series of one-dimensional type operations. Using the
+SIMD library approach discussed in section \ref{sec:simdlib} we are
+able to reuse the same code for both a scalar and vector approach
+which can accomdate the sum factorisation over each elements at a time
+in the case of a scalar approach or multiple elements in the case of
+an AVX acceleration where the number of elements depends on the AVX
+instruction set. More details of the AVX implementation can be found
+in reference \cite{moxey2020efficient}.
+
+
+The derived implementation class should be placed in a file named
+
+\inlsh{\{FunctionShortName\}SerialAvXSumFac.hpp}
+
+\noindent where as previously
+discussed \texttt{FunctionSHortName} is proivded in table
+\ref{tab:elmtops} for each operator.
+
+In this file the size of the SIMD type is selected from definining \texttt{simd\_t}, i.e.
+
+\begin{lstlisting}[style=C++Style]
+template <typename ExecSpace, typename Implementation, typename TData>
+class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
+{
+    using simd_t =
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+        TData>::type;
+\end{lstlisting}
+
+where \texttt{simd\_type\_if} is defind in \texttt{MultiRegions/Common/Operator.hpp} as 
+
+
+\begin{lstlisting}[style=C++Style]
+template <bool B, typename TData> struct simd_type_if
+{
+    typedef tinysimd::scalarT<TData> type;
+};
+
+template <typename TData> struct simd_type_if<true, TData>
+{
+    typedef tinysimd::simd<TData> type;
+};
+\end{lstlisting}
+
+Therefore by default \texttt{simd\_t} is defined as
+\texttt{tinysimd::scalarT<TData>} but if \texttt{ExexSpace} is
+\texttt{NektarSpaces::AVX} then it is set to
+\texttt{tinysimd::simd<TData> }.
+
+This class holds appropriate intialisation such as refernece to the 1D
+Expansion basis and also has the specific implementation of the
+\texttt{apply()} method. This method has a generic form which just
+loops over the blocks in the form:
+
+\begin{lstlisting}[style=C++Style]
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Phys> &out) override
+    {
+        // Initialize index.
+        size_t exp_idx = 0;
+
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
+        {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
+
+            this->BlockOperator(inblock, outblock);
+
+            // Increment index for next element type.
+            exp_idx += inblock.GetNumElements();
+        }
+    }
+\end{lstlisting}
+
+The method \texttt{BlockOperator()} then primarily contains a switch statement which calls shape dependent block operators, i.e.
+
+\begin{lstlisting}[style=C++Style]
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            ....
+            }
+\end{lstlisting}
+
+These shape block operators are then defined in separate files which
+are auto generated using the Cmake \texttt{Configure\_file()} method.
+This file is named
+
+\inlsh{\{FunctionShortName\}SerialAVXSumFacBlockOp.cpp.in}
+
+\noindent and includes another auto generated file of the form
+\texttt{BlockOpSwitchCodeShape.h} where \texttt{Shape} is
+\texttt{Seg,Quad,Tri,Hex,Prism,Pyr,Tet}. In these file we use Boost
+preprocessing to generate a switch statement to call templated
+versions of the methods \texttt{Operator1D(), Operator2D()} or
+\texttt{Operator3D()} which are defined in the original file
+
+\inlsh{\{FunctionShortName\}SerialAvXSumFac.hpp}.
+
+\noindent The switch statement runs over all polynomial or qudarture
+orders that are defined by the Cmake defined options
+\texttt{NEKTAR\_SWITCH\_MIN} and \texttt{NEKTAR\_SWITCH\_MAX} and
+assume that each polynomial order is the same and that the standard
+quadrature orders are applied for each shape. For operators involving
+both polynomial and quadrature orders the quadrature order runs from
+the polynomial order to twice the polynomial order. The boost
+preprocessing code look in the files similar to
+\texttt{Common/BlockOpSwitchCode.h.in}.  This rather convoluted file
+structure helps abstract the boost prepropcessing codes and also
+speeds up the compilation which otherwise is rather slow due the large
+switch statement that are generated to call the templated code.
+
+Finally the methods \texttt{Operator1D(), Operator2D()} or
+\texttt{Operator3D()} are defined in a templated and non-templated method
+for use in the switch statements and to also have a default method for
+cases whcih are not covered in the templated parameters in the switch
+statement. These methods also call kernel functions for each method
+that contain the primary code for each method and can be found in the
+files
+
+\inlsh{\{FunctionShortName\}SerialAVXSumFacKernels.hpp}
+
+\noindent and also in the \texttt{StdRegions/Operators/} directory.
+
+
+\subsection{Standard Matrix operators on CPUs}
+
+The idea behind the standard matrix approach is to identify, where
+possible, a matrix operator in standard region which can be used on a
+whole block of elements. More details on this approach can be found in
+\cite{Collections}. This approach is currently only setup for serial
+operations on a CPU.
+
+If it is possible to define a standard matrix approach the derived
+implementation class can be  defined in a file named
+
+\inlsh{\{FunctionShortName\}SerialStdMat.hpp}. 
+
+\noindent where as previously \texttt{FunctionShortName} is taken from
+table \ref{tab:elmtops}. In constructing the method a series of
+standard matrices are setup for each elemental block. These matrices
+are of dimension of the total number of quadrature points or
+expansion modes and so can become quite large for higher
+polynomial orders.
+
+The \texttt{apply()} method once again looks over each series of
+blocks and essentially makes calls to a large blas3 DGEMM()
+matrix-matrix calls invovling the quadrature points or epxansion modes
+and the number of elements in a block.
+
+\subsection{GPU using Kokkos, SYCL and native coding}
+
+The file and class structure of the GPU devices is anaologous to the
+Serial/AVX structure. The derived implementation class is defined
+in the file
+
+\inlsh{\{FunctionShortName\}DeviceSumFac.hpp}. 
+
+\noindent where as previously \texttt{FunctionShortName} is taken from
+table \ref{tab:elmtops}. This file contains the required
+initialisation for a given operator and the \texttt{apply()} method
+loops over the blocks of elements and evaluate the operation in an
+identical manner to the previous implementations. As previously
+outlined the \texttt{apply()} method calls a \texttt{BlockOperator()}
+method which contains a switch statement to call a shape dependent
+method, i.e. \texttt{TriBlock(), QuadBlock(), HexBlock(), ...} and as
+previously these shape dependent methods are auto generated in
+different files to help with compilation speed and to wrap the primary
+method in a boost prepocessing auto generated swith statement to allow
+for the possibility of a templated veresion of the operator to be
+called if the quadrature and polynomial order of the elements in a
+block are of equal order polynomial order in all dimensions and have
+the standard quadrature points used in equi-ordered polynomial
+expansions. The details for the auto generated shape dependent block
+operator code can be found in the files
+
+\inlsh{\{FunctionShortName\}DeviceSumFacBlockOp.cpp.in}
+
+and 
+
+\inlsh{\{FunctionShortName\}DeviceSumFacQPBlockOp.cpp.in}
+
+\noindent where \texttt{QP} refers to Quadrature Point implementation
+strategy outlined below. The boost preprocessing directives called
+from these files can be found in the file
+
+\texttt{Common/BlockOpSwitchCode.h.in}.
+
+\noindent As mentioned previously the
+polynomial and quadrature range of the switch is determined by the
+Cmake defined parameters \texttt{NEKTAR\_SWITCH\_MIN} and
+\texttt{NEKTAR\_SWITCH\_MAX}.
+
+The shape based block operator methods call the methods
+\texttt{Operator1D(), Operator2D()} or \texttt{Operator3D()} which are
+defined in the original file
+
+\inlsh{\{FunctionShortName\}DeviceSumFac.hpp}. 
+
+\noindent where there is either a templated verion of the method with
+polynomial and quadrature order as template values or non-templated
+method which acts as a default for the switch statements.
+
+THe method \texttt{Operator1D(), Operator2D()} or
+\texttt{Operator3D()} contain code to check the input and output
+arrays for the correct interlacing, initialise work space as well as
+access the required data for he kernel operators such as the basis
+array or 1D derivaitve matrices. This data is then passed to a kernel
+method which is contained in
+
+\inlsh{\{FunctionShortName\}DeviceSumFacKernels.hpp}.
+
+This file then includes method specific kernels for the Cuda, Kokkos
+or SYCL implementations. The inclusion of the Cuda, Kokkos and SYCL
+code depends on the CMAKE options \texttt{NEKTAR\_ENABLE\_CUDA},
+\texttt{NEKTAR\_ENABLE\_KOKKOS} and \texttt{NEKTAR\_ENABLE\_SYCL} and
+the related kernel code can be found in the files:
+
+\inlsh{\{FunctionShortName\}CUDASumFacKernels.cuh},\\
+\inlsh{\{FunctionShortName\}KokkosSumFacKernels.cuh},\\
+\inlsh{\{FunctionShortName\}SYCLSumFacKernels.cuh}.
+
+Finally we have two implementations of the sum factorisation kernels,
+denoted \texttt{SumFac} and \texttt{SumFacQP}. The first
+\texttt{SumFac} approach maps each elemental operation to a CUDA-thread
+for a completely vectorised kernel, whilst in the second
+\texttt{SumFacQP} approach, each element is mapped to a CUDA-block for
+nested parallelism and requires an indexing to each quadrature point
+(\texttt{QP}) or modal expansion. Results from \cite{GPU_Vector} show
+that the first approach is beneficial for elements with low polynomial
+order, whereas the second approach is beneficial for elements of
+higher order.
+
+
+\section{\texttt{Apply()} by Example}
+
+In order to apply an element operator to a field in either physical or coefficient representation, a matrix-matrix multiplication has to be performed. 
+This multiplication is currently implemented in three variations: the standard matrix (StdMat), the sum-factorisation (SumFac), and the threaded-by-output-point sum-factorisation (SumFacTOP) approach.
+These implementations are wrapped in the \texttt{Apply()} function of each operator class and which device specific implementation that is executed depends on the \texttt{execStr} and the \texttt{implStr} with which an operator is initialized.
+The standard matrix approach is the most straightforward and involves a direct multiplication of the element operator matrix with the input field matrix.
+The sum-factorisation approach on the other hand, leverages the tensor-product structure of the basis functions to reduce memory consumption and increase computational intensity.
+Finally, the threaded-by-output-point sum-factorisation approach takes the sum-factorisation and assigns a thread to each output point and it's associated operations, which can be particularly
+beneficial when using higher order polynomial bases due to the elevated amount of work this causes per thread.
+
+In order to understand the three approaches, we consider the application of the Backward transform operator.
+We assume a quadrilateral mesh consisting of $N$ rectangles that each carry a tensorial bases made up of a one-dimensional expansion of order $P$ in both directions.
+This allows us to restrain ourselves to the different implementations of the \texttt{Apply()} function within what \texttt{Nektar++} refers to as a \texttt{block} of elements. A \texttt{block} of elements consists of multiple elements with the same shape, expansion base, and quadrature. \texttt{Blocks} are also made up of either all "Regular" or all "Deformed" elements. The notation used in this section is taken from \cite{KaSh05}.
+In order to perform the backward transform and evaluate the physical values at the $Q$ quadrature points, of the \texttt{block} we are considering, in each direction, we need to multiply the coefficient matrix:
+\begin{equation*}
+  \mathbf{\hat{u}} :=
+\begin{tikzpicture}[baseline=(m.center)]
+\matrix (m) [matrix of math nodes, 
+             left delimiter={[}, right delimiter={]},
+             inner sep=0pt,
+             row sep=0.5em, column sep=0.8em,
+             nodes={anchor=center, inner xsep=0.4em}] {
+  \hat{u}_{00}^{0} & \hat{u}_{00}^{1} & \cdots & \hat{u}_{00}^{N-1} \\
+  \hat{u}_{01}^{0} & \hat{u}_{01}^{1} & \cdots & \hat{u}_{01}^{N-1} \\
+  \vdots     & \vdots     & \ddots & \vdots     \\
+  \hat{u}_{0P}^{0} & \hat{u}_{0P}^{1} & \cdots & \hat{u}_{0P}^{N-1} \\
+  \hat{u}_{10}^{0} & \hat{u}_{10}^{1} & \cdots & \hat{u}_{10}^{N-1} \\
+  \vdots     & \vdots     & \ddots & \vdots     \\
+  \hat{u}_{1P}^{0} & \hat{u}_{1P}^{1} & \cdots & \hat{u}_{1P}^{N-1} \\
+  \vdots     & \vdots     & \ddots & \vdots     \\
+  \hat{u}_{P0}^{0} & \hat{u}_{P0}^{1} & \cdots & \hat{u}_{P0}^{N-1} \\
+  \vdots     & \vdots     & \ddots & \vdots     \\
+  \hat{u}_{PP}^{0} & \hat{u}_{PP}^{1} & \cdots & \hat{u}_{PP}^{N-1} \\
+};
+\foreach \col in {1,2,3} {
+  \pgfmathtruncatemacro{\nextcol}{\col+1}
+  \node[fit=(m-1-\col)(m-2-\col)(m-3-\col)(m-4-\col)(m-5-\col)(m-6-\col)(m-7-\col)(m-8-\col)(m-9-\col)(m-10-\col)(m-11-\col), inner sep=0pt] (C\col) {};
+  \node[fit=(m-1-\nextcol)(m-2-\nextcol)(m-3-\nextcol)(m-4-\nextcol)(m-5-\nextcol)(m-6-\nextcol)(m-7-\nextcol)(m-8-\nextcol)(m-9-\nextcol)(m-10-\nextcol)(m-11-\nextcol), inner sep=0pt] (C\nextcol) {};
+  \draw[dashedline] 
+    ($(C\col.east)!0.5!(C\nextcol.west)$) coordinate (V\col)
+    (V\col |- m.north) -- (V\col |- m.south);
+}
+\foreach \row in {4,7,8} {
+  \pgfmathtruncatemacro{\nextrow}{\row+1}
+  \path (m-\row-1.south) -- (m-\nextrow-1.north) coordinate[midway] (H\row);
+  \draw[dashedline] (H\row -| m.west) -- (H\row -| m.east);
+}
+\end{tikzpicture}
+\in \mathbb{R}^{(P+1)^2 \times N}
+\end{equation*}
+by the operator matrix:
+\begin{equation*}
+  \begin{adjustbox}{width=\linewidth}
+  $
+    \begin{array}{c}
+  
+\mathbf{B} :=
+  \begin{tikzpicture}[baseline=(m.center)]
+  \matrix (m) [matrix of math nodes, 
+               left delimiter={[}, right delimiter={]},
+               inner sep=0pt,
+               row sep=0.6em, column sep=0.6em,
+               nodes={anchor=center, inner xsep=0.3em}] {
+   \phi_0(\xi_0) \phi_0(\xi_0) & \phi_0(\xi_0) \phi_1(\xi_0) & \cdots & \phi_0(\xi_0) \phi_P(\xi_0) & \phi_1(\xi_0) \phi_0(\xi_0) & \cdots & \phi_1(\xi_0) \phi_P(\xi_0) & \cdots & \phi_P(\xi_0) \phi_0(\xi_0) & \cdots & \phi_P(\xi_0) \phi_P(\xi_0) \\
+   \phi_0(\xi_0) \phi_0(\xi_1) & \phi_0(\xi_0) \phi_1(\xi_1) & \cdots & \phi_0(\xi_0) \phi_P(\xi_1) & \phi_1(\xi_0) \phi_0(\xi_1) & \cdots & \phi_1(\xi_0) \phi_P(\xi_1) & \cdots & \phi_P(\xi_0) \phi_0(\xi_1) & \cdots & \phi_P(\xi_0) \phi_P(\xi_1) \\
+    \vdots & \vdots & \ddots & \vdots & \vdots & \ddots & \vdots & \ddots & \vdots & \ddots & \vdots \\
+    \phi_0(\xi_0) \phi_0(\xi_{Q-1}) & \phi_0(\xi_0) \phi_1(\xi_{Q-1}) & \cdots & \phi_0(\xi_0) \phi_P(\xi_{Q-1}) & \phi_1(\xi_0) \phi_0(\xi_{Q-1}) & \cdots & \phi_1(\xi_0) \phi_P(\xi_{Q-1}) & \cdots & \phi_P(\xi_0) \phi_0(\xi_{Q-1}) & \cdots & \phi_P(\xi_0) \phi_P(\xi_{Q-1}) \\
+    \vdots & \vdots & \ddots & \vdots & \vdots & \ddots & \vdots & \ddots & \vdots & \ddots & \vdots \\
+    \phi_0(\xi_{Q-1}) \phi_0(\xi_0) & \phi_0(\xi_{Q-1}) \phi_1(\xi_0) & \cdots & \phi_0(\xi_{Q-1}) \phi_P(\xi_0) & \phi_1(\xi_{Q-1}) \phi_0(\xi_0) & \cdots & \phi_1(\xi_{Q-1}) \phi_P(\xi_0) & \cdots & \phi_P(\xi_{Q-1}) \phi_0(\xi_0) & \cdots & \phi_P(\xi_0) \phi_P(\xi_0) \\
+   \phi_0(\xi_{Q-1}) \phi_0(\xi_1) & \phi_0(\xi_{Q-1}) \phi_1(\xi_1) & \cdots & \phi_0(\xi_{Q-1}) \phi_P(\xi_1) & \phi_1(\xi_{Q-1}) \phi_0(\xi_1) & \cdots & \phi_1(\xi_{Q-1}) \phi_P(\xi_1) & \cdots & \phi_P(\xi_{Q-1}) \phi_0(\xi_1) & \cdots & \phi_P(\xi_{Q-1}) \phi_P(\xi_1) \\
+    \vdots & \vdots & \ddots & \vdots & \vdots & \ddots & \vdots & \ddots & \vdots & \ddots & \vdots \\
+   \phi_0(\xi_{Q-1}) \phi_0(\xi_{Q-1}) & \phi_0(\xi_{Q-1}) \phi_1(\xi_{Q-1}) & \cdots & \phi_0(\xi_{Q-1}) \phi_P(\xi_{Q-1}) & \phi_1(\xi_{Q-1}) \phi_0(\xi_{Q-1}) & \cdots & \phi_1(\xi_{Q-1}) \phi_P(\xi_{Q-1}) & \cdots & \phi_P(\xi_{Q-1}) \phi_0(\xi_{Q-1}) & \cdots & \phi_P(\xi_{Q-1}) \phi_P(\xi_{Q-1}) \\
+  };
+  \foreach \col in {4,7,8} {
+    \pgfmathtruncatemacro{\nextcol}{\col+1}
+    \node[fit=(m-1-\col)(m-9-\col), inner sep=0pt] (C\col) {};
+    \node[fit=(m-1-\nextcol)(m-9-\nextcol), inner sep=0pt] (C\nextcol) {};
+    \draw[dashedline] 
+      ($(C\col.east)!0.5!(C\nextcol.west)$) coordinate (V\col)
+      (V\col |- m.north) -- (V\col |- m.south);
+  }
+  \foreach \row in {4,5} {
+    \pgfmathtruncatemacro{\nextrow}{\row+1}
+    \path (m-\row-1.south) -- (m-\nextrow-1.north) coordinate[midway] (H\row);
+    \draw[dashedline] (H\row -| m.west) -- (H\row -| m.east);
+  }
+  \end{tikzpicture}
+  \in \mathbb{R}^{Q^2 \times (P+1)^2}.
+  \\ \\
+  \end{array}
+  $
+\end{adjustbox}
+\end{equation*}
+
+Here, $\phi_p(\xi_i)$ denotes the $p$-th one-dimensional basis function evaluated at the $i$-th quadrature point for $p \in \left\{ 0,1,...,P \right\}, i \in \left\{ 0,1,...,Q-1 \right\} $.
+The 2D basis functions are constructed as the tensor product of the 1D basis functions, i.e., $\phi_{pq}(\xi_i, \xi_j) = \phi_p(\xi_i) \phi_q(\xi_j)$ for $p,q \in \left\{ 0,1,...,P \right\}, i,j \in \left\{ 0,1,...,Q-1 \right\} $.
+The values $\hat{u}_{pq}^e$ denote the coefficients of the expansion for element $e \in \left\{ 0,1,...,N-1 \right\} $.
+
+We denote the resulting physical values at the quadrature points for each element as $u_{i,j}^e := u \left( \chi_1^e \left( \xi_i, \xi_j \right), \chi_2^e \left( \xi_i, \xi_j \right) \right)$. The one-to-one maps $ \chi_1^e, \chi_2^e $ take the local coordinates of the element $e$ to the global coordiantes $x_1$ and $x_2$ respectively.
+The physical values and the coefficients relate as follows:
+\begin{equation*}
+  \begin{adjustbox}{width=\linewidth}
+  $
+    \begin{array}{c}
+  % --- Result Vector u ---
+  \mathbf{u} := 
+  \begin{tikzpicture}[baseline=(m.center)]
+  \matrix (m) [matrix of math nodes, 
+               left delimiter={[}, right delimiter={]},
+               ampersand replacement=\&,
+               inner sep=0pt,
+               row sep=0.4em, column sep=0.6em,
+               nodes={anchor=center, inner xsep=0.4em}] {
+    u^0_{0,0} \& u^{1}_{0,0} \& \cdots \& u^{N-1}_{0,0} \\
+    u^{0}_{0,1} \& u^{1}_{0,1} \& \cdots \& u^{N-1}_{0,1} \\
+    \vdots          \& \vdots          \& \ddots \& \vdots          \\
+    u^{0}_{0,{Q-1}} \& u^{1}_{0,{Q-1}} \& \cdots \& u^{N-1}_{0,{Q-1}} \\
+    \vdots          \& \vdots          \& \ddots \& \vdots          \\
+    u^{0}_{{Q-1},0} \& u^{1}_{{Q-1},0} \& \cdots \& u^{N-1}_{{Q-1},0} \\
+    u^{0}_{{Q-1},1} \& u^{1}_{{Q-1},1} \& \cdots \& u^{N-1}_{{Q-1},1} \\
+    \vdots          \& \vdots          \& \ddots \& \vdots          \\
+    u^{0}_{{Q-1},{Q-1}} \& u^{1}_{{Q-1},{Q-1}} \& \cdots \& u^{N-1}_{{Q-1},{Q-1}} \\
+  };
+  % Vertical dashed lines - centered based on widest row (9)
+  \foreach \col [count=\i] in {1,2,3} {
+    \pgfmathtruncatemacro{\nextcol}{\col+1}
+    \draw[dashedline] 
+      ($(m-9-\col.east)!0.5!(m-9-\nextcol.west)$) coordinate (V\col)
+      (V\col |- m.north) -- (V\col |- m.south);
+  }
+  % Horizontal dashed lines - centered between rows
+  \foreach \row in {4,5} {
+    \pgfmathtruncatemacro{\nextrow}{\row+1}
+    \path (m-\row-1.south) -- (m-\nextrow-1.north) coordinate[midway] (H\row);
+    \draw[dashedline] (H\row -| m.west) -- (H\row -| m.east);
+  }
+  \end{tikzpicture}
+  \\
+  \\ = \\ 
+  \\
+  \mathbf{B} \mathbf{\hat{u}} = 
+  \begin{tikzpicture}[baseline=(m.center)]
+  \matrix (m) [matrix of math nodes, 
+               left delimiter={[}, right delimiter={]},
+               ampersand replacement=\&,
+               inner sep=0pt,
+               row sep=0.6em, column sep=0.8em,
+               nodes={anchor=center, inner xsep=0.4em}] {
+    \sum_{k,l} \hat{u}_{kl}^0\phi_k(\xi_0)\phi_l(\xi_0) \& \sum_{k,l} \hat{u}_{kl}^1\phi_k(\xi_0)\phi_l(\xi_0) \& \cdots \& \sum_{k,l} \hat{u}_{kl}^{N-1}\phi_k(\xi_0)\phi_l(\xi_0) \\
+    \sum_{k,l} \hat{u}_{kl}^0\phi_k(\xi_0)\phi_l(\xi_1) \& \sum_{k,l} \hat{u}_{kl}^1\phi_k(\xi_0)\phi_l(\xi_1) \& \cdots \& \sum_{k,l} \hat{u}_{kl}^{N-1}\phi_k(\xi_0)\phi_l(\xi_1) \\
+    \vdots \& \vdots \& \ddots \& \vdots \\
+    \sum_{k,l} \hat{u}_{kl}^0\phi_k(\xi_0)\phi_l(\xi_{Q-1}) \& \sum_{k,l} \hat{u}_{kl}^1\phi_k(\xi_0)\phi_l(\xi_{Q-1}) \& \cdots \& \sum_{k,l} \hat{u}_{kl}^{N-1}\phi_k(\xi_0)\phi_l(\xi_{Q-1}) \\
+    \vdots \& \vdots \& \ddots \& \vdots \\
+    \sum_{k,l} \hat{u}_{kl}^0\phi_k(\xi_{Q-1})\phi_l(\xi_0) \& \sum_{k,l} \hat{u}_{kl}^1\phi_k(\xi_{Q-1})\phi_l(\xi_0) \& \cdots \& \sum_{k,l} \hat{u}_{kl}^{N-1}\phi_k(\xi_{Q-1})\phi_l(\xi_0) \\
+    \sum_{k,l} \hat{u}_{kl}^0\phi_k(\xi_{Q-1})\phi_l(\xi_1) \& \sum_{k,l} \hat{u}_{kl}^1\phi_k(\xi_{Q-1})\phi_l(\xi_1) \& \cdots \& \sum_{k,l} \hat{u}_{kl}^{N-1}\phi_k(\xi_{Q-1})\phi_l(\xi_1) \\
+    \vdots \& \vdots \& \ddots \& \vdots \\
+    \sum_{k,l} \hat{u}_{kl}^0\phi_k(\xi_{Q-1})\phi_l(\xi_{Q-1}) \& \sum_{k,l} \hat{u}_{kl}^1\phi_k(\xi_{Q-1})\phi_l(\xi_{Q-1}) \& \cdots \& \sum_{k,l} \hat{u}_{kl}^{N-1}\phi_k(\xi_{Q-1})\phi_l(\xi_{Q-1}) \\
+  };
+  \foreach \col in {1,2,3} {
+    \pgfmathtruncatemacro{\nextcol}{\col+1}
+    \node[fit=(m-1-\col)(m-9-\col), inner sep=0pt] (C\col) {};
+    \node[fit=(m-1-\nextcol)(m-9-\nextcol), inner sep=0pt] (C\nextcol) {};
+    \draw[dashedline] 
+      ($(C\col.east)!0.5!(C\nextcol.west)$) coordinate (V\col)
+      (V\col |- m.north) -- (V\col |- m.south);
+  }
+  \foreach \row in {4,5} {
+    \pgfmathtruncatemacro{\nextrow}{\row+1}
+    \path (m-\row-1.south) -- (m-\nextrow-1.north) coordinate[midway] (H\row);
+    \draw[dashedline] (H\row -| m.west) -- (H\row -| m.east);
+  }
+  \end{tikzpicture}
+  \in \mathbb{R}^{Q^2 \times N}
+  \end{array}
+  $
+\end{adjustbox}
+\end{equation*}
+
+The described matrix-matrix multiplication 
+contains all operations that need to be performed during the backwards transformation.
+For later use with the sum factorisation approaches we introduce a visualisation technique for the standard matrix approach as seen in figure \ref{fig:stdmat_viz}.
+The individual colours serve to represent one element each in either physical or coefficient space.
+The matrix visualized by black dots show the operator matrix $\mathbf{B}$, which is applied to the coefficient matrix $\mathbf{\hat{u}}$ on the right to obtain the physical values $\mathbf{u}$ on the left. The work assigned to a single thread is determined by the underlying function call as opposed to the implementations introduced later in this section, where a more granular load balancing is performed.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}
+
+    \matrix (M1) [mat]
+    {
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+    };
+    % Equals Sign
+    \node (eq1) [right=of M1, font=\Large] {$=$};
+
+    % Middle "Standard" Matrix (M2)
+    \matrix (M2) [mat, right=of eq1]
+    {
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+        \node[dot]{}; & \node[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+    };
+    %\node [below=of M2, gray] {Std Matrix};
+
+    % Right Matrix (M3)
+    \matrix (M3) [mat, right=of M2]
+    {
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+        \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+    };
+
+    \node[draw=purple, thick, dashed, fit=(M1)(M2)(M3), inner sep=12pt] (box_stdmat) {};
+    \node[above=2pt, black] at (box_stdmat.north) {Library-internal threading};
+
+\end{tikzpicture}
+\caption{Visualisation of the standard matrix approach. Threading is handled by the underlying matrix-matrix multiplication routine, which is a highly optimised library such as \texttt{blas}, \texttt{cublas}, or \texttt{hipblas}.}
+\label{fig:stdmat_viz}
+\end{figure}
+
+In \texttt{Nektar++}, the actual matrix-matrix multiplication is performed using the \texttt{NekGemm} function, which in turn calls 
+\texttt{blas}, \texttt{cublas}, or \texttt{hipblas} depending on the \texttt{implStr} with which the operator was initialized. An example call to \texttt{NekGemm} from within the \texttt{Apply()} function of the Backward transform operator is shown in listing \ref{lst:NekGemmWrapper}.
+\begin{minipage}{\textwidth}
+\begin{lstlisting}[
+    style=C++Style,
+    caption={C++ wrapper for cuBLAS GEMM operations (cublasSgemm, cublasDgemm).},
+    label={lst:NekGemmWrapper}
+]
+template <typename THandle, typename TData>
+typename std::enable_if<std::is_same_v<THandle, cublasHandle_t>, void>::type NekGemm(
+    THandle handle, std::string transposeA, std::string transposeB, const int M,
+    const int N, const int K, const TData alpha, const TData *a, const int lda,
+    const TData *b, const int ldb, const TData beta, TData *c, const int ldc)
+{
+    auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        CUBLAS_CHECK(cublasSgemm(handle, transA, transB, M, N, K, &alpha, a,
+                                 lda, b, ldb, &beta, c, ldc));
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        CUBLAS_CHECK(cublasDgemm(handle, transA, transB, M, N, K, &alpha, a,
+                                 lda, b, ldb, &beta, c, ldc));
+    }
+}
+\end{lstlisting}
+\end{minipage}
+
+The arguments of the NekGemm call and their meanings are listed in table \ref{tab:nekgemm_params_full}.
+
+\begin{table}[h!]
+\centering
+\caption{NekGemm Parameters with Roles and Values from the Example.}
+\label{tab:nekgemm_params_full}
+\begin{tabularx}{\textwidth}{l p{6.5cm} X}
+\toprule
+\textbf{Parameter} & \textbf{Role in the Matrix Equation ($Z = \alpha \cdot X \cdot Y + \beta \cdot Z$)} & \textbf{Value in BwdTrans} \\
+\midrule
+\texttt{handle}     & The library handle for the execution context. & \path{NekHandle<ExecSpace>::GetInstance()} \\
+\texttt{transposeA} & Specifies if matrix $\boldsymbol{X}$ should be transposed. & "N" $\rightarrow$ no transpose \\
+\texttt{transposeB} & Specifies if matrix $\boldsymbol{Y}$ should be transposed. & "N" $\rightarrow$ no transpose \\
+\texttt{M}          & Number of rows in matrices $\boldsymbol{X}$ and $\boldsymbol{Z}$. & $Q^2$ \\
+\texttt{N}          & Number of columns in matrices $\boldsymbol{Y}$ and $\boldsymbol{Z}$. & $N$ \\
+\texttt{K}          & Number of columns in $\boldsymbol{X}$ and rows in $\boldsymbol{Y}$. & $P^2$ \\
+\texttt{alpha}      & The scalar multiplier $\alpha$. & $1.0$ \\
+\texttt{a}          & Pointer to the data for matrix $\boldsymbol{X}$. & Pointer to operator matrix $\mathbf{B}$ \\
+\texttt{lda}         & The leading dimension of matrix $\boldsymbol{X}$. & $Q^2$ \\
+\texttt{b}          & Pointer to the data for matrix $\boldsymbol{Y}$. & Pointer to vector matrix $\mathbf{\hat{u}}$ \\
+\texttt{ldb}         & The leading dimension of matrix $\boldsymbol{Y}$. & $P^2$ \\
+\texttt{beta}       & The scalar multiplier $\beta$. & $0.0$ \\
+\texttt{c}          & Pointer to the data for the output matrix $\boldsymbol{Z}$. & Pointer to physical value vector $\mathbf{u}$ \\
+\texttt{ldc}         & The leading dimension of matrix $\boldsymbol{Z}$. & $Q^2$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Having introduced the standard matrix approach, we can now turn to the implementation of the sum-factorisation approach.
+In order to reduce memory consumption and increase computational intensity, the sum-factorisation approach decomposes the operator matrix $\mathbf{B}$ into two matrices $\mathbf{B}^e$:
+
+\begin{equation*}
+\mathbf{B}^e :=
+\begin{bmatrix}
+\phi_0(\xi_0) & \phi_1(\xi_0) & \cdots & \phi_P(\xi_0) \\
+\phi_0(\xi_1) & \phi_1(\xi_1) & \cdots & \phi_P(\xi_1) \\
+\vdots      & \vdots      & \ddots & \vdots      \\
+\phi_0(\xi_{Q-1}) & \phi_1(\xi_{Q-1}) & \cdots & \phi_P(\xi_{Q-1})
+\end{bmatrix} 
+\in \mathbb{R}^{Q \times (P+1)}.
+\end{equation*}
+The field coefficient matrix $\mathbf{\hat{u}}$ is decomposed as well:
+
+\begin{equation*}
+  \mathbf{\hat{u}}^e :=
+\begin{bmatrix}
+  \hat{u}_{00}^e & \hat{u}_{01}^e & \cdots & \hat{u}_{0P}^e \\
+  \hat{u}_{10}^e & \hat{u}_{11}^e & \cdots & \hat{u}_{1P}^e \\
+\vdots   & \vdots   & \ddots & \vdots   \\
+\hat{u}_{P0}^e & \hat{u}_{P1}^e & \cdots & \hat{u}_{PP}^e
+\end{bmatrix} \in \mathbb{R}^{(P+1) \times (P+1)}.
+\end{equation*}
+and the element-wise computation of $\mathbf{u}$ is performed in two "stages" that correspond to the two directions (referred to as direction $0$ and direction $1$) of our quadrilaterals:
+
+\subsubsection*{Stage 1: Transformation in the first direction}
+\begin{align*}
+  \mathbf{B}^e \mathbf{\hat{u}}^e &=
+\begin{bmatrix}
+  \sum_{k=0}^P \hat{u}_{k0}^e\phi_k(\xi_0) & \sum_{k=0}^P \hat{u}_{k1}^e\phi_k(\xi_0) & \cdots & \sum_{k=0}^P \hat{u}_{kP}^e\phi_k(\xi_0) \\
+  \sum_{k=0}^P \hat{u}_{k0}^e\phi_k(\xi_1) & \sum_{k=0}^P \hat{u}_{k1}^e\phi_k(\xi_1) & \cdots & \sum_{k=0}^P \hat{u}_{kP}^e\phi_k(\xi_1) \\
+\vdots & \vdots & \ddots & \vdots \\
+\sum_{k=0}^P \hat{u}_{k0}^e\phi_k(\xi_{Q-1}) & \sum_{k=0}^P \hat{u}_{k1}^e\phi_k(\xi_{Q-1}) & \cdots & \sum_{k=0}^P \hat{u}_{kP}^e\phi_k(\xi_{Q-1})
+\end{bmatrix} 
+\end{align*}
+
+\subsubsection*{Stage 2: Transformation in the second direction}
+\begin{gather*}
+\mathbf{B}^e \mathbf{\hat{u}} (\mathbf{B}^e)^T \\ 
+               = \nonumber \\ 
+\begin{bmatrix}
+  \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_0)\phi_l(\xi_0) & \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_0)\phi_l(\xi_1) & \cdots & \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_0)\phi_l(\xi_{Q-1}) \\
+  \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_1)\phi_l(\xi_0) & \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_1)\phi_l(\xi_1) & \cdots & \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_1)\phi_l(\xi_{Q-1}) \\
+\vdots        & \vdots        & \ddots & \vdots        \\
+\sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_{Q-1})\phi_l(\xi_0) & \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_{Q-1})\phi_l(\xi_1) & \cdots & \sum_{k,l} \hat{u}_{kl}^e\phi_k(\xi_{Q-1})\phi_l(\xi_{Q-1}) \\
+\end{bmatrix}  \nonumber \\ 
+               = \nonumber \\
+\begin{bmatrix}
+  u^e_{0, 0} & u^e_{0, 1} & \cdots & u^e_{0, {Q-1}} \\
+  u^e_{1, 0} & u^e_{1, 1} & \cdots & u^e_{1, {Q-1}} \\
+\vdots        & \vdots        & \ddots & \vdots        \\
+u^e_{Q, 0} & u^e_{{Q-1}, 1} & \cdots & u^e_{{Q-1}, {Q-1}} \\
+\end{bmatrix} := \mathbf{u}^e \in \mathbb{R}^{Q \times Q}
+\end{gather*}
+
+This decomposition results in lighter memory consumption and a higher computational intensity, as the number of operations per memory access is increased.
+As for the StdMat approach, we can visualize the sum-factorisation approach using the color scheme introduced earlier.
+The visualization for the sum-factorised approach is shown in figure \ref{fig:sumfac_viz}.
+The individual colours serve to represent one element each in either physical or coefficient space.
+The matrices with entries visualized as black dots are operator matrices $\mathbf{B}^e$ and $(\mathbf{B}^e)^T$, which is applied to the coefficient matrix $\mathbf{u}^e$ on the right to obtain the physical values $u^e$ on the left.
+In the visualization we have rearranged the results into the same memory layout as for the standard matrix approach to better illustrate the equivalence of both approaches.
+All operations related to a single element and accordingly performed by one thread, were marked using purple bounding boxes and arrows.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}
+
+\matrix (M4) [mat]
+{
+  \node(m4-1-1)[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node(m4-9-1)[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+};
+
+\node[draw=purple, thick, fit=(m4-1-1) (m4-9-1), inner sep=2pt] (box_m4) {};
+
+% ==> Equals Sign
+\node (eq1) [right=of M4, font=\Large] {$\Leftarrow$};
+
+% ==> Right-hand side Matrices
+
+\matrix (M5) [mat, right=of eq1]
+{
+    \node(m5-1-1)[dot]{}; & \node[dot]{}; \\
+    \node[dot]{}; & \node[dot]{}; \\
+    \node[dot]{}; & \node(m5-3-2)[dot]{}; \\
+};
+
+\node[draw=purple, thick, fit=(m5-1-1) (m5-3-2), inner sep=2pt] (box_m5) {};
+
+\begin{scope}[node distance=0.2cm]
+% --- Step 1: invisible placeholders for fit ---
+\node (M_blue_temp) [mat-temp]
+{
+    \node[colordot={myblue}]{}; & \node[colordot={myblue}]{}; \\
+    \node[colordot={myblue}]{}; & \node[colordot={myblue}]{}; \\
+};
+\node (M_green_temp) [mat-temp, below=of M_blue_temp]
+{
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+};
+\node (M_red_temp) [mat-temp, below=of M_green_temp] 
+{
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+};
+\node (M_orange_temp) [mat-temp, below=of M_red_temp]
+{
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+};
+
+\end{scope}
+% --- Step 2: fit node to compute bounding box for the stack ---
+\node[fit=(M_blue_temp)(M_green_temp)(M_red_temp)(M_orange_temp), inner sep=0pt, right=of M5] (GroupColors) {};
+
+% --- Step 3: position visible matrices relative to fit ---
+\begin{scope}[node distance=0.2cm]
+\node (M_blue) [mat, anchor=north] at (GroupColors.north)
+{
+    \node(mblue-1-1)[colordot={myblue}]{}; & \node[colordot={myblue}]{}; \\
+    \node[colordot={myblue}]{}; & \node(mblue-2-2)[colordot={myblue}]{}; \\
+};
+\node[draw=purple, thick, fit=(mblue-1-1) (mblue-2-2), inner sep=2pt] (box_mblue) {};
+\node (M_green) [mat, below=of M_blue] 
+{
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+};
+\node (M_red) [mat, below=of M_green] 
+{
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+};
+\node (M_orange) [mat, below=of M_red] 
+{
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+};
+\end{scope}
+
+
+\matrix (M_small) [mat, right=of GroupColors]
+{
+    \node(msmall-1-1)[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+    \node[dot]{}; & \node[dot]{}; & \node(msmall-2-3)[dot]{}; \\
+};
+
+\node[draw=purple, thick, fit=(msmall-1-1) (msmall-2-3), inner sep=2pt] (box_msmall) {};
+
+\draw[->, thick, purple, bend left=45] (box_m5.north) to (box_mblue.west);
+\draw[->, thick, purple, bend right=45] (box_msmall.north) to (box_mblue.east);
+\draw[->, thick, purple, bend right=45] (box_mblue.north) to node[above, midway, black] {1 thread} (box_m4.north);
+
+% --- Add the transpose symbol ---
+%\node[right=2pt of M_small, yshift=2.1ex, font=\Large] {$^{\mathrm{T}}$}; % Adjust yshift as needed
+
+%\node [below=of M5, gray] {Sum Factorisation};
+\end{tikzpicture}
+\caption{Visualisation of the sum-factorisation approach. The purple boxes and arrows indicate the operations performed by one thread. One thread computes the results for one element, which corresponds to one column of the leftmost matrix.}
+\label{fig:sumfac_viz}
+\end{figure}
+
+This visualization, like the matrix formulation describes the computations related to one element.
+In the implementation of \texttt{Nektar++}, one thread handles one element at a time, as can be seen in the \texttt{cuda} implementation in listing \ref{lst:BwdTransQuadSumFacKernel}:
+
+\begin{minipage}{\textwidth}
+\begin{lstlisting}[
+    style=c++style,
+    caption={Cuda sum-factorisation kernel for the quadrilateral backward transform.},
+    label={lst:BwdTransQuadSumFacKernel}
+]
+template <typename tdata>
+nek_device_inline static void BwdTransQuadSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1,
+    const tdata *__restrict__ basis0, const tdata *__restrict__ basis1,
+    const tdata *__restrict__ in, tdata *__restrict__ out,
+    tdata *__restrict__ wsp)
+{
+    constexpr unsigned int warpsize = nektarspaces::vector_width<tdata>::value;
+
+    for (unsigned int i = 0u; i < nq0; ++i)
+    {
+        // direction 0
+        for (unsigned int q = 0u, cnt_qp = 0u; q < nm1; ++q)
+        {
+            tdata tmp = 0.0;
+#pragma unroll
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+            {
+                tmp += in[warpsize * cnt_qp + ilane] * basis0[p * nq0 + i];
+            }
+            wsp[warpsize * q + ilane] = tmp;
+        }
+
+        // direction 1
+        for (unsigned int j = 0u; j < nq1; ++j)
+        {
+            tdata tmp = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q)
+            {
+                tmp += wsp[warpsize * q + ilane] * basis1[q * nq1 + j];
+            }
+            out[warpsize * (nq0 * j + i) + ilane] = tmp;
+        }
+    }
+}
+\end{lstlisting}
+\end{minipage}
+Like the described Stage 1 and Stage 2 made up of the matrix-matrix multiplications of the application of the backwards transformation operator to the field of coefficients, the sum-factorisation implementation is split into two stages. The code also shows that the warpsize of the GPU is being used to vectorize the work being done across elements. One thread computes the results for one element while a warp handles multiple elements in parallel. In a similar manner this vectorization can be preformed though SIMD operations on a CPU, allowing multiple elements to be processed at once even when no GPU is available for Nektar++ to copmute on. In this sense, the implemented sum-factorisation is also commonly referred to as a vectorized sum-factorisation.
+The arguments and their meanings of the BwdTransQuadSumFacKernel function for the \texttt{cuda} back-end are listed in table \ref{tab:sumfackernel_params}:
+
+\begin{table}[h!]
+\centering
+\caption{BwdTransQuadSumFacKernel Parameters and Their Roles.}
+\label{tab:sumfackernel_params}
+\begin{tabularx}{\textwidth}{l p{6.5cm} X}
+\toprule
+\textbf{Parameter} & \textbf{Role in the Sum-Factorisation Kernel} & \textbf{Value in BwdTrans} \\
+\midrule
+\texttt{ilane}     & The unique ID of the current thread within its warp, selects the data for the specific element this thread is processing. & Thread index (0 to warpsize-1) \\
+\texttt{nm0}       & The number of modes (coefficients) in direction 0. Defines the inner loop size for stage 1. & Num. modes in direction 0, $P+1$ \\
+\texttt{nm1}       & The number of modes in direction 1. Defines the inner loop size for stage 2 and outer loop for stage 1. & Num. modes in direction 1, $P+1$ \\
+\texttt{nq0}       & The number of quadrature points in direction 0. Defines the main outer loop boundary. & Num. quadrature points in direction 0, $Q$ \\
+\texttt{nq1}       & The number of quadrature points in direction 1. Defines the outer loop boundary for stage 2. & Num. quadrature points in direction 1, $Q$ \\
+\texttt{basis0}    & Pointer to the 1D basis matrix used in stage 1. & Basis matrix for direction 0, $\mathbf{B}^e$ \\
+\texttt{basis1}    & Pointer to the 1D basis matrix used in stage 2. & Basis matrix for direction 1, $\mathbf{B}^e$         \\
+\texttt{in}        & Pointer to the input array containing the modal coefficients for a batch of elements. & Input coefficients, $\mathbf{\hat{u}}^e$ \\
+\texttt{out}       & Pointer to the output array for the final physical values of the element batch. & Output physical values, $\mathbf{u}^e$ \\
+\texttt{wsp}       & Pointer to a temporary workspace array for storing the intermediate results between stage 1 and stage 2. & Intermediate results, $\mathbf{B}^e \mathbf{\hat{u}}^e$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% TODO: Add operation counts for both approaches
+% TODO: Add memory consumption for both approaches
+%
+Finally, the threaded-by-output-point sum-factorisation approach further decomposes the computation by assigning a thread to each output point $u^e_{i,j}$ and its associated operations.
+The computation of the value at one output point $u^e_{i,j}$ is however also performed in two stages, one for each direction:
+\begin{align*}
+  t_{i,p}^e &= \sum_{k=0}^P \hat{u}_{kp}^e,\phi_k(\xi_i) \ \forall i \in \{0,\ldots, Q-1 \}, p \in \{0, \ldots, P \} \\
+  u^e_{i,j} &= \sum_{p=0}^P t_{i,p} \phi_p(\xi_j), \ \forall i,j \in \{0,\ldots, Q-1 \}
+\end{align*}
+% TODO: find reference in code where each approach is implemented (in BackwardTransform)
+Like for previous approaches, we can visualize the threaded-by-output-point sum-factorisation approach using the established colour scheme. 
+The matrices with entries visualized as black dots are operator matrices $\mathbf{B}^e$ and $(\mathbf{B}^e)^T$, which is applied to the coefficient matrix $\mathbf{u}^e$ on the right to obtain the physical values $u^e$ on the left.
+The number of operations has not changed compared to the regular sum-factorisation approach, but the way the work is distributed among individual threads is different. In figure \ref{fig:sumfactop_bwdtrans_viz} we have marked all operations that are performed by one thread using pink and purple lines that correspond to the first and second basis in the $0$ as well as the $1$ direction respectively.
+Like in the visualization of the sum-factorisation approach, we have rearranged the results into the same memory layout as for the standard matrix approach to better illustrate the equivalence of all approaches.
+
+\begin{figure}[h!]
+\centering % Standard command for centring content inside a figure
+\begin{tikzpicture}
+
+\matrix (M4) [mat]
+{
+  \node(nr)[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+  \node[colordot={myblue}]{}; & \node[colordot={mygreen}]{}; & \node[colordot={myred}]{}; & \node[colordot={myorange}]{}; \\
+};
+
+% ==> Equals Sign
+\node (eq1) [right=of M4, font=\Large] {$\Leftarrow$};
+
+% ==> Right-hand side Matrices
+
+% Central tall matrix
+\matrix (M5) [mat, right=of eq1]
+{
+    \node(n1)[dot]{}; & \node(n2)[dot]{}; \\
+    \node[dot]{}; & \node[dot]{}; \\
+    \node[dot]{}; & \node[dot]{}; \\
+};
+\begin{scope}[node distance=0.2cm]
+% --- Step 1: invisible placeholders for fit ---
+\node (M_blue_temp) [mat-temp]
+{
+    \node[colordot={myblue}]{}; & \node[colordot={myblue}]{}; \\
+    \node[colordot={myblue}]{}; & \node[colordot={myblue}]{}; \\
+};
+\node (M_green_temp) [mat-temp, below=of M_blue_temp]
+{
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+};
+\node (M_red_temp) [mat-temp, below=of M_green_temp] 
+{
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+};
+\node (M_orange_temp) [mat-temp, below=of M_red_temp]
+{
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+};
+
+\end{scope}
+% --- Step 2: fit node to compute bounding box for the stack ---
+\node[fit=(M_blue_temp)(M_green_temp)(M_red_temp)(M_orange_temp), inner sep=0pt, right=of M5] (GroupColors) {};
+
+% --- Step 3: position visible matrices relative to fit ---
+\begin{scope}[node distance=0.2cm]
+\node (M_blue) [mat, anchor=north] at (GroupColors.north)
+{
+    \node(n5)[colordot={myblue}]{}; & \node(n6)[colordot={myblue}]{}; \\
+    \node(n7)[colordot={myblue}]{}; & \node(n8)[colordot={myblue}]{}; \\
+};
+\node (M_green) [mat, below=of M_blue] 
+{
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+    \node[colordot={mygreen}]{}; & \node[colordot={mygreen}]{}; \\
+};
+\node (M_red) [mat, below=of M_green] 
+{
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+    \node[colordot={myred}]{}; & \node[colordot={myred}]{}; \\
+};
+\node (M_orange) [mat, below=of M_red] 
+{
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+    \node[colordot={myorange}]{}; & \node[colordot={myorange}]{}; \\
+};
+\end{scope}
+\matrix (M_small) [mat, right=of GroupColors]
+{
+    \node(n3)[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+    \node(n4)[dot]{}; & \node[dot]{}; & \node[dot]{}; \\
+};
+%\node[right=2pt of M_small, yshift=2.1ex, font=\Large] {$^{\mathrm{T}}$}; % Adjust yshift as needed
+
+%\begin{scope}[node distance=0.1cm]
+%\node[colordot={mypurple}] at (GroupColors.north -| M_small) (purple_dot){};
+%\node[colordot={mypink}, above=of purple_dot] (pink_dot) {};
+%\end{scope}
+%\node[colordot={mypink}, right=0.5cm of M_C.north east, yshift=0.5cm] (pink_dot_top) {};
+%\node [below=of M5, gray] {Sum Factorisation};
+% Thick arrow from pink_dot_top to M_result's first dot
+\draw[mypink, line width=1pt] (n3) to (n5);
+\draw[mypink, line width=1pt] (n3) to (n7);
+\draw[mypurple, line width=1pt] (n4) to (n6);
+\draw[mypurple, line width=1pt] (n4) to (n8);
+
+\draw[mypink, line width=1pt, bend left=70, dashed] (n1) to (n5);
+\draw[mypink, line width=1pt, bend left=50, dashed] (n1) to (n6);
+\draw[mypurple, line width=1pt, bend left=70, dashed] (n2) to (n7);
+\draw[mypurple, line width=1pt, bend left=50, dashed] (n2) to (n8);
+
+\draw[arrowstyle, bend right=45, mypink] ([shift={(0,1mm)}]M_blue.north west) to node[above, midway, black] {1 thread} (nr);
+\draw[arrowstyle, bend right=45, mypurple] ([shift={(0,-1mm)}]M_blue.north west) to (nr);
+\end{tikzpicture}
+\caption{Visualisation of the threaded-by-output-point sum-factorisation approach for a backward transform. The operations performed by one thread are marked using pink and purple lines, which correspond to the first and second basis in the $0$ as well as the $1$ direction respectively. One thread computes the value of one output point, which corresponds to one entry of the leftmost matrix (i.e. one output-point).}
+\label{fig:sumfactop_bwdtrans_viz}
+\end{figure}
+
+The implementation of the threaded-by-output-point sum-factorisation approach in \texttt{Nektar++} is implemented in two stages, just like described above.
+In listing \ref{lst:bwdtransquadsumfactopkernel} we show the \texttt{cuda} implementation of the threaded-by-output-point sum-factorisation kernel.
+The two stages can clearly be seen in the two main loops, one for each direction and separated by a barrier that assures that the intermediate results are synchronized between all threads before proceeding to the second stage.
+
+\begin{minipage}{\textwidth}
+\begin{lstlisting}[
+    style=C++Style,
+    caption={Cuda threaded-by-output-point sum-factorisation kernel for the quadrilateral backward transform.},
+    label={lst:bwdtransquadsumfactopkernel}
+]
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nqTot,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    TData *__restrict__ wsp, const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    // direction 0
+    for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
+    {
+        const unsigned int q = idx % nm1;
+        const unsigned int i = idx / nm1;
+        unsigned int cnt_qp  = nm0 * q;
+
+        TData tmp = 0.0;
+#pragma unroll
+        for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+        {
+            tmp += in[cnt_qp] * basis0[p * nq0 + i];
+        }
+        wsp[idx] = tmp;
+    }
+
+    localBarrier(threadBlock);
+
+    // direction 1
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    {
+        const unsigned int i = idx % nq0;
+        const unsigned int j = idx / nq0;
+        unsigned int cnt_iq  = nm1 * i;
+
+        TData tmp = 0.0;
+#pragma unroll
+        for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
+        {
+            tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
+        }
+        out[idx] = tmp;
+    }
+
+    localBarrier(threadBlock);
+}
+\end{lstlisting}
+\end{minipage}
+
+The arguments and their meanings of the BwdTransQuadSumFacTOPKernel function for the \texttt{cuda} back-end are listed in the table \ref{tab:sumfactopkernel_params}.
+
+\begin{table}[h!]
+\centering
+\caption{BwdTransQuadSumFacTOPKernel Parameters and Their Roles.}
+\label{tab:sumfactopkernel_params}
+\begin{tabularx}{\textwidth}{l p{6.5cm} X}
+\toprule
+\textbf{Parameter} & \textbf{Role in the Sum-Factorisation Kernel} & \textbf{Value in BwdTrans} \\
+\midrule
+\texttt{nm0}       & The number of modes (coefficients) in direction 0. Defines the inner loop size for stage 1. & Num. modes in dir 0, $P+1$ \\
+\texttt{nm1}       & The number of modes in direction 1. Defines the inner loop size for stage 2 and outer loop for stage 1. & Num. modes in dir 1, $P+1$ \\
+\texttt{nq0}       & The number of quadrature points in direction 0. & Num. quadrature points in dir 0, $Q$ \\
+\texttt{nq1}       & The number of quadrature points in direction 1. & Num. quadrature points in dir 1, $Q$ \\
+\texttt{nqTot}     & The total number of quadrature points ($nq_0 \times nq_1$). Defines the loop boundary for stage 2. & Total quadrature points, $Q^2$ \\
+\texttt{basis0}    & Pointer to the 1D basis matrix used in stage 1. & Basis matrix for dir 0, $\mathbf{B}^e$ \\
+\texttt{basis1}    & Pointer to the 1D basis matrix used in stage 2. & Basis matrix for dir 1, $\mathbf{B}^e$ \\
+\texttt{in}        & Pointer to the input array containing the modal coefficients for a single element. & Input coefficients, $\mathbf{\hat{u}}^e$ \\
+\texttt{out}       & Pointer to the output array for the final physical values of the single element. & Output physical values, $\mathbf{u}^e$ \\
+\texttt{wsp}       & Pointer to a workspace array shared by all threads in the block to store intermediate results. & Intermediate results, $\mathbf{w}$ \\
+\texttt{threadBlock} & A handle to the GPU thread block, used to manage thread indices and synchronization. & GPU thread block context \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{PhysDeriv z-derivative GPU acceleration (3DH1D)}
+
+In three-dimensional configurations with one homogeneous direction (3DH1D),
+computing $\partial u / \partial z$ requires a Fourier-space wavenumber
+multiplication that is independent of the per-element operators used for the
+$x$ and $y$ directions. This is factored out into \texttt{PhysDerivZOp},
+which is specialised on the \texttt{ExecSpace} template parameter of
+\texttt{PhysDerivOp}:
+
+\begin{description}
+  \item[\texttt{HostSpace}] Delegates the z-derivative to the existing
+    FFTW-based \texttt{ExpListHomogeneous1D} pipeline.
+
+  \item[\texttt{DeviceSpace}] Executes a D2Z transform, a multiply of each
+    Fourier mode by $i k_z \beta$ (with $\beta = 2\pi/L_z$), and an inverse
+    Z2D transform entirely on the GPU. The pipeline runs per block and in
+    place on the block device memory, so no gather into (or scatter out of)
+    a contiguous plane-major scratch buffer is needed. Enabled when CMake is
+    configured with \texttt{NEKTAR\_ENABLE\_DEVICE=CUDA}.
+\end{description}
+
+The device specialisation lives in \texttt{PhysDerivZOpDevice.hpp} and calls
+the single entry point \texttt{PhysDerivZDirect} unconditionally. That
+function is declared in \texttt{LibUtilities/FFT/PhysDerivZCuFFT.h}, and
+defined and explicitly instantiated for double and single precision in
+\texttt{PhysDerivZCuFFT.cu}; it picks one of two implementations at compile
+time:
+
+\begin{description}
+  \item[cuFFT (default)] Drives the three stages with cached cuFFT plans.
+    Any even number of homogeneous planes is supported.
+
+  \item[cuFFTDx] Fuses all three stages into a single kernel, one thread
+    block per $xy$ pencil, avoiding the overhead of separate cuFFT plan
+    launches. Used when \texttt{NEKTAR\_USE\_CUFFTDX} is defined; requires a
+    CUDA toolkit with cuFFTDx support, and the number of homogeneous planes
+    must be one of \texttt{16}, \texttt{32}, \texttt{64}, \texttt{128},
+    \texttt{256} or \texttt{512}. The transform size and precision are
+    compile-time parameters, and the elements-per-thread count is whatever
+    cuFFTDx suggests for that pair rather than a value imposed here.
+\end{description}
+
+With either implementation, \texttt{PhysDerivZOpImpl} captures the whole
+z-pipeline as a CUDA graph on the second call and replays it on subsequent
+calls. The wait on the per-block producer streams is deliberately left
+outside the captured graph, so that a replay still orders itself against
+whatever last wrote the input.
+
+\subsection{CMake options}
+
+\begin{description}
+  \item[\texttt{NEKTAR\_USE\_CUFFT\_STATIC}] Link cuFFT statically
+    (default: \texttt{OFF}).  Required to enable cuFFT store-callback
+    support in \texttt{NekCuFFT}.
+  \item[\texttt{NEKTAR\_USE\_CUFFTDX}] Use the fused cuFFTDx kernel instead
+    of cuFFT for the \texttt{DeviceSpace} z-derivative.  Requires the
+    cuFFTDx header-only library and a compatible GPU architecture.
+\end{description}
+%%TODO: describe difference between shared and non-shared wsp in sumfactop and sumfac

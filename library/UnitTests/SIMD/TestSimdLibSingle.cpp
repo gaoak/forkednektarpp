@@ -76,6 +76,14 @@
 #undef ALIGNMENT
 #define ALIGNMENT __ARM_FEATURE_SVE_BITS / 4
 #undef USING_SCALAR
+#elif defined(__aarch64__) && defined(__ARM_NEON) &&                           \
+    defined(NEKTAR_ENABLE_SIMD_NEON)
+#define USING_NEON
+#undef NUM_LANES_32BITS
+#define NUM_LANES_32BITS 4
+#undef ALIGNMENT
+#define ALIGNMENT 16
+#undef USING_SCALAR
 #endif
 
 namespace Nektar::SimdLibTests
@@ -99,6 +107,9 @@ BOOST_AUTO_TEST_CASE(SimdLibSingle_width_alignment)
 #endif
 #if defined(USING_SVE)
     std::cout << "sve float" << std::endl;
+#endif
+#if defined(USING_NEON)
+    std::cout << "neon float" << std::endl;
 #endif
 
     // float

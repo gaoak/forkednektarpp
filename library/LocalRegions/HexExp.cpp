@@ -357,14 +357,17 @@ void HexExp::v_ExtractDataToCoeffs(
     switch (m_base[0]->GetBasisType())
     {
         case LibUtilities::eModified_A:
+        case LibUtilities::eOrtho_A:
         {
             int i, j;
             int cnt  = 0;
             int cnt1 = 0;
 
-            ASSERTL1(m_base[1]->GetBasisType() == LibUtilities::eModified_A,
+            ASSERTL1(m_base[1]->GetBasisType() == LibUtilities::eModified_A ||
+                         m_base[1]->GetBasisType() == LibUtilities::eOrtho_A,
                      "Extraction routine not set up for this basis");
-            ASSERTL1(m_base[2]->GetBasisType() == LibUtilities::eModified_A,
+            ASSERTL1(m_base[2]->GetBasisType() == LibUtilities::eModified_A ||
+                         m_base[2]->GetBasisType() == LibUtilities::eOrtho_A,
                      "Extraction routine not set up for this basis");
 
             Vmath::Zero(m_ncoeffs, coeffs, 1);

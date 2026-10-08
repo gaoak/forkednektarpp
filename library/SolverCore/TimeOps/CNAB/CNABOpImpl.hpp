@@ -1,0 +1,237 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: CNABOpImpl.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include "SolverCore/TimeOps/CNAB/CNABOp.hpp"
+#include "SolverCore/TimeOps/IMEX/IMEXOp.hpp"
+
+#include "SolverCore/TimeOps/CNAB/CNABKernelLaunchers.hpp"
+
+using namespace Nektar;
+
+namespace Nektar::SolverCore::detail
+{
+
+template <typename ExecSpace, typename Scheme, unsigned int IntOrder,
+          typename TData>
+class CNABOpImpl : public CNABOp<TData>
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    // Compile-time check for valid integration order.
+    static_assert(IntOrder == 2,
+                  "The CNABOp class is only implemented for order 2.");
+
+public:
+    CNABOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
+               const std::vector<std::string> &components)
+        : CNABOp<TData>(expansionList, components)
+    {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in Operator Factory
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+    {
+        return std::make_unique<CNABOpImpl<ExecSpace, Scheme, IntOrder, TData>>(
+            expansionList, components);
+    }
+
+protected:
+    static constexpr unsigned int Nimplicit(void)
+    {
+        if constexpr (std::is_same_v<Scheme, CNABScheme>)
+        {
+            return 1;
+        }
+        else if constexpr (std::is_same_v<Scheme, CNABModifiedScheme>)
+        {
+            return 2;
+        }
+    }
+
+    static constexpr unsigned int Nexplicit(void)
+    {
+        return 2;
+    }
+
+    static constexpr TData gamma(void)
+    {
+        if constexpr (std::is_same_v<Scheme, CNABScheme>)
+        {
+            return 1.0 / 2.0;
+        }
+        else if constexpr (std::is_same_v<Scheme, CNABModifiedScheme>)
+        {
+            return 9.0 / 16.0;
+        }
+    }
+
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
+    {
+        // Check that required functions are defined.
+        ASSERTL0(this->m_explicitRhsFunctor,
+                 "CNAB schemes require a DoExplicitRhs method. Define with "
+                 "CNABOp->DefineExplicit().");
+        ASSERTL0(this->m_implicitFunctor,
+                 "CNAB schemes require a DoImplicit method. Define with "
+                 "CNABOp->DefineImplicit().");
+
+        const auto interleaveWidth =
+            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
+                this->m_expansionList->GetSession());
+
+        // Startup.
+        if (this->m_step + 1 <= Nimplicit())
+        {
+            // Initialise IMEX and hand-over the m_solutions deque.
+            auto startup = IMEXOp<TData>::Create(
+                this->m_expansionList, this->m_components, 1, ExecSpace::name);
+            startup->SaveImplicit(true);
+
+            // Copy functors from outer/higher-order CNAB scheme.
+            startup->CopyFunctorsFrom(*this);
+
+            // Move solutions to startup.
+            startup->SetImplicits(this->TakeImplicits());
+            startup->SetExplicits(this->TakeExplicits());
+            startup->SetSolutions(this->TakeSolutions());
+
+            // Advance in time with startup.
+            startup->SetTime(this->m_time);
+            startup->SetStep(this->m_step);
+            startup->Apply(inout);
+
+            // Move solutions back to this CNAB.
+            this->SetImplicits(startup->TakeImplicits());
+            this->SetExplicits(startup->TakeExplicits());
+            this->SetSolutions(startup->TakeSolutions());
+
+            // Allocate new storage.
+            if (this->m_step == 0 && Nimplicit() == 2)
+            {
+                this->m_implicits.push_back(
+                    LibUtilities::Field<TData, FieldState::Phys>(
+                        MultiRegions::GetBlockAttributes<TData,
+                                                         FieldState::Phys>(
+                            this->m_expansionList, interleaveWidth),
+                        this->m_components, inout.GetNumHomoModes()));
+            }
+
+            // Increment step and time.
+            this->m_time += this->m_timestep;
+            this->m_step++;
+        }
+        // After startup.
+        else
+        {
+            // Allocate new storage.
+            if (this->m_explicits.size() < IntOrder)
+            {
+                this->m_explicits.push_back(
+                    LibUtilities::Field<TData, FieldState::Phys>(
+                        MultiRegions::GetBlockAttributes<TData,
+                                                         FieldState::Phys>(
+                            this->m_expansionList, interleaveWidth),
+                        this->m_components, inout.GetNumHomoModes()));
+            }
+
+            this->RollOver(this->m_explicits);
+
+            // Compute explicit term.
+            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
+                                this->m_timestep);
+
+            // Do extrapolation.
+            UpdateSolution(
+                inout, std::make_integer_sequence<unsigned int, Nimplicit()>(),
+                std::make_integer_sequence<unsigned int, Nexplicit()>());
+
+            // Rollover previous solutions.
+            this->RollOver(inout, this->m_implicits);
+
+            // Update solution.
+            this->DoImplicit(this->m_implicits[0], inout,
+                             this->m_time + this->m_timestep,
+                             gamma() * this->m_timestep);
+
+            // Compute implicit terms.
+            Math::sub<ExecSpace>(inout, this->m_implicits[0],
+                                 this->m_implicits[0]);
+            Math::mul<ExecSpace>((TData)1.0 / gamma(), this->m_implicits[0],
+                                 this->m_implicits[0]);
+
+            // Increment step and time.
+            this->m_time += this->m_timestep;
+            this->m_step++;
+        }
+    }
+
+    template <unsigned int... ind, unsigned int... ind2>
+    void UpdateSolution(LibUtilities::Field<TData, FieldState::Phys> &inout,
+                        std::integer_sequence<unsigned int, ind...>,
+                        std::integer_sequence<unsigned int, ind2...>)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        {
+            const unsigned int streamID = blk + 1;
+
+            // Determine shape and type of the element.
+            auto &inoutBlock = inout.GetBlocks()[blk];
+            auto nsize       = inoutBlock.GetNumElementsWithPadding() *
+                         inoutBlock.GetNumData() *
+                         inoutBlock.GetNumComponents() *
+                         inoutBlock.GetNumHomoModes();
+
+            // Compute new solution.
+            UpdateSolutionKernel<ExecSpace, Scheme>(
+                streamID, nsize,
+                inoutBlock.template GetPtr<MemSpace, ReadWrite>(streamID),
+                (this->m_implicits[ind]
+                     .GetBlocks()[blk]
+                     .template GetPtr<MemSpace, ReadOnly>(streamID))...,
+                (this->m_explicits[ind2]
+                     .GetBlocks()[blk]
+                     .template GetPtr<MemSpace, ReadOnly>(streamID))...);
+        }
+    }
+};
+
+} // namespace Nektar::SolverCore::detail

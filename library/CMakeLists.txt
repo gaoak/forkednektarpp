@@ -1,6 +1,7 @@
 # Main library sub-directories, required by all of Nektar++.
 SUBDIRS(LibUtilities LocalRegions SpatialDomains StdRegions Collections
-    MultiRegions MatrixFreeOps SolverUtils GlobalMapping FieldUtils NekMesh)
+    MultiRegions MatrixFreeOps SolverUtils GlobalMapping FieldUtils
+    NekMesh)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/library)
 
 IF (NEKTAR_BUILD_UNIT_TESTS)
@@ -16,3 +17,6 @@ IF (NEKTAR_BUILD_PYTHON)
     INCLUDE_DIRECTORIES(Python)
 ENDIF()
 
+if (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    SUBDIRS(SolverCore)
+endif()

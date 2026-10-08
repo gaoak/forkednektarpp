@@ -56,6 +56,7 @@ namespace Nektar::LibUtilities
 typedef std::map<std::string, std::string> SolverInfoMap;
 typedef std::map<std::string, NekDouble> ParameterMap;
 typedef std::map<std::string, std::string> GeometricInfoMap;
+typedef std::map<std::string, std::string> BackendMap;
 typedef std::vector<std::string> VariableList;
 typedef std::map<std::string, std::string> TagMap;
 typedef std::map<std::string, std::string> FilterParams;
@@ -93,15 +94,22 @@ struct TimeIntScheme
     std::vector<NekDouble> freeParams;
 };
 
+struct EquationOfStateScheme
+{
+    std::string type = "";
+    ParameterMap params;
+};
+
 enum FunctionType
 {
+    eFunctionTypeNone,
     eFunctionTypeExpression,
     eFunctionTypeFile,
     eFunctionTypeTransientFile,
     eSIZE_FunctionType,
 };
-const char *const FunctionTypeMap[] = {"No Function type", "Expression",
-                                       "File"};
+const char *const FunctionTypeMap[] = {"No Function type", "Expression", "File",
+                                       "Transient file"};
 
 struct FunctionVariableDefinition
 {
@@ -218,13 +226,32 @@ public:
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             size_t &var,
                                             const size_t &def) const;
+    /// Load a single precision parameter
+    LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
+                                            NekSingle &var) const;
     /// Load a double precision parameter
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             NekDouble &var) const;
+    /// Check for and load a single-precision parameter.
+    LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
+                                            NekSingle &var,
+                                            const NekSingle &def) const;
     /// Check for and load a double-precision parameter.
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             NekDouble &var,
                                             const NekDouble &def) const;
+
+    /// Checks if a reference value  is specified in the XML document.
+    LIB_UTILITIES_EXPORT bool DefinesReferenceValue(
+        const std::string &name) const;
+    /// Check for and load a single-precision reference value.
+    LIB_UTILITIES_EXPORT void LoadReferenceValue(const std::string &name,
+                                                 NekSingle &var,
+                                                 const NekSingle &def) const;
+    /// Check for and load a double-precision reference value.
+    LIB_UTILITIES_EXPORT void LoadReferenceValue(const std::string &name,
+                                                 NekDouble &var,
+                                                 const NekDouble &def) const;
     /// Set an integer parameter
     LIB_UTILITIES_EXPORT void SetParameter(const std::string &name, int &var);
     /// Set an unsigned integer parameter
@@ -292,6 +319,15 @@ public:
     /* ------ TIME INTEGRATION INFORMATION ----- */
     LIB_UTILITIES_EXPORT bool DefinesTimeIntScheme() const;
     LIB_UTILITIES_EXPORT const TimeIntScheme &GetTimeIntScheme() const;
+
+    /* ------ EQUATION OF STATE INFORMATION ----- */
+    LIB_UTILITIES_EXPORT bool DefinesEquationOfState() const;
+    LIB_UTILITIES_EXPORT const EquationOfStateScheme &GetEquationOfState()
+        const;
+
+    /* ------ REFERENCE VALUES INFORMATION ----- */
+    LIB_UTILITIES_EXPORT bool DefinesReferenceValues() const;
+    LIB_UTILITIES_EXPORT const ParameterMap &GetReferenceValues() const;
 
     /* ------ GEOMETRIC INFO ------ */
     LIB_UTILITIES_EXPORT std::string GetGeometryType() const;
@@ -401,6 +437,13 @@ public:
         TiXmlElement *&element, const size_t timeLevel,
         const bool enableCheck = true);
 
+    /// Serial backend map.
+    LIB_UTILITIES_EXPORT BackendMap &GetSerialBackendMap();
+    /// AVX backend map.
+    LIB_UTILITIES_EXPORT BackendMap &GetAVXBackendMap();
+    /// Device backend map.
+    LIB_UTILITIES_EXPORT BackendMap &GetDeviceBackendMap();
+
     /// manually override verbose flag
     LIB_UTILITIES_EXPORT void SetVerbose(bool verbose)
     {
@@ -430,6 +473,12 @@ private:
     SolverInfoMap m_solverInfo;
     /// Geometric information properties.
     GeometricInfoMap m_geometricInfo;
+    /// Serial backend information properties.
+    BackendMap m_serialBackendInfo;
+    /// AVX backend information properties.
+    BackendMap m_avxBackendInfo;
+    /// Device backend information properties.
+    BackendMap m_deviceBackendInfo;
     /// Interpreter instance.
     InterpreterSharedPtr m_interpreter;
     /// Functions.
@@ -440,8 +489,12 @@ private:
     TagMap m_tags;
     /// Filters map.
     FilterMap m_filters;
-    /// Time integration scheme information.
+    /// Time integration scheme information
     TimeIntScheme m_timeIntScheme;
+    /// Equation of state scheme information
+    EquationOfStateScheme m_eqnOfStateScheme;
+    /// Equation of state scheme information
+    ParameterMap m_referenceValues;
     /// Time level.
     size_t m_timeLevel = 0;
     /// Be verbose
@@ -473,9 +526,14 @@ private:
     /// Parse the session name.
     std::string ParseSessionName(std::vector<std::string> &filenames);
 
+    /// Parse optimisatinos from XML and fill #m_deviceBackendInfo and
+    /// #m_hostBackendInfo
+    void ParseOptimisations();
+
     /// Loads an xml file into a tinyxml doc and decompresses if needed
     LIB_UTILITIES_EXPORT void LoadDoc(const std::string &pFilename,
                                       TiXmlDocument *pDoc) const;
+
     /// Creates an XML document from a list of input files.
     LIB_UTILITIES_EXPORT TiXmlDocument *MergeDoc(
         const std::vector<std::string> &pFilenames) const;
@@ -502,6 +560,10 @@ private:
     LIB_UTILITIES_EXPORT void ReadFunctions(TiXmlElement *conditions);
     /// Reads the FILTERS section of the XML document.
     LIB_UTILITIES_EXPORT void ReadFilters(TiXmlElement *filters);
+    /// Reads the EquationOfState section of the XML document.
+    LIB_UTILITIES_EXPORT void ReadEquationOfState(TiXmlElement *conditions);
+    /// Reads the Reference Values section  of the XML document.
+    LIB_UTILITIES_EXPORT void ReadReferenceValues(TiXmlElement *conditions);
     /// Enforce parameters from command line arguments.
     LIB_UTILITIES_EXPORT void CmdLineOverride();
     /// Check values of solver info options are valid.

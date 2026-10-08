@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx9kMsNwjAQRAPhl/AJf5jcKIAeVoISUgmtUADlUUQuIOQ5YGnGl5X9PPvWLgq/Bqm+3reuv1SR82Gq7fX+4+dUycvs/vPxz0fCyz5j4SefCD/rVPjJZ9aPqKwfUVs/Ym79iIU45/2lmIv7lchzjkbkydc2j9jYPGIr5uLaZTz/x73Ic76DyJMfbR5xsvnvO8S72AeC099ajvgApiiJAgAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1ksduQkEQBMkmGWxyMBmTwSb9/69x2TpQ0rxLq1at3je9k8m8f9lAc4HmA+UrBFxUPlxSPvyhfLgc5FaC3GqQWxOTVxdz32dwXyO4rxnc96Vccr7F5LTE5LTF5HWS0ifzdMXM0xPTd19+5hzIz5zDpCX5R2L8YzE9/chPXxP56WuatCr/TIx/Lqa/RVL2k96XYnpfiel7LT/v8Ss/77FJWpR/K8a/E9P3Xn7e9SA/73pMWpH/JMZ/FtP3JSlzsR9/YvboX+fszVX/yflNzF7cdc6ePfSfnD/F7MUL9zYK2wAA</EDGE>
+        <FACE>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxdkstWAkEMBdFRxEEFwQEZlIeogKI8hP//NTa3FlZv6pzkdtK56Ubj/7kIL8NCcc512AqvdA99M7zVvUJ6dGV4o7qF4m3l/R76ldI3pbsPu+Gd+lDnIXzUPeqU0vXCjuq0Fe+rL3V4D/160lMH/57CKhyoLvlhOArxg3kq6erwOWS+geLjEN+Yj3noV0vfVf4lnKgfPtTSTcPXEJ/Gis/0rr709JtKj2/z8C1chPzzSrr38DPkf+IbdT7Cpe7h/0K6Vcje8J8+S+n4dyPp1uF3yP7xlzpf4Ub38Hcl3U/I3tgTfTbSsVf2xLy/4TZkDxPld+E+xCf2uJXuEOLvTHPspcO3ufJ/4TFkfvZ6kO4U4gdz4sNROuY8Awm/EL8A</Q>
+        </FACE>
+        <ELEMENT>
+            <H COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxd0MsOgkAQRNEBHcAHKihvFMH//0c2txbWbE4q6VS6J4T/l2CKBzxitDnlDHMs8IRn671Y/xVLvOHd5pTV/8AKa3za3i9ssMXO9uoxWh5wxAl174z6h7f1f3BB3fu1HmX1r7ih7v3hDgCeA0EA</H>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> H[0-7] </C>
+            <C ID="1"> F[10,19,28,35] </C>
+            <C ID="2"> F[1,6,21,25] </C>
+            <C ID="3"> F[30,33,22,26] </C>
+            <C ID="4"> F[13,17,31,34] </C>
+            <C ID="5"> F[14,18,4,9] </C>
+            <C ID="6"> F[0,11,20,29] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[0] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/v5.8.0</GitBranch>
+            <GitSHA1>837223d7a51da426127052d535297d97f413bef7</GitSHA1>
+            <Hostname>londonbridge</Hostname>
+            <NektarVersion>5.8.0</NektarVersion>
+            <Timestamp>03-Feb-2026 10:37:19</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>-m peralign:surf1=1:surf2=6:dir=z -m peralign:surf1=5:surf2=3:dir=x -m peralign:surf1=2:surf2=4:dir=y 2pihex-2.xml 2pihex-2-peralign.xml -v </NekMeshCommandLine>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="7" TYPE="MODIFIED" FIELDS="u,v,w,p" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="Projection"            VALUE="Galerkin"                   />
+            <I PROPERTY="EqType"                VALUE="UnsteadyNavierStokes"       />
+            <I PROPERTY="SolverType"            VALUE="VelocityCorrectionScheme"   />
+            <I PROPERTY="AdvectionForm"         VALUE="Convective"                 />
+            <I PROPERTY="GlobalSysSoln"         VALUE="IterativeFull" />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <!-- Physical / numerical parameters -->
+            <P> Kinvis   = 0.01         </P>
+            <P> TimeStep = 0.0001        </P>
+            <P> NumSteps = 100          </P>
+            <P> NekLinSysMaxIterations = 5000          </P>
+            <P> IterativeSolverTolerance = 1e-9 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+            <V ID="3"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+            <B ID="4"> C[5] </B>
+            <B ID="5"> C[6] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <P VAR="u" VALUE="[5]" />
+                <P VAR="v" VALUE="[5]" />
+                <P VAR="w" VALUE="[5]" />
+                <P VAR="p" VALUE="[5]" />
+            </REGION>
+            <REGION REF="1">
+                <P VAR="u" VALUE="[3]" />
+                <P VAR="v" VALUE="[3]" />
+                <P VAR="w" VALUE="[3]" />
+                <P VAR="p" VALUE="[3]" />
+            </REGION>
+            <REGION REF="2">
+                <P VAR="u" VALUE="[4]" />
+                <P VAR="v" VALUE="[4]" />
+                <P VAR="w" VALUE="[4]" />
+                <P VAR="p" VALUE="[4]" />
+            </REGION>
+            <REGION REF="3">
+                <P VAR="u" VALUE="[1]" />
+                <P VAR="v" VALUE="[1]" />
+                <P VAR="w" VALUE="[1]" />
+                <P VAR="p" VALUE="[1]" />
+            </REGION>
+            <REGION REF="4">
+                <P VAR="u" VALUE="[2]" />
+                <P VAR="v" VALUE="[2]" />
+                <P VAR="w" VALUE="[2]" />
+                <P VAR="p" VALUE="[2]" />
+            </REGION>
+            <REGION REF="5">
+                <P VAR="u" VALUE="[0]" />
+                <P VAR="v" VALUE="[0]" />
+                <P VAR="w" VALUE="[0]" />
+                <P VAR="p" VALUE="[0]" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="sin(x)*cos(y)*cos(z)" />
+            <E VAR="v" VALUE="-cos(x)*sin(y)*cos(z)" />
+            <E VAR="w" VALUE="0" />
+            <E VAR="p" VALUE=" 0.0625*(cos(2*x)+cos(2*y))*(cos(2*z)+2) " />
+        </FUNCTION>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE=" sin(x)*cos(y)*cos(z)*exp(-3*Kinvis*t) " />
+            <E VAR="v" VALUE="-cos(x)*sin(y)*cos(z)*exp(-3*Kinvis*t) " />
+            <E VAR="w" VALUE=" 0 " />
+            <E VAR="p" VALUE=" 0.0625*(cos(2*x)+cos(2*y))*(cos(2*z)+2)*exp(-6*Kinvis*t) " />
+        </FUNCTION>
+    </CONDITIONS>
+    <FILTERS>
+        <FILTER TYPE="Checkpoint">
+            <PARAM NAME="OutputFile">checkpoint</PARAM>
+            <PARAM NAME="OutputFrequency">20</PARAM>
+        </FILTER>
+    </FILTERS>
+</NEKTAR>

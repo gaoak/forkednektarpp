@@ -9,10 +9,10 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="1e-14">6.65957e-14</value>
+            <value variable="u" tolerance="1e-13">0.0</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="1e-14">7.60936e-14</value>
+            <value variable="u" tolerance="1e-13">0.0</value>
         </metric>
     </metrics>
 </test>

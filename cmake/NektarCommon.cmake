@@ -4,6 +4,228 @@
 ## Frequently used Nektar++ CMake configuration macros and functions
 ##
 
+# Executables that use std::thread carry direct references to pthread symbols,
+# so the threading library has to appear on their link line. Threads::Threads
+# is language-aware, which matters here since executables may also contain CUDA
+# or HIP objects that are compiled and linked by a device compiler.
+FIND_PACKAGE(Threads REQUIRED)
+
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    # Macro for each operator.
+    MACRO(ADD_OPERATOR dir OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
+
+        IF(IS_DIRECTORY ${dir})
+            GET_FILENAME_COMPONENT(name "${dir}" NAME)
+            GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
+        ELSE()
+            CONTINUE()
+        ENDIF()
+
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})
+
+        # Counted so that a directory registering nothing can say so below,
+        # rather than surfacing later as a missing operator at run time.
+        SET(OP_REGISTERED 0)
+
+        # These operator have an additional argument for the FieldState
+        # which requires two delcarations.
+        IF("${name}" STREQUAL "IProductWRTDerivBase")
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/Common/OpFactoryDecTwoOutStates.cpp.in)
+        ELSEIF("${name}" STREQUAL "AssmbScatr")
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/AssmbScatr/AssmbScatrFactoryDec.cpp.in)
+        ELSE()
+            SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/Common/OpFactoryDec.cpp.in)
+        ENDIF()
+
+        # Loop through each possible execution space.
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+        
+            # Set file extension.
+            SET(HEADER_EXT hpp)
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                SET(SOURCE_EXT cu)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                SET(SOURCE_EXT hip)
+            ELSE()
+                SET(SOURCE_EXT cpp)
+            ENDIF()
+
+            IF ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+                SET(ExecName "SerialAVX")
+            ELSE()
+                SET(ExecName "Device")
+            ENDIF()
+
+            # Loop through each possible data type.
+            FOREACH (TData IN LISTS DataTypes)
+                # Set up the name used for the .cpp declaration file.
+                SET(FactoryDeclName
+                     src/${name}${ExecSpace}${TData}.${SOURCE_EXT})
+
+                # Get the source and header files for this operator,
+                # execution space, and implementation.
+                SET(CURRENT_HEADERS ${name}_${ExecSpace}_HEADERS)
+                SET(CURRENT_SOURCES ${name}_${ExecSpace}_SOURCES)
+                    
+                # Get the headers matching the name and execution space.
+                FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${abs_dir}/${name}${ExecSpace}*.hpp
+                    ${abs_dir}/${name}BlockOp${ExecSpace}*.hpp)
+
+                # Found a impl header.
+                IF(EXISTS "${abs_dir}/${name}OpImpl.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}OpImpl.hpp\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} execution space: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+                # Found a ExecName header.
+                ELSEIF(EXISTS "${abs_dir}/${name}${ExecName}.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}${ExecName}.hpp\"")
+                    MESSAGE("Adding operator with a ${ExecSpace} execution space: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+                # No implementation, skip.
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
+
+                # Create the cpp file from the implementation file.
+                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                # Add the respective cpp file.
+                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                MATH(EXPR OP_REGISTERED "${OP_REGISTERED}+1")
+
+            ENDFOREACH()
+        ENDFOREACH()
+
+        # As above: a globbed directory that produces no operator is almost
+        # always a mistake, and says nothing until the factory is asked for it.
+        # Only for a directory that declares an operator: a glob such as
+        # BndCondOps/* also picks up shared directories which hold no operator
+        # and should stay quiet.
+        IF(OP_REGISTERED EQUAL 0 AND EXISTS "${abs_dir}/${name}Op.hpp")
+            MESSAGE(WARNING "ADD_OPERATOR: '${name}' declares ${name}Op.hpp but "
+                "registered no operator for any execution space. Expected an "
+                "implementation header named ${name}OpImpl.hpp in ${dir}.")
+        ENDIF()
+
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(${OPERATORS_HEADERS}
+           "${${OPERATORS_HEADERS}}"
+            ${${NAME_HEADERS}}
+        )
+        SET(${OPERATORS_SOURCES}
+           "${${OPERATORS_SOURCES}}"
+            ${${NAME_SOURCES}}
+        )
+    ENDMACRO()
+
+    # Macro for each operator.
+    MACRO(ADD_BLOCK_OPERATOR dir OPNAMESPACE OPERATORS_HEADERS OPERATORS_SOURCES)
+
+        # Extract operator name form directory if it exists.
+        IF(IS_DIRECTORY ${dir})
+            GET_FILENAME_COMPONENT(name "${dir}" NAME)
+            GET_FILENAME_COMPONENT(abs_dir "${dir}" ABSOLUTE)
+        ELSE()
+            CONTINUE()
+        ENDIF()
+
+        SET(NAME_HEADERS ${name}_HEADERS)
+        SET(NAME_SOURCES ${name}_SOURCES)
+        SET(OPERATOR ${name})
+
+        # Counted so that a directory registering nothing can say so below,
+        # rather than surfacing later as a missing operator at run time.
+        SET(BLOCK_OP_REGISTERED 0)
+
+        # These operator have an additional argument for the FieldState
+        # which requires two delcarations.
+        SET(CONFIG_FILE ${CMAKE_SOURCE_DIR}/library/MultiRegions/Common/BlockOperatorFactoryDec.cpp.in)
+
+        # Loop through each possible execution space.
+        FOREACH (ExecSpace IN LISTS ExecSpaces)
+        
+            # Set file extension.
+            SET(HEADER_EXT hpp)
+            IF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+                SET(SOURCE_EXT cu)
+            ELSEIF("${ExecSpace}" STREQUAL "Device" AND NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+                SET(SOURCE_EXT hip)
+            ELSE()
+                SET(SOURCE_EXT cpp)
+            ENDIF()
+
+            # Set execution space.
+            IF("${ExecSpace}" STREQUAL "Serial")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Serial)
+            ELSEIF("${ExecSpace}" STREQUAL "AVX")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::AVX)
+            ELSEIF("${ExecSpace}" STREQUAL "Device")
+                SET(EXEC_MEM_SPACE_TAG NektarSpaces::Device)
+            ENDIF()
+        
+            IF("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+                SET(ExecName "SerialAVX")
+            ELSE()
+                SET(ExecName "${ExecSpace}")
+            ENDIF()
+
+            # Loop through each possible data type.
+            FOREACH (TData IN LISTS DataTypes)
+                # Reset for this (ExecSpace, TData)
+                UNSET(IMPL_HEADER)  
+                # Set up the name used for the .cpp declaration file.
+                SET(FactoryDeclName "src/Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
+		IF(EXISTS "${dir}/${name}BlockOp${ExecName}.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}BlockOp${ExecName}.hpp\"")
+                    MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+                ENDIF()
+
+                # If no header was found, skip this combination.
+                IF(NOT DEFINED IMPL_HEADER)
+                    CONTINUE()
+                ENDIF()
+
+                # Create the cpp file from the implementation file.
+                CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+                # Add this specific implementation to the operator's
+                # source and header files.
+                SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+                SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
+                MATH(EXPR BLOCK_OP_REGISTERED "${BLOCK_OP_REGISTERED}+1")
+            ENDFOREACH()
+        ENDFOREACH()
+
+        # A globbed directory that produces no block operator is almost always
+        # a mistake, and its only symptom is "No such operator" from the
+        # factory at run time, a long way from the cause.
+        # Only for a directory that declares a block operator, so that shared
+        # directories picked up by a glob stay quiet.
+        IF(BLOCK_OP_REGISTERED EQUAL 0 AND EXISTS "${abs_dir}/${name}BlockOp.hpp")
+            MESSAGE(WARNING "ADD_BLOCK_OPERATOR: '${name}' declares "
+                "${name}BlockOp.hpp but registered no block operator for any "
+                "execution space. Expected an implementation header named "
+                "${name}BlockOp<SerialAVX|Device>.hpp in ${dir}.")
+        ENDIF()
+
+        # Add this operator's implemenations to the global operator source
+        # and header files.
+        SET(${OPERATORS_HEADERS}
+           "${${OPERATORS_HEADERS}}"
+            ${${NAME_HEADERS}}
+        )
+        SET(${OPERATORS_SOURCES}
+           "${${OPERATORS_SOURCES}}"
+            ${${NAME_SOURCES}}
+        )
+    ENDMACRO()
+ENDIF()
+
 #
 # THIRDPARTY_LIBRARY(varname DESCRIPTION <description> [STATIC|SHARED] lib1 [lib2]...)
 #
@@ -82,13 +304,13 @@ MACRO(SET_COMMON_PROPERTIES name)
 
     IF (MSVC)
         # Enable production-level warnings
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /W4)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /W4>)
         # Temporarily disable signed/unsigned comparison warning
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /wd4018)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /wd4018>)
         # Temporarily disable narrowing warnings
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /wd4244 /wd4267)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /wd4244 /wd4267>)
         # Enable source-level parallel builds
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /MP)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /MP>)
         # Specify minimum Windows version (501=WinXP, 601=Windows 7)
         TARGET_COMPILE_DEFINITIONS(${name} PRIVATE _WIN32_WINNT=0x0601)
     ELSE ()
@@ -96,13 +318,17 @@ MACRO(SET_COMMON_PROPERTIES name)
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wall -Wextra)
         IF (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             # For GNU compilers add pedantic warnings
-            TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wpedantic)
+            TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: -Wpedantic>)
             TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wnon-virtual-dtor)
+        ELSEIF (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+            TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-tautological-constant-compare)
         ENDIF()
         # Temporarily disable warnings about comparing signed and unsigned
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-sign-compare)
         # Temporarily disable warnings about narrowing of data types
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-narrowing -Wno-conversion)
+        # Disable warnings about unknown pragama
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wno-unknown-pragmas)
 
         # Disable dignostic about partially overloaded virtual functions
         IF (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
@@ -169,11 +395,6 @@ MACRO(ADD_NEKTAR_EXECUTABLE name)
     ADD_EXECUTABLE(${name} ${NEKEXE_SOURCES})
     SET_COMMON_PROPERTIES(${name})
 
-    IF (${CMAKE_SYSTEM} MATCHES "Linux.*")
-        SET_PROPERTY(TARGET ${name} APPEND_STRING PROPERTY COMPILE_FLAGS " -pthread")
-        SET_PROPERTY(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -pthread")
-    ENDIF()
-
     STRING(TOLOWER ${NEKEXE_COMPONENT} NEKEXE_COMPONENT)
     STRING(TOUPPER ${NEKEXE_COMPONENT} NEKEXE_COMPVAR)
 
@@ -185,6 +406,11 @@ MACRO(ADD_NEKTAR_EXECUTABLE name)
 
     # Add dependencies for executable.
     TARGET_LINK_LIBRARIES(${name} LINK_PUBLIC ${NEKEXE_DEPENDS})
+
+    # Appended as a property rather than through TARGET_LINK_LIBRARIES: several
+    # callers add their own libraries to these targets with the plain signature,
+    # and CMake refuses to mix that with the keyword signature used above.
+    SET_PROPERTY(TARGET ${name} APPEND PROPERTY LINK_LIBRARIES Threads::Threads)
 ENDMACRO()
 
 #
@@ -216,6 +442,17 @@ MACRO(ADD_NEKTAR_LIBRARY name)
 
     SET (NEKLIB_TARGET_NAME ${name}${NEKLIB_TARGET_SUFFIX})
     ADD_LIBRARY(${NEKLIB_TARGET_NAME} ${NEKTAR_LIBRARY_TYPE} ${NEKLIB_SOURCES} ${NEKLIB_HEADERS})
+
+    # SimSYCL provides sycl/sycl.hpp, and when it is built from ThirdParty
+    # that header does not exist until the external project has installed it.
+    # Every Nektar library is a potential includer - directly, or through a
+    # LibUtilities header - and the ones that do not link LibUtilities (NekBlas
+    # above all) have nothing else ordering them after the external project, so
+    # a parallel build compiles them against a directory that is not there yet.
+    # Order every library after it rather than naming them one at a time.
+    IF (NEKTAR_USE_SIMSYCL)
+        ADD_DEPENDENCIES(${NEKLIB_TARGET_NAME} simsycl-${SIMSYCL_VERSION})
+    ENDIF()
 
     # Infer component name from lower-case library name, variables should use
     # upper-case.
@@ -410,4 +647,44 @@ MACRO(ADD_NEKPY_TEST name)
     ADD_TEST(NAME NekPy_${dir}_${name}
              COMMAND Tester ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${name}.tst)
 ENDMACRO(ADD_NEKPY_TEST)
+
+# Device Support
+MACRO(SET_UNIT_TEST testname name execspace implementation mpi_flag)
+    IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        SET(name-ext "${name}-g")
+    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+        SET(name-ext "${name}-ms")
+    ELSEIF (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        SET(name-ext "${name}-rg")
+    ELSE()
+        SET(name-ext "${name}")
+    ENDIF()
+
+    IF (${mpi_flag} AND NEKTAR_USE_MPI)
+        # A parallel run partitions its session file into a run/<session>_xml
+        # directory beside the mesh. Tests sharing a working directory then
+        # write the same partition files at once under a parallel ctest, and a
+        # rank reading one half-written stops with "Unable to find 'NEKTAR' XML
+        # node" while its peers wait in the trace exchange. Give each parallel
+        # test a directory, and its own copy of the meshes to partition.
+        SET(unit_test_dir ${CMAKE_CURRENT_BINARY_DIR}/mpi-${testname})
+        FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run
+             DESTINATION ${unit_test_dir})
+
+        # mpiexec needs the binary's path, and only the generator knows it:
+        # the -g/-ms/-rg suffix is a per-configuration postfix, Windows adds
+        # .exe, and a multi-configuration generator puts the file in a
+        # configuration subdirectory. $<TARGET_FILE> is all of that resolved.
+        ADD_TEST(
+          NAME Operators${testname}_MPI
+          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${name}>
+                  --detect_memory_leaks=0 -- ${execspace} ${implementation}
+          WORKING_DIRECTORY ${unit_test_dir}
+        )
+    ELSE()
+        ADD_TEST(
+          NAME Operators${testname} 
+          COMMAND ${name-ext} --detect_memory_leaks=0 -- ${execspace} ${implementation})
+    ENDIF()
+ENDMACRO()
 

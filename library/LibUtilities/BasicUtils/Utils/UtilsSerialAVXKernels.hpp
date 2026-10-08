@@ -1,0 +1,372 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: UtilsSerialAVXKernels.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+namespace Nektar
+{
+
+template <typename simd_type>
+NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
+                                          const simd_type *Mat,
+                                          const simd_type *in, simd_type *out)
+{
+    for (unsigned int i = 0, cnt = 0; i < n; ++i)
+    {
+        simd_type i_sum = 0.0;
+
+        for (unsigned int j = 0; j < n; ++j, ++cnt)
+        {
+            i_sum.fma(Mat[cnt], in[j]);
+        }
+
+        out[i] = i_sum;
+    }
+}
+
+// Scratch for interleave() and deInterleave(): one grow-only buffer per
+// thread and type. The AVX element operators call them per 4-element chunk,
+// ~10^6 times a step, and a fresh std::vector per call (malloc, zero-fill,
+// free) was a quarter of their cost.
+template <typename TData> inline TData *ReshapeWorkspace(const size_t n)
+{
+    thread_local std::vector<TData> wsp;
+    if (wsp.size() < n)
+    {
+        wsp.resize(n);
+    }
+    return wsp.data();
+}
+
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void interleave(const unsigned int interleaveWidth,
+                       const size_t numElmtGroups, const unsigned int npts,
+                       TData *inout,
+                       [[maybe_unused]] const unsigned int streamID)
+{
+    const unsigned int elmtGroupSize = npts * interleaveWidth;
+    TData *wsp                       = ReshapeWorkspace<TData>(elmtGroupSize);
+
+    for (size_t e = 0; e < numElmtGroups; ++e)
+    {
+        std::copy(inout, inout + elmtGroupSize, wsp);
+
+        for (unsigned int idx = 0; idx < npts; ++idx)
+        {
+            for (unsigned int vecElem = 0; vecElem < interleaveWidth; ++vecElem)
+            {
+                inout[idx * interleaveWidth + vecElem] =
+                    wsp[vecElem * npts + idx];
+            }
+        }
+        inout += elmtGroupSize;
+    }
+}
+
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void deInterleave(const unsigned int interleaveWidth,
+                         const size_t numElmtGroups, const unsigned int npts,
+                         TData *inout,
+                         [[maybe_unused]] const unsigned int streamID)
+{
+    const unsigned int elmtGroupSize = npts * interleaveWidth;
+    TData *wsp                       = ReshapeWorkspace<TData>(elmtGroupSize);
+
+    for (size_t e = 0; e < numElmtGroups; ++e)
+    {
+        std::copy(inout, inout + elmtGroupSize, wsp);
+
+        for (unsigned int idx = 0; idx < npts; ++idx)
+        {
+            for (unsigned int vecElem = 0; vecElem < interleaveWidth; ++vecElem)
+            {
+                inout[vecElem * npts + idx] =
+                    wsp[idx * interleaveWidth + vecElem];
+            }
+        }
+        inout += elmtGroupSize;
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void MultiplyByJacobian(
+    const size_t nelmt, const unsigned int nqTot, const TData *jacptr,
+    const TData *inptr, TData *outptr, const TScalar scale,
+    [[maybe_unused]] const unsigned int streamID = 0)
+{
+    if constexpr (DEFORMED)
+    {
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
+        {
+            outptr[i] = scale * jacptr[i] * inptr[i];
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                outptr[e * nqTot + i] =
+                    scale * jacptr[e] * inptr[e * nqTot + i];
+            }
+        }
+    }
+}
+
+template <typename ExecSpace, bool DEFORMED, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+NEK_FORCE_INLINE static void DivideByJacobian(
+    const size_t nelmt, const unsigned int nqTot, const TData *jacptr,
+    const TData *inptr, TData *outptr,
+    [[maybe_unused]] const unsigned int streamID = 0)
+{
+    if constexpr (DEFORMED)
+    {
+        for (size_t i = 0; i < nelmt * nqTot; ++i)
+        {
+            outptr[i] = inptr[i] / jacptr[i];
+        }
+    }
+    else
+    {
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            TData invjac = 1.0 / jacptr[e];
+            for (unsigned int i = 0; i < nqTot; ++i)
+            {
+                outptr[e * nqTot + i] = inptr[e * nqTot + i] * invjac;
+            }
+        }
+    }
+}
+
+// Quadrature approximation of the element volume, i.e. the integral of 1 over
+// the (SIMD-packed group of) element(s): sum of w0[i]*w1[j]*w2[k]*jac. DEFORMED
+// selects a per-quadrature-point Jacobian versus a single constant Jacobian.
+// Shared by NormL2 (normalisation) and MeanRemoval (mean division).
+
+// 1D case
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static simd_type VolumeKernel(
+    const unsigned int nq0, const typename simd_type::scalarType *w0,
+    const simd_type *jac)
+{
+    simd_type vol = 0.0;
+    for (unsigned int i = 0; i < nq0; ++i)
+    {
+        if constexpr (DEFORMED)
+        {
+            vol.fma(w0[i], jac[i]);
+        }
+        else
+        {
+            vol.fma(w0[i], jac[0]);
+        }
+    }
+    return vol;
+}
+
+// 2D case
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static simd_type VolumeKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac)
+{
+    simd_type vol  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int j = 0; j < nq1; ++j)
+    {
+        const auto w1j = w1[j];
+        for (unsigned int i = 0; i < nq0; ++i, ++q)
+        {
+            const auto weight = w0[i] * w1j;
+            if constexpr (DEFORMED)
+            {
+                vol.fma(weight, jac[q]);
+            }
+            else
+            {
+                vol.fma(weight, jac[0]);
+            }
+        }
+    }
+
+    return vol;
+}
+
+// 3D case
+template <bool DEFORMED, typename simd_type>
+NEK_FORCE_INLINE static simd_type VolumeKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac)
+{
+    simd_type vol  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int k = 0; k < nq2; ++k)
+    {
+        const auto w2k = w2[k];
+        for (unsigned int j = 0; j < nq1; ++j)
+        {
+            const auto w12 = w1[j] * w2k;
+            for (unsigned int i = 0; i < nq0; ++i, ++q)
+            {
+                const auto weight = w0[i] * w12;
+                if constexpr (DEFORMED)
+                {
+                    vol.fma(weight, jac[q]);
+                }
+                else
+                {
+                    vol.fma(weight, jac[0]);
+                }
+            }
+        }
+    }
+
+    return vol;
+}
+
+// 1D case
+template <template <typename> typename INTEGRALOP, bool DEFORMED,
+          typename simd_type>
+NEK_FORCE_INLINE static simd_type IntegralKernel(
+    const unsigned int nq0, const typename simd_type::scalarType *w0,
+    const simd_type *jac, const simd_type *in)
+{
+    simd_type acc = 0.0;
+    for (unsigned int i = 0; i < nq0; ++i)
+    {
+        if constexpr (DEFORMED)
+        {
+            acc.fma(INTEGRALOP<simd_type>()(in[i]), w0[i] * jac[i]);
+        }
+        else
+        {
+            acc.fma(INTEGRALOP<simd_type>()(in[i]), w0[i] * jac[0]);
+        }
+    }
+    return acc;
+}
+
+// 2D case
+template <template <typename> typename INTEGRALOP, bool DEFORMED,
+          typename simd_type>
+NEK_FORCE_INLINE static simd_type IntegralKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1, const simd_type *jac,
+    const simd_type *in)
+{
+    simd_type acc  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int j = 0; j < nq1; ++j)
+    {
+        const auto w1j = w1[j];
+        for (unsigned int i = 0; i < nq0; ++i, ++q)
+        {
+            const auto weight = w0[i] * w1j;
+            if constexpr (DEFORMED)
+            {
+                acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[q]);
+            }
+            else
+            {
+                acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[0]);
+            }
+        }
+    }
+
+    return acc;
+}
+
+// 3D case
+template <template <typename> typename INTEGRALOP, bool DEFORMED,
+          typename simd_type>
+NEK_FORCE_INLINE static simd_type IntegralKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const typename simd_type::scalarType *w0,
+    const typename simd_type::scalarType *w1,
+    const typename simd_type::scalarType *w2, const simd_type *jac,
+    const simd_type *in)
+{
+    simd_type acc  = 0.0;
+    unsigned int q = 0;
+
+    for (unsigned int k = 0; k < nq2; ++k)
+    {
+        const auto w2k = w2[k];
+        for (unsigned int j = 0; j < nq1; ++j)
+        {
+            const auto w12 = w1[j] * w2k;
+            for (unsigned int i = 0; i < nq0; ++i, ++q)
+            {
+                const auto weight = w0[i] * w12;
+                if constexpr (DEFORMED)
+                {
+                    acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[q]);
+                }
+                else
+                {
+                    acc.fma(INTEGRALOP<simd_type>()(in[q]), weight * jac[0]);
+                }
+            }
+        }
+    }
+
+    return acc;
+}
+
+} // namespace Nektar

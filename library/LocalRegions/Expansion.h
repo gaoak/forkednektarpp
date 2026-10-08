@@ -164,9 +164,19 @@ public:
     VectorFlux(const Array<OneD, Array<OneD, NekDouble>> &vec);
 
     LOCAL_REGIONS_EXPORT void NormalTraceDerivFactors(
-        Array<OneD, Array<OneD, NekDouble>> &factors,
         Array<OneD, Array<OneD, NekDouble>> &d0factors,
-        Array<OneD, Array<OneD, NekDouble>> &d1factors);
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors);
+
+    /// The per-direction counterpart of NormalTraceDerivFactors(): the same
+    /// trace values of the derivative factors, for Cartesian coordinate
+    /// @p dir, without the contraction over the trace normal. Used to lift
+    /// per-direction trace data - the vector-input variant of the normal
+    /// derivative trace inner product.
+    LOCAL_REGIONS_EXPORT void TraceDerivFactors(
+        const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors);
 
     inline IndexMapValuesSharedPtr GetIndexMap(const IndexMapKey &ikey)
     {
@@ -466,6 +476,11 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &factors,
         Array<OneD, Array<OneD, NekDouble>> &d0factors,
         Array<OneD, Array<OneD, NekDouble>> &d1factors);
+
+    virtual void v_TraceDerivFactors(
+        const int dir, Array<OneD, Array<OneD, NekDouble>> &d0factors,
+        Array<OneD, Array<OneD, NekDouble>> &d1factors,
+        Array<OneD, Array<OneD, NekDouble>> &d2factors);
 
     virtual void v_AlignVectorToCollapsedDir(
         const int dir, const Array<OneD, const NekDouble> &inarray,

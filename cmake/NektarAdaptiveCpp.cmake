@@ -1,0 +1,85 @@
+#
+# NektarAdaptiveCpp.cmake
+#
+# Sets up cmake variables needed for using SYCL in Nektar++
+#
+
+SET(BOOST_MIN_VERSION "1.82.0")
+
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
+    SET(ACPP_TARGETS "generic")
+    ADD_DEFINITIONS(-DSYCL_ENABLE_CPU)
+ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
+    SET(CUDA_SEPARABLE_COMPILATION ON)
+    IF (NEKTAR_DEVICE_ARCH)
+        IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^sm_[0-9]+$")
+            MESSAGE(FATAL_ERROR "For Nvidia GPU, NEKTAR_DEVICE_ARCH must be specified as sm_XX, got '${NEKTAR_DEVICE_ARCH}'")
+        ENDIF()
+        SET(ACPP_TARGETS "cuda:${NEKTAR_DEVICE_ARCH}")
+    ELSE()
+        SET(ACPP_TARGETS "generic")
+    ENDIF()
+    ADD_DEFINITIONS(-DSYCL_ENABLE_CUDA)
+ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+    #IF (NEKTAR_DEVICE_ARCH)
+    #    IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^gfx[0-9]+[a-f]?$")
+    #        MESSAGE(FATAL_ERROR "For AMD GPU, NEKTAR_DEVICE_ARCH must be specified as gfxXXX, got '${NEKTAR_DEVICE_ARCH}'")
+    #    ENDIF()
+    #    SET(ACPP_TARGETS "hip:${NEKTAR_DEVICE_ARCH}")
+    #ELSE()
+    #    SET(ACPP_TARGETS "generic")
+    #ENDIF()
+    SET(ACPP_TARGETS "generic")
+    ADD_DEFINITIONS(-DSYCL_ENABLE_HIP)
+ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
+    SET(ACPP_TARGETS "generic")
+    ADD_DEFINITIONS(-DSYCL_ENABLE_INTEL)
+ENDIF()
+
+IF (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET(ACPP_OPT_FLAG "-Os")
+ELSE()
+    SET(ACPP_OPT_FLAG "-O3")
+ENDIF()
+
+FIND_PACKAGE(AdaptiveCpp REQUIRED)
+
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} ${ACPP_OPT_FLAG} -march=native -Wno-nan-infinity-disabled -Wno-pass-failed ")
+ELSE()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --acpp-targets=${ACPP_TARGETS} ${ACPP_OPT_FLAG} -Wno-nan-infinity-disabled -Wno-pass-failed")
+ENDIF()
+
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" AND _SYSTEM_PROCESSOR STREQUAL "aarch64")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SVFloat32_t=float -D__SVFloat64_t=double -D__SVBool_t=unsigned")
+ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" AND _SYSTEM_PROCESSOR STREQUAL "x86_64")
+    ADD_COMPILE_DEFINITIONS(_BITS_FLOATN_H=1 _BITS_FLOATN_COMMON_H=1)
+ENDIF()
+
+# The medium code model is x86 only; aarch64 has tiny, small and large.
+IF (CMAKE_BUILD_TYPE STREQUAL "Debug" AND _SYSTEM_PROCESSOR STREQUAL "x86_64")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcmodel=medium")
+ENDIF()
+
+IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
+    FIND_PACKAGE(CUDAToolkit ${CUDA_MIN_VERSION} REQUIRED)
+    SET(NEKTAR_SYCL_DEPENDS ${NEKTAR_SYCL_DEPENDS} CUDA::cudart CUDA::cuda_driver CUDA::nvrtc)
+ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+    IF(WIN32)
+        SET(ROCM_ROOT
+            "$ENV{HIP_PATH}"
+            CACHE PATH
+            "Root directory of the ROCm installation"
+        )
+    ELSE()
+        SET(ROCM_ROOT
+            "/opt/rocm"
+            CACHE PATH
+            "Root directory of the ROCm installation"
+        )
+    ENDIF()
+    LIST(APPEND CMAKE_PREFIX_PATH "${ROCM_ROOT}")
+    FIND_PACKAGE(HIP REQUIRED)
+    FIND_LIBRARY(HIPRTC_LIB hiprtc HINTS ${HIP_PATH}/lib /opt/rocm/lib)
+    SET(NEKTAR_SYCL_DEPENDS ${NEKTAR_SYCL_DEPENDS} hip::host ${HIPRTC_LIB})
+ENDIF()

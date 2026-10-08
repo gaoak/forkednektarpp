@@ -1,3 +1,8 @@
+# Set switch limit
+SET(SWITCH_DIR ${CMAKE_SOURCE_DIR}/library/LibUtilities/BasicUtils/Switch)
+MESSAGE("SWITCH_DIR = ${SWITCH_DIR}")
+CONFIGURE_FILE(${SWITCH_DIR}/SwitchLimits.h.in ${SWITCH_DIR}/SwitchLimits.h @ONLY)
+
 SET(BasicConstHeaders
     ./BasicConst/NektarUnivConsts.hpp
     ./BasicConst/NektarUnivTypeDefs.hpp
@@ -39,6 +44,8 @@ SET(BasicUtilsHeaders
     ./BasicUtils/Metis.hpp
     ./BasicUtils/VtkUtil.hpp
     ./BasicUtils/Likwid.hpp
+    ./BasicUtils/Utils/UtilsDeviceKernels.hpp
+    ./BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp
 )
 
 SET(BasicUtilsSources
@@ -57,6 +64,7 @@ SET(BasicUtilsSources
     ./BasicUtils/ThreadStd.cpp
     ./BasicUtils/Timer.cpp
     ./BasicUtils/Vmath.cpp
+    ./BasicUtils/Utils/UtilsDeviceKernels.cpp
 )
 
 # HDF5
@@ -120,6 +128,28 @@ IF(NEKTAR_USE_FFTW)
     SET(FFTHeaders ${FFTHeaders} ./FFT/NekFFTW.h)
     SET(FFTSources ${FFTSources} ./FFT/NekFFTW.cpp)
 ENDIF(NEKTAR_USE_FFTW)
+
+IF(NEKTAR_ENABLE_DEVICE)
+    SET(FFTHeaders ${FFTHeaders} 
+	./FFT/NekDeviceFFT.h 
+        ./FFT/DerivZDeviceFFT.h
+        ../LibUtilities/Backends/DeviceProperties.hpp)
+    SET(FFTSources ${FFTSources} 
+        ../LibUtilities/Backends/DeviceProperties.cpp)
+    IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
+        SET(FFTSources ${FFTSources} 
+            ./FFT/NekDeviceFFT.cu ./FFT/DerivZDeviceFFT.cu)
+    ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
+        SET(FFTSources ${FFTSources} 
+            ./FFT/NekDeviceFFT.hip ./FFT/DerivZDeviceFFT.hip)
+    ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTSYCLHelper.h)
+        SET(FFTSources ${FFTSources}
+            ./FFT/NekDeviceFFT.cpp ./FFT/DerivZDeviceFFT.cpp)
+    ENDIF()
+ENDIF()
 
 SET(FoundationHeaders
     ./Foundations/Basis.h
@@ -329,6 +359,70 @@ SET(BaseHeaders
     LibUtilitiesDeclspec.h
 )
 
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    SET(DeviceSupportHeaders 
+        ./Backends/DeviceProperties.hpp
+        ./BasicUtils/Field/Block.hpp
+        ./BasicUtils/Math/Math.hpp
+        ./BasicUtils/Math/MathDeclspec.h
+        ./BasicUtils/Math/MathHelperDef.hpp
+        ./BasicUtils/DataWarehouse/BasisDataWarehouse.hpp
+        ./BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp
+        ./LoopExecution/LoopExecution.hpp
+        ./Memory/MemoryAlloc.hpp
+    )
+    SET(DeviceSupportSources 
+        ./Backends/Backends.cpp
+        ./Backends/DeviceProperties.cpp
+        ./BasicUtils/Field/Block.cpp
+        ./BasicUtils/DataWarehouse/BasisDataWarehouse.cpp
+        ./BasicUtils/DataWarehouse/ModeIndexDataWarehouse.cpp
+        ./LoopExecution/LoopExecution.cpp
+    )
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        SET(DeviceSupportHeaders
+            ${DeviceSupportHeaders} 
+            ./Backends/CUDAStream.hpp
+        )
+        SET(DeviceSupportSources 
+            ${DeviceSupportSources} 
+            ./Backends/CUDAStream.cpp
+            ./BasicUtils/Field/BlockHelper.cu
+            ./BasicUtils/Math/MathHelper.cu
+            ./Memory/MemoryAlloc.cu
+        )
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        SET(DeviceSupportHeaders 
+            ${DeviceSupportHeaders} 
+            ./Backends/HIPStream.hpp
+        )
+        SET(DeviceSupportSources 
+            ${DeviceSupportSources} 
+            ./Backends/HIPStream.cpp
+            ./BasicUtils/Field/BlockHelper.hip
+            ./BasicUtils/Math/MathHelper.hip
+            ./Memory/MemoryAlloc.hip
+        )
+    ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        SET(DeviceSupportHeaders 
+            ${DeviceSupportHeaders} 
+            ./Backends/SYCLQueue.hpp
+        )
+        SET(DeviceSupportSources 
+            ${DeviceSupportSources} 
+            ./Backends/SYCLQueue.cpp
+            ./BasicUtils/Field/BlockHelper.cpp
+            ./BasicUtils/Math/MathHelper.cpp
+        )
+    ELSE()
+        SET(DeviceSupportSources 
+            ${DeviceSupportSources} 
+            ./BasicUtils/Field/BlockHelper.cpp
+            ./BasicUtils/Math/MathHelper.cpp
+        )
+    ENDIF()
+ENDIF()
+
 SOURCE_GROUP("Basic Const" FILES ${BasicConstHeaders})
 SOURCE_GROUP("Basic Utils Headers" FILES ${BasicUtilsHeaders})
 SOURCE_GROUP("Basic Utils Sources" FILES ${BasicUtilsSources})
@@ -354,6 +448,9 @@ SOURCE_GROUP("TimeIntegration Sources" FILES ${TimeIntegrationSources})
 SOURCE_GROUP("FFT Headers" FILES ${FFTHeaders})
 SOURCE_GROUP("FFT Sources" FILES ${FFTSources})
 
+SOURCE_GROUP("Device Support Headers" FILES ${DeviceSupportHeaders})
+SOURCE_GROUP("Device Support Sources" FILES ${DeviceSupportSources})
+
 SOURCE_GROUP("Base" FILES ${BaseHeaders})
 
 SET(LibUtilityHeaders
@@ -368,6 +465,7 @@ SET(LibUtilityHeaders
     ${InterpreterHeaders}
     ${TimeIntegrationHeaders}
     ${FFTHeaders}
+    ${DeviceSupportHeaders}
     ${BaseHeaders}
 )
 
@@ -388,6 +486,7 @@ SET(LibUtilitySources
     ${InterpreterSources}
     ${TimeIntegrationSources}
     ${FFTSources}
+    ${DeviceSupportSources}
     ${MemorySources}
     ${GitRevisionFile}
 )
@@ -473,6 +572,205 @@ ENDIF()
 
 IF(THIRDPARTY_BUILD_BLAS_LAPACK)
     ADD_DEPENDENCIES(LibUtilities lapack-3.7.1)
+ENDIF()
+
+IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    # NekBlas
+    SET(NEKBLAS_HEADERS
+        ${NEKBLAS_HEADERS}
+        ./LinearAlgebra/Blas.hpp
+        ./LinearAlgebra/NekBlas/NekBlas.hpp
+        ./LinearAlgebra/NekBlas/blas.hpp
+    )
+
+    SET(NEKBLAS_SOURCES
+        ${NEKBLAS_SOURCES}
+        ./LinearAlgebra/NekBlas/blas.cpp
+    )
+
+    # LIBXSMM specific file
+    IF(NEKTAR_ENABLE_SIMD)
+        SET(NEKBLAS_HEADERS
+            ${NEKBLAS_HEADERS}
+            ./LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp
+            ./LinearAlgebra/NekBlas/xsmm.hpp
+        )
+
+        IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
+            SET(NEKBLAS_SOURCES
+                ${NEKBLAS_SOURCES}
+                ./LinearAlgebra/NekBlas/xsmm.cpp
+            )
+        ENDIF()
+    ENDIF()
+
+    # MAGMA specific file
+    IF(NEKTAR_USE_MAGMA)
+        SET(NEKBLAS_HEADERS
+            ${NEKBLAS_HEADERS}
+            ./LinearAlgebra/NekBlas/magma.hpp
+        )
+
+        SET(NEKBLAS_SOURCES
+            ${NEKBLAS_SOURCES}
+            ./LinearAlgebra/NekBlas/magma.cpp
+        )
+    # CUBLAS specific file
+    ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        SET(NEKBLAS_HEADERS
+            ${NEKBLAS_HEADERS}
+            ./LinearAlgebra/NekBlas/cuBlas.hpp
+        )
+
+        SET(NEKBLAS_SOURCES
+            ${NEKBLAS_SOURCES}
+            ./LinearAlgebra/NekBlas/cuBlas.cpp
+        )
+    # HIPBLAS specific file
+    ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        SET(NEKBLAS_HEADERS
+            ${NEKBLAS_HEADERS}
+            ./LinearAlgebra/NekBlas/hipBlas.hpp
+        )
+
+        SET(NEKBLAS_SOURCES
+            ${NEKBLAS_SOURCES}
+            ./LinearAlgebra/NekBlas/hipBlas.cpp
+        )
+    # MKL/OneMath specific file
+    ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        SET(NEKBLAS_HEADERS
+            ${NEKBLAS_HEADERS}
+           ./LinearAlgebra/NekBlas/oneMath.hpp
+        )
+
+        SET(NEKBLAS_SOURCES
+            ${NEKBLAS_SOURCES}
+            ./LinearAlgebra/NekBlas/oneMath.cpp
+        )
+    ENDIF()
+
+    ADD_NEKTAR_LIBRARY(NekBlas
+        SOURCES ${NEKBLAS_SOURCES}
+        HEADERS ${NEKBLAS_HEADERS}
+        SUMMARY "Nektar++ NekBlas library"
+        DESCRIPTION "This library provides classes related to NekBlas for Nektar++.")
+
+    IF(NOT BLAS_LAPACK_BUILTIN)
+        TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${BLAS_LAPACK})
+    ENDIF()
+
+    # NekBlas's SYCL BLAS path references SYCLQueue statics defined in
+    # LibUtilities, which is built after it and which NekBlas cannot link
+    # without a cycle. A Linux shared library leaves that to load time and
+    # says nothing; the macOS linker demands every symbol up front and fails.
+    # Defer resolution there so the two platforms behave alike.
+    IF(APPLE AND NEKTAR_ENABLE_DEVICE MATCHES "SYCL")
+        TARGET_LINK_OPTIONS(NekBlas PRIVATE -Wl,-undefined,dynamic_lookup)
+    ENDIF()
+    IF(THIRDPARTY_BUILD_BLAS_LAPACK)
+        ADD_DEPENDENCIES(NekBlas lapack-3.7.1)
+    ENDIF()
+    # MAGMA
+    IF(NEKTAR_USE_MAGMA)
+        # MAGMA require pubic linking
+        TARGET_LINK_LIBRARIES(NekBlas LINK_PUBLIC ${MAGMA_LIBRARY})
+        # magma.cpp calls cuBLAS/cuSPARSE (resp. hipBLAS/hipSPARSE)
+        # directly to build the MAGMA queue, so link them here rather than
+        # relying on libmagma's own dependencies.
+        IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+            TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE
+                ${CUBLAS_LIBRARY} ${CUSPARSE_LIBRARY})
+        ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+            TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE
+                ${HIPBLAS_LIBRARY} ${HIPSPARSE_LIBRARY})
+        ENDIF()
+        ADD_DEPENDENCIES(NekBlas magma-v2.10.0)
+    # CUBLAS
+    ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${CUBLAS_LIBRARY})
+    # HIPBLAS
+    ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${HIPBLAS_LIBRARY})
+    # OneMath
+    ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${ONEMATH_LIBRARY})
+        IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+            ADD_DEPENDENCIES(NekBlas onemath-v0.9)
+        ENDIF()
+    ENDIF()
+
+    # LIBXSMM
+    IF(NEKTAR_ENABLE_SIMD)
+        IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
+            TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${LIBXSMM_LIBRARY})
+            ADD_DEPENDENCIES(NekBlas libxsmm-1.17)
+        ENDIF()
+    ENDIF()
+
+    TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC NekBlas)
+
+    # CUFFT
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        IF(NEKTAR_USE_CUFFT_STATIC)
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_USE_CUFFT_STATIC)
+            SET_TARGET_PROPERTIES(LibUtilities PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS OFF)
+
+            # NekDeviceFFT.cu.o path under the CMake Makefile generator
+            SET(_nekcufft_obj
+                "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/LibUtilities.dir/FFT/NekDeviceFFT.cu.o")
+            SET(_merged_dlink
+                "${CMAKE_CURRENT_BINARY_DIR}/cufft_merged_device_link.o")
+
+            ADD_CUSTOM_COMMAND(
+                OUTPUT  "${_merged_dlink}"
+                COMMAND "${CMAKE_CUDA_COMPILER}"
+                        ${CUFFT_ARCH_FLAGS}
+                        --compiler-options=-fPIC
+                        -dlink
+                        "${_nekcufft_obj}"
+                        "$<TARGET_FILE:CUDA::cufft_static>"
+                        -o "${_merged_dlink}"
+                DEPENDS "${_nekcufft_obj}" "$<TARGET_FILE:CUDA::cufft_static>"
+                COMMENT "nvlink: merged device-link NekDeviceFFT.cu + libcufft_static (callback fat-binary)"
+                VERBATIM
+            )
+            ADD_CUSTOM_TARGET(cufft_merged_dlink DEPENDS "${_merged_dlink}")
+            ADD_DEPENDENCIES(LibUtilities cufft_merged_dlink)
+            TARGET_LINK_LIBRARIES(LibUtilities PRIVATE "${_merged_dlink}")
+        ENDIF()
+
+        IF(NEKTAR_USE_CUFFTDX)
+            # Private: only DerivZDeviceFFT.cu includes the cuFFTDx headers
+            # or tests the option.
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE
+                    $<BUILD_INTERFACE:${CUFFTDX_INCLUDE_DIR}>)
+            TARGET_INCLUDE_DIRECTORIES(LibUtilities PRIVATE
+                    $<BUILD_INTERFACE:${CUFFTDX_CUTLASS_INCLUDE_DIR}>)
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE NEKTAR_USE_CUFFTDX)
+            TARGET_COMPILE_DEFINITIONS(LibUtilities PRIVATE
+                CUFFTDX_TARGET_SM=${CUFFTDX_TARGET_SM})
+            ADD_DEPENDENCIES(LibUtilities cufftdx-25.12)
+            MESSAGE(STATUS "cuFFTDx: enabled (${CUFFTDX_INCLUDE_DIR}), SM=${CUFFTDX_TARGET_SM}")
+        ENDIF()
+        # Private: the device FFT libraries are named only by the .cu/.hip/.cpp
+        # translation units under FFT/, and the headers that reach them are not
+        # included outside LibUtilities.
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${CUFFT_LIBRARY})
+    # HIPFFT
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${HIPFFT_LIBRARY})
+    # ONEMATH / ONEMKL DFT
+    ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${ONEMATH_LIBRARY})
+        IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+            ADD_DEPENDENCIES(LibUtilities onemath-v0.9)
+        ENDIF()
+    ENDIF()
+
+    TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_CUDA_DEPENDS})
+    TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_HIP_DEPENDS})
+    TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${NEKTAR_SYCL_DEPENDS})
 ENDIF()
 
 IF( NEKTAR_USE_PETSC )

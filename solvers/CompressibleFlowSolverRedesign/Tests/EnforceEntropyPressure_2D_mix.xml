@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYMAPGKH098X/geC9Pbo8E1b5D3B1zFhNRcizoEo4oKtkxSqP0M8Gpcs8UMTh5rBjtR8hz4FdHC4PAGLNFKcA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1j7kNADAIA/P/2X/dVFfEkt1YJ8BACL+i8WQ8G0dFcuBquAmzpwvTN4Tpm2ZuCTO/Td6Re6hfyefvB2HQAMoA</EDGE>
+        <ELEMENT>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYoAAdijNAaU5oTQzlOaC0txo6lmgNBuU5kFTz4pmHi+UZoLSAB5gAHcA</T>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYEAFjFCaCUozo4mzQGlWKM2GJg8AAxgAGAAA</Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="1"> E[13,3] </C>
+            <C ID="2"> E[5,12] </C>
+            <C ID="3"> E[0,4] </C>
+            <C ID="4"> E[8,11] </C>
+            <C ID="100"> Q[0-1] </C>
+            <C ID="101"> T[2-5] </C>
+        </COMPOSITE>
+        <DOMAIN> C[100-101] </DOMAIN>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[100,101]" NUMMODES="4" TYPE="MODIFIED" FIELDS="rho,rhou,rhov,E" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> TimeStep            = 0.001                         </P>
+            <P> NumSteps            = 100                           </P>
+            <P> IO_InfoSteps        = 100                           </P>
+            <P> IO_CFLSteps         = 100                           </P>
+            <!-- Fluid properties. Duplicated in EquationOfState and
+                ReferenceValues below, which is where the redesign reads them;
+                legacy reads them from here. -->
+            <P> Gamma               = 1.4                           </P>
+            <P> Pr                  = 0.72                          </P>
+            <P> Mach                = 0.8                           </P>
+            <P> Re                  = 1.0e6                         </P>
+            <P> GasConstant         = 1/(Gamma*Mach*Mach)            </P>
+            <P> mu                  = 1.0/Re                        </P>
+            <!-- Boundary condition parameters -->
+            <P> rhoInf              = 1.0                           </P>
+            <P> TInf                = 1.0                           </P>
+            <P> pInf                = rhoInf*GasConstant*TInf        </P>
+            <P> uInf                = 1.0                           </P>
+            <P> vInf                = 0.0                           </P>
+        </PARAMETERS>
+
+        <SOLVERINFO>
+            <I PROPERTY="EQType"                VALUE="NavierStokesCFE"     />
+            <I PROPERTY="Projection"            VALUE="DisContinuous"       />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
+            <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
+            <I PROPERTY="UpwindType"            VALUE="Roe"                 />
+            <I PROPERTY="ProblemType"           VALUE="General"             />
+            <I PROPERTY="ViscosityType"         VALUE="Constant"            />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> RungeKutta </METHOD>
+            <ORDER> 4 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <EquationOfState>
+            <Type> IdealGas </Type>
+            <Parameters>
+                <Gamma>       Gamma       </Gamma>
+                <GasConstant> GasConstant </GasConstant>
+            </Parameters>
+        </EquationOfState>
+
+        <ReferenceValues>
+            <Viscosity>   mu     </Viscosity>
+            <Prandtl>     Pr     </Prandtl>
+            <Density>     rhoInf </Density>
+            <Pressure>    pInf   </Pressure>
+        </ReferenceValues>
+
+        <VARIABLES>
+            <V ID="0"> rho  </V>
+            <V ID="1"> rhou </V>
+            <V ID="2"> rhov </V>
+            <V ID="3"> E    </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[3] </B>    <!-- bottom, periodic with top -->
+            <B ID="1"> C[1] </B>    <!-- inflow  -->
+            <B ID="2"> C[2] </B>    <!-- outflow -->
+            <B ID="3"> C[4] </B>    <!-- top, periodic with bottom -->
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <P VAR="rho"  VALUE="[3]" />
+                <P VAR="rhou" VALUE="[3]" />
+                <P VAR="rhov" VALUE="[3]" />
+                <P VAR="E"    VALUE="[3]" />
+            </REGION>
+            <REGION REF="3">
+                <P VAR="rho"  VALUE="[0]" />
+                <P VAR="rhou" VALUE="[0]" />
+                <P VAR="rhov" VALUE="[0]" />
+                <P VAR="E"    VALUE="[0]" />
+            </REGION>
+            <!-- The entropy inflow takes an ordinary conserved state: the
+                energy slot really holds an energy. The outflow below puts a
+                pressure in the same slot, which is its own convention. -->
+            <REGION REF="1">
+                <D VAR="rho"  USERDEFINEDTYPE="EnforceEntropyPressure" VALUE="rhoInf" />
+                <D VAR="rhou" USERDEFINEDTYPE="EnforceEntropyPressure" VALUE="rhoInf*uInf" />
+                <D VAR="rhov" USERDEFINEDTYPE="EnforceEntropyPressure" VALUE="rhoInf*vInf" />
+                <D VAR="E"    USERDEFINEDTYPE="EnforceEntropyPressure" VALUE="pInf/(Gamma-1) + 0.5*rhoInf*(uInf*uInf + vInf*vInf)" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="rho"  USERDEFINEDTYPE="PressureOutflow" VALUE="0" />
+                <D VAR="rhou" USERDEFINEDTYPE="PressureOutflow" VALUE="0" />
+                <D VAR="rhov" USERDEFINEDTYPE="PressureOutflow" VALUE="0" />
+                <D VAR="E"    USERDEFINEDTYPE="PressureOutflow" VALUE="pInf" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <!-- Perturbed away from the freestream on purpose. With a uniform
+            initial state this condition and a plain Dirichlet at the same
+            values give identical answers, so a uniform case cannot tell them
+            apart; the bump makes the interior trace at the inflow differ from
+            the prescribed state, which is what the Riemann and entropy
+            algebra acts on. -->
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="rho"  VALUE="rhoInf*(1.0 + 0.2*exp(-40.0*((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5))))" />
+            <E VAR="rhou" VALUE="rhoInf*uInf*(1.0 + 0.2*exp(-40.0*((x-0.5)*(x-0.5)+(y-0.5)*(y-0.5))))" />
+            <E VAR="rhov" VALUE="rhoInf*vInf" />
+            <E VAR="E"    VALUE="pInf/(Gamma-1) + 0.5*rhoInf*(uInf*uInf + vInf*vInf)" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

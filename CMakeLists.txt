@@ -42,6 +42,10 @@ SET(CMAKE_CXX_STANDARD 17 CACHE STRING "Default value for CXX_STANDARD property 
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(CMAKE_CXX_EXTENSIONS OFF)
 
+# Windows options
+SET(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+SET(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
 INCLUDE(CheckLanguage)
 
 CHECK_LANGUAGE(Fortran)
@@ -229,7 +233,7 @@ SET(CMAKE_BUILD_RPATH "${TP_LIB_DIR}")
 LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
      "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}" isSystemDir)
 IF("${isSystemDir}" STREQUAL "-1")
-    SET(CMAKE_INSTALL_RPATH 
+    SET(CMAKE_INSTALL_RPATH
         "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}" "${TP_LIB_DIR}/")
 ELSE()
     SET(CMAKE_INSTALL_RPATH "${TP_LIB_DIR}")
@@ -250,6 +254,7 @@ OPTION(NEKTAR_BUILD_UNIT_TESTS        "Build unit tests."              ON)
 OPTION(NEKTAR_BUILD_TESTS             "Build regression tests."        ON)
 OPTION(NEKTAR_BUILD_PERFORMANCE_TESTS "Build performance tests."       OFF)
 OPTION(NEKTAR_BUILD_PYTHON            "Build Nektar++ Python bindings" OFF)
+OPTION(NEKTAR_ENABLE_DEVICE_SUPPORT   "Build Nektar++ device support code"   OFF)
 
 # Option to build solver libraries. Hidden if NEKTAR_BUILD_SOLVERS=OFF
 CMAKE_DEPENDENT_OPTION(NEKTAR_BUILD_SOLVER_LIBS
@@ -257,8 +262,13 @@ CMAKE_DEPENDENT_OPTION(NEKTAR_BUILD_SOLVER_LIBS
     "NEKTAR_BUILD_SOLVERS" OFF)
 
 OPTION(NEKTAR_TEST_ALL "Include full set of regression tests to this build." OFF)
+OPTION(NEKTAR_TEST_DEBUG "Include set of debugging tests to this build." OFF)
 OPTION(NEKTAR_TEST_USE_HOSTFILE "Use a hostfile to explicitly specify number of
 slots." OFF)
+
+IF (NEKTAR_TEST_DEBUG)
+    ADD_DEFINITIONS(-DNEKTAR_TEST_DEBUG)
+ENDIF()
 
 OPTION(NEKTAR_ERROR_ON_WARNINGS "Use -Werror to make warnings stop compilation." OFF)
 MARK_AS_ADVANCED(NEKTAR_ERROR_ON_WARNINGS)
@@ -287,6 +297,13 @@ MARK_AS_ADVANCED(NEKTAR_SWITCH_MIN)
 
 SET(NEKTAR_SWITCH_MAX 8 CACHE STRING "Set max range of auto generated switch")
 MARK_AS_ADVANCED(NEKTAR_SWITCH_MAX)
+MATH(EXPR NEKTAR_SWITCH_MAX_PLUSONE "${NEKTAR_SWITCH_MAX} + 1")
+
+SET(NEKTAR_SWITCH_QMAX_MUL 2 CACHE STRING "Set max quad range integer multiplier")
+MARK_AS_ADVANCED(NEKTAR_SWITCH_QMAX_MUL)
+
+SET(NEKTAR_SWITCH_QMAX_ADD 0 CACHE STRING "Set max quad range integer addition")
+MARK_AS_ADVANCED(NEKTAR_SWITCH_QMAX_ADD)
 
 # Memory pools
 OPTION(NEKTAR_USE_MEMORY_POOLS
@@ -319,6 +336,156 @@ ENDIF()
 # Include Nektar++ common macros
 INCLUDE (NektarCommon)
 
+# Device Support options
+IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
+    ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE_SUPPORT)
+    OPTION(NEKTAR_ENABLE_SINGLE_PRECISION "Enable single precision compilation" OFF)
+    OPTION(NEKTAR_ENABLE_DOUBLE_PRECISION "Enable double precision compilation" ON)
+    MARK_AS_ADVANCED(NEKTAR_ENABLE_SINGLE_PRECISION)
+    MARK_AS_ADVANCED(NEKTAR_ENABLE_DOUBLE_PRECISION)
+    IF (NEKTAR_ENABLE_SINGLE_PRECISION)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_SINGLE_PRECISION)
+    ENDIF()
+    IF (NEKTAR_ENABLE_DOUBLE_PRECISION)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_DOUBLE_PRECISION)
+    ENDIF()
+
+    IF (NEKTAR_ENABLE_SIMD)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_SIMD)
+    ENDIF()
+
+    SET(NEKTAR_ENABLE_DEVICE OFF CACHE STRING "")
+    SET_PROPERTY(CACHE NEKTAR_ENABLE_DEVICE PROPERTY STRINGS OFF CUDA HIP SYCL-CUDA SYCL-HIP SYCL-Intel)
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_CUDA)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
+        INCLUDE(NektarCUDA)
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_HIP)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
+        INCLUDE(NektarHIP)
+    ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU" OR # NOTE: Private back-ends, used for development purpose only
+            NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-SIMSYCL" OR # NOTE: Private back-ends, used for development purpose only
+            NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR 
+            NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP" OR 
+            NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
+        IF (NEKTAR_ENABLE_SIMD)
+            MESSAGE(FATAL_ERROR "Cannot use both SYCL and AVX")
+        ENDIF()
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_DEVICE)
+
+        # NEKTAR_SYCL_COMPILER names the implementation in use: AdaptiveCpp,
+        # DPC++ or SimSYCL. Everything downstream that has to know which one
+        # it is reads this rather than re-deriving it -- ThirdPartyOneMath is
+        # the current caller, for the MKL-versus-oneMath split and for
+        # ONEMATH_SYCL_IMPLEMENTATION.
+        #
+        # SimSYCL is a simulator rather than a SYCL compiler, and is opt-in.
+        # The library itself is found or built by ThirdPartySimSYCL, which
+        # has to run after ThirdPartyBoost because SimSYCL requires
+        # Boost.context. All that happens here is recording the choice, and
+        # the requirements it places on the rest of the configuration.
+        IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-SIMSYCL")
+            SET(NEKTAR_SYCL_COMPILER "SimSYCL")
+            INCLUDE(NektarSimSYCL)
+        ELSE ()
+            # Which SYCL toolchain is in use follows from CMAKE_CXX_COMPILER,
+            # so ask the compiler rather than searching for an AdaptiveCpp
+            # installation. The back-end files below put --acpp-targets or
+            # -fsycl straight into CMAKE_CXX_FLAGS, which only the compiler
+            # named at configure time can act on; a package search answers a
+            # different question, and on a machine carrying both toolchains
+            # it finds AdaptiveCpp whichever compiler was selected and then
+            # hands --acpp-targets to icpx.
+            #
+            # AdaptiveCpp identifies itself. __ADAPTIVECPP__ is the macro
+            # the sources already take as meaning AdaptiveCpp -- see the
+            # thirty or so sites in Backends.hpp, UtilsDeviceKernels.hpp and
+            # oneMath.cpp -- and nothing in this build system defines it, so
+            # the driver does. The other three spellings cover the hipSYCL
+            # and OpenSYCL releases. None of them needs flags of its own,
+            # which is what lets this run before a back-end file has chosen
+            # any.
+            INCLUDE(CheckCXXSourceCompiles)
+            CHECK_CXX_SOURCE_COMPILES("
+                #if !defined(__ADAPTIVECPP__) && !defined(__ACPP__) && !defined(__OPENSYCL__) && !defined(__HIPSYCL__)
+                #error not AdaptiveCpp
+                #endif
+                int main() { return 0; }"
+                NEKTAR_SYCL_IS_ADAPTIVECPP)
+
+            # The DPC++ family has no macro that would do the same job:
+            # __INTEL_LLVM_COMPILER is icpx only, and NektarIntelSYCL
+            # deliberately serves the open-source clang as well (its
+            # native_cpu path), which defines nothing distinctive until
+            # -fsycl is passed. So ask what the compiler can do rather than
+            # who it is -- does -fsycl put it into SYCL mode -- using
+            # SYCL_LANGUAGE_VERSION, which SYCL 2020 requires every
+            # implementation to define. An implementation that does not
+            # exist yet passes this as long as it took the -fsycl spelling
+            # with it, which is how every DPC++ derivative so far has begun.
+            SET(CMAKE_REQUIRED_FLAGS "-fsycl")
+            CHECK_CXX_SOURCE_COMPILES("
+                #include <sycl/sycl.hpp>
+                #if !defined(SYCL_LANGUAGE_VERSION)
+                #error -fsycl did not enable SYCL
+                #endif
+                int main() { return 0; }"
+                NEKTAR_SYCL_IS_DPCPP)
+            UNSET(CMAKE_REQUIRED_FLAGS)
+
+            # Both probes are positive tests, so an unrecognised compiler
+            # fails here with something readable instead of being handed to
+            # NektarIntelSYCL and failing later on an unknown argument.
+            IF (NEKTAR_SYCL_IS_ADAPTIVECPP)
+                SET(NEKTAR_SYCL_COMPILER "AdaptiveCpp")
+                INCLUDE(NektarAdaptiveCpp)
+            ELSEIF (NEKTAR_SYCL_IS_DPCPP)
+                SET(NEKTAR_SYCL_COMPILER "DPC++")
+                INCLUDE(NektarIntelSYCL)
+            ELSE()
+                MESSAGE(FATAL_ERROR
+                    "NEKTAR_ENABLE_DEVICE=${NEKTAR_ENABLE_DEVICE} needs a "
+                    "SYCL compiler, and ${CMAKE_CXX_COMPILER} "
+                    "(${CMAKE_CXX_COMPILER_ID} "
+                    "${CMAKE_CXX_COMPILER_VERSION}) is not one. It defines "
+                    "none of __ADAPTIVECPP__, __ACPP__, __OPENSYCL__ or "
+                    "__HIPSYCL__, so it is not the AdaptiveCpp driver, and "
+                    "it does not report SYCL_LANGUAGE_VERSION under -fsycl, "
+                    "so it is neither icpx nor a SYCL-enabled clang. Set "
+                    "CMAKE_CXX_COMPILER to acpp or to a DPC++ compiler; see "
+                    "CMakeFiles/CMakeError.log for what each probe did.")
+            ENDIF()
+        ENDIF()
+
+        MESSAGE(STATUS "SYCL implementation: ${NEKTAR_SYCL_COMPILER} "
+            "(${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION})")
+    ENDIF()
+
+    # Default execution spaces.
+    SET(ExecSpaces Serial)
+
+    # Optional AVX execution space.
+    IF(NEKTAR_ENABLE_SIMD)
+        SET(ExecSpaces ${ExecSpaces} AVX)
+    ENDIF()
+
+    # Optional Device execution space.
+    IF(NEKTAR_ENABLE_DEVICE)
+        SET(ExecSpaces ${ExecSpaces} Device)
+    ENDIF()
+
+    # Set default data types.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        SET(DataTypes double)
+    ENDIF()
+    IF(NEKTAR_ENABLE_SINGLE_PRECISION)
+        SET(DataTypes ${DataTypes} float)
+    ENDIF()
+
+ENDIF ()
+
 # Set various ThirdParty locations
 OPTION(THIRDPARTY_USE_SSL "Use secure HTTP connection to download third-party files." OFF)
 IF (THIRDPARTY_USE_SSL)
@@ -334,6 +501,12 @@ ENDIF()
 ADD_CUSTOM_TARGET(thirdparty)
 
 # Need to find MPI first, as other packages depend on the compiler wrappers
+
+INCLUDE (ThirdPartyLibXSMM)
+INCLUDE (ThirdPartyOneMath)
+INCLUDE (ThirdPartyMAGMA)
+# Must follow NektarCUDA
+INCLUDE (ThirdPartyCUFFTDx)
 INCLUDE (ThirdPartyMPI)
 INCLUDE (ThirdPartyTinyxml)
 INCLUDE (ThirdPartyMetis)
@@ -341,6 +514,8 @@ INCLUDE (ThirdPartyHDF5)
 INCLUDE (ThirdPartyScotch)
 INCLUDE (ThirdPartyZlib)
 INCLUDE (ThirdPartyBoost)
+# Must follow ThirdPartyBoost: SimSYCL requires Boost.context.
+INCLUDE (ThirdPartySimSYCL)
 INCLUDE (ThirdPartyPython)
 INCLUDE (ThirdPartyFFTW)
 INCLUDE (ThirdPartyArpack)

@@ -116,6 +116,41 @@ namespace Nektar
 {
 template <typename Dim, typename DataType> class Array;
 
+template <typename T> class CommPtrView
+{
+public:
+    CommPtrView(T *ptr, std::size_t count) : m_ptr(ptr), m_count(count)
+    {
+    }
+
+    T *data()
+    {
+        return m_ptr;
+    }
+    const T *data() const
+    {
+        return m_ptr;
+    }
+
+    std::size_t size() const
+    {
+        return m_count;
+    }
+
+    T &operator[](std::size_t i)
+    {
+        return m_ptr[i];
+    }
+    const T &operator[](std::size_t i) const
+    {
+        return m_ptr[i];
+    }
+
+private:
+    T *m_ptr;
+    std::size_t m_count;
+};
+
 namespace LibUtilities
 {
 int CommDataTypeGetSize(CommDataType);
@@ -196,6 +231,33 @@ public:
     }
     const static bool IsVector = true;
 };
+
+template <class elemT> class CommDataTypeTraits<CommPtrView<elemT>>
+{
+public:
+    static CommDataType &GetDataType()
+    {
+        return CommDataTypeTraits<elemT>::GetDataType();
+    }
+
+    static void *GetPointer(CommPtrView<elemT> &val)
+    {
+        return val.data();
+    }
+
+    static const void *GetPointer(const CommPtrView<elemT> &val)
+    {
+        return val.data();
+    }
+
+    static size_t GetCount(const CommPtrView<elemT> &val)
+    {
+        return val.size();
+    }
+
+    const static bool IsVector = false;
+};
+
 } // namespace LibUtilities
 } // namespace Nektar
 
