@@ -130,22 +130,21 @@ IF(NEKTAR_USE_FFTW)
 ENDIF(NEKTAR_USE_FFTW)
 
 IF(NEKTAR_ENABLE_DEVICE)
-    SET(FFTHeaders ${FFTHeaders} 
-	./FFT/NekDeviceFFT.h 
-        ./FFT/DerivZDeviceFFT.h
-        ../LibUtilities/Backends/DeviceProperties.hpp)
-    SET(FFTSources ${FFTSources} 
-        ../LibUtilities/Backends/DeviceProperties.cpp)
+    SET(FFTHeaders ${FFTHeaders}
+        ./FFT/NekDeviceFFT.h
+        ./FFT/DerivZDeviceFFT.h)
+    # The helpers include the vendor FFT headers, so they are compiled with the
+    # backend sources but not installed.
     IF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
-        SET(FFTSources ${FFTSources} 
+        SET(FFTPrivateHeaders ./FFT/NekDeviceFFTHIPCUDAHelper.h)
+        SET(FFTSources ${FFTSources}
             ./FFT/NekDeviceFFT.cu ./FFT/DerivZDeviceFFT.cu)
     ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTHIPCUDAHelper.h)
-        SET(FFTSources ${FFTSources} 
+        SET(FFTPrivateHeaders ./FFT/NekDeviceFFTHIPCUDAHelper.h)
+        SET(FFTSources ${FFTSources}
             ./FFT/NekDeviceFFT.hip ./FFT/DerivZDeviceFFT.hip)
     ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-        SET(FFTHeaders ${FFTHeaders} ./FFT/NekDeviceFFTSYCLHelper.h)
+        SET(FFTPrivateHeaders ./FFT/NekDeviceFFTSYCLHelper.h)
         SET(FFTSources ${FFTSources}
             ./FFT/NekDeviceFFT.cpp ./FFT/DerivZDeviceFFT.cpp)
     ENDIF()
@@ -445,7 +444,7 @@ SOURCE_GROUP("Communication Sources" FILES ${CommunicationSources})
 SOURCE_GROUP("TimeIntegration Headers" FILES ${TimeIntegrationHeaders})
 SOURCE_GROUP("TimeIntegration Sources" FILES ${TimeIntegrationSources})
 
-SOURCE_GROUP("FFT Headers" FILES ${FFTHeaders})
+SOURCE_GROUP("FFT Headers" FILES ${FFTHeaders} ${FFTPrivateHeaders})
 SOURCE_GROUP("FFT Sources" FILES ${FFTSources})
 
 SOURCE_GROUP("Device Support Headers" FILES ${DeviceSupportHeaders})
@@ -486,6 +485,7 @@ SET(LibUtilitySources
     ${InterpreterSources}
     ${TimeIntegrationSources}
     ${FFTSources}
+    ${FFTPrivateHeaders}
     ${DeviceSupportSources}
     ${MemorySources}
     ${GitRevisionFile}

@@ -49,12 +49,15 @@ namespace Nektar::LibUtilities
  * \brief Device-FFT-backed NektarFFT implementation supporting batched real-
  * to-complex and complex-to-real transforms with optional graph capture.
  *
- * TData must be double or float. Owns all device resources (stream, plans,
- * buffers). Non-copyable and non-movable.
+ * TData must be double or float. Owns its plans and buffers; all work is
+ * submitted to the stream that the backend's stream registry (CUDAStream,
+ * HIPStream or SYCLQueue) holds for the stream ID given at construction.
+ * Non-copyable and non-movable.
  *
- * Graph capture is a CUDA and HIP facility: the SYCL backend has no
- * equivalent, so HasGraph() stays false there and the capture entry points
- * throw rather than record.
+ * Graph capture is a CUDA and HIP facility, and needs a non-zero stream ID:
+ * ID 0 is the legacy default stream, which cannot be captured. The SYCL
+ * backend has no equivalent, so HasGraph() stays false there and the capture
+ * entry points throw rather than record.
  *
  * Internal template name is NekDeviceFFTImpl. The public aliases NekDeviceFFT
  * and NekDeviceFFTFloat refer to the double and float specialisations
@@ -73,10 +76,10 @@ public:
     /// \brief Construct a NekDeviceFFTImpl for transforms of size \p N with
     /// batch count \p M.
     ///
-    /// \param N                  Transform size (number of real points).
-    /// \param M                  Batch size (default 1).
-    /// \param highPriorityStream Use a high-priority device stream.
-    NekDeviceFFTImpl(int N, int M = 1, bool highPriorityStream = false);
+    /// \param N        Transform size (number of real points).
+    /// \param M        Batch size (default 1).
+    /// \param streamID Id of the registry stream all work is submitted to.
+    NekDeviceFFTImpl(int N, int M = 1, unsigned int streamID = 0);
 
     ~NekDeviceFFTImpl() override;
 
@@ -129,31 +132,26 @@ public:
     /// device, transform size, and batch count.
     static bool IsCacheWarmed(int deviceId, int N, int M);
 
-    /// \brief Return the device stream used by this object, as an opaque
-    ///        handle; cast to cudaStream_t / hipStream_t / sycl::queue * to
-    ///        use it.
-    void *GetStream() const
+    /// \brief Return the id of the registry stream used by this object.
+    unsigned int GetStreamID() const
     {
-        return m_stream;
+        return m_streamID;
     }
 
-    /// \brief Make this object's internal stream wait on an externally
-    ///        recorded event before any subsequent call touches device
-    ///        memory that event guards.
+    /// \brief Make this object's stream wait on the last event recorded on
+    ///        another registry stream, before any subsequent call touches
+    ///        device memory that stream produced.
     ///
-    /// m_stream is a private stream owned by this object; it does not
-    /// otherwise participate in any caller-side stream/event bookkeeping
-    /// (e.g. the Operators library's per-block stream discipline). A
-    /// caller that is about to feed this object device-resident data
-    /// produced on a different stream should record an event on that
-    /// producer stream and pass it here first -- callers that only ever
+    /// The event is the one the backend registry holds for \p
+    /// producerStreamID (recorded through CUDAStream::RecordEvent,
+    /// HIPStream::RecordEvent or SYCLQueue::SetEvent). Callers that only
     /// go through UploadPhys/UploadCoef (host pointers) do not need this,
     /// since those copies read host memory, not another stream's device
-    /// writes. No-op if \p event is null.
+    /// writes. No-op if no event has been recorded on \p producerStreamID,
+    /// or if it is this object's own stream.
     ///
-    /// \param event Opaque handle to a recorded event (a cudaEvent_t,
-    ///              hipEvent_t or sycl::event *).
-    void WaitOnEvent(void *event);
+    /// \param producerStreamID Id of the stream that produced the data.
+    void WaitOnStream(unsigned int producerStreamID);
 
     /// \brief Return the batch size (M).
     int BatchSize() const
@@ -181,9 +179,9 @@ private:
     // under hipFFT.
     // Under oneMath a single descriptor drives both directions, so the
     // SYCL backend uses m_planForward alone and leaves m_planBackward zero.
-    std::uintptr_t m_planForward  = 0;       // cufftHandle / hipfftHandle
-    std::uintptr_t m_planBackward = 0;       // cufftHandle / hipfftHandle
-    void *m_stream                = nullptr; // cudaStream_t / hipStream_t
+    std::uintptr_t m_planForward  = 0; // cufftHandle / hipfftHandle
+    std::uintptr_t m_planBackward = 0; // cufftHandle / hipfftHandle
+    unsigned int m_streamID;
 
     TData *m_d_phys     = nullptr;
     void *m_d_cmplx     = nullptr; // device half-spectrum buffer

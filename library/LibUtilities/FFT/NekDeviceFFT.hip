@@ -44,6 +44,7 @@
 #include <string>
 #include <unordered_map>
 
+#include <LibUtilities/Backends/HIPStream.hpp>
 #include <LibUtilities/FFT/NekDeviceFFT.h>
 #include <LibUtilities/FFT/NekDeviceFFTHIPCUDAHelper.h>
 
@@ -57,19 +58,13 @@ namespace
 // the static_asserts fail the build if that storage stops being wide enough.
 static_assert(sizeof(hipfftHandle) <= sizeof(std::uintptr_t),
               "NekDeviceFFT.h stores FFT plan handles as uintptr_t");
-static_assert(std::is_pointer_v<hipStream_t> && std::is_pointer_v<hipEvent_t> &&
-                  std::is_pointer_v<hipGraph_t> &&
+static_assert(std::is_pointer_v<hipGraph_t> &&
                   std::is_pointer_v<hipGraphExec_t>,
-              "NekDeviceFFT.h stores HIP handles as void *");
+              "NekDeviceFFT.h stores HIP graph handles as void *");
 
-inline hipStream_t AsStream(void *p)
+inline hipStream_t AsStream(unsigned int streamID)
 {
-    return static_cast<hipStream_t>(p);
-}
-
-inline hipEvent_t AsEvent(void *p)
-{
-    return static_cast<hipEvent_t>(p);
+    return HIPStream::GetInstance(streamID);
 }
 
 inline hipGraph_t AsGraph(void *p)
@@ -180,8 +175,8 @@ std::string NekDeviceFFTImpl<float>::className =
         "NekDeviceFFT", NekDeviceFFTImpl<float>::create);
 
 template <typename TData>
-NekDeviceFFTImpl<TData>::NekDeviceFFTImpl(int N, int M, bool highPriorityStream)
-    : NektarFFT<TData>(N), m_halfN(N / 2), m_batch(M)
+NekDeviceFFTImpl<TData>::NekDeviceFFTImpl(int N, int M, unsigned int streamID)
+    : NektarFFT<TData>(N), m_halfN(N / 2), m_batch(M), m_streamID(streamID)
 {
     const std::size_t nPhys  = static_cast<std::size_t>(M) * N;
     const std::size_t nCmplx = static_cast<std::size_t>(M) * (m_halfN + 1);
@@ -190,18 +185,6 @@ NekDeviceFFTImpl<TData>::NekDeviceFFTImpl(int N, int M, bool highPriorityStream)
     CHECK_HIPCUDA_ERROR(
         hipMalloc(&m_d_cmplx, nCmplx * sizeof(DeviceFFTCmplx<TData>)));
     CHECK_HIPCUDA_ERROR(hipHostMalloc(&m_h_staging, nPhys * sizeof(TData)));
-
-    {
-        int leastPriority, greatestPriority;
-        CHECK_HIPCUDA_ERROR(
-            hipDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
-        const int priority =
-            highPriorityStream ? greatestPriority : leastPriority;
-        hipStream_t stream = nullptr;
-        CHECK_HIPCUDA_ERROR(
-            hipStreamCreateWithPriority(&stream, hipStreamDefault, priority));
-        m_stream = stream;
-    }
 
     {
         hipfftHandle planFwd = nullptr, planBwd = nullptr;
@@ -215,9 +198,9 @@ NekDeviceFFTImpl<TData>::NekDeviceFFTImpl(int N, int M, bool highPriorityStream)
     CHECK_HIPCUDA_FFT_ERROR(hipfftSetAutoAllocation(AsPlan(m_planBackward), 0));
 
     CHECK_HIPCUDA_FFT_ERROR(
-        hipfftSetStream(AsPlan(m_planForward), AsStream(m_stream)));
+        hipfftSetStream(AsPlan(m_planForward), AsStream(m_streamID)));
     CHECK_HIPCUDA_FFT_ERROR(
-        hipfftSetStream(AsPlan(m_planBackward), AsStream(m_stream)));
+        hipfftSetStream(AsPlan(m_planBackward), AsStream(m_streamID)));
 
     std::size_t wsFwd = 0, wsBwd = 0;
     {
@@ -295,7 +278,6 @@ template <typename TData> NekDeviceFFTImpl<TData>::~NekDeviceFFTImpl()
     // codes are discarded deliberately.
     (void)hipfftDestroy(AsPlan(m_planForward));
     (void)hipfftDestroy(AsPlan(m_planBackward));
-    (void)hipStreamDestroy(AsStream(m_stream));
 
     (void)hipFree(m_d_workspace);
     (void)hipFree(m_d_phys);
@@ -369,7 +351,7 @@ template <typename TData> void NekDeviceFFTImpl<TData>::WarmUpPlans()
         CHECK_HIPCUDA_FFT_ERROR(hipfftExecC2R(
             AsPlan(m_planBackward), AsCmplx<TData>(m_d_cmplx), m_d_phys));
     }
-    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_stream)));
+    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_streamID)));
 }
 
 template <typename TData>
@@ -379,7 +361,7 @@ void NekDeviceFFTImpl<TData>::LaunchWavenumberMultiplyImpl(TData beta,
     const dim3 grid(static_cast<unsigned>(m_batch),
                     (m_halfN + 1 + m_blockSizeWave - 1) / m_blockSizeWave);
     WavenumberMultiplyKernel<TData, DeviceFFTCmplx<TData>>
-        <<<grid, m_blockSizeWave, 0, AsStream(m_stream)>>>(
+        <<<grid, m_blockSizeWave, 0, AsStream(m_streamID)>>>(
             AsCmplx<TData>(m_d_cmplx), m_halfN, beta, normScale);
 }
 
@@ -389,7 +371,7 @@ void NekDeviceFFTImpl<TData>::LaunchComplexToCoefImpl()
     const dim3 grid(static_cast<unsigned>(m_batch),
                     (m_halfN + 1 + m_blockSizeC2C - 1) / m_blockSizeC2C);
     ComplexToCoefKernel<TData, DeviceFFTCmplx<TData>, false>
-        <<<grid, m_blockSizeC2C, 0, AsStream(m_stream)>>>(
+        <<<grid, m_blockSizeC2C, 0, AsStream(m_streamID)>>>(
             AsCmplx<TData>(m_d_cmplx), m_d_phys, this->m_N, m_halfN, TData(0));
 }
 
@@ -401,7 +383,7 @@ void NekDeviceFFTImpl<TData>::LaunchScaledComplexToCoefImpl()
                     (m_halfN + 1 + m_blockSizeScaledC2C - 1) /
                         m_blockSizeScaledC2C);
     ComplexToCoefKernel<TData, DeviceFFTCmplx<TData>, true>
-        <<<grid, m_blockSizeScaledC2C, 0, AsStream(m_stream)>>>(
+        <<<grid, m_blockSizeScaledC2C, 0, AsStream(m_streamID)>>>(
             AsCmplx<TData>(m_d_cmplx), m_d_phys, this->m_N, m_halfN, invN);
 }
 
@@ -411,7 +393,7 @@ void NekDeviceFFTImpl<TData>::LaunchCoefToComplexImpl()
     const dim3 grid(static_cast<unsigned>(m_batch),
                     (m_halfN + 1 + m_blockSizeCtC - 1) / m_blockSizeCtC);
     CoefToComplexKernel<TData, DeviceFFTCmplx<TData>>
-        <<<grid, m_blockSizeCtC, 0, AsStream(m_stream)>>>(
+        <<<grid, m_blockSizeCtC, 0, AsStream(m_streamID)>>>(
             m_d_phys, AsCmplx<TData>(m_d_cmplx), this->m_N, m_halfN);
 }
 
@@ -421,16 +403,17 @@ void NekDeviceFFTImpl<TData>::LaunchScaleRealsImpl(TData alpha)
     const int nComplex = m_batch * (m_halfN + 1);
     const int blocks   = (nComplex + m_blockSizeScale - 1) / m_blockSizeScale;
     ScaleComplexKernel<TData, DeviceFFTCmplx<TData>>
-        <<<blocks, m_blockSizeScale, 0, AsStream(m_stream)>>>(
+        <<<blocks, m_blockSizeScale, 0, AsStream(m_streamID)>>>(
             AsCmplx<TData>(m_d_cmplx), nComplex, alpha);
 }
 
-template <typename TData> void NekDeviceFFTImpl<TData>::WaitOnEvent(void *event)
+template <typename TData>
+void NekDeviceFFTImpl<TData>::WaitOnStream(unsigned int producerStreamID)
 {
-    if (event != nullptr)
+    const hipEvent_t event = HIPStream::GetEvent(producerStreamID);
+    if (producerStreamID != m_streamID && event != nullptr)
     {
-        CHECK_HIPCUDA_ERROR(
-            hipStreamWaitEvent(AsStream(m_stream), AsEvent(event), 0));
+        CHECK_HIPCUDA_ERROR(hipStreamWaitEvent(AsStream(m_streamID), event, 0));
     }
 }
 
@@ -442,7 +425,7 @@ void NekDeviceFFTImpl<TData>::UploadPhys(const TData *phys)
     std::memcpy(m_h_staging, phys, nBytes);
     CHECK_HIPCUDA_ERROR(hipMemcpyAsync(m_d_phys, m_h_staging, nBytes,
                                        hipMemcpyHostToDevice,
-                                       AsStream(m_stream)));
+                                       AsStream(m_streamID)));
 }
 
 template <typename TData>
@@ -452,8 +435,8 @@ void NekDeviceFFTImpl<TData>::DownloadPhys(TData *phys)
         static_cast<std::size_t>(m_batch) * this->m_N * sizeof(TData);
     CHECK_HIPCUDA_ERROR(hipMemcpyAsync(m_h_staging, m_d_phys, nBytes,
                                        hipMemcpyDeviceToHost,
-                                       AsStream(m_stream)));
-    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_stream)));
+                                       AsStream(m_streamID)));
+    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_streamID)));
     std::memcpy(phys, m_h_staging, nBytes);
 }
 
@@ -468,7 +451,7 @@ void NekDeviceFFTImpl<TData>::UploadCoef(const TData *coef)
 
     CHECK_HIPCUDA_ERROR(hipMemcpyAsync(m_d_phys, m_h_staging, nBytes,
                                        hipMemcpyHostToDevice,
-                                       AsStream(m_stream)));
+                                       AsStream(m_streamID)));
 
     LaunchCoefToComplexImpl();
 }
@@ -483,9 +466,9 @@ void NekDeviceFFTImpl<TData>::DownloadCoef(TData *coef)
 
     CHECK_HIPCUDA_ERROR(hipMemcpyAsync(m_h_staging, m_d_phys, nBytes,
                                        hipMemcpyDeviceToHost,
-                                       AsStream(m_stream)));
+                                       AsStream(m_streamID)));
 
-    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_stream)));
+    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_streamID)));
     std::memcpy(coef, m_h_staging, nBytes);
 }
 
@@ -545,16 +528,23 @@ void NekDeviceFFTImpl<TData>::WavenumberMultiply(TData beta)
 
 template <typename TData> void NekDeviceFFTImpl<TData>::BeginGraphCapture()
 {
+    if (m_streamID == 0)
+    {
+        throw std::runtime_error(
+            "NekDeviceFFT::BeginGraphCapture: stream 0 is the legacy default "
+            "stream, which cannot be captured; use a non-zero stream ID.");
+    }
+
     m_hasGraph = false;
     DestroyRawGraph();
-    CHECK_HIPCUDA_ERROR(
-        hipStreamBeginCapture(AsStream(m_stream), hipStreamCaptureModeGlobal));
+    CHECK_HIPCUDA_ERROR(hipStreamBeginCapture(AsStream(m_streamID),
+                                              hipStreamCaptureModeGlobal));
 }
 
 template <typename TData> void NekDeviceFFTImpl<TData>::EndGraphCapture()
 {
     hipGraph_t graph = nullptr;
-    CHECK_HIPCUDA_ERROR(hipStreamEndCapture(AsStream(m_stream), &graph));
+    CHECK_HIPCUDA_ERROR(hipStreamEndCapture(AsStream(m_streamID), &graph));
     m_graph = graph;
 
     if (m_graphExec)
@@ -589,7 +579,7 @@ template <typename TData> void NekDeviceFFTImpl<TData>::LaunchGraph()
             "NekDeviceFFT::LaunchGraph: no graph captured. "
             "Call BeginGraphCapture / EndGraphCapture first.");
     CHECK_HIPCUDA_ERROR(
-        hipGraphLaunch(AsGraphExec(m_graphExec), AsStream(m_stream)));
+        hipGraphLaunch(AsGraphExec(m_graphExec), AsStream(m_streamID)));
 }
 
 template <typename TData>
@@ -623,8 +613,8 @@ void NekDeviceFFTImpl<TData>::v_FFTFwdTrans(TData *inarray, TData *outarray)
 
     CHECK_HIPCUDA_ERROR(hipMemcpyAsync(m_h_staging, m_d_phys, nBytes,
                                        hipMemcpyDeviceToHost,
-                                       AsStream(m_stream)));
-    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_stream)));
+                                       AsStream(m_streamID)));
+    CHECK_HIPCUDA_ERROR(hipStreamSynchronize(AsStream(m_streamID)));
     std::memcpy(outarray, m_h_staging, nBytes);
 }
 

@@ -50,6 +50,12 @@ using namespace Nektar::LibUtilities;
 
 static constexpr double TOL = 1.0e-12;
 
+#if !defined(NEKTAR_ENABLE_SYCL)
+// Graph capture needs a non-default stream: stream 0 is the legacy default
+// stream, which cannot be captured.
+static constexpr unsigned int GRAPH_STREAM_ID = 1;
+#endif // !NEKTAR_ENABLE_SYCL
+
 // Signal helpers
 
 static void FillSine(Array<OneD, double> &phys, int N, int k)
@@ -202,11 +208,19 @@ BOOST_AUTO_TEST_CASE(TestGraphCaptureUnsupported)
 
 #else
 
+BOOST_AUTO_TEST_CASE(TestGraphCaptureDefaultStream)
+{
+    auto fft = MemoryManager<NekDeviceFFT>::AllocateSharedPtr(16, 1);
+    BOOST_CHECK_THROW(fft->BeginGraphCapture(), std::runtime_error);
+    BOOST_CHECK(!fft->HasGraph());
+}
+
 BOOST_AUTO_TEST_CASE(TestGraphRoundTrip)
 {
     for (const int N : {16, 64, 256})
     {
-        auto fft = MemoryManager<NekDeviceFFT>::AllocateSharedPtr(N, 1);
+        auto fft = MemoryManager<NekDeviceFFT>::AllocateSharedPtr(
+            N, 1, GRAPH_STREAM_ID);
         Array<OneD, double> phys(N, 0.0), ref(N, 0.0), recv(N, 0.0);
         FillSignal(phys, N);
         fft->UploadPhys(phys.data());
@@ -329,7 +343,8 @@ BOOST_AUTO_TEST_CASE(TestFloatRoundTripDeviceResident)
 BOOST_AUTO_TEST_CASE(TestFloatGraphRoundTrip)
 {
     const int N = 64;
-    auto fft    = MemoryManager<NekDeviceFFTFloat>::AllocateSharedPtr(N, 1);
+    auto fft    = MemoryManager<NekDeviceFFTFloat>::AllocateSharedPtr(
+        N, 1, GRAPH_STREAM_ID);
     Array<OneD, float> phys(N, 0.0f), ref(N, 0.0f), recv(N, 0.0f);
     const float omega = 2.0f * static_cast<float>(M_PI) / N;
     for (int i = 0; i < N; ++i)
