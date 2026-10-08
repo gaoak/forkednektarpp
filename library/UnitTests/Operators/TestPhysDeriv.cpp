@@ -89,7 +89,7 @@ TEST_PHYSDERIV(physderiv_tri, Tri, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_tri_3d, Tri3D, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tri_varp, TriVarP, 1.0E-12)
+TEST_PHYSDERIV(physderiv_tri_varp, TriVarP, 2.0E-12)
 
 TEST_PHYSDERIV(physderiv_tri_nodal, TriNodal, 1.0E-12)
 

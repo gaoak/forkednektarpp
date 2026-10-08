@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: NekBlas backend for the Device execution space (MAGMA).
+// Vendor headers are included here, never in NekBlas.hpp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -37,6 +38,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#include <type_traits>
+#include <unordered_map>
 
 #include <magma_v2.h>
 
@@ -72,10 +75,12 @@
 
 namespace Nektar::NekBlas
 {
-std::unordered_map<unsigned int, magma_queue_t> magmaHandle::handle;
-
-magma_queue_t &magmaHandle::GetInstance(const unsigned int streamID)
+namespace
 {
+magma_queue_t GetMagmaQueue(const unsigned int streamID)
+{
+    static std::unordered_map<unsigned int, magma_queue_t> handle;
+
     if (handle.find(streamID) == handle.end())
     {
         magma_queue_t magma_queue;
@@ -108,39 +113,42 @@ magma_queue_t &magmaHandle::GetInstance(const unsigned int streamID)
 
     return handle[streamID];
 }
+} // namespace
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
-void Gemm(THandle handle, std::string transposeA, std::string transposeB,
-          const int M, const int N, const int K, const TData alpha,
-          const TData *a, const int lda, const TData *b, const int ldb,
-          const TData beta, TData *c, const int ldc)
+template <typename TData>
+void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
+          std::string transposeB, const int M, const int N, const int K,
+          const TData alpha, const TData *a, const int lda, const TData *b,
+          const int ldb, const TData beta, TData *c, const int ldc)
 {
+    auto queue = GetMagmaQueue(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
     auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         magma_sgemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c,
-                    ldc, handle);
+                    ldc, queue);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         magma_dgemm(transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c,
-                    ldc, handle);
+                    ldc, queue);
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
-void GemmStridedBatched(THandle handle, std::string transposeA,
-                        std::string transposeB, const int M, const int N,
-                        const int K, const TData alpha, const TData *a,
-                        const int lda, const int strideA, const TData *b,
-                        const int ldb, const int strideB, const TData beta,
-                        TData *c, const int ldc, const int strideC,
-                        const int batchSize)
+template <typename TData>
+void GemmStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transposeA, std::string transposeB,
+                        const int M, const int N, const int K,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *b, const int ldb,
+                        const int strideB, const TData beta, TData *c,
+                        const int ldc, const int strideC, const int batchSize)
 {
+    auto queue = GetMagmaQueue(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? MagmaNoTrans : MagmaTrans;
     auto transB = (transposeB == "N") ? MagmaNoTrans : MagmaTrans;
 
@@ -148,63 +156,66 @@ void GemmStridedBatched(THandle handle, std::string transposeA,
     {
         magmablas_sgemm_batched_strided(transA, transB, M, N, K, alpha, a, lda,
                                         strideA, b, ldb, strideB, beta, c, ldc,
-                                        strideC, batchSize, handle);
+                                        strideC, batchSize, queue);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         magmablas_dgemm_batched_strided(transA, transB, M, N, K, alpha, a, lda,
                                         strideA, b, ldb, strideB, beta, c, ldc,
-                                        strideC, batchSize, handle);
+                                        strideC, batchSize, queue);
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
-void Gemv(THandle handle, std::string transpose, const int M, const int N,
-          const TData alpha, const TData *a, const int lda, const TData *x,
-          const int incx, const TData beta, TData *y, const int incy)
+template <typename TData>
+void Gemv(Handle<NektarSpaces::Device> handle, std::string transpose,
+          const int M, const int N, const TData alpha, const TData *a,
+          const int lda, const TData *x, const int incx, const TData beta,
+          TData *y, const int incy)
 {
+    auto queue = GetMagmaQueue(handle.GetStreamID());
+
     auto trans = (transpose == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        magma_sgemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy, handle);
+        magma_sgemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy, queue);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        magma_dgemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy, handle);
+        magma_dgemv(trans, M, N, alpha, a, lda, x, incx, beta, y, incy, queue);
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
-void GemvStridedBatched(THandle handle, std::string transpose, const int M,
-                        const int N, const TData alpha, const TData *a,
-                        const int lda, const int strideA, const TData *x,
-                        const int incx, const int strideX, const TData beta,
-                        TData *y, const int incy, const int strideY,
-                        const int batchSize)
+template <typename TData>
+void GemvStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transpose, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *x, const int incx,
+                        const int strideX, const TData beta, TData *y,
+                        const int incy, const int strideY, const int batchSize)
 {
+    auto queue = GetMagmaQueue(handle.GetStreamID());
+
     auto trans = (transpose == "N") ? MagmaNoTrans : MagmaTrans;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         magmablas_sgemv_batched_strided(trans, M, N, alpha, a, lda, strideA, x,
                                         incx, strideX, beta, y, incy, strideY,
-                                        batchSize, handle);
+                                        batchSize, queue);
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         magmablas_dgemv_batched_strided(trans, M, N, alpha, a, lda, strideA, x,
                                         incx, strideX, beta, y, incy, strideY,
-                                        batchSize, handle);
+                                        batchSize, queue);
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, magma_queue_t>, bool>>
+template <typename TData>
 void GeamStridedBatched(
-    [[maybe_unused]] THandle handle, [[maybe_unused]] std::string transposeA,
+    [[maybe_unused]] Handle<NektarSpaces::Device> handle,
+    [[maybe_unused]] std::string transposeA,
     [[maybe_unused]] std::string transposeB, [[maybe_unused]] const int M,
     [[maybe_unused]] const int N, [[maybe_unused]] const TData alpha,
     [[maybe_unused]] const TData *a, [[maybe_unused]] const int lda,
@@ -218,7 +229,8 @@ void GeamStridedBatched(
     throw std::runtime_error(
         "GeamStridedBatched is not available for MAGMA with CUDA");
 #elif defined(NEKTAR_ENABLE_HIP)
-    auto hipblasHandle = magma_queue_get_hipblas_handle(handle);
+    auto queue         = GetMagmaQueue(handle.GetStreamID());
+    auto hipblasHandle = magma_queue_get_hipblas_handle(queue);
     auto transA        = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB        = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
@@ -237,65 +249,71 @@ void GeamStridedBatched(
 #endif
 }
 
-template void Gemm<magma_queue_t, float>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const float alpha, const float *a,
-    const int lda, const float *b, const int ldb, const float beta, float *c,
-    const int ldc);
+template void Gemm<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transposeA, std::string transposeB,
+                          const int M, const int N, const int K,
+                          const float alpha, const float *a, const int lda,
+                          const float *b, const int ldb, const float beta,
+                          float *c, const int ldc);
 
-template void Gemm<magma_queue_t, double>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const double alpha, const double *a,
-    const int lda, const double *b, const int ldb, const double beta, double *c,
-    const int ldc);
+template void Gemm<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transposeA, std::string transposeB,
+                           const int M, const int N, const int K,
+                           const double alpha, const double *a, const int lda,
+                           const double *b, const int ldb, const double beta,
+                           double *c, const int ldc);
 
-template void GemmStridedBatched<magma_queue_t, float>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const float alpha, const float *a,
-    const int lda, const int strideA, const float *b, const int ldb,
-    const int strideB, const float beta, float *c, const int ldc,
-    const int strideC, const int batchSize);
-
-template void GemmStridedBatched<magma_queue_t, double>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const double alpha, const double *a,
-    const int lda, const int strideA, const double *b, const int ldb,
-    const int strideB, const double beta, double *c, const int ldc,
-    const int strideC, const int batchSize);
-
-template void Gemv<magma_queue_t, float>(
-    magma_queue_t handle, std::string transpose, const int M, const int N,
-    const float alpha, const float *a, const int lda, const float *x,
-    const int incx, const float beta, float *y, const int incy);
-
-template void Gemv<magma_queue_t, double>(
-    magma_queue_t handle, std::string transpose, const int M, const int N,
-    const double alpha, const double *a, const int lda, const double *x,
-    const int incx, const double beta, double *y, const int incy);
-
-template void GemvStridedBatched<magma_queue_t, float>(
-    magma_queue_t handle, std::string transpose, const int M, const int N,
+template void GemmStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
     const float alpha, const float *a, const int lda, const int strideA,
-    const float *x, const int incx, const int strideX, const float beta,
-    float *y, const int incy, const int strideY, const int batchSize);
+    const float *b, const int ldb, const int strideB, const float beta,
+    float *c, const int ldc, const int strideC, const int batchSize);
 
-template void GemvStridedBatched<magma_queue_t, double>(
-    magma_queue_t handle, std::string transpose, const int M, const int N,
+template void GemmStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
     const double alpha, const double *a, const int lda, const int strideA,
-    const double *x, const int incx, const int strideX, const double beta,
-    double *y, const int incy, const int strideY, const int batchSize);
+    const double *b, const int ldb, const int strideB, const double beta,
+    double *c, const int ldc, const int strideC, const int batchSize);
 
-template void GeamStridedBatched<magma_queue_t, float>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const float alpha, const float *a, const int lda,
-    const int strideA, const float beta, const float *b, const int ldb,
-    const int strideB, float *c, const int ldc, const int strideC,
+template void Gemv<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transpose, const int M, const int N,
+                          const float alpha, const float *a, const int lda,
+                          const float *x, const int incx, const float beta,
+                          float *y, const int incy);
+
+template void Gemv<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transpose, const int M, const int N,
+                           const double alpha, const double *a, const int lda,
+                           const double *x, const int incx, const double beta,
+                           double *y, const int incy);
+
+template void GemvStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float *x, const int incx, const int strideX,
+    const float beta, float *y, const int incy, const int strideY,
     const int batchSize);
 
-template void GeamStridedBatched<magma_queue_t, double>(
-    magma_queue_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const double alpha, const double *a,
-    const int lda, const int strideA, const double beta, const double *b,
-    const int ldb, const int strideB, double *c, const int ldc,
+template void GemvStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const double alpha, const double *a, const int lda,
+    const int strideA, const double *x, const int incx, const int strideX,
+    const double beta, double *y, const int incy, const int strideY,
+    const int batchSize);
+
+template void GeamStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const float alpha,
+    const float *a, const int lda, const int strideA, const float beta,
+    const float *b, const int ldb, const int strideB, float *c, const int ldc,
+    const int strideC, const int batchSize);
+
+template void GeamStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const double alpha,
+    const double *a, const int lda, const int strideA, const double beta,
+    const double *b, const int ldb, const int strideB, double *c, const int ldc,
     const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

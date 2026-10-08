@@ -70,7 +70,7 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOp.hpp>
 
 namespace Nektar::MultiRegions::detail

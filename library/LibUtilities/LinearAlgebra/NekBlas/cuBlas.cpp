@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: NekBlas backend for the Device execution space (cuBLAS).
+// Vendor headers are included here, never in NekBlas.hpp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -40,6 +41,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#include <type_traits>
 
 #include <cublas_v2.h>
 
@@ -57,10 +59,12 @@
 
 namespace Nektar::NekBlas
 {
-cublasHandle_t cuBlasHandle::handle = nullptr;
-
-cublasHandle_t &cuBlasHandle::GetInstance(const unsigned int streamID)
+namespace
 {
+cublasHandle_t GetCuBlasHandle(const unsigned int streamID)
+{
+    static cublasHandle_t handle = nullptr;
+
     if (!handle)
     {
         if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
@@ -73,170 +77,182 @@ cublasHandle_t &cuBlasHandle::GetInstance(const unsigned int streamID)
 
     return handle;
 }
+} // namespace
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
-void Gemm(THandle handle, std::string transposeA, std::string transposeB,
-          const int M, const int N, const int K, const TData alpha,
-          const TData *a, const int lda, const TData *b, const int ldb,
-          const TData beta, TData *c, const int ldc)
+template <typename TData>
+void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
+          std::string transposeB, const int M, const int N, const int K,
+          const TData alpha, const TData *a, const int lda, const TData *b,
+          const int ldb, const TData beta, TData *c, const int ldc)
 {
+    auto cublasHandle = GetCuBlasHandle(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
     auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                 lda, b, ldb, &beta, c, ldc));
+        CUBLAS_CHECK(cublasSgemm(cublasHandle, transA, transB, M, N, K, &alpha,
+                                 a, lda, b, ldb, &beta, c, ldc));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                 lda, b, ldb, &beta, c, ldc));
+        CUBLAS_CHECK(cublasDgemm(cublasHandle, transA, transB, M, N, K, &alpha,
+                                 a, lda, b, ldb, &beta, c, ldc));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
-void GemmStridedBatched(THandle handle, std::string transposeA,
-                        std::string transposeB, const int M, const int N,
-                        const int K, const TData alpha, const TData *a,
-                        const int lda, const int strideA, const TData *b,
-                        const int ldb, const int strideB, const TData beta,
-                        TData *c, const int ldc, const int strideC,
-                        const int batchSize)
+template <typename TData>
+void GemmStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transposeA, std::string transposeB,
+                        const int M, const int N, const int K,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *b, const int ldb,
+                        const int strideB, const TData beta, TData *c,
+                        const int ldc, const int strideC, const int batchSize)
 {
+    auto cublasHandle = GetCuBlasHandle(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
     auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         CUBLAS_CHECK(cublasSgemmStridedBatched(
-            handle, transA, transB, M, N, K, &alpha, a, lda, strideA, b, ldb,
-            strideB, &beta, c, ldc, strideC, batchSize));
+            cublasHandle, transA, transB, M, N, K, &alpha, a, lda, strideA, b,
+            ldb, strideB, &beta, c, ldc, strideC, batchSize));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         CUBLAS_CHECK(cublasDgemmStridedBatched(
-            handle, transA, transB, M, N, K, &alpha, a, lda, strideA, b, ldb,
-            strideB, &beta, c, ldc, strideC, batchSize));
+            cublasHandle, transA, transB, M, N, K, &alpha, a, lda, strideA, b,
+            ldb, strideB, &beta, c, ldc, strideC, batchSize));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
-void Gemv(THandle handle, std::string transpose, const int M, const int N,
-          const TData alpha, const TData *a, const int lda, const TData *x,
-          const int incx, const TData beta, TData *y, const int incy)
+template <typename TData>
+void Gemv(Handle<NektarSpaces::Device> handle, std::string transpose,
+          const int M, const int N, const TData alpha, const TData *a,
+          const int lda, const TData *x, const int incx, const TData beta,
+          TData *y, const int incy)
 {
+    auto cublasHandle = GetCuBlasHandle(handle.GetStreamID());
+
     auto trans = (transpose == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        CUBLAS_CHECK(cublasSgemv(handle, trans, M, N, &alpha, a, lda, x, incx,
-                                 &beta, y, incy));
+        CUBLAS_CHECK(cublasSgemv(cublasHandle, trans, M, N, &alpha, a, lda, x,
+                                 incx, &beta, y, incy));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        CUBLAS_CHECK(cublasDgemv(handle, trans, M, N, &alpha, a, lda, x, incx,
-                                 &beta, y, incy));
+        CUBLAS_CHECK(cublasDgemv(cublasHandle, trans, M, N, &alpha, a, lda, x,
+                                 incx, &beta, y, incy));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
-void GemvStridedBatched(THandle handle, std::string transpose, const int M,
-                        const int N, const TData alpha, const TData *a,
-                        const int lda, const int strideA, const TData *x,
-                        const int incx, const int strideX, const TData beta,
-                        TData *y, const int incy, const int strideY,
-                        const int batchSize)
+template <typename TData>
+void GemvStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transpose, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *x, const int incx,
+                        const int strideX, const TData beta, TData *y,
+                        const int incy, const int strideY, const int batchSize)
 {
+    auto cublasHandle = GetCuBlasHandle(handle.GetStreamID());
+
     auto trans = (transpose == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         CUBLAS_CHECK(cublasSgemvStridedBatched(
-            handle, trans, M, N, &alpha, a, lda, strideA, x, incx, strideX,
-            &beta, y, incy, strideY, batchSize));
+            cublasHandle, trans, M, N, &alpha, a, lda, strideA, x, incx,
+            strideX, &beta, y, incy, strideY, batchSize));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         CUBLAS_CHECK(cublasDgemvStridedBatched(
-            handle, trans, M, N, &alpha, a, lda, strideA, x, incx, strideX,
-            &beta, y, incy, strideY, batchSize));
+            cublasHandle, trans, M, N, &alpha, a, lda, strideA, x, incx,
+            strideX, &beta, y, incy, strideY, batchSize));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, cublasHandle_t>, bool>>
-void GeamStridedBatched(THandle, std::string, std::string, const int, const int,
-                        const TData, const TData *, const int, const int,
-                        const TData, const TData *, const int, const int,
-                        TData *, const int, const int, const int)
+template <typename TData>
+void GeamStridedBatched(Handle<NektarSpaces::Device>, std::string, std::string,
+                        const int, const int, const TData, const TData *,
+                        const int, const int, const TData, const TData *,
+                        const int, const int, TData *, const int, const int,
+                        const int)
 {
     throw std::runtime_error("GeamStridedBatched is not available for cuBLAS");
 }
 
-template void Gemm<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const float alpha, const float *a,
-    const int lda, const float *b, const int ldb, const float beta, float *c,
-    const int ldc);
+template void Gemm<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transposeA, std::string transposeB,
+                          const int M, const int N, const int K,
+                          const float alpha, const float *a, const int lda,
+                          const float *b, const int ldb, const float beta,
+                          float *c, const int ldc);
 
-template void Gemm<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const double alpha, const double *a,
-    const int lda, const double *b, const int ldb, const double beta, double *c,
-    const int ldc);
+template void Gemm<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transposeA, std::string transposeB,
+                           const int M, const int N, const int K,
+                           const double alpha, const double *a, const int lda,
+                           const double *b, const int ldb, const double beta,
+                           double *c, const int ldc);
 
-template void GemmStridedBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const float alpha, const float *a,
-    const int lda, const int strideA, const float *b, const int ldb,
-    const int strideB, const float beta, float *c, const int ldc,
-    const int strideC, const int batchSize);
-
-template void GemmStridedBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const double alpha, const double *a,
-    const int lda, const int strideA, const double *b, const int ldb,
-    const int strideB, const double beta, double *c, const int ldc,
-    const int strideC, const int batchSize);
-
-template void Gemv<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
-    const float alpha, const float *a, const int lda, const float *x,
-    const int incx, const float beta, float *y, const int incy);
-
-template void Gemv<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
-    const double alpha, const double *a, const int lda, const double *x,
-    const int incx, const double beta, double *y, const int incy);
-
-template void GemvStridedBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
+template void GemmStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
     const float alpha, const float *a, const int lda, const int strideA,
-    const float *x, const int incx, const int strideX, const float beta,
-    float *y, const int incy, const int strideY, const int batchSize);
+    const float *b, const int ldb, const int strideB, const float beta,
+    float *c, const int ldc, const int strideC, const int batchSize);
 
-template void GemvStridedBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transpose, const int M, const int N,
+template void GemmStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
     const double alpha, const double *a, const int lda, const int strideA,
-    const double *x, const int incx, const int strideX, const double beta,
-    double *y, const int incy, const int strideY, const int batchSize);
+    const double *b, const int ldb, const int strideB, const double beta,
+    double *c, const int ldc, const int strideC, const int batchSize);
 
-template void GeamStridedBatched<cublasHandle_t, float>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const float alpha, const float *a, const int lda,
-    const int strideA, const float beta, const float *b, const int ldb,
-    const int strideB, float *c, const int ldc, const int strideC,
+template void Gemv<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transpose, const int M, const int N,
+                          const float alpha, const float *a, const int lda,
+                          const float *x, const int incx, const float beta,
+                          float *y, const int incy);
+
+template void Gemv<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transpose, const int M, const int N,
+                           const double alpha, const double *a, const int lda,
+                           const double *x, const int incx, const double beta,
+                           double *y, const int incy);
+
+template void GemvStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float *x, const int incx, const int strideX,
+    const float beta, float *y, const int incy, const int strideY,
     const int batchSize);
 
-template void GeamStridedBatched<cublasHandle_t, double>(
-    cublasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const double alpha, const double *a,
-    const int lda, const int strideA, const double beta, const double *b,
-    const int ldb, const int strideB, double *c, const int ldc,
+template void GemvStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const double alpha, const double *a, const int lda,
+    const int strideA, const double *x, const int incx, const int strideX,
+    const double beta, double *y, const int incy, const int strideY,
+    const int batchSize);
+
+template void GeamStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const float alpha,
+    const float *a, const int lda, const int strideA, const float beta,
+    const float *b, const int ldb, const int strideB, float *c, const int ldc,
+    const int strideC, const int batchSize);
+
+template void GeamStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const double alpha,
+    const double *a, const int lda, const int strideA, const double beta,
+    const double *b, const int ldb, const int strideB, double *c, const int ldc,
     const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

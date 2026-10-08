@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: NekBlas backend for the Device execution space (hipBLAS).
+// Vendor headers are included here, never in NekBlas.hpp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,6 +40,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <type_traits>
 
 #include <hipblas/hipblas.h>
 
@@ -56,10 +58,12 @@
 
 namespace Nektar::NekBlas
 {
-hipblasHandle_t hipBlasHandle::handle = nullptr;
-
-hipblasHandle_t &hipBlasHandle::GetInstance(const unsigned int streamID)
+namespace
 {
+hipblasHandle_t GetHipBlasHandle(const unsigned int streamID)
+{
+    static hipblasHandle_t handle = nullptr;
+
     if (!handle)
     {
         if (hipblasCreate(&handle) != HIPBLAS_STATUS_SUCCESS)
@@ -71,186 +75,200 @@ hipblasHandle_t &hipBlasHandle::GetInstance(const unsigned int streamID)
     HIPBLAS_CHECK(hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
     return handle;
 }
+} // namespace
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void Gemm(THandle handle, std::string transposeA, std::string transposeB,
-          const int M, const int N, const int K, const TData alpha,
-          const TData *a, const int lda, const TData *b, const int ldb,
-          const TData beta, TData *c, const int ldc)
+template <typename TData>
+void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
+          std::string transposeB, const int M, const int N, const int K,
+          const TData alpha, const TData *a, const int lda, const TData *b,
+          const int ldb, const TData beta, TData *c, const int ldc)
 {
+    auto hipblasHandle = GetHipBlasHandle(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        HIPBLAS_CHECK(hipblasSgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                   lda, b, ldb, &beta, c, ldc));
+        HIPBLAS_CHECK(hipblasSgemm(hipblasHandle, transA, transB, M, N, K,
+                                   &alpha, a, lda, b, ldb, &beta, c, ldc));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        HIPBLAS_CHECK(hipblasDgemm(handle, transA, transB, M, N, K, &alpha, a,
-                                   lda, b, ldb, &beta, c, ldc));
+        HIPBLAS_CHECK(hipblasDgemm(hipblasHandle, transA, transB, M, N, K,
+                                   &alpha, a, lda, b, ldb, &beta, c, ldc));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void GemmStridedBatched(THandle handle, std::string transposeA,
-                        std::string transposeB, const int M, const int N,
-                        const int K, const TData alpha, const TData *a,
-                        const int lda, const int strideA, const TData *b,
-                        const int ldb, const int strideB, const TData beta,
-                        TData *c, const int ldc, const int strideC,
-                        const int batchSize)
+template <typename TData>
+void GemmStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transposeA, std::string transposeB,
+                        const int M, const int N, const int K,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *b, const int ldb,
+                        const int strideB, const TData beta, TData *c,
+                        const int ldc, const int strideC, const int batchSize)
 {
+    auto hipblasHandle = GetHipBlasHandle(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         HIPBLAS_CHECK(hipblasSgemmStridedBatched(
-            handle, transA, transB, M, N, K, &alpha, a, lda, strideA, b, ldb,
-            strideB, &beta, c, ldc, strideC, batchSize));
+            hipblasHandle, transA, transB, M, N, K, &alpha, a, lda, strideA, b,
+            ldb, strideB, &beta, c, ldc, strideC, batchSize));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         HIPBLAS_CHECK(hipblasDgemmStridedBatched(
-            handle, transA, transB, M, N, K, &alpha, a, lda, strideA, b, ldb,
-            strideB, &beta, c, ldc, strideC, batchSize));
+            hipblasHandle, transA, transB, M, N, K, &alpha, a, lda, strideA, b,
+            ldb, strideB, &beta, c, ldc, strideC, batchSize));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void Gemv(THandle handle, std::string transpose, const int M, const int N,
-          const TData alpha, const TData *a, const int lda, const TData *x,
-          const int incx, const TData beta, TData *y, const int incy)
+template <typename TData>
+void Gemv(Handle<NektarSpaces::Device> handle, std::string transpose,
+          const int M, const int N, const TData alpha, const TData *a,
+          const int lda, const TData *x, const int incx, const TData beta,
+          TData *y, const int incy)
 {
+    auto hipblasHandle = GetHipBlasHandle(handle.GetStreamID());
+
     auto trans = (transpose == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
-        HIPBLAS_CHECK(hipblasSgemv(handle, trans, M, N, &alpha, a, lda, x, incx,
-                                   &beta, y, incy));
+        HIPBLAS_CHECK(hipblasSgemv(hipblasHandle, trans, M, N, &alpha, a, lda,
+                                   x, incx, &beta, y, incy));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        HIPBLAS_CHECK(hipblasDgemv(handle, trans, M, N, &alpha, a, lda, x, incx,
-                                   &beta, y, incy));
+        HIPBLAS_CHECK(hipblasDgemv(hipblasHandle, trans, M, N, &alpha, a, lda,
+                                   x, incx, &beta, y, incy));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void GemvStridedBatched(THandle handle, std::string transpose, const int M,
-                        const int N, const TData alpha, const TData *a,
-                        const int lda, const int strideA, const TData *x,
-                        const int incx, const int strideX, const TData beta,
-                        TData *y, const int incy, const int strideY,
-                        const int batchSize)
+template <typename TData>
+void GemvStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transpose, const int M, const int N,
+                        const TData alpha, const TData *a, const int lda,
+                        const int strideA, const TData *x, const int incx,
+                        const int strideX, const TData beta, TData *y,
+                        const int incy, const int strideY, const int batchSize)
 {
+    auto hipblasHandle = GetHipBlasHandle(handle.GetStreamID());
+
     auto trans = (transpose == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         HIPBLAS_CHECK(hipblasSgemvStridedBatched(
-            handle, trans, M, N, &alpha, a, lda, strideA, x, incx, strideX,
-            &beta, y, incy, strideY, batchSize));
+            hipblasHandle, trans, M, N, &alpha, a, lda, strideA, x, incx,
+            strideX, &beta, y, incy, strideY, batchSize));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         HIPBLAS_CHECK(hipblasDgemvStridedBatched(
-            handle, trans, M, N, &alpha, a, lda, strideA, x, incx, strideX,
-            &beta, y, incy, strideY, batchSize));
+            hipblasHandle, trans, M, N, &alpha, a, lda, strideA, x, incx,
+            strideX, &beta, y, incy, strideY, batchSize));
     }
 }
 
-template <typename THandle, typename TData,
-          std::enable_if_t<std::is_same_v<THandle, hipblasHandle_t>, bool>>
-void GeamStridedBatched(THandle handle, std::string transposeA,
-                        std::string transposeB, const int M, const int N,
-                        const TData alpha, const TData *a, const int lda,
-                        const int strideA, const TData beta, const TData *b,
-                        const int ldb, const int strideB, TData *c,
-                        const int ldc, const int strideC, const int batchSize)
+template <typename TData>
+void GeamStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transposeA, std::string transposeB,
+                        const int M, const int N, const TData alpha,
+                        const TData *a, const int lda, const int strideA,
+                        const TData beta, const TData *b, const int ldb,
+                        const int strideB, TData *c, const int ldc,
+                        const int strideC, const int batchSize)
 {
+    auto hipblasHandle = GetHipBlasHandle(handle.GetStreamID());
+
     auto transA = (transposeA == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
     auto transB = (transposeB == "N") ? HIPBLAS_OP_N : HIPBLAS_OP_T;
 
     if constexpr (std::is_same_v<TData, float>)
     {
         HIPBLAS_CHECK(hipblasSgeamStridedBatched(
-            handle, transA, transB, M, N, &alpha, a, lda, strideA, &beta, b,
-            ldb, strideB, c, ldc, strideC, batchSize));
+            hipblasHandle, transA, transB, M, N, &alpha, a, lda, strideA, &beta,
+            b, ldb, strideB, c, ldc, strideC, batchSize));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
         HIPBLAS_CHECK(hipblasDgeamStridedBatched(
-            handle, transA, transB, M, N, &alpha, a, lda, strideA, &beta, b,
-            ldb, strideB, c, ldc, strideC, batchSize));
+            hipblasHandle, transA, transB, M, N, &alpha, a, lda, strideA, &beta,
+            b, ldb, strideB, c, ldc, strideC, batchSize));
     }
 }
 
-template void Gemm<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const float alpha, const float *a,
-    const int lda, const float *b, const int ldb, const float beta, float *c,
-    const int ldc);
+template void Gemm<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transposeA, std::string transposeB,
+                          const int M, const int N, const int K,
+                          const float alpha, const float *a, const int lda,
+                          const float *b, const int ldb, const float beta,
+                          float *c, const int ldc);
 
-template void Gemm<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const double alpha, const double *a,
-    const int lda, const double *b, const int ldb, const double beta, double *c,
-    const int ldc);
+template void Gemm<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transposeA, std::string transposeB,
+                           const int M, const int N, const int K,
+                           const double alpha, const double *a, const int lda,
+                           const double *b, const int ldb, const double beta,
+                           double *c, const int ldc);
 
-template void GemmStridedBatched<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const float alpha, const float *a,
-    const int lda, const int strideA, const float *b, const int ldb,
-    const int strideB, const float beta, float *c, const int ldc,
-    const int strideC, const int batchSize);
-
-template void GemmStridedBatched<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const int K, const double alpha, const double *a,
-    const int lda, const int strideA, const double *b, const int ldb,
-    const int strideB, const double beta, double *c, const int ldc,
-    const int strideC, const int batchSize);
-
-template void Gemv<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transpose, const int M, const int N,
-    const float alpha, const float *a, const int lda, const float *x,
-    const int incx, const float beta, float *y, const int incy);
-
-template void Gemv<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transpose, const int M, const int N,
-    const double alpha, const double *a, const int lda, const double *x,
-    const int incx, const double beta, double *y, const int incy);
-
-template void GemvStridedBatched<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transpose, const int M, const int N,
+template void GemmStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
     const float alpha, const float *a, const int lda, const int strideA,
-    const float *x, const int incx, const int strideX, const float beta,
-    float *y, const int incy, const int strideY, const int batchSize);
+    const float *b, const int ldb, const int strideB, const float beta,
+    float *c, const int ldc, const int strideC, const int batchSize);
 
-template void GemvStridedBatched<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transpose, const int M, const int N,
+template void GemmStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const int K,
     const double alpha, const double *a, const int lda, const int strideA,
-    const double *x, const int incx, const int strideX, const double beta,
-    double *y, const int incy, const int strideY, const int batchSize);
+    const double *b, const int ldb, const int strideB, const double beta,
+    double *c, const int ldc, const int strideC, const int batchSize);
 
-template void GeamStridedBatched<hipblasHandle_t, float>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const float alpha, const float *a, const int lda,
-    const int strideA, const float beta, const float *b, const int ldb,
-    const int strideB, float *c, const int ldc, const int strideC,
+template void Gemv<float>(Handle<NektarSpaces::Device> handle,
+                          std::string transpose, const int M, const int N,
+                          const float alpha, const float *a, const int lda,
+                          const float *x, const int incx, const float beta,
+                          float *y, const int incy);
+
+template void Gemv<double>(Handle<NektarSpaces::Device> handle,
+                           std::string transpose, const int M, const int N,
+                           const double alpha, const double *a, const int lda,
+                           const double *x, const int incx, const double beta,
+                           double *y, const int incy);
+
+template void GemvStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const float alpha, const float *a, const int lda,
+    const int strideA, const float *x, const int incx, const int strideX,
+    const float beta, float *y, const int incy, const int strideY,
     const int batchSize);
 
-template void GeamStridedBatched<hipblasHandle_t, double>(
-    hipblasHandle_t handle, std::string transposeA, std::string transposeB,
-    const int M, const int N, const double alpha, const double *a,
-    const int lda, const int strideA, const double beta, const double *b,
-    const int ldb, const int strideB, double *c, const int ldc,
+template void GemvStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transpose, const int M,
+    const int N, const double alpha, const double *a, const int lda,
+    const int strideA, const double *x, const int incx, const int strideX,
+    const double beta, double *y, const int incy, const int strideY,
+    const int batchSize);
+
+template void GeamStridedBatched<float>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const float alpha,
+    const float *a, const int lda, const int strideA, const float beta,
+    const float *b, const int ldb, const int strideB, float *c, const int ldc,
+    const int strideC, const int batchSize);
+
+template void GeamStridedBatched<double>(
+    Handle<NektarSpaces::Device> handle, std::string transposeA,
+    std::string transposeB, const int M, const int N, const double alpha,
+    const double *a, const int lda, const int strideA, const double beta,
+    const double *b, const int ldb, const int strideB, double *c, const int ldc,
     const int strideC, const int batchSize);
 } // namespace Nektar::NekBlas

@@ -580,7 +580,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         ${NEKBLAS_HEADERS}
         ./LinearAlgebra/Blas.hpp
         ./LinearAlgebra/NekBlas/NekBlas.hpp
-        ./LinearAlgebra/NekBlas/blas.hpp
+        ./LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp
     )
 
     SET(NEKBLAS_SOURCES
@@ -590,12 +590,6 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # LIBXSMM specific file
     IF(NEKTAR_ENABLE_SIMD)
-        SET(NEKBLAS_HEADERS
-            ${NEKBLAS_HEADERS}
-            ./LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp
-            ./LinearAlgebra/NekBlas/xsmm.hpp
-        )
-
         IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
             SET(NEKBLAS_SOURCES
                 ${NEKBLAS_SOURCES}
@@ -606,44 +600,24 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # MAGMA specific file
     IF(NEKTAR_USE_MAGMA)
-        SET(NEKBLAS_HEADERS
-            ${NEKBLAS_HEADERS}
-            ./LinearAlgebra/NekBlas/magma.hpp
-        )
-
         SET(NEKBLAS_SOURCES
             ${NEKBLAS_SOURCES}
             ./LinearAlgebra/NekBlas/magma.cpp
         )
     # CUBLAS specific file
     ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "CUDA")
-        SET(NEKBLAS_HEADERS
-            ${NEKBLAS_HEADERS}
-            ./LinearAlgebra/NekBlas/cuBlas.hpp
-        )
-
         SET(NEKBLAS_SOURCES
             ${NEKBLAS_SOURCES}
             ./LinearAlgebra/NekBlas/cuBlas.cpp
         )
     # HIPBLAS specific file
     ELSEIF(NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
-        SET(NEKBLAS_HEADERS
-            ${NEKBLAS_HEADERS}
-            ./LinearAlgebra/NekBlas/hipBlas.hpp
-        )
-
         SET(NEKBLAS_SOURCES
             ${NEKBLAS_SOURCES}
             ./LinearAlgebra/NekBlas/hipBlas.cpp
         )
     # MKL/OneMath specific file
     ELSEIF(NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
-        SET(NEKBLAS_HEADERS
-            ${NEKBLAS_HEADERS}
-           ./LinearAlgebra/NekBlas/oneMath.hpp
-        )
-
         SET(NEKBLAS_SOURCES
             ${NEKBLAS_SOURCES}
             ./LinearAlgebra/NekBlas/oneMath.cpp

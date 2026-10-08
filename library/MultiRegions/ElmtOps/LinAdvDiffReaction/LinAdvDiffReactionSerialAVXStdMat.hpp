@@ -37,7 +37,7 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp>
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionSerialAVXStdMatKernels.hpp>

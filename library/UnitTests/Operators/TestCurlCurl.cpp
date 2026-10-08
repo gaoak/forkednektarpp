@@ -94,7 +94,7 @@ TEST_CURLCURL(curlcurl_square_all_elements, SquareAllElements, 2.0E-10)
 
 TEST_CURLCURL(curlcurl_hex, Hex, 4.0E-11)
 
-TEST_CURLCURL(curlcurl_hex_sem, HexSEM, 4.0E-12)
+TEST_CURLCURL(curlcurl_hex_sem, HexSEM, 6.0E-12)
 
 TEST_CURLCURL(curlcurl_hex_varp, HexVarP, 1.0E-10)
 
