@@ -2845,7 +2845,7 @@
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="EulerImplicitCFE"    />
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
-            <I PROPERTY="AdvectioType"          VALUE="WeakDG"              />
+            <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
         </SOLVERINFO>

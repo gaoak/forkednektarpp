@@ -59,7 +59,6 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"     />
             <I PROPERTY="UpwindType"            VALUE="AUSM1"               />
-            <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ShockCaptureType"      VALUE="Physical"            />
             <I PROPERTY="ShockSensorType"       VALUE="Dilatation"          />
             <I PROPERTY="DucrosSensor"          VALUE="On"                  />

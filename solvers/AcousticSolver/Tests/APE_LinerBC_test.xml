@@ -41,7 +41,7 @@
             <P> TimeStep      = 1e-07                   </P>
             <P> NumSteps      = 300                     </P>
             <P> FinTime       = TimeStep*NumSteps       </P>
-            <P> I0_InfoSteps  = 10                      </P>
+            <P> IO_InfoSteps  = 10                      </P>
 
             <P> LinerType     = 0                       </P>
             <P> w0             = 1.129341573967544e+03  </P>

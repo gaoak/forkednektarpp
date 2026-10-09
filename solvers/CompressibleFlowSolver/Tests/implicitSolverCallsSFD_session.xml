@@ -15,7 +15,6 @@
             <I PROPERTY="AdvectionAdvancement"  VALUE="Implicit"            />
             <I PROPERTY="DiffusionAdvancement"  VALUE="Implicit"            />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
-            <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
             <I PROPERTY="Driver"                VALUE="SteadyState"         />
         </SOLVERINFO>

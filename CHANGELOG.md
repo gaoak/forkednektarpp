@@ -87,6 +87,7 @@ v5.11.0
 - Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
 - Remove the rotation onto the trace normal from all compressible Riemann solvers (!2779)
+- Remove unused ProblemType and fix misspelt SOLVERINFO and parameter names in session files and user guide (!2815)
 
 **FieldConvert**
 - Add compressiblefields module to compute velocity, pressure, temperature, entropy, sound speed and Mach number from compressible flow fields (!2417)

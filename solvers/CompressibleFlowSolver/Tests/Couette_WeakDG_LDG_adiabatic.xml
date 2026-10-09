@@ -90,7 +90,6 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
             <I PROPERTY="UpwindType"            VALUE="Roe"                />
-            <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Constant"            />
         </SOLVERINFO>
 
