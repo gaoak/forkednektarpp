@@ -438,6 +438,7 @@ possibly also Reynolds stresses) into single file;
 \item \inltt{qualitymetric}: Evaluate a quality metric of the underlying mesh to show mesh quality;
 \item \inltt{mean}: Evaluate the mean of variables on the domain;
 \item \inltt{meanmode}: Extract mean mode (plane zero) of 3DH1D expansions;
+\item \inltt{MHDCurrentDensity}: Computes the quasi-static MHD electric current density;
 \item \inltt{pointdatatofld}: Given discrete data at quadrature points
   project them onto an expansion basis and output fld file;
 \item \inltt{printfldnorms}: Print L2 and LInf norms to stdout;
@@ -765,6 +766,26 @@ FieldConvert -m divergence test.xml test.fld test-div.fld
 \end{lstlisting}
 where the file \inltt{test-div.fld} can be processed in a similar
 way as described in section \ref{s:utilities:fieldconvert:sub:convert}.
+%
+%
+%
+\subsection{Calculate MHD current density: \textit{MHDCurrentDensity} module}
+For a two- or three-dimensional quasi-static MHD solution containing velocity
+fields \inltt{u}, \inltt{v} (and \inltt{w} in three dimensions) and electric
+potential \inltt{phi}, the electric current density can be added with
+%
+\begin{lstlisting}[style=BashInputStyle]
+FieldConvert -m MHDCurrentDensity session.xml solution.fld current.fld
+\end{lstlisting}
+%
+The module uses
+$\boldsymbol{J}=\sigma(\boldsymbol{E}_0+\boldsymbol{u}\times\boldsymbol{B}_0-
+\nabla\phi)$, reading \inltt{ElectricConductivity} and the electric and magnetic
+field function referenced by the \inltt{ForcingLorentz}
+\inltt{ELECTRICMAGNETICFIELDS} entry. It appends \inltt{Jx}, \inltt{Jy}, and
+\inltt{Jz}; all three components are retained for two-dimensional fields. The
+function name can be overridden with
+\inltt{-m MHDCurrentDensity:function=FunctionName}.
 %
 %
 %

@@ -42,6 +42,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         ./Forcing/ForcingIncNSSyntheticEddy.cpp
         ./Forcing/ForcingMovingBody.cpp
         ./Forcing/ForcingStabilityCoupledLNS.cpp
+        ./Forcing/ForcingLorentz.cpp
         ./BoundaryConditions/IncBoundaryConditions.cpp
         ./BoundaryConditions/IncBaseCondition.cpp
         ./BoundaryConditions/MRFFar.cpp
@@ -83,6 +84,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
             Forcing/ForcingIncNSSyntheticEddy.h
             Forcing/ForcingMovingBody.h
             Forcing/ForcingStabilityCoupledLNS.h
+            Forcing/ForcingLorentz.h
             BoundaryConditions/IncBoundaryConditions.h
             BoundaryConditions/IncBaseCondition.h
             BoundaryConditions/MRFFar.h
@@ -126,6 +128,8 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(ChanFlow_m3_ConOBC_VCSImplicit)
     ADD_NEKTAR_TEST(ChanFlow_m3_SKS)
     ADD_NEKTAR_TEST(ChanFlow_m8)
+    ADD_NEKTAR_TEST(HartmannFlow)
+    ADD_NEKTAR_TEST(MHDDuctFlow)
     ADD_NEKTAR_TEST(ChanFlow_Accelerate)
     ADD_NEKTAR_TEST(ChanFlow_m8_BodyForce)
     ADD_NEKTAR_TEST(ChanFlow_m8_singular)
@@ -137,6 +141,8 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(channelFlow_nonuniform_Heating)
     ADD_NEKTAR_TEST(Couette_3DH2D_MVM)
     ADD_NEKTAR_TEST(FreeFallCyl)
+    ADD_NEKTAR_TEST(MHDMovingCylinder)
+    ADD_NEKTAR_TEST(MHDMovingCylinderImplicitLorentz)
     ADD_NEKTAR_TEST(Hex_channel_m3)
     ADD_NEKTAR_TEST(Hex_channel_varP)
     ADD_NEKTAR_TEST(Pyr_channel_m3)

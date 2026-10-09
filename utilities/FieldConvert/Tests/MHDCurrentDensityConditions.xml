@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> ElectricConductivity = 2.0 </P>
+        </PARAMETERS>
+
+        <FUNCTION NAME="ElectricMagneticFields">
+            <E VAR="Ex" VALUE="1.0" />
+            <E VAR="Ey" VALUE="2.0" />
+            <E VAR="Ez" VALUE="3.0" />
+            <E VAR="Bx" VALUE="4.0" />
+            <E VAR="By" VALUE="5.0" />
+            <E VAR="Bz" VALUE="6.0" />
+        </FUNCTION>
+    </CONDITIONS>
+
+    <FORCING>
+        <FORCE TYPE="ForcingLorentz">
+            <ELECTRICMAGNETICFIELDS>
+                ElectricMagneticFields
+            </ELECTRICMAGNETICFIELDS>
+        </FORCE>
+    </FORCING>
+</NEKTAR>

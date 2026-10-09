@@ -221,6 +221,23 @@ void IncBaseCondition::AddRigidBodyAcc(Array<OneD, Array<OneD, NekDouble>> &N,
     {
         Vmath::Sadd(npts0, -params["A_z"], N[2], 1, N[2], 1);
     }
+    if (params.find("ImplicitLorentzDamping") != params.end())
+    {
+        NekDouble damping = params["ImplicitLorentzDamping"];
+        Vmath::Sadd(npts0, -damping * u0, N[0], 1, N[0], 1);
+        Vmath::Sadd(npts0, -damping * v0, N[1], 1, N[1], 1);
+        if (params.find("Omega_z") != params.end())
+        {
+            Vmath::Svtvp(npts0, damping * Omega, m_coords[1], 1, N[0], 1, N[0],
+                         1);
+            Vmath::Svtvp(npts0, -damping * Omega, m_coords[0], 1, N[1], 1, N[1],
+                         1);
+        }
+        if (m_bnddim > 2 && params.find("W") != params.end())
+        {
+            Vmath::Sadd(npts0, -damping * params["W"], N[2], 1, N[2], 1);
+        }
+    }
 }
 
 void IncBaseCondition::AddVisPressureBCs(

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[73]" NUMMODES="3, 3" BASISTYPE="Modified_A,Modified_A" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"   NUMPOINTS="4,4" FIELDS="u,v" />
+        <E COMPOSITE="C[73]" NUMMODES="2, 2" BASISTYPE="Modified_A,Modified_A" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"   NUMPOINTS="4,4" FIELDS="phi,p" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType"                    VALUE="VCSFSI" />
+            <I PROPERTY="EQTYPE"                        VALUE="UnsteadyNavierStokes"     />
+            <I PROPERTY="EvolutionOperator"             VALUE="Nonlinear"                />
+            <I PROPERTY="Projection"                    VALUE="Continuous"                 />
+            <I PROPERTY="Driver"                        VALUE="Standard"                 />
+            <I PROPERTY="SpectralVanishingViscositySpectralHP"    VALUE="DGKernel"       />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <P> Kinvis        = 0.01  </P>
+            <P> Atest      = -0.1  </P>
+            <P> TimeStep      = 0.01 </P>
+            <P> NumSteps      = 10 </P>
+            <P> IO_InfoSteps  = 10      </P>
+            <P> SVVDiffCoeff  = 0.1                 </P>
+            <P> ElectricConductivity     = 1.0   </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> phi </V>
+            <V ID="3"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[74] </B>    <!-- Wall -->
+            <B ID="1"> C[75] </B>  <!-- inlet -->
+            <B ID="2"> C[77] </B>  <!-- outlet -->
+            <B ID="3"> C[76] </B>  <!-- side -->
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" USERDEFINEDTYPE="MRFWall" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFWall" VALUE="0" />
+                <N VAR="phi" USERDEFINEDTYPE="Insulator" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="MRFWall" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <D VAR="v" USERDEFINEDTYPE="MRFFar" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="0" />
+            <E VAR="v" VALUE="0" />
+            <E VAR="phi" VALUE="0" />
+            <E VAR="p" VALUE="0" />
+        </FUNCTION>
+
+        <FUNCTION NAME="ElectricMagneticFields">
+            <E VAR="By" VALUE="1" />
+        </FUNCTION>
+
+        <FUNCTION NAME="MRFVel">
+            <E VAR="u" VALUE="Atest*t" />
+            <E VAR="Omega_z" VALUE="0.1" />
+        </FUNCTION>
+
+    </CONDITIONS>
+
+    <FORCING>
+        <FORCE TYPE="MovingReferenceFrame">
+        </FORCE>
+        <FORCE TYPE="ForcingLorentz">
+            <ELECTRICMAGNETICFIELDS> ElectricMagneticFields </ELECTRICMAGNETICFIELDS>
+            <IMPLICITDAMPING> True </IMPLICITDAMPING>
+        </FORCE>
+    </FORCING>
+
+    <RIGIDSOLVER>
+        <FRAMEVELOCITY> MRFVel </FRAMEVELOCITY>
+    </RIGIDSOLVER>
+
+    <FILTERS>
+        <FILTER TYPE="AeroForces">
+            <PARAM NAME="OutputFile">DragLiftn.frc</PARAM>
+            <PARAM NAME="OutputFrequency">1</PARAM>
+            <PARAM NAME="Boundary">B[0]</PARAM>
+        </FILTER>
+    </FILTERS>
+</NEKTAR>

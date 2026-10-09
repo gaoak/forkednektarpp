@@ -106,6 +106,17 @@ public:
         v_EvaluateAdvection_SetPressureBCs(inarray, outarray, time);
     }
 
+    void SolveEfield(const Array<OneD, Array<OneD, NekDouble>> &movEfield,
+                     Array<OneD, Array<OneD, NekDouble>> &totEfield);
+
+    void SetImplicitLorentzDamping(NekDouble damping)
+    {
+        ASSERTL0(damping >= 0.0,
+                 "The implicit Lorentz damping coefficient must be "
+                 "non-negative.");
+        m_MHD.implicitLorentzDamping = damping;
+    }
+
 protected:
     /// bool to identify if spectral vanishing viscosity is active.
     bool m_useHomo1DSpecVanVisc;
@@ -162,6 +173,16 @@ protected:
     int m_flowrateStepsPrecision;
     /// Value of aii_dt used to compute Stokes flowrate solution.
     NekDouble m_flowrateAiidt;
+    /// Pointer to field holding electric potential field
+    MultiRegions::ExpListSharedPtr m_epotential;
+    /// Quasi-static MHD configuration.
+    struct
+    {
+        /// Whether ForcingLorentz is defined.
+        bool hasLorentzForce = false;
+        /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
+        NekDouble implicitLorentzDamping = 0.0;
+    } m_MHD;
 
     Array<OneD, Array<OneD, NekDouble>> m_F;
 
@@ -254,6 +275,9 @@ protected:
         const std::vector<std::string> &strFrameData,
         const Array<OneD, NekDouble> &movingFrameData,
         std::map<std::string, NekDouble> &params);
+
+    void SetEPInsulatorBCs(
+        const Array<OneD, Array<OneD, NekDouble>> &movEfield);
 
 private:
 };

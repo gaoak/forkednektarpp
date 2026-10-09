@@ -111,8 +111,9 @@ void TransMovingWall::v_Update(
     // add viscous term
     AddExtrapVisPressureBCs(fields, rhs, params);
     // Add DuDt
-    std::map<std::string, NekDouble> transParams;
-    std::vector<std::string> accStr = {"A_x", "A_y", "A_z"};
+    std::map<std::string, NekDouble> transParams = params;
+    std::vector<std::string> accStr              = {"A_x", "A_y", "A_z"};
+    std::vector<std::string> velStr              = {"U", "V", "W"};
     NekDouble time = 0., dt2 = 2. * m_dt;
     if (params.find("Time") != params.end())
     {
@@ -133,6 +134,7 @@ void TransMovingWall::v_Update(
             {
                 dudt += Fourth_Coeffs[j] * equ->Evaluate(0, 0., 0., times[j]);
             }
+            transParams[velStr[i]] = equ->Evaluate(0, 0., 0., time);
             transParams[accStr[i]] = dudt;
         }
     }
