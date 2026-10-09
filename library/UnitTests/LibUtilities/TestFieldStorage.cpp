@@ -37,6 +37,7 @@
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
+#include <LibUtilities/BasicUtils/Field/MultiField.hpp>
 
 #include <boost/test/unit_test.hpp>
 
@@ -156,6 +157,64 @@ BOOST_AUTO_TEST_CASE(TestFieldSelfMoveAssign)
     {
         BOOST_CHECK_EQUAL(after[i], 3.0);
     }
+}
+
+/// The columns of a MultiField lie one after the other in their segment's
+/// storage, and a column moved out of the set keeps that storage alive.
+template <FieldState TState> static void RunMultiFieldColumns()
+{
+    const std::vector<BlockAttributes<TState>> attr = {{4, 8, 2, 1},
+                                                       {3, 4, 5, 1}};
+    const std::vector<std::string> comps            = {"u", "v"};
+
+    LibUtilities::Field<double, TState> column;
+    const double *columnPtr = nullptr;
+    {
+        LibUtilities::MultiField<double, TState> X("X", attr, comps, 2);
+        X.ResizeNumField(2);
+        X[0].template Initialize<HostSpace>(1.0);
+        X[1].template Initialize<HostSpace>(2.0);
+
+        // Pointers taken outside BOOST_CHECK_EQUAL: the comma in the template
+        // arguments of GetPtr would split the macro's arguments.
+        const size_t fieldSize = X.GetFieldSize();
+        const double *base =
+            X[0].GetBlocks()[0].template GetPtr<HostSpace, ReadOnly>();
+        const double *block1 =
+            X[0].GetBlocks()[1].template GetPtr<HostSpace, ReadOnly>();
+        const double *column1 =
+            X[1].GetBlocks()[0].template GetPtr<HostSpace, ReadOnly>();
+        BOOST_CHECK_EQUAL(block1,
+                          base + X[0].GetBlocks()[0].CompSize() * comps.size());
+        BOOST_CHECK_EQUAL(column1, base + fieldSize);
+        for (size_t i = 0; i < X[0].size(); ++i)
+        {
+            BOOST_CHECK_EQUAL(base[i], 1.0);
+            BOOST_CHECK_EQUAL(base[fieldSize + i], 2.0);
+        }
+
+        columnPtr = base + fieldSize;
+        column    = std::move(X[1]);
+    }
+
+    // The set is gone; the moved column still holds its place and values.
+    const double *movedPtr =
+        column.GetBlocks()[0].template GetPtr<HostSpace, ReadOnly>();
+    BOOST_CHECK_EQUAL(movedPtr, columnPtr);
+    for (size_t i = 0; i < column.size(); ++i)
+    {
+        BOOST_CHECK_EQUAL(columnPtr[i], 2.0);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestMultiFieldColumnsCoeff)
+{
+    RunMultiFieldColumns<FieldState::Coeff>();
+}
+
+BOOST_AUTO_TEST_CASE(TestMultiFieldColumnsPhys)
+{
+    RunMultiFieldColumns<FieldState::Phys>();
 }
 
 } // namespace Nektar::FieldStorageUnitTests

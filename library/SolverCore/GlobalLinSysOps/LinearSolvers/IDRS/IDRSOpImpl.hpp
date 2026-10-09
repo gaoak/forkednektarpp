@@ -35,6 +35,7 @@
 #pragma once
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/IDRS/IDRSOp.hpp"
+#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
 
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
@@ -55,6 +56,18 @@ public:
     IDRSOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
         : IDRSOp<TData>(expansionList, components),
+          m_P("IDRSOp P",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components),
+          m_U("IDRSOp U",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components),
+          m_G("IDRSOp G",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components),
           m_v(LibUtilities::Field<TData, FieldState::Coeff>(
               "IDRSOp v",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
@@ -89,33 +102,22 @@ public:
                           : 4;
         m_vExchange = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 2u),
                                                         eHostPinned);
+        m_coeffs    = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 1u),
+                                                        eHostPinned);
 
         // Set-up storage.
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<> dis(0.0, 1.0);
+        m_U.ResizeNumField(m_stage);
+        m_G.ResizeNumField(m_stage);
+        m_P.ResizeNumField(m_stage);
         for (unsigned int stage = 0; stage < m_stage; stage++)
         {
-            m_U.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "IDRSOp U" + std::to_string(stage),
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-            m_G.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "IDRSOp G" + std::to_string(stage),
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-            m_P.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "IDRSOp P" + std::to_string(stage),
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-
             // Initialzie m_P with normalized random number.
-            for (unsigned blk = 0; blk < m_P.back().GetBlocks().size(); ++blk)
+            for (unsigned blk = 0; blk < m_P[stage].GetBlocks().size(); ++blk)
             {
-                auto &block = m_P.back().GetBlocks()[blk];
+                auto &block = m_P[stage].GetBlocks()[blk];
                 auto ptr =
                     block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 std::generate(ptr,
@@ -138,13 +140,14 @@ public:
     }
 
 protected:
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_P;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_U;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_G;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_P;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_U;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_G;
     LibUtilities::Field<TData, FieldState::Coeff> m_v;
     LibUtilities::Field<TData, FieldState::Coeff> m_w;
     LibUtilities::Field<TData, FieldState::Coeff> m_r;
     LibUtilities::MemoryRegion<TData> m_vExchange;
+    LibUtilities::MemoryRegion<TData> m_coeffs; ///< gamma, for the updates.
 
     unsigned int m_stage = 0;
 
@@ -251,10 +254,7 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Compute Phi.
-            for (unsigned int k = 0; k < m_stage; k++)
-            {
-                Math::ddot<ExecSpace>(m_P[k], m_r, exchange + k);
-            }
+            MultiDot<ExecSpace>(m_P, 0, m_stage, m_r, exchange);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(
@@ -300,6 +300,17 @@ protected:
                     std::copy(Phi_k.begin(), Phi_k.end(), gamma.begin() + k);
                 }
 
+                // gamma[k + 1:] for the updates of m_v and m_U[k].
+                const TData *coeffs = nullptr;
+                if (this->m_niter > 0 && k + 1 < m_stage)
+                {
+                    auto coeffsHost =
+                        m_coeffs.template GetPtr<NektarSpaces::HostSpace,
+                                                 WriteOnly>();
+                    std::copy(gamma.begin() + k + 1, gamma.end(), coeffsHost);
+                    coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
+                }
+
                 // Compute m_v.
                 if (this->m_niter == 0)
                 {
@@ -308,9 +319,10 @@ protected:
                 else
                 {
                     Math::daxpy<ExecSpace>(-gamma[k], m_G[k], m_r, m_v);
-                    for (unsigned int i = k + 1; i < m_stage; i++)
+                    if (k + 1 < m_stage)
                     {
-                        Math::daxpy<ExecSpace>(-gamma[i], m_G[i], m_v, m_v);
+                        MultiAxpy<ExecSpace>(-1.0, m_G, k + 1, m_stage, coeffs,
+                                             1.0, m_v);
                     }
                 }
 
@@ -329,10 +341,10 @@ protected:
                 {
                     Math::daxpby<ExecSpace>(omega, m_v, gamma[k], m_U[k],
                                             m_U[k]);
-                    for (unsigned int i = k + 1; i < m_stage; i++)
+                    if (k + 1 < m_stage)
                     {
-                        Math::daxpy<ExecSpace>(gamma[i], m_U[i], m_U[k],
-                                               m_U[k]);
+                        MultiAxpy<ExecSpace>(1.0, m_U, k + 1, m_stage, coeffs,
+                                             1.0, m_U[k]);
                     }
                 }
 
@@ -361,10 +373,7 @@ protected:
                 m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
                 // Update Mu.
-                for (unsigned int i = k; i < m_stage; i++)
-                {
-                    Math::ddot<ExecSpace>(m_P[i], m_G[k], exchange + i - k);
-                }
+                MultiDot<ExecSpace>(m_P, k, m_stage, m_G[k], exchange);
 
                 // Communication.
                 this->m_rowComm->template AllReduce<MemSpace>(

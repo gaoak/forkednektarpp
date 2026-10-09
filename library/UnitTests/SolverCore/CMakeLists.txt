@@ -53,6 +53,8 @@ ADD_NEKTAR_EXECUTABLE(TestHelmSolve
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestHelmSolve.cpp)
 ADD_NEKTAR_EXECUTABLE(TestLinearADRSolve
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestLinearADRSolve.cpp)
+ADD_NEKTAR_EXECUTABLE(TestMultiField
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestMultiField.cpp)
 
 # Registers one test per execution space. Named rather than overriding the
 # SET_UNIT_TEST of cmake/NektarCommon.cmake, which the sibling Operators unit
@@ -111,6 +113,7 @@ SET_SOLVERCORE_UNIT_TEST(NormSerial TestNorm Serial)
 SET_SOLVERCORE_UNIT_TEST(MaxStdVelocitySerial TestMaxStdVelocity Serial)
 SET_SOLVERCORE_UNIT_TEST(MeanRemovalSerial TestMeanRemoval Serial)
 SET_SOLVERCORE_UNIT_TEST(FieldFileIOSerial TestFieldFileIO Serial)
+SET_SOLVERCORE_UNIT_TEST(MultiFieldSerial TestMultiField Serial)
 SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_serial_stdmat TestNullPrecon Serial StdMat)
 SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_serial_sumfac TestNullPrecon Serial SumFac)
 SET_SOLVERCORE_UNIT_TEST_IMPL(DiagPrecon_serial_stdmat TestDiagPrecon Serial StdMat)
@@ -145,6 +148,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_SOLVERCORE_UNIT_TEST(MaxStdVelocityAVX TestMaxStdVelocity AVX)
     SET_SOLVERCORE_UNIT_TEST(MeanRemovalAVX TestMeanRemoval AVX)
     SET_SOLVERCORE_UNIT_TEST(FieldFileIOAVX TestFieldFileIO AVX)
+    SET_SOLVERCORE_UNIT_TEST(MultiFieldAVX TestMultiField AVX)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_avx_stdmat TestNullPrecon AVX StdMat)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_avx_sumfac TestNullPrecon AVX SumFac)
     SET_SOLVERCORE_UNIT_TEST_IMPL(DiagPrecon_avx_stdmat TestDiagPrecon AVX StdMat)

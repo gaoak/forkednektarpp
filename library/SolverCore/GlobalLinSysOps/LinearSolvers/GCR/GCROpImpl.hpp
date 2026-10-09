@@ -35,6 +35,7 @@
 #pragma once
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/GCR/GCROp.hpp"
+#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
 
 #include <iomanip>
 
@@ -56,7 +57,15 @@ public:
               "GCR r",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
-              components, 1))
+              components, 1)),
+          m_Q("GCR Q",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components),
+          m_P("GCR P",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components)
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -78,6 +87,14 @@ public:
 
         ASSERTL0(!this->m_rightPreconditioner,
                  "GCROpImpl: Only left preconditioner is supported");
+
+        // Allocate array storage.
+        m_vExchange =
+            LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+        m_coeffs =
+            LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+        m_Q.ResizeNumField(1);
+        m_P.ResizeNumField(1);
     }
 
     // className - for OperatorFactory
@@ -94,8 +111,11 @@ public:
 
 protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_r;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_Q;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_P;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_Q;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_P;
+    LibUtilities::MemoryRegion<TData> m_vExchange;
+    LibUtilities::MemoryRegion<TData> m_coeffs; ///< Orthogonalisation
+                                                ///< coefficients.
 
     unsigned int m_LinSysMaxStorage;
 
@@ -114,7 +134,7 @@ protected:
         this->m_niter   = 0;
         unsigned int ii = 0;
         TData rhsMagnitude, eps, alpha;
-        std::vector<TData> scale(m_LinSysMaxStorage), beta(m_LinSysMaxStorage);
+        std::vector<TData> scale(m_LinSysMaxStorage);
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -141,20 +161,6 @@ protected:
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)
         {
             return;
-        }
-
-        if (m_P.size() == 0)
-        {
-            m_P.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "GCR P0",
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-            m_Q.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "GCR Q0",
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
         }
 
         // Iteration >= 1
@@ -187,22 +193,35 @@ protected:
             this->m_robBndCondOp->Apply(m_P[ii], m_Q[ii]);
             this->m_assmbScatrZeroDirOp->Apply(m_Q[ii]);
 
-            // Update vector.
-            if (this->m_niter > 0)
+            // Update vector: P[ii] and Q[ii] lose their components along
+            // the previous directions, with coefficients -beta_i / scale_i,
+            // beta_i = (Q[ii], Q[i]).
+            if (ii > 0)
             {
+                // Reset device memory.
+                auto exchange =
+                    m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+                MultiDot<ExecSpace>(m_Q, 0, ii, m_Q[ii], exchange);
+
+                // Communication.
+                this->m_rowComm->template AllReduce<MemSpace>(
+                    m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+                // Device-to-host copy.
+                auto exchangeHost =
+                    m_vExchange
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                auto coeffsHost =
+                    m_coeffs
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
                 for (unsigned int i = 0; i < ii; i++)
                 {
-                    beta[i] = this->m_math.ddot(m_Q[ii], m_Q[i]);
+                    coeffsHost[i] = -exchangeHost[i] / scale[i];
                 }
-                this->m_rowComm->AllReduce(beta,
-                                           Nektar::LibUtilities::ReduceSum);
-                for (unsigned int i = ii; i > 0; i--)
-                {
-                    Math::daxpy<ExecSpace>(-beta[i - 1] / scale[i - 1],
-                                           m_P[i - 1], m_P[ii], m_P[ii]);
-                    Math::daxpy<ExecSpace>(-beta[i - 1] / scale[i - 1],
-                                           m_Q[i - 1], m_Q[ii], m_Q[ii]);
-                }
+
+                auto coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
+                MultiAxpy<ExecSpace>(1.0, m_P, 0, ii, coeffs, 1.0, m_P[ii]);
+                MultiAxpy<ExecSpace>(1.0, m_Q, 0, ii, coeffs, 1.0, m_Q[ii]);
             }
 
             // Update coefficient.
@@ -232,18 +251,10 @@ protected:
             }
 
             // Allocate memory, if necessary.
-            if (m_P.size() == this->m_niter && m_P.size() < m_LinSysMaxStorage)
+            if (this->m_niter < m_LinSysMaxStorage)
             {
-                m_P.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                    "GCR P" + std::to_string(this->m_niter),
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                        this->m_expansionList),
-                    this->m_components, 1));
-                m_Q.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                    "GCR Q" + std::to_string(this->m_niter),
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                        this->m_expansionList),
-                    this->m_components, 1));
+                m_P.ResizeNumField(this->m_niter + 1);
+                m_Q.ResizeNumField(this->m_niter + 1);
             }
         }
     }
