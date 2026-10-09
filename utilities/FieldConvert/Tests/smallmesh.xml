@@ -19,7 +19,6 @@
         <SOLVERINFO>
             <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
-            <I PROPERTY="AdvectionForm" VALUE="Convective" />
             <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeStaticCond" />
             <I PROPERTY="SuccessiveRHS" VALUE="30" />
             <I PROPERTY="SpectralhpDealiasing" VALUE="True" />

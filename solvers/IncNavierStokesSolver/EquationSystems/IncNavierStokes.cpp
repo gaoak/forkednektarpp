@@ -154,6 +154,14 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
         vConvectiveType = m_session->GetTag("AdvectiveType");
     }
 
+    if (m_session->DefinesSolverInfo("AdvectionForm") &&
+        m_session->GetComm()->GetRank() == 0)
+    {
+        std::cout << "Warning: AdvectionForm is deprecated and ignored, "
+                     "please use EvolutionOperator"
+                  << std::endl;
+    }
+
     // Check Level Set
     bool match;
     m_session->MatchSolverInfo("SolverType", "VCSLevelSet", match, false);

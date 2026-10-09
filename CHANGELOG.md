@@ -111,6 +111,7 @@ v5.11.0
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)
 - Add high-order pressure boundary conditions using the CurlCurl operator (!2531)
 - Add linear-implicit time-stepping (!2585)
+- Remove deprecated AdvectionForm from session file and add deprecation warning message (!2799)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

@@ -853,6 +853,13 @@ should be included inside the \inltt{SOLVERINFO} tags
 </SOLVERINFO>
 \end{lstlisting}
 
+The advection term is selected by the \inltt{EvolutionOperator} property:
+\inltt{Nonlinear} (default, convective), \inltt{Direct} (linearised),
+\inltt{Adjoint}, \inltt{SkewSymmetric}, \inltt{TransientGrowth} and
+\inltt{AdaptiveSFD} (see Section~\ref{SectionIncNS_SolverInfo_Stab}).
+\inltt{UnsteadyStokes} and \inltt{SteadyLinearisedNS} have no advection term.
+The \inltt{AdvectionForm} property is deprecated and ignored.
+
 Please note that, we will have only one \inltt{SOLVERINFO} tags in the xml file
 which inclues all the settings. If more than one \inltt{SOLVERINFO} is defined
 in the xml session file, the last one will override the previous ones and the
@@ -2507,7 +2514,6 @@ one of second order.
  <SOLVERINFO>
     <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes"     />
     <I PROPERTY="SolverType"            VALUE="VelocityCorrectionScheme" />
-    <I PROPERTY="AdvectionForm"         VALUE="Convective"               />
     <I PROPERTY="Projection"            VALUE="Galerkin"                 />
  </SOLVERINFO>
 \end{lstlisting}
