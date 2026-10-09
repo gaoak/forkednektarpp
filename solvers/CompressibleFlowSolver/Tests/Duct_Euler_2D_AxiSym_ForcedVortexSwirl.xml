@@ -89,7 +89,6 @@
             <I PROPERTY="Projection"            VALUE="DisContinuous"       />
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="UpwindType"            VALUE="Roe"                 />
-            <I PROPERTY="ProblemType"           VALUE="General"             />
         </SOLVERINFO>
 
         <TIMEINTEGRATIONSCHEME>

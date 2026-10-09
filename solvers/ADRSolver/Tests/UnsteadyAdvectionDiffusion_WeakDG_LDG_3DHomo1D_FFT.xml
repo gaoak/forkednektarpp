@@ -61,7 +61,7 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG3DHomogeneous1D"         />
             <I PROPERTY="AdvectionAdvancement"  VALUE="Explicit"                    />
             <I PROPERTY="DiffusionType"         VALUE="LDG3DHomogeneous1D"        />
-            <I PROPERTY="DiffusionnAdvancement"  VALUE="Explicit"                   />
+            <I PROPERTY="DiffusionAdvancement"   VALUE="Explicit"                   />
             <I PROPERTY="UpwindType"            VALUE="Upwind"                      />
             <I PROPERTY="USEFFT"                VALUE="FFTW"                        />
         </SOLVERINFO>

@@ -40,7 +40,6 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="LDGNS"               />
             <I PROPERTY="UpwindType"            VALUE="HLLC"                />
-            <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="EquationOfState"       VALUE="IdealGas"            />
             <!--<I PROPERTY="ViscosityType"         VALUE="Variable"            />-->
         </SOLVERINFO>

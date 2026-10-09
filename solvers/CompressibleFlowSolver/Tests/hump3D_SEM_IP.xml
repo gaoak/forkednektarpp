@@ -64,7 +64,6 @@
             <I PROPERTY="AdvectionType"         VALUE="WeakDG"              />
             <I PROPERTY="DiffusionType"         VALUE="InteriorPenalty"               />
             <I PROPERTY="UpwindType"            VALUE="ExactToro"           />
-            <I PROPERTY="ProblemType"           VALUE="General"             />
             <I PROPERTY="ViscosityType"         VALUE="Variable"            />
         </SOLVERINFO>
 
