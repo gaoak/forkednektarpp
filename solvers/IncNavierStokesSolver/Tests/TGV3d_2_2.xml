@@ -25,7 +25,6 @@
         <SOLVERINFO>
             <I PROPERTY="SolverType"            VALUE="VelocityCorrectionScheme"   />
             <I PROPERTY="EqType"                VALUE="UnsteadyNavierStokes"       />
-            <I PROPERTY="AdvectionForm"         VALUE="Convective"                 />
             <I PROPERTY="Projection"            VALUE="Galerkin"                   />
             <!--   <I PROPERTY="Homogeneous"           VALUE="1D"                         /> -->
             <!--   <I PROPERTY="UseFFT"                VALUE="FFTW"                       /> -->

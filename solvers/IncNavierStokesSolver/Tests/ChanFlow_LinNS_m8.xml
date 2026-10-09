@@ -11,7 +11,6 @@
         <SOLVERINFO>
             <I PROPERTY="SolverType" VALUE="CoupledLinearisedNS" />
             <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
-            <I PROPERTY="AdvectionForm" VALUE="Convective" />
             <I PROPERTY="Projection" VALUE="Galerkin" />
         </SOLVERINFO>
 

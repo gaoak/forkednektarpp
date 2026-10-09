@@ -10,7 +10,6 @@
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes"    />
-            <I PROPERTY="AdvectionForm"         VALUE="Convective"              />
             <I PROPERTY="solvertype"            VALUE="VelocityCorrectionScheme"/>
             <I PROPERTY="Projection"            VALUE="Galerkin"                />
         </SOLVERINFO>

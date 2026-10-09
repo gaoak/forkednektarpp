@@ -61,6 +61,7 @@ v5.11.0
 
 **IncNavierStokesSolver**
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)
+- Remove deprecated AdvectionForm from session file and add deprecation warning message (!2799)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

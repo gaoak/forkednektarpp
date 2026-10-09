@@ -56,7 +56,6 @@
             <I PROPERTY="EQTYPE"                VALUE="UnsteadyNavierStokes" />
             <I PROPERTY="SolverType"            VALUE="VelocityCorrectionScheme" />
             <I PROPERTY="EvolutionOperator"     VALUE="Nonlinear"/>
-            <I PROPERTY="AdvectionForm"         VALUE="Convective"/>
             <I PROPERTY="Projection"            VALUE="Galerkin" />
             <I PROPERTY="HOMOGENEOUS"           VALUE="1D"/>
         </SOLVERINFO>

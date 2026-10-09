@@ -132,7 +132,6 @@ is:
  <SOLVERINFO>
    <I PROPERTY="SolverType"  VALUE="CoupledLinearisedNS"/>
    <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes"/>
-   <I PROPERTY="AdvectionForm" VALUE="Convective"/>
    <I PROPERTY="Projection" VALUE="Galerkin"/>
    <I PROPERTY="TimeIntegrationMethod" VALUE="IMEXOrder1"/>
  </SOLVERINFO>
