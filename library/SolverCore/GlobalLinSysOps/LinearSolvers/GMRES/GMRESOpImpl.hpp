@@ -35,6 +35,7 @@
 #pragma once
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESOp.hpp"
+#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
 
 #include <iomanip>
 
@@ -60,7 +61,19 @@ public:
           m_r0(LibUtilities::Field<TData, FieldState::Coeff>(
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
-              components, 1))
+              components, 1)),
+          m_V("GMRES V",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components),
+          m_Z("GMRES Z",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components),
+          m_delta("GMRES delta",
+                  MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                      expansionList),
+                  components)
     {
         this->template SetLinearSolver<ExecSpace>();
         this->template SetMask<ExecSpace>();
@@ -98,6 +111,9 @@ public:
             session->DefinesParameter("ModifiedGramSchmidt")
                 ? session->GetParameter("ModifiedGramSchmidt")
                 : true;
+        m_reorthogonalize = session->DefinesParameter("GMRESReorthogonalize")
+                                ? session->GetParameter("GMRESReorthogonalize")
+                                : false;
 
         ASSERTL0(!(m_flexible && this->m_leftPreconditioner),
                  "Flexible GMRES only avaible with right preconditioner");
@@ -106,12 +122,20 @@ public:
                  "Can't both use Flexible GMRES and GMRESDeltaDirection "
                  "(LGMRES) at the same time");
 
+        ASSERTL0(m_GMRESDeltaDirection < m_LinSysMaxStorage,
+                 "GMRESDeltaDirection (LGMRES) must be smaller than "
+                 "LinSysMaxStorage");
+
         // Allocate array storage.
         if (!m_isModifiedGramSchmidt)
         {
-            m_vExchange = LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage,
-                                                            eHostPinned);
+            m_vExchange = LibUtilities::MemoryRegion<TData>(
+                (m_reorthogonalize ? 2 : 1) * m_LinSysMaxStorage, eHostPinned);
         }
+        m_coeffs = LibUtilities::MemoryRegion<TData>(
+            m_LinSysMaxStorage + m_GMRESDeltaDirection, eHostPinned);
+        m_V.ResizeNumField(1);
+        m_Z.ResizeNumField(1);
 
         m_truncted = (m_KrylovMaxHessMatBand > 0);
         m_hes      = std::vector<std::vector<TData>>(m_LinSysMaxStorage);
@@ -136,14 +160,7 @@ public:
         }
 
         // Set storage of LGMRES.
-        for (unsigned int dir = 0; dir < m_GMRESDeltaDirection; dir++)
-        {
-            m_delta.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "GMRESOp delta" + std::to_string(dir),
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-        }
+        m_delta.ResizeNumField(m_GMRESDeltaDirection);
     }
 
     // className - for OperatorFactory
@@ -161,9 +178,10 @@ public:
 protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_w;
     LibUtilities::Field<TData, FieldState::Coeff> m_r0;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_V;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_Z;
-    std::deque<LibUtilities::Field<TData, FieldState::Coeff>> m_delta;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_V;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_Z;
+    /// LGMRES directions, as a ring: the newest is at m_deltaHead.
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_delta;
     std::vector<std::vector<TData>> m_hes;
     std::vector<std::vector<TData>> m_upper;
     std::vector<unsigned int> m_id;
@@ -171,10 +189,13 @@ protected:
     std::vector<unsigned int> m_id_end;
 
     LibUtilities::MemoryRegion<TData> m_vExchange;
+    LibUtilities::MemoryRegion<TData> m_coeffs; ///< Solution coefficients.
 
+    unsigned int m_deltaHead = 0;
     bool m_flexible;
     bool m_truncted;
     bool m_isModifiedGramSchmidt = true;
+    bool m_reorthogonalize       = false;
     bool m_GMRESCentralDifference;
     unsigned int m_GMRESDeltaDirection;
     unsigned int m_LinSysMaxStorage;
@@ -214,19 +235,6 @@ protected:
             this->m_assmbScatrZeroDirOp->Apply(in, m_w);
             prec_factor = this->m_math.ddot(in, m_w);
             this->m_rowComm->AllReduce(prec_factor, LibUtilities::ReduceSum);
-        }
-
-        // Allocate memory, if necessary.
-        if (m_V.size() == 0)
-        {
-            m_V.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-            m_Z.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
         }
 
         // GMRES with restart.
@@ -317,16 +325,19 @@ protected:
                     outerIterations >= m_GMRESDeltaDirection;
                 unsigned int index =
                     ii - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
-                auto &V1 = (cond) ? m_delta[index] : m_V[ii];
+                auto &V1 =
+                    (cond)
+                        ? m_delta[(m_deltaHead + index) % m_GMRESDeltaDirection]
+                        : m_V[ii];
 
-                auto &Z1      = (this->m_rightPreconditioner)
-                                    ? m_Z[(m_flexible) ? ii : 0]
-                                    : V1;
-                auto &h1      = m_hes[ii];
-                auto &h2      = m_upper[ii];
-                auto idtem    = m_id[ii];
-                auto starttem = m_id_start[idtem];
-                auto endtem   = m_id_end[idtem];
+                auto &Z1              = (this->m_rightPreconditioner)
+                                            ? m_Z[(m_flexible) ? ii : 0]
+                                            : V1;
+                auto &h1              = m_hes[ii];
+                auto &h2              = m_upper[ii];
+                unsigned int idtem    = m_id[ii];
+                unsigned int starttem = m_id_start[idtem];
+                unsigned int endtem   = m_id_end[idtem];
 
                 // Apply preconditioner.
                 if (this->m_rightPreconditioner)
@@ -377,18 +388,23 @@ protected:
                 }
                 else
                 {
+                    // Classical Gram-Schmidt: the dot products d with the
+                    // basis, then w = wScale (w - V d), so that h = wScale d.
                     // Reset device memory.
                     auto exchange =
                         m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+                    MultiDot<ExecSpace>(this->m_mask, m_V, starttem, endtem,
+                                        m_w, exchange + starttem);
 
-                    // Classical Gram-Schmidt.
-                    for (unsigned int i = starttem; i < endtem; ++i)
-                    {
-                        Math::ddot<ExecSpace>(this->m_mask, m_w, m_V[i],
-                                              exchange + i);
-                    }
+                    // Communication.
                     this->m_rowComm->template AllReduce<MemSpace>(
                         m_vExchange, LibUtilities::ReduceSum);
+
+                    MultiAxpy<ExecSpace>(
+                        -wScale, m_V, starttem, endtem,
+                        m_vExchange.template GetPtr<MemSpace, ReadOnly>() +
+                            starttem,
+                        wScale, m_w);
 
                     // Device-to-host copy.
                     auto exchangeHost =
@@ -397,14 +413,38 @@ protected:
                     for (unsigned int i = starttem; i < endtem; ++i)
                     {
                         h1[i] = wScale * exchangeHost[i];
-                        if (i == starttem)
+                    }
+
+                    // Second pass, to recover the orthogonality lost to
+                    // rounding.
+                    if (m_reorthogonalize)
+                    {
+                        const unsigned int offset =
+                            m_LinSysMaxStorage + starttem;
+
+                        // Reset device memory.
+                        exchange =
+                            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+                        MultiDot<ExecSpace>(this->m_mask, m_V, starttem, endtem,
+                                            m_w, exchange + offset);
+
+                        // Communication.
+                        this->m_rowComm->template AllReduce<MemSpace>(
+                            m_vExchange, LibUtilities::ReduceSum);
+
+                        MultiAxpy<ExecSpace>(
+                            -1.0, m_V, starttem, endtem,
+                            m_vExchange.template GetPtr<MemSpace, ReadOnly>() +
+                                offset,
+                            1.0, m_w);
+
+                        // Device-to-host copy.
+                        exchangeHost =
+                            m_vExchange.template GetPtr<NektarSpaces::HostSpace,
+                                                        ReadOnly>();
+                        for (unsigned int i = starttem; i < endtem; ++i)
                         {
-                            Math::daxpby<ExecSpace>(-h1[i], m_V[i], wScale, m_w,
-                                                    m_w);
-                        }
-                        else
-                        {
-                            Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
+                            h1[i] += exchangeHost[m_LinSysMaxStorage + i];
                         }
                     }
 
@@ -442,21 +482,10 @@ protected:
                 }
 
                 // Allocate new storage, if necessary.
-                if (m_V.size() == ii)
+                m_V.ResizeNumField(ii + 1);
+                if (m_flexible)
                 {
-                    m_V.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                        MultiRegions::GetBlockAttributes<
-                            TData, FieldState::Coeff>(this->m_expansionList),
-                        this->m_components, 1));
-                    if (m_flexible)
-                    {
-                        m_Z.push_back(
-                            LibUtilities::Field<TData, FieldState::Coeff>(
-                                MultiRegions::GetBlockAttributes<
-                                    TData, FieldState::Coeff>(
-                                    this->m_expansionList),
-                                this->m_components, 1));
-                    }
+                    m_Z.ResizeNumField(ii + 1);
                 }
 
                 // Compute new search vector.
@@ -466,34 +495,51 @@ protected:
             // Do backward substitution.
             this->DoBackward(ii, m_upper, eta, yn);
 
-            // Calculate solution delta.
+            // Calculate solution delta. For LGMRES the last
+            // m_GMRESDeltaDirection directions are those of m_delta.
             auto &Z = (m_flexible) ? m_Z : m_V;
-            Math::mul<ExecSpace>(yn[0], Z[0], m_w);
-            for (unsigned int i = 1; i < ii; ++i)
+            const unsigned int nDelta =
+                (outerIterations >= m_GMRESDeltaDirection &&
+                 ii > m_LinSysMaxStorage - m_GMRESDeltaDirection)
+                    ? ii - (m_LinSysMaxStorage - m_GMRESDeltaDirection)
+                    : 0;
+            const unsigned int nZ = ii - nDelta;
+
+            auto coeffsHost =
+                m_coeffs.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            std::copy_n(yn.data(), nZ, coeffsHost);
+            for (unsigned int k = 0; k < nDelta; ++k)
             {
-                // For LGMRES use m_delta for the last m_GMRESDeltaDirection
-                // iterations.
-                bool cond = i >= (m_LinSysMaxStorage - m_GMRESDeltaDirection) &&
-                            outerIterations >= m_GMRESDeltaDirection;
-                if (cond)
-                {
-                    unsigned int index =
-                        i - (m_LinSysMaxStorage - m_GMRESDeltaDirection);
-                    Math::daxpy<ExecSpace>(yn[i], m_delta[index], m_w, m_w);
-                }
-                else
-                {
-                    Math::daxpy<ExecSpace>(yn[i], Z[i], m_w, m_w);
-                }
+                coeffsHost[m_LinSysMaxStorage +
+                           (m_deltaHead + k) % m_GMRESDeltaDirection] =
+                    yn[nZ + k];
+            }
+            for (unsigned int k = nDelta; k < m_GMRESDeltaDirection; ++k)
+            {
+                coeffsHost[m_LinSysMaxStorage +
+                           (m_deltaHead + k) % m_GMRESDeltaDirection] = 0.0;
+            }
+            auto coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
+
+            TData scaleW = 0.0;
+            if (nZ > 0)
+            {
+                MultiAxpy<ExecSpace>(1.0, Z, 0, nZ, coeffs, 0.0, m_w);
+                scaleW = 1.0;
+            }
+            if (nDelta > 0)
+            {
+                MultiAxpy<ExecSpace>(1.0, m_delta, 0, m_GMRESDeltaDirection,
+                                     coeffs + m_LinSysMaxStorage, scaleW, m_w);
             }
 
-            // Store last m_GMRESDeltaDirection delta for LGMRES.
+            // Store last m_GMRESDeltaDirection delta for LGMRES, the oldest
+            // replaced by the newest.
             if (m_GMRESDeltaDirection)
             {
-                auto last = std::move(m_delta.back());
-                last.template Copy<MemSpace>(m_w);
-                m_delta.pop_back();
-                m_delta.push_front(std::move(last));
+                m_deltaHead = (m_deltaHead + m_GMRESDeltaDirection - 1) %
+                              m_GMRESDeltaDirection;
+                m_delta[m_deltaHead].template Copy<MemSpace>(m_w);
             }
 
             // Apply preconditioner.

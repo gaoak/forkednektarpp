@@ -64,6 +64,7 @@ v5.11.0
 - Make the NekBlas interface vendor agnostic: NekBlas.hpp now takes an opaque NekBlas::Handle<ExecSpace> carrying only the stream ID and no longer includes any BLAS library header, with each backend looking up its library handle in its own compilation unit (!2808)
 - Consistently use streamID for DeviceFFT (!2810)
 - Minimise memory traffic for LinearSolvers (!2809)
+- Add MultiField, a set of fields stored as contiguous columns, and use it with BLAS products in the redesign GMRES, GCR, IDRS and BICGSTABL solvers; add a CGS2 option to GMRES (GMRESReorthogonalize) (!2813)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

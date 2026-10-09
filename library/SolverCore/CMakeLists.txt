@@ -204,6 +204,10 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/TraceFlux")
     add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/BndCond")
 
+    # Header only: the products over the columns of a MultiField, used by the
+    # Krylov solvers.
+    add_component_sources(SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/GlobalLinSysOps/MultiFieldHelper")
+
     SET(OPNAMESPACE "Nektar::SolverCore::detail")
 
     # Set SolverCore operators

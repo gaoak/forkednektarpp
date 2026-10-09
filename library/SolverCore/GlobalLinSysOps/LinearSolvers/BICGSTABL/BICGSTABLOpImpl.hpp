@@ -35,6 +35,7 @@
 #pragma once
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/BICGSTABL/BICGSTABLOp.hpp"
+#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
 
 #include <iomanip>
 
@@ -52,6 +53,15 @@ public:
     BICGSTABLOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
         : BICGSTABLOp<TData>(expansionList, components),
+          m_stage(GetStage(expansionList)),
+          m_u("BICGSTABLOp u",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components, m_stage + 1),
+          m_r("BICGSTABLOp r",
+              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                  expansionList),
+              components, m_stage + 1),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
               "BICGSTABLOp w",
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
@@ -86,27 +96,12 @@ public:
             session->DefinesParameter("LinSysRightPrecon")
                 ? session->GetParameter("LinSysRightPrecon")
                 : true;
-        m_stage = session->DefinesParameter("BICGSTABLstage")
-                      ? session->GetParameter("BICGSTABLstage")
-                      : 4;
-
-        // Set-up storage.
-        for (unsigned int stage = 0; stage <= m_stage; stage++)
-        {
-            m_r.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "BICGSTABLOp r" + std::to_string(stage),
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-            m_u.push_back(LibUtilities::Field<TData, FieldState::Coeff>(
-                "BICGSTABLOp u" + std::to_string(stage),
-                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                    this->m_expansionList),
-                this->m_components, 1));
-        }
-
+        // Set-up storage. The Gram matrix of r is exchanged whole.
+        m_r.ResizeNumField(m_stage + 1);
+        m_u.ResizeNumField(m_stage + 1);
         m_vExchange = LibUtilities::MemoryRegion<TData>(
-            (m_stage + 2) * (m_stage + 1) / 2, eHostPinned);
+            (m_stage + 1) * (m_stage + 1), eHostPinned);
+        m_coeffs = LibUtilities::MemoryRegion<TData>(m_stage, eHostPinned);
     }
 
     // className - for OperatorFactory
@@ -122,16 +117,26 @@ public:
     }
 
 protected:
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_u;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_r;
+    unsigned int m_stage = 0;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_u;
+    LibUtilities::MultiField<TData, FieldState::Coeff> m_r;
     LibUtilities::Field<TData, FieldState::Coeff> m_w;
     LibUtilities::Field<TData, FieldState::Coeff> m_acc;
     LibUtilities::Field<TData, FieldState::Coeff> m_rhs;
     LibUtilities::Field<TData, FieldState::Coeff> m_rtilde;
     LibUtilities::MemoryRegion<TData> m_vExchange;
+    LibUtilities::MemoryRegion<TData> m_coeffs; ///< y0, for the update.
 
-    unsigned int m_stage  = 0;
     bool m_accurateUpdate = true; // Flag for enhanced update
+
+    static unsigned int GetStage(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        auto session = expansionList->GetSession();
+        return session->DefinesParameter("BICGSTABLstage")
+                   ? session->GetParameter("BICGSTABLstage")
+                   : 4;
+    }
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
@@ -350,13 +355,7 @@ protected:
             //  --- Polynomial part ---
             // Reset device memory.
             exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
-            for (unsigned int ii = 0, cnt = 0; ii <= m_stage; ++ii)
-            {
-                for (unsigned int i = 0; i <= ii; ++i, ++cnt)
-                {
-                    Math::ddot<ExecSpace>(m_r[ii], m_r[i], exchange + cnt);
-                }
-            }
+            Gram<ExecSpace>(m_r, 0, m_stage + 1, exchange);
             this->m_rowComm->template AllReduce<MemSpace>(
                 m_vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -364,15 +363,11 @@ protected:
             exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            for (unsigned int ii = 0, cnt = 0; ii <= m_stage; ++ii)
+            for (unsigned int ii = 0; ii <= m_stage; ++ii)
             {
-                for (unsigned int i = 0; i <= ii; ++i, ++cnt)
+                for (unsigned int i = 0; i <= m_stage; ++i)
                 {
-                    Zvec[ii][i] = exchangeHost[cnt];
-                    if (i != ii)
-                    {
-                        Zvec[i][ii] = exchangeHost[cnt];
-                    }
+                    Zvec[ii][i] = exchangeHost[i + ii * (m_stage + 1)];
                 }
             }
 
@@ -457,12 +452,15 @@ protected:
 
             // Update solution.
             omega = y0[m_stage];
-            for (unsigned int ii = 1; ii <= m_stage; ++ii)
-            {
-                Math::daxpy<ExecSpace>(y0[ii], m_r[ii - 1], m_acc, m_acc);
-                Math::daxpy<ExecSpace>(-y0[ii], m_u[ii], m_u[0], m_u[0]);
-                Math::daxpy<ExecSpace>(-y0[ii], m_r[ii], m_r[0], m_r[0]);
-            }
+            auto coeffsHost =
+                m_coeffs.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            std::copy_n(y0.begin() + 1, m_stage, coeffsHost);
+            auto coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
+            MultiAxpy<ExecSpace>(1.0, m_r, 0, m_stage, coeffs, 1.0, m_acc);
+            MultiAxpy<ExecSpace>(-1.0, m_u, 1, m_stage + 1, coeffs, 1.0,
+                                 m_u[0]);
+            MultiAxpy<ExecSpace>(-1.0, m_r, 1, m_stage + 1, coeffs, 1.0,
+                                 m_r[0]);
             eps = this->m_math.ddot(m_r[0], m_r[0]);
             this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
             zeta = std::sqrt(eps);

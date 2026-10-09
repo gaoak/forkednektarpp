@@ -35,9 +35,14 @@
 #pragma once
 
 #include <LibUtilities/BasicUtils/Field/Block.hpp>
+#include <LibUtilities/BasicUtils/Field/SharedFieldStorage.hpp>
+
+#include <memory>
 
 namespace Nektar::LibUtilities
 {
+
+template <typename TData, FieldState TState> class MultiField;
 
 /**
  * @brief A Field represents expansion data to be operated on.
@@ -175,7 +180,9 @@ public:
           m_host(std::move(rhs.m_host)), m_device(std::move(rhs.m_device)),
           m_block_accessors(std::move(rhs.m_block_accessors)),
           m_memAllocType(std::move(rhs.m_memAllocType)),
-          m_alignment(std::move(rhs.m_alignment))
+          m_alignment(std::move(rhs.m_alignment)),
+          m_sharedStorage(std::move(rhs.m_sharedStorage)),
+          m_sharedStorageOffset(std::move(rhs.m_sharedStorageOffset))
     {
         for (auto &blocks : m_block_accessors)
         {
@@ -188,8 +195,9 @@ public:
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
         rhs.m_block_accessors.clear();
-        rhs.m_memAllocType = eHostPageable;
-        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
+        rhs.m_memAllocType        = eHostPageable;
+        rhs.m_alignment           = NektarSpaces::host_memory_alignment;
+        rhs.m_sharedStorageOffset = 0;
     }
 
     /**
@@ -220,15 +228,17 @@ public:
         // them.
         ReleaseStorage();
 
-        m_instantiated    = std::move(rhs.m_instantiated);
-        m_name            = std::move(rhs.m_name);
-        m_component_names = std::move(rhs.m_component_names);
-        m_num_homo_modes  = std::move(rhs.m_num_homo_modes);
-        m_host            = std::move(rhs.m_host);
-        m_device          = std::move(rhs.m_device);
-        m_memAllocType    = std::move(rhs.m_memAllocType);
-        m_block_accessors = std::move(rhs.m_block_accessors);
-        m_alignment       = std::move(rhs.m_alignment);
+        m_instantiated        = std::move(rhs.m_instantiated);
+        m_name                = std::move(rhs.m_name);
+        m_component_names     = std::move(rhs.m_component_names);
+        m_num_homo_modes      = std::move(rhs.m_num_homo_modes);
+        m_host                = std::move(rhs.m_host);
+        m_device              = std::move(rhs.m_device);
+        m_memAllocType        = std::move(rhs.m_memAllocType);
+        m_block_accessors     = std::move(rhs.m_block_accessors);
+        m_alignment           = std::move(rhs.m_alignment);
+        m_sharedStorage       = std::move(rhs.m_sharedStorage);
+        m_sharedStorageOffset = std::move(rhs.m_sharedStorageOffset);
         for (auto &blocks : m_block_accessors)
         {
             blocks.m_field = this;
@@ -241,8 +251,9 @@ public:
         rhs.m_host           = nullptr;
         rhs.m_device         = nullptr;
         rhs.m_block_accessors.clear();
-        rhs.m_memAllocType = eHostPageable;
-        rhs.m_alignment    = NektarSpaces::host_memory_alignment;
+        rhs.m_memAllocType        = eHostPageable;
+        rhs.m_alignment           = NektarSpaces::host_memory_alignment;
+        rhs.m_sharedStorageOffset = 0;
         return *this;
     }
 
@@ -647,33 +658,42 @@ protected:
      *
      * The blocks' memory regions only point into this storage and do not own
      * it; storage a block allocated for itself is freed with the block.
+     * Shared storage is not freed here, only released by this field.
      */
     void ReleaseStorage()
     {
-        if (m_device)
+        if (m_sharedStorage)
         {
-            const unsigned int streamID = 0;
-            deviceFree(m_device, this->size() * sizeof(TData), streamID,
-                       m_memAllocType);
-            nekStreamSynchronize(streamID);
+            m_sharedStorage.reset();
+        }
+        else
+        {
+            if (m_device)
+            {
+                const unsigned int streamID = 0;
+                deviceFree(m_device, this->size() * sizeof(TData), streamID,
+                           m_memAllocType);
+                nekStreamSynchronize(streamID);
+            }
+
+            if (m_host)
+            {
+                if (m_memAllocType == eHostPageable)
+                {
+                    hostFree(m_host, m_alignment);
+                }
+                else if (m_memAllocType == eHostPinned)
+                {
+                    hostFreePinned(m_host);
+                }
+            }
         }
 
-        if (m_host)
-        {
-            if (m_memAllocType == eHostPageable)
-            {
-                hostFree(m_host, m_alignment);
-            }
-            else if (m_memAllocType == eHostPinned)
-            {
-                hostFreePinned(m_host);
-            }
-        }
-
-        m_instantiated = false;
-        m_host         = nullptr;
-        m_device       = nullptr;
-        m_alignment    = NektarSpaces::host_memory_alignment;
+        m_instantiated        = false;
+        m_host                = nullptr;
+        m_device              = nullptr;
+        m_alignment           = NektarSpaces::host_memory_alignment;
+        m_sharedStorageOffset = 0;
     }
 
     /**
@@ -688,6 +708,21 @@ protected:
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             size_t alignment_offset = 0;
+
+            // Point the blocks into the shared storage, if any.
+            if (!field->m_host && field->m_sharedStorage)
+            {
+                auto src = field->m_sharedStorage->template GetPtr<MemSpace>() +
+                           field->m_sharedStorageOffset;
+                field->m_host = src;
+
+                for (unsigned int blk = 0; blk < field->GetBlocks().size();
+                     ++blk)
+                {
+                    field->GetBlocks()[blk].m_memory_region.SetHostStorage(src);
+                    src += field->GetBlocks()[blk].m_memory_region.size();
+                }
+            }
 
             // Allocate contiguous host memory accross all MemoryRegions of the
             // field object.
@@ -726,6 +761,22 @@ protected:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
+            // Point the blocks into the shared storage, if any.
+            if (!field->m_device && field->m_sharedStorage)
+            {
+                auto src = field->m_sharedStorage->template GetPtr<MemSpace>() +
+                           field->m_sharedStorageOffset;
+                field->m_device = src;
+
+                for (unsigned int blk = 0; blk < field->GetBlocks().size();
+                     ++blk)
+                {
+                    field->GetBlocks()[blk].m_memory_region.SetDeviceStorage(
+                        src);
+                    src += field->GetBlocks()[blk].m_memory_region.size();
+                }
+            }
+
             // Allocate contiguous device memory accross all MemoryRegions of
             // the field object.
             if (!field->m_device)
@@ -856,6 +907,54 @@ protected:
     std::vector<BlockAccessor<TData, TState>> m_block_accessors;
     MemAllocType m_memAllocType;
     size_t m_alignment = NektarSpaces::host_memory_alignment;
+    /// Shared storage the field points into, if any.
+    std::shared_ptr<SharedFieldStorage<TData>> m_sharedStorage;
+    /// Offset of the field in m_sharedStorage.
+    size_t m_sharedStorageOffset = 0;
+
+private:
+    // MultiField is the only class allowed to use the shared-storage
+    // constructor below.
+    friend class MultiField<TData, TState>;
+
+    /**
+     * @brief Construct a new Field object in storage shared with other
+     * fields. For use by MultiField only.
+     *
+     * The field holds no storage of its own: its blocks point into @p storage
+     * from @p offset onwards, which must leave room for the whole field.
+     *
+     * @warning This constructor must only be used by MultiField, which owns
+     * the shared storage and lays its columns out in it. It is private, with
+     * MultiField as friend, so that no other code can build a Field on
+     * storage it does not manage.
+     *
+     * @param name           - Name of the field object.
+     * @param blockAttr      - Block attributes.
+     * @param components     - Names of components for vector field.
+     * @param num_homo_modes - Number of homogeneous modes.
+     * @param storage        - Storage the field points into.
+     * @param offset         - Offset of the field in @p storage.
+     */
+    Field(const std::string name,
+          const std::vector<BlockAttributes<TState>> blockAttr,
+          const std::vector<std::string> components,
+          const unsigned int num_homo_modes,
+          const std::shared_ptr<SharedFieldStorage<TData>> &storage,
+          const size_t offset)
+        : Field<TData, TState>(name, blockAttr, components, num_homo_modes,
+                               storage->GetMemAllocType(),
+                               storage->GetAlignment())
+    {
+        if (offset + this->size() > storage->size())
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field - Shared storage too small for the field.");
+        }
+
+        m_sharedStorage       = storage;
+        m_sharedStorageOffset = offset;
+    }
 };
 
 } // namespace Nektar::LibUtilities

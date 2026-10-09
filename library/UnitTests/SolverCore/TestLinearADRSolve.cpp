@@ -194,6 +194,25 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         }                                                                      \
     }
 
+// GCR restarted every few iterations, so that the directions are reused.
+#define TEST_LINEARADRSOLVE_GCR_RESTART(test_name, test, tol)                  \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        int LinSysLeftPrecon = 1;                                              \
+        int LinSysMaxStorage = 5;                                              \
+        this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
+        this->m_session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);   \
+        SetTestCase();                                                         \
+        RunTestCase("GCR");                                                    \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 #define TEST_LINEARADRSOLVE_BICGSTAB(test_name, test, tol)                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -416,23 +435,26 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
 // modified, 0 for classical), restart length, band of the truncated
 // Hessenberg matrix (zero for the default) and preconditioner given, for the
 // branches the macros above do not cover.
-#define TEST_LINEARADRSOLVE_GMRES_OPTIONS(test_name, test, tol, left, right,   \
-                                          mgs, maxStorage, band, precon)       \
+#define TEST_LINEARADRSOLVE_GMRES_OPTIONS(                                     \
+    test_name, test, tol, left, right, mgs, reorth, maxStorage, band, precon)  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         std::cout << std::string("Run: ") + std::string(#test_name)            \
                   << std::endl;                                                \
         Configure();                                                           \
         SetTestCase();                                                         \
-        int LinSysLeftPrecon    = left;                                        \
-        int LinSysRightPrecon   = right;                                       \
-        int ModifiedGramSchmidt = mgs;                                         \
-        int LinSysMaxStorage    = maxStorage;                                  \
-        int GMRESMaxHessMatBand = (band > 0) ? band : maxStorage + 1;          \
+        int LinSysLeftPrecon     = left;                                       \
+        int LinSysRightPrecon    = right;                                      \
+        int ModifiedGramSchmidt  = mgs;                                        \
+        int GMRESReorthogonalize = reorth;                                     \
+        int LinSysMaxStorage     = maxStorage;                                 \
+        int GMRESMaxHessMatBand  = (band > 0) ? band : maxStorage + 1;         \
         this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
         this->m_session->SetParameter("LinSysRightPrecon", LinSysRightPrecon); \
         this->m_session->SetParameter("ModifiedGramSchmidt",                   \
                                       ModifiedGramSchmidt);                    \
+        this->m_session->SetParameter("GMRESReorthogonalize",                  \
+                                      GMRESReorthogonalize);                   \
         this->m_session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);   \
         this->m_session->SetParameter("GMRESMaxHessMatBand",                   \
                                       GMRESMaxHessMatBand);                    \
@@ -552,6 +574,8 @@ TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_seg_3c, Helmholtz1D_Seg_3C, 4.0E-12)
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_tri_quad_3c, Helmholtz2D_Tri_Quad_3C,
                         2.0E-09)
 TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_all_bcs, Helmholtz2D_AllBCs, 1.0E-10)
+TEST_LINEARADRSOLVE_GCR_RESTART(linearadrsolve_gcr_restart_seg_3c,
+                                Helmholtz1D_Seg_3C, 4.0E-12)
 // TEST_LINEARADRSOLVE_GCR(linearadrsolve_gcr_hex_3c,
 // Helmholtz3D_Hex_3C, 1.0E-10)
 #if defined(NEKTAR_TEST_DEBUG)
@@ -761,19 +785,22 @@ TEST_LINEARADRSOLVE_MFGMRES(linearadrsolve_mfgmres_hex, Helmholtz3D_Hex,
 
 TEST_LINEARADRSOLVE_GMRES_OPTIONS(
     linearadrsolve_gmres_classical_gram_schmidt_left_precon_all_bcs,
-    Helmholtz2D_AllBCs, 5.0E-10, 1, 0, 0, 100, 0, "Diagonal")
+    Helmholtz2D_AllBCs, 5.0E-10, 1, 0, 0, 0, 100, 0, "Diagonal")
+TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_cgs2_left_precon_all_bcs,
+                                  Helmholtz2D_AllBCs, 5.0E-10, 1, 0, 0, 1, 100,
+                                  0, "Diagonal")
 TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_both_precon_all_bcs,
-                                  Helmholtz2D_AllBCs, 5.0E-10, 1, 1, 1, 100, 0,
-                                  "Diagonal")
+                                  Helmholtz2D_AllBCs, 5.0E-10, 1, 1, 1, 0, 100,
+                                  0, "Diagonal")
 TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_no_precon_all_bcs,
-                                  Helmholtz2D_AllBCs, 1.0E-9, 0, 0, 1, 100, 0,
-                                  "Diagonal")
+                                  Helmholtz2D_AllBCs, 1.0E-9, 0, 0, 1, 0, 100,
+                                  0, "Diagonal")
 TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_null_precon_all_bcs,
-                                  Helmholtz2D_AllBCs, 1.0E-9, 0, 1, 1, 100, 0,
-                                  "Null")
+                                  Helmholtz2D_AllBCs, 1.0E-9, 0, 1, 1, 0, 100,
+                                  0, "Null")
 TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_truncated_all_bcs,
-                                  Helmholtz2D_AllBCs, 5.0E-10, 0, 1, 1, 30, 5,
-                                  "Diagonal")
+                                  Helmholtz2D_AllBCs, 5.0E-10, 0, 1, 1, 0, 30,
+                                  5, "Diagonal")
 
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg_3c, Helmholtz1D_Seg_3C,
                           1.0E-12)
