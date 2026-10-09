@@ -41,7 +41,6 @@
             <I PROPERTY="Projection"            VALUE="Galerkin"                   />
             <I PROPERTY="EqType"                VALUE="UnsteadyNavierStokes"       />
             <I PROPERTY="SolverType"            VALUE="VelocityCorrectionScheme"   />
-            <I PROPERTY="AdvectionForm"         VALUE="Convective"                 />
             <I PROPERTY="GlobalSysSoln"         VALUE="IterativeFull" />
         </SOLVERINFO>
 

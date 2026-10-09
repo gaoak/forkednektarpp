@@ -45,6 +45,7 @@ SET(FieldUtilsHeaders
     ProcessModules/ProcessJacobianEnergy.h
     ProcessModules/ProcessL2Criterion.h
     ProcessModules/ProcessMapping.h
+    ProcessModules/ProcessMHDCurrentDensity.h
     ProcessModules/ProcessMRF.h
     ProcessModules/ProcessNumModes.h
     ProcessModules/ProcessMean.h
@@ -119,6 +120,7 @@ SET(FieldUtilsSources
     ProcessModules/ProcessJacobianEnergy.cpp
     ProcessModules/ProcessL2Criterion.cpp
     ProcessModules/ProcessMapping.cpp
+    ProcessModules/ProcessMHDCurrentDensity.cpp
     ProcessModules/ProcessMRF.cpp
     ProcessModules/ProcessNumModes.cpp
     ProcessModules/ProcessMean.cpp
