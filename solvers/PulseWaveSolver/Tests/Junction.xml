@@ -58,11 +58,8 @@
             <P> NumSteps       = 8000               </P>
             <P> IO_InfoSteps   = 100                </P>
             <P> T              = 10                 </P>
-            <P> omega          = 2*PI/T             </P>
-            <P> h0             = 1.0                </P>
             <P> k1             = 200                </P>
             <P> rho            = 0.5                </P>
-            <P> nue            = 0.5                </P>
             <P> pext           = 0.0                </P>
         </PARAMETERS>
 

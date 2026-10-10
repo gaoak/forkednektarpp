@@ -39,8 +39,6 @@
             <P> pInf   		    = rhoInf*GasConstant*TInf           </P>
             <P> Tref                = 288.15                            </P> <!--[K]-->
             <P> Twall               = 1.0            			</P>
-            <P> Lref                = 1.0            			</P>
-            <P> Uref		    = 1.0           			</P>
             <P> uInf		    = 1.0            			</P>
             <P> vInf	            = 0.0           			</P>
         </PARAMETERS>

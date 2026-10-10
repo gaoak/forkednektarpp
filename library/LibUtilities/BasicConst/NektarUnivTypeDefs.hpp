@@ -75,16 +75,6 @@ enum Direction
     zDir = 2
 };
 
-/// Enumeration a flags for output format.
-enum OutputFormat
-{
-    eTecplot,
-    eTecplotZones,
-    eTecplotSingleBlock,
-    eGmsh,
-    eGnuplot
-};
-
 /// Enumeration of flags for passing a list of options.
 enum FlagType
 {

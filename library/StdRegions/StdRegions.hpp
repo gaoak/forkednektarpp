@@ -44,40 +44,6 @@
 
 namespace Nektar::StdRegions
 {
-enum ElementType
-{
-    // eStdPointExp,
-    eStdSegExp,
-    eSegExp,
-    eStdQuadExp,
-    eStdTriExp,
-    eStdNodalTriExp,
-    eQuadExp,
-    eTriExp,
-    eNodalTriExp,
-    eStdHexExp,
-    eStdPrismExp,
-    eStdPyrExp,
-    eStdTetExp,
-    eStdNodalTetExp,
-    eHexExp,
-    ePrismExp,
-    ePyrExp,
-    eTetExp,
-    eNodalTetExp,
-    eStdNodalPyrExp,
-    eNodalPyrExp,
-    SIZE_ElementType
-};
-
-const char *const ElementTypeMap[] = {
-    //"StdPointExp",
-    "StdSegExp",      "SegExp",      "StdQuadExp",     "StdTriExp",
-    "StdNodalTriExp", "QuadExp",     "TriExp",         "NodalTriExp",
-    "StdHexExp",      "StdPrismExp", "StdPyrExp",      "StdTetExp",
-    "StdNodalTetExp", "HexExp",      "PrismExp",       "PyrExp",
-    "TetExp",         "NodalTetExp", "StdNodalPyrExp", "NodalPyrExp"};
-
 /** @todo we need to tidy up matrix construction approach
  *  probably using a factory type approach
  */

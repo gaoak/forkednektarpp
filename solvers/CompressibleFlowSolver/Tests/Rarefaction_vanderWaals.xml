@@ -22,11 +22,9 @@
             <P> GasConstant    = 35.152         </P>
             <P> Tcrit          = 564.09         </P>
             <P> Pcrit          = 1415000       </P>
-            <P> rhocrit        = 256.82         </P>
 
             <!-- Parameters for boundary conditions -->
             <P> pIn           = 1.06*Pcrit      </P>
-            <P> TIn           = 1.01*Tcrit      </P>
 
             <P> MachIn        = 1.70            </P>
 

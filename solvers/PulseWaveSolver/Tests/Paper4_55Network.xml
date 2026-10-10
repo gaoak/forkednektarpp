@@ -516,7 +516,6 @@
             <P> NumSteps       = FinTime/TimeStep   </P>
             <P> IO_InfoSteps   = 500                </P>
             <P> T              = 1.0                </P>
-            <P> omega          = 2*PI/T             </P>
             <P> rho            = 1.021E-03          </P>
             <P> pext           = 0.0                </P>
 

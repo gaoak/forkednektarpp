@@ -116,15 +116,10 @@
             <P> NumSteps       = 20000  </P>
             <P> IO_InfoSteps   = 100000 </P>
             <P> T              = 1.0    </P>
-            <P> omega          = 2*PI/T </P>
             <P> k              = 200    </P>
             <P> rho            = 1.00   </P>
             <P> pext           = 0.0    </P>
             <P> A1             = 9.8175 </P>
-            <P> A2             = 4.9087 </P>
-            <P> A3             = 4.9087 </P>
-            <P> A4             = 0.8181 </P>
-            <P> A5             = 0.8181 </P>
         </PARAMETERS>
 
         <SOLVERINFO>

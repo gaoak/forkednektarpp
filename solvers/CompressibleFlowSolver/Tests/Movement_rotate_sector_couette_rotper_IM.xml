@@ -253,7 +253,6 @@
             <P> wDim                  = 0.0                                     </P>
             <P> angOutDim             = 0.0                             </P>
             <P> angInDim              = velMagnDim/Rin                              </P>
-            <P> muDim                 = rhoDim*angInDim*Rin*Rin/ReRef                     </P>
 
             <P> Re0                   = ReRef/Rin                                 </P>
             <P> rhoInf                = rhoDim/rhoDim                           </P>

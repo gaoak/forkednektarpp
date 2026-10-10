@@ -49,8 +49,6 @@
             <P> MachIn        = 0.239543      </P>
 
             <P> rhoIn         = pIn/(GasConstant*TIn) </P>
-            <P> cIn           = sqrt(Gamma*pIn/rhoIn) </P>
-            <P> vIn           = MachIn*cIn            </P>
             <P> pStagIn   = pIn * (1 + (Gamma-1)/2 * MachIn^2)^(Gamma/(Gamma-1)) </P>
             <P> rhoStagIn = rhoIn * (pStagIn/pIn)^(1/Gamma) </P>
             <!-- Reference state -->
