@@ -35,6 +35,7 @@
 #ifndef NEKTAR_LIBUTILITIES_THREADSTD_H_
 #define NEKTAR_LIBUTILITIES_THREADSTD_H_
 
+#include <atomic>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -181,6 +182,12 @@ public:
      *
      * If this method is called the worker will shut down.  Used by the
      * ThreadManagerStd to stop threading.
+     *
+     * @warning The flag this clears is half of the condition the worker waits
+     * on, in both of its waits. The caller must hold the master queue and
+     * master active mutexes, or a worker which has read the flag but not yet
+     * registered on the condition variable will miss the notification which
+     * follows and wait for good. See ~ThreadManagerStd().
      */
     void Stop()
     {
@@ -199,7 +206,8 @@ private:
     // Member variables
     ThreadManagerStd *m_threadManager;
     std::queue<ThreadJob *> m_workerQueue;
-    bool m_keepgoing;
+    /// Set to false to wind this worker up; see Stop().
+    std::atomic<bool> m_keepgoing;
     unsigned int m_threadNum;
 };
 
