@@ -70,7 +70,6 @@
             <P> NumSteps       = FinTime/TimeStep   </P>
             <P> IO_InfoSteps   = 100                </P>
             <P> T              = 0.25               </P>
-            <P> h0             = 0.0015             </P>
             <P> rho            = 1.050e+03          </P>
             <P> pext           = 0.0                </P>
             <P> RT             = 1.89e+08           </P>

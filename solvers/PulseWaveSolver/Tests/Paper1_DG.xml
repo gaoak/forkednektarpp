@@ -88,9 +88,7 @@
             <P> NumSteps       = FinTime/TimeStep   </P>
             <P> IO_InfoSteps   = 100                </P>
             <P> T              = 0.33               </P>
-            <P> h0             = 1.0                </P>
             <P> rho            = 1.0                </P>
-            <P> nue            = 0.5                </P>
             <P> pext           = 0.0                </P>
             <P> a1             = 10.0              </P>
             <P> a2             = 20.0                </P>

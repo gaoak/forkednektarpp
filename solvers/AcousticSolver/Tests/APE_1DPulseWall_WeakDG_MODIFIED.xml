@@ -54,8 +54,6 @@
             <P> IO_InfoSteps   = 10                </P>
             <P> Rho0           = 1.204             </P> <!-- Incompressible density -->
             <P> Pinfinity      = 100000            </P> <!-- Ambient pressure -->
-            <P> omega0         = 6283.185          </P>
-            <P> pmax           = 100               </P>
         </PARAMETERS>
         <VARIABLES>
             <V ID="0"> p  </V>

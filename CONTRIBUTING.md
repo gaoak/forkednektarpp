@@ -127,6 +127,8 @@ remains unmerged for more than a couple of days.
     cases with the comment `/* Falls through. */` to suppress the warning.
   - Avoid `ASSERTL0(false, msg)`; instead use `NEKERROR(ErrorUtil:efatal, msg)`.
   - Ensure variables are initialised with sensible default values.
+- Do your session files contain only parameters and `SOLVERINFO` properties
+  that are used?
 - Is there documentation in the user guide and/or developer guide?
 - Have you added a CHANGELOG entry, including the MR number?
 - Are there any massive files you might have added in the commit history? We try

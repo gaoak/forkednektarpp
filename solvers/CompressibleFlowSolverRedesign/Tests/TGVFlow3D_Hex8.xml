@@ -58,8 +58,6 @@
             <P> Tref                  = TDim                                    </P>
             <P> pDim                  = rhoDim*GasConstantDim*TDim              </P>
 
-            <P> Alpha_deg             = 0                                    </P>
-            <P> Alpha_rad             = Alpha_deg*PI/180                        </P>
 
             <P> soundSpdDim           = sqrt(GammaDim*pDim/rhoDim)                 </P>
             <P> L                     = 1.0                                     </P>
@@ -68,7 +66,6 @@
             <P> uDim                  = velMagnDim                             </P>
             <P> vDim                  = 0                                       </P>
             <P> wDim                  = 0                                     </P>
-            <P> muDim                 = rhoDim*uDim*L/ReRef                     </P>
 
             <P> Re0                   = ReRef/L                                 </P>
             <P> rhoInf                = rhoDim/rhoDim                           </P>

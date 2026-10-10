@@ -38,9 +38,7 @@
             <P> NumSteps       = FinTime / TimeStep </P>
             <P> IO_InfoSteps   = 100                </P>
             <P> T              = 1                  </P>
-            <P> omega          = 2 * PI / T         </P>
             <P> rho            = 1.060E-03          </P> <!-- Density [kg/cm^3]-->
-            <P> nue            = 0.5                </P> <!-- Poisson's ratio -->
             <P> pext           = 94.66              </P> <!-- External pressure - can substitute for reference pressure if using different reference area: here it is the diasotlic pressure -->
             <P> pout           = 0.0                </P> <!-- Outflow pressure for RCR model -->
             <P> A1             = 4.5239             </P> <!-- Area at diastolic pressure -->

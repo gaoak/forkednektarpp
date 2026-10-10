@@ -2197,13 +2197,6 @@ void Expansion2D::v_DGDeriv(int dir,
     Out_d = InvMass * Coeffs;
 }
 
-enum BndToLocMatrixMapType
-{
-    eBndToFullMatrixCG,
-    eBndToBndMatrixCG,
-    eBndToTraceMatrixDG
-};
-
 void Expansion2D::v_AddRobinMassMatrix(
     const int edge, const Array<OneD, const NekDouble> &primCoeffs,
     DNekMatSharedPtr &inoutmat)

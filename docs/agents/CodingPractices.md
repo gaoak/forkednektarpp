@@ -216,3 +216,9 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     afterwards, at the cost of a second pass over the padded element groups.
     Assign zero rather than multiplying by the padding mask, so that a NaN
     does not survive.
+
+## Session files
+
+34. **A session file contains no unused parameters.** Every `SOLVERINFO`
+    property and parameter it sets is read by the solver running it or used
+    by an expression in the session.
