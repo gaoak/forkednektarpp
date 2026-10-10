@@ -190,8 +190,8 @@ protected:
         // Reset device memory.
         m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-        Math::ddot<ExecSpace>(m_u, m_u, exchange + 0);
-        Math::ddot<ExecSpace>(m_u, m_r, exchange + 1);
+        // <u, u> and <u, r>, reading u once.
+        Math::ddot2<ExecSpace>(m_u, m_u, m_r, exchange);
 
         // Begin communication.
         this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -265,11 +265,8 @@ protected:
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            // <u_{k+1}, u_{k+1}>
-            Math::ddot<ExecSpace>(m_u, m_u, exchange + 0);
-
-            // <r_{k+1}, u_{k+1}>
-            Math::ddot<ExecSpace>(m_r, m_u, exchange + 1);
+            // <u_{k+1}, u_{k+1}> and <u_{k+1}, r_{k+1}>, reading u once.
+            Math::ddot2<ExecSpace>(m_u, m_u, m_r, exchange);
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(

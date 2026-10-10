@@ -301,8 +301,8 @@ public:
     }
 
     /**
-     * @brief Templated initialize method.
-     *
+     * @brief Templated initialize method: set every entry to @p val, but the
+     * padding, which is zero.
      */
     template <typename MemSpace> void Initialize(const TData val)
     {
@@ -321,9 +321,13 @@ public:
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
-            this->GetBlocks()[blk]
-                .m_memory_region.template Initialize<MemSpace>(val, 0, 0,
-                                                               streamID);
+            auto &block                 = this->GetBlocks()[blk];
+            block.m_memory_region.template Initialize<MemSpace>(val, 0, 0,
+                                                                streamID);
+            if (val != TData(0))
+            {
+                ZeroPadding<MemSpace>(block, streamID);
+            }
         }
     }
 
@@ -913,6 +917,31 @@ protected:
     size_t m_sharedStorageOffset = 0;
 
 private:
+    /**
+     * @brief Zero the padding of @p block in place, in @p MemSpace.
+     */
+    template <typename MemSpace>
+    static void ZeroPadding(BlockAccessor<TData, TState> &block,
+                            const unsigned int streamID)
+    {
+        auto ptr = block.m_memory_region.template GetPtr<MemSpace, ReadWrite>(
+            streamID);
+        const unsigned int ncomp =
+            block.GetNumComponents() * block.GetNumHomoModes();
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            hostZeroPadding(ptr, ncomp, block.CompSize(),
+                            block.GetNumElements(), block.GetNumData(),
+                            block.GetInterleaveWidth());
+        }
+        else
+        {
+            deviceZeroPadding(ptr, ncomp, block.CompSize(),
+                              block.GetNumElements(), block.GetNumData(),
+                              block.GetInterleaveWidth(), streamID);
+        }
+    }
+
     // MultiField is the only class allowed to use the shared-storage
     // constructor below.
     friend class MultiField<TData, TState>;

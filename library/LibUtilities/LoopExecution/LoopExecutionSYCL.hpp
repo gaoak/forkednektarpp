@@ -306,10 +306,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize =
-            internalMaxDataSizeByte * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)

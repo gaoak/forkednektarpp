@@ -111,6 +111,70 @@ private:
         m_mask;
 };
 
+// Zero the padding of each block of x in place, so that a Field operation
+// whose result is not zero on zero padding, such as fill, leaves it zero. Only
+// the element groups from the first padded element on are visited, in the
+// current interleave format.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void internalZeroPadding(LibUtilities::Field<TData, TFieldState> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        auto &block = x.GetBlocks()[blk];
+        if (block.GetNumElements() == block.GetNumElementsWithPadding())
+        {
+            continue;
+        }
+
+        auto xptr = block.template GetPtr<MemSpace, ReadWrite>(streamID);
+        const unsigned int ncomp =
+            block.GetNumComponents() * block.GetNumHomoModes();
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            hostZeroPadding(xptr, ncomp, block.CompSize(),
+                            block.GetNumElements(), block.GetNumData(),
+                            block.GetInterleaveWidth());
+        }
+        else
+        {
+            deviceZeroPadding(xptr, ncomp, block.CompSize(),
+                              block.GetNumElements(), block.GetNumData(),
+                              block.GetInterleaveWidth(), streamID);
+        }
+    }
+}
+
+// Assert that the padding of each block of x is zero, as the reductions
+// summing over whole blocks assume. Debug builds only, since it reads x on the
+// host.
+template <typename TData, FieldState TFieldState>
+void internalAssertZeroPadding(
+    [[maybe_unused]] LibUtilities::Field<TData, TFieldState> &x)
+{
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
+    using NektarSpaces::HostSpace;
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        auto &block = x.GetBlocks()[blk];
+        auto ptr    = block.template GetPtr<HostSpace, ReadOnly>(blk + 1);
+        auto mask   = internalMathKernelMask<HostSpace>::GetInstance(block);
+        const size_t compSize = block.CompSize();
+        const unsigned int ncomp =
+            block.GetNumComponents() * block.GetNumHomoModes();
+        for (size_t i = 0; i < ncomp * compSize; ++i)
+        {
+            ASSERTL1(mask[i % compSize] || ptr[i] == TData(0),
+                     "Math - Padding of " + x.GetName() + " is not zero.");
+        }
+    }
+#endif
+}
+
 // In-place MemoryRegion and Field-based Math functions. Should in general NOT
 // be used at the "solver" level, but only at the "Operator" level. Those
 // functions require compile-time definition of the Execution space as a
@@ -171,6 +235,8 @@ void fill(const TData &val, LibUtilities::Field<TData, TFieldState> &x)
 
         fillKernel<ExecSpace>(size, val, xptr, streamID);
     }
+
+    internalZeroPadding<ExecSpace>(x);
 }
 
 template <typename ExecSpace, typename TData>
@@ -495,15 +561,54 @@ void addScalar(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto yptr =
             y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
-        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
-                    x.GetNumHomoModes();
+        auto &block = x.GetBlocks()[blk];
 
-        addScalarKernel<ExecSpace>(size, alpha, xptr, yptr, streamID);
+        // Padding stays zero.
+        addScalarKernel<ExecSpace>(
+            x.GetNumComponents() * x.GetNumHomoModes(), block.CompSize(),
+            block.GetNumElements(), block.GetNumData(),
+            block.GetInterleaveWidth(), alpha, xptr, yptr, streamID);
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
+
+// Previous implementation, zeroing the padding in a second pass; kept for
+// reference for now.
+// template <typename ExecSpace, typename TData, FieldState TFieldState>
+// void addScalar(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
+//                LibUtilities::Field<TData, TFieldState> &y)
+// {
+//     using MemSpace = typename ExecSpace::memory_space;
+//
+//     if (x.size() != y.size())
+//     {
+//         std::stringstream msg;
+//
+//         msg << "MathKernel::addScalar - Memory size mismatch between Field";
+//         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+//     }
+//
+//     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+//     {
+//         const unsigned int streamID = blk + 1;
+//
+//         auto xptr =
+//             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+//         auto yptr = y.GetBlocks()[blk]
+//                         .template GetPtr<MemSpace, WriteOnly>(streamID);
+//         auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+//                     x.GetNumHomoModes();
+//
+//         addScalarKernel<ExecSpace>(size, alpha, xptr, yptr, streamID);
+//
+//         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+//             x.GetBlocks()[blk].GetInterleaveWidth());
+//     }
+//
+//     internalZeroPadding<ExecSpace>(y);
+// }
 
 // Per-component addScalar: y = x + alpha[c], ie adds a component-specific
 // scalar `alpha[c]` to every entry of component `c` of `x`. `alpha` must hold
@@ -538,19 +643,68 @@ void addScalar(const std::vector<TData> &alpha,
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto yptr =
             y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
-        const auto compSize = x.GetBlocks()[blk].CompSize();
+        auto &block         = x.GetBlocks()[blk];
+        const auto compSize = block.CompSize();
 
+        // Padding stays zero.
         for (unsigned int nc = 0; nc < numComp; ++nc)
         {
-            addScalarKernel<ExecSpace>(compSize, alpha[nc],
-                                       xptr + nc * compSize,
-                                       yptr + nc * compSize, streamID);
+            addScalarKernel<ExecSpace>(
+                1, compSize, block.GetNumElements(), block.GetNumData(),
+                block.GetInterleaveWidth(), alpha[nc], xptr + nc * compSize,
+                yptr + nc * compSize, streamID);
         }
 
         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
     }
 }
+
+// Previous implementation, zeroing the padding in a second pass; kept for
+// reference for now.
+// template <typename ExecSpace, typename TData, FieldState TFieldState>
+// void addScalar(const std::vector<TData> &alpha,
+//                LibUtilities::Field<TData, TFieldState> &x,
+//                LibUtilities::Field<TData, TFieldState> &y)
+// {
+//     using MemSpace = typename ExecSpace::memory_space;
+//
+//     if (x.size() != y.size())
+//     {
+//         std::stringstream msg;
+//
+//         msg << "MathKernel::addScalar - Memory size mismatch between Field";
+//         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+//     }
+//
+//     const unsigned int numComp = x.GetNumComponents() * x.GetNumHomoModes();
+//     ASSERTL1(alpha.size() == numComp,
+//              "MathKernel::addScalar - one scalar per component*homoMode "
+//              "expected.");
+//
+//     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+//     {
+//         const unsigned int streamID = blk + 1;
+//
+//         auto xptr =
+//             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+//         auto yptr = y.GetBlocks()[blk]
+//                         .template GetPtr<MemSpace, WriteOnly>(streamID);
+//         const auto compSize = x.GetBlocks()[blk].CompSize();
+//
+//         for (unsigned int nc = 0; nc < numComp; ++nc)
+//         {
+//             addScalarKernel<ExecSpace>(compSize, alpha[nc],
+//                                        xptr + nc * compSize,
+//                                        yptr + nc * compSize, streamID);
+//         }
+//
+//         y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+//             x.GetBlocks()[blk].GetInterleaveWidth());
+//     }
+//
+//     internalZeroPadding<ExecSpace>(y);
+// }
 
 template <typename ExecSpace, typename TData>
 void sub(LibUtilities::MemoryRegion<TData> &x,
@@ -625,7 +779,7 @@ void mul(const TData alpha, LibUtilities::MemoryRegion<TData> &x,
     {
         std::stringstream msg;
 
-        msg << "MathKernel::div - Memory size mismatch between Field";
+        msg << "MathKernel::mul - Memory size mismatch between Field";
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
@@ -647,7 +801,7 @@ void mul(LibUtilities::MemoryRegion<TData> &x,
     {
         std::stringstream msg;
 
-        msg << "MathKernel::div - Memory size mismatch between Field";
+        msg << "MathKernel::mul - Memory size mismatch between Field";
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
@@ -669,7 +823,7 @@ void mul(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
     {
         std::stringstream msg;
 
-        msg << "MathKernel::div - Memory size mismatch between Field";
+        msg << "MathKernel::mul - Memory size mismatch between Field";
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
@@ -702,7 +856,7 @@ void mul(LibUtilities::Field<TData, TFieldState> &x,
     {
         std::stringstream msg;
 
-        msg << "MathKernel::div - Memory size mismatch between Field";
+        msg << "MathKernel::mul - Memory size mismatch between Field";
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
@@ -1159,6 +1313,8 @@ void reduceSum(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    internalAssertZeroPadding(x);
+
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {
         *out = 0.0;
@@ -1174,18 +1330,11 @@ void reduceSum(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 
         auto xptr =
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto &block  = x.GetBlocks()[blk];
-        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            reduceSumKernel<ExecSpace, false>(size, maskptr, xptr, out,
-                                              streamID);
-
-            xptr += size;
-        }
+        // The padding is zero, so the whole block is reduced.
+        reduceSumKernel<ExecSpace, false>(size, xptr, out, streamID);
     }
 }
 
@@ -1208,7 +1357,7 @@ void reduceSum(LibUtilities::Field<uint8_t, TFieldState> &mask,
     {
         WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
                       x.GetBlocks()[blk].GetInterleaveWidth(),
-                  "MathKernesl::reduceSum - Inconsistent interleave format "
+                  "MathKernels::reduceSum - Inconsistent interleave format "
                   "between input Fields");
 
         const unsigned int streamID = blk + 1;
@@ -1462,6 +1611,9 @@ void ddot(LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    internalAssertZeroPadding(x);
+    internalAssertZeroPadding(y);
+
     if (x.size() != y.size())
     {
         std::stringstream msg;
@@ -1492,19 +1644,11 @@ void ddot(LibUtilities::Field<TData, TFieldState> &x,
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto yptr =
             y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto &block  = x.GetBlocks()[blk];
-        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            ddotKernel<ExecSpace, false>(size, maskptr, xptr, yptr, out,
-                                         streamID);
-
-            xptr += size;
-            yptr += size;
-        }
+        // The padding is zero, so the whole block is reduced.
+        ddotKernel<ExecSpace, false>(size, xptr, yptr, out, streamID);
     }
 }
 
@@ -1556,6 +1700,121 @@ void ddot(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
 }
 
+// ddot2 computes, in one pass over x, out[0] = (x, y) and out[1] = (x, z): two
+// dot products sharing x. out holds two values in the memory space of
+// ExecSpace.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void ddot2(LibUtilities::Field<TData, TFieldState> &x,
+           LibUtilities::Field<TData, TFieldState> &y,
+           LibUtilities::Field<TData, TFieldState> &z, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    internalAssertZeroPadding(x);
+    internalAssertZeroPadding(y);
+    internalAssertZeroPadding(z);
+
+    if (x.size() != y.size() || x.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::ddot2 - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        out[0] = 0.0;
+        out[1] = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, 2 * sizeof(TData), 0);
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        WARNINGL1(x.GetBlocks()[blk].GetInterleaveWidth() ==
+                          y.GetBlocks()[blk].GetInterleaveWidth() &&
+                      x.GetBlocks()[blk].GetInterleaveWidth() ==
+                          z.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::ddot2 - Inconsistent interleave format "
+                  "between input Fields");
+
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        // The padding is zero, so the whole block is reduced.
+        const uint8_t *nomask = nullptr;
+        ddot2Kernel<ExecSpace, false>(size, nomask, xptr, yptr, zptr, out,
+                                      streamID);
+    }
+}
+
+// ddot2 over the entries mask selects.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void ddot2(LibUtilities::Field<uint8_t, TFieldState> &mask,
+           LibUtilities::Field<TData, TFieldState> &x,
+           LibUtilities::Field<TData, TFieldState> &y,
+           LibUtilities::Field<TData, TFieldState> &z, TData *out)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (x.size() != y.size() || x.size() != z.size())
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::ddot2 - Memory size mismatch between Field";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+    {
+        out[0] = 0.0;
+        out[1] = 0.0;
+    }
+    else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+    {
+        deviceMemset(out, 0, 2 * sizeof(TData), 0);
+    }
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        WARNINGL1(mask.GetBlocks()[blk].GetInterleaveWidth() ==
+                          x.GetBlocks()[blk].GetInterleaveWidth() &&
+                      x.GetBlocks()[blk].GetInterleaveWidth() ==
+                          y.GetBlocks()[blk].GetInterleaveWidth() &&
+                      x.GetBlocks()[blk].GetInterleaveWidth() ==
+                          z.GetBlocks()[blk].GetInterleaveWidth(),
+                  "MathKernels::ddot2 - Inconsistent interleave format "
+                  "between input Fields");
+
+        const unsigned int streamID = blk + 1;
+
+        auto maskptr =
+            mask.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto yptr =
+            y.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto zptr =
+            z.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        ddot2Kernel<ExecSpace, false>(size, maskptr, xptr, yptr, zptr, out,
+                                      streamID);
+    }
+}
+
 template <typename ExecSpace, typename TData>
 void l1norm(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {
@@ -1585,6 +1844,8 @@ void l1norm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    internalAssertZeroPadding(x);
+
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {
         *out = 0.0;
@@ -1600,17 +1861,11 @@ void l1norm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 
         auto xptr =
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto &block  = x.GetBlocks()[blk];
-        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            l1normKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
-
-            xptr += size;
-        }
+        // The padding is zero, so the whole block is reduced.
+        l1normKernel<ExecSpace, false>(size, xptr, out, streamID);
     }
 }
 
@@ -1678,6 +1933,8 @@ void l2norm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    internalAssertZeroPadding(x);
+
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {
         *out = 0.0;
@@ -1693,17 +1950,11 @@ void l2norm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 
         auto xptr =
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto &block  = x.GetBlocks()[blk];
-        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            l2normKernel<ExecSpace, false>(size, maskptr, xptr, out, streamID);
-
-            xptr += size;
-        }
+        // The padding is zero, so the whole block is reduced.
+        l2normKernel<ExecSpace, false>(size, xptr, out, streamID);
     }
 }
 
@@ -1773,6 +2024,8 @@ void lpnorm(const unsigned int p, LibUtilities::Field<TData, TFieldState> &x,
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    internalAssertZeroPadding(x);
+
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {
         *out = 0.0;
@@ -1788,18 +2041,11 @@ void lpnorm(const unsigned int p, LibUtilities::Field<TData, TFieldState> &x,
 
         auto xptr =
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto &block  = x.GetBlocks()[blk];
-        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            lpnormKernel<ExecSpace, false>(size, p, maskptr, xptr, out,
-                                           streamID);
-
-            xptr += size;
-        }
+        // The padding is zero, so the whole block is reduced.
+        lpnormKernel<ExecSpace, false>(size, p, xptr, out, streamID);
     }
 }
 
@@ -1868,6 +2114,8 @@ void linfnorm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
+    internalAssertZeroPadding(x);
+
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
     {
         *out = 0.0;
@@ -1883,18 +2131,11 @@ void linfnorm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
 
         auto xptr =
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto &block  = x.GetBlocks()[blk];
-        auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
 
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            linfnormKernel<ExecSpace, false>(size, maskptr, xptr, out,
-                                             streamID);
-
-            xptr += size;
-        }
+        // The padding is zero, so the whole block is reduced.
+        linfnormKernel<ExecSpace, false>(size, xptr, out, streamID);
     }
 }
 

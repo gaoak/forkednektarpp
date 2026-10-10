@@ -170,6 +170,8 @@ protected:
         ExpressionKernelArgs<TData> kernelArgs;
         kernelArgs.nsize    = nsize;
         kernelArgs.compSize = compSize;
+        kernelArgs.nelmt    = inblock.GetNumElements();
+        kernelArgs.ndata    = inblock.GetNumData();
         kernelArgs.scale    = this->m_scale;
         kernelArgs.coordptr = coordptr;
         kernelArgs.time     = this->m_time;

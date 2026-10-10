@@ -198,3 +198,21 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     through a `shared_ptr` can be reached by another holder, so a flag or a
     scale set once when it is attached can be changed before it is read. Set
     it immediately before the `Apply()` that depends on it.
+
+## Padding
+
+33. **Padding is zero.** The entries of a block's padded elements are zero
+    in every `Field`, and code may rely on it: the MultiField products run
+    BLAS over whole blocks. Storage is allocated zeroed and element data on
+    padded elements (Jacobians, metrics, coordinates) is zero, so an operation
+    mapping zero to zero (an operator, `add`, `mul`, `daxpy`) keeps padding
+    zero, and in most cases no special attention is needed. An operation that
+    does not, such as adding or filling with a constant, dividing, or
+    evaluating a function of the coordinates, must leave the padding zero.
+    Prefer doing so in place, in the kernel computing the result: skip padded
+    elements and write zero for them, as the Expression kernels do, or return
+    zero where the result is undefined, as `Math::div` does for a zero
+    divisor. Otherwise, call `Math::internalZeroPadding` on the output
+    afterwards, at the cost of a second pass over the padded element groups.
+    Assign zero rather than multiplying by the padding mask, so that a NaN
+    does not survive.

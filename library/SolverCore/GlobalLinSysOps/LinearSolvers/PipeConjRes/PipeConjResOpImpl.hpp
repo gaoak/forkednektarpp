@@ -231,11 +231,8 @@ protected:
                 this->m_robBndCondOp->Apply(m_r, m_w);
             }
 
-            // <r_{k+1}, r_{k+1}>
-            Math::ddot<ExecSpace>(m_r, m_r, exchange + 0);
-
-            // <r_{k+1}, w_{k+1}>
-            Math::ddot<ExecSpace>(m_r, m_w, exchange + 1);
+            // <r_{k+1}, r_{k+1}> and <r_{k+1}, w_{k+1}>, reading r once.
+            Math::ddot2<ExecSpace>(m_r, m_r, m_w, exchange + 0);
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_w, m_wk);

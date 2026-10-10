@@ -68,4 +68,55 @@ template void deviceFillKernelLauncher<float>(float *dst, const float val,
                                               const size_t size,
                                               const unsigned int streamID);
 
+template <typename TData>
+__global__ void deviceZeroPaddingKernel(TData *dst, const size_t size,
+                                        const size_t compSize,
+                                        const size_t prefix, const size_t nelmt,
+                                        const unsigned int ndata,
+                                        const unsigned int width)
+{
+    const size_t tail   = compSize - prefix;
+    const size_t idx0   = threadIdx.x + blockIdx.x * blockDim.x;
+    const size_t stride = blockDim.x * gridDim.x;
+    for (size_t idx = idx0; idx < size; idx += stride)
+    {
+        const size_t i = prefix + idx % tail;
+        if ((i / (ndata * width)) * width + i % width >= nelmt)
+        {
+            dst[(idx / tail) * compSize + i] = TData(0);
+        }
+    }
+}
+
+template <typename TData>
+void deviceZeroPaddingKernelLauncher(TData *dst, const unsigned int ncomp,
+                                     const size_t compSize, const size_t nelmt,
+                                     const unsigned int ndata,
+                                     const unsigned int width,
+                                     const unsigned int streamID)
+{
+    const size_t prefix = (nelmt / width) * width * ndata;
+    const size_t size   = ncomp * (compSize - prefix);
+
+    auto stream                  = HIPStream::GetInstance(streamID);
+    const unsigned int blocksize = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridsize  = (size + blocksize - 1) / blocksize;
+    deviceZeroPaddingKernel<<<gridsize, blocksize, 0, stream>>>(
+        dst, size, compSize, prefix, nelmt, ndata, width);
+    CHECK_LAST_HIPCUDA_ERROR()
+}
+
+template void deviceZeroPaddingKernelLauncher<double>(
+    double *dst, const unsigned int ncomp, const size_t compSize,
+    const size_t nelmt, const unsigned int ndata, const unsigned int width,
+    const unsigned int streamID);
+template void deviceZeroPaddingKernelLauncher<float>(
+    float *dst, const unsigned int ncomp, const size_t compSize,
+    const size_t nelmt, const unsigned int ndata, const unsigned int width,
+    const unsigned int streamID);
+template void deviceZeroPaddingKernelLauncher<uint8_t>(
+    uint8_t *dst, const unsigned int ncomp, const size_t compSize,
+    const size_t nelmt, const unsigned int ndata, const unsigned int width,
+    const unsigned int streamID);
+
 } // namespace Nektar

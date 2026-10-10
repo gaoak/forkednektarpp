@@ -227,8 +227,8 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Reduction.
-            Math::ddot<ExecSpace>(m_r, m_rtilde, exchange + 0);
-            Math::ddot<ExecSpace>(m_v, m_rtilde, exchange + 1);
+            // <r~, r> and <r~, v>, reading r~ once.
+            Math::ddot2<ExecSpace>(m_rtilde, m_r, m_v, exchange);
             // Math::ddot<ExecSpace>(m_r, m_r, exchange + 2);
 
             // Communication.
@@ -277,10 +277,9 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Reduction.
-            Math::ddot<ExecSpace>(m_s, m_s, exchange + 0);
-            Math::ddot<ExecSpace>(m_z, m_s, exchange + 1);
-            Math::ddot<ExecSpace>(m_z, m_z, exchange + 2);
-            Math::ddot<ExecSpace>(m_z, m_rtilde, exchange + 3);
+            // <s, s> and <s, z>, then <z, z> and <z, r~>, reading s and z once.
+            Math::ddot2<ExecSpace>(m_s, m_s, m_z, exchange + 0);
+            Math::ddot2<ExecSpace>(m_z, m_z, m_rtilde, exchange + 2);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(

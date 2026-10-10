@@ -321,8 +321,8 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         }                                                                      \
     }
 
-// The GMRES options are set after SetTestCase(), whose mesh read
-// re-initialises the session and so clears any parameter set before it.
+// The GMRES options are set on the session Configure() reads, before the
+// solver is created in RunTestCase().
 #define TEST_LINEARADRSOLVE_GMRES(test_name, test, tol)                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -528,6 +528,30 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
         this->m_session->SetParameter("LinSysRightPrecon", LinSysRightPrecon); \
         SetTestCase();                                                         \
+        RunTestCase("IDRS");                                                   \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+// IDR(s) bi-orthogonalising with classical Gram-Schmidt applied twice (CGS2).
+// With the default 4 stages, the basis vectors from the third on take the CGS2
+// path.
+#define TEST_LINEARADRSOLVE_IDRS_CGS2(test_name, test, tol)                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        int LinSysLeftPrecon        = 0;                                       \
+        int LinSysRightPrecon       = 1;                                       \
+        int IDRClassicalGramSchmidt = 1;                                       \
+        this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
+        this->m_session->SetParameter("LinSysRightPrecon", LinSysRightPrecon); \
+        this->m_session->SetParameter("IDRClassicalGramSchmidt",               \
+                                      IDRClassicalGramSchmidt);                \
         RunTestCase("IDRS");                                                   \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -871,6 +895,15 @@ TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex, Helmholtz3D_Hex,
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tet, Helmholtz3D_Tet,
                           5.0E-10)
 #endif
+
+TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_seg_3c,
+                              Helmholtz1D_Seg_3C, 5.0E-11)
+TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_tri_quad_3c,
+                              Helmholtz2D_Tri_Quad_3C, 4.0E-09)
+TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_all_bcs,
+                              Helmholtz2D_AllBCs, 1.0E-09)
+TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_hex_3c,
+                              Helmholtz3D_Hex_3C, 2.0E-08)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

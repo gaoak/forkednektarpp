@@ -63,13 +63,16 @@ enum ExpressionKernelIndex
 
 // The arguments an expression kernel is launched with, in the order its
 // parameter list declares them: the number of points over every homogeneous
-// mode, the number of points in one mode, the scale factor, the coordinates,
-// the time, one pointer per expression variable and one pointer per masked
-// output component.
+// mode, the number of points in one mode, the number of elements without
+// padding, the number of points per element, the scale factor, the
+// coordinates, the time, one pointer per expression variable and one pointer
+// per masked output component.
 template <typename TData> struct ExpressionKernelArgs
 {
     size_t nsize;
     size_t compSize;
+    size_t nelmt;
+    size_t ndata;
     TData scale;
     const TData *coordptr;
     TData time;
@@ -219,7 +222,8 @@ inline std::string GetExpressionKernelConstants(
 
 // Emits the parameter list of an expression kernel, without the enclosing
 // brackets: the number of points over every homogeneous mode, the number of
-// points in one mode, the scale factor, the coordinates, the time, one pointer
+// points in one mode, the number of elements without padding, the number of
+// points per element, the scale factor, the coordinates, the time, one pointer
 // per expression variable and one pointer per masked output component.
 inline std::string GetExpressionKernelParameters(
     const std::vector<std::string> &vnames, const std::vector<bool> &cmask)
@@ -229,6 +233,8 @@ inline std::string GetExpressionKernelParameters(
     // 0. size.
     kernel_src += "const size_t nsize, ";
     kernel_src += "const size_t compSize, ";
+    kernel_src += "const size_t nelmt, ";
+    kernel_src += "const size_t ndata, ";
     kernel_src += "const TData scale, ";
     // 1. Coordinates.
     kernel_src += "const TData* coordptr, ";
@@ -260,7 +266,7 @@ inline std::string GetExpressionKernelArguments(
 {
     std::string kernel_src = "";
 
-    kernel_src += "nsize, compSize, scale, coordptr, t, ";
+    kernel_src += "nsize, compSize, nelmt, ndata, scale, coordptr, t, ";
     for (unsigned int i = 4; i < vnames.size(); i++)
     {
         kernel_src += vnames[i] + "ptr, ";
@@ -279,7 +285,8 @@ inline std::string GetExpressionKernelArguments(
 }
 
 // Emits the body of an expression kernel, without the enclosing braces: the
-// thread index obtained from threadIndex, the coordinates gathered for the
+// thread index obtained from threadIndex, a padded element left zero without
+// evaluating the expressions, the coordinates gathered for the
 // interleave format the kernel is instantiated on, the expression variables,
 // and one assignment per masked output component. Math functions called by the
 // expressions are qualified by mathPrefix.
@@ -301,6 +308,26 @@ inline std::string GetExpressionKernelBody(
     kernel_src += "    const size_t tid = " + threadIndex + ";\n";
     kernel_src += "    if (tid >= nsize) return;\n";
     kernel_src += "    const size_t cid = tid % compSize;\n";
+    kernel_src += "    const size_t elmt = (INTERLEAVEWIDTH == 1)\n";
+    kernel_src += "        ? cid / ndata\n";
+    kernel_src +=
+        "        : (cid / (ndata * INTERLEAVEWIDTH)) * INTERLEAVEWIDTH"
+        " + cid % INTERLEAVEWIDTH;\n";
+    kernel_src += "    if (elmt >= nelmt)\n";
+    kernel_src += "    {\n";
+    kernel_src += "        if constexpr (!APPEND)\n";
+    kernel_src += "        {\n";
+    for (unsigned int nc = 0; nc < cmask.size(); nc++)
+    {
+        if (cmask[nc])
+        {
+            kernel_src +=
+                "            out" + std::to_string(nc) + "[tid] = 0;\n";
+        }
+    }
+    kernel_src += "        }\n";
+    kernel_src += "        return;\n";
+    kernel_src += "    }\n";
     // 2. Coordinates.
     if (coordDim == 1)
     {

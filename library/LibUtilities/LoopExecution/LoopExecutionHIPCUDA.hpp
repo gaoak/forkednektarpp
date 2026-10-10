@@ -274,10 +274,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize =
-            internalMaxDataSizeByte * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];

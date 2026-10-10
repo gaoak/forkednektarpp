@@ -88,10 +88,11 @@ void Fill(LibUtilities::Field<TData, FieldState::Coeff> &field, F value)
     }
 }
 
+/// The products assume zero padding, as the Math functions leave it.
 void FillColumn(CoeffField &field, const double seed)
 {
     Fill(field, [seed](const size_t g, const bool padding) {
-        return padding ? 7.0 : std::sin(0.3 * seed + 0.01 * g + 0.1);
+        return padding ? 0.0 : std::sin(0.3 * seed + 0.01 * g + 0.1);
     });
 }
 
@@ -128,7 +129,9 @@ template <typename ExecSpace> void RunMultiDot()
     FillColumn(w, 11.0);
 
     MaskField mask("mask", blockAttr, components, 1);
-    Fill(mask, [](const size_t g, const bool) { return g % 3 != 0; });
+    Fill(mask, [](const size_t g, const bool padding) {
+        return !padding && g % 3 != 0;
+    });
 
     std::vector<double> dots(4), maskedDots(4);
     SolverCore::MultiDot<ExecSpace>(X, 1, 5, w, dots.data());

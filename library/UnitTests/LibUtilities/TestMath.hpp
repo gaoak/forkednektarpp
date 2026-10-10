@@ -312,9 +312,10 @@ public:
             for (unsigned int nc = 0; nc < this->m_in1->GetNumComponents();
                  ++nc, x += stride, y += stride, z += stride)
             {
-                std::transform(
-                    x, x + size, y, z,
-                    [](const TData &xi, const TData &yi) { return xi / yi; });
+                std::transform(x, x + size, y, z,
+                               [](const TData &xi, const TData &yi) {
+                                   return (yi == TData(0)) ? TData(0) : xi / yi;
+                               });
             }
         }
     }

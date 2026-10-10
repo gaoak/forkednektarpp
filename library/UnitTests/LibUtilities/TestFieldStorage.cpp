@@ -159,6 +159,31 @@ BOOST_AUTO_TEST_CASE(TestFieldSelfMoveAssign)
     }
 }
 
+/// The entries Initialize(@p val) gives @p field, in storage order: @p val in
+/// its elements and zero in its padding. Within a component, entry i belongs
+/// to lane i % width of element group i / (ndata * width).
+template <FieldState TState>
+static std::vector<double> InitializedValues(
+    LibUtilities::Field<double, TState> &field, const double val)
+{
+    std::vector<double> values;
+    for (auto &block : field.GetBlocks())
+    {
+        const unsigned int width = block.GetInterleaveWidth();
+        const unsigned int ndata = block.GetNumData();
+        for (unsigned int n = 0;
+             n < field.GetNumComponents() * field.GetNumHomoModes(); ++n)
+        {
+            for (size_t i = 0; i < block.CompSize(); ++i)
+            {
+                const size_t e = (i / (ndata * width)) * width + i % width;
+                values.push_back(e < block.GetNumElements() ? val : 0.0);
+            }
+        }
+    }
+    return values;
+}
+
 /// The columns of a MultiField lie one after the other in their segment's
 /// storage, and a column moved out of the set keeps that storage alive.
 template <FieldState TState> static void RunMultiFieldColumns()
@@ -187,10 +212,13 @@ template <FieldState TState> static void RunMultiFieldColumns()
         BOOST_CHECK_EQUAL(block1,
                           base + X[0].GetBlocks()[0].CompSize() * comps.size());
         BOOST_CHECK_EQUAL(column1, base + fieldSize);
+        const auto ones = InitializedValues(X[0], 1.0);
+        const auto twos = InitializedValues(X[1], 2.0);
+        BOOST_REQUIRE_EQUAL(ones.size(), X[0].size());
         for (size_t i = 0; i < X[0].size(); ++i)
         {
-            BOOST_CHECK_EQUAL(base[i], 1.0);
-            BOOST_CHECK_EQUAL(base[fieldSize + i], 2.0);
+            BOOST_CHECK_EQUAL(base[i], ones[i]);
+            BOOST_CHECK_EQUAL(base[fieldSize + i], twos[i]);
         }
 
         columnPtr = base + fieldSize;
@@ -201,9 +229,10 @@ template <FieldState TState> static void RunMultiFieldColumns()
     const double *movedPtr =
         column.GetBlocks()[0].template GetPtr<HostSpace, ReadOnly>();
     BOOST_CHECK_EQUAL(movedPtr, columnPtr);
+    const auto twos = InitializedValues(column, 2.0);
     for (size_t i = 0; i < column.size(); ++i)
     {
-        BOOST_CHECK_EQUAL(columnPtr[i], 2.0);
+        BOOST_CHECK_EQUAL(columnPtr[i], twos[i]);
     }
 }
 
@@ -215,6 +244,31 @@ BOOST_AUTO_TEST_CASE(TestMultiFieldColumnsCoeff)
 BOOST_AUTO_TEST_CASE(TestMultiFieldColumnsPhys)
 {
     RunMultiFieldColumns<FieldState::Phys>();
+}
+
+/// Initialize() leaves the padding zero at an interleave width above one,
+/// where an element group holds both elements and padding: a partly padded
+/// group followed by a wholly padded one, a block without padding, and a
+/// partly padded last group.
+BOOST_AUTO_TEST_CASE(TestFieldInitializeInterleavedPadding)
+{
+    const std::vector<BlockAttributes<FieldState::Phys>> attr = {
+        {5, 16, 3, 8}, {8, 8, 2, 8}, {11, 16, 2, 8}};
+    PhysField field(attr, 2, 1);
+    field.Initialize<HostSpace>(3.0);
+
+    const auto values = InitializedValues(field, 3.0);
+    BOOST_REQUIRE_EQUAL(values.size(), field.size());
+    for (size_t blk = 0, i = 0; blk < field.GetBlocks().size(); ++blk)
+    {
+        auto &block       = field.GetBlocks()[blk];
+        const double *ptr = block.GetPtr<HostSpace, ReadOnly>();
+        for (size_t k = 0; k < block.CompSize() * field.GetNumComponents();
+             ++k, ++i)
+        {
+            BOOST_CHECK_EQUAL(ptr[k], values[i]);
+        }
+    }
 }
 
 } // namespace Nektar::FieldStorageUnitTests

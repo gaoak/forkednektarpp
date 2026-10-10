@@ -153,7 +153,8 @@ protected:
             LibUtilities::Field<TData, FieldState::Coeff>(
                 "DiagPrecon action", blockAttr, this->m_components, 1);
 
-        // Intialisating to 1 so padded elements can be inverted.
+        // Initialising to 1; every entry, padding included, is then
+        // overwritten by the diagonal, whose zero padding stays zero.
         m_invDiag.template Initialize<MemSpace>(1);
 
         // Compute maximum block nCoeff.

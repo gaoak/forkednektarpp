@@ -115,8 +115,30 @@ const TData *GetColumnsPtr(LibUtilities::MultiField<TData, TState> &X,
 }
 
 /**
+ * @brief Assert that the padding of columns [j0, j1) of @p X, and of
+ * @p field if given, is zero, as the products assume.
+ *
+ * Debug builds only, since it reads the data on host.
+ */
+template <typename TData, FieldState TState>
+void AssertZeroPadding(LibUtilities::MultiField<TData, TState> &X,
+                       const unsigned int j0, const unsigned int j1,
+                       LibUtilities::Field<TData, TState> *field = nullptr)
+{
+    for (unsigned int j = j0; j < j1; ++j)
+    {
+        Math::internalAssertZeroPadding(X[j]);
+    }
+    if (field)
+    {
+        Math::internalAssertZeroPadding(*field);
+    }
+}
+
+/**
  * @brief out[j - j0] = (column j of @p X, field) for j0 <= j < j1, over the
- * entries @p mask selects if given, otherwise padding excluded.
+ * entries @p mask selects if given, otherwise padding excluded, which is
+ * zero.
  */
 template <typename ExecSpace, typename TData, FieldState TState>
 void MultiDotImpl(LibUtilities::Field<std::uint8_t, TState> *mask,
@@ -128,6 +150,8 @@ void MultiDotImpl(LibUtilities::Field<std::uint8_t, TState> *mask,
 
     ASSERTL1(j0 < j1 && j1 <= X.GetNumField(),
              "MultiField::MultiDot - Invalid column range.");
+
+    AssertZeroPadding(X, j0, j1, mask ? nullptr : &field);
 
     const unsigned int ncols   = j1 - j0;
     const unsigned int nblocks = field.GetBlocks().size();
@@ -147,28 +171,20 @@ void MultiDotImpl(LibUtilities::Field<std::uint8_t, TState> *mask,
                      X[j0].GetBlocks()[blk].GetInterleaveWidth(),
                  "MultiField::MultiDot - Inconsistent interleave format.");
 
-        const size_t compSize = block.CompSize();
-        const unsigned int ncomp =
-            block.GetNumComponents() * block.GetNumHomoModes();
-        const size_t nrows = compSize * ncomp;
+        const size_t nrows = block.CompSize() * block.GetNumComponents() *
+                             block.GetNumHomoModes();
 
-        // Masked copy of block.
+        // Masked copy of block, or block itself, whose padding is zero.
         auto ptr = block.template GetPtr<MemSpace, ReadOnly>(streamID);
-        auto maskedptr =
-            MultiFieldWorkSpace<TData>::template Get<MemSpace>(nrows, streamID);
         if (mask)
         {
+            auto maskedptr = MultiFieldWorkSpace<TData>::template Get<MemSpace>(
+                nrows, streamID);
             auto maskptr =
                 mask->GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
                     streamID);
             CopyMasked<ExecSpace>(nrows, maskptr, ptr, maskedptr, streamID);
-        }
-        else
-        {
-            auto maskptr =
-                Math::internalMathKernelMask<MemSpace>::GetInstance(block);
-            CopyWithoutPadding<ExecSpace>(compSize, ncomp, maskptr, ptr,
-                                          maskedptr, streamID);
+            ptr = maskedptr;
         }
 
         auto handle = GetMultiFieldBlasHandle<ExecSpace>(streamID);
@@ -190,7 +206,7 @@ void MultiDotImpl(LibUtilities::Field<std::uint8_t, TState> *mask,
                 }
 
                 NekBlas::Gemv(handle, "T", nrows, je - js, (TData)1.0, aptr,
-                              X.GetFieldSize(), maskedptr, 1, scaleY, y, 1);
+                              X.GetFieldSize(), ptr, 1, scaleY, y, 1);
             });
     }
 
@@ -258,7 +274,8 @@ void MultiAxpy(
  * @brief out[j - j0] = (column j of @p X, field) for j0 <= j < j1, padding
  * excluded.
  *
- * @p out is in the memory space of @p ExecSpace.
+ * The padding of the columns and of @p field must be zero. @p out is in the
+ * memory space of @p ExecSpace.
  */
 template <typename ExecSpace, typename TData, FieldState TState>
 void MultiDot(LibUtilities::MultiField<TData, TState> &X, const unsigned int j0,
@@ -273,7 +290,8 @@ void MultiDot(LibUtilities::MultiField<TData, TState> &X, const unsigned int j0,
  * @brief out[j - j0] = (column j of @p X, field) for j0 <= j < j1, over the
  * entries @p mask selects. @p mask must exclude padding, as for Math::ddot.
  *
- * @p out is in the memory space of @p ExecSpace.
+ * The padding of the columns must be zero. @p out is in the memory space of
+ * @p ExecSpace.
  */
 template <typename ExecSpace, typename TData, FieldState TState>
 void MultiDot(LibUtilities::Field<std::uint8_t, TState> &mask,
@@ -288,8 +306,8 @@ void MultiDot(LibUtilities::Field<std::uint8_t, TState> &mask,
  * @brief out = Gram matrix of columns j0 <= j < j1 of @p X, padding excluded:
  * out[a + b n] = (column j0 + a, column j0 + b), n = j1 - j0.
  *
- * The columns must lie in one segment. @p out is in the memory space of
- * @p ExecSpace.
+ * The columns must lie in one segment and their padding must be zero. @p out
+ * is in the memory space of @p ExecSpace.
  */
 template <typename ExecSpace, typename TData, FieldState TState>
 void Gram(LibUtilities::MultiField<TData, TState> &X, const unsigned int j0,
@@ -302,6 +320,8 @@ void Gram(LibUtilities::MultiField<TData, TState> &X, const unsigned int j0,
     ASSERTL1(j0 / X.GetNumFieldPerSegment() ==
                  (j1 - 1) / X.GetNumFieldPerSegment(),
              "MultiField::Gram - Columns span several segments.");
+
+    detail::AssertZeroPadding(X, j0, j1);
 
     const unsigned int ncols   = j1 - j0;
     const unsigned int nblocks = X[j0].GetBlocks().size();
@@ -316,24 +336,11 @@ void Gram(LibUtilities::MultiField<TData, TState> &X, const unsigned int j0,
     {
         const unsigned int streamID = blk + 1;
 
-        auto &block           = X[j0].GetBlocks()[blk];
-        const size_t compSize = block.CompSize();
-        const unsigned int ncomp =
-            block.GetNumComponents() * block.GetNumHomoModes();
-        const size_t nrows = compSize * ncomp;
+        auto &block        = X[j0].GetBlocks()[blk];
+        const size_t nrows = block.CompSize() * block.GetNumComponents() *
+                             block.GetNumHomoModes();
 
-        // Copies of the columns without padding, one after the other.
         auto aptr = detail::GetColumnsPtr<MemSpace>(X, blk, j0, j1, streamID);
-        auto maskedptr =
-            detail::MultiFieldWorkSpace<TData>::template Get<MemSpace>(
-                ncols * nrows, streamID);
-        auto mask = Math::internalMathKernelMask<MemSpace>::GetInstance(block);
-        for (unsigned int c = 0; c < ncols; ++c)
-        {
-            detail::CopyWithoutPadding<ExecSpace>(
-                compSize, ncomp, mask, aptr + c * X.GetFieldSize(),
-                maskedptr + c * nrows, streamID);
-        }
 
         // On device, each block writes its own products, summed afterwards on
         // stream 0; on host, blocks accumulate in turn.
@@ -346,8 +353,9 @@ void Gram(LibUtilities::MultiField<TData, TState> &X, const unsigned int j0,
         }
 
         auto handle = detail::GetMultiFieldBlasHandle<ExecSpace>(streamID);
-        NekBlas::Gemm(handle, "T", "N", ncols, ncols, nrows, (TData)1.0,
-                      maskedptr, nrows, maskedptr, nrows, scaleC, c, ncols);
+        NekBlas::Gemm(handle, "T", "N", ncols, ncols, nrows, (TData)1.0, aptr,
+                      X.GetFieldSize(), aptr, X.GetFieldSize(), scaleC, c,
+                      ncols);
     }
 
     if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)

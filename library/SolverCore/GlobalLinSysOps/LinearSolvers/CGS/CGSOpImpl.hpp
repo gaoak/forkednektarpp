@@ -36,6 +36,8 @@
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/CGS/CGSOp.hpp"
 
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/CGS/CGSKernels.hpp"
+
 #include <iomanip>
 
 using namespace Nektar;
@@ -87,7 +89,7 @@ public:
               MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                   expansionList),
               components, 1)),
-          m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
+          m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
 
@@ -158,6 +160,9 @@ protected:
 
         Math::ddot<ExecSpace>(in, m_r, exchange + 0);
 
+        // <r, r>, the initial (r~, r), r~ being a copy of r.
+        Math::ddot<ExecSpace>(m_r, m_r, exchange + 2);
+
         // Communication.
         this->m_rowComm->template AllReduce<MemSpace>(
             m_vExchange, Nektar::LibUtilities::ReduceSum);
@@ -178,8 +183,7 @@ protected:
         // Iteration >= 1
         beta = 0.0;
         m_rtilde.template Copy<MemSpace>(m_r);
-        rho_new = this->m_math.ddot(m_rtilde, m_r);
-        this->m_rowComm->AllReduce(rho_new, Nektar::LibUtilities::ReduceSum);
+        rho_new = exchangeHost[2];
         while (true)
         {
             if (this->m_niter > this->m_maxIter)
@@ -201,9 +205,8 @@ protected:
             }
             else
             {
-                Math::daxpy<ExecSpace>(beta, m_q, m_r, m_u);
-                Math::daxpbypz<ExecSpace>(beta, m_q, beta * beta, m_p, m_u,
-                                          m_p);
+                // u = beta q + r, p = beta q + beta^2 p + u.
+                UpdateCGSSearchDirection<ExecSpace>(beta, m_q, m_r, m_u, m_p);
             }
 
             // Perform the method-specific matrix-vector multiply operation.
@@ -226,8 +229,8 @@ protected:
             alpha = rho_new / alpha;
 
             // Update vectors.
-            Math::daxpy<ExecSpace>(-alpha, m_s, m_u, m_q);
-            Math::add<ExecSpace>(m_u, m_q, m_w);
+            // q = u - alpha s, w = u + q.
+            UpdateCGSHalfStep<ExecSpace>(alpha, m_s, m_u, m_q, m_w);
 
             // Perform the method-specific matrix-vector multiply operation.
             if (this->m_rightPreconditioner)
@@ -252,8 +255,8 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Update coefficients.
-            Math::ddot<ExecSpace>(m_rtilde, m_r, exchange + 0);
-            Math::ddot<ExecSpace>(m_r, m_r, exchange + 1);
+            // <r, r~> and <r, r>, reading r once.
+            Math::ddot2<ExecSpace>(m_r, m_rtilde, m_r, exchange);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(

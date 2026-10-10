@@ -255,6 +255,26 @@ __global__ __launch_bounds__(blockSize) void addScalarKernel(const size_t nsize,
 
 template <typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void addScalarKernel(
+    const size_t compSize, const size_t prefix, const size_t nelmt,
+    const unsigned int ndata, const unsigned int width, const TData alpha,
+    const TData *x, TData *y)
+{
+    // One component per row of the grid.
+    const size_t offset = blockIdx.y * compSize;
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t i = idx0; i < compSize; i += stride)
+    {
+        const bool padding =
+            i >= prefix && (i / (ndata * width)) * width + i % width >= nelmt;
+        y[offset + i] = padding ? TData(0) : x[offset + i] + alpha;
+    }
+}
+
+template <typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void subKernel(const size_t nsize,
                                                        const TData *x,
                                                        const TData *y, TData *z)
@@ -309,7 +329,7 @@ __global__ __launch_bounds__(blockSize) void divKernel(const size_t nsize,
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
-        y[idx] = alpha / x[idx];
+        y[idx] = (x[idx] == TData(0)) ? TData(0) : alpha / x[idx];
     }
 }
 
@@ -324,7 +344,7 @@ __global__ __launch_bounds__(blockSize) void divKernel(const size_t nsize,
 
     for (size_t idx = idx0; idx < nsize; idx += stride)
     {
-        z[idx] = x[idx] / y[idx];
+        z[idx] = (y[idx] == TData(0)) ? TData(0) : x[idx] / y[idx];
     }
 }
 
@@ -977,6 +997,73 @@ __global__ __launch_bounds__(blockSize) void ddotKernel(const size_t nsize,
         atomicAdd_block(&out[block.group_index().x], v);
 #elif defined(NEKTAR_ENABLE_HIP)
         atomicAdd(&out[block.group_index().x], v);
+#endif
+    }
+}
+
+template <bool init, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void ddot2Kernel(
+    const size_t nsize, const uint8_t *mask, const TData *x, const TData *y,
+    const TData *z, TData *out)
+{
+    // As ddotKernel, with two sums: (x, y) per block in out[0, gridDim.x) and
+    // (x, z) in out[gridDim.x, 2 gridDim.x).
+
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<warpsize>(block);
+    TData vy   = 0;
+    TData vz   = 0;
+
+    TData *outy = out + block.group_index().x;
+    TData *outz = outy + gridDim.x;
+
+    if constexpr (init)
+    {
+        if (block.thread_rank() == 0)
+        {
+            *outy = 0.0;
+            *outz = 0.0;
+        }
+    }
+
+    block.sync();
+
+    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
+    {
+        const TData xi = mask ? mask[tid] * x[tid] : x[tid];
+        vy += xi * y[tid];
+        vz += xi * z[tid];
+    }
+
+    warp.sync();
+#if defined(NEKTAR_ENABLE_HIP)
+    vy += warp.shfl_down(vy, 32); // |
+    vz += warp.shfl_down(vz, 32); // |
+#endif
+    vy += warp.shfl_down(vy, 16); // |
+    vz += warp.shfl_down(vz, 16); // |
+    vy += warp.shfl_down(vy, 8);  // |
+    vz += warp.shfl_down(vz, 8);  // | warp level
+    vy += warp.shfl_down(vy, 4);  // | reduce here
+    vz += warp.shfl_down(vz, 4);  // |
+    vy += warp.shfl_down(vy, 2);  // |
+    vz += warp.shfl_down(vz, 2);  // |
+    vy += warp.shfl_down(vy, 1);  // |
+    vz += warp.shfl_down(vz, 1);  // |
+
+    // use atomicAdd to sum over warps
+    if (warp.thread_rank() == 0)
+    {
+#if defined(NEKTAR_ENABLE_CUDA)
+        atomicAdd_block(outy, vy);
+        atomicAdd_block(outz, vz);
+#elif defined(NEKTAR_ENABLE_HIP)
+        atomicAdd(outy, vy);
+        atomicAdd(outz, vz);
 #endif
     }
 }
@@ -1717,6 +1804,34 @@ inline void addScalarKernel(const size_t nsize, const TData alpha,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
+// addScalarKernel over the ncomp components of compSize values of a block,
+// stored as element groups of width lanes by ndata points of which the first
+// nelmt elements are not padding: y = x + alpha, and zero in the padding.
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void addScalarKernel(const unsigned int ncomp, const size_t compSize,
+                            const size_t nelmt, const unsigned int ndata,
+                            const unsigned int width, const TData alpha,
+                            const TData *x, TData *y,
+                            const unsigned int streamID = 0)
+{
+    const size_t prefix          = (nelmt / width) * width * ndata;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const dim3 gridSize((compSize + blockSize - 1u) / blockSize, ncomp);
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    addScalarKernel<<<gridSize, blockSize, 0, stream>>>(
+        compSize, prefix, nelmt, ndata, width, alpha, x, y);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
 template <
     typename ExecSpace, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
@@ -1924,9 +2039,8 @@ inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -1955,9 +2069,8 @@ inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -1986,9 +2099,8 @@ inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2017,9 +2129,8 @@ inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2048,9 +2159,8 @@ inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2079,9 +2189,8 @@ inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2110,9 +2219,8 @@ inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2141,9 +2249,8 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2151,6 +2258,45 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
     reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+// ddot2Kernel computes, in one pass over x, out[0] (+)= (x, y) and out[1] (+)=
+// (x, z): two dot products sharing x, over the entries mask selects unless it
+// is null.
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
+                        const TData *y, const TData *z, TData *out,
+                        const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    // Two partial sums per thread block, which internalReductionBufferSize
+    // holds.
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
+    {
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalReductionBufferSize, streamID);
+    }
+
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
+    ddot2Kernel<true>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, z, buffer);
+    CHECK_LAST_HIPCUDA_ERROR();
+    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    CHECK_LAST_HIPCUDA_ERROR();
+    reduceSumKernel<init>
+        <<<1, blockSize, 0, stream>>>(gridSize, buffer + gridSize, out + 1);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2172,9 +2318,8 @@ inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2203,9 +2348,8 @@ inline void l1normKernel(const size_t nsize, const uint8_t *mask,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2234,9 +2378,8 @@ inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2265,9 +2408,8 @@ inline void l2normKernel(const size_t nsize, const uint8_t *mask,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2297,9 +2439,8 @@ inline void lpnormKernel(const size_t nsize, const unsigned int p,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2328,9 +2469,8 @@ inline void lpnormKernel(const size_t nsize, const unsigned int p,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2359,9 +2499,8 @@ inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
@@ -2390,9 +2529,8 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
-        const unsigned int internalMemoryBufferSize = sizeof(TData) * gridSize;
         deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalMemoryBufferSize, streamID);
+                     internalReductionBufferSize, streamID);
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];

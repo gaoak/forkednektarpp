@@ -845,6 +845,98 @@ typename T::value_type MathHelper::ddot(M &mask, T &x, T &y,
 }
 
 template <typename T>
+std::array<typename T::value_type, 2> MathHelper::ddot2(
+    T &x, T &y, T &z, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    std::array<typename T::value_type, 2> out = {0.0, 0.0};
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::ddot2<NektarSpaces::Serial>(x, y, z, out.data());
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::ddot2<NektarSpaces::AVX>(x, y, z, out.data());
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        const unsigned int streamID = 0;
+        if (internalDeviceBuffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
+                                 streamID);
+            Nektar::hostMallocPinned(&internalHostBuffer,
+                                     internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
+        }
+        Nektar::Math::ddot2<NektarSpaces::Device>(
+            x, y, z, (typename T::value_type *)internalDeviceBuffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internalHostBuffer, internalDeviceBuffer,
+            2 * sizeof(typename T::value_type), streamID);
+        out[0] = ((typename T::value_type *)internalHostBuffer)[0];
+        out[1] = ((typename T::value_type *)internalHostBuffer)[1];
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+
+    return out;
+}
+
+template <typename M, typename T>
+std::array<typename T::value_type, 2> MathHelper::ddot2(
+    M &mask, T &x, T &y, T &z, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    std::array<typename T::value_type, 2> out = {0.0, 0.0};
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::ddot2<NektarSpaces::Serial>(mask, x, y, z, out.data());
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::ddot2<NektarSpaces::AVX>(mask, x, y, z, out.data());
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        const unsigned int streamID = 0;
+        if (internalDeviceBuffer == nullptr)
+        {
+            Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
+                                 streamID);
+            Nektar::hostMallocPinned(&internalHostBuffer,
+                                     internalMaxDataSizeByte);
+            Nektar::nekStreamSynchronize(streamID);
+        }
+        Nektar::Math::ddot2<NektarSpaces::Device>(
+            mask, x, y, z, (typename T::value_type *)internalDeviceBuffer);
+        Nektar::deviceMemcpy<DeviceToHost>(
+            internalHostBuffer, internalDeviceBuffer,
+            2 * sizeof(typename T::value_type), streamID);
+        out[0] = ((typename T::value_type *)internalHostBuffer)[0];
+        out[1] = ((typename T::value_type *)internalHostBuffer)[1];
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+
+    return out;
+}
+
+template <typename T>
 typename T::value_type MathHelper::l1norm(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;

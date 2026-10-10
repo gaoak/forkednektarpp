@@ -43,45 +43,6 @@ namespace Nektar::SolverCore::detail
 {
 
 /**
- * @brief Copy @p in into @p out with its padding zeroed.
- *
- * @p mask holds the padding mask of one component of @p compSize values; the
- * block holds @p ncomp components one after the other.
- */
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void CopyWithoutPadding(const size_t compSize,
-                                                const unsigned int ncomp,
-                                                const std::uint8_t *mask,
-                                                const TData *in, TData *out,
-                                                const unsigned int streamID)
-{
-    Nektar::LoopExecutionSetStreamID(streamID);
-
-    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
-    {
-        // One launch over all components, rather than one per component.
-        Nektar::parallel_for<ExecSpace>(
-            0, ncomp * compSize, NEKTAR_LAMBDA(const size_t i) {
-                out[i] = mask[i % compSize] * in[i];
-            });
-    }
-    else
-    {
-        // One loop per component, so that the mask is read contiguously.
-        for (unsigned int n = 0; n < ncomp; ++n)
-        {
-            const size_t offset = n * compSize;
-            Nektar::parallel_for<ExecSpace>(
-                0, compSize, NEKTAR_LAMBDA(const size_t i) {
-                    out[offset + i] = mask[i] * in[offset + i];
-                });
-        }
-    }
-
-    Nektar::LoopExecutionSetStreamID(0);
-}
-
-/**
  * @brief Copy the @p size entries of @p in into @p out, those @p mask
  * excludes zeroed.
  */
@@ -94,7 +55,8 @@ NEK_FORCE_INLINE static void CopyMasked(const size_t size,
     Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
-        0, size, NEKTAR_LAMBDA(const size_t i) { out[i] = mask[i] * in[i]; });
+        0, size,
+        NEKTAR_LAMBDA(const size_t i) { out[i] = mask[i] ? in[i] : TData(0); });
 
     Nektar::LoopExecutionSetStreamID(0);
 }

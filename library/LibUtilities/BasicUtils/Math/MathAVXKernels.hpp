@@ -497,6 +497,38 @@ inline void addScalarKernel(const size_t nsize, const TData alpha,
     }
 }
 
+// addScalarKernel over the ncomp components of compSize values of a block,
+// stored as element groups of width lanes by ndata points of which the first
+// nelmt elements are not padding: y = x + alpha, and zero in the padding.
+template <typename ExecSpace, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void addScalarKernel(const unsigned int ncomp, const size_t compSize,
+                            const size_t nelmt, const unsigned int ndata,
+                            const unsigned int width, const TData alpha,
+                            const TData *x, TData *y,
+                            [[maybe_unused]] const unsigned int streamID = 0)
+{
+    const size_t prefix      = (nelmt / width) * width * ndata;
+    const unsigned int lane0 = nelmt % width;
+    for (unsigned int n = 0; n < ncomp; ++n, x += compSize, y += compSize)
+    {
+        addScalarKernel<ExecSpace>(prefix, alpha, x, y);
+
+        // The element group holding the first padded element, then the
+        // element groups after it, all padding.
+        size_t i = prefix;
+        for (unsigned int pt = 0; lane0 != 0 && pt < ndata; ++pt)
+        {
+            for (unsigned int l = 0; l < width; ++l, ++i)
+            {
+                y[i] = (l < lane0) ? x[i] + alpha : TData(0);
+            }
+        }
+        std::fill(y + i, y + compSize, TData(0));
+    }
+}
+
 template <typename ExecSpace, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
               Enable = true>
@@ -818,60 +850,11 @@ inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
-    simd_t aChunk;
+    simd_t aChunk, zero;
     aChunk.broadcast(alpha);
+    zero.broadcast(TData(0));
 
     size_t cnt = nsize;
-    // Vectorized loop unroll 4x
-    while (cnt >= 4 * simd_t::width)
-    {
-        // load
-        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
-        xChunk0.load(x, is_aligned);
-        xChunk1.load(x + simd_t::width, is_aligned);
-        xChunk2.load(x + 2 * simd_t::width, is_aligned);
-        xChunk3.load(x + 3 * simd_t::width, is_aligned);
-
-        // y = alpha / x
-        simd_t yChunk0 = aChunk / xChunk0;
-        simd_t yChunk1 = aChunk / xChunk1;
-        simd_t yChunk2 = aChunk / xChunk2;
-        simd_t yChunk3 = aChunk / xChunk3;
-
-        // store
-        yChunk0.store(y, is_aligned);
-        yChunk1.store(y + simd_t::width, is_aligned);
-        yChunk2.store(y + 2 * simd_t::width, is_aligned);
-        yChunk3.store(y + 3 * simd_t::width, is_aligned);
-
-        // update pointers
-        x += 4 * simd_t::width;
-        y += 4 * simd_t::width;
-        cnt -= 4 * simd_t::width;
-    }
-
-    // Vectorized loop unroll 2x
-    while (cnt >= 2 * simd_t::width)
-    {
-        // load
-        simd_t xChunk0, xChunk1;
-        xChunk0.load(x, is_aligned);
-        xChunk1.load(x + simd_t::width, is_aligned);
-
-        // y = alpha / x
-        simd_t yChunk0 = aChunk / xChunk0;
-        simd_t yChunk1 = aChunk / xChunk1;
-
-        // store
-        yChunk0.store(y, is_aligned);
-        yChunk1.store(y + simd_t::width, is_aligned);
-
-        // update pointers
-        x += 2 * simd_t::width;
-        y += 2 * simd_t::width;
-        cnt -= 2 * simd_t::width;
-    }
-
     // Vectorized loop
     while (cnt >= simd_t::width)
     {
@@ -885,6 +868,15 @@ inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
         // store
         yChunk.store(y, is_aligned);
 
+        // y = 0 where x = 0, in the rare chunks holding a zero.
+        if (!((abs(xChunk) > zero) && true))
+        {
+            for (size_t i = 0; i < simd_t::width; ++i)
+            {
+                y[i] = (x[i] == TData(0)) ? TData(0) : y[i];
+            }
+        }
+
         // update pointers
         x += simd_t::width;
         y += simd_t::width;
@@ -894,8 +886,8 @@ inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
     // spillover loop
     while (cnt)
     {
-        // y = alpha / x;
-        *y = alpha / (*x);
+        // y = alpha / x, or 0 where x = 0.
+        *y = (*x == TData(0)) ? TData(0) : alpha / (*x);
         // update pointers
         ++x;
         ++y;
@@ -913,69 +905,10 @@ inline void divKernel(const size_t nsize, const TData *x, const TData *y,
     using namespace tinysimd;
     using simd_t = simd<TData>;
 
+    simd_t zero;
+    zero.broadcast(TData(0));
+
     size_t cnt = nsize;
-    // Vectorized loop unroll 4x
-    while (cnt >= 4 * simd_t::width)
-    {
-        // load
-        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
-        yChunk0.load(y, is_aligned);
-        yChunk1.load(y + simd_t::width, is_aligned);
-        yChunk2.load(y + 2 * simd_t::width, is_aligned);
-        yChunk3.load(y + 3 * simd_t::width, is_aligned);
-
-        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
-        xChunk0.load(x, is_aligned);
-        xChunk1.load(x + simd_t::width, is_aligned);
-        xChunk2.load(x + 2 * simd_t::width, is_aligned);
-        xChunk3.load(x + 3 * simd_t::width, is_aligned);
-
-        // z = x / y
-        simd_t zChunk0 = xChunk0 / yChunk0;
-        simd_t zChunk1 = xChunk1 / yChunk1;
-        simd_t zChunk2 = xChunk2 / yChunk2;
-        simd_t zChunk3 = xChunk3 / yChunk3;
-
-        // store
-        zChunk0.store(z, is_aligned);
-        zChunk1.store(z + simd_t::width, is_aligned);
-        zChunk2.store(z + 2 * simd_t::width, is_aligned);
-        zChunk3.store(z + 3 * simd_t::width, is_aligned);
-
-        // update pointers
-        x += 4 * simd_t::width;
-        y += 4 * simd_t::width;
-        z += 4 * simd_t::width;
-        cnt -= 4 * simd_t::width;
-    }
-
-    // Vectorized loop unroll 2x
-    while (cnt >= 2 * simd_t::width)
-    {
-        // load
-        simd_t yChunk0, yChunk1;
-        yChunk0.load(y, is_aligned);
-        yChunk1.load(y + simd_t::width, is_aligned);
-
-        simd_t xChunk0, xChunk1;
-        xChunk0.load(x, is_aligned);
-        xChunk1.load(x + simd_t::width, is_aligned);
-
-        // z = x / y
-        simd_t zChunk0 = xChunk0 / yChunk0;
-        simd_t zChunk1 = xChunk1 / yChunk1;
-
-        // store
-        zChunk0.store(z, is_aligned);
-        zChunk1.store(z + simd_t::width, is_aligned);
-
-        // update pointers
-        x += 2 * simd_t::width;
-        y += 2 * simd_t::width;
-        z += 2 * simd_t::width;
-        cnt -= 2 * simd_t::width;
-    }
-
     // Vectorized loop
     while (cnt >= simd_t::width)
     {
@@ -991,6 +924,15 @@ inline void divKernel(const size_t nsize, const TData *x, const TData *y,
         // store
         zChunk.store(z, is_aligned);
 
+        // z = 0 where y = 0, in the rare chunks holding a zero.
+        if (!((abs(yChunk) > zero) && true))
+        {
+            for (size_t i = 0; i < simd_t::width; ++i)
+            {
+                z[i] = (y[i] == TData(0)) ? TData(0) : z[i];
+            }
+        }
+
         // update pointers
         x += simd_t::width;
         y += simd_t::width;
@@ -1001,8 +943,8 @@ inline void divKernel(const size_t nsize, const TData *x, const TData *y,
     // spillover loop
     while (cnt)
     {
-        // z = x / y;
-        *z = (*x) / (*y);
+        // z = x / y, or 0 where y = 0.
+        *z = (*y == TData(0)) ? TData(0) : (*x) / (*y);
         // update pointers
         ++x;
         ++y;
@@ -1998,6 +1940,83 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     for (size_t i = 0; i < nsize; i++)
     {
         *out += mask[i] * x[i] * y[i];
+    }
+}
+
+// ddot2Kernel computes, in one pass over x, out[0] (+)= (x, y) and out[1] (+)=
+// (x, z): two dot products sharing x, over the entries mask selects unless it
+// is null.
+template <typename ExecSpace, bool init, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
+                        const TData *y, const TData *z, TData *out,
+                        [[maybe_unused]] const unsigned int streamID = 0)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    if constexpr (init)
+    {
+        out[0] = 0.0;
+        out[1] = 0.0;
+    }
+
+    // TODO: SIMD/AVX with a mask.
+    if (mask)
+    {
+        for (size_t i = 0; i < nsize; i++)
+        {
+            const TData xi = mask[i] * x[i];
+            out[0] += xi * y[i];
+            out[1] += xi * z[i];
+        }
+        return;
+    }
+
+    size_t cnt     = nsize;
+    simd_t xyChunk = 0, xzChunk = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
+
+    // Vectorized loop
+    while (cnt >= simd_t::width)
+    {
+        // load
+        simd_t xChunk, yChunk, zChunk;
+        xChunk.load(x, is_aligned);
+        yChunk.load(y, is_aligned);
+        zChunk.load(z, is_aligned);
+
+        xyChunk.fma(xChunk, yChunk);
+        xzChunk.fma(xChunk, zChunk);
+
+        // update pointers
+        x += simd_t::width;
+        y += simd_t::width;
+        z += simd_t::width;
+        cnt -= simd_t::width;
+    }
+    xyChunk.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < simd_t::width; i++)
+    {
+        out[0] += tmp[i];
+    }
+    xzChunk.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < simd_t::width; i++)
+    {
+        out[1] += tmp[i];
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        out[0] += (*x) * (*y);
+        out[1] += (*x) * (*z);
+        // update pointers
+        ++x;
+        ++y;
+        ++z;
+        --cnt;
     }
 }
 

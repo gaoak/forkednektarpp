@@ -36,6 +36,8 @@
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/MINRES/MINRESOp.hpp"
 
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/MINRES/MINRESKernels.hpp"
+
 #include <iomanip>
 
 using namespace Nektar;
@@ -244,25 +246,30 @@ protected:
             sigma0 = sigma1;
             sigma1 = beta1 / alpha1;
 
-            // Update solution.
+            // Update solution: the new search direction
+            // p0 = (w - alpha2 p1 - alpha3 p0) / alpha1, then out += gamma1 eta
+            // p0, in one pass.
+            const TData a = -alpha2 / alpha1;
+            const TData b = (TData)1.0 / alpha1;
+            const TData c = -alpha3 / alpha1;
+            const TData d = gamma1 * eta;
             if (this->m_niter == 0)
             {
                 // m_p1, m_p0 = 0
-                Math::mul<ExecSpace>((TData)1.0 / alpha1, m_w, m_p0);
+                UpdateMINRESSolution<ExecSpace, 0>(a, b, c, d, m_w, m_p1, m_p0,
+                                                   out);
             }
             else if (this->m_niter == 1)
             {
                 // m_p0 = 0
-                Math::daxpby<ExecSpace>((TData)1.0 / alpha1, m_w,
-                                        -alpha2 / alpha1, m_p1, m_p0);
+                UpdateMINRESSolution<ExecSpace, 1>(a, b, c, d, m_w, m_p1, m_p0,
+                                                   out);
             }
             else
             {
-                Math::daxpbypcz<ExecSpace>(-alpha2 / alpha1, m_p1,
-                                           (TData)1.0 / alpha1, m_w,
-                                           -alpha3 / alpha1, m_p0, m_p0);
+                UpdateMINRESSolution<ExecSpace, 2>(a, b, c, d, m_w, m_p1, m_p0,
+                                                   out);
             }
-            Math::daxpy<ExecSpace>(gamma1 * eta, m_p0, out, out);
 
             // Update coefficients.
             eta *= -sigma1;

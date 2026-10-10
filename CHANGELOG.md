@@ -65,6 +65,7 @@ v5.11.0
 - Consistently use streamID for DeviceFFT (!2810)
 - Minimise memory traffic for LinearSolvers (!2809)
 - Add MultiField, a set of fields stored as contiguous columns, and use it with BLAS products in the redesign GMRES, GCR, IDRS and BICGSTABL solvers; add a CGS2 option to GMRES (GMRESReorthogonalize) (!2813)
+- Keep the padding of redesign fields zero, so that the MultiField products and the Math sum reductions no longer copy or mask it; batch independent reductions, fuse dot products sharing a vector (Math::ddot2) and fuse vector updates in the redesign linear solvers; make Math::div return zero for a zero divisor; add a CGS2 option to IDR(s) (IDRClassicalGramSchmidt) (!2814)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -700,6 +700,64 @@ template float MathHelper::ddot<LibUtilities::Field<uint8_t, FieldState::Coeff>,
     LibUtilities::Field<float, FieldState::Coeff> &y,
     const std::string &execSpace);
 
+// ddot2 template specialization.
+template std::array<double, 2> MathHelper::ddot2<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template std::array<double, 2> MathHelper::ddot2<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template std::array<float, 2> MathHelper::ddot2<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template std::array<float, 2> MathHelper::ddot2<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template std::array<double, 2> MathHelper::ddot2<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<double, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y,
+    LibUtilities::Field<double, FieldState::Phys> &z,
+    const std::string &execSpace);
+template std::array<double, 2> MathHelper::ddot2<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y,
+    LibUtilities::Field<double, FieldState::Coeff> &z,
+    const std::string &execSpace);
+template std::array<float, 2> MathHelper::ddot2<
+    LibUtilities::Field<uint8_t, FieldState::Phys>,
+    LibUtilities::Field<float, FieldState::Phys>>(
+    LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y,
+    LibUtilities::Field<float, FieldState::Phys> &z,
+    const std::string &execSpace);
+template std::array<float, 2> MathHelper::ddot2<
+    LibUtilities::Field<uint8_t, FieldState::Coeff>,
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y,
+    LibUtilities::Field<float, FieldState::Coeff> &z,
+    const std::string &execSpace);
+
 // l1norm template specialization.
 template double MathHelper::l1norm<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);

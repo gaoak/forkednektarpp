@@ -151,8 +151,8 @@
         }                                                                      \
     }
 
-// The GMRES options are set after SetTestCase(), whose mesh read
-// re-initialises the session and so clears any parameter set before it.
+// The GMRES options are set on the session Configure() reads, before the
+// solver is created in RunTestCase().
 #define TEST_HELMSOLVE_GMRES(test_name, test, tol)                             \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -246,8 +246,7 @@
     }
 
 // The GLOBALSYSSOLNINFO of the first variable overrides the session
-// parameters for all variables solved together. It is set after
-// SetTestCase(), whose mesh read re-initialises the session.
+// parameters for all variables solved together.
 #define TEST_HELMSOLVE_CG_SOLN_INFO(test_name, test)                           \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
