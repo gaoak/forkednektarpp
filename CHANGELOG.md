@@ -131,6 +131,7 @@ v5.11.0
 - Fix VtkToPng segfault with VTK 9 by linking and auto-initialising the rendering backend module that provides the object factory overrides (!2764)
 - Add support for FlexiBlas (!2796)
 - Remove unused physical-constant parameters from session files (!2818)
+- Fix compilation when device support is off (!2820)
 
 v5.10.0
 -------
