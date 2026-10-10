@@ -114,11 +114,32 @@ ThreadManagerStd::ThreadManagerStd(unsigned int numT)
  */
 ThreadManagerStd::~ThreadManagerStd()
 {
-    // This is an immediate teardown.  We attempt to kill everything.
-    // we daren't lock anything as we may cause a deadlock
-    for (unsigned int i = 0; i < m_numThreads; i++)
+    // This is an immediate teardown. We attempt to kill everything.
+    //
+    // The flag Stop() clears is half of what a worker waits on, in both of
+    // its waits: for work to arrive, under the master queue mutex, and for
+    // the worker to be made active again, under the master active mutex. A
+    // worker holds the relevant mutex from the moment it reads the flag until
+    // its wait registers on the condition variable, that last step being
+    // atomic. Clearing the flag under both mutexes therefore cannot land in
+    // between: either the worker reads it afterwards and does not wait at
+    // all, or it is already registered and the notification below reaches
+    // it. Clearing it outside them could land in between, in which case the
+    // notification arrived before there was anything to notify, the worker
+    // waited for one that had already been sent, and the join() below waited
+    // on the worker -- for good.
+    //
+    // Both mutexes are taken in the order the rest of the class takes them,
+    // queue before active, so this cannot deadlock against a worker holding
+    // one and wanting the other. Neither is held for long: a worker holding
+    // one either releases it inside a wait or does a bounded amount of work.
     {
-        m_threadList[i]->Stop();
+        Lock masterQueueLock(m_masterQueueMutex);
+        Lock masterActiveLock(m_masterActiveMutex);
+        for (unsigned int i = 0; i < m_numThreads; i++)
+        {
+            m_threadList[i]->Stop();
+        }
     }
 
     m_masterQueueCondVar.notify_all();
