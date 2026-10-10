@@ -97,13 +97,19 @@ public:
             session->DefinesParameter("LinSysRightPrecon")
                 ? session->GetParameter("LinSysRightPrecon")
                 : true;
-        m_stage     = session->DefinesParameter("IDRstage")
-                          ? session->GetParameter("IDRstage")
-                          : 4;
+        m_stage = session->DefinesParameter("IDRstage")
+                      ? session->GetParameter("IDRstage")
+                      : 4;
+        m_classicalGramSchmidt =
+            session->DefinesParameter("IDRClassicalGramSchmidt")
+                ? session->GetParameter("IDRClassicalGramSchmidt")
+                : false;
         m_vExchange = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 2u),
                                                         eHostPinned);
         m_coeffs    = LibUtilities::MemoryRegion<TData>(std::max(m_stage, 1u),
                                                         eHostPinned);
+        m_biOrthCoeffs =
+            LibUtilities::MemoryRegion<TData>(2 * m_stage, eHostPinned);
 
         // Set-up storage.
         std::random_device rd;
@@ -124,6 +130,9 @@ public:
                               ptr + block.GetNumComponents() * block.CompSize(),
                               [&]() { return dis(gen); });
             }
+
+            // The reductions assume the padding is zero.
+            Math::internalZeroPadding<ExecSpace>(m_P[stage]);
         }
     }
 
@@ -148,8 +157,13 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_r;
     LibUtilities::MemoryRegion<TData> m_vExchange;
     LibUtilities::MemoryRegion<TData> m_coeffs; ///< gamma, for the updates.
+    LibUtilities::MemoryRegion<TData>
+        m_biOrthCoeffs; ///< Bi-orthogonalisation coefficients, per pass.
 
     unsigned int m_stage = 0;
+    /// Bi-orthogonalise with the classical Gram-Schmidt process, twice (CGS2),
+    /// rather than the modified one.
+    bool m_classicalGramSchmidt = false;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
@@ -358,35 +372,98 @@ protected:
                     this->m_precon->Apply(m_G[k], m_G[k]);
                 }
 
-                // Bi-Orthogonalize the basis vectors:
-                for (unsigned int i = 0; i < k; i++)
+                // Bi-Orthogonalize the basis vectors.
+                if (m_classicalGramSchmidt && k > 1)
                 {
-                    alpha = this->m_math.ddot(m_P[i], m_G[k]);
-                    this->m_rowComm->AllReduce(alpha,
-                                               Nektar::LibUtilities::ReduceSum);
-                    alpha /= Mu[i][i];
-                    Math::daxpy<ExecSpace>(-alpha, m_G[i], m_G[k], m_G[k]);
-                    Math::daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
+                    // Classical Gram-Schmidt, twice (CGS2): each pass takes
+                    // the products c = (P, G[k]) in one reduction, then
+                    // alpha_i = (c_i - sum_{j<i} Mu[i][j] alpha_j) / Mu[i][i]
+                    // for i < k, as the modified process gives them, and the
+                    // new column Mu[i][k] = c_i - sum_{j<k} Mu[i][j] alpha_j
+                    // for i >= k. Two reductions instead of k + 1.
+                    for (unsigned int pass = 0; pass < 2; ++pass)
+                    {
+                        // Reset device memory.
+                        m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+                        MultiDot<ExecSpace>(m_P, 0, m_stage, m_G[k], exchange);
+
+                        // Communication.
+                        this->m_rowComm->template AllReduce<MemSpace>(
+                            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+                        // Device-to-host copy.
+                        exchangeHost =
+                            m_vExchange.template GetPtr<NektarSpaces::HostSpace,
+                                                        ReadOnly>();
+
+                        // Coefficients of the pass, negated for the updates.
+                        auto biOrthHost =
+                            m_biOrthCoeffs.template GetPtr<
+                                NektarSpaces::HostSpace, WriteOnly>() +
+                            pass * m_stage;
+                        std::vector<TData> biOrth(k);
+                        for (unsigned int i = 0; i < k; i++)
+                        {
+                            biOrth[i] = exchangeHost[i];
+                            for (unsigned int j = 0; j < i; j++)
+                            {
+                                biOrth[i] -= Mu[i][j] * biOrth[j];
+                            }
+                            biOrth[i] /= Mu[i][i];
+                            biOrthHost[i] = -biOrth[i];
+                        }
+                        for (unsigned int i = k; i < m_stage; i++)
+                        {
+                            Mu[i][k] = exchangeHost[i];
+                            for (unsigned int j = 0; j < k; j++)
+                            {
+                                Mu[i][k] -= Mu[i][j] * biOrth[j];
+                            }
+                        }
+
+                        auto biOrthCoeffs =
+                            m_biOrthCoeffs
+                                .template GetPtr<MemSpace, ReadOnly>() +
+                            pass * m_stage;
+                        MultiAxpy<ExecSpace>(1.0, m_G, 0, k, biOrthCoeffs, 1.0,
+                                             m_G[k]);
+                        MultiAxpy<ExecSpace>(1.0, m_U, 0, k, biOrthCoeffs, 1.0,
+                                             m_U[k]);
+                    }
                 }
-
-                // Reset device memory.
-                m_vExchange.template GetPtr<MemSpace, WriteOnly>();
-
-                // Update Mu.
-                MultiDot<ExecSpace>(m_P, k, m_stage, m_G[k], exchange);
-
-                // Communication.
-                this->m_rowComm->template AllReduce<MemSpace>(
-                    m_vExchange, Nektar::LibUtilities::ReduceSum);
-
-                // Device-to-host copy.
-                exchangeHost =
-                    m_vExchange
-                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
-                for (unsigned int i = k; i < m_stage; i++)
+                else
                 {
-                    Mu[i][k] = exchangeHost[i - k];
+                    // Modified Gram-Schmidt.
+                    for (unsigned int i = 0; i < k; i++)
+                    {
+                        alpha = this->m_math.ddot(m_P[i], m_G[k]);
+                        this->m_rowComm->AllReduce(
+                            alpha, Nektar::LibUtilities::ReduceSum);
+                        alpha /= Mu[i][i];
+                        Math::daxpy<ExecSpace>(-alpha, m_G[i], m_G[k], m_G[k]);
+                        Math::daxpy<ExecSpace>(-alpha, m_U[i], m_U[k], m_U[k]);
+                    }
+
+                    // Reset device memory.
+                    m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+                    // Update Mu.
+                    MultiDot<ExecSpace>(m_P, k, m_stage, m_G[k], exchange);
+
+                    // Communication.
+                    this->m_rowComm->template AllReduce<MemSpace>(
+                        m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+                    // Device-to-host copy.
+                    exchangeHost =
+                        m_vExchange.template GetPtr<NektarSpaces::HostSpace,
+                                                    ReadOnly>();
+
+                    for (unsigned int i = k; i < m_stage; i++)
+                    {
+                        Mu[i][k] = exchangeHost[i - k];
+                    }
                 }
 
                 if (Mu[k][k] == 0.0)
@@ -475,8 +552,8 @@ protected:
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
             // Update coefficients.
-            Math::ddot<ExecSpace>(m_w, m_r, exchange + 0);
-            Math::ddot<ExecSpace>(m_w, m_w, exchange + 1);
+            // <w, r> and <w, w>, reading w once.
+            Math::ddot2<ExecSpace>(m_w, m_r, m_w, exchange);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(

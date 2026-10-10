@@ -106,25 +106,24 @@ public:
         std::string execName = Operator<TData>::GetOpExecSpace(m_session);
         m_math               = Math::MathHelper(execName);
 
-        // Set initial value
-        for (unsigned int blk = 0; blk < m_in.GetBlocks().size(); ++blk)
+        // Set initial value, laid out as ToVector() returns it so that
+        // CopyVector() interleaves it and leaves the padding zero.
+        std::vector<TData> in;
+        for (unsigned int nc = 0; nc < m_in.GetNumComponents(); ++nc)
         {
-            auto &block = m_in.GetBlocks()[blk];
-            auto inptr =
-                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < m_in.GetNumComponents(); ++nc)
+            for (auto &block : m_in.GetBlocks())
             {
-                for (size_t el = 0, cnt = 0; el < block.GetNumElements(); ++el)
+                for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     for (unsigned int phys = 0; phys < block.GetNumData();
-                         ++phys, ++cnt)
+                         ++phys)
                     {
-                        inptr[cnt] = 1.0 + phys;
+                        in.push_back(1.0 + phys);
                     }
                 }
-                inptr += block.CompSize();
             }
         }
+        m_in.template CopyVector<NektarSpaces::HostSpace>(in);
 
         // Parameters for analytic solution
         m_alpha = alpha; // non-stiff factor

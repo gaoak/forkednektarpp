@@ -205,24 +205,26 @@ void EnqueueExpressionKernel(const ExpressionKernels &kernels,
     // The launch takes the address of each argument, so the arguments must
     // outlive it: they are held by kernelArgs.
     const size_t numEvar = kernelArgs.evarptr.size();
-    const size_t numArgs = 5 + numEvar + kernelArgs.outptr.size();
+    const size_t numArgs = 7 + numEvar + kernelArgs.outptr.size();
     void **args          = new void *[numArgs];
     args[0]              = (void *)&kernelArgs.nsize;
     args[1]              = (void *)&kernelArgs.compSize;
-    args[2]              = (void *)&kernelArgs.scale;
-    args[3]              = (void *)&kernelArgs.coordptr;
-    args[4]              = (void *)&kernelArgs.time;
+    args[2]              = (void *)&kernelArgs.nelmt;
+    args[3]              = (void *)&kernelArgs.ndata;
+    args[4]              = (void *)&kernelArgs.scale;
+    args[5]              = (void *)&kernelArgs.coordptr;
+    args[6]              = (void *)&kernelArgs.time;
 
     // Set input pointers.
     for (size_t i = 0; i < numEvar; ++i)
     {
-        args[5 + i] = (void *)&kernelArgs.evarptr[i];
+        args[7 + i] = (void *)&kernelArgs.evarptr[i];
     }
 
     // Set output pointers.
     for (size_t i = 0; i < kernelArgs.outptr.size(); ++i)
     {
-        args[5 + numEvar + i] = (void *)&kernelArgs.outptr[i];
+        args[7 + numEvar + i] = (void *)&kernelArgs.outptr[i];
     }
 
     // Launch kernel.

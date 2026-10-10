@@ -252,20 +252,22 @@ void LaunchExpressionKernel(const ExpressionKernels &kernels,
         const size_t numEvar = kernelArgs.evarptr.size();
         cgh.set_arg(0, kernelArgs.nsize);
         cgh.set_arg(1, kernelArgs.compSize);
-        cgh.set_arg(2, kernelArgs.scale);
-        cgh.set_arg(3, kernelArgs.coordptr);
-        cgh.set_arg(4, kernelArgs.time);
+        cgh.set_arg(2, kernelArgs.nelmt);
+        cgh.set_arg(3, kernelArgs.ndata);
+        cgh.set_arg(4, kernelArgs.scale);
+        cgh.set_arg(5, kernelArgs.coordptr);
+        cgh.set_arg(6, kernelArgs.time);
 
         // Set input pointers.
         for (size_t i = 0; i < numEvar; ++i)
         {
-            cgh.set_arg(static_cast<int>(5 + i), kernelArgs.evarptr[i]);
+            cgh.set_arg(static_cast<int>(7 + i), kernelArgs.evarptr[i]);
         }
 
         // Set output pointers.
         for (size_t i = 0; i < kernelArgs.outptr.size(); ++i)
         {
-            cgh.set_arg(static_cast<int>(5 + numEvar + i),
+            cgh.set_arg(static_cast<int>(7 + numEvar + i),
                          kernelArgs.outptr[i]);
         }
 

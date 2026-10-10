@@ -155,6 +155,22 @@ protected:
                 {
                     for (unsigned int i = 0; i < chunkSize; ++i, ++cnt)
                     {
+                        // Padded elements are not evaluated; their padding is
+                        // left zero.
+                        if (e * chunkSize + i >= inblock.GetNumElements())
+                        {
+                            for (unsigned int nc = 0;
+                                 !this->m_append &&
+                                 nc < outblock.GetNumComponents();
+                                 ++nc)
+                            {
+                                outptr[(n + nc * outblock.GetNumHomoModes()) *
+                                           compSize +
+                                       cnt] = 0.0;
+                            }
+                            continue;
+                        }
+
                         // Gather fielddata
                         // Note we set y and z coordinate only if the
                         // coordinate dimension is large enough otherwise

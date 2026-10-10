@@ -130,6 +130,39 @@ inline void addScalarKernel(const size_t nsize, const TData alpha,
     std::transform(x, x + nsize, y, [&alpha](TData xi) { return xi + alpha; });
 }
 
+// addScalarKernel over the ncomp components of compSize values of a block,
+// stored as element groups of width lanes by ndata points of which the first
+// nelmt elements are not padding: y = x + alpha, and zero in the padding.
+template <
+    typename ExecSpace, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+inline void addScalarKernel(const unsigned int ncomp, const size_t compSize,
+                            const size_t nelmt, const unsigned int ndata,
+                            const unsigned int width, const TData alpha,
+                            const TData *x, TData *y,
+                            [[maybe_unused]] const unsigned int streamID = 0)
+{
+    const size_t prefix      = (nelmt / width) * width * ndata;
+    const unsigned int lane0 = nelmt % width;
+    for (unsigned int n = 0; n < ncomp; ++n, x += compSize, y += compSize)
+    {
+        addScalarKernel<ExecSpace>(prefix, alpha, x, y);
+
+        // The element group holding the first padded element, then the
+        // element groups after it, all padding.
+        size_t i = prefix;
+        for (unsigned int pt = 0; lane0 != 0 && pt < ndata; ++pt)
+        {
+            for (unsigned int l = 0; l < width; ++l, ++i)
+            {
+                y[i] = (l < lane0) ? x[i] + alpha : TData(0);
+            }
+        }
+        std::fill(y + i, y + compSize, TData(0));
+    }
+}
+
 template <
     typename ExecSpace, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
@@ -173,7 +206,9 @@ inline void divKernel(const size_t nsize, const TData alpha, const TData *x,
                       TData *y,
                       [[maybe_unused]] const unsigned int streamID = 0)
 {
-    std::transform(x, x + nsize, y, [&alpha](TData xi) { return alpha / xi; });
+    std::transform(x, x + nsize, y, [&alpha](TData xi) {
+        return (xi == TData(0)) ? TData(0) : alpha / xi;
+    });
 }
 
 template <
@@ -184,8 +219,9 @@ inline void divKernel(const size_t nsize, const TData *x, const TData *y,
                       TData *z,
                       [[maybe_unused]] const unsigned int streamID = 0)
 {
-    std::transform(x, x + nsize, y, z,
-                   [](TData xi, TData yi) { return xi / yi; });
+    std::transform(x, x + nsize, y, z, [](TData xi, TData yi) {
+        return (yi == TData(0)) ? TData(0) : xi / yi;
+    });
 }
 
 template <
@@ -356,6 +392,29 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     {
         *out += mask[i] * x[i] * y[i];
     }
+}
+
+// ddot2Kernel computes, in one pass over x, out[0] (+)= (x, y) and out[1] (+)=
+// (x, z): two dot products sharing x, over the entries mask selects unless it
+// is null.
+template <
+    typename ExecSpace, bool init, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
+                        const TData *y, const TData *z, TData *out,
+                        [[maybe_unused]] const unsigned int streamID = 0)
+{
+    TData xy = init ? 0.0 : out[0];
+    TData xz = init ? 0.0 : out[1];
+    for (size_t i = 0; i < nsize; i++)
+    {
+        const TData xi = mask ? mask[i] * x[i] : x[i];
+        xy += xi * y[i];
+        xz += xi * z[i];
+    }
+    out[0] = xy;
+    out[1] = xz;
 }
 
 template <

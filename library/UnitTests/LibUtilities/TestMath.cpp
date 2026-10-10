@@ -158,7 +158,7 @@ BOOST_FIXTURE_TEST_CASE(mulkernel, TestMath<double>)
     }
 }
 
-/* BOOST_FIXTURE_TEST_CASE(divkernel, TestMath<double>)
+BOOST_FIXTURE_TEST_CASE(divkernel, TestMath<double>)
 {
     Configure();
     SetTestCase();
@@ -167,14 +167,14 @@ BOOST_FIXTURE_TEST_CASE(mulkernel, TestMath<double>)
     TestMath<double>::div();
 
     // Backend results
-    m_math.div(,*m_in1, *m_in2, *m_out);
+    m_math.div(*m_in1, *m_in2, *m_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
         BOOST_TEST(Compare(1.0E-15));
     }
-}*/
+}
 
 BOOST_FIXTURE_TEST_CASE(daxpykernel, TestMath<double>)
 {
@@ -426,6 +426,62 @@ BOOST_FIXTURE_TEST_CASE(innerproduct, TestMath<double>)
         std::cout << "Backend = " << std::sqrt(std::abs(h_out))
                   << " ddot = " << std::sqrt(std::abs(out)) << std::endl;
     }
+}
+
+// ddot2 gives the two dot products ddot gives separately; z = x checks the
+// aliased form the solvers use.
+BOOST_FIXTURE_TEST_CASE(ddot2kernel, TestMath<double>)
+{
+    Configure();
+    SetTestCase();
+
+    // Separate results
+    double xy = m_math.ddot(*m_in1, *m_in2);
+    double xx = m_math.ddot(*m_in1, *m_in1);
+
+    // Fused results
+    auto out = m_math.ddot2(*m_in1, *m_in2, *m_in1);
+
+    // Check results
+    BOOST_TEST(std::abs(out[0] - xy) <= 1.0E-12 * (1.0 + std::abs(xy)));
+    BOOST_TEST(std::abs(out[1] - xx) <= 1.0E-12 * (1.0 + std::abs(xx)));
+}
+
+// As ddot2kernel, over the entries a mask selects: every entry but one in
+// three, padding excluded.
+BOOST_FIXTURE_TEST_CASE(masked_ddot2kernel, TestMath<double>)
+{
+    Configure();
+    SetTestCase();
+
+    Field<std::uint8_t, FieldState::Phys> mask(
+        "mask", GetBlockAttributes<double, FieldState::Phys>(m_expList),
+        m_session->GetVariables(), 1);
+    for (auto &block : mask.GetBlocks())
+    {
+        auto *mptr =
+            block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int n = 0; n < mask.GetNumComponents(); ++n)
+        {
+            for (size_t i = 0; i < block.CompSize(); ++i)
+            {
+                const bool padding =
+                    i / block.GetNumData() >= block.GetNumElements();
+                mptr[n * block.CompSize() + i] = !padding && i % 3 != 0;
+            }
+        }
+    }
+
+    // Separate results
+    double xy = m_math.ddot(mask, *m_in1, *m_in2);
+    double xx = m_math.ddot(mask, *m_in1, *m_in1);
+
+    // Fused results
+    auto out = m_math.ddot2(mask, *m_in1, *m_in2, *m_in1);
+
+    // Check results
+    BOOST_TEST(std::abs(out[0] - xy) <= 1.0E-12 * (1.0 + std::abs(xy)));
+    BOOST_TEST(std::abs(out[1] - xx) <= 1.0E-12 * (1.0 + std::abs(xx)));
 }
 
 BOOST_FIXTURE_TEST_CASE(l1norm, TestMath<double>)

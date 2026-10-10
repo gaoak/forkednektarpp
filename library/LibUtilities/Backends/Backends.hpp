@@ -67,6 +67,10 @@ extern std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
 extern void *internalDeviceBuffer;
 extern void *internalHostBuffer;
 extern unsigned int internalMaxDataSizeByte;
+// Bytes of each stream's reduction scratch in internalMemoryBufferMap:
+// internalMaxDataSizeByte, two partial sums of double, per thread block of the
+// largest reduction grid.
+extern unsigned int internalReductionBufferSize;
 #endif
 
 namespace NektarSpaces

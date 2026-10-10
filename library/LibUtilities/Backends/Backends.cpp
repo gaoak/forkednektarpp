@@ -42,6 +42,8 @@ std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
 void *internalDeviceBuffer           = nullptr;
 void *internalHostBuffer             = nullptr;
 unsigned int internalMaxDataSizeByte = 16;
+unsigned int internalReductionBufferSize =
+    internalMaxDataSizeByte * NektarSpaces::Device::maximumBlockSize;
 #endif
 
 } // namespace Nektar

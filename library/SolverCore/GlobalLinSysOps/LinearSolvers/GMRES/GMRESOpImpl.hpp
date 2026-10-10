@@ -126,12 +126,14 @@ public:
                  "GMRESDeltaDirection (LGMRES) must be smaller than "
                  "LinSysMaxStorage");
 
-        // Allocate array storage.
-        if (!m_isModifiedGramSchmidt)
-        {
-            m_vExchange = LibUtilities::MemoryRegion<TData>(
-                (m_reorthogonalize ? 2 : 1) * m_LinSysMaxStorage, eHostPinned);
-        }
+        // Allocate array storage: two entries at least, for the reductions
+        // before the iterations.
+        m_vExchange = LibUtilities::MemoryRegion<TData>(
+            std::max(m_isModifiedGramSchmidt
+                         ? 0u
+                         : (m_reorthogonalize ? 2u : 1u) * m_LinSysMaxStorage,
+                     2u),
+            eHostPinned);
         m_coeffs = LibUtilities::MemoryRegion<TData>(
             m_LinSysMaxStorage + m_GMRESDeltaDirection, eHostPinned);
         m_V.ResizeNumField(1);
@@ -222,19 +224,32 @@ protected:
         // Reshape mask if required.
         this->template ReshapeMask<ExecSpace>(in);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate rhs magnitude.
         this->m_assmbScatrOp->Apply(in, m_w);
-        TData rhsMagnitude = this->m_math.ddot(in, m_w);
-        this->m_rowComm->AllReduce(rhsMagnitude,
-                                   Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
+        Math::ddot<ExecSpace>(in, m_w, exchange + 0);
 
         // Calculate prefactor.
         if (this->m_leftPreconditioner)
         {
             this->m_assmbScatrZeroDirOp->Apply(in, m_w);
-            prec_factor = this->m_math.ddot(in, m_w);
-            this->m_rowComm->AllReduce(prec_factor, LibUtilities::ReduceSum);
+            Math::ddot<ExecSpace>(in, m_w, exchange + 1);
+        }
+
+        // Communication.
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        TData rhsMagnitude = this->GetRhsMagnitude(exchangeHost[0]);
+        if (this->m_leftPreconditioner)
+        {
+            prec_factor = exchangeHost[1];
         }
 
         // GMRES with restart.
@@ -391,7 +406,7 @@ protected:
                     // Classical Gram-Schmidt: the dot products d with the
                     // basis, then w = wScale (w - V d), so that h = wScale d.
                     // Reset device memory.
-                    auto exchange =
+                    exchange =
                         m_vExchange.template GetPtr<MemSpace, WriteOnly>();
                     MultiDot<ExecSpace>(this->m_mask, m_V, starttem, endtem,
                                         m_w, exchange + starttem);
@@ -407,7 +422,7 @@ protected:
                         wScale, m_w);
 
                     // Device-to-host copy.
-                    auto exchangeHost =
+                    exchangeHost =
                         m_vExchange.template GetPtr<NektarSpaces::HostSpace,
                                                     ReadOnly>();
                     for (unsigned int i = starttem; i < endtem; ++i)

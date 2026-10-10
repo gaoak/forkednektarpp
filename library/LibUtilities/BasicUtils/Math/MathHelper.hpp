@@ -36,6 +36,7 @@
 
 #include "LibUtilities/BasicUtils/Math/MathDeclspec.h"
 
+#include <array>
 #include <string>
 
 namespace Nektar::Math
@@ -155,6 +156,15 @@ public:
     template <typename M, typename T>
     LIB_MATH_EXPORT typename T::value_type ddot(
         M &mask, T &x, T &y, const std::string &execSpace = "");
+
+    // {(x, y), (x, z)} in one pass over x; T is a Field.
+    template <typename T>
+    LIB_MATH_EXPORT std::array<typename T::value_type, 2> ddot2(
+        T &x, T &y, T &z, const std::string &execSpace = "");
+
+    template <typename M, typename T>
+    LIB_MATH_EXPORT std::array<typename T::value_type, 2> ddot2(
+        M &mask, T &x, T &y, T &z, const std::string &execSpace = "");
 
     template <typename T>
     LIB_MATH_EXPORT typename T::value_type l1norm(

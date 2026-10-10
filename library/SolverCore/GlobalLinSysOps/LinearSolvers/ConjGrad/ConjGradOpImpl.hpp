@@ -133,6 +133,12 @@ protected:
         // Reshape mask if required.
         this->template ReshapeMask<ExecSpace>(in);
 
+        // The preconditioned residual: without a left preconditioner it is the
+        // residual itself, so w refers to r rather than copying it, unless the
+        // flexible variant needs the previous w.
+        const bool doCopy = this->m_leftPreconditioner || m_flexible;
+        auto &w           = doCopy ? m_w : m_r;
+
         // Convergence parameters.
         this->m_niter = 0;
         TData rhsMagnitude, eps;
@@ -179,11 +185,11 @@ protected:
         // Apply preconditioner - output is assembled
         if (this->m_leftPreconditioner)
         {
-            this->m_precon->Apply(m_r, m_w);
+            this->m_precon->Apply(m_r, w);
         }
-        else
+        else if (doCopy)
         {
-            m_w.template Copy<MemSpace>(m_r);
+            w.template Copy<MemSpace>(m_r);
         }
 
         // Iteration >= 1
@@ -213,6 +219,9 @@ protected:
                 m_p.SetInterleaveWidth(in);
                 m_q.template Initialize<MemSpace>(0);
                 m_q.SetInterleaveWidth(in);
+
+                // <r_{k+1}, w_{k+1}>
+                Math::ddot<ExecSpace>(this->m_mask, m_r, w, exchange + 1);
             }
             else
             {
@@ -225,38 +234,35 @@ protected:
                 // Math::daxpy<ExecSpace>(beta, m_q, m_s, m_q);
                 // Math::daxpy<ExecSpace>(alpha, m_p, out, out);
                 // Math::daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
-                UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, m_w, m_s,
+                UpdateConjGradSearchDirection<ExecSpace>(alpha, beta, w, m_s,
                                                          m_p, m_q, m_r, out);
-
-                // <r_{k+1}, r_{k+1}>
-                Math::ddot<ExecSpace>(this->m_mask, m_r, m_r, exchange + 0);
 
                 if (m_flexible)
                 {
                     // <r_{k+1}, w_{k}>
-                    Math::ddot<ExecSpace>(this->m_mask, m_r, m_w, exchange + 3);
+                    Math::ddot<ExecSpace>(this->m_mask, m_r, w, exchange + 3);
                 }
 
                 // Apply preconditioner - output is assumeed holding global dof
                 if (this->m_leftPreconditioner)
                 {
-                    this->m_precon->Apply(m_r, m_w);
+                    this->m_precon->Apply(m_r, w);
                 }
-                else
+                else if (doCopy)
                 {
-                    m_w.template Copy<MemSpace>(m_r);
+                    w.template Copy<MemSpace>(m_r);
                 }
+
+                // <r_{k+1}, r_{k+1}> and <r_{k+1}, w_{k+1}>, reading r once.
+                Math::ddot2<ExecSpace>(this->m_mask, m_r, m_r, w, exchange + 0);
             }
 
-            // <r_{k+1}, w_{k+1}>
-            Math::ddot<ExecSpace>(this->m_mask, m_r, m_w, exchange + 1);
-
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(m_w, m_s);
-            this->m_robBndCondOp->Apply(m_w, m_s);
+            this->m_lhs->Apply(w, m_s);
+            this->m_robBndCondOp->Apply(w, m_s);
 
             // <w_{k+1}, s_{k+1}>
-            Math::ddot<ExecSpace>(m_w, m_s, exchange + 2);
+            Math::ddot<ExecSpace>(w, m_s, exchange + 2);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(

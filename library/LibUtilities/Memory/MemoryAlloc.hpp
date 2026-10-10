@@ -35,6 +35,7 @@
 #pragma once
 
 #include "LibUtilities/Backends/DeviceProperties.hpp"
+#include <algorithm>
 #include <cstring>
 
 namespace Nektar
@@ -97,6 +98,13 @@ static inline void SetDeviceMemoryPool(void)
 template <typename TData>
 void deviceFillKernelLauncher(TData *dst, const TData val, const size_t size,
                               const unsigned int streamID);
+
+template <typename TData>
+void deviceZeroPaddingKernelLauncher(TData *dst, const unsigned int ncomp,
+                                     const size_t compSize, const size_t nelmt,
+                                     const unsigned int ndata,
+                                     const unsigned int width,
+                                     const unsigned int streamID);
 
 template <typename TData>
 inline void hostMalloc(TData **src, const size_t size,
@@ -338,6 +346,66 @@ inline void deviceFill(TData *dst, const TData val, const size_t size,
     SYCLQueue::SetEvent(streamID, e);
 #else
     std::fill(dst, dst + size, val);
+#endif
+}
+
+// Zero, in place, the padding of the ncomp components of compSize values at
+// dst, stored as element groups of width lanes by ndata points, of which the
+// first nelmt elements are not padding. Only the element groups from the first
+// padded element on are visited.
+template <typename TData>
+inline void hostZeroPadding(TData *dst, const unsigned int ncomp,
+                            const size_t compSize, const size_t nelmt,
+                            const unsigned int ndata, const unsigned int width)
+{
+    const size_t group0      = nelmt / width;
+    const unsigned int lane0 = nelmt % width;
+    for (unsigned int n = 0; n < ncomp; ++n, dst += compSize)
+    {
+        // The padded lanes of the element group holding the first padded
+        // element, point by point, then the element groups after it at once.
+        TData *ptr = dst + group0 * ndata * width;
+        for (unsigned int pt = 0; lane0 != 0 && pt < ndata; ++pt, ptr += width)
+        {
+            std::fill(ptr + lane0, ptr + width, TData(0));
+        }
+        std::fill(ptr, dst + compSize, TData(0));
+    }
+}
+
+template <typename TData>
+inline void deviceZeroPadding(TData *dst, const unsigned int ncomp,
+                              const size_t compSize, const size_t nelmt,
+                              const unsigned int ndata,
+                              const unsigned int width,
+                              [[maybe_unused]] const unsigned int streamID)
+{
+    const size_t prefix = (nelmt / width) * width * ndata;
+    if (prefix == compSize)
+    {
+        return;
+    }
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+    deviceZeroPaddingKernelLauncher(dst, ncomp, compSize, nelmt, ndata, width,
+                                    streamID);
+#elif defined(NEKTAR_ENABLE_SYCL)
+    const size_t tail = compSize - prefix;
+    sycl::queue &Q    = SYCLQueue::GetInstance(streamID);
+    sycl::event e     = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(ncomp * tail), [=](sycl::id<1> indx) {
+            const size_t idx = indx[0];
+            const size_t i   = prefix + idx % tail;
+            if ((i / (ndata * width)) * width + i % width >= nelmt)
+            {
+                dst[(idx / tail) * compSize + i] = TData(0);
+            }
+        });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+#else
+    hostZeroPadding(dst, ncomp, compSize, nelmt, ndata, width);
 #endif
 }
 

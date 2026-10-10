@@ -89,8 +89,8 @@ public:
                  "GCROpImpl: Only left preconditioner is supported");
 
         // Allocate array storage.
-        m_vExchange =
-            LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+        m_vExchange = LibUtilities::MemoryRegion<TData>(
+            std::max(m_LinSysMaxStorage, 2u), eHostPinned);
         m_coeffs =
             LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
         m_Q.ResizeNumField(1);
@@ -140,22 +140,31 @@ protected:
         out.template Initialize<MemSpace>(0);
         out.SetInterleaveWidth(in);
 
+        // Reset device memory.
+        auto exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
         // Calculate inital rhs magnitude.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrOp->Apply(m_r);
-        rhsMagnitude = this->m_math.ddot(in, m_r);
-        this->m_rowComm->AllReduce(rhsMagnitude,
-                                   Nektar::LibUtilities::ReduceSum);
-        rhsMagnitude = this->GetRhsMagnitude(rhsMagnitude);
+        Math::ddot<ExecSpace>(in, m_r, exchange + 1);
 
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero
         // Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
         this->m_assmbScatrZeroDirOp->Apply(m_r);
+        Math::ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
-        eps = this->m_math.ddot(m_r, m_r);
-        this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+        // Communication.
+        this->m_rowComm->template AllReduce<MemSpace>(
+            m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+        // Device-to-host copy.
+        auto exchangeHost =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
+        eps          = exchangeHost[0];
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < this->m_tol * this->m_tol * rhsMagnitude)
@@ -199,8 +208,7 @@ protected:
             if (ii > 0)
             {
                 // Reset device memory.
-                auto exchange =
-                    m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+                exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
                 MultiDot<ExecSpace>(m_Q, 0, ii, m_Q[ii], exchange);
 
                 // Communication.
@@ -208,7 +216,7 @@ protected:
                     m_vExchange, Nektar::LibUtilities::ReduceSum);
 
                 // Device-to-host copy.
-                auto exchangeHost =
+                exchangeHost =
                     m_vExchange
                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
                 auto coeffsHost =
@@ -224,13 +232,24 @@ protected:
                 MultiAxpy<ExecSpace>(1.0, m_Q, 0, ii, coeffs, 1.0, m_Q[ii]);
             }
 
-            // Update coefficient.
-            alpha = this->m_math.ddot(m_Q[ii], m_r);
-            this->m_rowComm->AllReduce(alpha, Nektar::LibUtilities::ReduceSum);
-            scale[ii] = this->m_math.ddot(m_Q[ii], m_Q[ii]);
-            this->m_rowComm->AllReduce(scale[ii],
-                                       Nektar::LibUtilities::ReduceSum);
-            alpha /= scale[ii];
+            // Reset device memory.
+            exchange = m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+            // Update coefficient: <Q[ii], r> and <Q[ii], Q[ii]>, reading
+            // Q[ii] once.
+            Math::ddot2<ExecSpace>(m_Q[ii], m_r, m_Q[ii], exchange);
+
+            // Communication.
+            this->m_rowComm->template AllReduce<MemSpace>(
+                m_vExchange, Nektar::LibUtilities::ReduceSum);
+
+            // Device-to-host copy.
+            exchangeHost =
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            scale[ii] = exchangeHost[1];
+            alpha     = exchangeHost[0] / scale[ii];
 
             // Update solutions.
             Math::daxpy<ExecSpace>(alpha, m_P[ii], out, out);
