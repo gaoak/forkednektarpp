@@ -3,7 +3,6 @@ SET(LibUtilitiesUnitTestSources
     TestRawType.cpp
     TestInterpreter.cpp
     TestSharedArray.cpp
-    TestFieldStorage.cpp
     TestCheckedCast.cpp
     TestRealComparison.cpp
     TestInterpCoeff.cpp
@@ -14,6 +13,11 @@ SET(LibUtilitiesUnitTestSources
     main.cpp
     ../util.cpp
 )
+
+# Field storage lives in the device-support sources of LibUtilities.
+IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    LIST(APPEND LibUtilitiesUnitTestSources TestFieldStorage.cpp)
+ENDIF()
 
 SET(UnitTestSources ${PrecompiledHeaderSources} main.cpp)
 
