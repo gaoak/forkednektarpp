@@ -49,6 +49,99 @@ namespace Nektar::NekMesh
 // Number of samples to use.
 constexpr int nSamp = 40;
 
+// How fast the element size is allowed to change with distance: the limit on
+// |delta_i - delta_j| / |x_i - x_j| between neighbouring octants, which is
+// what ddx() below measures. An octant breaching it has its delta pulled down
+// to what its neighbour allows.
+constexpr NekDouble maxGradation = 0.2;
+
+// The gradation used when assigning that reduced delta. Fractionally under
+// the limit, so that the octant just fixed is not immediately found to breach
+// it again and leave the smoothing passes cycling.
+constexpr NekDouble assignedGradation = 0.199;
+
+void Octree::RecordClamp(NekDouble del, std::array<NekDouble, 3> loc)
+{
+    ++m_numClamped;
+
+    if (del < m_smallestDelta)
+    {
+        m_smallestDelta    = del;
+        m_smallestDeltaLoc = loc;
+    }
+}
+
+void Octree::ReportSampleCount()
+{
+    // Each surface is sampled on a grid whose spacing in each parametric
+    // direction is set by MinDelta, so the number of samples -- and the
+    // memory they occupy, which is the octree's floor -- goes with the square
+    // of 1/MinDelta. Halving MinDelta asks for four times as many, which is
+    // not what someone reaching for "a bit finer" expects, and the cost is
+    // paid here before any meshing has happened.
+    //
+    // The per-sample figure is measured rather than derived, and covers the
+    // whole octree rather than the samples alone: brakedisc peaks at 4315 MB
+    // for 38.3 million samples and 1241 MB for 10.3 million, both near 120
+    // bytes. A SourcePoint is 64 of those; the rest is the octants' own
+    // storage and the headroom the sample vector carries while it grows.
+    constexpr size_t bytesPerSample = 120;
+
+    // Chosen so that it stays quiet on anything that meshes comfortably:
+    // brakedisc at its own MinDelta holds under a million samples, and at a
+    // fifth of it just over three million for a gigabyte.
+    constexpr size_t manySamples = 5000000;
+
+    if (m_SPList.size() < manySamples)
+    {
+        return;
+    }
+
+    m_log(WARNING) << "MinDelta of " << m_minDelta << " asks for "
+                   << m_SPList.size() << " curvature samples, holding roughly "
+                   << (m_SPList.size() * bytesPerSample) / (1024 * 1024)
+                   << " MB before any mesh exists. The number of samples goes "
+                      "with the square of 1/MinDelta, so halving it again "
+                      "would ask for four times as many. Raise MinDelta if "
+                      "that is more than was intended."
+                   << endl;
+}
+
+void Octree::ReportClamping()
+{
+    if (m_numClamped == 0)
+    {
+        return;
+    }
+
+    NekDouble fraction = static_cast<NekDouble>(m_numClamped) / m_SPList.size();
+
+    // Worth saying out loud when it is widespread, because every downstream
+    // symptom of it looks like something else: a face too coarse to resolve
+    // its own curvature is meshed flat, and a flat mesh of a curved face cuts
+    // through whatever is on the other side of it. That surfaces much later,
+    // as a surface mesh that is not a manifold or that intersects itself.
+    //
+    // Below the threshold it is only a statistic. Clamping a handful of
+    // samples is normal and usually deliberate -- 3d_bl_wing meshes correctly
+    // with 2% of its samples clamped, and by a factor of fifty at that, so
+    // the depth of the clamp is not what distinguishes the two. The quarter
+    // is a figure chosen between that case and brakedisc, which fails with
+    // 45% clamped; it is not derived from anything.
+    const NekDouble widespread = 0.25;
+
+    Logger &log = fraction > widespread ? m_log(WARNING) : m_log(VERBOSE);
+
+    log << "MinDelta is coarser than the curvature of the geometry at "
+        << m_numClamped << " of " << m_SPList.size() << " curvature samples ("
+        << static_cast<int>(100.0 * fraction)
+        << "%). The smallest spacing the curvature asks for is "
+        << m_smallestDelta << ", at (" << m_smallestDeltaLoc[0] << ", "
+        << m_smallestDeltaLoc[1] << ", " << m_smallestDeltaLoc[2]
+        << "), against a MinDelta of " << m_minDelta
+        << ". Features at that scale will be meshed flat." << endl;
+}
+
 void Octree::Process()
 {
     auto boundingBox = m_mesh->m_meshGraph->GetCAD()->GetBoundingBox();
@@ -57,6 +150,9 @@ void Octree::Process()
     CompileSourcePointList();
 
     m_log(VERBOSE) << "  - Curvature samples: " << m_SPList.size() << endl;
+
+    ReportSampleCount();
+    ReportClamping();
 
     // make master octant based on the bounding box of the domain
     m_dim = max((boundingBox[1] - boundingBox[0]) / 2.0,
@@ -68,8 +164,17 @@ void Octree::Process()
                   (boundingBox[3] + boundingBox[2]) / 2.0,
                   (boundingBox[5] + boundingBox[4]) / 2.0};
 
+    // The master octant starts with every sizing point. It takes pointers
+    // into m_SPList, which is complete by now and is not added to again.
+    std::vector<const SourcePoint *> allPoints;
+    allPoints.reserve(m_SPList.size());
+    for (const auto &sp : m_SPList)
+    {
+        allPoints.push_back(&sp);
+    }
+
     m_masteroct = MemoryManager<Octant>::AllocateSharedPtr(
-        0, m_centroid[0], m_centroid[1], m_centroid[2], m_dim, m_SPList);
+        0, m_centroid[0], m_centroid[1], m_centroid[2], m_dim, allPoints);
 
     // begin recersive subdivision
     SubDivide();
@@ -114,8 +219,8 @@ NekDouble Octree::Query(std::array<NekDouble, 3> loc)
         }
     }
 
-    OctantSharedPtr n = m_masteroct;
-    int quad          = 0;
+    Octant *n = m_masteroct.get();
+    int quad  = 0;
 
     bool found = false;
 
@@ -173,7 +278,17 @@ NekDouble Octree::Query(std::array<NekDouble, 3> loc)
         }
         else
         {
-            ASSERTL0(false, "Cannot locate quadrant");
+            // The eight branches above partition space about the octant's
+            // centre and between them cover it, so reaching here means a
+            // coordinate compared false against every one of them -- a NaN.
+            m_log(FATAL) << "cannot place (" << loc[0] << ", " << loc[1] << ", "
+                         << loc[2]
+                         << ") in the octree: it falls in none of the eight "
+                            "octants about ("
+                         << octloc[0] << ", " << octloc[1] << ", " << octloc[2]
+                         << "), which only a coordinate that is not a number "
+                            "can do."
+                         << endl;
         }
 
         n = n->GetChild(quad);
@@ -265,7 +380,7 @@ void Octree::SubDivide()
     int ct = 1;
 
     m_numoct = 1;
-    m_masteroct->Subdivide(m_masteroct, m_numoct);
+    m_masteroct->Subdivide(m_masteroct.get(), m_numoct);
 
     do
     {
@@ -278,7 +393,15 @@ void Octree::SubDivide()
         // grab a list of the leaves curently in the octree
         m_masteroct->CompileLeaves(m_octants);
 
-        VerifyNeigbours();
+        // Advisory: it reports what it finds and the subdivision carries on,
+        // since nothing here can repair the tree.
+        if (!VerifyNeigbours())
+        {
+            m_log(WARNING) << "  the octree's octants are no longer balanced "
+                              "two-to-one across their faces; the element "
+                              "sizes it reports may not vary smoothly"
+                           << endl;
+        }
 
         // neeed to create a divide list, in the first list will be m_octants
         // which need to subdivide based on curvature,
@@ -287,11 +410,11 @@ void Octree::SubDivide()
         // the list will keep building till no more lists are required.
         // the list will then be iterated through backwards to subdivide all the
         // sublists in turn.
-        vector<vector<OctantSharedPtr>> dividelist;
+        vector<vector<Octant *>> dividelist;
         set<int> inlist;
         // build initial list
         {
-            vector<OctantSharedPtr> sublist;
+            vector<Octant *> sublist;
             for (int i = 0; i < m_octants.size(); i++)
             {
                 if (m_octants[i]->NeedDivide() &&
@@ -300,7 +423,7 @@ void Octree::SubDivide()
                              ? min(m_minDelta, m_octants[i]->GetDelta())
                              : m_minDelta))
                 {
-                    sublist.push_back(m_octants[i]);
+                    sublist.push_back(m_octants[i].get());
                     inlist.insert(m_octants[i]->GetId());
                     repeat = true; // if there is a subdivision this whole
                                    // process needs to be repeated
@@ -311,25 +434,27 @@ void Octree::SubDivide()
         // then loop over building sublists until no more are required
         while (true)
         {
-            vector<OctantSharedPtr> newsublist,
-                previouslist = dividelist.back();
+            vector<Octant *> newsublist;
+
+            // By reference. The push_back at the end of this iteration
+            // invalidates it, but it is not read after that: the next
+            // iteration rebinds it.
+            const vector<Octant *> &previouslist = dividelist.back();
             for (int i = 0; i < previouslist.size(); i++)
             {
-                map<OctantFace, vector<OctantSharedPtr>> nlist =
-                    previouslist[i]->GetNeigbours();
-                map<OctantFace, vector<OctantSharedPtr>>::iterator it;
-                for (it = nlist.begin(); it != nlist.end(); it++)
+                const auto &nlist = previouslist[i]->GetNeigbours();
+                for (size_t face = 0; face < nlist.size(); face++)
                 {
-                    for (int j = 0; j < it->second.size(); j++)
+                    for (int j = 0; j < nlist[face].size(); j++)
                     {
-                        if (previouslist[i]->DX() < it->second[j]->DX())
+                        if (previouslist[i]->DX() < nlist[face][j]->DX())
                         {
                             set<int>::iterator s =
-                                inlist.find(it->second[j]->GetId());
+                                inlist.find(nlist[face][j]->GetId());
                             if (s == inlist.end())
                             {
-                                inlist.insert(it->second[j]->GetId());
-                                newsublist.push_back(it->second[j]);
+                                inlist.insert(nlist[face][j]->GetId());
+                                newsublist.push_back(nlist[face][j]);
                             }
                         }
                     }
@@ -345,10 +470,10 @@ void Octree::SubDivide()
             }
         }
 
-        vector<vector<OctantSharedPtr>>::reverse_iterator rit;
+        vector<vector<Octant *>>::reverse_iterator rit;
         for (rit = dividelist.rbegin(); rit != dividelist.rend(); rit++)
         {
-            vector<OctantSharedPtr> currentlist = *rit;
+            const vector<Octant *> &currentlist = *rit;
             for (int i = 0; i < currentlist.size(); i++)
             {
                 currentlist[i]->Subdivide(currentlist[i], m_numoct);
@@ -361,23 +486,26 @@ void Octree::SubDivide()
 
 bool Octree::VerifyNeigbours()
 {
-    // check all octant links to their neighbours
-    // at all times in the subdivision the set of neigbours must
-    // conform to a set of criteria such as smoothness in size
-    // this checks that
+    // Through the subdivision an octant's neighbours across each face must
+    // stay either one of the same size, one of twice the size, or four of
+    // half it; anything else means the tree has lost the two-to-one balance
+    // the element sizing depends on. Each complaint below names the octant
+    // and what it found, since by this point there is nothing in the geometry
+    // left to point at.
+    //
+    // The result is advisory: SubDivide() calls this and carries on, because
+    // nothing here knows how to repair the tree.
     bool error = false;
     for (int i = 0; i < m_octants.size(); i++)
     {
-        bool valid = true;
-        map<OctantFace, vector<OctantSharedPtr>> nlist =
-            m_octants[i]->GetNeigbours();
-        map<OctantFace, vector<OctantSharedPtr>>::iterator it;
-        for (it = nlist.begin(); it != nlist.end(); it++)
+        bool valid        = true;
+        const auto &nlist = m_octants[i]->GetNeigbours();
+        for (size_t face = 0; face < nlist.size(); face++)
         {
-            if (it->second.size() == 0)
+            if (nlist[face].size() == 0)
             {
                 NekDouble expectedfx = 0.0;
-                switch (it->first)
+                switch (static_cast<OctantFace>(face))
                 {
                     case eUp:
                         expectedfx = m_centroid[1] + m_dim;
@@ -398,41 +526,61 @@ bool Octree::VerifyNeigbours()
                         expectedfx = m_centroid[0] - m_dim;
                         break;
                 }
-                if (fabs(m_octants[i]->FX(it->first) - expectedfx) > 1E-6)
+                if (fabs(m_octants[i]->FX(static_cast<OctantFace>(face)) -
+                         expectedfx) > 1E-6)
                 {
                     valid = false;
-                    m_log(WARNING) << "wall neigbour error" << endl;
                     m_log(WARNING)
-                        << expectedfx << " " << m_octants[i]->FX(it->first)
-                        << " " << it->first << endl;
+                        << "    octant " << m_octants[i]->GetId()
+                        << " has no neighbour across face " << face
+                        << ", so that face should lie on the wall of the "
+                           "octree at "
+                        << expectedfx << ", but it is at "
+                        << m_octants[i]->FX(static_cast<OctantFace>(face))
+                        << endl;
                 }
             }
-            else if (it->second.size() == 1)
+            else if (nlist[face].size() == 1)
             {
-                if (!(m_octants[i]->DX() == it->second[0]->DX() ||
-                      it->second[0]->DX() == 2.0 * m_octants[i]->DX()))
+                if (!(m_octants[i]->DX() == nlist[face][0]->DX() ||
+                      nlist[face][0]->DX() == 2.0 * m_octants[i]->DX()))
                 {
                     valid = false;
-                    m_log(WARNING) << " 1 neigbour error" << endl;
-                    m_log(WARNING) << m_octants[i]->DX() << " "
-                                   << it->second[0]->DX() << endl;
+                    m_log(WARNING)
+                        << "    octant " << m_octants[i]->GetId()
+                        << ", of "
+                           "size "
+                        << m_octants[i]->DX()
+                        << ", has one neighbour across "
+                           "face "
+                        << face << " of size " << nlist[face][0]->DX()
+                        << "; a single neighbour must be the same size or "
+                           "twice it"
+                        << endl;
                 }
             }
-            else if (it->second.size() == 4)
+            else if (nlist[face].size() == 4)
             {
-                if (!(m_octants[i]->DX() / 2.0 == it->second[0]->DX()))
+                if (!(m_octants[i]->DX() / 2.0 == nlist[face][0]->DX()))
                 {
                     valid = false;
-                    m_log(WARNING) << "4 neighbour error" << endl;
-                    m_log(WARNING) << m_octants[i]->DX() << " "
-                                   << it->second[0]->DX() << endl;
+                    m_log(WARNING)
+                        << "    octant " << m_octants[i]->GetId()
+                        << ", of "
+                           "size "
+                        << m_octants[i]->DX()
+                        << ", has four neighbours "
+                           "across face "
+                        << face << ", the first of size "
+                        << nlist[face][0]->DX()
+                        << "; four neighbours must each be half its size"
+                        << endl;
                 }
             }
         }
         if (!valid)
         {
             error = true;
-            m_log(WARNING) << "invalid neigbour config" << endl;
         }
     }
     return !error;
@@ -450,24 +598,22 @@ void Octree::SmoothSurfaceOctants()
         ct = 0;
         for (int i = 0; i < m_octants.size(); i++)
         {
-            OctantSharedPtr oct = m_octants[i];
+            Octant *oct = m_octants[i].get();
 
             if (oct->IsDeltaKnown())
             {
-                vector<OctantSharedPtr> check;
-                map<OctantFace, vector<OctantSharedPtr>> nList =
-                    oct->GetNeigbours();
-                map<OctantFace, vector<OctantSharedPtr>>::iterator it;
+                vector<Octant *> check;
+                const auto &nList = oct->GetNeigbours();
 
-                for (it = nList.begin(); it != nList.end(); it++)
+                for (size_t face = 0; face < nList.size(); face++)
                 {
-                    for (int j = 0; j < it->second.size(); j++)
+                    for (int j = 0; j < nList[face].size(); j++)
                     {
-                        if (it->second[j]->IsDeltaKnown() &&
-                            it->second[j]->GetDelta() < oct->GetDelta() &&
-                            ddx(oct, it->second[j]) > 0.2)
+                        if (nList[face][j]->IsDeltaKnown() &&
+                            nList[face][j]->GetDelta() < oct->GetDelta() &&
+                            ddx(oct, nList[face][j]) > maxGradation)
                         {
-                            check.push_back(it->second[j]);
+                            check.push_back(nList[face][j]);
                         }
                     }
                 }
@@ -482,9 +628,11 @@ void Octree::SmoothSurfaceOctants()
                     {
                         NekDouble r = oct->Distance(check[j]);
 
-                        if (0.199 * r + check[j]->GetDelta() < deltaSM)
+                        if (assignedGradation * r + check[j]->GetDelta() <
+                            deltaSM)
                         {
-                            deltaSM = 0.199 * r + check[j]->GetDelta();
+                            deltaSM =
+                                assignedGradation * r + check[j]->GetDelta();
                         }
                     }
                     oct->SetDelta(deltaSM);
@@ -508,22 +656,20 @@ void Octree::PropagateDomain()
         ct = 0;
         for (int i = 0; i < m_octants.size(); i++)
         {
-            OctantSharedPtr oct = m_octants[i];
+            Octant *oct = m_octants[i].get();
 
             if (!oct->IsDeltaKnown())
             { // if delta has not been asigned
-                vector<OctantSharedPtr> known;
-                map<OctantFace, vector<OctantSharedPtr>> nList =
-                    oct->GetNeigbours();
-                map<OctantFace, vector<OctantSharedPtr>>::iterator it;
+                vector<Octant *> known;
+                const auto &nList = oct->GetNeigbours();
 
-                for (it = nList.begin(); it != nList.end(); it++)
+                for (size_t face = 0; face < nList.size(); face++)
                 {
-                    for (int j = 0; j < it->second.size(); j++)
+                    for (int j = 0; j < nList[face].size(); j++)
                     {
-                        if (it->second[j]->IsDeltaKnown())
+                        if (nList[face][j]->IsDeltaKnown())
                         {
-                            known.push_back(it->second[j]);
+                            known.push_back(nList[face][j]);
                         }
                     }
                 }
@@ -535,9 +681,10 @@ void Octree::PropagateDomain()
                     {
                         NekDouble r = oct->Distance(known[j]);
 
-                        if (0.199 * r + known[j]->GetDelta() < m_maxDelta)
+                        if (assignedGradation * r + known[j]->GetDelta() <
+                            m_maxDelta)
                         {
-                            deltaPrime.push_back(0.199 * r +
+                            deltaPrime.push_back(assignedGradation * r +
                                                  known[j]->GetDelta());
                         }
                         else
@@ -562,25 +709,23 @@ void Octree::PropagateDomain()
 
             if (oct->GetLocation() == eUnknown)
             { // if the node does not know its location
-                vector<OctantSharedPtr> known;
-                map<OctantFace, vector<OctantSharedPtr>> nList =
-                    oct->GetNeigbours();
-                map<OctantFace, vector<OctantSharedPtr>>::iterator it;
+                vector<Octant *> known;
+                const auto &nList = oct->GetNeigbours();
 
-                for (it = nList.begin(); it != nList.end(); it++)
+                for (size_t face = 0; face < nList.size(); face++)
                 {
-                    for (int j = 0; j < it->second.size(); j++)
+                    for (int j = 0; j < nList[face].size(); j++)
                     {
-                        if (it->second[j]->GetLocation() != eUnknown)
+                        if (nList[face][j]->GetLocation() != eUnknown)
                         {
-                            known.push_back(it->second[j]);
+                            known.push_back(nList[face][j]);
                         }
                     }
                 }
 
                 if (known.size() > 0)
                 {
-                    vector<OctantSharedPtr> isNotOnBound;
+                    vector<Octant *> isNotOnBound;
                     for (int j = 0; j < known.size(); j++)
                     {
                         if (known[j]->GetLocation() != eOnBoundary)
@@ -597,7 +742,7 @@ void Octree::PropagateDomain()
                     {
                         NekDouble dist = numeric_limits<double>::max();
 
-                        OctantSharedPtr closest;
+                        Octant *closest = nullptr;
 
                         bool f = false;
                         for (int j = 0; j < known.size(); j++)
@@ -609,9 +754,18 @@ void Octree::PropagateDomain()
                                 f       = true;
                             }
                         }
-                        ASSERTL0(f, "closest never set");
+                        if (!f)
+                        {
+                            m_log(FATAL)
+                                << "no octant with a known element size could "
+                                   "be found near one that needs it, out of "
+                                << known.size()
+                                << " candidates. The octree cannot propagate "
+                                   "a size into this region."
+                                << endl;
+                        }
 
-                        SPBaseSharedPtr sp = closest->GetABoundPoint();
+                        const SourcePoint *sp = closest->GetABoundPoint();
 
                         std::array<NekDouble, 3> octloc, sploc, vec, N;
                         std::array<NekDouble, 2> uv;
@@ -666,20 +820,18 @@ void Octree::SmoothAllOctants()
         ct = 0;
         for (int i = 0; i < m_octants.size(); i++)
         {
-            OctantSharedPtr oct = m_octants[i];
+            Octant *oct = m_octants[i].get();
 
-            vector<OctantSharedPtr> check;
-            map<OctantFace, vector<OctantSharedPtr>> nList =
-                oct->GetNeigbours();
-            map<OctantFace, vector<OctantSharedPtr>>::iterator it;
-            for (it = nList.begin(); it != nList.end(); it++)
+            vector<Octant *> check;
+            const auto &nList = oct->GetNeigbours();
+            for (size_t face = 0; face < nList.size(); face++)
             {
-                for (int j = 0; j < it->second.size(); j++)
+                for (int j = 0; j < nList[face].size(); j++)
                 {
-                    if (it->second[j]->GetDelta() < oct->GetDelta() &&
-                        ddx(oct, it->second[j]) > 0.2)
+                    if (nList[face][j]->GetDelta() < oct->GetDelta() &&
+                        ddx(oct, nList[face][j]) > maxGradation)
                     {
-                        check.push_back(it->second[j]);
+                        check.push_back(nList[face][j]);
                     }
                 }
             }
@@ -691,9 +843,9 @@ void Octree::SmoothAllOctants()
                 {
                     NekDouble r = oct->Distance(check[j]);
 
-                    if (0.199 * r + check[j]->GetDelta() < deltaSM)
+                    if (assignedGradation * r + check[j]->GetDelta() < deltaSM)
                     {
-                        deltaSM = 0.199 * r + check[j]->GetDelta();
+                        deltaSM = assignedGradation * r + check[j]->GetDelta();
                     }
                 }
                 oct->SetDelta(deltaSM);
@@ -714,7 +866,7 @@ int Octree::CountElemt()
 
     for (int i = 0; i < m_octants.size(); i++)
     {
-        OctantSharedPtr oct = m_octants[i];
+        Octant *oct = m_octants[i].get();
         if (oct->GetLocation() == eInside)
         {
             total += 8.0 * oct->DX() * oct->DX() * oct->DX() /
@@ -886,9 +1038,9 @@ void Octree::CompileSourcePointList()
                     }
                     if (del < m_minDelta)
                     {
+                        RecordClamp(del, loc);
                         del = m_minDelta;
                     }
-                    CPointSharedPtr newCPoint;
 
                     // Adds a curve source point with additional refinement
                     // delta. This promotes the octree to continue refining the
@@ -896,24 +1048,18 @@ void Octree::CompileSourcePointList()
                     // delta is reached. it->second.second = delta(D);
                     if (it != curve_refinement.end())
                     {
-                        newCPoint = MemoryManager<CPoint>::AllocateSharedPtr(
-                            ss[0].first.lock()->GetId(), uv, loc, del,
-                            it->second.second);
+                        m_SPList.emplace_back(ss[0].first.lock()->GetId(), uv,
+                                              loc, del, it->second.second);
                     }
                     else
                     {
-                        newCPoint = MemoryManager<CPoint>::AllocateSharedPtr(
-                            ss[0].first.lock()->GetId(), uv, loc, del);
+                        m_SPList.emplace_back(ss[0].first.lock()->GetId(), uv,
+                                              loc, del);
                     }
-                    m_SPList.push_back(newCPoint);
                 }
                 else
                 {
-                    BPointSharedPtr newBPoint =
-                        MemoryManager<BPoint>::AllocateSharedPtr(
-                            ss[0].first.lock()->GetId(), uv, loc);
-
-                    m_SPList.push_back(newBPoint);
+                    m_SPList.emplace_back(ss[0].first.lock()->GetId(), uv, loc);
                 }
             }
         }
@@ -1026,13 +1172,11 @@ void Octree::CompileSourcePointList()
                         uv[1] = bounds[3];
                     }
 
-                    NekDouble C = surf->Curvature(uv);
+                    std::array<NekDouble, 3> loc;
+                    NekDouble C = surf->CurvatureAndPosition(uv, loc);
 
-                    // create new point based on smallest R, flat surfaces have
-                    // k=0 but still need a point for element estimation
                     if (C == -1.0)
                     {
-                        // Curvature not defined
                         continue;
                     }
                     if (C != 0.0)
@@ -1046,24 +1190,15 @@ void Octree::CompileSourcePointList()
                         }
                         if (del < m_minDelta)
                         {
+                            RecordClamp(del, loc);
                             del = m_minDelta;
                         }
 
-                        /// TODO Add refinement surface CPoints.
-
-                        CPointSharedPtr newCPoint =
-                            MemoryManager<CPoint>::AllocateSharedPtr(
-                                surf->GetId(), uv, surf->P(uv), del);
-
-                        m_SPList.push_back(newCPoint);
+                        m_SPList.emplace_back(surf->GetId(), uv, loc, del);
                     }
                     else
                     {
-                        BPointSharedPtr newBPoint =
-                            MemoryManager<BPoint>::AllocateSharedPtr(
-                                surf->GetId(), uv, surf->P(uv));
-
-                        m_SPList.push_back(newBPoint);
+                        m_SPList.emplace_back(surf->GetId(), uv, loc);
                     }
                 }
             }
@@ -1113,15 +1248,13 @@ void Octree::CompileSourcePointList()
             {
                 std::array<NekDouble, 3> loc = {x1[0] + dx * j, x1[1] + dy * j,
                                                 x1[2] + dz * j};
-                SrcPointSharedPtr newSPoint =
-                    MemoryManager<SrcPoint>::AllocateSharedPtr(loc, data[7]);
-                m_SPList.push_back(newSPoint);
+                m_SPList.emplace_back(loc, data[7]);
             }
         }
     }
 }
 
-NekDouble Octree::ddx(OctantSharedPtr i, OctantSharedPtr j)
+NekDouble Octree::ddx(Octant *i, Octant *j)
 {
     return fabs(i->GetDelta() - j->GetDelta()) / i->Distance(j);
 }

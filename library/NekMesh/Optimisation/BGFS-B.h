@@ -28,18 +28,49 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description:
-//
+//  Description: bounded BFGS minimisation.
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKTAR_MESHUTILS_OPTIMISATION_BGFS_H
-#define NEKTAR_MESHUTILS_OPTIMISATION_BGFS_H
+#ifndef NEKTAR_MESHUTILS_OPTIMISATION_BGFSB_H
+#define NEKTAR_MESHUTILS_OPTIMISATION_BGFSB_H
 
 #include <NekMesh/Optimisation/OptimiseObj.h>
-#include <SpatialDomains/CADSystem/CADSystem.h>
 
 namespace Nektar::NekMesh
 {
-bool BGFSUpdate(OptiObjSharedPtr opti, DNekMat &J, DNekMat &B, DNekMat &H);
+
+/// Where a minimisation ended up, and whether it got there.
+struct BGFSResult
+{
+    /// The best point found.
+    std::vector<NekDouble> x;
+
+    /// True if the scaled gradient norm fell below the tolerance. False
+    /// means the iteration limit was reached or the line search gave up, and
+    /// #x is then wherever it had got to, which the caller may prefer to
+    /// discard.
+    bool converged = false;
+
+    /// Gradient norm at #x, scaled by Objective::scale.
+    NekDouble norm = 0.0;
+
+    /// How many steps were taken.
+    int iterations = 0;
+};
+
+/**
+ * @brief Minimise @p obj subject to its bounds, starting from @p x.
+ *
+ * Bounded BFGS: a projected gradient step onto the feasible box, then a
+ * quasi-Newton step within the variables the box leaves free, with a line
+ * search on the Wolfe conditions.
+ *
+ * The optimiser owns the iterate and its two Hessian approximations for the
+ * duration of the call; @p obj is only read.
+ */
+BGFSResult BGFSOptimise(const Objective &obj, std::vector<NekDouble> x,
+                        NekDouble tolerance, int maxIterations);
+
 } // namespace Nektar::NekMesh
+
 #endif

@@ -37,6 +37,7 @@
 
 #include <memory>
 
+#include <LibUtilities/BasicUtils/Log.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <SpatialDomains/PointGeom.h>
 
@@ -57,9 +58,10 @@ public:
     /**
      * @brief Default constructor
      */
-    TetGenInterface(std::vector<std::array<NekDouble, 3>> holes)
+    TetGenInterface(std::vector<std::array<NekDouble, 3>> holes, Logger log)
+        : m_holes(std::move(holes)), m_log(std::move(log))
     {
-        m_holes = holes;
+        m_log.SetPrefix("TetGen");
     }
 
     /**
@@ -95,6 +97,9 @@ private:
 
     /// Holes in volume
     std::vector<std::array<NekDouble, 3>> m_holes;
+
+    /// Logger
+    Logger m_log;
 };
 
 typedef std::shared_ptr<TetGenInterface> TetGenInterfaceSharedPtr;

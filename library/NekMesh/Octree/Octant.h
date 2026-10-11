@@ -84,18 +84,18 @@ public:
     /**
      * @brief Defualt constructor
      */
-    Octant(int i, OctantSharedPtr p, std::array<OctantFace, 3> dir);
+    Octant(int i, Octant *p, std::array<OctantFace, 3> dir);
 
     /**
      * @brief constructor for master octant
      */
     Octant(int i, NekDouble x, NekDouble y, NekDouble z, NekDouble dx,
-           const std::vector<SPBaseSharedPtr> &splist);
+           const std::vector<const SourcePoint *> &splist);
 
     /**
      * @brief Subdivide the octant
      */
-    void Subdivide(OctantSharedPtr p, int &numoct);
+    void Subdivide(Octant *p, int &numoct);
 
     /**
      * @brief Recursive method which gets a list of the leaf octants
@@ -117,7 +117,7 @@ public:
     }
 
     /// Get the Id of the octant
-    int GetId()
+    int GetId() const
     {
         return m_id;
     }
@@ -125,7 +125,7 @@ public:
     /**
      * @brief Get the location of the center of the octant
      */
-    std::array<NekDouble, 3> GetLoc()
+    const std::array<NekDouble, 3> &GetLoc() const
     {
         return m_loc;
     }
@@ -139,17 +139,17 @@ public:
     }
 
     /**
-     * @brief Get the list of curvature points that are within this octant
+     * @brief Get the list of curvature points that are within this octant.
      */
-    std::vector<SPBaseSharedPtr> GetSPList()
+    const std::vector<const SourcePoint *> &GetSPList() const
     {
         return m_localSPList;
     }
 
-    SPBaseSharedPtr GetABoundPoint()
+    const SourcePoint *GetABoundPoint()
     {
-        SPBaseSharedPtr ret;
-        bool found = false;
+        const SourcePoint *ret = nullptr;
+        bool found             = false;
         for (int i = 0; i < m_localSPList.size(); i++)
         {
             if (m_localSPList[i]->GetType() == eCBoundary ||
@@ -258,15 +258,15 @@ public:
      */
     void RemoveNeigbour(int id, OctantFace f);
 
-    void SetNeigbour(OctantSharedPtr o, OctantFace f)
+    void SetNeigbour(Octant *o, OctantFace f)
     {
         m_neigbours[f].push_back(o);
     }
 
     /**
-     * @brief Get the map of neigbours
+     * @brief Get the neighbours of this octant.
      */
-    std::map<OctantFace, std::vector<OctantSharedPtr>> GetNeigbours()
+    const std::array<std::vector<Octant *>, 6> &GetNeigbours() const
     {
         return m_neigbours;
     }
@@ -283,7 +283,7 @@ public:
     /**
      * @brief Get the distance from this octant to another
      */
-    NekDouble Distance(OctantSharedPtr o)
+    NekDouble Distance(Octant *o)
     {
         auto loc = o->GetLoc();
         return sqrt((loc[0] - m_loc[0]) * (loc[0] - m_loc[0]) +
@@ -318,9 +318,9 @@ public:
     /**
      * @brief Get a specific child of this octant
      */
-    OctantSharedPtr GetChild(int q)
+    Octant *GetChild(int q) const
     {
-        return m_children[q];
+        return m_children[q].get();
     }
 
     int GetNumBoundary()
@@ -333,16 +333,20 @@ private:
     int m_id;
     /// leaf identifer
     bool m_leaf;
-    /// parent id
-    OctantSharedPtr m_parent;
+    /// Parent octant.
+    ///
+    /// @note This is not owned here; the tree is owned from the root down
+    /// through #m_children.
+    Octant *m_parent;
     /// list of child ids
     std::array<OctantSharedPtr, 8> m_children;
     /// x,y,z location of the octant
     std::array<NekDouble, 3> m_loc;
     /// half dimension of the octant
     NekDouble m_hd;
-    /// curvature sampling point list
-    std::vector<SPBaseSharedPtr> m_localSPList;
+    /// The sizing points inside this octant, pointing into the octree's own
+    /// list.
+    std::vector<const SourcePoint *> m_localSPList;
     /// number of valid cp points
     int m_numValidPoints;
     int m_numBoundaryPoints;
@@ -352,11 +356,11 @@ private:
     bool m_needToDivide; // asume no need to divide
     /// idenify if delta has ben set
     OctantLocation m_location;
-    /// list of neighbours
-    std::map<OctantFace, std::vector<OctantSharedPtr>> m_neigbours;
+    /// Neighbours across each of the six faces, indexed by OctantFace, not
+    /// owned.
+    std::array<std::vector<Octant *>, 6> m_neigbours;
 };
 
-bool operator==(OctantSharedPtr const &p1, OctantSharedPtr const &p2);
 } // namespace Nektar::NekMesh
 
 #endif

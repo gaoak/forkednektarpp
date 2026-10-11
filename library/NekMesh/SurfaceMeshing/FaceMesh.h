@@ -119,14 +119,19 @@ private:
     bool Validate();
 
     /**
+     * @brief Fail if this face has taken an edge belonging to another face.
+     *
+     * A mesh edge is identified by the pair of vertices it joins, so two
+     * geometrically distinct edges that happen to share their end points
+     * become one entity used by four triangles. The only edges two faces may
+     * legitimately share are those lying along a CAD curve.
+     */
+    void CheckEdgeOwnership();
+
+    /**
      * @brief adds a new stiener point to the triangulation for meshing
      */
     void AddNewPoint(std::array<NekDouble, 2> uv);
-
-    /**
-     * @brief adds a quad layer around any interior loops
-     */
-    void MakeBL();
 
     /// mesh pointer
     MeshSharedPtr m_mesh;

@@ -78,6 +78,12 @@ public:
     NekDouble loct(std::array<NekDouble, 3> xyz, NekDouble &t, NekDouble cf,
                    NekDouble cl) override;
 
+    /// The underlying OpenCASCADE edge, for engine-internal use.
+    const TopoDS_Edge &GetOccEdge() const
+    {
+        return m_occEdge;
+    }
+
 private:
     /// OpenCascade edge
     TopoDS_Edge m_occEdge;

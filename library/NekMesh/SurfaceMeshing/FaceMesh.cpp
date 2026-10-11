@@ -249,6 +249,8 @@ void FaceMesh::Mesh()
 
     OptimiseLocalMesh();
 
+    CheckEdgeOwnership();
+
     // The triangles are registered with the graph as BuildLocalMesh sowe record
     // which composite they belong
     for (int i = 0; i < m_localElements.size(); i++)
@@ -274,19 +276,7 @@ void FaceMesh::OptimiseLocalMesh()
     // swapping, so the two have to alternate until they stop changing
     // anything. Stopping early leaves the result depending on the order the
     // nodes and edges were visited in, which is a property of the containers
-    // holding them rather than of the geometry: on 3d_bl_cyl the worst scaled
-    // Jacobian came out at 0.0108 under one node ordering and 0.0032 under
-    // another, against 0.1485 for either once converged -- the same value to
-    // nine figures, which is what makes the result independent of the order.
-    // The third round is within 3e-4 of that fixed point and the sixth sits on
-    // it.
-    //
-    // Three is what is used here rather than six: from four rounds on,
-    // 3d_bl_wing fails to build its boundary layer at all ("shrinking to
-    // nothing"), so the smoother surface mesh is more than that case's
-    // boundary layer can extrude. That is a separate weakness worth fixing on
-    // its own, and until it is, this is a value chosen between two cliffs
-    // rather than a converged one.
+    // holding them rather than of the geometry.
     for (int i = 0; i < 3; ++i)
     {
         DiagonalSwap();
@@ -359,7 +349,18 @@ void FaceMesh::Smoothing()
                 }
                 else
                 {
-                    ASSERTL0(false, "could not find node");
+                    // The edge came out of this node's own connectivity
+                    // list, so one of its two ends has to be this node.
+                    std::array<NekDouble, 3> l;
+                    I->GetCoords(l[0], l[1], l[2]);
+
+                    m_log(FATAL)
+                        << "face " << m_id << ": the node at (" << l[0] << ", "
+                        << l[1] << ", " << l[2]
+                        << ") is listed against an edge that does not end on "
+                           "it, so the face's connectivity is inconsistent."
+                        << endl;
+                    continue;
                 }
 
                 auto uj = graph->GetCADAssociation()->GetSurfUV(J, m_id);
@@ -619,6 +620,27 @@ void FaceMesh::DiagonalSwap()
                 ASSERTL0(false, "failed to identify verticies in tri2");
             }
 
+            // The C-D diagonal this swap would create must not be an edge
+            // another face already owns, or the two would become one entity
+            // with four triangles hanging off it. Unlike the initial
+            // triangulation there is nothing to repair here: the swap is an
+            // improvement, not a necessity, so it is simply declined.
+            std::pair<int, int> cdKey = {
+                std::min(C->GetGlobalID(), D->GetGlobalID()),
+                std::max(C->GetGlobalID(), D->GetGlobalID())};
+
+            auto cdIt = m_mesh->m_edgeSet.find(cdKey);
+            if (cdIt != m_mesh->m_edgeSet.end() &&
+                m_localEdges.find(cdKey) == m_localEdges.end())
+            {
+                auto cdSurf = graph->GetCADAssociation()->GetSurf(cdIt->second);
+                if (cdSurf && cdSurf->GetId() != m_id)
+                {
+                    m_localEdges[key] = e;
+                    continue;
+                }
+            }
+
             // determine signed area of alternate config
             auto ai = graph->GetCADAssociation()->GetSurfUV(A, m_id);
             auto bi = graph->GetCADAssociation()->GetSurfUV(B, m_id);
@@ -633,8 +655,17 @@ void FaceMesh::DiagonalSwap()
             CBD = 0.5 * (-bi[0] * ci[1] + di[0] * ci[1] + ci[0] * bi[1] -
                          di[0] * bi[1] - ci[0] * di[1] + bi[0] * di[1]);
 
-            // if signed area of the swapping triangles is less than zero
-            // that configuration is invalid and swap cannot be performed
+            // Both halves of the swapped quadrilateral must come out the right
+            // way round, or the swap would invert a triangle.
+            //
+            // @todo The 0.001 is a guard band against configurations that are
+            // only just valid, and it is not scale free: these are areas in the
+            // surface's own parameter plane, whose extent is whatever the CAD
+            // chose, so the same number means different things on different
+            // surfaces -- it is effectively no guard at all on a surface
+            // parameterised over tens, and a tenth of the quadrilateral on one
+            // parameterised over the unit square. The scale-free form is a
+            // fraction of the quadrilateral's own area, |CDA| + |CBD|.
             if (!(CDA > 0.001 && CBD > 0.001))
             {
                 m_localEdges[key] = e;
@@ -779,11 +810,9 @@ void FaceMesh::DiagonalSwap()
 
 void FaceMesh::BuildLocalMesh()
 {
-    /*************************
-    // build a local set of nodes edges and elemenets for optimstaion prior to
-    putting them into m_mesh
-    */
-
+    // Build this face's own nodes, edges and elements, so that the
+    // optimisation below can use the connectivity before any of it reaches
+    // the mesh-wide containers.
     auto &graph = m_mesh->m_meshGraph;
 
     for (int i = 0; i < m_connec.size(); i++)
@@ -812,6 +841,17 @@ void FaceMesh::BuildLocalMesh()
         {
             auto *ed = static_cast<SpatialDomains::SegGeom *>(E->GetEdge(j));
             m_localEdges[{ed->GetVid(0), ed->GetVid(1)}] = ed;
+
+            // Record which face an interior edge belongs to. An edge along a
+            // CAD curve is shared with the face on the other side and keeps the
+            // curve it was created with; everything else belongs to one face
+            // alone. Claim it only if nothing has, so that an edge taken over
+            // from another face still names the face that drew it and
+            // CheckEdgeOwnership() can say so.
+            if (!graph->GetCADAssociation()->Has(ed))
+            {
+                graph->GetCADAssociation()->Set(ed, {m_cadsurf});
+            }
         }
 
         m_localElements.push_back(E);
@@ -923,10 +963,19 @@ bool FaceMesh::Validate()
         valid[1] = r[1] < d * 1.5;
         valid[2] = r[2] < d * 1.5;
 
+        // A triangle passes on shape when no angle of it is more acute than the
+        // first of these or more obtuse than the second. Equilateral is 60
+        // degrees, so this admits a fair spread either side while excluding
+        // slivers and caps.
+        constexpr NekDouble minAngle = 20.0;
+        constexpr NekDouble maxAngle = 120.0;
+
         vector<bool> angValid(3);
-        angValid[0] = a[0] / M_PI * 180.0 > 20.0 && a[0] / M_PI * 180.0 < 120.0;
-        angValid[1] = a[1] / M_PI * 180.0 > 20.0 && a[1] / M_PI * 180.0 < 120.0;
-        angValid[2] = a[2] / M_PI * 180.0 > 20.0 && a[2] / M_PI * 180.0 < 120.0;
+        for (int j = 0; j < 3; j++)
+        {
+            NekDouble degrees = a[j] / M_PI * 180.0;
+            angValid[j]       = degrees > minAngle && degrees < maxAngle;
+        }
 
         int numValid    = 0;
         int numAngValid = 0;
@@ -942,35 +991,10 @@ bool FaceMesh::Validate()
             }
         }
 
-        // if numvalid is zero no work to be done
-        /*if (numValid != 3)
-        {
-            AddNewPoint(uvc);
-        }*/
-
+        // A triangle that is too long for the local spacing, or too far from
+        // equilateral, gets a point at its centroid.
         if (numValid != 3 || numAngValid != 3)
         {
-            // break the bad edge
-            /*int a=0, b=0;
-            if(!valid[0])
-            {
-                a = 0;
-                b = 1;
-            }
-            else if(!valid[1])
-            {
-                a = 1;
-                b = 2;
-            }
-            else if(!valid[2])
-            {
-                a = 2;
-                b = 0;
-            }
-
-            Array<OneD, NekDouble> uvn(2);
-            uvn[0] = (info[a][0] + info[b][0]) / 2.0;
-            uvn[1] = (info[a][1] + info[b][1]) / 2.0;*/
             AddNewPoint(uvc);
         }
     }
@@ -983,6 +1007,68 @@ bool FaceMesh::Validate()
     {
         return true;
     }
+}
+
+void FaceMesh::CheckEdgeOwnership()
+{
+    // A mesh edge is identified by the pair of vertices it joins, so two
+    // geometrically distinct edges that happen to share their end points become
+    // one entity with four triangles hanging off it. The only edges two faces
+    // may legitimately share are those along a CAD curve, which the curve
+    // meshes create and tag; everything else this face has drawn should carry
+    // this face's tag, put on it by BuildLocalMesh.
+    //
+    // Reaching here means something drew a chord across this face that
+    // another face had already drawn across itself. DiagonalSwap declines to
+    // make one, and the triangulation of the parameter plane has not been
+    // seen to, so this is a backstop rather than a path with a known cause.
+    auto &graph = m_mesh->m_meshGraph;
+
+    std::stringstream cs;
+    int count = 0;
+
+    for (auto &[key, ed] : m_localEdges)
+    {
+        if (graph->GetCADAssociation()->GetCurve(ed))
+        {
+            continue;
+        }
+
+        auto surf = graph->GetCADAssociation()->GetSurf(ed);
+
+        // An edge with no surface at all is not a face mesh's doing: the
+        // boundary layer's prisms leave untagged edges along the surface this
+        // triangulation is covering, and reusing one of those is correct.
+        if (!surf || surf->GetId() == m_id)
+        {
+            continue;
+        }
+
+        std::array<NekDouble, 3> l0, l1;
+        ed->GetVertex(0)->GetCoords(l0[0], l0[1], l0[2]);
+        ed->GetVertex(1)->GetCoords(l1[0], l1[1], l1[2]);
+
+        ++count;
+        cs << std::endl
+           << "    (" << l0[0] << ", " << l0[1] << ", " << l0[2] << ") -> ("
+           << l1[0] << ", " << l1[1] << ", " << l1[2] << "), on face "
+           << surf->GetId();
+    }
+
+    if (count == 0)
+    {
+        return;
+    }
+
+    m_log(VERBOSE).Newline();
+    m_log(FATAL) << "face " << m_id << " has taken over " << count
+                 << " edge(s) belonging to another face, which would leave "
+                    "the surface mesh with edges used by four triangles. The "
+                    "local spacing is too coarse for the geometry here: a "
+                    "triangle spans the face from one bounding curve to "
+                    "another, and the face on the other side of those curves "
+                    "draws the same chord. Reduce MinDelta."
+                 << cs.str() << endl;
 }
 
 void FaceMesh::AddNewPoint(std::array<NekDouble, 2> uv)

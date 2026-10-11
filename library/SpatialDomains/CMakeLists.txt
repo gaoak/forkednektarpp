@@ -116,6 +116,7 @@ IF(NEKTAR_USE_MESHGEN)
         CADSystem/OCE/CADVertOCE.h
         CADSystem/OCE/CADCurveOCE.h
         CADSystem/OCE/CADSurfOCE.h
+        CADSystem/OCE/CADUnits.hpp
         CADSystem/OCE/GeoParser.hpp
         CADSystem/OCE/TransfiniteSurface.h
         CADSystem/OCE/OpenCascade.h

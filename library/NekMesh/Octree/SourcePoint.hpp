@@ -28,16 +28,16 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description: class and methods of curvature sampling point
+//  Description: the sizing points the octree is built from
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef NEKMESH_OCTREE_SOURCEPOINT_H
-#define NEKMESH_OCTREE_SOURCEPOINT_H
+#ifndef NEKTAR_MESHUTILS_OCTREE_SOURCEPOINT_H
+#define NEKTAR_MESHUTILS_OCTREE_SOURCEPOINT_H
 
 #include <array>
 
-#include <LibUtilities/Memory/NekMemoryManager.hpp>
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 namespace Nektar::NekMesh
 {
@@ -51,294 +51,122 @@ enum SPType
 };
 
 /**
- * @brief base class of sizing point for octree construction
- *        these carry information the octree needs and have various types
+ * @brief A sizing point for octree construction.
+ *
+ * Designed to be kept deliberately small, since they may exist across a very
+ * large octree. This class is laid out so that it is exactly 64 bytes.
  */
-class SPBase
+class SourcePoint
 {
 public:
-    friend class MemoryManager<SPBase>;
-
-    SPBase(std::array<NekDouble, 3> l)
-    {
-        m_loc = l;
-    }
-
-    virtual ~SPBase()
+    /// A point on a curved boundary, with the element size its curvature asks
+    /// for.
+    SourcePoint(int surf, std::array<NekDouble, 2> uv,
+                std::array<NekDouble, 3> loc, NekDouble delta)
+        : m_loc(loc), m_uv(uv), m_delta(delta), m_sid(surf), m_type(eCBoundary)
     {
     }
 
-    SPType GetType()
+    /// As above, with an additional refinement size.
+    SourcePoint(int surf, std::array<NekDouble, 2> uv,
+                std::array<NekDouble, 3> loc, NekDouble delta, NekDouble rdelta)
+        : m_loc(loc), m_uv(uv), m_delta(delta), m_rdelta(rdelta), m_sid(surf),
+          m_type(eRCBoundary)
+    {
+    }
+
+    /// A point on a planar boundary, whose curvature asks for nothing.
+    SourcePoint(int surf, std::array<NekDouble, 2> uv,
+                std::array<NekDouble, 3> loc)
+        : m_loc(loc), m_uv(uv), m_sid(surf), m_type(ePBoundary)
+    {
+    }
+
+    /// A point away from any surface, carrying only a refinement size.
+    SourcePoint(std::array<NekDouble, 3> loc, NekDouble rdelta)
+        : m_loc(loc), m_rdelta(rdelta), m_type(eSrcPoint)
+    {
+    }
+
+    SPType GetType() const
     {
         return m_type;
     }
 
-    std::array<NekDouble, 3> GetLoc()
+    const std::array<NekDouble, 3> &GetLoc() const
     {
         return m_loc;
     }
 
-    virtual NekDouble GetDelta()
-    {
-        return 0.0;
-    }
-
-    virtual NekDouble GetRDelta()
-    {
-        return 0.0;
-    }
-
-    virtual void SetDelta([[maybe_unused]] NekDouble i)
-    {
-    }
-
-    virtual void GetCAD([[maybe_unused]] int &surf,
-                        [[maybe_unused]] std::array<NekDouble, 2> &uv)
-    {
-    }
-
-    bool HasDelta()
-    {
-        bool ret;
-        if (m_type == eCBoundary || m_type == eRCBoundary)
-        {
-            ret = true;
-        }
-        else
-        {
-            ret = false;
-        }
-        return ret;
-    }
-
-    bool HasRDelta()
-    {
-        bool ret;
-        if (m_type == eRCBoundary || m_type == eSrcPoint)
-        {
-            ret = true;
-        }
-        else
-        {
-            ret = false;
-        }
-        return ret;
-    }
-
-    bool Isboundary()
-    {
-        bool ret;
-        if (m_type == eCBoundary || m_type == ePBoundary ||
-            m_type == eRCBoundary)
-        {
-            ret = true;
-        }
-        else
-        {
-            ret = false;
-        }
-        return ret;
-    }
-
-protected:
-    /// type
-    SPType m_type;
-    /// x,y,z location
-    std::array<NekDouble, 3> m_loc;
-};
-
-typedef std::shared_ptr<SPBase> SPBaseSharedPtr;
-
-/**
- * @brief class for a curvature based samlping Point
- */
-class CPoint : public SPBase
-{
-public:
-    friend class MemoryManager<CPoint>;
-
-    /**
-     * @brief constructor for a valid point (has radius of curvature)
-     */
-    CPoint(int i, std::array<NekDouble, 2> uv, std::array<NekDouble, 3> l,
-           NekDouble d)
-        : SPBase(l), sid(i), m_uv(uv), m_delta(d)
-    {
-        m_type = eCBoundary;
-    }
-
-    // Overloaded constructor with refined delta value
-    CPoint(int i, std::array<NekDouble, 2> uv, std::array<NekDouble, 3> l,
-           NekDouble d, NekDouble rd)
-        : SPBase(l), sid(i), m_uv(uv), m_delta(d), m_rdelta(rd)
-    {
-        m_type = eRCBoundary;
-    }
-
-    ~CPoint() override {};
-
-    /**
-     * @brief get mesh spacing paramter
-     */
-    NekDouble GetDelta() override
+    /// Zero for a kind that carries no element size; ask HasDelta() first.
+    NekDouble GetDelta() const
     {
         return m_delta;
     }
 
-    /**
-     * @brief get mesh refinement spacing paramter
-     */
-    NekDouble GetRDelta() override
+    /// Zero for a kind that carries no refinement size; ask HasRDelta().
+    NekDouble GetRDelta() const
     {
         return m_rdelta;
     }
 
-    /**
-     * @brief gets the corresponding cad information for the point
-     */
-    void GetCAD(int &surf, std::array<NekDouble, 2> &uv) override
+    void SetDelta(NekDouble delta)
     {
-        surf = sid;
+        m_delta = delta;
+    }
+
+    void SetRDelta(NekDouble rdelta)
+    {
+        m_rdelta = rdelta;
+    }
+
+    /// The surface this point sits on and where on it. Meaningless for
+    /// eSrcPoint, which sits on no surface, and left untouched for it.
+    void GetCAD(int &surf, std::array<NekDouble, 2> &uv) const
+    {
+        if (m_type == eSrcPoint)
+        {
+            return;
+        }
+
+        surf = m_sid;
         uv   = m_uv;
     }
 
-    void SetRDelta(NekDouble i)
+    bool HasDelta() const
     {
-        m_rdelta = i;
+        return m_type == eCBoundary || m_type == eRCBoundary;
     }
 
-    void SetDelta(NekDouble i) override
+    bool HasRDelta() const
     {
-        m_delta = i;
+        return m_type == eRCBoundary || m_type == eSrcPoint;
     }
 
-private:
-    /// surf id
-    int sid;
-    /// uv coord on surf
-    std::array<NekDouble, 2> m_uv;
-    NekDouble m_ti;
-    /// delta parameter
-    NekDouble m_delta;
-    /// refinement delta parameter
-    NekDouble m_rdelta;
-};
-typedef std::shared_ptr<CPoint> CPointSharedPtr;
-
-/**
- * @brief class for a planar boundary based samlping Point
- */
-class BPoint : public SPBase
-{
-public:
-    friend class MemoryManager<BPoint>;
-
-    /**
-     * @brief constructor for a boundary point without delta
-     */
-    BPoint(int i, std::array<NekDouble, 2> uv, std::array<NekDouble, 3> l)
-        : SPBase(l), sid(i), m_uv(uv)
+    bool Isboundary() const
     {
-        m_type = ePBoundary;
-    }
-
-    ~BPoint() override {};
-
-    /**
-     * @brief gets the corresponding cad information for the point
-     */
-    void GetCAD(int &surf, std::array<NekDouble, 2> &uv) override
-    {
-        surf = sid;
-        uv   = m_uv;
-    }
-
-    NekDouble GetDelta() override
-    {
-        NEKERROR(ErrorUtil::efatal, "Cannot retrieve delta from this type");
-        return 0.0;
-    }
-
-    void SetDelta([[maybe_unused]] NekDouble i) override
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "Cannot assign refinement delta to this type");
-    }
-
-    NekDouble GetRDelta() override
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "Cannot retrieve refinment delta from this type");
-        return 0.0;
-    }
-
-    void SetRDelta([[maybe_unused]] NekDouble i)
-    {
-        NEKERROR(ErrorUtil::efatal, "Cannot assign delta to this type");
+        return m_type == eCBoundary || m_type == ePBoundary ||
+               m_type == eRCBoundary;
     }
 
 private:
-    /// surf id
-    int sid;
-    /// uv coord on surf
-    std::array<NekDouble, 2> m_uv;
-    NekDouble m_ti;
+    /// x,y,z location
+    std::array<NekDouble, 3> m_loc;
+    /// position on the surface this point sits on
+    std::array<NekDouble, 2> m_uv = {0.0, 0.0};
+    /// element size the curvature here asks for
+    NekDouble m_delta = 0.0;
+    /// element size a refinement region here asks for
+    NekDouble m_rdelta = 0.0;
+    /// id of the surface this point sits on
+    int m_sid = 0;
+    /// which of the four kinds this is
+    SPType m_type;
 };
-typedef std::shared_ptr<BPoint> BPointSharedPtr;
 
-/**
- * @brief class for a general source point
- */
-class SrcPoint : public SPBase
-{
-public:
-    friend class MemoryManager<SrcPoint>;
-
-    /**
-     * @brief constructor for a boundary point without delta
-     */
-    SrcPoint(std::array<NekDouble, 3> l, NekDouble d) : SPBase(l), m_rdelta(d)
-    {
-        m_type = eSrcPoint;
-    }
-
-    ~SrcPoint() override {};
-
-    /**
-     * @brief get mesh spacing paramter
-     */
-    NekDouble GetRDelta() override
-    {
-        return m_rdelta;
-    }
-
-    void SetRDelta(NekDouble i)
-    {
-        m_rdelta = i;
-    }
-
-    NekDouble GetDelta() override
-    {
-        NEKERROR(ErrorUtil::efatal, "Cannot retrieve delta from this type");
-        return 0.0;
-    }
-
-    void SetDelta([[maybe_unused]] NekDouble i) override
-    {
-        NEKERROR(ErrorUtil::efatal, "Cannot assign delta to this type");
-    }
-
-    void GetCAD([[maybe_unused]] int &surf,
-                [[maybe_unused]] std::array<NekDouble, 2> &uv) override
-    {
-        NEKERROR(ErrorUtil::efatal, "Cannot retrieve CAD from this type")
-    }
-
-private:
-    /// refinement delta parameter
-    NekDouble m_rdelta;
-};
-typedef std::shared_ptr<SrcPoint> SrcPointSharedPtr;
+static_assert(sizeof(SourcePoint) == 64,
+              "SourcePoint is held one per curvature sample, of which a fine "
+              "octree has tens of millions, so its size is worth noticing.");
 
 } // namespace Nektar::NekMesh
 

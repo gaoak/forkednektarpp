@@ -38,6 +38,8 @@
 #include "Octant.h"
 #include "SourcePoint.hpp"
 #include <LibUtilities/BasicUtils/Log.hpp>
+#include <limits>
+
 #include <NekMesh/MeshElements/Mesh.h>
 #include <SpatialDomains/CADSystem/CADCurve.h>
 
@@ -288,7 +290,7 @@ private:
      * @brief Calculates the difference in delta divided by the difference
      *        in location between two octants i and j
      */
-    NekDouble ddx(OctantSharedPtr i, OctantSharedPtr j);
+    NekDouble ddx(Octant *i, Octant *j);
 
     /**
      * @brief Looks over all leaf octants and checks that their neigbour
@@ -296,8 +298,22 @@ private:
      */
     bool VerifyNeigbours();
 
+    /// Note a curvature sample whose spacing MinDelta raised.
+    void RecordClamp(NekDouble del, std::array<NekDouble, 3> loc);
+
+    /// Say so if MinDelta has asked for a very large number of samples.
+    void ReportSampleCount();
+
+    /// Say so, once, if MinDelta raised any of them.
+    void ReportClamping();
+
     /// minimum delta in the octree
     NekDouble m_minDelta;
+    /// number of curvature samples whose spacing MinDelta raised
+    int m_numClamped = 0;
+    /// smallest spacing the curvature asked for, and where it asked for it
+    NekDouble m_smallestDelta = std::numeric_limits<NekDouble>::max();
+    std::array<NekDouble, 3> m_smallestDeltaLoc = {0.0, 0.0, 0.0};
     /// maximum delta in the octree
     NekDouble m_maxDelta;
     /// curavture sensivity paramter
@@ -307,7 +323,9 @@ private:
     /// physical size of the octree
     NekDouble m_dim;
     /// list of source points
-    std::vector<SPBaseSharedPtr> m_SPList;
+    /// Every sizing point, held by value: octants point into this and it
+    /// is not added to once they exist.
+    std::vector<SourcePoint> m_SPList;
     /// list of leaf octants
     std::vector<OctantSharedPtr> m_octants;
     /// master octant for searching

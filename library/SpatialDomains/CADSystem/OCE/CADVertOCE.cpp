@@ -33,6 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <SpatialDomains/CADSystem/OCE/CADSystemOCE.h>
+#include <SpatialDomains/CADSystem/OCE/CADUnits.hpp>
 #include <SpatialDomains/CADSystem/OCE/CADVertOCE.h>
 
 using namespace std;
@@ -48,8 +49,7 @@ void CADVertOCE::Initialise(int i, TopoDS_Shape in)
     m_id      = i;
     m_occVert = BRep_Tool::Pnt(TopoDS::Vertex(in));
 
-    m_loc = {m_occVert.X() / 1000.0, m_occVert.Y() / 1000.0,
-             m_occVert.Z() / 1000.0};
+    m_loc = CADUnits::PntFromCAD(m_occVert);
 
     degen = false;
 }

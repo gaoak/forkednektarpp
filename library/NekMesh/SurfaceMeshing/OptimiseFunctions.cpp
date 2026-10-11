@@ -28,336 +28,192 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description: functions and gradients for optimisation
-//
+//  Description: the objectives the high-order surface mesher minimises.
+//  functions and gradients for optimisation
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <NekMesh/SurfaceMeshing/OptimiseFunctions.h>
-#include <SpatialDomains/CADSystem/CADCurve.h>
 
 using namespace std;
+
 namespace Nektar::NekMesh
 {
 
-NekDouble Dot(std::array<NekDouble, 3> a, std::array<NekDouble, 3> b)
+namespace
+{
+
+NekDouble Dot(const std::array<NekDouble, 3> &a,
+              const std::array<NekDouble, 3> &b)
 {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-std::array<NekDouble, 3> Take(std::array<NekDouble, 3> a,
-                              std::array<NekDouble, 3> b)
+std::array<NekDouble, 3> Take(const std::array<NekDouble, 3> &a,
+                              const std::array<NekDouble, 3> &b)
 {
     return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
 }
 
-std::array<NekDouble, 3> Times(NekDouble t, std::array<NekDouble, 3> a)
+/// The free variables with the fixed ends put back on, @p perNode entries at
+/// each end.
+vector<NekDouble> WithEnds(const vector<NekDouble> &interior,
+                           const vector<NekDouble> &begin,
+                           const vector<NekDouble> &end)
 {
-    return {a[0] * t, a[1] * t, a[2] * t};
+    vector<NekDouble> all;
+    all.reserve(begin.size() + interior.size() + end.size());
+    all.insert(all.end(), begin.begin(), begin.end());
+    all.insert(all.end(), interior.begin(), interior.end());
+    all.insert(all.end(), end.begin(), end.end());
+    return all;
 }
 
-std::array<NekDouble, 3> Add(std::array<NekDouble, 3> a,
-                             std::array<NekDouble, 3> b)
+} // namespace
+
+Objective CurveEdgeObjective(const SpatialDomains::CADCurveSharedPtr &curve,
+                             NekDouble tBegin, NekDouble tEnd,
+                             const std::vector<NekDouble> &z)
 {
-    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
-}
+    const size_t nFree = z.size() - 2;
+    auto bounds        = curve->GetBounds();
 
-Array<OneD, NekDouble> OptiEdge::Getxi()
-{
-    Array<OneD, NekDouble> xi;
+    Objective obj;
+    obj.lower = vector<NekDouble>(nFree, bounds[0]);
+    obj.upper = vector<NekDouble>(nFree, bounds[1]);
+    obj.scale = vector<NekDouble>(nFree, bounds[1] - bounds[0]);
 
-    switch (o->GetType())
-    {
-        case SpatialDomains::CADType::eCurve:
-            xi = Array<OneD, NekDouble>(all.size() - 2);
-            for (int i = 1; i < all.size() - 1; i++)
-            {
-                xi[i - 1] = all[i];
-            }
-            break;
+    obj.value = [curve, tBegin, tEnd, z](const vector<NekDouble> &xi) {
+        vector<NekDouble> t = WithEnds(xi, {tBegin}, {tEnd});
 
-        case SpatialDomains::CADType::eSurf:
-            xi = Array<OneD, NekDouble>(all.size() - 4);
-            for (int i = 2; i < all.size() - 2; i++)
-            {
-                xi[i - 2] = all[i];
-            }
-            break;
-
-        case SpatialDomains::CADType::eVert:
-        case SpatialDomains::CADType::eOther:
-            ASSERTL0(false, "Should not be able to pass vert");
-    }
-    return xi;
-}
-
-Array<OneD, NekDouble> OptiEdge::Getli()
-{
-    Array<OneD, NekDouble> li;
-    switch (o->GetType())
-    {
-        case SpatialDomains::CADType::eCurve:
+        // Each position is wanted by the interval before it and the one
+        // after, so evaluate the curve once per node rather than once per
+        // interval end.
+        vector<std::array<NekDouble, 3>> p(t.size());
+        for (size_t i = 0; i < t.size(); ++i)
         {
-            li = Array<OneD, NekDouble>(all.size() - 2);
-            auto bndCurve =
-                std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o)
-                    ->GetBounds();
-            for (int i = 1; i < all.size() - 1; i++)
-            {
-                li[i - 1] = bndCurve[0];
-            }
-            break;
-        }
-        case SpatialDomains::CADType::eSurf:
-        {
-            li           = Array<OneD, NekDouble>(all.size() - 4);
-            auto bndSurf = std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o)
-                               ->GetBounds();
-            for (int i = 2; i < all.size() - 2; i++)
-            {
-                if (i % 2 == 0)
-                {
-                    li[i - 2] = bndSurf[0];
-                }
-                else
-                {
-                    li[i - 2] = bndSurf[2];
-                }
-            }
-            break;
+            p[i] = curve->P(t[i]);
         }
 
-        case SpatialDomains::CADType::eVert:
-        case SpatialDomains::CADType::eOther:
-            ASSERTL0(false, "Should not be able to pass vert");
-    }
-    return li;
-}
-
-Array<OneD, NekDouble> OptiEdge::Getui()
-{
-    Array<OneD, NekDouble> ui;
-    switch (o->GetType())
-    {
-        case SpatialDomains::CADType::eCurve:
+        NekDouble ret = 0.0;
+        for (size_t i = 0; i < p.size() - 1; ++i)
         {
-            ui = Array<OneD, NekDouble>(all.size() - 2);
-            auto bndCurve =
-                std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o)
-                    ->GetBounds();
-            for (int i = 1; i < all.size() - 1; i++)
-            {
-                ui[i - 1] = bndCurve[1];
-            }
-            break;
+            auto dis = Take(p[i + 1], p[i]);
+            ret += Dot(dis, dis) / (z[i + 1] - z[i]);
+        }
+        return ret;
+    };
+
+    obj.gradient = [curve, tBegin, tEnd, z](const vector<NekDouble> &xi) {
+        vector<NekDouble> t = WithEnds(xi, {tBegin}, {tEnd});
+
+        vector<std::array<NekDouble, 3>> r(t.size()), dr(t.size());
+        for (size_t i = 0; i < t.size(); ++i)
+        {
+            auto d2 = curve->D2(t[i]);
+            r[i]    = {d2[0], d2[1], d2[2]};
+            dr[i]   = {d2[3], d2[4], d2[5]};
         }
 
-        case SpatialDomains::CADType::eSurf:
+        vector<NekDouble> J(t.size() - 2);
+        for (size_t i = 0; i < J.size(); ++i)
         {
-            ui           = Array<OneD, NekDouble>(all.size() - 4);
-            auto bndSurf = std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o)
-                               ->GetBounds();
-            for (int i = 2; i < all.size() - 2; i++)
-            {
-                if (i % 2 == 0)
-                {
-                    ui[i - 2] = bndSurf[1];
-                }
-                else
-                {
-                    ui[i - 2] = bndSurf[3];
-                }
-            }
-            break;
-        }
-
-        case SpatialDomains::CADType::eVert:
-        case SpatialDomains::CADType::eOther:
-            ASSERTL0(false, "Should not be able to pass vert");
-    }
-    return ui;
-}
-
-NekDouble OptiEdge::F(Array<OneD, NekDouble> xitst)
-{
-    Array<OneD, NekDouble> val(all.size());
-
-    if (o->GetType() == SpatialDomains::CADType::eCurve)
-    {
-        val[0] = all[0];
-        for (int i = 0; i < xitst.size(); i++)
-        {
-            val[i + 1] = xitst[i];
-        }
-        val[all.size() - 1] = all[all.size() - 1];
-    }
-    else if (o->GetType() == SpatialDomains::CADType::eSurf)
-    {
-        val[0] = all[0];
-        val[1] = all[1];
-        for (int i = 0; i < xitst.size(); i++)
-        {
-            val[i + 2] = xitst[i];
-        }
-        val[all.size() - 2] = all[all.size() - 2];
-        val[all.size() - 1] = all[all.size() - 1];
-    }
-
-    NekDouble ret = 0.0;
-    if (o->GetType() == SpatialDomains::CADType::eCurve)
-    {
-        SpatialDomains::CADCurveSharedPtr c =
-            std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o);
-
-        for (int i = 0; i < all.size() - 1; i++)
-        {
-            auto dis = Take(c->P(val[i + 1]), c->P(val[i]));
-            NekDouble norm =
-                dis[0] * dis[0] + dis[1] * dis[1] + dis[2] * dis[2];
-            ret += norm / (z[i + 1] - z[i]);
-        }
-    }
-    else if (o->GetType() == SpatialDomains::CADType::eSurf)
-    {
-        SpatialDomains::CADSurfSharedPtr s =
-            std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o);
-        // need to organise the val array
-        Array<OneD, std::array<NekDouble, 2>> uv(val.size() / 2);
-        for (int i = 0; i < val.size() / 2; i++)
-        {
-            uv[i] = {val[i * 2 + 0], val[i * 2 + 1]};
-        }
-
-        for (int i = 0; i < uv.size() - 1; i++)
-        {
-            auto dis = Take(s->P(uv[i + 1]), s->P(uv[i]));
-            NekDouble norm =
-                dis[0] * dis[0] + dis[1] * dis[1] + dis[2] * dis[2];
-            ret += norm / (z[i + 1] - z[i]);
-        }
-    }
-    return ret;
-}
-
-DNekMat OptiEdge::dF(Array<OneD, NekDouble> xitst)
-{
-    Array<OneD, NekDouble> val(all.size());
-
-    if (o->GetType() == SpatialDomains::CADType::eCurve)
-    {
-        val[0] = all[0];
-        for (int i = 0; i < xitst.size(); i++)
-        {
-            val[i + 1] = xitst[i];
-        }
-        val[all.size() - 1] = all[all.size() - 1];
-    }
-    else if (o->GetType() == SpatialDomains::CADType::eSurf)
-    {
-        val[0] = all[0];
-        val[1] = all[1];
-        for (int i = 0; i < xitst.size(); i++)
-        {
-            val[i + 2] = xitst[i];
-        }
-        val[all.size() - 2] = all[all.size() - 2];
-        val[all.size() - 1] = all[all.size() - 1];
-    }
-
-    DNekMat ret;
-
-    if (o->GetType() == SpatialDomains::CADType::eCurve)
-    {
-        SpatialDomains::CADCurveSharedPtr c =
-            std::dynamic_pointer_cast<SpatialDomains::CADCurve>(o);
-        vector<std::array<NekDouble, 3>> r, dr;
-
-        for (int i = 0; i < all.size(); i++)
-        {
-            std::array<NekDouble, 3> ri, dri;
-            auto d2 = c->D2(val[i]);
-            for (int j = 0; j < 3; j++)
-            {
-                ri[j]  = d2[j];
-                dri[j] = d2[j + 3];
-            }
-            r.push_back(ri);
-            dr.push_back(dri);
-        }
-
-        DNekMat J(all.size() - 2, 1, 0.0);
-        for (int i = 0; i < all.size() - 2; i++)
-        {
-            J(i, 0) =
+            J[i] =
                 2.0 / (z[i + 1] - z[i]) * Dot(dr[i + 1], Take(r[i + 1], r[i])) -
                 2.0 / (z[i + 2] - z[i + 1]) *
                     Dot(dr[i + 1], Take(r[i + 2], r[i + 1]));
         }
+        return J;
+    };
 
-        ret = J;
-    }
-    else if (o->GetType() == SpatialDomains::CADType::eSurf)
-    {
-        SpatialDomains::CADSurfSharedPtr s =
-            std::dynamic_pointer_cast<SpatialDomains::CADSurf>(o);
-
-        // need to organise the all array
-        Array<OneD, std::array<NekDouble, 2>> uv(val.size() / 2);
-        for (int i = 0; i < val.size() / 2; i++)
-        {
-            uv[i] = {val[i * 2], val[i * 2 + 1]};
-        }
-
-        vector<std::array<NekDouble, 3>> r, dru, drv;
-        for (int i = 0; i < uv.size(); i++)
-        {
-            std::array<NekDouble, 3> ri, drui, drvi;
-            auto d2 = s->D1(uv[i]);
-            for (int j = 0; j < 3; j++)
-            {
-                ri[j]   = d2[j];
-                drui[j] = d2[j + 3];
-                drvi[j] = d2[j + 6];
-            }
-            r.push_back(ri);
-            dru.push_back(drui);
-            drv.push_back(drvi);
-        }
-
-        DNekMat J(2 * (uv.size() - 2), 1, 0.0);
-        for (int i = 0; i < uv.size() - 2; i++)
-        {
-            J(2 * i + 0, 0) = 2.0 / (z[i + 1] - z[i]) *
-                                  Dot(dru[i + 1], Take(r[i + 1], r[i])) +
-                              2.0 / (z[i + 2] - z[i + 1]) *
-                                  Dot(dru[i + 1], Take(r[i + 1], r[i + 2]));
-
-            J(2 * i + 1, 0) = 2.0 / (z[i + 1] - z[i]) *
-                                  Dot(drv[i + 1], Take(r[i + 1], r[i])) +
-                              2.0 / (z[i + 2] - z[i + 1]) *
-                                  Dot(drv[i + 1], Take(r[i + 1], r[i + 2]));
-        }
-
-        ret = J;
-    }
-
-    return ret;
+    return obj;
 }
 
-void OptiEdge::Update(Array<OneD, NekDouble> xinew)
+Objective SurfaceEdgeObjective(const SpatialDomains::CADSurfSharedPtr &surf,
+                               std::array<NekDouble, 2> uvBegin,
+                               std::array<NekDouble, 2> uvEnd,
+                               const std::vector<NekDouble> &z)
 {
-    if (o->GetType() == SpatialDomains::CADType::eCurve)
+    const size_t nFree = 2 * (z.size() - 2);
+    auto bounds        = surf->GetBounds();
+
+    Objective obj;
+    obj.lower.resize(nFree);
+    obj.upper.resize(nFree);
+
+    // u and v alternate, and have their own bounds.
+    for (size_t i = 0; i < nFree; ++i)
     {
-        for (int i = 0; i < xinew.size(); i++)
-        {
-            all[i + 1] = xinew[i];
-        }
+        obj.lower[i] = (i % 2 == 0) ? bounds[0] : bounds[2];
+        obj.upper[i] = (i % 2 == 0) ? bounds[1] : bounds[3];
     }
-    else if (o->GetType() == SpatialDomains::CADType::eSurf)
-    {
-        for (int i = 0; i < xinew.size(); i++)
+
+    // Tested on the gradient as it stands, which is what this has always
+    // done; the scaled form the curve objective uses would want a different
+    // tolerance here.
+    obj.scale = vector<NekDouble>(nFree, 1.0);
+
+    auto positions = [surf](const vector<NekDouble> &uv) {
+        vector<std::array<NekDouble, 2>> out(uv.size() / 2);
+        for (size_t i = 0; i < out.size(); ++i)
         {
-            all[i + 2] = xinew[i];
+            out[i] = {uv[i * 2], uv[i * 2 + 1]};
         }
-    }
+        return out;
+    };
+
+    obj.value = [surf, uvBegin, uvEnd, z,
+                 positions](const vector<NekDouble> &xi) {
+        vector<NekDouble> all =
+            WithEnds(xi, {uvBegin[0], uvBegin[1]}, {uvEnd[0], uvEnd[1]});
+        auto uv = positions(all);
+
+        vector<std::array<NekDouble, 3>> p(uv.size());
+        for (size_t i = 0; i < uv.size(); ++i)
+        {
+            p[i] = surf->P(uv[i]);
+        }
+
+        NekDouble ret = 0.0;
+        for (size_t i = 0; i < p.size() - 1; ++i)
+        {
+            auto dis = Take(p[i + 1], p[i]);
+            ret += Dot(dis, dis) / (z[i + 1] - z[i]);
+        }
+        return ret;
+    };
+
+    obj.gradient = [surf, uvBegin, uvEnd, z,
+                    positions](const vector<NekDouble> &xi) {
+        vector<NekDouble> all =
+            WithEnds(xi, {uvBegin[0], uvBegin[1]}, {uvEnd[0], uvEnd[1]});
+        auto uv = positions(all);
+
+        vector<std::array<NekDouble, 3>> r(uv.size()), dru(uv.size()),
+            drv(uv.size());
+        for (size_t i = 0; i < uv.size(); ++i)
+        {
+            auto d1 = surf->D1(uv[i]);
+            r[i]    = {d1[0], d1[1], d1[2]};
+            dru[i]  = {d1[3], d1[4], d1[5]};
+            drv[i]  = {d1[6], d1[7], d1[8]};
+        }
+
+        vector<NekDouble> J(2 * (uv.size() - 2));
+        for (size_t i = 0; i < uv.size() - 2; ++i)
+        {
+            J[2 * i + 0] = 2.0 / (z[i + 1] - z[i]) *
+                               Dot(dru[i + 1], Take(r[i + 1], r[i])) +
+                           2.0 / (z[i + 2] - z[i + 1]) *
+                               Dot(dru[i + 1], Take(r[i + 1], r[i + 2]));
+            J[2 * i + 1] = 2.0 / (z[i + 1] - z[i]) *
+                               Dot(drv[i + 1], Take(r[i + 1], r[i])) +
+                           2.0 / (z[i + 2] - z[i + 1]) *
+                               Dot(drv[i + 1], Take(r[i + 1], r[i + 2]));
+        }
+        return J;
+    };
+
+    return obj;
 }
+
 } // namespace Nektar::NekMesh

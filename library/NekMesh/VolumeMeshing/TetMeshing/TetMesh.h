@@ -56,10 +56,10 @@ public:
     /**
      * @brief default constructor
      */
-    TetMesh(MeshSharedPtr m, int id, Logger m_log,
+    TetMesh(MeshSharedPtr m, int id, Logger log,
             std::vector<SpatialDomains::Geometry *> e =
                 std::vector<SpatialDomains::Geometry *>())
-        : m_mesh(m), m_surface(e), m_id(id)
+        : m_mesh(m), m_surface(e), m_id(id), m_log(log)
     {
         m_log.SetPrefix("TetMesh");
     }
@@ -70,10 +70,18 @@ public:
     void Mesh();
 
 private:
+    /**
+     * @brief Fail with a diagnosis if @p surfacetris is not a closed manifold.
+     *
+     * TetGen requires a watertight manifold boundary and aborts without
+     * explanation when it is not given one.
+     */
+    void CheckManifold(
+        const std::map<int, SpatialDomains::PointGeom *> &idToNode,
+        const std::vector<std::array<int, 3>> &surfacetris);
+
     MeshSharedPtr m_mesh;
     std::vector<SpatialDomains::Geometry *> m_surface;
-    /// number of tetrahedra
-    int m_numtet;
     int m_id;
     /// conncetivity of the tets from the interface
     std::vector<std::array<int, 4>> m_tetconnect;

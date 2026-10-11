@@ -39,6 +39,7 @@
 #include <SpatialDomains/CADSystem/OCE/CADCurveOCE.h>
 #include <SpatialDomains/CADSystem/OCE/CADSurfOCE.h>
 #include <SpatialDomains/CADSystem/OCE/CADSystemOCE.h>
+#include <SpatialDomains/CADSystem/OCE/CADUnits.hpp>
 #include <SpatialDomains/CADSystem/OCE/CADVertOCE.h>
 
 #include <SpatialDomains/CADSystem/OCE/GeoParser.hpp>
@@ -47,14 +48,17 @@
 #include <boost/algorithm/string.hpp>
 
 #include <ElCLib.hxx>
+#include <Interface_Static.hxx>
 #include <gce_MakeCirc.hxx>
 #include <gce_MakePln.hxx>
 
+#include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_MakeShell.hxx>
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepClass3d_SolidClassifier.hxx>
 #include <BRepOffsetAPI_MakeFilling.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <Bnd_Box.hxx>
 #include <GC_MakeArcOfCircle.hxx>
 #include <ShapeFix_Shell.hxx>
 #include <ShapeFix_Solid.hxx>
@@ -190,6 +194,14 @@ bool CADSystemOCE::LoadCAD()
         else
         {
             // Takes step file and makes OpenCascade shape
+            // Say what unit the model is wanted in rather than inheriting
+            // it. OpenCASCADE converts a STEP file from whatever its header
+            // declares into the unit named by this global, which defaults to
+            // millimetres -- the same assumption CADUnits makes on the way
+            // out. Leaving it to the default made the whole pipeline's scale
+            // depend on a setting anything else in the process could change.
+            Interface_Static::SetCVal("xstep.cascade.unit", "MM");
+
             STEPCAFControl_Reader readerCAF;
             readerCAF.SetNameMode(true);
             readerCAF.SetLayerMode(true);
@@ -229,7 +241,32 @@ bool CADSystemOCE::LoadCAD()
 
     if (!m_2d)
     {
-        const NekDouble sewTolerance = 0.1;
+        // Sewing joins faces whose edges lie within a tolerance of each
+        // other, so the tolerance has to mean something relative to the
+        // model: the fixed 0.1 this replaces is a sixth of a model one CAD
+        // unit across and invisible on one a kilometre across, and which of
+        // those a given STEP file is depends on what the part is, not on
+        // anything NekMesh knows.
+        //
+        // A fraction of the diagonal of the bounding box instead, floored so
+        // that a model with no extent cannot produce a zero tolerance. The
+        // fraction is chosen to land near the old fixed value on the
+        // geometries this was developed against -- it comes out at 1.3e-4 on
+        // 3d_bl_wing against the 1e-4 the old one amounted to -- and errs
+        // tight rather than loose, 8.7e-6 on brakedisc. That is the safer
+        // direction: sewing too loosely fuses faces that should have stayed
+        // apart and says nothing, while sewing too tightly leaves an edge
+        // bounded by one face and trips the topology check below.
+        Bnd_Box bb;
+        BRepBndLib::Add(m_shape, bb);
+
+        NekDouble diagonal = sqrt(bb.SquareExtent());
+        NekDouble sewTolerance =
+            std::max(1e-5 * diagonal, Precision::Confusion());
+
+        m_log(VERBOSE) << "Sewing faces with a tolerance of "
+                       << CADUnits::FromCAD(sewTolerance) << "." << endl;
+
         BRepBuilderAPI_Sewing sew(sewTolerance);
 
         for (explr.Init(m_shape, TopAbs_FACE); explr.More(); explr.Next())
@@ -283,7 +320,13 @@ bool CADSystemOCE::LoadCAD()
     for (explr.Init(m_shape, TopAbs_FACE); explr.More(); explr.Next())
     {
         TopoDS_Shape f = explr.Current();
-        ASSERTL0(!m_mapOfFaces.Contains(f), "duplicated faces");
+        if (m_mapOfFaces.Contains(f))
+        {
+            m_log(FATAL) << "the CAD model lists the same face twice, which "
+                            "leaves the surface mesher no way to tell which "
+                            "of the two a mesh element belongs to."
+                         << endl;
+        }
         int i = m_mapOfFaces.Add(f);
 
         AddSurf(i, f);
@@ -349,7 +392,6 @@ bool CADSystemOCE::LoadCAD()
             }
         }
     }
-
     // attempts to identify properties of the vertex on the degen edge
     for (int i = 1; i <= m_mapOfFaces.Extent(); i++)
     {
@@ -376,14 +418,9 @@ bool CADSystemOCE::LoadCAD()
         }
     }
 
-    // This checks that all edges are bound by two surfaces, sanity check.
     if (!m_2d)
     {
-        for (auto &i : m_curves)
-        {
-            ASSERTL0(i.second->GetAdjSurf().size() == 2,
-                     "topolgy error found, surface not closed");
-        }
+        CheckClosed();
     }
 
     Report();
@@ -463,7 +500,18 @@ void CADSystemOCE::AddSurf(int i, TopoDS_Shape in)
         tote += edgeloops[k]->edges.size();
     }
 
-    ASSERTL0(tote != 1, "cannot handle periodic curves");
+    // A face bounded by one curve is one whose boundary closes on itself
+    // without a vertex to break it -- a full circle or a complete cone. The
+    // face mesher needs a boundary it can walk from a start to an end.
+    if (tote == 1)
+    {
+        m_log(FATAL) << "CAD surface " << i
+                     << " is bounded by a single "
+                        "closed curve, which the surface mesher cannot work "
+                        "from. Split that curve in the CAD package so the "
+                        "surface has a boundary with ends."
+                     << endl;
+    }
 
     CADSurf::OrientateEdges(newSurf, edgeloops);
     newSurf->SetEdges(edgeloops);
@@ -483,13 +531,17 @@ void CADSystemOCE::AddSurf(int i, TopoDS_Shape in)
 
 std::array<NekDouble, 6> CADSystemOCE::GetBoundingBox()
 {
+    // lowest(), not min(): for a floating point type min() is the smallest
+    // positive normal value, so a geometry lying entirely on the negative
+    // side of an axis never raised the corresponding maximum above it and
+    // came out with a bounding box that did not contain it.
     std::array<NekDouble, 6> bound;
-    bound[0] = numeric_limits<double>::max(); // xmin
-    bound[1] = numeric_limits<double>::min(); // xmax
-    bound[2] = numeric_limits<double>::max(); // ymin
-    bound[3] = numeric_limits<double>::min(); // ymax
-    bound[4] = numeric_limits<double>::max(); // zmin
-    bound[5] = numeric_limits<double>::min(); // zmax
+    bound[0] = numeric_limits<NekDouble>::max();    // xmin
+    bound[1] = numeric_limits<NekDouble>::lowest(); // xmax
+    bound[2] = numeric_limits<NekDouble>::max();    // ymin
+    bound[3] = numeric_limits<NekDouble>::lowest(); // ymax
+    bound[4] = numeric_limits<NekDouble>::max();    // zmin
+    bound[5] = numeric_limits<NekDouble>::lowest(); // zmax
 
     for (int i = 1; i <= m_curves.size(); i++)
     {
@@ -511,10 +563,20 @@ std::array<NekDouble, 6> CADSystemOCE::GetBoundingBox()
 
 TopoDS_Shape CADSystemOCE::BuildNACA(string naca)
 {
-    ASSERTL0(naca.length() == 4, "not a 4 digit code: " + naca);
+    if (naca.length() != 4)
+    {
+        m_log(FATAL) << "a NACA profile is named by four digits; '" << naca
+                     << "' has " << naca.length() << "." << endl;
+    }
     vector<NekDouble> data;
     ParseUtils::GenerateVector(m_config["UseNACA"], data);
-    ASSERTL0(data.size() == 5, "not a vaild domain");
+    if (data.size() != 5)
+    {
+        m_log(FATAL) << "UseNACA needs five numbers -- the domain's xmin, "
+                        "ymin, xmax and ymax, then the angle of attack in "
+                        "degrees -- and was given "
+                     << data.size() << "." << endl;
+    }
 
     int n       = std::stoi(naca);
     NekDouble T = (n % 100) / 100.0;
@@ -578,7 +640,7 @@ TopoDS_Shape CADSystemOCE::BuildNACA(string naca)
 
     for (int i = 0; i < 2 * np - 1; i++)
     {
-        pointArray.SetValue(i, gp_Pnt(x[i] * 1000.0, y[i] * 1000.0, 0.0));
+        pointArray.SetValue(i, CADUnits::PntToCAD({x[i], y[i], 0.0}));
     }
 
     GeomAPI_PointsToBSpline spline(pointArray);
@@ -587,37 +649,38 @@ TopoDS_Shape CADSystemOCE::BuildNACA(string naca)
     BRepBuilderAPI_MakeEdge areoEdgeBuilder(curve);
     TopoDS_Edge aeroEdge = areoEdgeBuilder.Edge();
     BRepBuilderAPI_MakeEdge aeroTEBuilder(
-        gp_Pnt(x[0] * 1000.0, y[0] * 1000.0, 0.0),
-        gp_Pnt(x[2 * np - 2] * 1000.0, y[2 * np - 2] * 1000.0, 0.0));
+        CADUnits::PntToCAD({x[0], y[0], 0.0}),
+        CADUnits::PntToCAD({x[2 * np - 2], y[2 * np - 2], 0.0}));
     TopoDS_Edge TeEdge = aeroTEBuilder.Edge();
 
     BRepBuilderAPI_MakeWire aeroWireBuilder(aeroEdge, TeEdge);
     TopoDS_Wire aeroWire = aeroWireBuilder.Wire();
 
     gp_Trsf transform;
-    gp_Ax1 rotAx(gp_Pnt(500.0, 0.0, 0.0), gp_Dir(gp_Vec(0.0, 0.0, -1.0)));
+    gp_Ax1 rotAx(CADUnits::PntToCAD({0.5, 0.0, 0.0}),
+                 gp_Dir(gp_Vec(0.0, 0.0, -1.0)));
     transform.SetRotation(rotAx, data[4] / 180.0 * M_PI);
     TopLoc_Location mv(transform);
     aeroWire.Move(mv);
 
     BRepBuilderAPI_MakeEdge domInlBuilder(
-        gp_Pnt(data[0] * 1000.0, data[1] * 1000.0, 0.0),
-        gp_Pnt(data[0] * 1000.0, data[3] * 1000.0, 0.0));
+        CADUnits::PntToCAD({data[0], data[1], 0.0}),
+        CADUnits::PntToCAD({data[0], data[3], 0.0}));
     TopoDS_Edge inlEdge = domInlBuilder.Edge();
 
     BRepBuilderAPI_MakeEdge domTopBuilder(
-        gp_Pnt(data[0] * 1000.0, data[3] * 1000.0, 0.0),
-        gp_Pnt(data[2] * 1000.0, data[3] * 1000.0, 0.0));
+        CADUnits::PntToCAD({data[0], data[3], 0.0}),
+        CADUnits::PntToCAD({data[2], data[3], 0.0}));
     TopoDS_Edge topEdge = domTopBuilder.Edge();
 
     BRepBuilderAPI_MakeEdge domOutBuilder(
-        gp_Pnt(data[2] * 1000.0, data[3] * 1000.0, 0.0),
-        gp_Pnt(data[2] * 1000.0, data[1] * 1000.0, 0.0));
+        CADUnits::PntToCAD({data[2], data[3], 0.0}),
+        CADUnits::PntToCAD({data[2], data[1], 0.0}));
     TopoDS_Edge outEdge = domOutBuilder.Edge();
 
     BRepBuilderAPI_MakeEdge domBotBuilder(
-        gp_Pnt(data[2] * 1000.0, data[1] * 1000.0, 0.0),
-        gp_Pnt(data[0] * 1000.0, data[1] * 1000.0, 0.0));
+        CADUnits::PntToCAD({data[2], data[1], 0.0}),
+        CADUnits::PntToCAD({data[0], data[1], 0.0}));
     TopoDS_Edge botEdge = domBotBuilder.Edge();
 
     BRepBuilderAPI_MakeWire domWireBuilder(inlEdge, topEdge, outEdge, botEdge);
@@ -723,8 +786,7 @@ TopoDS_Shape CADSystemOCE::BuildGeo(string geo)
     for (auto &point : geoFile.points)
     {
         CheckWarning("point", point.id, cPoints);
-        cPoints[point.id] =
-            gp_Pnt(point.x * 1000.0, point.y * 1000.0, point.z * 1000.0);
+        cPoints[point.id] = CADUnits::PntToCAD({point.x, point.y, point.z});
     }
 
     //

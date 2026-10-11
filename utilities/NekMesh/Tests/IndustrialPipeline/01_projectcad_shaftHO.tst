@@ -81,7 +81,7 @@
         </metric>
         # HO Surf Module 
         <metric type="regex" id="10">
-            <regex>.*Curved edges inserted\s+N\s*=\s*(\d+)</regex>
+            <regex>.*Edges already carrying curvature:\s*(\d+)</regex>
             <matches>
                 <match>
                     <field id="0">342</field>

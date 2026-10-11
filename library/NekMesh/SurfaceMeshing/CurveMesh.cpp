@@ -168,6 +168,8 @@ void CurveMesh::Mesh(bool forceThree)
         for (int i = 1 + m_endoffset.count(0); i < Ne - m_endoffset.count(1);
              i++)
         {
+            constexpr int maxIterations = 1000000;
+
             int iterationcounter = 0;
             bool iterate         = true;
             int k                = i;
@@ -184,7 +186,26 @@ void CurveMesh::Mesh(bool forceThree)
                     iterate = false;
                 }
 
-                ASSERTL0(iterationcounter < 1000000, "iteration failed");
+                // Newton on the point-count function. It converges in a
+                // handful of steps on anything well behaved, so a count this
+                // high means it is not converging at all rather than that it
+                // needs longer.
+                if (iterationcounter >= maxIterations)
+                {
+                    m_log(FATAL)
+                        << "curve " << m_id << ": could not place node " << i
+                        << " of " << Ne
+                        << ". Solving for its arc length did "
+                           "not converge in "
+                        << maxIterations
+                        << " iterations, and is still moving "
+                           "by "
+                        << std::abs(lastSki - ski) << " at an arc length of "
+                        << ski << " along a curve of length " << m_curvelength
+                        << ". The spacing asked for along this curve is "
+                           "probably far from what its length can carry."
+                        << endl;
+                }
             }
 
             meshsvalue[i] = ski;
@@ -312,89 +333,72 @@ void CurveMesh::GetPhiFunction()
     }
 }
 
-NekDouble CurveMesh::EvaluateDS(NekDouble s)
+NekDouble CurveMesh::Interpolate(
+    const std::vector<std::vector<NekDouble>> &samples, NekDouble s,
+    const std::string &name)
 {
-    int a = 0;
-    int b = 0;
-
+    // The samples hold a value in [0] against an arc length in [1], ordered
+    // along the curve. This reads the value at an arbitrary arc length by
+    // linear interpolation between the two samples bracketing it.
     ASSERTL1(!(s < 0) && !(s > m_curvelength), "s out of bounds");
 
     if (s == 0)
     {
-        return m_dst[0][0];
+        return samples[0][0];
     }
-    else if (s == m_curvelength)
+
+    if (s == m_curvelength)
     {
-        return m_dst[m_numSamplePoints - 1][0];
+        return samples[m_numSamplePoints - 1][0];
     }
+
+    int lower = -1;
 
     for (int i = 0; i < m_numSamplePoints - 1; i++)
     {
-        if (m_dst[i][1] < s && m_dst[i + 1][1] >= s)
+        if (samples[i][1] < s && samples[i + 1][1] >= s)
         {
-            a = i;
-            b = i + 1;
+            lower = i;
             break;
         }
     }
 
-    NekDouble s1 = m_dst[a][1];
-    NekDouble s2 = m_dst[b][1];
-    NekDouble d1 = m_dst[a][0];
-    NekDouble d2 = m_dst[b][0];
+    // Finding no bracket used to leave the interval at zero width, so the
+    // gradient below divided by zero and the caller received a NaN some way
+    // further on. It means the sample arc lengths do not cover the curve,
+    // which is a defect in whoever built them rather than in this lookup.
+    if (lower < 0)
+    {
+        m_log(FATAL) << "curve " << m_id << ": no pair of " << name
+                     << " samples brackets an arc length of " << s
+                     << ". The samples span " << samples[0][1] << " to "
+                     << samples[m_numSamplePoints - 1][1] << " over "
+                     << m_numSamplePoints
+                     << " points, against a curve length "
+                        "of "
+                     << m_curvelength << "." << endl;
+    }
 
-    NekDouble m = (d2 - d1) / (s2 - s1);
-    NekDouble c = d2 - m * s2;
+    NekDouble s1 = samples[lower][1];
+    NekDouble s2 = samples[lower + 1][1];
+    NekDouble d1 = samples[lower][0];
+    NekDouble d2 = samples[lower + 1][0];
 
-    ASSERTL0(m * s + c == m * s + c, "DS"); // was getting nans here
+    // Gradient and intercept of the line through the two samples.
+    NekDouble gradient  = (d2 - d1) / (s2 - s1);
+    NekDouble intercept = d2 - gradient * s2;
 
-    return m * s + c;
+    return gradient * s + intercept;
+}
+
+NekDouble CurveMesh::EvaluateDS(NekDouble s)
+{
+    return Interpolate(m_dst, s, "spacing");
 }
 
 NekDouble CurveMesh::EvaluatePS(NekDouble s)
 {
-    int a = 0;
-    int b = 0;
-
-    ASSERTL1(!(s < 0) && !(s > m_curvelength), "s out of bounds");
-
-    if (s == 0)
-    {
-        return m_ps[0][0];
-    }
-    else if (s == m_curvelength)
-    {
-        return m_ps[m_numSamplePoints - 1][0];
-    }
-
-    for (int i = 0; i < m_numSamplePoints - 1; i++)
-    {
-        if (m_ps[i][1] < s && m_ps[i + 1][1] >= s)
-        {
-            a = i;
-            b = i + 1;
-            break;
-        }
-    }
-
-    /*
-    if (a == b)
-    {
-        exit(-1);
-    }
-    */
-
-    NekDouble s1 = m_ps[a][1];
-    NekDouble s2 = m_ps[b][1];
-    NekDouble d1 = m_ps[a][0];
-    NekDouble d2 = m_ps[b][0];
-
-    NekDouble m = (d2 - d1) / (s2 - s1);
-    NekDouble c = d2 - m * s2;
-
-    ASSERTL0(m * s + c == m * s + c, "PS");
-
-    return m * s + c;
+    return Interpolate(m_ps, s, "point count");
 }
 
 void CurveMesh::GetSampleFunction()

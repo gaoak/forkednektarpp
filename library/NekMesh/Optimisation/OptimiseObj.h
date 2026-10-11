@@ -28,71 +28,63 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description:
-//
+//  Description: the problem a bounded BFGS optimisation is given.
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifndef NEKTAR_MESHUTILS_OPTIMISATION_OPTIMISEOBJ_H
 #define NEKTAR_MESHUTILS_OPTIMISATION_OPTIMISEOBJ_H
+
+#include <functional>
+#include <vector>
 
 #include <LibUtilities/LinearAlgebra/NekTypeDefs.hpp>
 
 namespace Nektar::NekMesh
 {
 
-class OptiObj
+/// The value of an objective at a point.
+using ObjectiveValue = std::function<NekDouble(const std::vector<NekDouble> &)>;
+
+/// The gradient of an objective at a point, one entry per variable.
+using ObjectiveGradient =
+    std::function<std::vector<NekDouble>(const std::vector<NekDouble> &)>;
+
+/**
+ * @brief Everything a bounded minimisation needs to know about its problem.
+ *
+ * This is the problem, not the solver and not the iterate: handing it to
+ * BGFSOptimise() does not change it, and the same one can be solved from
+ * several starting points. What the optimiser carries -- where it currently
+ * is, and its approximations to the Hessian -- belongs to the optimiser.
+ *
+ * Objectives are built by free functions returning one of these, so a caller
+ * writes down the quantity it wants minimised and nothing else; see
+ * NekMesh/SurfaceMeshing/OptimiseFunctions.h for the two the high-order
+ * surface mesher uses.
+ */
+struct Objective
 {
-public:
-    OptiObj()
-    {
-    }
+    /// The quantity to minimise.
+    ObjectiveValue value;
 
-    virtual ~OptiObj()
-    {
-    }
+    /// Its gradient. Must agree with #value, which nothing checks.
+    ObjectiveGradient gradient;
 
-    virtual NekDouble F([[maybe_unused]] Array<OneD, NekDouble> xitst)
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "F() should be implemented in inheriting class");
-        return 0.0;
-    }
+    /// Lower and upper bound on each variable; the search stays inside them.
+    std::vector<NekDouble> lower, upper;
 
-    virtual DNekMat dF([[maybe_unused]] Array<OneD, NekDouble> xitst)
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "dF() should be implemented in inheriting class");
-        return DNekMat(1, 1, 0.0);
-    }
-
-    virtual Array<OneD, NekDouble> Getxi()
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "Getxi() should be implemented in inheriting class");
-        return Array<OneD, NekDouble>();
-    }
-
-    virtual Array<OneD, NekDouble> Getli()
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "Getli() should be implemented in inheriting class");
-        return Array<OneD, NekDouble>();
-    }
-
-    virtual Array<OneD, NekDouble> Getui()
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "Getui() should be implemented in inheriting class");
-        return Array<OneD, NekDouble>();
-    }
-
-    virtual void Update([[maybe_unused]] Array<OneD, NekDouble> xinew)
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "Update() should be implemented in inheriting class");
-    }
+    /**
+     * @brief The size of each variable, used only to judge convergence.
+     *
+     * The gradient is tested against a tolerance after dividing through by
+     * these, so that the test means the same thing whatever the variables are
+     * measured in -- a curve parameter running over tens and one running over
+     * thousandths should not need different tolerances. Set them to one to
+     * test the gradient as it stands.
+     */
+    std::vector<NekDouble> scale;
 };
-typedef std::shared_ptr<OptiObj> OptiObjSharedPtr;
 
 } // namespace Nektar::NekMesh
+
 #endif
