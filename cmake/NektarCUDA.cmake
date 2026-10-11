@@ -30,20 +30,20 @@ ADD_COMPILE_OPTIONS($<$<COMPILE_LANGUAGE:CUDA>:--diag_suppress=550>)
 SET(CUDA_SEPARABLE_COMPILATION ON)
 
 IF (NEKTAR_DEVICE_ARCH)
-    IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^sm_[0-9]+$")
-        MESSAGE(FATAL_ERROR "For Nvidia GPU, NEKTAR_DEVICE_ARCH must be specified as sm_XX, got '${NEKTAR_DEVICE_ARCH}'")
+    IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^sm_[0-9]+a?$")
+        MESSAGE(FATAL_ERROR "For Nvidia GPU, NEKTAR_DEVICE_ARCH must be specified as sm_XX or sm_XXa, got '${NEKTAR_DEVICE_ARCH}'")
     ENDIF()
     STRING(REPLACE "_" ";" ARCH ${NEKTAR_DEVICE_ARCH})
     LIST(GET ARCH 1 ARCH)
     ADD_COMPILE_DEFINITIONS(__NEKTAR_DEVICE_ARCH__="compute_${ARCH}")
     SET(CMAKE_CUDA_ARCHITECTURES ${ARCH})
 ELSE()
-    IF(CMAKE_VERSION VERSION_LESS "3.24.0")
-        MESSAGE("Please consider to switch to CMake 3.24.0")
-        SET(CMAKE_CUDA_ARCHITECTURES 70 72 75 80 86 90)
-    ELSE()
-        SET(CMAKE_CUDA_ARCHITECTURES native)
-    ENDIF()
+    MESSAGE(FATAL_ERROR "CUDA back-end requires NEKTAR_DEVICE_ARCH=<arch> with <arch> specified as sm_XX. The <arch> value can be queried using the following command: `nvidia-smi --query-gpu=compute_cap --format=csv`. For the following GPU, please use:
+- V100: <arch>=sm_70
+- A100: <arch>=sm_80
+- A40:  <arch>=sm_86
+- H100: <arch>=sm_90
+- B100: <arch>=sm_100")
 ENDIF()
 
 ENABLE_LANGUAGE(CUDA)

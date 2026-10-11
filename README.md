@@ -103,20 +103,20 @@ Notes:
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=CUDA \
-         -DNEKTAR_DEVICE_ARCH=sm_xx \ 
+         -DNEKTAR_DEVICE_ARCH=sm_XX
 ```
 
-For device architecture NEKTAR_DEVICE_ARCH, please use:
+For device architecture `NEKTAR_DEVICE_ARCH`, please use:
 
-```:
-V100: `sm_xx=sm_70`
-A100: `sm_xx=sm_80` 
-A40: `sm_xx=sm_86`
-H100: `sm_xx=sm_90` 
-B100: `sm_xx=sm_100` 
+```
+ - V100: `sm_XX=sm_70`
+ - A100: `sm_XX=sm_80`
+ - A40:  `sm_XX=sm_86`
+ - H100: `sm_XX=sm_90`
+ - B100: `sm_XX=sm_100`
 ```
 
-The `sm_xx` value can also be queried using the following command:
+The `sm_XX` value can also be queried using the following command:
 `nvidia-smi --query-gpu=compute_cap --format=csv`
 
 ### HIP
@@ -124,42 +124,61 @@ The `sm_xx` value can also be queried using the following command:
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=HIP \
          -DCMAKE_CXX_COMPILER=hipcc \
-         -DNEKTAR_DEVICE_ARCH=gfxzzz \
+         -DNEKTAR_DEVICE_ARCH=gfxXXX
 ```
 
 Note:
 1. For device architecture `NEKTAR_DEVICE_ARCH`, please use:
 
 ```
- - MI210: `gfxzzz=gfx908` 
- - MI250: `gfxzzz=gfx90a` 
- - MI300: `gfxzzz=gfx942` 
- - MI325: `gfxzzz=gfx942` 
- - MI350: `gfxzzz=gfx950` 
- - MI355: `gfxzzz=gfx950` 
-``` 
+ - MI210: `gfxXXX=gfx90a`
+ - MI250: `gfxXXX=gfx90a`
+ - MI300: `gfxXXX=gfx942`
+ - MI325: `gfxXXX=gfx942`
+ - MI350: `gfxXXX=gfx950`
+ - MI355: `gfxXXX=gfx950`
+```
 
-The `gfxzzz` value can also be queried using the following command:
+The `gfxXXX` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
 ### AdaptiveCpp SYCL (CUDA)
+For just-in-time compilation, please use:
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp" 
+         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp"
 ```
 
-Note: 
-1. Just-in-time compilation does not work properly on `sm_90` architecture. To 
-  enable ahead-of-time compilation, the architecture must be specified explictly
-  as fellow:
-
+For ahead-of-time compilation, please use:
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-         -DNEKTAR_DEVICE_ARCH=sm_90 \
-         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp" 
+         -DNEKTAR_DEVICE_ARCH=sm_XX \
+         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp"
 ```
+
+Note:
+1. For device architecture `NEKTAR_DEVICE_ARCH`, please use:
+
+```
+ - V100: `sm_XX=sm_70`
+ - A100: `sm_XX=sm_80`
+ - A40:  `sm_XX=sm_86`
+ - H100: `sm_XX=sm_90`
+ - B100: `sm_XX=sm_100`
+```
+
+The `sm_XX` value can also be queried using the following command:
+`nvidia-smi --query-gpu=compute_cap --format=csv`
+
+`NEKTAR_DEVICE_ARCH` is optional and triggers ahead-of-time compilation
+(`--acpp-targets=cuda:sm_XX`), so the resulting binary only runs on the
+architecture it was built for. If it is omitted, the kernels are compiled
+just-in-time (`--acpp-targets=generic`) instead and the build runs on any
+supported GPU, at the cost of a one-off compilation delay when the solver
+starts. Just-in-time compilation does not work properly on the `sm_90`
+architecture, so `NEKTAR_DEVICE_ARCH` must be specified for H100.
 
 2. Due to massive library size, linking problems may occur when using the AdaptiveCpp compiler. Using the lld linker instead of the GNU linker (bfd) can fix the problem:
 
@@ -169,7 +188,7 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp" \
          -DCMAKE_LINKER=lld \
          -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"
-```     
+```
 
 3. Possible fix for a `Could NOT find MPI_CXX (missing: MPI_CXX_WORKS)` error is provied below:
 
@@ -181,7 +200,7 @@ cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
          -DNEKTAR_USE_MPI=ON \
          -DCMAKE_C_COMPILER=mpicc \
-         -DCMAKE_CXX_COMPILER=mpicxx 
+         -DCMAKE_CXX_COMPILER=mpicxx
 ```
 
 4. See [guideline](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md) for instructions to compile AdpativeCpp with CUDA backend. Nektar++ has been tested with AdaptiveCpp v25.10.0. An example of configuration command is provided below:
@@ -204,30 +223,95 @@ export LD_LIBRARY_PATH=$ACPP_HOME/AdaptiveCpp/build/lib/:${LD_LIBRARY_PATH}
 
 
 ### AdaptiveCpp SYCL (HIP)
+For just-in-time compilation, please use:
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=SYCL-HIP \
-         -DNEKTAR_DEVICE_ARCH=gfx90a \
          -DROCM_PATH="path-to-rocm" \
-         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp" 
+         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp"
+```
+
+For ahead-of-time compilation, please use:
+```
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-HIP \
+         -DNEKTAR_DEVICE_ARCH=gfxXXX \
+         -DROCM_PATH="path-to-rocm" \
+         -DCMAKE_CXX_COMPILER="$ACPP_HOME/AdaptiveCpp/build/bin/acpp"
 ```
 
 Note:
 1. For device architecture `NEKTAR_DEVICE_ARCH`, please use:
 
 ```
- - MI210: `gfxzzz=gfx908` 
- - MI250: `gfxzzz=gfx90a` 
- - MI300: `gfxzzz=gfx942` 
- - MI325: `gfxzzz=gfx942` 
- - MI350: `gfxzzz=gfx950` 
- - MI355: `gfxzzz=gfx950` 
+ - MI210: `gfxXXX=gfx90a`
+ - MI250: `gfxXXX=gfx90a`
+ - MI300: `gfxXXX=gfx942`
+ - MI325: `gfxXXX=gfx942`
+ - MI350: `gfxXXX=gfx950`
+ - MI355: `gfxXXX=gfx950`
 ```
 
-The `gfxzzz` value can also be queried using the following command:
+The `gfxXXX` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
-2. See [guideline](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md) for instructions to compile AdpativeCpp with HIP/ROCm backend. Nektar++ has been tested with AdaptiveCpp v25.10.0. An example of configuration command is provided below:
+`NEKTAR_DEVICE_ARCH` is optional and triggers ahead-of-time compilation
+(`--acpp-targets=hip:gfxXXX`), so the resulting binary only runs on the
+architecture it was built for. If it is omitted, the kernels are compiled
+just-in-time (`--acpp-targets=generic`) instead and the build runs on any
+supported GPU, at the cost of a one-off compilation delay when the solver
+starts.
+
+2. AdaptiveCpp must be built against an LLVM with the same major version as
+the LLVM of the ROCm installation (ROCm 7.0.x uses LLVM 20). The LLVM shipped
+with ROCm cannot be used, as it does not provide `libLLVM.so`. An example of
+LLVM build is provided below:
+
+```
+git clone --depth 1 -b llvmorg-20.1.8 https://github.com/llvm/llvm-project.git $LLVM_HOME
+
+cmake -S $LLVM_HOME/llvm -B $LLVM_HOME/build \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DCMAKE_INSTALL_PREFIX=$LLVM_HOME/install \
+         -DLLVM_ENABLE_PROJECTS="clang;lld" \
+         -DLLVM_ENABLE_RUNTIMES="compiler-rt;openmp" \
+         -DLLVM_TARGETS_TO_BUILD="X86;AMDGPU" \
+         -DLLVM_BUILD_LLVM_DYLIB=ON \
+         -DLLVM_LINK_LLVM_DYLIB=ON \
+         -DLLVM_INCLUDE_TESTS=OFF \
+         -DLLVM_INCLUDE_BENCHMARKS=OFF \
+         -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
+         -DCOMPILER_RT_BUILD_XRAY=OFF \
+         -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
+         -DCOMPILER_RT_BUILD_MEMPROF=OFF \
+         -DCOMPILER_RT_BUILD_PROFILE=OFF \
+         -DCOMPILER_RT_BUILD_ORC=OFF \
+         -DCOMPILER_RT_BUILD_CTX_PROFILE=OFF \
+         -DCOMPILER_RT_BUILD_GWP_ASAN=OFF
+
+cmake --build $LLVM_HOME/build --target install -j 8
+
+export LD_LIBRARY_PATH=$LLVM_HOME/install/lib/:$LLVM_HOME/install/lib/x86_64-unknown-linux-gnu/:${LD_LIBRARY_PATH}
+```
+
+Only the compiler-rt builtins are needed, which ROCm links into HIP
+libraries. The sanitizers are disabled as they fail to build against recent
+kernel headers.
+
+3. Possible fix for a `Could NOT find MPI_CXX (missing: MPI_CXX_WORKS)` error is provied below:
+
+```
+export OMPI_CC=$LLVM_HOME/install/bin/clang
+export OMPI_CXX=$ACPP_HOME/AdaptiveCpp/build/bin/acpp
+
+cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
+         -DNEKTAR_ENABLE_DEVICE=SYCL-HIP \
+         -DNEKTAR_USE_MPI=ON \
+         -DCMAKE_C_COMPILER=mpicc \
+         -DCMAKE_CXX_COMPILER=mpicxx
+```
+
+4. See [guideline](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md) for instructions to compile AdpativeCpp with HIP/ROCm backend. Nektar++ has been tested with AdaptiveCpp v25.10.0. An example of configuration command is provided below:
 
 ```
 cmake $ACPP_HOME/AdaptiveCpp/ -B $ACPP_HOME/AdaptiveCpp/build/ \
@@ -235,8 +319,12 @@ cmake $ACPP_HOME/AdaptiveCpp/ -B $ACPP_HOME/AdaptiveCpp/build/ \
          -DWITH_OPENCL_BACKEND=OFF \
          -DWITH_ROCM_BACKEND=ON \
          -DWITH_SSCP_COMPILER=ON \
-         -DCMAKE_C_COMPILER=clang \
          -DWITH_LEVEL_ZERO_BACKEND=OFF \
+         -DCMAKE_C_COMPILER=$LLVM_HOME/install/bin/clang \
+         -DCMAKE_CXX_COMPILER=$LLVM_HOME/install/bin/clang++ \
+         -DLLVM_DIR=$LLVM_HOME/install/lib/cmake/llvm \
+         -DCLANG_EXECUTABLE_PATH=$LLVM_HOME/install/bin/clang++ \
+         -DROCM_PATH="path-to-rocm" \
          -DCMAKE_CXX_EXTENSIONS=OFF \
          -DCMAKE_INSTALL_PREFIX=$ACPP_HOME/AdaptiveCpp/build/
 
@@ -286,15 +374,15 @@ the solver starts.
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=SYCL-CUDA \
-         -DCMAKE_C_COMPILER="$DPCPP_HOME/llvm/build/bin/clang" \ 
-         -DCMAKE_CXX_COMPILER="$DPCPP_HOME/llvm/build/bin/clang++" 
+         -DCMAKE_C_COMPILER="$DPCPP_HOME/llvm/build/bin/clang" \
+         -DCMAKE_CXX_COMPILER="$DPCPP_HOME/llvm/build/bin/clang++"
 ```
 
 Note:
 1. See [guideline](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for instructions to compile Intel LLVM with CUDA backend. Nektar++ has been tested with Intel LLVM v6.3.0 on Ubuntu 22.04 and LLVM v7.0.0 on Ubuntun 24.04. An example of configuration command is provided below:
 
 ```
-python3 $DPCPP_HOME/llvm/buildbot/configure.py --cuda --obj-dir=$DPCPP_HOME/llvm/build 
+python3 $DPCPP_HOME/llvm/buildbot/configure.py --cuda --obj-dir=$DPCPP_HOME/llvm/build
 python3 $DPCPP_HOME/llvm/buildbot/compile.py --obj-dir=$DPCPP_HOME/llvm/build
 
 export LD_LIBRARY_PATH=$DPCPP_HOME/llvm/build/lib/:${LD_LIBRARY_PATH}
@@ -314,24 +402,24 @@ For GH200, please use:
 ```
 cmake .. -DNEKTAR_ENABLE_DEVICE_SUPPORT=ON \
          -DNEKTAR_ENABLE_DEVICE=SYCL-HIP \
-         -DNEKTAR_DEVICE_ARCH=gfxzzz \
-         -DCMAKE_C_COMPILER="$DPCPP_HOME/llvm/build/bin/clang" \ 
-         -DCMAKE_CXX_COMPILER="$DPCPP_HOME/llvm/build/bin/clang++" 
+         -DNEKTAR_DEVICE_ARCH=gfxXXX \
+         -DCMAKE_C_COMPILER="$DPCPP_HOME/llvm/build/bin/clang" \
+         -DCMAKE_CXX_COMPILER="$DPCPP_HOME/llvm/build/bin/clang++"
 ```
 
 Note:
 1. For device architecture `NEKTAR_DEVICE_ARCH`, please use:
 
 ```
- - MI210: `gfxzzz=gfx908` 
- - MI250: `gfxzzz=gfx90a` 
- - MI300: `gfxzzz=gfx942` 
- - MI325: `gfxzzz=gfx942` 
- - MI350: `gfxzzz=gfx950` 
- - MI355: `gfxzzz=gfx950` 
+ - MI210: `gfxXXX=gfx90a`
+ - MI250: `gfxXXX=gfx90a`
+ - MI300: `gfxXXX=gfx942`
+ - MI325: `gfxXXX=gfx942`
+ - MI350: `gfxXXX=gfx950`
+ - MI355: `gfxXXX=gfx950`
 ```
 
-The `gfxzzz` value can also be queried using the following command:
+The `gfxXXX` value can also be queried using the following command:
 `rocm-smi --showproductname | grep gfx`
 
 2. See [guideline](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md) for instructions to compile Intel LLVM with HIP/ROCm backend. Nektar++ has been tested with Intel LLVM v6.3.0 on Debian Trixie. An example of configuration command is provided below:
