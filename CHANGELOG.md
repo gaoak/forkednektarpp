@@ -135,6 +135,7 @@ v5.11.0
 - Remove unused physical-constant parameters from session files (!2818)
 - Fix compilation when device support is off (!2820)
 - Update Advection, CurlCurl, Divergence, and PhysDeriv docs (!2821)
+- Update thirdparty to Lapack 3.12 (!2825)
 
 v5.10.0
 -------

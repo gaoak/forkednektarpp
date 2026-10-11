@@ -57,29 +57,21 @@ ELSE()
         ${BUILD_BLAS_LAPACK})
 
     IF(THIRDPARTY_BUILD_BLAS_LAPACK)
+        SET(LAPACK_VERSION 3.12.0)
+
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(BLAS_LAPACK SHARED blas lapack DESCRIPTION "BLAS and LAPACK libraries")
 
-        IF(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
-            UNSET(PATCH CACHE)
-            FIND_PROGRAM(PATCH patch)
-            IF(NOT PATCH)
-	        MESSAGE(FATAL_ERROR
-	            "'patch' tool for modifying files not found. Cannot build lst.")
-            ENDIF()
-	    SET(LAPACK_PATCH_COMMAND ${PATCH} -p1 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/lapack-3.7.1-cmake4.0.patch)
-        ENDIF()
-
         EXTERNALPROJECT_ADD(
-            lapack-3.7.1
+            lapack-${LAPACK_VERSION}
             PREFIX ${TPSRC}
-            URL ${TPURL}/lapack-3.7.1.tgz
-            URL_MD5 "dcdeeed73de152c4643ccc5b1aeb453c"
+            URL ${TPURL}/lapack-3.12.0.tar.gz
+            URL_MD5 "c1b38bef123584d86a1bd8000784a7b2"
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
-            SOURCE_DIR ${TPSRC}/lapack-3.7.1
-            BINARY_DIR ${TPBUILD}/lapack-3.7.1
-            TMP_DIR ${TPBUILD}/lapack-3.7.1-tmp
+            SOURCE_DIR ${TPSRC}/lapack-${LAPACK_VERSION}
+            BINARY_DIR ${TPBUILD}/lapack-${LAPACK_VERSION}
+            TMP_DIR ${TPBUILD}/lapack-${LAPACK_VERSION}-tmp
             INSTALL_DIR ${TPDIST}
             BUILD_BYPRODUCTS ${BLAS_LAPACK}
 	    PATCH_COMMAND ${LAPACK_PATCH_COMMAND}
@@ -90,11 +82,11 @@ ELSE()
             -DCMAKE_INSTALL_LIBDIR:PATH=${TPDIST}/lib
             -DBUILD_SHARED_LIBS:STRING=ON
             -DBUILD_TESTING:STRING=OFF
-            ${TPSRC}/lapack-3.7.1
+            ${TPSRC}/lapack-${LAPACK_VERSION}
             )
 
         MESSAGE(STATUS "Build BLAS/LAPACK: ${BLAS_LAPACK}")
 
-        ADD_DEPENDENCIES(thirdparty lapack-3.7.1)
+        ADD_DEPENDENCIES(thirdparty lapack-${LAPACK_VERSION})
     ENDIF()
 ENDIF()
