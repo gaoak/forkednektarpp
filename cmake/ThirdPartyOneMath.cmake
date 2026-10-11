@@ -43,12 +43,21 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
     # down empty. Both arms are positive tests, matching the dispatch in the
     # root CMakeLists, so an implementation added later has to say what
     # oneMath should be told rather than silently inheriting "dpc++".
+    #
+    # Under AdaptiveCpp oneMath ignores HIP_TARGETS and CUDA_TARGETS and
+    # compiles through add_sycl_to_target, which reads ACPP_TARGETS. Pass
+    # Nektar's so oneMath is built for the same targets rather than acpp's
+    # default, together with the header workarounds those targets need.
     IF (NEKTAR_SYCL_COMPILER STREQUAL "AdaptiveCpp")
         SET(ONEMATH_SYCL_IMPLEMENTATION "adaptivecpp")
-        SET(ONEMATH_IMPLEMENTATION_ARGS -DAdaptiveCpp_DIR=${AdaptiveCpp_DIR})
+        SET(ONEMATH_IMPLEMENTATION_ARGS
+            -DAdaptiveCpp_DIR=${AdaptiveCpp_DIR}
+            -DACPP_TARGETS=${ACPP_TARGETS})
+        SET(ONEMATH_CXX_FLAGS "-w ${ACPP_HEADER_FLAGS}")
     ELSEIF (NEKTAR_SYCL_COMPILER STREQUAL "DPC++")
         SET(ONEMATH_SYCL_IMPLEMENTATION "dpc++")
         SET(ONEMATH_IMPLEMENTATION_ARGS "")
+        SET(ONEMATH_CXX_FLAGS "-w")
     ELSE()
         MESSAGE(FATAL_ERROR
             "oneMath has no mapping for NEKTAR_SYCL_COMPILER="
@@ -98,7 +107,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -B <BINARY_DIR>
                         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-                        -DCMAKE_CXX_FLAGS:STRING=-w
+                        "-DCMAKE_CXX_FLAGS:STRING=${ONEMATH_CXX_FLAGS}"
                         -DCUDA_CUDA_LIBRARY=${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so
                         -DOPENCL_INCLUDE_DIR=${OPENCL_INCLUDE_DIR}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}
@@ -142,7 +151,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -B <BINARY_DIR>
                         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-                        -DCMAKE_CXX_FLAGS:STRING=-w
+                        "-DCMAKE_CXX_FLAGS:STRING=${ONEMATH_CXX_FLAGS}"
                         -DHIP_TARGETS=${NEKTAR_DEVICE_ARCH}
                         -DCMAKE_PREFIX_PATH=${ROCM_PATH}
                         -DONEMATH_SYCL_IMPLEMENTATION=${ONEMATH_SYCL_IMPLEMENTATION}
@@ -153,7 +162,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -DENABLE_MKLCPU_BACKEND=OFF
                         -DENABLE_MKLGPU_BACKEND=OFF
                         -DENABLE_CUBLAS_BACKEND=OFF
-                        -DENABLE_CUFFT_BACKEND=OFF 
+                        -DENABLE_CUFFT_BACKEND=OFF
                         -DENABLE_CURAND_BACKEND=OFF
                         -DENABLE_CUSOLVER_BACKEND=OFF
                         -DENABLE_CUSPARSE_BACKEND=OFF

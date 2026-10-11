@@ -136,6 +136,8 @@ v5.11.0
 - Fix compilation when device support is off (!2820)
 - Update Advection, CurlCurl, Divergence, and PhysDeriv docs (!2821)
 - Update thirdparty to Lapack 3.12 (!2825)
+- Require NEKTAR_DEVICE_ARCH for the CUDA, HIP and DPC++ SYCL-HIP back-ends instead of building for a list of default architectures, and validate it on every back-end (!2824)
+- Allow ahead-of-time compilation for AdaptiveCpp SYCL-HIP and build oneMath for the same AdaptiveCpp target as Nektar++ (!2824)
 
 v5.10.0
 -------

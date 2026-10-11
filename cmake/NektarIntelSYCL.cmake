@@ -44,8 +44,8 @@ IF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CPU")
 ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA")
     ADD_DEFINITIONS(-DSYCL_ENABLE_CUDA)
     IF (NEKTAR_DEVICE_ARCH)
-        IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^sm_[0-9]+$")
-            MESSAGE(FATAL_ERROR "For Nvidia GPU, NEKTAR_DEVICE_ARCH must be specified as sm_XX, got '${NEKTAR_DEVICE_ARCH}'")
+        IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^sm_[0-9]+a?$")
+            MESSAGE(FATAL_ERROR "For Nvidia GPU, NEKTAR_DEVICE_ARCH must be specified as sm_XX or sm_XXa, got '${NEKTAR_DEVICE_ARCH}'")
         ENDIF()
         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=nvidia_gpu_${NEKTAR_DEVICE_ARCH} ${EXTRA_FLAGS} ")
     ELSE()
@@ -58,7 +58,20 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
     IF(NOT HIP_CXX_COMPILER)
         FIND_PATH(HIP_CXX_COMPILER clang++ HINTS ENV HIPROOT ENV ROCM_PATH)
     ENDIF()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend --offload-arch=${NEKTAR_DEVICE_ARCH} ${EXTRA_FLAGS} ")
+    IF (NEKTAR_DEVICE_ARCH)
+        IF(NOT NEKTAR_DEVICE_ARCH MATCHES "^gfx[0-9]+[a-f]?$")
+            MESSAGE(FATAL_ERROR "For AMD GPU, NEKTAR_DEVICE_ARCH must be specified as gfxXXX, got '${NEKTAR_DEVICE_ARCH}'")
+        ENDIF()
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=amd_gpu_${NEKTAR_DEVICE_ARCH} ${EXTRA_FLAGS} ")
+    ELSE()
+        MESSAGE(FATAL_ERROR "SYCL-HIP back-end requires NEKTAR_DEVICE_ARCH=<arch> with <arch> specified as gfxXXX. The <arch> value can be queried using the following command: `rocm-smi --showproductname | grep gfx`. For the following GPU, please use:
+- MI210: <arch>=gfx90a
+- MI250: <arch>=gfx90a
+- MI300: <arch>=gfx942
+- MI325: <arch>=gfx942
+- MI350: <arch>=gfx950
+- MI355: <arch>=gfx950")
+    ENDIF()
     SET(BOOST_MIN_VERSION "1.82.0")
 ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
     ADD_DEFINITIONS(-DSYCL_ENABLE_INTEL)

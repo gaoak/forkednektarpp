@@ -31,7 +31,13 @@ IF (NEKTAR_DEVICE_ARCH)
     ADD_COMPILE_DEFINITIONS(__NEKTAR_DEVICE_ARCH__="${NEKTAR_DEVICE_ARCH}")
     SET(CMAKE_HIP_ARCHITECTURES ${NEKTAR_DEVICE_ARCH})
 ELSE()
-    SET(CMAKE_HIP_ARCHITECTURES gfx900 gfx902 gfx906 gfx908 gfx909 gfx90a gfx90c)
+    MESSAGE(FATAL_ERROR "HIP back-end requires NEKTAR_DEVICE_ARCH=<arch> with <arch> specified as gfxXXX. The <arch> value can be queried using the following command: `rocm-smi --showproductname | grep gfx`. For the following GPU, please use:
+- MI210: <arch>=gfx90a
+- MI250: <arch>=gfx90a
+- MI300: <arch>=gfx942
+- MI325: <arch>=gfx942
+- MI350: <arch>=gfx950
+- MI355: <arch>=gfx950")
 ENDIF()
 
 ENABLE_LANGUAGE(HIP)
