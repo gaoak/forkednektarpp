@@ -54,7 +54,7 @@ ForcingStabilityCoupledLNS::ForcingStabilityCoupledLNS(
 void ForcingStabilityCoupledLNS::v_InitObject(
     [[maybe_unused]] const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const unsigned int &pNumForcingFields,
-    [[maybe_unused]] const TiXmlElement *pForce)
+    [[maybe_unused]] const LibUtilities::SessionNode &pForce)
 {
 }
 

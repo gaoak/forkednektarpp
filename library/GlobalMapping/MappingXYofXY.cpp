@@ -61,7 +61,7 @@ MappingXYofXY::MappingXYofXY(
 
 void MappingXYofXY::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const TiXmlElement *pMapping)
+    const LibUtilities::SessionNode &pMapping)
 {
     Mapping::v_InitObject(pFields, pMapping);
 

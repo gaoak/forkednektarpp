@@ -33,16 +33,32 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GlobalMapping/Mapping.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <MultiRegions/DisContField.h>
-
-#include <boost/algorithm/string/predicate.hpp>
 
 namespace Nektar::GlobalMapping
 {
 
 MappingSharedPtr Mapping::m_mappingPtr = MappingSharedPtr();
-bool Mapping::m_init                   = false;
-bool Mapping::m_isDefined              = false;
+
+namespace
+{
+/**
+ * @brief Resolves the parallel-in-time TIMELEVEL indirection of a MAPPING
+ * section, which must define settings for the time level being run.
+ */
+const LibUtilities::SessionNode &SelectTimeLevel(
+    const LibUtilities::SessionNode &pMapping, const size_t timeLevel)
+{
+    const LibUtilities::SessionNode *level = pMapping.GetTimeLevel(timeLevel);
+    ASSERTL0(level, "No MAPPING settings for time level " +
+                        std::to_string(timeLevel) + ".");
+    return *level;
+}
+} // namespace
+
+bool Mapping::m_init      = false;
+bool Mapping::m_isDefined = false;
 
 MappingFactory &GetMappingFactory()
 {
@@ -94,7 +110,7 @@ Mapping::Mapping(const LibUtilities::SessionReaderSharedPtr &pSession,
  */
 void Mapping::v_InitObject(
     [[maybe_unused]] const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const TiXmlElement *pMapping)
+    const LibUtilities::SessionNode &pMapping)
 {
     int phystot    = m_fields[0]->GetTotPoints();
     m_fromFunction = true;
@@ -110,24 +126,13 @@ void Mapping::v_InitObject(
     }
 
     // Check if mapping is defined as time-dependent
-    const TiXmlElement *timeDep = pMapping->FirstChildElement("TIMEDEPENDENT");
-    if (timeDep)
-    {
-        std::string sTimeDep = timeDep->GetText();
-        m_timeDependent      = (boost::iequals(sTimeDep, "true")) ||
-                          (boost::iequals(sTimeDep, "yes"));
-    }
-    else
-    {
-        m_timeDependent = false;
-    }
+    m_timeDependent = pMapping.GetValueAs<bool>("TIMEDEPENDENT", false);
 
     // Load coordinates
-    std::string fieldNames[3]        = {"x", "y", "z"};
-    const TiXmlElement *funcNameElmt = pMapping->FirstChildElement("COORDS");
-    if (funcNameElmt)
+    std::string fieldNames[3] = {"x", "y", "z"};
+    if (pMapping.DefinesChild("COORDS"))
     {
-        m_funcName = funcNameElmt->GetText();
+        m_funcName = pMapping.GetValue("COORDS");
         ASSERTL0(m_session->DefinesFunction(m_funcName),
                  "Function '" + m_funcName + "' not defined.");
 
@@ -172,11 +177,10 @@ void Mapping::v_InitObject(
 
     // Load coordinate velocity if they are defined,
     //      otherwise use zero to make it general
-    std::string velFieldNames[3]        = {"vx", "vy", "vz"};
-    const TiXmlElement *velFuncNameElmt = pMapping->FirstChildElement("VEL");
-    if (velFuncNameElmt)
+    std::string velFieldNames[3] = {"vx", "vy", "vz"};
+    if (pMapping.DefinesChild("VEL"))
     {
-        m_velFuncName = velFuncNameElmt->GetText();
+        m_velFuncName = pMapping.GetValue("VEL");
         ASSERTL0(m_session->DefinesFunction(m_velFuncName),
                  "Function '" + m_velFuncName + "' not defined.");
 
@@ -241,15 +245,25 @@ void Mapping::ReplaceField(
 {
     m_fields = pFields;
 
-    TiXmlElement *vMapping = nullptr;
+    LibUtilities::SessionNode vMapping = GetMappingSection(m_session);
+    InitObject(pFields, SelectTimeLevel(vMapping, m_session->GetTimeLevel()));
+}
 
-    if (m_session->DefinesElement("Nektar/Mapping"))
+/**
+ * Reads the MAPPING section of the session. An empty node is returned when
+ * the session defines no mapping, in which case MappingTranslation supplies
+ * the identity transformation.
+ */
+LibUtilities::SessionNode Mapping::GetMappingSection(
+    const LibUtilities::SessionReaderSharedPtr &pSession)
+{
+    if (!pSession->DefinesElement("Nektar/Mapping"))
     {
-        vMapping = m_session->GetElement("Nektar/Mapping");
-        LibUtilities::SessionReader::GetXMLElementTimeLevel(
-            vMapping, m_session->GetTimeLevel());
+        return LibUtilities::SessionNode("MAPPING");
     }
-    InitObject(pFields, vMapping);
+
+    return LibUtilities::SessionNodeFromXml(
+        pSession->GetElement("Nektar/Mapping"), "MAPPING");
 }
 
 /**
@@ -267,23 +281,21 @@ MappingSharedPtr Mapping::Load(
 {
     if (!m_init)
     {
-        TiXmlElement *vMapping = nullptr;
-        std::string vType;
+        LibUtilities::SessionNode vMapping = GetMappingSection(pSession);
+
+        // The mapping type is read from the section itself rather than from
+        // the time level selected below, so that a mapping cannot change type
+        // partway through a parallel-in-time run.
+        std::string vType = "Translation";
         if (pSession->DefinesElement("Nektar/Mapping"))
         {
-            vMapping    = pSession->GetElement("Nektar/Mapping");
-            vType       = vMapping->Attribute("TYPE");
+            vType       = vMapping.GetAttribute("TYPE");
             m_isDefined = true;
-            LibUtilities::SessionReader::GetXMLElementTimeLevel(
-                vMapping, pSession->GetTimeLevel());
-        }
-        else
-        {
-            vType = "Translation";
         }
 
-        m_mappingPtr = GetMappingFactory().CreateInstance(vType, pSession,
-                                                          pFields, vMapping);
+        m_mappingPtr = GetMappingFactory().CreateInstance(
+            vType, pSession, pFields,
+            SelectTimeLevel(vMapping, pSession->GetTimeLevel()));
 
         m_init = true;
     }

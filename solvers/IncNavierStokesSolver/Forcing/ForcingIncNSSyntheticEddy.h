@@ -55,7 +55,8 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<EquationSystem> &pEquation,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+        const unsigned int &pNumForcingFields,
+        const LibUtilities::SessionNode &pForce)
     {
         ForcingSharedPtr p =
             MemoryManager<ForcingIncNSSyntheticEddy>::AllocateSharedPtr(

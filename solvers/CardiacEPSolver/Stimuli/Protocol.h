@@ -36,6 +36,7 @@
 #define NEKTAR_SOLVERS_CARDIACEPSOLVER_STIMULI_PROTOCOL
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionNode.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <SolverUtils/Core/Misc.h>
@@ -52,7 +53,7 @@ typedef std::shared_ptr<Protocol> ProtocolSharedPtr;
 /// the EquationSystem class.
 typedef LibUtilities::NekFactory<std::string, Protocol,
                                  const LibUtilities::SessionReaderSharedPtr &,
-                                 const TiXmlElement *>
+                                 const LibUtilities::SessionNode &>
     ProtocolFactory;
 
 ProtocolFactory &GetProtocolFactory();
@@ -85,7 +86,7 @@ protected:
     LibUtilities::SessionReaderSharedPtr m_session;
 
     Protocol(const LibUtilities::SessionReaderSharedPtr &pSession,
-             const TiXmlElement *pXml);
+             const LibUtilities::SessionNode &pXml);
 
     virtual NekDouble v_GetAmplitude(const NekDouble time) = 0;
 

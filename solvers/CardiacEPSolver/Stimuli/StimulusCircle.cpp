@@ -34,7 +34,6 @@
 #include <CardiacEPSolver/Stimuli/StimulusCircle.h>
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <iostream>
-#include <tinyxml.h>
 
 namespace Nektar
 {
@@ -57,7 +56,7 @@ std::string StimulusCirc::className =
  */
 StimulusCirc::StimulusCirc(const LibUtilities::SessionReaderSharedPtr &pSession,
                            const MultiRegions::ExpListSharedPtr &pField,
-                           const TiXmlElement *pXml)
+                           const LibUtilities::SessionNode &pXml)
     : Stimulus(pSession, pField, pXml)
 {
     m_session = pSession;
@@ -66,30 +65,17 @@ StimulusCirc::StimulusCirc(const LibUtilities::SessionReaderSharedPtr &pSession,
     m_chiCapMembrane =
         m_session->GetParameter("chi") * m_session->GetParameter("Cm");
 
-    if (!pXml)
-    {
-        return;
-    }
+    m_px1 = pXml.GetValueAs<NekDouble>("p_x1");
 
-    const TiXmlElement *pXmlparameter;
+    m_py1 = pXml.GetValueAs<NekDouble>("p_y1");
 
-    pXmlparameter = pXml->FirstChildElement("p_x1");
-    m_px1         = atof(pXmlparameter->GetText());
+    m_pz1 = pXml.GetValueAs<NekDouble>("p_z1");
 
-    pXmlparameter = pXml->FirstChildElement("p_y1");
-    m_py1         = atof(pXmlparameter->GetText());
+    m_pr1 = pXml.GetValueAs<NekDouble>("p_r1");
 
-    pXmlparameter = pXml->FirstChildElement("p_z1");
-    m_pz1         = atof(pXmlparameter->GetText());
+    m_pis = pXml.GetValueAs<NekDouble>("p_is");
 
-    pXmlparameter = pXml->FirstChildElement("p_r1");
-    m_pr1         = atof(pXmlparameter->GetText());
-
-    pXmlparameter = pXml->FirstChildElement("p_is");
-    m_pis         = atof(pXmlparameter->GetText());
-
-    pXmlparameter = pXml->FirstChildElement("p_strength");
-    m_strength    = atof(pXmlparameter->GetText());
+    m_strength = pXml.GetValueAs<NekDouble>("p_strength");
 }
 
 /**

@@ -414,7 +414,8 @@ void VortexWaveInteraction::ExecuteRoll(void)
                         GetForcingFactory().CreateInstance(
                             "Programmatic", m_sessionRoll, m_solverRoll,
                             m_solverRoll->UpdateFields(),
-                            m_solverRoll->UpdateFields().size() - 1, 0));
+                            m_solverRoll->UpdateFields().size() - 1,
+                            LibUtilities::SessionNode("FORCE")));
 
                 std::vector<std::string> vFieldNames =
                     m_sessionRoll->GetVariables();

@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <FieldUtils/Interpolator.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <SolverUtils/Forcing/Forcing.h>
 
 namespace Nektar::SolverUtils
@@ -86,30 +87,36 @@ std::vector<ForcingSharedPtr> Forcing::Load(
         return vForceList;
     }
 
-    TiXmlElement *vForcing = pSession->GetElement("Nektar/Forcing");
-    if (vForcing)
+    // Convert the FORCING section into a format-neutral tree, so that the
+    // individual forcings below never see the session's XML document.
+    LibUtilities::SessionNode vForcing = LibUtilities::SessionNodeFromXml(
+        pSession->GetElement("Nektar/Forcing"), "FORCING");
+
+    unsigned int vNumForcingFields = pNumForcingFields;
+    if (!pNumForcingFields)
     {
-        unsigned int vNumForcingFields = pNumForcingFields;
-        if (!pNumForcingFields)
-        {
-            vNumForcingFields = pFields.size();
-        }
-
-        TiXmlElement *vForce = vForcing->FirstChildElement("FORCE");
-        while (vForce)
-        {
-            std::string vType = vForce->Attribute("TYPE");
-
-            TiXmlElement *vForceParam = vForce;
-            LibUtilities::SessionReader::GetXMLElementTimeLevel(
-                vForceParam, pSession->GetTimeLevel(), false);
-            vForceList.push_back(GetForcingFactory().CreateInstance(
-                vType, pSession, pEquation, pFields, vNumForcingFields,
-                vForceParam));
-
-            vForce = vForce->NextSiblingElement("FORCE");
-        }
+        vNumForcingFields = pFields.size();
     }
+
+    for (const LibUtilities::SessionNode *vForce :
+         vForcing.GetChildren("FORCE"))
+    {
+        std::string vType = vForce->GetAttribute("TYPE");
+
+        // A forcing may specify its settings per time level, in which case it
+        // simply does not apply at the time levels it does not mention.
+        const LibUtilities::SessionNode *vForceParam =
+            vForce->GetTimeLevel(pSession->GetTimeLevel(), false);
+        if (!vForceParam)
+        {
+            continue;
+        }
+
+        vForceList.push_back(GetForcingFactory().CreateInstance(
+            vType, pSession, pEquation, pFields, vNumForcingFields,
+            *vForceParam));
+    }
+
     return vForceList;
 }
 

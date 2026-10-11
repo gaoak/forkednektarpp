@@ -53,7 +53,8 @@ ForcingAbsorption::ForcingAbsorption(
 
 void ForcingAbsorption::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+    const unsigned int &pNumForcingFields,
+    const LibUtilities::SessionNode &pForce)
 {
     m_NumVariable = pNumForcingFields;
     int npts      = pFields[0]->GetTotPoints();
@@ -71,10 +72,9 @@ void ForcingAbsorption::v_InitObject(
         m_Forcing[i] = Array<OneD, NekDouble>(npts, 0.0);
     }
 
-    const TiXmlElement *funcNameElmt = pForce->FirstChildElement("REFFLOW");
-    if (funcNameElmt)
+    if (pForce.DefinesChild("REFFLOW"))
     {
-        std::string funcName = funcNameElmt->GetText();
+        std::string funcName = pForce.GetValue("REFFLOW");
         ASSERTL0(m_session->DefinesFunction(funcName),
                  "Function '" + funcName + "' not defined.");
         m_Refflow = Array<OneD, Array<OneD, NekDouble>>(m_NumVariable);
@@ -90,10 +90,9 @@ void ForcingAbsorption::v_InitObject(
         m_hasRefFlow = true;
     }
 
-    funcNameElmt = pForce->FirstChildElement("REFFLOWTIME");
-    if (funcNameElmt)
+    if (pForce.DefinesChild("REFFLOWTIME"))
     {
-        m_funcNameTime   = funcNameElmt->GetText();
+        m_funcNameTime   = pForce.GetValue("REFFLOWTIME");
         m_hasRefFlowTime = true;
         m_hasRefFlow     = true;
         m_Refflow        = Array<OneD, Array<OneD, NekDouble>>(m_NumVariable);
@@ -110,13 +109,12 @@ void ForcingAbsorption::v_InitObject(
 void ForcingAbsorption::CalcAbsorption(
     const Nektar::Array<Nektar::OneD, Nektar::MultiRegions::ExpListSharedPtr>
         &pFields,
-    const TiXmlElement *pForce)
+    const LibUtilities::SessionNode &pForce)
 {
-    const TiXmlElement *funcNameElmt = pForce->FirstChildElement("COEFF");
-    ASSERTL0(funcNameElmt,
+    ASSERTL0(pForce.DefinesChild("COEFF"),
              "Requires COEFF tag, specifying function "
              "name which prescribes absorption layer coefficient.");
-    std::string funcName = funcNameElmt->GetText();
+    std::string funcName = pForce.GetValue("COEFF");
     ASSERTL0(m_session->DefinesFunction(funcName),
              "Function '" + funcName + "' not defined.");
 
@@ -128,14 +126,13 @@ void ForcingAbsorption::CalcAbsorption(
         m_Absorption[i] = Array<OneD, NekDouble>(npts, 0.0);
     }
 
-    funcNameElmt = pForce->FirstChildElement("BOUNDARYREGIONS");
-    if (funcNameElmt)
+    if (pForce.DefinesChild("BOUNDARYREGIONS"))
     {
-        ASSERTL0(
-            ParseUtils::GenerateVector(funcNameElmt->GetText(), m_bRegions),
-            "Unable to process list of BOUNDARYREGIONS in Absorption "
-            "Forcing: " +
-                std::string(funcNameElmt->GetText()));
+        const std::string &bRegionsStr = pForce.GetValue("BOUNDARYREGIONS");
+        ASSERTL0(ParseUtils::GenerateVector(bRegionsStr, m_bRegions),
+                 "Unable to process list of BOUNDARYREGIONS in Absorption "
+                 "Forcing: " +
+                     bRegionsStr);
 
         // alter m_bRegions so that it contains the boundaryRegions of this rank
         std::vector<unsigned int> localBRegions;

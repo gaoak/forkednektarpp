@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <iostream>
-#include <tinyxml.h>
 
 #include <CardiacEPSolver/Stimuli/StimulusPoint.h>
 
@@ -58,22 +57,15 @@ std::string StimulusPoint::className =
  */
 StimulusPoint::StimulusPoint(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const MultiRegions::ExpListSharedPtr &pField, const TiXmlElement *pXml)
+    const MultiRegions::ExpListSharedPtr &pField,
+    const LibUtilities::SessionNode &pXml)
     : Stimulus(pSession, pField, pXml)
 {
     m_session = pSession;
     m_field   = pField;
     m_nq      = pField->GetTotPoints();
 
-    if (!pXml)
-    {
-        return;
-    }
-
-    const TiXmlElement *pXmlparameter;
-
-    pXmlparameter = pXml->FirstChildElement("p_strength");
-    m_strength    = atof(pXmlparameter->GetText());
+    m_strength = pXml.GetValueAs<NekDouble>("p_strength");
 }
 
 /**

@@ -32,8 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
-#include <tinyxml.h>
 
 #include <CardiacEPSolver/Stimuli/Stimulus.h>
 
@@ -63,17 +63,16 @@ StimulusFactory &GetStimulusFactory()
  */
 Stimulus::Stimulus(const LibUtilities::SessionReaderSharedPtr &pSession,
                    const MultiRegions::ExpListSharedPtr &pField,
-                   const TiXmlElement *pXml)
+                   const LibUtilities::SessionNode &pXml)
 {
     m_session = pSession;
     m_field   = pField;
     m_nq      = pField->GetTotPoints();
 
-    const TiXmlElement *vProtocol = pXml->FirstChildElement("PROTOCOL");
-    string vTypeP                 = vProtocol->Attribute("TYPE");
+    const LibUtilities::SessionNode &vProtocol = pXml.GetChild("PROTOCOL");
 
-    m_Protocol =
-        GetProtocolFactory().CreateInstance(vTypeP, pSession, vProtocol);
+    m_Protocol = GetProtocolFactory().CreateInstance(
+        vProtocol.GetAttribute("TYPE"), pSession, vProtocol);
 }
 
 /**
@@ -92,19 +91,16 @@ vector<StimulusSharedPtr> Stimulus::LoadStimuli(
 {
     vector<StimulusSharedPtr> vStimList;
 
-    TiXmlElement *vStimuli = pSession->GetElement("Nektar/Stimuli");
-    if (vStimuli)
-    {
-        TiXmlElement *vStimulus = vStimuli->FirstChildElement("STIMULUS");
-        while (vStimulus)
-        {
-            string vType = vStimulus->Attribute("TYPE");
+    LibUtilities::SessionNode vStimuli = LibUtilities::SessionNodeFromXml(
+        pSession->GetElement("Nektar/Stimuli"), "STIMULI");
 
-            vStimList.push_back(GetStimulusFactory().CreateInstance(
-                vType, pSession, pField, vStimulus));
-            vStimulus = vStimulus->NextSiblingElement("STIMULUS");
-        }
+    for (const LibUtilities::SessionNode *vStimulus :
+         vStimuli.GetChildren("STIMULUS"))
+    {
+        vStimList.push_back(GetStimulusFactory().CreateInstance(
+            vStimulus->GetAttribute("TYPE"), pSession, pField, *vStimulus));
     }
+
     return vStimList;
 }
 } // namespace Nektar

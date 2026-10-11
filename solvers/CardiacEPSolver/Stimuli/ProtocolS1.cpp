@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <CardiacEPSolver/Stimuli/ProtocolS1.h>
-#include <tinyxml.h>
 
 namespace Nektar
 {
@@ -55,31 +54,17 @@ std::string ProtocolS1::className =
  * Protocol base class constructor.
  */
 ProtocolS1::ProtocolS1(const LibUtilities::SessionReaderSharedPtr &pSession,
-                       const TiXmlElement *pXml)
+                       const LibUtilities::SessionNode &pXml)
     : Protocol(pSession, pXml)
 {
     m_session = pSession;
 
-    if (!pXml)
-    {
-        return;
-    }
-
     // Declare temporary XML element pointer
-    const TiXmlElement *pXmlparameter;
 
-    // Read each variable, extract text and convert to floating-point
-    pXmlparameter = pXml->FirstChildElement("START");
-    m_start       = atof(pXmlparameter->GetText());
-
-    pXmlparameter = pXml->FirstChildElement("DURATION");
-    m_dur         = atof(pXmlparameter->GetText());
-
-    pXmlparameter   = pXml->FirstChildElement("S1CYCLELENGTH");
-    m_s1cyclelength = atof(pXmlparameter->GetText());
-
-    pXmlparameter = pXml->FirstChildElement("NUM_S1");
-    m_num_s1      = atof(pXmlparameter->GetText());
+    m_start         = pXml.GetValueAs<NekDouble>("START");
+    m_dur           = pXml.GetValueAs<NekDouble>("DURATION");
+    m_s1cyclelength = pXml.GetValueAs<NekDouble>("S1CYCLELENGTH");
+    m_num_s1        = pXml.GetValueAs<NekDouble>("NUM_S1");
 }
 
 /**

@@ -52,7 +52,8 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<EquationSystem> &pEquation,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+        const unsigned int &pNumForcingFields,
+        const LibUtilities::SessionNode &pForce)
     {
         ForcingSharedPtr p =
             MemoryManager<ForcingSyntheticEddy>::AllocateSharedPtr(pSession,
@@ -69,7 +70,7 @@ protected:
     SOLVER_UTILS_EXPORT void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
         const unsigned int &pNumForcingFields,
-        const TiXmlElement *pForce) override;
+        const LibUtilities::SessionNode &pForce) override;
     // Apply forcing term
     SOLVER_UTILS_EXPORT void v_Apply(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,

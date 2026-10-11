@@ -32,6 +32,8 @@ SET(BasicUtilsHeaders
     ./BasicUtils/Timer.h
     ./BasicUtils/RawType.hpp
     ./BasicUtils/RealComparison.hpp
+    ./BasicUtils/SessionNode.h
+    ./BasicUtils/SessionNodeXml.h
     ./BasicUtils/SessionReader.h
     ./BasicUtils/ShapeType.hpp
     ./BasicUtils/SharedArray.hpp
@@ -59,6 +61,8 @@ SET(BasicUtilsSources
     ./BasicUtils/ParseUtils.cpp
     ./BasicUtils/PtsField.cpp
     ./BasicUtils/PtsIO.cpp
+    ./BasicUtils/SessionNode.cpp
+    ./BasicUtils/SessionNodeXml.cpp
     ./BasicUtils/SessionReader.cpp
     ./BasicUtils/Thread.cpp
     ./BasicUtils/ThreadStd.cpp

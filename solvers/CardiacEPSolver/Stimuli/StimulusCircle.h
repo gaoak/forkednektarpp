@@ -55,7 +55,8 @@ public:
     /// Creates an instance of this class
     static StimulusSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const MultiRegions::ExpListSharedPtr &pField, const TiXmlElement *pXml)
+        const MultiRegions::ExpListSharedPtr &pField,
+        const LibUtilities::SessionNode &pXml)
     {
         return MemoryManager<StimulusCirc>::AllocateSharedPtr(pSession, pField,
                                                               pXml);
@@ -91,7 +92,7 @@ protected:
 private:
     StimulusCirc(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const MultiRegions::ExpListSharedPtr &pField,
-                 const TiXmlElement *pXml);
+                 const LibUtilities::SessionNode &pXml);
 };
 
 } // namespace Nektar

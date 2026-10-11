@@ -44,6 +44,7 @@
 
 #include <IncNavierStokesSolver/EquationSystems/RigidSolver.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <LibUtilities/LinearAlgebra/Lapack.hpp>
 #include <MultiRegions/ExpList.h>
@@ -67,14 +68,15 @@ void RigidSolver::InitObject(const LibUtilities::SessionReaderSharedPtr session,
     {
         isH1d = false;
     }
-    int expdim            = isH2d ? 1 : pField->GetGraph()->GetMeshDimension();
-    m_spacedim            = expdim + (isH1d ? 1 : 0) + (isH2d ? 2 : 0);
-    m_isRoot              = pField->GetComm()->TreatAsRankZero();
-    m_index               = 1;
-    m_currentTime         = -1.;
-    m_extForceXYZ         = Array<OneD, NekDouble>(6, 0.0);
-    m_oldFvis             = Array<OneD, NekDouble>(6, 0.0);
-    TiXmlElement *pSolver = session->GetElement("Nektar/RIGIDSOLVER");
+    int expdim    = isH2d ? 1 : pField->GetGraph()->GetMeshDimension();
+    m_spacedim    = expdim + (isH1d ? 1 : 0) + (isH2d ? 2 : 0);
+    m_isRoot      = pField->GetComm()->TreatAsRankZero();
+    m_index       = 1;
+    m_currentTime = -1.;
+    m_extForceXYZ = Array<OneD, NekDouble>(6, 0.0);
+    m_oldFvis     = Array<OneD, NekDouble>(6, 0.0);
+    LibUtilities::SessionNode pSolver = LibUtilities::SessionNodeFromXml(
+        session->GetElement("Nektar/RIGIDSOLVER"), "RIGIDSOLVER");
     LoadParameters(session, pSolver);
     InitBodySolver(session, pSolver, pivot);
     CheckParameters();
@@ -204,14 +206,12 @@ void RigidSolver::ParserFunctionToMap(
 
 void RigidSolver::LoadParameters(
     const LibUtilities::SessionReaderSharedPtr session,
-    const TiXmlElement *pSolver)
+    const LibUtilities::SessionNode &pSolver)
 {
-    const TiXmlElement *funcNameElmt;
     // load frame velocity
-    funcNameElmt = pSolver->FirstChildElement("FRAMEVELOCITY");
-    if (funcNameElmt)
+    if (pSolver.DefinesChild("FRAMEVELOCITY"))
     {
-        std::string FuncName = funcNameElmt->GetText();
+        std::string FuncName = pSolver.GetValue("FRAMEVELOCITY");
         ASSERTL0(session->DefinesFunction(FuncName),
                  "Function '" + FuncName + "' is not defined in the session.");
         // linear velocity
@@ -257,10 +257,9 @@ void RigidSolver::LoadParameters(
     }
 
     // load external force
-    funcNameElmt = pSolver->FirstChildElement("EXTERNALFORCE");
-    if (funcNameElmt)
+    if (pSolver.DefinesChild("EXTERNALFORCE"))
     {
-        std::string FuncName = funcNameElmt->GetText();
+        std::string FuncName = pSolver.GetValue("EXTERNALFORCE");
         if (session->DefinesFunction(FuncName))
         {
             std::vector<std::string> forceVar = {"Fx", "Fy", "Fz"};
@@ -281,11 +280,10 @@ void RigidSolver::LoadParameters(
     }
 
     // OutputFile
-    const TiXmlElement *mssgTag = pSolver->FirstChildElement("OutputFile");
     std::string filename;
-    if (mssgTag)
+    if (pSolver.DefinesChild("OutputFile"))
     {
-        filename = mssgTag->GetText();
+        filename = pSolver.GetValue("OutputFile");
     }
     else
     {
@@ -315,11 +313,10 @@ void RigidSolver::LoadParameters(
 
     // output frequency
     m_outputFrequency = 1;
-    mssgTag           = pSolver->FirstChildElement("OutputFrequency");
-    if (mssgTag)
+    if (pSolver.DefinesChild("OutputFrequency"))
     {
         std::vector<std::string> values;
-        std::string mssgStr = mssgTag->GetText();
+        std::string mssgStr = pSolver.GetValue("OutputFrequency");
         m_outputFrequency   = round(EvaluateExpression(session, mssgStr));
     }
     ASSERTL0(m_outputFrequency > 0,
@@ -328,10 +325,9 @@ void RigidSolver::LoadParameters(
 
 void RigidSolver::InitBodySolver(
     const LibUtilities::SessionReaderSharedPtr session,
-    const TiXmlElement *pSolver, Array<OneD, NekDouble> pivot)
+    const LibUtilities::SessionNode &pSolver, Array<OneD, NekDouble> pivot)
 {
     int NumDof = m_spacedim + 1;
-    const TiXmlElement *mssgTag;
     std::string mssgStr;
     // allocate memory and initialise
     m_vel = Array<OneD, Array<OneD, NekDouble>>(3);
@@ -345,11 +341,10 @@ void RigidSolver::InitBodySolver(
     {
         m_dirDoFs.insert(i);
     }
-    mssgTag = pSolver->FirstChildElement("MOTIONPRESCRIBED");
-    if (mssgTag)
+    if (pSolver.DefinesChild("MOTIONPRESCRIBED"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("MOTIONPRESCRIBED");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == NumDof,
                  "MOTIONPRESCRIBED vector should be of size " +
@@ -366,13 +361,13 @@ void RigidSolver::InitBodySolver(
         m_hasRotation || m_dirDoFs.find(m_spacedim) == m_dirDoFs.end();
     m_hasFreeMotion = m_dirDoFs.size() < NumDof;
     // read mass matrix
-    m_M     = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
-    mssgTag = pSolver->FirstChildElement("MASS");
-    ASSERTL0(m_dirDoFs.size() == NumDof || mssgTag, "Mass matrix is required.");
-    if (mssgTag)
+    m_M = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
+    ASSERTL0(m_dirDoFs.size() == NumDof || pSolver.DefinesChild("MASS"),
+             "Mass matrix is required.");
+    if (pSolver.DefinesChild("MASS"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("MASS");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == 1, "Mass matrix should be a scalar.");
         m_mass = EvaluateExpression(session, values[0]);
@@ -381,23 +376,21 @@ void RigidSolver::InitBodySolver(
             m_M[i + i * NumDof] = m_mass;
         }
     }
-    mssgTag = pSolver->FirstChildElement("ROTATIONINERTIA");
-    if (mssgTag)
+    if (pSolver.DefinesChild("ROTATIONINERTIA"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("ROTATIONINERTIA");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == 1, "Inertia should be a scalar.");
         m_rotaionInertia         = EvaluateExpression(session, values[0]);
         m_M[NumDof * NumDof - 1] = m_rotaionInertia;
     }
     // read damping matrix
-    m_C     = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
-    mssgTag = pSolver->FirstChildElement("DAMPING");
-    if (mssgTag)
+    m_C = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
+    if (pSolver.DefinesChild("DAMPING"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("DAMPING");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == NumDof * NumDof,
                  "Damping matrix should be of size " + std::to_string(NumDof) +
@@ -413,12 +406,11 @@ void RigidSolver::InitBodySolver(
         }
     }
     // read rigidity matrix
-    m_K     = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
-    mssgTag = pSolver->FirstChildElement("RIGIDITY");
-    if (mssgTag)
+    m_K = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
+    if (pSolver.DefinesChild("RIGIDITY"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("RIGIDITY");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == NumDof * NumDof,
                  "Rigidity matrix should be of size " + std::to_string(NumDof) +
@@ -434,12 +426,11 @@ void RigidSolver::InitBodySolver(
         }
     }
     // read pivot point
-    mssgTag = pSolver->FirstChildElement("PIVOTPOINT");
     m_pivot = Array<OneD, NekDouble>(m_spacedim, 0.);
-    if (mssgTag)
+    if (pSolver.DefinesChild("PIVOTPOINT"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("PIVOTPOINT");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == m_spacedim,
                  "PIVOTPOINT vector should be of size " +
@@ -451,12 +442,11 @@ void RigidSolver::InitBodySolver(
     }
     Vmath::Vcopy(m_spacedim, m_pivot, 1, pivot, 1);
     // read the distance between pivotpoint and masscenter
-    mssgTag         = pSolver->FirstChildElement("PIVOTDISTANCE");
     m_pivotdistance = 0.;
-    if (mssgTag)
+    if (pSolver.DefinesChild("PIVOTDISTANCE"))
     {
         std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
+        mssgStr = pSolver.GetValue("PIVOTDISTANCE");
         ParseUtils::GenerateVector(mssgStr, values);
         ASSERTL0(values.size() == 1, "PivotDistance should be a scalar.");
         m_pivotdistance = EvaluateExpression(session, values[0]);
@@ -983,15 +973,15 @@ void RigidSolver::GetFilterInfo(
     const LibUtilities::SessionReaderSharedPtr session,
     std::map<std::string, std::string> &vParams)
 {
-    TiXmlElement *pForce      = session->GetElement("Nektar/RIGIDSOLVER");
-    const TiXmlElement *param = pForce->FirstChildElement("BOUNDARY");
-    ASSERTL0(param, "Body surface should be assigned");
+    LibUtilities::SessionNode pForce = LibUtilities::SessionNodeFromXml(
+        session->GetElement("Nektar/RIGIDSOLVER"), "RIGIDSOLVER");
+    ASSERTL0(pForce.DefinesChild("BOUNDARY"),
+             "Body surface should be assigned");
 
-    vParams["Boundary"]           = param->GetText();
-    const TiXmlElement *pivotElmt = pForce->FirstChildElement("PIVOTPOINT");
-    if (pivotElmt)
+    vParams["Boundary"] = pForce.GetValue("BOUNDARY");
+    if (pForce.DefinesChild("PIVOTPOINT"))
     {
-        std::string pstr = pivotElmt->GetText();
+        std::string pstr = pForce.GetValue("PIVOTPOINT");
         std::replace(pstr.begin(), pstr.end(), ',', ' ');
         vParams["MomentPoint"] = pstr;
     }

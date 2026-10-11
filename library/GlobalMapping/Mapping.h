@@ -38,6 +38,7 @@
 #include <GlobalMapping/GlobalMappingDeclspec.h>
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionNode.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
@@ -59,7 +60,8 @@ GLOBAL_MAPPING_EXPORT typedef std::shared_ptr<Mapping> MappingSharedPtr;
 /// Declaration of the mapping factory
 typedef LibUtilities::NekFactory<
     std::string, Mapping, const LibUtilities::SessionReaderSharedPtr &,
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &, const TiXmlElement *>
+    const Array<OneD, MultiRegions::ExpListSharedPtr> &,
+    const LibUtilities::SessionNode &>
     MappingFactory;
 
 /// Declaration of the mapping factory singleton
@@ -80,7 +82,7 @@ public:
     /// @brief Initialise the mapping object
     GLOBAL_MAPPING_EXPORT void InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const TiXmlElement *pMapping)
+        const LibUtilities::SessionNode &pMapping)
     {
         v_InitObject(pFields, pMapping);
     }
@@ -445,6 +447,11 @@ protected:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
 
+    /// Reads the MAPPING section of @p pSession, or an empty node if it
+    /// defines none.
+    GLOBAL_MAPPING_EXPORT static LibUtilities::SessionNode GetMappingSection(
+        const LibUtilities::SessionReaderSharedPtr &pSession);
+
     // Evaluators
     GLOBAL_MAPPING_EXPORT void EvaluateFunction(
         Array<OneD, MultiRegions::ExpListSharedPtr> pFields,
@@ -460,7 +467,7 @@ protected:
     // Virtual functions
     GLOBAL_MAPPING_EXPORT virtual void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const TiXmlElement *pMapping);
+        const LibUtilities::SessionNode &pMapping);
 
     GLOBAL_MAPPING_EXPORT virtual void v_ContravarToCartesian(
         const Array<OneD, Array<OneD, NekDouble>> &inarray,

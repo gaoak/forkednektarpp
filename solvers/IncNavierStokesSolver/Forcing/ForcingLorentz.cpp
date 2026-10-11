@@ -69,7 +69,7 @@ ForcingLorentz::~ForcingLorentz(void)
 void ForcingLorentz::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const unsigned int &pNumForcingFields,
-    const TiXmlElement *pForce)
+    const LibUtilities::SessionNode &pForce)
 {
     // read space dimention
     bool isH1d, isH2d;
@@ -89,12 +89,11 @@ void ForcingLorentz::v_InitObject(
     m_B0                              = Array<OneD, NekDouble>(3, 0.);
     std::vector<std::string> elecVars = {"Ex", "Ey", "Ez"};
     std::vector<std::string> magVars  = {"Bx", "By", "Bz"};
-    const TiXmlElement *funcNameElmt =
-        pForce->FirstChildElement("ELECTRICMAGNETICFIELDS");
-    ASSERTL0(funcNameElmt,
+    ASSERTL0(pForce.DefinesChild("ELECTRICMAGNETICFIELDS"),
              "Requires ELECTRICMAGNETICFIELDS tag specifying the function "
              "that prescribes the external electric and magnetic fields.");
-    std::string electromagneticFields = funcNameElmt->GetText();
+    std::string electromagneticFields =
+        pForce.GetValue("ELECTRICMAGNETICFIELDS");
     ASSERTL0(m_session->DefinesFunction(electromagneticFields),
              "Function '" + electromagneticFields +
                  "' is not defined in the session.");
@@ -117,13 +116,10 @@ void ForcingLorentz::v_InitObject(
         m_sigma * (m_B0[0] * m_B0[0] + m_B0[1] * m_B0[1] + m_B0[2] * m_B0[2]);
 
     m_implicitDamping = false;
-    const TiXmlElement *implicitDamping =
-        pForce->FirstChildElement("IMPLICITDAMPING");
-    if (implicitDamping)
+    if (pForce.DefinesChild("IMPLICITDAMPING"))
     {
-        const char *text = implicitDamping->GetText();
-        ASSERTL0(text && (boost::iequals(text, "true") ||
-                          boost::iequals(text, "false")),
+        const std::string &text = pForce.GetValue("IMPLICITDAMPING");
+        ASSERTL0(boost::iequals(text, "true") || boost::iequals(text, "false"),
                  "IMPLICITDAMPING must be either True or False.");
         m_implicitDamping = boost::iequals(text, "true");
     }

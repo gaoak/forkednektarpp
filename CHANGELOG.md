@@ -29,6 +29,7 @@ v5.11.0
 - Fix ReduceOrderCoeffs: the tetrahedral truncation copied misaligned rows, the quadrilateral and hexahedral ones assumed isotropic order, and the triangular one only truncated one order (!2735)
 - Fix the artificial viscosity's density floor, which was an absolute number and so made the viscosity depend on the units a session was written in; it is now a fraction of rhoInf (!2735)
 - Add EntityResolver for scalable rendezvous-based shared entity discovery, and use it in parallel HDF5 mesh reading and DG trace communication (!2700)
+- Add SessionNode, a format-neutral configuration tree, and read forcing, mapping, coupling and stimulus configuration through it (!2702)
 - Trace-frame expansions and parallel mesh orderings (!2712)
 - Move point location out of Geometry into a new GeometryLocator class that callers build on demand, so geometry that is never searched no longer carries an inverse mapping (!2747)
 - Fix a bug in LowEnergyBlock preconditioner which may causes divergence in Hex meshes (!2765)

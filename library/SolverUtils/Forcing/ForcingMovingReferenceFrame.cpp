@@ -80,7 +80,7 @@ ForcingMovingReferenceFrame::~ForcingMovingReferenceFrame(void)
 void ForcingMovingReferenceFrame::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const unsigned int &pNumForcingFields,
-    [[maybe_unused]] const TiXmlElement *pForce)
+    [[maybe_unused]] const LibUtilities::SessionNode &pForce)
 {
     m_session->MatchSolverInfo("Homogeneous", "1D", m_isH1d, false);
     m_session->MatchSolverInfo("Homogeneous", "2D", m_isH2d, false);

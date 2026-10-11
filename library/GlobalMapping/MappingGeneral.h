@@ -50,7 +50,7 @@ public:
     static MappingSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const TiXmlElement *pMapping)
+        const LibUtilities::SessionNode &pMapping)
     {
         MappingSharedPtr p =
             MemoryManager<MappingGeneral>::AllocateSharedPtr(pSession, pFields);
@@ -77,7 +77,7 @@ protected:
     GLOBAL_MAPPING_EXPORT
     void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const TiXmlElement *pMapping) override;
+        const LibUtilities::SessionNode &pMapping) override;
 
     GLOBAL_MAPPING_EXPORT void v_ContravarToCartesian(
         const Array<OneD, Array<OneD, NekDouble>> &inarray,

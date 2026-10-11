@@ -52,7 +52,7 @@ ForcingAxiSymmetric::ForcingAxiSymmetric(
 void ForcingAxiSymmetric::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const unsigned int &pNumForcingFields,
-    [[maybe_unused]] const TiXmlElement *pForce)
+    [[maybe_unused]] const LibUtilities::SessionNode &pForce)
 {
     int spacedim = pFields[0]->GetGraph()->GetSpaceDimension();
     int nPoints  = pFields[0]->GetTotPoints();

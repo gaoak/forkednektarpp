@@ -50,7 +50,8 @@ ForcingQuasi1D::ForcingQuasi1D(
 
 void ForcingQuasi1D::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+    const unsigned int &pNumForcingFields,
+    const LibUtilities::SessionNode &pForce)
 {
     m_NumVariable = pNumForcingFields;
     m_varConv =
@@ -59,15 +60,11 @@ void ForcingQuasi1D::v_InitObject(
     ASSERTL0(pFields[0]->GetGraph()->GetSpaceDimension() == 1,
              "ForcingQuasi1D requires a 1D problem.");
 
-    const TiXmlElement *funcNameElmt = pForce->FirstChildElement("AREAFCN");
-    if (!funcNameElmt)
-    {
-        ASSERTL0(funcNameElmt,
-                 "Requires AREAFCN tag "
-                 "specifying function name which prescribes nozzle area.");
-    }
+    ASSERTL0(pForce.DefinesChild("AREAFCN"),
+             "Requires AREAFCN tag "
+             "specifying function name which prescribes nozzle area.");
 
-    std::string funcName = funcNameElmt->GetText();
+    std::string funcName = pForce.GetValue("AREAFCN");
     ASSERTL0(m_session->DefinesFunction(funcName),
              "Function '" + funcName + "' not defined.");
 
@@ -82,10 +79,9 @@ void ForcingQuasi1D::v_InitObject(
         ->Evaluate(sFieldStr, m_geomFactor, 0.0);
 
     // Check if DADXFCN is defined
-    const TiXmlElement *dAFuncNameElmt = pForce->FirstChildElement("DADXFCN");
-    if (dAFuncNameElmt)
+    if (pForce.DefinesChild("DADXFCN"))
     {
-        funcName = dAFuncNameElmt->GetText();
+        funcName = pForce.GetValue("DADXFCN");
         ASSERTL0(m_session->DefinesFunction(funcName),
                  "Function '" + funcName + "' not defined.");
         ASSERTL0(m_session->DefinesFunction(funcName, sFieldStr),
