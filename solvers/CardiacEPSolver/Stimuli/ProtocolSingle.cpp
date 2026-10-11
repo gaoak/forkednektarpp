@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <CardiacEPSolver/Stimuli/ProtocolSingle.h>
-#include <tinyxml.h>
 
 namespace Nektar
 {
@@ -57,23 +56,14 @@ std::string ProtocolSingle::className =
  */
 ProtocolSingle::ProtocolSingle(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const TiXmlElement *pXml)
+    const LibUtilities::SessionNode &pXml)
     : Protocol(pSession, pXml)
 {
     m_session = pSession;
 
-    if (!pXml)
-    {
-        return;
-    }
+    m_start = pXml.GetValueAs<NekDouble>("START");
 
-    const TiXmlElement *pXmlparameter;
-
-    pXmlparameter = pXml->FirstChildElement("START");
-    m_start       = atof(pXmlparameter->GetText());
-
-    pXmlparameter = pXml->FirstChildElement("DURATION");
-    m_dur         = atof(pXmlparameter->GetText());
+    m_dur = pXml.GetValueAs<NekDouble>("DURATION");
 }
 
 /**

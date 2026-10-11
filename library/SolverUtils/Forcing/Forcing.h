@@ -38,6 +38,7 @@
 #include <string>
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionNode.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Core/SessionFunction.h>
@@ -57,7 +58,7 @@ typedef LibUtilities::NekFactory<
     std::string, Forcing, const LibUtilities::SessionReaderSharedPtr &,
     const std::weak_ptr<EquationSystem> &,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &, const unsigned int &,
-    const TiXmlElement *>
+    const LibUtilities::SessionNode &>
     ForcingFactory;
 
 /// Declaration of the forcing factory singleton
@@ -73,7 +74,8 @@ public:
     /// Initialise the forcing object
     SOLVER_UTILS_EXPORT void InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+        const unsigned int &pNumForcingFields,
+        const LibUtilities::SessionNode &pForce)
     {
         v_InitObject(pFields, pNumForcingFields, pForce);
     }
@@ -140,7 +142,8 @@ protected:
 
     SOLVER_UTILS_EXPORT virtual void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce) = 0;
+        const unsigned int &pNumForcingFields,
+        const LibUtilities::SessionNode &pForce) = 0;
 
     SOLVER_UTILS_EXPORT virtual void v_Apply(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,

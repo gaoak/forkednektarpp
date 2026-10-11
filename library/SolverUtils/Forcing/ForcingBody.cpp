@@ -55,38 +55,32 @@ ForcingBody::ForcingBody(const LibUtilities::SessionReaderSharedPtr &pSession,
 
 void ForcingBody::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+    const unsigned int &pNumForcingFields,
+    const LibUtilities::SessionNode &pForce)
 {
     m_NumVariable = pNumForcingFields;
 
-    const TiXmlElement *funcNameElmt = pForce->FirstChildElement("BODYFORCE");
-    if (!funcNameElmt)
-    {
-        funcNameElmt = pForce->FirstChildElement("FIELDFORCE");
+    ASSERTL0(pForce.DefinesChild("BODYFORCE") ||
+                 pForce.DefinesChild("FIELDFORCE"),
+             "Requires BODYFORCE or FIELDFORCE tag "
+             "specifying function name which prescribes body force.");
 
-        ASSERTL0(funcNameElmt,
-                 "Requires BODYFORCE or FIELDFORCE tag "
-                 "specifying function name which prescribes body force.");
-    }
-
-    m_funcName = funcNameElmt->GetText();
+    m_funcName = pForce.DefinesChild("BODYFORCE")
+                     ? pForce.GetValue("BODYFORCE")
+                     : pForce.GetValue("FIELDFORCE");
     ASSERTL0(m_session->DefinesFunction(m_funcName),
              "Function '" + m_funcName + "' not defined.");
 
     m_homogeneous = pFields[0]->GetExpType() == MultiRegions::e3DH1D ||
                     pFields[0]->GetExpType() == MultiRegions::e3DH2D;
 
-    // Time function is optional
-    funcNameElmt = pForce->FirstChildElement("BODYFORCETIMEFCN");
-    if (!funcNameElmt)
+    // Time function is optional; load it if specified
+    if (pForce.DefinesChild("BODYFORCETIMEFCN") ||
+        pForce.DefinesChild("FIELDFORCETIMEFCN"))
     {
-        funcNameElmt = pForce->FirstChildElement("FIELDFORCETIMEFCN");
-    }
-
-    // Load time function if specified
-    if (funcNameElmt)
-    {
-        std::string funcNameTime = funcNameElmt->GetText();
+        std::string funcNameTime = pForce.DefinesChild("BODYFORCETIMEFCN")
+                                       ? pForce.GetValue("BODYFORCETIMEFCN")
+                                       : pForce.GetValue("FIELDFORCETIMEFCN");
 
         ASSERTL0(!funcNameTime.empty(),
                  "Expression must be given in BODYFORCETIMEFCN or "

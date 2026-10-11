@@ -50,43 +50,23 @@ ForcingNoise::ForcingNoise(const LibUtilities::SessionReaderSharedPtr &pSession,
 
 void ForcingNoise::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+    const unsigned int &pNumForcingFields,
+    const LibUtilities::SessionNode &pForce)
 {
     m_NumVariable = pNumForcingFields;
     int nq        = pFields[0]->GetTotPoints();
 
-    const TiXmlElement *noiseElmt = pForce->FirstChildElement("WHITENOISE");
-    ASSERTL0(noiseElmt, "Requires WHITENOISE tag specifying "
-                        "magnitude of white noise force.");
+    ASSERTL0(pForce.DefinesChild("WHITENOISE"),
+             "Requires WHITENOISE tag specifying "
+             "magnitude of white noise force.");
 
-    std::string noiseValue = noiseElmt->GetText();
+    m_noise = pForce.GetValueAs<NekDouble>("WHITENOISE");
 
-    m_noise = std::stod(noiseValue);
-
-    // Load optional parameters
-    const TiXmlElement *freqElmt = pForce->FirstChildElement("UPDATEFREQ");
-    if (freqElmt)
-    {
-        std::string freqValue = freqElmt->GetText();
-        m_updateFreq          = std::stoi(freqValue);
-    }
-    else
-    {
-        // Default is 0 (never update forcing)
-        m_updateFreq = 0;
-    }
-
-    const TiXmlElement *stepsElmt = pForce->FirstChildElement("NSTEPS");
-    if (stepsElmt)
-    {
-        std::string stepsValue = stepsElmt->GetText();
-        m_numSteps             = std::stoi(stepsValue);
-    }
-    else
-    {
-        // Default is 0 (use noise in the entire simulation)
-        m_numSteps = 0;
-    }
+    // Load optional parameters; the default update frequency of 0 means never
+    // update the forcing, and the default step count of 0 means use noise in
+    // the entire simulation.
+    m_updateFreq = pForce.GetValueAs<int>("UPDATEFREQ", 0);
+    m_numSteps   = pForce.GetValueAs<int>("NSTEPS", 0);
 
     m_Forcing = Array<OneD, Array<OneD, NekDouble>>(m_NumVariable);
 

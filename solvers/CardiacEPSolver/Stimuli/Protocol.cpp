@@ -56,7 +56,7 @@ ProtocolFactory &GetProtocolFactory()
  * Protocol base class constructor.
  */
 Protocol::Protocol(const LibUtilities::SessionReaderSharedPtr &pSession,
-                   [[maybe_unused]] const TiXmlElement *pXml)
+                   [[maybe_unused]] const LibUtilities::SessionNode &pXml)
     : m_session(pSession)
 {
 }

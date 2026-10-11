@@ -54,7 +54,7 @@ ForcingMovingBody::ForcingMovingBody(
 void ForcingMovingBody::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const unsigned int &pNumForcingFields,
-    const TiXmlElement *pForce)
+    const LibUtilities::SessionNode &pForce)
 {
     // Just 3D homogenous 1D problems can use this techinque
     ASSERTL0(pFields[0]->GetExpType() == MultiRegions::e3DH1D,
@@ -1062,7 +1062,7 @@ void ForcingMovingBody::RollOver(Array<OneD, Array<OneD, NekDouble>> &input)
 /**
  *
  */
-void ForcingMovingBody::CheckIsFromFile(const TiXmlElement *pForce)
+void ForcingMovingBody::CheckIsFromFile(const LibUtilities::SessionNode &pForce)
 {
 
     m_funcName  = Array<OneD, std::string>(3);
@@ -1078,35 +1078,29 @@ void ForcingMovingBody::CheckIsFromFile(const TiXmlElement *pForce)
     // displacements.
 
     // Get the body displacement: m_zta and m_eta
-    const TiXmlElement *funcNameElmt_D =
-        pForce->FirstChildElement("DISPLACEMENTS");
-    ASSERTL0(funcNameElmt_D,
+    ASSERTL0(pForce.DefinesChild("DISPLACEMENTS"),
              "MOVINGBODYFORCE tag has to specify a function name which "
              "prescribes the body displacement as d(z,t).");
 
-    m_funcName[0] = funcNameElmt_D->GetText();
+    m_funcName[0] = pForce.GetValue("DISPLACEMENTS");
     ASSERTL0(m_session->DefinesFunction(m_funcName[0]),
              "Function '" + m_funcName[0] + "' not defined.");
 
     // Get the body velocity of movement: d(m_zta)/dt and d(m_eta)/dt
-    const TiXmlElement *funcNameElmt_V =
-        pForce->FirstChildElement("VELOCITIES");
-    ASSERTL0(funcNameElmt_D,
+    ASSERTL0(pForce.DefinesChild("VELOCITIES"),
              "MOVINGBODYFORCE tag has to specify a function name which "
              "prescribes the body velocity of movement as v(z,t).");
 
-    m_funcName[1] = funcNameElmt_V->GetText();
+    m_funcName[1] = pForce.GetValue("VELOCITIES");
     ASSERTL0(m_session->DefinesFunction(m_funcName[1]),
              "Function '" + m_funcName[1] + "' not defined.");
 
     // Get the body acceleration: dd(m_zta)/ddt and dd(m_eta)/ddt
-    const TiXmlElement *funcNameElmt_A =
-        pForce->FirstChildElement("ACCELERATIONS");
-    ASSERTL0(funcNameElmt_A,
+    ASSERTL0(pForce.DefinesChild("ACCELERATIONS"),
              "MOVINGBODYFORCE tag has to specify a function name which "
              "prescribes the body acceleration as a(z,t).");
 
-    m_funcName[2] = funcNameElmt_A->GetText();
+    m_funcName[2] = pForce.GetValue("ACCELERATIONS");
     ASSERTL0(m_session->DefinesFunction(m_funcName[2]),
              "Function '" + m_funcName[2] + "' not defined.");
 
@@ -1215,27 +1209,23 @@ void ForcingMovingBody::CheckIsFromFile(const TiXmlElement *pForce)
 void ForcingMovingBody::InitialiseFilter(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const TiXmlElement *pForce)
+    const LibUtilities::SessionNode &pForce)
 {
     // Get the outputfile name, output frequency and
     // the boundary's ID for the cable's wall
-    std::string typeStr = pForce->Attribute("TYPE");
+    std::string typeStr = pForce.GetAttribute("TYPE");
     std::map<std::string, std::string> vParams;
 
-    const TiXmlElement *param = pForce->FirstChildElement("PARAM");
-    while (param)
+    for (const LibUtilities::SessionNode *param : pForce.GetChildren("PARAM"))
     {
-        ASSERTL0(param->Attribute("NAME"),
+        ASSERTL0(param->DefinesAttribute("NAME"),
                  "Missing attribute 'NAME' for parameter in filter " + typeStr +
                      "'.");
-        std::string nameStr = param->Attribute("NAME");
+        std::string nameStr = param->GetAttribute("NAME");
 
-        ASSERTL0(param->GetText(), "Empty value string for param.");
-        std::string valueStr = param->GetText();
+        ASSERTL0(param->DefinesText(), "Empty value string for param.");
 
-        vParams[nameStr] = valueStr;
-
-        param = param->NextSiblingElement("PARAM");
+        vParams[nameStr] = param->GetText();
     }
 
     // Creat the filter for MovingBody, where we performed the calculation of

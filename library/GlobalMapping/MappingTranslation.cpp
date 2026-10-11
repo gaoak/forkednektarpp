@@ -62,7 +62,7 @@ MappingTranslation::MappingTranslation(
 
 void MappingTranslation::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-    const TiXmlElement *pMapping)
+    const LibUtilities::SessionNode &pMapping)
 {
     m_constantJacobian = true;
     // When there is no Mapping object defined, use the identity

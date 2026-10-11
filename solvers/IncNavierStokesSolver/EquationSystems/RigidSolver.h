@@ -40,6 +40,7 @@
 
 #include <LibUtilities/BasicUtils/Equation.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionNode.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/EquationSystem.h>
@@ -127,9 +128,9 @@ public:
 
 protected:
     void LoadParameters(const LibUtilities::SessionReaderSharedPtr session,
-                        const TiXmlElement *pSolver);
+                        const LibUtilities::SessionNode &pSolver);
     void InitBodySolver(const LibUtilities::SessionReaderSharedPtr session,
-                        const TiXmlElement *pSolver,
+                        const LibUtilities::SessionNode &pSolver,
                         Array<OneD, NekDouble> pivot);
     NekDouble EvaluateExpression(
         const LibUtilities::SessionReaderSharedPtr session,

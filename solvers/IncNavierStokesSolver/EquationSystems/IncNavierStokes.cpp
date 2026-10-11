@@ -52,6 +52,7 @@
 #include <sstream>
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <SolverUtils/Forcing/ForcingMovingReferenceFrame.h>
 #include <tinyxml.h>
 
@@ -1035,36 +1036,24 @@ void IncNavierStokes::v_GetAeroForce(Array<OneD, NekDouble> forces)
  **/
 bool IncNavierStokes::DefinedForcing(const std::string &sForce)
 {
-    std::vector<std::string> vForceList;
-    bool hasForce{false};
-
     if (!m_session->DefinesElement("Nektar/Forcing"))
     {
-        return hasForce;
+        return false;
     }
 
-    TiXmlElement *vForcing = m_session->GetElement("Nektar/Forcing");
-    if (vForcing)
-    {
-        TiXmlElement *vForce = vForcing->FirstChildElement("FORCE");
-        while (vForce)
-        {
-            std::string vType = vForce->Attribute("TYPE");
+    LibUtilities::SessionNode vForcing = LibUtilities::SessionNodeFromXml(
+        m_session->GetElement("Nektar/Forcing"), "FORCING");
 
-            vForceList.push_back(vType);
-            vForce = vForce->NextSiblingElement("FORCE");
+    for (const LibUtilities::SessionNode *vForce :
+         vForcing.GetChildren("FORCE"))
+    {
+        if (boost::iequals(vForce->GetAttribute("TYPE"), sForce))
+        {
+            return true;
         }
     }
 
-    for (auto &f : vForceList)
-    {
-        if (boost::iequals(f, sForce))
-        {
-            hasForce = true;
-        }
-    }
-
-    return hasForce;
+    return false;
 }
 
 /**

@@ -56,7 +56,7 @@ Array<OneD, Array<OneD, NekDouble>> &ForcingProgrammatic::UpdateForces()
 void ForcingProgrammatic::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const unsigned int &pNumForcingFields,
-    [[maybe_unused]] const TiXmlElement *pForce)
+    [[maybe_unused]] const LibUtilities::SessionNode &pForce)
 {
     m_NumVariable = pNumForcingFields;
     int nq        = pFields[0]->GetTotPoints();

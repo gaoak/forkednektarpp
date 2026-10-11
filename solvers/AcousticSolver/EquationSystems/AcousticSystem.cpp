@@ -47,6 +47,7 @@
 
 #include <AcousticSolver/EquationSystems/AcousticSystem.h>
 #include <AcousticSolver/LinerSolvers/PerforatedPlate.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 
 namespace Nektar
 {
@@ -96,11 +97,12 @@ void AcousticSystem::v_InitObject(bool DeclareFields)
 
     if (m_session->DefinesElement("Nektar/Coupling"))
     {
-        TiXmlElement *vCoupling = m_session->GetElement("Nektar/Coupling");
+        LibUtilities::SessionNode vCoupling = LibUtilities::SessionNodeFromXml(
+            m_session->GetElement("Nektar/Coupling"), "COUPLING");
 
-        ASSERTL0(vCoupling->Attribute("TYPE"),
+        ASSERTL0(vCoupling.DefinesAttribute("TYPE"),
                  "Missing TYPE attribute in Coupling");
-        std::string vType = vCoupling->Attribute("TYPE");
+        std::string vType = vCoupling.GetAttribute("TYPE");
         ASSERTL0(!vType.empty(),
                  "TYPE attribute must be non-empty in Coupling");
 

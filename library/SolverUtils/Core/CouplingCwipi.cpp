@@ -225,9 +225,6 @@ void CouplingCwipi::ReadConfig(LibUtilities::SessionReaderSharedPtr session)
 
     m_config["LOCALNAME"] = session->GetCmdLineArgument<std::string>("cwipi");
 
-    TiXmlElement *vCoupling = session->GetElement("Nektar/Coupling");
-    ASSERTL0(vCoupling, "Invalid Coupling config");
-
     m_filtWidth = std::stod(m_config["FILTERWIDTH"]);
 }
 

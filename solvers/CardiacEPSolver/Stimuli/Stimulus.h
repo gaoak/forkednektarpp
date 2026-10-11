@@ -38,6 +38,7 @@
 
 #include <CardiacEPSolver/Stimuli/Protocol.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionNode.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
@@ -55,7 +56,7 @@ typedef std::shared_ptr<Stimulus> StimulusSharedPtr;
 /// the EquationSystem class.
 typedef LibUtilities::NekFactory<
     std::string, Stimulus, const LibUtilities::SessionReaderSharedPtr &,
-    const MultiRegions::ExpListSharedPtr &, const TiXmlElement *>
+    const MultiRegions::ExpListSharedPtr &, const LibUtilities::SessionNode &>
     StimulusFactory;
 
 StimulusFactory &GetStimulusFactory();
@@ -100,7 +101,7 @@ protected:
 
     Stimulus(const LibUtilities::SessionReaderSharedPtr &pSession,
              const MultiRegions::ExpListSharedPtr &pField,
-             const TiXmlElement *pXml);
+             const LibUtilities::SessionNode &pXml);
 
     virtual void v_Update(Array<OneD, Array<OneD, NekDouble>> &outarray,
                           const NekDouble time) = 0;

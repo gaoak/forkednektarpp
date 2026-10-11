@@ -33,6 +33,7 @@
 #include "Coupling.h"
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 
 namespace Nektar::SolverUtils
 {
@@ -58,27 +59,23 @@ void Coupling::v_Init()
 {
     LibUtilities::SessionReaderSharedPtr session = m_evalField->GetSession();
 
-    TiXmlElement *vCoupling = session->GetElement("Nektar/Coupling");
-    ASSERTL0(vCoupling, "Invalid Coupling config");
+    LibUtilities::SessionNode vCoupling = LibUtilities::SessionNodeFromXml(
+        session->GetElement("Nektar/Coupling"), "COUPLING");
 
-    vCoupling->QueryStringAttribute("NAME", &m_couplingName);
+    m_couplingName = vCoupling.GetAttribute("NAME", "");
     ASSERTL0(m_couplingName.size(), "No Coupling NAME attribute set");
 
-    TiXmlElement *element = vCoupling->FirstChildElement("I");
-    while (element)
+    for (const LibUtilities::SessionNode *element : vCoupling.GetChildren("I"))
     {
-        std::stringstream tagcontent;
-        tagcontent << *element;
         // read the property name
-        ASSERTL0(element->Attribute("PROPERTY"),
+        ASSERTL0(element->DefinesAttribute("PROPERTY"),
                  "Missing PROPERTY attribute in Coupling section "
-                 "XML element: \n\t'" +
-                     tagcontent.str() + "'");
-        std::string property = element->Attribute("PROPERTY");
-        ASSERTL0(!property.empty(),
-                 "PROPERTY attribute must be non-empty in XML "
                  "element: \n\t'" +
-                     tagcontent.str() + "'");
+                     element->Describe() + "'");
+        std::string property = element->GetAttribute("PROPERTY");
+        ASSERTL0(!property.empty(), "PROPERTY attribute must be non-empty in "
+                                    "element: \n\t'" +
+                                        element->Describe() + "'");
 
         // make sure that solver property is capitalised
         std::string propertyUpper = boost::to_upper_copy(property);
@@ -86,23 +83,21 @@ void Coupling::v_Init()
         CouplingConfigMap::const_iterator x = m_config.find(propertyUpper);
         ASSERTL0(x != m_config.end(),
                  "Invalid PROPERTY attribute in Coupling section "
-                 "XML element: \n\t'" +
-                     tagcontent.str() + "'");
+                 "element: \n\t'" +
+                     element->Describe() + "'");
 
         // read the value
-        ASSERTL0(element->Attribute("VALUE"),
+        ASSERTL0(element->DefinesAttribute("VALUE"),
                  "Missing VALUE attribute in Coupling section "
-                 "XML element: \n\t'" +
-                     tagcontent.str() + "'");
-        std::string value = element->Attribute("VALUE");
-        ASSERTL0(!value.empty(), "VALUE attribute must be non-empty in XML "
+                 "element: \n\t'" +
+                     element->Describe() + "'");
+        std::string value = element->GetAttribute("VALUE");
+        ASSERTL0(!value.empty(), "VALUE attribute must be non-empty in "
                                  "element: \n\t'" +
-                                     tagcontent.str() + "'");
+                                     element->Describe() + "'");
 
         // Set Variable
         m_config[propertyUpper] = value;
-
-        element = element->NextSiblingElement("I");
     }
 
     // mangle config into variables. This is ugly

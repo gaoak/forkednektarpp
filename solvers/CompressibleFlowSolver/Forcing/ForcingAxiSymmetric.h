@@ -51,7 +51,8 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<SolverUtils::EquationSystem> &pEquation,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+        const unsigned int &pNumForcingFields,
+        const LibUtilities::SessionNode &pForce)
     {
         SolverUtils::ForcingSharedPtr p =
             MemoryManager<ForcingAxiSymmetric>::AllocateSharedPtr(pSession,
@@ -67,7 +68,7 @@ protected:
     void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
         const unsigned int &pNumForcingFields,
-        const TiXmlElement *pForce) override;
+        const LibUtilities::SessionNode &pForce) override;
 
     void v_Apply(const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
                  const Array<OneD, Array<OneD, NekDouble>> &inarray,

@@ -6,6 +6,7 @@ SET(LibUtilitiesUnitTestSources
     TestFieldStorage.cpp
     TestCheckedCast.cpp
     TestRealComparison.cpp
+    TestSessionNode.cpp
     TestInterpCoeff.cpp
     TestPolylib.cpp
     TestCrystalRouter.cpp

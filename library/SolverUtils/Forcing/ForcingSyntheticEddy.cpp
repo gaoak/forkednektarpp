@@ -65,7 +65,7 @@ ForcingSyntheticEddy::ForcingSyntheticEddy(
 void ForcingSyntheticEddy::v_InitObject(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     [[maybe_unused]] const unsigned int &pNumForcingFields,
-    [[maybe_unused]] const TiXmlElement *pForce)
+    [[maybe_unused]] const LibUtilities::SessionNode &pForce)
 {
     // Space dimension
     m_spacedim = pFields[0]->GetGraph()->GetMeshDimension();
@@ -80,14 +80,12 @@ void ForcingSyntheticEddy::v_InitObject(
     // Get gamma parameter
     m_session->LoadParameter("Gamma", m_gamma, 1.4);
 
-    const TiXmlElement *elmtInfTurb;
-
     // Reynolds Stresses
-    elmtInfTurb = pForce->FirstChildElement("ReynoldsStresses");
-    ASSERTL0(elmtInfTurb, "Requires ReynoldsStresses tag specifying function "
-                          "name which prescribes the reynodls stresses.");
+    ASSERTL0(pForce.DefinesChild("ReynoldsStresses"),
+             "Requires ReynoldsStresses tag specifying function "
+             "name which prescribes the reynodls stresses.");
 
-    std::string reyStressesFuncName = elmtInfTurb->GetText();
+    std::string reyStressesFuncName = pForce.GetValue("ReynoldsStresses");
     ASSERTL0(m_session->DefinesFunction(reyStressesFuncName),
              "Function '" + reyStressesFuncName +
                  "' is not defined in the session.");
@@ -113,12 +111,12 @@ void ForcingSyntheticEddy::v_InitObject(
     }
 
     // Characteristic length scales
-    elmtInfTurb = pForce->FirstChildElement("CharLengthScales");
-    ASSERTL0(elmtInfTurb, "Requires CharLengthScales tag specifying function "
-                          "name which prescribes the characteristic "
-                          "length scales.");
+    ASSERTL0(pForce.DefinesChild("CharLengthScales"),
+             "Requires CharLengthScales tag specifying function "
+             "name which prescribes the characteristic "
+             "length scales.");
 
-    std::string charLenScalesFuncName = elmtInfTurb->GetText();
+    std::string charLenScalesFuncName = pForce.GetValue("CharLengthScales");
     ASSERTL0(m_session->DefinesFunction(charLenScalesFuncName),
              "Function '" + charLenScalesFuncName +
                  "' is not defined in the session.");
@@ -150,55 +148,45 @@ void ForcingSyntheticEddy::v_InitObject(
     // Read box of eddies parameters
     m_rc = Array<OneD, NekDouble>(m_spacedim, 0.0);
     // Array<OneD, NekDouble> m_lyz(m_spacedim - 1, 0.0);
-    m_lyz       = Array<OneD, NekDouble>(m_spacedim - 1, 0.0);
-    elmtInfTurb = pForce->FirstChildElement("BoxOfEddies");
-    ASSERTL0(elmtInfTurb,
+    m_lyz = Array<OneD, NekDouble>(m_spacedim - 1, 0.0);
+    ASSERTL0(pForce.DefinesChild("BoxOfEddies"),
              "Unable to find BoxOfEddies tag. in SyntheticTurbulence forcing");
 
-    if (elmtInfTurb)
+    std::stringstream boxStream;
+    std::string boxStr = pForce.GetValue("BoxOfEddies");
+    boxStream.str(boxStr);
+    size_t countVar = 0;
+    for (size_t i = 0; i < (2 * m_spacedim - 1); ++i)
     {
-        std::stringstream boxStream;
-        std::string boxStr = elmtInfTurb->GetText();
-        boxStream.str(boxStr);
-        size_t countVar = 0;
-        for (size_t i = 0; i < (2 * m_spacedim - 1); ++i)
+        boxStream >> boxStr;
+        if (i < m_spacedim)
         {
-            boxStream >> boxStr;
-            if (i < m_spacedim)
-            {
-                m_rc[i] = std::stod(boxStr);
-            }
-            else
-            {
-                m_lyz[i - m_spacedim] = std::stod(boxStr);
-            }
-            countVar += 1;
+            m_rc[i] = std::stod(boxStr);
         }
-        if (countVar != (2 * m_spacedim - 1))
+        else
         {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "Missing parameter in the BoxOfEddies tag");
+            m_lyz[i - m_spacedim] = std::stod(boxStr);
         }
+        countVar += 1;
+    }
+    if (countVar != (2 * m_spacedim - 1))
+    {
+        NEKERROR(Nektar::ErrorUtil::efatal,
+                 "Missing parameter in the BoxOfEddies tag");
     }
 
     // Read sigma
-    elmtInfTurb = pForce->FirstChildElement("Sigma");
-    ASSERTL0(elmtInfTurb,
+    ASSERTL0(pForce.DefinesChild("Sigma"),
              "Unable to find Sigma tag. in SyntheticTurbulence forcing");
-    std::string sigmaStr = elmtInfTurb->GetText();
-    m_sigma              = std::stod(sigmaStr);
+    m_sigma = pForce.GetValueAs<NekDouble>("Sigma");
 
     // Read bulk velocity
-    elmtInfTurb = pForce->FirstChildElement("BulkVelocity");
-    ASSERTL0(elmtInfTurb,
+    ASSERTL0(pForce.DefinesChild("BulkVelocity"),
              "Unable to find BulkVelocity tag. in SyntheticTurbulence forcing");
-    std::string bVelStr = elmtInfTurb->GetText();
-    m_Ub                = std::stod(bVelStr);
+    m_Ub = pForce.GetValueAs<NekDouble>("BulkVelocity");
 
     // Read flag to check if the run is a test case
-    elmtInfTurb          = pForce->FirstChildElement("TestCase");
-    const char *tcaseStr = (elmtInfTurb) ? elmtInfTurb->GetText() : "NoName";
-    m_tCase              = (strcmp(tcaseStr, "ChanFlow3D") == 0) ? true : false;
+    m_tCase = pForce.GetValue("TestCase", "NoName") == "ChanFlow3D";
 
     // Set Cholesky decomposition of the Reynolds Stresses in the domain
     SetCholeskyReyStresses(pFields);

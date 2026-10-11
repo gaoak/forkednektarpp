@@ -56,7 +56,8 @@ public:
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const std::weak_ptr<EquationSystem> &pEquation,
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields, const TiXmlElement *pForce)
+        const unsigned int &pNumForcingFields,
+        const LibUtilities::SessionNode &pForce)
     {
         ForcingSharedPtr p = MemoryManager<ForcingLorentz>::AllocateSharedPtr(
             pSession, pEquation);
@@ -71,7 +72,7 @@ protected:
     void v_InitObject(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
         const unsigned int &pNumForcingFields,
-        const TiXmlElement *pForce) override;
+        const LibUtilities::SessionNode &pForce) override;
 
     void v_Apply(const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
                  const Array<OneD, Array<OneD, NekDouble>> &inarray,

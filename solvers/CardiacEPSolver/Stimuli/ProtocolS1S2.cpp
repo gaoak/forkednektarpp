@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <CardiacEPSolver/Stimuli/ProtocolS1S2.h>
-#include <tinyxml.h>
 
 namespace Nektar
 {
@@ -53,37 +52,17 @@ std::string ProtocolS1S2::className =
  * Protocol base class constructor.
  */
 ProtocolS1S2::ProtocolS1S2(const LibUtilities::SessionReaderSharedPtr &pSession,
-                           const TiXmlElement *pXml)
+                           const LibUtilities::SessionNode &pXml)
     : Protocol(pSession, pXml)
 {
     m_session = pSession;
 
-    if (!pXml)
-    {
-        return;
-    }
-
-    const TiXmlElement *pXmlparameter; // Declaring variable called pxml...
-    // See if we have parameters defined.  They are optional so we go on if not.
-
     // member variables m_* defined in ProtocolS1S2.h
-
-    pXmlparameter = pXml->FirstChildElement("START");
-    m_start =
-        atof(pXmlparameter->GetText()); // text value within px1, convert to a
-                                        // floating pt and save in m_px1
-
-    pXmlparameter = pXml->FirstChildElement("DURATION");
-    m_dur         = atof(pXmlparameter->GetText());
-
-    pXmlparameter   = pXml->FirstChildElement("S1CYCLELENGTH");
-    m_s1cyclelength = atof(pXmlparameter->GetText());
-
-    pXmlparameter = pXml->FirstChildElement("NUM_S1");
-    m_num_s1      = atof(pXmlparameter->GetText());
-
-    pXmlparameter   = pXml->FirstChildElement("S2CYCLELENGTH");
-    m_s2cyclelength = atof(pXmlparameter->GetText());
+    m_start         = pXml.GetValueAs<NekDouble>("START");
+    m_dur           = pXml.GetValueAs<NekDouble>("DURATION");
+    m_s1cyclelength = pXml.GetValueAs<NekDouble>("S1CYCLELENGTH");
+    m_num_s1        = pXml.GetValueAs<NekDouble>("NUM_S1");
+    m_s2cyclelength = pXml.GetValueAs<NekDouble>("S2CYCLELENGTH");
 
     m_s2start = m_s1cyclelength * (m_num_s1 - 1) + m_s2cyclelength + m_start;
 }

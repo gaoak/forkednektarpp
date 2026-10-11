@@ -49,7 +49,7 @@ public:
     /// Creates an instance of this class
     static ProtocolSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const TiXmlElement *pXml)
+        const LibUtilities::SessionNode &pXml)
     {
         return MemoryManager<ProtocolS1>::AllocateSharedPtr(pSession, pXml);
     }
@@ -80,7 +80,7 @@ protected:
 
 private:
     ProtocolS1(const LibUtilities::SessionReaderSharedPtr &pSession,
-               const TiXmlElement *pXml);
+               const LibUtilities::SessionNode &pXml);
 };
 
 } // namespace Nektar
