@@ -28,9 +28,50 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Serial/AVX sum-factorised implementation of the advection
+// block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionSerialAVXSumFac.hpp
+ * @brief Serial/AVX sum-factorised implementation of the advection block
+ * operator.
+ *
+ * @details
+ * Instead of a dense standard-region matrix, the SumFac strategy
+ * differentiates through the tensor-product structure of the basis: the
+ * PhysDerivTensor{1,2,3}DKernel routines
+ * (StdRegions/Operators/PhysDerivSumFacStdKernels.hpp) produce the
+ * derivatives along the reference tensor directions from the
+ * one-dimensional derivative matrices, and the Advection{1,2,3}DKernel
+ * routines (AdvectionSerialAVXSumFacKernels.hpp) apply the
+ * collapsed-to-standard coordinate correction for simplex-type shapes, the
+ * geometric derivative factors and the dot product with the advection
+ * velocity. Each SIMD lane owns one element, so a group of simd_t::width
+ * elements advances in lock-step (width one on the Serial execution
+ * space).
+ *
+ * v_Apply() dispatches on the block's shape type to the ShapeBlock()
+ * specialisations, whose definitions CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one translation
+ * unit per shape: each wraps OperatorND() in a switch over the element
+ * sizes so that compile-time constants reach the kernels, falling back to
+ * a runtime-sized call for other sizes.
+ *
+ * This header provides the definition of detail::AdvectionBlockOpImpl for
+ * the Serial and AVX execution spaces with the SumFac implementation tag;
+ * see AdvectionSerialAVXStdMat.hpp for the StdMat sibling and the note on
+ * the one-definition-per-translation-unit scheme.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through AdvectionOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -48,6 +89,40 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX sum-factorised advection block operator: tensor-product
+ * differentiation followed by the per-shape advection kernels, one element
+ * per SIMD lane.
+ *
+ * @details
+ * The constructor collects, per reference direction, the element sizes and
+ * one-dimensional derivative matrices, plus the pointwise chain-rule
+ * factors (1 + eta)/2 and 2/(1 - eta) evaluated at the quadrature points
+ * (data-warehouse keys eHalfMultOnePlusZero and eTwoOverOneMinusZero). The
+ * factor tables are fetched for every 2D block (two of them) and every 3D
+ * block (four of them) whatever the shape, since the condition in the
+ * constructor is on the element dimension alone; only the shapes with
+ * collapsed coordinates use them, the kernels discarding the tables of
+ * quadrilaterals and hexahedra through a compile-time shape test. See the
+ * Advection2DKernel and Advection3DKernel documentation for which factor
+ * serves which direction. The constructor also fetches the block's
+ * derivative factors and allocates per-direction workspace for the
+ * intermediate reference-space derivatives.
+ *
+ * The generated ShapeBlock() specialisations land in OperatorND(), which
+ * forwards to OperatorNDImpl(): that loops over components and homogeneous
+ * modes and, within each, over element groups, handing every group to
+ * AdvectionKernelLauncher (AdvectionSerialAVXSumFacKernels.hpp), which
+ * differentiates it with PhysDerivTensor*DKernel into #m_deriv and
+ * finishes it with Advection*DKernel. Fields stored at a larger interleave
+ * width are reshaped in place around the group loop, as in the StdMat
+ * implementation.
+ *
+ * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX; selects
+ *                        scalar or SIMD arithmetic through simd_t.
+ * @tparam Implementation Implementation tag (SumFac).
+ * @tparam TData          Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>
 {
@@ -58,6 +133,16 @@ class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Capture the block's element metadata, fetch the 1D
+     * derivative matrices, collapsed-coordinate factors and derivative
+     * factors, and allocate the workspace (see the class description).
+     *
+     * @param   block_idx       Index of the block.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     AdvectionBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -137,10 +222,13 @@ public:
         }
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
@@ -153,18 +241,37 @@ public:
     }
 
 protected:
+    /// Element interleave width the kernels expect: the SIMD width (1 on
+    /// the Serial execution space).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape of the block's elements; drives the dispatch in v_Apply().
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point derivative factors).
     bool m_isDeformed;
+    /// Whether the direction-0 basis is of type eModified_A.
     bool m_isModified;
+    /// Reference (shape) dimension of the elements.
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) elements.
     unsigned int m_coordDim;
+    /// Modes per reference direction.
     std::vector<unsigned int> m_nm;
+    /// Quadrature points per reference direction.
     std::vector<unsigned int> m_nq;
+    /// One-dimensional derivative matrices, one per direction.
     std::vector<const TData *> m_D;
+    /// Collapsed-coordinate chain-rule factors (see the class
+    /// description); empty for 1D blocks.
     std::vector<const simd_t *> m_f;
+    /// Workspace: the reference derivative of one element group, one
+    /// vector of nqTot SIMD entries per direction.
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
+    /// Derivative factors of the whole block, interleaved at the SIMD
+    /// width and fetched untransposed: a deformed block stores the
+    /// coordDim * dimension factors of a point together, point by point,
+    /// while a regular block stores a single set per element group and
+    /// has no point index at all (see DerivFactorKey).
     const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -172,6 +279,16 @@ protected:
     bool m_warnOnce = false;
 #endif
 
+    /**
+     * @brief In debug builds, warn once if the block storage is not
+     * aligned for simd_t; then dispatch on the block's shape to the
+     * generated ShapeBlock() specialisation. An unsupported shape type
+     * is reported on std::cout and leaves the output block untouched.
+     *
+     * @param   inblock     Physical-space input block.
+     * @param   outblock    Physical-space output block; overwritten, or
+     *                      accumulated onto when append is set.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
@@ -291,8 +408,58 @@ protected:
             std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
     }
 
-    // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the collapsed coordinate factors used by the kernels.
+    /**
+     * @brief Worker for every dimension: advect all element groups of the
+     * block, component by component.
+     *
+     * @details
+     * Reshapes the advection velocity to #m_implInterleaveWidth if it is
+     * still held at another width, then loops over the components and
+     * homogeneous modes of the block and, within each, over the element
+     * groups. Every group is handed to AdvectionKernelLauncher, whose
+     * one-, two- and three-dimensional overloads this one body calls;
+     * overload resolution picks the arm from the number of arguments the
+     * index sequences expand to. The launcher forms the reference
+     * derivatives of the group in #m_deriv and finishes them with the
+     * derivative factors and the velocity.
+     *
+     * The velocity pointer is reset at the start of every component and
+     * homogeneous mode to the velocity of that mode's plane, so the same
+     * velocity serves every component. Its first three components are
+     * passed separately, offset from each other by one component's worth
+     * of the block (nelmt * nqTot * nhomo); a 1D or 2D kernel reads only
+     * the components its coordinate dimension has. The
+     * derivative-factor pointer advances by one group's factors:
+     * coordDim * ndim of them, times nqTot for deformed geometry.
+     *
+     * Fields stored at an interleave width larger than the implementation
+     * width are handled by reshaping width_ratio consecutive groups in
+     * place. The two sides are not treated symmetrically: the input is
+     * converted to the implementation width before the kernel and
+     * converted back once the groups have been processed, whereas the
+     * output is converted forward only when it is accumulated onto
+     * (append set) -- there is nothing to preserve otherwise -- and is in
+     * both cases converted from the implementation width to the input's
+     * width once the kernel has written it. The output block's recorded
+     * interleave width is set to the input's on return.
+     *
+     * @tparam SHAPE_TYPE          Shape of the block, the nodal
+     *                             enumerators included.
+     * @tparam DEFORMED            Derivative factors vary point by point.
+     * @tparam TPhysSizeParameter  Size parameter of this dimension,
+     *                             templated or not.
+     * @tparam ind0                Reference directions, 0 to ndim - 1;
+     *                             selects the derivative matrices #m_D and
+     *                             the workspaces #m_deriv.
+     * @tparam ind1                Collapsed-coordinate factor tables #m_f
+     *                             the kernels use: none in 1D, two in 2D,
+     *                             four in 3D (see NumFactor()).
+     *
+     * @param   inblock     Physical-space input block.
+     * @param   outblock    Physical-space output block; overwritten, or
+     *                      accumulated onto when append is set.
+     * @param   sizeParam   Element sizes, in runtime or compile-time form.
+     */
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TPhysSizeParameter, unsigned int... ind0,
               unsigned int... ind1>

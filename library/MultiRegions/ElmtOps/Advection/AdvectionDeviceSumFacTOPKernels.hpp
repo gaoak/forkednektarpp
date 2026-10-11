@@ -28,9 +28,51 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: SumFacTOP device kernels of the advection operator, one
+// element per thread block.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionDeviceSumFacTOPKernels.hpp
+ * @brief SumFacTOP device kernels of the advection operator: one element
+ * per thread block, threads indexed over the element's quadrature points.
+ *
+ * @details
+ * These kernels compute the same thing as the SumFac ones in
+ * AdvectionDeviceSumFacKernels.hpp -- the tensor-direction derivatives,
+ * the collapsed-to-standard coordinate correction, the geometric
+ * derivative factors and the dot product with the advection velocity --
+ * but distribute the work differently. A whole thread block takes one
+ * element at a time and its threads stride over the element's quadrature
+ * points, each thread computing the output at the points it owns. In two
+ * and three dimensions the element's input values are staged in shared
+ * memory first, so that the tensor contractions, which read across the
+ * element, hit shared rather than global memory; the derivative factors
+ * and the velocity stay in global memory and are read at the thread's own
+ * point index, the collapsed-coordinate tables at the direction indices
+ * that point resolves into. Accordingly the data is not interleaved (one
+ * element's values are contiguous) and the derivative factors are taken
+ * in the transposed layout, with each factor component contiguous over
+ * the element's points.
+ *
+ * The file provides, for each dimensionality: the per-element kernel
+ * (Advection*DSumFacTOPKernel) and the device entry point the block
+ * operator launches (the AdvectionKernelLauncher overload for that
+ * dimension), which unpacks the size parameter and walks the block's
+ * elements one thread block at a time, one grid row per component or
+ * homogeneous mode, staging each element's input in shared memory in two
+ * and three dimensions before calling the per-element kernel.
+ * AdvectionSharedMemorySize reports how much dynamic shared memory such a
+ * launch must request. The launchers are constrained to the SumFacTOP
+ * implementation tag and are otherwise identical in name and signature to
+ * the SumFac ones, which is how AdvectionBlockOpImpl::OperatorNDImpl can
+ * launch either strategy from one call site.
+ *
+ * Everything in the namespace is guarded by NEKTAR_ENABLE_DEVICE and
+ * DEVICE_COMPILE_ONLY, so it exists only in translation units compiled for
+ * a device back-end.
+ */
 
 #pragma once
 
@@ -44,7 +86,21 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-// Helper function
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a one-dimensional shape: none, since the 1D
+ * launcher reads the element's input straight from global memory.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter1D  1D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   sizeParam1D  Element sizes; unused.
+ *
+ * @return Zero.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -57,6 +113,24 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
     return 0;
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a two-dimensional shape.
+ *
+ * One thread block holds one element's input values, so the requirement
+ * is the element's total number of quadrature points, whatever the shape.
+ * The collapsed-coordinate factor tables are not staged.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter2D  2D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   sizeParam2D  Quadrature-point counts per direction.
+ *
+ * @return Shared-memory requirement in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -72,6 +146,23 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
     return nq0 * nq1;
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a three-dimensional shape.
+ *
+ * As in two dimensions: one element's input values, i.e. the element's
+ * total number of quadrature points.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   sizeParam3D  Quadrature-point counts per direction.
+ *
+ * @return Shared-memory requirement in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -88,6 +179,40 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
     return nq0 * nq1 * nq2;
 }
 
+/**
+ * @brief One element of a 1D block, shared by a thread block:
+ * out = scale * du/dxi * sum_d df(d) V_d at the quadrature points the
+ * calling thread owns.
+ *
+ * The threads stride over the element's points; for each of them the
+ * derivative along the single reference direction is formed by
+ * contracting @p D0 over the element's values, then multiplied by the
+ * derivative factor and velocity component of each coordinate direction.
+ * Everything is addressed by the plain point index, since the element's
+ * data is contiguous; in one dimension nothing is staged in shared memory
+ * and @p in points straight at the element's values. The kernel ends with
+ * a block barrier, as the 2D and 3D kernels do, where it protects the
+ * staging of the launcher's next element.
+ *
+ * @tparam APPEND       Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   ncoord       Coordinate dimension, i.e. number of derivative
+ *                       factors and velocity components.
+ * @param   nq0          Quadrature points per element.
+ * @param   D0           1D derivative matrix of the direction.
+ * @param   df           Derivative factors of this element.
+ * @param   advVel       Velocity data of this element; component d starts
+ *                       at d * advVelOffset.
+ * @param   advVelOffset Stride between velocity components.
+ * @param   in           Input values of this element.
+ * @param   out          Output values of this element.
+ * @param   scale        Scalar factor applied to the result.
+ * @param   threadBlock  Thread-block handle supplying the thread index,
+ *                       the thread count and the barrier.
+ */
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -133,6 +258,52 @@ NEK_DEVICE_INLINE static void Advection1DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief One element of a 2D block, shared by a thread block:
+ * out = scale * sum_k V_k sum_d df(k,d) du/dxi_d at the quadrature points
+ * the calling thread owns.
+ *
+ * The threads stride over the element's nq0 * nq1 points; the flat index
+ * splits into the direction-0 and direction-1 indices, and each thread
+ * contracts D0 and D1 over the element's staged input to form the two
+ * tensor-direction derivatives at its own point. For triangles these are
+ * collapsed-coordinate derivatives, so d0 is first multiplied by
+ * f1[j] = 2/(1 - eta_1) and d1 augmented by d0 * f0[i] with
+ * f0[i] = (1 + eta_0)/2. The 2 * ncoord derivative factors are then
+ * applied and contracted with the velocity, a third factor/velocity pair
+ * contributing when @p ncoord is 3. Derivative factors are indexed with
+ * the component stride dfsize -- the transposed layout -- and the barrier
+ * at the end protects the shared input against the next element's
+ * staging.
+ *
+ * @tparam SHAPE_TYPE   Element shape; selects the collapsed-coordinate
+ *                      correction.
+ * @tparam APPEND       Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   ncoord       Coordinate dimension, i.e. number of
+ *                       gradient/velocity components (2 or 3).
+ * @param   nq0          Quadrature points in direction 0.
+ * @param   nq1          Quadrature points in direction 1.
+ * @param   D0           1D derivative matrix of direction 0.
+ * @param   D1           1D derivative matrix of direction 1.
+ * @param   f0           Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                       direction-0 points (triangles only).
+ * @param   f1           Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                       direction-1 points (triangles only).
+ * @param   df           Derivative factors of this element.
+ * @param   advVel       Velocity data of this element; component k starts
+ *                       at k * advVelOffset.
+ * @param   advVelOffset Stride between velocity components.
+ * @param   in           Input values of this element, staged in shared
+ *                       memory by the caller.
+ * @param   out          Output values of this element.
+ * @param   scale        Scalar factor applied to the result.
+ * @param   threadBlock  Thread-block handle supplying the thread index,
+ *                       the thread count and the barrier.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
@@ -177,7 +348,7 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
             d1 += D1[q * nq1 + j] * in[nq0 * q + i];
         }
 
-        // Moving from standard to collapsed coordinates.
+        // Moving from collapsed to standard coordinates.
         if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                       SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -211,6 +382,52 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief One element of a 3D block, shared by a thread block:
+ * out = scale * sum_k V_k sum_d df(k,d) du/dxi_d at the quadrature points
+ * the calling thread owns.
+ *
+ * The threads stride over the element's nq0 * nq1 * nq2 points, each
+ * splitting its flat index into the three direction indices and
+ * contracting D0, D1 and D2 over the staged input. Shapes with collapsed
+ * coordinates are then chain-ruled back to standard coordinates with the
+ * tabulated factors -- hexahedra need no correction, prisms and pyramids
+ * fold the corrected direction-0 (and, for pyramids, direction-1)
+ * derivative into direction 2, and tetrahedra combine all four tables (see
+ * Advection3DKernel in AdvectionSerialAVXSumFacKernels.hpp for the
+ * formulae) -- before the nine derivative factors are applied and
+ * contracted with the velocity. The barrier at the end protects the shared
+ * input against the next element's staging.
+ *
+ * @tparam SHAPE_TYPE   Element shape; selects the collapsed-coordinate
+ *                      correction.
+ * @tparam APPEND       Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   nq0          Quadrature points in direction 0.
+ * @param   nq1          Quadrature points in direction 1.
+ * @param   nq2          Quadrature points in direction 2.
+ * @param   D0           1D derivative matrix of direction 0.
+ * @param   D1           1D derivative matrix of direction 1.
+ * @param   D2           1D derivative matrix of direction 2.
+ * @param   f0           (1 + eta_0)/2 at the direction-0 points.
+ * @param   f1           (1 + eta_1)/2 at the direction-1 points.
+ * @param   f1m          2/(1 - eta_1) at the direction-1 points.
+ * @param   f2           2/(1 - eta_2) at the direction-2 points.
+ * @param   df           Derivative factors of this element, nine per
+ *                       element or per point.
+ * @param   advVel       Velocity data of this element; component k starts
+ *                       at k * advVelOffset.
+ * @param   advVelOffset Stride between velocity components.
+ * @param   in           Input values of this element, staged in shared
+ *                       memory by the caller.
+ * @param   out          Output values of this element.
+ * @param   scale        Scalar factor applied to the result.
+ * @param   threadBlock  Thread-block handle supplying the thread index,
+ *                       the thread count and the barrier.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
@@ -267,7 +484,7 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
             d2 += D2[q * nq2 + k] * in[nq0 * nq1 * q + nq0 * j + i];
         }
 
-        // Moving from standard to collapsed coordinates.
+        // Moving from collapsed to standard coordinates.
         if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                       SHAPE_TYPE == LibUtilities::NodalTet)
         {
@@ -316,6 +533,53 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief Device entry point of the 1D SumFacTOP advection kernel.
+ *
+ * Launched by AdvectionBlockOpImpl::OperatorNDImpl through
+ * DEVICE_2DGRID_KERNEL_LAUNCHER, which appends the shared-memory pointer
+ * (unused here) and the thread-block handle. Unpacks the size parameter
+ * -- runtime or compile-time, both satisfying IsPhysSizeParameter1D_v as
+ * the static_assert enforces. Each thread block then starts at its own
+ * block index in the grid's first dimension and strides by that
+ * dimension's range, so the block's @p nelmt elements (padding included)
+ * are covered whatever grid size was launched -- the grid may hold fewer
+ * thread blocks than there are elements (see GetDeviceGridSize in
+ * ElmtBlockOp.hpp). The grid's second dimension gives the index c of the
+ * component -- or homogeneous mode -- being advected, read once and fixed
+ * for every element this thread block takes, since that dimension holds
+ * exactly one block row for each. Element e's slice of the input and
+ * output arrays is selected by pointer arithmetic that also offsets by c,
+ * since @p in and @p out address every component, the velocity slice by
+ * e and the plane c % @p nhomo, and the derivative-factor slice by e
+ * alone -- the same velocity and factors serve every component -- before
+ * Advection1DSumFacTOPKernel computes the element's output. The enable_if
+ * pins this overload to the SumFacTOP tag; the SumFac tag resolves to the
+ * identically named launcher in AdvectionDeviceSumFacKernels.hpp.
+ *
+ * @tparam SHAPE_TYPE           Element shape (segments only; unused).
+ * @tparam Implementation       Implementation tag; SumFacTOP here.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter1D 1D physical-space size parameter.
+ * @tparam TthreadBlock         Back-end thread-block handle type.
+ *
+ * @param   sizeParam1D  Element sizes: coordinate dimension and
+ *                       quadrature points.
+ * @param   nelmt        Elements in the block, including padding.
+ * @param   D0           1D derivative matrix of the direction.
+ * @param   df           Derivative factors of the block.
+ * @param   advVel       Velocity data of the block.
+ * @param   advVelOffset Stride between velocity components.
+ * @param   nhomo        Homogeneous planes per variable.
+ * @param   in           Input values of the block.
+ * @param   out          Output values of the block.
+ * @param   scale        Scalar factor applied to the result.
+ * @param   shmemptr     Dynamic shared memory of the thread block; unused
+ *                       in one dimension.
+ * @param   threadBlock  Thread-block handle supplied by the launcher
+ *                       macro.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter1D,
           typename TthreadBlock, typename TData,
@@ -355,6 +619,45 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     }
 }
 
+/**
+ * @brief Device entry point of the 2D SumFacTOP advection kernel.
+ *
+ * As in 1D, but the shared memory is used: FETCH_SHARED_MEMORY() binds
+ * @p shmemptr to the block's dynamic shared memory (a no-op on the
+ * back-ends that pass it in). Each element's input values are then copied
+ * from global into that shared memory -- the threads share the copy work
+ * with the same stride they later compute with -- and a barrier publishes
+ * the copy before Advection2DSumFacTOPKernel reads across it. That kernel
+ * ends with a barrier of its own, so the copy for the next element cannot
+ * start while a thread is still reading this one.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam Implementation       Implementation tag; SumFacTOP here.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter2D 2D physical-space size parameter.
+ * @tparam TthreadBlock         Back-end thread-block handle type.
+ *
+ * @param   sizeParam2D  Element sizes: coordinate dimension and
+ *                       per-direction quadrature points.
+ * @param   nelmt        Elements in the block, including padding.
+ * @param   D0           1D derivative matrix of direction 0.
+ * @param   D1           1D derivative matrix of direction 1.
+ * @param   f0           Collapsed-coordinate factor of direction 0.
+ * @param   f1           Collapsed-coordinate factor of direction 1.
+ * @param   df           Derivative factors of the block.
+ * @param   advVel       Velocity data of the block.
+ * @param   advVelOffset Stride between velocity components.
+ * @param   nhomo        Homogeneous planes per variable.
+ * @param   in           Input values of the block.
+ * @param   out          Output values of the block.
+ * @param   scale        Scalar factor applied to the result.
+ * @param   shmemptr     Dynamic shared memory of the thread block, at
+ *                       least one element's worth of values (see
+ *                       AdvectionSharedMemorySize).
+ * @param   threadBlock  Thread-block handle supplied by the launcher
+ *                       macro.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter2D,
           typename TthreadBlock, typename TData,
@@ -414,6 +717,44 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     }
 }
 
+/**
+ * @brief Device entry point of the 3D SumFacTOP advection kernel.
+ *
+ * Counterpart of the 2D overload for three-dimensional shapes; the size
+ * parameter carries no coordinate dimension, since a 3D element always
+ * has three. One element is taken per thread block at a time, its input
+ * staged in shared memory behind a barrier, then Advection3DSumFacTOPKernel
+ * computes its output.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam Implementation       Implementation tag; SumFacTOP here.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter3D 3D physical-space size parameter.
+ * @tparam TthreadBlock         Back-end thread-block handle type.
+ *
+ * @param   sizeParam3D  Element sizes: per-direction quadrature points.
+ * @param   nelmt        Elements in the block, including padding.
+ * @param   D0           1D derivative matrix of direction 0.
+ * @param   D1           1D derivative matrix of direction 1.
+ * @param   D2           1D derivative matrix of direction 2.
+ * @param   f0           (1 + eta_0)/2 at the direction-0 points.
+ * @param   f1           (1 + eta_1)/2 at the direction-1 points.
+ * @param   f1m          2/(1 - eta_1) at the direction-1 points.
+ * @param   f2           2/(1 - eta_2) at the direction-2 points.
+ * @param   df           Derivative factors of the block.
+ * @param   advVel       Velocity data of the block.
+ * @param   advVelOffset Stride between velocity components.
+ * @param   nhomo        Homogeneous planes per variable; unused in 3D.
+ * @param   in           Input values of the block.
+ * @param   out          Output values of the block.
+ * @param   scale        Scalar factor applied to the result.
+ * @param   shmemptr     Dynamic shared memory of the thread block, at
+ *                       least one element's worth of values (see
+ *                       AdvectionSharedMemorySize).
+ * @param   threadBlock  Thread-block handle supplied by the launcher
+ *                       macro.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter3D,
           typename TthreadBlock, typename TData,

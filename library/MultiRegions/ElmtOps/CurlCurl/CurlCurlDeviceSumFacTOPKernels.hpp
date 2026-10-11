@@ -32,6 +32,54 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlDeviceSumFacTOPKernels.hpp
+ * @brief SumFacTOP device kernels of the curl-curl operator: one element
+ * per thread block, threads indexed over the element's quadrature points.
+ *
+ * @details
+ * These kernels compute the same thing as the SumFac ones in
+ * CurlCurlDeviceSumFacKernels.hpp -- the tensor-direction derivatives of
+ * every component, the collapsed-to-standard coordinate correction, the
+ * geometric derivative factors and the curl, twice over for the double
+ * curl -- but distribute the work differently. A whole thread block takes
+ * one element at a time and its threads stride over the element's
+ * quadrature points, each thread computing the output at the points it
+ * owns. The element's input components are staged in shared memory first,
+ * so that the tensor contractions, which read across the element, hit
+ * shared rather than global memory, and the vorticity omega formed by the
+ * first curl is written to shared memory too, where the second curl reads
+ * it; the derivative factors stay in global memory and are read at the
+ * thread's own point index, the collapsed-coordinate tables at the
+ * direction indices that point resolves into. Accordingly the data is not
+ * interleaved (one element's values are contiguous) and the derivative
+ * factors are taken in the transposed layout, with each factor component
+ * contiguous over the element's points.
+ *
+ * The file provides, for each dimensionality: the per-element curl kernels
+ * (Curl2DScalarSumFacTOPKernel and Curl2DVectorSumFacTOPKernel in 2D,
+ * Curl3DSumFacTOPKernel for both curls in 3D) and the device entry point
+ * the block operator launches (the CurlCurlKernelLauncher overload for
+ * that dimension), which unpacks the size parameter and walks the block's
+ * elements one thread block at a time, staging each element's input
+ * components in shared memory before calling the curl kernels.
+ * Curl3DH1KernelLauncher, launched with the planes of a multi-plane 3DH1
+ * block on the second grid dimension, stages an element's three
+ * components the same way and calls each 2D curl kernel once, for the
+ * plane part of a single curl. CurlCurlSharedMemorySize reports how much
+ * dynamic shared memory such a launch must request; CurlCurlWorkSpaceSize
+ * reports that no global workspace is needed. The launchers and helpers
+ * are constrained to the SumFacTOP implementation tag and are otherwise
+ * identical in name and signature to the SumFac ones, which is how
+ * CurlCurlBlockOpImpl::OperatorNDImpl and
+ * CurlCurlBlockOpImpl::OperatorCurl3DH1 can launch either strategy from
+ * one call site.
+ *
+ * Everything in the namespace is guarded by NEKTAR_ENABLE_DEVICE and
+ * DEVICE_COMPILE_ONLY, so it exists only in translation units compiled for
+ * a device back-end.
+ */
+
 #pragma once
 
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
@@ -44,10 +92,26 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-// Helper function
-//
-// The two curls of the curl-curl operator are fused into a single kernel, so
-// shared memory holds the input components as well as the intermediate omega.
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a one-dimensional shape: none, since the 1D
+ * launcher reads the element's input straight from global memory.
+ *
+ * In two and three dimensions the two curls of the operator are fused into
+ * a single kernel, so the shared memory holds the element's input
+ * components as well as the intermediate omega; see the 2D and 3D
+ * overloads.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter1D  1D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   sizeParam1D  Element sizes; unused.
+ *
+ * @return Zero.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -60,6 +124,26 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
     return 0;
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a two-dimensional shape.
+ *
+ * Three element-sized buffers, whatever the shape: the two input
+ * components the launcher stages and the out-of-plane vorticity the first
+ * curl kernel writes; Curl3DH1KernelLauncher stages its three input
+ * components in the same three buffers. The collapsed-coordinate factor
+ * tables are not staged.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter2D  2D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   sizeParam2D  Quadrature-point counts per direction.
+ *
+ * @return 3 * nq0 * nq1.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -76,6 +160,24 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
     return 3 * nq0 * nq1;
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a three-dimensional shape.
+ *
+ * Six element-sized buffers, whatever the shape: the three input
+ * components the launcher stages and the three vorticity components the
+ * first curl kernel writes.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   sizeParam3D  Quadrature-point counts per direction.
+ *
+ * @return 6 * nq0 * nq1 * nq2.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -93,8 +195,24 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
     return 6 * nq0 * nq1 * nq2;
 }
 
-// The intermediate omega is held in shared memory, so no global workspace is
-// required by this implementation.
+/**
+ * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
+ * for a one-dimensional shape: none.
+ *
+ * The intermediate omega is held in shared memory, so no overload of this
+ * helper requests global workspace for the SumFacTOP strategy.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter1D  1D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements in the block; unused.
+ * @param   sizeParam1D  Element sizes; unused.
+ *
+ * @return Zero.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -108,6 +226,22 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
     return 0;
 }
 
+/**
+ * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
+ * for a two-dimensional shape: none, the vorticity being held in shared
+ * memory.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter2D  2D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements in the block; unused.
+ * @param   sizeParam2D  Element sizes; unused.
+ *
+ * @return Zero.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -121,6 +255,22 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
     return 0;
 }
 
+/**
+ * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
+ * for a three-dimensional shape: none, the vorticity being held in shared
+ * memory.
+ *
+ * @tparam SHAPE_TYPE            Element shape; unused.
+ * @tparam Implementation        Implementation tag; this overload is
+ *                               constrained to SumFacTOP.
+ * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
+ *                               ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements in the block; unused.
+ * @param   sizeParam3D  Element sizes; unused.
+ *
+ * @return Zero.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TPhysSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -134,11 +284,47 @@ inline constexpr size_t CurlCurlWorkSpaceSize(
     return 0;
 }
 
-// Scalar curl of a two-dimensional vector field, omega = dv/dx - du/dy.
-//
-// The tensorial derivatives of both components are accumulated together so
-// that the chain rule, the collapsed coordinate correction and the curl are
-// applied in a single sweep over the quadrature points.
+/**
+ * @brief One element of a 2D block, shared by a thread block: the scalar
+ * curl omega = d(u1)/dx0 - d(u0)/dx1 at the quadrature points the calling
+ * thread owns, from the element's values of both components.
+ *
+ * The threads stride over the element's points; for each of them the
+ * derivatives of both components along the two tensor directions are
+ * formed by contracting @p D0 and @p D1 over the element's values, in
+ * registers and at once, so that the collapsed-coordinate correction (for
+ * triangles, as in Curl2DScalarSumFacKernel), the chain rule and the curl
+ * are applied in a single sweep. Everything is addressed by the plain
+ * point index, since the element's data is contiguous; the derivative
+ * factors are read in the transposed layout, factor component m of point
+ * idx at m * nqTot + idx for deformed geometry and at m for regular
+ * geometry. The kernel ends with a block barrier, so that the vorticity is
+ * complete before the second curl kernel reads across it.
+ *
+ * @tparam SHAPE_TYPE   Element shape; selects the collapsed-coordinate
+ *                      correction.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   ncoord      Coordinate dimension; unused.
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   inoffset    Stride between the two components of @p in.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (triangles only).
+ * @param   df          Derivative factors of the element, transposed
+ *                      layout.
+ * @param   in          Input values of the element, in shared memory when
+ *                      called from the launcher; component 1 starts at
+ *                      @p inoffset.
+ * @param   omega       Output values of the element.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Curl2DScalarSumFacTOPKernel(
@@ -186,7 +372,7 @@ NEK_DEVICE_INLINE static void Curl2DScalarSumFacTOPKernel(
             d1v += Dq * in[inoffset + qsource];
         }
 
-        // Moving from standard to collapsed coordinates.
+        // Moving from collapsed to standard coordinates.
         if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                       SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -208,8 +394,41 @@ NEK_DEVICE_INLINE static void Curl2DScalarSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-// Vector curl of a two-dimensional scalar field,
-// out = {d(omega)/dy, -d(omega)/dx}.
+/**
+ * @brief One element of a 2D block, shared by a thread block: the vector
+ * curl out = ( d(omega)/dx1, -d(omega)/dx0 ) at the quadrature points the
+ * calling thread owns, from the element's values of the vorticity.
+ *
+ * The tensor-direction derivatives of omega are formed as in
+ * Curl2DScalarSumFacTOPKernel, corrected and chain-ruled the same way, and
+ * both output components are written by the same thread. The kernel ends
+ * with a block barrier, so that the launcher's copy of the next element's
+ * input cannot start while a thread is still reading the shared vorticity.
+ *
+ * @tparam SHAPE_TYPE   Element shape; selects the collapsed-coordinate
+ *                      correction.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   ncoord      Coordinate dimension; unused.
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   outoffset   Stride between the two components of @p out.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (triangles only).
+ * @param   df          Derivative factors of the element, transposed
+ *                      layout.
+ * @param   omega       Vorticity values of the element, in shared memory
+ *                      when called from the launcher.
+ * @param   out         Output values of the element; component 1 starts
+ *                      at @p outoffset.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Curl2DVectorSumFacTOPKernel(
@@ -250,7 +469,7 @@ NEK_DEVICE_INLINE static void Curl2DVectorSumFacTOPKernel(
             d1 += D1[q * nq1 + j] * omega[nq0 * q + i];
         }
 
-        // Moving from standard to collapsed coordinates.
+        // Moving from collapsed to standard coordinates.
         if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                       SHAPE_TYPE == LibUtilities::NodalTri)
         {
@@ -268,8 +487,60 @@ NEK_DEVICE_INLINE static void Curl2DVectorSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-// Curl of a three-dimensional vector field. Used for both passes of the
-// curl-curl operator, i.e. omega = curl(u) and out = curl(omega).
+/**
+ * @brief One element of a 3D block, shared by a thread block: the curl of
+ * a three-component field at the quadrature points the calling thread
+ * owns; used for both passes of the curl-curl operator, omega = curl u and
+ * out = curl omega.
+ *
+ * The threads stride over the element's points; for each of them the
+ * derivatives of the three components along the three tensor directions
+ * are formed by contracting @p D0, @p D1 and @p D2 over the element's
+ * values, in registers and at once, then chain-ruled back to the standard
+ * coordinates for the simplex-type shapes exactly as in Curl3DSumFacKernel
+ * and mapped into Cartesian derivatives by the derivative-factor entry
+ * k * 3 + d, read in the transposed layout as in
+ * Curl2DScalarSumFacTOPKernel. Only the six off-diagonal Cartesian
+ * derivatives are formed, the diagonal ones cancelling out of the curl:
+ *     out0 = d(u2)/dx1 - d(u1)/dx2,
+ *     out1 = d(u0)/dx2 - d(u2)/dx0,
+ *     out2 = d(u1)/dx0 - d(u0)/dx1.
+ * The kernel ends with a block barrier, so that its output is complete
+ * before the next kernel or the launcher's next copy reads or overwrites
+ * shared memory.
+ *
+ * @tparam SHAPE_TYPE   Element shape; selects the collapsed-coordinate
+ *                      correction.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   nq2         Quadrature points in direction 2.
+ * @param   inoffset    Stride between the components of @p in.
+ * @param   outoffset   Stride between the components of @p out.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   D2          1D derivative matrix of direction 2.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (prisms, pyramids and
+ *                      tetrahedra).
+ * @param   f1          Collapsed-coordinate factor (1 + eta_1)/2 at the
+ *                      direction-1 points (pyramids and tetrahedra).
+ * @param   f1m         Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (tetrahedra only).
+ * @param   f2          Collapsed-coordinate factor 2/(1 - eta_2) at the
+ *                      direction-2 points (prisms, pyramids and
+ *                      tetrahedra).
+ * @param   df          Derivative factors of the element, transposed
+ *                      layout.
+ * @param   in          Input values of the element, three components at
+ *                      @p inoffset from each other.
+ * @param   out         Output values of the element, three components at
+ *                      @p outoffset from each other.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
@@ -333,7 +604,7 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
             d2[2] += Dq * in[2u * inoffset + qsource];
         }
 
-        // Moving from standard to collapsed coordinates.
+        // Moving from collapsed to standard coordinates.
 #pragma unroll
         for (unsigned int c = 0u; c < 3u; ++c)
         {
@@ -388,9 +659,50 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
-// The curl-curl operator is not defined in one dimension. The launcher is
-// only instantiated so that the segment block operator compiles, and simply
-// evaluates the derivative in the first direction.
+/**
+ * @brief Device entry point of the 1D SumFacTOP kernel: the curl-curl is
+ * undefined on a segment, so each element's single component is
+ * differentiated once along its direction.
+ *
+ * Exists so that the generated segment ShapeBlock() compiles; the block
+ * operator's constructor asserts that the block is two- or
+ * three-dimensional (see CurlCurlDeviceSumFac.hpp). Launched by
+ * CurlCurlBlockOpImpl::OperatorNDImpl through
+ * DEVICE_1DGRID_KERNEL_LAUNCHER, which appends the shared-memory pointer
+ * (unused here) and the thread-block handle. Unpacks the size parameter --
+ * runtime or compile-time, both satisfying IsPhysSizeParameter1D_v as the
+ * static_assert enforces. The element index comes from the thread-block
+ * index and advances by the number of thread blocks in the grid, so the
+ * whole block cooperates on one element at a time and the block's
+ * @p nelmt elements (padding included) are covered whatever grid size was
+ * launched; the input, output and derivative-factor pointers are offset by
+ * whole elements, the data being contiguous rather than warp interleaved,
+ * and PhysDerivDir1DSumFacTOPKernel writes the element's derivative with
+ * the direction-0 derivative factor. The enable_if pins this overload to
+ * the SumFacTOP tag, leaving the SumFac tag to the identically named
+ * launcher in CurlCurlDeviceSumFacKernels.hpp.
+ *
+ * @tparam SHAPE_TYPE           Element shape (segments only; unused).
+ * @tparam Implementation       Implementation tag; SumFacTOP here.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter1D 1D physical-space size parameter.
+ * @tparam TthreadBlock         Back-end thread-block handle type.
+ *
+ * @param   sizeParam1D  Element sizes: coordinate dimension and
+ *                       quadrature points.
+ * @param   nelmt        Elements in the block, including padding.
+ * @param   inoffset     Component stride; unused in one dimension.
+ * @param   D0           1D derivative matrix of the direction.
+ * @param   df           Derivative factors of the block, transposed
+ *                       layout.
+ * @param   in           Input values of the block.
+ * @param   wsp          Global workspace; unused.
+ * @param   out          Output values of the block.
+ * @param   shmemptr     Dynamic shared memory of the thread block; unused
+ *                       in one dimension.
+ * @param   threadBlock  Thread-block handle supplied by the launcher
+ *                       macro.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter1D, typename TthreadBlock,
           typename TData,
@@ -426,9 +738,50 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
     }
 }
 
-// Fused two-dimensional curl-curl kernel. Both curls are evaluated in the
-// same kernel launch, with the input components and the intermediate omega
-// staged through shared memory.
+/**
+ * @brief Device entry point of the 2D SumFacTOP kernel: both curls of the
+ * operator for every element of the block in one launch.
+ *
+ * As in 1D, but the shared memory is used: FETCH_SHARED_MEMORY() binds
+ * @p shmemptr to the block's dynamic shared memory (a no-op on the
+ * back-ends that pass it in), laid out as the element's two input
+ * components followed by its vorticity. Each element's input components
+ * are copied from global into that shared memory -- the threads share the
+ * copy work with the same stride they later compute with -- and a barrier
+ * publishes the copy before Curl2DScalarSumFacTOPKernel reads across it to
+ * write the vorticity into the third buffer; Curl2DVectorSumFacTOPKernel
+ * then reads the vorticity and writes the output straight to global
+ * memory. Both kernels end with a barrier of their own, so the vorticity
+ * is complete before it is read and the copy for the next element cannot
+ * start while a thread is still reading this one.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam Implementation       Implementation tag; SumFacTOP here.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter2D 2D physical-space size parameter.
+ * @tparam TthreadBlock         Back-end thread-block handle type.
+ *
+ * @param   sizeParam2D  Element sizes: coordinate dimension and
+ *                       per-direction quadrature points.
+ * @param   nelmt        Elements in the block, including padding.
+ * @param   inoffset     Stride between the components of @p in, also used
+ *                       between those of @p out.
+ * @param   D0           1D derivative matrix of direction 0.
+ * @param   D1           1D derivative matrix of direction 1.
+ * @param   f0           Collapsed-coordinate factor of direction 0.
+ * @param   f1           Collapsed-coordinate factor of direction 1.
+ * @param   df           Derivative factors of the block, transposed
+ *                       layout.
+ * @param   in           Input values of the block, two components.
+ * @param   wsp          Global workspace; unused, the vorticity being
+ *                       held in shared memory.
+ * @param   out          Output values of the block, two components.
+ * @param   shmemptr     Dynamic shared memory of the thread block, at
+ *                       least CurlCurlSharedMemorySize elements of TData:
+ *                       three element-sized buffers.
+ * @param   threadBlock  Thread-block handle supplied by the launcher
+ *                       macro.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -570,8 +923,50 @@ NEK_DEVICE_KERNEL void Curl3DH1KernelLauncher(
     }
 }
 
-// Fused three-dimensional curl-curl kernel, see the two-dimensional kernel
-// above for the rationale.
+/**
+ * @brief Device entry point of the 3D SumFacTOP kernel: both curls of the
+ * operator for every element of the block in one launch.
+ *
+ * As in 2D, with the shared memory laid out as the element's three input
+ * components followed by its three vorticity components, and
+ * Curl3DSumFacTOPKernel called twice per element: first from the staged
+ * input into the vorticity buffers, with the element size nqTot as both
+ * component strides, then from the vorticity buffers into the output,
+ * reading the vorticity at nqTot and writing the output at @p inoffset.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam Implementation       Implementation tag; SumFacTOP here.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter3D 3D physical-space size parameter.
+ * @tparam TthreadBlock         Back-end thread-block handle type.
+ *
+ * @param   sizeParam3D  Element sizes: per-direction quadrature points.
+ * @param   nelmt        Elements in the block, including padding.
+ * @param   inoffset     Stride between the components of @p in, also used
+ *                       between those of @p out.
+ * @param   D0           1D derivative matrix of direction 0.
+ * @param   D1           1D derivative matrix of direction 1.
+ * @param   D2           1D derivative matrix of direction 2.
+ * @param   f0           Collapsed-coordinate factor (1 + eta_0)/2 of
+ *                       direction 0.
+ * @param   f1           Collapsed-coordinate factor (1 + eta_1)/2 of
+ *                       direction 1.
+ * @param   f1m          Collapsed-coordinate factor 2/(1 - eta_1) of
+ *                       direction 1.
+ * @param   f2           Collapsed-coordinate factor 2/(1 - eta_2) of
+ *                       direction 2.
+ * @param   df           Derivative factors of the block, transposed
+ *                       layout.
+ * @param   in           Input values of the block, three components.
+ * @param   wsp          Global workspace; unused, the vorticity being
+ *                       held in shared memory.
+ * @param   out          Output values of the block, three components.
+ * @param   shmemptr     Dynamic shared memory of the thread block, at
+ *                       least CurlCurlSharedMemorySize elements of TData:
+ *                       six element-sized buffers.
+ * @param   threadBlock  Thread-block handle supplied by the launcher
+ *                       macro.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TPhysSizeParameter3D, typename TthreadBlock,
           typename TData,

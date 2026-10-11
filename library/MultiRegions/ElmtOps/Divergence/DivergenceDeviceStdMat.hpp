@@ -32,6 +32,35 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file DivergenceDeviceStdMat.hpp
+ * @brief Device standard-matrix implementation of the Divergence block
+ * operator: dense standard-region derivative matrices applied through
+ * the back-end BLAS.
+ *
+ * @details
+ * Included by the translation unit CMake generates for the "StdMat"
+ * implementation on the Device execution space. See DivergenceOp.hpp
+ * for what the operator computes and DivergenceSerialAVXStdMat.hpp
+ * for the Serial/AVX counterpart of this strategy. Where that path
+ * issues one libxsmm GEMM per reference direction and element group,
+ * this one covers the whole block -- every element, plane and vector
+ * component -- with a single strided-batched GEMM through NekBlas (the
+ * vendor BLAS behind it depends on the build), so the matrices are
+ * fetched untransposed (ePhysDerivStdMat, where the host uses
+ * ePhysDerivStdMatTranspose) and the block data is read as one
+ * column-major matrix instead of lane-interleaved: the implementation
+ * interleave width is one.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through DivergenceOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
+
 #pragma once
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
@@ -43,12 +72,103 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device StdMat implementation of DivergenceBlockOp: one
+ * strided-batched BLAS GEMM forming every reference-direction
+ * derivative of every component of the block, followed by one
+ * derivative-factor contraction per component accumulating into a
+ * single output component.
+ *
+ * @details
+ * ### What one application does
+ * Every element of the block shares the standard-region derivative
+ * matrices (StdMatKey with ePhysDerivStdMat: one `nqTot x nqTot`
+ * matrix per reference direction, with any collapsed-coordinate
+ * correction baked in), so one GEMM per reference direction
+ * differentiates the whole block at once. The `dimension` products
+ * are issued as a single NekBlas::GemmStridedBatched call whose batch
+ * index is the reference direction d,
+ *
+ *     wsp_d (nqTot x dimension*nelmtTot)
+ *         = D_d * in (nqTot x dimension*nelmtTot),
+ *
+ * with `nelmtTot = nelmt * nhomo`, the right-hand operand being the
+ * block's first `dimension` components read as one matrix -- the
+ * columns are the elements of every plane of component 0, then those
+ * of component 1, and so on, padding elements included (their results
+ * are ignored) -- with a batch stride of zero, so every derivative
+ * matrix is applied to all components. Workspace slice d thus holds
+ * \f$\partial u_c/\partial\xi_d\f$ for every component c, one
+ * component run after another, and the static per-stream workspace is
+ * sized for `dimension * dimension` such runs.
+ * MultiplyByDerivDirFactorKernel (with the APPEND and DEFORMED flags)
+ * is then launched once per component c: starting from that
+ * component's run in slice 0 and stepping between the direction slices
+ * with a stride of `dimension` runs, it contracts
+ * \f$\partial u_c/\partial\xi_d\f$ over d with row c of the
+ * derivative factors, overwriting the output for c = 0 and
+ * accumulating (APPEND) for the remaining components, so the block's
+ * single output component ends up holding
+ * \f[ \sum_c \sum_d \frac{\partial\xi_d}{\partial x_c}
+ *     \frac{\partial u_c}{\partial\xi_d}, \f]
+ * the same quantity the Serial/AVX StdMat sibling forms group by
+ * group.
+ *
+ * ### Layout and launch
+ * The GEMM needs each element's data contiguous, so the
+ * implementation works at interleave width 1
+ * (#m_implInterleaveWidth) and reshapes the block storage -- all
+ * input components and planes in one call, the output separately --
+ * to that width and back around the call. Reading the components as
+ * consecutive column blocks relies on a component's planes following
+ * one another, so that consecutive components stay adjacent. The
+ * contraction kernel runs the block's points on the first grid
+ * dimension and the planes on the second, all planes sharing the
+ * derivative factors, which are fetched in the factor-major
+ * ("transposed") layout the kernel indexes. Each block operator owns
+ * device stream `block_idx + 1`, so different blocks may overlap on
+ * the device.
+ *
+ * @tparam ExecSpace       NektarSpaces::Device.
+ * @tparam Implementation  Implementation tag the including
+ *                         translation unit registers
+ *                         (MultiRegions::StdMat here).
+ * @tparam TData           Floating-point type of the field data.
+ *
+ * @see DivergenceDeviceSumFac.hpp for the sum-factorised device
+ * paths.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Fetch the stacked standard-region derivative matrices
+     * and the block's derivative factors, and bind the block's device
+     * stream.
+     *
+     * The matrices are keyed on the block's basis keys and shape
+     * (ePhysDerivStdMat, one `nqTot x nqTot` block per reference
+     * direction). The derivative factors are fetched in transposed
+     * form at interleave width 1: per element the
+     * `coordDim * dimension` factors follow one another, each
+     * carrying one value per quadrature point for a deformed block
+     * and a single value for a regular one.
+     *
+     * Asserts (debug builds) that the shape dimension equals the
+     * coordinate dimension, i.e. embedded expansions are not
+     * supported.
+     *
+     * @param   block_idx       Index of the block within the
+     *                          expansion list's Collections; the
+     *                          stream used for all device work is
+     *                          block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     DivergenceBlockOpImpl(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
                           LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -86,10 +206,10 @@ public:
                                                 m_implInterleaveWidth, true));
     }
 
-    // className - for BlockOperatorFactory
+    /// Block-operator class name; defined by generated factory code.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// Creator function registered with BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
@@ -102,18 +222,57 @@ public:
     }
 
 protected:
+    /// Interleave width the GEMM path operates at: 1, i.e. contiguous
+    /// per-element data.
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    /// Device stream this block's work is issued on (block index + 1).
     unsigned int m_streamID;
+    /// Shape shared by every element of the block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed (derivative factors
+    /// then vary per quadrature point rather than per element).
     bool m_isDeformed;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the element; equal to #m_dimension
+    /// here, as asserted in the constructor.
     unsigned int m_coordDim;
+    /// Number of expansion modes per element; unused by this
+    /// implementation.
     unsigned int m_nmTot;
+    /// Number of quadrature points per element.
     unsigned int m_nqTot;
+    /// Stacked standard-region derivative matrices, one
+    /// `nqTot x nqTot` block per reference direction, in device
+    /// memory.
     const TData *m_matptr;
+    /// Derivative factors of the whole block, transposed layout (see
+    /// the constructor notes).
     const TData *m_dfptr;
 
+    /**
+     * @brief Differentiate the components of the block with one
+     * strided-batched GEMM and accumulate the contracted derivatives
+     * into the output.
+     *
+     * Reshapes the input components to interleave width 1 in a
+     * single call, issues the strided-batched GEMM into the static
+     * per-stream workspace, contracts the workspace with the
+     * derivative factors component by component, every plane in one
+     * launch (deformed and regular geometries use separate kernel
+     * instantiations, and the first component overwrites where the
+     * others append), then reshapes inputs and output back and sets
+     * the output block's interleave width to the input's. All work is
+     * issued on this block operator's stream.
+     *
+     * @param   inblock     Physical-space input block; its first
+     *                      shape-dimension components are the vector
+     *                      field, each spanning all the planes.
+     * @param   outblock    Physical-space output block receiving the
+     *                      divergence of every plane in its first
+     *                      component.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override

@@ -32,6 +32,35 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlSerialAVXSumFacKernels.hpp
+ * @brief Kernels of the Serial/AVX sum-factorised curl-curl operator:
+ * tensor-product differentiation, collapsed-coordinate correction,
+ * derivative factors and curl, one element per SIMD lane.
+ *
+ * @details
+ * CurlCurlKernelLauncher is the entry point the block operator
+ * (CurlCurlSerialAVXSumFac.hpp) calls for one element group; its one-,
+ * two- and three-dimensional overloads are selected by the type of the
+ * size parameter. The 2D and 3D overloads differentiate the group's
+ * components along the reference tensor directions with the
+ * PhysDerivTensor kernels
+ * (StdRegions/Operators/PhysDerivSumFacStdKernels.hpp), hand the result to
+ * a curl kernel that forms the vorticity omega = curl u, differentiate
+ * omega the same way and hand that to a curl kernel that writes
+ * curl(omega). The curl kernels apply, in one sweep over the quadrature
+ * points, the collapsed-to-standard coordinate correction for simplex-type
+ * shapes -- the tensor directions being the collapsed coordinates there,
+ * the derivatives are first chain-ruled back to the standard coordinates
+ * using the pointwise factors f0/f1/f1m/f2, tabulations of (1 + eta)/2 and
+ * 2/(1 - eta) at the quadrature points of the respective direction (see
+ * CurlCurlSerialAVXSumFac.hpp for how they are fetched) -- then the
+ * geometric derivative factors, then the curl. Curl3DH1KernelLauncher is
+ * the entry point for one plane of a multi-plane 3DH1 block: it forms the
+ * plane part of a single curl of three components with the 2D curl
+ * kernels.
+ */
+
 #pragma once
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
@@ -43,11 +72,43 @@
 namespace Nektar::MultiRegions::detail
 {
 
-// Scalar curl of a two-dimensional vector field, omega = dv/dx - du/dy.
-//
-// The tensorial derivatives of both components are consumed in a single
-// sweep, so the collapsed coordinate correction, the chain rule and the curl
-// are applied together rather than in three separate passes.
+/**
+ * @brief Scalar curl of a two-dimensional vector field,
+ * omega = d(u1)/dx0 - d(u0)/dx1, from the tensor-direction derivatives of
+ * both components, per quadrature point with one element per SIMD lane.
+ *
+ * For triangles the tensor directions are the collapsed coordinates: each
+ * direction-0 derivative is multiplied by f1[j] = 2/(1 - eta_1) and the
+ * direction-1 derivative augmented by it times f0[i] = (1 + eta_0)/2,
+ * recovering the standard-coordinate derivatives before the derivative
+ * factors are applied. The derivative-factor entry k * 2 + d then maps the
+ * direction-d derivative into the Cartesian-k gradient component, and the
+ * two off-diagonal Cartesian derivatives are combined into omega. All of
+ * this happens in a single sweep rather than in separate passes.
+ *
+ * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
+ *                    correction.
+ * @tparam DEFORMED   Read per-point rather than per-element derivative
+ *                    factors.
+ * @tparam simd_type  SIMD vector type; one element per lane.
+ *
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   ncoord      Coordinate dimension; sets the stride 2 * ncoord
+ *                      between the factor sets of consecutive points.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (triangles only).
+ * @param   df_ptr      Derivative factors (2 * ncoord per element group,
+ *                      or per point when deformed); the first four are
+ *                      read.
+ * @param   tderiv0_0   Tensor-direction-0 derivative of component u0.
+ * @param   tderiv1_0   Tensor-direction-1 derivative of component u0.
+ * @param   tderiv0_1   Tensor-direction-0 derivative of component u1.
+ * @param   tderiv1_1   Tensor-direction-1 derivative of component u1.
+ * @param   out         Output plane of nq0 * nq1 vectors receiving omega.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void Curl2DScalarSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned int ncoord,
@@ -86,7 +147,7 @@ NEK_FORCE_INLINE static void Curl2DScalarSumFacKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                           SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                // Moving from standard to collapsed coordinates
+                // Moving from collapsed to standard coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
                 d0u *= xfrm1;
                 d1u.fma(d0u, xfrm0);
@@ -113,11 +174,38 @@ NEK_FORCE_INLINE static void Curl2DScalarSumFacKernel(
     }
 }
 
-// Vector curl of a two-dimensional scalar field,
-// out = {d(omega)/dy, -d(omega)/dx}.
-//
-// Both output components come out of the same sweep, so the sign flip does
-// not need a pass of its own.
+/**
+ * @brief Vector curl of a two-dimensional scalar field,
+ * out = ( d(omega)/dx1, -d(omega)/dx0 ), from the tensor-direction
+ * derivatives of omega, per quadrature point with one element per SIMD
+ * lane.
+ *
+ * The collapsed-coordinate correction and the derivative factors are
+ * applied as in Curl2DScalarSumFacKernel; both output components come out
+ * of the same sweep, so the sign flip needs no pass of its own.
+ *
+ * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
+ *                    correction.
+ * @tparam DEFORMED   Read per-point rather than per-element derivative
+ *                    factors.
+ * @tparam simd_type  SIMD vector type; one element per lane.
+ *
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   ncoord      Coordinate dimension; sets the stride 2 * ncoord
+ *                      between the factor sets of consecutive points.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (triangles only).
+ * @param   df_ptr      Derivative factors (2 * ncoord per element group,
+ *                      or per point when deformed); the first four are
+ *                      read.
+ * @param   tderiv0     Tensor-direction-0 derivative of omega.
+ * @param   tderiv1     Tensor-direction-1 derivative of omega.
+ * @param   out0        First output component, nq0 * nq1 vectors.
+ * @param   out1        Second output component, nq0 * nq1 vectors.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void Curl2DVectorSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned int ncoord,
@@ -153,7 +241,7 @@ NEK_FORCE_INLINE static void Curl2DVectorSumFacKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                           SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                // Moving from standard to collapsed coordinates
+                // Moving from collapsed to standard coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
                 d0 *= xfrm1;
                 d1.fma(d0, xfrm0);
@@ -179,12 +267,63 @@ NEK_FORCE_INLINE static void Curl2DVectorSumFacKernel(
     }
 }
 
-// Curl of a three-dimensional vector field. Used for both passes of the
-// curl-curl operator, i.e. omega = curl(u) and out = curl(omega).
-//
-// The tensorial derivatives of the three components are consumed in a single
-// sweep. Only the six off-diagonal physical derivatives are formed, the
-// diagonal ones cancel out.
+/**
+ * @brief Curl of a three-dimensional vector field from the
+ * tensor-direction derivatives of its three components, per quadrature
+ * point with one element per SIMD lane; used for both passes of the
+ * curl-curl operator, omega = curl u and out = curl omega.
+ *
+ * For the simplex-type shapes the tensor directions are the collapsed
+ * coordinates and each component's derivatives are first chain-ruled back
+ * to the standard coordinates: a prism scales the direction-0 derivative
+ * by f2[k] and adds f0[i] times it to direction 2; a pyramid scales
+ * directions 0 and 1 by f2[k] and adds f0[i] and f1[j] times them to
+ * direction 2; a tetrahedron scales direction 0 by f1m[j] * f2[k],
+ * rebuilds direction 1 from f0[i] times that and f2[k] times the old
+ * direction-1 derivative, and adds both contributions -- the second
+ * weighted by f1[j] -- to direction 2. Hexahedra need no correction. The
+ * derivative-factor entry k * 3 + d then maps the direction-d derivative
+ * into the Cartesian-k gradient component; only the six off-diagonal
+ * Cartesian derivatives are formed, the diagonal ones cancelling out of
+ * the curl:
+ *     out0 = d(u2)/dx1 - d(u1)/dx2,
+ *     out1 = d(u0)/dx2 - d(u2)/dx0,
+ *     out2 = d(u1)/dx0 - d(u0)/dx1.
+ *
+ * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
+ *                    correction.
+ * @tparam DEFORMED   Read per-point rather than per-element derivative
+ *                    factors.
+ * @tparam simd_type  SIMD vector type; one element per lane.
+ *
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   nq2         Quadrature points in direction 2.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (prisms, pyramids and
+ *                      tetrahedra).
+ * @param   f1          Collapsed-coordinate factor (1 + eta_1)/2 at the
+ *                      direction-1 points (pyramids and tetrahedra).
+ * @param   f1m         Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (tetrahedra only).
+ * @param   f2          Collapsed-coordinate factor 2/(1 - eta_2) at the
+ *                      direction-2 points (prisms, pyramids and
+ *                      tetrahedra).
+ * @param   df_ptr      Derivative factors (nine per element group, or per
+ *                      point when deformed).
+ * @param   tderiv0_0   Tensor-direction-0 derivative of component 0.
+ * @param   tderiv1_0   Tensor-direction-1 derivative of component 0.
+ * @param   tderiv2_0   Tensor-direction-2 derivative of component 0.
+ * @param   tderiv0_1   Tensor-direction-0 derivative of component 1.
+ * @param   tderiv1_1   Tensor-direction-1 derivative of component 1.
+ * @param   tderiv2_1   Tensor-direction-2 derivative of component 1.
+ * @param   tderiv0_2   Tensor-direction-0 derivative of component 2.
+ * @param   tderiv1_2   Tensor-direction-1 derivative of component 2.
+ * @param   tderiv2_2   Tensor-direction-2 derivative of component 2.
+ * @param   out0        First output component, nq0 * nq1 * nq2 vectors.
+ * @param   out1        Second output component, nq0 * nq1 * nq2 vectors.
+ * @param   out2        Third output component, nq0 * nq1 * nq2 vectors.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void Curl3DSumFacKernel(
     const unsigned nq0, const unsigned nq1, const unsigned nq2,
@@ -335,6 +474,31 @@ NEK_FORCE_INLINE static void Curl3DSumFacKernel(
     }
 }
 
+/**
+ * @brief 1D entry point: the curl-curl is undefined on a segment, so the
+ * group's single component is differentiated once -- PhysDerivTensor1DKernel
+ * followed by PhysDerivDir1DKernel with the direction-0 derivative factor
+ * -- and the derivative written to the output.
+ *
+ * Exists so that the generated segment ShapeBlock() compiles; the block
+ * operator's constructor asserts that the block is two- or
+ * three-dimensional (see CurlCurlSerialAVXSumFac.hpp).
+ *
+ * @tparam SHAPE_TYPE           Element shape (segments only).
+ * @tparam DEFORMED             Derivative factors vary point by point.
+ * @tparam TPhysSizeParameter1D 1D physical-space size parameter, runtime
+ *                              or compile-time (checked by static_assert).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam1D Element sizes: coordinate dimension and quadrature
+ *                      points.
+ * @param   D0          1D derivative matrix of the direction.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   wsp         Workspace of at least nq0 vectors for the
+ *                      tensor-direction derivative.
+ * @param   in0         Input values of the group.
+ * @param   out0        Output values of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
@@ -356,6 +520,38 @@ NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
                                                          wsp, out0);
 }
 
+/**
+ * @brief 2D entry point: evaluate curl(curl u) for one element group.
+ *
+ * Lays the workspace out as the two tensor-direction derivatives of u0,
+ * the two of u1 and one plane for omega -- five planes of nqTot vectors,
+ * the count NumWorkspace() in the block operator provides. Differentiates
+ * both components with PhysDerivTensor2DKernel, forms omega with
+ * Curl2DScalarSumFacKernel, differentiates omega into the planes of u0 and
+ * writes the two output components with Curl2DVectorSumFacKernel. The
+ * coordinate dimension passed to the curl kernels is two, so the factor
+ * sets are read at a stride of four.
+ *
+ * @tparam SHAPE_TYPE           Element shape; selects the
+ *                              collapsed-coordinate correction.
+ * @tparam DEFORMED             Derivative factors vary point by point.
+ * @tparam TPhysSizeParameter2D 2D physical-space size parameter, runtime
+ *                              or compile-time (checked by static_assert).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam2D Element sizes: coordinate dimension and
+ *                      per-direction quadrature points.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   f0          Collapsed-coordinate factor of direction 0.
+ * @param   f1          Collapsed-coordinate factor of direction 1.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   wsp         Workspace of at least 5 * nqTot vectors.
+ * @param   in0         Input component u0 of the group.
+ * @param   in1         Input component u1 of the group.
+ * @param   out0        First output component of the group.
+ * @param   out1        Second output component of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void CurlCurlKernelLauncher(
@@ -443,6 +639,46 @@ NEK_FORCE_INLINE static void Curl3DH1KernelLauncher(
         nq0, nq1, 2, f0, f1, df_ptr, tderiv_u, tderiv_u + nqTot, out0, out1);
 }
 
+/**
+ * @brief 3D entry point: evaluate curl(curl u) for one element group.
+ *
+ * Lays the workspace out as the nine tensor-direction derivatives -- three
+ * per component -- followed by the three planes of omega: twelve planes of
+ * nqTot vectors, the count NumWorkspace() provides. Differentiates the
+ * three components with PhysDerivTensor3DKernel, forms omega with
+ * Curl3DSumFacKernel, differentiates the components of omega into the same
+ * nine planes and writes the three output components with a second
+ * Curl3DSumFacKernel call. Each tensor-direction derivative is thus formed
+ * once and reused for every Cartesian derivative that needs it.
+ *
+ * @tparam SHAPE_TYPE           Element shape; selects the
+ *                              collapsed-coordinate correction.
+ * @tparam DEFORMED             Derivative factors vary point by point.
+ * @tparam TPhysSizeParameter3D 3D physical-space size parameter, runtime
+ *                              or compile-time (checked by static_assert).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam3D Element sizes: per-direction quadrature points.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   D2          1D derivative matrix of direction 2.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 of
+ *                      direction 0.
+ * @param   f1          Collapsed-coordinate factor (1 + eta_1)/2 of
+ *                      direction 1.
+ * @param   f1m         Collapsed-coordinate factor 2/(1 - eta_1) of
+ *                      direction 1.
+ * @param   f2          Collapsed-coordinate factor 2/(1 - eta_2) of
+ *                      direction 2.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   wsp         Workspace of at least 12 * nqTot vectors.
+ * @param   in0         Input component u0 of the group.
+ * @param   in1         Input component u1 of the group.
+ * @param   in2         Input component u2 of the group.
+ * @param   out0        First output component of the group.
+ * @param   out1        Second output component of the group.
+ * @param   out2        Third output component of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void CurlCurlKernelLauncher(

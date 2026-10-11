@@ -28,15 +28,60 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Pointwise derivative-factor and velocity kernel of the
+// Serial/AVX StdMat advection block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionSerialAVXStdMatKernels.hpp
+ * @brief Pointwise derivative-factor/velocity kernel of the Serial/AVX
+ * StdMat advection block operator (see AdvectionSerialAVXStdMat.hpp).
+ */
 
 #pragma once
 
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief From reference-space derivatives, form the Cartesian gradient and
+ * contract it with the advection velocity:
+ * out = scale * sum_k V_k sum_d df(k,d) du/dxi_d, evaluated per quadrature
+ * point with one element per SIMD lane.
+ *
+ * The derivative-factor entry k * dimension + d maps the
+ * reference-direction-d derivative into the Cartesian-k gradient
+ * component. For regular geometry one factor set is stored per element
+ * group; for deformed geometry one per quadrature point.
+ *
+ * @tparam ExecSpace Execution space; unused here, kept so the call sites
+ *                   match the Device kernel's signature.
+ * @tparam APPEND    Accumulate onto @p outptr instead of overwriting it.
+ * @tparam DEFORMED  Read per-point rather than per-element derivative
+ *                   factors.
+ * @tparam TData     SIMD vector type of the data (the width-one
+ *                   tinysimd::scalarT wrapper on the Serial execution
+ *                   space).
+ * @tparam TScalar   Type of the scale factor.
+ *
+ * @param   nqTot     Quadrature points per element.
+ * @param   ncoord    Cartesian gradient/velocity components.
+ * @param   dimension Reference directions covered by @p inptr.
+ * @param   nelmt     Element groups to process (the block operator passes
+ *                    1 and advances the pointers itself).
+ * @param   inoffset  Stride, in SIMD vectors, between the
+ *                    reference-direction planes of @p inptr.
+ * @param   dfptr     Derivative factors: ncoord * dimension vectors per
+ *                    element group (regular) or point (deformed).
+ * @param   advVel    Velocity data; component k starts at k * advelsize
+ *                    vectors.
+ * @param   advelsize Stride, in SIMD vectors, between velocity components.
+ * @param   inptr     Reference-space derivatives, one plane of nqTot
+ *                    vectors per direction.
+ * @param   outptr    Output plane of nqTot vectors per element group.
+ * @param   scale     Scalar factor applied to the result.
+ */
 template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData,
           typename TScalar>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorAndAdvecVelKernel(

@@ -32,6 +32,23 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlDeviceStdMatKernels.hpp
+ * @brief Pointwise curl kernels of the Device StdMat curl-curl block
+ * operator (see CurlCurlDeviceStdMat.hpp).
+ *
+ * @details
+ * These are the Device counterparts of the kernels in
+ * CurlCurlSerialAVXStdMatKernels.hpp. They perform the same pointwise
+ * arithmetic -- chain-ruling reference-space derivatives into Cartesian
+ * ones through the derivative factors and combining them into a curl --
+ * but run as device kernels over all quadrature points of the block,
+ * launched by the block operator on its device stream, and they read the
+ * derivative planes the batched GEMM lays out direction-major. The 2D
+ * kernels take the homogeneous planes of a 3DH1 block on the second grid
+ * dimension of the same launch.
+ */
+
 #pragma once
 
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
@@ -40,12 +57,38 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-// Scalar curl of a two-dimensional vector field, omega = dv/dx - du/dy.
-//
-// @param deriv holds the standard (tensorial) derivatives produced by the
-// standard matrix multiply, ordered as deriv[(d * 2 + c) * derivoffset + idx]
-// for direction d and component c. The chain rule and the curl are applied in
-// a single sweep. The planes run on the second grid dimension.
+/**
+ * @brief Scalar curl of a two-dimensional vector field,
+ * omega = d(u1)/dx0 - d(u0)/dx1, at every quadrature point of every
+ * element of the block.
+ *
+ * The derivative-factor entry k * 2 + d maps the reference-direction-d
+ * derivative into the Cartesian-k gradient component. The factors are read
+ * in the layout produced by DerivFactorKey with the transpose flag set: for
+ * regular geometry one set of four values per element, for deformed
+ * geometry one such set per element in which each factor component is
+ * contiguous over the element's nqTot points. The chain rule and the curl
+ * are applied in a single sweep. The second grid dimension picks the
+ * homogeneous plane, nqTot * nelmt values apart in @p deriv and @p omega.
+ *
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   derivoffset Stride between the planes of @p deriv,
+ *                      nqTot * nelmt times the number of homogeneous
+ *                      planes.
+ * @param   dfptr       Derivative factors of the block, laid out as
+ *                      described above.
+ * @param   deriv       Reference-space derivatives of the two components,
+ *                      ordered as deriv[(d * 2 + c) * derivoffset + idx]
+ *                      for direction d and component c.
+ * @param   omega       Output plane of nqTot * nelmt values.
+ * @param   threadBlock Thread-block handle supplied by the launcher
+ *                      macro.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void Curl2DScalarStdMatKernel(
     const unsigned int nqTot, const size_t nelmt, const size_t derivoffset,
@@ -83,12 +126,31 @@ NEK_DEVICE_KERNEL static void Curl2DScalarStdMatKernel(
     }
 }
 
-// Vector curl of a two-dimensional scalar field,
-// out = {d(omega)/dy, -d(omega)/dx}.
-//
-// @param deriv holds the standard derivatives of omega, ordered as
-// deriv[d * derivoffset + idx] for direction d. The planes run on the second
-// grid dimension.
+/**
+ * @brief Vector curl of a two-dimensional scalar field,
+ * out = ( d(omega)/dx1, -d(omega)/dx0 ), at every quadrature point of
+ * every element of the block.
+ *
+ * The derivative factors are read as in Curl2DScalarStdMatKernel; both
+ * output components are written by the same work item. The second grid
+ * dimension picks the homogeneous plane, nqTot * nelmt values apart in
+ * @p deriv and @p out.
+ *
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   derivoffset Stride between the planes of @p deriv.
+ * @param   outoffset   Stride between the components of @p out.
+ * @param   dfptr       Derivative factors of the block.
+ * @param   deriv       Reference-space derivatives of omega, ordered as
+ *                      deriv[d * derivoffset + idx] for direction d.
+ * @param   out         Output, two components of nqTot * nelmt values.
+ * @param   threadBlock Thread-block handle supplied by the launcher
+ *                      macro.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void Curl2DVectorStdMatKernel(
     const unsigned int nqTot, const size_t nelmt, const size_t derivoffset,
@@ -122,13 +184,40 @@ NEK_DEVICE_KERNEL static void Curl2DVectorStdMatKernel(
     }
 }
 
-// Curl of a three-dimensional vector field. Used for both passes of the
-// curl-curl operator, i.e. omega = curl(u) and out = curl(omega).
-//
-// @param deriv holds the standard derivatives ordered as
-// deriv[(d * 3 + c) * derivoffset + idx] for direction d and component c.
-// Only the six off-diagonal physical derivatives are formed, the diagonal
-// ones cancel out.
+/**
+ * @brief Curl of a three-dimensional vector field at every quadrature
+ * point of every element of the block; used for both passes of the
+ * curl-curl operator, omega = curl u and out = curl omega.
+ *
+ * The derivative-factor entry k * 3 + d maps the reference-direction-d
+ * derivative into the Cartesian-k gradient component, the nine factors
+ * being read as in Curl2DScalarStdMatKernel. Only the six off-diagonal
+ * Cartesian derivatives are formed, the diagonal ones cancelling out of
+ * the curl:
+ *     out0 = d(u2)/dx1 - d(u1)/dx2,
+ *     out1 = d(u0)/dx2 - d(u2)/dx0,
+ *     out2 = d(u1)/dx0 - d(u0)/dx1.
+ *
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   derivoffset Stride between the planes of @p deriv.
+ * @param   outoffset   Stride between the components of @p out: the plane
+ *                      stride of the workspace for the omega pass, the
+ *                      component size of the output block for the final
+ *                      pass.
+ * @param   dfptr       Derivative factors of the block.
+ * @param   deriv       Reference-space derivatives of the three
+ *                      components, ordered as
+ *                      deriv[(d * 3 + c) * derivoffset + idx] for
+ *                      direction d and component c.
+ * @param   out         Output, three components of nqTot * nelmt values.
+ * @param   threadBlock Thread-block handle supplied by the launcher
+ *                      macro.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void Curl3DStdMatKernel(
     const unsigned int nqTot, const size_t nelmt, const size_t derivoffset,

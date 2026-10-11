@@ -32,6 +32,28 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file DivergenceOpImpl.hpp
+ * @brief Factory-registered whole-field implementation of the
+ * Divergence operator.
+ *
+ * @details
+ * The apply loop lives in DivergenceOp::v_Apply and the per-plane work
+ * in the block operators. This class adds the homogeneous
+ * z-derivative: for a multi-plane 3DH1 expansion it builds a
+ * DerivZOpImpl for the execution space and runs it in v_ApplyFFT().
+ * It also supplies the registration hooks (@c className,
+ * Instantiate()) through which one instantiation per execution space
+ * is entered into the operator factory by the CMake-generated factory
+ * declaration code.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through DivergenceOp.hpp and the
+ * operator factory.
+ */
+
 #pragma once
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
@@ -42,6 +64,15 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Whole-field implementation of DivergenceOp for one execution
+ * space, adding \f$\partial w/\partial z\f$ on a multi-plane 3DH1
+ * expansion (see the file notes).
+ *
+ * @tparam ExecSpace Execution back-end (NektarSpaces::Serial, AVX or
+ *                   Device) forming part of the factory key.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class DivergenceOpImpl : public DivergenceOp<TData>
 {
@@ -72,10 +103,10 @@ public:
         }
     }
 
-    // className - for OperatorFactory
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// Creator function registered with OperatorFactory.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -92,6 +123,8 @@ protected:
                      DerivZOrder::First, true>>
         m_zOp;
 
+    /// Add \f$\partial w/\partial z\f$ to @p out through #m_zOp; does
+    /// nothing without one or with a single homogeneous mode.
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
                     LibUtilities::Field<TData, FieldState::Phys> &out) override
     {

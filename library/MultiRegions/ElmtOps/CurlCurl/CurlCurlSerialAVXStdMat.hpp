@@ -32,6 +32,41 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlSerialAVXStdMat.hpp
+ * @brief Serial/AVX StdMat implementation of the curl-curl block operator.
+ *
+ * @details
+ * The StdMat strategy evaluates the reference-space derivatives of the
+ * input by multiplying with the dense standard-region physical-derivative
+ * matrices through libxsmm GEMMs, and pointwise kernels
+ * (CurlCurlSerialAVXStdMatKernels.hpp) then apply the geometric derivative
+ * factors and take the curl. The double curl is formed in two such passes,
+ * omega = curl u and out = curl omega, with the vorticity omega held in the
+ * static workspace between them. A multi-plane 3DH1 block instead gets the
+ * plane part of a single curl on every plane, which CurlCurlOpImpl
+ * completes with the z parts. On the AVX execution space each SIMD lane
+ * owns one element of a group, so the GEMM's left operand is the
+ * lane-interleaved batch of element data; on Serial the SIMD type is a
+ * scalar and the group size is one.
+ *
+ * This header provides the definition of detail::CurlCurlBlockOpImpl for
+ * the Serial and AVX execution spaces with the StdMat implementation tag.
+ * The sum-factorised Serial/AVX definition lives in
+ * CurlCurlSerialAVXSumFac.hpp and the Device definitions in
+ * CurlCurlDeviceStdMat.hpp and CurlCurlDeviceSumFac.hpp; the class
+ * template name is shared, and each CMake-generated registration
+ * translation unit includes exactly one of these headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through CurlCurlOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
+
 #pragma once
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -45,6 +80,48 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX StdMat curl-curl block operator: dense standard-region
+ * derivative matrices followed by pointwise curl kernels, applied twice.
+ *
+ * @details
+ * One v_Apply() pass works through the block in groups of simd_t::width
+ * elements. For each group it
+ * -# reshapes the group's storage to the implementation interleave width
+ *    when the field is stored at a different width,
+ * -# forms the reference-space derivatives of the #m_coordDim input
+ *    components with one GEMM per component against the transposed
+ *    standard-region PhysDeriv matrices -- fetched once from the data
+ *    warehouse under ePhysDerivStdMatTranspose, one nqTot x nqTot matrix
+ *    per reference direction and stored contiguously, so that a single
+ *    multiply of #m_dimension * nqTot columns yields the derivatives of one
+ *    component in every direction -- collecting them in the static
+ *    workspace,
+ * -# calls Curl2DScalarStdMatKernel (2D) or Curl3DStdMatKernel (3D) to
+ *    chain-rule those reference derivatives into Cartesian ones -- through
+ *    the per-element or, for deformed geometry, per-point derivative
+ *    factors -- and combine them into the vorticity omega, a single
+ *    out-of-plane component in 2D and three components in 3D, also held in
+ *    the workspace,
+ * -# differentiates each component of omega with the same GEMM, and
+ * -# calls Curl2DVectorStdMatKernel (2D) or Curl3DStdMatKernel (3D) again
+ *    to form the output components curl(omega) from those derivatives.
+ *
+ * The workspace holds #m_dimension * #m_coordDim reference-derivative
+ * planes -- plane c * dimension + d is the direction-d derivative of
+ * component c -- followed by one plane per component of omega, each plane
+ * nqTot SIMD vectors long; the derivatives of omega overwrite those of u.
+ * A block with more than one homogeneous mode goes to ApplyCurl3DH1()
+ * instead.
+ *
+ * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX; selects
+ *                        scalar or SIMD arithmetic through simd_t.
+ * @tparam Implementation Implementation tag (StdMat).
+ * @tparam TData          Floating-point type of the field data.
+ *
+ * @see CurlCurlSerialAVXSumFac.hpp for the sum-factorised sibling;
+ * CurlCurlDeviceStdMat.hpp for the Device StdMat path.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
 {
@@ -54,6 +131,20 @@ class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Capture the block's element metadata and fetch the
+     * transposed standard-region derivative matrices and the block's
+     * derivative factors from the data warehouse.
+     *
+     * The curl-curl operator is only defined for two- and
+     * three-dimensional expansions whose coordinate dimension equals the
+     * shape dimension; both are asserted here.
+     *
+     * @param   block_idx       Index of the block.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     CurlCurlBlockOpImpl(const unsigned int block_idx,
                         const LocalRegions::ExpansionSharedPtr &exp,
                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -92,10 +183,13 @@ public:
                                                 m_implInterleaveWidth, false));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
@@ -108,17 +202,53 @@ public:
     }
 
 protected:
+    /// Element interleave width the kernels expect: the SIMD width (1 on
+    /// the Serial execution space).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape of the block's elements.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point derivative factors).
     bool m_isDeformed;
+    /// Reference (shape) dimension of the elements (2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the elements; asserted equal to
+    /// #m_dimension.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Transposed standard-region PhysDeriv matrices, one nqTot x nqTot
+    /// matrix per reference direction, concatenated.
     const TData *m_matptr;
+    /// Derivative factors of the whole block, interleaved at the SIMD
+    /// width and fetched untransposed: a deformed block stores the
+    /// coordDim * dimension factors of a point together, point by point,
+    /// while a regular block stores a single set per element group and
+    /// has no point index at all (see DerivFactorKey).
     const TData *m_dfptr;
 
+    /**
+     * @brief Apply curl(curl u) to every element of the block (see the
+     * class description for the algorithm).
+     *
+     * Fields stored at an interleave width larger than the implementation
+     * width are handled by reshaping width_ratio consecutive groups in
+     * place: the #m_coordDim input components are converted to the
+     * implementation width before the GEMMs, and both the input and the
+     * output components are converted back to the input's width once the
+     * groups have been processed. The output block's recorded interleave
+     * width is set to the input's on return.
+     *
+     * @param   inblock     Physical-space input block holding at least
+     *                      #m_coordDim components of u, or the three
+     *                      components on a multi-plane 3DH1 block.
+     * @param   outblock    Physical-space output block receiving the
+     *                      #m_coordDim components of curl(curl u), or the
+     *                      plane part of one curl on a multi-plane 3DH1
+     *                      block.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
