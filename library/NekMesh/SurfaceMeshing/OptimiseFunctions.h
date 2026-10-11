@@ -28,54 +28,43 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description:
-//
+//  Description: the objectives the high-order surface mesher minimises.
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifndef NEKTAR_MESHUTILS_SURFACEMESH_OPTIMISEFUNCTIONS_H
 #define NEKTAR_MESHUTILS_SURFACEMESH_OPTIMISEFUNCTIONS_H
 
-#include <LocalRegions/MatrixKey.h>
 #include <NekMesh/Optimisation/OptimiseObj.h>
-#include <SpatialDomains/CADSystem/CADObject.h>
+#include <SpatialDomains/CADSystem/CADCurve.h>
 #include <SpatialDomains/CADSystem/CADSurf.h>
 
 namespace Nektar::NekMesh
 {
 
-class OptiEdge : public OptiObj
-{
-public:
-    friend class MemoryManager<OptiEdge>;
+/**
+ * @brief Spreading the interior nodes of an edge that lies along a CAD curve.
+ *
+ * The nodes sit at curve parameters running from @p tBegin to @p tEnd, the
+ * two ends fixed and the interior ones free. What is minimised is the sum
+ * over consecutive pairs of the squared distance between them divided by the
+ * gap between the reference points @p z, which is smallest when the nodes are
+ * spread along the curve in the same proportions as @p z is along the
+ * reference element.
+ */
+Objective CurveEdgeObjective(const SpatialDomains::CADCurveSharedPtr &curve,
+                             NekDouble tBegin, NekDouble tEnd,
+                             const std::vector<NekDouble> &z);
 
-    OptiEdge(Array<OneD, NekDouble> a, Array<OneD, NekDouble> dis,
-             SpatialDomains::CADObjectSharedPtr ob)
-    {
-        all = a;
-        z   = dis;
-        o   = ob;
-    };
-
-    ~OptiEdge() override {};
-
-    NekDouble F(Array<OneD, NekDouble> xitst) override;
-    DNekMat dF(Array<OneD, NekDouble> xitst) override;
-    Array<OneD, NekDouble> Getxi() override;
-    Array<OneD, NekDouble> Getli() override;
-    Array<OneD, NekDouble> Getui() override;
-    void Update(Array<OneD, NekDouble> xinew) override;
-
-    Array<OneD, NekDouble> GetSolution()
-    {
-        return all;
-    };
-
-private:
-    SpatialDomains::CADObjectSharedPtr o;
-    Array<OneD, NekDouble> z;
-    Array<OneD, NekDouble> all;
-};
-typedef std::shared_ptr<OptiEdge> OptiEdgeSharedPtr;
+/**
+ * @brief The same, for an edge lying on a CAD surface rather than a curve.
+ *
+ * Here each node has two free variables rather than one, and they are
+ * interleaved: the vector is @f$ (u_1, v_1, u_2, v_2, \ldots) @f$.
+ */
+Objective SurfaceEdgeObjective(const SpatialDomains::CADSurfSharedPtr &surf,
+                               std::array<NekDouble, 2> uvBegin,
+                               std::array<NekDouble, 2> uvEnd,
+                               const std::vector<NekDouble> &z);
 
 } // namespace Nektar::NekMesh
 #endif

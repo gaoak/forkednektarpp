@@ -72,7 +72,24 @@ void ProcessLoadOctree::Process()
     m_log(VERBOSE) << "  - max delta: " << maxDelta << endl;
     m_log(VERBOSE) << "  - eps      : " << eps << endl;
 
-    ASSERTL0(minDelta > 0 && maxDelta > 0 && eps > 0, "invalid parameters");
+    // These come straight from the user's .mcf, so say which one is wrong
+    // and what it was rather than that something was.
+    if (minDelta <= 0 || maxDelta <= 0 || eps <= 0)
+    {
+        m_log(FATAL) << "MinDelta, MaxDelta and EPS must all be greater than "
+                        "zero; this run has MinDelta "
+                     << minDelta << ", MaxDelta " << maxDelta << " and EPS "
+                     << eps << "." << endl;
+    }
+
+    if (minDelta > maxDelta)
+    {
+        m_log(FATAL) << "MinDelta of " << minDelta
+                     << " is larger than MaxDelta of " << maxDelta
+                     << "; the smallest element cannot be bigger than the "
+                        "largest."
+                     << endl;
+    }
 
     // Hand the octree to the surface and volume meshers that run later in the
     // pipeline. Set() rather than Get() so that a second loadoctree replaces

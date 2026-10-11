@@ -34,6 +34,9 @@
 
 #include <NekMesh/ExtLibInterface/TetGenInterface.h>
 
+#include <cstdlib>
+#include <exception>
+
 #define TETLIBRARY
 #include <tetgen.h>
 
@@ -41,6 +44,114 @@ using namespace std;
 
 namespace Nektar::NekMesh
 {
+
+namespace
+{
+
+/// The logger the terminate handler below reports through.
+Logger *g_tetGenLog = nullptr;
+
+/// TetGen's exit codes, from terminatetetgen() in tetgen.h.
+std::string DescribeTetGenCode(int code)
+{
+    switch (code)
+    {
+        case 1:
+            return "TetGen ran out of memory";
+        case 2:
+            return "TetGen hit an internal error";
+        case 3:
+            return "the surface mesh intersects itself: two triangles that "
+                   "are not neighbours pass through one another. This usually "
+                   "means the spacing is too coarse to separate two parts of "
+                   "the geometry, so that a face is meshed flat enough to cut "
+                   "through its neighbour -- reduce MinDelta";
+        case 4:
+            return "the geometry has a feature smaller than the tolerance "
+                   "TetGen works to";
+        case 5:
+            return "two facets of the surface mesh lie very close together, "
+                   "which again points at spacing too coarse for the "
+                   "geometry -- reduce MinDelta";
+        case 10:
+            return "TetGen rejected the input mesh";
+        default:
+            return "TetGen stopped with code " + std::to_string(code);
+    }
+}
+
+/**
+ * @brief Report TetGen's exit code and stop.
+ *
+ * Built as a library, TetGen reports every failure by throwing a bare int and
+ * printing nothing, so the only thing the user sees is `terminate called after
+ * throwing an instance of 'int'` and a core dump.
+ *
+ * This is a terminate handler rather than a catch because TetGen cannot
+ * survive having its stack unwound: terminatetetgen() frees the mesh before
+ * throwing, and the cleanup the unwind then runs over that same memory
+ * segfaults. With no handler anywhere the runtime calls terminate at the throw
+ * point without unwinding, which is the one path through TetGen's error
+ * handling that works. So the message is printed here and the process stops,
+ * rather than being caught somewhere a recovery could be attempted.
+ */
+[[noreturn]] void TetGenTerminate()
+{
+    std::string why = "TetGen stopped without saying why";
+
+    // Rethrowing inside this handler reads the exception without unwinding
+    // the stack it was thrown from.
+    if (auto e = std::current_exception())
+    {
+        try
+        {
+            std::rethrow_exception(e);
+        }
+        catch (int code)
+        {
+            why = DescribeTetGenCode(code);
+        }
+        catch (...)
+        {
+            // Not TetGen's; leave the default wording.
+        }
+    }
+
+    if (g_tetGenLog)
+    {
+        // Not FATAL: that throws, and throwing from a terminate handler calls
+        // terminate again.
+        (*g_tetGenLog)(WARNING)
+            << "tetrahedral meshing failed, and cannot be recovered from: "
+            << why << "." << std::endl;
+    }
+
+    std::cout.flush();
+    std::cerr.flush();
+    std::_Exit(EXIT_FAILURE);
+}
+
+/**
+ * @brief Run TetGen with @p cmd, reporting its exit code rather than aborting.
+ *
+ * The handler and the logger it reports through are process-wide, as
+ * std::set_terminate is; TetGen is called from one thread at a time.
+ */
+void RunTetGen(const std::string &cmd, tetgenio *in, tetgenio *out, Logger &log)
+{
+    std::vector<char> switches(cmd.begin(), cmd.end());
+    switches.push_back('\0');
+
+    g_tetGenLog                 = &log;
+    std::terminate_handler prev = std::set_terminate(TetGenTerminate);
+
+    tetrahedralize(switches.data(), in, out);
+
+    std::set_terminate(prev);
+    g_tetGenLog = nullptr;
+}
+
+} // namespace
 
 void TetGenInterface::InitialMesh(map<int, SpatialDomains::PointGeom *> tgidton,
                                   vector<std::array<int, 3>> tri)
@@ -104,13 +215,7 @@ void TetGenInterface::InitialMesh(map<int, SpatialDomains::PointGeom *> tgidton,
         surface.holelist = nullptr;
     }
 
-    string cmd = "pYzqQ";
-    char *cstr = new char[cmd.length() + 1];
-    strcpy(cstr, cmd.c_str());
-
-    tetrahedralize(cstr, &surface, &output);
-
-    delete[] cstr;
+    RunTetGen("pYzqQ", &surface, &output, m_log);
 }
 
 void TetGenInterface::GetNewPoints(int num,
@@ -137,13 +242,7 @@ void TetGenInterface::RefineMesh(std::map<int, NekDouble> delta)
         input.pointmtrlist[i] = delta[i];
     }
 
-    string cmd = "pYrmzq1.1/0QO2/7";
-    char *cstr = new char[cmd.length() + 1];
-    strcpy(cstr, cmd.c_str());
-
-    tetrahedralize(cstr, &input, &output);
-
-    delete[] cstr;
+    RunTetGen("pYrmzq1.1/0QO2/7", &input, &output, m_log);
 }
 
 vector<std::array<int, 4>> TetGenInterface::Extract()

@@ -73,6 +73,7 @@ void SurfaceMesh::Process()
     m_log(VERBOSE) << "  Face meshing:" << endl;
 
     bool validError = false;
+    int nValidError = 0;
     for (int i = 1; i <= m_cad->GetNumSurf(); i++)
     {
         m_log(VERBOSE).Progress(i, m_cad->GetNumSurf(),
@@ -81,7 +82,11 @@ void SurfaceMesh::Process()
         FaceMeshSharedPtr face = MemoryManager<FaceMesh>::AllocateSharedPtr(
             i, m_mesh, m_curvemeshes, i, m_log);
 
-        validError = validError ? true : face->ValidateCurves();
+        if (face->ValidateCurves())
+        {
+            validError = true;
+            nValidError++;
+        }
 
         face->ValidateLoops();
     }
@@ -90,7 +95,15 @@ void SurfaceMesh::Process()
 
     if (validError)
     {
-        m_log(FATAL) << "Unable to complete face meshing." << endl;
+        m_log(FATAL)
+            << "the curve meshes bounding " << nValidError << " of the "
+            << m_cad->GetNumSurf()
+            << " CAD surfaces cross each other in the surface's parameter "
+               "plane, which is listed above face by face. A face cannot be "
+               "triangulated from a boundary that intersects itself. This is "
+               "the local spacing being too coarse for the geometry: reduce "
+               "MinDelta."
+            << endl;
     }
 
     // linear mesh all surfaces

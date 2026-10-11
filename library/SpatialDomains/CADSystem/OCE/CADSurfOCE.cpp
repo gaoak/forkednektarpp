@@ -32,9 +32,14 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <BRep_Tool.hxx>
+#include <Geom2d_Curve.hxx>
 #include <GeomAPI_ProjectPointOnSurf.hxx>
+#include <SpatialDomains/CADSystem/OCE/CADCurveOCE.h>
 #include <SpatialDomains/CADSystem/OCE/CADSurfOCE.h>
+#include <SpatialDomains/CADSystem/OCE/CADUnits.hpp>
 #include <SpatialDomains/CADSystem/OCE/TransfiniteSurface.h>
+#include <TopoDS.hxx>
 
 using namespace std;
 
@@ -107,12 +112,10 @@ std::array<NekDouble, 6> CADSurfOCE::BoundingBox()
 
     std::array<NekDouble, 6> ret;
     B.Get(ret[0], ret[1], ret[2], ret[3], ret[4], ret[5]);
-    ret[0] /= 1000.0;
-    ret[1] /= 1000.0;
-    ret[2] /= 1000.0;
-    ret[3] /= 1000.0;
-    ret[4] /= 1000.0;
-    ret[5] /= 1000.0;
+    for (auto &r : ret)
+    {
+        r = CADUnits::FromCAD(r);
+    }
 
     return ret;
 }
@@ -129,12 +132,10 @@ std::array<NekDouble, 6> CADSurfOCE::BoundingBox(NekDouble scale)
 
     std::array<NekDouble, 6> ret;
     B.Get(ret[0], ret[1], ret[2], ret[3], ret[4], ret[5]);
-    ret[0] /= 1000.0;
-    ret[1] /= 1000.0;
-    ret[2] /= 1000.0;
-    ret[3] /= 1000.0;
-    ret[4] /= 1000.0;
-    ret[5] /= 1000.0;
+    for (auto &r : ret)
+    {
+        r = CADUnits::FromCAD(r);
+    }
 
     return ret;
 }
@@ -142,7 +143,7 @@ std::array<NekDouble, 6> CADSurfOCE::BoundingBox(NekDouble scale)
 std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
                                            NekDouble &dist)
 {
-    gp_Pnt loc(p[0] * 1000.0, p[1] * 1000.0, p[2] * 1000.0);
+    gp_Pnt loc = CADUnits::PntToCAD(p);
     std::array<NekDouble, 2> uv;
 
     if (!m_isTransfiniteSurf)
@@ -166,7 +167,7 @@ std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
 
         gp_Pnt p3 = m_sas->Value(p2);
 
-        dist = p3.Distance(loc) / 1000.0;
+        dist = CADUnits::FromCAD(p3.Distance(loc));
     }
     else
     {
@@ -174,7 +175,7 @@ std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
         proj.Perform(loc);
         ASSERTL1(proj.NbPoints() > 0, "Unable to find a projection!");
         proj.LowerDistanceParameters(uv[0], uv[1]);
-        dist = proj.LowerDistance();
+        dist = CADUnits::FromCAD(proj.LowerDistance());
     }
 
     return uv;
@@ -185,7 +186,7 @@ std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
                                            NekDouble Usup, NekDouble Vmin,
                                            NekDouble Vsup)
 {
-    gp_Pnt loc(p[0] * 1000.0, p[1] * 1000.0, p[2] * 1000.0);
+    gp_Pnt loc = CADUnits::PntToCAD(p);
     std::array<NekDouble, 2> uv;
 
     if (!m_isTransfiniteSurf)
@@ -209,7 +210,7 @@ std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
 
         gp_Pnt p3 = m_sas->Value(p2);
 
-        dist = p3.Distance(loc) / 1000.0;
+        dist = CADUnits::FromCAD(p3.Distance(loc));
     }
     else
     {
@@ -219,7 +220,7 @@ std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
         proj.Perform(loc);
         ASSERTL1(proj.NbPoints() > 0, "Unable to find a projection!");
         proj.LowerDistanceParameters(uv[0], uv[1]);
-        dist = proj.LowerDistance();
+        dist = CADUnits::FromCAD(proj.LowerDistance());
     }
 
     return uv;
@@ -242,7 +243,101 @@ NekDouble CADSurfOCE::Curvature(std::array<NekDouble, 2> uv)
     NekDouble d1 = abs(d.MaxCurvature());
     NekDouble d2 = abs(d.MinCurvature());
 
-    return d1 > d2 ? d1 * 1000.0 : d2 * 1000.0;
+    return CADUnits::CurvatureFromCAD(d1 > d2 ? d1 : d2);
+}
+
+NekDouble CADSurfOCE::CurvatureAndPosition(std::array<NekDouble, 2> uv,
+                                           std::array<NekDouble, 3> &loc)
+{
+#if defined(NEKTAR_DEBUG)
+    Test(uv);
+#endif
+
+    // One evaluation for both: SLProps computes the surface's position along
+    // with the derivatives the curvature comes from, so asking it for the
+    // point costs nothing beyond the call already made.
+    GeomLProp_SLProps d(m_s, 2, Precision::Confusion());
+    d.SetParameters(uv[0], uv[1]);
+
+    loc = CADUnits::PntFromCAD(d.Value());
+
+    if (!d.IsCurvatureDefined())
+    {
+        return -1.0;
+    }
+
+    NekDouble d1 = abs(d.MaxCurvature());
+    NekDouble d2 = abs(d.MinCurvature());
+
+    return CADUnits::CurvatureFromCAD(d1 > d2 ? d1 : d2);
+}
+
+std::array<NekDouble, 2> CADSurfOCE::locuvFrom(std::array<NekDouble, 3> p,
+                                               std::array<NekDouble, 2> guess,
+                                               NekDouble &dist)
+{
+    // Only the plain projection takes a starting point; a transfinite
+    // surface goes the long way round as before.
+    if (m_isTransfiniteSurf)
+    {
+        return locuv(p, dist);
+    }
+
+    gp_Pnt loc  = CADUnits::PntToCAD(p);
+    gp_Pnt2d p2 = m_sas->NextValueOfUV(gp_Pnt2d(guess[0], guess[1]), loc,
+                                       Precision::Confusion());
+
+    TopAbs_State state = m_2Dclass->Perform(p2);
+
+    if (state == TopAbs_OUT)
+    {
+        // Outside the face's own boundary, which means the guess has led the
+        // search somewhere it should not be. Fall back to the cold search,
+        // which handles this case by pulling the point onto the outer wire.
+        return locuv(p, dist);
+    }
+
+    gp_Pnt p3 = m_sas->Value(p2);
+    dist      = CADUnits::FromCAD(p3.Distance(loc));
+
+    return {p2.X(), p2.Y()};
+}
+
+std::array<NekDouble, 2> CADSurfOCE::locuvOnCurve(
+    const CADCurveSharedPtr &curve, NekDouble t)
+{
+    // A bounding curve is stored twice by OpenCASCADE: once in space, and
+    // once as a curve in this surface's parameter plane. Reading the second
+    // gives the (u,v) exactly and immediately, where projecting the first
+    // back onto the surface is an iterative minimisation costing some
+    // hundreds of microseconds. On brakedisc that projection was 22 of the
+    // 34 seconds the whole mesh took.
+    auto oceCurve = std::dynamic_pointer_cast<CADCurveOCE>(curve);
+
+    if (oceCurve)
+    {
+        const TopoDS_Edge &edge = oceCurve->GetOccEdge();
+        TopoDS_Face face        = TopoDS::Face(m_shape);
+
+        // A seam edge has two parameter-plane curves on this face, one for
+        // each side of the seam, and which of them comes back depends on the
+        // orientation the edge is asked for rather than on anything known
+        // here. Project in that case rather than pick the wrong one.
+        if (!BRep_Tool::IsClosed(edge, face))
+        {
+            Standard_Real first, last;
+            Handle(Geom2d_Curve) pcurve =
+                BRep_Tool::CurveOnSurface(edge, face, first, last);
+
+            if (!pcurve.IsNull())
+            {
+                gp_Pnt2d p = pcurve->Value(t);
+                return {p.X(), p.Y()};
+            }
+        }
+    }
+
+    return CADSurf::locuv(curve->P(t));
 }
 
 std::array<NekDouble, 3> CADSurfOCE::P(std::array<NekDouble, 2> uv)
@@ -251,8 +346,7 @@ std::array<NekDouble, 3> CADSurfOCE::P(std::array<NekDouble, 2> uv)
     Test(uv);
 #endif
 
-    gp_Pnt loc = m_s->Value(uv[0], uv[1]);
-    return {loc.X() / 1000.0, loc.Y() / 1000.0, loc.Z() / 1000.0};
+    return CADUnits::PntFromCAD(m_s->Value(uv[0], uv[1]));
 }
 
 void CADSurfOCE::P(std::array<NekDouble, 2> uv, NekDouble &x, NekDouble &y,
@@ -262,10 +356,10 @@ void CADSurfOCE::P(std::array<NekDouble, 2> uv, NekDouble &x, NekDouble &y,
     Test(uv);
 #endif
 
-    gp_Pnt loc = m_s->Value(uv[0], uv[1]);
-    x          = loc.X() / 1000.0;
-    y          = loc.Y() / 1000.0;
-    z          = loc.Z() / 1000.0;
+    auto loc = CADUnits::PntFromCAD(m_s->Value(uv[0], uv[1]));
+    x        = loc[0];
+    y        = loc[1];
+    z        = loc[2];
 }
 
 std::array<NekDouble, 3> CADSurfOCE::N(std::array<NekDouble, 2> uv)
@@ -309,15 +403,13 @@ std::array<NekDouble, 9> CADSurfOCE::D1(std::array<NekDouble, 2> uv)
     gp_Vec D1U, D1V;
     m_s->D1(uv[0], uv[1], Loc, D1U, D1V);
 
-    r[0] = Loc.X() / 1000.0; // x
-    r[1] = Loc.Y() / 1000.0; // y
-    r[2] = Loc.Z() / 1000.0; // z
-    r[3] = D1U.X() / 1000.0; // dx/du
-    r[4] = D1U.Y() / 1000.0; // dy/du
-    r[5] = D1U.Z() / 1000.0; // dz/du
-    r[6] = D1V.X() / 1000.0; // dx/dv
-    r[7] = D1V.Y() / 1000.0; // dy/dv
-    r[8] = D1V.Z() / 1000.0; // dz/dv
+    auto l  = CADUnits::PntFromCAD(Loc);
+    auto du = CADUnits::VecFromCAD(D1U);
+    auto dv = CADUnits::VecFromCAD(D1V);
+
+    r = {l[0],  l[1],  l[2],  // x, y, z
+         du[0], du[1], du[2], // dx/du, dy/du, dz/du
+         dv[0], dv[1], dv[2]};
 
     return r;
 }
@@ -333,24 +425,19 @@ std::array<NekDouble, 18> CADSurfOCE::D2(std::array<NekDouble, 2> uv)
     gp_Vec D1U, D1V, D2U, D2V, D2UV;
     m_s->D2(uv[0], uv[1], Loc, D1U, D1V, D2U, D2V, D2UV);
 
-    r[0]  = Loc.X() / 1000.0;  // x
-    r[1]  = Loc.Y() / 1000.0;  // y
-    r[2]  = Loc.Z() / 1000.0;  // z
-    r[3]  = D1U.X() / 1000.0;  // dx/dx
-    r[4]  = D1U.Y() / 1000.0;  // dy/dy
-    r[5]  = D1U.Z() / 1000.0;  // dz/dz
-    r[6]  = D1V.X() / 1000.0;  // dx/dx
-    r[7]  = D1V.Y() / 1000.0;  // dy/dy
-    r[8]  = D1V.Z() / 1000.0;  // dz/dz
-    r[9]  = D2U.X() / 1000.0;  // d2x/du2
-    r[10] = D2U.Y() / 1000.0;  // d2y/du2
-    r[11] = D2U.Z() / 1000.0;  // d2z/du2
-    r[12] = D2V.X() / 1000.0;  // d2x/dv2
-    r[13] = D2V.Y() / 1000.0;  // d2y/dv2
-    r[14] = D2V.Z() / 1000.0;  // d2z/dv2
-    r[15] = D2UV.X() / 1000.0; // d2x/dudv
-    r[16] = D2UV.Y() / 1000.0; // d2y/dudv
-    r[17] = D2UV.Z() / 1000.0; // d2z/dudv
+    auto l   = CADUnits::PntFromCAD(Loc);
+    auto du  = CADUnits::VecFromCAD(D1U);
+    auto dv  = CADUnits::VecFromCAD(D1V);
+    auto duu = CADUnits::VecFromCAD(D2U);
+    auto dvv = CADUnits::VecFromCAD(D2V);
+    auto duv = CADUnits::VecFromCAD(D2UV);
+
+    r = {l[0],   l[1],   l[2],   // x, y, z
+         du[0],  du[1],  du[2],  // dx/du, dy/du, dz/du
+         dv[0],  dv[1],  dv[2],  // dx/dv, dy/dv, dz/dv
+         duu[0], duu[1], duu[2], // d2x/du2, d2y/du2, d2z/du2
+         dvv[0], dvv[1], dvv[2], // d2x/dv2, d2y/dv2, d2z/dv2
+         duv[0], duv[1], duv[2]};
 
     return r;
 }

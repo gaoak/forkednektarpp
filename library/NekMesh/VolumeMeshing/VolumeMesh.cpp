@@ -62,6 +62,76 @@ VolumeMesh::~VolumeMesh()
 {
 }
 
+void VolumeMesh::RemoveOrphans(
+    const std::set<SpatialDomains::SegGeom *> &edges,
+    const std::set<SpatialDomains::PointGeom *> &points)
+{
+    // What the boundary layer leaves behind is shared with what it keeps --
+    // an edge along a CAD curve still bounds the face on the other side, and
+    // the nodes on those curves are the boundary the next triangulation is
+    // built on -- so only the entities nothing refers to any more can go.
+    auto &graph = m_mesh->m_meshGraph;
+
+    std::set<SpatialDomains::Geometry *> usedEdges, usedPoints;
+
+    for (int dim = 2; dim <= 3; ++dim)
+    {
+        for (auto &[el, tag] : m_mesh->m_elementTags[dim])
+        {
+            for (int i = 0; i < el->GetNumEdges(); ++i)
+            {
+                usedEdges.insert(el->GetEdge(i));
+            }
+            for (int i = 0; i < el->GetNumVerts(); ++i)
+            {
+                usedPoints.insert(el->GetVertex(i));
+            }
+        }
+    }
+
+    int nEdges = 0, nPoints = 0;
+
+    for (auto *ed : edges)
+    {
+        if (usedEdges.count(ed))
+        {
+            continue;
+        }
+
+        m_mesh->m_edgeSet.erase({ed->GetVid(0), ed->GetVid(1)});
+        graph->GetCADAssociation()->Remove(ed);
+        graph->ExtractGeom<SpatialDomains::SegGeom>(ed->GetGlobalID(), true);
+        ++nEdges;
+    }
+
+    // After the edges, so that a node only the dead edges referred to counts
+    // as unused here.
+    for (auto *pt : points)
+    {
+        if (usedPoints.count(pt))
+        {
+            continue;
+        }
+
+        // A node on a CAD curve or vertex belongs to a curve mesh rather than
+        // to the triangulation that has just gone, and the face mesh built
+        // next collects it from the graph to lay out its boundary loops.
+        auto *assoc = graph->GetCADAssociation().get();
+        if (assoc->Has(pt, SpatialDomains::CADType::eCurve) ||
+            assoc->Has(pt, SpatialDomains::CADType::eVert))
+        {
+            continue;
+        }
+
+        assoc->Remove(pt);
+        graph->ExtractGeom<SpatialDomains::PointGeom>(pt->GetGlobalID(), true);
+        ++nPoints;
+    }
+
+    m_log(VERBOSE) << "    - Dropped " << nEdges << " edges and " << nPoints
+                   << " nodes left over by the remeshed surfaces." << endl;
+}
+
 void VolumeMesh::Process()
 {
     auto &m_graph = m_mesh->m_meshGraph;
@@ -109,6 +179,15 @@ void VolumeMesh::Process()
             els.push_back(el);
         }
 
+        // The edges and interior nodes of the triangulations about to be
+        // taken down. They outlive their triangles unless they are taken down
+        // with them, and a stale edge left in the mesh-wide edge set is worse
+        // than wasted memory: it is keyed on its two vertices like any other,
+        // so the face mesh built next can be handed one in place of an edge
+        // it meant to create.
+        std::set<SpatialDomains::SegGeom *> deadEdges;
+        std::set<SpatialDomains::PointGeom *> deadPoints;
+
         for (int i = 0; i < els.size(); i++)
         {
             vector<unsigned int>::iterator f =
@@ -118,6 +197,16 @@ void VolumeMesh::Process()
             if (f == symsurfs.end())
             {
                 continue;
+            }
+
+            for (int j = 0; j < els[i]->GetNumEdges(); j++)
+            {
+                deadEdges.insert(
+                    static_cast<SpatialDomains::SegGeom *>(els[i]->GetEdge(j)));
+            }
+            for (int j = 0; j < els[i]->GetNumVerts(); j++)
+            {
+                deadPoints.insert(els[i]->GetVertex(j));
             }
 
             // erase the triag face from the set with key the {vertices -1}
@@ -130,6 +219,8 @@ void VolumeMesh::Process()
             m_graph->ExtractGeom<SpatialDomains::TriGeom>(els[i]->GetGlobalID(),
                                                           true);
         }
+
+        RemoveOrphans(deadEdges, deadPoints);
 
         for (int i = 0; i < symsurfs.size(); i++)
         {

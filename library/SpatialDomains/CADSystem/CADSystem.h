@@ -252,6 +252,66 @@ public:
         m_log.SetPrefix("CADSystem");
     }
 
+    /**
+     * @brief Fail unless every curve is bounded by exactly two surfaces.
+     *
+     * Anything else is not a closed manifold solid and the surface mesher has
+     * no closed boundary to work from. This is the condition the sewing in
+     * the OpenCASCADE engine exists to establish, so when it fails the sewing
+     * tolerance is the first thing to look at: a curve bounded by one surface
+     * is a seam that did not close, and one bounded by three or more is a
+     * genuine non-manifold join in the model.
+     */
+    void CheckClosed()
+    {
+        std::stringstream ss;
+        int nBad = 0;
+
+        const int maxReported = 10;
+
+        for (auto &[id, curve] : m_curves)
+        {
+            size_t nAdj = curve->GetAdjSurf().size();
+            if (nAdj == 2)
+            {
+                continue;
+            }
+
+            // Report where, because a curve ID on its own cannot be looked up
+            // in a CAD package, and which surfaces, because that is what
+            // names the feature.
+            if (++nBad <= maxReported)
+            {
+                auto mm = curve->GetMinMax();
+                ss << std::endl
+                   << "    curve " << id << ", (" << mm[0] << ", " << mm[1]
+                   << ", " << mm[2] << ") -> (" << mm[3] << ", " << mm[4]
+                   << ", " << mm[5] << "), bounded by " << nAdj << " surface"
+                   << (nAdj == 1 ? "" : "s");
+
+                for (auto &adj : curve->GetAdjSurf())
+                {
+                    ss << " " << adj.first.lock()->GetId();
+                }
+            }
+        }
+
+        if (nBad > maxReported)
+        {
+            ss << std::endl << "    ... and " << nBad - maxReported << " more.";
+        }
+
+        if (nBad > 0)
+        {
+            m_log(FATAL) << "the CAD model is not a closed solid: " << nBad
+                         << " of its " << m_curves.size()
+                         << " curves are not bounded by exactly two surfaces, "
+                            "so the surface mesher has no closed boundary to "
+                            "work from."
+                         << ss.str() << std::endl;
+        }
+    }
+
 protected:
     /// Name of CAD file
     std::string m_name;
@@ -285,6 +345,15 @@ protected:
                        << std::endl;
         m_log(VERBOSE) << "  - CAD has: " << m_surfs.size() << " surfaces."
                        << std::endl;
+
+        // The extent is in mesh units, and is the quickest way to see that a
+        // model has come in at the wrong scale: it is the same number the
+        // user sizes MinDelta and MaxDelta against, so if it does not look
+        // like the part they drew, nothing downstream will either.
+        auto bb = GetBoundingBox();
+        m_log(VERBOSE) << "  - CAD extent: " << bb[1] - bb[0] << " x "
+                       << bb[3] - bb[2] << " x " << bb[5] - bb[4]
+                       << " (mesh units)" << std::endl;
     }
 };
 

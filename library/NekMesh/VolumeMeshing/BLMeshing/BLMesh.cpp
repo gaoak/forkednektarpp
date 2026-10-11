@@ -60,12 +60,12 @@ namespace Nektar::NekMesh
 inline vector<SpatialDomains::PointGeom *> GetVerts(
     SpatialDomains::Geometry *el)
 {
-    vector<SpatialDomains::PointGeom *> ns(el->GetNumVerts());
+    vector<SpatialDomains::PointGeom *> verts(el->GetNumVerts());
     for (int i = 0; i < el->GetNumVerts(); i++)
     {
-        ns[i] = el->GetVertex(i);
+        verts[i] = el->GetVertex(i);
     }
-    return ns;
+    return verts;
 }
 
 /**
@@ -84,14 +84,14 @@ inline vector<SpatialDomains::PointGeom *> GetVerts(
 inline std::array<NekDouble, 3> Normal(
     SpatialDomains::Geometry *el, const SpatialDomains::CADSurfSharedPtr &surf)
 {
-    vector<SpatialDomains::PointGeom *> ns = GetVerts(el);
+    vector<SpatialDomains::PointGeom *> verts = GetVerts(el);
 
-    std::array<NekDouble, 3> e0 = {ns[1]->x() - ns[0]->x(),
-                                   ns[1]->y() - ns[0]->y(),
-                                   ns[1]->z() - ns[0]->z()};
-    std::array<NekDouble, 3> e1 = {ns[2]->x() - ns[0]->x(),
-                                   ns[2]->y() - ns[0]->y(),
-                                   ns[2]->z() - ns[0]->z()};
+    std::array<NekDouble, 3> e0 = {verts[1]->x() - verts[0]->x(),
+                                   verts[1]->y() - verts[0]->y(),
+                                   verts[1]->z() - verts[0]->z()};
+    std::array<NekDouble, 3> e1 = {verts[2]->x() - verts[0]->x(),
+                                   verts[2]->y() - verts[0]->y(),
+                                   verts[2]->z() - verts[0]->z()};
 
     std::array<NekDouble, 3> N = {e0[1] * e1[2] - e0[2] * e1[1],
                                   e0[2] * e1[0] - e0[0] * e1[2],
@@ -120,15 +120,15 @@ inline box GetBox(SpatialDomains::Geometry *el, NekDouble ov)
               zmin = numeric_limits<double>::max(),
               zmax = -1.0 * numeric_limits<double>::max();
 
-    vector<SpatialDomains::PointGeom *> ns = GetVerts(el);
-    for (int i = 0; i < ns.size(); i++)
+    vector<SpatialDomains::PointGeom *> verts = GetVerts(el);
+    for (int i = 0; i < verts.size(); i++)
     {
-        xmin = min(xmin, ns[i]->x());
-        xmax = max(xmax, ns[i]->x());
-        ymin = min(ymin, ns[i]->y());
-        ymax = max(ymax, ns[i]->y());
-        zmin = min(zmin, ns[i]->z());
-        zmax = max(zmax, ns[i]->z());
+        xmin = min(xmin, verts[i]->x());
+        xmax = max(xmax, verts[i]->x());
+        ymin = min(ymin, verts[i]->y());
+        ymax = max(ymax, verts[i]->y());
+        zmin = min(zmin, verts[i]->z());
+        zmax = max(zmax, verts[i]->z());
     }
 
     return box(point(xmin - ov, ymin - ov, zmin - ov),
@@ -146,15 +146,15 @@ inline box GetBox(vector<SpatialDomains::Geometry *> els, NekDouble ov)
 
     for (int j = 0; j < els.size(); j++)
     {
-        vector<SpatialDomains::PointGeom *> ns = GetVerts(els[j]);
-        for (int i = 0; i < ns.size(); i++)
+        vector<SpatialDomains::PointGeom *> verts = GetVerts(els[j]);
+        for (int i = 0; i < verts.size(); i++)
         {
-            xmin = min(xmin, ns[i]->x());
-            xmax = max(xmax, ns[i]->x());
-            ymin = min(ymin, ns[i]->y());
-            ymax = max(ymax, ns[i]->y());
-            zmin = min(zmin, ns[i]->z());
-            zmax = max(zmax, ns[i]->z());
+            xmin = min(xmin, verts[i]->x());
+            xmax = max(xmax, verts[i]->x());
+            ymin = min(ymin, verts[i]->y());
+            ymax = max(ymax, verts[i]->y());
+            zmin = min(zmin, verts[i]->z());
+            zmax = max(zmax, verts[i]->z());
         }
     }
 
@@ -242,19 +242,25 @@ map<SpatialDomains::PointGeom *, SpatialDomains::PointGeom *> BLMesh::
 inline bool Infont(SpatialDomains::PointGeom *n, SpatialDomains::Geometry *el,
                    const SpatialDomains::CADSurfSharedPtr &surf)
 {
-    vector<SpatialDomains::PointGeom *> ns1 = GetVerts(el);
-    auto N1                                 = Normal(el, surf);
+    vector<SpatialDomains::PointGeom *> verts1 = GetVerts(el);
+    auto N1                                    = Normal(el, surf);
 
     std::array<NekDouble, 3> V;
-    V[0] = n->x() - ns1[0]->x();
-    V[1] = n->y() - ns1[0]->y();
-    V[2] = n->z() - ns1[0]->z();
+    V[0] = n->x() - verts1[0]->x();
+    V[1] = n->y() - verts1[0]->y();
+    V[2] = n->z() - verts1[0]->z();
 
     NekDouble Vmag = sqrt(V[0] * V[0] + V[1] * V[1] + V[2] * V[2]);
 
-    NekDouble ang = (N1[0] * V[0] + N1[1] * V[1] + N1[2] * V[2]) / Vmag;
+    // The cosine of the angle between the face normal and the direction to
+    // the node, not an angle: the node counts as sitting above the face when
+    // it is within about eighty degrees of the normal. Anything flatter than
+    // that is a neighbour alongside, not a node the layer grows towards.
+    NekDouble cosAngle = (N1[0] * V[0] + N1[1] * V[1] + N1[2] * V[2]) / Vmag;
 
-    return ang > 0.17;
+    constexpr NekDouble minCosAngle = 0.17;
+
+    return cosAngle > minCosAngle;
 }
 
 void BLMesh::GrowLayers()
@@ -422,17 +428,29 @@ inline NekDouble Dot(std::array<NekDouble, 3> a, std::array<NekDouble, 3> b)
 NekDouble BLMesh::Proximity(SpatialDomains::PointGeom *n,
                             SpatialDomains::Geometry *el)
 {
-    vector<SpatialDomains::PointGeom *> ns = GetVerts(el);
+    // Distance from a point to a triangle, by the standard construction: see
+    // Eberly, "Distance Between Point and Triangle in 3D", Geometric Tools.
+    // The single-letter names below are that derivation's own, kept so the
+    // case analysis can be read against it. Writing the triangle as
+    //
+    //     T(s,t) = B + s E0 + t E1,
+    //
+    // the squared distance to P is a quadratic in (s,t) whose coefficients
+    // are a = E0.E0, b = E0.E1, c = E1.E1, d = E0.(B-P), e = E1.(B-P). The
+    // branches that follow pick the region of the (s,t) plane the unclamped
+    // minimum falls in and clamp it back onto the triangle, which is the part
+    // that is tedious rather than deep.
+    vector<SpatialDomains::PointGeom *> verts = GetVerts(el);
 
     std::array<NekDouble, 3> B;
-    ns[0]->GetCoords(B[0], B[1], B[2]);
+    verts[0]->GetCoords(B[0], B[1], B[2]);
 
-    std::array<NekDouble, 3> E0 = {ns[1]->x() - ns[0]->x(),
-                                   ns[1]->y() - ns[0]->y(),
-                                   ns[1]->z() - ns[0]->z()};
-    std::array<NekDouble, 3> E1 = {ns[2]->x() - ns[0]->x(),
-                                   ns[2]->y() - ns[0]->y(),
-                                   ns[2]->z() - ns[0]->z()};
+    std::array<NekDouble, 3> E0 = {verts[1]->x() - verts[0]->x(),
+                                   verts[1]->y() - verts[0]->y(),
+                                   verts[1]->z() - verts[0]->z()};
+    std::array<NekDouble, 3> E1 = {verts[2]->x() - verts[0]->x(),
+                                   verts[2]->y() - verts[0]->y(),
+                                   verts[2]->z() - verts[0]->z()};
 
     std::array<NekDouble, 3> P;
     n->GetCoords(P[0], P[1], P[2]);
@@ -518,11 +536,13 @@ NekDouble BLMesh::Proximity(SpatialDomains::PointGeom *n,
 bool BLMesh::TestIntersectionEl(SpatialDomains::Geometry *e1,
                                 SpatialDomains::Geometry *e2)
 {
-    vector<SpatialDomains::PointGeom *> ns1 = GetVerts(e1);
-    vector<SpatialDomains::PointGeom *> ns2 = GetVerts(e2);
-    if (ns1[0] == ns2[0] || ns1[0] == ns2[1] || ns1[0] == ns2[2] ||
-        ns1[1] == ns2[0] || ns1[1] == ns2[1] || ns1[1] == ns2[2] ||
-        ns1[2] == ns2[0] || ns1[2] == ns2[1] || ns1[2] == ns2[2])
+    vector<SpatialDomains::PointGeom *> verts1 = GetVerts(e1);
+    vector<SpatialDomains::PointGeom *> verts2 = GetVerts(e2);
+    if (verts1[0] == verts2[0] || verts1[0] == verts2[1] ||
+        verts1[0] == verts2[2] || verts1[1] == verts2[0] ||
+        verts1[1] == verts2[1] || verts1[1] == verts2[2] ||
+        verts1[2] == verts2[0] || verts1[2] == verts2[1] ||
+        verts1[2] == verts2[2])
     {
         return false;
     }
@@ -530,40 +550,48 @@ bool BLMesh::TestIntersectionEl(SpatialDomains::Geometry *e1,
     std::array<NekDouble, 3> N1, N2;
     NekDouble d1, d2;
 
-    N1[0] = (ns1[1]->y() - ns1[0]->y()) * (ns1[2]->z() - ns1[0]->z()) -
-            (ns1[2]->y() - ns1[0]->y()) * (ns1[1]->z() - ns1[0]->z());
-    N1[1] = -1.0 * ((ns1[1]->x() - ns1[0]->x()) * (ns1[2]->z() - ns1[0]->z()) -
-                    (ns1[2]->x() - ns1[0]->x()) * (ns1[1]->z() - ns1[0]->z()));
-    N1[2] = (ns1[1]->x() - ns1[0]->x()) * (ns1[2]->y() - ns1[0]->y()) -
-            (ns1[2]->x() - ns1[0]->x()) * (ns1[1]->y() - ns1[0]->y());
+    N1[0] =
+        (verts1[1]->y() - verts1[0]->y()) * (verts1[2]->z() - verts1[0]->z()) -
+        (verts1[2]->y() - verts1[0]->y()) * (verts1[1]->z() - verts1[0]->z());
+    N1[1] =
+        -1.0 *
+        ((verts1[1]->x() - verts1[0]->x()) * (verts1[2]->z() - verts1[0]->z()) -
+         (verts1[2]->x() - verts1[0]->x()) * (verts1[1]->z() - verts1[0]->z()));
+    N1[2] =
+        (verts1[1]->x() - verts1[0]->x()) * (verts1[2]->y() - verts1[0]->y()) -
+        (verts1[2]->x() - verts1[0]->x()) * (verts1[1]->y() - verts1[0]->y());
 
-    N2[0] = (ns2[1]->y() - ns2[0]->y()) * (ns2[2]->z() - ns2[0]->z()) -
-            (ns2[2]->y() - ns2[0]->y()) * (ns2[1]->z() - ns2[0]->z());
-    N2[1] = -1.0 * ((ns2[1]->x() - ns2[0]->x()) * (ns2[2]->z() - ns2[0]->z()) -
-                    (ns2[2]->x() - ns2[0]->x()) * (ns2[1]->z() - ns2[0]->z()));
-    N2[2] = (ns2[1]->x() - ns2[0]->x()) * (ns2[2]->y() - ns2[0]->y()) -
-            (ns2[2]->x() - ns2[0]->x()) * (ns2[1]->y() - ns2[0]->y());
+    N2[0] =
+        (verts2[1]->y() - verts2[0]->y()) * (verts2[2]->z() - verts2[0]->z()) -
+        (verts2[2]->y() - verts2[0]->y()) * (verts2[1]->z() - verts2[0]->z());
+    N2[1] =
+        -1.0 *
+        ((verts2[1]->x() - verts2[0]->x()) * (verts2[2]->z() - verts2[0]->z()) -
+         (verts2[2]->x() - verts2[0]->x()) * (verts2[1]->z() - verts2[0]->z()));
+    N2[2] =
+        (verts2[1]->x() - verts2[0]->x()) * (verts2[2]->y() - verts2[0]->y()) -
+        (verts2[2]->x() - verts2[0]->x()) * (verts2[1]->y() - verts2[0]->y());
 
-    d1 = -1.0 *
-         (N1[0] * ns1[0]->x() + N1[1] * ns1[0]->y() + N1[2] * ns1[0]->z());
-    d2 = -1.0 *
-         (N2[0] * ns2[0]->x() + N2[1] * ns2[0]->y() + N2[2] * ns2[0]->z());
+    d1 = -1.0 * (N1[0] * verts1[0]->x() + N1[1] * verts1[0]->y() +
+                 N1[2] * verts1[0]->z());
+    d2 = -1.0 * (N2[0] * verts2[0]->x() + N2[1] * verts2[0]->y() +
+                 N2[2] * verts2[0]->z());
 
     std::array<NekDouble, 3> dv1, dv2;
 
-    dv1[0] =
-        N2[0] * ns1[0]->x() + N2[1] * ns1[0]->y() + N2[2] * ns1[0]->z() + d2;
-    dv1[1] =
-        N2[0] * ns1[1]->x() + N2[1] * ns1[1]->y() + N2[2] * ns1[1]->z() + d2;
-    dv1[2] =
-        N2[0] * ns1[2]->x() + N2[1] * ns1[2]->y() + N2[2] * ns1[2]->z() + d2;
+    dv1[0] = N2[0] * verts1[0]->x() + N2[1] * verts1[0]->y() +
+             N2[2] * verts1[0]->z() + d2;
+    dv1[1] = N2[0] * verts1[1]->x() + N2[1] * verts1[1]->y() +
+             N2[2] * verts1[1]->z() + d2;
+    dv1[2] = N2[0] * verts1[2]->x() + N2[1] * verts1[2]->y() +
+             N2[2] * verts1[2]->z() + d2;
 
-    dv2[0] =
-        N1[0] * ns2[0]->x() + N1[1] * ns2[0]->y() + N1[2] * ns2[0]->z() + d1;
-    dv2[1] =
-        N1[0] * ns2[1]->x() + N1[1] * ns2[1]->y() + N1[2] * ns2[1]->z() + d1;
-    dv2[2] =
-        N1[0] * ns2[2]->x() + N1[1] * ns2[2]->y() + N1[2] * ns2[2]->z() + d1;
+    dv2[0] = N1[0] * verts2[0]->x() + N1[1] * verts2[0]->y() +
+             N1[2] * verts2[0]->z() + d1;
+    dv2[1] = N1[0] * verts2[1]->x() + N1[1] * verts2[1]->y() +
+             N1[2] * verts2[1]->z() + d1;
+    dv2[2] = N1[0] * verts2[2]->x() + N1[1] * verts2[2]->y() +
+             N1[2] * verts2[2]->z() + d1;
 
     if (sign(dv1[0], dv1[1]) && sign(dv1[1], dv1[2]))
     {
@@ -616,13 +644,19 @@ bool BLMesh::TestIntersectionEl(SpatialDomains::Geometry *e1,
 
     std::array<NekDouble, 3> p1, p2;
 
-    p1[0] = D[0] * ns1[0]->x() + D[1] * ns1[0]->y() + D[2] * ns1[0]->z();
-    p1[1] = D[0] * ns1[1]->x() + D[1] * ns1[1]->y() + D[2] * ns1[1]->z();
-    p1[2] = D[0] * ns1[2]->x() + D[1] * ns1[2]->y() + D[2] * ns1[2]->z();
+    p1[0] =
+        D[0] * verts1[0]->x() + D[1] * verts1[0]->y() + D[2] * verts1[0]->z();
+    p1[1] =
+        D[0] * verts1[1]->x() + D[1] * verts1[1]->y() + D[2] * verts1[1]->z();
+    p1[2] =
+        D[0] * verts1[2]->x() + D[1] * verts1[2]->y() + D[2] * verts1[2]->z();
 
-    p2[0] = D[0] * ns2[0]->x() + D[1] * ns2[0]->y() + D[2] * ns2[0]->z();
-    p2[1] = D[0] * ns2[1]->x() + D[1] * ns2[1]->y() + D[2] * ns2[1]->z();
-    p2[2] = D[0] * ns2[2]->x() + D[1] * ns2[2]->y() + D[2] * ns2[2]->z();
+    p2[0] =
+        D[0] * verts2[0]->x() + D[1] * verts2[0]->y() + D[2] * verts2[0]->z();
+    p2[1] =
+        D[0] * verts2[1]->x() + D[1] * verts2[1]->y() + D[2] * verts2[1]->z();
+    p2[2] =
+        D[0] * verts2[2]->x() + D[1] * verts2[2]->y() + D[2] * verts2[2]->z();
 
     NekDouble t11, t12, t21, t22;
     int o1 = 0, o2 = 0;
@@ -711,10 +745,10 @@ void BLMesh::Shrink()
         {
             SpatialDomains::Geometry *t = m_priToTri[inv[i]];
             vector<blInfoSharedPtr> bls;
-            vector<SpatialDomains::PointGeom *> ns = GetVerts(t);
-            for (int j = 0; j < ns.size(); j++)
+            vector<SpatialDomains::PointGeom *> verts = GetVerts(t);
+            for (int j = 0; j < verts.size(); j++)
             {
-                bls.push_back(m_blData[ns[j]]);
+                bls.push_back(m_blData[verts[j]]);
             }
             bool repeat = true;
             while (repeat)
@@ -725,7 +759,27 @@ void BLMesh::Shrink()
                 {
                     mx = max(mx, bls[j]->bl);
                 }
-                ASSERTL0(mx > 0, "shrinking to nothing");
+                if (mx == 0)
+                {
+                    // Every node of this triangle is already down to no
+                    // layers at all and the prism above it is still invalid,
+                    // so there is nothing left to take away.
+                    std::array<NekDouble, 3> l;
+                    verts[0]->GetCoords(l[0], l[1], l[2]);
+
+                    m_log(FATAL)
+                        << "the boundary layer cannot be built near (" << l[0]
+                        << ", " << l[1] << ", " << l[2]
+                        << "): the prism there stays invalid however many "
+                           "layers are taken off it, and it is now down to "
+                           "none. The surface mesh is too coarse for the "
+                           "requested thickness of "
+                        << m_bl
+                        << " -- either reduce BndLayerThickness or reduce "
+                           "MinDelta so that the surface resolves the "
+                           "curvature the layer has to follow."
+                        << std::endl;
+                }
                 for (int j = 0; j < 3; j++)
                 {
                     if (bls[j]->bl < mx)
@@ -767,13 +821,13 @@ bool BLMesh::IsPrismValid(SpatialDomains::Geometry *el)
 {
     NekDouble mn = numeric_limits<double>::max();
     NekDouble mx = -1.0 * numeric_limits<double>::max();
-    vector<SpatialDomains::PointGeom *> ns = GetVerts(el);
+    vector<SpatialDomains::PointGeom *> verts = GetVerts(el);
     NekVector<NekDouble> X(6), Y(6), Z(6);
-    for (int j = 0; j < ns.size(); j++)
+    for (int j = 0; j < verts.size(); j++)
     {
-        X(j) = ns[j]->x();
-        Y(j) = ns[j]->y();
-        Z(j) = ns[j]->z();
+        X(j) = verts[j]->x();
+        Y(j) = verts[j]->y();
+        Z(j) = verts[j]->z();
     }
     NekVector<NekDouble> x1(6), y1(6), z1(6), x2(6), y2(6), z2(6), x3(6), y3(6),
         z3(6);
@@ -1113,11 +1167,11 @@ void BLMesh::Setup()
             continue;
         }
 
-        vector<SpatialDomains::PointGeom *> ns = GetVerts(el);
-        for (int j = 0; j < ns.size(); j++)
+        vector<SpatialDomains::PointGeom *> verts = GetVerts(el);
+        for (int j = 0; j < verts.size(); j++)
         {
-            m_blData[ns[j]]->els.push_back(el);
-            m_blData[ns[j]]->surfs.insert(surfId);
+            m_blData[verts[j]]->els.push_back(el);
+            m_blData[verts[j]]->surfs.insert(surfId);
         }
     }
 
@@ -1129,10 +1183,17 @@ void BLMesh::Setup()
 
         if (Visability(bit->second->els, bit->second->N) < 0.0)
         {
-            m_log(WARNING) << "failed " << bit->first->x() << " "
-                           << bit->first->y() << " " << bit->first->z() << " "
-                           << Visability(bit->second->els, bit->second->N)
-                           << endl;
+            // The averaged normal points away from at least one of the
+            // elements meeting here, so a prism grown along it would be
+            // folded over from the start. It happens where the surface turns
+            // through more than the elements around the node can follow.
+            m_log(WARNING)
+                << "    - the boundary layer direction at (" << bit->first->x()
+                << ", " << bit->first->y() << ", " << bit->first->z()
+                << ") does not face away from all " << bit->second->els.size()
+                << " elements meeting there (by "
+                << Visability(bit->second->els, bit->second->N)
+                << "); the layer will be thinned or dropped around it" << endl;
             failed++;
         }
 
@@ -1191,14 +1252,14 @@ void BLMesh::Setup()
         added.insert(bit->first->GetGlobalID());
         for (int i = 0; i < bit->second->els.size(); i++)
         {
-            vector<SpatialDomains::PointGeom *> ns =
+            vector<SpatialDomains::PointGeom *> verts =
                 GetVerts(bit->second->els[i]);
-            for (int j = 0; j < ns.size(); j++)
+            for (int j = 0; j < verts.size(); j++)
             {
-                set<int>::iterator t = added.find(ns[j]->GetGlobalID());
+                set<int>::iterator t = added.find(verts[j]->GetGlobalID());
                 if (t == added.end())
                 {
-                    m_nToNInfo[bit->first].push_back(m_blData[ns[j]]);
+                    m_nToNInfo[bit->first].push_back(m_blData[verts[j]]);
                 }
             }
         }

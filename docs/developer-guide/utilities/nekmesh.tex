@@ -1348,6 +1348,149 @@ orderings in the CGNS SIDS \cite{SIDS_node_ordering} and NekMesh
 %store elements differently.\\ \texttt{CreateElements} creates the 3D
 %and then 2D elements
 
+\section{Mesh generation from CAD}
+\label{sect:meshgen}
+
+This section describes the strategy of the mesh generator --- the path from
+a CAD model to a curved tetrahedral mesh, which runs when NekMesh is given a
+\texttt{.mcf} file. It is built only when \texttt{NEKTAR\_USE\_MESHGEN} is
+on. The intention is to record the order things happen in, the invariant each
+stage establishes for the next, and where the numbers that are not derived
+from the user's input come from, so that a failure can be attributed to a
+stage rather than hunted for.
+
+\subsection{The pipeline}
+
+\texttt{InputMCF} reads the configuration and then runs, in order:
+
+\begin{enumerate}
+\item \textbf{Load the CAD} (\texttt{CADSystemOCE::LoadCAD}). The model is
+  read through OpenCASCADE, its faces are sewn into a single shell, and
+  vertices, curves and surfaces are enumerated. Establishes: every CAD curve
+  is bounded by exactly two CAD surfaces, checked by
+  \texttt{CADSystem::CheckClosed}. Without that the model is not a closed
+  solid and no later stage can work.
+
+\item \textbf{Build the octree} (\texttt{Octree::Process}). Samples the
+  curvature of every curve and surface and turns it into a target element
+  size, $\delta$, at every point in space. Establishes: a function
+  \texttt{Octree::Query(x)} giving the element size wanted at any point,
+  bounded below by \texttt{MinDelta}, above by \texttt{MaxDelta}, and varying
+  no faster than \texttt{maxGradation} per unit distance.
+
+\item \textbf{Mesh the curves} (\texttt{CurveMesh}). Each CAD curve is
+  divided into segments whose lengths follow the octree. Establishes: a
+  sequence of mesh vertices and edges along every CAD curve, shared between
+  the two surfaces that curve bounds, and each edge associated with the curve
+  it lies on.
+
+\item \textbf{Mesh the surfaces} (\texttt{FaceMesh}). Each CAD surface is
+  triangulated in its own $(u,v)$ parameter plane by Triangle, using the
+  curve meshes as its boundary, then refined against the octree and improved
+  by alternating diagonal swaps and smoothing. Establishes: a triangulation
+  of the whole boundary in which the only edges shared between two faces are
+  the curve-mesh edges of step 3 --- checked by
+  \texttt{FaceMesh::CheckEdgeOwnership}.
+
+\item \textbf{Build the boundary layer}, if one was asked for
+  (\texttt{BLMesh}). Prisms are extruded inwards from the nominated surfaces,
+  thinning locally where they would otherwise invert. The surfaces the layer
+  slides along are then re-triangulated against their new boundary.
+
+\item \textbf{Mesh the volume} (\texttt{TetMesh}). The surface triangulation
+  --- or, with a boundary layer, the inner face of the prism layer together
+  with the surfaces not in it --- is handed to TetGen as a piecewise linear
+  complex and filled with tetrahedra. Establishes, before handing over, that
+  every edge of that triangulation is used by exactly two triangles
+  (\texttt{TetMesh::CheckManifold}); TetGen requires a watertight manifold
+  boundary and aborts without explanation otherwise.
+
+\item \textbf{Curve the mesh} (\texttt{HOSurfaceMesh}). Interior nodes are
+  added to the surface elements at the requested polynomial order and
+  projected onto the CAD.
+\end{enumerate}
+
+\subsection{Where the failures come from}
+
+Nearly every failure of this pipeline is a failure of step 2 showing up
+later. The octree is bounded below by \texttt{MinDelta}, which the user
+chooses; where the curvature of the geometry asks for something smaller, the
+request is clamped and the feature is meshed flatter than it is. A face
+meshed flat enough passes through whatever is on the other side of it, and
+the symptom is a surface mesh that is not a manifold (caught in step 6) or
+one that intersects itself (caught by TetGen, which reports it as its exit
+code 3). \texttt{Octree::ReportClamping} warns when the clamp is widespread
+for this reason, and reducing \texttt{MinDelta} is usually the answer.
+
+\subsection{Units}
+
+Inside OpenCASCADE every length is in millimetres; outside it, in the mesh
+and in everything the user writes in a \texttt{.mcf}, the unit is the metre.
+A STEP file carries its own unit in its header and is converted on the way
+in, so a model drawn in millimetres and one drawn in metres produce the same
+mesh from the same \texttt{.mcf}. Every quantity crossing that boundary is
+converted through \texttt{SpatialDomains::CADUnits}, which also handles the
+quantities that convert the other way, such as curvature.
+
+\subsection{Numbers that are not the user's}
+
+The parameters a \texttt{.mcf} sets --- \texttt{MinDelta},
+\texttt{MaxDelta}, \texttt{EPS}, the boundary layer thickness and
+progression --- are documented in the user guide. The constants below are
+chosen inside the generator, and are collected here because each one is a
+decision rather than a derivation:
+
+\begin{itemize}
+\item \textbf{Sewing tolerance} (\texttt{CADSystemOCE::LoadCAD}): $10^{-5}$
+  of the diagonal of the model's bounding box. Sewing too loosely fuses faces
+  that should have stayed apart and says nothing; too tightly leaves a curve
+  bounded by one surface and trips the check at the end of loading, so this
+  errs tight.
+
+\item \textbf{Octree gradation} (\texttt{maxGradation}, 0.2): the largest
+  allowed rate of change of element size with distance.
+
+\item \textbf{Surface triangle acceptance} (\texttt{FaceMesh::Validate}): a
+  triangle is refined unless each of its edges is within 1.5 times the local
+  $\delta$ and each of its angles lies between 20 and 120 degrees.
+
+\item \textbf{Optimisation rounds} (\texttt{FaceMesh::OptimiseLocalMesh}, 3):
+  how many times diagonal swapping and smoothing alternate. See the comment
+  there for what has and has not been measured about raising it.
+
+\item \textbf{Swap area guard} (\texttt{FaceMesh::DiagonalSwap}, 0.001): the
+  smallest signed area, in the surface's parameter plane, that a triangle
+  produced by a diagonal swap may have. This one is not scale free and the
+  comment there says so.
+
+\item \textbf{Boundary layer node visibility} (\texttt{BLMesh}, 0.17): the
+  smallest cosine of the angle between a face normal and a neighbouring node
+  for that node to count as lying above the face.
+\end{itemize}
+
+\subsection{What is checked, and when}
+
+Each of these turns a failure that used to be silent, or a crash inside a
+third-party library, into a message naming the geometry responsible. They run
+in pipeline order:
+
+\begin{itemize}
+\item \texttt{CADSystem::CheckClosed} --- every CAD curve bounded by exactly
+  two surfaces, after loading.
+\item \texttt{Octree::ReportClamping} --- warns when \texttt{MinDelta} is
+  coarser than the curvature over a large fraction of the samples.
+\item \texttt{FaceMesh::ValidateCurves} --- the curve meshes bounding a face
+  do not cross each other in its parameter plane.
+\item \texttt{FaceMesh::CheckEdgeOwnership} --- a face has not taken over an
+  edge belonging to another face.
+\item \texttt{TetMesh::CheckManifold} --- every edge of the surface mesh
+  handed to TetGen is used by exactly two triangles.
+\item TetGen's own exit code, translated in
+  \texttt{NekMesh/ExtLibInterface/TetGenInterface.cpp}. Note that TetGen
+  cannot survive having its stack unwound, so this is read in a terminate
+  handler and the process stops rather than recovering.
+\end{itemize}
+
 \section{Process Modules}
 \section{Output Modules}
 

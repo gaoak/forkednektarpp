@@ -220,6 +220,52 @@ public:
         std::array<NekDouble, 2> uv) = 0;
 
     /**
+     * @brief Curvature and position at @p uv together.
+     *
+     * The octree wants both at every one of its curvature samples, of which
+     * there are millions, and a CAD engine that derives curvature from the
+     * surface's second derivatives has the position in hand already. This
+     * default asks twice, which is what the callers used to do; an engine
+     * that can do better overrides it.
+     */
+    /**
+     * @brief The @f$ (u,v) @f$ of the point at parameter @p t on @p curve,
+     * which must be one of this surface's bounding curves.
+     *
+     * Projecting a point back onto the surface it is already known to lie on
+     * is expensive and unnecessary where the CAD engine stores the curve's
+     * own representation in the surface's parameter plane. This default does
+     * the projection; an engine that keeps that representation overrides it.
+     */
+    /**
+     * @brief As locuv(), but starting the search from @p guess.
+     *
+     * Finding the parameters of a point on a surface is an iterative
+     * minimisation, and the cost of it depends strongly on where it starts.
+     * Callers placing a run of points that lie near one another -- the
+     * interior nodes of one high-order element, say -- can hand each the
+     * answer from the last. The default ignores the guess.
+     */
+    SPATIAL_DOMAINS_EXPORT virtual std::array<NekDouble, 2> locuvFrom(
+        std::array<NekDouble, 3> p, std::array<NekDouble, 2> guess,
+        NekDouble &dist)
+    {
+        (void)guess;
+        return locuv(p, dist);
+    }
+
+    SPATIAL_DOMAINS_EXPORT virtual std::array<NekDouble, 2> locuvOnCurve(
+        const CADCurveSharedPtr &curve, NekDouble t);
+
+    SPATIAL_DOMAINS_EXPORT virtual NekDouble CurvatureAndPosition(
+        std::array<NekDouble, 2> uv, std::array<NekDouble, 3> &loc)
+    {
+        NekDouble curvature = Curvature(uv);
+        loc                 = P(uv);
+        return curvature;
+    }
+
+    /**
      * @brief Is the surface defined by a planar surface (i.e not nurbs and is
      * flat)
      */

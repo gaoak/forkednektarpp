@@ -73,6 +73,16 @@ public:
     std::array<NekDouble, 2> locuv(std::array<NekDouble, 3> p,
                                    NekDouble &dist) override;
     NekDouble Curvature(std::array<NekDouble, 2> uv) override;
+
+    NekDouble CurvatureAndPosition(std::array<NekDouble, 2> uv,
+                                   std::array<NekDouble, 3> &loc) override;
+
+    std::array<NekDouble, 2> locuvOnCurve(const CADCurveSharedPtr &curve,
+                                          NekDouble t) override;
+
+    std::array<NekDouble, 2> locuvFrom(std::array<NekDouble, 3> p,
+                                       std::array<NekDouble, 2> guess,
+                                       NekDouble &dist) override;
     std::array<NekDouble, 6> BoundingBox() override;
     std::array<NekDouble, 6> BoundingBox(NekDouble scale) override;
     bool IsPlanar() override;

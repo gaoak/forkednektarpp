@@ -59,6 +59,17 @@ public:
     {
         return "VolumeMesh";
     }
+
+private:
+    /**
+     * @brief Take down the edges and nodes of a triangulation that has been
+     * removed, where nothing else refers to them.
+     *
+     * Entities along a CAD curve are shared with the face on the other side
+     * of it and are kept; so is anything a surviving element still uses.
+     */
+    void RemoveOrphans(const std::set<SpatialDomains::SegGeom *> &edges,
+                       const std::set<SpatialDomains::PointGeom *> &points);
 };
 } // namespace Nektar::NekMesh
 

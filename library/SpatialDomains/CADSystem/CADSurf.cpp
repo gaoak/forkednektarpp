@@ -47,6 +47,12 @@ using namespace std;
 namespace Nektar::SpatialDomains
 {
 
+std::array<NekDouble, 2> CADSurf::locuvOnCurve(const CADCurveSharedPtr &curve,
+                                               NekDouble t)
+{
+    return locuv(curve->P(t));
+}
+
 void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
                              vector<EdgeLoopSharedPtr> &ein)
 {
@@ -66,8 +72,7 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
                 for (int k = 0; k < np - 1; k++)
                 {
                     NekDouble t = bnds[0] + dt * k;
-                    auto l      = ein[i]->edges[j]->P(t);
-                    auto uv     = surf->locuv(l);
+                    auto uv     = surf->locuvOnCurve(ein[i]->edges[j], t);
                     loop.push_back(uv);
                 }
             }
@@ -76,8 +81,7 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
                 for (int k = np - 1; k > 0; k--)
                 {
                     NekDouble t = bnds[0] + dt * k;
-                    auto l      = ein[i]->edges[j]->P(t);
-                    auto uv     = surf->locuv(l);
+                    auto uv     = surf->locuvOnCurve(ein[i]->edges[j], t);
                     loop.push_back(uv);
                 }
             }

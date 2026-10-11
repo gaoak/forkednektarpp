@@ -178,6 +178,15 @@ private:
     /**
      * @brief evaluate paramter ds at curve location s
      */
+    /**
+     * @brief Linear interpolation of @p samples at arc length @p s, where
+     * each sample holds a value in [0] against an arc length in [1].
+     *
+     * @p name identifies the table if no pair of samples brackets @p s.
+     */
+    NekDouble Interpolate(const std::vector<std::vector<NekDouble>> &samples,
+                          NekDouble s, const std::string &name);
+
     NekDouble EvaluateDS(NekDouble s);
 
     /**

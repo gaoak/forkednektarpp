@@ -260,15 +260,9 @@ bool CADSystemCFI::LoadCAD()
 
     // TODO identify Degenerated faces and setdegen on vertices accordinaly
 
-    // This checks that all edges are bound by two surfaces, sanity check.
     if (!m_2d && !m_useCFIMesh)
     {
-        map<int, CADCurveSharedPtr>::iterator it;
-        for (it = m_curves.begin(); it != m_curves.end(); it++)
-        {
-            ASSERTL0(it->second->GetAdjSurf().size() == 2,
-                     "curve is not joined to 2 surfaces");
-        }
+        CheckClosed();
     }
 
     Report();

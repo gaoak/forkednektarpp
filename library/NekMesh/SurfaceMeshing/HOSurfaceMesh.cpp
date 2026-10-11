@@ -131,8 +131,8 @@ void HOSurfaceMesh::Process()
             }
         }
     }
-    m_log(WARNING) << "Curved edges inserted N = " << completedEdges.size()
-                   << endl;
+    m_log(VERBOSE) << "  - Edges already carrying curvature: "
+                   << completedEdges.size() << endl;
 
     int i                           = 0;
     std::array<int, 4> m_quadVorder = {0, 1, 3, 2};
@@ -218,75 +218,29 @@ void HOSurfaceMesh::Process()
 
                 if (qOpti)
                 {
-                    Array<OneD, NekDouble> xi(nq - 2);
+                    std::vector<NekDouble> xi(ti.begin() + 1, ti.end() - 1);
+                    std::vector<NekDouble> z(gll.begin(), gll.end());
+
+                    auto result =
+                        BGFSOptimise(CurveEdgeObjective(curveCAD, tb, te, z),
+                                     xi, 1E-7, 2000);
+
+                    // Deliberately take the result whether or not it converged;
+                    // we assume this will be better than nothing, but it is
+                    // something to consider changing later.
                     for (int k = 1; k < nq - 1; k++)
                     {
-                        xi[k - 1] = ti[k];
+                        ti[k] = result.x[k - 1];
                     }
 
-                    OptiEdgeSharedPtr opti =
-                        MemoryManager<OptiEdge>::AllocateSharedPtr(ti, gll,
-                                                                   curveCAD);
-
-                    DNekMat B(nq - 2, nq - 2,
-                              0.0); // approximate hessian (I tostart)
-                    for (int k = 0; k < nq - 2; k++)
+                    if (!result.converged)
                     {
-                        B(k, k) = 1.0;
+                        m_log(TRACE) << "Failed to optimise on curve "
+                                     << curveCAD->GetId() << ", norm "
+                                     << result.norm << endl;
                     }
-                    DNekMat H(nq - 2, nq - 2,
-                              0.0); // approximate inverse hessian(I tostart)
-                    for (int k = 0; k < nq - 2; k++)
-                    {
-                        H(k, k) = 1.0;
-                    }
-
-                    DNekMat J = opti->dF(xi);
-
-                    auto bnds = curveCAD->GetBounds();
-
-                    bool repeat = true;
-                    int itct    = 0;
-                    while (repeat)
-                    {
-                        NekDouble Norm = 0;
-                        for (int k = 0; k < nq - 2; k++)
-                        {
-                            Norm += J(k, 0) * J(k, 0) / (bnds[1] - bnds[0]) /
-                                    (bnds[1] - bnds[0]);
-                        }
-                        Norm = sqrt(Norm);
-
-                        if (Norm < 1E-7)
-                        {
-                            repeat = false;
-                            break;
-                        }
-                        if (itct > 2000)
-                        {
-                            m_log(TRACE) << "Failed to optimise on curve "
-                                         << curveCAD->GetId() << endl;
-                            for (int k = 0; k < nq; k++)
-                            {
-                                ti[k] = tb * (1.0 - gll[k]) / 2.0 +
-                                        te * (1.0 + gll[k]) / 2.0;
-                            }
-                            break;
-                        }
-                        itct++;
-
-                        if (!BGFSUpdate(opti, J, B, H))
-                        {
-                            m_log(VERBOSE).Newline();
-                            m_log(VERBOSE)
-                                << "  - BFGS reported no update,"
-                                << "curve on " << curveCAD->GetId() << endl;
-                            break;
-                        }
-                    }
-                    // need to pull the solution out of opti
-                    ti = opti->GetSolution();
                 }
+
                 // KK - do we need the orientation here?
                 // vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>>
                 // s =
@@ -369,102 +323,31 @@ void HOSurfaceMesh::Process()
                 }
                 if (qOpti)
                 {
-                    Array<OneD, NekDouble> all(2 * nq);
-                    for (int k = 0; k < nq; k++)
-                    {
-                        all[k * 2 + 0] = uvi[k][0];
-                        all[k * 2 + 1] = uvi[k][1];
-                    }
-
-                    Array<OneD, NekDouble> xi(2 * (nq - 2));
+                    std::vector<NekDouble> xi;
+                    xi.reserve(2 * (nq - 2));
                     for (int k = 1; k < nq - 1; k++)
                     {
-                        xi[(k - 1) * 2 + 0] = all[k * 2 + 0];
-                        xi[(k - 1) * 2 + 1] = all[k * 2 + 1];
+                        xi.push_back(uvi[k][0]);
+                        xi.push_back(uvi[k][1]);
+                    }
+                    std::vector<NekDouble> z(gll.begin(), gll.end());
+
+                    auto result = BGFSOptimise(
+                        SurfaceEdgeObjective(surf, uvi[0], uvi[nq - 1], z), xi,
+                        1E-8, 2000);
+
+                    // As above: taken whether or not it converged.
+                    for (int k = 1; k < nq - 1; k++)
+                    {
+                        uvi[k][0] = result.x[(k - 1) * 2 + 0];
+                        uvi[k][1] = result.x[(k - 1) * 2 + 1];
                     }
 
-                    OptiEdgeSharedPtr opti =
-                        MemoryManager<OptiEdge>::AllocateSharedPtr(all, gll,
-                                                                   surf);
-
-                    DNekMat B(2 * (nq - 2), 2 * (nq - 2),
-                              0.0); // approximate hessian (I to start)
-                    for (int k = 0; k < 2 * (nq - 2); k++)
+                    if (!result.converged)
                     {
-                        B(k, k) = 1.0;
-                    }
-                    DNekMat H(2 * (nq - 2), 2 * (nq - 2),
-                              0.0); // approximate inverse hessian(I to start)
-                    for (int k = 0; k < 2 * (nq - 2); k++)
-                    {
-                        H(k, k) = 1.0;
-                    }
-
-                    DNekMat J = opti->dF(xi);
-
-                    bool repeat = true;
-                    int itct    = 0;
-                    while (repeat)
-                    {
-                        NekDouble Norm = 0;
-                        for (int k = 0; k < 2 * (nq - 2); k++)
-                        {
-                            if (k % 2 == 0)
-                            {
-                                Norm +=
-                                    J(k, 0) * J(k, 0); //(bnds[1] bnds[0])
-                                                       /////(bnds[1]- bnds[0]);
-                            }
-                            else
-                            {
-                                Norm += J(k, 0) *
-                                        J(k, 0); //  (bnds[3] - bnds[2])
-                                                 //  ///(bnds[3]  - bnds[2]);
-                            }
-                        }
-                        Norm = sqrt(Norm);
-
-                        if (Norm < 1E-8)
-                        {
-                            repeat = false;
-                            break;
-                        }
-
-                        if (itct > 2000)
-                        {
-                            m_log(VERBOSE).Newline();
-                            m_log(WARNING) << "  Failed to optimise on edge, "
-                                           << "norm = " << Norm << endl;
-                            for (int k = 0; k < nq; k++)
-                            {
-                                std::array<NekDouble, 2> uv;
-                                uv[0] = uvb[0] * (1.0 - gll[k]) / 2.0 +
-                                        uve[0] * (1.0 + gll[k]) / 2.0;
-                                uv[1] = uvb[1] * (1.0 - gll[k]) / 2.0 +
-                                        uve[1] * (1.0 + gll[k]) / 2.0;
-                                uvi[k] = uv;
-                            }
-                            break;
-                        }
-                        itct++;
-
-                        if (!BGFSUpdate(opti, J, B, H))
-                        {
-                            m_log(VERBOSE).Newline();
-                            m_log(VERBOSE)
-                                << "BFGS reported no update, edge on " << surf
-                                << endl;
-                            break;
-                        }
-                    }
-
-                    all = opti->GetSolution();
-
-                    // need to put all backinto uv
-                    for (int k = 0; k < nq; k++)
-                    {
-                        uvi[k][0] = all[k * 2 + 0];
-                        uvi[k][1] = all[k * 2 + 1];
+                        m_log(VERBOSE).Newline();
+                        m_log(WARNING) << "  Failed to optimise on edge, "
+                                       << "norm = " << result.norm << endl;
                     }
                 }
 
@@ -525,6 +408,15 @@ void HOSurfaceMesh::Process()
             // build an array of all uvs
             // KK the new version should start from 0 not np-ni
             vector<std::array<NekDouble, 2>> uvi;
+
+            // These points all lie within one element, so each is a short step
+            // from the one before and the search for its parameters can start
+            // from that answer rather than from nothing. The first starts from
+            // a vertex, whose parameters are already known.
+            std::array<NekDouble, 2> guess =
+                m_mesh->m_meshGraph->GetCADAssociation()->GetSurfUV(
+                    element->GetVertex(0), surf->GetId());
+
             for (int j = 0; j < np; j++)
             {
                 Array<OneD, NekDouble> xp(2);
@@ -533,11 +425,10 @@ void HOSurfaceMesh::Process()
                 std::array<NekDouble, 3> loc = {xmap->PhysEvaluate(xp, xc),
                                                 xmap->PhysEvaluate(xp, yc),
                                                 xmap->PhysEvaluate(xp, zc)};
-                // uvi.push_back(surf->locuv(loc));
-                NekDouble dist0, Umin, Usup, Vmin, Vsup;
-                surf->GetBounds(Umin, Usup, Vmin, Vsup);
 
-                uvi.push_back(surf->locuv(loc, dist0, Umin, Usup, Vmin, Vsup));
+                NekDouble dist0;
+                guess = surf->locuvFrom(loc, guess, dist0);
+                uvi.push_back(guess);
             }
 
             auto faceCurve =
@@ -674,9 +565,22 @@ void HOSurfaceMesh::Process()
     // elements -- is still set up for the linear mesh.
     m_mesh->m_meshGraph->ResetGeometry();
 
-    m_log(WARNING) << "Surface Optimization (T/F)  = " << qOpti << endl;
-    m_log(WARNING) << "There were " << cntBreak
-                   << " 2D Surface Faces that were skipped for HOSurfModule."
-                   << endl;
+    m_log(VERBOSE) << "  - Node spreading optimisation: "
+                   << (qOpti ? "on" : "off") << endl;
+
+    // Not a warning in itself: a surface element with no CAD behind it has
+    // nothing to curve onto, which is ordinary for a mesh that is only partly
+    // generated from CAD. It is worth saying when it is most of them.
+    if (cntBreak > 0)
+    {
+        auto &log = cntBreak * 2 > (int)m_mesh->m_elementTags[2].size()
+                        ? m_log(WARNING)
+                        : m_log(VERBOSE);
+
+        log << "  - " << cntBreak << " of " << m_mesh->m_elementTags[2].size()
+            << " surface elements were left straight, having no CAD surface "
+               "to curve onto."
+            << endl;
+    }
 }
 } // namespace Nektar::NekMesh
