@@ -32,6 +32,35 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file DivergenceSerialAVXStdMat.hpp
+ * @brief Serial/AVX standard-matrix implementation of the block
+ * divergence.
+ *
+ * @details
+ * Instead of sum-factorised 1D contractions, this variant multiplies
+ * each SIMD group of elements by dense standard-region derivative
+ * matrices (one `nqTot x nqTot` matrix per reference direction, with
+ * any collapsed-coordinate correction baked in) via libxsmm GEMM
+ * calls, then contracts the resulting reference-direction derivatives
+ * with the derivative factors. See DivergenceSerialAVXSumFac.hpp for
+ * the sum-factorised alternative.
+ *
+ * This header provides the definition of detail::DivergenceBlockOpImpl
+ * for the Serial and AVX execution spaces with the StdMat
+ * implementation tag; the class template name is shared with the other
+ * implementation headers, and each CMake-generated registration
+ * translation unit includes exactly one of them.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through DivergenceOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
+
 #pragma once
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -45,6 +74,45 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX standard-matrix block divergence: per plane, SIMD
+ * group of elements and vector component, dense GEMMs produce all
+ * reference-direction derivatives, which are then contracted with the
+ * component's row of derivative factors and accumulated into the
+ * output.
+ *
+ * @details
+ * ### What one application does
+ * For each homogeneous plane, each group of `simd_t::width` elements
+ * and each component c of the vector field:
+ * -# one libxsmm GEMM per reference direction d multiplies the
+ *    group's interleaved data for component c by the transposed
+ *    standard-region derivative matrix (ePhysDerivStdMatTranspose;
+ *    transposed because the group data is stored lane-innermost),
+ *    filling workspace slice d with \f$\partial u_c/\partial\xi_d\f$
+ *    at every point;
+ * -# MultiplyByDerivDirFactorKernel<ExecSpace, APPEND, DEFORMED>
+ *    contracts the slices with row c of the derivative factors,
+ *    \f$\partial u_c/\partial x_c = \sum_d
+ *    (\partial\xi_d/\partial x_c)\,\partial u_c/\partial\xi_d\f$,
+ *    overwriting the output for c = 0 and accumulating (APPEND) for
+ *    the remaining components -- so the output ends up holding
+ *    \f$\sum_c \partial u_c/\partial x_c\f$.
+ *
+ * The chunk-wise re-interleaving between the block's stored width and
+ * the SIMD width follows the same scheme as the sum-factorised
+ * variant (see the DivergenceSerialAVXSumFac class notes); the
+ * reference-direction derivatives are staged in the static per-stream
+ * workspace shared by all block operators. The planes are processed in
+ * turn over the same derivative factors, each giving the xy divergence
+ * of that plane.
+ *
+ * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX.
+ * @tparam Implementation Implementation tag (MultiRegions::StdMat).
+ * @tparam TData          Floating-point type of the field data.
+ *
+ * @see DivergenceDeviceStdMat.hpp for the device counterpart.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
 {
@@ -54,6 +122,22 @@ class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Fetch the stacked transposed derivative matrices
+     * (ePhysDerivStdMatTranspose, one `nqTot x nqTot` block per
+     * reference direction, keyed on the block's basis keys) and the
+     * block's derivative factors interleaved at the SIMD width.
+     *
+     * Asserts (debug builds) that the shape dimension equals the
+     * coordinate dimension, i.e. embedded expansions are not
+     * supported.
+     *
+     * @param   block_idx       Index of the block within the
+     *                          expansion list's Collections.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     DivergenceBlockOpImpl(const unsigned int block_idx,
                           const LocalRegions::ExpansionSharedPtr &exp,
                           LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -89,10 +173,10 @@ public:
                                                 m_implInterleaveWidth, false));
     }
 
-    // className - for BlockOperatorFactory
+    /// Block-operator class name; defined by generated factory code.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// Creator function registered with BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
@@ -105,17 +189,66 @@ public:
     }
 
 protected:
+    /// Interleave width the GEMMs and the derivative-factor
+    /// contraction operate at: the SIMD vector width (1 on Serial).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape shared by every element of the block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed (derivative factors
+    /// then vary per quadrature point rather than per element).
     bool m_isDeformed;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the element; equal to #m_dimension
+    /// here, as asserted in the constructor.
     unsigned int m_coordDim;
+    /// Number of expansion modes per element; unused by this
+    /// implementation.
     unsigned int m_nmTot;
+    /// Number of quadrature points per element.
     unsigned int m_nqTot;
+    /// Stacked transposed standard-region derivative matrices
+    /// (ePhysDerivStdMatTranspose), one `nqTot x nqTot` block per
+    /// reference direction, keyed on the block's basis keys.
     const TData *m_matptr;
+    /// Derivative factors of the block, interleaved at
+    /// #m_implInterleaveWidth: per element group, all factors of one
+    /// point (deformed) or element (regular) are adjacent, lanes
+    /// innermost.
     const TData *m_dfptr;
 
+    /**
+     * @brief Differentiate every vector component of the block by
+     * dense GEMM and accumulate the contracted derivatives into the
+     * output.
+     *
+     * The two steps described in the class notes are run for each
+     * component c of the vector field, working through each plane of
+     * the block in groups of #m_implInterleaveWidth elements, with the
+     * derivative factors restarting at every plane: one GEMM per
+     * reference direction fills the shared static workspace with
+     * component c's reference-direction derivatives, one slice of
+     * #m_nqTot vectors per direction, then
+     * MultiplyByDerivDirFactorKernel -- handed that slice stride --
+     * contracts them with row c of the derivative factors, overwriting
+     * the output for c = 0 and accumulating (APPEND) for the rest.
+     *
+     * As in the other Serial/AVX implementations the field may be
+     * interleaved at a width other than #m_implInterleaveWidth, so
+     * each component's data is reshaped to #m_implInterleaveWidth at
+     * the start of the chunk of groups it belongs to and reshaped
+     * back, together with the output, once that chunk's last group is
+     * done; the output block's interleave width is set to the
+     * input's on return.
+     *
+     * @param   inblock     Physical-space input block; its first
+     *                      #m_dimension components are the vector
+     *                      field, each spanning all the planes.
+     * @param   outblock    Physical-space output block receiving the
+     *                      accumulated divergence of every plane in
+     *                      its first component.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override

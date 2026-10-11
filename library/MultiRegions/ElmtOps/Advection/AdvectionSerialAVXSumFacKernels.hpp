@@ -28,9 +28,32 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Serial/AVX sum-factorised advection kernels, one element per
+// SIMD lane.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionSerialAVXSumFacKernels.hpp
+ * @brief Kernels of the Serial/AVX sum-factorised advection operator:
+ * tensor-product differentiation, collapsed-coordinate correction,
+ * derivative factors and velocity dot product, one element per SIMD lane.
+ *
+ * @details
+ * AdvectionKernelLauncher is the entry point the block operator
+ * (AdvectionSerialAVXSumFac.hpp) calls for one element group; its one-,
+ * two- and three-dimensional overloads are selected by the type of the
+ * size parameter. Each unpacks the sizes, differentiates the group along
+ * the reference tensor directions with the PhysDerivTensor kernels
+ * (StdRegions/Operators/PhysDerivSumFacStdKernels.hpp) and hands the
+ * result to the matching Advection*DKernel, which writes
+ * scale * (V . grad u) per quadrature point. For simplex-type shapes the
+ * tensor directions are the collapsed coordinates, and the kernels first
+ * chain-rule the derivatives back to the standard coordinates using the
+ * pointwise factors f0/f1/f1m/f2 -- tabulations of (1 + eta)/2 and
+ * 2/(1 - eta) at the quadrature points of the respective direction (see
+ * AdvectionSerialAVXSumFac.hpp for how they are fetched).
+ */
 
 #pragma once
 
@@ -41,6 +64,33 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief 1D advection finish: out = scale * du/dxi * sum_k df(k) V_k per
+ * quadrature point.
+ *
+ * A segment has a single reference direction, so the velocity contraction
+ * reduces to scaling the one reference derivative by the k-th derivative
+ * factor and velocity component for each of the up to three coordinate
+ * directions of a possibly embedded segment.
+ *
+ * @tparam SHAPE_TYPE Element shape (segments only; unused).
+ * @tparam APPEND     Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED   Read per-point rather than per-element derivative
+ *                    factors.
+ * @tparam simd_type  SIMD vector type; one element per lane.
+ *
+ * @param   nq0         Quadrature points per element.
+ * @param   ncoord      Coordinate dimension, equal to the number of
+ *                      derivative factors per point.
+ * @param   df_ptr      Derivative factors (ncoord per element group, or
+ *                      per point when deformed).
+ * @param   advVel0_ptr Velocity component 0 at the quadrature points.
+ * @param   advVel1_ptr Velocity component 1; read when ncoord >= 2.
+ * @param   advVel2_ptr Velocity component 2; read when ncoord == 3.
+ * @param   deriv0      Reference-direction derivative du/dxi.
+ * @param   out         Output plane of nq0 vectors.
+ * @param   scale       Scalar factor applied to the result.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void Advection1DKernel(
@@ -107,6 +157,43 @@ NEK_FORCE_INLINE static void Advection1DKernel(
     }
 }
 
+/**
+ * @brief 2D advection finish: chain-rule the tensor-direction derivatives
+ * into Cartesian ones and contract with the velocity,
+ * out = scale * sum_k V_k sum_d df(k,d) du/dxi_d per point.
+ *
+ * For triangles the tensor directions are the collapsed coordinates: d0 is
+ * multiplied by f1[j] = 2/(1 - eta_1) and d1 augmented by d0 * f0[i] with
+ * f0[i] = (1 + eta_0)/2, recovering the standard-coordinate derivatives
+ * before the derivative factors are applied. With @p ncoord == 3 the
+ * element is embedded in three-dimensional space and a third
+ * factor/velocity pair contributes.
+ *
+ * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
+ *                    correction.
+ * @tparam APPEND     Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED   Read per-point rather than per-element derivative
+ *                    factors.
+ * @tparam simd_type  SIMD vector type; one element per lane.
+ *
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   ncoord      Coordinate dimension, i.e. number of
+ *                      gradient/velocity components (2 or 3).
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (triangles only).
+ * @param   df_ptr      Derivative factors (2 * ncoord per element group,
+ *                      or per point when deformed).
+ * @param   advVel0_ptr Velocity component 0 at the quadrature points.
+ * @param   advVel1_ptr Velocity component 1 at the quadrature points.
+ * @param   advVel2_ptr Velocity component 2; read when ncoord == 3.
+ * @param   deriv0      Tensor-direction-0 derivative of the group.
+ * @param   deriv1      Tensor-direction-1 derivative of the group.
+ * @param   out         Output plane of nq0 * nq1 vectors.
+ * @param   scale       Scalar factor applied to the result.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void Advection2DKernel(
@@ -156,7 +243,7 @@ NEK_FORCE_INLINE static void Advection2DKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                           SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                // Moving from standard to collapsed coordinates
+                // Moving from collapsed to standard coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
                 d0 *= xfrm1;
                 d1.fma(d0, xfrm0);
@@ -209,6 +296,58 @@ NEK_FORCE_INLINE static void Advection2DKernel(
     }
 }
 
+/**
+ * @brief 3D advection finish: chain-rule the tensor-direction derivatives
+ * into Cartesian ones and contract with the velocity,
+ * out = scale * sum_k V_k sum_d df(k,d) du/dxi_d per point.
+ *
+ * Hexahedra need no correction and ignore the factor tables. For the other
+ * shapes the tensor directions are the collapsed coordinates and are
+ * chain-ruled back to standard coordinates before the nine derivative
+ * factors are applied:
+ * - prisms scale d0 by f2[k] and add f0[i] * d0 to d2;
+ * - pyramids scale both d0 and d1 by f2[k] and add
+ *   f0[i] * d0 + f1[j] * d1 to d2;
+ * - tetrahedra scale d0 by f1m[j] * f2[k] and d1 by f2[k], then add
+ *   f0[i] * d0 to d1 and f0[i] * d0 + f1[j] * d1 to d2, where the d1 in
+ *   the d2 term is the scaled value taken before that addition.
+ *
+ * The factor arguments arrive in the push order of the block operator's
+ * table vector (m_f[0] .. m_f[3]), which pairs them with the parameter
+ * names as follows: @p f0 and @p f1 are the (1 + eta)/2 tabulations of
+ * directions 0 and 1, while @p f1m and @p f2 are the 2/(1 - eta)
+ * tabulations of directions 1 and 2. Note that @p f1 and @p f1m are
+ * therefore two different factors of the same direction, and that the
+ * parameter order is not the direction order.
+ *
+ * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
+ *                    correction.
+ * @tparam APPEND     Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED   Read per-point rather than per-element derivative
+ *                    factors.
+ * @tparam simd_type  SIMD vector type; one element per lane.
+ *
+ * @param   nq0         Quadrature points in direction 0.
+ * @param   nq1         Quadrature points in direction 1.
+ * @param   nq2         Quadrature points in direction 2.
+ * @param   f0          (1 + eta_0)/2 at the direction-0 points.
+ * @param   f1          (1 + eta_1)/2 at the direction-1 points.
+ * @param   f1m         2/(1 - eta_1) at the direction-1 points.
+ * @param   f2          2/(1 - eta_2) at the direction-2 points.
+ * @param   df_ptr      Derivative factors (nine per element group, or per
+ *                      point when deformed).
+ * @param   advVel0_ptr Velocity component 0 at the quadrature points.
+ * @param   advVel1_ptr Velocity component 1 at the quadrature points.
+ * @param   advVel2_ptr Velocity component 2 at the quadrature points.
+ * @param   deriv0      Tensor-direction-0 derivative of the group.
+ * @param   deriv1      Tensor-direction-1 derivative of the group.
+ * @param   deriv2      Tensor-direction-2 derivative of the group.
+ * @param   out         Output plane of nq0 * nq1 * nq2 vectors.
+ * @param   scale       Scalar factor applied to the result.
+ *
+ * @see Advection3DSumFacKernel in AdvectionDeviceSumFacKernels.hpp for the
+ * Device counterpart of the same arithmetic.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void Advection3DKernel(
@@ -346,6 +485,34 @@ NEK_FORCE_INLINE static void Advection3DKernel(
     }
 }
 
+/**
+ * @brief Advect one element group of a 1D block: tensor-product
+ * differentiation followed by Advection1DKernel.
+ *
+ * Unpacks the size parameter -- runtime or compile-time, both satisfying
+ * IsPhysSizeParameter1D_v as the static_assert enforces -- forms du/dxi in
+ * @p deriv0 with PhysDerivTensor1DKernel and hands it to Advection1DKernel
+ * together with the group's derivative factors and velocity.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter1D 1D physical-space size parameter (see
+ *                              ElmtHelper.hpp).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam1D Element sizes: coordinate dimension and quadrature
+ *                      points.
+ * @param   D0          1D derivative matrix of the direction.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   advVel0_ptr Velocity component 0 of the group.
+ * @param   advVel1_ptr Velocity component 1; read for embedded segments.
+ * @param   advVel2_ptr Velocity component 2; read for embedded segments.
+ * @param   deriv0      Workspace for the reference derivative.
+ * @param   in          Input values of the group.
+ * @param   out         Output values of the group.
+ * @param   scale       Scalar factor applied to the result.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TPhysSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void AdvectionKernelLauncher(
@@ -372,6 +539,39 @@ NEK_FORCE_INLINE static void AdvectionKernelLauncher(
         scale);
 }
 
+/**
+ * @brief Advect one element group of a 2D block: tensor-product
+ * differentiation followed by Advection2DKernel.
+ *
+ * As in 1D, with PhysDerivTensor2DKernel forming the two tensor-direction
+ * derivatives in @p deriv0 and @p deriv1 and Advection2DKernel applying
+ * the triangle collapsed-coordinate correction (through @p f0 and @p f1),
+ * the derivative factors and the velocity contraction.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter2D 2D physical-space size parameter (see
+ *                              ElmtHelper.hpp).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam2D Element sizes: coordinate dimension, which is 3 for
+ *                      elements embedded in three-dimensional space, and
+ *                      per-direction quadrature points.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   f0          Collapsed-coordinate factor of direction 0.
+ * @param   f1          Collapsed-coordinate factor of direction 1.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   advVel0_ptr Velocity component 0 of the group.
+ * @param   advVel1_ptr Velocity component 1 of the group.
+ * @param   advVel2_ptr Velocity component 2; read for embedded elements.
+ * @param   deriv0      Workspace for the direction-0 derivative.
+ * @param   deriv1      Workspace for the direction-1 derivative.
+ * @param   in          Input values of the group.
+ * @param   out         Output values of the group.
+ * @param   scale       Scalar factor applied to the result.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TPhysSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void AdvectionKernelLauncher(
@@ -401,6 +601,43 @@ NEK_FORCE_INLINE static void AdvectionKernelLauncher(
         deriv0, deriv1, out, scale);
 }
 
+/**
+ * @brief Advect one element group of a 3D block: tensor-product
+ * differentiation followed by Advection3DKernel.
+ *
+ * Counterpart of the 2D overload for three-dimensional shapes; the size
+ * parameter carries no coordinate dimension, since a 3D element always
+ * has three. PhysDerivTensor3DKernel forms the three tensor-direction
+ * derivatives in @p deriv0 .. @p deriv2 and Advection3DKernel applies the
+ * shape-specific collapsed-coordinate correction (through @p f0 .. @p f2),
+ * the nine derivative factors and the velocity contraction.
+ *
+ * @tparam SHAPE_TYPE           Element shape.
+ * @tparam APPEND               Accumulate onto @p out.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter3D 3D physical-space size parameter (see
+ *                              ElmtHelper.hpp).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam3D Element sizes: per-direction quadrature points.
+ * @param   D0          1D derivative matrix of direction 0.
+ * @param   D1          1D derivative matrix of direction 1.
+ * @param   D2          1D derivative matrix of direction 2.
+ * @param   f0          (1 + eta_0)/2 at the direction-0 points.
+ * @param   f1          (1 + eta_1)/2 at the direction-1 points.
+ * @param   f1m         2/(1 - eta_1) at the direction-1 points.
+ * @param   f2          2/(1 - eta_2) at the direction-2 points.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   advVel0_ptr Velocity component 0 of the group.
+ * @param   advVel1_ptr Velocity component 1 of the group.
+ * @param   advVel2_ptr Velocity component 2 of the group.
+ * @param   deriv0      Workspace for the direction-0 derivative.
+ * @param   deriv1      Workspace for the direction-1 derivative.
+ * @param   deriv2      Workspace for the direction-2 derivative.
+ * @param   in          Input values of the group.
+ * @param   out         Output values of the group.
+ * @param   scale       Scalar factor applied to the result.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename TPhysSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void AdvectionKernelLauncher(

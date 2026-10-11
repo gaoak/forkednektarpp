@@ -28,15 +28,82 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Chain-rule kernels of the Serial/AVX StdMat physical
+// derivative.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file PhysDerivSerialAVXStdMatKernels.hpp
+ * @brief Chain-rule kernels of the Serial/AVX StdMat physical
+ * derivative: contract standard-region derivatives with the element's
+ * geometric derivative factors.
+ *
+ * @details
+ * The StdMat implementations produce, for each element, the `dimension`
+ * derivatives \f$\partial u / \partial \xi_d\f$ with respect to the
+ * standard-element coordinates. These kernels perform the remaining
+ * chain rule
+ * \f[ \frac{\partial u}{\partial x_k}
+ *     = \sum_{d} \frac{\partial \xi_d}{\partial x_k}
+ *       \frac{\partial u}{\partial \xi_d} \f]
+ * against the derivative factors of the block, which are laid out
+ * point-major -- `coordDim * dimension` consecutive values per
+ * quadrature point for a deformed element, one such set per element for
+ * a regular one (DerivFactorKey with `transpose = false`, see
+ * GeometricDataWarehouse.hpp) -- and are addressed as
+ * `k * dimension + d`. The DEFORMED template flag selects between the
+ * two indexings; nothing else about the two branches differs.
+ *
+ * MultiplyByDerivFactorKernel produces all `coordDim` components at
+ * once and is used by PhysDeriv itself (and by the AdvectionDealias
+ * StdMat implementation); MultiplyByDerivDirFactorKernel produces one
+ * chosen component and is used by the Divergence StdMat implementation,
+ * which accumulates the diagonal terms of
+ * \f$\nabla \cdot \mathbf{u}\f$ into a single output.
+ *
+ * These kernels are instantiated with @p TData bound to the SIMD vector
+ * type of the execution space (tinysimd::scalarT on Serial), so each
+ * element of the interleaved lane group is handled in its own lane.
+ *
+ * @see PhysDerivDeviceStdMatKernels.hpp for the device counterparts.
+ */
 
 #pragma once
 
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Contract the standard-region derivatives of a lane group into
+ * all @p ncoord Cartesian derivatives.
+ *
+ * Safe to run in place (@p outptr equal to @p inptr, as PhysDeriv does):
+ * all @p ncoord results for one point are formed in registers before
+ * any of them is stored.
+ *
+ * @tparam ExecSpace  Execution space; unused.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam TData      SIMD vector type of the interleaved lane group.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   ncoord      Cartesian components to produce (coordDim); at
+ *                      most 3, the size of the per-point register
+ *                      buffer.
+ * @param   dimension   Standard directions to contract over.
+ * @param   nelmt       Element groups covered by this call; the StdMat
+ *                      block operator passes 1 and advances the
+ *                      pointers itself.
+ * @param   inoffset    Stride, in SIMD vectors, between the
+ *                      standard-direction planes of @p inptr.
+ * @param   outoffset   Stride, in SIMD vectors, between the Cartesian
+ *                      planes of @p outptr.
+ * @param   dfptr       Derivative factors of the group, from the first
+ *                      point (deformed) or the first element (regular).
+ * @param   inptr       Standard-direction derivatives, plane @em d at
+ *                      `d * inoffset`.
+ * @param   outptr      Cartesian derivatives, plane @em k written at
+ *                      `k * outoffset`.
+ */
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     const unsigned int nqTot, const unsigned int ncoord,
@@ -92,6 +159,32 @@ NEK_FORCE_INLINE static void MultiplyByDerivFactorKernel(
     }
 }
 
+/**
+ * @brief Contract the standard-region derivatives of a lane group into
+ * the single Cartesian derivative @p dir, overwriting or accumulating.
+ *
+ * The runtime @p dir argument plays the role that the DIR template
+ * parameter plays in the sum-factorised kernels: it selects the
+ * derivative-factor rows `dir * dimension + d`.
+ *
+ * @tparam ExecSpace  Execution space; unused.
+ * @tparam APPEND     Accumulate onto @p outptr instead of overwriting.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam TData      SIMD vector type of the interleaved lane group.
+ *
+ * @param   dir         Cartesian component to produce.
+ * @param   nqTot       Quadrature points per element.
+ * @param   ncoord      Cartesian components the factor array holds
+ *                      (coordDim); sets the per-point factor stride.
+ * @param   dimension   Standard directions to contract over.
+ * @param   nelmt       Element groups covered by this call.
+ * @param   inoffset    Stride, in SIMD vectors, between the
+ *                      standard-direction planes of @p inptr.
+ * @param   dfptr       Derivative factors of the group.
+ * @param   inptr       Standard-direction derivatives, plane @em d at
+ *                      `d * inoffset`.
+ * @param   outptr      Single Cartesian derivative plane.
+ */
 template <typename ExecSpace, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void MultiplyByDerivDirFactorKernel(
     const unsigned dir, const unsigned nqTot, const unsigned ncoord,

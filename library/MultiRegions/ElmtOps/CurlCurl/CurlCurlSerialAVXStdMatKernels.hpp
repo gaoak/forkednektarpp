@@ -32,6 +32,22 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlSerialAVXStdMatKernels.hpp
+ * @brief Pointwise curl kernels of the Serial/AVX StdMat curl-curl block
+ * operator (see CurlCurlSerialAVXStdMat.hpp).
+ *
+ * @details
+ * Each kernel takes the reference-space derivatives of one element group,
+ * as produced by the standard-matrix multiplies of the block operator,
+ * chain-rules them into Cartesian derivatives through the geometric
+ * derivative factors and combines those into a curl in the same sweep, one
+ * element per SIMD lane. The block operator uses them twice per group: to
+ * form the vorticity omega = curl u and then the output curl omega. On a
+ * multi-plane 3DH1 block it calls each 2D kernel once per group and plane,
+ * for the plane part of a single curl.
+ */
+
 #pragma once
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
@@ -39,12 +55,31 @@
 namespace Nektar::MultiRegions::detail
 {
 
-// Scalar curl of a two-dimensional vector field, omega = dv/dx - du/dy.
-//
-// @param deriv holds the standard derivatives of one element group produced
-// by the standard matrix multiply, ordered as deriv[(c * 2 + d) * nqTot + i]
-// for component c and direction d. The chain rule and the curl are applied
-// in a single sweep.
+/**
+ * @brief Scalar curl of a two-dimensional vector field,
+ * omega = d(u1)/dx0 - d(u0)/dx1, per quadrature point with one element per
+ * SIMD lane.
+ *
+ * The derivative-factor entry k * 2 + d maps the reference-direction-d
+ * derivative into the Cartesian-k gradient component. For regular geometry
+ * one set of four factors is stored per element group; for deformed
+ * geometry one per quadrature point. The chain rule and the curl are
+ * applied in a single sweep.
+ *
+ * @tparam ExecSpace Execution space; unused.
+ * @tparam DEFORMED  Read per-point rather than per-element derivative
+ *                   factors.
+ * @tparam TData     SIMD vector type of the data (a scalar type on the
+ *                   Serial execution space).
+ *
+ * @param   nqTot   Quadrature points per element.
+ * @param   df_ptr  Derivative factors: four vectors per element group
+ *                  (regular) or per point (deformed).
+ * @param   deriv   Reference-space derivatives of the two components,
+ *                  ordered as deriv[(c * 2 + d) * nqTot + i] for component
+ *                  c and direction d.
+ * @param   omega   Output plane of nqTot vectors.
+ */
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Curl2DScalarStdMatKernel(const unsigned int nqTot,
                                                       const TData *df_ptr,
@@ -86,11 +121,29 @@ NEK_FORCE_INLINE static void Curl2DScalarStdMatKernel(const unsigned int nqTot,
     }
 }
 
-// Vector curl of a two-dimensional scalar field,
-// out = {d(omega)/dy, -d(omega)/dx}.
-//
-// @param deriv holds the standard derivatives of omega, ordered as
-// deriv[d * nqTot + i] for direction d.
+/**
+ * @brief Vector curl of a two-dimensional scalar field,
+ * out = ( d(omega)/dx1, -d(omega)/dx0 ), per quadrature point with one
+ * element per SIMD lane.
+ *
+ * The derivative factors are read as in Curl2DScalarStdMatKernel; both
+ * output components come out of the same sweep, so the sign flip needs no
+ * pass of its own.
+ *
+ * @tparam ExecSpace Execution space; unused.
+ * @tparam DEFORMED  Read per-point rather than per-element derivative
+ *                   factors.
+ * @tparam TData     SIMD vector type of the data (a scalar type on the
+ *                   Serial execution space).
+ *
+ * @param   nqTot   Quadrature points per element.
+ * @param   df_ptr  Derivative factors: four vectors per element group
+ *                  (regular) or per point (deformed).
+ * @param   deriv   Reference-space derivatives of omega, ordered as
+ *                  deriv[d * nqTot + i] for direction d.
+ * @param   out0    First output component, nqTot vectors.
+ * @param   out1    Second output component, nqTot vectors.
+ */
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Curl2DVectorStdMatKernel(const unsigned int nqTot,
                                                       const TData *df_ptr,
@@ -131,13 +184,36 @@ NEK_FORCE_INLINE static void Curl2DVectorStdMatKernel(const unsigned int nqTot,
     }
 }
 
-// Curl of a three-dimensional vector field. Used for both passes of the
-// curl-curl operator, i.e. omega = curl(u) and out = curl(omega).
-//
-// @param deriv holds the standard derivatives ordered as
-// deriv[(c * 3 + d) * nqTot + i] for component c and direction d. Only the
-// six off-diagonal physical derivatives are formed, the diagonal ones cancel
-// out.
+/**
+ * @brief Curl of a three-dimensional vector field, per quadrature point
+ * with one element per SIMD lane; used for both passes of the curl-curl
+ * operator, omega = curl u and out = curl omega.
+ *
+ * The derivative-factor entry k * 3 + d maps the reference-direction-d
+ * derivative into the Cartesian-k gradient component; nine factors are
+ * stored per element group (regular) or per point (deformed). Only the six
+ * off-diagonal Cartesian derivatives are formed, the diagonal ones
+ * cancelling out of the curl:
+ *     out0 = d(u2)/dx1 - d(u1)/dx2,
+ *     out1 = d(u0)/dx2 - d(u2)/dx0,
+ *     out2 = d(u1)/dx0 - d(u0)/dx1.
+ *
+ * @tparam ExecSpace Execution space; unused.
+ * @tparam DEFORMED  Read per-point rather than per-element derivative
+ *                   factors.
+ * @tparam TData     SIMD vector type of the data (a scalar type on the
+ *                   Serial execution space).
+ *
+ * @param   nqTot   Quadrature points per element.
+ * @param   df_ptr  Derivative factors: nine vectors per element group
+ *                  (regular) or per point (deformed).
+ * @param   deriv   Reference-space derivatives of the three components,
+ *                  ordered as deriv[(c * 3 + d) * nqTot + i] for component
+ *                  c and direction d.
+ * @param   out0    First output component, nqTot vectors.
+ * @param   out1    Second output component, nqTot vectors.
+ * @param   out2    Third output component, nqTot vectors.
+ */
 template <typename ExecSpace, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void Curl3DStdMatKernel(const unsigned int nqTot,
                                                 const TData *df_ptr,

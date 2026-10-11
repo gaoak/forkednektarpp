@@ -28,9 +28,47 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Device StdMat implementation of the advection block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionDeviceStdMat.hpp
+ * @brief Device StdMat implementation of the advection block operator.
+ *
+ * @details
+ * The Device StdMat path takes the same two steps as its host counterpart
+ * (AdvectionSerialAVXStdMat.hpp): the reference-space derivatives of the
+ * input are formed by multiplying with the dense standard-region
+ * physical-derivative matrices, one matrix product per reference
+ * direction, and a pointwise kernel then applies the geometric derivative
+ * factors and the dot product with the advection velocity (see
+ * AdvectionDeviceStdMatKernels.hpp).
+ *
+ * Two things differ from the host version. The products are issued as a
+ * single strided-batched GEMM through NekBlas -- the vendor BLAS behind it
+ * depends on the build -- covering every element, component and
+ * homogeneous mode of the block at once, so the matrices are fetched
+ * untransposed (ePhysDerivStdMat, where the host uses
+ * ePhysDerivStdMatTranspose) and the block data is read as one
+ * column-major matrix instead of lane-interleaved: the implementation
+ * interleave width is one. And all device work is issued on the block's
+ * own stream, so different blocks may overlap.
+ *
+ * This header provides the definition of detail::AdvectionBlockOpImpl for
+ * the Device execution space with the StdMat implementation tag; the
+ * sum-factorised Device definitions live in AdvectionDeviceSumFac.hpp. The
+ * class template name is shared, and each CMake-generated registration
+ * translation unit includes exactly one of these headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through AdvectionOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -43,12 +81,64 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device StdMat advection block operator: dense standard-region
+ * derivative matrices through the vendor BLAS, followed by a pointwise
+ * derivative-factor and velocity kernel.
+ *
+ * @details
+ * One v_Apply() pass
+ * -# reshapes the block's storage to the implementation interleave width
+ *    (one) when the field is stored interleaved,
+ * -# forms the reference-space derivatives of the whole block with one
+ *    strided-batched GEMM -- the nqTot x nqTot standard-region derivative
+ *    matrix of each reference direction against the block's data read as
+ *    an nqTot x (elements times components times homogeneous modes)
+ *    matrix -- writing one plane per direction into the static
+ *    workspace, and
+ * -# launches MultiplyByDerivFactorAndAdvecVelKernel once, with the
+ *    components and homogeneous modes on the second grid dimension, to
+ *    chain-rule those reference derivatives into Cartesian ones --
+ *    through the per-element or, for deformed geometry, per-point
+ *    derivative factors -- and contract them with the advection velocity.
+ *
+ * The derivative factors are fetched with the transpose flag set (the last
+ * argument of DerivFactorKey). That flag only bites on deformed blocks,
+ * where it makes each factor component contiguous over the element's
+ * quadrature points; for regular geometry the warehouse ignores it and
+ * stores one value per factor component per element, with no point index
+ * at all. The kernel indexes the two cases differently -- see
+ * MultiplyByDerivFactorAndAdvecVelKernel in
+ * AdvectionDeviceStdMatKernels.hpp. The velocity registered by SetAdvVel()
+ * is reshaped to the implementation width the first time v_Apply() finds
+ * it at another width, and is then read in place; each homogeneous mode
+ * reads its own plane of the velocity, and the same velocity serves every
+ * component.
+ *
+ * @tparam ExecSpace      NektarSpaces::Device.
+ * @tparam Implementation Implementation tag (StdMat).
+ * @tparam TData          Floating-point type of the field data.
+ *
+ * @see AdvectionSerialAVXStdMat.hpp for the Serial/AVX sibling;
+ * AdvectionDeviceSumFac.hpp for the sum-factorised Device path.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Bind the operator to the block's device stream, capture the
+     * element metadata and fetch the standard-region derivative matrices
+     * and the block's derivative factors from the data warehouse.
+     *
+     * @param   block_idx       Index of the block; the stream used for
+     *                          all device work is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     AdvectionBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -83,10 +173,13 @@ public:
                                                 m_implInterleaveWidth, true));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
@@ -99,18 +192,53 @@ public:
     }
 
 protected:
+    /// Element interleave width the GEMM and the kernel expect: the
+    /// block data is read element by element, not interleaved.
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    /// Device stream all work of this block operator is issued on, one
+    /// per block (block index + 1).
     unsigned int m_streamID;
+    /// Shape of the block's elements.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point derivative factors).
     bool m_isDeformed;
+    /// Reference (shape) dimension of the elements.
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) elements.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Standard-region PhysDeriv matrices, one nqTot x nqTot matrix per
+    /// reference direction, concatenated.
     const TData *m_matptr;
+    /// Derivative factors of the whole block, not interleaved and
+    /// fetched with the transpose flag set: for a deformed block each
+    /// factor component is contiguous over the element's points, while
+    /// a regular block ignores the flag and stores one value per
+    /// component per element (see DerivFactorKey).
     const TData *m_dfptr;
 
+    /**
+     * @brief Apply scale * (V . grad u) to every element of the block (see
+     * the class description for the algorithm).
+     *
+     * Every BLAS call, kernel launch and storage reshape is queued on
+     * #m_streamID. Block storage held at a larger interleave width is
+     * reshaped in place to width one before the GEMM -- the input always,
+     * the output only when it is accumulated onto (append set) -- and
+     * both are reshaped back to the input's width once the kernels have
+     * been queued; the output block's recorded width is set to the
+     * input's on return. Homogeneous modes are not iterated over
+     * separately: they extend the column dimension of the GEMM and share
+     * the kernel's second grid dimension with the components.
+     *
+     * @param   inblock     Physical-space input block.
+     * @param   outblock    Physical-space output block; overwritten, or
+     *                      accumulated onto when append is set.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override

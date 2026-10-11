@@ -32,6 +32,46 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlDeviceStdMat.hpp
+ * @brief Device StdMat implementation of the curl-curl block operator.
+ *
+ * @details
+ * The Device StdMat path takes the same steps as its host counterpart
+ * (CurlCurlSerialAVXStdMat.hpp): the reference-space derivatives of the
+ * input are formed by multiplying with the dense standard-region
+ * physical-derivative matrices, one matrix product per reference
+ * direction, and pointwise kernels then apply the geometric derivative
+ * factors and take the curl (see CurlCurlDeviceStdMatKernels.hpp); the two
+ * steps are run twice, for omega = curl u and for out = curl omega. A
+ * multi-plane 3DH1 block instead gets the plane part of a single curl on
+ * every plane, which CurlCurlOpImpl completes with the z parts.
+ *
+ * Two things differ from the host version. Each set of products is issued
+ * as a single strided-batched GEMM through NekBlas -- the vendor BLAS
+ * behind it depends on the build -- covering every element and component
+ * of the block at once, so the matrices are fetched untransposed
+ * (ePhysDerivStdMat, where the host uses ePhysDerivStdMatTranspose) and
+ * the block data is read as one column-major matrix instead of
+ * lane-interleaved: the implementation interleave width is one. And all
+ * device work is issued on the block's own stream, so different blocks may
+ * overlap.
+ *
+ * This header provides the definition of detail::CurlCurlBlockOpImpl for
+ * the Device execution space with the StdMat implementation tag; the
+ * sum-factorised Device definitions live in CurlCurlDeviceSumFac.hpp. The
+ * class template name is shared, and each CMake-generated registration
+ * translation unit includes exactly one of these headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through CurlCurlOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
+
 #pragma once
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
@@ -43,12 +83,74 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device StdMat curl-curl block operator: dense standard-region
+ * derivative matrices through the vendor BLAS, followed by pointwise curl
+ * kernels, applied twice.
+ *
+ * @details
+ * One v_Apply() pass
+ * -# reshapes the block's #m_coordDim input components to the
+ *    implementation interleave width (one) when the field is stored
+ *    interleaved,
+ * -# forms the reference-space derivatives of the whole block with one
+ *    strided-batched GEMM -- the nqTot x nqTot standard-region derivative
+ *    matrix of each reference direction against the block's data read as
+ *    an nqTot x (components times elements) matrix -- writing one plane
+ *    per direction and component into the static workspace,
+ * -# calls Curl2DScalarStdMatKernel (2D) or Curl3DStdMatKernel (3D) to
+ *    chain-rule those reference derivatives into Cartesian ones -- through
+ *    the per-element or, for deformed geometry, per-point derivative
+ *    factors -- and combine them into the vorticity omega, a single
+ *    out-of-plane component in 2D and three components in 3D, also held in
+ *    the workspace,
+ * -# differentiates the components of omega with a second batched GEMM of
+ *    the same form, and
+ * -# calls Curl2DVectorStdMatKernel (2D) or Curl3DStdMatKernel (3D) again
+ *    to write the output components curl(omega).
+ *
+ * The workspace holds #m_dimension * #m_coordDim reference-derivative
+ * planes of nqTot * nelmt values -- plane d * coordDim + c is the
+ * direction-d derivative of component c, the batched GEMM writing the
+ * directions one after the other -- followed by one plane per component of
+ * omega; the derivatives of omega overwrite those of u. The derivative
+ * factors are fetched with the transpose flag set (the last argument of
+ * DerivFactorKey). That flag only bites on deformed blocks, where it makes
+ * each factor component contiguous over the element's quadrature points;
+ * for regular geometry the warehouse ignores it and stores one value per
+ * factor component per element, with no point index at all. The kernels
+ * index the two cases differently -- see CurlCurlDeviceStdMatKernels.hpp.
+ * A block with more than one homogeneous mode goes to ApplyCurl3DH1()
+ * instead.
+ *
+ * @tparam ExecSpace      NektarSpaces::Device.
+ * @tparam Implementation Implementation tag (StdMat).
+ * @tparam TData          Floating-point type of the field data.
+ *
+ * @see CurlCurlSerialAVXStdMat.hpp for the Serial/AVX sibling;
+ * CurlCurlDeviceSumFac.hpp for the sum-factorised Device path.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Bind the operator to the block's device stream, capture the
+     * element metadata and fetch the standard-region derivative matrices
+     * and the block's derivative factors from the data warehouse.
+     *
+     * The curl-curl operator is only defined for two- and
+     * three-dimensional expansions whose coordinate dimension equals the
+     * shape dimension; both are asserted here.
+     *
+     * @param   block_idx       Index of the block; the stream used for
+     *                          all device work is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     CurlCurlBlockOpImpl(const unsigned int block_idx,
                         const LocalRegions::ExpansionSharedPtr &exp,
                         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -89,10 +191,13 @@ public:
                                                 m_implInterleaveWidth, true));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>>
     Instantiate(const unsigned int block_idx,
@@ -105,18 +210,56 @@ public:
     }
 
 protected:
+    /// Element interleave width the GEMM and the kernels expect: the
+    /// block data is read element by element, not interleaved.
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    /// Device stream all work of this block operator is issued on, one
+    /// per block (block index + 1).
     unsigned int m_streamID;
+    /// Shape of the block's elements.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point derivative factors).
     bool m_isDeformed;
+    /// Reference (shape) dimension of the elements (2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the elements; asserted equal to
+    /// #m_dimension.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Standard-region PhysDeriv matrices, one nqTot x nqTot matrix per
+    /// reference direction, concatenated.
     const TData *m_matptr;
+    /// Derivative factors of the whole block, not interleaved and
+    /// fetched with the transpose flag set: for a deformed block each
+    /// factor component is contiguous over the element's points, while
+    /// a regular block ignores the flag and stores one value per
+    /// component per element (see DerivFactorKey).
     const TData *m_dfptr;
 
+    /**
+     * @brief Apply curl(curl u) to every element of the block (see the
+     * class description for the algorithm).
+     *
+     * Every BLAS call, kernel launch and storage reshape is queued on
+     * #m_streamID. Block storage held at a larger interleave width is
+     * reshaped in place to width one before the first GEMM -- the
+     * #m_coordDim input components in one pass -- and both the input and
+     * the output components are reshaped back to the input's width once
+     * the kernels have been queued; the output block's recorded width is
+     * set to the input's on return.
+     *
+     * @param   inblock     Physical-space input block holding at least
+     *                      #m_coordDim components of u, or the three
+     *                      components on a multi-plane 3DH1 block.
+     * @param   outblock    Physical-space output block receiving the
+     *                      #m_coordDim components of curl(curl u), or the
+     *                      plane part of one curl on a multi-plane 3DH1
+     *                      block.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override

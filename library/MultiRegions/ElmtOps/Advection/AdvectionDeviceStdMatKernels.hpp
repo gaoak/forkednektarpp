@@ -28,9 +28,24 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Pointwise derivative-factor and velocity kernel of the Device
+// StdMat advection block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionDeviceStdMatKernels.hpp
+ * @brief Pointwise derivative-factor/velocity kernel of the Device StdMat
+ * advection block operator (see AdvectionDeviceStdMat.hpp).
+ *
+ * @details
+ * This is the Device counterpart of the kernel in
+ * AdvectionSerialAVXStdMatKernels.hpp. It performs the same pointwise
+ * arithmetic as a device kernel over all quadrature points of the block,
+ * launched by the block operator on its device stream; each variable and
+ * homogeneous plane of the block rides the second grid dimension of that
+ * one launch.
+ */
 
 #pragma once
 
@@ -40,6 +55,49 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+/**
+ * @brief From reference-space derivatives, form the Cartesian gradient and
+ * contract it with the advection velocity:
+ * out = scale * sum_k V_k sum_d df(k,d) du/dxi_d, evaluated at every
+ * quadrature point of every element of one variable and plane.
+ *
+ * The derivative-factor entry k * dimension + d maps the
+ * reference-direction-d derivative into the Cartesian-k gradient
+ * component. The factors are read in the layout produced by
+ * DerivFactorKey with the transpose flag set: for regular geometry one set
+ * of ncoord * dimension values per element, for deformed geometry one such
+ * set per element in which each factor component is contiguous over the
+ * element's nqTot points.
+ *
+ * Work items run over the quadrature points of every element on the first
+ * grid dimension; the second grid dimension picks the variable and plane,
+ * @p nelmt * @p nqTot values apart in @p in and @p out. The velocity is
+ * taken from the plane, that grid index modulo @p nhomo, and the same
+ * geometric factors serve every plane.
+ *
+ * @tparam APPEND       Accumulate onto @p out instead of overwriting it.
+ * @tparam DEFORMED     Read per-point rather than per-element derivative
+ *                      factors.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   ncoord      Cartesian gradient/velocity components.
+ * @param   dimension   Reference directions covered by @p in.
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   inoffset    Stride between the reference-direction planes of
+ *                      @p in.
+ * @param   dfptr       Derivative factors of the block, laid out as
+ *                      described above.
+ * @param   advVel      Velocity data; component k starts at
+ *                      k * advelsize.
+ * @param   advelsize   Stride between velocity components.
+ * @param   nhomo       Homogeneous planes per variable.
+ * @param   in          Reference-space derivatives, one plane of
+ *                      @p inoffset values per direction.
+ * @param   out         Output values, one per work item.
+ * @param   scale       Scalar factor applied to the result.
+ * @param   threadBlock Thread-block handle supplied by the launcher macro.
+ */
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void MultiplyByDerivFactorAndAdvecVelKernel(
     const unsigned int nqTot, const unsigned int ncoord,

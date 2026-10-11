@@ -28,9 +28,55 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Chain-rule kernels and kernel launchers of the
+// Serial/AVX sum-factorised physical derivative.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file PhysDerivSerialAVXSumFacKernels.hpp
+ * @brief Chain-rule kernels and kernel launchers of the Serial/AVX
+ * sum-factorised physical derivative: collapsed-coordinate correction
+ * followed by the geometric chain rule, one element per SIMD lane.
+ *
+ * @details
+ * The sum-factorised block operator first applies the tensorial
+ * derivative kernels of StdRegions/Operators/PhysDerivSumFacStdKernels.hpp
+ * (PhysDerivTensor{1,2,3}DKernel), which differentiate along each of
+ * the element's collapsed reference directions \f$\eta_d\f$. The
+ * kernels in this file complete the operation for one interleaved
+ * element group:
+ * -# for the simplex-type shapes they convert those collapsed
+ *    derivatives into derivatives with respect to the standard-element
+ *    coordinates \f$\xi_d\f$, using the per-point factors
+ *    \f$\tfrac{1}{2}(1+\eta)\f$ and \f$2/(1-\eta)\f$ tabulated in the
+ *    data warehouse (BasisDataKey with eHalfMultOnePlusZero and
+ *    eTwoOverOneMinusZero); hexahedra, quadrilaterals and segments need
+ *    no such correction;
+ * -# they contract the result with the element's derivative factors
+ *    \f$\partial \xi_d / \partial x_k\f$ to give the Cartesian
+ *    derivatives.
+ *
+ * The derivative factors are laid out point-major -- `ndf = coordDim *
+ * dimension` consecutive values per quadrature point for a deformed
+ * element, one such set per element for a regular one -- and are
+ * addressed as `k * dimension + d`; the DEFORMED template flag selects
+ * between the two, hoisting the loads out of the point loop in the
+ * regular case.
+ *
+ * Two forms of each kernel are provided. PhysDeriv{1,2,3}DKernel
+ * overwrite all `coordDim` Cartesian components in place in the arrays
+ * that carry the standard derivatives on entry; the
+ * PhysDerivKernelLauncher overloads at the end of the file chain them
+ * behind the tensorial derivative for one element group and are what
+ * the block operator (PhysDerivSerialAVXSumFac.hpp) calls.
+ * PhysDerivDir{1,2,3}DKernel produce one chosen component DIR from
+ * separate input arrays and can accumulate; PhysDeriv itself never
+ * calls them, the Divergence kernels (and, in one dimension, the
+ * CurlCurl kernels) do.
+ *
+ * @see PhysDerivDeviceSumFacKernels.hpp for the device counterparts,
+ * which apply the same corrections in the same order.
+ */
 
 #pragma once
 
@@ -41,6 +87,28 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief One dimension: scale a segment's standard derivative by the
+ * derivative factors, in place, for every Cartesian component.
+ *
+ * With one standard direction there is nothing to contract and no
+ * collapsed-coordinate correction: `out[k][j] = out[0][j] * df[k]`,
+ * evaluated from k = ncoord-1 downwards so that `out[0]` -- which is
+ * both the input and an output -- is overwritten last.
+ *
+ * @tparam SHAPE_TYPE Shape tag (segments only in 1D); unused.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam simd_type  SIMD vector type; each vector holds one value of
+ *                    every element of the interleaved group.
+ *
+ * @param   nq0     Quadrature points of the element.
+ * @param   ncoord  Coordinate dimension (1, 2 or 3), equal to the
+ *                  derivative factors per point.
+ * @param   df_ptr  Derivative factors of the element group.
+ * @param   out     The `ncoord` Cartesian planes; on entry `out[0]`
+ *                  holds the standard derivative, on exit all `ncoord`
+ *                  planes hold Cartesian derivatives.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
                                                const unsigned int ncoord,
@@ -96,6 +164,23 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
     }
 }
 
+/**
+ * @brief One dimension, single component: scale a segment's standard
+ * derivative by the derivative factor of direction DIR.
+ *
+ * @tparam SHAPE_TYPE Shape tag (segments only in 1D); unused.
+ * @tparam APPEND     Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam DIR        Cartesian component to produce.
+ * @tparam simd_type  SIMD vector type of the interleaved group.
+ *
+ * @param   nq0     Quadrature points of the element.
+ * @param   ncoord  Coordinate dimension, equal to the derivative
+ *                  factors per point; sets the per-point factor stride.
+ * @param   df_ptr  Derivative factors of the element group.
+ * @param   in      Standard derivative of the element group.
+ * @param   out     Cartesian component DIR.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           unsigned int DIR, typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivDir1DKernel(const unsigned int nq0,
@@ -131,6 +216,39 @@ NEK_FORCE_INLINE static void PhysDerivDir1DKernel(const unsigned int nq0,
     }
 }
 
+/**
+ * @brief Two dimensions: correct the collapsed derivatives of a
+ * triangle and contract with the derivative factors, in place, for
+ * every Cartesian component.
+ *
+ * For a (nodal) triangle the collapsed-to-standard correction
+ * \f[ \frac{\partial u}{\partial \xi_0} =
+ *     \frac{2}{1-\eta_1}\frac{\partial u}{\partial \eta_0}, \qquad
+ *     \frac{\partial u}{\partial \xi_1} =
+ *     \frac{\partial u}{\partial \eta_1}
+ *     + \frac{1+\eta_0}{2}\frac{\partial u}{\partial \xi_0} \f]
+ * is applied first; quadrilaterals skip it, @p f0 and @p f1 then being
+ * unused. Each output component is then
+ * `out[k] = d0 * df[2k] + d1 * df[2k+1]`, the third being produced only
+ * for an element embedded in three dimensions.
+ *
+ * @tparam SHAPE_TYPE Quad, Tri or NodalTri.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam simd_type  SIMD vector type of the interleaved group.
+ *
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   ncoord      Cartesian components to produce (coordDim, 2 or
+ *                      3); the derivative factors come in
+ *                      `ndf = 2 * ncoord` per point.
+ * @param   f0          Table of \f$\tfrac{1}{2}(1+\eta_0)\f$ at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Table of \f$2/(1-\eta_1)\f$ at the direction-1
+ *                      points (triangles only).
+ * @param   df_ptr      Derivative factors of the element group.
+ * @param   out         The three Cartesian planes; on entry `out[0]`
+ *                      and `out[1]` hold the collapsed derivatives, on
+ *                      exit `out[0..ncoord-1]` hold Cartesian ones.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
@@ -172,7 +290,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                           SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                // Moving from standard to collapsed coordinates
+                // Moving from collapsed to standard coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
                 d0 *= xfrm1;
                 d1.fma(d0, xfrm0);
@@ -212,6 +330,29 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     }
 }
 
+/**
+ * @brief Two dimensions, single component: as PhysDeriv2DKernel, but
+ * reading the collapsed derivatives from separate arrays and producing
+ * only the Cartesian component DIR.
+ *
+ * @tparam SHAPE_TYPE Quad, Tri or NodalTri.
+ * @tparam APPEND     Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam DIR        Cartesian component to produce; selects the
+ *                    derivative-factor rows `2 * DIR` and `2 * DIR + 1`.
+ * @tparam simd_type  SIMD vector type of the interleaved group.
+ *
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   ncoord      Cartesian components the factor array holds
+ *                      (coordDim); sets the per-point factor stride
+ *                      `ndf = 2 * ncoord`.
+ * @param   f0,f1       Collapsed-coordinate factor tables, as in
+ *                      PhysDeriv2DKernel (triangles only).
+ * @param   df_ptr      Derivative factors of the element group.
+ * @param   tderiv0     Collapsed derivative along direction 0.
+ * @param   tderiv1     Collapsed derivative along direction 1.
+ * @param   out         Cartesian component DIR.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           unsigned int DIR, typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivDir2DKernel(
@@ -247,7 +388,7 @@ NEK_FORCE_INLINE static void PhysDerivDir2DKernel(
             if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                           SHAPE_TYPE == LibUtilities::NodalTri)
             {
-                // Moving from standard to collapsed coordinates
+                // Moving from collapsed to standard coordinates
                 simd_type xfrm0 = f0[i]; // Load 1x
                 d0 *= xfrm1;
                 d1.fma(d0, xfrm0);
@@ -275,6 +416,39 @@ NEK_FORCE_INLINE static void PhysDerivDir2DKernel(
     }
 }
 
+/**
+ * @brief Three dimensions: correct the collapsed derivatives of a
+ * non-hexahedral shape and contract with the derivative factors, in
+ * place, for all three Cartesian components.
+ *
+ * The collapsed-to-standard correction is shape specific and uses the
+ * four factor tables: a prism scales direction 0 by @p f2 and adds its
+ * @p f0 multiple onto direction 2; a pyramid scales directions 0 and 1
+ * by @p f2 and adds their @p f0 and @p f1 multiples onto direction 2; a
+ * (nodal) tetrahedron scales direction 0 by @p f1m and @p f2 and
+ * direction 1 by @p f2, then folds both into directions 1 and 2.
+ * Hexahedra need no correction and leave @p f0 -- @p f2 unused. Each
+ * output component is then `out[k] = sum_d d_d * df[3k+d]`, the nine
+ * derivative factors of a three-dimensional element.
+ *
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam simd_type  SIMD vector type of the interleaved group.
+ *
+ * @param   nq0,nq1,nq2 Quadrature points per direction.
+ * @param   f0          \f$\tfrac{1}{2}(1+\eta_0)\f$ at the direction-0
+ *                      points.
+ * @param   f1          \f$\tfrac{1}{2}(1+\eta_1)\f$ at the direction-1
+ *                      points.
+ * @param   f1m         \f$2/(1-\eta_1)\f$ at the direction-1 points.
+ * @param   f2          \f$2/(1-\eta_2)\f$ at the direction-2 points.
+ * @param   df_ptr      Derivative factors of the element group, nine
+ *                      per point (deformed) or per element (regular).
+ * @param   out_d0      Collapsed derivative along direction 0 on entry,
+ *                      \f$\partial u/\partial x_0\f$ on exit.
+ * @param   out_d1      As @p out_d0 for direction 1 and \f$x_1\f$.
+ * @param   out_d2      As @p out_d0 for direction 2 and \f$x_2\f$.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -391,6 +565,27 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     }
 }
 
+/**
+ * @brief Three dimensions, single component: as PhysDeriv3DKernel, but
+ * reading the collapsed derivatives from separate arrays and producing
+ * only the Cartesian component DIR.
+ *
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam APPEND     Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam DIR        Cartesian component to produce; selects the
+ *                    derivative-factor rows `3 * DIR + 0,1,2`.
+ * @tparam simd_type  SIMD vector type of the interleaved group.
+ *
+ * @param   nq0,nq1,nq2     Quadrature points per direction.
+ * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables, as in
+ *                          PhysDeriv3DKernel.
+ * @param   df_ptr          Derivative factors of the element group.
+ * @param   tderiv0         Collapsed derivative along direction 0.
+ * @param   tderiv1         Collapsed derivative along direction 1.
+ * @param   tderiv2         Collapsed derivative along direction 2.
+ * @param   out             Cartesian component DIR.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           unsigned int DIR, typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivDir3DKernel(
@@ -492,6 +687,31 @@ NEK_FORCE_INLINE static void PhysDerivDir3DKernel(
     }
 }
 
+/**
+ * @brief Differentiate one element group of a 1D block: the standard
+ * derivative into `out[0]`, then all `ncoord` Cartesian derivatives in
+ * place.
+ *
+ * Unpacks the size parameter -- runtime or compile-time, both
+ * satisfying IsPhysSizeParameter1D_v as the static_assert enforces --
+ * forms du/dxi in `out[0]` with PhysDerivTensor1DKernel and hands the
+ * planes to PhysDeriv1DKernel, which scales that derivative by the
+ * group's `ncoord` derivative factors into `out[0 .. ncoord-1]`.
+ *
+ * @tparam SHAPE_TYPE           Element shape (segments only; unused).
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter1D 1D physical-space size parameter (see
+ *                              ElmtHelper.hpp).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam1D Element sizes: coordinate dimension and
+ *                      quadrature points.
+ * @param   D0          1D differentiation matrix of the direction.
+ * @param   df_ptr      Derivative factors of the group.
+ * @param   in          Input values of the group.
+ * @param   out         The Cartesian output planes of the group;
+ *                      `out[0 .. ncoord-1]` are written.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
@@ -514,6 +734,40 @@ NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
     PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, ncoord, df_ptr, out);
 }
 
+/**
+ * @brief Differentiate one element group of a 2D block: the two
+ * collapsed derivatives into `out[0]` and `out[1]`, then all `ncoord`
+ * Cartesian derivatives in place.
+ *
+ * Unpacks the size parameter -- runtime or compile-time, both
+ * satisfying IsPhysSizeParameter2D_v as the static_assert enforces --
+ * forms the two reference-direction derivatives with
+ * PhysDerivTensor2DKernel and hands the planes to PhysDeriv2DKernel,
+ * which applies the collapsed-coordinate correction for triangles
+ * (using @p f0 and @p f1) and contracts with the derivative factors
+ * into `out[0 .. ncoord-1]`.
+ *
+ * @tparam SHAPE_TYPE           Element shape; selects the
+ *                              collapsed-coordinate correction.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter2D 2D physical-space size parameter (see
+ *                              ElmtHelper.hpp).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam2D Element sizes: coordinate dimension and
+ *                      quadrature points per direction.
+ * @param   D0          1D differentiation matrix of direction 0.
+ * @param   D1          1D differentiation matrix of direction 1.
+ * @param   f0          Collapsed-coordinate factor (1 + eta_0)/2 at the
+ *                      direction-0 points (triangles only).
+ * @param   f1          Collapsed-coordinate factor 2/(1 - eta_1) at the
+ *                      direction-1 points (triangles only).
+ * @param   df_ptr      Derivative factors of the group, `2 * ncoord`
+ *                      per element group, or per point when deformed.
+ * @param   in          Input values of the group.
+ * @param   out         The Cartesian output planes of the group;
+ *                      `out[0 .. ncoord-1]` are written.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
@@ -540,6 +794,44 @@ NEK_FORCE_INLINE static void PhysDerivKernelLauncher(
                                             out);
 }
 
+/**
+ * @brief Differentiate one element group of a 3D block: the three
+ * collapsed derivatives into `out[0 .. 2]`, then the three Cartesian
+ * derivatives in place.
+ *
+ * Unpacks the size parameter -- runtime or compile-time, both
+ * satisfying IsPhysSizeParameter3D_v as the static_assert enforces --
+ * forms the three reference-direction derivatives with
+ * PhysDerivTensor3DKernel and hands the planes to PhysDeriv3DKernel,
+ * which applies the collapsed-coordinate correction of the shape
+ * (using @p f0, @p f1, @p f1m and @p f2) and contracts with the nine
+ * derivative factors. No coordinate dimension is carried: a
+ * three-dimensional element always has three of both.
+ *
+ * @tparam SHAPE_TYPE           Element shape; selects the
+ *                              collapsed-coordinate correction.
+ * @tparam DEFORMED             Per-point derivative factors.
+ * @tparam TPhysSizeParameter3D 3D physical-space size parameter (see
+ *                              ElmtHelper.hpp).
+ * @tparam simd_type            SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam3D Element sizes: quadrature points per direction.
+ * @param   D0          1D differentiation matrix of direction 0.
+ * @param   D1          1D differentiation matrix of direction 1.
+ * @param   D2          1D differentiation matrix of direction 2.
+ * @param   f0          Collapsed-coordinate factor table of
+ *                      direction 0.
+ * @param   f1          Collapsed-coordinate factor table of
+ *                      direction 1.
+ * @param   f1m         Second factor table of direction 1, used by the
+ *                      tetrahedral correction.
+ * @param   f2          Collapsed-coordinate factor table of
+ *                      direction 2. All four are unused for hexahedra.
+ * @param   df_ptr      Derivative factors of the group, nine per
+ *                      element group, or per point when deformed.
+ * @param   in          Input values of the group.
+ * @param   out         The three Cartesian output planes of the group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TPhysSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void PhysDerivKernelLauncher(

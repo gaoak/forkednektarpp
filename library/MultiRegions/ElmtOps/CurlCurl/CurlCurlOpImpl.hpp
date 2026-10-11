@@ -32,6 +32,29 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file CurlCurlOpImpl.hpp
+ * @brief Whole-field implementation of the curl-curl operator for one
+ * execution space.
+ *
+ * @details
+ * The apply loop lives in CurlCurlOp::v_Apply and the plane work in the
+ * block operators (see CurlCurlSerialAVXStdMat.hpp and its siblings). On
+ * a multi-plane 3DH1 expansion the two curls do not fuse, so this class
+ * implements CurlCurlOp::v_ApplyFFT: it adds the z part of the first
+ * curl, runs the block operators again for the plane part of the second
+ * and adds its z part. Everywhere else v_ApplyFFT does nothing. The class
+ * also supplies the registration hooks (@c className, Instantiate())
+ * through which CMake-generated translation units enter it into the
+ * operator factory for each enabled execution space.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through CurlCurlOp.hpp and the
+ * operator factory.
+ */
+
 #pragma once
 
 #include <array>
@@ -44,12 +67,23 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Whole-field implementation of CurlCurlOp for one execution
+ * space; adds the z parts of both curls on a multi-plane 3DH1 expansion.
+ *
+ * @tparam ExecSpace Execution space the instance is registered for, and
+ *                   in which the z-ops run.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class CurlCurlOpImpl : public CurlCurlOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; on a multi-plane 3DH1 expansion, also builds the
+    /// z-ops and the workspace.
     CurlCurlOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)
         : CurlCurlOp<TData>(expansionList, components)
@@ -90,10 +124,12 @@ public:
         }
     }
 
-    // className - for OperatorFactory
+    /// Registration name for the operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// @brief Creator function registered with the operator factory;
+    /// builds one operator for the given expansion list and components.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)

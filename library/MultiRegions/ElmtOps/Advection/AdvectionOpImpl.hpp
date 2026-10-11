@@ -28,9 +28,32 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Execution-space implementation of the whole-field advection
+// operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file AdvectionOpImpl.hpp
+ * @brief Execution-space implementation of the whole-field advection
+ * operator.
+ *
+ * @details
+ * The whole-field behaviour of the advection operator is implemented in
+ * AdvectionOp (AdvectionOp.hpp); the class here registers an "Advection" +
+ * execution-space key with the operator factory and, on a multi-plane 3DH1
+ * expansion, owns the z-operator (AdvectionZOpImpl.hpp) that adds the
+ * homogeneous term w du/dz. The plane-local numerical work is done by the
+ * block operators created alongside it (see AdvectionSerialAVXStdMat.hpp
+ * and its siblings). CMake-generated translation units instantiate and
+ * register this class for each enabled execution space.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through AdvectionOp.hpp and the
+ * operator factory.
+ */
 
 #pragma once
 
@@ -42,10 +65,21 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Execution-space implementation of AdvectionOp; registers it with
+ * the operator factory and implements its homogeneous-term hooks.
+ *
+ * @tparam ExecSpace Execution space the instance is registered for and the
+ *                   z-operator runs in.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class AdvectionOpImpl : public AdvectionOp<TData>
 {
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; forwards to AdvectionOp and builds #m_zOp on a
+    /// multi-plane 3DH1 expansion.
     AdvectionOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                     const std::vector<std::string> &components)
         : AdvectionOp<TData>(expansionList, components)
@@ -71,10 +105,12 @@ public:
         }
     }
 
-    // className - for OperatorFactory
+    /// Registration name for the operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// @brief Creator function registered with the operator factory;
+    /// builds one operator for the given expansion list and components.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -84,8 +120,11 @@ public:
     }
 
 protected:
+    /// Z-operator adding the homogeneous term; null unless the expansion is
+    /// 3DH1 with more than one local plane.
     std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData>> m_zOp;
 
+    /// Forward @p scale to #m_zOp, if any.
     void v_SetScaleFFT(const TData &scale) override
     {
         if (m_zOp)
@@ -94,6 +133,7 @@ protected:
         }
     }
 
+    /// Forward @p advVel to #m_zOp, if any.
     void v_SetAdvVelFFT(
         LibUtilities::Field<TData, FieldState::Phys> &advVel) override
     {
@@ -103,6 +143,8 @@ protected:
         }
     }
 
+    /// Add the homogeneous term to @p out through #m_zOp, if any and
+    /// @p in has more than one homogeneous mode.
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
                     LibUtilities::Field<TData, FieldState::Phys> &out) override
     {

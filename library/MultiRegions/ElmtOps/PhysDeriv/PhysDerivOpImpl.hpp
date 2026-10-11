@@ -32,6 +32,28 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file PhysDerivOpImpl.hpp
+ * @brief Factory-registered whole-field implementation of the
+ * physical-derivative operator.
+ *
+ * @details
+ * The apply loop lives in PhysDerivOp::v_Apply and the xy derivatives
+ * are taken by the block operators. The one per-execution-space part of
+ * the whole-field side is the homogeneous z-derivative of a multi-plane
+ * 3DH1 field, which this class builds and runs in v_ApplyFFT(). It also
+ * supplies the registration hooks (@c className, Instantiate()) through
+ * which one instantiation per execution space is entered into the
+ * operator factory, under the key `"PhysDeriv" + execStr`, by the
+ * CMake-generated factory declaration code.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through PhysDerivOp.hpp and the
+ * operator factory.
+ */
+
 #pragma once
 
 #include <MultiRegions/ExpListHomogeneous1D.h>
@@ -42,6 +64,22 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Whole-field implementation of PhysDerivOp for one execution
+ * space, owning the homogeneous z-derivative (see the file notes).
+ *
+ * @details
+ * PhysDerivOp::Create() asks ElmtOp::Create() for an instance of it
+ * through the operator factory, which then fills PhysDerivOp::m_blockOp.
+ * The constructor builds #m_zOp for a 3DH1 expansion holding more than
+ * one homogeneous plane on this rank. An instance obtained from the
+ * factory directly -- through this class's Instantiate() -- has an
+ * empty block-operator list.
+ *
+ * @tparam ExecSpace Execution back-end (NektarSpaces::Serial, AVX or
+ *                   Device) forming part of the factory key.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class PhysDerivOpImpl : public PhysDerivOp<TData>
 {
@@ -72,10 +110,10 @@ public:
         }
     }
 
-    // className - for OperatorFactory
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// Creator function registered with OperatorFactory.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -85,11 +123,14 @@ public:
     }
 
 protected:
+    /// Homogeneous z-derivative, writing slot 3n + 2 of the output for
+    /// input component n; null unless the expansion is multi-plane 3DH1.
     std::shared_ptr<
         DerivZOpImpl<ExecSpace, TData, DerivZLayout::ScalarToVectorZ,
                      DerivZOrder::First, false>>
         m_zOp;
 
+    /// Run #m_zOp on a field with more than one homogeneous mode.
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Phys> &in,
                     LibUtilities::Field<TData, FieldState::Phys> &out) override
     {

@@ -28,9 +28,43 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Chain-rule kernels of the device StdMat physical
+// derivative.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file PhysDerivDeviceStdMatKernels.hpp
+ * @brief Chain-rule kernels of the device StdMat physical derivative:
+ * contract standard-region derivatives with the element's geometric
+ * derivative factors, one work item per point of the block.
+ *
+ * @details
+ * These are the device counterparts of the kernels in
+ * PhysDerivSerialAVXStdMatKernels.hpp and perform the same chain rule
+ * \f[ \frac{\partial u}{\partial x_k}
+ *     = \sum_{d} \frac{\partial \xi_d}{\partial x_k}
+ *       \frac{\partial u}{\partial \xi_d}, \f]
+ * but over the whole block at once: one work item per (element, point)
+ * pair on the first grid dimension, the homogeneous planes (and, for
+ * MultiplyByDerivFactorKernel, the components) on the further grid
+ * dimensions of the same launch.
+ *
+ * The derivative factors are laid out transposed with respect to the
+ * Serial/AVX ones (DerivFactorKey with `transpose = true`, see
+ * GeometricDataWarehouse.hpp): per element the `ndf = coordDim *
+ * dimension` factors form contiguous planes, of one value each for a
+ * regular element and of nqTot values each for a deformed one. Hence
+ * the two branches index differently, the deformed one reaching factor
+ * `k * dimension + d` of element @em e at
+ * `ndf * nqTot * e + nqTot * (k * dimension + d) + i` -- written as
+ * `(ndf - 1) * nqTot * e + ...` because the within-plane flat index
+ * added last, `idx`, already carries one `nqTot * e`.
+ *
+ * MultiplyByDerivFactorKernel produces all `coordDim` components at once
+ * and is used by PhysDeriv itself (and by the AdvectionDealias StdMat
+ * implementation); MultiplyByDerivDirFactorKernel produces one chosen
+ * component and is used by the Divergence StdMat implementation.
+ */
 
 #pragma once
 
@@ -40,6 +74,43 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+/**
+ * @brief Contract the standard-region derivatives of a whole block into
+ * all @p ncoord Cartesian derivatives.
+ *
+ * Safe to run in place (@p out equal to @p in, as PhysDeriv does): every
+ * work item forms all @p ncoord results in registers before storing any
+ * of them.
+ *
+ * The second grid dimension picks the homogeneous plane and the third the
+ * component. Each component holds @p outDim slots of one plane per
+ * homogeneous plane, so the pair selects the slot
+ * `outDim * nhomo * c + m`, `nqTot * nelmt` values apart, in both @p in
+ * and @p out; the same geometry serves every plane.
+ *
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ * @tparam TData        Floating-point type of the field data.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   ncoord      Cartesian components to produce (coordDim); at
+ *                      most 3, the size of the per-point register
+ *                      buffer.
+ * @param   dimension   Standard directions to contract over.
+ * @param   outDim      Direction slots per component: coordDim, or 3 in
+ *                      3DH1, the third left to the z-derivative.
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   inoffset    Stride between the standard-direction planes of
+ *                      @p in.
+ * @param   outoffset   Stride between the Cartesian planes of @p out.
+ * @param   dfptr       Derivative factors of the block, transposed
+ *                      layout.
+ * @param   in          Standard-direction derivatives, plane @em d at
+ *                      `d * inoffset`.
+ * @param   out         Cartesian derivatives, plane @em k written at
+ *                      `k * outoffset`.
+ * @param   threadBlock Thread-block handle supplied by the launcher macro.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void MultiplyByDerivFactorKernel(
     const unsigned nqTot, const unsigned ncoord, const unsigned dimension,
@@ -98,6 +169,36 @@ NEK_DEVICE_KERNEL static void MultiplyByDerivFactorKernel(
     }
 }
 
+/**
+ * @brief Contract the standard-region derivatives of a whole block into
+ * the single Cartesian derivative @p dir, overwriting or accumulating.
+ *
+ * The runtime @p dir argument plays the role that the DIR template
+ * parameter plays in the sum-factorised kernels: it selects the
+ * derivative-factor rows `dir * dimension + d`. The second grid dimension
+ * picks the homogeneous plane, `nqTot * nelmt` values apart in both @p in
+ * and @p out; the same geometry serves every plane.
+ *
+ * @tparam APPEND       Accumulate onto @p out instead of overwriting.
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TthreadBlock Back-end thread-block handle type.
+ * @tparam TData        Floating-point type of the field data.
+ *
+ * @param   dir         Cartesian component to produce.
+ * @param   nqTot       Quadrature points per element.
+ * @param   ncoord      Cartesian components the factor array holds
+ *                      (coordDim); sets the per-element factor stride.
+ * @param   dimension   Standard directions to contract over.
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   inoffset    Stride between the standard-direction planes of
+ *                      @p in.
+ * @param   dfptr       Derivative factors of the block, transposed
+ *                      layout.
+ * @param   in          Standard-direction derivatives, plane @em d at
+ *                      `d * inoffset`.
+ * @param   out         Single Cartesian derivative plane.
+ * @param   threadBlock Thread-block handle supplied by the launcher macro.
+ */
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void MultiplyByDerivDirFactorKernel(
     const unsigned dir, const unsigned nqTot, const unsigned ncoord,
