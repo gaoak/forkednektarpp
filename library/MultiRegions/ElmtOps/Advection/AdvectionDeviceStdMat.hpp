@@ -37,23 +37,20 @@
  * @brief Device StdMat implementation of the advection block operator.
  *
  * @details
- * The Device StdMat path takes the same two steps as its host counterpart
- * (AdvectionSerialAVXStdMat.hpp): the reference-space derivatives of the
- * input are formed by multiplying with the dense standard-region
+ * The Device StdMat path takes two steps: the reference-space derivatives
+ * of the input are formed by multiplying with the dense standard-region
  * physical-derivative matrices, one matrix product per reference
  * direction, and a pointwise kernel then applies the geometric derivative
  * factors and the dot product with the advection velocity (see
  * AdvectionDeviceStdMatKernels.hpp).
  *
- * Two things differ from the host version. The products are issued as a
- * single strided-batched GEMM through NekBlas -- the vendor BLAS behind it
- * depends on the build -- covering every element, component and
- * homogeneous mode of the block at once, so the matrices are fetched
- * untransposed (ePhysDerivStdMat, where the host uses
- * ePhysDerivStdMatTranspose) and the block data is read as one
- * column-major matrix instead of lane-interleaved: the implementation
- * interleave width is one. And all device work is issued on the block's
- * own stream, so different blocks may overlap.
+ * The products are issued as a single strided-batched GEMM through NekBlas
+ * -- the vendor BLAS behind it depends on the build -- covering every
+ * element, component and homogeneous mode of the block at once, so the
+ * matrices are fetched untransposed (ePhysDerivStdMat) and the block data
+ * is read as one column-major matrix: the implementation interleave width
+ * is one. All device work is issued on the block's own stream, so
+ * different blocks may overlap.
  *
  * This header provides the definition of detail::AdvectionBlockOpImpl for
  * the Device execution space with the StdMat implementation tag; the
@@ -119,8 +116,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation Implementation tag (StdMat).
  * @tparam TData          Floating-point type of the field data.
  *
- * @see AdvectionSerialAVXStdMat.hpp for the Serial/AVX sibling;
- * AdvectionDeviceSumFac.hpp for the sum-factorised Device path.
+ * @see AdvectionDeviceSumFac.hpp for the sum-factorised Device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>

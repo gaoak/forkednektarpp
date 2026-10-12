@@ -40,9 +40,7 @@
  *
  * @details
  * Included by the registration translation units CMake generates for the
- * "StdMat" implementation on the Device execution space (see
- * PhysInterp1DScaledSerialAVXStdMat.hpp for why the implementation
- * headers may each define the same primary template).
+ * "StdMat" implementation on the Device execution space.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -68,13 +66,12 @@ namespace Nektar::MultiRegions::detail
  * matrix product on the back-end BLAS.
  *
  * @details
- * As in the Serial/AVX StdMat implementation the matrix depends on the
- * scale factor, so the constructor records only the block's shape, basis
- * keys, nodal points type and input point counts #m_nm;
+ * The matrix depends on the scale factor, so the constructor records only the
+ * block's shape, basis keys, nodal points type and input point counts #m_nm;
  * v_SetScaleFactor() derives the output counts #m_nq and fetches the
  * dense interpolation matrix I (nqTot x nmTot, column-major,
- * StdRegions::StdMatKey with StdRegions::ePhysInterpStdMat -- the
- * untransposed counterpart of the Serial/AVX matrix) into device memory.
+ * StdRegions::StdMatKey with StdRegions::ePhysInterpStdMat) into device
+ * memory.
  * Every element then shares it, and the block's interpolation is one GEMM
  * per component,
  *
@@ -285,13 +282,10 @@ protected:
      * @brief Fix the output point counts for @p scale and fetch the
      * matching dense interpolation matrix into device memory.
      *
-     * The point-count rule and the caching behaviour are those of the
-     * Serial/AVX StdMat implementation -- direction 0 scaled and
-     * truncated, a direction one point below direction 0 keeping that
-     * offset, the totals taken as products, and the output counts part
-     * of the StdMatKey -- the only difference being that the
-     * untransposed matrix (ePhysInterpStdMat) is fetched here, as the
-     * GEMM of v_Apply wants it.
+     * Direction 0 is scaled and truncated, a direction one point below
+     * direction 0 keeps that offset, the totals are taken as products and
+     * the output counts are part of the StdMatKey. The untransposed matrix
+     * (ePhysInterpStdMat) is fetched, as the GEMM of v_Apply wants it.
      *
      * Everything is recomputed from the stored input counts, so a block
      * operator may be re-targeted at a new scale factor by calling this

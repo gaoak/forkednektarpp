@@ -93,9 +93,6 @@
  * shapes the coefficients are first converted to the modified modal
  * basis by MatVecKernel and the modal kernel of the matching non-nodal
  * shape is then run on the converted values.
- *
- * @see BwdTransSerialAVXSumFacKernels.hpp for the Serial/AVX form of the
- * same decomposition, expressed over SIMD vectors instead of warp lanes.
  */
 
 #pragma once
@@ -465,7 +462,7 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacKernel(
  *
  * With @p isModified set, the term
  * `in[warpsize + ilane] * basis0[nq0 + i] * basis1[nq1 + j]` is added,
- * exactly as in the Serial/AVX BwdTransTriKernel.
+ * exactly as in the StdRegions BwdTransTriKernel.
  *
  * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
  *
@@ -651,7 +648,7 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacKernel(
  *
  * With @p isModified set, the top-vertex, bottom-vertex and
  * singular-edge terms marked in the code are added, exactly as in the
- * Serial/AVX BwdTransTetKernel.
+ * StdRegions BwdTransTetKernel.
  *
  * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
  *
@@ -786,7 +783,7 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacKernel(
  * values of the line (j,k).
  *
  * With @p isModified set, the collapsed-vertex term summed over q in
- * the code is added, exactly as in the Serial/AVX BwdTransPrismKernel.
+ * the code is added, exactly as in the StdRegions BwdTransPrismKernel.
  *
  * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
  *
@@ -901,7 +898,7 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacKernel(
  * of each p.
  *
  * With @p isModified set, the top-vertex term marked in the code is
- * added, exactly as in the Serial/AVX BwdTransPyrKernel.
+ * added, exactly as in the StdRegions BwdTransPyrKernel.
  *
  * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
  *

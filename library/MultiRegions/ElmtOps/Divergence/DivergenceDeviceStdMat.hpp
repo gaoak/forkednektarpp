@@ -41,16 +41,12 @@
  * @details
  * Included by the translation unit CMake generates for the "StdMat"
  * implementation on the Device execution space. See DivergenceOp.hpp
- * for what the operator computes and DivergenceSerialAVXStdMat.hpp
- * for the Serial/AVX counterpart of this strategy. Where that path
- * issues one libxsmm GEMM per reference direction and element group,
- * this one covers the whole block -- every element, plane and vector
- * component -- with a single strided-batched GEMM through NekBlas (the
- * vendor BLAS behind it depends on the build), so the matrices are
- * fetched untransposed (ePhysDerivStdMat, where the host uses
- * ePhysDerivStdMatTranspose) and the block data is read as one
- * column-major matrix instead of lane-interleaved: the implementation
- * interleave width is one.
+ * for what the operator computes. The whole block -- every element,
+ * plane and vector component -- is covered by a single
+ * strided-batched GEMM through NekBlas (the vendor BLAS behind it
+ * depends on the build), so the matrices are fetched untransposed
+ * (ePhysDerivStdMat) and the block data is read as one column-major
+ * matrix: the implementation interleave width is one.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -110,9 +106,7 @@ namespace Nektar::MultiRegions::detail
  * accumulating (APPEND) for the remaining components, so the block's
  * single output component ends up holding
  * \f[ \sum_c \sum_d \frac{\partial\xi_d}{\partial x_c}
- *     \frac{\partial u_c}{\partial\xi_d}, \f]
- * the same quantity the Serial/AVX StdMat sibling forms group by
- * group.
+ *     \frac{\partial u_c}{\partial\xi_d}. \f]
  *
  * ### Layout and launch
  * The GEMM needs each element's data contiguous, so the

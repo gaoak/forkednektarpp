@@ -32,6 +32,29 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file HelmholtzOpImpl.hpp
+ * @brief Factory-registered whole-field implementation of the weak
+ * Helmholtz operator.
+ *
+ * @details
+ * The apply loop lives in HelmholtzOp::v_Apply and the xy part, lambda
+ * term included, is taken by the block operators. The one
+ * per-execution-space part of the whole-field side is the weak
+ * z-Laplacian of a multi-plane 3DH1 field, which this class builds and
+ * runs in v_ApplyFFT(). It also supplies the registration hooks
+ * (@c className, Instantiate()) through which one instantiation per
+ * execution space is entered into the operator factory, under the key
+ * `"Helmholtz" + execStr`, by the CMake-generated factory declaration
+ * code.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through HelmholtzOp.hpp and the
+ * operator factory.
+ */
+
 #pragma once
 
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
@@ -44,6 +67,23 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Whole-field implementation of HelmholtzOp for one execution
+ * space, owning the weak z-Laplacian (see the file notes).
+ *
+ * @details
+ * HelmholtzOp::Create() asks ElmtOp::Create() for an instance of it
+ * through the operator factory, which then fills HelmholtzOp::m_blockOp.
+ * The constructor builds #m_zOp, #m_massOp and their intermediate fields
+ * for a 3DH1 expansion holding more than one homogeneous plane on this
+ * rank. The ExecSpace template parameter gives each execution space
+ * enabled in the build its own factory entry ("HelmholtzSerial",
+ * "HelmholtzAVX", "HelmholtzDevice").
+ *
+ * @tparam ExecSpace Execution back-end (NektarSpaces::Serial, AVX or
+ *                   Device) forming part of the factory key.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class HelmholtzOpImpl : public HelmholtzOp<TData>
 {
@@ -96,10 +136,10 @@ public:
         }
     }
 
-    // className - for OperatorFactory
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// Creator function registered with OperatorFactory.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -114,10 +154,15 @@ protected:
     std::shared_ptr<DerivZOpImpl<ExecSpace, TData, DerivZLayout::Identity,
                                  DerivZOrder::Second, false>>
         m_zOp;
+    /// xy mass matrix applied to the output of #m_zOp.
     std::shared_ptr<MassOp<TData>> m_massOp;
+    /// Second z-derivative of the input, written by #m_zOp.
     LibUtilities::Field<TData, FieldState::Coeff> m_d2z;
+    /// Mass matrix applied to #m_d2z, subtracted from the output.
     LibUtilities::Field<TData, FieldState::Coeff> m_wsp;
 
+    /// Subtract the mass-weighted second z-derivative from @p out on a
+    /// field with more than one homogeneous mode.
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Coeff> &in,
                     LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {

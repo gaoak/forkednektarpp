@@ -28,9 +28,36 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Device sum-factorised (SumFac) implementation of the
+// per-block weak Laplacian operator.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LaplacianDeviceSumFac.hpp
+ * @brief Device sum-factorised (SumFac) implementation of the per-block
+ * weak Laplacian operator.
+ *
+ * @details
+ * Executes through CUDA/HIP/SYCL device kernels. Two device implementations
+ * share this header:
+ * - Implementation = MultiRegions::SumFac
+ *   (LaplacianDeviceSumFacKernels.hpp):
+ *   one element per thread; a warp's lanes process warpSize elements
+ *   in lock-step on warp-interleaved data;
+ * - Implementation = MultiRegions::SumFacTOP
+ *   (LaplacianDeviceSumFacTOPKernels.hpp): thread-only parallelism,
+ *   threads mapped across modes/quadrature points.
+ *
+ * v_Apply() dispatches on shape and implementation via ShapeBlock().
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through LaplacianOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -47,6 +74,14 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device sum-factorised block implementation of the weak
+ * Laplacian operator.
+ *
+ * @tparam ExecSpace      NektarSpaces::Device.
+ * @tparam Implementation Implementation tag (SumFac or SumFacTOP).
+ * @tparam TData          Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class LaplacianBlockOpImpl : public LaplacianBlockOp<TData>
 {
@@ -54,6 +89,18 @@ class LaplacianBlockOpImpl : public LaplacianBlockOp<TData>
     using MemSpace    = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Construct the operator, capture element metadata, and
+     * fetch 1D basis data, quadrature weights, geometric factors and
+     * workspaces from the data warehouse into device memory.
+     *
+     * @param   block_idx       Index of the block within the expansion
+     *                          list's Collections; the device stream used
+     *                          is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     LaplacianBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -208,10 +255,10 @@ public:
                 block_idx, m_implInterleaveWidth, transpose));
     }
 
-    // className - for BlockOperatorFactory
+    /// Block-operator class name; defined by generated factory code.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// Creator function registered with BlockOperatorFactory.
     static std::unique_ptr<BlockOperator<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -223,28 +270,57 @@ public:
     }
 
 protected:
+    /// Vector width this implementation operates at: SumFac reads
+    /// warp-interleaved data, one element per lane (warpSize);
+    /// SumFacTOP reads contiguous per-element data (width 1) with the
+    /// derivative factors transposed.
     static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, MultiRegions::SumFac>
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    /// Device stream ID assigned to this block (block_idx + 1).
     unsigned int m_streamID;
+    /// Shape type of the element block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed; selects the branch of
+    /// OperatorNDImpl and the geometry layout it reads.
     bool m_isDeformed;
+    /// Whether the basis is modified; selects the collapsed-coordinate
+    /// chain-rule correction.
     bool m_isModified;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) element.
     unsigned int m_coordDim;
+    /// Coefficients per direction.
     std::vector<unsigned int> m_nm;
+    /// Quadrature points per direction.
     std::vector<unsigned int> m_nq;
+    /// Basis matrix per direction.
     std::vector<const TData *> m_B;
+    /// Basis-derivative matrix per direction.
     std::vector<const TData *> m_D;
+    /// Quadrature weights per direction.
     std::vector<const TData *> m_W;
+    /// Collapsed-coordinate chain-rule factors used by the kernels.
     std::vector<const TData *> m_f;
+    /// Mode-index tables, fetched only under SumFacTOP for the
+    /// collapsed shapes.
     std::vector<const unsigned int *> m_index;
+    /// Nodal-to-modal conversion matrix; null for tensor-product
+    /// shapes.
     const TData *m_nodToMod;
+    /// Jacobian of the block, interleaved at #m_implInterleaveWidth:
+    /// one value per element, or one per quadrature point and element
+    /// on a deformed block.
     const TData *m_jacptr;
+    /// Derivative factors of the block, interleaved, transposed for
+    /// SumFacTOP and untransposed for SumFac.
     const TData *m_dfptr;
 
+    /// Apply the weak Laplacian operator to every element of the block
+    /// by sum factorisation; dispatches on #m_shapeType to ShapeBlock().
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
@@ -335,8 +411,8 @@ protected:
         return (dim == 1) ? 0 : (dim == 2) ? 2 : 4;
     }
 
-    // Generic operator. Builds the index sequences from the shape dimension
-    // and forwards to OperatorNDImpl.
+    /// Generic operator. Builds the index sequences from the shape
+    /// dimension and forwards to OperatorNDImpl.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter>
     NEK_FORCE_INLINE void OperatorND(
@@ -361,9 +437,9 @@ protected:
             std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
     }
 
-    // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the precomputed index arrays used by the kernels,
-    // ind2 the collapsed coordinate factors used by the kernels.
+    /// Generic operator implementation. ind0 indexes each direction,
+    /// ind1 the precomputed index arrays used by the kernels,
+    /// ind2 the collapsed coordinate factors used by the kernels.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>

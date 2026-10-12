@@ -35,7 +35,7 @@
 /**
  * @file ElmtOp.hpp
  * @brief Whole-field base class and factory machinery shared by every
- * element-operator family in the Operators library.
+ * element-operator family in the MultiRegions library.
  *
  * @details
  * An element operator acts element by element -- it never couples
@@ -45,7 +45,7 @@
  * coefficients to physical values, while Mass maps coefficient space
  * to itself. Every family in the subdirectories of ElmtOps (BwdTrans,
  * IProductWRTBase, PhysDeriv, Mass, Helmholtz, ...) derives its public
- * interface class from ElmtOp, which fixes the input and output field
+ * interface class from ElmtOp, which sets the input and output field
  * states at compile time and provides the two-stage factory
  * construction described in the ElmtOp class notes.
  *
@@ -86,7 +86,7 @@ namespace Nektar::MultiRegions
  *
  * ### Role of this class
  * Like the other operator base classes in this library, it exists
- * chiefly to fix the Apply() parameter types at compile time: a family
+ * chiefly to set the Apply() parameter types at compile time: a family
  * such as BwdTransOp derives from
  * `ElmtOp<FieldState::Coeff, FieldState::Phys, TData>`, so passing a
  * field in the wrong state fails to compile. It also provides the

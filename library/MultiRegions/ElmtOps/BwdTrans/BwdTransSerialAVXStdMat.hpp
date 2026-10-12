@@ -43,12 +43,11 @@
  * This header defines the detail::BwdTransBlockOpImpl used when the
  * "StdMat" implementation is requested on the Serial or AVX execution
  * space; CMake includes it into the translation units generated for
- * exactly those factory registrations, which is why this header, the
- * SumFac header and the device headers may each define the same primary
- * template without ever colliding.
+ * exactly those factory registrations, which is why the implementation
+ * headers may each define the same primary template without ever
+ * colliding.
  *
- * @see BwdTransSerialAVXSumFac.hpp for the sum-factorised alternative
- * and BwdTransDeviceStdMat.hpp for the device StdMat path.
+ * @see BwdTransSerialAVXSumFac.hpp for the sum-factorised alternative.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -101,8 +100,6 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation  Implementation tag the including translation
  *                         unit registers (MultiRegions::StdMat here).
  * @tparam TData           Floating-point type of the field data.
- *
- * @see BwdTransDeviceStdMat.hpp for the device StdMat path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>

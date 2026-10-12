@@ -61,24 +61,32 @@
  *   ;
  * - v_IProductWRTPhysTrace, the per-trace path, which lifts one named
  *   trace out of a packed trace field, zeroing the volume array or
- *   accumulating onto it according to #m_append as the bulk path does.
+ *   accumulating onto it according to IProductWRTPhysTraceBlockOp::m_append
+ *   as the bulk path does.
  *
  * @note Two implementations are registered from this header:
  * MultiRegions::SumFac, one element per warp lane at the warp-size
  * interleave, and MultiRegions::SumFacTOP, one element per thread block
  * at width one. Implementation selects the kernel family, the launch
  * geometry GetDeviceBlockSize() and GetDeviceGridSize() compute and
- * #m_implInterleaveWidth. A StdMat request reaches the SumFac class
- * through IProductWRTPhysTraceBlockOp::Create(), which maps it.
+ * IProductWRTPhysTraceBlockOpImpl::m_implInterleaveWidth. A StdMat
+ * request reaches the SumFac class through
+ * IProductWRTPhysTraceBlockOp::Create(), which maps it.
  *
  * @see IProductWRTPhysTraceOp.hpp for what the operator computes and
  * how the family is laid out.
  * @see IProductWRTPhysTraceDeviceSumFacKernels.hpp for the kernels
  * launched from here.
- * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the same
- * decomposition packed for SIMD vectors instead of warp lanes.
  * @see PhysTraceExtractDeviceSumFac.hpp for the adjoint operator, which
  * applies the same interpolation tables untransposed.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through IProductWRTPhysTraceOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
  */
 
 #pragma once
@@ -110,7 +118,7 @@ namespace Nektar::MultiRegions::detail
  * volume quadrature grid. IProductWRTPhysTraceOp.hpp derives this and
  * says what the result is and is not. The class itself only marshals
  * data: the constructor caches the tables, OperatorND() and the
- * per-trace launcher fix the launch
+ * per-trace launcher set the launch
  * geometry and the workspace, and every floating-point operation lives
  * in the kernels.
  *

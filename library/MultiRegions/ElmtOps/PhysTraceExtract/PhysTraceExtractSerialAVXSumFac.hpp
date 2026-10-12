@@ -70,21 +70,25 @@
  *
  * @note The class below is the primary
  * detail::PhysTraceExtractBlockOpImpl template, with an unconstrained
- * ExecSpace parameter, and PhysTraceExtractDeviceSumFac.hpp declares a
- * second primary template of the same signature. The two headers are
- * therefore alternatives: a generated translation unit includes
- * exactly one of them, never both.
+ * ExecSpace parameter; a generated translation unit includes no other
+ * header defining it.
  *
  * @see PhysTraceExtractOp.hpp for the whole-field interface and for
  * the layouts of the two fields.
  * @see PhysTraceExtractSerialAVXSumFacKernels.hpp for the kernels
  * called from here.
- * @see PhysTraceExtractDeviceSumFac.hpp for the same decomposition
- * packed for warp lanes instead of SIMD vectors.
  * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the adjoint
  * operator, which applies the same interpolation tables transposed and
  * carries the trace weights and trace Jacobian this one has no use
  * for.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through PhysTraceExtractOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
  */
 
 #pragma once
@@ -644,9 +648,9 @@ protected:
      * @details
      * A debug build first checks that both blocks are aligned to the
      * SIMD type's alignment, since the kernels address them through
-     * simd_t pointers, and #m_warnOnce keeps that warning to one
-     * occurrence per block operator. Neither the check nor the flag
-     * exists in a release build. Dispatch is then per shape into
+     * simd_t pointers, and a flag keeps that warning to one occurrence
+     * per block operator. Neither the check nor the flag exists in a
+     * release build. Dispatch is then per shape into
      * ShapeBlock(), whose specialisation the generated translation unit
      * defines and which selects the size-templated OperatorND()
      * instantiation.

@@ -53,7 +53,7 @@ namespace Nektar::MultiRegions
  * physical-space storage.
  *
  * @details
- * Fixes the BlockAccessor states accepted by Apply() -- physical space
+ * Sets the BlockAccessor states accepted by Apply() -- physical space
  * in, physical space out -- with the input block holding the element's
  * packed trace values and the output block its volume quadrature points.
  * See IProductWRTPhysTraceOp for both layouts and for the mathematics.
@@ -81,8 +81,8 @@ namespace Nektar::MultiRegions
  * kept.
  *
  * There is one trace inner-product algorithm, registered under
- * MultiRegions::SumFac; the Device build adds a SumFacTOP registration,
- * whose kernels run one element per thread block. No standard-matrix
+ * MultiRegions::SumFac and, for some execution spaces, also under
+ * MultiRegions::SumFacTOP. No standard-matrix
  * formulation is intended, so Create() serves a StdMat request from
  * the SumFac registration by mapping the implementation name before
  * the factory lookup.
@@ -214,13 +214,8 @@ protected:
     /// Whether the bulk Apply() path accumulates onto the output block
     /// rather than zeroing it and writing. Default false.
     ///
-    /// Read by the Serial/AVX one-, two- and three-dimensional paths and
-    /// by the Device one- and three-dimensional paths. The Device
-    /// two-dimensional bulk path is not among them: it instantiates its
-    /// kernel with the append template argument fixed to `false` and so
-    /// always overwrites, whatever this flag holds. The per-trace
-    /// IProductWRTPhysTrace() entry does not read it either, always
-    /// appending instead. No unit test sets the flag on this operator,
+    /// The per-trace IProductWRTPhysTrace() entry does not read it,
+    /// always appending instead. No unit test sets the flag on this operator,
     /// so the appending bulk path is currently unexercised.
     bool m_append = false;
 
@@ -255,8 +250,8 @@ protected:
     ~IProductWRTPhysTraceBlockOp() override = default;
 
     /// @brief Default hook: an implementation without a per-trace entry
-    /// point raises a fatal error. Both SumFac implementations override
-    /// it; see IProductWRTPhysTrace() for the contract.
+    /// point raises a fatal error; see IProductWRTPhysTrace() for the
+    /// contract.
     virtual void v_IProductWRTPhysTrace(
         const unsigned traceid,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,

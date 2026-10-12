@@ -166,14 +166,7 @@ public:
      * @brief Set the factor every block operator multiplies its result by.
      *
      * The factor applies to the coefficient-space result whether or not
-     * the quadrature metric is in use. The initial value is 1; the
-     * sum-factorised implementations then instantiate their kernels with
-     * SCALE = false, dropping the final multiplication, while the StdMat
-     * implementations have no such kernel variant and pass the factor on
-     * whatever its value -- as the scale argument of their Jacobian kernel
-     * or as the alpha of their GEMM. The one exception is the Serial/AVX
-     * StdMat path with the quadrature metric off, which scales its GEMM
-     * result in a separate loop and skips that loop at 1.
+     * the quadrature metric is in use. The initial value is 1.
      *
      * @param   scale   Factor applied to the result of subsequent Apply()
      *                  calls.

@@ -45,8 +45,8 @@
  * a block every element carries the same number of data values, so the
  * block's storage is a rectangular array of `num_data` values per
  * element and component, padded to a whole multiple of the maximum
- * vector width and optionally interleaved so that vector lanes (SIMD
- * on AVX, warp lanes on Device) each own one element (see
+ * vector width and optionally interleaved so that each vector lane
+ * owns one element (see
  * LibUtilities::BlockAttributes and LibUtilities::BlockAccessor in
  * LibUtilities/BasicUtils/Field/Block.hpp). ElmtBlockOp is the base
  * class of the per-family block operators (e.g. BwdTransBlockOp) that
@@ -113,9 +113,8 @@ struct StdMat
  * @brief Implementation tag: sum-factorised tensor-product evaluation
  * with one element per vector lane.
  *
- * Element data is interleaved at the vector width -- the SIMD width on
- * the AVX back-end, the warp size on the Device back-end -- so that
- * each lane performs the full per-element evaluation on its own
+ * Element data is interleaved at the execution space's vector width so
+ * that each lane performs the full per-element evaluation on its own
  * element while the batch progresses in lock-step.
  */
 struct SumFac
@@ -166,7 +165,7 @@ struct Generic
  * through the data warehouse (see
  * LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp).
  *
- * As with ElmtOp, this class fixes the BlockAccessor states accepted
+ * As with ElmtOp, this class sets the BlockAccessor states accepted
  * by Apply() at compile time; the numerical work happens in the
  * detail:: implementation classes (e.g. detail::BwdTransBlockOpImpl),
  * which override v_Apply(). The sum-factorised implementations, and

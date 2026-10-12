@@ -59,13 +59,12 @@
  * matrix.
  *
  * Where the metric enters depends on the implementation:
- * - the sum-factorised paths, on the host and on the device, hand the
- *   expansion's per-direction weight tables and the block's Jacobian table
- *   to the inner-product kernel, which applies them inside its
- *   contraction; the exception is the device SumFacTOP path, whose kernels
- *   multiply the staged physical values by the metric between the two
- *   stages and then call the inner-product shape kernels in their
- *   metric-free form;
+ * - the SumFac paths hand the expansion's per-direction weight tables and
+ *   the block's Jacobian table to the inner-product kernel, which applies
+ *   them inside its contraction;
+ * - the SumFacTOP path multiplies the staged physical values by the metric
+ *   between the two stages and then calls the inner-product shape kernels
+ *   in their metric-free form;
  * - the StdMat paths inherit the weights from the standard-region matrices
  *   they fetch from the data warehouse (which are built by applying the
  *   corresponding StdExpansion operation to unit vectors) and apply the

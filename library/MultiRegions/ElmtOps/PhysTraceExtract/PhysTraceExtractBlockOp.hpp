@@ -53,7 +53,7 @@ namespace Nektar::MultiRegions
  * trace storage.
  *
  * @details
- * Fixes the BlockAccessor states accepted by Apply() -- physical space
+ * Sets the BlockAccessor states accepted by Apply() -- physical space
  * in, physical space out -- with the input block holding the element's
  * volume quadrature points and the output block its packed trace values.
  * See PhysTraceExtractOp for both layouts and for the mathematics.
@@ -82,8 +82,8 @@ namespace Nektar::MultiRegions
  * kept.
  *
  * There is one trace-extraction algorithm, registered under
- * MultiRegions::SumFac; the Device build adds a SumFacTOP registration,
- * whose kernels run one element per thread block. No standard-matrix
+ * MultiRegions::SumFac and, where an execution space provides it,
+ * MultiRegions::SumFacTOP. No standard-matrix
  * formulation is intended, so Create() serves a StdMat request from
  * the SumFac registration by mapping the implementation name before
  * the factory lookup.
@@ -223,8 +223,7 @@ protected:
     ~PhysTraceExtractBlockOp() override = default;
 
     /// @brief Default hook: an implementation without a per-trace entry
-    /// point raises a fatal error. Both the SerialAVX and the Device
-    /// implementation override it; see ExtractTrace() for the contract.
+    /// point raises a fatal error; see ExtractTrace() for the contract.
     virtual void v_ExtractTrace(
         const unsigned traceid,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,

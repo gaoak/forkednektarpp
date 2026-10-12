@@ -39,23 +39,21 @@
  * derivative factors, one work item per point of the block.
  *
  * @details
- * These are the device counterparts of the kernels in
- * PhysDerivSerialAVXStdMatKernels.hpp and perform the same chain rule
+ * These perform the chain rule
  * \f[ \frac{\partial u}{\partial x_k}
  *     = \sum_{d} \frac{\partial \xi_d}{\partial x_k}
  *       \frac{\partial u}{\partial \xi_d}, \f]
- * but over the whole block at once: one work item per (element, point)
+ * over the whole block at once: one work item per (element, point)
  * pair on the first grid dimension, the homogeneous planes (and, for
  * MultiplyByDerivFactorKernel, the components) on the further grid
  * dimensions of the same launch.
  *
- * The derivative factors are laid out transposed with respect to the
- * Serial/AVX ones (DerivFactorKey with `transpose = true`, see
- * GeometricDataWarehouse.hpp): per element the `ndf = coordDim *
- * dimension` factors form contiguous planes, of one value each for a
- * regular element and of nqTot values each for a deformed one. Hence
- * the two branches index differently, the deformed one reaching factor
- * `k * dimension + d` of element @em e at
+ * The derivative factors are laid out transposed (DerivFactorKey with
+ * `transpose = true`, see GeometricDataWarehouse.hpp): per element
+ * the `ndf = coordDim * dimension` factors form contiguous planes, of
+ * one value each for a regular element and of nqTot values each for a
+ * deformed one. Hence the two branches index differently, the deformed
+ * one reaching factor `k * dimension + d` of element @em e at
  * `ndf * nqTot * e + nqTot * (k * dimension + d) + i` -- written as
  * `(ndf - 1) * nqTot * e + ...` because the within-plane flat index
  * added last, `idx`, already carries one `nqTot * e`.

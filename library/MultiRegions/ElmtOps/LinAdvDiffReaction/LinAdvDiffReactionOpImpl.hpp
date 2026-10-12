@@ -28,9 +28,37 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Execution-space implementation of the whole-field
+// linearised advection-diffusion-reaction operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionOpImpl.hpp
+ * @brief Execution-space implementation of the whole-field linearised
+ * advection-diffusion-reaction operator.
+ *
+ * @details
+ * The whole-field behaviour of the operator -- the coefficient setters
+ * and the block loop -- is implemented in LinAdvDiffReactionOp
+ * (LinAdvDiffReactionOp.hpp); the class here registers a
+ * "LinAdvDiffReaction" + execution-space key with the operator factory
+ * and, on a multi-plane 3DH1 expansion, owns the operators that add the
+ * homogeneous-direction terms: the weak z-Laplacian, through
+ * DerivZOpImpl.hpp and MassOp, and the advection
+ * \f$w\,\partial u/\partial z\f$, through AdvectionZOpImpl.hpp between
+ * BwdTransOp and IProductWRTBaseOp. The plane-local numerical work is done
+ * by the block operators created alongside it (see
+ * LinAdvDiffReactionSerialAVXStdMat.hpp and its siblings). CMake-generated
+ * translation units instantiate and register this class for each enabled
+ * execution space.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through LinAdvDiffReactionOp.hpp and the
+ * operator factory.
+ */
 
 #pragma once
 
@@ -47,12 +75,25 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Execution-space implementation of LinAdvDiffReactionOp;
+ * registers it with the operator factory and implements its
+ * homogeneous-term hooks.
+ *
+ * @tparam ExecSpace Execution space the instance is registered for and the
+ *                   z-operators run in.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class LinAdvDiffReactionOpImpl : public LinAdvDiffReactionOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; forwards to LinAdvDiffReactionOp and builds the
+    /// z-operators and their workspace fields on a multi-plane 3DH1
+    /// expansion.
     LinAdvDiffReactionOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -121,10 +162,12 @@ public:
         }
     }
 
-    // className - for OperatorFactory
+    /// Registration name for the operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// @brief Creator function registered with the operator factory;
+    /// builds one operator for the given expansion list and components.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -134,6 +177,7 @@ public:
     }
 
 protected:
+    /// Planes this rank holds; 1 unless the expansion is 3DH1.
     unsigned int m_nhomo = 1u;
 
     /// Component for component, giving the second z-derivative; the xy mass
@@ -141,18 +185,27 @@ protected:
     std::shared_ptr<DerivZOpImpl<ExecSpace, TData, DerivZLayout::Identity,
                                  DerivZOrder::Second, false>>
         m_zOp;
+    /// xy mass operator applied to #m_d2z.
     std::shared_ptr<MassOp<TData>> m_massOp;
+    /// Second z-derivative of the input, in coefficient space.
     LibUtilities::Field<TData, FieldState::Coeff> m_d2z;
+    /// Coefficient-space workspace holding each z term before it is
+    /// combined with the output.
     LibUtilities::Field<TData, FieldState::Coeff> m_wsp;
 
     /// The advection along the homogeneous direction, w du/dz, accumulated
     /// at the quadrature points, then taken back to coefficients.
     std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData>> m_advZOp;
+    /// Takes the input to the quadrature points for #m_advZOp.
     std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
+    /// Takes the z advection back to coefficient space.
     std::shared_ptr<IProductWRTBaseOp<TData>> m_ipOp;
+    /// The input at the quadrature points.
     LibUtilities::Field<TData, FieldState::Phys> m_u;
+    /// The z advection at the quadrature points.
     LibUtilities::Field<TData, FieldState::Phys> m_advZ;
 
+    /// Forward @p advVel to #m_advZOp, if any.
     void v_SetAdvVelFFT(
         LibUtilities::Field<TData, FieldState::Phys> &advVel) override
     {
@@ -168,6 +221,8 @@ protected:
         m_advZOp->SetAdvVel(advVel);
     }
 
+    /// Subtract the weak z-Laplacian of @p in from @p out and add its
+    /// weak z advection, if @p in has more than one homogeneous mode.
     void v_ApplyFFT(LibUtilities::Field<TData, FieldState::Coeff> &in,
                     LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {

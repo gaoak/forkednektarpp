@@ -32,6 +32,29 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file MultiplyByElmtInvMassOpImpl.hpp
+ * @brief Factory shell for the whole-field MultiplyByElmtInvMass operator.
+ *
+ * @details
+ * The whole-field behaviour of the operator is implemented entirely in
+ * MultiplyByElmtInvMassOp (MultiplyByElmtInvMassOp.hpp); the class here
+ * exists only so that a "MultiplyByElmtInvMass" + execution-space key
+ * ("MultiplyByElmtInvMassSerial", "MultiplyByElmtInvMassAVX",
+ * "MultiplyByElmtInvMassDevice") can be registered with the operator
+ * factory. The numerical work is done by the block operators created
+ * alongside it (see MultiplyByElmtInvMassSerialAVXGeneric.hpp and
+ * MultiplyByElmtInvMassDeviceGeneric.hpp). CMake-generated translation
+ * units instantiate and register this class for each enabled execution
+ * space.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through MultiplyByElmtInvMassOp.hpp and the
+ * operator factory.
+ */
+
 #pragma once
 
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
@@ -39,10 +62,28 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Execution-space registration shell of MultiplyByElmtInvMassOp;
+ * adds no behaviour of its own.
+ *
+ * @details
+ * The whole-field stage of the operator is execution-space independent
+ * (the block loop in MultiplyByElmtInvMassOp::v_Apply), and all numerical
+ * work happens in the per-block detail::MultiplyByElmtInvMassBlockOpImpl
+ * objects created alongside it by ElmtOp::Create. The ExecSpace template
+ * parameter exists so that the generated factory declaration code can
+ * register a separate entry for each execution space enabled in the build.
+ *
+ * @tparam ExecSpace Execution space the instance is registered for; used
+ *                   only to distinguish factory entries.
+ * @tparam TData     Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename TData>
 class MultiplyByElmtInvMassOpImpl : public MultiplyByElmtInvMassOp<TData>
 {
 public:
+    /// @brief Construct the operator for @p expansionList and
+    /// @p components; forwards to MultiplyByElmtInvMassOp.
     MultiplyByElmtInvMassOpImpl(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -50,10 +91,10 @@ public:
     {
     }
 
-    // className - for OperatorFactory
+    /// Operator class name; defined by the generated factory code.
     static std::string className;
 
-    // instantiation function for CreatorFunction in OperatorFactory
+    /// Creator function registered with OperatorFactory.
     static std::unique_ptr<Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)

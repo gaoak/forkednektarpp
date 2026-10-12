@@ -165,9 +165,7 @@
  * @c ShapeTypeNumTraceInDir, which is also what makes it right for the
  * collapsed directions of a triangle and a tetrahedron.
  *
- * @see PhysTraceExtractDeviceSumFacKernels.hpp for the device kernels of
- * the same decomposition, and
- * IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the adjoint
+ * @see IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the adjoint
  * operation on this execution space.
  */
 
@@ -324,6 +322,8 @@ NEK_FORCE_INLINE static void PhysTraceExtractSegKernel(
  *
  * @param   edg         Position of the first edge within direction 0.
  * @param   nedg        One past the position of the last edge.
+ * @param   tstride     Row stride of @p ntbasis0: the shape's number of
+ *                      traces in direction 0.
  * @param   nq0,nq1     Volume quadrature points per direction; the glue
  *                      kernel forwards its own nq0 and nq1, which came
  *                      from the entry point's nm0 and nm1.
@@ -393,6 +393,8 @@ NEK_FORCE_INLINE static void PhysExtractEdgeN0EndPtsKernel(
  *
  * @param   edg         Position of the first edge within direction 1.
  * @param   nedg        One past the position of the last edge.
+ * @param   tstride     Row stride of @p ntbasis1: the shape's number of
+ *                      traces in direction 1.
  * @param   nq0,nq1     Volume quadrature points per direction; the glue
  *                      kernel forwards its own nq0 and nq1, which came
  *                      from the entry point's nm0 and nm1.
@@ -475,6 +477,8 @@ NEK_FORCE_INLINE static void PhysExtractEdgeN1EndPtsKernel(
  *                          edge is either (0, 1) or (1, 2).
  * @param   nedg            One past the position of the last edge; at
  *                          most 2, as the debug assertion states.
+ * @param   tstride         Row stride of @p ntbasis0: the shape's number
+ *                          of traces in direction 0.
  * @param   nq0,nq1         Volume quadrature points per direction; the
  *                          entry point passes its nm0 and nm1.
  * @param   ntbasis0        eInterp table \f$h_p(\pm 1)\f$ of direction
@@ -544,6 +548,8 @@ NEK_FORCE_INLINE static void PhysExtractEdgeN0Kernel(
  *                          most 2, as the debug assertion states. A
  *                          triangle has a single direction-1 edge and is
  *                          called with (0, 1).
+ * @param   tstride         Row stride of @p ntbasis1: the shape's number
+ *                          of traces in direction 1.
  * @param   nq0,nq1         Volume quadrature points per direction; the
  *                          entry point passes its nm0 and nm1.
  * @param   ntbasis1        eInterp table \f$h_q(\pm 1)\f$ of direction

@@ -28,9 +28,45 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Serial/AVX standard-matrix (StdMat) implementation of
+// the per-block inner product with the gradient of the basis.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file IProductWRTDerivBaseSerialAVXStdMat.hpp
+ * @brief Serial/AVX standard-matrix (StdMat) implementation of the
+ * per-block inner product with the gradient of the basis.
+ *
+ * @details
+ * All elements of a block share the same basis, so one dense
+ * standard-region matrix per reference direction serves the whole block:
+ * a pointwise kernel first contracts the input's coordDim components
+ * against the derivative factors and applies the Jacobian (and, for a Phys
+ * output, the quadrature weights), see
+ * IProductWRTDerivBaseSerialAVXStdMatKernels.hpp; one libxsmm GEMM per
+ * direction and element group then contracts the result against that
+ * direction's matrix. On the AVX execution space each SIMD lane owns one
+ * element of a group, so the GEMM's left operand is the lane-interleaved
+ * batch of element data; on Serial the SIMD type is a scalar and the group
+ * size is one.
+ *
+ * This header provides the definition of
+ * detail::IProductWRTDerivBaseBlockOpImpl for the Serial and AVX execution
+ * spaces with the StdMat implementation tag. The sum-factorised Serial/AVX
+ * definition lives in IProductWRTDerivBaseSerialAVXSumFac.hpp and the
+ * Device definitions in IProductWRTDerivBaseDeviceStdMat.hpp and
+ * IProductWRTDerivBaseDeviceSumFac.hpp; the class template name is shared,
+ * and each CMake-generated registration translation unit includes exactly
+ * one of these headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through IProductWRTDerivBaseOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -45,6 +81,56 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX StdMat inner product with the gradient of the basis:
+ * a geometric kernel followed by one dense matrix multiplication per
+ * reference direction, one element per SIMD lane.
+ *
+ * @details
+ * The work is done in two stages per group of simd_t::width elements.
+ *
+ * -# JacobianDerivFactorKernel or JacobianDerivFactorWeightsKernel
+ *    (IProductWRTDerivBaseSerialAVXStdMatKernels.hpp) contracts the
+ *    input's coordDim components against the block's derivative factors
+ *    and multiplies by the Jacobian, producing one physical-space field
+ *    \f$g_d\f$ per reference direction in the static workspace (see
+ *    IProductWRTDerivBaseOp.hpp for the definition of \f$g_d\f$). The
+ *    scale factor #m_scale is folded in here, the GEMM kernels being
+ *    dispatched with alpha = 1.
+ * -# One libxsmm GEMM per reference direction contracts \f$g_d\f$ against
+ *    that direction's standard-region matrix, all directions landing on
+ *    the same output:
+ *
+ *        out (width x outTot) = g_d (width x nqTot) * M_d + beta * out,
+ *
+ *    with beta = 1 for every direction after the first, and for the first
+ *    as well in append mode, so that outside append mode the first
+ *    direction overwrites. The panels are the group's interleaved storage
+ *    -- lane j of a column holds element j's value -- so the vectorisation
+ *    is across the elements of the group.
+ *
+ * The matrices \f$M_d\f$ come from the data warehouse and differ with the
+ * output state:
+ * - Coeff: eIProductWRTDerivBaseStdMatTranspose, the transpose of the
+ *   standard-region IProductWRTDerivBase matrix (nqTot x nmTot per
+ *   direction). It already contains the standard region's quadrature
+ *   weights, which is why the first stage applies only the derivative
+ *   factors and the Jacobian.
+ * - Phys: ePhysDerivStdMat, the standard-region derivative matrix
+ *   (nqTot x nqTot per direction), in the orientation this GEMM needs for
+ *   the transposed derivative of the weak form. The weights are not in
+ *   this matrix, so the first stage applies them explicitly from the
+ *   block's quadrature weights #m_weights.
+ *
+ * The collapsed-coordinate corrections of the simplex shapes need no
+ * special treatment: they are built into the standard-region matrices.
+ *
+ * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX; selects
+ *                        scalar or SIMD arithmetic through simd_t.
+ * @tparam Implementation Implementation tag (StdMat).
+ * @tparam TFieldOut      Output field state (Coeff or Phys).
+ * @tparam TData          Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, FieldState TFieldOut,
           typename TData>
 class IProductWRTDerivBaseBlockOpImpl
@@ -56,6 +142,22 @@ class IProductWRTDerivBaseBlockOpImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Capture the block's element metadata and fetch the
+     * standard-region matrices, Jacobians and derivative factors (see the
+     * class description).
+     *
+     * The matrix key depends on the output state: for a Coeff output the
+     * transposed IProductWRTDerivBase matrix (keyed with the nodal points
+     * type for a nodal expansion) and outTot = ncoeffs; for a Phys output
+     * the derivative matrix, outTot = nqTot, and in addition the block's
+     * quadrature weights.
+     *
+     * @param   block_idx       Index of the block.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     IProductWRTDerivBaseBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -113,10 +215,13 @@ public:
                                                 m_implInterleaveWidth, false));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<ElmtBlockOp<FieldState::Phys, TFieldOut, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
@@ -128,19 +233,74 @@ public:
     }
 
 protected:
+    /// Element interleave width the kernels and GEMMs operate at: the SIMD
+    /// width (1 on the Serial execution space).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape of the block's elements.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point Jacobian and derivative
+    /// factors); selects the DEFORMED branch of the kernels and their
+    /// stride.
     bool m_isDeformed;
+    /// Reference (shape) dimension of the elements (1, 2 or 3): the number
+    /// of reference directions summed over.
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) elements: the number
+    /// of input components consumed per output component.
     unsigned int m_coordDim;
+    /// Output values per element: coefficients for a Coeff output,
+    /// quadrature points for a Phys output.
     unsigned int m_outTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Per-direction standard-region matrices, laid out one after another
+    /// (direction d starts at m_matptr + d * nqTot * outTot); which matrix
+    /// this is depends on the output state, see the class description.
     const TData *m_matptr;
+    /// Jacobians of the block, interleaved at #m_implInterleaveWidth: one
+    /// value per element, or one per quadrature point on a deformed block.
     const TData *m_jacptr;
+    /// Derivative factors of the block, interleaved at
+    /// #m_implInterleaveWidth and fetched untransposed: the
+    /// coordDim * dimension factors of a point are stored together, indexed
+    /// k * dimension + d, point by point on a deformed block and once per
+    /// element otherwise (see DerivFactorKey).
     const TData *m_dfptr;
+    /// Quadrature weights of the element, interleaved at
+    /// #m_implInterleaveWidth; fetched and used for a Phys output only (for
+    /// a Coeff output the weights are inside the matrix).
     const TData *m_weights;
 
+    /**
+     * @brief Apply the operator to every element of the block by dense
+     * matrix multiplication.
+     *
+     * Per output component and homogeneous mode, and per group of
+     * simd_t::width elements: the input's coordDim components and, in
+     * append mode, the output are reshaped to #m_implInterleaveWidth, the
+     * geometric kernel fills the workspace with the dimension fields
+     * \f$g_d\f$, the GEMMs accumulate them onto the output, and the storage
+     * is reshaped back. Fields stored at a larger interleave width are
+     * handled in chunks of chunkSize = max(simd width, input width)
+     * elements, reshaped once per width_ratio groups.
+     *
+     * The two GEMM kernels differ only in beta: the first direction
+     * overwrites the output (or accumulates when append mode is set), the
+     * remaining directions always accumulate.
+     *
+     * After the element loop of the last homogeneous mode of an output
+     * component the input pointer skips the remaining input components of
+     * that output component (three in all on a multi-plane 3DH1 expansion,
+     * coordDim otherwise), so that the next component starts at its own
+     * direction-0 data. The output block's recorded interleave width is set to
+     * the input's on return.
+     *
+     * @param   inblock     Physical-space input block holding
+     *                      \f${\bf f}\f$.
+     * @param   outblock    Output block in state @p TFieldOut;
+     *                      overwritten, or accumulated onto in append mode.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock) override

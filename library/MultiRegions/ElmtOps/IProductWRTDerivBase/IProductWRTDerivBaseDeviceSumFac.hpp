@@ -28,9 +28,51 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Device sum-factorised implementation of the per-block
+// inner product with the gradient of the basis.
 ////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file IProductWRTDerivBaseDeviceSumFac.hpp
+ * @brief Device sum-factorised implementation of the per-block inner
+ * product with the gradient of the basis, serving both the SumFac and the
+ * SumFacTOP strategy.
+ *
+ * @details
+ * A geometric stage forms one weighted field per reference direction, the
+ * transposed one-dimensional derivative matrices are applied and summed,
+ * and a Coeff output is then contracted against the one-dimensional basis
+ * tables, all inside a single fused kernel launch per block.
+ *
+ * This one header is included by the translation units CMake generates for
+ * either sum-factorisation strategy on the Device execution space; the
+ * Implementation tag selects between the two kernel families at compile
+ * time, when the enable_if-constrained kernel launchers and the workspace
+ * and shared-memory size helpers resolve:
+ * - SumFac (IProductWRTDerivBaseDeviceSumFacKernels.hpp): one element per
+ *   thread. The lanes of a warp advance through warpSize elements in
+ *   lock-step on warp-interleaved data; the direction fields and the
+ *   sum-factorisation intermediates live in a global-memory workspace.
+ * - SumFacTOP (IProductWRTDerivBaseDeviceSumFacTOPKernels.hpp): one
+ *   element per thread block. The block's threads are indexed over the
+ *   element's points or modes, with the intermediates and the basis or
+ *   derivative tables staged in shared memory, exposing parallelism
+ *   within an element rather than across elements.
+ *
+ * The two strategies want different storage and derivative-factor layouts;
+ * see the class description. v_Apply() dispatches on the block's shape
+ * type to the ShapeBlock() specialisations, whose definitions CMake
+ * generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through IProductWRTDerivBaseOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -49,6 +91,57 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device sum-factorised inner product with the gradient of the
+ * basis (SumFac or SumFacTOP, selected by the Implementation tag).
+ *
+ * @details
+ * The constructor collects, per reference direction, the element sizes and
+ * the one-dimensional basis, derivative and weight tables, plus the
+ * pointwise chain-rule factors (1 + eta)/2 and 2/(1 - eta) evaluated at
+ * the quadrature points (data-warehouse keys eHalfMultOnePlusZero and
+ * eTwoOverOneMinusZero), the nodal-to-modal matrix of the nodal shapes and
+ * the block's Jacobians and derivative factors. The factor tables are
+ * fetched for every 2D block (two of them) and every 3D block (four of
+ * them) whatever the shape, since the condition in the constructor is on
+ * the element dimension alone; only the shapes with collapsed coordinates
+ * use them, the kernels discarding the tables of quadrilaterals and
+ * hexahedra through a compile-time shape test. Under SumFacTOP it also
+ * fetches, for the shapes with a collapsed mode ordering, the precomputed
+ * mode-index tables (#m_index) that map a flat mode index back to the
+ * individual mode numbers, so each thread can locate its mode without
+ * looping. All of this data lives in device memory.
+ *
+ * The strategy shows up in two layout choices:
+ * - #m_implInterleaveWidth is the warp size for SumFac (one element per
+ *   lane) and one for SumFacTOP (contiguous per-element data).
+ *   OperatorNDImpl() reshapes the block storage to that width around the
+ *   launch and back afterwards.
+ * - The derivative factors are fetched untransposed for SumFac, which
+ *   wants the factors of a point adjacent, and transposed for SumFacTOP,
+ *   which wants each factor contiguous over the element's points because
+ *   its threads are indexed over points (the last argument of
+ *   DerivFactorKey). The distinction only affects deformed blocks; for
+ *   regular geometry the warehouse stores one value per factor per
+ *   element.
+ *
+ * The generated ShapeBlock() specialisations land in OperatorND(), which
+ * forwards to OperatorNDImpl(): that issues a single kernel launch per
+ * block covering every element, output component and homogeneous mode.
+ * Each block operator owns device stream block_idx + 1, so different
+ * blocks may overlap on the device.
+ *
+ * @tparam ExecSpace      NektarSpaces::Device.
+ * @tparam Implementation MultiRegions::SumFac or MultiRegions::SumFacTOP.
+ * @tparam TFieldOut      Output field state (Coeff or Phys); the Phys path
+ *                        stops after the transposed derivative, the Coeff
+ *                        path continues into the basis contraction.
+ * @tparam TData          Floating-point type of the field data.
+ *
+ * @see IProductWRTDerivBaseDeviceStdMat.hpp for the dense-matrix Device
+ * path; IProductWRTDerivBaseSerialAVXSumFac.hpp for the host
+ * sum-factorised sibling.
+ */
 template <typename ExecSpace, typename Implementation, FieldState TFieldOut,
           typename TData>
 class IProductWRTDerivBaseBlockOpImpl
@@ -58,6 +151,19 @@ class IProductWRTDerivBaseBlockOpImpl
     using MemSpace    = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Bind the operator to the block's device stream, capture the
+     * element metadata and fetch the one-dimensional tables,
+     * collapsed-coordinate factors, nodal-to-modal matrix, mode-index
+     * tables, Jacobians and derivative factors (see the class
+     * description).
+     *
+     * @param   block_idx       Index of the block; the stream used for
+     *                          all device work is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     IProductWRTDerivBaseBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -208,10 +314,13 @@ public:
                 block_idx, m_implInterleaveWidth, transpose));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<ElmtBlockOp<FieldState::Phys, TFieldOut, TData>>
     Instantiate(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,
@@ -223,28 +332,74 @@ public:
     }
 
 protected:
+    /// Element interleave width the kernels expect: the warp size for
+    /// SumFac (one element per lane), one for SumFacTOP.
     static constexpr unsigned int m_implInterleaveWidth =
         std::is_same_v<Implementation, MultiRegions::SumFac>
             ? NektarSpaces::Device::warpSize
             : 1u;
 
+    /// Device stream all work of this block operator is issued on, one
+    /// per block (block index + 1).
     unsigned int m_streamID;
+    /// Shape of the block's elements; drives the dispatch in v_Apply().
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed (per-point Jacobian and derivative
+    /// factors); selects the DEFORMED branch of the generated dispatch and
+    /// hence of the kernels.
     bool m_isDeformed;
+    /// Whether the direction-0 basis is of type eModified_A; enables the
+    /// collapsed vertex-mode corrections in the IProductWRTBase kernels.
     bool m_isModified;
+    /// Reference (shape) dimension of the elements (1, 2 or 3): the number
+    /// of reference directions summed over.
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) elements: the number
+    /// of input components consumed per output component.
     unsigned int m_coordDim;
+    /// Modes per reference direction.
     std::vector<unsigned int> m_nm;
+    /// Quadrature points per reference direction.
     std::vector<unsigned int> m_nq;
+    /// One-dimensional basis tables, one per direction (eBasis); used on
+    /// the Coeff path.
     std::vector<const TData *> m_B;
+    /// One-dimensional derivative matrices, one per direction
+    /// (eDerivative).
     std::vector<const TData *> m_D;
+    /// One-dimensional quadrature weights, one per direction (eWeights).
     std::vector<const TData *> m_W;
+    /// Collapsed-coordinate chain-rule factors (see the class
+    /// description): in 2D (1 + eta_0)/2 and 2/(1 - eta_1); in 3D
+    /// (1 + eta_0)/2, (1 + eta_1)/2, 2/(1 - eta_1) and 2/(1 - eta_2).
     std::vector<const TData *> m_f;
+    /// Mode-index tables of the collapsed mode orderings: one in 2D
+    /// (triangles), three in 3D (see NumIndex()), fetched under SumFacTOP
+    /// for the shapes that use them and null otherwise (the third is null
+    /// for the pyramid as well).
     std::vector<const unsigned int *> m_index;
+    /// Nodal-to-modal matrix of the nodal shapes, applied transposed by
+    /// the kernels; null otherwise.
     const TData *m_nodToMod;
+    /// Jacobians of the block, interleaved at #m_implInterleaveWidth: one
+    /// value per element, or one per quadrature point on a deformed block.
     const TData *m_jacptr;
+    /// Derivative factors of the whole block, interleaved at
+    /// #m_implInterleaveWidth and, under SumFacTOP, transposed so that
+    /// each factor occupies a contiguous run of nqTot values on a
+    /// deformed block (see DerivFactorKey).
     const TData *m_dfptr;
 
+    /**
+     * @brief Dispatch on the block's shape to the generated ShapeBlock()
+     * specialisation. An unsupported shape is reported on std::cout
+     * and the output block is left untouched.
+     *
+     * @param   inblock     Physical-space input block holding
+     *                      \f${\bf f}\f$, coordDim components per output
+     *                      component.
+     * @param   outblock    Output block in state @p TFieldOut.
+     */
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, TFieldOut> &outblock) override
@@ -316,27 +471,28 @@ protected:
         }
     }
 
-    // Shape specific block operator, specialised for each shape in
-    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in.
+    /// Shape specific block operator, specialised for each shape in
+    /// LibUtilities/BasicUtils/Switch/BlockOpShapeBlockTwoOutStates.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void ShapeBlock(typename BlockOpBase::InBlock &inblock,
                     typename BlockOpBase::OutBlock &outblock);
 
-    // Number of precomputed index arrays used by the kernels in dim dimensions.
+    /// Number of precomputed index arrays used by the kernels in dim
+    /// dimensions.
     static constexpr unsigned int NumIndex(const unsigned int dim)
     {
         return (dim == 1) ? 0 : (dim == 2) ? 1 : 3;
     }
 
-    // Number of collapsed coordinate factors used by the kernels in dim
-    // dimensions.
+    /// Number of collapsed coordinate factors used by the kernels in dim
+    /// dimensions.
     static constexpr unsigned int NumFactor(const unsigned int dim)
     {
         return (dim == 1) ? 0 : (dim == 2) ? 2 : 4;
     }
 
-    // Generic operator. Builds the index sequences from the shape dimension
-    // and forwards to OperatorNDImpl.
+    /// Generic operator. Builds the index sequences from the shape dimension
+    /// and forwards to OperatorNDImpl.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter>
     NEK_FORCE_INLINE void OperatorND(
@@ -375,9 +531,69 @@ protected:
             std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
     }
 
-    // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the precomputed index arrays used by the kernels,
-    // ind2 the collapsed coordinate factors used by the kernels.
+    /**
+     * @brief Worker for every dimension: apply the operator to all
+     * elements of the block with a single fused kernel launch.
+     *
+     * @details
+     * Sizes the launch first. The grid has three dimensions. Its x extent
+     * covers the block's elements, padding included: with SumFac one
+     * thread per element, warpSize threads per thread block and as many
+     * thread blocks as that takes; with SumFacTOP one thread block per
+     * element at a time, its thread count the element's number of
+     * quadrature points (Phys output) or modes (Coeff output) rounded up
+     * to a warp multiple and capped at the default block size, and an
+     * occupancy-based number of thread blocks that stride over the
+     * remaining elements (GetDeviceBlockSize() and GetDeviceGridSize()).
+     * Its y and z extents carry the homogeneous-mode and output-component
+     * counts, so that one launch covers every component and mode and each
+     * kernel recovers its (mode, component) pair from its block index. The
+     * dynamic shared memory request is IProductWRTDerivBaseSharedMemorySize
+     * for the shape, strategy and output state at hand, in bytes; the
+     * global workspace request is IProductWRTDerivBaseWorkSpaceSize scaled
+     * by the number of (mode, component) pairs. Both helpers have one
+     * overload per strategy, documented in the kernel headers.
+     *
+     * The launch goes through DEVICE_3DGRID_KERNEL_LAUNCHER to the
+     * IProductWRTDerivBasePhysKernelLauncher (Phys output) or
+     * IProductWRTDerivBaseKernelLauncher (Coeff output) overload of this
+     * dimension and strategy, with the append flag as a template argument
+     * and the index sequences expanding to the per-direction tables #m_D
+     * and #m_W, on the Coeff path also #m_B and the mode-index tables
+     * #m_index, and the factor tables #m_f. The kernel is given the
+     * component stride of the input block, CompSize() * GetNumHomoModes(),
+     * to step between the coordDim input components of a (mode, component)
+     * pair.
+     *
+     * Block storage held at another interleave width is reshaped in place
+     * around the launch: the whole input (nelmt * ncomp * inDim element
+     * components, ncomp counting the homogeneous modes and inDim being
+     * three on a multi-plane 3DH1 expansion and coordDim otherwise) is
+     * converted to the implementation width and back
+     * again, and the output is converted forward only in append mode,
+     * when the kernels read it, and back to the input's width once the
+     * kernel has been queued. The output block's recorded width is set to
+     * the input's on return. Everything is issued on #m_streamID.
+     *
+     * @tparam SHAPE_TYPE      Shape of the block, the nodal enumerators
+     *                         included.
+     * @tparam DEFORMED        Derivative factors vary point by point.
+     * @tparam TSizeParameter  Size parameter of this dimension, templated
+     *                         or not; modal for a Coeff output,
+     *                         physical-space for a Phys output.
+     * @tparam ind0            Reference directions, 0 to ndim - 1; selects
+     *                         the tables #m_B, #m_D and #m_W.
+     * @tparam ind1            Mode-index tables #m_index the SumFacTOP
+     *                         Coeff kernels use: none in 1D, one in 2D,
+     *                         three in 3D (see NumIndex()).
+     * @tparam ind2            Collapsed-coordinate factor tables #m_f the
+     *                         kernels use: none in 1D, two in 2D, four in
+     *                         3D (see NumFactor()).
+     *
+     * @param   inblock     Physical-space input block.
+     * @param   outblock    Output block in state @p TFieldOut.
+     * @param   sizeParam   Element sizes, in runtime or compile-time form.
+     */
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>

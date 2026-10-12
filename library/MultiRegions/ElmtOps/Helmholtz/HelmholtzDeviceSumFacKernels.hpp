@@ -32,6 +32,23 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file HelmholtzDeviceSumFacKernels.hpp
+ * @brief Device sum-factorised (SumFac) kernels and launchers for the
+ * weak Helmholtz operator.
+ *
+ * @details
+ * Element-parallel kernels for the weak Helmholtz operator: each thread
+ * handles one element, warp-interleaved (lane `e % warpSize` of warp
+ * `e / warpSize`). Strings together:
+ * 1. BwdTrans{Shape}SumFacKernel to evaluate physical values;
+ * 2. PhysDeriv{1,2,3}DSumFacKernel to evaluate reference derivatives;
+ * 3. ApplyMetric{1,2,3}DSumFacKernel to apply the diffusion tensor and
+ *    geometry metric, and scale physical values by lambda * J;
+ * 4. SumDerivTensor{1,2,3}DKernel to sum transposed derivatives;
+ * 5. IProductWRTBase{Shape}SumFacKernel to take the inner product with
+ *    the basis.
+ */
 #pragma once
 
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
@@ -47,6 +64,10 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
+/**
+ * @brief Workspace a 1D SumFac Helmholtz launch needs, in TData values
+ * per variable and plane.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -69,6 +90,10 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
     return wspsize;
 }
 
+/**
+ * @brief Workspace a 2D SumFac Helmholtz launch needs, in TData values
+ * per variable and plane.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -104,6 +129,10 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
     return wspsize;
 }
 
+/**
+ * @brief Workspace a 3D SumFac Helmholtz launch needs, in TData values
+ * per variable and plane.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -231,6 +260,10 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
     }
 }
 
+/**
+ * @brief 1D metric kernel applying diffusion tensor, metric terms and
+ * lambda-weighted mass scaling.
+ */
 template <bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
@@ -334,6 +367,10 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     }
 }
 
+/**
+ * @brief 2D metric kernel applying diffusion tensor, metric terms and
+ * lambda-weighted mass scaling.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
@@ -495,6 +532,10 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     }
 }
 
+/**
+ * @brief 3D metric kernel applying diffusion tensor, metric terms and
+ * lambda-weighted mass scaling.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
@@ -669,6 +710,10 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     }
 }
 
+/**
+ * @brief 1D launcher stringing together the five sum-factorised stages
+ * on device.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
           typename TData,
@@ -731,6 +776,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief 2D launcher stringing together the five sum-factorised stages
+ * on device.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -886,6 +935,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief 3D launcher stringing together the five sum-factorised stages
+ * on device.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
           typename TData,

@@ -60,18 +60,27 @@
  *
  * This operator has a single algorithm, registered under
  * MultiRegions::SumFac and, from this same header, under SumFacTOP. The
- * class reads neither tag: #m_implInterleaveWidth is unconditionally
- * NektarSpaces::Device::warpSize, the interleave the kernels index with,
- * and the launch geometry is one element per warp, which is the shape
- * GetDeviceBlockSize() and GetDeviceGridSize() compute for
- * MultiRegions::SumFac, so that is what those helpers are queried with.
+ * class reads neither tag:
+ * IProductWRTPhysNormalDerivTraceBlockOpImpl::m_implInterleaveWidth is
+ * unconditionally NektarSpaces::Device::warpSize, the interleave the
+ * kernels index with, and the launch geometry is one element per warp,
+ * which is the shape GetDeviceBlockSize() and GetDeviceGridSize()
+ * compute for MultiRegions::SumFac, so that is what those helpers are
+ * queried with.
  *
  * @see IProductWRTPhysNormalDerivTraceOp.hpp for what the operator
  * computes and how the family is laid out.
- * @see IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp for the same
- * decomposition packed for SIMD vectors instead of warp lanes.
  * @see IProductWRTPhysTraceDeviceSumFac.hpp for the plain trace lift this
  * operator is built on, whose layout it follows.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through
+ * IProductWRTPhysNormalDerivTraceOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
  */
 
 #pragma once
@@ -93,12 +102,12 @@ namespace Nektar::MultiRegions::detail
  * one element per warp lane.
  *
  * @details
- * The same operator as the Serial/AVX class, with field, trace and factor
- * data warp interleaved: element \f$e = (i_{warp}, i_{lane})\f$ holds its
- * entry @em n at `buf[warpsize * n + ilane]` inside its warp block, and
- * warp blocks stride by `numData * warpsize`. #m_B holds the eInterp
- * tables, normal-direction tables first and tangential tables after, and
- * #m_DB their derivatives; the kernels choose, term by term, which of the
+ * Field, trace and factor data are warp interleaved: element
+ * \f$e = (i_{warp}, i_{lane})\f$ holds its entry @em n at
+ * `buf[warpsize * n + ilane]` inside its warp block, and warp blocks stride
+ * by `numData * warpsize`. #m_B holds the eInterp tables, normal-direction
+ * tables first and tangential tables after, and #m_DB their derivatives;
+ * the kernels choose, term by term, which of the
  * two a slot reads.
  *
  * Streams. This implementation takes its own
@@ -125,10 +134,10 @@ public:
      * device memory.
      *
      * @details
-     * The loops follow the Serial/AVX constructor: the normal directions
-     * first, then the tangential slots of one representative trace per
-     * normal direction. #m_nm and #m_nq are finally padded with zeros to
-     * three and six entries; the padded slots are never read.
+     * The loops take the normal directions first, then the tangential
+     * slots of one representative trace per normal direction. #m_nm and
+     * #m_nq are finally padded with zeros to three and six entries; the
+     * padded slots are never read.
      *
      * @param   block_idx       Index of this block in the expansion list;
      *                          also selects the block's factor arrays in
@@ -300,7 +309,7 @@ protected:
     /// Whether the factor array holds one value per trace quadrature point
     /// rather than one per trace: deformed geometry, or a collapsed shape
     /// whatever its geometry. Read by the generated dispatch to pick the
-    /// DEFORMED instantiation, which is what fixes the name: the switch
+    /// DEFORMED instantiation, which is what sets the name: the switch
     /// template
     /// LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in reads
     /// it by name.

@@ -101,9 +101,9 @@ public:
 
         if (nhomo > 1)
         {
-            // A z-op per curl rather than one used twice: a captured device
-            // graph holds the Field pointers it was built with, and the two
-            // curls are given different pairs.
+            // A z-op per curl rather than one used twice: a z-op may keep
+            // the Field pointers it was first applied to, and the two curls
+            // are given different pairs.
             for (auto &zOp : m_zOp)
             {
                 zOp = std::make_shared<

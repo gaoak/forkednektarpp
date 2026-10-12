@@ -55,15 +55,13 @@
  *   tables, coefficients and intermediates staged in shared memory,
  *   exposing parallelism within an element rather than across elements.
  *
- * The shape dispatch mirrors the Serial/AVX SumFac implementation:
  * v_Apply() switches on the runtime shape into the ShapeBlock()
  * specialisations that CMake generates from
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
  * translation unit per shape. NEKTAR_BLOCKOP_SWITCH_CODE, defined below,
  * selects the switch body those definitions expand.
  *
- * @see BwdTransSerialAVXSumFac.hpp for the Serial/AVX sum-factorised
- * path and BwdTransDeviceStdMat.hpp for the dense-matrix device path.
+ * @see BwdTransDeviceStdMat.hpp for the dense-matrix device path.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -93,10 +91,9 @@ namespace Nektar::MultiRegions::detail
  * @brief Device sum-factorised block implementation of the backward
  * transform, SumFac or SumFacTOP as the Implementation tag selects.
  *
- * As in the Serial/AVX SumFac implementation, the constructor caches the
- * per-direction 1D basis tables and, for the nodal shapes, the
- * nodal-to-modal matrix from the data warehouse -- here in device
- * memory. For tetrahedra under SumFacTOP it additionally fetches the
+ * The constructor caches the per-direction 1D basis tables and, for the
+ * nodal shapes, the nodal-to-modal matrix from the data warehouse, in
+ * device memory. For tetrahedra under SumFacTOP it additionally fetches the
  * precomputed mode-index tables (#m_index) that map a flat triangular
  * mode index back to its p and q, so a thread can locate its mode pair
  * without looping.
@@ -117,9 +114,6 @@ namespace Nektar::MultiRegions::detail
  * @tparam ExecSpace       NektarSpaces::Device.
  * @tparam Implementation  MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData           Floating-point type of the field data.
- *
- * @see BwdTransSerialAVXSumFac.hpp for the Serial/AVX sum-factorised
- * path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>

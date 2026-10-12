@@ -188,7 +188,7 @@ inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
  * edges of that direction and resample them onto their trace points.
  *
  * The one-block-per-element twin of BwdTransQuadSumFacKernelTrace. Both
- * stages live in a single kernel, with the normal direction fixed by
+ * stages live in a single kernel, with the normal direction set by
  * @p NormalDir and a barrier between them. Stage one takes the volume
  * field to the [@p edg, @p nedg) window of edges of that direction and
  * writes `nedge = nedg - edg` values per in-edge point into @p wsp with
@@ -1599,7 +1599,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * every element into a chosen slot of the packed output.
  *
  * GetTraceFaceDispatch supplies the normal direction and a one-face
- * window, and the Dispatch layer fixes the endpoint template argument
+ * window, and the Dispatch layer sets the endpoint template argument
  * before the per-direction glue runs. As in two dimensions the trace
  * tables are the shared ones.
  *

@@ -58,9 +58,8 @@
  *
  * Unlike IProductWRTPhysTrace, which declares a primary template and
  * partially specialises it on NektarSpaces::Device, this header defines
- * the primary PhysTraceExtractBlockOpImpl template itself, as does
- * PhysTraceExtractSerialAVXSumFac.hpp. The two never collide because a
- * generated translation unit includes exactly one of them.
+ * the primary PhysTraceExtractBlockOpImpl template itself; a generated
+ * translation unit includes no other header defining it.
  *
  * Two entry points reach the kernels:
  * - v_Apply, the bulk path, which extracts all of an element's traces
@@ -74,17 +73,24 @@
  * interleave, and MultiRegions::SumFacTOP, one element per thread block
  * at width one. Implementation selects the kernel family, the launch
  * geometry GetDeviceBlockSize() and GetDeviceGridSize() compute and
- * #m_implInterleaveWidth. A StdMat request reaches the SumFac class
- * through PhysTraceExtractBlockOp::Create(), which maps it.
+ * PhysTraceExtractBlockOpImpl::m_implInterleaveWidth. A StdMat request
+ * reaches the SumFac class through PhysTraceExtractBlockOp::Create(),
+ * which maps it.
  *
  * @see PhysTraceExtractOp.hpp for the operator's place in the family.
  * @see PhysTraceExtractDeviceSumFacKernels.hpp for the kernels launched
  * from here.
- * @see PhysTraceExtractSerialAVXSumFac.hpp for the same decomposition
- * packed for SIMD vectors instead of warp lanes.
  * @see IProductWRTPhysTraceDeviceSumFac.hpp for the adjoint operator,
  * which applies the same interpolation tables transposed and carries in
  * addition the trace weights and the trace Jacobian.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through PhysTraceExtractOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
  */
 
 #pragma once
@@ -122,7 +128,7 @@ namespace Nektar::MultiRegions::detail
  * still on the volume grid, then the tangential interpolation of that
  * block onto the trace points. PhysTraceExtractOp.hpp names the
  * operator; this class only marshals data. The constructor caches the
- * tables, OperatorND() and LaunchExtractTraceND() fix the launch
+ * tables, OperatorND() and LaunchExtractTraceND() set the launch
  * geometry and the workspace for the bulk and the per-trace route, and
  * every floating-point operation lives in the kernels.
  *
@@ -351,11 +357,10 @@ protected:
     /// Shape shared by every element of the block.
     LibUtilities::ShapeType m_shapeType;
     /// Read by the generated dispatch to pick between the DEFORMED and
-    /// the regular instantiation, but never assigned by this class or
-    /// by its Serial/AVX counterpart, so only the regular branch is
-    /// ever taken. Nothing here needs it: an extraction uses no
-    /// geometric factors, and the DEFORMED template argument is unused
-    /// in OperatorND().
+    /// the regular instantiation, but never assigned by this class, so
+    /// only the regular branch is ever taken. Nothing here needs it: an
+    /// extraction uses no geometric factors, and the DEFORMED template argument
+    /// is unused in OperatorND().
     bool m_isDeformed = false;
     /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;

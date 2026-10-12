@@ -28,9 +28,26 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Pointwise metric kernel of the Device StdMat linearised
+// advection-diffusion-reaction block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionDeviceStdMatKernels.hpp
+ * @brief The pointwise metric kernel of the Device StdMat linearised
+ * advection-diffusion-reaction operator.
+ *
+ * @details
+ * The device counterpart of
+ * LinAdvDiffReactionSerialAVXStdMatKernels.hpp: it does everything the
+ * StdMat path does that is not a dense matrix multiply, and sits between
+ * the derivative and inner-product GEMMs of
+ * detail::LinAdvDiffReactionBlockOpImpl::v_Apply
+ * (LinAdvDiffReactionDeviceStdMat.hpp), its only caller. Compiled only
+ * into device translation units of a device-enabled build
+ * (NEKTAR_ENABLE_DEVICE and DEVICE_COMPILE_ONLY).
+ */
 
 #pragma once
 
@@ -41,7 +58,83 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-// The variables and planes run together on the second grid dimension.
+/**
+ * @brief Apply the geometry and the three operator coefficients at
+ * every quadrature point of the block.
+ *
+ * @details
+ * The variables and planes run together on the second grid dimension:
+ * its index \f$c\f$ picks one (variable, plane) slice of
+ * `nqTot * nelmt` points, `nqTot * nelmt` values apart in @p in, @p out
+ * and @p bwd, over which the first dimension grid-strides. Within a slice
+ * the index runs fastest over the points of an element, then over the
+ * elements, so it addresses the geometry directly. The velocity is shared
+ * by the variables but not by the planes, and is read on plane
+ * `c % nhomo`.
+ *
+ * Reading the reference-space derivatives
+ * \f$\partial u/\partial\xi_d\f$ from @p in and the physical values
+ * \f$u\f$ from @p bwd, each thread produces
+ * - in @p bwd, the integrand of the advection and reaction terms,
+ *   \f$J\,(\mathbf{V}\cdot\nabla u + \mathrm{scale}\cdot u)\f$, where the
+ *   Cartesian derivative is recovered by the chain rule
+ *   \f$\partial u/\partial x_k = \sum_d (\partial\xi_d/\partial x_k)\,
+ *   \partial u/\partial\xi_d\f$ from @p dfptr; @p bwd is not read when
+ *   @p scale is zero;
+ * - in @p out, one component per reference direction \f$d\f$, the
+ *   diffusion flux pulled back to that direction,
+ *   \f$J \sum_{l,k} (\partial\xi_d/\partial x_l)\, D_{lk}\,
+ *   \partial u/\partial x_k\f$.
+ *
+ * @p out may alias @p in, as it does in the only caller: a thread
+ * reads all of @p in's components for its point before writing any
+ * of @p out's. The fixed-size local arrays limit both @p ncoord and
+ * @p dimension to three.
+ *
+ * @tparam DEFORMED        Geometry is deformed, so the Jacobian and the
+ *                         derivative factors vary point by point and the
+ *                         factors are laid out factor-major within each
+ *                         element.
+ * @tparam TthreadBlock    Back-end thread-block handle type.
+ * @tparam TData           Floating-point type of the field data.
+ *
+ * @param   nqTot       Quadrature points per element.
+ * @param   ncoord      Coordinate dimension: velocity components and
+ *                      rank of the diffusivity tensor.
+ * @param   dimension   Reference-element dimension: number of
+ *                      derivative components in @p in and of flux
+ *                      components in @p out.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   nhomo       Homogeneous planes carried by the field.
+ * @param   inoffset    Stride between the derivative components of
+ *                      @p in.
+ * @param   outoffset   Stride between the flux components of
+ *                      @p out.
+ * @param   adveloffset Stride between the velocity components of
+ *                      @p advVel.
+ * @param   diffCoeff   Packed lower triangle of the symmetric
+ *                      diffusivity tensor, indexed through
+ *                      LibUtilities::GetDiffCoeffMap (see
+ *                      LinAdvDiffReactionOp::SetDiffCoeff).
+ * @param   jacptr      Jacobians: nqTot values per element when
+ *                      deformed, one per element otherwise.
+ * @param   dfptr       Derivative factors: when deformed, per element a
+ *                      block of `ncoord * dimension` runs of nqTot
+ *                      values, the run for coordinate k and reference
+ *                      direction d being at `k * dimension + d`; when
+ *                      regular, one such value per element instead of a
+ *                      run.
+ * @param   advVel      Advection velocity at the quadrature points,
+ *                      @p ncoord components, each spanning every plane.
+ * @param   in          Reference-space derivatives of \f$u\f$,
+ *                      @p dimension components.
+ * @param   out         Diffusion flux out, @p dimension components.
+ * @param[in,out] bwd   In: \f$u\f$ at the quadrature points; out:
+ *                      the advection-plus-reaction integrand.
+ * @param   scale       Reaction coefficient \f$\lambda\f$.
+ * @param   threadBlock Back-end thread-block handle supplying the
+ *                      global thread index and grid stride.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,

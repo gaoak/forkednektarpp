@@ -39,12 +39,9 @@
  * advection block operator (see AdvectionDeviceStdMat.hpp).
  *
  * @details
- * This is the Device counterpart of the kernel in
- * AdvectionSerialAVXStdMatKernels.hpp. It performs the same pointwise
- * arithmetic as a device kernel over all quadrature points of the block,
- * launched by the block operator on its device stream; each variable and
- * homogeneous plane of the block rides the second grid dimension of that
- * one launch.
+ * The kernel runs over all quadrature points of the block, launched by the
+ * block operator on its device stream; each variable and homogeneous plane
+ * of the block rides the second grid dimension of that one launch.
  */
 
 #pragma once

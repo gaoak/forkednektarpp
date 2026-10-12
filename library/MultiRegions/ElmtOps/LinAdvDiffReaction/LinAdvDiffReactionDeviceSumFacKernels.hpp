@@ -28,9 +28,70 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: SumFac device kernels of the linearised
+// advection-diffusion-reaction operator, one element per warp lane.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionDeviceSumFacKernels.hpp
+ * @brief SumFac device kernels of the linearised
+ * advection-diffusion-reaction operator: one element per thread, with
+ * the elements of a warp interleaved lane by lane and the stage
+ * intermediates held in a global-memory workspace.
+ *
+ * @details
+ * These are the kernels the Device/SumFac block implementation launches
+ * (see LinAdvDiffReactionDeviceSumFac.hpp); the SumFacTOP counterparts,
+ * where a whole thread block cooperates on one element, are in
+ * LinAdvDiffReactionDeviceSumFacTOPKernels.hpp. Everything below is
+ * guarded by NEKTAR_ENABLE_DEVICE and DEVICE_COMPILE_ONLY, so it exists
+ * only in translation units compiled for a device back-end.
+ *
+ * One thread evaluates one element. The block storage is reshaped to
+ * interleave width warpSize before the launch, so that the elements of
+ * a warp are interleaved: element `e` is handled by lane
+ * `ilane = e % warpSize` of warp `iwarp = e / warpSize`, and value `n`
+ * of that element sits at offset `warpSize * n + ilane` within its
+ * warp's group. The LinAdvDiffReactionKernelLauncher overloads stride
+ * over the elements of the block, slicing the flat workspace, the
+ * geometric data and the advection velocity per warp as they go.
+ *
+ * A second grid dimension carries the field-component (or
+ * homogeneous-mode) index: the launchers read it as `c`, and the
+ * component count as `ncomp`, from the thread block's second index and
+ * range. The `in` and `out` arrays and every named workspace region
+ * hold every component's data together: each region's size is
+ * multiplied by `ncomp`, and component `c`'s slice within it starts at
+ * `c` times the region's single-component size, with the warp-interleave
+ * offset applied inside that slice. The advection velocity is the
+ * exception: it is shared by the variables but not by the planes, so the
+ * 1D and 2D launchers read it on plane `c % nhomo`; a 3D field has a
+ * single plane.
+ *
+ * Each launcher is the corresponding Helmholtz kernel with this family's
+ * advection kernel spliced in, and reuses the Helmholtz workspace and
+ * shared-memory sizing (HelmholtzWorkSpaceSize,
+ * HelmholtzSharedMemorySize) unchanged. Per element it runs
+ * -# the shape's BwdTrans sum-factorisation kernel, giving \f$u\f$ at
+ *    the quadrature points in the workspace slice `bwd`, preceded by the
+ *    nodal-to-modal conversion (MatVecKernel) for the nodal shapes;
+ * -# PhysDeriv{1,2,3}DSumFacKernel, which applies the
+ *    collapsed-coordinate factors and the derivative factors, so the
+ *    `deriv` slices hold Cartesian derivatives, one component per
+ *    coordinate direction;
+ * -# AddAdvection{1,2,3}DSumFacKernel (below), overwriting `bwd` with
+ *    \f$\mathbf{V}\cdot\nabla u + \lambda u\f$;
+ * -# ApplyMetric{1,2,3}DSumFacKernel of the Helmholtz family, which
+ *    forms the diffusion flux in the reference directions and applies
+ *    the quadrature weights and the Jacobian to it and to `bwd` --
+ *    called with a unit coefficient, the reaction term having been
+ *    folded in at the previous step;
+ * -# SumDerivTensor{1,2,3}DKernel of the PhysDeriv family, adding the
+ *    contracted flux onto `bwd`;
+ * -# the shape's IProductWRTBase sum-factorisation kernel, followed by
+ *    the transposed nodal conversion for the nodal shapes.
+ */
 
 #pragma once
 
@@ -45,6 +106,30 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+/**
+ * @brief Segment advection kernel: add the advection term to the scaled
+ * physical values of one thread's element.
+ *
+ * The derivatives arrive already in Cartesian form from the PhysDeriv
+ * stage, so the kernel only dots them with the velocity and folds in the
+ * reaction term, leaving
+ * \f$\mathbf{V}\cdot\nabla u + \mathrm{scale}\cdot u\f$ in @p out. All
+ * pointers address the whole warp's interleaved data, from which
+ * @p ilane selects this thread's element. The higher velocity and
+ * derivative components are read only when @p ncoord allows.
+ *
+ * @tparam TData   Floating-point type of the field data.
+ *
+ * @param   ilane   Lane index of this thread's element within its warp.
+ * @param   ncoord  Coordinate dimension: how many components are used.
+ * @param   nq0     Quadrature points of the element.
+ * @param   advVel0,advVel1,advVel2     Velocity components.
+ * @param   deriv0,deriv1,deriv2        Cartesian derivatives of
+ *                                      \f$u\f$; unchanged.
+ * @param[in,out] out   In: \f$u\f$ at the quadrature points; out: the
+ *                      advection-plus-reaction values.
+ * @param   scale   Reaction coefficient \f$\lambda\f$.
+ */
 template <typename TData>
 NEK_DEVICE_INLINE static void AddAdvection1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
@@ -72,6 +157,26 @@ NEK_DEVICE_INLINE static void AddAdvection1DSumFacKernel(
     }
 }
 
+/**
+ * @brief Two-dimensional advection kernel: add the advection term to
+ * the scaled physical values of one thread's element.
+ *
+ * As AddAdvection1DSumFacKernel, over the element's nq0 * nq1 points.
+ * The third velocity and derivative component is read only for a
+ * surface element embedded in three dimensions (@p ncoord == 3).
+ *
+ * @tparam TData   Floating-point type of the field data.
+ *
+ * @param   ilane   Lane index of this thread's element within its warp.
+ * @param   ncoord  Coordinate dimension (2 or 3).
+ * @param   nq0,nq1 Quadrature points per direction.
+ * @param   advVel0,advVel1,advVel2     Velocity components.
+ * @param   deriv0,deriv1,deriv2        Cartesian derivatives of
+ *                                      \f$u\f$; unchanged.
+ * @param[in,out] out   In: \f$u\f$ at the quadrature points; out: the
+ *                      advection-plus-reaction values.
+ * @param   scale   Reaction coefficient \f$\lambda\f$.
+ */
 template <typename TData>
 NEK_DEVICE_INLINE static void AddAdvection2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
@@ -97,6 +202,26 @@ NEK_DEVICE_INLINE static void AddAdvection2DSumFacKernel(
     }
 }
 
+/**
+ * @brief Three-dimensional advection kernel: add the advection term to
+ * the scaled physical values of one thread's element.
+ *
+ * As AddAdvection2DSumFacKernel, over the element's nq0 * nq1 * nq2
+ * points. There is no coordinate-dimension argument: a
+ * three-dimensional element has coordinate dimension three, so all
+ * three components always contribute.
+ *
+ * @tparam TData   Floating-point type of the field data.
+ *
+ * @param   ilane   Lane index of this thread's element within its warp.
+ * @param   nq0,nq1,nq2     Quadrature points per direction.
+ * @param   advVel0,advVel1,advVel2     Velocity components.
+ * @param   deriv0,deriv1,deriv2        Cartesian derivatives of
+ *                                      \f$u\f$; unchanged.
+ * @param[in,out] out   In: \f$u\f$ at the quadrature points; out: the
+ *                      advection-plus-reaction values.
+ * @param   scale   Reaction coefficient \f$\lambda\f$.
+ */
 template <typename TData>
 NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
@@ -119,6 +244,75 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
     }
 }
 
+/**
+ * @brief Entry point and driver of the 1D SumFac launch: apply the whole
+ * operator to the block's segments, one element per thread.
+ *
+ * @details
+ * The enable_if constrains this overload to the SumFac tag, so that the
+ * block implementation's single call site resolves to this launcher or
+ * to its SumFacTOP namesake in
+ * LinAdvDiffReactionDeviceSumFacTOPKernels.hpp according to the
+ * Implementation tag it was instantiated with; a static_assert then
+ * rejects anything but the 1D size parameters, runtime or compile-time.
+ * The launch bounds come from GetMaxThreadPerBlock for the tag and
+ * size-parameter pair.
+ *
+ * After unpacking @p sizeParam1D, threads grid-stride over the block's
+ * elements, and for each element slice the flat workspace, the
+ * geometric data and the velocity down to the owning warp (and, for the
+ * velocity, plane) before
+ * running the stage sequence described in the file notes. The workspace
+ * holds, per element and warp-interleaved, the physical values followed
+ * by @p ncoord derivative components lying `nq0 * nelmt` apart -- ncomp
+ * times what HelmholtzWorkSpaceSize reserves for a segment, laid out as
+ * the file notes describe. The velocity pointers of the higher
+ * components are offset to the warp only when @p ncoord has them.
+ *
+ * @tparam SHAPE_TYPE          Element shape (segments only).
+ * @tparam Implementation      MultiRegions::SumFac.
+ * @tparam DEFORMED            Geometry is deformed, so the Jacobian and
+ *                             the derivative factors vary point by
+ *                             point.
+ * @tparam TSizeParameter1D    Runtime or compile-time 1D size
+ *                             parameter.
+ * @tparam TthreadBlock        Back-end thread-block handle type.
+ * @tparam TData               Floating-point type of the field data.
+ *
+ * @param   sizeParam1D     Element mode and point counts.
+ * @param   ncoord          Coordinate dimension: velocity components,
+ *                          derivative components and rank of the
+ *                          symmetric diffusivity tensor, whose packed
+ *                          lower triangle therefore has
+ *                          ncoord * (ncoord + 1) / 2 entries.
+ * @param   nelmt           Elements in the block, padding included.
+ * @param   nhomo           Homogeneous planes of the field.
+ * @param   isModified      First-direction basis is eModified_A; unused
+ *                          for segments.
+ * @param   basis0          1D basis table.
+ * @param   D0              1D collocation derivative matrix.
+ * @param   w0              1D quadrature weights.
+ * @param   nodToMod        Nodal-to-modal matrix; unused for segments.
+ * @param   df              Derivative factors of the block,
+ *                          warp-interleaved.
+ * @param   jac             Jacobians of the block, warp-interleaved.
+ * @param   coeff           Packed diffusivity tensor (see
+ *                          LinAdvDiffReactionOp::SetDiffCoeff).
+ * @param   advVel0,advVel1,advVel2     Velocity components of the
+ *                                      block; the higher ones are read
+ *                                      only when @p ncoord allows.
+ * @param   in              Coefficients of the block.
+ * @param   out             Output coefficients of the block,
+ *                          overwritten.
+ * @param   wsp             Global-memory workspace, laid out as above.
+ * @param   lambda          Reaction coefficient.
+ * @param   shmemptr        Dynamic shared memory; not used by the
+ *                          segment kernel.
+ * @param   threadBlock     Back-end thread-block handle supplying the
+ *                          global thread index and grid stride in its
+ *                          first dimension, and the component index and
+ *                          count in its second.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
           typename TData,
@@ -196,6 +390,64 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief Entry point and driver of the 2D SumFac launch: apply the whole
+ * operator to the block's quadrilaterals or (nodal) triangles, one
+ * element per thread.
+ *
+ * @details
+ * Constrained and bounded exactly as the 1D overload. The mode-index
+ * table @p index0 is accepted for signature compatibility with the
+ * SumFacTOP launcher and is not used: only the SumFacTOP kernels need
+ * it.
+ *
+ * As the 1D overload, with two additions. The workspace carries, per
+ * element and warp-interleaved, the physical values, @p ncoord
+ * derivative components and then the shape's sum-factorisation
+ * intermediate, the derivative components lying `nqTot * nelmt` apart
+ * within the component's slice; NodalTri inserts a further
+ * `nmTot * nelmt` region ahead of that intermediate for the
+ * modal-converted coefficients, which the nodal-to-modal MatVecKernel
+ * writes before the backward transform and the transposed conversion
+ * reads back after the inner product. And for the triangular shapes the
+ * two collapsed-coordinate factor tables are staged in shared memory up
+ * front, since every element of the block uses the same ones.
+ *
+ * @tparam SHAPE_TYPE          Quad, Tri or NodalTri.
+ * @tparam Implementation      MultiRegions::SumFac.
+ * @tparam DEFORMED            Geometry is deformed.
+ * @tparam TSizeParameter2D    Runtime or compile-time 2D size
+ *                             parameter.
+ * @tparam TthreadBlock        Back-end thread-block handle type.
+ * @tparam TData               Floating-point type of the field data.
+ *
+ * @param   sizeParam2D     Element mode and point counts.
+ * @param   ncoord          Coordinate dimension (2 or 3).
+ * @param   nelmt           Elements in the block, padding included.
+ * @param   nhomo           Homogeneous planes of the field.
+ * @param   isModified      First-direction basis is eModified_A.
+ * @param   index0          Mode-index table; unused here.
+ * @param   basis0,basis1   1D basis tables.
+ * @param   D0,D1           1D collocation derivative matrices.
+ * @param   w0,w1           1D quadrature weights.
+ * @param   f0,f1           Collapsed-coordinate factors
+ *                          \f$(1+\eta_0)/2\f$ and \f$2/(1-\eta_1)\f$;
+ *                          triangular shapes only.
+ * @param   nodToMod        Nodal-to-modal matrix; nodal shapes only.
+ * @param   df              Derivative factors of the block,
+ *                          warp-interleaved.
+ * @param   jac             Jacobians of the block, warp-interleaved.
+ * @param   coeff           Packed diffusivity tensor.
+ * @param   advVel0,advVel1,advVel2     Velocity components.
+ * @param   in              Coefficients of the block.
+ * @param   out             Output coefficients of the block,
+ *                          overwritten.
+ * @param   wsp             Global-memory workspace, laid out as above.
+ * @param   lambda          Reaction coefficient.
+ * @param   shmemptr        Dynamic shared memory, used for the factor
+ *                          tables of the triangular shapes.
+ * @param   threadBlock     Back-end thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -365,6 +617,72 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief Entry point and driver of the 3D SumFac launch: apply the whole
+ * operator to the block's hexahedra, (nodal) tetrahedra, (nodal) prisms
+ * or pyramids, one element per thread.
+ *
+ * @details
+ * Constrained and bounded exactly as the 1D overload. The four
+ * mode-index tables are accepted for signature compatibility with the
+ * SumFacTOP launcher and are not used, and the coordinate dimension is
+ * accepted but not used either: a three-dimensional element has
+ * coordinate dimension three.
+ *
+ * As the 2D overload. The workspace carries, per element and
+ * warp-interleaved, the physical values and the three derivative
+ * components, then the shape's two sum-factorisation intermediates, with
+ * the nodal shapes again inserting an `nmTot * nelmt` region for the
+ * modal-converted coefficients ahead of them. The collapsed shapes stage
+ * the factor tables they need in shared memory up front: the tetrahedron
+ * all four, the prism @p f0 and @p f2, the pyramid @p f0, @p f1 and
+ * @p f2; the hexahedron none.
+ *
+ * @note For the tetrahedral shapes the second intermediate is sliced
+ * with the per-element stride `max(nq2, nm0)` while
+ * HelmholtzWorkSpaceSize reserves `nq2` per element for it; the two
+ * agree only while `nm0 <= nq2`. The prism and pyramid reserve
+ * `max(nq2, nm0)` and match their slicing.
+ *
+ * @tparam SHAPE_TYPE          Hex, Tet, NodalTet, Prism, NodalPrism or
+ *                             Pyr.
+ * @tparam Implementation      MultiRegions::SumFac.
+ * @tparam DEFORMED            Geometry is deformed.
+ * @tparam TSizeParameter3D    Runtime or compile-time 3D size
+ *                             parameter.
+ * @tparam TthreadBlock        Back-end thread-block handle type.
+ * @tparam TData               Floating-point type of the field data.
+ *
+ * @param   sizeParam3D     Element mode and point counts.
+ * @param   ncoord          Coordinate dimension; unused.
+ * @param   nelmt           Elements in the block, padding included.
+ * @param   nhomo           Homogeneous planes; unused, a 3D field has
+ *                          one.
+ * @param   isModified      First-direction basis is eModified_A.
+ * @param   index0,index1,index2,index3     Mode-index tables; unused
+ *                                          here.
+ * @param   basis0,basis1,basis2    1D basis tables.
+ * @param   D0,D1,D2        1D collocation derivative matrices.
+ * @param   w0,w1,w2        1D quadrature weights.
+ * @param   f0              \f$(1+\eta_0)/2\f$, per direction-0 point.
+ * @param   f1              \f$(1+\eta_1)/2\f$, per direction-1 point.
+ * @param   f1m             \f$2/(1-\eta_1)\f$, per direction-1 point.
+ * @param   f2              \f$2/(1-\eta_2)\f$, per direction-2 point.
+ * @param   nodToMod        Nodal-to-modal matrix; nodal shapes only.
+ * @param   df              Derivative factors of the block,
+ *                          warp-interleaved.
+ * @param   jac             Jacobians of the block, warp-interleaved.
+ * @param   coeff           Packed diffusivity tensor.
+ * @param   advVel0,advVel1,advVel2     Velocity components.
+ * @param   in              Coefficients of the block.
+ * @param   out             Output coefficients of the block,
+ *                          overwritten.
+ * @param   wsp             Global-memory workspace, laid out as above.
+ * @param   lambda          Reaction coefficient.
+ * @param   shmemptr        Dynamic shared memory, used for the factor
+ *                          tables of the collapsed shapes.
+ * @param   threadBlock     Back-end thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
           typename TData,

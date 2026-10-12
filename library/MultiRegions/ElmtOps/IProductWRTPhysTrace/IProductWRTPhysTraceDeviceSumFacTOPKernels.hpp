@@ -152,6 +152,7 @@ inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
 /// @brief Dynamic shared memory one block needs, in elements: @p ntrace
 /// trace-mode buffers, one element being resident per block at a time.
 ///
+/// @param   sizeParam2D Volume and trace point counts of the shape.
 /// @param   ntrace  Edges the buffer must hold at once: two on the bulk
 ///                  path, which integrates an edge pair in one call,
 ///                  and one on the per-trace path.

@@ -35,7 +35,7 @@
 /**
  * @file Operator.hpp
  * @brief Whole-field operator base class and factory machinery shared by
- * every operator family in the Operators library.
+ * every operator family in the MultiRegions library.
  *
  * @details
  * Operator fixes no input or output field type; it only provides what
@@ -213,10 +213,11 @@ public:
      * (e.g. solution storage, time-integration and linear-solver workspace)
      * should be constructed with for the given session.
      *
-     * The SumFac implementation on the Device backend (and any AVX-backed
-     * execution space) natively operates on interleaved data, so Fields are
-     * pre-interleaved to that native width to avoid repeated reshape
-     * operations. All other configurations use a trivial width of 1.
+     * Returns the vector width of the session's execution space when the
+     * requested implementation is SumFac or the execution space is AVX, so
+     * that Fields are created at that width rather than reshaped on every
+     * Apply. Returns 1 for a DG projection and for every other
+     * configuration.
      *
      * @param session  Session reader to recover the relevant command-line
      * arguments.

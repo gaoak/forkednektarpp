@@ -39,18 +39,13 @@
  * thread, with the elements of a warp interleaved lane by lane.
  *
  * @details
- * These are the device counterparts of the Serial/AVX sum-factorised
- * kernels in AdvectionSerialAVXSumFacKernels.hpp, with a warp lane playing
- * the part of a SIMD lane: lane ilane of warp iwarp owns one element, and
- * the block storage is interleaved at the warp size so the lanes of a warp
- * read consecutive addresses. Unlike the host kernels, which receive the
- * reference-space derivatives already formed by the PhysDerivTensor
- * kernels, each kernel here contracts the one-dimensional derivative
- * matrices itself and then applies, in the same pass, the
- * collapsed-to-standard coordinate correction for simplex-type shapes, the
- * geometric derivative factors and the dot product with the advection
- * velocity, writing (or accumulating) scale * (V . grad u) per quadrature
- * point.
+ * Lane ilane of warp iwarp owns one element, and the block storage is
+ * interleaved at the warp size so the lanes of a warp read consecutive
+ * addresses. Each kernel contracts the one-dimensional derivative matrices
+ * itself and then applies, in the same pass, the collapsed-to-standard
+ * coordinate correction for simplex-type shapes, the geometric derivative
+ * factors and the dot product with the advection velocity, writing (or
+ * accumulating) scale * (V . grad u) per quadrature point.
  *
  * The file provides, for each dimensionality: the per-element kernel
  * (Advection*DSumFacKernel) and the device entry point the block operator
@@ -208,8 +203,7 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
  * The derivative along the single reference direction is formed by
  * contracting the 1D derivative matrix over the element's values, then
  * multiplied by the derivative factor and velocity component of each of
- * the up to three coordinate directions of a possibly embedded segment --
- * the same arithmetic as Advection1DKernel on the host.
+ * the up to three coordinate directions of a possibly embedded segment.
  *
  * All arrays are addressed lane by lane: entry i of this element sits at
  * warpsize * i + ilane of a warp's slice. The derivative factors follow
@@ -288,8 +282,7 @@ NEK_DEVICE_INLINE static void Advection1DSumFacKernel(
  * f0[i] = (1 + eta_0)/2, recovering the standard-coordinate derivatives
  * before the 2 * ncoord derivative factors are applied. With
  * @p ncoord == 3 the element is embedded in three-dimensional space and a
- * third factor/velocity pair contributes. This mirrors Advection2DKernel
- * on the host.
+ * third factor/velocity pair contributes.
  *
  * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
  *                    correction.
@@ -408,8 +401,7 @@ NEK_DEVICE_INLINE static void Advection2DSumFacKernel(
  * fold the corrected direction-0 (and, for pyramids, direction-1)
  * derivative into direction 2, and tetrahedra combine all four tables. All
  * nine derivative factors are then applied and contracted with the
- * velocity. This mirrors Advection3DKernel on the host, whose
- * documentation spells out the corrections and the factor naming.
+ * velocity.
  *
  * @tparam SHAPE_TYPE Element shape; selects the collapsed-coordinate
  *                    correction.

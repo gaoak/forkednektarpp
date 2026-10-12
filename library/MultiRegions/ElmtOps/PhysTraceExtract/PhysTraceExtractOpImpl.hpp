@@ -55,6 +55,12 @@
  *
  * @see PhysTraceExtractOp.hpp for what the operator computes and for the
  * layout of the family.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, one per execution space and
+ * data type; it should not normally be included by any other
+ * translation unit. Other code goes through PhysTraceExtractOp.hpp and the
+ * operator factory.
  */
 
 #pragma once

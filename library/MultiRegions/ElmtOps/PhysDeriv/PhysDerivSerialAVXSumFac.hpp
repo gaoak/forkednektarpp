@@ -63,8 +63,7 @@
  * The header defines the detail::PhysDerivBlockOpImpl used when the
  * "SumFac" implementation is requested on the Serial or AVX execution
  * space; see PhysDerivSerialAVXStdMat.hpp for the dense-matrix
- * alternative and PhysDerivDeviceSumFac.hpp for the device
- * sum-factorised paths.
+ * alternative.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

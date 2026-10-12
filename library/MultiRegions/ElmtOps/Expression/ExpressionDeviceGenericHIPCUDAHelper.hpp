@@ -34,6 +34,19 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file ExpressionDeviceGenericHIPCUDAHelper.hpp
+ * @brief Generation, runtime compilation (NVRTC/HIPRTC) and launch of
+ * the expression kernels on CUDA and HIP.
+ *
+ * @details
+ * Used directly on the native CUDA/HIP builds, which also take
+ * CompileExpressionKernels() and LaunchExpressionKernel() from here.
+ * The SYCL-on-CUDA/HIP builds reuse the rest through
+ * ExpressionDeviceGenericSYCLHelper.hpp, which supplies those two
+ * entry points itself.
+ */
+
 #pragma once
 
 #include <array>
@@ -50,23 +63,27 @@
 namespace Nektar::MultiRegions::detail
 {
 
-// The name the generated source is compiled under. It only names the source in
-// the runtime compiler's diagnostics, and follows the back-end in use.
+/// The name the generated source is compiled under. It only names the
+/// source in the runtime compiler's diagnostics.
 #if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
 inline const std::string expressionKernelSourceName = "expression_kernels.cu";
 #elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
 inline const std::string expressionKernelSourceName = "expression_kernels.hip";
 #endif
 
-// The runtime compiled module, and the kernels retrieved from it in
-// ExpressionKernelIndex order.
+/// The runtime-compiled module, and the kernels retrieved from it.
 struct ExpressionKernels
 {
+    /// Driver-API module; null until compiled.
     NEKmodule nekModule = nullptr;
+    /// Kernel handles, in ExpressionKernelIndex order.
     std::array<NEKfunction, eNumExpressionKernels> kernels;
 };
 
-// Initialises the device context the runtime compiler needs.
+/**
+ * @brief Initialise the device context the runtime compiler needs: a
+ * `cudaFree(0)`/`hipFree(0)` on the native builds, nothing on SYCL.
+ */
 inline void InitExpressionKernelCompiler(void)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -77,7 +94,11 @@ inline void InitExpressionKernelCompiler(void)
 }
 
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
-// The stream a block issues its work on.
+/**
+ * @brief The native stream a block issues its work on.
+ *
+ * @param   streamID    Stream index of the block.
+ */
 inline auto GetExpressionKernelStream(const unsigned int streamID)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -88,8 +109,12 @@ inline auto GetExpressionKernelStream(const unsigned int streamID)
 }
 #endif
 
-// The name expressions the kernel variants are registered and looked up under,
-// in ExpressionKernelIndex order.
+/**
+ * @brief The name expressions the kernel variants are registered and
+ * looked up under, in ExpressionKernelIndex order.
+ *
+ * @tparam TData    Floating-point type the kernels are compiled for.
+ */
 template <typename TData>
 inline std::array<std::string, eNumExpressionKernels>
 GetExpressionKernelNameExpressions(void)
@@ -107,8 +132,40 @@ GetExpressionKernelNameExpressions(void)
     return name_exprs;
 }
 
-// Generates the source of a kernel function evaluating the expressions, as one
-// function template instantiated on each of the kernel variants.
+/**
+ * @brief Generate the CUDA/HIP source of the expression kernel.
+ *
+ * The emitted source consists of:
+ * -# a `#define` for every constant and every parameter of each
+ *    expression, so those names resolve to their session values
+ *    (GetExpressionKernelConstants());
+ * -# a kernel `expression_kernel` templated on an APPEND flag, the
+ *    interleave width and the data type, taking the parameters of
+ *    GetExpressionKernelParameters(): the EVAR input pointers are
+ *    named after the variable-list entries from index 4 on, and there
+ *    is one output pointer per unmasked component;
+ * -# its body (GetExpressionKernelBody()): a guarded thread index, a
+ *    zero write (unless appending) and early return on padded
+ *    elements, and the coordinate gather, emitted for @p coordDim in
+ *    both flat (width 1) and element-interleaved addressing, selected
+ *    by the width template parameter; `#define`s forcing the common
+ *    maths functions to take TData arguments, so integer literals in
+ *    the expression strings do not make calls like `sqrt(61)`
+ *    ambiguous under runtime compilation; and, per unmasked component,
+ *    the expression itself -- caret powers rewritten into `pow()`
+ *    calls by convertPow() -- assigned or appended to `out<nc>[tid]`,
+ *    scaled.
+ *
+ * @tparam TData    Floating-point type the kernel is generated for.
+ *
+ * @param   exprs       Parsed expressions, one per component; the
+ *                      first expression's variable list defines the
+ *                      EVAR names for all of them.
+ * @param   cmask       Per-component enable flags.
+ * @param   coordDim    Coordinate dimension of the block.
+ *
+ * @return The kernel source.
+ */
 template <typename TData>
 std::string GetExpressionKernelSource(
     const std::vector<LibUtilities::EquationSharedPtr> &exprs,
@@ -139,7 +196,11 @@ std::string GetExpressionKernelSource(
     return kernel_src;
 }
 
-// Releases the runtime compiled kernels.
+/**
+ * @brief Unload the module holding the compiled kernels, if any.
+ *
+ * @param   kernels     Compiled kernels, reset to the uncompiled state.
+ */
 inline void ReleaseExpressionKernels(ExpressionKernels &kernels)
 {
     if (kernels.nekModule != nullptr)
@@ -149,8 +210,22 @@ inline void ReleaseExpressionKernels(ExpressionKernels &kernels)
     }
 }
 
-// Compiles the generated source and retrieves the kernels from it, releasing
-// the kernels compiled for any previous expression.
+/**
+ * @brief Compile the generated source and retrieve the kernels from it,
+ * releasing the kernels compiled for any previous expression.
+ *
+ * The four name expressions <APPEND, INTERLEAVEWIDTH, TData> for
+ * APPEND in {true, false} and INTERLEAVEWIDTH in {1, warp size},
+ * with TData set by this operator's instantiation, are
+ * registered; the program is then compiled with NVRTC/HIPRTC,
+ * loaded as a driver module and the lowered names resolved into
+ * the kernel handles for the launch to use.
+ *
+ * @tparam TData    Floating-point type the kernels are compiled for.
+ *
+ * @param   kernels     Compiled module and kernel handles, replaced.
+ * @param   kernel_src  Source from GetExpressionKernelSource().
+ */
 template <typename TData>
 void BuildExpressionKernels(ExpressionKernels &kernels,
                             const std::string &kernel_src)
@@ -194,7 +269,20 @@ void BuildExpressionKernels(ExpressionKernels &kernels,
     CHECK_NEKRTC_ERROR(nekrtcDestroyProgram(&prog));
 }
 
-// Launches the given variant of the runtime compiled kernels on a stream.
+/**
+ * @brief Launch a variant of the compiled kernels on a native stream.
+ *
+ * @tparam TData    Floating-point type of the field data.
+ * @tparam TStream  Native stream type.
+ *
+ * @param   kernels     Compiled kernels.
+ * @param   index       Variant to launch.
+ * @param   kernelArgs  Launch arguments; the launch takes their
+ *                      addresses.
+ * @param   gridSize    Number of thread blocks.
+ * @param   blockSize   Threads per block.
+ * @param   stream      Stream to launch on.
+ */
 template <typename TData, typename TStream>
 void EnqueueExpressionKernel(const ExpressionKernels &kernels,
                              const ExpressionKernelIndex index,
@@ -236,6 +324,15 @@ void EnqueueExpressionKernel(const ExpressionKernels &kernels,
 }
 
 #if !defined(NEKTAR_ENABLE_SYCL)
+/**
+ * @brief Compile the generated source; see BuildExpressionKernels().
+ *
+ * @tparam TData    Floating-point type the kernels are compiled for.
+ *
+ * @param   kernels     Compiled kernels, replaced.
+ * @param   kernel_src  Source from GetExpressionKernelSource().
+ * @param   streamID    Stream index of the block; unused.
+ */
 template <typename TData>
 void CompileExpressionKernels(ExpressionKernels &kernels,
                               const std::string &kernel_src,
@@ -244,6 +341,19 @@ void CompileExpressionKernels(ExpressionKernels &kernels,
     BuildExpressionKernels<TData>(kernels, kernel_src);
 }
 
+/**
+ * @brief Launch a variant of the compiled kernels on the block's
+ * stream.
+ *
+ * @tparam TData    Floating-point type of the field data.
+ *
+ * @param   kernels     Compiled kernels.
+ * @param   index       Variant to launch.
+ * @param   kernelArgs  Launch arguments.
+ * @param   gridSize    Number of thread blocks.
+ * @param   blockSize   Threads per block.
+ * @param   streamID    Stream index of the block.
+ */
 template <typename TData>
 void LaunchExpressionKernel(const ExpressionKernels &kernels,
                             const ExpressionKernelIndex index,

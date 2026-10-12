@@ -32,6 +32,45 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file HelmholtzSerialAVXSumFac.hpp
+ * @brief Serial/AVX sum-factorised (SumFac) implementation of the
+ * per-block weak Helmholtz operator.
+ *
+ * @details
+ * Instead of the dense standard-region matrices of the StdMat path, the
+ * operator is assembled from the one-dimensional tensor-product stages
+ * of the simpler families -- the backward transform
+ * (BwdTransKernelLauncher), the tensor derivative
+ * (PhysDerivTensor{1,2,3}DKernel), the diffusion metric of the Helmholtz
+ * family (DiffusionCoeffwithWJ{1,2,3}DKernel), the summed transposed
+ * derivative (SumDerivTensor{1,2,3}DKernel) and the inner product
+ * (IProductWRTBaseKernelLauncher). The HelmholtzKernelLauncher
+ * overloads in HelmholtzSerialAVXSumFacKernels.hpp string the stages
+ * together for one element group; each SIMD lane owns one element, so a
+ * group of simd_t::width elements advances in lock-step (width one on
+ * the Serial execution space).
+ *
+ * v_Apply() dispatches on the block's shape type to the ShapeBlock()
+ * specialisations, whose definitions CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
+ * translation unit per shape: each wraps OperatorND() in a switch over
+ * the element sizes so that compile-time constants reach the kernels,
+ * falling back to a runtime-sized call for other sizes.
+ *
+ * This header provides the definition of detail::HelmholtzBlockOpImpl
+ * for the Serial and AVX execution spaces with the SumFac implementation
+ * tag; see HelmholtzSerialAVXStdMat.hpp for the StdMat sibling and the
+ * note on the one-definition-per-translation-unit scheme.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through HelmholtzOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 #pragma once
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -48,6 +87,24 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX sum-factorised block implementation of the weak
+ * Helmholtz operator, one element per SIMD lane.
+ *
+ * @details
+ * The constructor caches, per direction, the 1D basis table, the 1D
+ * collocation derivative matrix and the 1D quadrature weights, plus the
+ * collapsed-coordinate factors #m_f, the nodal-to-modal matrices of the
+ * nodal shapes, and the block's Jacobians and derivative factors -- all
+ * from the data warehouse, so they are built once and shared between
+ * operators. The factor tables are fetched for every 2D block (two of
+ * them) and every 3D block (four of them) whatever the shape, since the
+ * warehouse keys are uniform.
+ *
+ * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX.
+ * @tparam Implementation Implementation tag (SumFac).
+ * @tparam TData          Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
 {
@@ -58,6 +115,17 @@ class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Construct the operator, capture element metadata, and
+     * fetch 1D basis data, quadrature weights and geometric factors
+     * from the data warehouse, and size the kernel workspaces.
+     *
+     * @param   block_idx       Index of the block within the expansion
+     *                          list's Collections.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     HelmholtzBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -205,10 +273,10 @@ public:
         m_bwd = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
     }
 
-    // className - for BlockOperatorFactory
+    /// Block-operator class name; defined by generated factory code.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// Creator function registered with BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -221,26 +289,53 @@ public:
     }
 
 protected:
+    /// Vector width this implementation operates at (simd_t::width).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape type of the element block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed; selects the branch of
+    /// OperatorNDImpl and the geometry layout it reads.
     bool m_isDeformed;
+    /// Whether the basis is modified; selects the collapsed-coordinate
+    /// chain-rule correction.
     bool m_isModified;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) element.
     unsigned int m_coordDim;
+    /// Coefficients per direction.
     std::vector<unsigned int> m_nm;
+    /// Quadrature points per direction.
     std::vector<unsigned int> m_nq;
+    /// Basis matrix per direction.
     std::vector<const TData *> m_B;
+    /// Basis-derivative matrix per direction.
     std::vector<const TData *> m_D;
+    /// Quadrature weights per direction.
     std::vector<const TData *> m_W;
+    /// Collapsed-coordinate chain-rule factors used by the kernels.
     std::vector<const simd_t *> m_f;
+    /// Kernel workspaces, sized per NumWorkspace(#m_dimension).
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_wsp;
+    /// Per-direction reference-derivative workspace.
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
+    /// Backward-transform workspace.
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
+    /// Empty placeholder passed where a diffusion tensor is not used.
     std::vector<TData> NullTDataVector;
+    /// Nodal-to-modal conversion matrix; null for tensor-product shapes.
     const simd_t *m_nodToMod;
+    /// Transposed nodal-to-modal conversion matrix; null for
+    /// tensor-product shapes.
     const simd_t *m_nodToModTrans;
+    /// Jacobian of the block, interleaved at #m_implInterleaveWidth:
+    /// one value per element, or one per quadrature point and element
+    /// on a deformed block.
     const TData *m_jacptr;
+    /// Derivative factors of the block, interleaved and untransposed:
+    /// `coordDim * dimension` values per element, or per quadrature
+    /// point and element on a deformed block.
     const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -248,6 +343,8 @@ protected:
     bool m_warnOnce = false;
 #endif
 
+    /// Apply the weak Helmholtz operator to every element of the block
+    /// by sum factorisation; dispatches on #m_shapeType to ShapeBlock().
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
@@ -329,27 +426,27 @@ protected:
         }
     }
 
-    // Shape specific block operator, specialised for each shape in
-    // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
+    /// Shape-specific block operator, specialised for each shape in
+    /// LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void ShapeBlock(typename BlockOpBase::InBlock &inblock,
                     typename BlockOpBase::OutBlock &outblock);
 
-    // Number of workspaces used by the kernels in dim dimensions.
+    /// Number of workspaces used by the kernels in dim dimensions.
     static constexpr unsigned int NumWorkspace(const unsigned int dim)
     {
         return (dim == 1) ? 0 : (dim == 2) ? 1 : 3;
     }
 
-    // Number of collapsed coordinate factors used by the kernels in dim
-    // dimensions.
+    /// Number of collapsed coordinate factors used by the kernels in
+    /// dim dimensions.
     static constexpr unsigned int NumFactor(const unsigned int dim)
     {
         return (dim == 1) ? 0 : (dim == 2) ? 2 : 4;
     }
 
-    // Generic operator. Builds the index sequences from the shape dimension
-    // and forwards to OperatorNDImpl.
+    /// Generic operator. Builds the index sequences from the shape
+    /// dimension and forwards to OperatorNDImpl.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter>
     NEK_FORCE_INLINE void OperatorND(
@@ -374,9 +471,9 @@ protected:
             std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
     }
 
-    // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the workspaces used by the kernels,
-    // ind2 the collapsed coordinate factors used by the kernels.
+    /// Generic operator implementation. ind0 indexes each direction,
+    /// ind1 the workspaces used by the kernels,
+    /// ind2 the collapsed coordinate factors used by the kernels.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>

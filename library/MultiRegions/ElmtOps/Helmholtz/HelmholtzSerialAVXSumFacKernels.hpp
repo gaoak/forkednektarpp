@@ -32,6 +32,25 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file HelmholtzSerialAVXSumFacKernels.hpp
+ * @brief Kernels and launchers for the Serial/AVX sum-factorised weak
+ * Helmholtz operator.
+ *
+ * @details
+ * The sum-factorised weak Helmholtz operator strings together five
+ * tensor-product stages on each element group:
+ * 1. BwdTransKernelLauncher (BwdTrans family) to evaluate physical
+ *    values;
+ * 2. PhysDerivTensor{1,2,3}DKernel (PhysDeriv family) to evaluate
+ *    reference derivatives;
+ * 3. DiffusionCoeffwithWJ{1,2,3}DKernel (this header) to contract the
+ *    reference derivatives with the diffusion tensor and geometry metric,
+ *    and add the lambda-weighted mass contribution;
+ * 4. SumDerivTensor{1,2,3}DKernel to sum transposed derivatives;
+ * 5. IProductWRTBaseKernelLauncher (IProductWRTBase family) to take the
+ *    inner product with the basis.
+ */
 #pragma once
 
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp>
@@ -41,6 +60,10 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Segment kernel contracting reference derivative with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -256,6 +279,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
     }
 }
 
+/**
+ * @brief Triangle kernel contracting reference derivatives with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
@@ -453,6 +480,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
     }
 }
 
+/**
+ * @brief Quad kernel contracting reference derivatives with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
@@ -738,6 +769,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
     }
 }
 
+/**
+ * @brief Hex kernel contracting reference derivatives with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -1090,6 +1125,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
     }
 }
 
+/**
+ * @brief Tet kernel contracting reference derivatives with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -1324,6 +1363,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
     }
 }
 
+/**
+ * @brief Prism kernel contracting reference derivatives with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -1541,6 +1584,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
     }
 }
 
+/**
+ * @brief Pyramid kernel contracting reference derivatives with diffusion
+ * tensor and metric terms, with optional lambda-weighted mass contribution.
+ */
 template <bool SCALE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -1771,6 +1818,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
     }
 }
 
+/**
+ * @brief 1D launcher dispatching to DiffusionCoeffwithWJSegKernel.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ1DKernel(
@@ -1796,6 +1846,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ1DKernel(
     }
 }
 
+/**
+ * @brief 2D launcher dispatching to shape-specific metric kernels.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
@@ -1831,6 +1884,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
     }
 }
 
+/**
+ * @brief 3D launcher dispatching to shape-specific metric kernels.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool DEFORMED,
           typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
@@ -1883,6 +1939,10 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
     }
 }
 
+/**
+ * @brief 1D launcher stringing together the five sum-factorised stages
+ * for one element group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
@@ -1922,6 +1982,10 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
         sizeParam1D, isModified, bwd, basis0, NtoMTrans, out);
 }
 
+/**
+ * @brief 2D launcher stringing together the five sum-factorised stages
+ * for one element group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
@@ -1967,6 +2031,10 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
         sizeParam2D, isModified, bwd, basis0, basis1, NtoMTrans, wsp0, out);
 }
 
+/**
+ * @brief 3D launcher stringing together the five sum-factorised stages
+ * for one element group.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void HelmholtzKernelLauncher(

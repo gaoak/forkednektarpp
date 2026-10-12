@@ -344,9 +344,6 @@ NEK_FORCE_INLINE static void Advection2DKernel(
  * @param   deriv2      Tensor-direction-2 derivative of the group.
  * @param   out         Output plane of nq0 * nq1 * nq2 vectors.
  * @param   scale       Scalar factor applied to the result.
- *
- * @see Advection3DSumFacKernel in AdvectionDeviceSumFacKernels.hpp for the
- * Device counterpart of the same arithmetic.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, bool DEFORMED,
           typename simd_type>

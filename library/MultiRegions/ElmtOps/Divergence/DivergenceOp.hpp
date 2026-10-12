@@ -107,11 +107,10 @@ namespace Nektar::MultiRegions
  *
  * The input field must carry at least as many components as the
  * expansion's shape dimension; the first shape-dimension components
- * are interpreted as the Cartesian components of the vector field
- * (only the Serial/AVX sum-factorised block operators check this, in
- * debug builds). Every block operator reads only those components and
- * accumulates their derivatives into output component 0, one
- * homogeneous plane at a time; in one dimension that is
+ * are interpreted as the Cartesian components of the vector field.
+ * Every block operator reads only those components and accumulates
+ * their derivatives into output component 0, one homogeneous plane at
+ * a time; in one dimension that is
  * \f$\mathrm{d}u_0/\mathrm{d}x\f$. A 3DH1 input carries the z
  * velocity as component 2.
  *

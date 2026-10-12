@@ -32,6 +32,45 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file HelmholtzSerialAVXStdMat.hpp
+ * @brief Serial/AVX standard-matrix (StdMat) implementation of the
+ * per-block weak Helmholtz operator.
+ *
+ * @details
+ * This header provides the definition of detail::HelmholtzBlockOpImpl
+ * for the Serial and AVX execution spaces with the StdMat
+ * implementation tag; see HelmholtzBlockOp.hpp for the interface it
+ * implements and HelmholtzOp.hpp for the registration scheme.
+ *
+ * The operator is decomposed into five stages against standard-region
+ * matrices:
+ * 1. BwdTrans on the input coefficients to recover physical values
+ *    (skipped when lambda is zero);
+ * 2. Deriv on the input coefficients to form the reference derivatives
+ *    \f$\partial u/\partial \xi_d\f$;
+ * 3. ApplyMetricKernel to contract the reference derivatives with the
+ *    geometry and diffusion tensor (forming \f$J \mathbf{G} \nabla_\xi
+ *    u\f$) and to scale the physical values by `lambda * J`;
+ * 4. IProductWRTBase on the scaled physical values to form the mass
+ *    term (skipped when lambda is zero);
+ * 5. IProductWRTDerivBase on the contracted reference derivatives to
+ *    form the weak Laplacian term and accumulate it into the output.
+ *
+ * The standard-region matrices are fetched from the data warehouse and
+ * transposed so that the inner loop can be issued through
+ * LibxsmmDispatchWrapper, which evaluates the matrix products across
+ * the simd_t::width SIMD lanes of each element group.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through HelmholtzOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
+
 #pragma once
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -45,6 +84,17 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX StdMat block implementation of the weak Helmholtz
+ * operator: applies the five-stage matrix-matrix decomposition to one
+ * group of elements at a time, one element per SIMD lane.
+ *
+ * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX;
+ *                        selects scalar or SIMD arithmetic through
+ *                        simd_t.
+ * @tparam Implementation Implementation tag (StdMat).
+ * @tparam TData          Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
 {
@@ -54,6 +104,17 @@ class HelmholtzBlockOpImpl : public HelmholtzBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Construct the operator, capture element metadata, and
+     * fetch the standard-region matrices, Jacobians and derivative
+     * factors from the data warehouse.
+     *
+     * @param   block_idx       Index of the block within the expansion
+     *                          list's Collections.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     HelmholtzBlockOpImpl(const unsigned int block_idx,
                          const LocalRegions::ExpansionSharedPtr &exp,
                          LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -106,10 +167,10 @@ public:
                                                 m_implInterleaveWidth, false));
     }
 
-    // className - for BlockOperatorFactory
+    /// Block-operator class name; defined by generated factory code.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// Creator function registered with BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -122,21 +183,69 @@ public:
     }
 
 protected:
+    /// Vector width this implementation operates at (simd_t::width).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape type of the element block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed; selects the branch of
+    /// ApplyMetricKernel and the geometry layout it reads.
     bool m_isDeformed;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) element.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Transposed backward-transform matrix (nmTot x nqTot).
     const TData *m_bwdmat;
+    /// Transposed inner-product-with-basis matrix (nqTot x nmTot),
+    /// quadrature weights included.
     const TData *m_ipbmat;
+    /// Transposed coefficients-to-reference-derivative matrices, one
+    /// nmTot x nqTot block per reference direction.
     const TData *m_derivmat;
+    /// Transposed inner-product-with-basis-derivative matrices, one
+    /// nqTot x nmTot block per reference direction, weights included.
     const TData *m_ipdmat;
+    /// Jacobian of the block, interleaved at #m_implInterleaveWidth:
+    /// one value per element, or one per quadrature point and element
+    /// on a deformed block.
     const TData *m_jacptr;
+    /// Derivative factors of the block, interleaved and untransposed:
+    /// `coordDim * dimension` values per element, or per quadrature
+    /// point and element on a deformed block.
     const TData *m_dfptr;
 
+    /**
+     * @brief Apply the weak Helmholtz operator to every element of the
+     * block by dense matrix multiplication.
+     *
+     * The five steps are those listed in the class notes. Their
+     * intermediates live in the block operators' shared static
+     * workspace, sized here for one group of elements: `width * nqTot`
+     * values for the physical values followed by
+     * `dimension * width * nqTot` for the reference derivatives.
+     *
+     * The field may be interleaved at a width other than
+     * simd_t::width: a field is interleaved at the vector width of the
+     * execution space it was prepared for, which need not equal
+     * simd_t::width here. Work therefore proceeds in chunks of
+     * `chunkSize = max(simd width, input width)` elements per
+     * component: each chunk is reshaped in place to simd_t::width
+     * interleaving, its `width_ratio` lane groups are put through the
+     * five steps, and the chunk is reshaped back once its last group is
+     * done. The geometry pointers restart at the beginning of the block
+     * for every component and homogeneous mode, since the geometry is
+     * shared by all of them. On return the output block's interleave
+     * width is set to the input's.
+     *
+     * @param   inblock     Coefficient-space input block.
+     * @param   outblock    Coefficient-space output block;
+     *                      overwritten.
+     */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override

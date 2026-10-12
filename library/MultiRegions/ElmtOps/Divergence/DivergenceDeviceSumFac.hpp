@@ -52,10 +52,8 @@
  *   the running sum staged in shared memory, exposing parallelism
  *   within an element rather than across elements.
  *
- * The shape dispatch of v_Apply() and the generated ShapeBlock()
- * specialisations mirror the Serial/AVX SumFac implementation -- the
- * same BlockOpShapeBlock.cpp.in template generates them for both --
- * so see DivergenceSerialAVXSumFac.hpp for that description and
+ * v_Apply() dispatches on the block's shape type to the ShapeBlock()
+ * specialisations CMake generates from BlockOpShapeBlock.cpp.in; see
  * DivergenceOp.hpp for what the operator computes.
  *
  * @note CMake includes this header into the registration translation
@@ -90,16 +88,15 @@ namespace Nektar::MultiRegions::detail
  * the single output component.
  *
  * @details
- * As in the Serial/AVX SumFac implementation the constructor caches
- * the per-direction 1D derivative matrices and, for 2D and 3D blocks,
- * the collapsed-coordinate factor tables -- all in device memory --
- * and fetches the block's derivative factors. The per-component
- * chaining that turns the directional derivatives into the divergence
- * lives inside the kernels: the DIR = 0 call overwrites the output and
- * the DIR = 1, 2 calls accumulate onto it, so the output holds
- * \f$\sum_c \partial u_c/\partial x_c\f$ (see the
- * DivergenceKernelLauncher overloads for SumFac and SumFacTOP). In one
- * dimension the single launch differentiates component 0 alone.
+ * The constructor caches the per-direction 1D derivative matrices
+ * and, for 2D and 3D blocks, the collapsed-coordinate factor tables --
+ * all in device memory -- and fetches the block's derivative factors.
+ * The per-component chaining that turns the directional derivatives
+ * into the divergence lives inside the kernels: the DIR = 0 call
+ * overwrites the output and the DIR = 1, 2 calls accumulate onto it,
+ * so the output holds \f$\sum_c \partial u_c/\partial x_c\f$ (see
+ * the DivergenceKernelLauncher overloads for SumFac and SumFacTOP). In
+ * one dimension the single launch differentiates component 0 alone.
  *
  * The two strategies want different data layouts, captured by
  * #m_implInterleaveWidth: SumFac reads warp-interleaved data (one
@@ -114,8 +111,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation  MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData           Floating-point type of the field data.
  *
- * @see DivergenceDeviceStdMat.hpp for the dense-matrix device path
- * and DivergenceSerialAVXSumFac.hpp for the CPU counterpart.
+ * @see DivergenceDeviceStdMat.hpp for the dense-matrix device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>
@@ -289,8 +285,7 @@ protected:
     const TData *m_dfptr;
 
     /// @brief Dispatch to the generated ShapeBlock() specialisation
-    /// matching #m_shapeType, exactly as in the Serial/AVX SumFac
-    /// implementation.
+    /// matching #m_shapeType.
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override

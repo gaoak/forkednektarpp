@@ -119,8 +119,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation Implementation tag (StdMat).
  * @tparam TData          Floating-point type of the field data.
  *
- * @see CurlCurlSerialAVXSumFac.hpp for the sum-factorised sibling;
- * CurlCurlDeviceStdMat.hpp for the Device StdMat path.
+ * @see CurlCurlSerialAVXSumFac.hpp for the sum-factorised sibling.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>

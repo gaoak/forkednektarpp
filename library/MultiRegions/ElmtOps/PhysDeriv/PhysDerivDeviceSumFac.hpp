@@ -55,10 +55,9 @@
  *   input values are staged in shared memory first. This exposes
  *   parallelism within an element rather than across elements.
  *
- * The shape dispatch of v_Apply() and the generated ShapeBlock()
- * specialisations mirror the Serial/AVX SumFac implementation -- the
- * same BlockOpShapeBlock.cpp.in template generates them for both -- so
- * see PhysDerivSerialAVXSumFac.hpp for that description and
+ * v_Apply() dispatches on the block's shape type to the ShapeBlock()
+ * specialisations, whose definitions CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in; see
  * PhysDerivOp.hpp for what the operator computes.
  *
  * @note CMake includes this header into the registration translation
@@ -90,11 +89,10 @@ namespace Nektar::MultiRegions::detail
  * derivative (SumFac or SumFacTOP, selected by the Implementation tag).
  *
  * @details
- * As in the Serial/AVX SumFac implementation, the constructor caches
- * the per-direction 1D differentiation matrices and, for the two- and
- * three-dimensional shapes, the collapsed-coordinate factor tables --
- * here in device memory and as plain scalars, one thread owning one
- * element or one point.
+ * The constructor caches the per-direction 1D differentiation matrices
+ * and, for the two- and three-dimensional shapes, the
+ * collapsed-coordinate factor tables, in device memory and as plain
+ * scalars, one thread owning one element or one point.
  *
  * The two strategies want different data layouts, captured by
  * #m_implInterleaveWidth: SumFac reads warp-interleaved data (one
@@ -112,8 +110,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation  MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData           Floating-point type of the field data.
  *
- * @see PhysDerivDeviceStdMat.hpp for the dense-matrix device path and
- * PhysDerivSerialAVXSumFac.hpp for the CPU counterpart.
+ * @see PhysDerivDeviceStdMat.hpp for the dense-matrix device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysDerivBlockOpImpl : public PhysDerivBlockOp<TData>
@@ -277,9 +274,8 @@ protected:
     const TData *m_dfptr;
 
     /// @brief Dispatch to the generated ShapeBlock() specialisation
-    /// matching #m_shapeType, exactly as in the Serial/AVX SumFac
-    /// implementation. An unsupported shape leaves the output block
-    /// unwritten and reports on std::cout.
+    /// matching #m_shapeType. An unsupported shape leaves the output
+    /// block unwritten and reports on std::cout.
     void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override

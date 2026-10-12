@@ -72,7 +72,7 @@
  * The family follows the standard element-operator layout (see
  * ElmtOp.hpp):
  * - IProductWRTPhysNormalDerivTraceOp (this file): whole-field interface
- *   fixing the Apply() field states, plus the vector-input entry points;
+ *   setting the Apply() field states, plus the vector-input entry points;
  * - detail::IProductWRTPhysNormalDerivTraceOpImpl
  *   (IProductWRTPhysNormalDerivTraceOpImpl.hpp): the factory-registered
  *   whole-field implementation, one entry per execution space, which
@@ -96,7 +96,7 @@
  * per-shape template arguments carry trace point counts per normal direction.
  *
  * @note There is one algorithm here, registered under MultiRegions::SumFac
- * and, on Device, under SumFacTOP from the same header. A StdMat request
+ * and, where an execution space provides it, under SumFacTOP. A StdMat request
  * is mapped to SumFac by IProductWRTPhysNormalDerivTraceBlockOp::Create(),
  * so a whole-field selection of StdMat, SumFac or SumFacTOP can include
  * this operator.
@@ -121,7 +121,7 @@ namespace Nektar::MultiRegions
  * \f$h_{\boldsymbol p}\f$.
  *
  * @details
- * As with the other element-operator families, this class exists to fix
+ * As with the other element-operator families, this class exists to set
  * the Apply() parameter types at compile time and to drive the per-block
  * operators: it holds one IProductWRTPhysNormalDerivTraceBlockOp per
  * element block, and v_Apply() hands each block of the input/output
@@ -326,8 +326,7 @@ public:
      *
      * The same lift with @p in holding dim separate ncomp-component fields,
      * in[k] carrying g_k - the natural product of a trace-flux
-     * implementation's per-direction scatters (see
-     * SolverCore::TraceFluxOp::SetSymmTensorOutput). No staging copies: each
+     * implementation's per-direction scatters. No staging copies: each
      * field is already the contiguous slice the per-direction pass wants.
      *
      * @param   in      One packed trace field per direction, each of
@@ -395,8 +394,8 @@ protected:
      * copy is layout-blind; @p outblock is then given @p inblock's
      * interleave. The implementation issues the copy in the memory space
      * its execution space names, on the stream block @p blk applies on, so
-     * device data is never brought back to the host and the copy is
-     * ordered ahead of the apply that reads it.
+     * the data never leaves that memory space and the copy is ordered
+     * ahead of the apply that reads it.
      *
      * @param   inblock     Direction-minor input, dim * ncomp components.
      * @param   outblock    Destination block, ncomp components.

@@ -110,8 +110,6 @@ namespace Nektar::MultiRegions::detail
  * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX.
  * @tparam Implementation Implementation tag (MultiRegions::StdMat).
  * @tparam TData          Floating-point type of the field data.
- *
- * @see DivergenceDeviceStdMat.hpp for the device counterpart.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>

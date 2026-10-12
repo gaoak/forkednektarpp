@@ -28,9 +28,30 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Device sum-factorised (SumFac) kernels and launchers for
+// the weak Laplacian operator.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LaplacianDeviceSumFacKernels.hpp
+ * @brief Device sum-factorised (SumFac) kernels and launchers for the
+ * weak Laplacian operator.
+ *
+ * @details
+ * Element-parallel kernels for the weak Laplacian operator: each thread
+ * handles one element and walks its quadrature points. Strings
+ * together:
+ * 1. BwdTransSumFacKernel to evaluate physical values;
+ * 2. PhysDerivSumFacKernel to evaluate reference derivatives;
+ * 3. ApplyMetric{1,2,3}DSumFacKernel to apply the diffusion tensor and
+ *    geometry metric;
+ * 4. SumDerivTensor to sum transposed derivatives;
+ * 5. IProductWRTBaseSumFacKernel to take the inner product with the basis.
+ *
+ * A null diffusion-tensor pointer selects the branch that contracts
+ * with the derivative factors alone, i.e. an identity tensor;
+ * LaplacianOp always supplies one.
+ */
 
 #pragma once
 
@@ -47,6 +68,10 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
+/**
+ * @brief Compute required workspace size in elements for the sum-factorised
+ * Laplacian operator intermediates.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -69,6 +94,10 @@ inline constexpr size_t LaplacianWorkSpaceSize(
     return wspsize;
 }
 
+/**
+ * @brief Compute required workspace size in elements for the sum-factorised
+ * Laplacian operator intermediates.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -104,6 +133,10 @@ inline constexpr size_t LaplacianWorkSpaceSize(
     return wspsize;
 }
 
+/**
+ * @brief Compute required workspace size in elements for the sum-factorised
+ * Laplacian operator intermediates.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
@@ -231,6 +264,9 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
     }
 }
 
+/**
+ * @brief 1D metric kernel applying diffusion tensor and metric terms.
+ */
 template <bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
@@ -332,6 +368,9 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     }
 }
 
+/**
+ * @brief 2D metric kernel applying diffusion tensor and metric terms.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
@@ -491,6 +530,9 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     }
 }
 
+/**
+ * @brief 3D metric kernel applying diffusion tensor and metric terms.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
@@ -662,6 +704,10 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     }
 }
 
+/**
+ * @brief 1D launcher stringing together the five sum-factorised stages
+ * on device.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
           typename TData,
@@ -724,6 +770,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief 2D launcher stringing together the five sum-factorised stages
+ * on device.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -879,6 +929,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief 3D launcher stringing together the five sum-factorised stages
+ * on device.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
           typename TData,

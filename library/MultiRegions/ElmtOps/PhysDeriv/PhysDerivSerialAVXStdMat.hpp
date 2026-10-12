@@ -44,12 +44,11 @@
  * header defines the detail::PhysDerivBlockOpImpl used when the
  * "StdMat" implementation is requested on the Serial or AVX execution
  * space; CMake includes it into the translation units generated for
- * exactly those factory registrations, which is why this header, the
- * SumFac header and the device headers may each define the same
- * primary template without ever colliding.
+ * exactly those factory registrations, which is why each
+ * implementation header may define the same primary template without
+ * ever colliding.
  *
- * @see PhysDerivSerialAVXSumFac.hpp for the sum-factorised alternative
- * and PhysDerivDeviceStdMat.hpp for the device StdMat path.
+ * @see PhysDerivSerialAVXSumFac.hpp for the sum-factorised alternative.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

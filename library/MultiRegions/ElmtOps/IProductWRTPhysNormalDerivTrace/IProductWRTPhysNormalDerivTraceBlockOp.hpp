@@ -137,7 +137,7 @@ namespace Nektar::MultiRegions
  * storage.
  *
  * @details
- * Fixes the BlockAccessor states accepted by Apply() -- physical space in,
+ * Sets the BlockAccessor states accepted by Apply() -- physical space in,
  * physical space out -- with the input block holding the element's packed
  * trace values and the output block its volume quadrature points. See
  * IProductWRTPhysNormalDerivTraceOp for both layouts and for the
@@ -159,8 +159,8 @@ namespace Nektar::MultiRegions
  * one translation unit per shape, execution space and data type.
  *
  * There is a single implementation, registered under MultiRegions::SumFac
- * and, on Device, under SumFacTOP from the same header, where it keeps
- * the SumFac geometry. No standard-matrix formulation is intended, so
+ * and, where an execution space provides it, under SumFacTOP. No
+ * standard-matrix formulation is intended, so
  * Create() serves a StdMat request from the SumFac registration by
  * mapping the implementation name before the factory lookup, as
  * IProductWRTPhysTraceBlockOp::Create() does.

@@ -39,13 +39,11 @@
  * operator, serving both the SumFac and the SumFacTOP strategy.
  *
  * @details
- * As in the Serial/AVX sum-factorised implementation
- * (AdvectionSerialAVXSumFac.hpp), the derivatives along the reference
- * tensor directions are formed from the one-dimensional derivative
- * matrices and then finished by applying the collapsed-to-standard
- * coordinate correction for simplex-type shapes, the geometric derivative
- * factors and the dot product with the advection velocity. On the device
- * both stages happen inside a single kernel per element.
+ * The derivatives along the reference tensor directions are formed from
+ * the one-dimensional derivative matrices and then finished by applying
+ * the collapsed-to-standard coordinate correction for simplex-type shapes,
+ * the geometric derivative factors and the dot product with the advection
+ * velocity. Both stages happen inside a single kernel per element.
  *
  * This one header is included by the translation units CMake generates for
  * either sum-factorisation strategy on the Device execution space; the
@@ -54,19 +52,21 @@
  * resolve:
  * - SumFac (AdvectionDeviceSumFacKernels.hpp): one element per thread. The
  *   lanes of a warp advance through warpSize elements in lock-step on
- *   warp-interleaved data, which is what the Serial/AVX implementation
- *   does with SIMD lanes.
+ *   warp-interleaved data.
  * - SumFacTOP (AdvectionDeviceSumFacTOPKernels.hpp): one element per
  *   thread block. The block's threads are indexed over the element's
  *   quadrature points and its input is staged in shared memory, exposing
  *   parallelism within an element rather than across elements.
  *
  * The two strategies want different storage and derivative-factor
- * layouts; see the class description. The shape dispatch of v_Apply() and
- * the generated ShapeBlock() specialisations mirror the Serial/AVX SumFac
- * implementation -- the same BlockOpShapeBlock.cpp.in template generates
- * them for both -- so see AdvectionSerialAVXSumFac.hpp for that
- * description.
+ * layouts; see the class description.
+ *
+ * v_Apply() dispatches on the block's shape type to the ShapeBlock()
+ * specialisations, whose definitions CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one translation
+ * unit per shape: each wraps OperatorND() in a switch over the element
+ * sizes so that compile-time constants reach the kernels, falling back to
+ * a runtime-sized call for other sizes.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -133,8 +133,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData          Floating-point type of the field data.
  *
- * @see AdvectionDeviceStdMat.hpp for the dense-matrix Device path;
- * AdvectionSerialAVXSumFac.hpp for the host sum-factorised sibling.
+ * @see AdvectionDeviceStdMat.hpp for the dense-matrix Device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class AdvectionBlockOpImpl : public AdvectionBlockOp<TData>
