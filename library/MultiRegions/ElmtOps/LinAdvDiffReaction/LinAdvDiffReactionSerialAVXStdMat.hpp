@@ -28,9 +28,40 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Serial/AVX StdMat implementation of the linearised
+// advection-diffusion-reaction block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionSerialAVXStdMat.hpp
+ * @brief Serial/AVX standard-matrix (StdMat) implementation of the
+ * per-block linearised advection-diffusion-reaction operator.
+ *
+ * @details
+ * All elements of a block share the same basis, so one set of dense
+ * standard-region matrices -- backward transform, reference-space
+ * derivative, inner product with the basis and with its gradient --
+ * serves the whole block, and the operator becomes a fixed sequence of
+ * small matrix multiplies with one pointwise kernel (ApplyMetricKernel,
+ * in LinAdvDiffReactionSerialAVXStdMatKernels.hpp) in the middle that
+ * carries all of the geometry and all three coefficients.
+ *
+ * This header provides the definition of
+ * detail::LinAdvDiffReactionBlockOpImpl for the Serial and AVX execution
+ * spaces with the StdMat implementation tag; the sum-factorised
+ * definition lives in LinAdvDiffReactionSerialAVXSumFac.hpp. The class
+ * template name is shared, and each CMake-generated registration
+ * translation unit includes exactly one of these headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through LinAdvDiffReactionOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -45,6 +76,46 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief StdMat block implementation of the linearised
+ * advection-diffusion-reaction operator for the Serial and AVX execution
+ * spaces: dense matrix-multiply stages per group of SIMD lanes --
+ * 2 + 2 * #m_dimension of them, so four in one dimension, six in two and
+ * eight in three -- around one pointwise metric kernel.
+ *
+ * @details
+ * The constructor fetches the block's four transposed standard-region
+ * matrices from the data warehouse, so they are built once and shared
+ * between operators, together with the block's Jacobians and derivative
+ * factors. Per group of simd_t::width elements v_Apply() then runs, on
+ * the group's interleaved panels (lane j of a panel column holds
+ * element j's value of that mode or point, so the vectorisation is
+ * across the elements of the group):
+ * -# backward transform of the coefficients to the quadrature points
+ *    (#m_bwdmat), giving \f$u\f$ -- skipped when lambda is zero, in
+ *    which case the metric kernel does not read it;
+ * -# reference-space derivatives of the coefficients in each of the
+ *    #m_dimension directions (#m_derivmat), giving
+ *    \f$\partial u/\partial\xi_d\f$;
+ * -# ApplyMetricKernel, which turns those into Cartesian derivatives
+ *    with the derivative factors, dots them with the advection velocity,
+ *    adds \f$\lambda u\f$, multiplies by the Jacobian, and separately
+ *    forms the diffusion flux pulled back to the reference directions;
+ * -# inner product of the advection-plus-reaction values with the basis
+ *    (#m_ipbmat), overwriting the output;
+ * -# inner product of the diffusion flux with the basis gradient
+ *    (#m_ipdmat), accumulated onto the output (GEMM with beta = 1).
+ *
+ * On the Serial execution space simd_t is scalar (width 1) and each
+ * panel degenerates to a single element's data.
+ *
+ * @tparam ExecSpace       NektarSpaces::Serial or NektarSpaces::AVX;
+ *                         sets simd_t via simd_type_if (scalar for
+ *                         Serial, tinysimd::simd for AVX).
+ * @tparam Implementation  Implementation tag the including translation
+ *                         unit registers (MultiRegions::StdMat here).
+ * @tparam TData           Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
 {
@@ -54,6 +125,17 @@ class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Capture the element metadata and fetch the four transposed
+     * standard-region matrices, the Jacobians and the derivative factors
+     * of the block from the data warehouse.
+     *
+     * @param   block_idx       Index of the block within the expansion
+     *                          list's Collections.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     LinAdvDiffReactionBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -107,10 +189,13 @@ public:
                                                 m_implInterleaveWidth, false));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -123,21 +208,77 @@ public:
     }
 
 protected:
+    /// Interleave width the GEMMs operate at: the SIMD vector width
+    /// (1 on Serial).
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape shared by every element of the block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed, i.e. its Jacobian and
+    /// derivative factors vary from quadrature point to quadrature
+    /// point; selects the ApplyMetricKernel branch and the stride the
+    /// geometric data is walked with.
     bool m_isDeformed;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) element; the
+    /// number of advection-velocity components and the rank of the
+    /// diffusivity tensor.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Transposed backward-transform matrix (nmTot x nqTot,
+    /// column-major), cached in the data warehouse.
     const TData *m_bwdmat;
+    /// Transposed inner-product-with-basis matrix (nqTot x nmTot).
     const TData *m_ipbmat;
+    /// Transposed reference-derivative matrices, one nmTot x nqTot
+    /// block per reference direction.
     const TData *m_derivmat;
+    /// Transposed inner-product-with-basis-gradient matrices, one
+    /// nqTot x nmTot block per reference direction.
     const TData *m_ipdmat;
+    /// Jacobians of the block's elements, interleaved at
+    /// #m_implInterleaveWidth: one value per element when regular, one
+    /// per quadrature point when deformed.
     const TData *m_jacptr;
+    /// Derivative factors \f$\partial\xi_d/\partial x_k\f$ of the
+    /// block's elements, interleaved at #m_implInterleaveWidth in
+    /// point-major order (DerivFactorKey with transpose = false):
+    /// element/point stride coordDim * dimension, within which the
+    /// entry for coordinate k and reference direction d is at
+    /// k * dimension + d.
     const TData *m_dfptr;
 
+    /**
+     * @brief Apply the operator to every element of the block by dense
+     * matrix multiplication.
+     *
+     * The advection velocity is first reshaped in place to
+     * #m_implInterleaveWidth if it is still held at another width. The
+     * field itself may be interleaved at a width other than
+     * simd_t::width, so work proceeds in chunks of
+     * `chunkSize = max(simd width, field width)` elements per
+     * component: each chunk of the input is reshaped in place to
+     * simd_t::width interleaving, its `width_ratio` lane groups are run
+     * through the five-step sequence described in the class notes, and
+     * the input and output chunks are reshaped back to the field width
+     * once the chunk's last group is done. The two quadrature-space
+     * workspaces -- one nqTot panel for the backward transform,
+     * #m_dimension panels for the derivatives -- come from the static
+     * workspace shared by all block operators. The Jacobian and
+     * derivative-factor pointers advance per element group, by a whole
+     * element's worth of data when the geometry is deformed and by one
+     * point's worth when it is regular; the velocity pointer
+     * starts every component at its plane, `n % nhomo`, so the variables
+     * share the velocity of their plane. On
+     * return the output block's interleave width is set to the input's.
+     *
+     * @param   inblock     Coefficient-space input block.
+     * @param   outblock    Coefficient-space output block, overwritten.
+     */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override

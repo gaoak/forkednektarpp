@@ -91,9 +91,7 @@
  *   `buf[n]` and lane @em l of it belongs to element @em l. @p in,
  *   @p out, the workspaces and @p tjac are interleaved that way, while
  *   @c nbasis, @c tbasis and @c tw are tables and hold the same value in
- *   every lane. This is the SIMD analogue of the warp interleaving of the
- *   device kernels, with the element-group loop of the block operator in
- *   place of the grid-stride loop. For the Serial execution space
+ *   every lane. For the Serial execution space
  *   @c simd_type is `tinysimd::scalarT`, a width of one.
  * - Trace packing. The packed input, and the deformed Jacobian, hold the
  *   traces in pair order: the \f$N_0\f$ pair first, then the \f$N_1\f$
@@ -174,10 +172,8 @@
  *
  * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the block operator
  * that owns the element-group loop, the workspace sizing and the shape
- * dispatch, IProductWRTPhysTraceDeviceSumFacKernels.hpp for the warp
- * interleaved counterparts of the same decomposition, and the
- * PhysTraceExtract kernels for the adjoint operation, which applies the
- * same tables untransposed.
+ * dispatch, and the PhysTraceExtract kernels for the adjoint operation, which
+ * applies the same tables untransposed.
  */
 
 #pragma once
@@ -586,8 +582,7 @@ NEK_FORCE_INLINE static void IPWRTPhysTraceEdgeN1Kernel(
  * The edge to (direction, position) map is `3->(0,0)`, `1->(0,1)`,
  * `0->(1,0)`, `2->(1,1)` for a quadrilateral, and `2->(0,0)`, `1->(0,1)`,
  * `0->(1,0)` for a triangle, whose direction 1 carries a single trace at
- * the collapsed end. An unrecognised @p edge raises a fatal error, which
- * the device twin cannot do.
+ * the collapsed end. An unrecognised @p edge raises a fatal error.
  *
  * @note @c SHAPE_TYPE here is the shape the block operator names when it
  * calls, and it names the parent shape: a @c NodalTri arrives as @c Tri

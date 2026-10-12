@@ -41,10 +41,8 @@
  * @details
  * This header defines the primary
  * detail::IProductWRTPhysNormalDerivTraceBlockOpImpl template, which
- * serves the Serial and the AVX execution spaces; the Device space is
- * served by IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp. The two
- * headers are the same operator with a different packing of the elements,
- * SIMD vector lanes here and warp lanes there. The vector type is
+ * serves the Serial and the AVX execution spaces, one element per SIMD
+ * vector lane. The vector type is
  * `tinysimd::simd<TData>` for AVX and `tinysimd::scalarT<TData>`, of width
  * one, for Serial.
  *
@@ -70,6 +68,15 @@
  * computes and how the family is laid out.
  * @see IProductWRTPhysTraceSerialAVXSumFac.hpp for the plain trace lift
  * this operator is built on, whose layout it follows.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through
+ * IProductWRTPhysNormalDerivTraceOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
  */
 
 #pragma once
@@ -365,7 +372,7 @@ protected:
     /// Whether the factor array holds one value per trace quadrature point
     /// rather than one per trace: deformed geometry, or a collapsed shape
     /// whatever its geometry. Read by the generated dispatch to pick the
-    /// DEFORMED instantiation, which is what fixes the name: the switch
+    /// DEFORMED instantiation, which is what sets the name: the switch
     /// template
     /// LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysTraceExtract.h.in reads
     /// it by name.

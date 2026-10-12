@@ -28,9 +28,54 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: Kernels of the Serial/AVX sum-factorised inner product
+// with the gradient of the basis.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file IProductWRTDerivBaseSerialAVXSumFacKernels.hpp
+ * @brief Kernels of the Serial/AVX sum-factorised inner product with the
+ * gradient of the basis: the geometric stage that turns the input vector
+ * into one weighted field per reference direction, and the launchers that
+ * follow it with the transposed tensor derivative, one element per SIMD
+ * lane.
+ *
+ * @details
+ * IProductWRTDerivBaseKernelLauncher is the entry point the block operator
+ * (IProductWRTDerivBaseSerialAVXSumFac.hpp) calls for one element group;
+ * its one-, two- and three-dimensional overloads are selected by the type
+ * of the size parameter. Each runs the StdAlignDerivBase kernel of its
+ * dimension, which per quadrature point contracts the input's coordinate
+ * components against the derivative factors,
+ * \f[ g_d = \sum_k \frac{\partial \xi_d}{\partial x_k} f_k , \f]
+ * applies the collapsed-coordinate corrections of the simplex shapes and
+ * multiplies by the Jacobian and the tensor-product quadrature weights;
+ * then SumDerivTensorNDKernel
+ * (StdRegions/Operators/PhysDerivSumFacStdKernels.hpp, reached through the
+ * PhysDerivSerialAVXSumFacKernels.hpp include) applies the transposed
+ * one-dimensional derivative matrix of each direction and sums the
+ * directions into a single field. The basis contraction of the Coeff path
+ * is not part of these launchers: the block operator calls
+ * IProductWRTBaseKernelLauncher (IProductWRTBaseSerialAVXSumFacKernels.hpp,
+ * included here for that purpose) on the summed field itself.
+ *
+ * @p simd_type is the SIMD vector type of one interleaved element group,
+ * so one index steps over whole groups and each lane carries its own
+ * element; on the Serial execution space the type is scalar. The
+ * derivative factors are read untransposed: the indim * dimension factors
+ * of one point are contiguous, indexed k * dimension + d. When
+ * @p DEFORMED is false the factors and the Jacobian are read once per
+ * element group rather than once per point.
+ *
+ * On the simplex shapes the reference derivative is taken in the collapsed
+ * coordinates eta, so the chain-rule factors relating xi to eta enter.
+ * Because the operator is the transpose of a derivative, those factors are
+ * applied here -- to the direction fields, before the transposed
+ * derivative -- rather than after it. The in-code comments give each
+ * factor's expression; the tables themselves come from BasisDataKey
+ * (eHalfMultOnePlusZero, eTwoOverOneMinusZero).
+ */
+
 #pragma once
 
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp>
@@ -39,6 +84,32 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Contract the input vector with the derivative factors of a
+ * segment and apply the quadrature metric.
+ *
+ * Writes \f$g_0\f$ for every point of the element group, multiplied by the
+ * Jacobian and the quadrature weight of each point, so the result is ready
+ * for the transposed derivative and, on the Coeff path, for the
+ * metric-free IProduct kernel.
+ *
+ * @tparam DEFORMED    True when the geometric factors vary within an
+ *                     element.
+ * @tparam simd_type   SIMD vector type of one interleaved element group.
+ *
+ * @param   nq0       Quadrature points of the element.
+ * @param   indim     Coordinate dimension: number of input components
+ *                    read.
+ * @param   df_ptr    Derivative factors of the element group.
+ * @param   df_tmp    Caller-owned scratch for the factors of the current
+ *                    point.
+ * @param   inoffset  Stride, in vectors, between the input's coordinate
+ *                    components.
+ * @param   in        Input vector \f${\bf f}\f$.
+ * @param   out       Receives the weighted \f$g_0\f$, @p nq0 vectors.
+ * @param   jac_ptr   Jacobians of the element group.
+ * @param   w         Quadrature weights of the element.
+ */
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     const unsigned int nq0, const unsigned int indim, const simd_type *df_ptr,
@@ -89,6 +160,36 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
     }
 }
 
+/**
+ * @brief Contract the input vector with the derivative factors of a
+ * quadrilateral or triangle and apply the quadrature metric.
+ *
+ * Writes the two weighted direction fields \f$g_0\f$, \f$g_1\f$ in point
+ * order (direction 0 fastest). For the triangles the collapsed correction
+ * is applied to \f$g_0\f$ before the weighting, using @p Fac0 and
+ * @p Fac1, which are unused for quadrilaterals.
+ *
+ * @tparam SHAPE_TYPE  Shape of the block's elements.
+ * @tparam DEFORMED    True when the geometric factors vary within an
+ *                     element.
+ * @tparam simd_type   SIMD vector type of one interleaved element group.
+ *
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   indim       Coordinate dimension: number of input components
+ *                      read.
+ * @param   df_ptr      Derivative factors of the element group,
+ *                      2 * indim per point.
+ * @param   df_tmp      Caller-owned scratch for the factors of the current
+ *                      point.
+ * @param   inoffset    Stride, in vectors, between the input's coordinate
+ *                      components.
+ * @param   inptr       Input vector \f${\bf f}\f$.
+ * @param   out         Two output fields, one per reference direction.
+ * @param   Fac0        Table of (1 + eta_0)/2 (triangles).
+ * @param   Fac1        Table of 2/(1 - eta_1) (triangles).
+ * @param   jac_ptr     Jacobians of the element group.
+ * @param   w0,w1       Quadrature weights per direction.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int indim,
@@ -182,6 +283,40 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     }
 }
 
+/**
+ * @brief Contract the input vector with the derivative factors of a
+ * three-dimensional element and apply the quadrature metric.
+ *
+ * Writes the three weighted direction fields in point order (direction 0
+ * fastest). A 3D element's coordinate dimension is always three, so three
+ * input components are read and the derivative factors have nine entries
+ * per point. The number of additive collapsed correction terms differs per
+ * shape -- none for the hexahedron, one for the prisms, two for the
+ * pyramid and the tetrahedra -- and they are applied before the
+ * weighting. That count is not the number of factor tables a shape reads,
+ * which is larger; the tables a shape does not read are ignored.
+ *
+ * @tparam SHAPE_TYPE  Shape of the block's elements.
+ * @tparam DEFORMED    True when the geometric factors vary within an
+ *                     element.
+ * @tparam simd_type   SIMD vector type of one interleaved element group.
+ *
+ * @param   nq0,nq1,nq2 Quadrature points per direction.
+ * @param   df_ptr      Derivative factors of the element group, nine per
+ *                      point.
+ * @param   df_tmp      Caller-owned scratch for the factors of the current
+ *                      point.
+ * @param   inoffset    Stride, in vectors, between the input's coordinate
+ *                      components.
+ * @param   Fac0        Table of (1 + eta_0)/2.
+ * @param   Fac1        Table of (1 + eta_1)/2.
+ * @param   Fac1m       Table of 2/(1 - eta_1).
+ * @param   Fac2        Table of 2/(1 - eta_2).
+ * @param   jac_ptr     Jacobians of the element group.
+ * @param   w0,w1,w2    Quadrature weights per direction.
+ * @param   inptr       Input vector \f${\bf f}\f$.
+ * @param   out         Three output fields, one per reference direction.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -312,6 +447,37 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     }
 }
 
+/**
+ * @brief Segment launcher: form the weighted direction field of one
+ * element group and apply the transposed derivative.
+ *
+ * StdAlignDerivBase1D writes \f$g_0\f$ into
+ * @p tmp0, and SumDerivTensor1DKernel then writes
+ * \f$D_0^{\mathsf T} g_0\f$ to @p out, overwriting it.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
+ * @tparam DEFORMED          True when the geometric factors vary within an
+ *                           element.
+ * @tparam TSizeParameter1D  1D size parameter, modal or physical-space.
+ * @tparam simd_type         SIMD vector type of one interleaved element
+ *                           group.
+ *
+ * @param   sizeParam1D Sizes of the expansion; only nq0 is read.
+ * @param   indim       Coordinate dimension: number of input components
+ *                      read.
+ * @param   df_ptr      Derivative factors of the element group.
+ * @param   df_tmp      Caller-owned scratch for the factors of the current
+ *                      point.
+ * @param   inoffset    Stride, in vectors, between the input's coordinate
+ *                      components.
+ * @param   in          Input vector \f${\bf f}\f$.
+ * @param   jac         Jacobians of the element group.
+ * @param   w0          Quadrature weights of the expansion.
+ * @param   D0          One-dimensional derivative matrix.
+ * @param   tmp0        Plane of nq0 vectors receiving \f$g_0\f$.
+ * @param   out         Plane of nq0 vectors receiving the transposed
+ *                      derivative.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
@@ -336,6 +502,42 @@ NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
     SumDerivTensor1DKernel<false>(nq0, tmp0, D0, out);
 }
 
+/**
+ * @brief Quadrilateral or triangle launcher: form the two weighted
+ * direction fields of one element group and apply the transposed
+ * derivatives.
+ *
+ * StdAlignDerivBase2D writes \f$g_0\f$ and \f$g_1\f$ into @p tmp0 and
+ * @p tmp1 -- including, for the triangles, the collapsed corrections from
+ * @p f0 and @p f1 -- and SumDerivTensor2DKernel sums their transposed
+ * derivatives into @p out, overwriting it.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements.
+ * @tparam DEFORMED          True when the geometric factors vary within an
+ *                           element.
+ * @tparam TSizeParameter2D  2D size parameter, modal or physical-space.
+ * @tparam simd_type         SIMD vector type of one interleaved element
+ *                           group.
+ *
+ * @param   sizeParam2D Sizes per direction; only nq0 and nq1 are read.
+ * @param   indim       Coordinate dimension: number of input components
+ *                      read.
+ * @param   df_ptr      Derivative factors of the element group.
+ * @param   df_tmp      Caller-owned scratch for the factors of the current
+ *                      point.
+ * @param   inoffset    Stride, in vectors, between the input's coordinate
+ *                      components.
+ * @param   in          Input vector \f${\bf f}\f$.
+ * @param   f0          Table of (1 + eta_0)/2 (triangles).
+ * @param   f1          Table of 2/(1 - eta_1) (triangles).
+ * @param   jac         Jacobians of the element group.
+ * @param   w0,w1       Quadrature weights per direction.
+ * @param   D0,D1       One-dimensional derivative matrices.
+ * @param   tmp0,tmp1   Planes of nq0 * nq1 vectors receiving the direction
+ *                      fields.
+ * @param   out         Plane of nq0 * nq1 vectors receiving the summed
+ *                      transposed derivative.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
@@ -367,6 +569,45 @@ NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(
     SumDerivTensor2DKernel<false>(nq0, nq1, tmpPtr[0], tmpPtr[1], D0, D1, out);
 }
 
+/**
+ * @brief Three-dimensional launcher: form the three weighted direction
+ * fields of one element group and apply the transposed derivatives.
+ *
+ * StdAlignDerivBase3D writes the direction fields into @p tmp0 ... @p tmp2
+ * -- with the shape's collapsed corrections from the four factor tables --
+ * and SumDerivTensor3DKernel sums their transposed derivatives into
+ * @p out, overwriting it. The coordinate dimension of a 3D element is
+ * always three, so @p indim is unused.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements.
+ * @tparam DEFORMED          True when the geometric factors vary within an
+ *                           element.
+ * @tparam TSizeParameter3D  3D size parameter, modal or physical-space.
+ * @tparam simd_type         SIMD vector type of one interleaved element
+ *                           group.
+ *
+ * @param   sizeParam3D     Sizes per direction; only the point counts are
+ *                          read.
+ * @param   indim           Coordinate dimension; unused.
+ * @param   df_ptr          Derivative factors of the element group, nine
+ *                          per point.
+ * @param   df_tmp          Caller-owned scratch for the factors of the
+ *                          current point.
+ * @param   inoffset        Stride, in vectors, between the input's
+ *                          coordinate components.
+ * @param   in              Input vector \f${\bf f}\f$.
+ * @param   f0              Table of (1 + eta_0)/2.
+ * @param   f1              Table of (1 + eta_1)/2.
+ * @param   f1m             Table of 2/(1 - eta_1).
+ * @param   f2              Table of 2/(1 - eta_2).
+ * @param   jac             Jacobians of the element group.
+ * @param   w0,w1,w2        Quadrature weights per direction.
+ * @param   D0,D1,D2        One-dimensional derivative matrices.
+ * @param   tmp0,tmp1,tmp2  Planes of nqTot vectors receiving the direction
+ *                          fields.
+ * @param   out             Plane of nqTot vectors receiving the summed
+ *                          transposed derivative.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void IProductWRTDerivBaseKernelLauncher(

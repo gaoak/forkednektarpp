@@ -70,8 +70,7 @@
  * This header provides the definition of detail::IProductWRTBaseBlockOpImpl
  * for the Serial and AVX execution spaces with the SumFac implementation
  * tag; see IProductWRTBaseSerialAVXStdMat.hpp for the StdMat sibling and
- * the note on the one-definition-per-translation-unit scheme, and
- * IProductWRTBaseDeviceSumFac.hpp for the device counterparts.
+ * the note on the one-definition-per-translation-unit scheme.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

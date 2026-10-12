@@ -44,7 +44,7 @@
  * where \f$\hat{u}_n\f$ are the element's coefficients and \f$\phi_n\f$
  * its basis functions. It is purely element-local and independent of the
  * element geometry -- no Jacobians or metric terms enter -- and is the
- * operator-library equivalent of MultiRegions::ExpList::BwdTrans, which
+ * block-operator equivalent of ExpList::BwdTrans, which
  * the BwdTrans unit tests use as the reference solution.
  *
  * The family follows the standard element-operator layout (see

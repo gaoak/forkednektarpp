@@ -28,9 +28,57 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
-//
+// Description: SumFacTOP device kernels of the inner product with the
+// gradient of the basis.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file IProductWRTDerivBaseDeviceSumFacTOPKernels.hpp
+ * @brief SumFacTOP device kernels of the inner product with the gradient
+ * of the basis: one element per thread block, with the intermediates
+ * staged in shared memory.
+ *
+ * @details
+ * These kernels compute the same thing as the SumFac ones in
+ * IProductWRTDerivBaseDeviceSumFacKernels.hpp but distribute the work
+ * differently. A whole thread block takes one element at a time and
+ * strides over the block's elements by the grid, the grid's y and z
+ * dimensions selecting the homogeneous mode and output component (on a
+ * multi-plane 3DH1 expansion the input holds three directions per output
+ * component, of which only the first coordDim are read here); within
+ * an element the block's threads stride over the work items of each stage
+ * -- the element's quadrature points in the geometric and derivative
+ * stages, its modes in the basis contraction. The field data is therefore
+ * not interleaved (interleave width 1): an element's values are
+ * contiguous, and the kernels index them directly. Each stage ends with a
+ * local barrier, so the intermediates one stage writes to shared memory
+ * are visible to the next.
+ *
+ * Because the intermediates live in shared memory, these kernels need no
+ * global-memory workspace at all -- the IProductWRTDerivBaseWorkSpaceSize
+ * overloads below return zero -- and the launch instead requests the
+ * dynamic shared memory reported by IProductWRTDerivBaseSharedMemorySize,
+ * which also holds the one-dimensional basis or derivative tables the
+ * launchers copy in once per thread block.
+ *
+ * The stages are those of the SumFac kernels: the geometric stage of this
+ * header, the transposed derivative (SumDerivTensorNDSumFacTOPKernel,
+ * PhysDerivDeviceSumFacTOPKernels.hpp) and, on the Coeff path, the basis
+ * contraction (IProductWRTBaseDeviceSumFacTOPKernels.hpp) with the nodal
+ * shapes finishing on MatVecSumFacTOPKernel and the transposed
+ * nodal-to-modal matrix. The derivative factors are read from the
+ * transposed DerivFactorKey layout, in which the values of one factor
+ * over an element's points are contiguous; on a regular (non-deformed)
+ * block there is one set of factors and one Jacobian per element. The
+ * launchers and helpers are constrained to the SumFacTOP implementation
+ * tag and are otherwise identical in name and signature to the SumFac
+ * ones, which is how IProductWRTDerivBaseBlockOpImpl::OperatorNDImpl can
+ * launch either strategy from one call site.
+ *
+ * Everything in the namespace is guarded by NEKTAR_ENABLE_DEVICE and
+ * DEVICE_COMPILE_ONLY, so it exists only in translation units compiled for
+ * a device back-end.
+ */
 
 #pragma once
 
@@ -45,7 +93,26 @@ namespace Nektar::MultiRegions::detail
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
-// Helper function
+/**
+ * @brief Global workspace a SumFacTOP launch needs, in elements of TData,
+ * for a one-dimensional shape: none, the intermediates being held in
+ * shared memory.
+ *
+ * No overload of this helper requests global workspace for the SumFacTOP
+ * strategy; the SumFac overloads in
+ * IProductWRTDerivBaseDeviceSumFacKernels.hpp do.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
+ * @tparam Implementation    Implementation tag; this overload is
+ *                           constrained to SumFacTOP.
+ * @tparam TSizeParameter1D  1D size parameter, modal or physical-space
+ *                           (see ElmtHelper.hpp).
+ *
+ * @param   nelmt        Elements in the block; unused.
+ * @param   sizeParam1D  Sizes of the expansion; unused.
+ *
+ * @return Zero.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -60,6 +127,8 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     return 0;
 }
 
+/// @brief Global workspace a SumFacTOP launch needs for a two-dimensional
+/// shape: none, for the reason given in the 1D overload.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -74,6 +143,8 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     return 0;
 }
 
+/// @brief Global workspace a SumFacTOP launch needs for a
+/// three-dimensional shape: none, for the reason given in the 1D overload.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -88,6 +159,27 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
     return 0;
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a one-dimensional shape.
+ *
+ * The Phys output holds the single direction field, nq0 values; the Coeff
+ * output that field plus its transposed derivative, 2 * nq0. The tables
+ * the 1D kernels contract against are read straight from global memory.
+ * The output field state is encoded in the size-parameter type: a
+ * physical-space size parameter selects the Phys variant, a modal one the
+ * Coeff variant.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
+ * @tparam Implementation    Implementation tag; this overload is
+ *                           constrained to SumFacTOP.
+ * @tparam TSizeParameter1D  1D size parameter, modal or physical-space
+ *                           (see ElmtHelper.hpp).
+ *
+ * @param   sizeParam1D  Sizes of the expansion.
+ *
+ * @return Shared-memory requirement in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -110,6 +202,32 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a two-dimensional shape.
+ *
+ * The staging area a thread block claims, in the order the launchers
+ * carve it up:
+ * - Phys: the two direction fields, then the two one-dimensional
+ *   derivative matrices, 2 * nq0 * nq1 + nq0 * nq0 + nq1 * nq1.
+ * - Coeff: the two direction fields and their summed transposed derivative
+ *   (3 * nq0 * nq1), the nm0 * nq1 intermediate of the basis contraction,
+ *   and the two one-dimensional basis tables -- the second of which is
+ *   indexed by the shape's total mode count for the triangles, whose
+ *   second direction carries the collapsed mode ordering. The nodal
+ *   triangle adds its coefficient vector, nmTot.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements.
+ * @tparam Implementation    Implementation tag; this overload is
+ *                           constrained to SumFacTOP.
+ * @tparam TSizeParameter2D  2D size parameter, modal or physical-space
+ *                           (see ElmtHelper.hpp); its type selects the
+ *                           Phys or Coeff variant.
+ *
+ * @param   sizeParam2D  Sizes per direction.
+ *
+ * @return Shared-memory requirement in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -151,6 +269,32 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
 }
 
+/**
+ * @brief Dynamic shared memory a SumFacTOP launch needs per thread block,
+ * in elements of TData, for a three-dimensional shape.
+ *
+ * Laid out as in the 2D overload:
+ * - Phys: the three direction fields and the three one-dimensional
+ *   derivative matrices.
+ * - Coeff: four fields of nqTot -- the three direction fields and their
+ *   summed transposed derivative -- the nm0 * nq1 * nq2 and second
+ *   intermediate of the basis contraction, and the three one-dimensional
+ *   basis tables. The mode counts indexing the second and third tables
+ *   follow the shape's collapsed mode ordering, which is why they are
+ *   computed rather than simply nm1 and nm2; the nodal shapes add their
+ *   coefficient vector of nmTot values.
+ *
+ * @tparam SHAPE_TYPE        Shape of the block's elements.
+ * @tparam Implementation    Implementation tag; this overload is
+ *                           constrained to SumFacTOP.
+ * @tparam TSizeParameter3D  3D size parameter, modal or physical-space
+ *                           (see ElmtHelper.hpp); its type selects the
+ *                           Phys or Coeff variant.
+ *
+ * @param   sizeParam3D  Sizes per direction.
+ *
+ * @return Shared-memory requirement in elements of TData.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -222,6 +366,31 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
 }
 
+/**
+ * @brief Segment geometric stage: contract the input vector with the
+ * derivative factors and apply the quadrature metric, for one element.
+ *
+ * The calling block's threads stride over the element's points, writing
+ * \f$ g_0 = w_0[i]\, J \sum_k (\partial\xi_0/\partial x_k) f_k \f$ into
+ * shared memory, and synchronise before returning.
+ *
+ * @tparam DEFORMED        True when the geometric factors vary within an
+ *                         element.
+ * @tparam TthreadBlock    Back-end thread-block handle type.
+ * @tparam TData           Floating-point type of the field data.
+ *
+ * @param   ncoord      Coordinate dimension: number of input components
+ *                      read.
+ * @param   nq0         Quadrature points of the element.
+ * @param   inoffset    Stride between the input's coordinate components.
+ * @param   w0          Quadrature weights of the element.
+ * @param   df          Derivative factors of the element.
+ * @param   jac         Jacobian(s) of the element.
+ * @param   in          Input vector \f${\bf f}\f$.
+ * @param   out         Receives \f$g_0\f$ in shared memory.
+ * @param   threadBlock Thread-block handle supplying the index, range and
+ *                      barrier helpers.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const size_t inoffset,
@@ -257,6 +426,34 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase1DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief Quadrilateral or triangle geometric stage, for one element.
+ *
+ * The block's threads stride over the element's points, each recovering
+ * its (i, j) index pair, and write the two weighted direction fields into
+ * shared memory; for the triangles the collapsed correction is applied to
+ * the first before the weighting, using @p f0 and @p f1, which are unused
+ * for quadrilaterals. Ends with a local barrier.
+ *
+ * @tparam SHAPE_TYPE      Shape of the block's elements.
+ * @tparam DEFORMED        True when the geometric factors vary within an
+ *                         element.
+ * @tparam TthreadBlock    Back-end thread-block handle type.
+ * @tparam TData           Floating-point type of the field data.
+ *
+ * @param   ncoord      Coordinate dimension (2 or 3).
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   inoffset    Stride between the input's coordinate components.
+ * @param   w0,w1       Quadrature weights per direction.
+ * @param   f0          Table of (1 + eta_0)/2 (triangles).
+ * @param   f1          Table of 2/(1 - eta_1) (triangles).
+ * @param   df          Derivative factors of the element, 2 * ncoord
+ *                      fields.
+ * @param   jac         Jacobian(s) of the element.
+ * @param   in          Input vector \f${\bf f}\f$.
+ * @param   out0,out1   Receive the two direction fields.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
@@ -320,6 +517,40 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase2DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief Three-dimensional geometric stage, for one element.
+ *
+ * The block's threads stride over the element's points, each recovering
+ * its (i, j, k) index triple, and write the three weighted direction
+ * fields into shared memory. A 3D element's coordinate dimension is always
+ * three, so three input components are read and nine derivative factors
+ * are used. The number of additive collapsed correction terms differs per
+ * shape -- none for the hexahedron, one for the prisms, two for the
+ * pyramid and the tetrahedra -- and they are applied before the
+ * weighting; that count is not the number of factor tables a shape reads,
+ * which is larger. Ends with a local barrier.
+ *
+ * @tparam SHAPE_TYPE      Shape of the block's elements.
+ * @tparam DEFORMED        True when the geometric factors vary within an
+ *                         element.
+ * @tparam TthreadBlock    Back-end thread-block handle type.
+ * @tparam TData           Floating-point type of the field data.
+ *
+ * @param   nq0,nq1,nq2     Quadrature points per direction.
+ * @param   inoffset        Stride between the input's coordinate
+ *                          components.
+ * @param   w0,w1,w2        Quadrature weights per direction.
+ * @param   f0              Table of (1 + eta_0)/2.
+ * @param   f1              Table of (1 + eta_1)/2.
+ * @param   f1m             Table of 2/(1 - eta_1).
+ * @param   f2              Table of 2/(1 - eta_2).
+ * @param   df              Derivative factors of the element, nine
+ *                          fields.
+ * @param   jac             Jacobian(s) of the element.
+ * @param   in              Input vector \f${\bf f}\f$.
+ * @param   out0,out1,out2  Receive the three direction fields.
+ * @param   threadBlock     Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
@@ -402,6 +633,55 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief SumFacTOP segment launcher, Coeff output: unpacks the element
+ * sizes and computes, for every element of the block, the inner product
+ * of the input vector with the derivative of the basis.
+ *
+ * The thread block strides over the elements of the block, slicing the
+ * geometric factors and the field data for the element it is on and for
+ * its (mode, component) pair, and runs the three stages: the geometric
+ * stage into the first half of the shared-memory allocation,
+ * SumDerivTensor1DSumFacTOPKernel into the second, and
+ * IProductWRTBaseSegSumFacTOPKernel from there onto the output, where the
+ * scale and the append flag take effect.
+ *
+ * The enable_if on the Implementation tag constrains this definition to
+ * SumFacTOP, so the identically named SumFac launcher in
+ * IProductWRTDerivBaseDeviceSumFacKernels.hpp resolves for that tag
+ * instead. The two share one signature, which is why the global-memory
+ * workspace @p wsp is accepted and ignored here -- this strategy keeps
+ * its intermediates in shared memory.
+ *
+ * @tparam SHAPE_TYPE          Shape of the block's elements (Seg).
+ * @tparam Implementation      MultiRegions::SumFacTOP.
+ * @tparam APPEND              Accumulate onto the output instead of
+ *                             overwriting it.
+ * @tparam DEFORMED            True when the geometric factors vary within
+ *                             an element.
+ * @tparam TSizeParameter1D    Runtime or compile-time element sizes.
+ * @tparam TthreadBlock        Back-end thread-block handle type.
+ * @tparam TData               Floating-point type of the field data.
+ *
+ * @param   sizeParam1D Sizes of the expansion.
+ * @param   ncoord      Coordinate dimension.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   inoffset    Stride between the input's coordinate components.
+ * @param   isModified  First-direction basis is eModified_A; unused in 1D.
+ * @param   basis0      One-dimensional basis table of the expansion.
+ * @param   D0          One-dimensional derivative matrix.
+ * @param   w0          Quadrature weights of the expansion.
+ * @param   nodToMod    Nodal-to-modal matrix; unused in 1D.
+ * @param   df          Derivative factors of the block.
+ * @param   jac         Jacobians of the block.
+ * @param   in          Physical-space input vector \f${\bf f}\f$.
+ * @param   out         Coefficient-space output.
+ * @param   wsp         Global-memory workspace; unused here.
+ * @param   scale       Factor applied to the result.
+ * @param   shmemptr    Dynamic shared memory holding the direction field
+ *                      and its transposed derivative.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter1D,
           typename TthreadBlock, typename TData,
@@ -465,6 +745,42 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief SumFacTOP segment launcher, Phys output: unpacks the element
+ * sizes and leaves the same weak derivative at the quadrature points.
+ *
+ * As the Coeff launcher, but the geometric stage is followed by
+ * SumDerivTensor1DSumFacTOPKernel writing straight to the output,
+ * applying the scale and the append flag. There is no
+ * coordinate-dimension argument: the physical-space size parameter
+ * @p sizeParam1D supplies it. See the Coeff launcher above for the
+ * SumFac/SumFacTOP dispatch scheme.
+ *
+ * @tparam SHAPE_TYPE              Shape of the block's elements (Seg).
+ * @tparam Implementation          MultiRegions::SumFacTOP.
+ * @tparam APPEND                  Accumulate onto the output instead of
+ *                                 overwriting it.
+ * @tparam DEFORMED                True when the geometric factors vary
+ *                                 within an element.
+ * @tparam TPhysSizeParameter1D    Runtime or compile-time element sizes,
+ *                                 physical-space output.
+ * @tparam TthreadBlock            Back-end thread-block handle type.
+ * @tparam TData                   Floating-point type of the field data.
+ *
+ * @param   sizeParam1D Sizes of the expansion.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   inoffset    Stride between the input's coordinate components.
+ * @param   D0          One-dimensional derivative matrix.
+ * @param   w0          Quadrature weights of the expansion.
+ * @param   df          Derivative factors of the block.
+ * @param   jac         Jacobians of the block.
+ * @param   in          Physical-space input vector.
+ * @param   out         Physical-space output.
+ * @param   wsp         Global-memory workspace; unused here.
+ * @param   scale       Factor applied to the result.
+ * @param   shmemptr    Dynamic shared memory holding the direction field.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter1D,
           typename TthreadBlock, typename TData,
@@ -522,6 +838,61 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief SumFacTOP quadrilateral or triangle launcher, Coeff output:
+ * unpacks the element sizes and computes the inner product.
+ *
+ * The dynamic shared-memory allocation is carved into the two direction
+ * fields, their summed transposed derivative, the intermediate of the
+ * basis contraction and the two one-dimensional basis tables (plus, for
+ * the nodal triangle, its coefficient vector), in that order and with the
+ * sizes IProductWRTDerivBaseSharedMemorySize accounts for; the locals
+ * nmode0 and nmode1 hold the row counts of the two basis tables, which
+ * for the triangles follow the collapsed mode ordering. The block's
+ * threads copy the basis tables in, then stride over the elements running
+ * the three stages; the nodal triangle writes its coefficients to shared
+ * memory and finishes with MatVecSumFacTOPKernel applying the transposed
+ * nodal-to-modal matrix, which is where its append flag takes effect.
+ *
+ * Unlike the SumFac launcher of the same name, this one does use the
+ * mode-index table @p index0 -- for the triangles, whose basis
+ * contraction needs it to map a thread's flat mode index back to the
+ * collapsed ordering. For the quadrilateral it is null and no kernel reads
+ * it.
+ *
+ * @tparam SHAPE_TYPE          Shape of the block's elements.
+ * @tparam Implementation      MultiRegions::SumFacTOP.
+ * @tparam APPEND              Accumulate onto the output instead of
+ *                             overwriting it.
+ * @tparam DEFORMED            True when the geometric factors vary within
+ *                             an element.
+ * @tparam TSizeParameter2D    Runtime or compile-time element sizes.
+ * @tparam TthreadBlock        Back-end thread-block handle type.
+ * @tparam TData               Floating-point type of the field data.
+ *
+ * @param   sizeParam2D     Sizes per direction.
+ * @param   ncoord          Coordinate dimension (2 or 3).
+ * @param   nelmt           Elements in the block, padding included.
+ * @param   inoffset        Stride between the input's coordinate
+ *                          components.
+ * @param   isModified      First-direction basis is eModified_A.
+ * @param   index0          Mode-index table of the collapsed ordering
+ *                          (triangles).
+ * @param   basis0,basis1   One-dimensional basis tables per direction.
+ * @param   D0,D1           One-dimensional derivative matrices per
+ *                          direction.
+ * @param   w0,w1           Quadrature weights per direction.
+ * @param   f0,f1           Collapsed-coordinate factor tables (triangles).
+ * @param   nodToMod        Nodal-to-modal matrix (nodal triangle).
+ * @param   df              Derivative factors of the block.
+ * @param   jac             Jacobians of the block.
+ * @param   in              Physical-space input vector.
+ * @param   out             Coefficient-space output.
+ * @param   wsp             Global-memory workspace; unused here.
+ * @param   scale           Factor applied to the result.
+ * @param   shmemptr        Dynamic shared memory, carved up as above.
+ * @param   threadBlock     Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter2D,
           typename TthreadBlock, typename TData,
@@ -645,6 +1016,46 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief SumFacTOP quadrilateral or triangle launcher, Phys output:
+ * unpacks the element sizes and leaves the derivative at the quadrature
+ * points.
+ *
+ * As the Coeff launcher without the basis contraction: the shared memory
+ * holds the two direction fields and the two one-dimensional derivative
+ * matrices, which the block's threads stage there because every element
+ * reads them, and SumDerivTensor2DSumFacTOPKernel writes the summed
+ * transposed derivative straight to the output, applying the scale and
+ * the append flag. The basis tables, the mode-index table and the
+ * nodal-to-modal matrix are absent from this signature: the Phys path
+ * stops before the basis contraction.
+ *
+ * @tparam SHAPE_TYPE              Shape of the block's elements.
+ * @tparam Implementation          MultiRegions::SumFacTOP.
+ * @tparam APPEND                  Accumulate onto the output instead of
+ *                                 overwriting it.
+ * @tparam DEFORMED                True when the geometric factors vary
+ *                                 within an element.
+ * @tparam TPhysSizeParameter2D    Runtime or compile-time element sizes,
+ *                                 physical-space output.
+ * @tparam TthreadBlock            Back-end thread-block handle type.
+ * @tparam TData                   Floating-point type of the field data.
+ *
+ * @param   sizeParam2D Sizes per direction.
+ * @param   nelmt       Elements in the block, padding included.
+ * @param   inoffset    Stride between the input's coordinate components.
+ * @param   D0,D1       One-dimensional derivative matrices per direction.
+ * @param   w0,w1       Quadrature weights per direction.
+ * @param   f0,f1       Collapsed-coordinate factor tables (triangles).
+ * @param   df          Derivative factors of the block.
+ * @param   jac         Jacobians of the block.
+ * @param   in          Physical-space input vector.
+ * @param   out         Physical-space output.
+ * @param   wsp         Global-memory workspace; unused here.
+ * @param   scale       Factor applied to the result.
+ * @param   shmemptr    Dynamic shared memory, carved up as above.
+ * @param   threadBlock Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter2D,
           typename TthreadBlock, typename TData,
@@ -723,6 +1134,66 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief SumFacTOP three-dimensional launcher, Coeff output: unpacks the
+ * element sizes and computes the inner product.
+ *
+ * The 3D form of the quadrilateral/triangle launcher: the shared memory
+ * holds the three direction fields, their summed transposed derivative,
+ * the two intermediates of the basis contraction and the three
+ * one-dimensional basis tables (plus, for the nodal shapes, their
+ * coefficient vector); the locals nmode0 ... nmode2 and offset0 / offset1
+ * hold the table row counts and intermediate sizes of the shape's
+ * collapsed mode ordering, matching IProductWRTDerivBaseSharedMemorySize.
+ * The block's threads copy the basis tables in, then stride over the
+ * elements running the geometric stage, SumDerivTensor3DSumFacTOPKernel
+ * and the IProductWRTBase kernel of the shape, the nodal shapes finishing
+ * on MatVecSumFacTOPKernel and the transposed nodal-to-modal matrix.
+ * There is no coordinate-dimension argument -- a 3D element's is always
+ * three -- and the mode-index tables @p index0 ... @p index2 are used here
+ * by the basis contraction.
+ *
+ * As in the 2D launcher, the summed transposed derivative always
+ * overwrites its shared-memory intermediate, which is reused across the
+ * element loop; the append flag takes effect in the closing basis
+ * contraction onto the output.
+ *
+ * @tparam SHAPE_TYPE          Shape of the block's elements.
+ * @tparam Implementation      MultiRegions::SumFacTOP.
+ * @tparam APPEND              Accumulate onto the output instead of
+ *                             overwriting it.
+ * @tparam DEFORMED            True when the geometric factors vary within
+ *                             an element.
+ * @tparam TSizeParameter3D    Runtime or compile-time element sizes.
+ * @tparam TthreadBlock        Back-end thread-block handle type.
+ * @tparam TData               Floating-point type of the field data.
+ *
+ * @param   sizeParam3D             Sizes per direction.
+ * @param   ncoord                  Coordinate dimension; unused.
+ * @param   nelmt                   Elements in the block, padding
+ *                                  included.
+ * @param   inoffset                Stride between the input's coordinate
+ *                                  components.
+ * @param   isModified              First-direction basis is eModified_A.
+ * @param   index0,index1,index2    Mode-index tables of the collapsed
+ *                                  ordering.
+ * @param   basis0,basis1,basis2    One-dimensional basis tables per
+ *                                  direction.
+ * @param   D0,D1,D2                One-dimensional derivative matrices
+ *                                  per direction.
+ * @param   w0,w1,w2                Quadrature weights per direction.
+ * @param   f0,f1,f1m,f2            Collapsed-coordinate factor tables.
+ * @param   nodToMod                Nodal-to-modal matrix (nodal shapes).
+ * @param   df                      Derivative factors of the block.
+ * @param   jac                     Jacobians of the block.
+ * @param   in                      Physical-space input vector.
+ * @param   out                     Coefficient-space output.
+ * @param   wsp                     Global-memory workspace; unused here.
+ * @param   scale                   Factor applied to the result.
+ * @param   shmemptr                Dynamic shared memory, carved up as
+ *                                  above.
+ * @param   threadBlock             Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TSizeParameter3D,
           typename TthreadBlock, typename TData,
@@ -909,6 +1380,46 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief SumFacTOP three-dimensional launcher, Phys output: unpacks the
+ * element sizes and leaves the derivative at the quadrature points.
+ *
+ * As the Coeff launcher without the basis contraction: the shared memory
+ * holds the three direction fields and the three one-dimensional
+ * derivative matrices, and SumDerivTensor3DSumFacTOPKernel writes the
+ * summed transposed derivative straight to the output, applying the scale
+ * and the append flag. The basis tables, the mode-index tables and the
+ * nodal-to-modal matrix are absent from this signature, all of which
+ * serve the basis contraction the Phys path does not reach.
+ *
+ * @tparam SHAPE_TYPE              Shape of the block's elements.
+ * @tparam Implementation          MultiRegions::SumFacTOP.
+ * @tparam APPEND                  Accumulate onto the output instead of
+ *                                 overwriting it.
+ * @tparam DEFORMED                True when the geometric factors vary
+ *                                 within an element.
+ * @tparam TPhysSizeParameter3D    Runtime or compile-time element sizes,
+ *                                 physical-space output.
+ * @tparam TthreadBlock            Back-end thread-block handle type.
+ * @tparam TData                   Floating-point type of the field data.
+ *
+ * @param   sizeParam3D     Sizes per direction.
+ * @param   nelmt           Elements in the block, padding included.
+ * @param   inoffset        Stride between the input's coordinate
+ *                          components.
+ * @param   D0,D1,D2        One-dimensional derivative matrices per
+ *                          direction.
+ * @param   w0,w1,w2        Quadrature weights per direction.
+ * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables.
+ * @param   df              Derivative factors of the block.
+ * @param   jac             Jacobians of the block.
+ * @param   in              Physical-space input vector.
+ * @param   out             Physical-space output.
+ * @param   wsp             Global-memory workspace; unused here.
+ * @param   scale           Factor applied to the result.
+ * @param   shmemptr        Dynamic shared memory, carved up as above.
+ * @param   threadBlock     Thread-block handle.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool APPEND, bool DEFORMED, typename TPhysSizeParameter3D,
           typename TthreadBlock, typename TData,

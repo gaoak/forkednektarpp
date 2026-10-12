@@ -39,12 +39,10 @@
  * derivative of the volume cardinal basis, one element per warp lane.
  *
  * @details
- * The same decomposition as
- * IProductWRTPhysNormalDerivTraceSerialAVXSumFacKernels.hpp: one trace
- * inner product per element direction, each the plain trace lift with the
- * direction's table replaced by its derivative, and the collapsed
- * \f$2/(1 - \eta)\f$ factors applied on the volume. The edge and face
- * cores are those of IProductWRTPhysTraceDeviceSumFacKernels.hpp.
+ * One trace inner product per element direction, each the plain trace
+ * lift with the direction's table replaced by its derivative, and the
+ * collapsed \f$2/(1 - \eta)\f$ factors applied on the volume. The edge and
+ * face cores are those of IProductWRTPhysTraceDeviceSumFacKernels.hpp.
  *
  * Element data is warp interleaved: element @em e sits at lane
  * `e % warpsize` of warp `e / warpsize` and its @em i'th value at
@@ -106,9 +104,8 @@ inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
 ///
 /// A face group goes through one call of the face core, which writes one
 /// mode block per face covered, so the block is sized for the two faces a
-/// direction can hold; the scratch is refilled per face and takes one. This
-/// is what the SerialAVX implementation allocates, and the two-dimensional
-/// size above does the same for an edge pair.
+/// direction can hold; the scratch is refilled per face and takes one. The
+/// two-dimensional size above does the same for an edge pair.
 template <
     typename TTraceSizeParameter3D,
     std::enable_if_t<IsTraceSizeParameter3D_v<TTraceSizeParameter3D>, bool>
@@ -241,7 +238,7 @@ NEK_DEVICE_INLINE void ScaleAddCollapsedFacKernel(
  * element.
  *
  * Which table carries the derivative is decided per term from the trace
- * direction, exactly as the SerialAVX kernels do. A collapsed shape
+ * direction. A collapsed shape
  * carries \f$2/(1 - \eta_1)\f$ on its \f$\eta_0\f$ term; that factor is
  * singular at the collapsed apex, a quadrature point of the trace but
  * never of the element, so the affected edge group goes into the volume
@@ -249,10 +246,43 @@ NEK_DEVICE_INLINE void ScaleAddCollapsedFacKernel(
  * direction sits at \f$\eta_1 = -1\f$ where the factor is one, and is
  * accumulated straight into the output.
  *
+ * @param   sizeParam2D     Volume quadrature points per direction, nm0()
+ *                          and nm1(), and the trace quadrature points per
+ *                          direction, nq00() and nq10().
+ * @param   nbasis0,nbasis1 eInterp tables \f$h_p(\pm 1)\f$ per direction.
+ * @param   dnbasis0,dnbasis1   Derivatives of @p nbasis0, @p nbasis1.
+ * @param   nelmt           Elements in the block, including padding.
+ * @param   numDataIn       Entries per element of @p in.
+ * @param   numDataOut      Entries per element of @p out (`nm0 * nm1`).
+ * @param   numDataJac      Entries per element, per term, of @p jac: one
+ *                          slot per edge when regular, one per trace
+ *                          point when deformed.
+ * @param   jacCompStride   Offset, in entries, between the two terms'
+ *                          factor arrays.
+ * @param   tbasis0,tbasis1 eInterp tables to the trace points.
+ * @param   dtbasis0,dtbasis1   Derivatives of @p tbasis0, @p tbasis1.
+ * @param   tw0,tw1         Trace quadrature weights per direction.
+ * @param   twoOver0,twoOver1   \f$2/(1 - \eta)\f$ at the element points
+ *                          per direction; direction 0 is never collapsed
+ *                          and its slot is null and unread.
  * @param   jac             Factor array of the block, term 0; term 1 sits
  *                          @p jacCompStride further on.
  * @param   wsp             Static workspace of the block, holding the edge
  *                          scratch and the volume buffer for every element.
+ * @param   in              Packed trace values of the block.
+ * @param   out             Volume-shaped result of the block.
+ * @param   traceDir0,traceDir1 Element direction each trace slot runs
+ *                          along.
+ * @param   append          Accumulate onto @p out instead of zeroing it
+ *                          first.
+ * @param   isColl0,isColl1     Trace points of the direction-0 and
+ *                          direction-1 edges coincide with the volume
+ *                          points.
+ * @param   endPtsColl0,endPtsColl1     Volume rule of direction 0 and
+ *                          direction 1 contains the domain endpoints.
+ * @param   shmemptr        Dynamic shared memory; unused.
+ * @param   threadBlock     Thread-block handle supplied by the launch
+ *                          macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter2D, typename TData, typename TthreadBlock>
@@ -409,11 +439,53 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
  * workspace and are scaled on the element's own points, away from the
  * singular apex.
  *
+ * @param   sizeParam3D     Volume quadrature points per direction and the
+ *                          trace quadrature points per face.
+ * @param   nbasis0,nbasis1,nbasis2     eInterp tables \f$h_p(\pm 1)\f$ per
+ *                          direction.
+ * @param   dnbasis0,dnbasis1,dnbasis2  Derivatives of @p nbasis0,
+ *                          @p nbasis1, @p nbasis2.
+ * @param   nelmt           Elements in the block, including padding.
+ * @param   numDataIn       Entries per element of @p in.
+ * @param   numDataOut      Entries per element of @p out (`nm0 * nm1 *
+ *                          nm2`).
+ * @param   numDataJac      Entries per element, per term, of @p jac: one
+ *                          slot per face when regular, one per trace
+ *                          point when deformed.
+ * @param   jacCompStride   Offset, in entries, between successive
+ *                          terms' factor arrays.
+ * @param   tbasis00,tbasis01,tbasis10,tbasis11,tbasis20,tbasis21
+ *                          eInterp tables to the trace points, per normal
+ *                          direction and tangential direction.
+ * @param   dtbasis00,dtbasis01,dtbasis10,dtbasis11,dtbasis20,dtbasis21
+ *                          Derivatives of @p tbasis00, @p tbasis01,
+ *                          @p tbasis10, @p tbasis11, @p tbasis20,
+ *                          @p tbasis21.
+ * @param   tw00,tw01,tw10,tw11,tw20,tw21  Trace quadrature weights in the
+ *                          same order as @p tbasis00 to @p tbasis21.
+ * @param   twoOver0,twoOver1,twoOver2  \f$2/(1 - \eta)\f$ at the element
+ *                          points per direction; direction 0 is never
+ *                          collapsed and its slot is null and unread, as
+ *                          is any direction the shape does not collapse.
  * @param   jac             Factor array of the block, term 0; term @em d
  *                          sits `d * jacCompStride` further on.
  * @param   wsp             Static workspace of the block, holding the face
  *                          mode block, the contraction scratch and the
  *                          volume buffer for every element.
+ * @param   in              Packed trace values of the block.
+ * @param   out             Volume-shaped result of the block.
+ * @param   traceDir00,traceDir01,traceDir10,traceDir11,traceDir20,traceDir21
+ *                          Element direction each trace slot runs along.
+ * @param   append          Accumulate onto @p out instead of zeroing it
+ *                          first.
+ * @param   isColl00,isColl01,isColl10,isColl11,isColl20,isColl21
+ *                          Trace points of each face's tangential
+ *                          directions coincide with the volume points.
+ * @param   endPtsColl0,endPtsColl1,endPtsColl2    Volume rule of each
+ *                          direction contains the domain endpoints.
+ * @param   shmemptr        Dynamic shared memory; unused.
+ * @param   threadBlock     Thread-block handle supplied by the launch
+ *                          macro.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter3D, typename TData, typename TthreadBlock>

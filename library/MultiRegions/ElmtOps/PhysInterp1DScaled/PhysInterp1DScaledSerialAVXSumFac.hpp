@@ -108,8 +108,7 @@
  * grids exchanged.
  *
  * @see PhysInterp1DScaledSerialAVXStdMat.hpp for the dense-matrix
- * alternative and PhysInterp1DScaledDeviceSumFac.hpp for the device
- * counterparts.
+ * alternative.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

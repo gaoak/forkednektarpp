@@ -54,9 +54,6 @@
  * As the note below explains, the kernels are force-inlined rather than
  * duplicated per element size, so that a call reaching them through a
  * compile-time size parameter sees compile-time loop bounds and unrolls.
- *
- * @see BwdTransDeviceSumFacKernels.hpp for the device form of the same
- * decomposition, expressed over warp lanes instead of SIMD vectors.
  */
 
 #pragma once

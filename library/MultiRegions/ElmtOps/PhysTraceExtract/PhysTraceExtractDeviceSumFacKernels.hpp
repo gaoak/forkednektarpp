@@ -143,7 +143,7 @@
  * - PhysTraceExtract3DSumFacKernelCore, which walks all of an element's
  *   traces direction by direction and advances the output offset, or
  *   PhysTraceFaceExtractKernel, which routes one named face;
- * - DispatchPhysExtractFaceN{0,1,2}KernelTrace3D, which fix the
+ * - DispatchPhysExtractFaceN{0,1,2}KernelTrace3D, which set the
  *   endpoint template argument;
  * - PhysExtractFaceN{0,1,2}KernelTrace3D, the per-direction glue, which
  *   either writes straight through the normal stage or runs the normal
@@ -191,10 +191,8 @@
  * with DEVICE_COMPILE_ONLY).
  *
  * @see PhysTraceExtractDeviceSumFac.hpp for the dispatch and the
- * launches, PhysTraceExtractSerialAVXSumFacKernels.hpp for the SIMD
- * counterparts of the same decomposition, and
- * IProductWRTPhysTraceDeviceSumFacKernels.hpp for the adjoint operation,
- * which applies the same tables transposed.
+ * launches, and IProductWRTPhysTraceDeviceSumFacKernels.hpp for the adjoint
+ * operation, which applies the same tables transposed.
  */
 
 #pragma once
@@ -779,7 +777,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * edges of that direction and resample them onto their trace points.
  *
  * Both stages of the extraction in a single kernel, with the normal
- * direction fixed by @p NormalDir. Stage one takes the volume field to
+ * direction set by @p NormalDir. Stage one takes the volume field to
  * the [@p edg, @p nedg) window of edges of that direction and writes
  * `nedge = nedg - edg` values per in-edge point into @p wsp with the
  * edges interleaved, `wsp[warpsize * (q * nedge + localE) + ilane]`.

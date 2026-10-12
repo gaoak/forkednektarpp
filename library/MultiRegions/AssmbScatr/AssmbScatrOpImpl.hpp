@@ -42,7 +42,7 @@
  * Assemble--scatter takes a coefficient-space field in element-local
  * storage and, for every global degree of freedom (DOF) to which several
  * local coefficients contribute, replaces each local copy by the
- * sign-weighted sum of all of them. It is the operator-library equivalent
+ * sign-weighted sum of all of them. It is the block-operator equivalent
  * of AssemblyMap::Assemble() followed by AssemblyMap::GlobalToLocal(),
  * but acts in place on the element-local data without ever forming the
  * globally-ordered array.

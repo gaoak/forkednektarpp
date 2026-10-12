@@ -38,13 +38,11 @@
  * inner product with the basis.
  *
  * @details
- * The device counterpart of IProductWRTBaseSerialAVXStdMat.hpp: the same
- * two stages -- a Jacobian kernel, when the quadrature metric is in use,
- * followed by one dense multiply with a standard-region matrix -- but with
- * the Jacobian kernel as one device launch over every point, element,
- * component and homogeneous mode of the block, and the multiply as a
- * single strided-batched GEMM covering every component at once instead of
- * a GEMM per element group.
+ * Two stages: a Jacobian kernel, when the quadrature metric is in use, as
+ * one device launch over every point, element, component and homogeneous
+ * mode of the block, followed by one dense multiply with a standard-region
+ * matrix as a single strided-batched GEMM covering every component at
+ * once.
  *
  * This header provides the definition of detail::IProductWRTBaseBlockOpImpl
  * for the Device execution space with the StdMat implementation tag; the
@@ -102,11 +100,8 @@ namespace Nektar::MultiRegions::detail
  *   transpose, applied straight to the input when the metric is off, with
  *   the scale factor as alpha.
  *
- * The Serial/AVX StdMat implementation fetches the same two matrices in
- * the opposite orientation (eIProductWRTBaseStdMatTranspose and
- * eBwdTransStdMat), its GEMM having the element panel on the left; both
- * realise the same operator. Each block operator owns device stream
- * block_idx + 1, so different blocks may overlap on the device.
+ * Each block operator owns device stream block_idx + 1, so different
+ * blocks may overlap on the device.
  *
  * @tparam ExecSpace      NektarSpaces::Device.
  * @tparam Implementation Implementation tag (StdMat).

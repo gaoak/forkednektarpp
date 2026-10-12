@@ -39,11 +39,9 @@
  * strategy.
  *
  * @details
- * As in the Serial/AVX sum-factorised implementation
- * (IProductWRTBaseSerialAVXSumFac.hpp), the basis transpose is applied one
- * coordinate direction at a time through the one-dimensional basis tables,
- * with the quadrature metric folded into the contractions; on the device
- * all of it happens inside a single fused kernel launch per block.
+ * The basis transpose is applied one coordinate direction at a time
+ * through the one-dimensional basis tables, with the quadrature metric
+ * folded in, all inside a single fused kernel launch per block.
  *
  * This one header is included by the translation units CMake generates for
  * either sum-factorisation strategy on the Device execution space; the
@@ -52,9 +50,8 @@
  * and shared-memory size helpers resolve:
  * - SumFac (IProductWRTBaseDeviceSumFacKernels.hpp): one element per
  *   thread. The lanes of a warp advance through warpSize elements in
- *   lock-step on warp-interleaved data, which is what the Serial/AVX
- *   implementation does with SIMD lanes; the inter-stage intermediates
- *   live in a global-memory workspace and the quadrature metric is applied
+ *   lock-step on warp-interleaved data; the inter-stage intermediates live
+ *   in a global-memory workspace and the quadrature metric is applied
  *   inside the innermost contraction.
  * - SumFacTOP (IProductWRTBaseDeviceSumFacTOPKernels.hpp): one element per
  *   thread block. The block's threads are indexed over the element's
@@ -64,10 +61,9 @@
  *   than inside the contractions.
  *
  * The two strategies want different storage layouts; see the class
- * description. The shape dispatch of v_Apply() and the generated
- * ShapeBlock() specialisations mirror the Serial/AVX SumFac implementation
- * -- the same BlockOpShapeBlock.cpp.in template generates them for both --
- * so see IProductWRTBaseSerialAVXSumFac.hpp for that description.
+ * description. v_Apply() dispatches on the block's shape type to the
+ * ShapeBlock() specialisations, whose definitions CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -98,11 +94,11 @@ namespace Nektar::MultiRegions::detail
  * SumFacTOP, selected by the Implementation tag).
  *
  * @details
- * As in the Serial/AVX SumFac implementation, the constructor caches, per
- * reference direction, the element sizes, the one-dimensional basis tables
- * (#m_B) and quadrature weights (#m_W, collapsed-coordinate factors
- * included), the nodal-to-modal matrix of the nodal shapes -- here fetched
- * as eNodalToModal and applied transposed by the kernels' MatVecKernel --
+ * The constructor caches, per reference direction, the element sizes, the
+ * one-dimensional basis tables (#m_B) and quadrature weights (#m_W,
+ * collapsed-coordinate factors included), the nodal-to-modal matrix of the
+ * nodal shapes -- fetched as eNodalToModal and applied transposed by the
+ * kernels' MatVecKernel --
  * and the block's Jacobians, all in device memory. Under SumFacTOP it
  * additionally fetches, for the shapes with a collapsed mode ordering
  * (triangle, tetrahedron, prism, pyramid and their nodal variants), the
@@ -129,8 +125,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData          Floating-point type of the field data.
  *
- * @see IProductWRTBaseDeviceStdMat.hpp for the dense-matrix Device path;
- * IProductWRTBaseSerialAVXSumFac.hpp for the host sum-factorised sibling.
+ * @see IProductWRTBaseDeviceStdMat.hpp for the dense-matrix Device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class IProductWRTBaseBlockOpImpl : public IProductWRTBaseBlockOp<TData>

@@ -53,10 +53,6 @@
  * in the same workspaces, which the block implementation
  * (MassSerialAVXSumFac.hpp) sizes to the larger of the two families'
  * workspace queries, pulled in through the two kernel headers.
- *
- * @see MassDeviceSumFacKernels.hpp and MassDeviceSumFacTOPKernels.hpp for
- * the device counterparts, which compose the same two families' shape
- * kernels inside fused device kernels.
  */
 
 #pragma once

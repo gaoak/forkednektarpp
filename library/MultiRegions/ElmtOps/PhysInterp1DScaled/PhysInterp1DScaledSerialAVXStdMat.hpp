@@ -44,13 +44,12 @@
  * defines the detail::PhysInterp1DScaledBlockOpImpl used when the
  * "StdMat" implementation is requested on the Serial or AVX execution
  * space; CMake includes it into the registration translation units
- * generated for exactly those factory entries, which is why this header,
- * the SumFac header and the device headers may each define the same
- * primary template without ever colliding.
+ * generated for exactly those factory entries, which is why this header
+ * and the other implementation headers may each define the same primary
+ * template without ever colliding.
  *
  * @see PhysInterp1DScaledSerialAVXSumFac.hpp for the sum-factorised
- * alternative and PhysInterp1DScaledDeviceStdMat.hpp for the device
- * StdMat path.
+ * alternative.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

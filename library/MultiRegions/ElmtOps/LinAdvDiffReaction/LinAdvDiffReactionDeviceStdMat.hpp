@@ -28,9 +28,46 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Device StdMat implementation of the linearised
+// advection-diffusion-reaction block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionDeviceStdMat.hpp
+ * @brief Device standard-matrix (StdMat) implementation of the per-block
+ * linearised advection-diffusion-reaction operator: strided-batched BLAS
+ * GEMMs around one pointwise device kernel.
+ *
+ * @details
+ * The operator is a backward transform, reference derivatives, a metric
+ * kernel, then the two inner products. Each matrix stage is issued as a
+ * single strided-batched GEMM through NekBlas -- the vendor BLAS behind
+ * it depends on the build -- covering every element, component and
+ * homogeneous mode of the block at once, so the matrices are fetched
+ * untransposed (eBwdTransStdMat and its siblings) and the block
+ * data is read as column-major matrices instead of lane-interleaved: the
+ * implementation interleave width is one. The metric kernel is a device
+ * kernel launched once over all quadrature points of the block
+ * (ApplyMetricKernel, in LinAdvDiffReactionDeviceStdMatKernels.hpp), and
+ * all device work is issued on the block's own stream, so different
+ * blocks may overlap.
+ *
+ * This header provides the definition of
+ * detail::LinAdvDiffReactionBlockOpImpl for the Device execution space
+ * with the StdMat implementation tag; the sum-factorised Device
+ * definitions live in LinAdvDiffReactionDeviceSumFac.hpp. The class
+ * template name is shared, and each CMake-generated registration
+ * translation unit includes exactly one of these headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through LinAdvDiffReactionOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -43,12 +80,74 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device StdMat block implementation of the linearised
+ * advection-diffusion-reaction operator: dense standard-region matrices
+ * through the vendor BLAS, around a pointwise metric kernel.
+ *
+ * @details
+ * Every element of the block shares the standard-region matrices, so
+ * each stage of the operator is a strided-batched matrix product over
+ * the whole block, the columns of the operands being the elements
+ * (padding elements included, their results ignored). One v_Apply()
+ * pass issues
+ * -# `bwd = B * in`, the nqTot x nmTot backward-transform matrix against
+ *    each component's nmTot x (elements times homogeneous modes) block
+ *    of coefficients, one batch entry per component -- skipped when
+ *    lambda is zero, in which case the metric kernel does not read it;
+ * -# `deriv_d = D_d * in`, one batch entry per reference direction,
+ *    against the block's data read as one nmTot x (elements times
+ *    components times homogeneous modes) matrix, writing one plane per
+ *    direction into the static workspace;
+ * -# one ApplyMetricKernel launch over every quadrature point of every
+ *    element, with the components and homogeneous modes on the second
+ *    grid dimension, which applies the chain
+ *    rule, the velocity, lambda, the diffusivity tensor and the
+ *    Jacobian;
+ * -# `out = IPB * bwd`, one batch entry per component, overwriting the
+ *    output;
+ * -# `out += IPD_d * deriv_d`, one GEMM per reference direction and one
+ *    batch entry per component (beta = 1).
+ *
+ * The GEMMs need each element's data contiguous, so the implementation
+ * works at interleave width 1 (#m_implInterleaveWidth) and reshapes the
+ * block storage to that width and back around the sequence. The
+ * derivative factors are fetched with the transpose flag set (the last
+ * argument of DerivFactorKey): on deformed blocks that makes each factor
+ * component contiguous over the element's quadrature points, which is
+ * the layout the kernel reads; for regular geometry the warehouse
+ * ignores the flag and stores one value per factor component per
+ * element. The velocity registered by SetAdvVel() is reshaped to width
+ * one the first time v_Apply() finds it at another width, and is then
+ * read in place; the components share the velocity of their plane.
+ * Each block operator owns device stream `block_idx + 1`.
+ *
+ * @tparam ExecSpace       NektarSpaces::Device.
+ * @tparam Implementation  Implementation tag the including translation
+ *                         unit registers (MultiRegions::StdMat here).
+ * @tparam TData           Floating-point type of the field data.
+ *
+ * @see LinAdvDiffReactionDeviceSumFac.hpp for the sum-factorised Device
+ * paths.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Bind the operator to the block's device stream, capture the
+     * element metadata and fetch the four standard-region matrices, the
+     * Jacobians and the derivative factors of the block from the data
+     * warehouse.
+     *
+     * @param   block_idx       Index of the block; the stream used for
+     *                          all device work is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     LinAdvDiffReactionBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -103,10 +202,13 @@ public:
                                                 m_implInterleaveWidth, true));
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -119,22 +221,79 @@ public:
     }
 
 protected:
+    /// The GEMMs require contiguous per-element columns, i.e.
+    /// non-interleaved storage.
     static constexpr unsigned int m_implInterleaveWidth = 1u;
 
+    /// Device stream this block's work is issued on (block index + 1).
     unsigned int m_streamID;
+    /// Shape shared by every element of the block.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed; selects the
+    /// ApplyMetricKernel instantiation and how the geometric data is
+    /// indexed.
     bool m_isDeformed;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) element; the
+    /// number of advection-velocity components and the rank of the
+    /// diffusivity tensor.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element.
     unsigned int m_nqTot;
+    /// Backward-transform matrix (nqTot x nmTot, column-major) in
+    /// device memory, cached in the data warehouse.
     const TData *m_bwdmat;
+    /// Inner-product-with-basis matrix (nmTot x nqTot).
     const TData *m_ipbmat;
+    /// Reference-derivative matrices, one nqTot x nmTot block per
+    /// reference direction.
     const TData *m_derivmat;
+    /// Inner-product-with-basis-gradient matrices, one nmTot x nqTot
+    /// block per reference direction.
     const TData *m_ipdmat;
+    /// Jacobians of the block's elements: one value per element when
+    /// regular, one per quadrature point when deformed.
     const TData *m_jacptr;
+    /// Derivative factors \f$\partial\xi_d/\partial x_k\f$ of the
+    /// block's elements, not interleaved and fetched with the transpose
+    /// flag set: for a deformed element the nqTot values of one factor
+    /// are contiguous (the layout the device kernel reads), while a
+    /// regular block ignores the flag and stores one value per factor
+    /// component per element (see DerivFactorKey).
     const TData *m_dfptr;
 
+    /**
+     * @brief Apply the operator to the whole block with one
+     * strided-batched GEMM per stage and one metric-kernel launch.
+     *
+     * The velocity is reshaped to width one if it is still held at
+     * another width. The block storage is then reshaped to width one --
+     * the input over all its components and homogeneous modes at once,
+     * a no-op for non-interleaved fields -- the five stages described in
+     * the class notes are issued on #m_streamID, and both the input and
+     * the output storage are reshaped back to the input's width, which
+     * the output block is also set to. The two quadrature-space
+     * workspaces -- nqTot values per element, component and homogeneous
+     * mode for the backward transform and #m_dimension times that for
+     * the derivatives -- come from the static per-stream workspace shared
+     * by all block operators. The batch strides are the component strides
+     * of the blocks (CompSize() times the number of homogeneous modes)
+     * on the coefficient side and nqTot times the number of elements and
+     * homogeneous modes on the quadrature side; the derivative planes
+     * lie nqTot times the number of elements, components and modes
+     * apart. The metric kernel is launched with the device's default
+     * block size over a two-dimensional grid, the first dimension covering
+     * the quadrature points of every element and the second the components
+     * and homogeneous modes; the velocity is passed once, with the stride
+     * nqTot times the number of elements and homogeneous modes between its
+     * components, and the kernel picks the plane.
+     *
+     * @param   inblock     Coefficient-space input block.
+     * @param   outblock    Coefficient-space output block, overwritten.
+     */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override

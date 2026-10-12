@@ -38,11 +38,9 @@
  * operator, serving both the SumFac and the SumFacTOP strategy.
  *
  * @details
- * As in the Serial/AVX sum-factorised implementation
- * (MassSerialAVXSumFac.hpp), the backward transform and the inner product
- * with the basis are applied one coordinate direction at a time through
- * the one-dimensional basis tables, back to back; on the device both
- * stages happen inside a single fused kernel launch per block.
+ * The backward transform and the inner product with the basis are applied
+ * one coordinate direction at a time through the one-dimensional basis
+ * tables, back to back, both inside a single fused kernel launch per block.
  *
  * This one header is included by the translation units CMake generates for
  * either sum-factorisation strategy on the Device execution space; the
@@ -51,8 +49,7 @@
  * and shared-memory size helpers resolve:
  * - SumFac (MassDeviceSumFacKernels.hpp): one element per thread. The
  *   lanes of a warp advance through warpSize elements in lock-step on
- *   warp-interleaved data, which is what the Serial/AVX implementation
- *   does with SIMD lanes; the inter-stage intermediates live in a
+ *   warp-interleaved data; the inter-stage intermediates live in a
  *   global-memory workspace and the quadrature metric is applied inside
  *   the inner-product shape kernel.
  * - SumFacTOP (MassDeviceSumFacTOPKernels.hpp): one element per thread
@@ -62,10 +59,9 @@
  *   values between the two stages rather than inside the contractions.
  *
  * The two strategies want different storage layouts; see the class
- * description. The shape dispatch of v_Apply() and the generated
- * ShapeBlock() specialisations mirror the Serial/AVX SumFac implementation
- * -- the same BlockOpShapeBlock.cpp.in template generates them for both --
- * so see MassSerialAVXSumFac.hpp for that description.
+ * description. v_Apply() dispatches on the block's shape type to the
+ * ShapeBlock() specialisations, which CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
  *
  * @see MassDeviceStdMat.hpp for the dense-matrix device path.
  *
@@ -98,21 +94,19 @@ namespace Nektar::MultiRegions::detail
  * by the Implementation tag).
  *
  * @details
- * As in the Serial/AVX SumFac implementation, the constructor caches, per
- * reference direction, the element sizes, the one-dimensional basis tables
- * (#m_B) and quadrature weights (#m_W, collapsed-coordinate factors
- * included), the nodal-to-modal matrix #m_nodToMod of the nodal shapes and
- * the block's Jacobians #m_jacptr, all in device memory. Only one nodal
- * matrix is fetched here: the device kernels obtain the reverse mapping by
- * running MatVecKernel with its TRANSPOSE parameter set, where the host
- * implementation fetches a second, transposed matrix. Under SumFacTOP it
- * additionally fetches, for the shapes with a collapsed mode ordering
- * (triangle, tetrahedron, prism, pyramid and their nodal variants), the
- * precomputed mode-index tables #m_index (see ModeIndexDataWarehouse.hpp),
- * because a thread there is responsible for an arbitrary flat output index
- * rather than for a loop nest and must recover the mode indices from it
- * without looping. How many of the slots a shape needs varies -- the
- * tetrahedra use all four, the prisms three, the pyramid two, the
+ * The constructor caches, per reference direction, the element sizes, the
+ * one-dimensional basis tables (#m_B) and quadrature weights (#m_W,
+ * collapsed-coordinate factors included), the nodal-to-modal matrix
+ * #m_nodToMod of the nodal shapes and the block's Jacobians #m_jacptr, all
+ * in device memory. Only one nodal matrix is fetched here: the kernels
+ * obtain the reverse mapping by running MatVecKernel with its TRANSPOSE
+ * parameter set. Under SumFacTOP it additionally fetches, for the shapes
+ * with a collapsed mode ordering (triangle, tetrahedron, prism, pyramid and
+ * their nodal variants), the precomputed mode-index tables #m_index (see
+ * ModeIndexDataWarehouse.hpp), because a thread there is responsible for an
+ * arbitrary flat output index rather than for a loop nest and must recover
+ * the mode indices from it without looping. How many of the slots a shape needs
+ * varies -- the tetrahedra use all four, the prisms three, the pyramid two, the
  * triangles one -- and the rest, along with every slot under SumFac and
  * for the tensor-product shapes, stay null.
  *
@@ -131,8 +125,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData          Floating-point type of the field data.
  *
- * @see MassDeviceStdMat.hpp for the dense-matrix Device path;
- * MassSerialAVXSumFac.hpp for the host sum-factorised sibling.
+ * @see MassDeviceStdMat.hpp for the dense-matrix Device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class MassBlockOpImpl : public MassBlockOp<TData>

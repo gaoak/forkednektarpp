@@ -55,8 +55,7 @@ namespace Nektar::MultiRegions::detail
  * component. For regular geometry one factor set is stored per element
  * group; for deformed geometry one per quadrature point.
  *
- * @tparam ExecSpace Execution space; unused here, kept so the call sites
- *                   match the Device kernel's signature.
+ * @tparam ExecSpace Execution space; unused here.
  * @tparam APPEND    Accumulate onto @p outptr instead of overwriting it.
  * @tparam DEFORMED  Read per-point rather than per-element derivative
  *                   factors.

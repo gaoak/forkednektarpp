@@ -41,10 +41,8 @@
  * @details
  * This header defines the primary
  * detail::IProductWRTPhysTraceBlockOpImpl template, which serves the
- * Serial and the AVX execution spaces; the Device space is served by the
- * partial specialisation in IProductWRTPhysTraceDeviceSumFac.hpp. The
- * two headers are the same operator with a different packing of the
- * elements, SIMD vector lanes here and warp lanes there. The vector type
+ * Serial and the AVX execution spaces, one element per SIMD vector
+ * lane. The vector type
  * is `tinysimd::simd<TData>` for AVX and `tinysimd::scalarT<TData>`, of
  * width one, for Serial, so a Serial build walks one element at a time
  * in plain scalars and every interleave step below degenerates to a
@@ -72,7 +70,8 @@
  *   through OperatorND;
  * - v_IProductWRTPhysTrace, the per-trace path, which lifts one named
  *   trace out of a packed trace field, zeroing the volume array or
- *   accumulating onto it according to #m_append as the bulk path does.
+ *   accumulating onto it according to IProductWRTPhysTraceBlockOp::m_append
+ *   as the bulk path does.
  *
  * @note The per-trace path is not implemented for segments: it raises a
  * fatal NEKERROR for LibUtilities::Seg, in both its deformed and its
@@ -82,10 +81,16 @@
  * the family is laid out.
  * @see IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the kernels
  * called from here.
- * @see IProductWRTPhysTraceDeviceSumFac.hpp for the same decomposition
- * packed for warp lanes instead of SIMD vectors.
  * @see PhysTraceExtractSerialAVXSumFac.hpp for the adjoint operator,
  * which applies the same interpolation tables untransposed.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through IProductWRTPhysTraceOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
  */
 
 #pragma once
@@ -129,11 +134,9 @@ namespace Nektar::MultiRegions::detail
  * normal-direction table has one column per trace of that direction,
  * and a tangential table one column per trace quadrature point. The
  * bulk kernels index a normal-direction table with that trace count as
- * its row stride. The per-trace lift kernels of this backend pass their
- * trace-loop bound instead, so a one-wide window on a two-trace
- * direction reads the table with a stride of one; the Device backend
- * threads the stride through as a separate argument and does not share
- * the defect (see IProductWRTPhysTraceSerialAVXSumFacKernels.hpp).
+ * its row stride. The lift kernels take that stride as an argument
+ * separate from the trace window they walk (see
+ * IProductWRTPhysTraceSerialAVXSumFacKernels.hpp).
  *
  * Layout. The tables and the weights are fetched with a
  * `BasisDataKey<simd_t>`, so each scalar coefficient occupies one whole
@@ -191,9 +194,8 @@ public:
      * the direction's own quadrature rule contains domain endpoints, in
      * which case that interpolation is a Kronecker delta and the lift
      * along the normal degenerates to writing a single boundary plane.
-     * Unlike the Device implementation this one also asserts, in debug
-     * builds, that the rule's endpoint count equals the direction's
-     * trace count.
+     * In debug builds it also asserts that the rule's endpoint count
+     * equals the direction's trace count.
      *
      * The second loop walks the same normal directions in packing order,
      * taking one representative trace each, trace
@@ -437,7 +439,7 @@ protected:
      * the block, accumulating into @p outblock.
      *
      * @details
-     * The kernels are instantiated with their APPEND parameter fixed to
+     * The kernels are instantiated with their APPEND parameter set to
      * true, so nothing here zeroes anything: a caller assembling the
      * whole boundary trace by trace must zero @p outblock itself before
      * the first call. Both blocks are therefore reshaped to
@@ -805,8 +807,8 @@ protected:
      *
      * @details
      * Checks first that both blocks are aligned for simd_t and latches
-     * #m_warnOnce afterwards, so that a misaligned field costs at most
-     * one warning per block operator. Both the check and the flag exist
+     * a flag afterwards, so that a misaligned field costs at most one
+     * warning per block operator. Both the check and the flag exist
      * only under NEKTAR_DEBUG or NEKTAR_FULLDEBUG; elsewhere WARNINGL1
      * expands to nothing. Then dispatches to the per-shape entry point
      * the generated translation unit defines, which selects the

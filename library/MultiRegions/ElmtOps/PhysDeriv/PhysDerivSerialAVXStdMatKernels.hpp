@@ -64,8 +64,6 @@
  * These kernels are instantiated with @p TData bound to the SIMD vector
  * type of the execution space (tinysimd::scalarT on Serial), so each
  * element of the interleaved lane group is handled in its own lane.
- *
- * @see PhysDerivDeviceStdMatKernels.hpp for the device counterparts.
  */
 
 #pragma once

@@ -28,9 +28,53 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Serial/AVX sum-factorised implementation of the linearised
+// advection-diffusion-reaction block operator.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionSerialAVXSumFac.hpp
+ * @brief Serial/AVX sum-factorised (SumFac) implementation of the
+ * per-block linearised advection-diffusion-reaction operator.
+ *
+ * @details
+ * Instead of the dense standard-region matrices of the StdMat path, the
+ * operator is assembled from the one-dimensional tensor-product stages
+ * of the simpler families -- the backward transform
+ * (BwdTransKernelLauncher), the tensor derivative
+ * (PhysDerivTensor{1,2,3}DKernel), the diffusion metric of the Helmholtz
+ * family (DiffusionCoeffwithWJ{1,2,3}DKernel), the summed transposed
+ * derivative (SumDerivTensor{1,2,3}DKernel) and the inner product
+ * (IProductWRTBaseKernelLauncher) -- with the advection term supplied by
+ * this family's own AddAdvection{1,2,3}DKernel. The
+ * LinAdvDiffReactionKernelLauncher overloads in
+ * LinAdvDiffReactionSerialAVXSumFacKernels.hpp string the stages
+ * together for one element group; each SIMD lane owns one element, so a
+ * group of simd_t::width elements advances in lock-step (width one on
+ * the Serial execution space).
+ *
+ * v_Apply() dispatches on the block's shape type to the ShapeBlock()
+ * specialisations, whose definitions CMake generates from
+ * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
+ * translation unit per shape: each wraps OperatorND() in a switch over
+ * the element sizes so that compile-time constants reach the kernels,
+ * falling back to a runtime-sized call for other sizes.
+ *
+ * This header provides the definition of
+ * detail::LinAdvDiffReactionBlockOpImpl for the Serial and AVX execution
+ * spaces with the SumFac implementation tag; see
+ * LinAdvDiffReactionSerialAVXStdMat.hpp for the StdMat sibling and the
+ * note on the one-definition-per-translation-unit scheme.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through LinAdvDiffReactionOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -46,6 +90,44 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Serial/AVX sum-factorised block implementation of the
+ * linearised advection-diffusion-reaction operator, one element per SIMD
+ * lane.
+ *
+ * @details
+ * The constructor caches, per direction, the 1D basis table, the 1D
+ * collocation derivative matrix and the 1D quadrature weights, plus the
+ * collapsed-coordinate factors #m_f, the nodal-to-modal matrices of the
+ * nodal shapes, and the block's Jacobians and derivative factors -- all
+ * from the data warehouse, so they are built once and shared between
+ * operators. The factor tables are fetched for every 2D block (two of
+ * them) and every 3D block (four of them) whatever the shape, since the
+ * condition in the constructor is on the element dimension alone; only
+ * the shapes with collapsed coordinates use them. The constructor also
+ * sizes the workspaces #m_wsp the shape kernels need, taking the running
+ * maximum over the backward-transform and inner-product requirements
+ * (BwdTrans{2,3}DWorkspace, IProduct{2,3}DWorkspace), and allocates the
+ * quadrature-space buffers #m_bwd and #m_deriv that carry the
+ * intermediate fields from stage to stage.
+ *
+ * The generated ShapeBlock() specialisations land in OperatorND(), which
+ * forwards to OperatorNDImpl(): that loops over components and
+ * homogeneous modes and, within each, over element groups, handing every
+ * group to LinAdvDiffReactionKernelLauncher. The derivative stage there
+ * leaves the derivatives in reference (collapsed) space; the advection
+ * kernel and the Helmholtz diffusion kernel each apply the chain rule to
+ * Cartesian space themselves, which differs from the device
+ * sum-factorised paths, whose derivative stage already yields Cartesian
+ * derivatives.
+ *
+ * @tparam ExecSpace       NektarSpaces::Serial or NektarSpaces::AVX;
+ *                         sets simd_t via simd_type_if (scalar for
+ *                         Serial, tinysimd::simd for AVX).
+ * @tparam Implementation  Implementation tag the including translation
+ *                         unit registers (MultiRegions::SumFac here).
+ * @tparam TData           Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
 {
@@ -56,6 +138,17 @@ class LinAdvDiffReactionBlockOpImpl : public LinAdvDiffReactionBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Capture the block's element metadata, fetch the 1D basis,
+     * derivative and weight tables, the collapsed-coordinate factors,
+     * the nodal-to-modal matrices, the Jacobians and the derivative
+     * factors, and size the workspaces (see the class description).
+     *
+     * @param   block_idx       Index of the block.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     LinAdvDiffReactionBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -204,10 +297,13 @@ public:
         m_bwd = std::vector<simd_t, tinysimd::allocator<simd_t>>(nqTot);
     }
 
-    // className - for BlockOperatorFactory
+    /// Registration name for the block-operator factory, defined by the
+    /// generated registration unit.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// @brief Creator function registered with the block-operator
+    /// factory; builds one block operator for the given block of
+    /// elements.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -220,26 +316,74 @@ public:
     }
 
 protected:
+    /// Interleave width the kernels operate at: the SIMD vector width
+    /// (1 on Serial), one element per lane.
     static constexpr unsigned int m_implInterleaveWidth = simd_t::width;
 
+    /// Shape shared by every element of the block; drives the dispatch
+    /// in v_Apply().
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the block's geometry is deformed; read by the generated
+    /// dispatch to pick the DEFORMED instantiation, which changes how
+    /// the Jacobian and derivative factors are indexed.
     bool m_isDeformed;
+    /// First-direction basis is eModified_A: apply the collapsed
+    /// vertex-mode corrections in the shape kernels.
     bool m_isModified;
+    /// Dimension of the reference element (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) element; the
+    /// number of advection-velocity components and the rank of the
+    /// diffusivity tensor.
     unsigned int m_coordDim;
+    /// Modes per direction.
     std::vector<unsigned int> m_nm;
+    /// Quadrature points per direction.
     std::vector<unsigned int> m_nq;
+    /// 1D basis table per direction.
     std::vector<const TData *> m_B;
+    /// 1D collocation derivative matrix per direction.
     std::vector<const TData *> m_D;
+    /// 1D quadrature weights per direction.
     std::vector<const TData *> m_W;
+    /// Collapsed-coordinate factors of the non-tensor shapes, tabulated
+    /// as SIMD vectors in the order the kernels expect them: in 2D
+    /// (1 + eta)/2 of direction 0 and 2/(1 - eta) of direction 1; in 3D
+    /// (1 + eta)/2 of directions 0 and 1, then 2/(1 - eta) of
+    /// directions 1 and 2. Empty for 1D blocks.
     std::vector<const simd_t *> m_f;
+    /// Shape-kernel workspaces, one in 2D and three in 3D (see
+    /// NumWorkspace()), each sized at construction to the maximum the
+    /// backward-transform and inner-product stages need.
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_wsp;
+    /// Quadrature-space derivative buffers, one per reference direction
+    /// and nqTot vectors long: \f$\partial u/\partial\xi_d\f$ first,
+    /// then the diffusion flux with the metric and the quadrature
+    /// weighting applied.
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
+    /// Quadrature-space buffer of nqTot vectors: first the
+    /// backward-transformed values \f$u\f$, then the
+    /// advection-plus-reaction integrand, and finally the whole
+    /// integrand once the diffusion flux has been summed onto it.
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
+    /// Empty vector passed for the varying-diffusivity arguments of the
+    /// Helmholtz diffusion kernels, which this family never uses.
     std::vector<TData> NullTDataVector;
+    /// Nodal-to-modal matrix for the nodal shapes; null otherwise.
     const simd_t *m_nodToMod;
+    /// Its transpose, used to map the inner-product result back to the
+    /// nodal coefficients; null for the non-nodal shapes.
     const simd_t *m_nodToModTrans;
+    /// Jacobians of the block's elements, interleaved at
+    /// #m_implInterleaveWidth: one value per element when regular, one
+    /// per quadrature point when deformed.
     const TData *m_jacptr;
+    /// Derivative factors \f$\partial\xi_d/\partial x_k\f$ of the
+    /// block's elements, interleaved at #m_implInterleaveWidth in
+    /// point-major order (DerivFactorKey with transpose = false):
+    /// element/point stride coordDim * dimension, within which the
+    /// entry for coordinate k and reference direction d is at
+    /// k * dimension + d.
     const TData *m_dfptr;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
@@ -247,6 +391,15 @@ protected:
     bool m_warnOnce = false;
 #endif
 
+    /**
+     * @brief In debug builds, warn once if the block storage is not
+     * aligned for simd_t; then dispatch on the block's shape to the
+     * generated ShapeBlock() specialisation. An unsupported shape
+     * prints a message and returns with @p outblock untouched.
+     *
+     * @param   inblock     Coefficient-space input block.
+     * @param   outblock    Coefficient-space output block, overwritten.
+     */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
@@ -373,9 +526,64 @@ protected:
             std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
     }
 
-    // Generic operator implementation. ind0 indexes each direction,
-    // ind1 the workspaces used by the kernels,
-    // ind2 the collapsed coordinate factors used by the kernels.
+    /**
+     * @brief Worker for every dimension: apply the operator to all
+     * element groups of the block, component by component.
+     *
+     * @details
+     * Reshapes the advection velocity to #m_implInterleaveWidth if it is
+     * still held at another width, then loops over the components and
+     * homogeneous modes of the block and, within each, over the element
+     * groups. Every group is handed to LinAdvDiffReactionKernelLauncher,
+     * whose one-, two- and three-dimensional overloads this one body
+     * calls; overload resolution picks the arm from the number of
+     * arguments the index sequences expand to. The launcher runs the
+     * six stages -- backward transform, tensor derivatives, advection
+     * and reaction, diffusion metric with quadrature weighting, summed
+     * transposed derivative, inner product -- on the buffers #m_bwd,
+     * #m_deriv and #m_wsp.
+     *
+     * The Jacobian and derivative-factor pointers restart at the
+     * beginning of the block for every component and homogeneous mode,
+     * so the same geometry serves all of them; the velocity pointer
+     * starts each at its plane, `n % nhomo`, so the variables share the
+     * velocity of their plane. The three velocity components are passed
+     * separately, offset from each other by one component's worth of the
+     * block (nelmt * nqTot * nhomo values) whatever the coordinate
+     * dimension; a 1D or 2D kernel reads only the components its
+     * coordinate dimension has. The derivative-factor pointer advances by
+     * one group's factors -- coordDim * ndim of them, times nqTot for
+     * deformed geometry -- and the Jacobian pointer by one group's values,
+     * nqTot of them for deformed geometry.
+     *
+     * Fields stored at an interleave width larger than the implementation
+     * width are handled by reshaping width_ratio consecutive groups in
+     * place: the input is converted to the implementation width before
+     * the kernel, and both input and output are converted back to the
+     * field's width once the chunk's last group has been processed. The
+     * output block's recorded interleave width is set to the input's on
+     * return.
+     *
+     * @tparam SHAPE_TYPE      Shape of the block, the nodal enumerators
+     *                         included.
+     * @tparam DEFORMED        Jacobian and derivative factors vary point
+     *                         by point.
+     * @tparam TSizeParameter  Size parameter of this dimension,
+     *                         templated or not.
+     * @tparam ind0            Reference directions, 0 to ndim - 1;
+     *                         selects the tables #m_B, #m_D, #m_W and the
+     *                         buffers #m_deriv.
+     * @tparam ind1            Shape-kernel workspaces #m_wsp: none in 1D,
+     *                         one in 2D, three in 3D (see
+     *                         NumWorkspace()).
+     * @tparam ind2            Collapsed-coordinate factor tables #m_f
+     *                         the kernels use: none in 1D, two in 2D,
+     *                         four in 3D (see NumFactor()).
+     *
+     * @param   inblock     Coefficient-space input block.
+     * @param   outblock    Coefficient-space output block, overwritten.
+     * @param   sizeParam   Element sizes, in runtime or compile-time form.
+     */
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>

@@ -109,11 +109,6 @@ namespace Nektar::MultiRegions::detail
  * of the group. On the Serial execution space simd_t is scalar (width 1)
  * and the panel degenerates to a single element's values.
  *
- * The Device StdMat implementation fetches the same two matrices in the
- * opposite orientation (eIProductWRTBaseStdMat and
- * eBwdTransStdMatTranspose), its GEMM having the matrix on the left; both
- * realise the same operator.
- *
  * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX; selects
  *                        scalar or SIMD arithmetic through simd_t.
  * @tparam Implementation Implementation tag (StdMat).

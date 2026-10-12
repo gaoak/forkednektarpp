@@ -73,9 +73,6 @@
  * separate input arrays and can accumulate; PhysDeriv itself never
  * calls them, the Divergence kernels (and, in one dimension, the
  * CurlCurl kernels) do.
- *
- * @see PhysDerivDeviceSumFacKernels.hpp for the device counterparts,
- * which apply the same corrections in the same order.
  */
 
 #pragma once

@@ -28,10 +28,36 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Implementation of the elemental inverse mass operator for the
-// standard matrix approach.
-//
+// Description: Device Generic implementation of the elemental inverse
+// mass operator.
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file MultiplyByElmtInvMassDeviceGeneric.hpp
+ * @brief Device implementation of the per-block element-wise inverse mass
+ * operator, registered under the Generic implementation tag.
+ *
+ * @details
+ * The whole block goes through one strided-batched GEMM on the back-end BLAS --
+ * batched over the components against the shared standard-region inverse and
+ * followed by one device launch dividing by the element Jacobians for a
+ * regular block, batched over the elements against their own inverse mass
+ * matrices for a deformed one.
+ *
+ * This header provides the definition of
+ * detail::MultiplyByElmtInvMassBlockOpImpl for the Device execution space;
+ * the Serial/AVX definition lives in
+ * MultiplyByElmtInvMassSerialAVXGeneric.hpp, and each CMake-generated
+ * registration translation unit includes exactly one of the two headers.
+ *
+ * @note CMake includes this header into the registration translation
+ * units it generates for this operator, execution space and
+ * implementation; it should not normally be included by any other
+ * translation unit. Other code goes through MultiplyByElmtInvMassOp.hpp and the
+ * operator factory: including this header directly instantiates the
+ * whole template set in that translation unit, which is what the
+ * generated sources exist to avoid.
+ */
 
 #pragma once
 
@@ -44,6 +70,56 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Device Generic inverse mass operator: the whole block's operation
+ * as one strided-batched dense matrix product on the back-end BLAS, with
+ * the Jacobian divided out by a device kernel on a regular block.
+ *
+ * @details
+ * The constructor fetches the standard-region inverse mass matrix
+ * (#m_invmassptr, the StdMatKey with eInvMassStdMat: nmTot x nmTot,
+ * column-major, the untransposed variant since the GEMM has it as its left
+ * factor) and the block's Jacobians (#m_jacptr, the JacobianKey at
+ * #m_implInterleaveWidth: one constant per element for a regular block)
+ * from the data warehouse, so both are built once and shared between
+ * operators. Both are fetched for deformed blocks too, whose path uses
+ * neither.
+ *
+ * The GEMMs need each element's coefficients contiguous, so the
+ * implementation works at interleave width 1 (#m_implInterleaveWidth) and
+ * reshapes the block storage to that width and back around the calls. The
+ * whole block -- all components and homogeneous modes -- goes through one
+ * NekBlas::GemmStridedBatched call:
+ * - regular block: one batch entry per component, every entry applying
+ *   the same standard-region inverse (batch stride 0 on the matrix),
+ *
+ *        out (nmTot x nelmtTot) = (M^std)^{-1} * in (nmTot x nelmtTot),
+ *
+ *   the columns being the padded elements (padding included, their
+ *   results ignored) times the homogeneous modes, nelmtTot, and the batch
+ *   stride the distance between consecutive components of the block.
+ *   DivideByJacobian then divides each element's coefficients by its one
+ *   Jacobian in every component and homogeneous mode, completing
+ *   \f$(M^e)^{-1} = (M^{\mathrm{std}})^{-1} / J^e\f$;
+ * - deformed block: one batch entry per padded element, each applying
+ *   that element's own inverse mass matrix from #m_dinvmass (batch stride
+ *   nmTot x nmTot) to a right-hand side whose columns are the element's
+ *   coefficients in each component and homogeneous mode (leading
+ *   dimension the block's CompSize(), batch stride nmTot),
+ *
+ *        out^e (nmTot x ncomp) = (M^e)^{-1} * in^e (nmTot x ncomp),
+ *
+ *   ncomp being the component count times the number of homogeneous
+ *   modes. The geometry is already contained in the matrices, so no
+ *   Jacobian is applied.
+ *
+ * Each block operator owns device stream block_idx + 1, so different
+ * blocks' work may overlap on the device.
+ *
+ * @tparam ExecSpace      NektarSpaces::Device.
+ * @tparam Implementation Implementation tag (Generic).
+ * @tparam TData          Floating-point type of the field data.
+ */
 template <typename ExecSpace, typename Implementation, typename TData>
 class MultiplyByElmtInvMassBlockOpImpl
     : public MultiplyByElmtInvMassBlockOp<TData>
@@ -51,6 +127,21 @@ class MultiplyByElmtInvMassBlockOpImpl
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
+    /**
+     * @brief Bind the operator to the block's device stream, capture the
+     * element metadata and fetch the standard-region inverse mass matrix
+     * and the block's Jacobians (see the class description).
+     *
+     * The matrix key carries the element's basis keys and shape and, for a
+     * nodal expansion, the nodal points type. The Jacobians are fetched at
+     * interleave width 1.
+     *
+     * @param   block_idx       Index of the block; the stream used for
+     *                          all device work is block_idx + 1.
+     * @param   exp             Representative expansion of the block.
+     * @param   dataWarehouse   Data warehouse shared with the other
+     *                          operators on the expansion list.
+     */
     MultiplyByElmtInvMassBlockOpImpl(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -90,10 +181,10 @@ public:
             LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
     }
 
-    // className - for BlockOperatorFactory
+    /// Block-operator class name; defined by generated factory code.
     static std::string className;
 
-    // Instantiation function for CreatorFunction in BlockOperatorFactory.
+    /// Creator function registered with BlockOperatorFactory.
     static std::unique_ptr<
         ElmtBlockOp<FieldState::Coeff, FieldState::Coeff, TData>>
     Instantiate(const unsigned int block_idx,
@@ -106,19 +197,62 @@ public:
     }
 
 protected:
+    /// Element interleave width the GEMMs operate at: contiguous
+    /// per-element data, since the elements are the GEMMs' columns.
     static constexpr unsigned int m_implInterleaveWidth = 1;
 
+    /// Device stream all work of this block operator is issued on, one per
+    /// block (block index + 1).
     unsigned int m_streamID;
+    /// Shape of the block's elements.
     LibUtilities::ShapeType m_shapeType;
+    /// Whether the geometry is deformed; selects the branch taken in
+    /// v_Apply().
     bool m_isDeformed;
+    /// Reference (shape) dimension of the elements (1, 2 or 3).
     unsigned int m_dimension;
+    /// Coordinate dimension of the (possibly embedded) elements; not read
+    /// by this implementation.
     unsigned int m_coordDim;
+    /// Coefficients per element.
     unsigned int m_nmTot;
+    /// Quadrature points per element; not read by this implementation,
+    /// which acts in coefficient space.
     unsigned int m_nqTot;
+    /// Standard-region inverse mass matrix (nmTot x nmTot, column-major)
+    /// in device memory, cached in the data warehouse; used by the regular
+    /// path only.
     const TData *m_invmassptr;
+    /// Jacobians of the block in device memory at interleave width 1, one
+    /// per element, cached in the data warehouse; used by the regular path
+    /// only.
     const TData *m_jacptr;
+    /// Per-element inverse mass matrices of a deformed block in device
+    /// memory, as set through v_SetInvMassMatrix(); empty for a regular
+    /// block.
     LibUtilities::MemoryRegion<TData> m_dinvmass;
 
+    /**
+     * @brief Apply the inverse mass matrices to the whole block by one
+     * strided-batched dense matrix multiplication.
+     *
+     * The input -- all components and homogeneous modes at once -- is
+     * de-interleaved to #m_implInterleaveWidth. For a deformed block one
+     * strided-batched GEMM against the per-element matrices in #m_dinvmass
+     * runs straight from the input to the output; for a regular block one
+     * strided-batched GEMM against #m_invmassptr does so and
+     * DivideByJacobian then divides each element's coefficients by its one
+     * Jacobian. There is no loop over components or modes here: the
+     * regular call folds the homogeneous modes into the columns and the
+     * components into the batch, the deformed call the components and
+     * homogeneous modes into the columns and the elements into the batch.
+     * Both fields are interleaved back to the input's width, which the
+     * output block is also set to, and everything is issued on
+     * #m_streamID.
+     *
+     * @param   inblock     Coefficient-space input block.
+     * @param   outblock    Coefficient-space output block; overwritten.
+     */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
@@ -188,6 +322,15 @@ protected:
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
     }
 
+    /**
+     * @brief Copy the block's per-element inverse mass matrices into a
+     * memory region of the device memory space.
+     *
+     * @param   invmass     Per-element inverse mass matrices; empty for a
+     *                      regular block, in which case #m_dinvmass stays
+     *                      empty and unused (see
+     *                      MultiplyByElmtInvMassBlockOp::SetInvMassMatrix).
+     */
     void v_SetInvMassMatrix(std::vector<TData> &invmass) override
     {
         this->m_dinvmass = LibUtilities::MemoryRegion<

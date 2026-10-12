@@ -113,8 +113,7 @@
  *
  * @section ipwrttrace_dev_layer Layering
  *
- * The live path is four layers deep, mirroring the SerialAVX
- * implementation one dimension up:
+ * The live path is four layers deep:
  * - top-level kernels (`IProductWRTPhysTraceKernelLauncher`,
  *   `IProductWRTPhysTrace{Edge,Face}Kernel`), which own the grid-stride
  *   loop, the warp mapping and the workspace partitioning;
@@ -143,8 +142,7 @@
  * is present for the launch macro's signature only.
  *
  * @see IProductWRTPhysTraceDeviceSumFac.hpp for the dispatch and the
- * launchers, IProductWRTPhysTraceSerialAVXSumFacKernels.hpp for the
- * SIMD counterparts of the same decomposition, and the PhysTraceExtract
+ * launchers, and the PhysTraceExtract
  * kernels for the adjoint operation, which applies the same tables
  * untransposed.
  */
@@ -244,6 +242,8 @@ inline constexpr size_t IProductWRTPhysTraceWorkSpaceSize(
  * @brief Workspace of a whole block, per component: @p ntrace
  * trace-mode buffers per element.
  *
+ * @param   nelmt       Elements in the block, including padding.
+ * @param   sizeParam2D Volume and trace point counts of the shape.
  * @param   ntrace  Edges the buffer must hold at once. Defaults to
  *                  two, the bulk path integrating an edge pair in one
  *                  call, so that OperatorNDImpl() can size every
@@ -1067,7 +1067,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * single trace.
  *
  * @note An unrecognised @p edge is ignored silently: device code cannot
- * raise the host error the SerialAVX twin raises here.
+ * raise a host error.
  *
  * @note For the lower edge of a two-trace direction the window is
  * [0, 1), which is not the @c nbasis row stride: the lift kernels take
@@ -1127,7 +1127,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceEdgeKernel(
     {
         // zero field (warp-interleaved layout). Note: the single-trace path is
         // normally driven with append == true (the caller pre-zeroes the field
-        // and each trace accumulates), matching the AVX implementation.
+        // and each trace accumulates).
         for (unsigned int j = 0; j < nm1; ++j)
         {
             for (unsigned int i = 0; i < nm0; ++i)
@@ -1375,9 +1375,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 // -----------------------------------------------------------------------------
 
 // Integrate a (pair of) face(s) over its quadrature points into nm0*nm1 trace
-// modes. Warp-interleaved port of the SerialAVX IPWRTPhysFaceKernel. The
-// result is written to "out" (the caller's trace-mode workspace); "wsp" is a
-// scratch buffer used by the full (non-collocated) path.
+// modes. The result is written to "out" (the caller's trace-mode workspace);
+// "wsp" is a scratch buffer used by the full (non-collocated) path.
 /**
  * @brief Leaf kernel, stage one in three dimensions: integrate a face, or
  * a pair of faces, against the hat functions of the two in-face

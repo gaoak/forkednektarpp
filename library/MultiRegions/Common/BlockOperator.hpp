@@ -35,7 +35,7 @@
 /**
  * @file BlockOperator.hpp
  * @brief Block-level operator base class and factory machinery shared
- * by every operator family in the Operators library, plus the static
+ * by every operator family in the MultiRegions library, plus the static
  * per-stream workspace they share.
  *
  * @details

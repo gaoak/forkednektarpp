@@ -39,9 +39,9 @@
  * backward transform: one strided batched BLAS GEMM per block.
  *
  * Included by the translation units CMake generates for the "StdMat"
- * implementation on the Device execution space; see
- * BwdTransSerialAVXStdMat.hpp for why the implementation headers may
- * each define the same primary template.
+ * implementation on the Device execution space only, so the
+ * implementation headers may each define the same primary template
+ * without colliding.
  *
  * @see BwdTransDeviceSumFac.hpp for the sum-factorised device paths.
  *
@@ -98,8 +98,6 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation  Implementation tag the including translation
  *                         unit registers (MultiRegions::StdMat here).
  * @tparam TData           Floating-point type of the field data.
- *
- * @see BwdTransSerialAVXStdMat.hpp for the Serial/AVX StdMat path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class BwdTransBlockOpImpl : public BwdTransBlockOp<TData>

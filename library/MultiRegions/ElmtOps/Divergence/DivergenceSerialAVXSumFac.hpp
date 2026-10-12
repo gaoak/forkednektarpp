@@ -118,19 +118,17 @@ namespace Nektar::MultiRegions::detail
  *
  * ### Interleaving
  * The kernels require element data interleaved at `simd_t::width`.
- * The block's storage may be interleaved at a different width (1, or
- * the wider device width); OperatorNDImpl() therefore re-interleaves
- * each chunk of `chunkSize` elements in place -- casting away const on
- * the input pointer -- before the kernels run, restores both sides
- * afterwards, and resets the output block's interleave width to the
- * input's.
+ * The block's storage may be interleaved at a different width;
+ * OperatorNDImpl() therefore re-interleaves each chunk of `chunkSize`
+ * elements in place -- casting away const on the input pointer --
+ * before the kernels run, restores both sides afterwards, and resets
+ * the output block's interleave width to the input's.
  *
  * @tparam ExecSpace      NektarSpaces::Serial or NektarSpaces::AVX.
  * @tparam Implementation Implementation tag (MultiRegions::SumFac).
  * @tparam TData          Floating-point type of the field data.
  *
- * @see DivergenceSerialAVXStdMat.hpp for the matrix-based alternative
- * and DivergenceDeviceSumFac.hpp for the device counterpart.
+ * @see DivergenceSerialAVXStdMat.hpp for the matrix-based alternative.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class DivergenceBlockOpImpl : public DivergenceBlockOp<TData>

@@ -52,8 +52,7 @@
  * translation unit per shape. NEKTAR_BLOCKOP_SWITCH_CODE, defined below,
  * selects the switch body those definitions expand.
  *
- * @see BwdTransSerialAVXStdMat.hpp for the dense-matrix alternative and
- * BwdTransDeviceSumFac.hpp for the device sum-factorised paths.
+ * @see BwdTransSerialAVXStdMat.hpp for the dense-matrix alternative.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

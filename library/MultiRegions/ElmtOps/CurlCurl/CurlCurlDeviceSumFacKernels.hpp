@@ -38,13 +38,9 @@
  * thread, with the elements of a warp interleaved lane by lane.
  *
  * @details
- * These are the device counterparts of the Serial/AVX sum-factorised
- * kernels in CurlCurlSerialAVXSumFacKernels.hpp, with a warp lane playing
- * the part of a SIMD lane: lane ilane of warp iwarp owns one element, and
- * the block storage is interleaved at the warp size so the lanes of a warp
- * read consecutive addresses. Unlike the host kernels, which receive the
- * reference-space derivatives already formed by the PhysDerivTensor
- * kernels, each curl kernel here contracts the one-dimensional derivative
+ * Lane ilane of warp iwarp owns one element, and the block storage is
+ * interleaved at the warp size so the lanes of a warp read consecutive
+ * addresses. Each curl kernel contracts the one-dimensional derivative
  * matrices itself over all components of its element and then applies, in
  * the same pass, the collapsed-to-standard coordinate correction for
  * simplex-type shapes, the geometric derivative factors and the curl.

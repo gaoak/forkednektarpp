@@ -38,14 +38,12 @@
  * operator, serving both the SumFac and the SumFacTOP strategy.
  *
  * @details
- * As in the Serial/AVX sum-factorised implementation
- * (CurlCurlSerialAVXSumFac.hpp), the derivatives along the reference
- * tensor directions are formed from the one-dimensional derivative
- * matrices and then finished by applying the collapsed-to-standard
- * coordinate correction for simplex-type shapes and the geometric
- * derivative factors and taking the curl; the vorticity omega = curl u so
- * obtained is differentiated the same way to give out = curl omega. On the
- * device both curls happen inside a single fused kernel launch per block,
+ * The derivatives along the reference tensor directions are formed from the
+ * one-dimensional derivative matrices and then finished by applying the
+ * collapsed-to-standard coordinate correction for simplex-type shapes and
+ * the geometric derivative factors and taking the curl; the vorticity omega
+ * = curl u so obtained is differentiated the same way to give out = curl
+ * omega. Both curls happen inside a single fused kernel launch per block,
  * the intermediate omega never leaving the kernel's workspace. A
  * multi-plane 3DH1 block instead gets the plane part of a single curl on
  * every plane, from Curl3DH1KernelLauncher with the planes on the second
@@ -58,8 +56,7 @@
  * resolve:
  * - SumFac (CurlCurlDeviceSumFacKernels.hpp): one element per thread. The
  *   lanes of a warp advance through warpSize elements in lock-step on
- *   warp-interleaved data, which is what the Serial/AVX implementation
- *   does with SIMD lanes; omega is held in a global workspace, each lane
+ *   warp-interleaved data; omega is held in a global workspace, each lane
  *   reading back what it wrote.
  * - SumFacTOP (CurlCurlDeviceSumFacTOPKernels.hpp): one element per
  *   thread block. The block's threads are indexed over the element's
@@ -68,11 +65,9 @@
  *   across elements.
  *
  * The two strategies want different storage and derivative-factor
- * layouts; see the class description. The shape dispatch of v_Apply() and
- * the generated ShapeBlock() specialisations mirror the Serial/AVX SumFac
- * implementation -- the same BlockOpShapeBlock.cpp.in template generates
- * them for both -- so see CurlCurlSerialAVXSumFac.hpp for that
- * description.
+ * layouts; see the class description. v_Apply() dispatches on the block's
+ * shape type to the ShapeBlock() specialisations, which CMake generates
+ * from LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -147,8 +142,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation MultiRegions::SumFac or MultiRegions::SumFacTOP.
  * @tparam TData          Floating-point type of the field data.
  *
- * @see CurlCurlDeviceStdMat.hpp for the dense-matrix Device path;
- * CurlCurlSerialAVXSumFac.hpp for the host sum-factorised sibling.
+ * @see CurlCurlDeviceStdMat.hpp for the dense-matrix Device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>

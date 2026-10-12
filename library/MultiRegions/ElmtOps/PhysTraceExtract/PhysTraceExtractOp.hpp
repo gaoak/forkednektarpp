@@ -71,8 +71,7 @@
  *
  * It is the adjoint of IProductWRTPhysTrace in the hat basis. Both build
  * their `eInterp` BasisDataKeys from the same basis key, point count and
- * points type, the Serial/AVX adjoint storing its copy broadcast across
- * a SIMD vector. This operator applies the tables untransposed where
+ * points type. This operator applies the tables untransposed where
  * IProductWRTPhysTrace applies them transposed and additionally weights
  * them with the trace quadrature weights and the trace Jacobian.
  *
@@ -81,7 +80,7 @@
  *
  * The family follows the standard element-operator layout (see
  * ElmtOp.hpp):
- * - PhysTraceExtractOp (this file): whole-field interface fixing the
+ * - PhysTraceExtractOp (this file): whole-field interface setting the
  *   Apply() field states, plus the per-trace entry point;
  * - detail::PhysTraceExtractOpImpl (PhysTraceExtractOpImpl.hpp): the
  *   factory-registered whole-field implementation, one entry per
@@ -104,8 +103,8 @@
  * carry trace point counts per normal direction.
  *
  * @note There is one trace-extraction algorithm, registered under
- * MultiRegions::SumFac, and on Device a SumFacTOP registration whose
- * kernels run one element per thread block. A StdMat request is mapped
+ * MultiRegions::SumFac and, where an execution space provides it,
+ * MultiRegions::SumFacTOP. A StdMat request is mapped
  * to SumFac by PhysTraceExtractBlockOp::Create(), so a whole-field
  * selection of StdMat, SumFac or SumFacTOP can include this operator.
  *
@@ -140,7 +139,7 @@ namespace Nektar::MultiRegions
  * points.
  *
  * @details
- * As with the other element-operator families, this class exists to fix
+ * As with the other element-operator families, this class exists to set
  * the Apply() parameter types at compile time and to drive the per-block
  * operators: it holds one PhysTraceExtractBlockOp per element block, and
  * v_Apply() hands each block of the input/output fields to the matching
@@ -242,17 +241,11 @@ public:
      * @param   out         Packed trace field, written at @p outOffset.
      * @param   outOffset   Offset of this trace's data within one
      *                      element's packed trace entries, counted in
-     *                      entries per element. Each implementation
-     *                      addresses the output at that entry index in
-     *                      its own interleave width: the device
-     *                      launchers multiply by the warp size, the
-     *                      Serial/AVX path indexes a simd_t array.
+     *                      entries per element.
      *
-     * @note Not available for every shape. On Serial/AVX a segment block
-     * raises a fatal error, the per-trace segment path being
-     * unimplemented there, while the Device path has a segment launcher.
-     * Either implementation reports a shape outside its list on standard
-     * output and leaves @p out unwritten.
+     * @note Not every implementation serves every shape. An unserved
+     * shape either raises a fatal error or is reported on standard
+     * output with @p out left unwritten.
      *
      * @note In three dimensions the general arm of the normal-direction
      * interpolation this reaches takes the `ntbasis` row stride as an

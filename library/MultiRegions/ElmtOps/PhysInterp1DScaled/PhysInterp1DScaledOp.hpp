@@ -55,8 +55,8 @@
  *     u(\xi_p, \eta_q). \f]
  * The element's geometry never enters -- no Jacobians or metric terms --
  * and neither do the expansion's modes: the operator maps point values to
- * point values. It is the operator-library counterpart of
- * MultiRegions::ExpList::PhysInterp1DScaled, the over-integration step
+ * point values. It is the block-operator counterpart of
+ * ExpList::PhysInterp1DScaled, the over-integration step
  * the solvers use to dealias nonlinear terms; PhysGalerkinProject1DScaledOp
  * maps the finer grid back. AdvectionDealiasOp performs the same
  * interpolation as a stage of its own kernels, fetching the same
@@ -87,8 +87,8 @@
  * switch recomputes per-direction output counts as
  * \f$\lfloor \sigma\, nm_d \rfloor\f$ from the scale factor and the input
  * counts, without the offset case, and reads the counts derived here only
- * for its runtime-sized fall-back (see the file notes of
- * PhysInterp1DScaledSerialAVXSumFac.hpp).
+ * for its runtime-sized fall-back (see
+ * LibUtilities/BasicUtils/Switch/BlockOpSwitchPhysInterp1D.h.in).
  *
  * ### Interpolation matrices
  * The per-direction matrices are the interpolation operators from the
@@ -129,12 +129,7 @@
  *   device sum-factorisation strategies (SumFac and SumFacTOP);
  * - the kernel headers PhysInterp1DScaledDeviceSumFacKernels.hpp and
  *   PhysInterp1DScaledDeviceSumFacTOPKernels.hpp, which only include the
- *   backward transform's device kernels. The family has no Serial/AVX
- *   kernels header at all: the host sum-factorisation path includes
- *   BwdTransSerialAVXSumFacKernels.hpp directly, so on the Serial and AVX
- *   spaces the SumFac implementation is the backward transform's
- *   tensor-product kernels driven with interpolation matrices, with
- *   nothing of its own to specialise.
+ *   backward transform's device kernels.
  */
 
 #pragma once

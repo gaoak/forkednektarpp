@@ -71,8 +71,7 @@
  * This header provides the definition of detail::MassBlockOpImpl for the
  * Serial and AVX execution spaces with the SumFac implementation tag; see
  * MassSerialAVXStdMat.hpp for the StdMat sibling and the note on the
- * one-definition-per-translation-unit scheme, and MassDeviceSumFac.hpp for
- * the device counterparts.
+ * one-definition-per-translation-unit scheme.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and

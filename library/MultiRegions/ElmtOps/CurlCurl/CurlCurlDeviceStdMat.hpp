@@ -37,23 +37,20 @@
  * @brief Device StdMat implementation of the curl-curl block operator.
  *
  * @details
- * The Device StdMat path takes the same steps as its host counterpart
- * (CurlCurlSerialAVXStdMat.hpp): the reference-space derivatives of the
- * input are formed by multiplying with the dense standard-region
- * physical-derivative matrices, one matrix product per reference
- * direction, and pointwise kernels then apply the geometric derivative
- * factors and take the curl (see CurlCurlDeviceStdMatKernels.hpp); the two
- * steps are run twice, for omega = curl u and for out = curl omega. A
- * multi-plane 3DH1 block instead gets the plane part of a single curl on
- * every plane, which CurlCurlOpImpl completes with the z parts.
+ * The Device StdMat path forms the reference-space derivatives of the input
+ * by multiplying with the dense standard-region physical-derivative
+ * matrices, one matrix product per reference direction, and pointwise
+ * kernels then apply the geometric derivative factors and take the curl
+ * (see CurlCurlDeviceStdMatKernels.hpp); the two steps are run twice, for
+ * omega = curl u and for out = curl omega. A multi-plane 3DH1 block instead
+ * gets the plane part of a single curl on every plane, which CurlCurlOpImpl
+ * completes with the z parts.
  *
- * Two things differ from the host version. Each set of products is issued
- * as a single strided-batched GEMM through NekBlas -- the vendor BLAS
- * behind it depends on the build -- covering every element and component
- * of the block at once, so the matrices are fetched untransposed
- * (ePhysDerivStdMat, where the host uses ePhysDerivStdMatTranspose) and
- * the block data is read as one column-major matrix instead of
- * lane-interleaved: the implementation interleave width is one. And all
+ * Each set of products is issued as a single strided-batched GEMM through
+ * NekBlas -- the vendor BLAS behind it depends on the build -- covering
+ * every element and component of the block at once, so the matrices are
+ * fetched untransposed (ePhysDerivStdMat) and the block data is read as one
+ * column-major matrix: the implementation interleave width is one. All
  * device work is issued on the block's own stream, so different blocks may
  * overlap.
  *
@@ -127,8 +124,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam Implementation Implementation tag (StdMat).
  * @tparam TData          Floating-point type of the field data.
  *
- * @see CurlCurlSerialAVXStdMat.hpp for the Serial/AVX sibling;
- * CurlCurlDeviceSumFac.hpp for the sum-factorised Device path.
+ * @see CurlCurlDeviceSumFac.hpp for the sum-factorised Device path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class CurlCurlBlockOpImpl : public CurlCurlBlockOp<TData>

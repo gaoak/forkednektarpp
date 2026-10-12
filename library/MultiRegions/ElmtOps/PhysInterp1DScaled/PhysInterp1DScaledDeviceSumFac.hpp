@@ -52,29 +52,25 @@
  *   over the element's per-stage output entries, with the tables and
  *   intermediates staged in shared memory.
  *
- * As on the host, the kernels are the backward transform's -- an
- * interpolation matrix has the layout of a 1D basis table, so
- * interpolating point values is a backward transform whose modes are the
- * input points. They are reached through
- * PhysInterp1DScaledDeviceSumFacKernels.hpp and
+ * The kernels are the backward transform's -- an interpolation matrix has
+ * the layout of a 1D basis table, so interpolating point values is a
+ * backward transform whose modes are the input points. They are reached
+ * through PhysInterp1DScaledDeviceSumFacKernels.hpp and
  * PhysInterp1DScaledDeviceSumFacTOPKernels.hpp, which do nothing but
  * include the BwdTrans kernel headers. Only the tensor-product launchers
  * are instantiated -- for LibUtilities::Seg in 1D, LibUtilities::Quad in
  * 2D and LibUtilities::Hex in 3D -- whatever the block's shape, since the
  * physical points of the collapsed shapes form a tensor-product grid in
- * the collapsed coordinates; the generated size switch makes that choice
- * exactly as in the Serial/AVX implementation. Their modal machinery is
- * switched off accordingly: `isModified` is passed as false, no
- * nodal-to-modal matrix is fetched (the `nodToMod` argument is null) and
- * the two mode-index tables the 3D launchers take for the tetrahedra are
- * null too. The APPEND template argument is always false; this family
- * has no append mode.
+ * the collapsed coordinates; the generated size switch makes that choice.
+ * Their modal machinery is switched off accordingly: `isModified` is
+ * passed as false, no nodal-to-modal matrix is fetched (the `nodToMod`
+ * argument is null) and the two mode-index tables the 3D launchers take
+ * for the tetrahedra are null too. The APPEND template argument is always
+ * false; this family has no append mode.
  *
- * The shape dispatch of v_Apply() and the generated ShapeBlock()
- * specialisations mirror the Serial/AVX SumFac implementation -- the same
- * BlockOpShapeBlock.cpp.in template and PhysInterp1D switch generate them
- * for both -- so see PhysInterp1DScaledSerialAVXSumFac.hpp for that
- * description.
+ * v_Apply() dispatches on the block's shape to the ShapeBlock()
+ * specialisations, generated from the BlockOpShapeBlock.cpp.in template
+ * and the PhysInterp1D switch.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -123,8 +119,7 @@ namespace Nektar::MultiRegions::detail
  * @tparam TData           Floating-point type of the field data.
  *
  * @see PhysInterp1DScaledDeviceStdMat.hpp for the dense-matrix device
- * path and PhysInterp1DScaledSerialAVXSumFac.hpp for the host
- * counterpart.
+ * path.
  */
 template <typename ExecSpace, typename Implementation, typename TData>
 class PhysInterp1DScaledBlockOpImpl : public PhysInterp1DScaledBlockOp<TData>
@@ -319,14 +314,12 @@ protected:
      * @brief Fix the output point counts for @p scale and fetch the
      * per-direction interpolation matrices into device memory.
      *
-     * The point-count rule and the warehouse keys are those of the
-     * Serial/AVX SumFac implementation -- direction 0 scaled and
-     * truncated, a direction one point below direction 0 keeping that
-     * offset, and one cached BasisDataKey(eInterp) entry per direction
-     * and target size, the target points keeping the basis's own points
-     * type. No workspace is sized here: the SumFac kernels take the
-     * static per-stream buffer at launch time and the SumFacTOP kernels
-     * stage everything in shared memory.
+     * Direction 0 is scaled and truncated, a direction one point below
+     * direction 0 keeps that offset, and one cached BasisDataKey(eInterp)
+     * entry is fetched per direction and target size, the target points
+     * keeping the basis's own points type. No workspace is sized here: the
+     * SumFac kernels take the static per-stream buffer at launch time and the
+     * SumFacTOP kernels stage everything in shared memory.
      *
      * The counts and matrices are cleared and rebuilt from the stored
      * input counts, so a block operator may be re-targeted at a new

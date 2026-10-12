@@ -33,6 +33,19 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file ExpressionDeviceGenericSYCLHelper.hpp
+ * @brief Generation, runtime compilation and launch of the expression
+ * kernels on the SYCL back-ends.
+ *
+ * @details
+ * Offloading to CUDA or HIP, the kernels are those of
+ * ExpressionDeviceGenericHIPCUDAHelper.hpp, and only the compilation
+ * and launch are wrapped in host operations ordered on the block's
+ * queue. On Intel, SYCL source is generated and compiled through the
+ * oneAPI kernel-compiler extension, which the device must support.
+ */
+
 #pragma once
 
 #include <string>
@@ -56,8 +69,17 @@
 namespace Nektar::MultiRegions::detail
 {
 
-// Compiles the generated source and retrieves the kernels from it, releasing
-// the kernels compiled for any previous expression.
+/**
+ * @brief Compile the generated source with BuildExpressionKernels(), in
+ * a host operation enqueued on the block's queue.
+ *
+ * @tparam TData    Floating-point type the kernels are compiled for.
+ *
+ * @param   kernels     Compiled kernels, replaced when the operation
+ *                      runs; must outlive it.
+ * @param   kernel_src  Source from GetExpressionKernelSource().
+ * @param   streamID    Stream index of the block.
+ */
 template <typename TData>
 void CompileExpressionKernels(ExpressionKernels &kernels,
                               const std::string &kernel_src,
@@ -80,9 +102,21 @@ void CompileExpressionKernels(ExpressionKernels &kernels,
     SYCLQueue::SetEvent(streamID, e);
 }
 
-// Launches the given variant of the runtime compiled kernels. The kernels are
-// read when the launch runs rather than when it is enqueued, as the compilation
-// above is itself enqueued on the block's queue.
+/**
+ * @brief Launch a variant of the compiled kernels on the native stream
+ * behind the block's queue. The kernels are read when the launch runs
+ * rather than when it is enqueued, as the compilation above is itself
+ * enqueued on the block's queue.
+ *
+ * @tparam TData    Floating-point type of the field data.
+ *
+ * @param   kernels     Compiled kernels.
+ * @param   index       Variant to launch.
+ * @param   kernelArgs  Launch arguments.
+ * @param   gridSize    Number of thread blocks.
+ * @param   blockSize   Threads per block.
+ * @param   streamID    Stream index of the block.
+ */
 template <typename TData>
 void LaunchExpressionKernel(const ExpressionKernels &kernels,
                             const ExpressionKernelIndex index,
@@ -115,23 +149,39 @@ void LaunchExpressionKernel(const ExpressionKernels &kernels,
 namespace Nektar::MultiRegions::detail
 {
 
-// The kernels retrieved from the runtime compiled bundle, which they keep
-// alive, in ExpressionKernelIndex order.
+/// The kernels retrieved from the runtime-compiled bundle, which they
+/// keep alive.
 struct ExpressionKernels
 {
+    /// Kernels, in ExpressionKernelIndex order; empty until compiled.
     std::vector<sycl::kernel> kernels;
 };
 
-// Initialises the device context the runtime compiler needs.
+/// @brief Initialise the device context the runtime compiler needs.
 inline void InitExpressionKernelCompiler(void)
 {
     // The SYCL queue carries its own context, so there is nothing to do.
 }
 
-// Generates the source of a kernel function evaluating the expressions. A free
-// function kernel cannot itself be templated and be looked up by name, so the
-// kernel body is written once as a function template and each variant is
-// entered through a kernel of its own.
+/**
+ * @brief Generate the SYCL source of the expression kernels.
+ *
+ * A free function kernel cannot itself be templated and be looked up by
+ * name, so the kernel body (GetExpressionKernelBody()) is written once
+ * as a function template on APPEND and INTERLEAVEWIDTH, and each
+ * variant is entered through an `extern "C"` kernel of its own, named
+ * with the variant's suffix.
+ *
+ * @tparam TData    Floating-point type the kernels are generated for.
+ *
+ * @param   exprs       Parsed expressions, one per component; the
+ *                      first expression's variable list defines the
+ *                      EVAR names for all of them.
+ * @param   cmask       Per-component enable flags.
+ * @param   coordDim    Coordinate dimension of the block.
+ *
+ * @return The kernel source.
+ */
 template <typename TData>
 std::string GetExpressionKernelSource(
     const std::vector<LibUtilities::EquationSharedPtr> &exprs,
@@ -189,14 +239,28 @@ std::string GetExpressionKernelSource(
     return kernel_src;
 }
 
-// Releases the runtime compiled kernels.
+/**
+ * @brief Release the compiled kernels.
+ *
+ * @param   kernels     Compiled kernels, emptied.
+ */
 inline void ReleaseExpressionKernels(ExpressionKernels &kernels)
 {
     kernels.kernels.clear();
 }
 
-// Compiles the generated source and retrieves the kernels from it, releasing
-// the kernels compiled for any previous expression.
+/**
+ * @brief Compile the generated source in the context of the block's
+ * queue and retrieve the kernel of each variant from it, releasing the
+ * kernels compiled for any previous expression. Raises an error if the
+ * device cannot compile SYCL source or the compilation fails.
+ *
+ * @tparam TData    Floating-point type the kernels are compiled for.
+ *
+ * @param   kernels     Compiled kernels, replaced.
+ * @param   kernel_src  Source from GetExpressionKernelSource().
+ * @param   streamID    Stream index of the block.
+ */
 template <typename TData>
 void CompileExpressionKernels(ExpressionKernels &kernels,
                               const std::string &kernel_src,
@@ -235,7 +299,18 @@ void CompileExpressionKernels(ExpressionKernels &kernels,
     }
 }
 
-// Launches the given variant of the runtime compiled kernels.
+/**
+ * @brief Launch a variant of the compiled kernels on the block's queue.
+ *
+ * @tparam TData    Floating-point type of the field data.
+ *
+ * @param   kernels     Compiled kernels.
+ * @param   index       Variant to launch.
+ * @param   kernelArgs  Launch arguments.
+ * @param   gridSize    Number of work-groups.
+ * @param   blockSize   Work-items per work-group.
+ * @param   streamID    Stream index of the block.
+ */
 template <typename TData>
 void LaunchExpressionKernel(const ExpressionKernels &kernels,
                             const ExpressionKernelIndex index,

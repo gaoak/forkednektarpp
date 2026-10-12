@@ -32,6 +32,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file HelmholtzDeviceSumFacTOPKernels.hpp
+ * @brief Device thread-only parallel (TOP) sum-factorised kernels and
+ * launchers for the weak Helmholtz operator.
+ *
+ * @details
+ * Thread-only parallel kernels for the weak Helmholtz operator: each
+ * thread block handles one element with threads collaborating via shared
+ * memory.
+ */
 #pragma once
 
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
@@ -47,6 +57,10 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
+/**
+ * @brief Global workspace the TOP kernels need: none -- their
+ * intermediates live in shared memory.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -61,6 +75,10 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
     return 0;
 }
 
+/**
+ * @brief Global workspace the TOP kernels need: none -- their
+ * intermediates live in shared memory.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -75,6 +93,10 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
     return 0;
 }
 
+/**
+ * @brief Global workspace the TOP kernels need: none -- their
+ * intermediates live in shared memory.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
@@ -188,6 +210,10 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
     }
 }
 
+/**
+ * @brief 1D TOP metric kernel applying diffusion tensor, metric terms and
+ * lambda-weighted mass scaling.
+ */
 template <bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -290,6 +316,10 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief 2D TOP metric kernel applying diffusion tensor, metric terms and
+ * lambda-weighted mass scaling.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
@@ -445,6 +475,10 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief 3D TOP metric kernel applying diffusion tensor, metric terms and
+ * lambda-weighted mass scaling.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
@@ -610,6 +644,9 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+/**
+ * @brief 1D TOP launcher stringing together the five sum-factorised stages.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
           typename TData,
@@ -670,6 +707,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief 2D TOP launcher stringing together the five sum-factorised stages.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
           typename TData,
@@ -830,6 +870,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 }
 
+/**
+ * @brief 3D TOP launcher stringing together the five sum-factorised stages.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
           typename TData,

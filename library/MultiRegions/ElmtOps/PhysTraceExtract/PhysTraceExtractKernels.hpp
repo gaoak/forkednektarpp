@@ -29,9 +29,9 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Trace-interpolation kernels of the PhysTraceExtract
-// operator, shared by the Serial, AVX and Device paths. One definition
-// serves the scalar and the SIMD data types; the accumulate is chosen on
-// the data type, so the file carries no execution space in its name.
+// operator, shared across execution spaces. One definition serves the scalar
+// and the SIMD data types; the accumulate is chosen on the data type, so the
+// file carries no execution space in its name.
 //
 ///////////////////////////////////////////////////////////////////////////////
 

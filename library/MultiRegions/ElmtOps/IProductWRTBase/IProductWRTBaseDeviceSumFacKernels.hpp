@@ -98,10 +98,6 @@
  * shape runs into a workspace slice and MatVecKernel then maps the result
  * to the nodal coefficients with the transpose of the nodal-to-modal
  * matrix -- the reverse of the BwdTrans order.
- *
- * @see IProductWRTBaseSerialAVXSumFacKernels.hpp for the Serial/AVX form of
- * the same decomposition, expressed over SIMD vectors instead of warp
- * lanes.
  */
 
 #pragma once

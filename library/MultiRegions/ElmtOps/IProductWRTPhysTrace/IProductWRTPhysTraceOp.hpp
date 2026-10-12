@@ -74,7 +74,7 @@
  *
  * The family follows the standard element-operator layout (see
  * ElmtOp.hpp):
- * - IProductWRTPhysTraceOp (this file): whole-field interface fixing the
+ * - IProductWRTPhysTraceOp (this file): whole-field interface setting the
  *   Apply() field states, plus the per-trace entry point;
  * - detail::IProductWRTPhysTraceOpImpl
  *   (IProductWRTPhysTraceOpImpl.hpp): the factory-registered whole-field
@@ -98,8 +98,8 @@
  * direction.
  *
  * @note There is one trace inner-product algorithm, registered under
- * MultiRegions::SumFac, and on Device a SumFacTOP registration whose
- * kernels run one element per thread block. A StdMat request is mapped
+ * MultiRegions::SumFac and, for some execution spaces, also under
+ * MultiRegions::SumFacTOP. A StdMat request is mapped
  * to SumFac by IProductWRTPhysTraceBlockOp::Create(), so a whole-field
  * selection of StdMat, SumFac or SumFacTOP can include this operator.
  *
@@ -109,7 +109,7 @@
  * StdNodalTriExp::v_IProductWRTBase reaches by following that integral
  * with NodalToModalTranspose. That transform is applied nowhere here, so
  * every coefficient a NodalTri, NodalTet or NodalPrism produces is
- * wrong. The nodal meshes under UnitTests/Operators/run are registered
+ * wrong. The nodal meshes under UnitTests/run are registered
  * as fixtures but no test case uses them for this operator, the four
  * that would be written failing on this.
  *
@@ -135,7 +135,7 @@ namespace Nektar::MultiRegions
  * into a volume physical-space shaped array for every element.
  *
  * @details
- * As with the other element-operator families, this class exists to fix
+ * As with the other element-operator families, this class exists to set
  * the Apply() parameter types at compile time and to drive the per-block
  * operators: it holds one IProductWRTPhysTraceBlockOp per element block,
  * and v_Apply() hands each block of the input/output fields to the
@@ -159,8 +159,7 @@ namespace Nektar::MultiRegions
  * - Apply() (inherited from ElmtOp) lifts the whole element boundary in
  *   one call, every trace of the element contributing to the volume
  *   array. Whether that array is zeroed first or accumulated onto is
- *   selected by SetAppend(), on the paths that honour it (see
- *   IProductWRTPhysTraceBlockOp::m_append).
+ *   selected by SetAppend().
  * - IProductWRTPhysTrace() lifts one trace of every element, zeroing
  *   the volume array or accumulating onto it according to SetAppend()
  *   just as Apply() does. Every trace contributes to the same array, so
@@ -251,9 +250,8 @@ public:
      *                      from it but looked up per trace id.
      * @param   out         Volume-shaped output field, accumulated into.
      *
-     * @note Not available for segments: both implementations raise a
-     * fatal error for a segment block, the per-trace segment path
-     * being unimplemented.
+     * @note Not available for segments: a segment block raises a
+     * fatal error, the per-trace segment path being unimplemented.
      */
     void IProductWRTPhysTrace(const unsigned traceid,
                               LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -362,9 +360,7 @@ protected:
      *
      * @param   in      Packed trace input field.
      * @param   out     Volume-shaped output field, zeroed and written or
-     *                  accumulated onto according to SetAppend(), where
-     *                  that path honours it (see
-     *                  IProductWRTPhysTraceBlockOp::m_append).
+     *                  accumulated onto according to SetAppend().
      */
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override

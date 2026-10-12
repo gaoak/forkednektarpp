@@ -74,8 +74,6 @@
  *
  * @see IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp for the block
  * operator that calls these kernels.
- * @see IProductWRTPhysNormalDerivTraceDeviceSumFacKernels.hpp for the
- * same decomposition packed for warp lanes instead of SIMD vectors.
  */
 
 #pragma once
@@ -105,6 +103,12 @@ namespace Nektar::MultiRegions::detail
  * collocated end point is a selection matrix, which its derivative never
  * is.
  *
+ * @param   nm0     Volume quadrature points of the segment.
+ * @param   dnbasis0    Derivative table \f$\partial h_p(\pm 1)\f$, indexed
+ *                  `dnbasis0[2 * p + v]`.
+ * @param   jac     Normal derivative factor \f$F_v\f$ at each vertex.
+ * @param   in      Packed trace values \f$g_v\f$, the two vertices.
+ * @param   out     Volume-shaped result of the element group.
  * @param   append  Accumulate onto @p out instead of zeroing it first.
  */
 template <typename simd_type>
@@ -131,11 +135,15 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTrace1DKernel(
  * @brief Scale a volume workspace by the collapsed factors a trace group
  * still needs, then accumulate it into the output.
  *
+ * @param   nm0,nm1,nm2     Volume quadrature points per direction.
  * @param   useD1,useD2     Apply \f$2/(1 - \eta_1)\f$, \f$2/(1 - \eta_2)\f$.
  * @param   twoOver1,twoOver2   Those factors at the element's own points
  *                          of directions 1 and 2; unread when the matching
  *                          flag is false. In two dimensions @p nm2 is one
  *                          and @p twoOver2 is unread.
+ * @param   volwsp          Volume-shaped workspace to scale, from the
+ *                          trace group being finished.
+ * @param   out             Accumulates the scaled workspace.
  */
 template <typename simd_type>
 NEK_FORCE_INLINE static void ScaleAddCollapsedFacKernel(
@@ -178,6 +186,30 @@ NEK_FORCE_INLINE static void ScaleAddCollapsedFacKernel(
  * @param   useD1   The group carries \f$2/(1 - \eta_1)\f$ and is
  *                  accumulated through @p volwsp. A run-time flag so that
  *                  one group body per size serves every direction term.
+ * @param   nm0,nm1     Volume quadrature points per direction.
+ * @param   tnq00,tnq10 Trace quadrature points of the direction-0 and
+ *                  direction-1 edges; only the one matching
+ *                  @c EDGE_NORMAL_DIR is read.
+ * @param   nbasis  eInterp table of this term's normal direction, already
+ *                  the derivative table when this group is the
+ *                  derivative term.
+ * @param   tbasis  eInterp table to this group's trace points.
+ * @param   tw      Trace quadrature weights of this group's direction.
+ * @param   twoOver1    \f$2/(1 - \eta_1)\f$ at the element's own points;
+ *                  unread unless @p useD1.
+ * @param   jac     This term's component of the factor array for the
+ *                  element group.
+ * @param   in      Packed trace values of this element group.
+ * @param   wsp     Trace-mode scratch for the underlying edge kernel.
+ * @param   volwsp  Volume-sized scratch that receives the group before
+ *                  scaling; written and read only when @p useD1.
+ * @param   out     Accumulates the group's contribution.
+ * @param   isCollocated    Trace points of this group's tangential
+ *                  direction coincide with the volume points; forwarded
+ *                  to the underlying edge kernel.
+ * @param   endPtsCollocated    Volume rule of this group's normal
+ *                  direction contains the domain endpoints; selects the
+ *                  endpoint-collocated arm of the underlying edge kernel.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           unsigned EDGE_NORMAL_DIR, typename simd_type>
@@ -262,9 +294,34 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceEdgeGroupKernel(
  * at all.
  *
  * @param   derivDir    Element direction whose table is the derivative.
- * @param   append      Accumulate onto @p out instead of zeroing it first.
+ * @param   nm0,nm1     Volume quadrature points per direction.
+ * @param   tnq00,tnq10 Trace quadrature points of the direction-0 and
+ *                      direction-1 edges.
+ * @param   nbasis0,nbasis1     eInterp tables \f$h_p(\pm 1)\f$ per
+ *                      direction.
+ * @param   dnbasis0,dnbasis1   Derivatives of @p nbasis0, @p nbasis1.
+ * @param   tbasis0,tbasis1     eInterp tables to the trace points, per
+ *                      direction.
+ * @param   dtbasis0,dtbasis1   Derivatives of @p tbasis0, @p tbasis1.
+ * @param   tw0,tw1     Trace quadrature weights per direction.
+ * @param   twoOver1    \f$2/(1 - \eta_1)\f$ at the element's own points;
+ *                      unread unless direction 1 is collapsed and is not
+ *                      @p derivDir.
  * @param   jac         This term's component of the factor array for the
  *                      element group.
+ * @param   in          Packed trace values of this element group.
+ * @param   wsp         Trace-mode scratch, forwarded to the edge groups.
+ * @param   volwsp      Volume-sized scratch, forwarded to the edge groups.
+ * @param   out         Accumulates the term's contribution.
+ * @param   traceDir0,traceDir1 Element direction each trace slot runs
+ *                      along.
+ * @param   append      Accumulate onto @p out instead of zeroing it first.
+ * @param   isCollocated0,isCollocated1
+ *                      Trace points of the direction-0 and direction-1
+ *                      edges coincide with the volume points.
+ * @param   endPtsCollocated0,endPtsCollocated1
+ *                      Volume rule of direction 0 and direction 1
+ *                      contains the domain endpoints.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir2DKernel(
@@ -324,6 +381,41 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir2DKernel(
  * @param   useD1,useD2     The group carries \f$2/(1 - \eta_1)\f$,
  *                          \f$2/(1 - \eta_2)\f$. Run-time flags so that one
  *                          group body per size serves every direction term.
+ * @param   nm0,nm1,nm2     Volume quadrature points per direction.
+ * @param   tnq00,tnq01     Trace quadrature points of the direction-0
+ *                          face; only the pair matching
+ *                          @c FACE_NORMAL_DIR is read.
+ * @param   tnq10,tnq11     Trace quadrature points of the direction-1
+ *                          face.
+ * @param   tnq20,tnq21     Trace quadrature points of the direction-2
+ *                          face.
+ * @param   nbasis          eInterp table of this term's normal direction,
+ *                          already the derivative table when this group
+ *                          is the derivative term.
+ * @param   tbasisA,tbasisB eInterp tables to this group's trace points,
+ *                          one per tangential direction.
+ * @param   twA,twB         Trace quadrature weights of this group's
+ *                          tangential directions.
+ * @param   twoOver1,twoOver2   \f$2/(1 - \eta_1)\f$, \f$2/(1 - \eta_2)\f$
+ *                          at the element's own points; unread unless the
+ *                          matching flag is set.
+ * @param   jac             This term's component of the factor array for
+ *                          the element group.
+ * @param   in              Packed trace values of this element group.
+ * @param   wsp0,wsp1       Trace-mode scratch, forwarded to the
+ *                          underlying face kernel.
+ * @param   volwsp          Volume-sized scratch that receives the group
+ *                          before scaling; written and read only when
+ *                          @p useD1 or @p useD2.
+ * @param   out             Accumulates the group's contribution.
+ * @param   isCollocatedA,isCollocatedB     Trace points of this group's
+ *                          tangential directions coincide with the
+ *                          volume points; forwarded to the underlying
+ *                          face kernel.
+ * @param   endPtsCollocated    Volume rule of this group's normal
+ *                          direction contains the domain endpoints;
+ *                          selects the endpoint-collocated arm of the
+ *                          underlying face kernel.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           unsigned FACE_NORMAL_DIR, typename simd_type>
@@ -437,9 +529,48 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTraceFaceGroupKernel(
  * one group at a time.
  *
  * @param   derivDir    Element direction whose table is the derivative.
- * @param   append      Accumulate onto @p out instead of zeroing it first.
+ * @param   nm0,nm1,nm2     Volume quadrature points per direction.
+ * @param   tnq00,tnq01     Trace quadrature points of the direction-0
+ *                      face.
+ * @param   tnq10,tnq11     Trace quadrature points of the direction-1
+ *                      face.
+ * @param   tnq20,tnq21     Trace quadrature points of the direction-2
+ *                      face.
+ * @param   nbasis0,nbasis1,nbasis2     eInterp tables \f$h_p(\pm 1)\f$ per
+ *                      direction.
+ * @param   dnbasis0,dnbasis1,dnbasis2  Derivatives of @p nbasis0,
+ *                      @p nbasis1, @p nbasis2.
+ * @param   tbasis00,tbasis01,tbasis10,tbasis11,tbasis20,tbasis21
+ *                      eInterp tables to the trace points, per normal
+ *                      direction and tangential direction.
+ * @param   dtbasis00,dtbasis01,dtbasis10,dtbasis11,dtbasis20,dtbasis21
+ *                      Derivatives of @p tbasis00, @p tbasis01,
+ *                      @p tbasis10, @p tbasis11, @p tbasis20,
+ *                      @p tbasis21.
+ * @param   tw00,tw01,tw10,tw11,tw20,tw21  Trace quadrature weights in the
+ *                      same order as @p tbasis00 to @p tbasis21.
+ * @param   twoOver1,twoOver2   \f$2/(1 - \eta_1)\f$, \f$2/(1 - \eta_2)\f$
+ *                      at the element's own points; unread on a
+ *                      direction the shape does not collapse.
  * @param   jac         This term's component of the factor array for the
  *                      element group.
+ * @param   in          Packed trace values of this element group.
+ * @param   wsp0        Trace-mode workspace, two faces' worth.
+ * @param   wsp1        Scratch for the fully general face contraction.
+ * @param   volwsp      Volume-sized scratch for the collapsed factor
+ *                      scaling; unread on a hexahedron.
+ * @param   out         Accumulates the term's contribution.
+ * @param   traceDir00,traceDir01,traceDir10,traceDir11,traceDir20,traceDir21
+ *                      Element direction each trace slot runs along.
+ * @param   append      Accumulate onto @p out instead of zeroing it first.
+ * @param   isCollocated00,isCollocated01   Trace points of the
+ *                      direction-0 face's tangential directions coincide
+ *                      with the volume points.
+ * @param   isCollocated10,isCollocated11   The same for direction 1.
+ * @param   isCollocated20,isCollocated21   The same for direction 2.
+ * @param   endPtsCollocated0,endPtsCollocated1,endPtsCollocated2
+ *                      Volume rule of each direction contains the domain
+ *                      endpoints.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir3DKernel(
@@ -530,8 +661,22 @@ NEK_FORCE_INLINE static void IPWRTPhysNormalDerivTracePerDir3DKernel(
  * @tparam DEFORMED     Unread: a segment carries one factor per vertex
  *                      whatever its geometry.
  *
- * @param   append      Accumulate onto the volume field instead of
- *                      zeroing it first.
+ * @param   sizeParam1D     Volume quadrature points of the shape.
+ * @param   nbasis0         Unread: a segment's traces are points, so no
+ *                          interpolation table is needed.
+ * @param   dnbasis0        Derivative table \f$\partial h_p(\pm 1)\f$ at
+ *                          the two vertices.
+ * @param   twoOver0        Unread: a segment has no collapsed direction.
+ * @param   jac             Normal derivative factor at each vertex.
+ * @param   jacCompStride   Unread: there is only the one term.
+ * @param   volwsp          Unread: a segment needs no volume-sized
+ *                          scratch.
+ * @param   in              Packed trace values, the two vertices.
+ * @param   out             Volume-shaped result of the element group.
+ * @param   append          Accumulate onto the volume field instead of
+ *                          zeroing it first.
+ * @param   endPtsCollocated0   Unread: a segment has no end-point
+ *                          collocated shortcut.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter1D, typename simd_type>
@@ -566,8 +711,8 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
  *                              direction.
  * @param   dnbasis0,dnbasis1   Their derivatives.
  * @param   tbasis0,tbasis1     eInterp tables to the trace points, per
- *                              direction, and @p dtbasis0, @p dtbasis1
- *                              their derivatives.
+ *                              direction.
+ * @param   dtbasis0,dtbasis1   Derivatives of @p tbasis0, @p tbasis1.
  * @param   tw0,tw1             Trace quadrature weights per direction.
  * @param   twoOver0,twoOver1   \f$2/(1 - \eta)\f$ at the element points per
  *                              direction; direction 0 is never collapsed
@@ -575,11 +720,22 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
  * @param   jac                 Factor array of this element group, term 0;
  *                              term 1 sits @p jacCompStride SIMD vectors
  *                              further on.
+ * @param   jacCompStride       Offset, in SIMD vectors, between the two
+ *                              terms' factor arrays.
  * @param   wsp                 Trace-mode scratch, `2 * max(nm0,nm1)`.
  * @param   volwsp              Volume-sized scratch for the collapsed
  *                              factor scaling; unread on a quadrilateral.
+ * @param   in                  Packed trace values of this element group.
+ * @param   out                 Volume-shaped result of this element group.
  * @param   traceDir0,traceDir1 Element direction each trace slot runs
  *                              along.
+ * @param   isCollocated0,isCollocated1
+ *                              Trace points of the direction-0 and
+ *                              direction-1 edges coincide with the volume
+ *                              points.
+ * @param   endPtsCollocated0,endPtsCollocated1
+ *                              Volume rule of direction 0 and direction 1
+ *                              contains the domain endpoints.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter2D, typename simd_type>
@@ -632,12 +788,18 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
  *                          first.
  * @param   sizeParam3D     Volume and trace point counts of the shape.
  * @param   nbasis0,nbasis1,nbasis2     eInterp tables \f$h_p(\pm 1)\f$ per
- *                          direction, and @p dnbasis0 to @p dnbasis2 their
- *                          derivatives.
- * @param   tbasis00,...,tbasis21   eInterp tables to the trace points, per
- *                          normal direction and tangential direction, and
- *                          @p dtbasis00 to @p dtbasis21 their derivatives.
- * @param   tw00,...,tw21   Trace quadrature weights in the same order.
+ *                          direction.
+ * @param   dnbasis0,dnbasis1,dnbasis2  Derivatives of @p nbasis0,
+ *                          @p nbasis1, @p nbasis2.
+ * @param   tbasis00,tbasis01,tbasis10,tbasis11,tbasis20,tbasis21
+ *                          eInterp tables to the trace points, per normal
+ *                          direction and tangential direction.
+ * @param   dtbasis00,dtbasis01,dtbasis10,dtbasis11,dtbasis20,dtbasis21
+ *                          Derivatives of @p tbasis00, @p tbasis01,
+ *                          @p tbasis10, @p tbasis11, @p tbasis20,
+ *                          @p tbasis21.
+ * @param   tw00,tw01,tw10,tw11,tw20,tw21   Trace quadrature weights in
+ *                          the same order as @p tbasis00 to @p tbasis21.
  * @param   twoOver0,twoOver1,twoOver2  \f$2/(1 - \eta)\f$ at the element
  *                          points per direction; direction 0 is never
  *                          collapsed and its slot is null and unread, as is
@@ -645,12 +807,24 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
  * @param   jac             Factor array of this element group, term 0;
  *                          term @em d sits `d * jacCompStride` SIMD vectors
  *                          further on.
+ * @param   jacCompStride   Offset, in SIMD vectors, between successive
+ *                          terms' factor arrays.
  * @param   wsp0            Trace-mode workspace, two faces' worth.
  * @param   wsp1            Scratch for the fully general face contraction.
  * @param   volwsp          Volume-sized scratch for the collapsed factor
  *                          scaling; unread on a hexahedron.
- * @param   traceDir00,...,traceDir21   Element direction each trace slot
- *                          runs along.
+ * @param   in              Packed trace values of this element group.
+ * @param   out             Volume-shaped result of this element group.
+ * @param   traceDir00,traceDir01,traceDir10,traceDir11,traceDir20,traceDir21
+ *                          Element direction each trace slot runs along.
+ * @param   isCollocated00,isCollocated01   Trace points of the
+ *                          direction-0 face's tangential directions
+ *                          coincide with the volume points.
+ * @param   isCollocated10,isCollocated11   The same for direction 1.
+ * @param   isCollocated20,isCollocated21   The same for direction 2.
+ * @param   endPtsCollocated0,endPtsCollocated1,endPtsCollocated2
+ *                          Volume rule of each direction contains the
+ *                          domain endpoints.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TTraceSizeParameter3D, typename simd_type>

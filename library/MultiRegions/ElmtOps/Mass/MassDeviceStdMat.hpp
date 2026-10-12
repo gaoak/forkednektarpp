@@ -38,12 +38,11 @@
  * mass operator.
  *
  * @details
- * The device counterpart of MassSerialAVXStdMat.hpp: the same one or two
- * dense multiplies with standard-region matrices and the same Jacobian
- * stage between or after them, but with each multiply as a single
- * strided-batched GEMM covering every component at once instead of a GEMM
- * per element group, and the Jacobian stage as one device launch over every
- * point, element, component and homogeneous mode of the block.
+ * One or two dense multiplies with standard-region matrices, with the
+ * Jacobian stage between or after them: each multiply is a single
+ * strided-batched GEMM covering every component at once, and the Jacobian
+ * stage one device launch over every point, element, component and
+ * homogeneous mode of the block.
  *
  * This header provides the definition of detail::MassBlockOpImpl for the
  * Device execution space with the StdMat implementation tag; the
@@ -75,13 +74,12 @@ namespace Nektar::MultiRegions::detail
  * Jacobian applied by a device kernel between or after them.
  *
  * @details
- * As in the Serial/AVX StdMat implementation, the block's geometry type
- * decides which standard-region matrices the constructor fetches from the
- * data warehouse, because it decides where the Jacobian can be applied --
- * but here the matrices are the untransposed variants (eMassStdMat,
- * eBwdTransStdMat, eIProductWRTBaseStdMat), since the GEMM has them as its
- * left factor. Every element shares them, so each stage is one GEMM per
- * component,
+ * The block's geometry type decides which standard-region matrices the
+ * constructor fetches from the data warehouse, because it decides where the
+ * Jacobian can be applied. The matrices are the untransposed variants
+ * (eMassStdMat, eBwdTransStdMat, eIProductWRTBaseStdMat), since the GEMM
+ * has them as its left factor. Every element shares them, so each stage is
+ * one GEMM per component,
  *
  *        out (nmTot x nelmtTot) = M * in (nmTot x nelmtTot)
  *

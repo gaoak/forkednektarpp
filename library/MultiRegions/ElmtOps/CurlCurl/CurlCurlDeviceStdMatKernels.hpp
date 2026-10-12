@@ -38,15 +38,13 @@
  * operator (see CurlCurlDeviceStdMat.hpp).
  *
  * @details
- * These are the Device counterparts of the kernels in
- * CurlCurlSerialAVXStdMatKernels.hpp. They perform the same pointwise
- * arithmetic -- chain-ruling reference-space derivatives into Cartesian
- * ones through the derivative factors and combining them into a curl --
- * but run as device kernels over all quadrature points of the block,
- * launched by the block operator on its device stream, and they read the
- * derivative planes the batched GEMM lays out direction-major. The 2D
- * kernels take the homogeneous planes of a 3DH1 block on the second grid
- * dimension of the same launch.
+ * These kernels chain-rule reference-space derivatives into Cartesian ones
+ * through the derivative factors and combine them into a curl. They run as
+ * device kernels over all quadrature points of the block, launched by the
+ * block operator on its device stream, and they read the derivative planes
+ * the batched GEMM lays out direction-major. The 2D kernels take the
+ * homogeneous planes of a 3DH1 block on the second grid dimension of the
+ * same launch.
  */
 
 #pragma once

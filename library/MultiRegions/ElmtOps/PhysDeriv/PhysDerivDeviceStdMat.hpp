@@ -40,9 +40,7 @@
  *
  * @details
  * Included by the translation units CMake generates for the "StdMat"
- * implementation on the Device execution space (see
- * PhysDerivSerialAVXStdMat.hpp for why the implementation headers may
- * each define the same primary template).
+ * implementation on the Device execution space.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, execution space and
@@ -89,9 +87,9 @@ namespace Nektar::MultiRegions::detail
  * component, so its batch stride is zero. MultiplyByDerivFactorKernel
  * then overwrites planes 0 .. coordDim-1 of every component in place
  * with their contraction against the block's derivative factors.
- * As in the Serial/AVX StdMat path the matrices come from
- * StdExpansion::PhysDeriv, so the collapsed-coordinate chain rule of
- * the simplex shapes is already contained in them.
+ * The matrices come from StdExpansion::PhysDeriv, so the
+ * collapsed-coordinate chain rule of the simplex shapes is already
+ * contained in them.
  *
  * The GEMMs need each element's data contiguous, so the implementation
  * works at interleave width 1 (#m_implInterleaveWidth); the derivative

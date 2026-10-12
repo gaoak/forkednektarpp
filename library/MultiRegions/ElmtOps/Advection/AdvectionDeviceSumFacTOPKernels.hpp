@@ -393,10 +393,9 @@ NEK_DEVICE_INLINE static void Advection2DSumFacTOPKernel(
  * coordinates are then chain-ruled back to standard coordinates with the
  * tabulated factors -- hexahedra need no correction, prisms and pyramids
  * fold the corrected direction-0 (and, for pyramids, direction-1)
- * derivative into direction 2, and tetrahedra combine all four tables (see
- * Advection3DKernel in AdvectionSerialAVXSumFacKernels.hpp for the
- * formulae) -- before the nine derivative factors are applied and
- * contracted with the velocity. The barrier at the end protects the shared
+ * derivative into direction 2, and tetrahedra combine all four tables --
+ * before the nine derivative factors are applied and contracted with the
+ * velocity. The barrier at the end protects the shared
  * input against the next element's staging.
  *
  * @tparam SHAPE_TYPE   Element shape; selects the collapsed-coordinate

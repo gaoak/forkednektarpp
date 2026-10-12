@@ -28,9 +28,50 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Serial/AVX sum-factorised kernels of the linearised
+// advection-diffusion-reaction operator, one element per SIMD lane.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @file LinAdvDiffReactionSerialAVXSumFacKernels.hpp
+ * @brief Kernels of the Serial/AVX sum-factorised linearised
+ * advection-diffusion-reaction operator: the advection kernels and the
+ * launchers that string the stages together, one element per SIMD lane.
+ *
+ * @details
+ * Only the advection term is specific to this family, so only its
+ * kernels live here; the header pulls in the backward-transform,
+ * derivative, inner-product and diffusion-metric kernels of the
+ * BwdTrans, PhysDeriv, IProductWRTBase and Helmholtz families, which the
+ * LinAdvDiffReactionKernelLauncher overloads drive around them. The
+ * launcher is the entry point the block operator
+ * (LinAdvDiffReactionSerialAVXSumFac.hpp) calls for one element group;
+ * its one-, two- and three-dimensional overloads are selected by the
+ * number of arguments the block operator expands.
+ *
+ * Each AddAdvection kernel handles one interleaved element group: it
+ * receives the reference-space derivatives that the tensor-derivative
+ * stage produced, completes the transformation to Cartesian derivatives
+ * -- the collapsed-coordinate factors first, for the shapes that have
+ * them, then the element's derivative factors -- dots the result with
+ * the advection velocity, and folds the reaction term in by leaving
+ *
+ *     out = V . grad u + scale * out
+ *
+ * in the buffer that arrived holding \f$u\f$. The quadrature weights and
+ * the Jacobian are not applied here; the Helmholtz diffusion-metric
+ * stage that follows takes this buffer as its physical-values argument
+ * with a unit coefficient, the reaction term having been folded in
+ * already.
+ *
+ * The velocity components are passed as three separate pointers, of
+ * which only the first @p ncoord are dereferenced. The caller always
+ * forms all three as component offsets into the block's velocity
+ * storage, so when the field holds fewer than three components the
+ * trailing pointers are formed past the end of that storage; the
+ * kernels never dereference them.
+ */
 
 #pragma once
 
@@ -44,6 +85,39 @@
 namespace Nektar::MultiRegions::detail
 {
 
+/**
+ * @brief Segment advection kernel: add the advection term to the scaled
+ * physical values of one element group.
+ *
+ * A segment has a single reference direction, so the Cartesian
+ * derivative in coordinate direction \f$k\f$ is
+ * \f$(\partial\xi_0/\partial x_k)\,\partial u/\partial\xi_0\f$, and no
+ * collapsed-coordinate factors are involved.
+ *
+ * @tparam DEFORMED    Geometry is deformed, so the derivative factors
+ *                     vary from point to point.
+ * @tparam simd_type   SIMD vector type of the interleaved group.
+ *
+ * @param   ncoord      Coordinate dimension: how many velocity
+ *                      components and derivative factors are used.
+ * @param   nq0         Quadrature points of the element.
+ * @param   advVel0_ptr Velocity component 0 at the quadrature points.
+ * @param   advVel1_ptr Velocity component 1; read only when
+ *                      @p ncoord > 1.
+ * @param   advVel2_ptr Velocity component 2; read only when
+ *                      @p ncoord > 2.
+ * @param   df_ptr      Derivative factors
+ *                      \f$\partial\xi_0/\partial x_k\f$. When the
+ *                      geometry is regular the kernel reads @p ncoord
+ *                      values for the whole element, `df_ptr[k]`; when
+ *                      it is deformed, `df_ptr[i * ncoord + k]` at
+ *                      point i.
+ * @param   deriv0      Reference derivatives
+ *                      \f$\partial u/\partial\xi_0\f$; unchanged.
+ * @param[in,out] out   In: \f$u\f$ at the quadrature points; out:
+ *                      \f$\mathbf{V}\cdot\nabla u + \mathrm{scale}\,u\f$.
+ * @param   scale       Reaction coefficient \f$\lambda\f$.
+ */
 template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection1DKernel(
     const unsigned int ncoord, const unsigned int nq0,
@@ -53,7 +127,7 @@ NEK_FORCE_INLINE static void AddAdvection1DKernel(
 {
     simd_type vx, vy, vz, df0, df1, df2, d0;
 
-    // Precompute Laplacian metrics.
+    // Precompute constant derivative factors.
     if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
@@ -118,6 +192,42 @@ NEK_FORCE_INLINE static void AddAdvection1DKernel(
     }
 }
 
+/**
+ * @brief Two-dimensional advection kernel: add the advection term to
+ * the scaled physical values of one element group.
+ *
+ * For triangles the incoming derivatives are those of the collapsed
+ * coordinate system, so the kernel first applies the standard
+ * correction with the two factor tables -- the direction-0 derivative
+ * is scaled by \f$2/(1-\eta_1)\f$ and folded into the direction-1
+ * derivative with weight \f$(1+\eta_0)/2\f$ -- before the derivative
+ * factors take it to Cartesian space. Quadrilaterals skip that step.
+ * The derivative-factor block holds `2 * ncoord` values per point (or
+ * per element, when the geometry is regular), ordered so that the entry
+ * for coordinate \f$k\f$ and reference direction \f$d\f$ is at
+ * `2 * k + d`.
+ *
+ * @tparam SHAPE_TYPE  Quad, Tri or NodalTri.
+ * @tparam DEFORMED    Geometry is deformed.
+ * @tparam simd_type   SIMD vector type of the interleaved group.
+ *
+ * @param   ncoord      Coordinate dimension (2, or 3 for a surface
+ *                      element embedded in three dimensions).
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   hfac0       Collapsed-coordinate factor \f$(1+\eta_0)/2\f$,
+ *                      one value per direction-0 point; triangles only.
+ * @param   hfac1       Collapsed-coordinate factor
+ *                      \f$2/(1-\eta_1)\f$, one value per direction-1
+ *                      point; triangles only.
+ * @param   advVel0_ptr,advVel1_ptr     Velocity components 0 and 1.
+ * @param   advVel2_ptr Velocity component 2; read only when
+ *                      @p ncoord == 3.
+ * @param   df_ptr      Derivative factors, laid out as described above.
+ * @param   deriv0,deriv1   Reference derivatives; unchanged.
+ * @param[in,out] out   In: \f$u\f$ at the quadrature points; out:
+ *                      \f$\mathbf{V}\cdot\nabla u + \mathrm{scale}\,u\f$.
+ * @param   scale       Reaction coefficient \f$\lambda\f$.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
@@ -130,7 +240,7 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
     const auto ndf = 2 * ncoord;
     simd_type vx, vy, vz, df0, df1, df2, df3, df4, df5, d0, d1, h0, h1;
 
-    // Precompute Laplacian metrics.
+    // Precompute constant derivative factors.
     if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
@@ -214,6 +324,37 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
     }
 }
 
+/**
+ * @brief Three-dimensional advection kernel: add the advection term to
+ * the scaled physical values of one element group.
+ *
+ * As in two dimensions, the collapsed-coordinate correction comes
+ * first, and which of the four factor tables enter depends on the
+ * shape: the hexahedron needs none; the prism uses @p hfac0 and
+ * @p hfac3; the pyramid adds @p hfac1; the tetrahedron uses all four.
+ * The derivative factors then take the corrected derivatives to
+ * Cartesian space. There is no coordinate-dimension argument -- a
+ * three-dimensional element has coordinate dimension three, so the
+ * derivative-factor block is always nine values per point (or per
+ * element, when the geometry is regular), with the entry for coordinate
+ * \f$k\f$ and reference direction \f$d\f$ at `3 * k + d`.
+ *
+ * @tparam SHAPE_TYPE  Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam DEFORMED    Geometry is deformed.
+ * @tparam simd_type   SIMD vector type of the interleaved group.
+ *
+ * @param   nq0,nq1,nq2 Quadrature points per direction.
+ * @param   hfac0       \f$(1+\eta_0)/2\f$, per direction-0 point.
+ * @param   hfac1       \f$(1+\eta_1)/2\f$, per direction-1 point.
+ * @param   hfac2       \f$2/(1-\eta_1)\f$, per direction-1 point.
+ * @param   hfac3       \f$2/(1-\eta_2)\f$, per direction-2 point.
+ * @param   advVel0_ptr,advVel1_ptr,advVel2_ptr  Velocity components.
+ * @param   df_ptr      Derivative factors, laid out as described above.
+ * @param   deriv0,deriv1,deriv2    Reference derivatives; unchanged.
+ * @param[in,out] out   In: \f$u\f$ at the quadrature points; out:
+ *                      \f$\mathbf{V}\cdot\nabla u + \mathrm{scale}\,u\f$.
+ * @param   scale       Reaction coefficient \f$\lambda\f$.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void AddAdvection3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -231,7 +372,7 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     simd_type df0, df1, df2, df3, df4, df5, df6, df7, df8;
     simd_type d0, d1, d2, h0, h1, h2, h3;
 
-    // Precompute Laplacian metrics.
+    // Precompute constant derivative factors.
     if constexpr (!DEFORMED)
     {
         df0 = df_ptr[0];
@@ -348,6 +489,62 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
     }
 }
 
+/**
+ * @brief Apply the whole operator to one element group of a 1D block.
+ *
+ * Unpacks the size parameter -- runtime or compile-time, both satisfying
+ * IsSizeParameter1D_v as the static_assert enforces -- and runs the six
+ * stages on the group:
+ * -# BwdTransKernelLauncher: coefficients to \f$u\f$ at the quadrature
+ *    points, in @p bwd;
+ * -# PhysDerivTensor1DKernel: the reference derivative
+ *    \f$\partial u/\partial\xi_0\f$, in @p deriv0;
+ * -# AddAdvection1DKernel: overwrites @p bwd with
+ *    \f$\mathbf{V}\cdot\nabla u + \lambda u\f$, applying the chain rule
+ *    to the reference derivative as it goes;
+ * -# DiffusionCoeffwithWJ1DKernel of the Helmholtz family: replaces
+ *    @p deriv0 by the diffusion flux pulled back to the reference
+ *    direction and applies the quadrature weights and the Jacobian to
+ *    it and to @p bwd, with a unit coefficient since the reaction term
+ *    is already in @p bwd; the varying-diffusivity arguments receive
+ *    @p nullVec;
+ * -# SumDerivTensor1DKernel: contracts the flux against the transposed
+ *    derivative matrix and adds it onto @p bwd, which then holds the
+ *    whole integrand;
+ * -# IProductWRTBaseKernelLauncher without weights or Jacobian (already
+ *    applied), writing the output coefficients.
+ *
+ * @tparam SHAPE_TYPE          Element shape (segments only).
+ * @tparam DEFORMED            Jacobian and derivative factors vary point
+ *                             by point.
+ * @tparam TSizeParameter1D    1D size parameter (see ElmtHelper.hpp).
+ * @tparam simd_type           SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam1D Element sizes: modes and quadrature points.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   ncoord      Coordinate dimension.
+ * @param   diffCoeff   Packed diffusivity tensor (see
+ *                      LinAdvDiffReactionOp::SetDiffCoeff).
+ * @param   nullVec     Empty vector standing in for the
+ *                      varying-diffusivity tables.
+ * @param   basis0      1D basis table.
+ * @param   D0          1D collocation derivative matrix.
+ * @param   w0          1D quadrature weights.
+ * @param   NtoM        Nodal-to-modal matrix; unused for segments.
+ * @param   NtoMTrans   Its transpose; unused for segments.
+ * @param   jac         Jacobians of the group.
+ * @param   df          Derivative factors of the group.
+ * @param   advVel0_ptr Velocity component 0 of the group.
+ * @param   advVel1_ptr Velocity component 1; read for embedded segments.
+ * @param   advVel2_ptr Velocity component 2; read for embedded segments.
+ * @param   deriv0      Quadrature-space buffer for the derivative and
+ *                      then the flux.
+ * @param   bwd         Quadrature-space buffer for \f$u\f$ and then the
+ *                      integrand.
+ * @param   in          Coefficients of the group.
+ * @param   out         Output coefficients of the group, overwritten.
+ * @param   lambda      Reaction coefficient.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
@@ -393,6 +590,57 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
         sizeParam1D, isModified, bwd, basis0, NtoMTrans, out);
 }
 
+/**
+ * @brief Apply the whole operator to one element group of a 2D block
+ * (quadrilaterals and modal or nodal triangles).
+ *
+ * As the 1D overload, with the two-dimensional stages: the backward
+ * transform and the inner product use the workspace @p wsp0 and, for
+ * NodalTri, convert from and back to the nodal coefficients through
+ * @p NtoM and @p NtoMTrans; PhysDerivTensor2DKernel leaves the two
+ * reference derivatives -- still in collapsed coordinates for triangles
+ * -- in @p deriv0 and @p deriv1; AddAdvection2DKernel and
+ * DiffusionCoeffwithWJ2DKernel each complete the collapsed-coordinate
+ * chain rule with @p f0 and @p f1 before applying the derivative
+ * factors; SumDerivTensor2DKernel sums both flux components onto
+ * @p bwd.
+ *
+ * @tparam SHAPE_TYPE          Quad, Tri or NodalTri.
+ * @tparam DEFORMED            Jacobian and derivative factors vary point
+ *                             by point.
+ * @tparam TSizeParameter2D    2D size parameter (see ElmtHelper.hpp).
+ * @tparam simd_type           SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam2D Element sizes: modes and quadrature points per
+ *                      direction.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   ncoord      Coordinate dimension (2, or 3 for a surface
+ *                      element embedded in three dimensions).
+ * @param   diffCoeff   Packed diffusivity tensor.
+ * @param   nullVec     Empty vector standing in for the
+ *                      varying-diffusivity tables.
+ * @param   basis0,basis1   1D basis tables.
+ * @param   D0,D1       1D collocation derivative matrices.
+ * @param   w0,w1       1D quadrature weights.
+ * @param   f0          Collapsed-coordinate factor \f$(1+\eta_0)/2\f$,
+ *                      per direction-0 point; triangles only.
+ * @param   f1          Collapsed-coordinate factor \f$2/(1-\eta_1)\f$,
+ *                      per direction-1 point; triangles only.
+ * @param   NtoM        Nodal-to-modal matrix; NodalTri only.
+ * @param   NtoMTrans   Its transpose; NodalTri only.
+ * @param   jac         Jacobians of the group.
+ * @param   df          Derivative factors of the group.
+ * @param   advVel0_ptr,advVel1_ptr     Velocity components 0 and 1.
+ * @param   advVel2_ptr Velocity component 2; read when @p ncoord == 3.
+ * @param   wsp0        Shape-kernel workspace.
+ * @param   deriv0,deriv1   Quadrature-space buffers for the derivatives
+ *                          and then the flux.
+ * @param   bwd         Quadrature-space buffer for \f$u\f$ and then the
+ *                      integrand.
+ * @param   in          Coefficients of the group.
+ * @param   out         Output coefficients of the group, overwritten.
+ * @param   lambda      Reaction coefficient.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
@@ -444,6 +692,52 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
         sizeParam2D, isModified, bwd, basis0, basis1, NtoMTrans, wsp0, out);
 }
 
+/**
+ * @brief Apply the whole operator to one element group of a 3D block
+ * (hexahedra, modal or nodal tetrahedra and prisms, and pyramids).
+ *
+ * The three-dimensional counterpart of the 2D overload: three
+ * workspaces, three derivative buffers and the four collapsed-coordinate
+ * factor tables, which AddAdvection3DKernel and
+ * DiffusionCoeffwithWJ3DKernel use according to the shape. The
+ * coordinate dimension is accepted but not used -- a three-dimensional
+ * element has coordinate dimension three.
+ *
+ * @tparam SHAPE_TYPE          Hex, Tet, NodalTet, Prism, NodalPrism or
+ *                             Pyr.
+ * @tparam DEFORMED            Jacobian and derivative factors vary point
+ *                             by point.
+ * @tparam TSizeParameter3D    3D size parameter (see ElmtHelper.hpp).
+ * @tparam simd_type           SIMD vector type; one element per lane.
+ *
+ * @param   sizeParam3D Element sizes: modes and quadrature points per
+ *                      direction.
+ * @param   isModified  First-direction basis is eModified_A.
+ * @param   ncoord      Coordinate dimension; unused.
+ * @param   diffCoeff   Packed diffusivity tensor.
+ * @param   nullVec     Empty vector standing in for the
+ *                      varying-diffusivity tables.
+ * @param   basis0,basis1,basis2    1D basis tables.
+ * @param   D0,D1,D2    1D collocation derivative matrices.
+ * @param   w0,w1,w2    1D quadrature weights.
+ * @param   f0          \f$(1+\eta_0)/2\f$, per direction-0 point.
+ * @param   f1          \f$(1+\eta_1)/2\f$, per direction-1 point.
+ * @param   f1m         \f$2/(1-\eta_1)\f$, per direction-1 point.
+ * @param   f2          \f$2/(1-\eta_2)\f$, per direction-2 point.
+ * @param   NtoM        Nodal-to-modal matrix; nodal shapes only.
+ * @param   NtoMTrans   Its transpose; nodal shapes only.
+ * @param   jac         Jacobians of the group.
+ * @param   df          Derivative factors of the group.
+ * @param   advVel0_ptr,advVel1_ptr,advVel2_ptr  Velocity components.
+ * @param   wsp0,wsp1,wsp2  Shape-kernel workspaces.
+ * @param   deriv0,deriv1,deriv2    Quadrature-space buffers for the
+ *                                  derivatives and then the flux.
+ * @param   bwd         Quadrature-space buffer for \f$u\f$ and then the
+ *                      integrand.
+ * @param   in          Coefficients of the group.
+ * @param   out         Output coefficients of the group, overwritten.
+ * @param   lambda      Reaction coefficient.
+ */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
