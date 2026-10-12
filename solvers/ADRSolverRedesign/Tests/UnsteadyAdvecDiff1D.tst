@@ -2,7 +2,7 @@
 <test>
     <description> 1D shared IMEX advection-diffusion with Redesign operators </description>
     <executable>ADRSolverRedesign</executable>
-    <parameters> UnsteadyAdvecDiff1D.xml</parameters>
+    <parameters>UnsteadyAdvecDiff1D.xml</parameters>
     <files>
         <file description="Session File"> UnsteadyAdvecDiff1D.xml </file>
     </files>

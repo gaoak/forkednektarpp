@@ -2,7 +2,7 @@
 <test>
     <description> 1D unsteady implicit diffusion with explicit reaction using Redesign operators </description>
     <executable>ADRSolverRedesign</executable>
-    <parameters> ReactionDiffusion1D.xml</parameters>
+    <parameters>-I ProjectInitialConditions=Galerkin ReactionDiffusion1D.xml</parameters>
     <files>
         <file description="Session File"> ReactionDiffusion1D.xml </file>
     </files>
@@ -11,7 +11,7 @@
 	        <value variable="u" tolerance="2e-11">  8.6e-10 </value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="2e-11"> 1.38e-09 </value>
+            <value variable="u" tolerance="2e-11"> 1.406e-09 </value>
         </metric>
     </metrics>
 </test>

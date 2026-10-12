@@ -17,7 +17,7 @@
     </description>
     <segment type="sequential">
         <executable>ADRSolverRedesign</executable>
-        <parameters>ReactionDiffusion2D_Restart_a.xml</parameters>
+        <parameters>-I ProjectInitialConditions=Galerkin ReactionDiffusion2D_Restart_a.xml</parameters>
         <processes>1</processes>
     </segment>
     <segment type="sequential">

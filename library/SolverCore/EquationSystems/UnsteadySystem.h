@@ -163,12 +163,19 @@ protected:
 
     SOLVER_CORE_EXPORT void WriteInitialConditions();
 
-    SOLVER_CORE_EXPORT LibUtilities::FunctionType GetInitialConditionType(
-        std::vector<std::string> &variables);
-
     SOLVER_CORE_EXPORT void PrintInitialConditions(
         const MultiRegions::ExpListSharedPtr expList,
         const std::vector<std::string> &variables);
+
+    /// Evaluate the initial condition of continuous fields and bring it
+    /// into the continuous space.
+    SOLVER_CORE_EXPORT void SetContinuousInitialConditions(
+        const MultiRegions::ExpListSharedPtr &expList,
+        const std::vector<std::string> &variables,
+        LibUtilities::Field<double, FieldState::Phys> &phys,
+        LibUtilities::Field<double, FieldState::Coeff> &coeffs,
+        const std::shared_ptr<MultiRegions::BwdTransOp<double>> &bwdTransOp,
+        std::shared_ptr<FwdTransOp<double>> fwdTransOp);
 };
 
 } // namespace Nektar::SolverCore

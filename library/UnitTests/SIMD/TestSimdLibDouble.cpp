@@ -835,11 +835,22 @@ BOOST_AUTO_TEST_CASE(SimdLibDouble_logic_and)
     BOOST_CHECK_EQUAL(amask && false, false);
     BOOST_CHECK_EQUAL(amask && true, false);
 
-    if (vec_t::width > 1)
+    // a mask with a single lane different from the others is not all true,
+    // whichever lane it is
+    for (size_t l = 0; l < vec_t::width && vec_t::width > 1; ++l)
     {
-        ascalararr[0] = mask_t::true_v;
-        // check
-        BOOST_CHECK_EQUAL(amask && false, false);
+        for (size_t i = 0; i < vec_t::width; ++i)
+        {
+            ascalararr[i] = (i == l) ? mask_t::true_v : mask_t::false_v;
+        }
+        amask.load(ascalararr.data());
+        BOOST_CHECK_EQUAL(amask && true, false);
+
+        for (size_t i = 0; i < vec_t::width; ++i)
+        {
+            ascalararr[i] = (i == l) ? mask_t::false_v : mask_t::true_v;
+        }
+        amask.load(ascalararr.data());
         BOOST_CHECK_EQUAL(amask && true, false);
     }
 }

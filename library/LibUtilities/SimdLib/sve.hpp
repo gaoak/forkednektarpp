@@ -1245,9 +1245,9 @@ inline bool operator&&(sveMask64 lhs, bool rhs)
 {
     // set mask
     sveMask64::vectorType sveFalse_v = svdup_u64(sveMask64::false_v);
-    svbool_vlst_t mask = svcmpne_u64(svptrue_b64(), lhs._data, sveFalse_v);
-    // is any equal to false (zero)?
-    bool tmp = svptest_any(svptrue_b64(), mask);
+    svbool_vlst_t mask = svcmpeq_u64(svptrue_b64(), lhs._data, sveFalse_v);
+    // true only if no lane is false, as on the other back-ends
+    bool tmp = !svptest_any(svptrue_b64(), mask);
     return tmp && rhs;
 }
 
@@ -1276,9 +1276,9 @@ inline bool operator&&(sveMask32 lhs, bool rhs)
 {
     // set mask
     sveMask32::vectorType sveFalse_v = svdup_u32(sveMask32::false_v);
-    svbool_vlst_t mask = svcmpne_u32(svptrue_b32(), lhs._data, sveFalse_v);
-    // is any equal to false (zero)?
-    bool tmp = svptest_any(svptrue_b32(), mask);
+    svbool_vlst_t mask = svcmpeq_u32(svptrue_b32(), lhs._data, sveFalse_v);
+    // true only if no lane is false, as on the other back-ends
+    bool tmp = !svptest_any(svptrue_b32(), mask);
     return tmp && rhs;
 }
 

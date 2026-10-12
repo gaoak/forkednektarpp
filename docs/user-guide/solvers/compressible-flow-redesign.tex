@@ -159,11 +159,14 @@ families (\inltt{ForwardEuler}, \inltt{RungeKutta} and its SSP variants,
   \inltt{DEVICEBACKEND} sections each list operators by name with their
   implementation. Anything still unspecified defaults to \inltt{SumFac}
   with a warning.
-\item \inltt{ProjectInitialConditions}, when set to \inltt{True}, performs
-  an element-local Galerkin projection of expression-based initial
-  conditions instead of the default collocation interpolation, which is
-  useful when comparing against a projected reference solution. The
-  default (\inltt{False}) matches the legacy solver's behaviour.
+\item \inltt{ProjectInitialConditions}, when set to \inltt{Galerkin}
+  (\inltt{True} is still accepted), performs an element-local Galerkin
+  projection of expression-based initial conditions instead of the
+  default collocation interpolation, which is useful when comparing
+  against a projected reference solution. The default (\inltt{None},
+  or \inltt{False}) matches the legacy solver's behaviour. See the
+  description of \inltt{ProjectInitialConditions} in the
+  \inltt{SOLVERINFO} section of the conditions chapter.
 \end{itemize}
 
 \subsection*{Equation of state}

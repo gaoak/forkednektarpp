@@ -2,7 +2,7 @@
 <test>
     <description>2D shared IMEX advection-diffusion with 3 components</description>
     <executable>ADRSolverRedesign</executable>
-    <parameters>UnsteadyAdvecDiff2D_3C.xml</parameters>
+    <parameters>-I ProjectInitialConditions=Galerkin UnsteadyAdvecDiff2D_3C.xml</parameters>
     <files>
         <file description="Session File">UnsteadyAdvecDiff2D_3C.xml</file>
     </files>

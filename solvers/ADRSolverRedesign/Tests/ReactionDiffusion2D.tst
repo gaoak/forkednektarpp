@@ -2,7 +2,7 @@
 <test>
     <description> 2D unsteady implicit diffusion with explicit reaction using Redesign operators </description>
     <executable>ADRSolverRedesign</executable>
-    <parameters> ReactionDiffusion2D.xml</parameters>
+    <parameters>-I ProjectInitialConditions=Galerkin ReactionDiffusion2D.xml</parameters>
     <files>
         <file description="Session File"> ReactionDiffusion2D.xml </file>
     </files>

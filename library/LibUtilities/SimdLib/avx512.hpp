@@ -1254,9 +1254,10 @@ inline avx512Mask8 operator>(avx512Double8 lhs, avx512Double8 rhs)
 
 inline bool operator&&(avx512Mask8 lhs, bool rhs)
 {
+    // true only if every lane is true, as on the other back-ends
     __m512i val_true = _mm512_set1_epi64(avx512Mask8::true_v);
     __mmask8 mask    = _mm512_test_epi64_mask(lhs._data, val_true);
-    unsigned int tmp = _cvtmask16_u32(mask);
+    bool tmp         = _cvtmask16_u32(mask) == 0xFFu;
     return tmp && rhs;
 }
 
@@ -1277,9 +1278,10 @@ inline avx512Mask16 operator>(avx512Float16 lhs, avx512Float16 rhs)
 
 inline bool operator&&(avx512Mask16 lhs, bool rhs)
 {
+    // true only if every lane is true, as on the other back-ends
     __m512i val_true = _mm512_set1_epi32(avx512Mask16::true_v);
     __mmask16 mask   = _mm512_test_epi32_mask(lhs._data, val_true);
-    unsigned int tmp = _cvtmask16_u32(mask);
+    bool tmp         = _cvtmask16_u32(mask) == 0xFFFFu;
     return tmp && rhs;
 }
 

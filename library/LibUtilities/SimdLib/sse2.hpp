@@ -1185,7 +1185,8 @@ inline sse2Mask4 operator>(sse2Float4 lhs, sse2Float4 rhs)
 
 inline bool operator&&(sse2Mask4 lhs, bool rhs)
 {
-    bool tmp = _mm_testc_si128(lhs._data, _mm_set1_epi64x(sse2Mask4::true_v));
+    // true only if every lane is true; the true value is set per 32-bit lane
+    bool tmp = _mm_testc_si128(lhs._data, _mm_set1_epi32(sse2Mask4::true_v));
 
     return tmp && rhs;
 }

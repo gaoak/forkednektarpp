@@ -86,30 +86,66 @@ property/value pairs are specified as XML attributes. For example,
 Boolean-valued solver properties are specified using \inltt{True} or \inltt{False}. The list of available solvers in Nektar++ can be found in
 Part~\ref{p:applications}.
 
-The redesign solvers accept \inltt{ProjectInitialConditions}, a
-boolean property that is \inltt{False} by default and has an effect
-only where \inltt{Projection} is \inltt{DisContinuous}. A
-discontinuous run holds its state at the quadrature points, and the
-initial condition is the session expression sampled there. That
-sampled state carries more than the expansion can hold -- there are
-more quadrature points than modes -- so it does not lie in the
-polynomial space, and the surplus survives the whole run. A field file
-stores modal coefficients and cannot represent it, so a run restarted
-from such a file does not reproduce the run it resumed.
+The redesign solvers bring the initial condition into the polynomial
+space before the first step by the method the
+\inltt{ProjectInitialConditions} property selects. An expression is
+sampled at the quadrature points, which carries more than the expansion
+can hold -- there are more quadrature points than modes -- and a field
+file may come from a run at another polynomial order or with other
+boundary conditions. Neither source is therefore continuous between
+elements or takes the Dirichlet values of the session as it stands. The
+values available depend on \inltt{Projection}:
 
-Setting the property projects the initial condition once, at start-up,
-which confines the state to the polynomial space and makes a restart
-exact. It is opt-in because projecting changes the answer of every
-discontinuous run, so enabling it will move results that were
-previously validated without it. Note that an exact restart requires
-the property in \emph{both} runs, since the field file is written from
-whatever state the first run held. A discontinuous run started without
-it emits a warning saying so.
+\begin{center}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Value}      & \textbf{Continuous} & \textbf{Discontinuous} \\
+    \midrule
+    \inltt{Average}     & default             & not available \\
+    \inltt{Galerkin}    & global mass matrix  & element-local projection \\
+    \inltt{None}        & not available       & default \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item \inltt{Average} (continuous only, the default): an expression is
+  first projected element by element, and a file is used as read. Every
+  degree of freedom shared between elements is then set to the average of
+  its copies, and the Dirichlet boundary values at the start time are
+  imposed. This is what the legacy solvers do.
+  \item \inltt{Galerkin}: for a continuous run, a file is first evaluated
+  at the quadrature points, and the field is then projected by a global
+  mass matrix solve with the Dirichlet boundary values at the start time.
+  For a discontinuous run, an expression is projected element by element
+  into the polynomial space.
+  \item \inltt{None} (discontinuous only, the default): the expression is
+  kept as sampled at the quadrature points.
+\end{itemize}
+The pressure of the incompressible solver is treated as the other fields
+are. A value that is not available for the projection in use is an error.
+\inltt{True} and \inltt{False} are accepted as \inltt{Galerkin} and
+\inltt{None}, for compatibility with sessions written when the property
+was boolean.
+
+A discontinuous run holds its state at the quadrature points. With
+\inltt{None} the sampled surplus does not lie in the polynomial space and
+survives the whole run, and a field file, which stores modal
+coefficients, cannot represent it, so a run restarted from such a file
+does not reproduce the run it resumed. \inltt{Galerkin} confines the
+state to the polynomial space and makes a restart exact. It is opt-in
+because projecting changes the answer of every discontinuous run, so
+enabling it will move results that were previously validated without it.
+Note that an exact restart requires the property in \emph{both} runs,
+since the field file is written from whatever state the first run held.
+A discontinuous run started with \inltt{None} emits a warning saying so.
+A field file read as the initial condition of a discontinuous run is in
+the polynomial space already and is used as read.
 
 \begin{lstlisting}[style=XMLStyle]
 <SOLVERINFO>
   <I PROPERTY="Projection"                VALUE="DisContinuous"  />
-  <I PROPERTY="ProjectInitialConditions"  VALUE="True"           />
+  <I PROPERTY="ProjectInitialConditions"  VALUE="Galerkin"       />
 </SOLVERINFO>
 \end{lstlisting}
 
