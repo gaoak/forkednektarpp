@@ -107,6 +107,44 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             PROPERTIES PROCESSORS 2 TIMEOUT 120)
     ENDIF()
 
+    # A file initial condition that is discontinuous and off the Dirichlet
+    # velocity, averaged and given the Dirichlet values (the default
+    # ProjectInitialConditions), on every execution space and on two
+    # processes. The _Galerkin test projects the same file by the global
+    # mass matrix solve.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_semiimplicit_${ExecSpace}_${Implementation}
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition.tst
+                    -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                    "--solver-options=-I Formulation=semiimplicit")
+        ENDFOREACH()
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_Galerkin
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition_Galerkin.tst
+                -v --opExecSpace=Serial --opImpl=SumFac
+                "--solver-options=-I Formulation=semiimplicit")
+        IF(NEKTAR_USE_MPI)
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_MPI
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition_MPI.tst
+                    -v --opExecSpace=Serial --opImpl=SumFac
+                    "--solver-options=-I Formulation=semiimplicit")
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_MPI
+                PROPERTIES PROCESSORS 2 TIMEOUT 120)
+        ENDIF()
+    ENDIF()
+
     # TGVFlow3D_Hex8 Serial+StdMat is disabled for now: at this element
     # order (NUMMODES=7) it hits a pre-existing slow non-templated-operator
     # fallback in Serial execspace dispatch, unrelated to StdMat evaluation

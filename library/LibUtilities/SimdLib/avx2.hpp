@@ -1215,8 +1215,9 @@ inline avx2Mask8 operator>(avx2Float8 lhs, avx2Float8 rhs)
 
 inline bool operator&&(avx2Mask8 lhs, bool rhs)
 {
+    // true only if every lane is true; the true value is set per 32-bit lane
     bool tmp =
-        _mm256_testc_si256(lhs._data, _mm256_set1_epi64x(avx2Mask8::true_v));
+        _mm256_testc_si256(lhs._data, _mm256_set1_epi32(avx2Mask8::true_v));
 
     return tmp && rhs;
 }

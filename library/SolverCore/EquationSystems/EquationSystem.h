@@ -209,6 +209,17 @@ protected:
     SOLVER_CORE_EXPORT void ProjectPhysToCoeffs(
         LibUtilities::Field<double, FieldState::Phys> &phys);
 
+    /// Build the continuous projection, a mass matrix solve, for the fields
+    /// of an expansion list.
+    SOLVER_CORE_EXPORT std::shared_ptr<FwdTransOp<double>> CreateFwdTransOp(
+        const MultiRegions::ExpListSharedPtr &expList,
+        const std::vector<std::string> &variables);
+
+    /// The function type, expression or file, of the initial condition of
+    /// @p variables, or none.
+    SOLVER_CORE_EXPORT LibUtilities::FunctionType GetInitialConditionType(
+        const std::vector<std::string> &variables);
+
     LibUtilities::CommSharedPtr m_comm;
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;
@@ -222,10 +233,21 @@ protected:
     unsigned int m_expdim                         = 0;
     double m_time                                 = 0.0;
     MultiRegions::ProjectionType m_projectionType = MultiRegions::eGalerkin;
-    /// Project a discontinuous initial condition into the polynomial space
-    /// before the first step. Off by default. See
-    /// UnsteadySystem::v_SetInitialConditions() for what it buys.
-    bool m_projectInitialConditions = false;
+
+    /// How the initial condition is brought into the polynomial space; see
+    /// UnsteadySystem::v_SetInitialConditions().
+    enum class InitialConditionProjection
+    {
+        None,     ///< Discontinuous: keep the quadrature point samples.
+        Average,  ///< Continuous: average element coefficients, Dirichlet.
+        Galerkin, ///< Continuous: mass matrix solve with the Dirichlet
+                  ///< values. Discontinuous: element-local L2 projection.
+    };
+
+    /// Session SOLVERINFO ProjectInitialConditions; default Average for a
+    /// continuous projection, None otherwise.
+    InitialConditionProjection m_initialConditionProjection =
+        InitialConditionProjection::Average;
     std::vector<bool> m_checkIfSystemSingular;
     std::vector<std::string> m_variables;
 

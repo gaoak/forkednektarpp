@@ -2,7 +2,7 @@
 <test>
     <description> 3D unsteady CG implicit diffusion with 3 components </description>
     <executable>ADRSolverRedesign</executable>
-    <parameters> UnsteadyDiffusion3D_3C.xml</parameters>
+    <parameters>UnsteadyDiffusion3D_3C.xml</parameters>
     <files>
         <file description="Session File"> UnsteadyDiffusion3D_3C.xml </file>
     </files>

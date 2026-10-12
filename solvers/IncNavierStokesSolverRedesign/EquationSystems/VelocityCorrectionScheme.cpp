@@ -42,7 +42,6 @@
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
-#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
@@ -633,55 +632,18 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
     // Set time to initial time
     m_time = initialTime;
 
-    // Initialise velocity, pressure and workspace fields
+    // Initialise pressure fields
     m_math.zero(m_pressure);
     m_math.zero(m_pressure_coeff);
 
-    // Set initial conditions
-    auto vType = GetInitialConditionType(m_variablesPressure);
-    SessionFunction initialConditions(
-        m_session, m_expansionLists[m_pressureIndex], "InitialConditions");
-    if (vType == LibUtilities::eFunctionTypeExpression)
-    {
-        initialConditions.EvaluateExpression(m_variablesPressure, m_pressure,
-                                             m_time);
-
-        // Project the pressure initial condition into coefficient space so the
-        // first Stokes step has a usable pressure state.
-        auto fwdTransPressureOp = FwdTransOp<double>::Create(
-            m_expansionLists[m_pressureIndex], m_variablesPressure);
-        auto preconPressureOp = PreconOp<double>::Create(
-            m_expansionLists[m_pressureIndex], m_variablesPressure);
-        auto linsolverPressureOp = LinearSolverOp<double>::Create(
-            m_expansionLists[m_pressureIndex], m_variablesPressure);
-        fwdTransPressureOp->SetLinearSolver(linsolverPressureOp);
-        fwdTransPressureOp->SetPrecon(preconPressureOp);
-        fwdTransPressureOp->UpdatePrecon();
-
-        // Project initial conditions
-        fwdTransPressureOp->Apply(m_pressure, m_pressure_coeff);
-        m_bwdTransPressureOp->Apply(m_pressure_coeff, m_pressure);
-    }
-    // Set initial conditions from file
-    else if (vType == LibUtilities::eFunctionTypeFile)
-    {
-        // Field files store modal coefficients. Load coefficient space first
-        // and reconstruct physical values with the device support BwdTrans
-        // operator.
-        initialConditions.EvaluateFld(m_variablesPressure, m_pressure_coeff,
-                                      m_time);
-        m_bwdTransPressureOp->Apply(m_pressure_coeff, m_pressure);
-    }
-
-    // Print pressure initial condition
-    if (m_session->GetComm()->GetRank() == 0)
-    {
-        for (const auto &varName : m_variablesPressure)
-        {
-            std::cout << "  - Field " << varName << ": "
-                      << initialConditions.Describe(varName) << std::endl;
-        }
-    }
+    // The pressure is projected as the other fields are, its Dirichlet
+    // values included; its mass matrix projection is built only for
+    // Galerkin.
+    SetContinuousInitialConditions(
+        m_expansionLists[m_pressureIndex], m_variablesPressure, m_pressure,
+        m_pressure_coeff, m_bwdTransPressureOp, nullptr);
+    PrintInitialConditions(m_expansionLists[m_pressureIndex],
+                           m_variablesPressure);
 }
 
 void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)

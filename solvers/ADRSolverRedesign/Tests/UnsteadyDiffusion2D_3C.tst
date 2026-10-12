@@ -2,7 +2,7 @@
 <test>
     <description> 2D unsteady CG implicit diffusion with 3 components </description>
     <executable>ADRSolverRedesign</executable>
-    <parameters> UnsteadyDiffusion2D_3C.xml</parameters>
+    <parameters>-I ProjectInitialConditions=Galerkin UnsteadyDiffusion2D_3C.xml</parameters>
     <files>
         <file description="Session File"> UnsteadyDiffusion2D_3C.xml </file>
     </files>

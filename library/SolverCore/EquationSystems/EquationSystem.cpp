@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <boost/algorithm/string/predicate.hpp>
+
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <SolverCore/EquationSystems/EquationSystem.h>
@@ -91,14 +93,59 @@ void EquationSystem::v_InitObject(bool declareExpansionLists)
     m_sessionName = m_session->GetSessionName();
     m_fieldIo     = LibUtilities::FieldIO::CreateDefault(m_session);
 
-    // A discontinuous run holds its state at the quadrature points, where it
-    // is not confined to the polynomial space (see
-    // UnsteadySystem::v_SetInitialConditions). Projecting the initial
-    // condition confines it, which makes a field file a faithful record of
+    // How the initial condition is brought into the polynomial space; see
+    // UnsteadySystem::v_SetInitialConditions(). A continuous run must be
+    // brought into the continuous space, by Average or Galerkin, and
+    // defaults to Average. A discontinuous run holds its state at the
+    // quadrature points, where it is not confined to the polynomial space.
+    // Galerkin confines it, which makes a field file a faithful record of
     // the state and so makes a restart exact - at the price of changing
-    // every discontinuous answer, which is why it is off by default.
-    m_session->MatchSolverInfo("ProjectInitialConditions", "True",
-                               m_projectInitialConditions, false);
+    // every discontinuous answer, which is why None is its default. True and
+    // False are accepted for Galerkin and None.
+    const bool continuous        = m_projectionType == MultiRegions::eGalerkin;
+    m_initialConditionProjection = continuous
+                                       ? InitialConditionProjection::Average
+                                       : InitialConditionProjection::None;
+    if (m_session->DefinesSolverInfo("ProjectInitialConditions"))
+    {
+        const std::string value =
+            m_session->GetSolverInfo("ProjectInitialConditions");
+        if (boost::iequals(value, "Average"))
+        {
+            m_initialConditionProjection = InitialConditionProjection::Average;
+        }
+        else if (boost::iequals(value, "Galerkin") ||
+                 boost::iequals(value, "True"))
+        {
+            m_initialConditionProjection = InitialConditionProjection::Galerkin;
+        }
+        else if (boost::iequals(value, "None") ||
+                 boost::iequals(value, "False"))
+        {
+            m_initialConditionProjection = InitialConditionProjection::None;
+        }
+        else
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "ProjectInitialConditions must be Average, Galerkin or "
+                     "None, not " +
+                         value + ".");
+        }
+
+        const InitialConditionProjection unavailable =
+            continuous ? InitialConditionProjection::None
+                       : InitialConditionProjection::Average;
+        if (m_initialConditionProjection == unavailable)
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "ProjectInitialConditions = " + value +
+                         " is not available for the " +
+                         GetProjectionString(m_projectionType) +
+                         " projection; use " +
+                         (continuous ? "Average or Galerkin."
+                                     : "Galerkin or None."));
+        }
+    }
 
     // Check boundary conditions, if one field uses only Neumann/Periodic BCs
     m_checkIfSystemSingular = v_GetSystemSingularChecks();
@@ -194,14 +241,6 @@ void EquationSystem::v_GenerateSummary(SummaryList &summary)
 
     AddSummaryItem(summary, "Projection Type",
                    GetProjectionString(m_projectionType));
-
-    // Only worth reporting where it has an effect, and only when set, so an
-    // ordinary run's summary is unchanged.
-    if (m_projectInitialConditions &&
-        m_projectionType == MultiRegions::eDiscontinuous)
-    {
-        AddSummaryItem(summary, "Initial Condition", "projected into space");
-    }
 }
 
 void EquationSystem::v_PrintNorms(std::ostream &out)
@@ -269,6 +308,55 @@ void EquationSystem::ProjectPhysToCoeffs(
 
     m_iProductWRTBaseOp->Apply(phys, m_fields_coeff_tmp);
     m_multiplyByElmtInvMassOp->Apply(m_fields_coeff_tmp, m_fields_coeff);
+}
+
+/**
+ * @brief Build the continuous projection, a mass matrix solve, for the fields
+ * of an expansion list.
+ *
+ * The projection solve is a mass matrix problem, so it uses ConjGrad
+ * regardless of the system solver configured in the session. The
+ * preconditioner is set up here.
+ *
+ * @param   expList     Continuous expansion list of the fields.
+ * @param   variables   Names of the field components.
+ *
+ * @return  The projection operator.
+ */
+std::shared_ptr<FwdTransOp<double>> EquationSystem::CreateFwdTransOp(
+    const MultiRegions::ExpListSharedPtr &expList,
+    const std::vector<std::string> &variables)
+{
+    auto fwdTransOp = FwdTransOp<double>::Create(expList, variables);
+    auto preconOp   = PreconOp<double>::Create(expList, variables);
+    auto linsolverOp =
+        LinearSolverOp<double>::Create(expList, variables, "ConjGrad");
+    fwdTransOp->SetLinearSolver(linsolverOp);
+    fwdTransOp->SetPrecon(preconOp);
+    fwdTransOp->UpdatePrecon();
+    return fwdTransOp;
+}
+
+LibUtilities::FunctionType EquationSystem::GetInitialConditionType(
+    const std::vector<std::string> &variables)
+{
+    LibUtilities::FunctionType vType = LibUtilities::eFunctionTypeNone;
+    if (m_session->DefinesFunction("InitialConditions"))
+    {
+        vType = m_session->GetFunctionType("InitialConditions", variables[0]);
+
+        // Check all variables use same FunctionType
+        for (unsigned int i = 1; i < variables.size(); ++i)
+        {
+            LibUtilities::FunctionType vType2 =
+                m_session->GetFunctionType("InitialConditions", variables[i]);
+            ASSERTL0(vType == vType2,
+                     "Currently support either all InitialConditions from file "
+                     "<F> or all from expression <E>.");
+        }
+    }
+
+    return vType;
 }
 
 void EquationSystem::v_WriteFld(const std::string &outname)
@@ -565,19 +653,8 @@ void EquationSystem::v_InitialiseOperators()
             m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
                 m_expansionLists[0], m_variables);
 
-            // Projection operators
-            m_fwdTransOp =
-                FwdTransOp<double>::Create(m_expansionLists[0], m_variables);
-            auto preconOp =
-                PreconOp<double>::Create(m_expansionLists[0], m_variables);
-            // The projection solve is a mass-matrix problem, so use
-            // ConjGrad regardless of the ADR system solver configured in
-            // the session.
-            auto linsolverOp = LinearSolverOp<double>::Create(
-                m_expansionLists[0], m_variables, "ConjGrad");
-            m_fwdTransOp->SetLinearSolver(linsolverOp);
-            m_fwdTransOp->SetPrecon(preconOp);
-            m_fwdTransOp->UpdatePrecon();
+            // Projection operator
+            m_fwdTransOp = CreateFwdTransOp(m_expansionLists[0], m_variables);
             break;
         }
         default:

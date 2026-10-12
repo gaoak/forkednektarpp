@@ -153,15 +153,19 @@ NEK_DEVICE_KERNEL static void DivideByJacobianKernel(
 
     for (size_t idx = idx0; idx < nelmt * nqTot * nhomo; idx += stride)
     {
+        // Elements whose Jacobian is zero, the padding of a block, are set
+        // to zero rather than divided by it.
         if constexpr (DEFORMED)
         {
-            size_t e    = idx % (nelmt * nqTot);
-            outptr[idx] = inptr[idx] / jacptr[e];
+            size_t e = idx % (nelmt * nqTot);
+            outptr[idx] =
+                (jacptr[e] == TData(0)) ? TData(0) : inptr[idx] / jacptr[e];
         }
         else
         {
-            size_t e    = (idx % (nelmt * nqTot)) / nqTot;
-            outptr[idx] = inptr[idx] / jacptr[e];
+            size_t e = (idx % (nelmt * nqTot)) / nqTot;
+            outptr[idx] =
+                (jacptr[e] == TData(0)) ? TData(0) : inptr[idx] / jacptr[e];
         }
     }
 }

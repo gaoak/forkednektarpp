@@ -2,7 +2,7 @@
 <test>
     <description>3D unsteady advection-diffusion on a prism mesh with 3 components using a scaled polynomial MMS</description>
     <executable>ADRSolverRedesign</executable>
-    <parameters>UnsteadyAdvecDiff3D_Prism_3C.xml</parameters>
+    <parameters>-I ProjectInitialConditions=Galerkin UnsteadyAdvecDiff3D_Prism_3C.xml</parameters>
     <files>
         <file description="Session File">UnsteadyAdvecDiff3D_Prism_3C.xml</file>
     </files>

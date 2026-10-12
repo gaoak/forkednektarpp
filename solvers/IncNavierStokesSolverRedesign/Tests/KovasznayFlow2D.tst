@@ -2,7 +2,7 @@
 <test>
     <description>KovasznayFlow2D</description>
     <executable>IncNavierStokesSolverRedesign</executable>
-    <parameters>KovasznayFlow2D.xml</parameters>
+    <parameters>-I ProjectInitialConditions=Galerkin KovasznayFlow2D.xml</parameters>
     <files>
         <file description="Session File">KovasznayFlow2D.xml</file>
     </files>

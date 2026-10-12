@@ -1,5 +1,6 @@
 # These tests can all likely be derived from the same cpp.in file
 # AssmbScatr                      Nodepend - Seg, Quad, etc
+# AvgAssmbScatr                   Nodepend - Seg, Quad, etc
 # BwdTrans                        Nodepend - Seg, Quad, etc
 # FwdTransBC                      Nodepend - Seg, Quad, only 0D, 1D and 2D
 # Helmholtz                       Nodepend - Seg, Quad, etc
@@ -40,6 +41,8 @@ ADD_NEKTAR_EXECUTABLE(TestOptimization
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestOptimization.cpp)
 ADD_NEKTAR_EXECUTABLE(TestAssmbScatr
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestAssmbScatr.cpp)
+ADD_NEKTAR_EXECUTABLE(TestAvgAssmbScatr
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestAvgAssmbScatr.cpp)
 ADD_NEKTAR_EXECUTABLE(TestDirichlet
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestDirichlet.cpp)
 ADD_NEKTAR_EXECUTABLE(TestNeumann
@@ -92,11 +95,13 @@ SET_UNIT_TEST(Optimization TestOptimization none none FALSE)
 
 # Serial
 SET_UNIT_TEST(AssmbScatr_serial TestAssmbScatr Serial none FALSE)
+SET_UNIT_TEST(AvgAssmbScatr_serial TestAvgAssmbScatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial TestDirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial TestNeumann Serial SumFac FALSE)
 #SET_UNIT_TEST(Robin_serial TestRobin Serial none FALSE)
 IF (NEKTAR_USE_MPI)
     SET_UNIT_TEST(AssmbScatr_serial TestAssmbScatr Serial none TRUE)
+    SET_UNIT_TEST(AvgAssmbScatr_serial TestAvgAssmbScatr Serial none TRUE)
     SET_UNIT_TEST(Dirichlet_serial TestDirichlet Serial none TRUE)
 ENDIF()
 
@@ -146,10 +151,12 @@ SET_UNIT_TEST(AdvectionDealias_serial_sumfac TestAdvectionDealias Serial SumFac 
 # AVX
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(AssmbScatr_avx TestAssmbScatr AVX none FALSE)
+    SET_UNIT_TEST(AvgAssmbScatr_avx TestAvgAssmbScatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  TestDirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx TestNeumann AVX SumFac FALSE)
     IF (NEKTAR_USE_MPI)
         # SET_UNIT_TEST(AssmbScatr_avx TestAssmbScatr AVX none TRUE)
+        # SET_UNIT_TEST(AvgAssmbScatr_avx TestAvgAssmbScatr AVX none TRUE)
     ENDIF()
 ENDIF()
 
@@ -206,6 +213,7 @@ ENDIF()
 # Device
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(AssmbScatr_device TestAssmbScatr Device none FALSE)
+    SET_UNIT_TEST(AvgAssmbScatr_device TestAvgAssmbScatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device TestDirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device TestNeumann Device SumFac FALSE)
     IF (NEKTAR_USE_MPI)
@@ -214,6 +222,7 @@ IF(NEKTAR_ENABLE_DEVICE)
         # AssmbScatr_serial_MPI/Dirichlet_serial_MPI already exercise the same
         # partitioning code path with 2 MPI ranks.
         # SET_UNIT_TEST(AssmbScatr_device TestAssmbScatr Device none TRUE)
+        # SET_UNIT_TEST(AvgAssmbScatr_device TestAvgAssmbScatr Device none TRUE)
         # SET_UNIT_TEST(Dirichlet_device TestDirichlet Device none TRUE)
     ENDIF()
 ENDIF()
