@@ -49,9 +49,9 @@
  * ElmtOp.hpp for the two-level element-operator structure); the per-block
  * interface is AdvectionBlockOp (AdvectionBlockOp.hpp). The plane-local
  * numerical work lives in the detail::AdvectionBlockOpImpl definitions --
- * AdvectionSerialAVXStdMat.hpp and AdvectionSerialAVXSumFac.hpp for the
- * Serial and AVX execution spaces, AdvectionDeviceStdMat.hpp and
- * AdvectionDeviceSumFac.hpp for the Device execution space -- registered
+ * AdvectionBlockOpSerialAVXStdMat.hpp and AdvectionBlockOpSerialAVXSumFac.hpp
+ * for the Serial and AVX execution spaces, AdvectionBlockOpDeviceStdMat.hpp and
+ * AdvectionBlockOpDeviceSumFac.hpp for the Device execution space -- registered
  * with the block-operator factory by CMake-generated translation units. On
  * a multi-plane 3DH1 expansion the homogeneous term w du/dz is added by
  * the z-operator detail::AdvectionZOpImpl (AdvectionZOpImpl.hpp), owned by

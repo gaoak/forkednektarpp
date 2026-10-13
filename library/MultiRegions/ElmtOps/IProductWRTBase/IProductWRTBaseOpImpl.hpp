@@ -42,7 +42,7 @@
  * that an "IProductWRTBase" + execution-space key ("IProductWRTBaseSerial",
  * "IProductWRTBaseAVX", "IProductWRTBaseDevice") can be registered with the
  * operator factory. The numerical work is done by the block operators
- * created alongside it (see IProductWRTBaseSerialAVXStdMat.hpp and its
+ * created alongside it (see IProductWRTBaseBlockOpSerialAVXStdMat.hpp and its
  * siblings). CMake-generated translation units instantiate and register
  * this class for each enabled execution space.
  *

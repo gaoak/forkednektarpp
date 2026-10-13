@@ -43,8 +43,8 @@
  * ("MultiplyByElmtInvMassSerial", "MultiplyByElmtInvMassAVX",
  * "MultiplyByElmtInvMassDevice") can be registered with the operator
  * factory. The numerical work is done by the block operators created
- * alongside it (see MultiplyByElmtInvMassSerialAVXGeneric.hpp and
- * MultiplyByElmtInvMassDeviceGeneric.hpp). CMake-generated translation
+ * alongside it (see MultiplyByElmtInvMassBlockOpSerialAVXGeneric.hpp and
+ * MultiplyByElmtInvMassBlockOpDeviceGeneric.hpp). CMake-generated translation
  * units instantiate and register this class for each enabled execution
  * space.
  *

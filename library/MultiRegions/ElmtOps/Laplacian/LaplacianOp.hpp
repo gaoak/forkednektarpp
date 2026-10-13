@@ -93,16 +93,16 @@
  * - LaplacianBlockOp (LaplacianBlockOp.hpp): per-block interface;
  * - detail::LaplacianBlockOpImpl: the per-block implementations, one
  *   header per implementation family --
- *   LaplacianSerialAVXStdMat.hpp and LaplacianSerialAVXSumFac.hpp each
- *   serve both the Serial and the AVX space,
- *   LaplacianDeviceStdMat.hpp serves Device/StdMat, and
- *   LaplacianDeviceSumFac.hpp serves both device sum-factorisation
+ *   LaplacianBlockOpSerialAVXStdMat.hpp and LaplacianBlockOpSerialAVXSumFac.hpp
+ * each serve both the Serial and the AVX space,
+ *   LaplacianBlockOpDeviceStdMat.hpp serves Device/StdMat, and
+ *   LaplacianBlockOpDeviceSumFac.hpp serves both device sum-factorisation
  *   strategies (SumFac and SumFacTOP);
- * - the kernels in LaplacianSerialAVXStdMatKernels.hpp,
- *   LaplacianSerialAVXSumFacKernels.hpp,
- *   LaplacianDeviceStdMatKernels.hpp,
- *   LaplacianDeviceSumFacKernels.hpp and
- *   LaplacianDeviceSumFacTOPKernels.hpp;
+ * - the kernels in LaplacianBlockOpSerialAVXStdMatKernels.hpp,
+ *   LaplacianBlockOpSerialAVXSumFacKernels.hpp,
+ *   LaplacianBlockOpDeviceStdMatKernels.hpp,
+ *   LaplacianBlockOpDeviceSumFacKernels.hpp and
+ *   LaplacianBlockOpDeviceSumFacTOPKernels.hpp;
  * - detail::DerivZOpImpl (DerivZOpImpl.hpp) and MassOp, shared with
  *   the other operator families: the second z-derivative and the xy
  *   mass matrix forming the z term of multi-plane 3DH1 fields.

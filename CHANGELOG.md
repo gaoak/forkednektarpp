@@ -73,6 +73,7 @@ v5.11.0
 - Consistently use the block streams in the redesign boundary-condition operators: run Robin conditions and the Dirichlet/Neumann boundary-coefficient updates per block, fix a race in the Dirichlet local copy, remove redundant host synchronisations and per-call allocations, and fix the 1D Robin operator and the DG periodic output access (!2830)
 - Reduce the work of the redesign time integration operators: build the SDC pointer tables once instead of synchronising every block on every sweep, fuse the updates after implicit solves and in the GEM extrapolation (Math::daxpby), swap instead of copying fields in GEM, skip the final update of stiffly-accurate DIRK and IMEX-DIRK schemes, and cache the block attributes at construction; fix the time of the first ImplicitGEM substep and of the Adams-Moulton startup implicit RHS (!2831)
 - Test convergence with the global inner-product mask in the redesign BiCGStab (half step), ConjRes, GCR and Richardson solvers; apply the GCR solution update once per restart cycle instead of orthogonalising the search directions at every iteration; fuse each modified Gram-Schmidt update of GMRES with the dot product that follows it; add a deferred normalisation option to MINRES (MINRESDeferredNormalisation) (!2832)
+- Consistently name block operator files `<Name>BlockOp<ExecSpace><Impl>` (!2834)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

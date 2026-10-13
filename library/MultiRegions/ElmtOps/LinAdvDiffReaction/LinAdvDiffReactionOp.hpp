@@ -91,16 +91,16 @@
  *   interface, holding the coefficients the implementations read;
  * - detail::LinAdvDiffReactionBlockOpImpl: the per-block
  *   implementations, one header per implementation family --
- *   LinAdvDiffReactionSerialAVXStdMat.hpp and
- *   LinAdvDiffReactionSerialAVXSumFac.hpp each serve both the Serial and
- *   the AVX space, LinAdvDiffReactionDeviceStdMat.hpp serves
- *   Device/StdMat, and LinAdvDiffReactionDeviceSumFac.hpp serves both
+ *   LinAdvDiffReactionBlockOpSerialAVXStdMat.hpp and
+ *   LinAdvDiffReactionBlockOpSerialAVXSumFac.hpp each serve both the Serial and
+ *   the AVX space, LinAdvDiffReactionBlockOpDeviceStdMat.hpp serves
+ *   Device/StdMat, and LinAdvDiffReactionBlockOpDeviceSumFac.hpp serves both
  *   device sum-factorisation strategies (SumFac and SumFacTOP);
- * - the kernels in LinAdvDiffReactionSerialAVXStdMatKernels.hpp,
- *   LinAdvDiffReactionSerialAVXSumFacKernels.hpp,
- *   LinAdvDiffReactionDeviceStdMatKernels.hpp,
- *   LinAdvDiffReactionDeviceSumFacKernels.hpp and
- *   LinAdvDiffReactionDeviceSumFacTOPKernels.hpp.
+ * - the kernels in LinAdvDiffReactionBlockOpSerialAVXStdMatKernels.hpp,
+ *   LinAdvDiffReactionBlockOpSerialAVXSumFacKernels.hpp,
+ *   LinAdvDiffReactionBlockOpDeviceStdMatKernels.hpp,
+ *   LinAdvDiffReactionBlockOpDeviceSumFacKernels.hpp and
+ *   LinAdvDiffReactionBlockOpDeviceSumFacTOPKernels.hpp.
  */
 
 #pragma once

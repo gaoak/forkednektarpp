@@ -93,10 +93,10 @@
  * per-block interface is IProductWRTDerivBaseBlockOp
  * (IProductWRTDerivBaseBlockOp.hpp). The numerical work lives in the
  * detail::IProductWRTDerivBaseBlockOpImpl definitions --
- * IProductWRTDerivBaseSerialAVXStdMat.hpp and
- * IProductWRTDerivBaseSerialAVXSumFac.hpp for the Serial and AVX execution
- * spaces, IProductWRTDerivBaseDeviceStdMat.hpp and
- * IProductWRTDerivBaseDeviceSumFac.hpp for the Device execution space --
+ * IProductWRTDerivBaseBlockOpSerialAVXStdMat.hpp and
+ * IProductWRTDerivBaseBlockOpSerialAVXSumFac.hpp for the Serial and AVX
+ * execution spaces, IProductWRTDerivBaseBlockOpDeviceStdMat.hpp and
+ * IProductWRTDerivBaseBlockOpDeviceSumFac.hpp for the Device execution space --
  * registered with the block-operator factory by CMake-generated
  * translation units, one per execution space, implementation and data
  * type, each registering both output states.

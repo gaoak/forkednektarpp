@@ -72,8 +72,8 @@ namespace Nektar::MultiRegions
  *
  * The concrete implementations are the
  * detail::IProductWRTPhysTraceBlockOpImpl definitions in
- * IProductWRTPhysTraceSerialAVXSumFac.hpp (Serial and AVX) and
- * IProductWRTPhysTraceDeviceSumFac.hpp (Device). Their per-shape entry
+ * IProductWRTPhysTraceBlockOpSerialAVXSumFac.hpp (Serial and AVX) and
+ * IProductWRTPhysTraceBlockOpDeviceSumFac.hpp (Device). Their per-shape entry
  * points, the ShapeBlock() specialisations, are generated from
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
  * translation unit per shape, execution space and data type, so the

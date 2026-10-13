@@ -73,8 +73,8 @@ namespace Nektar::MultiRegions
  *
  * The concrete implementations are the
  * detail::PhysTraceExtractBlockOpImpl definitions in
- * PhysTraceExtractSerialAVXSumFac.hpp (Serial and AVX) and
- * PhysTraceExtractDeviceSumFac.hpp (Device). Their per-shape entry
+ * PhysTraceExtractBlockOpSerialAVXSumFac.hpp (Serial and AVX) and
+ * PhysTraceExtractBlockOpDeviceSumFac.hpp (Device). Their per-shape entry
  * points, the ShapeBlock() specialisations, are generated from
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
  * translation unit per shape, execution space and data type, so the

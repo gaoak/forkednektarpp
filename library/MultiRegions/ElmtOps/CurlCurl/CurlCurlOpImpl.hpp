@@ -39,7 +39,7 @@
  *
  * @details
  * The apply loop lives in CurlCurlOp::v_Apply and the plane work in the
- * block operators (see CurlCurlSerialAVXStdMat.hpp and its siblings). On
+ * block operators (see CurlCurlBlockOpSerialAVXStdMat.hpp and its siblings). On
  * a multi-plane 3DH1 expansion the two curls do not fuse, so this class
  * implements CurlCurlOp::v_ApplyFFT: it adds the z part of the first
  * curl, runs the block operators again for the plane part of the second

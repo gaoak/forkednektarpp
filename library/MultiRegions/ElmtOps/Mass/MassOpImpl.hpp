@@ -40,7 +40,7 @@
  * MassOp (MassOp.hpp); the class here exists only so that a "Mass" +
  * execution-space key ("MassSerial", "MassAVX", "MassDevice") can be
  * registered with the operator factory. The numerical work is done by the
- * block operators created alongside it (see MassSerialAVXStdMat.hpp and
+ * block operators created alongside it (see MassBlockOpSerialAVXStdMat.hpp and
  * its siblings). CMake-generated translation units instantiate and
  * register this class for each enabled execution space.
  *

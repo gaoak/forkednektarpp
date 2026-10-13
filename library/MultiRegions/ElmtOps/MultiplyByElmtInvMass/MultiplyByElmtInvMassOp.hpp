@@ -71,9 +71,9 @@
  * - MultiplyByElmtInvMassBlockOp (MultiplyByElmtInvMassBlockOp.hpp):
  *   per-block interface;
  * - detail::MultiplyByElmtInvMassBlockOpImpl, defined for the Serial and
- *   AVX execution spaces in MultiplyByElmtInvMassSerialAVXGeneric.hpp and
- *   for the Device execution space in
- *   MultiplyByElmtInvMassDeviceGeneric.hpp.
+ *   AVX execution spaces in MultiplyByElmtInvMassBlockOpSerialAVXGeneric.hpp
+ * and for the Device execution space in
+ *   MultiplyByElmtInvMassBlockOpDeviceGeneric.hpp.
  */
 
 #pragma once

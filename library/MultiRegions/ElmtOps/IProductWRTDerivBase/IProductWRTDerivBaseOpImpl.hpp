@@ -40,7 +40,7 @@
  * @details
  * The apply loop lives in IProductWRTDerivBaseOp::v_Apply and the
  * per-plane work in the block operators (see
- * IProductWRTDerivBaseSerialAVXStdMat.hpp and its siblings). This class
+ * IProductWRTDerivBaseBlockOpSerialAVXStdMat.hpp and its siblings). This class
  * adds the homogeneous z term of a Coeff output: for a multi-plane 3DH1
  * expansion it builds a DerivZOpImpl and an IProductWRTBaseOp for the
  * execution space and runs them in v_ApplyFFT(). It also supplies the

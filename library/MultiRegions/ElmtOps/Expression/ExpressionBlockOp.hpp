@@ -38,8 +38,8 @@
  * evaluation settings shared by all back-ends.
  *
  * See ExpressionOp.hpp for the family overview; the concrete
- * evaluators are in ExpressionSerialAVXGeneric.hpp and
- * ExpressionDeviceGeneric.hpp.
+ * evaluators are in ExpressionBlockOpSerialAVXGeneric.hpp and
+ * ExpressionBlockOpDeviceGeneric.hpp.
  */
 
 #pragma once
@@ -72,8 +72,8 @@ namespace Nektar::MultiRegions
  *
  * @tparam TData Floating-point type of the field data.
  *
- * @see detail::ExpressionBlockOpImpl (ExpressionSerialAVXGeneric.hpp /
- * ExpressionDeviceGeneric.hpp) for the v_Apply() implementations.
+ * @see detail::ExpressionBlockOpImpl (ExpressionBlockOpSerialAVXGeneric.hpp /
+ * ExpressionBlockOpDeviceGeneric.hpp) for the v_Apply() implementations.
  */
 template <typename TData>
 class ExpressionBlockOp

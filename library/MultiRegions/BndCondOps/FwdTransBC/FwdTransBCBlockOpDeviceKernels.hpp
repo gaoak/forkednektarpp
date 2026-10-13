@@ -36,8 +36,8 @@
 
 #include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
-#include <MultiRegions/ElmtOps/BwdTrans/BwdTransDeviceSumFacTOPKernels.hpp>
-#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseDeviceSumFacTOPKernels.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransBlockOpDeviceSumFacTOPKernels.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOpDeviceSumFacTOPKernels.hpp>
 
 namespace Nektar::MultiRegions::detail
 {

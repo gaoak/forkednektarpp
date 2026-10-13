@@ -105,7 +105,7 @@ ENDIF()
 
 # On an Intel device the expression operator has no compile-time form of a
 # session's expressions, so it builds its kernels at runtime from generated
-# SYCL source (ExpressionDeviceGenericSYCLHelper.hpp) and needs
+# SYCL source (ExpressionBlockOpDeviceGenericSYCLHelper.hpp) and needs
 # sycl_ext_oneapi_kernel_compiler. The extension is absent in oneAPI 2024.x and
 # present from 2025.x, so this constrains the compiler, not just the target.
 #
