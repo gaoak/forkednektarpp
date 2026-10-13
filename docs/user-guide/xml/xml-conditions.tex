@@ -351,6 +351,11 @@ with the approach: for example \texttt{IterativeStaticCond} or
   (CGS2) (1) or with the modified process (0) (Default is 0). CGS2 needs two
   global reductions per basis vector instead of one per previous basis vector
   plus one, from the third basis vector of each cycle on.
+\item \textbf{MINRESDeferredNormalisation} specifies if MINRES keeps its
+  Lanczos vectors unnormalised and applies the normalisation to the
+  coefficients (1) or normalises the vectors at each iteration (0) (Default
+  is 0). Deferring the normalisation saves two vector passes per iteration
+  but changes the rounding, so the iterates can differ slightly.
 \item \textbf{EvsDirect} does not solve the linear system but computes the preconditioned matrix $M^{-1}A$ and the eigenvalues via \verb!lapack::Dgeev!. Both are written into Matrix.txt" and "Eigenvalues.txt", respectively, inside the current working directory. Note that this method is only tested for a \textbf{Full} matrix system and is not working in parallel, hence, only for problem sizes. See the table below for Preconditioner options.
 \end{itemize} 
 

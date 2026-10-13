@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESKernels.hpp"
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/GMRES/GMRESOp.hpp"
 #include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
 
@@ -377,28 +378,38 @@ protected:
 
                 if (m_isModifiedGramSchmidt)
                 {
-                    // Modified Gram-Schmidt.
-                    for (unsigned int i = starttem; i < endtem; ++i)
+                    // Modified Gram-Schmidt. Each update of w by V[i - 1] is
+                    // fused with the product of the updated w with V[i], or
+                    // with w itself for the L2 norm.
+                    h1[starttem] =
+                        this->m_math.ddot(this->m_mask, m_w, m_V[starttem]);
+                    this->m_rowComm->AllReduce(h1[starttem],
+                                               LibUtilities::ReduceSum);
+                    h1[starttem] *= wScale;
+                    for (unsigned int i = starttem + 1; i <= endtem; ++i)
                     {
-                        h1[i] = this->m_math.ddot(this->m_mask, m_w, m_V[i]);
-                        this->m_rowComm->AllReduce(h1[i],
-                                                   LibUtilities::ReduceSum);
-                        if (i == starttem)
-                        {
-                            h1[i] *= wScale;
-                            Math::daxpby<ExecSpace>(-h1[i], m_V[i], wScale, m_w,
-                                                    m_w);
-                        }
-                        else
-                        {
-                            Math::daxpy<ExecSpace>(-h1[i], m_V[i], m_w, m_w);
-                        }
+                        // Reset device memory.
+                        exchange =
+                            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+                        detail::UpdateGramSchmidtDot<ExecSpace>(
+                            h1[i - 1], m_V[i - 1],
+                            (i - 1 == starttem) ? wScale : (TData)1.0, m_w,
+                            this->m_mask, (i == endtem) ? m_w : m_V[i],
+                            exchange);
+
+                        // Communication.
+                        this->m_rowComm->template AllReduce<MemSpace>(
+                            m_vExchange, LibUtilities::ReduceSum);
+
+                        // Device-to-host copy.
+                        exchangeHost =
+                            m_vExchange.template GetPtr<NektarSpaces::HostSpace,
+                                                        ReadOnly>();
+                        h1[i] = exchangeHost[0];
                     }
 
-                    // Calculate the L2 norm and normalize.
-                    h1[endtem] = this->m_math.ddot(this->m_mask, m_w, m_w);
-                    this->m_rowComm->AllReduce(h1[endtem],
-                                               LibUtilities::ReduceSum);
+                    // Normalize.
                     h1[endtem] = std::sqrt(h1[endtem]);
                 }
                 else

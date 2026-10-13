@@ -65,6 +65,7 @@ public:
           m_vExchange(LibUtilities::MemoryRegion<TData>(2, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
+        this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
@@ -107,6 +108,9 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
+        // Reshape mask if required.
+        this->template ReshapeMask<ExecSpace>(in);
+
         // Convergence parameters.
         this->m_niter = 0;
         TData rhsMagnitude, eps;
@@ -178,7 +182,7 @@ protected:
             this->m_precon->Apply(m_r, m_w);
 
             // <r_{k+1}, r_{k+1}>
-            eps = this->m_math.ddot(m_r, m_r);
+            eps = this->m_math.ddot(this->m_mask, m_r, m_r);
             this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
 
             ++this->m_niter;

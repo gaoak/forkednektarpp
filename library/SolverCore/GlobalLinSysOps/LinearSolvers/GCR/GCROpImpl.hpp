@@ -68,6 +68,7 @@ public:
               components)
     {
         this->template SetLinearSolver<ExecSpace>();
+        this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
@@ -93,6 +94,8 @@ public:
             std::max(m_LinSysMaxStorage, 2u), eHostPinned);
         m_coeffs =
             LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+        m_orthCoeffs.resize(m_LinSysMaxStorage * m_LinSysMaxStorage);
+        m_alphas.resize(m_LinSysMaxStorage);
         m_Q.ResizeNumField(1);
         m_P.ResizeNumField(1);
     }
@@ -114,10 +117,42 @@ protected:
     LibUtilities::MultiField<TData, FieldState::Coeff> m_Q;
     LibUtilities::MultiField<TData, FieldState::Coeff> m_P;
     LibUtilities::MemoryRegion<TData> m_vExchange;
-    LibUtilities::MemoryRegion<TData> m_coeffs; ///< Orthogonalisation
+    LibUtilities::MemoryRegion<TData> m_coeffs; ///< Orthogonalisation and
+                                                ///< solution update
                                                 ///< coefficients.
 
     unsigned int m_LinSysMaxStorage;
+
+    // The search directions of a restart cycle are P^ = P U, P holding the
+    // preconditioned residuals and U being unit upper triangular, column j
+    // being e_j plus the orthogonalisation coefficients c_ji times the
+    // columns i < j. The solution update sum_j alpha_j P^_j is then P y,
+    // y = U alpha, applied once per cycle by UpdateSolution().
+    std::vector<TData> m_orthCoeffs; ///< c_ji at j * m_LinSysMaxStorage + i.
+    std::vector<TData> m_alphas;     ///< alpha_j of the current cycle.
+
+    /*
+     *  out += P y over the n directions of the current cycle, with
+     *  y_j = alpha_j + sum_{k > j} c_kj y_k.
+     */
+    void UpdateSolution(const unsigned int n,
+                        LibUtilities::Field<TData, FieldState::Coeff> &out)
+    {
+        auto coeffsHost =
+            m_coeffs.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int j = n; j-- > 0;)
+        {
+            coeffsHost[j] = m_alphas[j];
+            for (unsigned int k = j + 1; k < n; ++k)
+            {
+                coeffsHost[j] +=
+                    m_orthCoeffs[k * m_LinSysMaxStorage + j] * coeffsHost[k];
+            }
+        }
+
+        auto coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
+        MultiAxpy<ExecSpace>(1.0, m_P, 0, n, coeffs, 1.0, out);
+    }
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
@@ -129,6 +164,9 @@ protected:
         // "Variational iterative methods for nonsymmetric systems of linear
         // equations." SIAM Journal on Numerical Analysis 20, no. 2 (1983):
         // 345-357.
+
+        // Reshape mask if required.
+        this->template ReshapeMask<ExecSpace>(in);
 
         // Convergence parameters.
         this->m_niter   = 0;
@@ -176,6 +214,14 @@ protected:
         while (true)
         {
             ii = this->m_niter % m_LinSysMaxStorage;
+
+            // Update solution with the directions of the previous cycle
+            // before restarting.
+            if (ii == 0 && this->m_niter > 0)
+            {
+                UpdateSolution(m_LinSysMaxStorage, out);
+            }
+
             if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
@@ -202,9 +248,9 @@ protected:
             this->m_robBndCondOp->Apply(m_P[ii], m_Q[ii]);
             this->m_assmbScatrZeroDirOp->Apply(m_Q[ii]);
 
-            // Update vector: P[ii] and Q[ii] lose their components along
-            // the previous directions, with coefficients -beta_i / scale_i,
-            // beta_i = (Q[ii], Q[i]).
+            // Update vector: Q[ii] loses its components along the previous
+            // directions, with coefficients -beta_i / scale_i,
+            // beta_i = (Q[ii], Q[i]), kept for the solution update.
             if (ii > 0)
             {
                 // Reset device memory.
@@ -225,10 +271,10 @@ protected:
                 for (unsigned int i = 0; i < ii; i++)
                 {
                     coeffsHost[i] = -exchangeHost[i] / scale[i];
+                    m_orthCoeffs[ii * m_LinSysMaxStorage + i] = coeffsHost[i];
                 }
 
                 auto coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
-                MultiAxpy<ExecSpace>(1.0, m_P, 0, ii, coeffs, 1.0, m_P[ii]);
                 MultiAxpy<ExecSpace>(1.0, m_Q, 0, ii, coeffs, 1.0, m_Q[ii]);
             }
 
@@ -248,14 +294,14 @@ protected:
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
-            scale[ii] = exchangeHost[1];
-            alpha     = exchangeHost[0] / scale[ii];
+            scale[ii]    = exchangeHost[1];
+            alpha        = exchangeHost[0] / scale[ii];
+            m_alphas[ii] = alpha;
 
-            // Update solutions.
-            Math::daxpy<ExecSpace>(alpha, m_P[ii], out, out);
+            // Update residual.
             Math::daxpy<ExecSpace>(-alpha, m_Q[ii], m_r, m_r);
 
-            eps = this->m_math.ddot(m_r, m_r);
+            eps = this->m_math.ddot(this->m_mask, m_r, m_r);
             this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
 
             ++this->m_niter;
@@ -266,6 +312,9 @@ protected:
                 this->PrintVerboseOutput(this->name, "error",
                                          std::sqrt(eps / rhsMagnitude),
                                          rhsMagnitude);
+
+                // Update solution with the directions of this cycle.
+                UpdateSolution(ii + 1, out);
                 return;
             }
 
