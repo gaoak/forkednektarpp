@@ -58,28 +58,22 @@ public:
     {
         this->template Initialize<ExecSpace>();
 
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
         {
             this->m_SFint.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_solutions.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_residuals.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
 
-        this->m_SFint[0].template Initialize<MemSpace>(0.0);
-        this->m_residuals[0].template Initialize<MemSpace>(0.0);
+        this->template InitializePointerTables<ExecSpace>();
     }
 
     // className - for OperatorFactory
@@ -156,10 +150,9 @@ protected:
                              this->m_timestep * dtn);
 
             // Compute residual from updated solution.
-            Math::sub<ExecSpace>(this->m_solutions[n], this->m_solutions[n - 1],
-                                 this->m_residuals[n]);
-            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_residuals[n],
-                                 this->m_residuals[n]);
+            Math::daxpby<ExecSpace>((TData)1.0 / dtn, this->m_solutions[n],
+                                    -(TData)1.0 / dtn, this->m_solutions[n - 1],
+                                    this->m_residuals[n]);
         }
     }
 
@@ -187,34 +180,32 @@ protected:
                              block.GetNumData() * block.GetNumComponents() *
                              block.GetNumHomoModes();
 
-                // Compute solution.
+                // Compute right-hand side in place of the residual.
+                auto residualPtr =
+                    this->m_residuals[n]
+                        .GetBlocks()[blk]
+                        .template GetPtr<MemSpace, ReadWrite>(streamID);
                 IterateImplicitSDCSolutionKernel<ExecSpace>(
                     streamID, nsize, dtn,
                     this->m_solutions[n - 1]
                         .GetBlocks()[blk]
                         .template GetPtr<MemSpace, ReadOnly>(streamID),
-                    this->m_residuals[n]
-                        .GetBlocks()[blk]
-                        .template GetPtr<MemSpace, ReadOnly>(streamID),
+                    residualPtr,
                     this->m_SFint[n]
                         .GetBlocks()[blk]
                         .template GetPtr<MemSpace, ReadOnly>(streamID),
-                    this->m_solutions[n]
-                        .GetBlocks()[blk]
-                        .template GetPtr<MemSpace, WriteOnly>(streamID));
+                    residualPtr);
             }
 
-            // Compute residual.
-            this->DoImplicit(this->m_solutions[n], this->m_residuals[n],
+            // Update solution.
+            this->DoImplicit(this->m_residuals[n], this->m_solutions[n],
                              this->m_time + this->m_timestep * tau[n],
                              this->m_timestep * dtn);
 
-            std::swap(this->m_solutions[n], this->m_residuals[n]);
-
-            Math::sub<ExecSpace>(this->m_solutions[n], this->m_residuals[n],
-                                 this->m_residuals[n]);
-            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_residuals[n],
-                                 this->m_residuals[n]);
+            // Compute residual.
+            Math::daxpby<ExecSpace>((TData)1.0 / dtn, this->m_solutions[n],
+                                    -(TData)1.0 / dtn, this->m_residuals[n],
+                                    this->m_residuals[n]);
         }
     }
 };

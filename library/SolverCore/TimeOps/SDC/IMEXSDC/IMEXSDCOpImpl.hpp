@@ -58,37 +58,31 @@ public:
     {
         this->template Initialize<ExecSpace>();
 
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
         {
             this->m_SFint.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_solutions.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_explicits.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_implicits.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_residuals.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
 
-        this->m_SFint[0].template Initialize<MemSpace>(0.0);
         this->m_explicits[0].template Initialize<MemSpace>(0.0);
-        this->m_residuals[0].template Initialize<MemSpace>(0.0);
+        this->template InitializePointerTables<ExecSpace>();
     }
 
     // className - for OperatorFactory
@@ -178,10 +172,9 @@ protected:
                              this->m_timestep * dtn);
 
             // Compute implicit terms.
-            Math::sub<ExecSpace>(this->m_solutions[n], this->m_implicits[n],
-                                 this->m_implicits[n]);
-            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_implicits[n],
-                                 this->m_implicits[n]);
+            Math::daxpby<ExecSpace>((TData)1.0 / dtn, this->m_solutions[n],
+                                    -(TData)1.0 / dtn, this->m_implicits[n],
+                                    this->m_implicits[n]);
 
             // Compute explicit terms.
             this->DoExplicitRhs(this->m_solutions[n], this->m_explicits[n],
@@ -273,10 +266,9 @@ protected:
                              this->m_timestep * dtn);
 
             // Compute implicit terms.
-            Math::sub<ExecSpace>(this->m_solutions[n], this->m_implicits[n],
-                                 this->m_implicits[n]);
-            Math::mul<ExecSpace>((TData)1.0 / dtn, this->m_implicits[n],
-                                 this->m_implicits[n]);
+            Math::daxpby<ExecSpace>((TData)1.0 / dtn, this->m_solutions[n],
+                                    -(TData)1.0 / dtn, this->m_implicits[n],
+                                    this->m_implicits[n]);
 
             // Compute explicit terms.
             this->DoExplicitRhs(this->m_solutions[n], this->m_explicits[n],

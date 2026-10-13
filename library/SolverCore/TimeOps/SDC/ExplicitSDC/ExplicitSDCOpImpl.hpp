@@ -58,25 +58,22 @@ public:
     {
         this->template Initialize<ExecSpace>();
 
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
         {
             this->m_SFint.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_solutions.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
 
             this->m_residuals.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
+
+        this->template InitializePointerTables<ExecSpace>();
     }
 
     // className - for OperatorFactory

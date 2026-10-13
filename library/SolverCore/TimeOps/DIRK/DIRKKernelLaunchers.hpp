@@ -93,7 +93,7 @@ static constexpr auto GetDIRKLambdaCoefficients(void)
 }
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
 {
     // 2nd order
     if constexpr (IntOrder == 2)
@@ -124,7 +124,7 @@ NEK_DEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
 }
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
 {
     // 1st order
     if constexpr (IntOrder == 1)
@@ -201,7 +201,7 @@ static constexpr auto GetESDIRKLambdaCoefficients(void)
 }
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetESDIRKStageCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetESDIRKStageCoefficients(void)
 {
     constexpr TData ConstSqrt2 = 1.414213562373095;
 
@@ -282,7 +282,7 @@ NEK_DEVICE_INLINE static constexpr auto GetESDIRKStageCoefficients(void)
 }
 
 template <unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetESDIRKCoefficients(void)
 {
     constexpr TData ConstSqrt2 = 1.414213562373095;
 
@@ -360,7 +360,7 @@ static constexpr auto GetDIRKLambdaCoefficients(void)
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
 {
     if constexpr (std::is_same_v<Scheme, DIRKScheme>)
     {
@@ -373,7 +373,7 @@ NEK_DEVICE_INLINE static constexpr auto GetDIRKStageCoefficients(void)
 }
 
 template <typename Scheme, unsigned int IntOrder, typename TData>
-NEK_DEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
+NEK_HOSTDEVICE_INLINE static constexpr auto GetDIRKCoefficients(void)
 {
     if constexpr (std::is_same_v<Scheme, DIRKScheme>)
     {

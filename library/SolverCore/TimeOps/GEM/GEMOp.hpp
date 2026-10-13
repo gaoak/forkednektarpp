@@ -75,14 +75,12 @@ protected:
     void ExtrapolateSolution(
         LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
-        using MemSpace = typename ExecSpace::memory_space;
-
         if (this->m_variant == "")
         {
             // No extrapolation required for first-order
             if (this->m_order == 1)
             {
-                inout.template Copy<MemSpace>(this->m_T0[0]);
+                std::swap(inout, this->m_T0[0]);
             }
             else
             {
@@ -92,22 +90,22 @@ protected:
                     // Aitken - Neville formula.
                     for (unsigned int k = m; k < this->m_order; ++k)
                     {
-                        Math::sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
-                                             this->m_T[k]);
-                        Math::daxpy<ExecSpace>(
-                            (TData)(k - m + 1) / ((k + 1) - (k - m + 1)),
-                            this->m_T[k], this->m_T0[k], this->m_T[k]);
+                        const TData coeff =
+                            (TData)(k - m + 1) / ((k + 1) - (k - m + 1));
+                        Math::daxpby<ExecSpace>(1 + coeff, this->m_T0[k],
+                                                -coeff, this->m_T0[k - 1],
+                                                this->m_T[k]);
                     }
 
-                    // Copy new values to old values.
+                    // Swap new values into old values.
                     for (unsigned int k = m; k < this->m_order; ++k)
                     {
-                        this->m_T0[k].template Copy<MemSpace>(this->m_T[k]);
+                        std::swap(this->m_T0[k], this->m_T[k]);
                     }
                 }
 
-                // Copy final solution.
-                inout.template Copy<MemSpace>(this->m_T.back());
+                // Swap final solution.
+                std::swap(inout, this->m_T0.back());
             }
         }
         else if (this->m_variant == "Midpoint")
@@ -115,7 +113,7 @@ protected:
             // No extrapolation required for second-order
             if (this->m_order == 2)
             {
-                inout.template Copy<MemSpace>(this->m_T0[0]);
+                std::swap(inout, this->m_T0[0]);
             }
             else
             {
@@ -125,24 +123,23 @@ protected:
                     // Aitken - Neville formula
                     for (unsigned int k = m; k < this->m_order / 2; ++k)
                     {
-                        Math::sub<ExecSpace>(this->m_T0[k], this->m_T0[k - 1],
-                                             this->m_T[k]);
-                        Math::daxpy<ExecSpace>(
-                            (TData)std::pow(k - m + 1, 2) /
-                                (TData)(std::pow(k + 1, 2) -
-                                        std::pow(k - m + 1, 2)),
-                            this->m_T[k], this->m_T0[k], this->m_T[k]);
+                        const TData coeff = (TData)std::pow(k - m + 1, 2) /
+                                            (TData)(std::pow(k + 1, 2) -
+                                                    std::pow(k - m + 1, 2));
+                        Math::daxpby<ExecSpace>(1 + coeff, this->m_T0[k],
+                                                -coeff, this->m_T0[k - 1],
+                                                this->m_T[k]);
                     }
 
-                    // Copy new values to old values
+                    // Swap new values into old values
                     for (unsigned int k = m; k < this->m_order / 2; ++k)
                     {
-                        this->m_T0[k].template Copy<MemSpace>(this->m_T[k]);
+                        std::swap(this->m_T0[k], this->m_T[k]);
                     }
                 }
 
-                // Copy final solution.
-                inout.template Copy<MemSpace>(this->m_T.back());
+                // Swap final solution.
+                std::swap(inout, this->m_T0.back());
             }
         }
     }

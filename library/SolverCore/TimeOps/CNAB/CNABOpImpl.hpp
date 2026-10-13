@@ -113,10 +113,6 @@ protected:
                  "CNAB schemes require a DoImplicit method. Define with "
                  "CNABOp->DefineImplicit().");
 
-        const auto interleaveWidth =
-            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                this->m_expansionList->GetSession());
-
         // Startup.
         if (this->m_step + 1 <= Nimplicit())
         {
@@ -148,10 +144,8 @@ protected:
             {
                 this->m_implicits.push_back(
                     LibUtilities::Field<TData, FieldState::Phys>(
-                        MultiRegions::GetBlockAttributes<TData,
-                                                         FieldState::Phys>(
-                            this->m_expansionList, interleaveWidth),
-                        this->m_components, inout.GetNumHomoModes()));
+                        this->m_blockAttr, this->m_components,
+                        inout.GetNumHomoModes()));
             }
 
             // Increment step and time.
@@ -166,10 +160,8 @@ protected:
             {
                 this->m_explicits.push_back(
                     LibUtilities::Field<TData, FieldState::Phys>(
-                        MultiRegions::GetBlockAttributes<TData,
-                                                         FieldState::Phys>(
-                            this->m_expansionList, interleaveWidth),
-                        this->m_components, inout.GetNumHomoModes()));
+                        this->m_blockAttr, this->m_components,
+                        inout.GetNumHomoModes()));
             }
 
             this->RollOver(this->m_explicits);
@@ -192,10 +184,9 @@ protected:
                              gamma() * this->m_timestep);
 
             // Compute implicit terms.
-            Math::sub<ExecSpace>(inout, this->m_implicits[0],
-                                 this->m_implicits[0]);
-            Math::mul<ExecSpace>((TData)1.0 / gamma(), this->m_implicits[0],
-                                 this->m_implicits[0]);
+            Math::daxpby<ExecSpace>((TData)1.0 / gamma(), inout,
+                                    -(TData)1.0 / gamma(), this->m_implicits[0],
+                                    this->m_implicits[0]);
 
             // Increment step and time.
             this->m_time += this->m_timestep;

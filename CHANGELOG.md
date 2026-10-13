@@ -71,6 +71,7 @@ v5.11.0
 - Fix a deadlock when the `std::thread` ThreadManager is torn down (!2819)
 - Fast initial condition on restart for CG (!2790)
 - Consistently use the block streams in the redesign boundary-condition operators: run Robin conditions and the Dirichlet/Neumann boundary-coefficient updates per block, fix a race in the Dirichlet local copy, remove redundant host synchronisations and per-call allocations, and fix the 1D Robin operator and the DG periodic output access (!2830)
+- Reduce the work of the redesign time integration operators: build the SDC pointer tables once instead of synchronising every block on every sweep, fuse the updates after implicit solves and in the GEM extrapolation (Math::daxpby), swap instead of copying fields in GEM, skip the final update of stiffly-accurate DIRK and IMEX-DIRK schemes, and cache the block attributes at construction; fix the time of the first ImplicitGEM substep and of the Adams-Moulton startup implicit RHS (!2831)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

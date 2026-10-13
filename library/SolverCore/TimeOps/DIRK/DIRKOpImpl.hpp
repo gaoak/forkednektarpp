@@ -64,27 +64,25 @@ public:
         {
             static_assert(
                 IntOrder >= 2 && IntOrder <= 4,
-                "The DIRK_ES scheme is only implemented for order 1-4.");
+                "The DIRK_ES scheme is only implemented for order 2-4.");
         }
 
         // Allocate memory.
-        const auto interleaveWidth =
-            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                this->m_expansionList->GetSession());
-
-        this->m_solutions.push_back(
-            LibUtilities::Field<TData, FieldState::Phys>(
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList, interleaveWidth),
-                this->m_components, 1));
-
-        for (unsigned int i = 0; i < NStage(); i++)
+        if constexpr (NStage() > 1 || !LastStageIsSolution())
         {
-            this->m_implicits.push_back(
+            this->m_solutions.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList, interleaveWidth),
-                    this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
+        }
+
+        if constexpr (NImplicit() > 0)
+        {
+            for (unsigned int i = 0; i < NImplicit(); i++)
+            {
+                this->m_implicits.push_back(
+                    LibUtilities::Field<TData, FieldState::Phys>(
+                        this->m_blockAttr, this->m_components, 1));
+            }
         }
     }
 
@@ -135,6 +133,38 @@ protected:
         }
     }
 
+    /*
+     *  True if the scheme is stiffly accurate: the last stage solution is the
+     *  new solution, so the last implicit term and the final update are not
+     *  computed.
+     */
+    static constexpr bool LastStageIsSolution()
+    {
+        constexpr unsigned int nStage = NStage();
+        constexpr auto lambda =
+            GetDIRKLambdaCoefficients<Scheme, IntOrder, TData>();
+        constexpr auto coeff = GetDIRKCoefficients<Scheme, IntOrder, TData>();
+
+        bool isSolution = lambda[nStage - 1] != TData(0) &&
+                          coeff[nStage - 1] == lambda[nStage - 1];
+        if constexpr (nStage > 1)
+        {
+            constexpr auto stageCoeff =
+                GetDIRKStageCoefficients<Scheme, IntOrder, TData>();
+            constexpr unsigned int indStart = (nStage - 1) * (nStage - 2) / 2;
+            for (unsigned int i = 0; i < nStage - 1; ++i)
+            {
+                isSolution = isSolution && coeff[i] == stageCoeff[indStart + i];
+            }
+        }
+        return isSolution;
+    }
+
+    static constexpr unsigned int NImplicit()
+    {
+        return LastStageIsSolution() ? NStage() - 1 : NStage();
+    }
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
@@ -158,15 +188,18 @@ protected:
         {
             this->DoProjection(inout, this->m_solutions[0], this->m_time);
         }
-        else
+        else if constexpr (NStage() > 1 || !LastStageIsSolution())
         {
             this->m_solutions[0].template Copy<MemSpace>(inout);
         }
 
         // Apply Runge-Kutta scheme.
         Staging<1>(inout);
-        UpdateSolution(inout,
-                       std::make_integer_sequence<unsigned int, NStage()>());
+        if constexpr (!LastStageIsSolution())
+        {
+            UpdateSolution(
+                inout, std::make_integer_sequence<unsigned int, NStage()>());
+        }
 
         // Increment step and time.
         this->m_time += this->m_timestep;
@@ -187,6 +220,13 @@ protected:
                                 this->m_time + coeff * this->m_timestep,
                                 this->m_timestep);
         }
+        else if constexpr (Stage == NStage() && LastStageIsSolution())
+        {
+            // Update solution, which is the new solution.
+            this->DoImplicit(inout, inout,
+                             this->m_time + coeff * this->m_timestep,
+                             lambda * this->m_timestep);
+        }
         else
         {
             // Update solution.
@@ -195,11 +235,9 @@ protected:
                              lambda * this->m_timestep);
 
             // Compute implicit terms.
-            Math::sub<ExecSpace>(this->m_implicits[Stage - 1], inout,
-                                 this->m_implicits[Stage - 1]);
-            Math::mul<ExecSpace>((TData)1.0 / lambda,
-                                 this->m_implicits[Stage - 1],
-                                 this->m_implicits[Stage - 1]);
+            Math::daxpby<ExecSpace>(
+                (TData)1.0 / lambda, this->m_implicits[Stage - 1],
+                -(TData)1.0 / lambda, inout, this->m_implicits[Stage - 1]);
         }
 
         // Recursive loop over stages.

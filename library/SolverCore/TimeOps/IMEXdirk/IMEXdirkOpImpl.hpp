@@ -74,32 +74,26 @@ public:
             // IMEX Dirk 4 4 3 : L Stable, four stage, third order IMEX
             (ImpStage == 4 && ExpStage == 4 && IntOrder == 3);
 
-        ASSERTL0(check, "The unknow IMEXdirk(" + std::to_string(ImpStage) +
-                            ", " + std::to_string(ExpStage) + ", " +
-                            std::to_string(IntOrder) + ") schemes.");
+        static_assert(check, "Unknown IMEXdirk (ImpStage, ExpStage, IntOrder) "
+                             "scheme.");
 
         // Allocate memory.
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         this->m_solutions.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
 
         for (unsigned int i = 0; i < ImpStage; i++)
         {
             this->m_implicits.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
 
         for (unsigned int i = 0; i < ExpStage; i++)
         {
             this->m_explicits.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
     }
 
@@ -117,6 +111,51 @@ public:
     }
 
 protected:
+    /*
+     *  True if the scheme is stiffly accurate in both parts: the last stage
+     *  solution is the new solution, so the last implicit term and the final
+     *  update are not computed.
+     */
+    static constexpr bool LastStageIsSolution()
+    {
+        if constexpr (ImpStage != ExpStage)
+        {
+            return false;
+        }
+        else
+        {
+            constexpr unsigned int nStage = ImpStage;
+            constexpr auto lambda =
+                GetIMEXdirkLambdaCoefficients<ImpStage, ExpStage, IntOrder,
+                                              TData>();
+            constexpr auto coeff =
+                GetIMEXdirkCoefficients<ImpStage, ExpStage, IntOrder, TData>();
+            constexpr auto stageCoeff =
+                GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder,
+                                             TData>();
+            constexpr unsigned int indStart =
+                nStage * (nStage - 1) / 2 + (nStage - 1) * (nStage - 2) / 2;
+
+            bool isSolution = lambda[nStage - 1] != TData(0) &&
+                              coeff[nStage - 1] == lambda[nStage - 1];
+            if constexpr (nStage > 1)
+            {
+                for (unsigned int i = 0; i < nStage - 1; ++i)
+                {
+                    isSolution =
+                        isSolution && coeff[i] == stageCoeff[indStart + i];
+                }
+            }
+            for (unsigned int i = 0; i < nStage; ++i)
+            {
+                isSolution =
+                    isSolution && coeff[ImpStage + i] ==
+                                      stageCoeff[indStart + nStage - 1 + i];
+            }
+            return isSolution;
+        }
+    }
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
@@ -131,9 +170,12 @@ protected:
 
         // Apply IMEX dirk scheme.
         Staging<1>(inout);
-        UpdateSolution(inout,
-                       std::make_integer_sequence<unsigned int, ImpStage>(),
-                       std::make_integer_sequence<unsigned int, ExpStage>());
+        if constexpr (!LastStageIsSolution())
+        {
+            UpdateSolution(
+                inout, std::make_integer_sequence<unsigned int, ImpStage>(),
+                std::make_integer_sequence<unsigned int, ExpStage>());
+        }
 
         // Increment step and time.
         this->m_time += this->m_timestep;
@@ -180,12 +222,13 @@ protected:
                 this->ClearExplicitContributionCoefficients();
             }
 
-            // Compute implicit terms.
-            Math::sub<ExecSpace>(inout, this->m_implicits[Stage - 1],
-                                 this->m_implicits[Stage - 1]);
-            Math::mul<ExecSpace>((TData)1.0 / lambda1,
-                                 this->m_implicits[Stage - 1],
-                                 this->m_implicits[Stage - 1]);
+            // Compute implicit terms, unless inout is the new solution.
+            if constexpr (Stage < ImpStage || !LastStageIsSolution())
+            {
+                Math::daxpby<ExecSpace>(
+                    (TData)1.0 / lambda1, inout, -(TData)1.0 / lambda1,
+                    this->m_implicits[Stage - 1], this->m_implicits[Stage - 1]);
+            }
         }
 
         // Recursive loop over stages.

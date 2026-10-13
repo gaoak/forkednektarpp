@@ -87,10 +87,6 @@ protected:
                  "AdamsMoulton schemes require a DoImplicit method. Define "
                  "with AdamsMoultonOp->DefineImplicit().");
 
-        const auto interleaveWidth =
-            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                this->m_expansionList->GetSession());
-
         // Startup.
         if (this->m_step + 1 < IntOrder)
         {
@@ -127,10 +123,8 @@ protected:
                 // Allocate new storage.
                 this->m_implicits.push_front(
                     LibUtilities::Field<TData, FieldState::Phys>(
-                        MultiRegions::GetBlockAttributes<TData,
-                                                         FieldState::Phys>(
-                            this->m_expansionList, interleaveWidth),
-                        this->m_components, inout.GetNumHomoModes()));
+                        this->m_blockAttr, this->m_components,
+                        inout.GetNumHomoModes()));
 
                 // Initialise startup and hand-over the m_implicits deque.
                 auto maxOrder = std::min(3u, IntOrder);
@@ -147,7 +141,8 @@ protected:
                 startup->Apply(inout);
 
                 // Compute implicit terms.
-                this->DoImplicitRhs(inout, this->m_implicits[0], this->m_time,
+                this->DoImplicitRhs(inout, this->m_implicits[0],
+                                    this->m_time + this->m_timestep,
                                     this->m_timestep);
             }
 
@@ -163,10 +158,8 @@ protected:
             {
                 this->m_implicits.push_back(
                     LibUtilities::Field<TData, FieldState::Phys>(
-                        MultiRegions::GetBlockAttributes<TData,
-                                                         FieldState::Phys>(
-                            this->m_expansionList, interleaveWidth),
-                        this->m_components, inout.GetNumHomoModes()));
+                        this->m_blockAttr, this->m_components,
+                        inout.GetNumHomoModes()));
             }
 
             // Do extrapolation.
@@ -187,10 +180,9 @@ protected:
                              m_gamma * this->m_timestep);
 
             // Update implicit derivative.
-            Math::sub<ExecSpace>(inout, this->m_implicits[0],
-                                 this->m_implicits[0]);
-            Math::mul<ExecSpace>((TData)1.0 / m_gamma, this->m_implicits[0],
-                                 this->m_implicits[0]);
+            Math::daxpby<ExecSpace>((TData)1.0 / m_gamma, inout,
+                                    -(TData)1.0 / m_gamma, this->m_implicits[0],
+                                    this->m_implicits[0]);
 
             // Increment step and time.
             this->m_time += this->m_timestep;
