@@ -85,6 +85,7 @@ public:
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
+        this->template SetMask<ExecSpace>();
 
         auto session = this->m_expansionList->GetSession();
 
@@ -123,6 +124,9 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
+        // Reshape mask if required.
+        this->template ReshapeMask<ExecSpace>(in);
+
         // Convergence parameters.
         this->m_niter = 0;
         TData rhsMagnitude, eps;
@@ -223,7 +227,7 @@ protected:
             Math::daxpy<ExecSpace>(-alpha, m_v, m_r, m_r);
 
             // Test if norm is within tolerance.
-            eps = this->m_math.ddot(m_r, m_r);
+            eps = this->m_math.ddot(this->m_mask, m_r, m_r);
             this->m_rowComm->AllReduce(eps, LibUtilities::ReduceSum);
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {

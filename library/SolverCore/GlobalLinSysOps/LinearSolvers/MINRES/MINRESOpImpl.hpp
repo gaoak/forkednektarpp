@@ -100,6 +100,11 @@ public:
                 ? session->GetParameter("LinSysRightPrecon")
                 : false;
 
+        m_deferredNormalisation =
+            session->DefinesParameter("MINRESDeferredNormalisation")
+                ? session->GetParameter("MINRESDeferredNormalisation")
+                : false;
+
         ASSERTL0(!this->m_rightPreconditioner,
                  "MINRESOpImpl: Only left preconditioner is supported");
     }
@@ -124,6 +129,7 @@ protected:
     LibUtilities::Field<TData, FieldState::Coeff> m_v0;
     LibUtilities::Field<TData, FieldState::Coeff> m_v1;
     LibUtilities::MemoryRegion<TData> m_vExchange;
+    bool m_deferredNormalisation = false;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
@@ -138,7 +144,7 @@ protected:
         this->m_niter = 0;
         TData rhsMagnitude, eps;
         TData alpha, alpha1, alpha2, alpha3, delta;
-        TData eta, gamma0, gamma1, sigma0, sigma1, beta0, beta1;
+        TData eta, gamma0, gamma1, sigma0, sigma1, beta0 = 1.0, beta1;
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -199,9 +205,17 @@ protected:
                 return;
             }
 
-            // Update search vector.
-            Math::mul<ExecSpace>((TData)1.0 / beta1, m_v0, m_v0);
-            Math::mul<ExecSpace>((TData)1.0 / beta1, m_w, m_w);
+            // Update search vector. With deferred normalisation, v0 and w are
+            // kept unnormalised, 1 / scale times the normalised vectors, and
+            // v1 is the previous v0: the operators being linear, scale is
+            // applied to the coefficients instead.
+            const TData scale =
+                m_deferredNormalisation ? (TData)1.0 / beta1 : (TData)1.0;
+            if (!m_deferredNormalisation)
+            {
+                Math::mul<ExecSpace>((TData)1.0 / beta1, m_v0, m_v0);
+                Math::mul<ExecSpace>((TData)1.0 / beta1, m_w, m_w);
+            }
 
             // Perform the method-specific matrix-vector Math::multiply
             // operation.
@@ -211,16 +225,33 @@ protected:
             // Update coefficients.
             alpha = this->m_math.ddot(m_w, m_q);
             this->m_rowComm->AllReduce(alpha, LibUtilities::ReduceSum);
-
             // Update search vector.
-            if (this->m_niter > 0)
+            if (!m_deferredNormalisation)
             {
-                Math::daxpbypz<ExecSpace>(-alpha, m_v0, -beta1, m_v1, m_q,
-                                          m_v1);
+                if (this->m_niter > 0)
+                {
+                    Math::daxpbypz<ExecSpace>(-alpha, m_v0, -beta1, m_v1, m_q,
+                                              m_v1);
+                }
+                else
+                {
+                    Math::daxpy<ExecSpace>(-alpha, m_v0, m_q, m_v1);
+                }
             }
             else
             {
-                Math::daxpy<ExecSpace>(-alpha, m_v0, m_q, m_v1);
+                alpha *= scale * scale;
+                if (this->m_niter > 0)
+                {
+                    Math::daxpbypcz<ExecSpace>(-alpha * scale, m_v0,
+                                               -beta1 / beta0, m_v1, scale, m_q,
+                                               m_v1);
+                }
+                else
+                {
+                    Math::daxpby<ExecSpace>(-alpha * scale, m_v0, scale, m_q,
+                                            m_v1);
+                }
             }
 
             // Apply preconditioner.
@@ -250,7 +281,7 @@ protected:
             // p0 = (w - alpha2 p1 - alpha3 p0) / alpha1, then out += gamma1 eta
             // p0, in one pass.
             const TData a = -alpha2 / alpha1;
-            const TData b = (TData)1.0 / alpha1;
+            const TData b = scale / alpha1;
             const TData c = -alpha3 / alpha1;
             const TData d = gamma1 * eta;
             if (this->m_niter == 0)
