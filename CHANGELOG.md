@@ -69,6 +69,7 @@ v5.11.0
 - Keep the padding of redesign fields zero, so that the MultiField products and the Math sum reductions no longer copy or mask it; batch independent reductions, fuse dot products sharing a vector (Math::ddot2) and fuse vector updates in the redesign linear solvers; make Math::div return zero for a zero divisor; add a CGS2 option to IDR(s) (IDRClassicalGramSchmidt) (!2814)
 - Remove unused enums AdjacentTraceOrientation, AdjacentFaceOrientation, OutputFormat, StdRegions::ElementType and BndToLocMatrixMapType (!2818)
 - Fix a deadlock when the `std::thread` ThreadManager is torn down (!2819)
+- Consistently use the block streams in the redesign boundary-condition operators: run Robin conditions and the Dirichlet/Neumann boundary-coefficient updates per block, fix a race in the Dirichlet local copy, remove redundant host synchronisations and per-call allocations, and fix the 1D Robin operator and the DG periodic output access (!2830)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

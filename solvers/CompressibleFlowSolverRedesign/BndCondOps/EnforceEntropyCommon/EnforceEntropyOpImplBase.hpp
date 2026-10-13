@@ -243,21 +243,25 @@ protected:
                 continue;
             }
 
-            const auto stride  = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr        = this->m_bndCondPhysOp->UpdateBlockPtr(blk);
+            // Stream 0, as the trace flux work around this runs there.
+            const unsigned int streamID = 0;
+
+            const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
+            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             const TData *rhoBC =
-                m_rhoBC[blk].template GetPtr<MemSpace, ReadOnly>();
-            const TData *pBC = m_pBC[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_rhoBC[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            const TData *pBC =
+                m_pBC[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             const TData *velBC =
-                m_velBC[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_velBC[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             const TData *VnInf =
-                m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
 
             ApplyEnforceEntropyBlock<ExecSpace, Policy>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, rhoBC, pBC, velBC,
-                VnInf, norms, bndPtr);
+                VnInf, norms, bndPtr, streamID);
         }
     }
 };

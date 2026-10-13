@@ -122,13 +122,14 @@ template <
         Enable = true>
 NEK_FORCE_INLINE static void RobBndCond1DKernel(
     const size_t nsize, const size_t *offsetPtr, const TData *matPtr,
-    const size_t *mapPtr, const TData *incoeffPtr, TData *coeffPtr)
+    const size_t *mapPtr, const TData *incoeffPtr, TData *coeffPtr,
+    const unsigned int streamID)
 {
     const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(RobBndCond1DKernel, gridSize,
-                                          blockSize, 0, nsize, offsetPtr,
+                                          blockSize, streamID, nsize, offsetPtr,
                                           matPtr, mapPtr, incoeffPtr, coeffPtr);
 }
 
@@ -141,16 +142,16 @@ NEK_FORCE_INLINE static void RobBndCond2DKernel(
     const unsigned int *ncoeffPtr, const size_t *offsetPtr,
     const size_t *matOffsetPtr, const size_t *mapOffsetPtr, const TData *matPtr,
     const size_t *mapPtr, const int *signPtr, const TData *incoeffPtr,
-    TData *coeffPtr)
+    TData *coeffPtr, const unsigned int streamID)
 {
     const unsigned int shmemsize = sizeof(TData) * nmaxcoeff;
     const unsigned int blockSize = NektarSpaces::Device::warpSize;
     const unsigned int gridSize  = nsize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER(RobBndCond2DKernel, gridSize, blockSize,
-                                  shmemsize, 0, nsize, ncoeffPtr, offsetPtr,
-                                  matOffsetPtr, mapOffsetPtr, matPtr, mapPtr,
-                                  signPtr, incoeffPtr, coeffPtr);
+                                  shmemsize, streamID, nsize, ncoeffPtr,
+                                  offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
+                                  mapPtr, signPtr, incoeffPtr, coeffPtr);
 }
 #endif
 

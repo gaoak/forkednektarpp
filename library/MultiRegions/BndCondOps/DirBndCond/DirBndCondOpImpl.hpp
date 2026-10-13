@@ -591,8 +591,11 @@ protected:
             for (unsigned int wblk = 0;
                  wblk < m_wsp_coeffs[iDir].GetBlocks().size(); ++wblk)
             {
-                auto &wspBlk     = m_wsp_coeffs[iDir].GetBlocks()[wblk];
-                auto srcPtr      = wspBlk.template GetPtr<MemSpace, ReadOnly>();
+                const unsigned int streamID = wblk + 1;
+
+                auto &wspBlk = m_wsp_coeffs[iDir].GetBlocks()[wblk];
+                auto srcPtr =
+                    wspBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
                 const auto nSize = wspBlk.CompSize();
                 const auto blockLen =
                     wspBlk.GetNumElements() * wspBlk.GetNumData();
@@ -603,7 +606,7 @@ protected:
                                                 compactPtr +
                                                     nc * m_numBndCoeffCompSize +
                                                     bndOffset + regionOffset,
-                                                0);
+                                                streamID);
                 }
                 regionOffset += blockLen;
             }
@@ -612,6 +615,8 @@ protected:
                      "Unexpected boundary coefficient vector size.");
         }
 
+        // The gather reads entries written on any region block's stream, so
+        // it stays on stream 0 to join them.
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
             auto idxPtr =
@@ -789,8 +794,10 @@ protected:
 
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
-            auto &blkRef     = inout.GetBlocks()[blk];
-            auto blkPtr      = blkRef.template GetPtr<MemSpace, ReadWrite>();
+            const unsigned int streamID = blk + 1;
+
+            auto &blkRef = inout.GetBlocks()[blk];
+            auto blkPtr = blkRef.template GetPtr<MemSpace, ReadWrite>(streamID);
             const auto nSize = blkRef.CompSize();
             const auto len   = blkRef.GetNumElements() * blkRef.GetNumData();
 
@@ -801,11 +808,11 @@ protected:
 
                 if (toFlat)
                 {
-                    Math::copyKernel<ExecSpace>(len, blkc, flat, 0);
+                    Math::copyKernel<ExecSpace>(len, blkc, flat, streamID);
                 }
                 else
                 {
-                    Math::copyKernel<ExecSpace>(len, flat, blkc, 0);
+                    Math::copyKernel<ExecSpace>(len, flat, blkc, streamID);
                 }
             }
 
@@ -831,21 +838,10 @@ protected:
                  "Field component count does not match the number of "
                  "Dirichlet assembly maps.");
 
-        // Everything above this point ran on the per-block streams; the
-        // flatten reads every block and the MPI step needs those values
-        // settled. This sync stays unconditional (not folded into the
-        // early-out below) since v_Apply()'s later cross-block
-        // local-dir-dof copy (m_locBlockPairs) also relies on it: it reads
-        // one block's data while writing another's, on that other block's
-        // stream, so it needs every block's writes visible regardless of
-        // whether this function itself has anything to reconcile.
-        if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
-        {
-            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
-            {
-                nekStreamSynchronize(blk + 1);
-            }
-        }
+        // No host sync of the block streams is needed: the flatten stays on
+        // them, the gather, pack and broadcast kernels run on stream 0, which
+        // orders after them, and MPI reads only the send buffers those
+        // stream-0 kernels write.
 
         // Nothing to reconcile: no component has a locally duplicated
         // Dirichlet dof, and no component has a dof shared with another
@@ -1142,6 +1138,16 @@ protected:
         // the duplicated Dirichlet coefficients.
         FlipParallelDirBndSign(inout);
 
+        // Each pair copy reads blk1 on blk0's stream, so mark where every
+        // block stream stands after the flip for the copies to wait on.
+        if (!m_locBlockPairs.empty())
+        {
+            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            {
+                RecordDirBndCondEvent<ExecSpace>(blk + 1);
+            }
+        }
+
         // Copy duplicated local Dirichlet dofs. Most meshes have none at
         // all, in which case m_locBlockPairs is empty and this is a no-op.
         for (auto &pair : m_locBlockPairs)
@@ -1160,6 +1166,8 @@ protected:
                 }
 
                 const unsigned int streamID = blk0 + 1;
+
+                SetStreamDependencies<ExecSpace>(streamID, blk1 + 1);
 
                 auto inptr =
                     inout.GetBlocks()[blk1].template GetPtr<MemSpace, ReadOnly>(
@@ -1181,22 +1189,33 @@ protected:
                 LocalDirBndCondKernel<ExecSpace>(
                     nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
                     inptr + nc * blksize1, outptr + nc * blksize0, streamID);
+
+                // Record event for synchronization.
+                RecordDirBndCondEvent<ExecSpace>(streamID);
             }
         }
 
-        // Set dependencies.
+        // Set dependencies. Only the pair copies read a block on another
+        // block's stream, so a block's reshape back waits for them only when
+        // there are any.
         std::vector<unsigned int> eventIDs;
-        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        if (!m_locBlockPairs.empty())
         {
-            const unsigned int eventID = blk + 1;
-            eventIDs.push_back(eventID);
+            for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            {
+                const unsigned int eventID = blk + 1;
+                eventIDs.push_back(eventID);
+            }
         }
 
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
 
-            SetStreamDependencies<ExecSpace>(streamID, eventIDs);
+            if (!eventIDs.empty())
+            {
+                SetStreamDependencies<ExecSpace>(streamID, eventIDs);
+            }
 
             auto &inoutBlk = inout.GetBlocks()[blk];
 

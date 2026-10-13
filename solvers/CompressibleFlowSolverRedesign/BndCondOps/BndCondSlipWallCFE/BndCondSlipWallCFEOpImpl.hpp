@@ -133,12 +133,15 @@ protected:
                 continue;
             }
 
-            const auto stride  = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr        = this->m_bndCondPhysOp->UpdateBlockPtr(blk);
+            // Stream 0, as the trace flux work around this runs there.
+            const unsigned int streamID = 0;
+
+            const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
+            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             MirrorNormalMomentumBlock<ExecSpace>(stride, m_coordDim, norms,
-                                                 bndPtr);
+                                                 bndPtr, streamID);
         }
     }
 };

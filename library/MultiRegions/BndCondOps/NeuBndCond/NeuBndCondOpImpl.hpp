@@ -301,19 +301,23 @@ protected:
             }
             else
             {
-                auto physptr = m_wsp_phys[iNeu]
-                                   .GetBlocks()[0]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto coeffptr = m_wsp_coeffs[iNeu]
-                                    .GetBlocks()[0]
-                                    .template GetPtr<MemSpace, WriteOnly>();
+                const unsigned int streamID = 1;
+
+                auto physptr =
+                    m_wsp_phys[iNeu]
+                        .GetBlocks()[0]
+                        .template GetPtr<MemSpace, ReadOnly>(streamID);
+                auto coeffptr =
+                    m_wsp_coeffs[iNeu]
+                        .GetBlocks()[0]
+                        .template GetPtr<MemSpace, WriteOnly>(streamID);
                 for (size_t nc = 0; nc < nComp; nc++)
                 {
                     // Note use copyKernel instead of copy because of
                     // FieldState mismatch Phys != Coeff. In 0D, they are
                     // equivalent hence the copy is correct.
-                    Math::copyKernel<ExecSpace>(nBndExpCoeff, physptr,
-                                                coeffptr);
+                    Math::copyKernel<ExecSpace>(nBndExpCoeff, physptr, coeffptr,
+                                                streamID);
                     physptr += m_wsp_phys[iNeu].GetBlocks()[0].CompSize();
                     coeffptr += m_wsp_coeffs[iNeu].GetBlocks()[0].CompSize();
                 }
@@ -327,8 +331,11 @@ protected:
             for (unsigned int wblk = 0;
                  wblk < m_wsp_coeffs[iNeu].GetBlocks().size(); ++wblk)
             {
-                auto &wspBlk     = m_wsp_coeffs[iNeu].GetBlocks()[wblk];
-                auto srcPtr      = wspBlk.template GetPtr<MemSpace, ReadOnly>();
+                const unsigned int streamID = wblk + 1;
+
+                auto &wspBlk = m_wsp_coeffs[iNeu].GetBlocks()[wblk];
+                auto srcPtr =
+                    wspBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
                 const auto nSize = wspBlk.CompSize();
                 const auto blockLen =
                     wspBlk.GetNumElements() * wspBlk.GetNumData();
@@ -339,7 +346,7 @@ protected:
                                                 compactPtr +
                                                     nc * m_numBndCoeffCompSize +
                                                     bndOffset + regionOffset,
-                                                0);
+                                                streamID);
                 }
                 regionOffset += blockLen;
             }
@@ -348,6 +355,8 @@ protected:
                      "Unexpected boundary coefficient vector size.");
         }
 
+        // The gather reads entries written on any region block's stream, so
+        // it stays on stream 0 to join them.
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
             auto idxPtr =

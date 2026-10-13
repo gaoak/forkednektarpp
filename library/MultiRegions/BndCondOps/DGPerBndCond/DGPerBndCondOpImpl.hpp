@@ -199,7 +199,7 @@ protected:
             auto &inBlock  = in.GetBlocks()[traceBlk];
             auto &outBlock = out.GetBlocks()[traceBlk];
             inBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
-            outBlock.template GetPtr<MemSpace, ReadWrite>(streamID);
+            outBlock.template GetPtr<MemSpace, WriteOnly>(streamID);
         }
 
         auto periodicFwdCopyOffsetPtr =

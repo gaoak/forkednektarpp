@@ -201,18 +201,22 @@ protected:
                 continue;
             }
 
+            // Stream 0, as the trace flux work around this runs there.
+            const unsigned int streamID = 0;
+
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr       = this->m_bndCondPhysOp->UpdateBlockPtr(blk);
+            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
 
             const TData *rhoStag =
-                m_rhoStag[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_rhoStag[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             const TData *EStag =
-                m_EStag[blk].template GetPtr<MemSpace, ReadOnly>();
-            const TData *dir = m_dir[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_EStag[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            const TData *dir =
+                m_dir[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
 
-            ApplyStagnationInflowBlock<ExecSpace>(stride, m_coordDim,
-                                                  m_numComp - 1, m_gamma,
-                                                  rhoStag, EStag, dir, bndPtr);
+            ApplyStagnationInflowBlock<ExecSpace>(
+                stride, m_coordDim, m_numComp - 1, m_gamma, rhoStag, EStag, dir,
+                bndPtr, streamID);
         }
     }
 };
