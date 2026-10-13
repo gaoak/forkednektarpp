@@ -44,7 +44,8 @@ template <typename ExecSpace, typename TData,
               Enable = true>
 NEK_FORCE_INLINE static void RobBndCond1DKernel(
     const size_t nsize, const size_t *offsetPtr, const TData *matPtr,
-    const size_t *mapPtr, const TData *incoeffPtr, TData *coeffPtr)
+    const size_t *mapPtr, const TData *incoeffPtr, TData *coeffPtr,
+    [[maybe_unused]] const unsigned int streamID)
 {
     for (size_t i = 0; i < nsize; i++)
     {
@@ -64,7 +65,7 @@ NEK_FORCE_INLINE static void RobBndCond2DKernel(
     const unsigned int *ncoeffPtr, const size_t *offsetPtr,
     const size_t *matOffsetPtr, const size_t *mapOffsetPtr, const TData *matPtr,
     const size_t *mapPtr, const int *signPtr, const TData *incoeffPtr,
-    TData *coeffPtr)
+    TData *coeffPtr, [[maybe_unused]] const unsigned int streamID)
 {
     std::vector<TData> vEdgeCoeffs(nmaxcoeff);
     for (size_t j = 0; j < nsize; j++)

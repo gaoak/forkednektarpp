@@ -80,6 +80,21 @@ void ParallelDirBndSignKernel(const size_t nsize, const int *signPtr,
     Nektar::LoopExecutionSetStreamID(0);
 }
 
+// Record the current point of stream @p streamID for SetStreamDependencies.
+// SYCL queues record their last submission themselves.
+template <typename ExecSpace>
+void RecordDirBndCondEvent([[maybe_unused]] const unsigned int streamID)
+{
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+#if defined(NEKTAR_ENABLE_CUDA)
+        CUDAStream::RecordEvent(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+        HIPStream::RecordEvent(streamID);
+#endif
+    }
+}
+
 template <typename ExecSpace, typename TData>
 void LocalDirBndCondKernel(const size_t nsize, const size_t *id0Ptr,
                            const size_t *id1Ptr, const TData *signPtr,
@@ -95,13 +110,6 @@ void LocalDirBndCondKernel(const size_t nsize, const size_t *id0Ptr,
         });
 
     Nektar::LoopExecutionSetStreamID(0);
-
-    // Record event for synchronization.
-#if defined(NEKTAR_ENABLE_CUDA)
-    CUDAStream::RecordEvent(streamID);
-#elif defined(NEKTAR_ENABLE_HIP)
-    HIPStream::RecordEvent(streamID);
-#endif
 }
 
 } // namespace Nektar::MultiRegions::detail

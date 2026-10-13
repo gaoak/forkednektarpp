@@ -58,21 +58,27 @@ public:
     {
         auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
 
-        // Set mapping to skip over padding elements
-        size_t i = 0, j = 0;
+        // Set mapping to skip over padding elements, and record which block
+        // each element belongs to and where that block starts.
+        size_t i = 0, j = 0, n = 0;
 
         std::vector<size_t> alignmentMap(expansionList->GetNcoeffs());
+        std::vector<unsigned int> elmtBlock(expansionList->GetExpSize());
+        std::vector<size_t> blockStart;
         auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                 expansionList);
-        for (auto &block : blockAttr)
+        for (unsigned int blk = 0; blk < blockAttr.size(); ++blk)
         {
+            auto &block          = blockAttr[blk];
             const auto ncoeff    = block.GetNumData();
             const auto nelmt     = block.GetNumElements();
             const auto nPadElmts = block.GetNumPaddingElements();
+            blockStart.push_back(j);
             for (size_t e = 0; e < nelmt; e++)
             {
-                for (unsigned int n = 0; n < ncoeff; n++)
+                elmtBlock[n++] = blk;
+                for (unsigned int c = 0; c < ncoeff; c++)
                 {
                     alignmentMap[i++] = j++;
                 }
@@ -80,102 +86,82 @@ public:
             j += nPadElmts * ncoeff;
         }
 
-        if (expansionList->GetExp(0)->GetShapeDimension() == 1)
+        const auto nBlocks = blockAttr.size();
+        m_dimension        = expansionList->GetExp(0)->GetShapeDimension();
+        m_blkNumEdge.assign(nBlocks, 0u);
+        m_mat.resize(nBlocks);
+        m_map.resize(nBlocks);
+        m_offset.resize(nBlocks);
+
+        // Edges are bucketed by the block of the element they belong to, with
+        // offsets relative to that block, so each block is applied on its own
+        // stream.
+        if (m_dimension == 1)
         {
-            // Determine size
+            std::vector<std::vector<TData>> mat(nBlocks);
+            std::vector<std::vector<size_t>> map(nBlocks);
+            std::vector<std::vector<size_t>> offset(nBlocks);
             for (auto &r : robinBCInfo)
             {
-                auto n      = r.first;
-                auto expPtr = this->m_expansionList->GetExp(n);
+                auto e      = r.first;
+                auto expPtr = this->m_expansionList->GetExp(e);
+                auto blk    = elmtBlock[e];
 
                 ASSERTL1(expPtr->IsBoundaryInteriorExpansion(),
                          "Not set up for non boundary-interior expansions");
-
-                for (auto rBC = r.second; rBC; rBC = rBC->next)
-                {
-                    m_nBndEdge++;
-                }
-            }
-
-            // Return if no Robin boundary condition.
-            if (m_nBndEdge == 0)
-            {
-                return;
-            }
-
-            // Initialize data
-            std::vector<TData> mat(m_nBndEdge);
-            std::vector<size_t> map(m_nBndEdge);
-            std::vector<size_t> offset(m_nBndEdge, 0u);
-            size_t i = 0;
-            for (auto &r : robinBCInfo)
-            {
-                auto n      = r.first;
-                auto expPtr = this->m_expansionList->GetExp(n);
 
                 for (auto rBC = r.second; rBC; rBC = rBC->next)
                 {
                     auto primCoeffs = rBC->m_robinPrimitiveCoeffs;
                     auto vertid     = rBC->m_robinID;
-                    mat[i]          = primCoeffs[0];
-                    map[i]          = expPtr->GetVertexMap(vertid);
-                    offset[i] =
-                        alignmentMap[this->m_expansionList->GetCoeff_Offset(n)];
-                    i++;
-                }
-            }
-
-            m_mat = LibUtilities::MemoryRegion<TData>::template FromVector<
-                MemSpace, TData>(mat);
-            m_map = LibUtilities::MemoryRegion<size_t>::template FromVector<
-                MemSpace, size_t>(map);
-            m_offset = LibUtilities::MemoryRegion<size_t>::template FromVector<
-                MemSpace, size_t>(offset);
-        }
-        else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
-        {
-            // Determine size
-            size_t matSize = 0;
-            size_t mapSize = 0;
-            for (auto &r : robinBCInfo)
-            {
-                auto n      = r.first;
-                auto expPtr = this->m_expansionList->GetExp(n);
-
-                ASSERTL1(expPtr->IsBoundaryInteriorExpansion(),
-                         "Not set up for non boundary-interior expansions");
-
-                for (auto rBC = r.second; rBC; rBC = rBC->next)
-                {
-                    auto edgeid  = rBC->m_robinID;
-                    auto edgeExp = expPtr->GetTraceExp(edgeid);
-                    auto ncoeff  = edgeExp->GetNcoeffs();
-                    m_nmaxcoeff  = std::max(m_nmaxcoeff, (unsigned int)ncoeff);
-                    matSize += ncoeff * ncoeff;
-                    mapSize += ncoeff;
+                    mat[blk].push_back(primCoeffs[0]);
+                    map[blk].push_back(expPtr->GetVertexMap(vertid));
+                    offset[blk].push_back(
+                        alignmentMap[this->m_expansionList->GetCoeff_Offset(
+                            e)] -
+                        blockStart[blk]);
+                    m_blkNumEdge[blk]++;
                     m_nBndEdge++;
                 }
             }
 
-            // Return if no Robin boundary condition.
-            if (m_nBndEdge == 0)
+            for (unsigned int blk = 0; blk < nBlocks; ++blk)
             {
-                return;
-            }
+                if (m_blkNumEdge[blk] == 0)
+                {
+                    continue;
+                }
 
-            // Initialize data
-            std::vector<TData> mat(matSize);
-            std::vector<size_t> map(mapSize);
-            std::vector<int> sign(mapSize);
-            std::vector<unsigned int> nEdgeCoeff(m_nBndEdge, 0u);
-            std::vector<size_t> offset(m_nBndEdge, 0u);
-            std::vector<size_t> matOffset(m_nBndEdge, 0u);
-            std::vector<size_t> mapOffset(m_nBndEdge, 0u);
-            size_t i = 0;
+                m_mat[blk] = LibUtilities::MemoryRegion<
+                    TData>::template FromVector<MemSpace, TData>(mat[blk]);
+                m_map[blk] = LibUtilities::MemoryRegion<
+                    size_t>::template FromVector<MemSpace, size_t>(map[blk]);
+                m_offset[blk] = LibUtilities::MemoryRegion<
+                    size_t>::template FromVector<MemSpace, size_t>(offset[blk]);
+            }
+        }
+        else if (m_dimension == 2)
+        {
+            m_sign.resize(nBlocks);
+            m_nEdgeCoeff.resize(nBlocks);
+            m_matOffset.resize(nBlocks);
+            m_mapOffset.resize(nBlocks);
+
+            std::vector<std::vector<TData>> mat(nBlocks);
+            std::vector<std::vector<size_t>> map(nBlocks);
+            std::vector<std::vector<int>> sign(nBlocks);
+            std::vector<std::vector<unsigned int>> nEdgeCoeff(nBlocks);
+            std::vector<std::vector<size_t>> offset(nBlocks);
+            std::vector<std::vector<size_t>> matOffset(nBlocks);
+            std::vector<std::vector<size_t>> mapOffset(nBlocks);
             for (auto &r : robinBCInfo)
             {
-                auto n      = r.first;
-                auto expPtr = this->m_expansionList->GetExp(n);
+                auto e      = r.first;
+                auto expPtr = this->m_expansionList->GetExp(e);
+                auto blk    = elmtBlock[e];
+
+                ASSERTL1(expPtr->IsBoundaryInteriorExpansion(),
+                         "Not set up for non boundary-interior expansions");
 
                 for (auto rBC = r.second; rBC; rBC = rBC->next)
                 {
@@ -184,16 +170,18 @@ public:
                     auto orient     = expPtr->GetTraceOrient(edgeid);
                     auto edgeExp    = expPtr->GetTraceExp(edgeid);
                     auto ncoeff     = edgeExp->GetNcoeffs();
+                    m_nmaxcoeff = std::max(m_nmaxcoeff, (unsigned int)ncoeff);
 
                     // Initialize map and sign array
                     Array<OneD, unsigned int> tmpMap(ncoeff); // size_t
                     Array<OneD, int> tmpSign(ncoeff);
                     expPtr->GetTraceToElementMap(edgeid, tmpMap, tmpSign,
                                                  orient);
-                    std::copy(tmpMap.begin(), tmpMap.end(),
-                              map.data() + mapOffset[i]);
-                    std::copy(tmpSign.begin(), tmpSign.end(),
-                              sign.data() + mapOffset[i]);
+                    mapOffset[blk].push_back(map[blk].size());
+                    map[blk].insert(map[blk].end(), tmpMap.begin(),
+                                    tmpMap.end());
+                    sign[blk].insert(sign[blk].end(), tmpSign.begin(),
+                                     tmpSign.end());
 
                     // Initialize mat array
                     StdRegions::VarCoeffMap varcoeffs;
@@ -202,45 +190,49 @@ public:
                         StdRegions::eMass, LibUtilities::eSegment, *edgeExp,
                         StdRegions::NullConstFactorMap, varcoeffs);
                     DNekScalMat &edgeMat = *edgeExp->GetLocMatrix(mkey);
-                    std::copy(edgeMat.GetRawPtr(),
-                              edgeMat.GetRawPtr() + ncoeff * ncoeff,
-                              mat.data() + matOffset[i]);
+                    matOffset[blk].push_back(mat[blk].size());
+                    mat[blk].insert(mat[blk].end(), edgeMat.GetRawPtr(),
+                                    edgeMat.GetRawPtr() + ncoeff * ncoeff);
 
                     // Update offset array
-                    nEdgeCoeff[i] = ncoeff;
-                    offset[i] =
-                        alignmentMap[this->m_expansionList->GetCoeff_Offset(n)];
-                    if (i < m_nBndEdge - 1)
-                    {
-                        matOffset[i + 1] = matOffset[i] + ncoeff * ncoeff;
-                        mapOffset[i + 1] = mapOffset[i] + ncoeff;
-                    }
-
-                    i++;
+                    nEdgeCoeff[blk].push_back(ncoeff);
+                    offset[blk].push_back(
+                        alignmentMap[this->m_expansionList->GetCoeff_Offset(
+                            e)] -
+                        blockStart[blk]);
+                    m_blkNumEdge[blk]++;
+                    m_nBndEdge++;
                 }
             }
 
-            m_mat = LibUtilities::MemoryRegion<TData>::template FromVector<
-                MemSpace, TData>(mat);
-            m_map = LibUtilities::MemoryRegion<size_t>::template FromVector<
-                MemSpace, size_t>(map);
-            m_sign =
-                LibUtilities::MemoryRegion<int>::template FromVector<MemSpace,
-                                                                     int>(sign);
-            m_nEdgeCoeff =
-                LibUtilities::MemoryRegion<unsigned int>::template FromVector<
-                    MemSpace, unsigned int>(nEdgeCoeff);
-            m_offset = LibUtilities::MemoryRegion<size_t>::template FromVector<
-                MemSpace, size_t>(offset);
-            m_matOffset = LibUtilities::MemoryRegion<
-                size_t>::template FromVector<MemSpace, size_t>(matOffset);
-            m_mapOffset = LibUtilities::MemoryRegion<
-                size_t>::template FromVector<MemSpace, size_t>(mapOffset);
-        }
-        else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
-        {
-            auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
+            for (unsigned int blk = 0; blk < nBlocks; ++blk)
+            {
+                if (m_blkNumEdge[blk] == 0)
+                {
+                    continue;
+                }
 
+                m_mat[blk] = LibUtilities::MemoryRegion<
+                    TData>::template FromVector<MemSpace, TData>(mat[blk]);
+                m_map[blk] = LibUtilities::MemoryRegion<
+                    size_t>::template FromVector<MemSpace, size_t>(map[blk]);
+                m_sign[blk] = LibUtilities::MemoryRegion<
+                    int>::template FromVector<MemSpace, int>(sign[blk]);
+                m_nEdgeCoeff[blk] = LibUtilities::MemoryRegion<unsigned int>::
+                    template FromVector<MemSpace, unsigned int>(
+                        nEdgeCoeff[blk]);
+                m_offset[blk] = LibUtilities::MemoryRegion<
+                    size_t>::template FromVector<MemSpace, size_t>(offset[blk]);
+                m_matOffset[blk] =
+                    LibUtilities::MemoryRegion<size_t>::template FromVector<
+                        MemSpace, size_t>(matOffset[blk]);
+                m_mapOffset[blk] =
+                    LibUtilities::MemoryRegion<size_t>::template FromVector<
+                        MemSpace, size_t>(mapOffset[blk]);
+            }
+        }
+        else if (m_dimension == 3)
+        {
             for ([[maybe_unused]] auto &r : robinBCInfo)
             {
                 NEKERROR(ErrorUtil::efatal,
@@ -262,14 +254,18 @@ public:
     }
 
 protected:
-    LibUtilities::MemoryRegion<TData> m_mat;
-    LibUtilities::MemoryRegion<size_t> m_map;
-    LibUtilities::MemoryRegion<int> m_sign;
-    LibUtilities::MemoryRegion<unsigned int> m_nEdgeCoeff;
-    LibUtilities::MemoryRegion<size_t> m_offset;
-    LibUtilities::MemoryRegion<size_t> m_matOffset;
-    LibUtilities::MemoryRegion<size_t> m_mapOffset;
+    // Per-block edge tables, with offsets relative to the block. Empty for
+    // blocks without a Robin edge.
+    std::vector<LibUtilities::MemoryRegion<TData>> m_mat;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
+    std::vector<LibUtilities::MemoryRegion<int>> m_sign;
+    std::vector<LibUtilities::MemoryRegion<unsigned int>> m_nEdgeCoeff;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_offset;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_matOffset;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_mapOffset;
+    std::vector<size_t> m_blkNumEdge;
 
+    unsigned int m_dimension = 0;
     unsigned int m_nmaxcoeff = 0;
     size_t m_nBndEdge        = 0;
 
@@ -284,11 +280,17 @@ protected:
 
         ASSERTL0(in.GetNumComponents() == 1,
                  "Not yet set up for multiple components");
+        ASSERTL1(in.GetBlocks().size() == m_blkNumEdge.size(),
+                 "Block count differs from the one the edges were built for");
 
-        // if block is interlaced deInterleave block since currently mapping
-        // set up assuming serial alignment
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            const auto nEdge = m_blkNumEdge[blk];
+            if (nEdge == 0)
+            {
+                continue;
+            }
+
             const unsigned int streamID = blk + 1;
 
             auto &inBlk  = in.GetBlocks()[blk];
@@ -296,6 +298,8 @@ protected:
             auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
             auto outPtr = outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
+            // if block is interlaced deInterleave block since currently
+            // mapping set up assuming serial alignment
             auto inWidth = inBlk.GetInterleaveWidth();
             LibUtilities::ReshapeStorage<ExecSpace>(
                 1u, inWidth, inBlk.GetNumElementsWithPadding(),
@@ -304,57 +308,42 @@ protected:
             LibUtilities::ReshapeStorage<ExecSpace>(
                 1u, outWidth, outBlk.GetNumElementsWithPadding(),
                 outBlk.GetNumData(), outPtr, streamID);
-        }
 
-        // Get pointers.
-        auto matPtr       = m_mat.template GetPtr<MemSpace, ReadOnly>();
-        auto mapPtr       = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto signPtr      = m_sign.template GetPtr<MemSpace, ReadOnly>();
-        auto ncoeffPtr    = m_nEdgeCoeff.template GetPtr<MemSpace, ReadOnly>();
-        auto offsetPtr    = m_offset.template GetPtr<MemSpace, ReadOnly>();
-        auto matOffsetPtr = m_matOffset.template GetPtr<MemSpace, ReadOnly>();
-        auto mapOffsetPtr = m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
+            // Get pointers.
+            auto matPtr =
+                m_mat[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto mapPtr =
+                m_map[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto offsetPtr =
+                m_offset[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
 
-        // Synchronize memory for all blocks.
-        const unsigned int streamID0 = 1;
+            // Apply Robin boundary conditions.
+            if (m_dimension == 1)
+            {
+                RobBndCond1DKernel<ExecSpace>(nEdge, offsetPtr, matPtr, mapPtr,
+                                              inPtr, outPtr, streamID);
+            }
+            else if (m_dimension == 2)
+            {
+                auto signPtr =
+                    m_sign[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                auto ncoeffPtr =
+                    m_nEdgeCoeff[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID);
+                auto matOffsetPtr =
+                    m_matOffset[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID);
+                auto mapOffsetPtr =
+                    m_mapOffset[blk].template GetPtr<MemSpace, ReadOnly>(
+                        streamID);
 
-        auto inPtr =
-            in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(streamID0);
-        auto outPtr =
-            out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(streamID0);
-        for (unsigned int blk = 1; blk < in.GetBlocks().size(); ++blk)
-        {
-            const unsigned int streamID = blk + 1;
+                RobBndCond2DKernel<ExecSpace>(m_nmaxcoeff, nEdge, ncoeffPtr,
+                                              offsetPtr, matOffsetPtr,
+                                              mapOffsetPtr, matPtr, mapPtr,
+                                              signPtr, inPtr, outPtr, streamID);
+            }
 
-            in.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-            out.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
-        }
-
-        // Apply Robin boundary conditions.
-        auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();
-        if (dimension == 1)
-        {
-            RobBndCond1DKernel<ExecSpace>(m_nBndEdge, offsetPtr, matPtr, mapPtr,
-                                          inPtr, outPtr);
-        }
-        else if (dimension == 2)
-        {
-            RobBndCond2DKernel<ExecSpace>(
-                m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
-        }
-
-        // Reshape back, if necessary.
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            const unsigned int streamID = blk + 1;
-
-            auto &inBlk  = in.GetBlocks()[blk];
-            auto &outBlk = out.GetBlocks()[blk];
-            auto inPtr   = inBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
-            auto outPtr = outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
-
-            auto inWidth = inBlk.GetInterleaveWidth();
+            // Reshape back, if necessary.
             LibUtilities::ReshapeStorage<ExecSpace>(
                 inWidth, 1u, inBlk.GetNumElementsWithPadding(),
                 inBlk.GetNumData(), inPtr, streamID);

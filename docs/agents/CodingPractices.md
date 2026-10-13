@@ -172,10 +172,20 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     launch sites of an operator and not others implies an overlap that does
     not happen, and a launch that sets the stream leaves it set for whatever
     runs next.
+30. **Per-block work runs on the block's stream, `blk + 1`; work across
+    blocks runs on stream 0.** The pointer, workspace, reshape and launch all
+    take the same stream.
+31. **Order streams with events, not host syncs.** A block read on another
+    block's stream waits on an event recorded where it was written
+    (`SetStreamDependencies`), never on `nekStreamSynchronize`.
+32. **`Apply()` neither allocates nor frees memory.** Freeing device memory
+    synchronises the device. Take scratch from the shared per-stream buffer,
+    `BlockOperator::GetStaticWorkSpace`, where possible; otherwise allocate in
+    the constructor or on first use, and refill in place.
 
 ## Kernels and launches
 
-30. **A `parallel_for` belongs in a wrapper, not in a member function.** The
+33. **A `parallel_for` belongs in a wrapper, not in a member function.** The
     launch goes in a free function in the `detail` namespace, in a
     `*Kernels.hpp` file, taking what it needs as arguments. A lambda inside a
     member function must be reached through a public enclosing function under
@@ -184,7 +194,7 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     capture, so the wrapper may also use `if constexpr` where the lambda could
     not.
 
-31. **No assert, of any level, inside a function a kernel can call.** An
+34. **No assert, of any level, inside a function a kernel can call.** An
     assert builds a `std::string` for its message, and a single-pass device
     compiler has no device pass in which that compiles out, so even a level-1
     assert in a host-device function puts the string into the kernel and the
@@ -194,14 +204,14 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 
 ## Shared operators
 
-32. **State on a shared operator is set where it is used.** An operator held
+35. **State on a shared operator is set where it is used.** An operator held
     through a `shared_ptr` can be reached by another holder, so a flag or a
     scale set once when it is attached can be changed before it is read. Set
     it immediately before the `Apply()` that depends on it.
 
 ## Padding
 
-33. **Padding is zero.** The entries of a block's padded elements are zero
+36. **Padding is zero.** The entries of a block's padded elements are zero
     in every `Field`, and code may rely on it: the MultiField products run
     BLAS over whole blocks. Storage is allocated zeroed and element data on
     padded elements (Jacobians, metrics, coordinates) is zero, so an operation
@@ -219,6 +229,6 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 
 ## Session files
 
-34. **A session file contains no unused parameters.** Every `SOLVERINFO`
+37. **A session file contains no unused parameters.** Every `SOLVERINFO`
     property and parameter it sets is read by the solver running it or used
     by an expression in the session.

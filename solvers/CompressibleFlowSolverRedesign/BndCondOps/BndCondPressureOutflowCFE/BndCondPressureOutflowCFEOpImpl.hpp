@@ -217,18 +217,22 @@ protected:
                 continue;
             }
 
+            // Stream 0, as the trace flux work around this runs there.
+            const unsigned int streamID = 0;
+
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr       = this->m_bndCondPhysOp->UpdateBlockPtr(blk);
+            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
             const TData *pOut =
-                m_pressure[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_pressure[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             ASSERTL1(m_pressure[blk].size() == stride,
                      "Prescribed outflow pressure was taken for a different "
                      "block size than the storage now reports.");
 
-            ApplyPressureOutflowBlock<ExecSpace>(
-                stride, m_coordDim, m_numComp - 1, m_EoS, pOut, norms, bndPtr);
+            ApplyPressureOutflowBlock<ExecSpace>(stride, m_coordDim,
+                                                 m_numComp - 1, m_EoS, pOut,
+                                                 norms, bndPtr, streamID);
         }
     }
 };

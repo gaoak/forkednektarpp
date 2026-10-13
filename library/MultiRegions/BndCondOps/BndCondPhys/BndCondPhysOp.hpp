@@ -126,10 +126,12 @@ public:
         return v_HasTrace(tid);
     }
 
-    /// Base pointer for block @p blk, fetched through the memory manager.
-    const TData *GetBlockPtr(const unsigned blk)
+    /// Base pointer for block @p blk, fetched through the memory manager on
+    /// stream @p streamID.
+    const TData *GetBlockPtr(const unsigned blk,
+                             const unsigned int streamID = 0)
     {
-        return v_GetBlockPtr(blk);
+        return v_GetBlockPtr(blk, streamID);
     }
 
     /**
@@ -144,9 +146,9 @@ public:
      * The layout is the region's own component-major phys layout, the same one
      * GetTraceLocation() resolves into.
      */
-    TData *UpdateBlockPtr(const unsigned blk)
+    TData *UpdateBlockPtr(const unsigned blk, const unsigned int streamID = 0)
     {
-        return v_UpdateBlockPtr(blk);
+        return v_UpdateBlockPtr(blk, streamID);
     }
 
     /// Phys points in block @p blk, i.e. the stride between its components and
@@ -260,9 +262,11 @@ protected:
 
     virtual bool v_HasTrace(const size_t tid) const = 0;
 
-    virtual const TData *v_GetBlockPtr(const unsigned blk) = 0;
+    virtual const TData *v_GetBlockPtr(const unsigned blk,
+                                       const unsigned int streamID) = 0;
 
-    virtual TData *v_UpdateBlockPtr(const unsigned blk) = 0;
+    virtual TData *v_UpdateBlockPtr(const unsigned blk,
+                                    const unsigned int streamID) = 0;
 
     virtual size_t v_GetBlockCompStride(const unsigned blk) const = 0;
 

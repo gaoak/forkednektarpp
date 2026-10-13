@@ -235,7 +235,13 @@ public:
         // UpdateBndPhys() rather than calling EvaluateRegion() directly
         // marks the values initialised, so a later call redoes only the
         // regions that depend on time.
-        m_bndPhys.resize(m_regionNumPhys.size());
+        // The storage is created once and refilled in place, so its pointers
+        // stay fixed across updates.
+        for (auto numPhys : m_regionNumPhys)
+        {
+            m_bndPhys.push_back(LibUtilities::MemoryRegion<TData>(
+                "Boundary condition values", m_numComp * numPhys));
+        }
         this->UpdateBndPhys(static_cast<TData>(0.0));
     }
 
@@ -257,9 +263,7 @@ public:
         ASSERTL1(vals.size() == m_numComp * m_regionNumPhys[reg],
                  "Unexpected boundary phys vector size.");
 
-        m_bndPhys[reg] =
-            LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                   TData>(vals);
+        m_bndPhys[reg].template CopyVector<MemSpace>(vals);
     }
 
     // className - for OperatorFactory
@@ -453,16 +457,18 @@ protected:
         return m_traceIdToBlk.count(tid) > 0;
     }
 
-    const TData *v_GetBlockPtr(const unsigned blk) override
+    const TData *v_GetBlockPtr(const unsigned blk,
+                               const unsigned int streamID) override
     {
         ASSERTL1(blk < m_bndPhys.size(), "Block index out of range");
-        return m_bndPhys[blk].template GetPtr<MemSpace, ReadOnly>();
+        return m_bndPhys[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
     }
 
-    TData *v_UpdateBlockPtr(const unsigned blk) override
+    TData *v_UpdateBlockPtr(const unsigned blk,
+                            const unsigned int streamID) override
     {
         ASSERTL1(blk < m_bndPhys.size(), "Block index out of range");
-        return m_bndPhys[blk].template GetPtr<MemSpace, ReadWrite>();
+        return m_bndPhys[blk].template GetPtr<MemSpace, ReadWrite>(streamID);
     }
 
     size_t v_GetBlockCompStride(const unsigned blk) const override

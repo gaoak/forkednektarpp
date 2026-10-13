@@ -1476,6 +1476,11 @@ protected:
     LibUtilities::MemoryRegion<const TData *> m_bndCondBase;
     /// Writable counterpart, used only by GatherBndInteriorState().
     LibUtilities::MemoryRegion<TData *> m_bndCondBaseW;
+    /// Per-block ownership flags used by GatherBndInteriorState(), rebuilt
+    /// only when the ownership it was built from changes.
+    LibUtilities::MemoryRegion<unsigned> m_bndCondOwned;
+    std::vector<bool> m_bndCondOwnedBlocks;
+    bool m_bndCondOwnedSet = false;
 
     /// SpatialDomains::BoundaryConditionType of every (storage block,
     /// component) pair, indexed [storageBlk * m_numBCComp + comp]. Built once
@@ -3622,14 +3627,20 @@ protected:
 
         SetWorkSpace(numComp);
 
-        std::vector<unsigned> ownedFlags(this->m_BndCondOp->GetNumBlocks(), 0u);
-        for (size_t k = 0; k < ownedFlags.size() && k < ownedBlocks.size(); ++k)
+        if (!m_bndCondOwnedSet || ownedBlocks != m_bndCondOwnedBlocks)
         {
-            ownedFlags[k] = ownedBlocks[k] ? 1u : 0u;
+            std::vector<unsigned> ownedFlags(this->m_BndCondOp->GetNumBlocks(),
+                                             0u);
+            for (size_t k = 0; k < ownedFlags.size() && k < ownedBlocks.size();
+                 ++k)
+            {
+                ownedFlags[k] = ownedBlocks[k] ? 1u : 0u;
+            }
+            m_bndCondOwned = LibUtilities::MemoryRegion<
+                unsigned>::template FromVector<MemSpace>(ownedFlags);
+            m_bndCondOwnedBlocks = ownedBlocks;
+            m_bndCondOwnedSet    = true;
         }
-        auto ownedDev =
-            LibUtilities::MemoryRegion<unsigned>::template FromVector<MemSpace>(
-                ownedFlags);
 
         for (unsigned b = 0; b < m_bndT0.size(); ++b)
         {
@@ -3660,7 +3671,8 @@ protected:
                 loc.compOffset.template GetPtr<MemSpace, ReadOnly>();
 
             const TData *gloT0 = m_gloT0;
-            const auto *owned  = ownedDev.template GetPtr<MemSpace, ReadOnly>();
+            const auto *owned =
+                m_bndCondOwned.template GetPtr<MemSpace, ReadOnly>();
 
             ScatterGloTraceToBndStore<ExecSpace>(numComp, numBlock, npTot,
                                                  npTBlock, blk, off, cOff,
