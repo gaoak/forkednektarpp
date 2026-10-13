@@ -92,9 +92,8 @@ protected:
             this->m_solutions.push_front(
                 LibUtilities::Field<TData, FieldState::Phys>(
                     "timestep n-" + std::to_string(this->m_step + 1),
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList),
-                    this->m_components, inout.GetNumHomoModes()));
+                    this->m_blockAttr, this->m_components,
+                    inout.GetNumHomoModes()));
 
             this->m_solutions[0].template Copy<MemSpace>(inout);
 

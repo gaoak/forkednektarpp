@@ -41,7 +41,7 @@ namespace Nektar::SolverCore::detail
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
-                                                  const unsigned int nsize,
+                                                  const size_t nsize,
                                                   const unsigned int nQuadPts,
                                                   const TData *interp,
                                                   const TData *const *solutions,
@@ -64,7 +64,7 @@ NEK_FORCE_INLINE static void UpdateSolutionKernel(const unsigned int streamID,
 
 template <typename ExecSpace, bool firstQuadrature, typename TData>
 NEK_FORCE_INLINE static void InitializeIntegratedResidualKernel(
-    const unsigned int streamID, const unsigned int nsize,
+    const unsigned int streamID, const size_t nsize,
     const unsigned int nQuadPts, const TData *QMat,
     const TData *const *explicits, TData *const *out)
 {

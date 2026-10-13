@@ -86,19 +86,14 @@ protected:
                  "AdamsBashforth schemes require a DoProjection method. Define "
                  "with AdamsBashforthOp->DefineProjection().");
 
-        const auto interleaveWidth =
-            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                this->m_expansionList->GetSession());
-
         // Startup.
         if (this->m_step + 1 < IntOrder)
         {
             // Allocate new storage.
             this->m_explicits.push_front(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList, interleaveWidth),
-                    this->m_components, inout.GetNumHomoModes()));
+                    this->m_blockAttr, this->m_components,
+                    inout.GetNumHomoModes()));
 
             // Compute explicit terms.
             this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
@@ -129,10 +124,8 @@ protected:
             {
                 this->m_explicits.push_back(
                     LibUtilities::Field<TData, FieldState::Phys>(
-                        MultiRegions::GetBlockAttributes<TData,
-                                                         FieldState::Phys>(
-                            this->m_expansionList, interleaveWidth),
-                        this->m_components, inout.GetNumHomoModes()));
+                        this->m_blockAttr, this->m_components,
+                        inout.GetNumHomoModes()));
             }
 
             if constexpr (IntOrder > 1)

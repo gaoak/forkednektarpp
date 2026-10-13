@@ -462,6 +462,9 @@ protected:
     TData m_time        = 0.0;
     TData m_timestep    = 0.0;
 
+    // Block attributes of the fields the operator allocates
+    std::vector<LibUtilities::BlockAttributes<FieldState::Phys>> m_blockAttr;
+
     // Storage for previous solutions in Fields
     // and memory region for pointer access on device
     std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_solutions;
@@ -500,6 +503,11 @@ protected:
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
+        this->m_blockAttr =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                expansionList,
+                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
+                    expansionList->GetSession()));
     }
 
     // Use for GEM
@@ -507,11 +515,8 @@ protected:
            const std::vector<std::string> components,
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant)
-        : MultiRegions::Operator<TData>(expansionList, components),
-          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
+        : TimeOp(expansionList, components)
     {
-        this->m_timestep =
-            expansionList->GetSession()->GetParameter("TimeStep");
     }
 
     // Use for SDC
@@ -520,11 +525,8 @@ protected:
            [[maybe_unused]] const unsigned int &order,
            [[maybe_unused]] const std::string &variant,
            [[maybe_unused]] const std::vector<TData> &freeParams)
-        : MultiRegions::Operator<TData>(expansionList, components),
-          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
+        : TimeOp(expansionList, components)
     {
-        this->m_timestep =
-            expansionList->GetSession()->GetParameter("TimeStep");
     }
 
     virtual void v_Apply(

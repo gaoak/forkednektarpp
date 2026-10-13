@@ -55,30 +55,25 @@ public:
         unsigned int n =
             (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
 
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         for (unsigned int m = 0; m < n; ++m)
         {
             this->m_T.push_back(LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
 
             this->m_T0.push_back(LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
         }
 
         for (unsigned int m = 0; m < this->m_order; ++m)
         {
             this->m_solutions.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
 
         this->m_implicits.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
     }
 
     // className - for OperatorFactory
@@ -107,7 +102,8 @@ protected:
             // Compute first order approximation.
             for (unsigned int m = 1; m <= this->m_order; ++m)
             {
-                this->DoImplicit(inout, this->m_solutions[0], this->m_time,
+                this->DoImplicit(inout, this->m_solutions[0],
+                                 this->m_time + this->m_timestep / m,
                                  this->m_timestep / m);
                 for (unsigned int k = 2; k <= m; ++k)
                 {
@@ -117,9 +113,8 @@ protected:
                                      this->m_timestep / m);
                 }
 
-                // Save solution to m_T0.
-                this->m_T0[m - 1].template Copy<MemSpace>(
-                    this->m_solutions[m - 1]);
+                // Swap solution into m_T0.
+                std::swap(this->m_T0[m - 1], this->m_solutions[m - 1]);
             }
         }
         else if (this->m_variant == "Midpoint")
@@ -135,11 +130,9 @@ protected:
                                          this->m_time +
                                              0.25 * this->m_timestep / m,
                                          0.25 * this->m_timestep / m);
-                        Math::mul<ExecSpace>((TData)2.0, this->m_solutions[0],
-                                             this->m_solutions[1]);
-                        Math::daxpy<ExecSpace>(-(TData)1.0, inout,
-                                               this->m_solutions[1],
-                                               this->m_solutions[1]);
+                        Math::daxpby<ExecSpace>(
+                            (TData)2.0, this->m_solutions[0], -(TData)1.0,
+                            inout, this->m_solutions[1]);
                     }
                     else
                     {
@@ -149,29 +142,23 @@ protected:
                                                             this->m_timestep /
                                                             m,
                                          0.25 * this->m_timestep / m);
-                        Math::mul<ExecSpace>((TData)2.0,
-                                             this->m_solutions[2 * k - 2],
-                                             this->m_solutions[2 * k - 1]);
-                        Math::daxpy<ExecSpace>(-(TData)1.0,
-                                               this->m_solutions[2 * k - 3],
-                                               this->m_solutions[2 * k - 1],
-                                               this->m_solutions[2 * k - 1]);
+                        Math::daxpby<ExecSpace>(
+                            (TData)2.0, this->m_solutions[2 * k - 2],
+                            -(TData)1.0, this->m_solutions[2 * k - 3],
+                            this->m_solutions[2 * k - 1]);
                     }
                     this->DoImplicit(
                         this->m_solutions[2 * k - 1], this->m_implicits[0],
                         this->m_time + (k - 0.25) * (this->m_timestep / m),
                         0.25 * this->m_timestep / m);
-                    Math::sub<ExecSpace>(this->m_implicits[0],
-                                         this->m_solutions[2 * k - 1],
-                                         this->m_implicits[0]);
-                    Math::daxpy<ExecSpace>((TData)2.0, this->m_implicits[0],
-                                           this->m_solutions[2 * k - 1],
-                                           this->m_solutions[2 * k - 1]);
+                    Math::daxpby<ExecSpace>((TData)2.0, this->m_implicits[0],
+                                            -(TData)1.0,
+                                            this->m_solutions[2 * k - 1],
+                                            this->m_solutions[2 * k - 1]);
                 }
 
-                // Save solution to m_T0
-                this->m_T0[m - 1].template Copy<MemSpace>(
-                    this->m_solutions[2 * m - 1]);
+                // Swap solution into m_T0
+                std::swap(this->m_T0[m - 1], this->m_solutions[2 * m - 1]);
             }
         }
 

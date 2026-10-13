@@ -64,28 +64,20 @@ public:
         else if constexpr (std::is_same_v<Scheme, RungeKuttaSSPScheme>)
         {
             static_assert(
-                IntOrder >= 1 && IntOrder <= 5,
+                IntOrder >= 1 && IntOrder <= 3,
                 "The RungeKuttaSSP scheme is only implemented for order 1-3.");
         }
 
         // Allocate memory.
-        const auto interleaveWidth =
-            MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                this->m_expansionList->GetSession());
-
         this->m_solutions.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    this->m_expansionList, interleaveWidth),
-                this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
 
         for (unsigned int i = 0; i < NStage(); i++)
         {
             this->m_explicits.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        this->m_expansionList, interleaveWidth),
-                    this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
     }
 

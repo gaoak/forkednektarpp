@@ -52,36 +52,31 @@ public:
                       const unsigned int &order, const std::string &variant)
         : ExplicitGEMOp<TData>(expansionList, components, order, variant)
     {
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         unsigned int n =
             (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
         for (unsigned int m = 0; m < n; ++m)
         {
             this->m_T.push_back(LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
 
             this->m_T0.push_back(LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
         }
 
         for (unsigned int m = 0; m < this->m_order; ++m)
         {
             this->m_solutions.push_back(
                 LibUtilities::Field<TData, FieldState::Phys>(
-                    blockAttr, this->m_components, 1));
+                    this->m_blockAttr, this->m_components, 1));
         }
 
         this->m_explicits.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
 
         this->m_explicits.push_back(
             LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
     }
 
     // className - for OperatorFactory
@@ -144,9 +139,8 @@ protected:
                         this->m_time + k * (this->m_timestep / m));
                 }
 
-                // Save solution to m_T0.
-                this->m_T0[m - 1].template Copy<MemSpace>(
-                    this->m_solutions[m - 1]);
+                // Swap solution into m_T0.
+                std::swap(this->m_T0[m - 1], this->m_solutions[m - 1]);
             }
         }
         else if (this->m_variant == "Midpoint")
@@ -177,9 +171,8 @@ protected:
                         this->m_time + k * (this->m_timestep / (2 * m)));
                 }
 
-                // Save solution to m_T0
-                this->m_T0[m - 1].template Copy<MemSpace>(
-                    this->m_solutions[2 * m - 1]);
+                // Swap solution into m_T0
+                std::swap(this->m_T0[m - 1], this->m_solutions[2 * m - 1]);
             }
         }
 

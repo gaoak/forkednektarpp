@@ -55,19 +55,23 @@ public:
         const unsigned int npts =
             (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
 
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                this->m_expansionList,
-                MultiRegions::Operator<TData>::GetDefaultInterleaveWidth(
-                    this->m_expansionList->GetSession()));
         for (unsigned int m = 0; m < npts; ++m)
         {
             this->m_T.push_back(LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
 
             this->m_T0.push_back(LibUtilities::Field<TData, FieldState::Phys>(
-                blockAttr, this->m_components, 1));
+                this->m_blockAttr, this->m_components, 1));
         }
+
+        // Initialise IMEXdirk scheme.
+        const std::string stepperVariant =
+            (this->m_variant == "Midpoint") ? "12" : "11";
+        const unsigned int stepperOrder =
+            (this->m_variant == "Midpoint") ? 2 : 1;
+        this->m_stepper = TimeOp<TData>::Create(
+            this->m_expansionList, this->m_components, "IMEXdirk", stepperOrder,
+            stepperVariant, std::vector<TData>{}, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -84,23 +88,12 @@ public:
     }
 
 protected:
-    std::shared_ptr<TimeOp<TData>> m_stepper = nullptr;
+    std::shared_ptr<TimeOp<TData>> m_stepper;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
-        // Initialise IMEXdirk scheme.
-        if (!this->m_stepper)
-        {
-            const std::string stepperVariant =
-                (this->m_variant == "Midpoint") ? "12" : "11";
-            const unsigned int stepperOrder =
-                (this->m_variant == "Midpoint") ? 2 : 1;
-            this->m_stepper =
-                TimeOp<TData>::Create(this->m_expansionList, this->m_components,
-                                      "IMEXdirk", stepperOrder, stepperVariant,
-                                      std::vector<TData>{}, ExecSpace::name);
-            this->m_stepper->CopyFunctorsFrom(*this);
-        }
+        // Copy functors to IMEXdirk scheme.
+        this->m_stepper->CopyFunctorsFrom(*this);
 
         // Compute approximation.
         const unsigned int npts =

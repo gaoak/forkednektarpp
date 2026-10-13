@@ -41,7 +41,7 @@ namespace Nektar::SolverCore::detail
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
-    const unsigned int streamID, const unsigned int nsize, const TData *in,
+    const unsigned int streamID, const size_t nsize, const TData *in,
     const TData *sfint, TData *out)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
@@ -58,7 +58,7 @@ NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
-    const unsigned int streamID, const unsigned int nsize, const TData dtn,
+    const unsigned int streamID, const size_t nsize, const TData dtn,
     const TData *in, const TData *explicits, const TData *sfint, TData *out)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
@@ -76,7 +76,7 @@ NEK_FORCE_INLINE static void IterateExplicitSDCSolutionKernel(
 
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void UpdateExplicitIntegratedResidualKernel(
-    const unsigned int streamID, const unsigned int nsize, const TData dtn,
+    const unsigned int streamID, const size_t nsize, const TData dtn,
     const TData *explicits, TData *out)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
