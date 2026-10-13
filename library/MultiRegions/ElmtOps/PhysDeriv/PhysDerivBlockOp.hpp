@@ -40,8 +40,9 @@
  * See PhysDerivOp.hpp for the mathematical action and the layout of
  * the family. The concrete per-block implementations
  * (detail::PhysDerivBlockOpImpl) live in the per-execution-space
- * headers PhysDerivSerialAVXStdMat.hpp, PhysDerivSerialAVXSumFac.hpp,
- * PhysDerivDeviceStdMat.hpp and PhysDerivDeviceSumFac.hpp.
+ * headers PhysDerivBlockOpSerialAVXStdMat.hpp,
+ * PhysDerivBlockOpSerialAVXSumFac.hpp, PhysDerivBlockOpDeviceStdMat.hpp and
+ * PhysDerivBlockOpDeviceSumFac.hpp.
  */
 
 #pragma once

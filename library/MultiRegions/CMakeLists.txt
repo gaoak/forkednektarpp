@@ -75,38 +75,38 @@ MACRO(ADD_ELMT_OPERATOR dir)
                 # Get the headers matching the name, execution space, and
                 # Implementation (specific and kernel).
                 FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}${ExecSpace}${Impl}*.hpp)
+                    ${dir}/${name}BlockOp${ExecSpace}${Impl}*.hpp)
 
                 # Found a Impl header.
-                IF(EXISTS "${dir}/${name}${Impl}.hpp")
+                IF(EXISTS "${dir}/${name}BlockOp${Impl}.hpp")
                     FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/library
-                        "${dir}/${name}${Impl}.hpp")
+                        "${dir}/${name}BlockOp${Impl}.hpp")
                     SET(IMPL_HEADER "#include <${include_file}>")
-                    SET(IMPL_HEADER_FILE "${dir}/${name}${Impl}.hpp")
+                    SET(IMPL_HEADER_FILE "${dir}/${name}BlockOp${Impl}.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a ExecName + StdMat header.
-                ELSEIF((EXISTS "${dir}/${name}${ExecName}StdMat.hpp") AND ("${Impl}" STREQUAL "StdMat"))
+                ELSEIF((EXISTS "${dir}/${name}BlockOp${ExecName}StdMat.hpp") AND ("${Impl}" STREQUAL "StdMat"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/library
-                        "${dir}/${name}${ExecName}StdMat.hpp")
+                        "${dir}/${name}BlockOp${ExecName}StdMat.hpp")
                     SET(IMPL_HEADER "#include <${include_file}>")
-                    SET(IMPL_HEADER_FILE "${dir}/${name}${ExecName}StdMat.hpp")
+                    SET(IMPL_HEADER_FILE "${dir}/${name}BlockOp${ExecName}StdMat.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a ExecName + SumFac header.
-                ELSEIF((EXISTS "${dir}/${name}${ExecName}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacTOP"))
+                ELSEIF((EXISTS "${dir}/${name}BlockOp${ExecName}SumFac.hpp") AND ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacTOP"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/library
-                        "${dir}/${name}${ExecName}SumFac.hpp")
+                        "${dir}/${name}BlockOp${ExecName}SumFac.hpp")
                     SET(IMPL_HEADER "#include <${include_file}>")
-                    SET(IMPL_HEADER_FILE "${dir}/${name}${ExecName}SumFac.hpp")
+                    SET(IMPL_HEADER_FILE "${dir}/${name}BlockOp${ExecName}SumFac.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # Found a ExecName + generic header.
-                ELSEIF((EXISTS "${dir}/${name}${ExecName}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
+                ELSEIF((EXISTS "${dir}/${name}BlockOp${ExecName}Generic.hpp") AND ("${Impl}" STREQUAL "Generic"))
                     FILE(RELATIVE_PATH include_file ${CMAKE_SOURCE_DIR}/library
-                        "${dir}/${name}${ExecName}Generic.hpp")
+                        "${dir}/${name}BlockOp${ExecName}Generic.hpp")
                     SET(IMPL_HEADER "#include <${include_file}>")
-                    SET(IMPL_HEADER_FILE "${dir}/${name}${ExecName}Generic.hpp")
+                    SET(IMPL_HEADER_FILE "${dir}/${name}BlockOp${ExecName}Generic.hpp")
                     MESSAGE("Adding block operator with a ${ExecSpace} ${Impl} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
 
                 # No implementation, skip.
@@ -134,9 +134,9 @@ MACRO(ADD_ELMT_OPERATOR dir)
                 # template can express keeps a local template of its own,
                 # named after the operator and the implementation.
                 IF(ShapeBlockDecl)
-                    IF(EXISTS "${dir}/${name}${Impl}BlockOp.cpp.in")
+                    IF(EXISTS "${dir}/${name}BlockOp${Impl}.cpp.in")
                         SET(ShapeConfigName
-                            "${dir}/${name}${Impl}BlockOp.cpp.in")
+                            "${dir}/${name}BlockOp${Impl}.cpp.in")
                     ELSE()
                         SET(ShapeConfigName
                             "${SWITCH_DIR}/${SHARED_SHAPE_TEMPLATE}")

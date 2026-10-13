@@ -63,7 +63,7 @@ namespace Nektar::MultiRegions::detail
  * As for every element-operator family, the execution-space class adds
  * no behaviour of its own: all evaluation state and logic lives in the
  * per-block operators (detail::ExpressionBlockOpImpl of
- * ExpressionSerialAVXGeneric.hpp / ExpressionDeviceGeneric.hpp),
+ * ExpressionBlockOpSerialAVXGeneric.hpp / ExpressionBlockOpDeviceGeneric.hpp),
  * which the inherited ExpressionOp machinery creates and drives. This
  * class exists so the operator factory has a distinct concrete type to
  * register for each execution space.

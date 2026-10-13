@@ -65,14 +65,14 @@
  * - DivergenceBlockOp (DivergenceBlockOp.hpp): per-block interface;
  * - detail::DivergenceBlockOpImpl: the per-block implementations, one
  *   header per implementation family --
- *   DivergenceSerialAVXStdMat.hpp and DivergenceSerialAVXSumFac.hpp
- *   each serve both the Serial and the AVX space,
- *   DivergenceDeviceStdMat.hpp serves Device/StdMat, and
- *   DivergenceDeviceSumFac.hpp serves both device sum-factorisation
+ *   DivergenceBlockOpSerialAVXStdMat.hpp and
+ * DivergenceBlockOpSerialAVXSumFac.hpp each serve both the Serial and the AVX
+ * space, DivergenceBlockOpDeviceStdMat.hpp serves Device/StdMat, and
+ *   DivergenceBlockOpDeviceSumFac.hpp serves both device sum-factorisation
  *   strategies (SumFac and SumFacTOP);
- * - the kernel launchers in DivergenceSerialAVXSumFacKernels.hpp,
- *   DivergenceDeviceSumFacKernels.hpp and
- *   DivergenceDeviceSumFacTOPKernels.hpp, which chain the PhysDeriv
+ * - the kernel launchers in DivergenceBlockOpSerialAVXSumFacKernels.hpp,
+ *   DivergenceBlockOpDeviceSumFacKernels.hpp and
+ *   DivergenceBlockOpDeviceSumFacTOPKernels.hpp, which chain the PhysDeriv
  *   kernels of their execution space component by component. The
  *   StdMat paths have no kernels of their own: they call the PhysDeriv
  *   StdMat kernels directly;

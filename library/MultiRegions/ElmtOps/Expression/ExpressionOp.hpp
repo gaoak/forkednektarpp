@@ -55,10 +55,10 @@
  * tensor-product structure to exploit -- so this family provides a
  * single "Generic" block implementation per execution space instead of
  * the StdMat/SumFac/SumFacTOP split of the transform-type families
- * (ExpressionSerialAVXGeneric.hpp, ExpressionDeviceGeneric.hpp). The
- * whole-field interface classes are registered through the
- * CMake-generated factory declarations shared by all element operators;
- * the family has no factory template of its own.
+ * (ExpressionBlockOpSerialAVXGeneric.hpp, ExpressionBlockOpDeviceGeneric.hpp).
+ * The whole-field interface classes are registered through the CMake-generated
+ * factory declarations shared by all element operators; the family has no
+ * factory template of its own.
  *
  * @see ExpressionBlockOp.hpp for the per-block interface holding the
  * evaluation settings.

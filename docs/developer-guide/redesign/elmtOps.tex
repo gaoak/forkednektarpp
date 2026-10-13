@@ -97,7 +97,7 @@ in reference \cite{moxey2020efficient}.
 
 The derived implementation class should be placed in a file named
 
-\inlsh{\{FunctionShortName\}SerialAvXSumFac.hpp}
+\inlsh{\{FunctionShortName\}BlockOpSerialAVXSumFac.hpp}
 
 \noindent where as previously
 discussed \texttt{FunctionSHortName} is proivded in table
@@ -193,7 +193,7 @@ These shape block operators are then defined in separate files which
 are auto generated using the Cmake \texttt{Configure\_file()} method.
 This file is named
 
-\inlsh{\{FunctionShortName\}SerialAVXSumFacBlockOp.cpp.in}
+\inlsh{\{FunctionShortName\}BlockOpSerialAVXSumFac.cpp.in}
 
 \noindent and includes another auto generated file of the form
 \texttt{BlockOpSwitchCodeShape.h} where \texttt{Shape} is
@@ -202,7 +202,7 @@ preprocessing to generate a switch statement to call templated
 versions of the methods \texttt{Operator1D(), Operator2D()} or
 \texttt{Operator3D()} which are defined in the original file
 
-\inlsh{\{FunctionShortName\}SerialAvXSumFac.hpp}.
+\inlsh{\{FunctionShortName\}BlockOpSerialAVXSumFac.hpp}.
 
 \noindent The switch statement runs over all polynomial or qudarture
 orders that are defined by the Cmake defined options
@@ -225,7 +225,7 @@ statement. These methods also call kernel functions for each method
 that contain the primary code for each method and can be found in the
 files
 
-\inlsh{\{FunctionShortName\}SerialAVXSumFacKernels.hpp}
+\inlsh{\{FunctionShortName\}BlockOpSerialAVXSumFacKernels.hpp}
 
 \noindent and also in the \texttt{StdRegions/Operators/} directory.
 
@@ -241,7 +241,7 @@ operations on a CPU.
 If it is possible to define a standard matrix approach the derived
 implementation class can be  defined in a file named
 
-\inlsh{\{FunctionShortName\}SerialStdMat.hpp}. 
+\inlsh{\{FunctionShortName\}BlockOpSerialAVXStdMat.hpp}. 
 
 \noindent where as previously \texttt{FunctionShortName} is taken from
 table \ref{tab:elmtops}. In constructing the method a series of
@@ -261,7 +261,7 @@ The file and class structure of the GPU devices is anaologous to the
 Serial/AVX structure. The derived implementation class is defined
 in the file
 
-\inlsh{\{FunctionShortName\}DeviceSumFac.hpp}. 
+\inlsh{\{FunctionShortName\}BlockOpDeviceSumFac.hpp}. 
 
 \noindent where as previously \texttt{FunctionShortName} is taken from
 table \ref{tab:elmtops}. This file contains the required
@@ -281,11 +281,11 @@ the standard quadrature points used in equi-ordered polynomial
 expansions. The details for the auto generated shape dependent block
 operator code can be found in the files
 
-\inlsh{\{FunctionShortName\}DeviceSumFacBlockOp.cpp.in}
+\inlsh{\{FunctionShortName\}BlockOpDeviceSumFac.cpp.in}
 
 and 
 
-\inlsh{\{FunctionShortName\}DeviceSumFacQPBlockOp.cpp.in}
+\inlsh{\{FunctionShortName\}BlockOpDeviceSumFacQP.cpp.in}
 
 \noindent where \texttt{QP} refers to Quadrature Point implementation
 strategy outlined below. The boost preprocessing directives called
@@ -302,7 +302,7 @@ The shape based block operator methods call the methods
 \texttt{Operator1D(), Operator2D()} or \texttt{Operator3D()} which are
 defined in the original file
 
-\inlsh{\{FunctionShortName\}DeviceSumFac.hpp}. 
+\inlsh{\{FunctionShortName\}BlockOpDeviceSumFac.hpp}. 
 
 \noindent where there is either a templated verion of the method with
 polynomial and quadrature order as template values or non-templated
@@ -315,7 +315,7 @@ access the required data for he kernel operators such as the basis
 array or 1D derivaitve matrices. This data is then passed to a kernel
 method which is contained in
 
-\inlsh{\{FunctionShortName\}DeviceSumFacKernels.hpp}.
+\inlsh{\{FunctionShortName\}BlockOpDeviceSumFacKernels.hpp}.
 
 This file then includes method specific kernels for the Cuda, Kokkos
 or SYCL implementations. The inclusion of the Cuda, Kokkos and SYCL

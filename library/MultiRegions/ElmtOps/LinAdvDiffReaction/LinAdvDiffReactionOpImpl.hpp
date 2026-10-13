@@ -49,9 +49,9 @@
  * \f$w\,\partial u/\partial z\f$, through AdvectionZOpImpl.hpp between
  * BwdTransOp and IProductWRTBaseOp. The plane-local numerical work is done
  * by the block operators created alongside it (see
- * LinAdvDiffReactionSerialAVXStdMat.hpp and its siblings). CMake-generated
- * translation units instantiate and register this class for each enabled
- * execution space.
+ * LinAdvDiffReactionBlockOpSerialAVXStdMat.hpp and its siblings).
+ * CMake-generated translation units instantiate and register this class for
+ * each enabled execution space.
  *
  * @note CMake includes this header into the registration translation
  * units it generates for this operator, one per execution space and

@@ -125,16 +125,16 @@
  * - HelmholtzBlockOp (HelmholtzBlockOp.hpp): per-block interface;
  * - detail::HelmholtzBlockOpImpl: the per-block implementations, one
  *   header per implementation family --
- *   HelmholtzSerialAVXStdMat.hpp and HelmholtzSerialAVXSumFac.hpp each
- *   serve both the Serial and the AVX space,
- *   HelmholtzDeviceStdMat.hpp serves Device/StdMat, and
- *   HelmholtzDeviceSumFac.hpp serves both device sum-factorisation
+ *   HelmholtzBlockOpSerialAVXStdMat.hpp and HelmholtzBlockOpSerialAVXSumFac.hpp
+ * each serve both the Serial and the AVX space,
+ *   HelmholtzBlockOpDeviceStdMat.hpp serves Device/StdMat, and
+ *   HelmholtzBlockOpDeviceSumFac.hpp serves both device sum-factorisation
  *   strategies (SumFac and SumFacTOP);
- * - the kernels in HelmholtzSerialAVXStdMatKernels.hpp,
- *   HelmholtzSerialAVXSumFacKernels.hpp,
- *   HelmholtzDeviceStdMatKernels.hpp,
- *   HelmholtzDeviceSumFacKernels.hpp and
- *   HelmholtzDeviceSumFacTOPKernels.hpp;
+ * - the kernels in HelmholtzBlockOpSerialAVXStdMatKernels.hpp,
+ *   HelmholtzBlockOpSerialAVXSumFacKernels.hpp,
+ *   HelmholtzBlockOpDeviceStdMatKernels.hpp,
+ *   HelmholtzBlockOpDeviceSumFacKernels.hpp and
+ *   HelmholtzBlockOpDeviceSumFacTOPKernels.hpp;
  * - detail::DerivZOpImpl (DerivZOpImpl.hpp) and MassOp: the second
  *   z-derivative and the xy mass matrix forming the weak z-Laplacian of
  *   multi-plane 3DH1 fields.

@@ -47,8 +47,8 @@
  * the per-element matrices a block of deformed geometry needs. The
  * per-execution-space subclasses are the
  * detail::MultiplyByElmtInvMassBlockOpImpl definitions in
- * MultiplyByElmtInvMassSerialAVXGeneric.hpp and
- * MultiplyByElmtInvMassDeviceGeneric.hpp.
+ * MultiplyByElmtInvMassBlockOpSerialAVXGeneric.hpp and
+ * MultiplyByElmtInvMassBlockOpDeviceGeneric.hpp.
  */
 
 #pragma once

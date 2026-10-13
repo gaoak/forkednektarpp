@@ -76,15 +76,15 @@
  * for the two-level element-operator structure); the per-block interface
  * is MassBlockOp (MassBlockOp.hpp) and the factory shell
  * detail::MassOpImpl (MassOpImpl.hpp). The numerical work lives in the
- * detail::MassBlockOpImpl definitions -- MassSerialAVXStdMat.hpp and
- * MassSerialAVXSumFac.hpp for the Serial and AVX execution spaces,
- * MassDeviceStdMat.hpp for the Device StdMat implementation and
- * MassDeviceSumFac.hpp for both Device sum-factorisation strategies
+ * detail::MassBlockOpImpl definitions -- MassBlockOpSerialAVXStdMat.hpp and
+ * MassBlockOpSerialAVXSumFac.hpp for the Serial and AVX execution spaces,
+ * MassBlockOpDeviceStdMat.hpp for the Device StdMat implementation and
+ * MassBlockOpDeviceSumFac.hpp for both Device sum-factorisation strategies
  * (SumFac and SumFacTOP) -- registered with the block-operator factory by
  * CMake-generated translation units, one per execution space,
  * implementation and data type. The sum-factorised kernel launchers are in
- * MassSerialAVXSumFacKernels.hpp, MassDeviceSumFacKernels.hpp and
- * MassDeviceSumFacTOPKernels.hpp.
+ * MassBlockOpSerialAVXSumFacKernels.hpp, MassBlockOpDeviceSumFacKernels.hpp and
+ * MassBlockOpDeviceSumFacTOPKernels.hpp.
  *
  * @see BwdTransOp.hpp and IProductWRTBaseOp.hpp for the two operators
  * composed here, in particular the note in the latter on the weight tables

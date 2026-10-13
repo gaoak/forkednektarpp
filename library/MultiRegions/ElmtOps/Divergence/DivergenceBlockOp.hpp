@@ -40,9 +40,9 @@
  * See DivergenceOp.hpp for the mathematical action and the layout of
  * the family. The concrete per-block implementations
  * (detail::DivergenceBlockOpImpl) live in the per-execution-space
- * headers DivergenceSerialAVXStdMat.hpp,
- * DivergenceSerialAVXSumFac.hpp, DivergenceDeviceStdMat.hpp and
- * DivergenceDeviceSumFac.hpp.
+ * headers DivergenceBlockOpSerialAVXStdMat.hpp,
+ * DivergenceBlockOpSerialAVXSumFac.hpp, DivergenceBlockOpDeviceStdMat.hpp and
+ * DivergenceBlockOpDeviceSumFac.hpp.
  */
 
 #pragma once

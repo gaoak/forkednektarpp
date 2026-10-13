@@ -73,16 +73,16 @@
  * ElmtOp.hpp for the two-level element-operator structure); the per-block
  * interface is IProductWRTBaseBlockOp (IProductWRTBaseBlockOp.hpp). The
  * numerical work lives in the detail::IProductWRTBaseBlockOpImpl
- * definitions -- IProductWRTBaseSerialAVXStdMat.hpp and
- * IProductWRTBaseSerialAVXSumFac.hpp for the Serial and AVX execution
- * spaces, IProductWRTBaseDeviceStdMat.hpp for the Device StdMat
- * implementation and IProductWRTBaseDeviceSumFac.hpp for both Device
+ * definitions -- IProductWRTBaseBlockOpSerialAVXStdMat.hpp and
+ * IProductWRTBaseBlockOpSerialAVXSumFac.hpp for the Serial and AVX execution
+ * spaces, IProductWRTBaseBlockOpDeviceStdMat.hpp for the Device StdMat
+ * implementation and IProductWRTBaseBlockOpDeviceSumFac.hpp for both Device
  * sum-factorisation strategies (SumFac and SumFacTOP) -- registered with
  * the block-operator factory by CMake-generated translation units, one per
  * execution space, implementation and data type. The sum-factorised
- * kernels are in IProductWRTBaseSerialAVXSumFacKernels.hpp,
- * IProductWRTBaseDeviceSumFacKernels.hpp and
- * IProductWRTBaseDeviceSumFacTOPKernels.hpp.
+ * kernels are in IProductWRTBaseBlockOpSerialAVXSumFacKernels.hpp,
+ * IProductWRTBaseBlockOpDeviceSumFacKernels.hpp and
+ * IProductWRTBaseBlockOpDeviceSumFacTOPKernels.hpp.
  *
  * @see BwdTransOp.hpp for the operator this one transposes.
  */

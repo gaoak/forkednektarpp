@@ -82,11 +82,11 @@
  * - IProductWRTPhysTraceBlockOp (IProductWRTPhysTraceBlockOp.hpp):
  *   per-block interface, which also carries the append flag;
  * - detail::IProductWRTPhysTraceBlockOpImpl: the per-block
- *   implementations, in IProductWRTPhysTraceSerialAVXSumFac.hpp (serving
+ *   implementations, in IProductWRTPhysTraceBlockOpSerialAVXSumFac.hpp (serving
  *   both the Serial and the AVX space) and
- *   IProductWRTPhysTraceDeviceSumFac.hpp (Device);
- * - the kernels in IProductWRTPhysTraceSerialAVXSumFacKernels.hpp and
- *   IProductWRTPhysTraceDeviceSumFacKernels.hpp.
+ *   IProductWRTPhysTraceBlockOpDeviceSumFac.hpp (Device);
+ * - the kernels in IProductWRTPhysTraceBlockOpSerialAVXSumFacKernels.hpp and
+ *   IProductWRTPhysTraceBlockOpDeviceSumFacKernels.hpp.
  *
  * The per-shape entry points, the ShapeBlock() specialisations, come from the
  * generated translation-unit template

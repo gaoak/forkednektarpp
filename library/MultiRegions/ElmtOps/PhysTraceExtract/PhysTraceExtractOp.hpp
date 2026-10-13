@@ -88,10 +88,10 @@
  * - PhysTraceExtractBlockOp (PhysTraceExtractBlockOp.hpp): per-block
  *   interface;
  * - detail::PhysTraceExtractBlockOpImpl: the per-block implementations,
- *   in PhysTraceExtractSerialAVXSumFac.hpp (serving both the Serial and
- *   the AVX space) and PhysTraceExtractDeviceSumFac.hpp (Device);
- * - the kernels in PhysTraceExtractSerialAVXSumFacKernels.hpp and
- *   PhysTraceExtractDeviceSumFacKernels.hpp.
+ *   in PhysTraceExtractBlockOpSerialAVXSumFac.hpp (serving both the Serial and
+ *   the AVX space) and PhysTraceExtractBlockOpDeviceSumFac.hpp (Device);
+ * - the kernels in PhysTraceExtractBlockOpSerialAVXSumFacKernels.hpp and
+ *   PhysTraceExtractBlockOpDeviceSumFacKernels.hpp.
  *
  * The per-shape entry points are generated from
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one

@@ -66,15 +66,16 @@
  * - PhysDerivBlockOp (PhysDerivBlockOp.hpp): per-block interface;
  * - detail::PhysDerivBlockOpImpl: the per-block implementations, one
  *   header per implementation family --
- *   PhysDerivSerialAVXStdMat.hpp and PhysDerivSerialAVXSumFac.hpp each
- *   serve both the Serial and the AVX space, PhysDerivDeviceStdMat.hpp
- *   serves Device/StdMat, and PhysDerivDeviceSumFac.hpp serves both
- *   device sum-factorisation strategies (SumFac and SumFacTOP);
- * - the kernels in PhysDerivSerialAVXStdMatKernels.hpp,
- *   PhysDerivSerialAVXSumFacKernels.hpp,
- *   PhysDerivDeviceStdMatKernels.hpp,
- *   PhysDerivDeviceSumFacKernels.hpp and
- *   PhysDerivDeviceSumFacTOPKernels.hpp;
+ *   PhysDerivBlockOpSerialAVXStdMat.hpp and PhysDerivBlockOpSerialAVXSumFac.hpp
+ * each serve both the Serial and the AVX space,
+ * PhysDerivBlockOpDeviceStdMat.hpp serves Device/StdMat, and
+ * PhysDerivBlockOpDeviceSumFac.hpp serves both device sum-factorisation
+ * strategies (SumFac and SumFacTOP);
+ * - the kernels in PhysDerivBlockOpSerialAVXStdMatKernels.hpp,
+ *   PhysDerivBlockOpSerialAVXSumFacKernels.hpp,
+ *   PhysDerivBlockOpDeviceStdMatKernels.hpp,
+ *   PhysDerivBlockOpDeviceSumFacKernels.hpp and
+ *   PhysDerivBlockOpDeviceSumFacTOPKernels.hpp;
  * - detail::DerivZOpImpl (DerivZOpImpl.hpp, shared with the other
  *   operator families): the homogeneous z-derivative used for
  *   multi-plane 3DH1 fields, invoked through v_ApplyFFT() after the

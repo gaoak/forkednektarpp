@@ -122,13 +122,13 @@
  * - PhysInterp1DScaledBlockOp (PhysInterp1DScaledBlockOp.hpp): per-block
  *   interface, holding the scale factor;
  * - detail::PhysInterp1DScaledBlockOpImpl: the per-block implementations.
- *   PhysInterp1DScaledSerialAVXStdMat.hpp and
- *   PhysInterp1DScaledSerialAVXSumFac.hpp each serve both the Serial and
- *   the AVX space, PhysInterp1DScaledDeviceStdMat.hpp serves
- *   Device/StdMat, and PhysInterp1DScaledDeviceSumFac.hpp serves both
+ *   PhysInterp1DScaledBlockOpSerialAVXStdMat.hpp and
+ *   PhysInterp1DScaledBlockOpSerialAVXSumFac.hpp each serve both the Serial and
+ *   the AVX space, PhysInterp1DScaledBlockOpDeviceStdMat.hpp serves
+ *   Device/StdMat, and PhysInterp1DScaledBlockOpDeviceSumFac.hpp serves both
  *   device sum-factorisation strategies (SumFac and SumFacTOP);
- * - the kernel headers PhysInterp1DScaledDeviceSumFacKernels.hpp and
- *   PhysInterp1DScaledDeviceSumFacTOPKernels.hpp, which only include the
+ * - the kernel headers PhysInterp1DScaledBlockOpDeviceSumFacKernels.hpp and
+ *   PhysInterp1DScaledBlockOpDeviceSumFacTOPKernels.hpp, which only include the
  *   backward transform's device kernels.
  */
 

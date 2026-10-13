@@ -44,7 +44,7 @@
  * execution-space key with the operator factory and, on a multi-plane 3DH1
  * expansion, owns the z-operator (AdvectionZOpImpl.hpp) that adds the
  * homogeneous term w du/dz. The plane-local numerical work is done by the
- * block operators created alongside it (see AdvectionSerialAVXStdMat.hpp
+ * block operators created alongside it (see AdvectionBlockOpSerialAVXStdMat.hpp
  * and its siblings). CMake-generated translation units instantiate and
  * register this class for each enabled execution space.
  *

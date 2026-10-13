@@ -49,9 +49,9 @@
  * ElmtOp.hpp for the two-level element-operator structure); the per-block
  * interface is CurlCurlBlockOp (CurlCurlBlockOp.hpp). The numerical work
  * lives in the detail::CurlCurlBlockOpImpl definitions --
- * CurlCurlSerialAVXStdMat.hpp and CurlCurlSerialAVXSumFac.hpp for the
- * Serial and AVX execution spaces, CurlCurlDeviceStdMat.hpp and
- * CurlCurlDeviceSumFac.hpp for the Device execution space -- registered
+ * CurlCurlBlockOpSerialAVXStdMat.hpp and CurlCurlBlockOpSerialAVXSumFac.hpp for
+ * the Serial and AVX execution spaces, CurlCurlBlockOpDeviceStdMat.hpp and
+ * CurlCurlBlockOpDeviceSumFac.hpp for the Device execution space -- registered
  * with the block-operator factory by CMake-generated translation units.
  * On a multi-plane 3DH1 expansion the block operators take only the plane
  * part of one curl, and detail::CurlCurlOpImpl (CurlCurlOpImpl.hpp)

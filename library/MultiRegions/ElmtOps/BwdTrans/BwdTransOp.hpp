@@ -56,14 +56,14 @@
  * - BwdTransBlockOp (BwdTransBlockOp.hpp): per-block interface;
  * - detail::BwdTransBlockOpImpl: the per-block implementations, one
  *   header per implementation family rather than one per registered
- *   execution-space/strategy pairing -- BwdTransSerialAVXStdMat.hpp and
- *   BwdTransSerialAVXSumFac.hpp each serve both the Serial and the AVX
- *   space, BwdTransDeviceStdMat.hpp serves Device/StdMat, and
- *   BwdTransDeviceSumFac.hpp serves both device sum-factorisation
+ *   execution-space/strategy pairing -- BwdTransBlockOpSerialAVXStdMat.hpp and
+ *   BwdTransBlockOpSerialAVXSumFac.hpp each serve both the Serial and the AVX
+ *   space, BwdTransBlockOpDeviceStdMat.hpp serves Device/StdMat, and
+ *   BwdTransBlockOpDeviceSumFac.hpp serves both device sum-factorisation
  *   strategies (SumFac and SumFacTOP);
- * - the sum-factorised kernels in BwdTransSerialAVXSumFacKernels.hpp,
- *   BwdTransDeviceSumFacKernels.hpp and
- *   BwdTransDeviceSumFacTOPKernels.hpp.
+ * - the sum-factorised kernels in BwdTransBlockOpSerialAVXSumFacKernels.hpp,
+ *   BwdTransBlockOpDeviceSumFacKernels.hpp and
+ *   BwdTransBlockOpDeviceSumFacTOPKernels.hpp.
  */
 
 #pragma once

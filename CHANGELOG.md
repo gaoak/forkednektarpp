@@ -71,6 +71,7 @@ v5.11.0
 - Fix a deadlock when the `std::thread` ThreadManager is torn down (!2819)
 - Fast initial condition on restart for CG (!2790)
 - Consistently use the block streams in the redesign boundary-condition operators: run Robin conditions and the Dirichlet/Neumann boundary-coefficient updates per block, fix a race in the Dirichlet local copy, remove redundant host synchronisations and per-call allocations, and fix the 1D Robin operator and the DG periodic output access (!2830)
+- Consistently name block operator files `<Name>BlockOp<ExecSpace><Impl>` (!2834)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

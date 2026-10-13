@@ -83,9 +83,9 @@
  *   and the active-direction selector;
  * - detail::IProductWRTPhysNormalDerivTraceBlockOpImpl: the per-block
  *   implementations, in
- *   IProductWRTPhysNormalDerivTraceSerialAVXSumFac.hpp (serving both
+ *   IProductWRTPhysNormalDerivTraceBlockOpSerialAVXSumFac.hpp (serving both
  *   the Serial and the AVX space) and
- *   IProductWRTPhysNormalDerivTraceDeviceSumFac.hpp (Device);
+ *   IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFac.hpp (Device);
  * - the kernels in the matching *SumFacKernels.hpp headers.
  *
  * The per-shape entry points, the ShapeBlock() specialisations, come from the
