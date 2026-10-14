@@ -212,12 +212,10 @@ protected:
                 return;
             }
 
-            // Reset device memory.
-            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
-
             // Residual replacement strategy.
-            if (this->m_niter > 0 &&
-                this->m_niter % residualReplacementFreq == 0)
+            const bool replace = this->m_niter > 0 &&
+                                 this->m_niter % residualReplacementFreq == 0;
+            if (replace)
             {
                 this->m_lhs->Apply(out, m_r);
                 this->m_robBndCondOp->Apply(out, m_r);
@@ -231,8 +229,16 @@ protected:
                 this->m_robBndCondOp->Apply(m_r, m_w);
             }
 
-            // <r_{k+1}, r_{k+1}> and <r_{k+1}, w_{k+1}>, reading r once.
-            Math::ddot2<ExecSpace>(m_r, m_r, m_w, exchange + 0);
+            // Otherwise, the products were computed with the update of the
+            // previous iteration.
+            if (this->m_niter == 0 || replace)
+            {
+                // Reset device memory.
+                m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+                // <r_{k+1}, r_{k+1}> and <r_{k+1}, w_{k+1}>, reading r once.
+                Math::ddot2<ExecSpace>(m_r, m_r, m_w, exchange + 0);
+            }
 
             // Apply preconditioner.
             this->m_assmbScatrZeroDirOp->Apply(m_w, m_wk);
@@ -288,15 +294,20 @@ protected:
             // Math::daxpy<ExecSpace>(alpha, m_p, out, out);
             // Math::daxpy<ExecSpace>(-alpha, m_q, m_r, m_r);
             // Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
+            // and <r_{k+1}, r_{k+1}>, <r_{k+1}, w_{k+1}>.
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
             if (this->m_niter == 1)
             {
                 UpdatePipeConjResSearchDirection<ExecSpace, 0>(
-                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out);
+                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out,
+                    exchange);
             }
             else
             {
                 UpdatePipeConjResSearchDirection<ExecSpace, 1>(
-                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out);
+                    alpha, beta, m_s, m_wk, m_z, m_q, m_p, m_r, m_w, out,
+                    exchange);
             }
         }
     }

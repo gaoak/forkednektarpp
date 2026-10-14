@@ -229,7 +229,6 @@ protected:
             // Reduction.
             // <r~, r> and <r~, v>, reading r~ once.
             Math::ddot2<ExecSpace>(m_rtilde, m_r, m_v, exchange);
-            // Math::ddot<ExecSpace>(m_r, m_r, exchange + 2);
 
             // Communication.
             this->m_rowComm->template AllReduce<MemSpace>(
@@ -249,15 +248,6 @@ protected:
             // Update solution.
             Math::daxpy<ExecSpace>(alpha, tmp, out, out);
             Math::daxpy<ExecSpace>(-alpha, m_v, m_r, m_s);
-
-            /*// Test if norm is within tolerance.
-            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
-            {
-                this->PrintVerboseOutput(
-                    this->name, "error", std::sqrt(eps / rhsMagnitude),
-                    rhsMagnitude);
-                break;
-            }*/
 
             // Perform the method-specific matrix-vector multiply operation.
             auto &tmp2 = (this->m_rightPreconditioner) ? m_w : m_s;

@@ -449,7 +449,7 @@ template <typename TPadding>
 void LocalToGlobalDataCreator::FillSignArray(
     std::vector<unsigned> &index,
     const std::vector<AssemblyMapCGSharedPtr> &loc2glo, bool zeroDir,
-    bool signChange, int *out)
+    bool signChange, int8_t *out)
 {
     auto numComp = loc2glo.size();
 
@@ -584,7 +584,7 @@ LocalToGlobalDataCreator::Create(
     }
 
     // evaluate the sign of each point
-    std::vector<int> sign(nidx);
+    std::vector<value_type> sign(nidx);
     FillSignArray<TPadding>(index, loc2glo, zeroDir, signChange, sign.data());
 
     // calculate number of sign values as sum of i*width point times width

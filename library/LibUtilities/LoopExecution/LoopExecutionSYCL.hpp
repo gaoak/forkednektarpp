@@ -289,6 +289,98 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
     SYCLQueue::SetEvent(streamID, e);
 }
 
+// Partial sums of nsum values per work-group: functor(i, sums) adds those of
+// index i to sums[0, nsum). Sum s of work-group g is in
+// buffer[s * gridSize + g].
+template <unsigned int nsum, typename TData, typename Functor>
+void reduceSumNKernel(const unsigned int gridSize, const unsigned int blockSize,
+                      const size_t begin, const size_t end, TData *buffer,
+                      const Functor &functor)
+{
+    const unsigned int streamID = internalLoopExecutionStreamID;
+    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
+    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(
+            sycl::range<1>(nsum * blockSize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
+                NektarSpaces::Device::warpSize) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
+                const size_t lid = indx.get_local_id(0);
+                size_t gid       = begin + indx.get_global_id(0);
+
+                if (lid == 0)
+                {
+                    for (unsigned int s = 0; s < nsum; ++s)
+                    {
+                        buffer[s * gridSize + indx.get_group(0)] = 0.0;
+                    }
+                }
+
+#if defined(__ADAPTIVECPP__)
+                indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
+
+                TData tmp[nsum] = {};
+                while (gid < end)
+                {
+                    functor(gid, tmp);
+                    gid += indx.get_global_range(0);
+                }
+                for (unsigned int s = 0; s < nsum; ++s)
+                {
+                    scratch[s * blockSize + lid] = tmp[s];
+                }
+
+#if defined(__ADAPTIVECPP__)
+                indx.barrier(sycl::access::fence_space::local_space);
+#else
+                sycl::group_barrier(indx.get_group(),
+                                    sycl::memory_scope::work_group);
+#endif
+
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        for (unsigned int s = 0; s < nsum; ++s)
+                        {
+                            scratch[s * blockSize + lid] +=
+                                scratch[s * blockSize + lid + n];
+                        }
+                    }
+#if defined(__ADAPTIVECPP__)
+                    indx.barrier(sycl::access::fence_space::local_space);
+#else
+                    sycl::group_barrier(indx.get_group(),
+                                        sycl::memory_scope::work_group);
+#endif
+                    n /= 2;
+                }
+
+                if (lid == 0)
+                {
+                    for (unsigned int s = 0; s < nsum; ++s)
+                    {
+                        atomic_add<NektarSpaces::LocalScope>(
+                            buffer + s * gridSize + indx.get_group(0),
+                            scratch[s * blockSize]);
+                    }
+                }
+            });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
 // Parallel reduction launchers without device-to-host copy.
 template <
     typename ExecSpace, bool init, typename Reduction, typename Functor,
@@ -330,6 +422,42 @@ inline void parallel_reduce(const size_t begin, const size_t end,
         reduceMinKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
         reduceMinKernel<init>(1, gridSize, 0, gridSize, out,
                               [=](const size_t i) { return buffer[i]; });
+    }
+}
+
+// Parallel sum of nsum values: functor(i, sums) adds those of index i to
+// sums[0, nsum). They are written to out[0, nsum) if init, added to it
+// otherwise. At most 4 sums, the partial sums the reduction scratch holds.
+template <
+    typename ExecSpace, bool init, unsigned int nsum, typename TData,
+    typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_reduce_sum(const size_t begin, const size_t end,
+                                const Functor &functor, TData *out)
+{
+    static_assert(nsum <= 4, "parallel_reduce_sum: at most 4 sums.");
+
+    const unsigned int streamID  = internalLoopExecutionStreamID;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+    ASSERTL0(nsum * gridSize * sizeof(TData) <= internalReductionBufferSize,
+             "Too many sums for the reduction buffer.");
+
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
+    {
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalReductionBufferSize, streamID);
+    }
+
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
+    reduceSumNKernel<nsum>(gridSize, blockSize, begin, end, buffer, functor);
+    for (unsigned int s = 0; s < nsum; ++s)
+    {
+        const TData *partial = buffer + s * gridSize;
+        reduceSumKernel<init>(1, gridSize, 0, gridSize, out + s,
+                              [=](const size_t i) { return partial[i]; });
     }
 }
 

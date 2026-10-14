@@ -43,7 +43,7 @@ void *internalDeviceBuffer           = nullptr;
 void *internalHostBuffer             = nullptr;
 unsigned int internalMaxDataSizeByte = 16;
 unsigned int internalReductionBufferSize =
-    internalMaxDataSizeByte * NektarSpaces::Device::maximumBlockSize;
+    4 * sizeof(double) * NektarSpaces::Device::maximumBlockSize;
 #endif
 
 } // namespace Nektar

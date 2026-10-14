@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
@@ -45,6 +46,10 @@ namespace Nektar::SolverCore::detail
  *
  *   z = beta z + n, q = beta q + m, s = beta s + w, p = beta p + u,
  *   out += alpha p, r -= alpha s, u -= alpha q, w -= alpha z,
+ *
+ * and, in the same pass, the products of the next iteration:
+ * dots[0] = (u, u), dots[1] = (u, r) and dots[2] = (w, u), in the memory
+ * space of ExecSpace.
  *
  * @p STAGE is 0 on the first update, where z, q, s and p are not read:
  * z = n, q = m, s = w and p = u. It is 1 on every later update.
@@ -61,11 +66,13 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
     LibUtilities::Field<TData, FieldState::Coeff> &u,
     LibUtilities::Field<TData, FieldState::Coeff> &w,
     LibUtilities::Field<TData, FieldState::Coeff> &r,
-    LibUtilities::Field<TData, FieldState::Coeff> &out)
+    LibUtilities::Field<TData, FieldState::Coeff> &out, TData *dots)
 {
     using MemSpace = typename ExecSpace::memory_space;
     using DirAccess =
         typename std::conditional<STAGE == 0, WriteOnly, ReadWrite>::type;
+
+    Math::zeroKernel<ExecSpace>(3, dots);
 
     for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
     {
@@ -98,28 +105,39 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
 
         if constexpr (STAGE == 0)
         {
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
+            Nektar::parallel_reduce_sum<ExecSpace, false, 3>(
+                0, size,
+                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
                     auto z0 = nptr[idx];
                     auto q0 = mptr[idx];
                     auto s0 = wptr[idx];
                     auto p0 = uptr[idx];
 
+                    const auto r1 = rptr[idx] - alpha * s0;
+                    const auto u1 = p0 - alpha * q0;
+                    const auto w1 = s0 - alpha * z0;
+
                     outptr[idx] += alpha * p0;
-                    rptr[idx] -= alpha * s0;
-                    uptr[idx] = p0 - alpha * q0;
-                    wptr[idx] = s0 - alpha * z0;
+                    rptr[idx] = r1;
+                    uptr[idx] = u1;
+                    wptr[idx] = w1;
 
                     zptr[idx] = z0;
                     qptr[idx] = q0;
                     sptr[idx] = s0;
                     pptr[idx] = p0;
-                });
+
+                    sums[0] += u1 * u1;
+                    sums[1] += u1 * r1;
+                    sums[2] += w1 * u1;
+                },
+                dots);
         }
         else
         {
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
+            Nektar::parallel_reduce_sum<ExecSpace, false, 3>(
+                0, size,
+                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
                     auto u0 = uptr[idx];
                     auto w0 = wptr[idx];
 
@@ -128,16 +146,25 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
                     auto s0 = beta * sptr[idx] + w0;
                     auto p0 = beta * pptr[idx] + u0;
 
+                    const auto r1 = rptr[idx] - alpha * s0;
+                    const auto u1 = u0 - alpha * q0;
+                    const auto w1 = w0 - alpha * z0;
+
                     outptr[idx] += alpha * p0;
-                    rptr[idx] -= alpha * s0;
-                    uptr[idx] = u0 - alpha * q0;
-                    wptr[idx] = w0 - alpha * z0;
+                    rptr[idx] = r1;
+                    uptr[idx] = u1;
+                    wptr[idx] = w1;
 
                     zptr[idx] = z0;
                     qptr[idx] = q0;
                     sptr[idx] = s0;
                     pptr[idx] = p0;
-                });
+
+                    sums[0] += u1 * u1;
+                    sums[1] += u1 * r1;
+                    sums[2] += w1 * u1;
+                },
+                dots);
         }
 
         if constexpr (STAGE == 0)

@@ -36,6 +36,8 @@
 
 #include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
 
+#include <cstdint>
+
 namespace Nektar::MultiRegions
 {
 
@@ -206,8 +208,7 @@ class DeviceLocalToGlobalSignKey : public LibUtilities::BaseKey
 
 public:
     using creator = LocalToGlobalDataCreator;
-    // typedef int8_t value_type;
-    typedef int value_type;
+    typedef int8_t value_type;
 
     ~DeviceLocalToGlobalSignKey() override = default;
 
@@ -441,7 +442,7 @@ class DeviceBndLocalToGlobalSignKey : public LibUtilities::BaseKey
 
 public:
     using creator = LocalToGlobalDataCreator;
-    typedef int value_type;
+    typedef int8_t value_type;
 
     ~DeviceBndLocalToGlobalSignKey() override = default;
 
@@ -573,7 +574,7 @@ public:
     template <typename TPadding>
     void FillSignArray(std::vector<unsigned> &index,
                        const std::vector<AssemblyMapCGSharedPtr> &loc2glo,
-                       bool zeroDir, bool signChange, int *out);
+                       bool zeroDir, bool signChange, int8_t *out);
 
     inline static const std::string m_name = "LocalToGlobalCreator";
 

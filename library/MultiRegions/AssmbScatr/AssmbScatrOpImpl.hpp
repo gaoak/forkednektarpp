@@ -186,7 +186,7 @@ protected:
     /// First entry of each interior DOF within #m_gsIndex / #m_gsSign.
     const unsigned *m_gsOffset = nullptr;
     /// Factor per #m_gsIndex entry: +-1, or 0 to disable the entry.
-    const int *m_gsSign = nullptr;
+    const int8_t *m_gsSign = nullptr;
     /// Number of local contributions (valence) per boundary DOF.
     const unsigned *m_gsBndNumAssmb = nullptr;
     /// Number of neighbouring ranks sharing each boundary DOF.
@@ -201,7 +201,7 @@ protected:
     const unsigned *m_gsBndAssOrder = nullptr;
     /// Factors for the local entries of #m_gsBndIndex (0 in the buffer
     /// slot positions).
-    const int *m_gsBndSign = nullptr;
+    const int8_t *m_gsBndSign = nullptr;
     /// Spatial (row) communicator over which the mesh is partitioned.
     LibUtilities::CommSharedPtr m_rowComm;
 
