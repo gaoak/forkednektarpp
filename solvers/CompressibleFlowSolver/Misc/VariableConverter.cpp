@@ -101,7 +101,7 @@ VariableConverter::VariableConverter(
     if (m_shockCaptureType == "Physical")
     {
         // Artificial viscosity scaling constant
-        m_session->LoadParameter("mu0", m_mu0, 1.0);
+        m_session->LoadParameter("mu0", m_mu0, 0.1);
 
         m_muAv      = NullNekDouble1DArray;
         m_muAvTrace = NullNekDouble1DArray;
@@ -657,16 +657,12 @@ void VariableConverter::GetSensor(
 
         Vmath::Fill(nElmtPoints, elmtSensor, tmp = Sensor + physOffset, 1);
 
-        // Compute reference value for sensor
-        order = std::max(numModesElement - 1, 1);
-        if (order > 0)
-        {
-            Skappa = m_Skappa - 4.25 * log10(static_cast<NekDouble>(order));
-        }
-        else
-        {
-            Skappa = 0.0;
-        }
+        // Compute reference value for sensor. Linear elements take the
+        // quadratic threshold: with P = 1, log10(P) = 0 would leave s_0 at
+        // Skappa, a higher threshold than at any other order. P >= 2 is
+        // unchanged.
+        order  = std::max(numModesElement - 1, 2);
+        Skappa = m_Skappa - 4.25 * log10(static_cast<NekDouble>(order));
 
         // Compute artificial viscosity
         NekDouble elmtSensorKappa;

@@ -395,7 +395,7 @@ Under this section it is possible to set the solver information.
   \item \inltt{ShockSensorRatio} how the modal sensor measures the truncation error (see Sec.~\ref{subsec:modal-sensor}):
     \begin{itemize}
       \item \inltt{Amplitude} (default) $s_e$ is the logarithm of the amplitude ratio $\sqrt{\langle q - \tilde{q}, q - \tilde{q} \rangle / \langle q, q \rangle}$, the historical definition in this solver.
-      \item \inltt{Energy} $s_e$ is the logarithm of the energy ratio $\langle q - \tilde{q}, q - \tilde{q} \rangle / \langle q, q \rangle$ of Persson and Peraire, which is twice the amplitude value. The threshold $s_0 = s_\kappa - 4.25\log_{10}(p)$ is applied unchanged, so \inltt{Skappa} and \inltt{Kappa} tuned for \inltt{Amplitude} need retuning; the order-dependent part is the one the paper wrote for the energy ratio.
+      \item \inltt{Energy} $s_e$ is the logarithm of the energy ratio $\langle q - \tilde{q}, q - \tilde{q} \rangle / \langle q, q \rangle$ of Persson and Peraire, which is twice the amplitude value. The threshold $s_0 = s_\kappa - 4.25\log_{10}(\max(p,2))$ is applied unchanged, so \inltt{Skappa} and \inltt{Kappa} tuned for \inltt{Amplitude} need retuning; the order-dependent part is the one the paper wrote for the energy ratio.
     \end{itemize}
   \item \inltt{ArtificialViscosityBndTrace} how the trace value of the \inltt{Physical} artificial viscosity is formed where a trace has only one element:
     \begin{itemize}
@@ -694,7 +694,7 @@ then the constant element-wise sensor is computed as follows
       \end{array}
     \right.,
 \end{equation}
-where $s_0 = s_\kappa - 4.25\;log_{10}(p)$.
+where $s_0 = s_\kappa - 4.25\;\log_{10}(\max(p,2))$ and $p$ is the element's polynomial order.
 
 The modal sensor is enabled by default and it can be explicilty set adding the following line to the \inltt{SOLVERINFO} section:
 \begin{lstlisting}[style=XmlStyle]
@@ -708,9 +708,34 @@ The diffusivity and the sensor can be controlled by the following parameters:
 <PARAMETERS>
 <P> Skappa 	 	= -1.3                     </P>
 <P> Kappa 	 	= 0.2                      </P>
-<P> mu0 	  	= 1.0                      </P>
+<P> mu0 	  	= 0.1                      </P>
 </PARAMETERS>
 \end{lstlisting}
+
+The defaults are \inltt{Skappa} $= -1$, \inltt{Kappa} $= 0.25$ and \inltt{mu0} $= 0.1$.
+
+For linear elements ($p = 1$) the threshold uses $\max(p,2)$, so they take the
+quadratic threshold. With $\log_{10}(p)$ alone, $p = 1$ would leave $s_0$ at
+$s_\kappa$, the highest threshold of any order, so a linear element would need a
+larger truncation ratio than a quadratic one before viscosity is added. The
+default threshold at $p = 1$ is therefore $-1 - 4.25\log_{10}2 \approx -2.28$, the
+same as at $p = 2$.
+
+To tune the shock capturing, first check the sensor. The \inltt{Sensor} and
+\inltt{ArtificialVisc} fields are written to the output and checkpoint files.
+If the shock capturing does not turn on where it is needed, that is the
+sensor stays below $s_0 - \kappa$ in the elements that oscillate or diverge,
+lower \inltt{Skappa} rather than raising \inltt{mu0}. Even \inltt{mu0}
+$= 0.1$ may add more diffusion than the case needs, which slows the
+simulation: the artificial viscosity stiffens an implicit solve and limits
+the time step of an explicit one. Keeping a time step known to be safe,
+lower \inltt{mu0} step by step, down to $0.01$, and use the smallest value
+with which the run stays stable. A stronger shock may need a larger value:
+on the solver's Mach~8 shock-tube test, with \inltt{DucrosSensor} and
+\inltt{Smoothing} off, the smallest values tried that ran to the end were
+$0.25$ at $p = 1$, $0.15$ at $p = 2$ and $0.35$ at $p = 3$. Raise
+\inltt{mu0} if a run diverges in elements where the viscosity is already
+fully on ($s_e > s_0 + \kappa$).
 
 \begin{figure}[!htbp]
 \begin{center}

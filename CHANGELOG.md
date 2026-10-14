@@ -100,6 +100,7 @@ v5.11.0
 - Add a three-dimensional tetrahedral shock-capturing test, the first in the solver, covering the modal sensor on tetrahedra (!2735)
 - Remove the rotation onto the trace normal from all compressible Riemann solvers (!2779)
 - Remove unused ProblemType and fix misspelt SOLVERINFO and parameter names in session files and user guide (!2815)
+- Use the p = 2 shock-sensor threshold for p = 1 elements and set the default mu0 of the Physical artificial viscosity to 0.1 (!2812)
 
 **FieldConvert**
 - Add compressiblefields module to compute velocity, pressure, temperature, entropy, sound speed and Mach number from compressible flow fields (!2417)
