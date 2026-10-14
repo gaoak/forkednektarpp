@@ -56,6 +56,7 @@
             <P> Skappa               = -2.0                           </P>
             <P> Kappa                = 0.5                            </P>
             <P> mu                   = (rhol+rhor)/2 * L * (ul+ur)/2 / Re </P>
+            <P> mu0                  = 1.0                            </P>
         </PARAMETERS>
 
         <SOLVERINFO>
