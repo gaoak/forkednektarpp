@@ -36,6 +36,7 @@ v5.11.0
 - Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
+- Allow a composites and boundary conditions to be referred to by name wherever a composite list is written (!2778)
 - Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
 - Assemble every Krylov vector of the redesign GMRES solver and take its inner products with the global inner-product mask, which it now shares with the redesign CG solver, so that tight tolerances no longer stall (!2786)
 - Add `MemoryRegion` host/device memory abstraction with lazy synchronisation through `ReadOnly`/`WriteOnly`/`ReadWrite` access qualifiers, pinned and pooled memory, contiguous allocation and stream support (!1774, !1833, !2043, !2050, !2204, !2483, !2598)
@@ -78,6 +79,7 @@ v5.11.0
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
 - Fix modules that add curvature leaving the surrounding faces and elements set up for the linear mesh, so that later modules measured the mesh as it was before projection (!2747)
+- Improve CGNS read support for multiple volumes, boundary condition/family names, and fix various mesh reorientation issues (!2778)
 - Overhaul the variational optimiser: correct its search direction, the Hessian of two of its functionals and its three-dimensional strain tensor; regularise the Jacobian against the whole mesh, under a cap that stops one inverted element flattening the energy everywhere, and measure convergence against the mesh's size; let nodes on the CAD slide again and leave alone those belonging to no element, which a boundary-layer mesh has thousands of and which ended the run; fix the node ordering of prisms and support hexahedra; and evaluate the energy from derivatives the elements keep, which is three to four times faster in a third of the memory (!2789)
 - NekMesh mesh generation quality pass: diagnose failures that used to crash or assert, and cut the memory and CAD work the generator wastes (!2816)
 

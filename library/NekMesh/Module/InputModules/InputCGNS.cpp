@@ -33,15 +33,23 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
-#include <boost/algorithm/string.hpp>
+#include <array>
+#include <cmath>
+#include <deque>
+#include <fstream>
 #include <iostream>
+#include <map>
+#include <numeric>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "InputCGNS.h"
 #include <NekMesh/MeshElements/Element.h>
+#include <SpatialDomains/CompositeNames.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
@@ -50,6 +58,7 @@ namespace Nektar::NekMesh
 {
 
 using namespace Nektar::NekMesh;
+using SpatialDomains::SanitiseCompositeName;
 
 ModuleKey InputCGNS::className = GetModuleFactory().RegisterCreatorFunction(
     ModuleKey(eInputModule, "cgns"), InputCGNS::create, "Reads CGNS file.");
@@ -60,6 +69,15 @@ InputCGNS::InputCGNS(MeshSharedPtr m) : InputModule(m)
 {
     m_config["processall"] =
         ConfigOption(true, "0", "Process edges, faces as well as composites");
+    m_config["nobcgroup"] = ConfigOption(
+        true, "0",
+        "Ignore the file's boundary conditions when forming boundary "
+        "composites; group and name them by element section instead");
+    m_config["prismlines"] = ConfigOption(
+        false, "",
+        "Write the prisms and the lines running through them to this file, as "
+        "a legacy VTK unstructured grid, for looking at where a mesh cannot "
+        "be numbered");
 }
 
 InputCGNS::~InputCGNS()
@@ -95,13 +113,15 @@ void InputCGNS::Process()
 void InputCGNS::SetupElements()
 {
     string fname = m_config["infile"].as<string>();
-    cgsize_t
-        sizes[9]; // 9 is the max number required (for a 3D structured mesh):
-    // [NVertexI, NVertexJ, NVertexK, NCellI, NCellJ, NCellK, NBoundVertexI,
-    // NBoundVertexJ, NBoundVertexK]).
-    // https://cgns.github.io/CGNS_docs_current/midlevel/structural.html#zone
 
-    char zoneName[33]; // 33 is the max set by convention
+    // 9 is the max number required (for a 3D structured mesh): [NVertexI,
+    // NVertexJ, NVertexK, NCellI, NCellJ, NCellK, NBoundVertexI, NBoundVertexJ,
+    // NBoundVertexK]).
+    // https://cgns.github.io/CGNS_docs_current/midlevel/structural.html#zone
+    cgsize_t sizes[9];
+
+    // 33 is the max, set by convention
+    char zoneName[33];
 
     if (cg_open(fname.c_str(), CG_MODE_READ, &m_fileIndex))
     {
@@ -131,101 +151,121 @@ void InputCGNS::SetupElements()
         m_log(VERBOSE) << "Physical dim : " << spaceDim << endl;
     }
 
-    ZoneType_t zoneType;
-
-    // Read the zone type
-    if (cg_zone_type(m_fileIndex, m_baseIndex, m_zoneIndex, &zoneType))
+    int nZones = 0;
+    if (cg_nzones(m_fileIndex, m_baseIndex, &nZones) || nZones < 1)
     {
-        m_log(FATAL) << "Error reading zone type" << endl;
+        m_log(FATAL) << "Error reading the number of zones." << endl;
         cg_close(m_fileIndex);
     }
-    else
-    {
-        ASSERTL0(zoneType == CGNS_ENUMV(Unstructured),
-                 "Only unstructured meshes supported");
-    }
 
+    m_log(VERBOSE) << "Number of zones: " << nZones << endl;
+
+    // Every zone is read into one mesh. A zone is a part of the model rather
+    // than a model of its own; a mesher splits a volume from the boundary layer
+    // grown on it this way, so the zones abut, and the faces they share are
+    // stitched below rather than left as a boundary.
     int nCoords = 0, n3DElems = 0;
 
-    // Read the zone information
-    if (cg_zone_read(m_fileIndex, m_baseIndex, m_zoneIndex, zoneName, sizes))
+    // Each pair in elemInfo contains the element type and the element's node
+    // indices
+    vector<pair<ElementType_t, vector<int>>> elemInfo;
+    vector<CGNSSection> sections;
+
+    for (m_zoneIndex = 1; m_zoneIndex <= nZones; ++m_zoneIndex)
     {
-        m_log(FATAL) << "Error reading zone information" << endl;
-        cg_close(m_fileIndex);
-    }
-    else
-    {
+        ZoneType_t zoneType;
+
+        // Read the zone type
+        if (cg_zone_type(m_fileIndex, m_baseIndex, m_zoneIndex, &zoneType))
+        {
+            cg_close(m_fileIndex);
+            m_log(FATAL) << "Error reading zone type for zone " << m_zoneIndex
+                         << endl;
+        }
+
+        if (zoneType != CGNS_ENUMV(Unstructured))
+        {
+            m_log(FATAL) << "Only unstructured meshes supported" << endl;
+        }
+
+        // Read the zone information
+        if (cg_zone_read(m_fileIndex, m_baseIndex, m_zoneIndex, zoneName,
+                         sizes))
+        {
+            cg_close(m_fileIndex);
+            m_log(FATAL) << "Error reading zone information for zone "
+                         << m_zoneIndex << endl;
+        }
+
+        // Nodes of this zone are appended to those already read, so a node
+        // index from here on is into the whole file rather than into a zone.
+        int nodeOffset = nCoords;
+        int zoneCoords = sizes[0];
+
+        m_zoneNames[m_zoneIndex] = SanitiseCompositeName(zoneName);
+
         m_log(VERBOSE) << "Read zone information" << endl;
         m_log(VERBOSE) << "Zone name   : " << zoneName << endl;
-        // NOTE: the following two lines only work for unstructured meshes
-        nCoords  = sizes[0];
-        n3DElems = sizes[1];
-        m_log(VERBOSE) << "Grid Points : " << nCoords << endl;
-        m_log(VERBOSE) << "No of elmts : " << n3DElems << endl;
-    }
+        m_log(VERBOSE) << "Grid Points : " << zoneCoords << endl;
+        m_log(VERBOSE) << "No of elmts : " << sizes[1] << endl;
 
-    // Read in coordinates from the mesh
-    m_x.resize(nCoords);
-    m_y.resize(nCoords);
-    m_z.resize(nCoords);
+        nCoords += zoneCoords;
+        n3DElems += sizes[1];
 
-    cgsize_t rmin[3] = {1, 1, 1};
-    cgsize_t rmax[3] = {nCoords, 1, 1}; // NOTE: for unstructured meshes
+        // Read in coordinates from the mesh
+        m_x.resize(zoneCoords);
+        m_y.resize(zoneCoords);
+        m_z.resize(zoneCoords);
 
-    if (cg_coord_read(m_fileIndex, m_baseIndex, m_zoneIndex, "CoordinateX",
-                      RealDouble, rmin, rmax, m_x.data()) ||
-        cg_coord_read(m_fileIndex, m_baseIndex, m_zoneIndex, "CoordinateY",
-                      RealDouble, rmin, rmax, m_y.data()) ||
-        cg_coord_read(m_fileIndex, m_baseIndex, m_zoneIndex, "CoordinateZ",
-                      RealDouble, rmin, rmax, m_z.data()))
-    {
-        cg_close(m_fileIndex);
-        m_log(FATAL) << "Error reading coordinates" << endl;
-    }
-    else
-    {
-        m_log(VERBOSE) << "Read coordinates" << endl;
-    }
+        cgsize_t rmin[3] = {1, 1, 1};
+        cgsize_t rmax[3] = {zoneCoords, 1, 1}; // NOTE: for unstructured meshes
 
-    // Create a node for each coord
-    for (uint i{0}; i < nCoords; i++)
-    {
-        SaveNode(i, m_x[i], m_y[i], m_z[i]);
-    }
-
-    // Read number of sections
-    int nSections;
-    if (cg_nsections(m_fileIndex, m_baseIndex, m_zoneIndex, &nSections))
-    {
-        m_log(FATAL) << "Error reading number of sections." << endl;
-        cg_close(m_fileIndex);
-    }
-    else
-    {
-        m_log(VERBOSE) << "Number of sections: " << nSections << endl;
-    }
-
-    // each pair contains the element type and the element's node indices
-    vector<pair<ElementType_t, vector<int>>> elemInfo;
-    map<string, pair<int, int>> SectionNameToRange;
-
-    // Get the element vertices for each section
-    for (int sectionInd = 1; sectionInd <= nSections; ++sectionInd)
-    {
-        char sectionName[33];
-        ElementType_t elemType;
-        cgsize_t start, end;
-        int nbndry, parentFlag;
-
-        if (cg_section_read(m_fileIndex, m_baseIndex, m_zoneIndex, sectionInd,
-                            sectionName, &elemType, &start, &end, &nbndry,
-                            &parentFlag))
+        if (cg_coord_read(m_fileIndex, m_baseIndex, m_zoneIndex, "CoordinateX",
+                          RealDouble, rmin, rmax, m_x.data()) ||
+            cg_coord_read(m_fileIndex, m_baseIndex, m_zoneIndex, "CoordinateY",
+                          RealDouble, rmin, rmax, m_y.data()) ||
+            cg_coord_read(m_fileIndex, m_baseIndex, m_zoneIndex, "CoordinateZ",
+                          RealDouble, rmin, rmax, m_z.data()))
         {
-            m_log(FATAL) << "Error reading section information." << std::endl;
             cg_close(m_fileIndex);
+            m_log(FATAL) << "Error reading coordinates" << endl;
         }
-        else
+
+        m_log(VERBOSE) << "Read " << zoneCoords << " coordinates" << endl;
+
+        // Create a node for each coord
+        for (int i = 0; i < zoneCoords; i++)
         {
+            SaveNode(nodeOffset + i, m_x[i], m_y[i], m_z[i]);
+        }
+
+        // Read number of sections
+        int nSections;
+        if (cg_nsections(m_fileIndex, m_baseIndex, m_zoneIndex, &nSections))
+        {
+            cg_close(m_fileIndex);
+            m_log(FATAL) << "Error reading number of sections." << endl;
+        }
+
+        m_log(VERBOSE) << "Number of sections: " << nSections << endl;
+
+        // Get the element vertices for each section
+        for (int sectionInd = 1; sectionInd <= nSections; ++sectionInd)
+        {
+            char sectionName[33];
+            ElementType_t elemType;
+            cgsize_t start, end;
+            int nbndry, parentFlag;
+
+            if (cg_section_read(m_fileIndex, m_baseIndex, m_zoneIndex,
+                                sectionInd, sectionName, &elemType, &start,
+                                &end, &nbndry, &parentFlag))
+            {
+                cg_close(m_fileIndex);
+                m_log(FATAL)
+                    << "Error reading section information." << std::endl;
+            }
+
             int elemSize = end - start + 1;
             m_log(VERBOSE) << "Reading section data: " << endl;
             m_log(VERBOSE) << "        section name: " << sectionName << endl;
@@ -238,15 +278,19 @@ void InputCGNS::SetupElements()
             cg_ElementDataSize(m_fileIndex, m_baseIndex, m_zoneIndex,
                                sectionInd, &elemDataSize);
 
-            // store section name and range for boundary composite processing
-            // if shape is specficied as seperate type
-            LibUtilities::ShapeType shapeType = m_elemType2ShapeType[elemType];
-            if (shapeType == LibUtilities::eTriangle ||
-                shapeType == LibUtilities::eQuadrilateral)
-            {
-                SectionNameToRange[sectionName] =
-                    pair<int, int>(elemInfo.size(), elemInfo.size() + elemSize);
-            }
+            // Record the section so that boundary composites can be formed from
+            // it later. Both ranges are needed: boundary conditions name
+            // elements by the file's own numbering, which restarts in each
+            // zone, and everything after this works in positions within
+            // elemInfo, which does not.
+            CGNSSection sec;
+            sec.zone       = m_zoneIndex;
+            sec.name       = SanitiseCompositeName(sectionName);
+            sec.family     = ReadSectionFamilyName(sectionInd);
+            sec.cgStart    = start;
+            sec.cgEnd      = end;
+            sec.infoBegin  = (int)elemInfo.size();
+            sec.isBoundary = false;
 
             if (elemType == CGNS_ENUMV(ElementTypeNull) ||
                 elemType == CGNS_ENUMV(ElementTypeUserDefined) ||
@@ -256,94 +300,51 @@ void InputCGNS::SetupElements()
                 m_log(FATAL) << "Section type " << ElementTypeName[elemType]
                              << " not supported" << endl;
             }
-            else if (elemType == CGNS_ENUMV(MIXED))
+
+            if (elemType == CGNS_ENUMV(MIXED))
             {
                 ExtractMixedElemInfo(elemDataSize, elemSize, sectionInd,
-                                     elemInfo);
+                                     nodeOffset, elemInfo);
             }
             else
             {
                 ExtractSeparatedElemInfo(elemDataSize, elemSize, elemType,
-                                         sectionInd, elemInfo);
-            }
-        }
-    }
-
-    // read zone connectivity grid for periodic BCs if exist
-    int nConns;
-    map<string, set<int>> ConnNameToFaces;
-    if (cg_nconns(m_fileIndex, m_baseIndex, m_zoneIndex, &nConns))
-    {
-        m_log(FATAL) << "Error reading number of connectivities." << std::endl;
-        cg_close(m_fileIndex);
-    }
-    else
-    {
-        m_log(VERBOSE) << "Number of connectivities: " << nConns << std::endl;
-
-        for (int connInd = 1; connInd <= nConns; ++connInd)
-        {
-
-            char connName[33], donorName[33];
-            GridLocation_t location;
-            GridConnectivityType_t connType;
-            PointSetType_t ptsetType, donorPtsetType;
-            cgsize_t npnts, ndataDonor;
-            ZoneType_t donorZoneType;
-            DataType_t donorDataType;
-
-            if (cg_conn_info(m_fileIndex, m_baseIndex, m_zoneIndex, connInd,
-                             connName, &location, &connType, &ptsetType, &npnts,
-                             donorName, &donorZoneType, &donorPtsetType,
-                             &donorDataType, &ndataDonor))
-            {
-                m_log(FATAL) << "Error reading connectivity info in  "
-                             << connInd << std::endl;
-                cg_close(m_fileIndex);
-            }
-            else
-            {
-                m_log(VERBOSE) << "Reading connectivity info" << endl;
-            }
-            // check to see points are given as a cell list if not give error
-            if (donorPtsetType != CGNS_ENUMV(PointListDonor))
-            {
-                m_log(FATAL) << "Periodic boudnary curretly needs to be provide"
-                                " as a point-list rather than a cell list"
-                             << std::endl;
+                                         sectionInd, nodeOffset, elemInfo);
             }
 
-            float RotCenter[3], RotAngle[3], Translation[3];
-
-            // read connectivity transation information to add to name
-            cg_conn_periodic_read(m_fileIndex, m_baseIndex, m_zoneIndex,
-                                  connInd, RotCenter, RotAngle, Translation);
-
-            string NameFull =
-                string(connName) +
-                ":Trans=" + boost::lexical_cast<string>(Translation[0]) + "," +
-                boost::lexical_cast<string>(Translation[1]) + "," +
-                boost::lexical_cast<string>(Translation[2]);
-
-            cgsize_t *pnts = new cgsize_t[npnts];
-            if (cg_conn_read_short(m_fileIndex, m_baseIndex, m_zoneIndex,
-                                   connInd, pnts))
+            // Whether a section holds boundary faces is decided per element
+            // rather than from the section's own type, so that a MIXED section
+            // holding faces is recognised as well as one declared TRI_n or
+            // QUAD_n.
+            sec.infoEnd = (int)elemInfo.size();
+            for (int i = sec.infoBegin; i < sec.infoEnd; ++i)
             {
-                m_log(FATAL) << "Error reading connectivity section " << connInd
-                             << std::endl;
-                cg_close(m_fileIndex);
-            }
-            else
-            {
-                for (unsigned n = 0; n < npnts; ++n)
+                if (IsBoundaryFace(elemInfo[i].first))
                 {
-                    ConnNameToFaces[NameFull].insert(pnts[n]);
+                    sec.isBoundary = true;
+                    break;
                 }
-
-                m_log(VERBOSE) << "Added connectivity list for " << connName
-                               << " using num faces: " << npnts << std::endl;
             }
+
+            sections.push_back(sec);
         }
+    }
+
+    // We now read connectivities, which say which faces the zones share and
+    // which close a periodic pair. We read both before the faces are built: the
+    // shared ones are stitched rather than kept, and a periodic side needs its
+    // own composite.
+    std::map<std::string, std::vector<int>> connGroups;
+    std::unordered_set<int> interfaceFaces;
+    std::vector<std::pair<int, int>> interfacePairs;
+    ReadConnectivities(nZones, sections, elemInfo, connGroups, interfaceFaces,
+                       interfacePairs);
+
+    // For more than one zone, we use connectivity to eliminate the duplicate
+    // vertices across the interface.
+    if (nZones > 1)
+    {
+        MergeZoneVertices(elemInfo, interfacePairs, nCoords);
     }
 
     // create FaceNodes, ElementFaces and BndElemenFaces from elemInfo
@@ -353,7 +354,14 @@ void InputCGNS::SetupElements()
     vector<int> VolumeElems;
     ReadFaces(elemInfo, FaceNodes, ElementFaces, BoundaryElems, VolumeElems);
 
-    // Close the CGNS file
+    // Decide how the boundary faces are grouped into composites, and what
+    // each group is called. This has to happen while the file is still open.
+    vector<CGNSBoundaryGroup> bndGroups = BuildBoundaryGroups(
+        sections, elemInfo, nZones, connGroups, interfaceFaces);
+
+    // We've now read all the information we require, so close the CGNS file:
+    // the next steps will reorder elemental nodes to ensure C^0 connectivity
+    // with the modified basis functions as required in Nektar++.
     if (cg_close(m_fileIndex))
     {
         m_log(FATAL) << "Error closing CGNS file." << std::endl;
@@ -363,16 +371,15 @@ void InputCGNS::SetupElements()
         m_log(VERBOSE) << "Closing CGNS file." << std::endl;
     }
 
-    // 3D Zone
-    // Reset node ordering so that all prism faces have
-    // consistent numbering for singular vertex re-ordering
+    // Reset node ordering so that all prism faces have consistent numbering for
+    // singular vertex re-ordering. A highly non-trivial function!
     ResetNodes(m_node, ElementFaces, FaceNodes, elemInfo, VolumeElems);
 
     int nComposite = 0, i = 0;
     int nelements = ElementFaces.size();
     int cnt;
 
-    // create Prisms first
+    // Move to element creation: starting with prisms.
     cnt = 0;
     for (i = 0; i < nelements; ++i)
     {
@@ -452,10 +459,12 @@ void InputCGNS::SetupElements()
     }
 
     // create Boundary elements last
-    for (auto sec : SectionNameToRange)
+    auto &compositesLabels = m_mesh->m_meshGraph->GetCompositesLabels();
+
+    for (auto &grp : bndGroups)
     {
         cnt = 0;
-        for (int i = sec.second.first; i < sec.second.second; ++i)
+        for (int i : grp.elemIdx)
         {
             GenElement2D(m_node, elemInfo[i].second, elemInfo[i].first,
                          nComposite, true);
@@ -464,64 +473,18 @@ void InputCGNS::SetupElements()
 
         if (cnt)
         {
-            m_log(VERBOSE) << "  - # of bndry elmts in " + sec.first + " :"
+            m_log(VERBOSE) << "  - # of bndry elmts in " + grp.name + " :"
                            << cnt << endl;
+            if (!grp.name.empty())
+            {
+                compositesLabels[nComposite] = grp.name;
+            }
             nComposite++;
         }
     }
 
-    // TBD create periodic boundary elements  if present
-
-    // set up list of faces that are not shared by two elements
-    // and so are an external face
-    set<SpatialDomains::Geometry2D *> facelist;
-    if (ConnNameToFaces.size())
-    {
-        for (auto &it : m_mesh->m_faceSet)
-        {
-            // if face only has one element link and no tag id needs to store
-            // the face as it is new and unique
-            if (m_mesh->m_meshGraph->GetElementsFromFace(it.second).size() == 1)
-            {
-                facelist.insert(it.second);
-            }
-        }
-    }
-
-    for (auto &con : ConnNameToFaces)
-    {
-        // find faces with nodes along periodic points.
-        cnt = 0;
-        for (auto &it : facelist)
-        {
-            bool OnBoundary = true;
-            for (int i = 0; i < it->GetNumVerts(); ++i)
-            {
-                if (con.second.count(it->GetVid(i) + 1) == 0)
-                {
-                    OnBoundary = false;
-                }
-            }
-
-            if (OnBoundary)
-            {
-                // the porting needs just to be added to the map, no new face
-                m_mesh->m_elementTags[2][it] = nComposite;
-
-                ++cnt;
-            }
-        }
-
-        if (cnt)
-        {
-            m_log(VERBOSE) << "  - # of bndry elmts in " + con.first + " :"
-                           << cnt << endl;
-            nComposite++;
-        }
-    }
-
-    // We need to give MeshGraph the ownership of the vertices.
-    // Also renumber them.
+    // We need to give MeshGraph the ownership of the vertices. We also renumber
+    // them.
     std::vector<std::pair<int, SpatialDomains::PointGeomUniquePtr>> movedVerts;
     movedVerts.reserve(m_vertIDs.size());
     int contigVertID = 0;
@@ -534,8 +497,8 @@ void InputCGNS::SetupElements()
     }
     m_mesh->m_meshGraph->BulkAddGeom<SpatialDomains::PointGeom>(movedVerts);
 
-    // We need to give MeshGraph the ownership of the high-order nodes.
-    // give them -1 id
+    // We need to give MeshGraph the ownership of the high-order nodes. Give
+    // them -1 ID.
     for (int node : m_curveNodeIDs)
     {
         if (m_vertIDs.find(node) == m_vertIDs.end())
@@ -552,7 +515,7 @@ void InputCGNS::SetupElements()
 
 void InputCGNS::ExtractSeparatedElemInfo(
     cgsize_t elemDataSize, int elemSize, ElementType_t elemType, int sectionInd,
-    vector<pair<ElementType_t, vector<int>>> &elemInfo)
+    int nodeOffset, vector<pair<ElementType_t, vector<int>>> &elemInfo)
 {
     cgsize_t *ielem = new cgsize_t[elemDataSize];
     cgsize_t iparentdata;
@@ -581,9 +544,10 @@ void InputCGNS::ExtractSeparatedElemInfo(
         for (uint vertIndex = sectionElemIndex * nElemNodes;
              vertIndex < (sectionElemIndex + 1) * nElemNodes; vertIndex++)
         {
-            // -1 is to convert between index conventions (CGNS starts at 1)
-            elemInfo[elemInfo.size() - 1].second.push_back(ielem[vertIndex] -
-                                                           1);
+            // -1 is to convert between index conventions (CGNS starts at 1);
+            // the offset carries a zone-local index into the whole file.
+            elemInfo[elemInfo.size() - 1].second.push_back(
+                nodeOffset + ielem[vertIndex] - 1);
         }
     }
 
@@ -591,7 +555,7 @@ void InputCGNS::ExtractSeparatedElemInfo(
 }
 
 void InputCGNS::ExtractMixedElemInfo(
-    cgsize_t elemDataSize, int elemSize, int sectionInd,
+    cgsize_t elemDataSize, int elemSize, int sectionInd, int nodeOffset,
     vector<pair<ElementType_t, vector<int>>> &elemInfo)
 {
 
@@ -604,10 +568,9 @@ void InputCGNS::ExtractMixedElemInfo(
     cgsize_t *offsetData = new cgsize_t[elemSize + 1];
     cgsize_t iparentdata;
 
-    // The data array ElementStartOffset contains the starting
-    // positions of each element in the ElementConnectivity data array
-    // and its last value corresponds to the ElementConnectivity total
-    // size.
+    // The data array ElementStartOffset contains the starting positions of each
+    // element in the ElementConnectivity data array and its last value
+    // corresponds to the ElementConnectivity total size. See:
     // https://cgns.github.io/CGNS_docs_current/sids/gridflow.html#Elements
     if (cg_poly_elements_read(m_fileIndex, m_baseIndex, m_zoneIndex, sectionInd,
                               ielem, offsetData, &iparentdata))
@@ -631,8 +594,8 @@ void InputCGNS::ExtractMixedElemInfo(
         for (uint vertIndex = offsetData[sectionElemIndex] + 1;
              vertIndex < offsetData[sectionElemIndex + 1]; vertIndex++)
         {
-            elemInfo[elemInfo.size() - 1].second.push_back(ielem[vertIndex] -
-                                                           1);
+            elemInfo[elemInfo.size() - 1].second.push_back(
+                nodeOffset + ielem[vertIndex] - 1);
         }
     }
 
@@ -641,9 +604,782 @@ void InputCGNS::ExtractMixedElemInfo(
 }
 
 /**
+ * @brief Read the FamilyName_t attached to one Elements_t section, if any.
+ *
+ * Returns an empty string when the section names no family, which is the normal
+ * case: exporters put the family on the boundary condition instead, and some
+ * CGNS builds refuse to write one here at all.
+ */
+std::string InputCGNS::ReadSectionFamilyName(int sectionInd)
+{
+    if (cg_goto(m_fileIndex, m_baseIndex, "Zone_t", m_zoneIndex, "Elements_t",
+                sectionInd, "end"))
+    {
+        return "";
+    }
+
+    char famName[33];
+    if (cg_famname_read(famName))
+    {
+        return "";
+    }
+
+    return SanitiseCompositeName(famName);
+}
+
+/**
+ * @brief Read the FamilyName_t attached to one BC_t node, if any.
+ *
+ * As ReadSectionFamilyName(), but for a boundary condition. This is the usual
+ * place a part ID ends up, since several boundary conditions naming the same
+ * family are how a mesher says "these faces are all one patch".
+ */
+std::string InputCGNS::ReadBCFamilyName(int bocoInd)
+{
+    if (cg_goto(m_fileIndex, m_baseIndex, "Zone_t", m_zoneIndex, "ZoneBC_t", 1,
+                "BC_t", bocoInd, "end"))
+    {
+        return "";
+    }
+
+    char famName[33];
+    if (cg_famname_read(famName))
+    {
+        return "";
+    }
+
+    return SanitiseCompositeName(famName);
+}
+
+/**
+ * @brief True if an element of this type is a face of the boundary.
+ */
+bool InputCGNS::IsBoundaryFace(ElementType_t elemType)
+{
+    LibUtilities::ShapeType st = m_elemType2ShapeType[elemType];
+    return st == LibUtilities::eTriangle || st == LibUtilities::eQuadrilateral;
+}
+
+/**
+ * @brief Build the tables that turn one zone's CGNS point set into faces.
+ */
+CGNSFaceLookup InputCGNS::BuildFaceLookup(
+    const std::vector<CGNSSection> &sections,
+    const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    int zone)
+{
+    CGNSFaceLookup lookup;
+
+    // Only this zone's sections: element numbering restarts in each, so a
+    // number means nothing without knowing which zone named it.
+    for (const auto &sec : sections)
+    {
+        if (sec.zone == zone)
+        {
+            lookup.byRange.push_back(&sec);
+        }
+    }
+
+    std::sort(lookup.byRange.begin(), lookup.byRange.end(),
+              [](const CGNSSection *a, const CGNSSection *b) {
+                  return a->cgStart < b->cgStart;
+              });
+
+    for (size_t i = 0; i < elemInfo.size(); ++i)
+    {
+        if (IsBoundaryFace(elemInfo[i].first))
+        {
+            lookup.bndIdx.push_back((int)i);
+        }
+    }
+
+    return lookup;
+}
+
+/**
+ * @brief Turn one CGNS point set into the boundary faces it names.
+ *
+ * A point set addresses its faces in one of two ways, and both a boundary
+ * condition and a grid connectivity may use either, so this is shared.
+ *
+ * Where it names elements -- an ElementRange or ElementList, or a point set
+ * sitting at FaceCenter rather than Vertex -- the numbers are the file's own
+ * element numbering, which translates straight into positions in @p elemInfo.
+ *
+ * Where it names vertices, which is the CGNS default, there is nothing to
+ * translate: a face belongs to the set when every one of its corners is
+ * listed. That test can in principle also catch a face of a neighbouring patch
+ * whose corners all happen to lie on the shared edge, so a vertex-addressed
+ * set is the less trustworthy of the two.
+ *
+ * @param what  How to describe the owner of this set in any warning.
+ */
+std::vector<int> InputCGNS::ResolveFaceSet(
+    const CGNSFaceLookup &lookup, PointSetType_t ptsetType,
+    GridLocation_t location, const std::vector<cgsize_t> &pnts,
+    const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    const std::string &what)
+{
+    std::vector<int> idx;
+
+    if (pnts.empty())
+    {
+        return idx;
+    }
+
+    bool isRange = ptsetType == CGNS_ENUMV(ElementRange) ||
+                   ptsetType == CGNS_ENUMV(PointRange);
+
+    if (isRange && pnts.size() != 2)
+    {
+        m_log(WARNING) << what << " declares a range but gives " << pnts.size()
+                       << " values; ignoring it." << endl;
+        return idx;
+    }
+
+    bool elementBased = ptsetType == CGNS_ENUMV(ElementRange) ||
+                        ptsetType == CGNS_ENUMV(ElementList) ||
+                        location != CGNS_ENUMV(Vertex);
+
+    if (elementBased)
+    {
+        auto toInfoIdx = [&](cgsize_t cgId) -> int {
+            auto it =
+                std::upper_bound(lookup.byRange.begin(), lookup.byRange.end(),
+                                 cgId, [](cgsize_t v, const CGNSSection *sec) {
+                                     return v < sec->cgStart;
+                                 });
+
+            if (it == lookup.byRange.begin())
+            {
+                return -1;
+            }
+
+            const CGNSSection *sec = *(--it);
+
+            return cgId > sec->cgEnd
+                       ? -1
+                       : sec->infoBegin + (int)(cgId - sec->cgStart);
+        };
+
+        auto add = [&](cgsize_t cgId) {
+            int i = toInfoIdx(cgId);
+            if (i >= 0 && IsBoundaryFace(elemInfo[i].first))
+            {
+                idx.push_back(i);
+            }
+        };
+
+        if (isRange)
+        {
+            for (cgsize_t e = pnts[0]; e <= pnts[1]; ++e)
+            {
+                add(e);
+            }
+        }
+        else
+        {
+            for (cgsize_t e : pnts)
+            {
+                add(e);
+            }
+        }
+
+        return idx;
+    }
+
+    // elemInfo holds node indices already shifted to start at zero, so the
+    // set's own one-based numbering is shifted here to match rather than at
+    // every comparison.
+    std::unordered_set<cgsize_t> verts;
+
+    if (isRange)
+    {
+        for (cgsize_t v = pnts[0]; v <= pnts[1]; ++v)
+        {
+            verts.insert(v - 1);
+        }
+    }
+    else
+    {
+        for (cgsize_t v : pnts)
+        {
+            verts.insert(v - 1);
+        }
+    }
+
+    for (int i : lookup.bndIdx)
+    {
+        bool isTri =
+            m_elemType2ShapeType[elemInfo[i].first] == LibUtilities::eTriangle;
+        int nCorners = isTri ? 3 : 4;
+
+        // CGNS lists an element's corners before its higher-order nodes,
+        // which a vertex-addressed set need not mention.
+        bool allOn = true;
+        for (int c = 0; c < nCorners && allOn; ++c)
+        {
+            allOn = verts.count(elemInfo[i].second[c]) > 0;
+        }
+
+        if (allOn)
+        {
+            idx.push_back(i);
+        }
+    }
+
+    return idx;
+}
+
+/**
+ * @brief Group boundary faces by the ZoneBC_t boundary conditions in the file.
+ *
+ * Fills @p groups with the faces each boundary condition names, keyed by the
+ * name the composite will carry, and records every face so assigned in
+ * @p claimed so that BuildBoundaryGroups() does not also hand it to its
+ * section.
+ */
+void InputCGNS::ReadBoundaryConditionGroups(
+    const CGNSFaceLookup &lookup,
+    const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    std::map<std::string, std::vector<int>> &groups,
+    std::unordered_set<int> &claimed)
+{
+    int nBocos = 0;
+    if (cg_nbocos(m_fileIndex, m_baseIndex, m_zoneIndex, &nBocos) ||
+        nBocos == 0)
+    {
+        return;
+    }
+
+    m_log(VERBOSE) << "Number of boundary conditions: " << nBocos << endl;
+
+    for (int bcInd = 1; bcInd <= nBocos; ++bcInd)
+    {
+        char bcName[33];
+        BCType_t bcType;
+        PointSetType_t ptsetType;
+        cgsize_t npnts = 0, normalListSize;
+        int normalIndex[3], ndataset;
+        DataType_t normalDataType;
+
+        if (cg_boco_info(m_fileIndex, m_baseIndex, m_zoneIndex, bcInd, bcName,
+                         &bcType, &ptsetType, &npnts, normalIndex,
+                         &normalListSize, &normalDataType, &ndataset))
+        {
+            m_log(WARNING) << "Could not read boundary condition " << bcInd
+                           << "; its faces will be grouped by section instead."
+                           << endl;
+            continue;
+        }
+
+        if (npnts <= 0)
+        {
+            continue;
+        }
+
+        // Vertex is the CGNS default, and is what we get back if the
+        // condition does not say otherwise.
+        GridLocation_t location = CGNS_ENUMV(Vertex);
+        cg_boco_gridlocation_read(m_fileIndex, m_baseIndex, m_zoneIndex, bcInd,
+                                  &location);
+
+        std::vector<cgsize_t> pnts(npnts);
+        if (cg_boco_read(m_fileIndex, m_baseIndex, m_zoneIndex, bcInd,
+                         pnts.data(), nullptr))
+        {
+            m_log(WARNING) << "Could not read the point set of boundary "
+                           << "condition '" << SanitiseCompositeName(bcName)
+                           << "'; its faces will be grouped by section instead."
+                           << endl;
+            continue;
+        }
+
+        std::string name = ReadBCFamilyName(bcInd);
+        if (name.empty())
+        {
+            name = SanitiseCompositeName(bcName);
+        }
+
+        std::vector<int> all =
+            ResolveFaceSet(lookup, ptsetType, location, pnts, elemInfo,
+                           "Boundary condition '" + name + "'");
+
+        // Faces a connectivity has already spoken for are left where they
+        // are, since a periodic side is a more specific statement than a
+        // condition covering the patch it sits in.
+        std::vector<int> idx;
+        for (int i : all)
+        {
+            if (!claimed.count(i))
+            {
+                idx.push_back(i);
+            }
+        }
+
+        if (all.empty())
+        {
+            m_log(WARNING) << "Boundary condition '" << name
+                           << "' matched no boundary faces; its faces, if any, "
+                           << "will be grouped by section instead." << endl;
+            continue;
+        }
+
+        if (idx.empty())
+        {
+            m_log(VERBOSE) << "  - boundary condition '" << name << "': all "
+                           << all.size() << " faces already named by a grid "
+                           << "connectivity" << endl;
+            continue;
+        }
+
+        m_log(VERBOSE) << "  - boundary condition '" << name
+                       << "': " << idx.size() << " faces" << endl;
+
+        claimed.insert(idx.begin(), idx.end());
+        groups[name].insert(groups[name].end(), idx.begin(), idx.end());
+    }
+}
+
+/**
+ * @brief Read the grid connectivities of every zone.
+ *
+ * A connectivity names a set of faces and says what lies on the other side of
+ * them.
+ *
+ * Where the other side is the same zone, it closes a periodic pair. That is
+ * the one thing the sections cannot express: a mesher writes both sides of a
+ * periodic boundary into a single section, and a composite holding both is of
+ * no use for setting the condition up, since a boundary cannot be made
+ * periodic with itself. So each side is collected into @p periodicGroups under
+ * the connectivity's name, and the pair can then be written in a session.
+ *
+ * Where the other side is a different zone, the faces are an interior surface
+ * of the assembled mesh rather than a boundary of it. They are collected into
+ * @p interfaceFaces so that no composite is made of them, and the face pairs
+ * are collected into @p interfacePairs so that the vertex merge which stitches
+ * the zones can be checked against what the file said.
+ */
+void InputCGNS::ReadConnectivities(
+    int nZones, const std::vector<CGNSSection> &sections,
+    const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    std::map<std::string, std::vector<int>> &periodicGroups,
+    std::unordered_set<int> &interfaceFaces,
+    std::vector<std::pair<int, int>> &interfacePairs)
+{
+    std::map<int, CGNSFaceLookup> lookups;
+    for (int zone = 1; zone <= nZones; ++zone)
+    {
+        lookups[zone] = BuildFaceLookup(sections, elemInfo, zone);
+    }
+
+    for (int zone = 1; zone <= nZones; ++zone)
+    {
+        int nConns = 0;
+        if (cg_nconns(m_fileIndex, m_baseIndex, zone, &nConns) || nConns == 0)
+        {
+            continue;
+        }
+
+        m_log(VERBOSE) << "Zone '" << m_zoneNames[zone] << "': " << nConns
+                       << " connectivities" << endl;
+
+        for (int connInd = 1; connInd <= nConns; ++connInd)
+        {
+            char connName[33], donorName[33];
+            GridLocation_t location;
+            GridConnectivityType_t connType;
+            PointSetType_t ptsetType, donorPtsetType;
+            cgsize_t npnts = 0, ndataDonor;
+            ZoneType_t donorZoneType;
+            DataType_t donorDataType;
+
+            if (cg_conn_info(m_fileIndex, m_baseIndex, zone, connInd, connName,
+                             &location, &connType, &ptsetType, &npnts,
+                             donorName, &donorZoneType, &donorPtsetType,
+                             &donorDataType, &ndataDonor))
+            {
+                m_log(WARNING)
+                    << "Could not read connectivity " << connInd << " of zone '"
+                    << m_zoneNames[zone] << "'; ignoring it." << endl;
+                continue;
+            }
+
+            std::string name  = SanitiseCompositeName(connName);
+            std::string donor = SanitiseCompositeName(donorName);
+
+            if (npnts <= 0)
+            {
+                continue;
+            }
+
+            std::vector<cgsize_t> pnts(npnts);
+            std::vector<cgsize_t> donorPnts(ndataDonor > 0 ? ndataDonor : 1);
+
+            if (cg_conn_read(m_fileIndex, m_baseIndex, zone, connInd,
+                             pnts.data(), CGNS_ENUMV(LongInteger),
+                             donorPnts.data()))
+            {
+                m_log(WARNING)
+                    << "Could not read the point set of "
+                    << "connectivity '" << name << "'; ignoring it." << endl;
+                continue;
+            }
+
+            std::vector<int> idx =
+                ResolveFaceSet(lookups[zone], ptsetType, location, pnts,
+                               elemInfo, "Connectivity '" + name + "'");
+
+            if (donor == m_zoneNames[zone])
+            {
+                // A periodic pair says how it is transformed; a connectivity
+                // onto its own zone that does not is nothing this can make a
+                // composite of.
+                float rotCentre[3], rotAngle[3], translation[3];
+                if (cg_conn_periodic_read(m_fileIndex, m_baseIndex, zone,
+                                          connInd, rotCentre, rotAngle,
+                                          translation))
+                {
+                    m_log(VERBOSE) << "  - connectivity '" << name
+                                   << "' is not periodic; leaving its faces "
+                                   << "to their section" << endl;
+                    continue;
+                }
+
+                if (idx.empty())
+                {
+                    m_log(WARNING) << "Connectivity '" << name
+                                   << "' matched no boundary faces; its faces, "
+                                   << "if any, will be grouped by section "
+                                   << "instead." << endl;
+                    continue;
+                }
+
+                m_log(VERBOSE) << "  - periodic connectivity '" << name
+                               << "': " << idx.size() << " faces, translation ("
+                               << translation[0] << ", " << translation[1]
+                               << ", " << translation[2] << ")" << endl;
+
+                auto &grp = periodicGroups[name];
+                grp.insert(grp.end(), idx.begin(), idx.end());
+                continue;
+            }
+
+            // From here on the connectivity abuts another zone.
+            auto donorZone =
+                std::find_if(m_zoneNames.begin(), m_zoneNames.end(),
+                             [&](const std::pair<const int, std::string> &z) {
+                                 return z.second == donor;
+                             });
+
+            if (donorZone == m_zoneNames.end())
+            {
+                m_log(WARNING) << "Connectivity '" << name << "' names the "
+                               << "donor zone '" << donor << "', which is not "
+                               << "in this file; its faces are left to their "
+                               << "section." << endl;
+                continue;
+            }
+
+            if (connType != CGNS_ENUMV(Abutting1to1))
+            {
+                m_log(FATAL)
+                    << "Connectivity '" << name << "' joins zones '"
+                    << m_zoneNames[zone] << "' and '" << donor << "' as "
+                    << GridConnectivityTypeName[connType]
+                    << ". Only Abutting1to1 can be read, because the zones are "
+                    << "merged into one mesh and that needs their shared faces "
+                    << "to match one for one." << endl;
+            }
+
+            interfaceFaces.insert(idx.begin(), idx.end());
+
+            // The donor list pairs the faces one for one, which CGNS enforces
+            // for Abutting1to1. Recording the pairs lets the merge below be
+            // checked against the file rather than merely believed.
+            if (ndataDonor == npnts &&
+                donorPtsetType == CGNS_ENUMV(PointListDonor))
+            {
+                std::vector<int> donorIdx = ResolveFaceSet(
+                    lookups[donorZone->first], CGNS_ENUMV(PointList), location,
+                    donorPnts, elemInfo, "Donor of '" + name + "'");
+
+                if (donorIdx.size() == idx.size())
+                {
+                    for (size_t k = 0; k < idx.size(); ++k)
+                    {
+                        interfacePairs.emplace_back(idx[k], donorIdx[k]);
+                    }
+                }
+            }
+
+            m_log(VERBOSE) << "  - interface '" << name << "' to zone '"
+                           << donor << "': " << idx.size()
+                           << " faces, stitched rather than kept" << endl;
+        }
+    }
+}
+
+/**
+ * @brief Give the zones one set of vertices where they share a surface.
+ *
+ * The zones of a file are parts of one model, so where two of them abut they
+ * describe the same surface twice, with a vertex of each that stands for the
+ * same point. Those have to become one vertex or the mesh remains nonconformal:
+ * once they are shared, ReadFaces() finds the abutting faces identical and
+ * stitches them.
+ *
+ * Vertices are merged on their coordinates being **equal**, not on being close.
+ * There is no tolerance here and deliberately none offered. A mesher writing a
+ * shared surface into two zones writes the same numbers into both, so equality
+ * is enough; and a tolerance would be free to weld a vertex to its neighbour
+ * across the first cell of a boundary layer, which is thinner than any length
+ * scale one could pick from the mesh as a whole. Where equality is not enough,
+ * we use @p interfacePairs to report a failed merge between zones.
+ */
+void InputCGNS::MergeZoneVertices(
+    std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    const std::vector<std::pair<int, int>> &interfacePairs, int &nCoords)
+{
+    // Keyed on the bit pattern of the coordinates, so that equality here is
+    // the same equality the file was written with. Adding zero first maps a
+    // negative zero onto a positive one, which compare equal but would
+    // otherwise hash apart.
+    struct Point
+    {
+        double x, y, z;
+        bool operator==(const Point &o) const
+        {
+            return x == o.x && y == o.y && z == o.z;
+        }
+    };
+    struct PointHash
+    {
+        size_t operator()(const Point &p) const
+        {
+            std::hash<double> h;
+            return h(p.x) ^ (h(p.y) << 1) ^ (h(p.z) << 2);
+        }
+    };
+
+    std::unordered_map<Point, int, PointHash> seen;
+    std::vector<int> canonical(nCoords);
+
+    for (int i = 0; i < nCoords; ++i)
+    {
+        canonical[i] = i;
+
+        Point p{(*m_node[i])[0] + 0.0, (*m_node[i])[1] + 0.0,
+                (*m_node[i])[2] + 0.0};
+
+        auto ins = seen.insert({p, i});
+        if (!ins.second)
+        {
+            canonical[i] = ins.first->second;
+        }
+    }
+
+    // Renumber what survives into a contiguous range, which the node
+    // reordering that follows this requires.
+    std::vector<int> newId(nCoords, -1);
+    int nKept = 0;
+    for (int i = 0; i < nCoords; ++i)
+    {
+        if (canonical[i] == i)
+        {
+            newId[i] = nKept++;
+        }
+    }
+    for (int i = 0; i < nCoords; ++i)
+    {
+        if (canonical[i] != i)
+        {
+            newId[i] = newId[canonical[i]];
+        }
+    }
+
+    int nMerged = nCoords - nKept;
+
+    if (nMerged == 0)
+    {
+        m_log(WARNING) << "The zones of this file share no vertices, so they "
+                       << "are read as separate pieces lying in one mesh. If "
+                       << "they are meant to join, their shared surface is not "
+                       << "written with matching coordinates." << endl;
+        return;
+    }
+
+    for (auto &ei : elemInfo)
+    {
+        for (int &n : ei.second)
+        {
+            n = newId[n];
+        }
+    }
+
+    SpatialDomains::GeomMap<SpatialDomains::PointGeom> keptNodes;
+    std::vector<SpatialDomains::PointGeom *> keptNode(nKept, nullptr);
+    for (int i = 0; i < nCoords; ++i)
+    {
+        if (canonical[i] == i)
+        {
+            m_loadedNodes[i]->SetGlobalID(newId[i]);
+            keptNode[newId[i]]  = m_loadedNodes[i].get();
+            keptNodes[newId[i]] = std::move(m_loadedNodes[i]);
+        }
+    }
+    m_loadedNodes = std::move(keptNodes);
+    m_node        = std::move(keptNode);
+    nCoords       = nKept;
+
+    m_log(VERBOSE) << "Merged " << nMerged << " duplicated vertices where the "
+                   << "zones meet, leaving " << nKept << endl;
+
+    // Check the result against what the file declared to abut. A pair whose
+    // two faces have not become the same face means the surface was written
+    // into the two zones with coordinates that are not equal, and the zones
+    // are still apart along it.
+    int unstitched = 0;
+    for (const auto &pair : interfacePairs)
+    {
+        auto corners = [&](int i) {
+            std::set<int> c(elemInfo[i].second.begin(),
+                            elemInfo[i].second.end());
+            return c;
+        };
+
+        if (corners(pair.first) != corners(pair.second))
+        {
+            ++unstitched;
+        }
+    }
+
+    if (unstitched)
+    {
+        m_log(WARNING) << unstitched << " of " << interfacePairs.size()
+                       << " faces the file declares to abut did not come "
+                       << "together, so the zones are still separate along "
+                       << "part of their shared surface. Their coordinates "
+                       << "there are not equal." << endl;
+    }
+    else if (interfacePairs.size())
+    {
+        m_log(VERBOSE) << "All " << interfacePairs.size()
+                       << " declared abutting face pairs came together" << endl;
+    }
+}
+
+/**
+ * @brief Decide which boundary faces form each composite, and what to call it.
+ *
+ * Two things in a CGNS file can say how the boundary is divided up, and
+ * exporters disagree about which to use. The sections are always there, and
+ * give a usable division when each patch was written as its own section. The
+ * ZoneBC_t boundary conditions are the authoritative statement when they exist,
+ * and are the only division available when the whole boundary was written as a
+ * single section -- which is otherwise read as one undivided composite, losing
+ * the distinction between inlet and wall entirely.
+ *
+ * So the grid connectivities and boundary conditions win where they apply and
+ * the sections cover whatever is left over. A name comes from the Family_t
+ * where there is one, since that is where a part ID from ANSA lives, and from
+ * the boundary condition, connectivity or section node itself where there is
+ * not. Groups that resolve to the same name are merged: sharing a family is
+ * precisely how a file says two sets of faces are one patch.
+ *
+ * The result is ordered by name rather than by position in the file, so that
+ * composite numbering does not shift when a mesh is re-exported with its
+ * sections in a different order.
+ */
+std::vector<CGNSBoundaryGroup> InputCGNS::BuildBoundaryGroups(
+    const std::vector<CGNSSection> &sections,
+    const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    int nZones, const std::map<std::string, std::vector<int>> &connGroups,
+    const std::unordered_set<int> &interfaceFaces)
+{
+    std::map<std::string, std::vector<int>> groups;
+    std::unordered_set<int> claimed;
+
+    // The faces two zones share are interior to the assembled mesh, so they
+    // belong to no composite. Claiming them keeps them out of everything that
+    // follows, including their own section.
+    claimed.insert(interfaceFaces.begin(), interfaceFaces.end());
+
+    if (!m_config["nobcgroup"].beenSet)
+    {
+        // Each side of a periodic pair, which the connectivities have already
+        // worked out. They come first because a connectivity splitting a patch
+        // into its two sides says more than a condition naming the whole patch,
+        // and the split is what a session needs.
+        for (const auto &g : connGroups)
+        {
+            for (int i : g.second)
+            {
+                if (!claimed.count(i))
+                {
+                    groups[g.first].push_back(i);
+                    claimed.insert(i);
+                }
+            }
+        }
+
+        for (m_zoneIndex = 1; m_zoneIndex <= nZones; ++m_zoneIndex)
+        {
+            CGNSFaceLookup lookup =
+                BuildFaceLookup(sections, elemInfo, m_zoneIndex);
+            ReadBoundaryConditionGroups(lookup, elemInfo, groups, claimed);
+        }
+    }
+
+    // Whatever nothing else accounted for is grouped by the section it came
+    // from, which is what this reader did before the other nodes of the file
+    // were consulted at all.
+    for (const auto &sec : sections)
+    {
+        if (!sec.isBoundary)
+        {
+            continue;
+        }
+
+        std::string name = sec.family.empty() ? sec.name : sec.family;
+
+        for (int i = sec.infoBegin; i < sec.infoEnd; ++i)
+        {
+            if (IsBoundaryFace(elemInfo[i].first) && !claimed.count(i))
+            {
+                groups[name].push_back(i);
+            }
+        }
+    }
+
+    std::vector<CGNSBoundaryGroup> result;
+    result.reserve(groups.size());
+
+    for (auto &g : groups)
+    {
+        if (g.second.empty())
+        {
+            continue;
+        }
+
+        // Faces reach a group by two routes -- a boundary condition and a
+        // section of the same name -- so sort and unique rather than assume
+        // each arrives once and in order.
+        std::sort(g.second.begin(), g.second.end());
+        g.second.erase(std::unique(g.second.begin(), g.second.end()),
+                       g.second.end());
+
+        result.push_back(CGNSBoundaryGroup{g.first, std::move(g.second)});
+    }
+
+    return result;
+}
+
+/**
  * In the CGNS format, each element is defined by a list of vertices in a
  * certain order
  * To use ResetNodes, we need to create...
+ *
  * FaceNodes: the nodes that form each face (tri or quad)
  * ElementFaces: the faces that form each element (tet, pyra, prism, hex)
  * BoundaryElems: the faces that form the boundary
@@ -707,37 +1443,8 @@ void InputCGNS::ReadFaces(vector<pair<ElementType_t, vector<int>>> &elemInfo,
     }
 }
 
-static void PrismLineFaces(int prismid, map<int, int> &facelist,
-                           vector<vector<int>> &FaceToPrisms,
-                           vector<vector<int>> &PrismToFaces,
-                           vector<bool> &PrismDone)
-{
-    if (PrismDone[prismid] == false)
-    {
-        PrismDone[prismid] = true;
-
-        // Add faces0
-        int face       = PrismToFaces[prismid][0];
-        facelist[face] = face;
-        for (int i = 0; i < FaceToPrisms[face].size(); ++i)
-        {
-            PrismLineFaces(FaceToPrisms[face][i], facelist, FaceToPrisms,
-                           PrismToFaces, PrismDone);
-        }
-
-        // Add faces1
-        face           = PrismToFaces[prismid][1];
-        facelist[face] = face;
-        for (int i = 0; i < FaceToPrisms[face].size(); ++i)
-        {
-            PrismLineFaces(FaceToPrisms[face][i], facelist, FaceToPrisms,
-                           PrismToFaces, PrismDone);
-        }
-    }
-}
-
 /**
- * Reorder the node IDs to set the orientation of the elments
+ * Reorder the node IDs to set the orientation of the elements
  */
 void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
                            Array<OneD, vector<int>> &ElementFaces,
@@ -751,7 +1458,6 @@ void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
     int face3_map[3] = {3, 2, 5};
     int nodeid       = 0;
     int revNodeid    = Vnodes.size() - 1;
-    map<int, bool> FacesRenumbered;
 
     // Determine Prism triangular face connectivity.
     vector<vector<int>> FaceToPrisms(FaceNodes.size());
@@ -809,8 +1515,12 @@ void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
         }
     }
 
-    // set the apex node as node in each pyra and ensure any neighbouring
-    // prisms align
+    // Set the apex node as node in each pyra and ensure any neighbouring prisms
+    // align. The set of prisms already walked is kept out here and cleared per
+    // line rather than built afresh, since there is one line per triangular
+    // face of every pyramid in the mesh.
+    std::unordered_set<int> prismLineVisited;
+
     for (auto &PyraIt : Pyras)
     {
         // find the ID of the apex node (the node in any of the tri faces which
@@ -838,13 +1548,15 @@ void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
             break;
         }
 
-        // skip the rest of ResetNodes for this pyramid
+        // The shielding has replaced this pyramid with a smaller one and four
+        // tetrahedra, so there is no apex of the original left to number. Go
+        // on to the next pyramid.
         if (pyramidShielded)
         {
-            break;
+            continue;
         }
 
-        // the choice of the 0th tri face is arbitrary
+        // The choice of the 0th tri face is arbitrary.
         for (int id : FaceNodes[GlobTriFaces[pyraElemIdx][0]])
         {
             // if a node `id` is not in the base, it must be the apex
@@ -867,139 +1579,412 @@ void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
         // traverse along each prism line that exists out of the pyra
         for (int faceId : GlobTriFaces[pyraElemIdx]) // for each tri face
         {
+            // Most of a pyramid's triangular faces have no prism on the other
+            // side at all, and there is then no line to walk.
+            if (FaceToPrisms[faceId].empty())
+            {
+                continue;
+            }
+
+            prismLineVisited.clear();
             TraversePyraPrismLine(pyraElemIdx, faceId, apexID, FaceToPrisms,
                                   GlobTriFaces, Vnodes, ElementFaces, FaceNodes,
-                                  NodeReordering, revNodeid);
+                                  NodeReordering, revNodeid, prismLineVisited);
         }
     }
 
-    // For every prism find the list of prismatic elements
-    // that represent an aligned block of cells. Then renumber
-    // these blocks consecutively
-    vector<bool> FacesDone(FaceNodes.size(), false);
-    vector<bool> PrismDone(ElementFaces.size(), false);
+    // Number the prisms so that every prism collapses onto the same corner of
+    // its triangular cross-section as its neighbours do.
+    //
+    // A prism is a triangle extruded along the three corner edges {0,3}, {1,2}
+    // and {4,5}, and its two triangular faces are the ends of that extrusion:
+    // entry k of face1_map and of face3_map are the two ends of corner
+    // k. OrientPrism later rotates the prism so that the corner carrying the
+    // highest global id becomes the singular edge {4,5}, which is where the
+    // Duffy transformation of the modified C^0 basis collapses.  Two prisms
+    // that share a face therefore only agree on where the collapsed coordinate
+    // goes if they agree on which corner holds the highest id.
+    //
+    // Nominating a corner per prism and then numbering to suit does not work:
+    // prisms side by side share the two corners along their common
+    // quadrilateral face, so independent nominations contradict each other.
+    // Instead the corner is read off a numbering built to make it consistent.
+    // Joining the two ends of each corner groups the nodes into the lines
+    // running through the prism blocks, and numbering those lines one after
+    // another leaves the corner in the last-numbered line highest on every
+    // cross-section at once -- every cross-section of a block has its three
+    // corners on the same three lines, so that is the same corner the whole
+    // way along, and neighbouring blocks agree because they read the same
+    // line ordering.
+    std::vector<int> lineOf(NodeReordering.size());
+    std::iota(lineOf.begin(), lineOf.end(), 0);
+
+    auto lineRoot = [&](int n) {
+        while (lineOf[n] != n)
+        {
+            n = lineOf[n] = lineOf[lineOf[n]];
+        }
+        return n;
+    };
+
+    auto joinLines = [&](int a, int b) {
+        a = lineRoot(a);
+        b = lineRoot(b);
+        if (a != b)
+        {
+            lineOf[std::max(a, b)] = std::min(a, b);
+        }
+    };
+
+    std::vector<bool> onPrism(NodeReordering.size(), false);
+
+    // Rebuilding an element is not cheap, so keep what it gives: the check
+    // below needs the same answer once every corner has been joined.
+    std::vector<Array<OneD, int>> prismNodes;
+    prismNodes.reserve(Prisms.size());
 
     for (auto &PrismIt : Prisms)
     {
-        int elmtid = PrismIt.first;
-        map<int, int> facelist;
+        prismNodes.push_back(
+            SortFaceNodes(Vnodes, ElementFaces[PrismIt.first], FaceNodes));
+        Array<OneD, int> &Nodes = prismNodes.back();
 
-        if (PrismDone[elmtid])
+        for (int k = 0; k < 3; ++k)
+        {
+            onPrism[Nodes[face1_map[k]]] = true;
+            onPrism[Nodes[face3_map[k]]] = true;
+            joinLines(Nodes[face1_map[k]], Nodes[face3_map[k]]);
+        }
+    }
+
+    // Collect the lines, each holding its nodes in ascending order. Lines
+    // holding a node the pyramid pass has already numbered go last: those ids
+    // come from the top of the range, so such a node is the highest on any
+    // cross-section it sits on, and the line has to be the highest to match.
+    std::map<int, std::vector<int>> lines;
+    std::set<int> pinnedLines;
+
+    for (int n = 0; n < (int)NodeReordering.size(); ++n)
+    {
+        if (!onPrism[n])
         {
             continue;
         }
-        else
+
+        int root = lineRoot(n);
+        lines[root].push_back(n);
+
+        if (NodeReordering[n] != -1)
         {
-            // Generate list of faces in list
-            PrismLineFaces(elmtid, facelist, FaceToPrisms, PrismToFaces,
-                           PrismDone);
+            pinnedLines.insert(root);
         }
-        // loop over faces and number vertices of associated prisms.
-        for (auto &faceIt : facelist)
+    }
+
+    // What a prism actually asks for is small: one of its three corners has to
+    // come out highest at both of its triangular ends, since that is the one
+    // OrientPrism collapses onto. It does not ask for whole lines of nodes to
+    // be numbered together, and numbering them that way is more than is
+    // required; two prisms that share no face at all are then made to compete
+    // over which of their lines is numbered first, and can want opposite
+    // things. So the lines are used only to pick the corner, and the numbering
+    // is taken from the orderings that choice actually implies.
+    //
+    // Rank the lines first. Where a prism has two corners on one line the
+    // order of the lines cannot tell those two apart, but its third corner can
+    // be made to beat them both if its line is ranked after theirs, so collect
+    // that as a constraint between lines and rank them accordingly.
+    std::map<int, std::set<int>> mustFollow;
+    std::map<int, int> nBefore;
+
+    for (auto &line : lines)
+    {
+        nBefore[line.first] = 0;
+    }
+
+    for (Array<OneD, int> &Nodes : prismNodes)
+    {
+        int root[3];
+        for (int k = 0; k < 3; ++k)
         {
-            int faceid = faceIt.second;
+            root[k] = lineRoot(Nodes[face1_map[k]]);
+        }
 
-            for (i = 0; i < FaceToPrisms[faceid].size(); ++i)
+        for (int k = 0; k < 3; ++k)
+        {
+            const int l = (k + 1) % 3, m = (k + 2) % 3;
+            if (root[l] == root[m] && root[k] != root[l] &&
+                mustFollow[root[l]].insert(root[k]).second)
             {
-                int prismid = FaceToPrisms[faceid][i];
+                ++nBefore[root[k]];
+            }
+        }
+    }
 
-                if ((FacesDone[PrismToFaces[prismid][0]] == true) &&
-                    (FacesDone[PrismToFaces[prismid][1]] == true))
+    // Lowest id first among the lines free to go next, except that a line
+    // holding a node the pyramid pass has already numbered is held back as
+    // long as the constraints allow: those ids come from the top of the range,
+    // so such a node is the highest on any cross-section it sits on.
+    std::set<std::pair<int, int>> readyLines;
+    auto rank = [&](int root) {
+        return std::make_pair(pinnedLines.count(root) ? 1 : 0, root);
+    };
+
+    for (auto &line : lines)
+    {
+        if (nBefore[line.first] == 0)
+        {
+            readyLines.insert(rank(line.first));
+        }
+    }
+
+    std::map<int, int> lineRank;
+    std::set<int> remaining;
+    for (auto &line : lines)
+    {
+        remaining.insert(line.first);
+    }
+
+    while (!remaining.empty())
+    {
+        if (readyLines.empty())
+        {
+            // The constraints run in a circle, so not all can be met. Release
+            // whichever line the fewest are waiting on.
+            int best = -1;
+            for (int root : remaining)
+            {
+                if (best < 0 || nBefore[root] < nBefore[best] ||
+                    (nBefore[root] == nBefore[best] && rank(root) < rank(best)))
+                {
+                    best = root;
+                }
+            }
+            nBefore[best] = 0;
+            readyLines.insert(rank(best));
+        }
+
+        const int root = readyLines.begin()->second;
+        readyLines.erase(readyLines.begin());
+        remaining.erase(root);
+        lineRank[root] = (int)lineRank.size();
+
+        for (int next : mustFollow[root])
+        {
+            if (--nBefore[next] == 0 && remaining.count(next))
+            {
+                readyLines.insert(rank(next));
+            }
+        }
+    }
+
+    // Now the choice, made once per block of prisms rather than once per prism:
+    // the prisms of a block are joined end to end, so they share the three
+    // lines running through them and have to collapse onto the same one.
+    // Walking the block gives each prism a map from its own corners to the
+    // block's three.
+    std::map<int, std::array<int, 3>> cornerSlot;
+    std::map<int, int> blockOf;
+    std::map<int, std::array<std::set<int>, 3>> blockSlotNodes;
+    std::vector<bool> inBlock(ElementFaces.size(), false);
+    int nBlocks = 0;
+
+    std::map<int, size_t> prismAt;
+    {
+        size_t i = 0;
+        for (auto &PrismIt : Prisms)
+        {
+            prismAt[PrismIt.first] = i++;
+        }
+    }
+
+    for (auto &PrismIt : Prisms)
+    {
+        if (inBlock[PrismIt.first])
+        {
+            continue;
+        }
+
+        const int block = nBlocks++;
+        std::deque<int> toVisit{PrismIt.first};
+        inBlock[PrismIt.first]    = true;
+        cornerSlot[PrismIt.first] = {0, 1, 2};
+
+        while (!toVisit.empty())
+        {
+            const int e = toVisit.front();
+            toVisit.pop_front();
+            blockOf[e] = block;
+
+            Array<OneD, int> &N = prismNodes[prismAt[e]];
+            for (int k = 0; k < 3; ++k)
+            {
+                blockSlotNodes[block][cornerSlot[e][k]].insert(N[face1_map[k]]);
+                blockSlotNodes[block][cornerSlot[e][k]].insert(N[face3_map[k]]);
+            }
+
+            for (int gf : PrismToFaces[e])
+            {
+                for (int nb : FaceToPrisms[gf])
+                {
+                    if (inBlock[nb])
+                    {
+                        continue;
+                    }
+                    inBlock[nb] = true;
+
+                    // Match the neighbour's corners to this one's on the
+                    // nodes they have in common across the face they share.
+                    Array<OneD, int> &M = prismNodes[prismAt[nb]];
+                    std::array<int, 3> slot{-1, -1, -1};
+                    for (int kk = 0; kk < 3; ++kk)
+                    {
+                        for (int mm = 0; mm < 3; ++mm)
+                        {
+                            if (M[face1_map[mm]] == N[face1_map[kk]] ||
+                                M[face1_map[mm]] == N[face3_map[kk]] ||
+                                M[face3_map[mm]] == N[face1_map[kk]] ||
+                                M[face3_map[mm]] == N[face3_map[kk]])
+                            {
+                                slot[mm] = cornerSlot[e][kk];
+                            }
+                        }
+                    }
+
+                    if (slot[0] < 0 || slot[1] < 0 || slot[2] < 0 ||
+                        std::set<int>(slot.begin(), slot.end()).size() != 3)
+                    {
+                        slot = {0, 1, 2};
+                    }
+
+                    cornerSlot[nb] = slot;
+                    toVisit.push_back(nb);
+                }
+            }
+        }
+    }
+
+    // One choice per block: the highest ranked of its three lines, and where
+    // two of them are the same line the lowest node anywhere along the corner,
+    // which every prism of the block agrees on. A corner holding a node the
+    // pyramid pass numbered is taken first, since that node already outranks
+    // anything numbered here.
+    std::map<int, int> blockChoice;
+    for (auto &bs : blockSlotNodes)
+    {
+        int best = 0;
+        for (int sl = 1; sl < 3; ++sl)
+        {
+            auto key = [&](int s) {
+                bool pinned = false;
+                for (int n : bs.second[s])
+                {
+                    pinned = pinned || NodeReordering[n] != -1;
+                }
+                return std::make_tuple(
+                    pinned ? 1 : 0, lineRank[lineRoot(*bs.second[s].begin())],
+                    -*bs.second[s].begin());
+            };
+            if (key(sl) > key(best))
+            {
+                best = sl;
+            }
+        }
+        blockChoice[bs.first] = best;
+    }
+
+    // The orderings that choice implies, node by node, and nothing more.
+    std::map<int, std::set<int>> nodeAbove;
+    std::map<int, int> nodeBelow;
+
+    for (auto &PrismIt : Prisms)
+    {
+        Array<OneD, int> &N = prismNodes[prismAt[PrismIt.first]];
+        const int want      = blockChoice[blockOf[PrismIt.first]];
+
+        int c = -1;
+        for (int k = 0; k < 3; ++k)
+        {
+            if (cornerSlot[PrismIt.first][k] == want)
+            {
+                c = k;
+            }
+        }
+
+        if (c < 0)
+        {
+            continue;
+        }
+
+        const int *ends[2] = {face1_map, face3_map};
+        for (int e = 0; e < 2; ++e)
+        {
+            for (int k = 0; k < 3; ++k)
+            {
+                if (k == c)
                 {
                     continue;
                 }
 
-                Array<OneD, int> Nodes =
-                    SortFaceNodes(Vnodes, ElementFaces[prismid], FaceNodes);
-
-                if ((FacesDone[PrismToFaces[prismid][0]] == false) &&
-                    (FacesDone[PrismToFaces[prismid][1]] == false))
+                const int lo = N[ends[e][k]], hi = N[ends[e][c]];
+                if (lo != hi && nodeAbove[lo].insert(hi).second)
                 {
-                    // number all nodes consecutive since already correctly
-                    // re-arranged.
-                    for (i = 0; i < 3; ++i)
-                    {
-                        if (NodeReordering[Nodes[face1_map[i]]] == -1)
-                        {
-                            NodeReordering[Nodes[face1_map[i]]] = nodeid++;
-                        }
-                    }
-
-                    for (i = 0; i < 3; ++i)
-                    {
-                        if (NodeReordering[Nodes[face3_map[i]]] == -1)
-                        {
-                            NodeReordering[Nodes[face3_map[i]]] = nodeid++;
-                        }
-                    }
-                }
-                else if ((FacesDone[PrismToFaces[prismid][0]] == false) &&
-                         (FacesDone[PrismToFaces[prismid][1]] == true))
-                {
-                    // find node of highest id
-                    int max_id1, max_id2;
-
-                    max_id1 = (NodeReordering[Nodes[face3_map[0]]] <
-                               NodeReordering[Nodes[face3_map[1]]])
-                                  ? 1
-                                  : 0;
-                    max_id2 = (NodeReordering[Nodes[face3_map[max_id1]]] <
-                               NodeReordering[Nodes[face3_map[2]]])
-                                  ? 2
-                                  : max_id1;
-
-                    // add numbering according to the order of
-                    int id0 = (max_id1 == 1) ? 0 : 1;
-
-                    if (NodeReordering[Nodes[face1_map[id0]]] == -1)
-                    {
-                        NodeReordering[Nodes[face1_map[id0]]] = nodeid++;
-                    }
-
-                    if (NodeReordering[Nodes[face1_map[max_id1]]] == -1)
-                    {
-                        NodeReordering[Nodes[face1_map[max_id1]]] = nodeid++;
-                    }
-
-                    if (NodeReordering[Nodes[face1_map[max_id2]]] == -1)
-                    {
-                        NodeReordering[Nodes[face1_map[max_id2]]] = nodeid++;
-                    }
-                }
-                else if ((FacesDone[PrismToFaces[prismid][0]] == true) &&
-                         (FacesDone[PrismToFaces[prismid][1]] == false))
-                {
-                    // find node of highest id
-                    int max_id1, max_id2;
-
-                    max_id1 = (NodeReordering[Nodes[face1_map[0]]] <
-                               NodeReordering[Nodes[face1_map[1]]])
-                                  ? 1
-                                  : 0;
-                    max_id2 = (NodeReordering[Nodes[face1_map[max_id1]]] <
-                               NodeReordering[Nodes[face1_map[2]]])
-                                  ? 2
-                                  : max_id1;
-
-                    // add numbering according to order of
-                    int id0 = (max_id1 == 1) ? 0 : 1;
-
-                    if (NodeReordering[Nodes[face3_map[id0]]] == -1)
-                    {
-                        NodeReordering[Nodes[face3_map[id0]]] = nodeid++;
-                    }
-
-                    if (NodeReordering[Nodes[face3_map[max_id1]]] == -1)
-                    {
-                        NodeReordering[Nodes[face3_map[max_id1]]] = nodeid++;
-                    }
-
-                    if (NodeReordering[Nodes[face3_map[max_id2]]] == -1)
-                    {
-                        NodeReordering[Nodes[face3_map[max_id2]]] = nodeid++;
-                    }
+                    ++nodeBelow[hi];
+                    nodeBelow.emplace(lo, 0);
                 }
             }
+        }
+    }
+
+    // Number the nodes in an order those hold in, lowest id first among those
+    // free to go next so that the result does not depend on how the maps
+    // happen to be walked.
+    std::set<int> readyNodes;
+    for (auto &d : nodeBelow)
+    {
+        if (d.second == 0)
+        {
+            readyNodes.insert(d.first);
+        }
+    }
+
+    size_t ordered = 0;
+    while (!readyNodes.empty())
+    {
+        const int n = *readyNodes.begin();
+        readyNodes.erase(readyNodes.begin());
+        ++ordered;
+
+        if (NodeReordering[n] == -1)
+        {
+            NodeReordering[n] = nodeid++;
+        }
+
+        for (int m : nodeAbove[n])
+        {
+            if (--nodeBelow[m] == 0)
+            {
+                readyNodes.insert(m);
+            }
+        }
+    }
+
+    if (ordered != nodeBelow.size())
+    {
+        // What is left wants to come before itself, which happens when a block
+        // of prisms closes on itself with a turn in it. Those prisms have no
+        // numbering at all and are split further down.
+        m_log(VERBOSE) << "  - " << (nodeBelow.size() - ordered)
+                       << " prism nodes lie in a cycle of the orderings their "
+                          "elements ask for"
+                       << endl;
+    }
+
+    // Anything the prisms touch but did not order, then everything else.
+    for (int n = 0; n < (int)NodeReordering.size(); ++n)
+    {
+        if (onPrism[n] && NodeReordering[n] == -1)
+        {
+            NodeReordering[n] = nodeid++;
         }
     }
 
@@ -1014,7 +1999,72 @@ void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
 
     ASSERTL1(nodeid == revNodeid + 1, "Have not renumbered all nodes");
 
-    // Renumbering successfull so reset nodes and faceNodes;
+    // What the ordering above was for: on each prism the corner that comes out
+    // highest has to be the same at both ends, since that is the one
+    // OrientPrism collapses onto. A block of prisms that closes on itself with
+    // a turn in it cannot be numbered to suit, however the numbering is done,
+    // so what is left over is split into elements that carry no such
+    // constraint.
+    std::vector<int> unorientable;
+    {
+        size_t i = 0;
+        for (auto &PrismIt : Prisms)
+        {
+            Array<OneD, int> &Nodes = prismNodes[i++];
+            int c1 = 0, c3 = 0;
+            for (int k = 1; k < 3; ++k)
+            {
+                if (NodeReordering[Nodes[face1_map[k]]] >
+                    NodeReordering[Nodes[face1_map[c1]]])
+                {
+                    c1 = k;
+                }
+                if (NodeReordering[Nodes[face3_map[k]]] >
+                    NodeReordering[Nodes[face3_map[c3]]])
+                {
+                    c3 = k;
+                }
+            }
+            if (c1 != c3)
+            {
+                unorientable.push_back(PrismIt.first);
+            }
+        }
+    }
+
+    if (!unorientable.empty())
+    {
+        m_log(WARNING) << unorientable.size() << " of " << prismNodes.size()
+                       << " prisms collapse onto a different corner at each "
+                       << "end, which is not supported by Nektar++. " << endl;
+        m_log(WARNING) << "Each is replaced by two tetrahedra and three "
+                       << "pyramids coned to a new node at its centre, which "
+                       << "leaves its faces as they were." << endl;
+    }
+
+    // Helpful debugging code: if 'prismlines' option is set, we write out a
+    // visualisation of the prism lines.
+    if (m_config["prismlines"].beenSet)
+    {
+        std::vector<int> prismIds;
+        for (auto &PrismIt : Prisms)
+        {
+            prismIds.push_back(PrismIt.first);
+        }
+
+        WritePrismLines(
+            m_config["prismlines"].as<std::string>(), Vnodes, prismNodes,
+            prismIds, lineRoot,
+            std::set<int>(unorientable.begin(), unorientable.end()));
+    }
+
+    for (int prismElemIdx : unorientable)
+    {
+        SplitPrism(Vnodes, ElementFaces, FaceNodes, elemInfo, VolumeElems,
+                   NodeReordering, prismElemIdx);
+    }
+
+    // Renumbering successful, so reset nodes and faceNodes.
     for (auto &it : FaceNodes)
     {
         for (j = 0; j < it.second.size(); ++j)
@@ -1043,6 +2093,475 @@ void InputCGNS::ResetNodes(vector<SpatialDomains::PointGeom *> &Vnodes,
         {
             ei.second[vertIdx] = NodeReordering[ei.second[vertIdx]];
         }
+    }
+}
+
+/**
+ * @brief Write the prisms and the lines running through them to a VTK file.
+ *
+ * Joining the two ends of each of a prism's corner edges groups the nodes into
+ * the lines that run through a block of prisms, and a prism can only be
+ * oriented if its three corners lie on three different lines. Where boundary
+ * layers meet at an angle a line runs out of one layer and into the other,
+ * two of a prism's corners end up on it, and the order of the lines no longer
+ * settles which of them collapses. This writes out what that looks like.
+ *
+ * The prisms go out as wedges and the corner edges as line segments, with
+ * per-cell values to pick them apart in a viewer:
+ *
+ *   kind          0 for a prism, 1 for a corner edge
+ *   sharedLines   on a prism, how many of its corners share a line: 0 when all
+ *                 three differ and nothing is wrong, 2 when two of them share,
+ *                 3 when all three do; -1 on an edge
+ *   unorientable  1 on a prism that could not be oriented and was split, 0 on
+ *                 any other, -1 on an edge
+ *   line          on an edge, which line it belongs to; -1 on a prism
+ *   lineEdges     how many edges the line has: on an edge its own line, on a
+ *                 prism the longest of the lines its three corners sit on
+ *   lineTurn      how far the line bends, as the largest angle in degrees
+ *                 between one of its edges and their mean direction; again the
+ *                 worst of the three on a prism
+ *
+ * Threshold on sharedLines to find the awkward prisms and colour the edges by
+ * line to see the lines they sit on. A line standing in one boundary layer is
+ * a few edges long and barely bends; one that has carried on into a second
+ * layer meeting the first at an angle is far longer and turns through most of
+ * a right angle, and that is where prisms stop being orientable. It is written
+ * before the prisms that cannot be oriented are replaced, so they are still
+ * there to be seen.
+ */
+void InputCGNS::WritePrismLines(
+    const std::string &fname, std::vector<SpatialDomains::PointGeom *> &Vnodes,
+    std::vector<Array<OneD, int>> &prismNodes, std::vector<int> &prismIds,
+    const std::function<int(int)> &lineRoot, const std::set<int> &unorientable)
+{
+    static constexpr int face1_map[3] = {0, 1, 4};
+    static constexpr int face3_map[3] = {3, 2, 5};
+
+    // How long each line is and how far it bends, so that a column standing in
+    // one boundary layer can be told from one that has turned a corner into
+    // another.
+    std::map<int, std::vector<std::array<double, 3>>> lineDirs;
+
+    for (Array<OneD, int> &Nodes : prismNodes)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            const int a = Nodes[face1_map[k]], b = Nodes[face3_map[k]];
+            std::array<double, 3> d{(*Vnodes[b])[0] - (*Vnodes[a])[0],
+                                    (*Vnodes[b])[1] - (*Vnodes[a])[1],
+                                    (*Vnodes[b])[2] - (*Vnodes[a])[2]};
+            const double n = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+            if (n > 0.0)
+            {
+                for (double &x : d)
+                {
+                    x /= n;
+                }
+                lineDirs[lineRoot(a)].push_back(d);
+            }
+        }
+    }
+
+    std::map<int, int> lineLen, lineBend;
+
+    for (auto &ld : lineDirs)
+    {
+        // Each edge taken the same way round as the first, since a line can
+        // run back on itself through a block numbered the other way.
+        std::array<double, 3> mean{0.0, 0.0, 0.0};
+        for (auto &d : ld.second)
+        {
+            const double s = d[0] * ld.second[0][0] + d[1] * ld.second[0][1] +
+                             d[2] * ld.second[0][2];
+            for (int k = 0; k < 3; ++k)
+            {
+                mean[k] += (s < 0.0 ? -d[k] : d[k]);
+            }
+        }
+
+        const double mn = std::sqrt(mean[0] * mean[0] + mean[1] * mean[1] +
+                                    mean[2] * mean[2]);
+        for (double &x : mean)
+        {
+            x /= (mn > 0.0 ? mn : 1.0);
+        }
+
+        double worst = 0.0;
+        for (auto &d : ld.second)
+        {
+            const double c =
+                std::fabs(d[0] * mean[0] + d[1] * mean[1] + d[2] * mean[2]);
+            worst = std::max(worst, std::acos(std::min(1.0, c)));
+        }
+
+        lineLen[ld.first]  = (int)ld.second.size();
+        lineBend[ld.first] = (int)std::lround(worst * 180.0 / M_PI);
+    }
+
+    // Only the nodes the prisms use, renumbered from nought.
+    std::map<int, int> pointId;
+    auto point = [&](int n) {
+        auto it = pointId.find(n);
+        if (it != pointId.end())
+        {
+            return it->second;
+        }
+        const int id = pointId.size();
+        pointId[n]   = id;
+        return id;
+    };
+
+    struct Cell
+    {
+        std::vector<int> nodes;
+        int kind, shared, unorientable, line, lineEdges, lineTurn;
+    };
+    std::vector<Cell> cells;
+
+    // One wedge per prism. VTK takes the two triangles in the order the
+    // corners pair up in, which is what face1_map and face3_map give.
+    for (size_t i = 0; i < prismNodes.size(); ++i)
+    {
+        Array<OneD, int> &Nodes = prismNodes[i];
+
+        std::set<int> roots;
+        for (int k = 0; k < 3; ++k)
+        {
+            roots.insert(lineRoot(Nodes[face1_map[k]]));
+        }
+
+        std::vector<int> nodes;
+        for (int k = 0; k < 3; ++k)
+        {
+            nodes.push_back(point(Nodes[face1_map[k]]));
+        }
+        for (int k = 0; k < 3; ++k)
+        {
+            nodes.push_back(point(Nodes[face3_map[k]]));
+        }
+
+        int longest = 0, bendiest = 0;
+        for (int root : roots)
+        {
+            longest  = std::max(longest, lineLen[root]);
+            bendiest = std::max(bendiest, lineBend[root]);
+        }
+
+        cells.push_back(
+            {nodes, 0, roots.size() == 3 ? 0 : 4 - (int)roots.size(),
+             unorientable.count(prismIds[i]) ? 1 : 0, -1, longest, bendiest});
+    }
+
+    // One segment per corner edge, kept once however many prisms share it.
+    std::set<std::pair<int, int>> done;
+    std::map<int, int> lineNumber;
+
+    for (Array<OneD, int> &Nodes : prismNodes)
+    {
+        for (int k = 0; k < 3; ++k)
+        {
+            const int a = Nodes[face1_map[k]], b = Nodes[face3_map[k]];
+            if (!done.insert({std::min(a, b), std::max(a, b)}).second)
+            {
+                continue;
+            }
+
+            const int root = lineRoot(a);
+            if (!lineNumber.count(root))
+            {
+                const int next   = lineNumber.size();
+                lineNumber[root] = next;
+            }
+
+            cells.push_back({{point(a), point(b)},
+                             1,
+                             -1,
+                             -1,
+                             lineNumber[root],
+                             lineLen[root],
+                             lineBend[root]});
+        }
+    }
+
+    std::ofstream out(fname.c_str());
+    if (!out)
+    {
+        m_log(WARNING) << "Could not open '" << fname
+                       << "' to write the prism lines to." << endl;
+        return;
+    }
+
+    out << "# vtk DataFile Version 3.0\n"
+        << "prisms and the lines running through them\n"
+        << "ASCII\nDATASET UNSTRUCTURED_GRID\n";
+
+    std::vector<int> back(pointId.size());
+    for (auto &p : pointId)
+    {
+        back[p.second] = p.first;
+    }
+
+    out << "POINTS " << pointId.size() << " double\n";
+    for (int n : back)
+    {
+        out << (*Vnodes[n])[0] << " " << (*Vnodes[n])[1] << " "
+            << (*Vnodes[n])[2] << "\n";
+    }
+
+    size_t listed = 0;
+    for (auto &c : cells)
+    {
+        listed += c.nodes.size() + 1;
+    }
+
+    out << "CELLS " << cells.size() << " " << listed << "\n";
+    for (auto &c : cells)
+    {
+        out << c.nodes.size();
+        for (int n : c.nodes)
+        {
+            out << " " << n;
+        }
+        out << "\n";
+    }
+
+    out << "CELL_TYPES " << cells.size() << "\n";
+    for (auto &c : cells)
+    {
+        out << (c.kind == 0 ? 13 : 3) << "\n"; // VTK_WEDGE, VTK_LINE
+    }
+
+    out << "CELL_DATA " << cells.size() << "\n";
+    const char *names[6] = {"kind", "sharedLines", "unorientable",
+                            "line", "lineEdges",   "lineTurn"};
+    for (int f = 0; f < 6; ++f)
+    {
+        out << "SCALARS " << names[f] << " int 1\nLOOKUP_TABLE default\n";
+        for (auto &c : cells)
+        {
+            const int v[6] = {c.kind, c.shared,    c.unorientable,
+                              c.line, c.lineEdges, c.lineTurn};
+            out << v[f] << "\n";
+        }
+    }
+
+    m_log(VERBOSE) << "  - wrote " << prismNodes.size() << " prisms and "
+                   << (cells.size() - prismNodes.size()) << " corner edges on "
+                   << lineNumber.size() << " lines to '" << fname << "'"
+                   << endl;
+}
+
+/**
+ * @brief Replace a prism that cannot be oriented with a cone of elements.
+ *
+ * A prism collapses onto one corner of its triangular cross-section, and the
+ * two ends have to agree on which. Numbering settles that for all but a few
+ * meshes: where a block of prisms closes on itself with a turn in it, as a
+ * ring of prisms joined back to front does, no numbering can, since the choice
+ * has to come back round to itself and does not.
+ *
+ * Such a prism is replaced here by the elements obtained by coning every one
+ * of its faces to a new node at its centre: a tetrahedron on each of the two
+ * triangles and a pyramid on each of the three quadrilaterals. None of them
+ * is a prism, so none of them carries the constraint, and the apex they share
+ * is a new node that takes an id above every other, which is what a pyramid
+ * wants of its apex.
+ *
+ * Splitting the prism into three tetrahedra instead would be smaller but is
+ * not open to us: its quadrilateral faces are shared with its neighbours, and
+ * a tetrahedron cannot present a quadrilateral. Coning keeps all five of the
+ * original faces exactly as they were, so the neighbours do not notice.
+ */
+void InputCGNS::SplitPrism(
+    std::vector<SpatialDomains::PointGeom *> &Vnodes,
+    Array<OneD, std::vector<int>> &ElementFaces,
+    std::unordered_map<int, std::vector<int>> &FaceNodes,
+    std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+    std::vector<int> &VolumeElems, std::vector<int> &NodeReordering,
+    int prismElemIdx)
+{
+    const ElementType_t prismType = elemInfo[VolumeElems[prismElemIdx]].first;
+    const int order               = m_elemType2Order[prismType];
+
+    if (order > 2)
+    {
+        m_log(WARNING) << "A prism that cannot be oriented is of order "
+                       << order
+                       << ", above what splitting it is set up for. It is "
+                          "left as it is."
+                       << endl;
+        return;
+    }
+
+    std::vector<int> &prism = elemInfo[VolumeElems[prismElemIdx]].second;
+
+    // The two ends of each of the prism's nine edges, in the order a CGNS
+    // prism lists them, so that an edge's mid node can be found by its index.
+    static constexpr int edgeEnds[9][2] = {
+        {0, 1}, {1, 2}, {2, 0}, {0, 3}, {1, 4}, {2, 5}, {3, 4}, {4, 5}, {5, 3}};
+
+    // A new node at the centre of the prism, which every new element cones to.
+    // Every node of the prism is taken, not only its vertices: on a curved
+    // element the vertices alone can put this outside the faces, and then the
+    // cone is inside out.
+    NekDouble cx = 0.0, cy = 0.0, cz = 0.0;
+    for (int n : prism)
+    {
+        cx += (*Vnodes[n])[0];
+        cy += (*Vnodes[n])[1];
+        cz += (*Vnodes[n])[2];
+    }
+    cx /= prism.size();
+    cy /= prism.size();
+    cz /= prism.size();
+
+    const int apex = Vnodes.size();
+    SaveNode(apex, cx, cy, cz);
+
+    // Half way along each of the six new edges, for a second order mesh.
+    std::array<int, 6> apexEdge{};
+    if (order == 2)
+    {
+        for (int v = 0; v < 6; ++v)
+        {
+            const int mid = Vnodes.size();
+            SaveNode(mid, 0.5 * ((*Vnodes[prism[v]])[0] + cx),
+                     0.5 * ((*Vnodes[prism[v]])[1] + cy),
+                     0.5 * ((*Vnodes[prism[v]])[2] + cz));
+            apexEdge[v] = mid;
+        }
+    }
+
+    // The mid node of prism edge e, or -1 on a linear mesh.
+    auto edgeNode = [&](int e) { return order == 2 ? prism[6 + e] : -1; };
+
+    // One new triangular face per edge of the prism, each shared by the two
+    // new elements that meet there.
+    const int face0 = FaceNodes.size();
+    for (int e = 0; e < 9; ++e)
+    {
+        FaceNodes[face0 + e] = {prism[edgeEnds[e][0]], prism[edgeEnds[e][1]],
+                                apex};
+    }
+
+    // Which of the prism's faces the reader rebuilt it from, matched on their
+    // nodes rather than assumed: the order they are listed in need not be the
+    // order a CGNS prism gives them.
+    const int faceVerts[5][4] = {
+        {0, 2, 1, -1}, {3, 4, 5, -1}, {0, 1, 4, 3}, {1, 2, 5, 4}, {2, 0, 3, 5}};
+    // The prism edges bounding each of those faces, in the same cycle.
+    const int faceEdges[5][4] = {
+        {2, 1, 0, -1}, {6, 7, 8, -1}, {0, 4, 6, 3}, {1, 5, 7, 4}, {2, 3, 8, 5}};
+
+    int globFace[5] = {-1, -1, -1, -1, -1};
+    for (int f = 0; f < 5; ++f)
+    {
+        std::set<int> want;
+        for (int k = 0; k < 4 && faceVerts[f][k] >= 0; ++k)
+        {
+            want.insert(prism[faceVerts[f][k]]);
+        }
+
+        for (int gf : ElementFaces[prismElemIdx])
+        {
+            std::set<int> have(FaceNodes[gf].begin(), FaceNodes[gf].end());
+            if (have == want)
+            {
+                globFace[f] = gf;
+            }
+        }
+    }
+
+    for (int f = 0; f < 5; ++f)
+    {
+        if (globFace[f] < 0)
+        {
+            m_log(FATAL) << "Could not match the faces of a prism that is to "
+                            "be split to the ones it was rebuilt from."
+                         << endl;
+        }
+    }
+
+    // The five new elements: a tetrahedron on each triangle, a pyramid on each
+    // quadrilateral, all coned to the apex. Their nodes are listed the way
+    // CGNS lists them, vertices and then one node per edge.
+    std::vector<std::pair<ElementType_t, std::vector<int>>> made;
+    std::vector<std::vector<int>> madeFaces;
+
+    for (int f = 0; f < 5; ++f)
+    {
+        const bool tri = faceVerts[f][3] < 0;
+        const int nv   = tri ? 3 : 4;
+
+        // The prism's faces are wound with their normals pointing out of it,
+        // and the apex is inside, so the cycle has to be reversed: CGNS wants
+        // the base of a tetrahedron or a pyramid wound the other way, its
+        // normal towards the apex. Nothing puts this right afterwards -- a
+        // pyramid is never reoriented, and above first order the reader takes
+        // an element's nodes as it finds them rather than rebuilding it from
+        // its faces.
+        auto rv = [&](int k) { return k == 0 ? 0 : nv - k; };
+        auto re = [&](int k) { return nv - 1 - k; };
+
+        std::vector<int> nodes;
+        for (int k = 0; k < nv; ++k)
+        {
+            nodes.push_back(prism[faceVerts[f][rv(k)]]);
+        }
+        nodes.push_back(apex);
+
+        if (order == 2)
+        {
+            // Around the base first, which are edges the prism already has,
+            // then out to the apex along the new ones.
+            for (int k = 0; k < nv; ++k)
+            {
+                nodes.push_back(edgeNode(faceEdges[f][re(k)]));
+            }
+            for (int k = 0; k < nv; ++k)
+            {
+                nodes.push_back(apexEdge[faceVerts[f][rv(k)]]);
+            }
+        }
+
+        made.push_back({tri ? (order == 2 ? TETRA_10 : TETRA_4)
+                            : (order == 2 ? PYRA_13 : PYRA_5),
+                        nodes});
+
+        std::vector<int> faces{globFace[f]};
+        for (int k = 0; k < nv; ++k)
+        {
+            faces.push_back(face0 + faceEdges[f][k]);
+        }
+        madeFaces.push_back(faces);
+    }
+
+    // The first of them takes the prism's place and the rest go on the end.
+    elemInfo[VolumeElems[prismElemIdx]] = made[0];
+
+    const int elem0 = ElementFaces.size();
+    Array<OneD, std::vector<int>> grown(elem0 + 4);
+    for (int e = 0; e < elem0; ++e)
+    {
+        grown[e] = std::move(ElementFaces[e]);
+    }
+    grown[prismElemIdx] = madeFaces[0];
+
+    for (int i = 1; i < 5; ++i)
+    {
+        VolumeElems.push_back(elemInfo.size());
+        elemInfo.push_back(made[i]);
+        grown[elem0 + i - 1] = madeFaces[i];
+    }
+
+    ElementFaces = grown;
+
+    // The new nodes are numbered above everything else, which is what makes
+    // the apex the highest of each pyramid that cones to it.
+    while ((int)NodeReordering.size() < (int)Vnodes.size())
+    {
+        NodeReordering.push_back(NodeReordering.size());
     }
 }
 
@@ -1467,17 +2986,30 @@ void InputCGNS::PyramidShielding(
 
     // update ElementFaces with new tets
     int tet0 = ElementFaces.size();
+
+    // What the new tetrahedra take from the shielded pyramid, read before the
+    // array below takes the old vectors over.
+    std::array<int, 4> pyraFace;
+    for (int elemIdx = 0; elemIdx < 4; elemIdx++)
+    {
+        pyraFace[elemIdx] = ElementFaces[pyraElemIdx][elemIdx];
+    }
+
+    // Every shielded pyramid grows this array by four, and it holds a vector
+    // per element of the whole mesh, so hand the old vectors over rather than
+    // copying each one: the work is proportional to the size of the mesh and
+    // is repeated once per pyramid shielded, which used to be at most once.
     Array<OneD, vector<int>> NewElementFaces(tet0 + 4);
     for (int elemIdx = 0; elemIdx < tet0; elemIdx++)
     {
-        NewElementFaces[elemIdx] = ElementFaces[elemIdx];
+        NewElementFaces[elemIdx] = std::move(ElementFaces[elemIdx]);
     }
 
     for (int elemIdx = 0; elemIdx < 4; elemIdx++)
     {
         NewElementFaces[tet0 + elemIdx] = {
             newPyraFace0 + elemIdx, tetFace0 + (elemIdx + 1) % 4,
-            ElementFaces[pyraElemIdx][elemIdx], tetFace0 + elemIdx};
+            pyraFace[elemIdx], tetFace0 + elemIdx};
     }
 
     ElementFaces = NewElementFaces;
@@ -1505,12 +3037,13 @@ void InputCGNS::PyramidShielding(
  */
 void InputCGNS::TraversePyraPrismLine(
     int currElemId, int currFaceId, int currApexNode,
-    std::vector<std::vector<int>> FaceToPrisms,
-    std::vector<std::vector<int>> GlobTriFaces,
+    const std::vector<std::vector<int>> &FaceToPrisms,
+    const std::vector<std::vector<int>> &GlobTriFaces,
     std::vector<SpatialDomains::PointGeom *> &Vnodes,
     Array<OneD, std::vector<int>> &ElementFaces,
     std::unordered_map<int, std::vector<int>> &FaceNodes,
-    std::vector<int> &NodeReordering, int &revNodeid)
+    std::vector<int> &NodeReordering, int &revNodeid,
+    std::unordered_set<int> &visited)
 {
     // these convert between the node ordering generated by OrderFaceNodes()
     // and the node ordering for the two triangular faces
@@ -1523,6 +3056,14 @@ void InputCGNS::TraversePyraPrismLine(
         // only carry out the rest of the function if travelling in the right
         // direction
         if (nextElemId == currElemId)
+        {
+            continue;
+        }
+
+        // The two checks here only stop the walk turning straight back on
+        // itself, so a line of prisms that closes into a ring would be walked
+        // round for ever. Each prism is entered once.
+        if (!visited.insert(nextElemId).second)
         {
             continue;
         }
@@ -1595,7 +3136,7 @@ void InputCGNS::TraversePyraPrismLine(
             TraversePyraPrismLine(nextElemId, nextFaceId, nextApexNode,
                                   FaceToPrisms, GlobTriFaces, Vnodes,
                                   ElementFaces, FaceNodes, NodeReordering,
-                                  revNodeid);
+                                  revNodeid, visited);
         }
     }
 }
@@ -2313,6 +3854,30 @@ Array<OneD, int> InputCGNS::SortFaceNodes(
                 }
             }
             ASSERTL0(oppositeSet, "Node in the top face of hex not numbered");
+        }
+
+        // The face taken as the bottom carries whichever winding was stored
+        // for it, which is the winding given by the first element to meet it;
+        // for the element on its other side that is the wrong way round, and
+        // the hexahedron comes out inside out. Nothing above can tell, since
+        // the two elements differ only in which side of the face they are on,
+        // so the handedness is settled here from the geometry, as the
+        // tetrahedron, prism and pyramid cases above already do.
+        SpatialDomains::PointGeom a, b, c, acurlb;
+        // calculate 0-1,
+        a.Sub(*(Vnodes[returnval[1]]), *(Vnodes[returnval[0]]));
+        // calculate 0-3,
+        b.Sub(*(Vnodes[returnval[3]]), *(Vnodes[returnval[0]]));
+        // calculate 0-4, which leaves the bottom face,
+        c.Sub(*(Vnodes[returnval[4]]), *(Vnodes[returnval[0]]));
+        acurlb.Mult(a, b);
+
+        if (acurlb.dot(c) < 0.0)
+        {
+            // Reverse both faces, which turns the element the right way out
+            // while keeping returnval[i + 4] opposite returnval[i].
+            std::swap(returnval[1], returnval[3]);
+            std::swap(returnval[5], returnval[7]);
         }
     }
     else

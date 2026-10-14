@@ -36,6 +36,7 @@
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <SpatialDomains/Conditions.h>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 #include <tinyxml.h>
 
 namespace Nektar::SpatialDomains
@@ -340,10 +341,47 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
         BoundaryConditionMapShPtr boundaryConditions =
             MemoryManager<BoundaryConditionMap>::AllocateSharedPtr();
 
+        const char *refAttr = regionElement->Attribute("REF");
+        ASSERTL0(refAttr, "Error reading boundary region reference.");
+
+        // A region may be named rather than numbered, matching how a
+        // composite may be. A number is always an id, so a region named "3"
+        // cannot stand in for region 3; the regions themselves were read
+        // above, so their names are known by now.
         int boundaryRegionID;
-        int err = regionElement->QueryIntAttribute("REF", &boundaryRegionID);
-        ASSERTL0(err == TIXML_SUCCESS,
-                 "Error reading boundary region reference.");
+        if (regionElement->QueryIntAttribute("REF", &boundaryRegionID) !=
+            TIXML_SUCCESS)
+        {
+            std::string refStr(refAttr);
+            boost::trim(refStr);
+
+            std::vector<int> named;
+            for (auto &l : m_boundaryLabels)
+            {
+                if (l.second == refStr)
+                {
+                    named.push_back(l.first);
+                }
+            }
+
+            if (named.size() != 1)
+            {
+                std::ostringstream known;
+                for (auto &l : m_boundaryLabels)
+                {
+                    known << (known.tellp() ? ", " : "") << l.second;
+                }
+
+                ASSERTL0(false,
+                         "REGION REF=\"" + refStr + "\" names " +
+                             (named.empty() ? "no boundary region"
+                                            : "more than one boundary region") +
+                             ". The regions named in this session are: " +
+                             (known.tellp() ? known.str() : "(none)") + ".");
+            }
+
+            boundaryRegionID = named[0];
+        }
 
         ASSERTL0(m_boundaryConditions.count(boundaryRegionID) == 0,
                  "Boundary region '" + std::to_string(boundaryRegionID) +
@@ -761,13 +799,45 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                                     periodicBndRegionIndexStr.c_str(),
                                     periodicBndRegionIndex);
 
+                                // The partner may be named instead of
+                                // numbered, matching how a composite may be;
+                                // the regions themselves have been read by
+                                // now, so their names are known here. A
+                                // periodic condition pairs with exactly one
+                                // region, so a name shared by two of them is
+                                // rejected below along with a name belonging
+                                // to none.
+                                if (!parseGood)
+                                {
+                                    boost::trim(periodicBndRegionIndexStr);
+
+                                    for (auto &l : m_boundaryLabels)
+                                    {
+                                        if (l.second ==
+                                            periodicBndRegionIndexStr)
+                                        {
+                                            periodicBndRegionIndex.push_back(
+                                                static_cast<unsigned int>(
+                                                    l.first));
+                                        }
+                                    }
+
+                                    parseGood =
+                                        periodicBndRegionIndex.size() == 1;
+                                }
+
                                 ASSERTL0(
                                     parseGood &&
                                         (periodicBndRegionIndex.size() == 1),
                                     (std::string(
                                          "Unable to read periodic boundary "
                                          "condition for boundary region: ") +
-                                     boundaryRegionIDStrm.str())
+                                     boundaryRegionIDStrm.str() +
+                                     ". The partner region '" +
+                                     periodicBndRegionIndexStr +
+                                     "' is neither a boundary region ID nor "
+                                     "the name of exactly one boundary "
+                                     "region.")
                                         .c_str());
                             }
                             attr = attr->Next();

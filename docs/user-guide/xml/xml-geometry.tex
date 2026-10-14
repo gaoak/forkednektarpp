@@ -151,19 +151,39 @@ For mesh elements with curved edges and/or curved faces, a separate entry is use
 \end{notebox}
 
 \subsection{Composites}
+\label{sec:xml:composites}
 Composites define collections of elements, faces or edges. Each has a unique composite ID associated with it. All components of a composite entry must be of the same type. The syntax allows components to be listed individually, using ranges, or a mixture of the two. Examples include
 \begin{lstlisting}[style=XMLStyle]
 <C ID="0"> T[0-862] </C>
 <C ID="1"> E[61-67,69,70,72-74] </C>
 \end{lstlisting}
 
-The composites can also optionally contain a name which is then used in the
-multi-block VTK output to label the block descriptively rather than by ID, for
-example
+The composites can also optionally contain a name, for example
 \begin{lstlisting}[style=XMLStyle]
 <C NAME="Main domain" ID="0"> T[0-862] </C>
 <C NAME="Walls" ID="1"> E[61-67,69,70,72-74] </C>
 \end{lstlisting}
+
+The name labels the block descriptively rather than by ID in the multi-block
+VTK output, and is what NekMesh uses to name boundary regions when asked to
+write a conditions file. Names may be written by hand, but more usually come
+from the source mesh: a CGNS family, for instance, carries a part name through
+into the composite it becomes. They are carried by both the XML and the HDF5
+geometry formats, and are preserved when a mesh is partitioned.
+
+A named composite can also be referred to by its name anywhere a composite
+list is written --- in Expansions, in the Domain, and in the boundary regions
+of the Conditions section --- so that
+\begin{lstlisting}[style=XMLStyle]
+<B ID="0"> C[Walls] </B>
+\end{lstlisting}
+means the same as naming that composite's ID. Names and IDs may be mixed in
+one list, as in \inltt{C[0-2,Walls]}, and a name may contain spaces since only
+commas separate one entry from the next. An entry that reads as a number is
+always taken as an ID, so a composite that happens to be named \inltt{3} does
+not shadow the composite whose ID is 3. Matching is exact, including case.
+Where two composites share a name --- which is how a mesh says that two sets
+of faces are one patch --- the name refers to both.
 
 \subsection{Domain}
 This tag specifies composites which describe the entire problem domain. It has the form of

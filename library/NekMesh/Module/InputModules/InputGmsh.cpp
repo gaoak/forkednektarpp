@@ -42,6 +42,11 @@
 
 #include "InputGmsh.h"
 
+#include <SpatialDomains/CompositeNames.h>
+
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/trim.hpp>
+
 using namespace std;
 
 namespace Nektar::NekMesh
@@ -955,6 +960,53 @@ void InputGmsh::Process()
                 m_log(FATAL) << "Cannot read binary Gmsh files." << endl;
             }
         }
+        // Process the names given to physical groups. Gmsh writes these in
+        // every format version, and a physical tag is what becomes a
+        // composite here, so this is where a composite gets its label.
+        else if (word == "$PhysicalNames")
+        {
+            getline(m_mshFile, line);
+            stringstream s(line);
+
+            int nNames = 0;
+            s >> nNames;
+
+            for (int i = 0; i < nNames; ++i)
+            {
+                getline(m_mshFile, line);
+                stringstream sn(line);
+
+                int dim, tag;
+                sn >> dim >> tag;
+
+                // The name is quoted and may contain spaces, so it is taken
+                // as the rest of the line rather than as the next token.
+                std::string name;
+                getline(sn, name);
+                boost::trim(name);
+                boost::trim_if(name, boost::is_any_of("\""));
+                name = SpatialDomains::SanitiseCompositeName(name);
+
+                if (name.empty())
+                {
+                    continue;
+                }
+
+                // Gmsh numbers physical groups per dimension, so two groups
+                // of different dimension may share a tag; a composite here is
+                // identified by the tag alone, so such a pair cannot be told
+                // apart and the first name is kept.
+                auto ins = m_physicalNames.insert({tag, name});
+                if (!ins.second && ins.first->second != name)
+                {
+                    m_log(WARNING)
+                        << "Physical groups '" << ins.first->second << "' and '"
+                        << name << "' share the tag " << tag
+                        << "; composites with that tag will be named '"
+                        << ins.first->second << "'." << endl;
+                }
+            }
+        }
         // Process entities (v4+)
         else if (word == "$Entities")
         {
@@ -1164,6 +1216,43 @@ void InputGmsh::Process()
         else if (sIt->second != tag)
         {
             tag = sIt->second;
+        }
+    }
+
+    // Name the composites. A composite is a physical tag, except where the
+    // remapping above split one group of mixed element types across several
+    // composites; those are traced back through compMap so that each of them
+    // carries the one name the group had. Referring to such a group by name
+    // then picks up every part of it, which referring to it by ID cannot.
+    if (m_physicalNames.size())
+    {
+        std::map<int, int> compToPhys;
+        for (int d = 0; d <= meshDim; ++d)
+        {
+            for (auto &e : m_mesh->m_elementTags[d])
+            {
+                compToPhys[e.second] = e.second;
+            }
+        }
+
+        for (auto &cIt : compMap)
+        {
+            for (auto &sIt : cIt.second)
+            {
+                compToPhys[sIt.second] = cIt.first;
+            }
+        }
+
+        auto &compositesLabels = m_mesh->m_meshGraph->GetCompositesLabels();
+        for (auto &c : compToPhys)
+        {
+            auto nIt = m_physicalNames.find(c.second);
+            if (nIt != m_physicalNames.end())
+            {
+                compositesLabels[c.first] = nIt->second;
+                m_log(VERBOSE) << "  - composite " << c.first << " named '"
+                               << nIt->second << "'" << endl;
+            }
         }
     }
 

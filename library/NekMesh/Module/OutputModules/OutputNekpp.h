@@ -61,6 +61,9 @@ public:
     {
         return "OutputNekpp";
     }
+
+private:
+    void WriteConditions(const std::string &filename);
 };
 } // namespace Nektar::NekMesh
 

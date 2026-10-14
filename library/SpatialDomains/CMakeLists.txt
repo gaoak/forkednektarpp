@@ -1,4 +1,5 @@
 SET(SPATIAL_DOMAINS_SOURCES
+CompositeNames.cpp
 Conditions.cpp
 GeomFactors.cpp
 Geometry0D.cpp
@@ -30,6 +31,7 @@ Movement/Movement.cpp
 )
 
 SET(SPATIAL_DOMAINS_HEADERS
+CompositeNames.h
 Conditions.h
 Curve.hpp
 GeomFactors.h

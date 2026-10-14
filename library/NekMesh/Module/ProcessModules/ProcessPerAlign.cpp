@@ -69,10 +69,10 @@ ModuleKey ProcessPerAlign::className =
  */
 ProcessPerAlign::ProcessPerAlign(MeshSharedPtr m) : ProcessModule(m)
 {
-    m_config["surf1"] =
-        ConfigOption(false, "-1", "Tag identifying first surface.");
-    m_config["surf2"] =
-        ConfigOption(false, "-1", "Tag identifying first surface.");
+    m_config["surf1"] = ConfigOption(
+        false, "-1", "Composites making up the first surface, by ID or name.");
+    m_config["surf2"] = ConfigOption(
+        false, "-1", "Composites making up the second surface, by ID or name.");
     m_config["dir"] = ConfigOption(
         false, "",
         "Direction in which to align (either x, y, or z, "
@@ -130,7 +130,7 @@ void ProcessPerAlign::Process()
     vector<unsigned int> surf1;
     if (surf1IO.size() > 0)
     {
-        ParseUtils::GenerateSeqVector(surf1IO, surf1);
+        surf1 = GetCompositeIds("surf1");
     }
     else
     {
@@ -140,7 +140,7 @@ void ProcessPerAlign::Process()
     vector<unsigned int> surf2;
     if (surf2IO.size() > 0)
     {
-        ParseUtils::GenerateSeqVector(surf2IO, surf2);
+        surf2 = GetCompositeIds("surf2");
     }
     else
     {

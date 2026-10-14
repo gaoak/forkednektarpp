@@ -88,6 +88,9 @@ private:
     NekDouble m_version;
     // Highest tag number
     int m_maxTagId;
+    /// Physical tag to the name given to it in $PhysicalNames, which becomes
+    /// the label of the composite the tag turns into.
+    std::map<int, std::string> m_physicalNames;
     // This map takes each element ID and maps it to a permutation map
     // that is required to take Gmsh element node orderings and map them
     // to Nektar++ orderings.

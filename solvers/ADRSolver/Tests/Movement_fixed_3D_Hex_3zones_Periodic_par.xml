@@ -58,7 +58,7 @@
                 <RIGHT ID="1" BOUNDARY="C[10]"  />
             </INTERFACE>
             <INTERFACE NAME="Interface 2">
-                <LEFT  ID="1" BOUNDARY="C[11" />
+                <LEFT  ID="1" BOUNDARY="C[11]" />
                 <RIGHT ID="2" BOUNDARY="C[12]"  />
             </INTERFACE>
         </INTERFACES>

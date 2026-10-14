@@ -866,6 +866,20 @@ example
 </BOUNDARYREGIONS>
 \end{lstlisting}
 
+Where the composites themselves are named --- which they will be if the mesh
+came from a format that records part names, such as CGNS --- a region may name
+the composite it covers instead of giving its ID:
+\begin{lstlisting}[style=XMLStyle]
+<BOUNDARYREGIONS>
+  <B ID="0"> C[wall] </B>
+  <B ID="1"> C[inlet,outlet] </B>
+</BOUNDARYREGIONS>
+\end{lstlisting}
+This saves reading the geometry file to find which number each boundary was
+given, and keeps the session readable when the mesh is regenerated and the
+numbering moves. See section~\ref{sec:xml:composites} for the syntax; NekMesh
+will write a conditions file of this shape for a mesh it has just converted.
+
 The second XML element defines, for each variable, the condition to impose on
 each boundary region, and has the form,
 \begin{lstlisting}[style=XMLStyle]
@@ -891,7 +905,25 @@ Dirichlet condition on both variables for a domain with a single region,
 \end{lstlisting}
 Boundary condition specifications may refer to any parameters defined in the
 session file. The \inltt{REF} attribute corresponds to a defined boundary
-region. The tag used for each variable specifies the type of boundary condition
+region. Where a boundary region is named, the \inltt{REF} attribute may
+give that name instead of its ID:
+\begin{lstlisting}[style=XMLStyle]
+<BOUNDARYREGIONS>
+  <B ID="0" NAME="wall"> C[wall] </B>
+</BOUNDARYREGIONS>
+
+<BOUNDARYCONDITIONS>
+  <REGION REF="wall">
+    <D VAR="u" VALUE="0" />
+  </REGION>
+</BOUNDARYCONDITIONS>
+\end{lstlisting}
+Names and IDs may be mixed across the regions of one session. A numeric
+\inltt{REF} is always an ID, so a region named \inltt{3} does not stand in for
+region 3, and a name belonging to no region, or to two of them, is rejected
+rather than guessed at. Region names are a separate namespace from composite
+names: the two need not agree, and the example above only happens to use the
+same word for both. The tag used for each variable specifies the type of boundary condition
 to enforce.
 
 \subsubsection{Dirichlet (essential) condition}
@@ -968,6 +1000,11 @@ Example:
 Periodic boundary conditions are specified in a significantly different form to
 other conditions. The \inltt{VALUE} property is used to specify which
 \inltt{BOUNDARYREGION} is periodic with the current region in square brackets.
+
+Where the boundary regions are named, the partner may be given by name instead
+of by ID, as in \inltt{VALUE="[outlet]"}. A periodic condition pairs with
+exactly one region, so a name shared by two regions is rejected rather than
+guessed at.
 
 Caveats:
 \begin{itemize}

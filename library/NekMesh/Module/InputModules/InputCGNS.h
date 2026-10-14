@@ -38,8 +38,70 @@
 #include <NekMesh/Module/Module.h>
 #include <cgnslib.h>
 
+#include <functional>
+#include <map>
+#include <set>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
 namespace Nektar::NekMesh
 {
+
+/**
+ * @brief One Elements_t section of the CGNS zone.
+ *
+ * Sections are the only place the file states which elements exist, so they
+ * are also the fallback definition of a boundary composite when the file
+ * carries no usable boundary conditions. The two ranges are kept side by side
+ * because boundary conditions address elements by the file's own numbering
+ * while everything downstream addresses them by position in @c elemInfo.
+ */
+struct CGNSSection
+{
+    /// Zone the section belongs to; element numbering restarts in each.
+    int zone;
+    /// Section name as written in the file.
+    std::string name;
+    /// Name of the Family_t this section points at, empty if none.
+    std::string family;
+    /// First and last element of the section in CGNS element numbering.
+    cgsize_t cgStart, cgEnd;
+    /// Half-open range of the section's entries in elemInfo.
+    int infoBegin, infoEnd;
+    /// True if the section holds faces of the boundary rather than elements.
+    bool isBoundary;
+};
+
+/**
+ * @brief The lookups needed to turn a CGNS point set into boundary faces.
+ *
+ * Built once per file and shared by everything that names a set of faces --
+ * boundary conditions and grid connectivities -- because the two ways CGNS has
+ * of addressing faces need the same two tables whichever node does the naming.
+ */
+struct CGNSFaceLookup
+{
+    /// Sections ordered by element range, so that an element number can be
+    /// turned into a position in elemInfo by binary search.
+    std::vector<const CGNSSection *> byRange;
+    /// Positions in elemInfo of the boundary faces, for the vertex-addressed
+    /// case, where every face has to be tested rather than indexed.
+    std::vector<int> bndIdx;
+};
+
+/**
+ * @brief A set of boundary faces that will become one composite, and its name.
+ *
+ * Built either from the file's boundary conditions or, failing those, one per
+ * boundary section. The name is what ends up as the composite's label, so it
+ * is the thing a session file can refer to a boundary by.
+ */
+struct CGNSBoundaryGroup
+{
+    std::string name;
+    std::vector<int> elemIdx;
+};
 
 /**
  * Converter for CGNS files.
@@ -104,14 +166,54 @@ private:
 
     void ExtractSeparatedElemInfo(
         cgsize_t elemDataSize, int elemSize, ElementType_t elemType,
-        int sectionInd,
+        int sectionInd, int nodeOffset,
         std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo);
 
     void ExtractMixedElemInfo(
-        cgsize_t elemDataSize, int elemSize, int sectionInd,
+        cgsize_t elemDataSize, int elemSize, int sectionInd, int nodeOffset,
         std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo);
 
     void SaveNode(int id, NekDouble x = 0, NekDouble y = 0, NekDouble z = 0);
+
+    std::string ReadSectionFamilyName(int sectionInd);
+
+    std::string ReadBCFamilyName(int bocoInd);
+
+    std::vector<CGNSBoundaryGroup> BuildBoundaryGroups(
+        const std::vector<CGNSSection> &sections,
+        const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        int nZones, const std::map<std::string, std::vector<int>> &connGroups,
+        const std::unordered_set<int> &interfaceFaces);
+
+    CGNSFaceLookup BuildFaceLookup(
+        const std::vector<CGNSSection> &sections,
+        const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        int zone);
+
+    std::vector<int> ResolveFaceSet(
+        const CGNSFaceLookup &lookup, PointSetType_t ptsetType,
+        GridLocation_t location, const std::vector<cgsize_t> &pnts,
+        const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        const std::string &what);
+
+    void ReadBoundaryConditionGroups(
+        const CGNSFaceLookup &lookup,
+        const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        std::map<std::string, std::vector<int>> &groups,
+        std::unordered_set<int> &claimed);
+
+    void ReadConnectivities(
+        int nZones, const std::vector<CGNSSection> &sections,
+        const std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        std::map<std::string, std::vector<int>> &periodicGroups,
+        std::unordered_set<int> &interfaceFaces,
+        std::vector<std::pair<int, int>> &interfacePairs);
+
+    void MergeZoneVertices(
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        const std::vector<std::pair<int, int>> &interfacePairs, int &nCoords);
+
+    bool IsBoundaryFace(ElementType_t elemType);
 
     void PyramidShielding(
         std::vector<SpatialDomains::PointGeom *> &Vnodes,
@@ -121,18 +223,37 @@ private:
         std::vector<int> &VolumeElems, std::vector<int> &NodeReordering,
         int pyraElemIdx);
 
-    void TraversePyraPrismLine(
-        int currElemId, int currFaceId, int currApexNode,
-        std::vector<std::vector<int>> FaceToPrisms,
-        std::vector<std::vector<int>> GlobTriFaces,
+    void WritePrismLines(const std::string &fname,
+                         std::vector<SpatialDomains::PointGeom *> &Vnodes,
+                         std::vector<Array<OneD, int>> &prismNodes,
+                         std::vector<int> &prismIds,
+                         const std::function<int(int)> &lineRoot,
+                         const std::set<int> &unorientable);
+
+    void SplitPrism(
         std::vector<SpatialDomains::PointGeom *> &Vnodes,
         Array<OneD, std::vector<int>> &ElementFaces,
         std::unordered_map<int, std::vector<int>> &FaceNodes,
-        std::vector<int> &NodeReordering, int &revNodeid);
+        std::vector<std::pair<ElementType_t, std::vector<int>>> &elemInfo,
+        std::vector<int> &VolumeElems, std::vector<int> &NodeReordering,
+        int prismElemIdx);
+
+    void TraversePyraPrismLine(
+        int currElemId, int currFaceId, int currApexNode,
+        const std::vector<std::vector<int>> &FaceToPrisms,
+        const std::vector<std::vector<int>> &GlobTriFaces,
+        std::vector<SpatialDomains::PointGeom *> &Vnodes,
+        Array<OneD, std::vector<int>> &ElementFaces,
+        std::unordered_map<int, std::vector<int>> &FaceNodes,
+        std::vector<int> &NodeReordering, int &revNodeid,
+        std::unordered_set<int> &visited);
 
     int m_fileIndex;
     int m_baseIndex = 1;
     int m_zoneIndex = 1;
+    /// Zone index to name, so that a connectivity naming its donor zone can
+    /// be told from one that closes a periodic pair within its own.
+    std::map<int, std::string> m_zoneNames;
     std::vector<double> m_x; // x-coordinates from CGNS file
     std::vector<double> m_y; // y-coordinates from CGNS file
     std::vector<double> m_z; // z-coordinates from CGNS file

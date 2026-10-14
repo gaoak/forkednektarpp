@@ -79,6 +79,7 @@ private:
                       const std::unordered_set<int> &readIds);
     void ReadDomain();
     void ReadComposites();
+    void ReadCompositeNames();
     void SetupCompositeRange(LibUtilities::DomainRangeShPtr &rng);
 
     template <class T>

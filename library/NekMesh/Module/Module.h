@@ -204,6 +204,10 @@ public:
     /// Links the CAD to Mesh Objects given CAD.txt
     NEKMESH_EXPORT void InputCAD();
 
+    /// Resolve a configuration option selecting composites into their IDs
+    NEKMESH_EXPORT std::vector<unsigned int> GetCompositeIds(
+        const std::string &key);
+
 protected:
     /// Mesh object
     MeshSharedPtr m_mesh;

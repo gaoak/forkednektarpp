@@ -35,6 +35,7 @@
 
 #include <iomanip>
 
+#include <SpatialDomains/CompositeNames.h>
 #include <SpatialDomains/MeshGraphIOXml.h>
 #include <SpatialDomains/MeshPartition.h>
 #include <SpatialDomains/Movement/Movement.h>
@@ -44,6 +45,7 @@
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/Interpreter/Interpreter.h>
 
+#include <boost/algorithm/string/trim.hpp>
 #include <boost/format.hpp>
 
 #include <tinyxml.h>
@@ -153,7 +155,8 @@ void MeshGraphIOXml::v_PartitionMesh(
             MeshPartitionSharedPtr partitioner =
                 GetMeshPartitionFactory().CreateInstance(
                     partitionerName, session, session->GetComm(), meshDimension,
-                    CreateMeshEntities(), comp);
+                    CreateMeshEntities(), comp,
+                    m_meshGraph->GetCompositesLabels());
 
             if (session->DefinesCmdLineArgument("part-only"))
             {
@@ -217,7 +220,8 @@ void MeshGraphIOXml::v_PartitionMesh(
                     MeshPartitionSharedPtr partitioner =
                         GetMeshPartitionFactory().CreateInstance(
                             partitionerName, session, session->GetComm(),
-                            meshDimension, CreateMeshEntities(), comp);
+                            meshDimension, CreateMeshEntities(), comp,
+                            m_meshGraph->GetCompositesLabels());
 
                     partitioner->PartitionMesh(nParts, true);
 
@@ -355,7 +359,8 @@ void MeshGraphIOXml::v_PartitionMesh(
                 MeshPartitionSharedPtr partitioner =
                     GetMeshPartitionFactory().CreateInstance(
                         partitionerName, session, session->GetComm(),
-                        meshDimension, CreateMeshEntities(), comp);
+                        meshDimension, CreateMeshEntities(), comp,
+                        m_meshGraph->GetCompositesLabels());
 
                 partitioner->PartitionMesh(nParts, false);
 
@@ -2962,8 +2967,7 @@ void MeshGraphIOXml::v_WriteCurves(TiXmlElement *geomTag, CurveMap &edges,
 void MeshGraphIOXml::WriteComposites(TiXmlElement *geomTag, CompositeMap &comps,
                                      std::map<int, std::string> &compLabels)
 {
-    auto &compositesLabels = m_meshGraph->GetCompositesLabels();
-    TiXmlElement *compTag  = new TiXmlElement("COMPOSITE");
+    TiXmlElement *compTag = new TiXmlElement("COMPOSITE");
 
     for (auto &cIt : comps)
     {
@@ -2974,9 +2978,14 @@ void MeshGraphIOXml::WriteComposites(TiXmlElement *geomTag, CompositeMap &comps,
 
         TiXmlElement *c = new TiXmlElement("C");
         c->SetAttribute("ID", cIt.first);
-        if (!compositesLabels[cIt.first].empty())
+
+        // Taken from the labels passed in rather than the graph's own, since
+        // on a partitioned write the caller has already narrowed them to the
+        // composites this file holds.
+        auto label = compLabels.find(cIt.first);
+        if (label != compLabels.end() && !label->second.empty())
         {
-            c->SetAttribute("NAME", compLabels[cIt.first]);
+            c->SetAttribute("NAME", label->second);
         }
         c->LinkEndChild(new TiXmlText(GetCompositeString(cIt.second)));
         compTag->LinkEndChild(c);
@@ -3443,6 +3452,8 @@ void MeshGraphIOXml::WriteXMLGeometry(
         CompositeMap localComp;
         std::map<int, std::string> localCompLabels;
 
+        auto &compositesLabels = m_meshGraph->GetCompositesLabels();
+
         for (auto &j : meshComposites)
         {
             CompositeSharedPtr comp = CompositeSharedPtr(new Composite);
@@ -3458,11 +3469,12 @@ void MeshGraphIOXml::WriteXMLGeometry(
 
             if (comp->m_geomVec.size())
             {
-                localComp[j.first]    = comp;
-                auto compositesLabels = m_meshGraph->GetCompositesLabels();
-                if (!compositesLabels[j.first].empty())
+                localComp[j.first] = comp;
+
+                auto label = compositesLabels.find(j.first);
+                if (label != compositesLabels.end() && !label->second.empty())
                 {
-                    localCompLabels[j.first] = compositesLabels[j.first];
+                    localCompLabels[j.first] = label->second;
                 }
             }
         }
@@ -3490,6 +3502,12 @@ void MeshGraphIOXml::WriteXMLGeometry(
         if (m_session->DefinesElement("NEKTAR/CONDITIONS"))
         {
             std::set<int> vBndRegionIdList;
+
+            // Every region's name, local to this partition or not. A
+            // condition below may name the region it applies to, or name the
+            // partner of a periodic pair, and that has to resolve even for a
+            // region this partition holds no part of.
+            std::vector<std::pair<std::string, int>> vBndRegionNames;
             TiXmlElement *vConditions =
                 new TiXmlElement(*m_session->GetElement("Nektar/Conditions"));
             TiXmlElement *vBndRegions =
@@ -3524,8 +3542,12 @@ void MeshGraphIOXml::WriteXMLGeometry(
                     std::string::size_type indxEnd =
                         vSeqStr.find_last_of(']') - 1;
                     vSeqStr = vSeqStr.substr(indxBeg, indxEnd - indxBeg + 1);
+                    // Resolved here rather than passed through, so that a
+                    // region naming a composite becomes the plain ID list the
+                    // partition files below are built from, and each partition
+                    // is readable without the name map.
                     std::vector<unsigned int> vSeq;
-                    ParseUtils::GenerateSeqVector(vSeqStr.c_str(), vSeq);
+                    ParseCompositeList(vSeqStr, compositesLabels, vSeq);
 
                     std::vector<unsigned int> idxList;
 
@@ -3537,6 +3559,11 @@ void MeshGraphIOXml::WriteXMLGeometry(
                         }
                     }
                     int p = atoi(vItem->Attribute("ID"));
+
+                    if (const char *nm = vItem->Attribute("NAME"))
+                    {
+                        vBndRegionNames.push_back({std::string(nm), p});
+                    }
 
                     std::string vListStr =
                         ParseUtils::GenerateSeqString(idxList);
@@ -3553,6 +3580,15 @@ void MeshGraphIOXml::WriteXMLGeometry(
                         TiXmlText *vList          = new TiXmlText(vListStr);
                         TiXmlElement *vNewElement = new TiXmlElement("B");
                         vNewElement->SetAttribute("ID", p);
+
+                        // The element is rebuilt rather than edited, so the
+                        // name has to be carried over or the partitions lose
+                        // it while the unpartitioned session keeps it.
+                        if (const char *name = vItem->Attribute("NAME"))
+                        {
+                            vNewElement->SetAttribute("NAME", name);
+                        }
+
                         vNewElement->LinkEndChild(vList);
                         vNewBndRegions->LinkEndChild(vNewElement);
                         vBndRegionIdList.insert(p);
@@ -3582,16 +3618,95 @@ void MeshGraphIOXml::WriteXMLGeometry(
                 }
             }
 
+            // A region may be named rather than numbered, here and as the
+            // partner of a periodic pair. Both are resolved to the id, so
+            // that the partition files below hold plain numbers in the way
+            // the composite lists above do, and a partition stays readable
+            // without the name map - which matters most for a periodic
+            // partner, since the region it names need not be one this
+            // partition holds any of, and so need not still be declared in
+            // the file by the time it is read back.
+            auto resolveBndRegion = [&vBndRegionNames](const std::string &ref,
+                                                       int &id) {
+                std::string name(ref);
+                boost::trim(name);
+
+                int found = 0;
+                for (auto &n : vBndRegionNames)
+                {
+                    if (n.first == name)
+                    {
+                        id = n.second;
+                        ++found;
+                    }
+                }
+
+                return found == 1;
+            };
+
             if (vBndConditions)
             {
                 vItem = vBndConditions->FirstChildElement();
                 while (vItem)
                 {
-                    std::set<int>::iterator x;
-                    if ((x = vBndRegionIdList.find(atoi(vItem->Attribute(
-                             "REF")))) != vBndRegionIdList.end())
+                    const char *refAttr = vItem->Attribute("REF");
+                    ASSERTL0(refAttr,
+                             "Error reading boundary region reference.");
+
+                    int vRef;
+                    if (vItem->QueryIntAttribute("REF", &vRef) != TIXML_SUCCESS)
                     {
-                        vItem->SetAttribute("REF", *x);
+                        ASSERTL0(resolveBndRegion(refAttr, vRef),
+                                 "REGION REF=\"" + std::string(refAttr) +
+                                     "\" names " +
+                                     "no boundary region, or more than one.");
+                    }
+
+                    if (vBndRegionIdList.find(vRef) != vBndRegionIdList.end())
+                    {
+                        vItem->SetAttribute("REF", vRef);
+
+                        for (TiXmlElement *vBnd = vItem->FirstChildElement("P");
+                             vBnd; vBnd         = vBnd->NextSiblingElement("P"))
+                        {
+                            const char *vVal = vBnd->Attribute("VALUE");
+                            if (!vVal)
+                            {
+                                continue;
+                            }
+
+                            std::string vValStr(vVal);
+                            size_t beg = vValStr.find_first_of('[');
+                            size_t end = vValStr.find_first_of(']');
+                            if (beg == std::string::npos ||
+                                end == std::string::npos || end < beg)
+                            {
+                                continue;
+                            }
+
+                            std::string vPartner =
+                                vValStr.substr(beg + 1, end - beg - 1);
+                            std::vector<unsigned int> vPartnerId;
+                            if (ParseUtils::GenerateSeqVector(vPartner.c_str(),
+                                                              vPartnerId))
+                            {
+                                continue;
+                            }
+
+                            int vId = -1;
+                            ASSERTL0(
+                                resolveBndRegion(vPartner, vId),
+                                "The partner region '" + vPartner +
+                                    "' of the periodic condition on boundary "
+                                    "region " +
+                                    std::to_string(vRef) +
+                                    " is neither a boundary region ID nor the "
+                                    "name of exactly one boundary region.");
+
+                            vBnd->SetAttribute("VALUE",
+                                               "[" + std::to_string(vId) + "]");
+                        }
+
                         vItem = vItem->NextSiblingElement();
                     }
                     else

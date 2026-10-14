@@ -365,7 +365,7 @@ where it exists. The table below indicates support currently implemented.
     \textbf{Format} & \textbf{Extension} & \textbf{High-order} & \textbf{Notes}\\
     \midrule
     CGNS & \texttt{cgns} & \cmark & Based on the output currently provide by ANSA. Have support for high order elements supported. Requires NEKTAR\_USE\_CGNS option to be activated in cmake which then requires cgns library 4.4 to be  available or compiled \\
-    Gmsh & \texttt{msh} & \cmark & Only reads nodes, elements and physical groups (which are mapped to composites). File format versions 2.x and 4.x currently supported.\\
+    Gmsh & \texttt{msh} & \cmark & Only reads nodes, elements and physical groups (which are mapped to composites, taking their names from \inltt{\$PhysicalNames} where it is present). File format versions 2.x and 4.x currently supported.\\
     Gmsh & \texttt{msh:msh:identifyComposite} & \cmark & Same, but uses the CAD IDs to identify boundary composites. Use if no Physical Surfaces/Volume defined in Gmsh.  \\
     Nektar & \texttt{rea} & \cmark & Reads elements, fluid boundary conditions. Most curve types are unsupported: high-order information must be defined in an accompanying .hsf file. \\
     Nektar++ & \texttt{xml} & \cmark & Fully supported. \\
@@ -434,6 +434,113 @@ or
   NekMesh input.xml name.stdout
 \end{lstlisting}
 
+
+\subsubsection{Named boundaries from CGNS}
+
+A CGNS file usually says more about its boundary than that it exists. The
+boundary conditions under \inltt{ZoneBC\_t} divide the boundary faces into
+patches, and each of those may point at a \inltt{Family\_t} node that names the
+patch. ANSA writes part IDs this way, so the names in the file are the names
+the mesh was built with.
+
+The CGNS reader uses both. Each boundary condition becomes one composite, and
+whatever faces no boundary condition claims are grouped by the section they
+came from, as before. The composite is labelled with the family name where
+there is one and with the name of the boundary condition or section otherwise;
+boundary conditions sharing a family are merged into a single composite, since
+that is how a file says two sets of faces are one patch. The labels are written
+into the mesh as composite names (see section~\ref{sec:xml:composites}), and
+survive both the XML and HDF5 geometry formats.
+
+This matters most when a file writes its whole boundary as one section, which
+is common: without the boundary conditions the entire boundary reads as one
+undivided composite, and the distinction between inlet, outlet and wall is lost
+on import. Passing \inltt{nobcgroup} to the input module restores the older
+behaviour of grouping by section alone:
+
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh input.cgns:cgns:nobcgroup output.xml
+\end{lstlisting}
+
+\subsubsection{Named boundaries from Gmsh}
+
+A Gmsh physical group becomes a composite, and the name \inltt{\$PhysicalNames}
+gives that group becomes the composite's name. Where a group holds more than
+one element type --- which a composite cannot --- it is split across several
+composites, as described above; each of them takes the group's one name, so
+referring to the group by name picks up all of it where no single ID can.
+
+\subsubsection{Periodic boundaries and multiple zones in CGNS}
+
+A mesher writes both sides of a periodic boundary into one element section, so
+grouping by section gives a single composite holding both --- of no use for
+setting the condition up, since a boundary cannot be made periodic with
+itself. What separates them is the \inltt{GridConnectivity\_t} nodes, each of
+which names one side and the transformation that carries it onto the other.
+The reader forms a composite per side, named after the connectivity, so that
+the pair can be written in a session:
+%
+\begin{lstlisting}[style=XMLStyle]
+<B ID="0"> C[periodic_a] </B>
+<B ID="1"> C[periodic_b] </B>
+...
+<REGION REF="0"> <P VAR="u" VALUE="[1]" /> </REGION>
+<REGION REF="1"> <P VAR="u" VALUE="[0]" /> </REGION>
+\end{lstlisting}
+%
+The translation or rotation each side carries is reported at verbose level,
+since it is needed to check that the pair is the one intended.
+
+Every zone of the file is read into one mesh. A zone is a part of a model
+rather than a model of its own, and exporters write more than one when, for
+instance, a volume and the boundary layer grown on it are given separate part
+IDs. Where two zones abut they describe their shared surface twice, with a
+vertex of each standing for the same point; those become one vertex, after
+which the faces either side of the surface are found to be the same face and
+the surface becomes interior rather than a boundary.
+
+Vertices are merged on their coordinates being \emph{equal}, and no tolerance
+is applied or offered. An exporter writing a surface into two zones writes the
+same numbers into both, so equality suffices, while a tolerance would be free
+to weld a vertex to its neighbour across the first cell of a boundary layer,
+which is thinner than any length one could choose from the mesh as a whole.
+Where the file also declares which faces abut, as a mesher normally does, the
+merge is checked against that declaration and any part of the surface that did
+not come together is reported rather than passed over. A connectivity joining
+two zones by anything other than \inltt{Abutting1to1} is refused, since the
+zones can only be merged where their faces match one for one.
+
+\subsubsection{Generating a conditions file}
+
+Given a mesh whose boundary composites are named, the \inltt{xml} and
+\inltt{nekg} output modules can write a skeleton conditions file with one
+boundary region per boundary composite:
+
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh input.cgns output.xml:xml:cond=conditions.xml
+\end{lstlisting}
+
+which produces a file along the lines of
+
+\begin{lstlisting}[style=XMLStyle]
+<BOUNDARYREGIONS>
+    <B ID="0" NAME="Body1.Inlet"> C[3] </B>
+    <B ID="1" NAME="Body1.Outlet"> C[4] </B>
+    <B ID="2" NAME="Body1.Wall"> C[5] </B>
+</BOUNDARYREGIONS>
+\end{lstlisting}
+
+The regions may equally be written as \inltt{C[Body1.Inlet]} and so on, since
+a composite may be referred to by name wherever its ID would do; writing the
+IDs keeps the file readable without the mesh to hand.
+
+This saves reading the geometry file to find which composite number each
+boundary was given and transcribing those numbers by hand. What comes out is a
+skeleton and not a runnable session: the boundary regions are complete, but the
+solver information, parameters and variables cannot be deduced from a mesh and
+are left empty, and every region is given a placeholder Dirichlet condition to
+be replaced. Composites the mesh carries no label for still appear, identified
+by number alone, and NekMesh warns when that happens.
 
 \subsection{Output modules}
 
@@ -524,6 +631,30 @@ This will create two files \inltt{HDF5Mesh.xml} and \inltt{HDF5Mesh.nekg} which 
 \end{lstlisting}
 
 HDF5 also has the additional advantage of ensuring the mesh and session file are split - which allows for easy ammending of the session file - whilst allowing for use of FieldCovnert modules that require only 1 XML input file - rather than having to concatenate the session and mesh XML files. Solvers and any FieldConvert modules can be run by referencing only the session file after the \inltt{GEOMETRY} tag is included. 
+
+\subsection{Referring to composites by name}
+\label{s:utilities:nekmesh:compnames}
+
+The modules below are told which composites to work on through an option such
+as \inltt{surf}, given as a list of composite IDs. Where the composites are
+named --- which they will be if the mesh came from a format that records part
+names, such as CGNS, or a Gmsh file with \inltt{\$PhysicalNames} --- the list
+may give those names instead:
+
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh -m extract:surf=wall input.cgns wall.xml
+NekMesh -m bl:surf=wall,hub:layers=3:r=2 input.cgns output.xml
+\end{lstlisting}
+
+Names and IDs may be mixed in one list. A numeric entry is always read as an
+ID, so a composite that happens to be named \inltt{3} never stands in for the
+composite whose ID is 3, and matching is exact, including case. Where several
+composites carry one name --- which is how a mesh says two sets of faces are
+one patch --- the name yields all of them. An entry that is neither an ID nor a
+known name stops the run, listing the names the mesh does carry.
+
+This applies to \inltt{bl}, \inltt{detect}, \inltt{extract}, \inltt{peralign}
+(both \inltt{surf1} and \inltt{surf2}), \inltt{scalar} and \inltt{spherigon}.
 
 \subsection{Extract surfaces from a mesh}
 \label{s:utilities:nekmesh:extract}
@@ -681,6 +812,12 @@ NekMesh -m peralign:surf1=11:surf2=12:dir=y \
 %
 Here the surfaces with IDs 11 and 12 will be aligned normal to the $y$-axis and
 the surfaces 13 and 14 will be aligned normal to the $z$-axis.
+
+Where the composites are named, \inltt{surf1} and \inltt{surf2} may give those
+names rather than their IDs (section~\ref{s:utilities:nekmesh:compnames}):
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh -m peralign:surf1=inlet:surf2=outlet:dir=y Mesh.xml Mesh_aligned.xml
+\end{lstlisting}
 
 Note that this command cannot perform magic -- it assumes that any given edge or
 face lying on the surface is periodic with another face on the opposing surface,

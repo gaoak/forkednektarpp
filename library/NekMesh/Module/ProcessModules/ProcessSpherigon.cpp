@@ -497,7 +497,7 @@ ProcessSpherigon::ProcessSpherigon(MeshSharedPtr m) : ProcessModule(m)
     m_config["N"] =
         ConfigOption(false, "5", "Number of points to add to face edges.");
     m_config["surf"] =
-        ConfigOption(false, "-1", "Tag identifying surface to process.");
+        ConfigOption(false, "-1", "Composites to process, by ID or name.");
     m_config["BothTriFacesOnPrism"] = ConfigOption(
         true, "-1", "Curve both triangular faces of prism on boundary.");
     m_config["usenormalfile"] = ConfigOption(
@@ -668,9 +668,7 @@ void ProcessSpherigon::Process()
 
         if (m_config["surf"].beenSet)
         {
-            vector<unsigned int> surfTags;
-            ParseUtils::GenerateSeqVector(m_config["surf"].as<string>(),
-                                          surfTags);
+            vector<unsigned int> surfTags = GetCompositeIds("surf");
             set<int> surfs(surfTags.begin(), surfTags.end());
 
             for (auto &[elmt, tag] : m_mesh->m_elementTags[expDim])

@@ -47,8 +47,8 @@ ModuleKey ProcessExtractSurf::className =
 
 ProcessExtractSurf::ProcessExtractSurf(MeshSharedPtr m) : ProcessModule(m)
 {
-    m_config["surf"] = ConfigOption(
-        false, "NotSet", "Tag identifying surface/composite to process.");
+    m_config["surf"] =
+        ConfigOption(false, "NotSet", "Composites to process, by ID or name.");
     m_config["detectbnd"] =
         ConfigOption(false, "-1", "Tag to detect boundary composites");
 }
@@ -79,13 +79,14 @@ void ProcessExtractSurf::Process()
     bool detectbnd = m_config["detectbnd"].beenSet;
     auto oldGraph  = m_mesh->m_meshGraph;
 
-    // Obtain vector of surface IDs from string.
-    vector<unsigned int> surfs;
-    if (!ParseUtils::GenerateSeqVector(surf, surfs))
+    if (!m_config["surf"].beenSet)
     {
         m_log(FATAL) << "Failed to interp surf string. Have you specified this "
                      << "string?" << endl;
     }
+
+    // Obtain vector of surface IDs from string.
+    vector<unsigned int> surfs = GetCompositeIds("surf");
     sort(surfs.begin(), surfs.end());
 
     // If we're running in verbose mode print out a list of surfaces.
