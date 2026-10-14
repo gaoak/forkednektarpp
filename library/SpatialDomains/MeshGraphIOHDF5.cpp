@@ -37,12 +37,15 @@
 #include <cstring>
 #include <tinyxml.h>
 #include <type_traits>
+#include <unordered_set>
 
 #include <LibUtilities/BasicUtils/CppCommandLine.hpp>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Communication/SharedPayloadResolver.hpp>
+
+#include <SpatialDomains/CompositeNames.h>
 #include <SpatialDomains/MeshGraphIOHDF5.h>
 #include <SpatialDomains/MeshPartition.h>
 #include <SpatialDomains/Movement/Movement.h>
@@ -81,11 +84,12 @@ namespace Nektar::SpatialDomains
  *       │   ├── CURVE_FACE          curved-face descriptors
  *       │   ├── CURVE_NODES         curve point coordinates
  *       │   ├── COMPOSITE           composite definition strings
+ *       │   ├── COMPOSITE_NAME      composite labels (optional)
  *       │   └── DOMAIN              domain definition strings
  *       └── MAPS/                   (group: row -> global ID lookups)
  *           ├── VERT, SEG, TRI, ...   one int ID per row of the MESH dataset
  *           ├── CURVE_EDGE, CURVE_FACE
- *           ├── COMPOSITE
+ *           ├── COMPOSITE, COMPOSITE_NAME
  *           └── DOMAIN
  * @endcode
  *
@@ -139,6 +143,20 @@ namespace Nektar::SpatialDomains
  * the entire domain. Because variable-length strings cannot be written
  * collectively, these two datasets are gathered to and written by rank 0 only
  * (see WriteComposites() and WriteDomain()).
+ *
+ * @par Composite names (`MESH/COMPOSITE_NAME`)
+ *
+ * Optional, and present only for meshes whose composites carry labels -- a
+ * name read from the source mesh format, such as a CGNS family or a Gmsh
+ * physical group, that lets a session file talk about a boundary by what it is
+ * rather than by which number it landed on. It is a separate pair of datasets
+ * rather than an extra column on `COMPOSITE` so that it can be absent
+ * entirely: a file written before names existed reads unchanged, and a reader
+ * that predates them ignores the datasets rather than failing. Only labelled
+ * composites appear, so the row count does not generally match `COMPOSITE`,
+ * and `MAPS/COMPOSITE_NAME` carries the composite ID of each name. The format
+ * version is deliberately not bumped, since the addition is compatible in both
+ * directions.
  */
 
 /**
@@ -473,6 +491,13 @@ void MeshGraphIOHDF5::v_PartitionMesh(
     {
         return;
     }
+
+    // Composite names are wanted before anything that reads a composite list
+    // out of the session: both the partitioner, which weights by expansion,
+    // and the boundary region ordering recorded at the end of this function.
+    // The composites themselves are not built on this path, but the names are
+    // small and the same on every rank, so they are read whole.
+    ReadCompositeNames();
 
     if (m_meshGraph->GetDomainRange() &&
         m_meshGraph->GetDomainRange()->m_compElmts)
@@ -857,7 +882,8 @@ void MeshGraphIOHDF5::v_PartitionMesh(
             MeshPartitionSharedPtr partitioner =
                 GetMeshPartitionFactory().CreateInstance(
                     partitionerName, session, interComm, meshDimension,
-                    partElmts, CreateCompositeDescriptor(id2row));
+                    partElmts, CreateCompositeDescriptor(id2row),
+                    m_meshGraph->GetCompositesLabels());
 
             t2.Stop();
             TIME_RESULT(verbRoot2, "  - partitioner setup", t2);
@@ -1023,7 +1049,8 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                 MeshPartitionSharedPtr partitioner =
                     GetMeshPartitionFactory().CreateInstance(
                         "Scotch", session, tmpComm, meshDimension, partElmts,
-                        CreateCompositeDescriptor(elmtid2row));
+                        CreateCompositeDescriptor(elmtid2row),
+                        m_meshGraph->GetCompositesLabels());
 
                 t2.Stop();
                 TIME_RESULT(verbRoot2, "  - inner partition setup", t2);
@@ -1240,7 +1267,8 @@ void MeshGraphIOHDF5::v_PartitionMesh(
                 vSeqStr = vSeqStr.substr(indxBeg, indxEnd - indxBeg + 1);
 
                 std::vector<unsigned int> vSeq;
-                ParseUtils::GenerateSeqVector(vSeqStr.c_str(), vSeq);
+                ParseCompositeList(vSeqStr, m_meshGraph->GetCompositesLabels(),
+                                   vSeq);
 
                 int p                = atoi(vItem->Attribute("ID"));
                 m_bndRegOrder[p]     = vSeq;
@@ -2110,6 +2138,53 @@ void MeshGraphIOHDF5::ReadComposites()
             meshComposites[ids[i]] = comp;
         }
     }
+
+    ReadCompositeNames();
+}
+
+/**
+ * @brief Read the optional `COMPOSITE_NAME` datasets into the composite labels.
+ *
+ * Names are optional and were added after the format was in use, so a file
+ * without them -- any file written before this, and any mesh whose composites
+ * were never labelled -- is read without complaint.
+ *
+ * Every name in the file is kept, including those of composites that hold
+ * nothing on this rank. The session that names a boundary is shared by all of
+ * them, so a name has to mean the same thing everywhere; resolving it to an ID
+ * that happens to be non-local then lands in the same path an explicitly
+ * written non-local ID already takes, and is skipped there rather than being
+ * mistaken for a name nobody recognises.
+ */
+void MeshGraphIOHDF5::ReadCompositeNames()
+{
+    if (!m_mesh->ContainsDataSet("COMPOSITE_NAME") ||
+        !m_maps->ContainsDataSet("COMPOSITE_NAME"))
+    {
+        return;
+    }
+
+    H5::DataSetSharedPtr data    = m_mesh->OpenDataSet("COMPOSITE_NAME");
+    H5::DataSpaceSharedPtr space = data->GetSpace();
+
+    std::vector<std::string> names;
+    data->ReadVectorString(names, space);
+
+    H5::DataSetSharedPtr mdata    = m_maps->OpenDataSet("COMPOSITE_NAME");
+    H5::DataSpaceSharedPtr mspace = mdata->GetSpace();
+
+    std::vector<int> ids;
+    mdata->Read(ids, mspace);
+
+    ASSERTL0(names.size() == ids.size(),
+             "COMPOSITE_NAME dataset and its ID map differ in length.");
+
+    auto &compositesLabels = m_meshGraph->GetCompositesLabels();
+
+    for (size_t i = 0; i < ids.size(); ++i)
+    {
+        compositesLabels[ids[i]] = names[i];
+    }
 }
 
 /**
@@ -2792,15 +2867,24 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
         }
     }
 
+    // Duplicates are removed, but the order a composite lists its entities in
+    // is kept: it is not decoration. Periodic boundaries are paired off by
+    // position within the composite, which is what NekMesh's peralign module
+    // arranges, so sorting here - as this did - left every periodic mesh
+    // written to HDF5 paired with whatever sorting happened to line up,
+    // usually nothing. What a rank contributes keeps its order; across ranks
+    // the order is the rank order, which is all that is left to go on once a
+    // composite has been divided between them.
+    //
     // Since global entity IDs are typically dense, contiguous integers per
     // entity type, and one composite's ID count here lines up almost exactly
-    // with the total element count, we try a presence-bitmap approach rather
-    // than std::sort or use std::set.
+    // with the total element count, membership is tested with a presence
+    // bitmap rather than a hash set.
     //
     // This only pays off when the ID range isn't much larger than the ID count
     // (i.e. IDs are dense) — a sparse composite (say, a boundary region drawing
-    // from a much larger face-ID space) would waste memory and time on a
-    // mostly-empty bitmap, so we fall back to std::sort in that case.
+    // from a much larger face-ID space) would waste memory on a mostly-empty
+    // bitmap, so we fall back to a hash set in that case.
     for (auto &m : merged)
     {
         auto &ids = m.second.second;
@@ -2816,30 +2900,38 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
         size_t rawCount    = ids.size();
         size_t range       = static_cast<size_t>(maxId - minId) + 1;
 
+        // Compacted in place, so that the entries kept are the first
+        // occurrence of each id and stay in the order they arrived in.
+        size_t kept = 0;
+
         // Attempt to guess whether we should use the bitmask approach
         if (range <= rawCount * 4)
         {
             std::vector<bool> seen(range, false);
             for (auto id : ids)
             {
-                seen[id - minId] = true;
-            }
-            ids.clear();
-            ids.reserve(range);
-            for (size_t i = 0; i < range; ++i)
-            {
-                if (seen[i])
+                if (!seen[id - minId])
                 {
-                    ids.push_back(static_cast<unsigned int>(minId + i));
+                    seen[id - minId] = true;
+                    ids[kept++]      = id;
                 }
             }
         }
         else
         {
-            // sparse: comparison sort remains the right tool
-            std::sort(ids.begin(), ids.end());
-            ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+            // sparse: a hash set is the right tool
+            std::unordered_set<unsigned int> seen;
+            seen.reserve(rawCount * 2);
+            for (auto id : ids)
+            {
+                if (seen.insert(id).second)
+                {
+                    ids[kept++] = id;
+                }
+            }
         }
+
+        ids.resize(kept);
     }
 
     // Finally, create strings.
@@ -2870,6 +2962,45 @@ void MeshGraphIOHDF5::WriteComposites(CompositeMap &composites,
     ds  = H5::DataSpace::OneD(nGlobal);
     dst = m_maps->CreateDataSet("COMPOSITE", tp, ds);
     dst->Write(c_map, ds);
+
+    // Composite names, if any were set. These live in a separate pair of
+    // datasets rather than alongside the composite strings so that a file
+    // written without names is bit-identical to one written before names
+    // existed, and so that a reader predating them simply does not see the
+    // datasets. Only the names of composites that actually got written are
+    // stored; rank 0 holds the full label map, which is replicated rather
+    // than distributed.
+    auto &compositesLabels = m_meshGraph->GetCompositesLabels();
+
+    std::vector<std::string> names;
+    std::vector<int> n_map;
+
+    for (int cid : c_map)
+    {
+        auto nIt = compositesLabels.find(cid);
+        if (nIt != compositesLabels.end() && !nIt->second.empty())
+        {
+            names.push_back(nIt->second);
+            n_map.push_back(cid);
+        }
+    }
+
+    if (names.empty())
+    {
+        return;
+    }
+
+    int nNames = (int)names.size();
+
+    tp  = H5::DataType::String();
+    ds  = H5::DataSpace::OneD(nNames);
+    dst = m_mesh->CreateDataSet("COMPOSITE_NAME", tp, ds);
+    dst->WriteVectorString(names, ds, tp);
+
+    tp  = H5::DataType::OfObject(int{});
+    ds  = H5::DataSpace::OneD(nNames);
+    dst = m_maps->CreateDataSet("COMPOSITE_NAME", tp, ds);
+    dst->Write(n_map, ds);
 }
 
 /**

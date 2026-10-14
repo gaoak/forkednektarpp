@@ -40,6 +40,7 @@
 
 #include "Module.h"
 #include <SpatialDomains/CADSystem/CADAssociation.h>
+#include <SpatialDomains/CompositeNames.h>
 
 using namespace std;
 namespace io = boost::iostreams;
@@ -248,6 +249,49 @@ int RemoveUnreachable(
 }
 
 } // namespace
+
+/**
+ * @brief Resolve a configuration option that selects composites into their
+ * IDs, the option being free to name them rather than number them.
+ *
+ * A module is told which composites to work on as a list, `surf=3,5`. The
+ * entries may equally be the names the composites carry, `surf=wall,inlet`,
+ * so that nobody has to look up what number a mesher gave a boundary; the two
+ * may be mixed. A number is always an ID, so a composite that happens to be
+ * named "3" does not stand in for composite 3.
+ *
+ * An entry that is neither is fatal, and the message names that entry rather
+ * than the whole list, since a misspelt name is the reason to be here.
+ */
+std::vector<unsigned int> Module::GetCompositeIds(const std::string &key)
+{
+    auto it = m_config.find(key);
+    ASSERTL0(it != m_config.end(), "Configuration key not found!");
+
+    std::string str = it->second.as<std::string>();
+    auto &labels    = m_mesh->m_meshGraph->GetCompositesLabels();
+
+    std::vector<unsigned int> ids;
+    std::vector<std::string> unresolved;
+
+    if (!SpatialDomains::ParseCompositeList(str, labels, ids, &unresolved) &&
+        !unresolved.empty())
+    {
+        std::ostringstream known;
+        for (auto &l : labels)
+        {
+            known << (known.tellp() ? ", " : "") << l.second;
+        }
+
+        m_log(FATAL) << "In '" << key << "=" << str << "': '" << unresolved[0]
+                     << "' is neither a composite ID nor the name of a "
+                     << "composite in this mesh. The names it carries are: "
+                     << (known.tellp() ? known.str() : "(none)") << "."
+                     << std::endl;
+    }
+
+    return ids;
+}
 
 /**
  * @brief Drop any geometry the mesh no longer refers to.

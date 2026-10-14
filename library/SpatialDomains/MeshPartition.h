@@ -54,10 +54,10 @@ typedef std::map<int, std::pair<LibUtilities::ShapeType, std::vector<int>>>
 
 /// Datatype of the NekFactory used to instantiate classes derived from
 /// the EquationSystem class.
-typedef LibUtilities::NekFactory<std::string, MeshPartition,
-                                 const LibUtilities::SessionReaderSharedPtr,
-                                 LibUtilities::CommSharedPtr, int,
-                                 std::map<int, MeshEntity>, CompositeDescriptor>
+typedef LibUtilities::NekFactory<
+    std::string, MeshPartition, const LibUtilities::SessionReaderSharedPtr,
+    LibUtilities::CommSharedPtr, int, std::map<int, MeshEntity>,
+    CompositeDescriptor, std::map<int, std::string>>
     MeshPartitionFactory;
 
 SPATIAL_DOMAINS_EXPORT MeshPartitionFactory &GetMeshPartitionFactory();
@@ -122,6 +122,9 @@ protected:
     std::map<int, MeshEntity> m_elements;
     std::map<int, MeshEntity> m_ghostElmts;
     CompositeDescriptor m_compMap;
+    /// Composite ID to name, so that an expansion may name the composite it
+    /// applies to rather than give its ID.
+    std::map<int, std::string> m_compLabels;
 
     // hierarchial mapping: elmt id -> field name -> integer list
     // of directional nummodes described by expansion type clause.
@@ -147,7 +150,8 @@ protected:
     MeshPartition(const LibUtilities::SessionReaderSharedPtr session,
                   LibUtilities::CommSharedPtr comm, int meshDim,
                   std::map<int, MeshEntity> element,
-                  CompositeDescriptor compMap);
+                  CompositeDescriptor compMap,
+                  std::map<int, std::string> compLabels);
     virtual ~MeshPartition() = default;
 
     void ReadExpansions();

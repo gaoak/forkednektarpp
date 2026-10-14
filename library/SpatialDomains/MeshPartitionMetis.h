@@ -50,10 +50,11 @@ public:
     static MeshPartitionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr session,
         LibUtilities::CommSharedPtr comm, int meshDim,
-        std::map<int, MeshEntity> element, CompositeDescriptor compMap)
+        std::map<int, MeshEntity> element, CompositeDescriptor compMap,
+        std::map<int, std::string> compLabels)
     {
         return MemoryManager<MeshPartitionMetis>::AllocateSharedPtr(
-            session, comm, meshDim, element, compMap);
+            session, comm, meshDim, element, compMap, compLabels);
     }
 
     /// Name of class
@@ -64,7 +65,8 @@ protected:
     MeshPartitionMetis(const LibUtilities::SessionReaderSharedPtr session,
                        LibUtilities::CommSharedPtr comm, int meshDim,
                        std::map<int, MeshEntity> element,
-                       CompositeDescriptor compMap);
+                       CompositeDescriptor compMap,
+                       std::map<int, std::string> compLabels);
     ~MeshPartitionMetis() override = default;
 
     void v_PartitionGraphImpl(int &nVerts, int &nVertConds,

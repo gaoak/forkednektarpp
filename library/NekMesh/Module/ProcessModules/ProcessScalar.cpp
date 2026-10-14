@@ -51,8 +51,8 @@ ModuleKey ProcessScalar::className = GetModuleFactory().RegisterCreatorFunction(
 
 ProcessScalar::ProcessScalar(MeshSharedPtr m) : ProcessModule(m)
 {
-    m_config["surf"] = ConfigOption(
-        false, "-1", "Tag identifying surface/composite to process.");
+    m_config["surf"] =
+        ConfigOption(false, "-1", "Composites to process, by ID or name.");
     m_config["nq"] =
         ConfigOption(false, "-1", "Number of quadrature points to generate.");
     m_config["scalar"] = ConfigOption(false, "", "Expression to evaluate.");
@@ -67,8 +67,7 @@ void ProcessScalar::Process()
     string surf = m_config["surf"].as<string>();
 
     // Obtain vector of surface IDs from string.
-    vector<unsigned int> surfs;
-    ParseUtils::GenerateSeqVector(surf, surfs);
+    vector<unsigned int> surfs = GetCompositeIds("surf");
     sort(surfs.begin(), surfs.end());
 
     // If we're running in verbose mode print out a list of surfaces.

@@ -59,8 +59,9 @@ std::string MeshPartitionPtScotch::cmdSwitch =
 MeshPartitionPtScotch::MeshPartitionPtScotch(
     const LibUtilities::SessionReaderSharedPtr session,
     LibUtilities::CommSharedPtr comm, int meshDim,
-    std::map<int, MeshEntity> element, CompositeDescriptor compMap)
-    : MeshPartition(session, comm, meshDim, element, compMap)
+    std::map<int, MeshEntity> element, CompositeDescriptor compMap,
+    std::map<int, std::string> compLabels)
+    : MeshPartition(session, comm, meshDim, element, compMap, compLabels)
 {
     m_parallel = true;
 }

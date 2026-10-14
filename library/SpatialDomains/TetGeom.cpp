@@ -363,31 +363,48 @@ void TetGeom::SetUpEdgeOrientation()
 
 void TetGeom::SetUpFaceOrientation()
 {
-    // SetUpLocalVertices has already put the vertices in a canonical order by
-    // the time this runs, which leaves only two of the six permutations
-    // reachable: the identity, and the one swapping the first two vertices.
+    // This 2D array holds the local id's of all the vertices for every face,
+    // in the order in which they bound that face.
     const unsigned int faceVerts[kNfaces][TriGeom::kNverts] = {
         {0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}};
 
     for (int f = 0; f < kNfaces; ++f)
     {
         const int baseVid = m_faces[f]->GetVid(0);
+        const int nextVid = m_faces[f]->GetVid(1);
 
-        if (baseVid == m_verts[faceVerts[f][0]]->GetGlobalID())
+        // A triangular expansion carries its collapsed vertex in a fixed
+        // place, so only the three non-transposed orientations can represent
+        // a face: the other three take Dir2 onto Dir1 and have no
+        // representation at all. Which of the three applies is settled by the
+        // first two vertices of the face, since those fix the permutation.
+        if (baseVid == m_verts[faceVerts[f][0]]->GetGlobalID() &&
+            nextVid == m_verts[faceVerts[f][1]]->GetGlobalID())
         {
+            // Face vertices are element face vertices (0, 1, 2).
             m_forient[f] = StdRegions::eDir1FwdDir1_Dir2FwdDir2;
         }
-        else if (baseVid == m_verts[faceVerts[f][1]]->GetGlobalID())
+        else if (baseVid == m_verts[faceVerts[f][1]]->GetGlobalID() &&
+                 nextVid == m_verts[faceVerts[f][0]]->GetGlobalID())
         {
+            // Face vertices are element face vertices (1, 0, 2).
             m_forient[f] = StdRegions::eDir1BwdDir1_Dir2FwdDir2;
+        }
+        else if (baseVid == m_verts[faceVerts[f][2]]->GetGlobalID() &&
+                 nextVid == m_verts[faceVerts[f][1]]->GetGlobalID())
+        {
+            // Face vertices are element face vertices (2, 1, 0).
+            m_forient[f] = StdRegions::eDir1FwdDir1_Dir2BwdDir2;
         }
         else
         {
             NEKERROR(ErrorUtil::efatal,
-                     "Face " + std::to_string(f) + " of tetrahedron " +
-                         std::to_string(m_globalID) +
-                         " does not start at either of the two vertices "
-                         "SetUpLocalVertices should have left it at.");
+                     "Orientation of triangular face (id = " +
+                         std::to_string(m_faces[f]->GetGlobalID()) +
+                         ") is inconsistent with face " + std::to_string(f) +
+                         " of tet element (id = " + std::to_string(m_globalID) +
+                         ") since Dir2 is aligned with Dir1. Mesh setup "
+                         "needs investigation");
         }
     }
 }

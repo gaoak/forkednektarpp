@@ -49,7 +49,7 @@ ModuleKey ProcessDetectSurf::className =
 ProcessDetectSurf::ProcessDetectSurf(MeshSharedPtr m) : ProcessModule(m)
 {
     m_config["vol"] =
-        ConfigOption(false, "-1", "Tag identifying surface to process.");
+        ConfigOption(false, "-1", "Composites to process, by ID or name.");
 }
 
 ProcessDetectSurf::~ProcessDetectSurf()
@@ -80,7 +80,7 @@ void ProcessDetectSurf::Process()
     vector<unsigned int> surfs;
     if (surf != "-1")
     {
-        ParseUtils::GenerateSeqVector(surf, surfs);
+        surfs = GetCompositeIds("vol");
         sort(surfs.begin(), surfs.end());
     }
 

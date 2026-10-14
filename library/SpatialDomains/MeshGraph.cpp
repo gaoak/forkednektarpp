@@ -36,6 +36,7 @@
 #include <LibUtilities/BasicUtils/Equation.h>
 #include <LibUtilities/BasicUtils/FieldIOXml.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <SpatialDomains/CompositeNames.h>
 #include <SpatialDomains/MeshGraph.h>
 #include <StdRegions/StdPrismExp.h>
 #include <StdRegions/StdPyrExp.h>
@@ -672,22 +673,60 @@ Geometry *MeshGraph::GetCompositeItem(int whichComposite, int whichItem)
 }
 
 /**
+ * @brief Collect the composites a composite list refers to.
  *
+ * @p compositeStr is the body of a `C[...]`, and its entries may name a
+ * composite as well as give an ID or a range of them; see ParseCompositeList()
+ * for the syntax. This is what every composite list in a session goes through
+ * -- boundary regions, domains, expansions and movement interfaces -- so
+ * names work wherever an ID does.
  */
 void MeshGraph::GetCompositeList(const std::string &compositeStr,
                                  CompositeMap &compositeVector) const
 {
     // Parse the composites into a list.
     std::vector<unsigned int> seqVector;
-    bool parseGood =
-        ParseUtils::GenerateSeqVector(compositeStr.c_str(), seqVector);
+    std::vector<std::string> unresolved;
+    bool parseGood = ParseCompositeList(compositeStr, m_compositesLabels,
+                                        seqVector, &unresolved);
 
-    if (!parseGood && seqVector.empty())
+    if (!parseGood && seqVector.empty() && unresolved.empty())
     {
         NEKERROR(ErrorUtil::efatal,
                  (std::string("Unable to read composite index range: ") +
                   compositeStr)
                      .c_str());
+    }
+
+    // An entry that resolved to nothing is an error on a whole mesh, but on
+    // one partition of a partitioned mesh it may simply name a composite that
+    // lives on another rank -- the same latitude an ID is given below.
+    if (!unresolved.empty() && !m_meshPartitioned)
+    {
+        std::stringstream err;
+        err << "In the composite list '" << compositeStr << "', ";
+        for (size_t i = 0; i < unresolved.size(); ++i)
+        {
+            err << (i ? ", '" : "'") << unresolved[i] << "'";
+        }
+        err << (unresolved.size() > 1 ? " are" : " is")
+            << " neither a composite ID or range nor the name of a composite "
+               "in this mesh. ";
+
+        std::stringstream names;
+        size_t nNamed = 0;
+        for (const auto &l : m_compositesLabels)
+        {
+            if (!l.second.empty())
+            {
+                names << (nNamed++ ? ", " : "") << l.second;
+            }
+        }
+
+        err << (nNamed ? "The named composites are: " + names.str() + "."
+                       : "This mesh has no named composites.");
+
+        NEKERROR(ErrorUtil::efatal, err.str().c_str());
     }
 
     std::vector<unsigned int> addedVector; // Vector of those composites already

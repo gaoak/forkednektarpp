@@ -1,5 +1,6 @@
 SET(SpatialDomainsUnitTestsSources
     main.cpp
+    TestCompositeNames.cpp
     TestMovement.cpp
     TestMakeOrder.cpp
     TestPyrInverseMap.cpp

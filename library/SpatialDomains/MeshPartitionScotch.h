@@ -55,10 +55,11 @@ public:
     static MeshPartitionSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr session,
         LibUtilities::CommSharedPtr comm, int meshDim,
-        std::map<int, MeshEntity> element, CompositeDescriptor compMap)
+        std::map<int, MeshEntity> element, CompositeDescriptor compMap,
+        std::map<int, std::string> compLabels)
     {
         return MemoryManager<MeshPartitionScotch>::AllocateSharedPtr(
-            session, comm, meshDim, element, compMap);
+            session, comm, meshDim, element, compMap, compLabels);
     }
 
     /// Name of class
@@ -69,7 +70,8 @@ protected:
     MeshPartitionScotch(const LibUtilities::SessionReaderSharedPtr session,
                         LibUtilities::CommSharedPtr comm, int meshDim,
                         std::map<int, MeshEntity> element,
-                        CompositeDescriptor compMap);
+                        CompositeDescriptor compMap,
+                        std::map<int, std::string> compLabels);
     ~MeshPartitionScotch() override = default;
 
     void v_PartitionGraphImpl(int &nVerts, int &nVertConds,

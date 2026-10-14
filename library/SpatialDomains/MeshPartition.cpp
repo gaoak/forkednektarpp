@@ -37,6 +37,7 @@
 #define TIXML_USE_STL
 #endif
 
+#include <SpatialDomains/CompositeNames.h>
 #include <SpatialDomains/Geometry.h>
 #include <SpatialDomains/MeshPartition.h>
 
@@ -72,11 +73,12 @@ SPATIAL_DOMAINS_EXPORT MeshPartitionFactory &GetMeshPartitionFactory()
 MeshPartition::MeshPartition(const LibUtilities::SessionReaderSharedPtr session,
                              LibUtilities::CommSharedPtr comm, int meshDim,
                              std::map<int, MeshEntity> element,
-                             CompositeDescriptor compMap)
+                             CompositeDescriptor compMap,
+                             std::map<int, std::string> compLabels)
     : m_session(session), m_comm(comm), m_dim(meshDim), m_numFields(0),
-      m_elements(element), m_compMap(compMap), m_fieldNameToId(),
-      m_weightingRequired(false), m_weightBnd(false), m_weightDofs(false),
-      m_parallel(false)
+      m_elements(element), m_compMap(compMap), m_compLabels(compLabels),
+      m_fieldNameToId(), m_weightingRequired(false), m_weightBnd(false),
+      m_weightDofs(false), m_parallel(false)
 {
     // leave the meshpartition method of reading expansions and conditions
     ReadConditions();
@@ -201,8 +203,12 @@ void MeshPartition::ReadExpansions()
             int end = compositeStr.find_first_of("]");
             std::string compositeListStr =
                 compositeStr.substr(beg + 1, end - beg - 1);
-            bool parseGood = ParseUtils::GenerateSeqVector(
-                compositeListStr.c_str(), composite);
+            // Resolved against the composite names as well as by ID, so
+            // that an expansion written as C[WALL] weights the partition the
+            // same way C[7] would; without this the partitioner would reject
+            // a session the rest of the library accepts.
+            bool parseGood =
+                ParseCompositeList(compositeListStr, m_compLabels, composite);
             ASSERTL0(parseGood && !composite.empty(),
                      (std::string("Unable to read composite index range: ") +
                       compositeListStr)

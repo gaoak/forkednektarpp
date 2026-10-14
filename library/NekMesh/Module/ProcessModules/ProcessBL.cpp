@@ -80,8 +80,8 @@ ProcessBL::ProcessBL(MeshSharedPtr m) : ProcessModule(m)
         ConfigOption(false, "2", "Number of layers to refine.");
     m_config["nq"] =
         ConfigOption(false, "5", "Number of points in high order elements.");
-    m_config["surf"] =
-        ConfigOption(false, "", "Tag identifying surface connected to prism.");
+    m_config["surf"] = ConfigOption(
+        false, "", "Composites connected to the prisms, by ID or name.");
     m_config["r"] =
         ConfigOption(false, "2.0", "Ratio to use in geometry progression.");
     m_config["partitioned"] = ConfigOption(
@@ -214,8 +214,7 @@ void ProcessBL::BoundaryLayer2D()
     string surf = m_config["surf"].as<string>();
     ASSERTL0(surf.size() > 0, "Surface must be specified.");
 
-    vector<unsigned int> surfs;
-    ParseUtils::GenerateSeqVector(surf, surfs);
+    vector<unsigned int> surfs = GetCompositeIds("surf");
 
     // Process list of elements to find those that are connected to surf.
     for (auto &pair : m_mesh->m_elementTags[2])
@@ -803,8 +802,7 @@ void ProcessBL::BoundaryLayer3D()
         m_log(WARNING) << "No surfaces detected to split, continuing." << endl;
         return;
     }
-    vector<unsigned int> surfs;
-    ParseUtils::GenerateSeqVector(surf.c_str(), surfs);
+    vector<unsigned int> surfs = GetCompositeIds("surf");
 
     // If surface is defined, process list of elements to find those
     // that are connected to it.

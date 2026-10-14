@@ -21,6 +21,9 @@ ADD_NEKTAR_TEST(Nektar++/prismreorder_tube)
 
 IF (NOT WIN32 AND NEKTAR_SOLVER_INCNAVIERSTOKES)
     ADD_NEKTAR_TEST(Nektar++/peralign_double_periodic_hybrid)
+    IF (NEKTAR_USE_HDF5)
+        ADD_NEKTAR_TEST(Nektar++/peralign_double_periodic_hybrid_hdf5)
+    ENDIF()
 ENDIF ()
 
 # MeshGen test
@@ -65,6 +68,7 @@ ADD_NEKTAR_TEST(Nektar/tetsplit_tube)
 
 # Gmsh tests
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_all)
+ADD_NEKTAR_TEST(Gmsh/v2.2/cube_all_physnames)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_hex_lin)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_hex)
 ADD_NEKTAR_TEST(Gmsh/v2.2/cube_prism_lin)
@@ -113,6 +117,19 @@ ADD_NEKTAR_TEST(Gmsh/v4.1/square_tri)
 
 # CGNS tests
 IF(NEKTAR_USE_CGNS)
+    ADD_NEKTAR_TEST(CGNS/bc_family_names)
+    ADD_NEKTAR_TEST(CGNS/bc_labels)
+    ADD_NEKTAR_TEST(CGNS/bc_labels_mixed_section)
+    ADD_NEKTAR_TEST(CGNS/mixed_pid_sections)
+    ADD_NEKTAR_TEST(CGNS/periodic_conn)
+    ADD_NEKTAR_TEST(CGNS/one_zone)
+    ADD_NEKTAR_TEST(CGNS/two_zone)
+    ADD_NEKTAR_TEST(CGNS/bc_vertex_pointlist)
+    ADD_NEKTAR_TEST(CGNS/angled_prism_layers)
+    ADD_NEKTAR_TEST(CGNS/prism_stack)
+    ADD_NEKTAR_TEST(CGNS/twisted_prism_ring)
+    ADD_NEKTAR_TEST(CGNS/twisted_prism_ring_p2)
+    ADD_NEKTAR_TEST(CGNS/two_impossible_pyramids)
     ADD_NEKTAR_TEST(CGNS/HiOrderMesh_tet_hex_pyr_order4_midvol)
     ADD_NEKTAR_TEST(CGNS/ImpossiblePyramids_linear)
     ADD_NEKTAR_TEST(CGNS/ImpossiblePyramids_order4_midface)
@@ -137,6 +154,106 @@ IF(NEKTAR_USE_CGNS)
     ADD_NEKTAR_TEST(CGNS/CGNS_HiOrder_elements/TETRA_10)
     ADD_NEKTAR_TEST(CGNS/CGNS_HiOrder_elements/TETRA_20)
     ADD_NEKTAR_TEST(CGNS/CGNS_HiOrder_elements/TETRA_35)
+    ADD_NEKTAR_TEST(CGNS/extract_composite_name)
+    IF (NEKTAR_USE_HDF5)
+        ADD_NEKTAR_TEST(CGNS/bc_labels_hdf5)
+    ENDIF()
+
+    # Build CGNS fixtures that produce our test cases. Deliberately not
+    # installed since they are used only to produce the test cases, but
+    # compiled to ensure they continue to work long-term.
+    SET(NEKMESH_CGNS_FIXTURE_DIR
+        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/CGNS)
+
+    SET(NEKMESH_CGNS_GENERATORS
+        MakeAngledPrismLayers
+        MakeMixedPidMesh
+        MakePeriodicConnMesh
+        MakePrismStackMesh
+        MakeTwistedPrismRing
+        MakeTwoImpossiblePyramids
+        MakeTwoZoneMesh)
+
+    FOREACH(gen ${NEKMESH_CGNS_GENERATORS})
+        ADD_EXECUTABLE(${gen} ${NEKMESH_CGNS_FIXTURE_DIR}/${gen}.cpp)
+        ADD_DEPENDENCIES(${gen} thirdparty)
+        TARGET_LINK_LIBRARIES(${gen} ${CGNS_LIBRARY})
+        IF (NOT WIN32)
+            TARGET_LINK_LIBRARIES(${gen} m)
+        ENDIF()
+        SET_TARGET_PROPERTIES(${gen} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CGNSGenerators
+            FOLDER Tests)
+    ENDFOREACH()
+
+    # Running them and comparing against the committed fixture needs cgnsdiff,
+    # which comes with CGNS itself.
+    FIND_PROGRAM(CGNSDIFF_EXECUTABLE NAMES cgnsdiff HINTS ${TPDIST}/bin)
+    MARK_AS_ADVANCED(CGNSDIFF_EXECUTABLE)
+
+    IF (NEKTAR_BUILD_TESTS AND CGNSDIFF_EXECUTABLE)
+        # Regenerate one fixture and check it against the committed copy.
+        # COPY names the fixtures the generator reads or edits in place, which
+        # are copied in first so that the committed ones are never touched.
+        FUNCTION(ADD_CGNS_FIXTURE_TEST name)
+            CMAKE_PARSE_ARGUMENTS(FX "" "GENERATOR" "ARGS;COPY;EXPECT"
+                                  ${ARGN})
+
+            ADD_TEST(NAME NekMesh_CGNS/regenerate_${name}
+                COMMAND ${CMAKE_COMMAND}
+                    -DGENERATOR=$<TARGET_FILE:${FX_GENERATOR}>
+                    "-DGENARGS=${FX_ARGS}"
+                    "-DCOPY=${FX_COPY}"
+                    "-DEXPECT=${FX_EXPECT}"
+                    -DSRCDIR=${NEKMESH_CGNS_FIXTURE_DIR}
+                    -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/CGNSGenerators/${name}
+                    -DCGNSDIFF=${CGNSDIFF_EXECUTABLE}
+                    -P ${CMAKE_SOURCE_DIR}/cmake/scripts/CheckCGNSFixture.cmake)
+        ENDFUNCTION()
+
+        ADD_CGNS_FIXTURE_TEST(angled_prism_layers
+            GENERATOR MakeAngledPrismLayers
+            ARGS      angled_prism_layers.cgns 4
+            EXPECT    angled_prism_layers.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(mixed_pid_sections
+            GENERATOR MakeMixedPidMesh
+            ARGS      linear_tet_prism_pyra_mesh.cgns mixed_pid_sections.cgns
+            COPY      linear_tet_prism_pyra_mesh.cgns
+            EXPECT    mixed_pid_sections.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(periodic_conn
+            GENERATOR MakePeriodicConnMesh
+            ARGS      periodic_conn.cgns
+            COPY      linear_tet_prism_pyra_mesh.cgns=periodic_conn.cgns
+            EXPECT    periodic_conn.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(prism_stack
+            GENERATOR MakePrismStackMesh
+            ARGS      prism_stack.cgns 1
+            EXPECT    prism_stack.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(twisted_prism_ring
+            GENERATOR MakeTwistedPrismRing
+            ARGS      twisted_prism_ring.cgns 1
+            EXPECT    twisted_prism_ring.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(twisted_prism_ring_p2
+            GENERATOR MakeTwistedPrismRing
+            ARGS      twisted_prism_ring_p2.cgns 2
+            EXPECT    twisted_prism_ring_p2.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(two_impossible_pyramids
+            GENERATOR MakeTwoImpossiblePyramids
+            ARGS      ImpossiblePyramids_linear.cgns two_impossible_pyramids.cgns
+            COPY      ImpossiblePyramids_linear.cgns
+            EXPECT    two_impossible_pyramids.cgns)
+
+        ADD_CGNS_FIXTURE_TEST(zones
+            GENERATOR MakeTwoZoneMesh
+            ARGS      one_zone.cgns two_zone.cgns
+            EXPECT    one_zone.cgns two_zone.cgns)
+    ENDIF()
 ENDIF()
 
 # Rot peralign tests

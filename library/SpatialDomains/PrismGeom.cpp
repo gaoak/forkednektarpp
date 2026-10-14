@@ -492,11 +492,12 @@ void PrismGeom::SetUpFaceOrientation()
         }
         else if (nVerts == TriGeom::kNverts)
         {
-            // Triangular face. SetUpLocalVertices has already put the vertices
-            // in a canonical order by the time this runs, which leaves three
-            // of the six permutations reachable; the other three all give an
-            // orientation in which Dir2 is aligned with Dir1, which the vector
-            // implementation this replaced rejected outright.
+            // Triangular face. A triangular expansion carries its collapsed
+            // vertex in a fixed place, so only the three non-transposed
+            // orientations can represent a face; the other three take Dir2
+            // onto Dir1 and have no representation at all. Which of the three
+            // applies is settled by the first two vertices of the face, since
+            // those fix the permutation.
             const int nextVid = m_faces[f]->GetVid(1);
 
             if (base == 0 && nextVid == m_verts[faceVerts[f][1]]->GetGlobalID())

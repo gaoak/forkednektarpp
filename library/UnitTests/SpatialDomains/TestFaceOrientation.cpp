@@ -164,24 +164,30 @@ static StdRegions::Orientation ReferenceOrient(const std::vector<Pt> &ev,
     return static_cast<StdRegions::Orientation>(orientation + 5);
 }
 
-/// A shape, as the vertices of each of its faces.
+/// A shape, as the vertices of each of its faces and of each of its edges.
+/// The edge table is only needed by the shapes that can be built with their
+/// vertices stated outright.
 struct ShapeDef
 {
     const char *name;
     int nVerts;
     std::vector<std::vector<int>> faces;
+    std::vector<std::vector<int>> edges = {};
 };
 
 /// The face-vertex tables the geometry classes use, with the padding entry the
 /// triangular faces of a prism and a pyramid carry in the source removed.
-static const ShapeDef kTet = {
-    "tetrahedron", 4, {{0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}}};
+static const ShapeDef kTet = {"tetrahedron",
+                              4,
+                              {{0, 1, 2}, {0, 1, 3}, {1, 2, 3}, {0, 2, 3}},
+                              {{0, 1}, {1, 2}, {0, 2}, {0, 3}, {1, 3}, {2, 3}}};
 static const ShapeDef kPyr = {
     "pyramid", 5, {{0, 1, 2, 3}, {0, 1, 4}, {1, 2, 4}, {3, 2, 4}, {0, 3, 4}}};
 static const ShapeDef kPrism = {
     "prism",
     6,
-    {{0, 1, 2, 3}, {0, 1, 4}, {1, 2, 5, 4}, {3, 2, 5}, {0, 3, 5, 4}}};
+    {{0, 1, 2, 3}, {0, 1, 4}, {1, 2, 5, 4}, {3, 2, 5}, {0, 3, 5, 4}},
+    {{0, 1}, {1, 2}, {3, 2}, {0, 3}, {0, 4}, {1, 4}, {2, 5}, {3, 5}, {4, 5}}};
 static const ShapeDef kHex = {"hexahedron",
                               8,
                               {{0, 1, 2, 3},
@@ -189,7 +195,19 @@ static const ShapeDef kHex = {"hexahedron",
                                {1, 2, 6, 5},
                                {3, 2, 6, 7},
                                {0, 3, 7, 4},
-                               {4, 5, 6, 7}}};
+                               {4, 5, 6, 7}},
+                              {{0, 1},
+                               {1, 2},
+                               {2, 3},
+                               {3, 0},
+                               {0, 4},
+                               {1, 5},
+                               {2, 6},
+                               {3, 7},
+                               {4, 5},
+                               {5, 6},
+                               {6, 7},
+                               {7, 4}}};
 
 /// Storage for one built element; the parts must outlive it.
 struct Parts
@@ -213,9 +231,16 @@ struct Parts
  * geometry reports, which is what varies the orientation the element then has
  * to recover. The edges themselves are shared between faces, as they are in a
  * real mesh, so the element still sees one edge where two faces meet.
+ *
+ * With @p statedVerts the element is built through the constructor that is
+ * given its vertices and edges outright, which is the one NekMesh uses: it
+ * reorients an element itself and then says what it arrived at. The other
+ * constructor works the vertices out from the faces instead, which ties the
+ * element's numbering to theirs and so cannot reach every arrangement a mesh
+ * can present.
  */
 static void Build(Parts &p, const ShapeDef &shape, const std::vector<Pt> &x,
-                  const std::vector<int> &rot)
+                  const std::vector<int> &rot, bool statedVerts = false)
 {
     for (int i = 0; i < shape.nVerts; ++i)
     {
@@ -273,6 +298,19 @@ static void Build(Parts &p, const ShapeDef &shape, const std::vector<Pt> &x,
         }
     }
 
+    // The element's own edges, in its local edge order.
+    std::vector<SegGeom *> elmtEdges;
+    for (const std::vector<int> &ev : shape.edges)
+    {
+        elmtEdges.push_back(p.edges[edgeOf(ev[0], ev[1])].get());
+    }
+
+    std::vector<PointGeom *> elmtVerts;
+    for (int i = 0; i < shape.nVerts; ++i)
+    {
+        elmtVerts.push_back(p.verts[i].get());
+    }
+
     if (shape.nVerts == 4)
     {
         std::array<TriGeom *, 4> f;
@@ -280,7 +318,19 @@ static void Build(Parts &p, const ShapeDef &shape, const std::vector<Pt> &x,
         {
             f[i] = static_cast<TriGeom *>(faces[i]);
         }
-        p.tet  = TetGeomUniquePtr(new TetGeom(0, f));
+
+        if (statedVerts)
+        {
+            std::array<SegGeom *, 6> e;
+            std::array<PointGeom *, 4> v;
+            std::copy(elmtEdges.begin(), elmtEdges.end(), e.begin());
+            std::copy(elmtVerts.begin(), elmtVerts.end(), v.begin());
+            p.tet = TetGeomUniquePtr(new TetGeom(0, f, e, v));
+        }
+        else
+        {
+            p.tet = TetGeomUniquePtr(new TetGeom(0, f));
+        }
         p.elmt = p.tet.get();
     }
     else if (shape.nVerts == 5)
@@ -294,8 +344,20 @@ static void Build(Parts &p, const ShapeDef &shape, const std::vector<Pt> &x,
     {
         std::array<Geometry2D *, 5> f;
         std::copy(faces.begin(), faces.end(), f.begin());
-        p.prism = PrismGeomUniquePtr(new PrismGeom(0, f));
-        p.elmt  = p.prism.get();
+
+        if (statedVerts)
+        {
+            std::array<SegGeom *, 9> e;
+            std::array<PointGeom *, 6> v;
+            std::copy(elmtEdges.begin(), elmtEdges.end(), e.begin());
+            std::copy(elmtVerts.begin(), elmtVerts.end(), v.begin());
+            p.prism = PrismGeomUniquePtr(new PrismGeom(0, f, e, v));
+        }
+        else
+        {
+            p.prism = PrismGeomUniquePtr(new PrismGeom(0, f));
+        }
+        p.elmt = p.prism.get();
     }
     else
     {
@@ -304,7 +366,19 @@ static void Build(Parts &p, const ShapeDef &shape, const std::vector<Pt> &x,
         {
             f[i] = static_cast<QuadGeom *>(faces[i]);
         }
-        p.hex  = HexGeomUniquePtr(new HexGeom(0, f));
+
+        if (statedVerts)
+        {
+            std::array<SegGeom *, 12> e;
+            std::array<PointGeom *, 8> v;
+            std::copy(elmtEdges.begin(), elmtEdges.end(), e.begin());
+            std::copy(elmtVerts.begin(), elmtVerts.end(), v.begin());
+            p.hex = HexGeomUniquePtr(new HexGeom(0, f, e, v));
+        }
+        else
+        {
+            p.hex = HexGeomUniquePtr(new HexGeom(0, f));
+        }
         p.elmt = p.hex.get();
     }
 }
@@ -312,10 +386,11 @@ static void Build(Parts &p, const ShapeDef &shape, const std::vector<Pt> &x,
 /// Check every face of one built element against the reference algorithm.
 static void CheckElement(const ShapeDef &shape, const std::vector<Pt> &x,
                          const std::vector<int> &rot,
-                         std::set<StdRegions::Orientation> &seen)
+                         std::set<StdRegions::Orientation> &seen,
+                         bool statedVerts)
 {
     Parts p;
-    Build(p, shape, x, rot);
+    Build(p, shape, x, rot, statedVerts);
 
     for (size_t f = 0; f < shape.faces.size(); ++f)
     {
@@ -368,7 +443,8 @@ static void CheckElement(const ShapeDef &shape, const std::vector<Pt> &x,
  * reject those, so the sweep reports how many it managed in order that a
  * change which quietly made them all invalid cannot pass as a clean run.
  */
-static void SweepRotations(const ShapeDef &shape, const std::vector<Pt> &x)
+static void SweepRotations(const ShapeDef &shape, const std::vector<Pt> &x,
+                           bool statedVerts = false)
 {
     const size_t nf = shape.faces.size();
     std::vector<int> rot(nf, 0);
@@ -404,7 +480,7 @@ static void SweepRotations(const ShapeDef &shape, const std::vector<Pt> &x)
 
         try
         {
-            CheckElement(shape, x, rot, seen);
+            CheckElement(shape, x, rot, seen, statedVerts);
             ++built;
         }
         catch (const ErrorUtil::NekError &)
@@ -416,8 +492,9 @@ static void SweepRotations(const ShapeDef &shape, const std::vector<Pt> &x)
 
     ErrorUtil::SetErrorStream(std::cerr);
 
-    BOOST_TEST_MESSAGE(std::string(shape.name) + ": " + std::to_string(built) +
-                       " of " + std::to_string(tried) +
+    BOOST_TEST_MESSAGE(std::string(shape.name) +
+                       (statedVerts ? " (vertices stated)" : "") + ": " +
+                       std::to_string(built) + " of " + std::to_string(tried) +
                        " rotations built, covering " +
                        std::to_string(seen.size()) + " distinct orientations");
 
@@ -435,6 +512,33 @@ BOOST_AUTO_TEST_CASE(TestTetFaceOrientation)
 {
     SweepRotations(kTet, {Pt{0.0, 0.0, 0.0}, Pt{1.0, 0.0, 0.0},
                           Pt{0.0, 1.0, 0.0}, Pt{0.0, 0.0, 1.0}});
+}
+
+/**
+ * @brief The same sweep over an element built the way NekMesh builds one.
+ *
+ * NekMesh orients an element itself and hands the result over, so a face can
+ * be presented to it started at any of its vertices -- including the third,
+ * which the constructor that works the vertices out from the faces can never
+ * produce. Reading the orientation off the first vertex alone is enough for
+ * what that constructor reaches and not for this, which is how a tetrahedron
+ * whose face started at the third vertex came to be rejected outright while
+ * two arrangements that have no valid orientation at all were accepted.
+ */
+BOOST_AUTO_TEST_CASE(TestTetFaceOrientationStatedVerts)
+{
+    SweepRotations(kTet,
+                   {Pt{0.0, 0.0, 0.0}, Pt{1.0, 0.0, 0.0}, Pt{0.0, 1.0, 0.0},
+                    Pt{0.0, 0.0, 1.0}},
+                   true);
+}
+
+BOOST_AUTO_TEST_CASE(TestPrismFaceOrientationStatedVerts)
+{
+    SweepRotations(kPrism,
+                   {Pt{0.0, 0.0, 0.0}, Pt{1.0, 0.0, 0.0}, Pt{1.0, 1.0, 0.0},
+                    Pt{0.0, 1.0, 0.0}, Pt{0.0, 0.0, 1.0}, Pt{1.0, 0.0, 1.0}},
+                   true);
 }
 
 BOOST_AUTO_TEST_CASE(TestPyrFaceOrientation)
@@ -457,6 +561,26 @@ BOOST_AUTO_TEST_CASE(TestHexFaceOrientation)
                    {Pt{0.0, 0.0, 0.0}, Pt{1.0, 0.0, 0.0}, Pt{1.0, 1.0, 0.0},
                     Pt{0.0, 1.0, 0.0}, Pt{0.0, 0.0, 1.0}, Pt{1.0, 0.0, 1.0},
                     Pt{1.0, 1.0, 1.0}, Pt{0.0, 1.0, 1.0}});
+}
+
+/**
+ * @brief The hexahedron built the way NekMesh builds one.
+ *
+ * Of the three element types NekMesh hands over with their vertices stated,
+ * this was the one never checked that way. It confirms rather than extends:
+ * both constructors reach all 32768 arrangements and all eight orientations,
+ * where the tetrahedron's reach 16 of 1296 and 81 of 1296 respectively, which
+ * is the gap its bug sat in. All six faces are quadrilateral, and every
+ * quadrilateral orientation can be represented, so there is nothing here for a
+ * face to fall into the way a triangular one can.
+ */
+BOOST_AUTO_TEST_CASE(TestHexFaceOrientationStatedVerts)
+{
+    SweepRotations(kHex,
+                   {Pt{0.0, 0.0, 0.0}, Pt{1.0, 0.0, 0.0}, Pt{1.0, 1.0, 0.0},
+                    Pt{0.0, 1.0, 0.0}, Pt{0.0, 0.0, 1.0}, Pt{1.0, 0.0, 1.0},
+                    Pt{1.0, 1.0, 1.0}, Pt{0.0, 1.0, 1.0}},
+                   true);
 }
 
 } // namespace Nektar::FaceOrientationTests
