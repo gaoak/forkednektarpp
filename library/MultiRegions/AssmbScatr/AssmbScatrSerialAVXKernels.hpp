@@ -129,7 +129,7 @@ template <typename ExecSpace, typename TData,
               Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const unsigned *offset, const int *sign, TData *inoutptr)
+    const unsigned *offset, const int8_t *sign, TData *inoutptr)
 {
     constexpr unsigned int vector_width =
         NektarSpaces::vector_width<NektarSpaces::AVX, TData>::value;
@@ -187,7 +187,8 @@ template <
         Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *ind,
-    [[maybe_unused]] const unsigned *offset, const int *sign, TData *inoutptr)
+    [[maybe_unused]] const unsigned *offset, const int8_t *sign,
+    TData *inoutptr)
 
 {
     unsigned cnt = 0;
@@ -253,7 +254,7 @@ template <typename ExecSpace, typename TData,
               Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
-    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *index, const unsigned *offset, const int8_t *sign,
     TData *inoutptr, TData *bndptr)
 {
     for (unsigned idx = 0; idx < nvals; ++idx)
@@ -328,7 +329,7 @@ template <typename ExecSpace, typename TData,
               Enable = true>
 NEK_FORCE_INLINE static void AssembleFromBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
-    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *index, const unsigned *offset, const int8_t *sign,
     const unsigned *norder, const TData *bndptr, TData *inoutptr)
 {
     for (unsigned idx = 0; idx < nvals; ++idx)

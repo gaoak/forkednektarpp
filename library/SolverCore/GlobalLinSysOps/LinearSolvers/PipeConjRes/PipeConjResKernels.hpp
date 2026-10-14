@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
@@ -45,6 +46,9 @@ namespace Nektar::SolverCore::detail
  *
  *   z = beta z + s, q = beta q + wk, p = beta p + r,
  *   out += alpha p, r -= alpha q, w -= alpha z,
+ *
+ * and, in the same pass, the products of the next iteration:
+ * dots[0] = (r, r) and dots[1] = (r, w), in the memory space of ExecSpace.
  *
  * @p STAGE is 0 on the first update, where z, q and p are not read:
  * z = s, q = wk and p = r. It is 1 on every later update.
@@ -59,11 +63,13 @@ NEK_FORCE_INLINE static void UpdatePipeConjResSearchDirection(
     LibUtilities::Field<TData, FieldState::Coeff> &p,
     LibUtilities::Field<TData, FieldState::Coeff> &r,
     LibUtilities::Field<TData, FieldState::Coeff> &w,
-    LibUtilities::Field<TData, FieldState::Coeff> &out)
+    LibUtilities::Field<TData, FieldState::Coeff> &out, TData *dots)
 {
     using MemSpace = typename ExecSpace::memory_space;
     using DirAccess =
         typename std::conditional<STAGE == 0, WriteOnly, ReadWrite>::type;
+
+    Math::zeroKernel<ExecSpace>(2, dots);
 
     for (unsigned int blk = 0; blk < out.GetBlocks().size(); ++blk)
     {
@@ -92,39 +98,55 @@ NEK_FORCE_INLINE static void UpdatePipeConjResSearchDirection(
 
         if constexpr (STAGE == 0)
         {
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
+            Nektar::parallel_reduce_sum<ExecSpace, false, 2>(
+                0, size,
+                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
                     auto z0 = sptr[idx];
                     auto q0 = wkptr[idx];
                     auto p0 = rptr[idx];
 
+                    const auto r1 = p0 - alpha * q0;
+                    const auto w1 = wptr[idx] - alpha * z0;
+
                     outptr[idx] += alpha * p0;
-                    rptr[idx] = p0 - alpha * q0;
-                    wptr[idx] -= alpha * z0;
+                    rptr[idx] = r1;
+                    wptr[idx] = w1;
 
                     zptr[idx] = z0;
                     qptr[idx] = q0;
                     pptr[idx] = p0;
-                });
+
+                    sums[0] += r1 * r1;
+                    sums[1] += r1 * w1;
+                },
+                dots);
         }
         else
         {
-            Nektar::parallel_for<ExecSpace>(
-                0, size, NEKTAR_LAMBDA(const size_t idx) {
+            Nektar::parallel_reduce_sum<ExecSpace, false, 2>(
+                0, size,
+                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
                     auto r0 = rptr[idx];
 
                     auto z0 = beta * zptr[idx] + sptr[idx];
                     auto q0 = beta * qptr[idx] + wkptr[idx];
                     auto p0 = beta * pptr[idx] + r0;
 
+                    const auto r1 = r0 - alpha * q0;
+                    const auto w1 = wptr[idx] - alpha * z0;
+
                     outptr[idx] += alpha * p0;
-                    rptr[idx] = r0 - alpha * q0;
-                    wptr[idx] -= alpha * z0;
+                    rptr[idx] = r1;
+                    wptr[idx] = w1;
 
                     zptr[idx] = z0;
                     qptr[idx] = q0;
                     pptr[idx] = p0;
-                });
+
+                    sums[0] += r1 * r1;
+                    sums[1] += r1 * w1;
+                },
+                dots);
         }
 
         if constexpr (STAGE == 0)

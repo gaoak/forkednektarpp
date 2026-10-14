@@ -251,6 +251,54 @@ __global__ __launch_bounds__(blockSize) void reduceMinKernel(
     }
 }
 
+// Partial sums of nsum values per thread block: functor(i, sums) adds those of
+// index i to sums[0, nsum). Sum s of block b is in buffer[s * gridDim.x + b].
+template <unsigned int nsum, typename TData, typename Functor,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceSumNKernel(
+    const size_t begin, const size_t end, TData *buffer, const Functor functor)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    auto grid     = cg::this_grid();
+    auto block    = cg::this_thread_block();
+    auto warp     = cg::tiled_partition<warpsize>(block);
+    TData v[nsum] = {};
+
+    if (block.thread_rank() == 0)
+    {
+        for (unsigned int s = 0; s < nsum; ++s)
+        {
+            buffer[s * gridDim.x + block.group_index().x] = 0.0;
+        }
+    }
+
+    block.sync();
+
+    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
+    {
+        functor(tid, v);
+    }
+
+    warp.sync();
+    for (unsigned int s = 0; s < nsum; ++s)
+    {
+        for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+        {
+            v[s] += warp.shfl_down(v[s], offset);
+        }
+    }
+
+    // use atomicAdd to sum over warps
+    if (warp.thread_rank() == 0)
+    {
+        for (unsigned int s = 0; s < nsum; ++s)
+        {
+            atomicAdd(&buffer[s * gridDim.x + block.group_index().x], v[s]);
+        }
+    }
+}
+
 // Parallel reduction launchers without device-to-host copy.
 template <
     typename ExecSpace, bool init, typename Reduction, typename Functor,
@@ -307,6 +355,52 @@ inline void parallel_reduce(const size_t begin, const size_t end,
         reduceMinKernel<init><<<1, blockSize, 0, stream>>>(
             0, gridSize, out,
             [=] __device__(const size_t i) { return buffer[i]; });
+        CHECK_LAST_HIPCUDA_ERROR();
+    }
+}
+
+// Parallel sum of nsum values: functor(i, sums) adds those of index i to
+// sums[0, nsum). They are written to out[0, nsum) if init, added to it
+// otherwise. At most 4 sums, the partial sums the reduction scratch holds.
+template <
+    typename ExecSpace, bool init, unsigned int nsum, typename TData,
+    typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_reduce_sum(const size_t begin, const size_t end,
+                                const Functor &functor, TData *out)
+{
+    static_assert(nsum <= 4, "parallel_reduce_sum: at most 4 sums.");
+
+    const unsigned int streamID  = internalLoopExecutionStreamID;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+
+    ASSERTL0(nsum * gridSize * sizeof(TData) <= internalReductionBufferSize,
+             "Too many sums for the reduction buffer.");
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
+    {
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalReductionBufferSize, streamID);
+    }
+
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
+    reduceSumNKernel<nsum>
+        <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
+    CHECK_LAST_HIPCUDA_ERROR();
+    for (unsigned int s = 0; s < nsum; ++s)
+    {
+        const TData *partial = buffer + s * gridSize;
+        reduceSumKernel<init><<<1, blockSize, 0, stream>>>(
+            0, gridSize, out + s,
+            [=] __device__(const size_t i) { return partial[i]; });
         CHECK_LAST_HIPCUDA_ERROR();
     }
 }

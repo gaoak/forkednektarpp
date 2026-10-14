@@ -36,6 +36,8 @@
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Op.hpp"
 
+#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjGrad2/PipeConjGrad2Kernels.hpp"
+
 #include <iomanip>
 
 using namespace Nektar;
@@ -227,11 +229,15 @@ protected:
                 return;
             }
 
-            // Reset device memory.
-            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+            // <p_{k+1}, s_{k+1}>, otherwise computed with the update of the
+            // search directions.
+            if (this->m_niter == 0)
+            {
+                // Reset device memory.
+                m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            // <p_{k+1}, s_{k+1}>
-            Math::ddot<ExecSpace>(m_p, m_s, exchange + 0);
+                Math::ddot<ExecSpace>(m_p, m_s, exchange + 0);
+            }
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -257,16 +263,16 @@ protected:
             delta = exchangeHost[0];
             alpha = rho / delta;
 
-            // Compute new search direction.
-            Math::daxpy<ExecSpace>(alpha, m_p, out, out);
-            Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
-            Math::daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
-
             // Reset device memory.
             m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            // <u_{k+1}, u_{k+1}> and <u_{k+1}, r_{k+1}>, reading u once.
-            Math::ddot2<ExecSpace>(m_u, m_u, m_r, exchange);
+            // Compute new search direction, with <u_{k+1}, u_{k+1}> and
+            // <u_{k+1}, r_{k+1}>.
+            // Math::daxpy<ExecSpace>(alpha, m_p, out, out);
+            // Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
+            // Math::daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
+            UpdatePipeConjGrad2Solution<ExecSpace>(alpha, m_p, m_s, m_q, out,
+                                                   m_r, m_u, exchange);
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -303,9 +309,14 @@ protected:
             beta = rho_new / rho;
             rho  = rho_new;
 
-            // Compute new search direction.
-            Math::daxpy<ExecSpace>(beta, m_p, m_u, m_p);
-            Math::daxpy<ExecSpace>(beta, m_s, m_w, m_s);
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
+
+            // Compute new search direction, with <p_{k+1}, s_{k+1}>.
+            // Math::daxpy<ExecSpace>(beta, m_p, m_u, m_p);
+            // Math::daxpy<ExecSpace>(beta, m_s, m_w, m_s);
+            UpdatePipeConjGrad2SearchDirection<ExecSpace>(beta, m_u, m_w, m_p,
+                                                          m_s, exchange);
         }
     }
 };

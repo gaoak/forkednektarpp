@@ -97,6 +97,32 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     }
 }
 
+// Parallel sum of nsum values: functor(i, sums) adds those of index i to
+// sums[0, nsum). They are written to out[0, nsum) if init, added to it
+// otherwise. At most 4 sums, the partial sums the reduction scratch holds.
+template <typename ExecSpace, bool init, unsigned int nsum, typename TData,
+          typename Functor,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void parallel_reduce_sum(const size_t begin, const size_t end,
+                                const Functor &functor, TData *out)
+{
+    static_assert(nsum <= 4, "parallel_reduce_sum: at most 4 sums.");
+
+    TData sums[nsum] = {};
+    for (size_t i = begin; i < end; ++i)
+    {
+        functor(i, sums);
+    }
+
+    for (unsigned int s = 0; s < nsum; ++s)
+    {
+        out[s] = init ? sums[s] : out[s] + sums[s];
+    }
+}
+
 // Parallel reduction launchers.
 template <typename ExecSpace, typename Reduction, typename Functor,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||

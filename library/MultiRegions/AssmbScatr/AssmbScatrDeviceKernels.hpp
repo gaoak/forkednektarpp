@@ -155,7 +155,7 @@ namespace Nektar::MultiRegions::detail
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const unsigned *offset, const int *sign, TData *inoutptr,
+    const unsigned *offset, const int8_t *sign, TData *inoutptr,
     const TthreadBlock &threadBlock)
 {
     constexpr unsigned int warpSize = NektarSpaces::Device::warpSize;
@@ -239,7 +239,7 @@ NEK_DEVICE_KERNEL static void AssembleScatrKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AssembleScatrBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
-    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *index, const unsigned *offset, const int8_t *sign,
     TData *inoutptr, TData *bndptr, const TthreadBlock &threadBlock)
 {
     const unsigned idx0   = getGlobalIdx(threadBlock);
@@ -322,7 +322,7 @@ NEK_DEVICE_KERNEL static void AssembleScatrBndKernel(
 template <typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void AssembleFromBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
-    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *index, const unsigned *offset, const int8_t *sign,
     const unsigned *norder, const TData *bndptr, TData *inoutptr,
     const TthreadBlock &threadBlock)
 {
@@ -379,7 +379,7 @@ template <
         Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const unsigned *offset, const int *sign, TData *inoutptr)
+    const unsigned *offset, const int8_t *sign, TData *inoutptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
@@ -407,7 +407,7 @@ template <
         Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
-    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *index, const unsigned *offset, const int8_t *sign,
     TData *inoutptr, TData *bndptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
@@ -436,7 +436,7 @@ template <
         Enable = true>
 NEK_FORCE_INLINE static void AssembleFromBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
-    const unsigned *index, const unsigned *offset, const int *sign,
+    const unsigned *index, const unsigned *offset, const int8_t *sign,
     const unsigned *norder, const TData *bndptr, TData *inoutptr)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;

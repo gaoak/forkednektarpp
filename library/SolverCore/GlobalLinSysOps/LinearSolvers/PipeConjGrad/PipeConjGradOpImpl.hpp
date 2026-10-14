@@ -224,12 +224,10 @@ protected:
                 return;
             }
 
-            // Reset device memory.
-            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
-
             // Residual replacement strategy.
-            if (this->m_niter > 0 &&
-                this->m_niter % residualReplacementFreq == 0)
+            const bool replace = this->m_niter > 0 &&
+                                 this->m_niter % residualReplacementFreq == 0;
+            if (replace)
             {
                 this->m_lhs->Apply(out, m_r);
                 this->m_robBndCondOp->Apply(out, m_r);
@@ -243,11 +241,19 @@ protected:
                 this->m_robBndCondOp->Apply(m_u, m_w);
             }
 
-            // <u_{k+1}, u_{k+1}> and <u_{k+1}, r_{k+1}>, reading u once.
-            Math::ddot2<ExecSpace>(m_u, m_u, m_r, exchange + 0);
+            // Otherwise, the products were computed with the update of the
+            // previous iteration.
+            if (this->m_niter == 0 || replace)
+            {
+                // Reset device memory.
+                m_vExchange.template GetPtr<MemSpace, WriteOnly>();
 
-            // <w_{k+1}, u_{k+1}>
-            Math::ddot<ExecSpace>(m_w, m_u, exchange + 2);
+                // <u_{k+1}, u_{k+1}> and <u_{k+1}, r_{k+1}>, reading u once.
+                Math::ddot2<ExecSpace>(m_u, m_u, m_r, exchange + 0);
+
+                // <w_{k+1}, u_{k+1}>
+                Math::ddot<ExecSpace>(m_w, m_u, exchange + 2);
+            }
 
             // Begin communication.
             this->m_rowComm->template AllReduceBegin<MemSpace>(
@@ -300,17 +306,20 @@ protected:
             // Math::daxpy<ExecSpace>(-alpha, m_s, m_r, m_r);
             // Math::daxpy<ExecSpace>(-alpha, m_q, m_u, m_u);
             // Math::daxpy<ExecSpace>(-alpha, m_z, m_w, m_w);
+            // and <u_{k+1}, u_{k+1}>, <u_{k+1}, r_{k+1}>, <w_{k+1}, u_{k+1}>.
+            // Reset device memory.
+            m_vExchange.template GetPtr<MemSpace, WriteOnly>();
             if (this->m_niter == 1)
             {
                 UpdatePipeConjGradSearchDirection<ExecSpace, 0>(
                     alpha, beta, m_n, m_m, m_z, m_q, m_s, m_p, m_u, m_w, m_r,
-                    out);
+                    out, exchange);
             }
             else
             {
                 UpdatePipeConjGradSearchDirection<ExecSpace, 1>(
                     alpha, beta, m_n, m_m, m_z, m_q, m_s, m_p, m_u, m_w, m_r,
-                    out);
+                    out, exchange);
             }
         }
     }
