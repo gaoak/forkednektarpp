@@ -44,6 +44,7 @@
 
 #include <cufftXt.h>
 
+#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/Backends/CUDAStream.hpp>
 #include <LibUtilities/FFT/NekDeviceFFT.h>
 #include <LibUtilities/FFT/NekDeviceFFTHIPCUDAHelper.h>
@@ -548,11 +549,7 @@ void NekDeviceFFTImpl<TData>::LaunchScaleRealsImpl(TData alpha)
 template <typename TData>
 void NekDeviceFFTImpl<TData>::WaitOnStream(unsigned int producerStreamID)
 {
-    const cudaEvent_t event = CUDAStream::GetEvent(producerStreamID);
-    if (producerStreamID != m_streamID && event != nullptr)
-    {
-        CHECK_HIPCUDA_ERROR(cudaStreamWaitEvent(AsStream(m_streamID), event));
-    }
+    SetStreamDependencies<NektarSpaces::Device>(m_streamID, producerStreamID);
 }
 
 template <typename TData>

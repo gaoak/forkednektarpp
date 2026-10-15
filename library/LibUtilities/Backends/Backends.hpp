@@ -441,7 +441,7 @@ static void SetStreamDependencies([[maybe_unused]] unsigned int streamID,
 #elif defined(NEKTAR_ENABLE_SYCL)
     if (streamID != eventID)
     {
-        sycl::event event = SYCLQueue::GetEvent(eventID);
+        [[maybe_unused]] sycl::event event = SYCLQueue::GetEvent(eventID);
 #if defined(__ADAPTIVECPP__)
         sycl::event e =
             SYCLQueue::GetInstance(streamID).submit([&](sycl::handler &cgh) {
@@ -516,6 +516,151 @@ static void SetStreamDependencies(
     SYCLQueue::SetEvent(streamID, e);
 #endif
 #endif
+}
+
+/// Record the current point of stream @p streamID for SetStreamDependencies.
+/// SYCL queues record their last submission themselves.
+template <typename ExecSpace>
+static void RecordStreamEvent([[maybe_unused]] const unsigned int streamID)
+{
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+#if defined(NEKTAR_ENABLE_CUDA)
+        CUDAStream::RecordEvent(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+        HIPStream::RecordEvent(streamID);
+#endif
+    }
+}
+
+/// Whether stream @p streamID has been created, and so may hold work.
+template <typename ExecSpace>
+static bool StreamExists([[maybe_unused]] const unsigned int streamID)
+{
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+#if defined(NEKTAR_ENABLE_CUDA)
+        return CUDAStream::GetAllInstances().count(streamID) > 0;
+#elif defined(NEKTAR_ENABLE_HIP)
+        return HIPStream::GetAllInstances().count(streamID) > 0;
+#elif defined(NEKTAR_ENABLE_SYCL)
+        return SYCLQueue::GetAllInstances().count(streamID) > 0;
+#endif
+    }
+    return false;
+}
+
+/**
+ * @brief Order the work queued next on stream @p streamID after the work
+ * already queued on each of @p streamIDs.
+ *
+ * A stream never created holds no work and is skipped, as is, on CUDA and
+ * HIP, a join onto the default stream, which already orders against the
+ * numbered streams, created blocking. SYCL on the CPU maps every id to one
+ * in-order queue, and the host runs in submission order: neither has
+ * anything to order.
+ */
+template <typename ExecSpace>
+static void JoinStreams(
+    [[maybe_unused]] const unsigned int streamID,
+    [[maybe_unused]] const std::vector<unsigned int> &streamIDs)
+{
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+        if (streamID == 0)
+        {
+            return;
+        }
+
+        for (const auto id : streamIDs)
+        {
+            if (id != streamID && StreamExists<ExecSpace>(id))
+            {
+                RecordStreamEvent<ExecSpace>(id);
+                SetStreamDependencies<ExecSpace>(streamID, id);
+            }
+        }
+#elif defined(NEKTAR_ENABLE_SYCL) && !defined(SYCL_ENABLE_CPU)
+        // One barrier on the last submission of every queue holding work.
+        std::vector<unsigned int> waitOn;
+        for (const auto id : streamIDs)
+        {
+            if (id != streamID && StreamExists<ExecSpace>(id))
+            {
+                waitOn.push_back(id);
+            }
+        }
+
+        if (!waitOn.empty())
+        {
+            SetStreamDependencies<ExecSpace>(streamID, waitOn);
+        }
+#endif
+    }
+}
+
+/// Order the work queued next on stream @p streamID after the work already
+/// queued on stream @p producerID; JoinStreams() with one stream.
+template <typename ExecSpace>
+static void JoinStreams(const unsigned int streamID,
+                        const unsigned int producerID)
+{
+    JoinStreams<ExecSpace>(streamID, std::vector<unsigned int>{producerID});
+}
+
+/**
+ * @brief Order the work queued next on each of @p streamIDs after the work
+ * already queued on stream @p streamID.
+ *
+ * Skipped under the same conditions as JoinStreams(): nothing is ordered
+ * after a stream never created, or, on CUDA and HIP, after the default
+ * stream.
+ */
+template <typename ExecSpace>
+static void ReleaseStreams(
+    [[maybe_unused]] const unsigned int streamID,
+    [[maybe_unused]] const std::vector<unsigned int> &streamIDs)
+{
+    if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+    {
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
+        if (streamID == 0 || !StreamExists<ExecSpace>(streamID))
+        {
+            return;
+        }
+
+        bool recorded = false;
+        for (const auto id : streamIDs)
+        {
+            if (id == streamID)
+            {
+                continue;
+            }
+
+            if (!recorded)
+            {
+                RecordStreamEvent<ExecSpace>(streamID);
+                recorded = true;
+            }
+
+            SetStreamDependencies<ExecSpace>(id, streamID);
+        }
+#elif defined(NEKTAR_ENABLE_SYCL) && !defined(SYCL_ENABLE_CPU)
+        if (!StreamExists<ExecSpace>(streamID))
+        {
+            return;
+        }
+
+        for (const auto id : streamIDs)
+        {
+            if (id != streamID)
+            {
+                SetStreamDependencies<ExecSpace>(id, streamID);
+            }
+        }
+#endif
+    }
 }
 
 } // namespace Nektar

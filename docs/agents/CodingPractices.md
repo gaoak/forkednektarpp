@@ -176,12 +176,16 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     launch sites of an operator and not others implies an overlap that does
     not happen, and a launch that sets the stream leaves it set for whatever
     runs next.
-31. **Per-block work runs on the block's stream, `blk + 1`; work across
-    blocks runs on stream 0.** The pointer, workspace, reshape and launch all
-    take the same stream.
-32. **Order streams with events, not host syncs.** A block read on another
-    block's stream waits on an event recorded where it was written
-    (`SetStreamDependencies`), never on `nekStreamSynchronize`.
+31. **Every launch runs on the stream it is given; none given means the null
+    stream.** Per-block work runs on the block's stream, `blk + 1`; an
+    operator's work across blocks runs on its own stream. The pointer,
+    workspace, reshape and launch all take the same stream.
+32. **Order streams with events at the edges of each execution section, not
+    host syncs.** On entry the operator's stream waits on the streams it
+    reads or writes (`JoinStreams`); on exit those streams wait on it
+    (`ReleaseStreams`). A block read on another block's stream waits on an
+    event recorded where it was written (`SetStreamDependencies`). A host
+    sync (`nekStreamSynchronize`) is only for the host reading a result.
 33. **`Apply()` neither allocates nor frees memory.** Freeing device memory
     synchronises the device. Take scratch from the shared per-stream buffer,
     `BlockOperator::GetStaticWorkSpace`, where possible; otherwise allocate in

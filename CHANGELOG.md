@@ -77,6 +77,7 @@ v5.11.0
 - Consistently name block operator files `<Name>BlockOp<ExecSpace><Impl>` (!2834)
 - Optimise pipelined ConjGrad and ConjRes (!2839)
 - Add LHSOp combining the linear system element operator and Robin boundary condition operator (!2841)
+- Run the redesign trace flux and its parallel exchange on an explicit stream, ordered against the block streams with events instead of through the legacy default stream; let the boundary-condition operators it drives take its stream through SetStreamID()/ResetStreamID() (!2837)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

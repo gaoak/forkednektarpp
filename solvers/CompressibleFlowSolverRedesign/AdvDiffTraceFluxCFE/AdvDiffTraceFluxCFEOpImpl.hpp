@@ -393,11 +393,12 @@ protected:
      * own length, since they do not share a block count.
      */
     template <typename MemAccess, typename TField>
-    NEK_FORCE_INLINE static void SyncTrailingBlocks(TField &field)
+    NEK_FORCE_INLINE void SyncTrailingBlocks(TField &field)
     {
         for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
         {
-            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>();
+            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
+                this->m_streamID);
         }
     }
 
@@ -616,6 +617,16 @@ protected:
                  LibUtilities::Field<TData, FieldState::Phys> &inDeriv,
                  LibUtilities::Field<TData, FieldState::Phys> &flux) override
     {
+        this->JoinBlockStreams();
+
+        // primarily here to ensure all blocks are intialised since
+        // the GetPtr() below will only intiialise first block. On the trace
+        // stream, which the kernels writing the flux run on.
+        flux.template Initialize<MemSpace>(0, this->m_streamID);
+
+        // The boundary pass calls the conditions' diffusion hook.
+        this->SetBndCondStreams();
+
         // loop over interior and boundary traces and evaluate flux
         // using InteriorOp and BoundaryOp defined below
         switch (this->m_traceDim)
@@ -636,6 +647,10 @@ protected:
                 NEKERROR(ErrorUtil::efatal, "Uknown value of m_traceDim");
                 break;
         }
+
+        this->ResetBndCondStreams();
+
+        this->ReleaseBlockStreams();
     }
 
     /**
@@ -651,6 +666,13 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &inDeriv,
         LibUtilities::Field<TData, FieldState::Phys> &flux) override
     {
+        if (this->m_parT0.empty())
+        {
+            return;
+        }
+
+        this->JoinBlockStreams();
+
         switch (this->m_traceDim)
         {
             case 0:
@@ -666,6 +688,8 @@ protected:
                 NEKERROR(ErrorUtil::efatal, "Uknown value of m_traceDim");
                 break;
         }
+
+        this->ReleaseBlockStreams();
     }
 
     /**
@@ -698,18 +722,17 @@ protected:
                  "Assumption that input components are the "
                  "same as the flux components");
 
-        // primarily here to ensure all blocks are intialised since
-        // the GetPtr() below will only intiialise first block.
-        flux.template Initialize<MemSpace>(0);
-
         // get field pointers
-        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         auto inDerivPtr =
-            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto fluxPtr =
-            flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
-        auto normPtr = this->m_traceNormals.GetBlocks()[0]
-                           .template GetPtr<MemSpace, ReadOnly>();
+            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
+            this->m_streamID);
+        auto normPtr =
+            this->m_traceNormals.GetBlocks()[0]
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -768,17 +791,20 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr, G,
-                this->m_norms);
+                this->m_norms, this->m_streamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
-                numBlock, this->m_npTot, penFactorPtr, G, m_penFactor);
+                numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
+                this->m_streamID);
 
             // get hold of rotation matrix if TraceDim == 2
             auto rotMatPtr =
                 (TRACEDIM == 2)
                     ? (m_updateIntRotMat)
-                          ? m_intRotMat.template GetPtr<MemSpace, WriteOnly>() +
+                          ? m_intRotMat.template GetPtr<MemSpace, WriteOnly>(
+                                this->m_streamID) +
                                 rotMatOffset * 9
-                          : m_intRotMat.template GetPtr<MemSpace, ReadOnly>() +
+                          : m_intRotMat.template GetPtr<MemSpace, ReadOnly>(
+                                this->m_streamID) +
                                 rotMatOffset * 9
                     : this->m_norms;
 
@@ -790,7 +816,7 @@ protected:
                                       dim, true>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux);
+                    this->m_flux, this->m_streamID);
             }
             else
             {
@@ -798,14 +824,15 @@ protected:
                                       dim, false>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux);
+                    this->m_flux, this->m_streamID);
             }
 
             DiffuseTraceFluxKernel<ExecSpace, true>(
                 m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
                 m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
                 this->m_norms, m_penFactor, m_bndEnergyWeight, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux);
+                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                this->m_streamID);
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
             if (this->m_append)
@@ -872,13 +899,16 @@ protected:
                  "same as the flux components");
 
         // get field pointers
-        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         auto inDerivPtr =
-            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto fluxPtr =
-            flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
-        auto normPtr = this->m_traceNormals.GetBlocks()[0]
-                           .template GetPtr<MemSpace, ReadOnly>();
+            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
+            this->m_streamID);
+        auto normPtr =
+            this->m_traceNormals.GetBlocks()[0]
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -924,17 +954,20 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr, G,
-                this->m_norms);
+                this->m_norms, this->m_streamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
-                numBlock, this->m_npTot, penFactorPtr, G, m_penFactor);
+                numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
+                this->m_streamID);
 
             // get hold of rotation matrix if TraceDim == 2
             auto rotMatPtr =
                 (TRACEDIM == 2)
                     ? (m_updateParRotMat)
-                          ? m_parRotMat.template GetPtr<MemSpace, WriteOnly>() +
+                          ? m_parRotMat.template GetPtr<MemSpace, WriteOnly>(
+                                this->m_streamID) +
                                 rotMatOffset * 9
-                          : m_parRotMat.template GetPtr<MemSpace, ReadOnly>() +
+                          : m_parRotMat.template GetPtr<MemSpace, ReadOnly>(
+                                this->m_streamID) +
                                 rotMatOffset * 9
                     : this->m_norms;
 
@@ -946,7 +979,7 @@ protected:
                                       dim, true>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux);
+                    this->m_flux, this->m_streamID);
             }
             else
             {
@@ -954,14 +987,15 @@ protected:
                                       dim, false>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux);
+                    this->m_flux, this->m_streamID);
             }
 
             DiffuseTraceFluxKernel<ExecSpace, true>(
                 m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
                 m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
                 this->m_norms, m_penFactor, m_bndEnergyWeight, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux);
+                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                this->m_streamID);
 
             // Step 3: Replace flux values into the local flux storage, this
             // side only.
@@ -1012,13 +1046,16 @@ protected:
                  "same as the flux components");
 
         // get field pointers
-        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         auto inDerivPtr =
-            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto fluxPtr =
-            flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
-        auto normPtr = this->m_traceNormals.GetBlocks()[0]
-                           .template GetPtr<MemSpace, ReadOnly>();
+            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
+            this->m_streamID);
+        auto normPtr =
+            this->m_traceNormals.GetBlocks()[0]
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -1079,13 +1116,15 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr, G,
-                this->m_norms);
+                this->m_norms, this->m_streamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
-                numBlock, this->m_npTot, penFactorPtr, G, m_penFactor);
+                numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
+                this->m_streamID);
             SolverCore::detail::BroadcastGloTraceValueKernel<ExecSpace>(
                 numBlock, this->m_npTot,
-                m_bndGather[b].engyWeight.template GetPtr<MemSpace, ReadOnly>(),
-                m_bndEnergyWeight);
+                m_bndGather[b].engyWeight.template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID),
+                m_bndEnergyWeight, this->m_streamID);
 
             // Build the exterior state the diffusion sees, which is not always
             // the one the Riemann solver sees.
@@ -1124,13 +1163,15 @@ protected:
             // Seed the whole padded block, not only the points in use: the
             // kernel walks every point of it.
             Nektar::Math::copyKernel<ExecSpace>(numflux * npTBlock,
-                                                this->m_gloT1, m_gloT1Diff, 0);
+                                                this->m_gloT1, m_gloT1Diff,
+                                                this->m_streamID);
 
             ReflectDiffusionGhostStateKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, numflux,
                 m_bndGather[b]
-                    .ghostIsReflected.template GetPtr<MemSpace, ReadOnly>(),
-                this->m_gloT0, this->m_gloT1, m_gloT1Diff);
+                    .ghostIsReflected.template GetPtr<MemSpace, ReadOnly>(
+                        this->m_streamID),
+                this->m_gloT0, this->m_gloT1, m_gloT1Diff, this->m_streamID);
 
             // Any condition that acts on the diffusion's exterior state
             // and on nothing else - an isothermal wall's temperature, which
@@ -1169,9 +1210,11 @@ protected:
             auto rotMatPtr =
                 (TRACEDIM == 2)
                     ? (m_updateDirRotMat)
-                          ? m_dirRotMat.template GetPtr<MemSpace, WriteOnly>() +
+                          ? m_dirRotMat.template GetPtr<MemSpace, WriteOnly>(
+                                this->m_streamID) +
                                 rotMatOffset * 9
-                          : m_dirRotMat.template GetPtr<MemSpace, ReadOnly>() +
+                          : m_dirRotMat.template GetPtr<MemSpace, ReadOnly>(
+                                this->m_streamID) +
                                 rotMatOffset * 9
                     : this->m_norms;
 
@@ -1184,7 +1227,7 @@ protected:
                                       dim, true>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux);
+                    this->m_flux, this->m_streamID);
             }
             else
             {
@@ -1192,13 +1235,14 @@ protected:
                                       dim, false>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux);
+                    this->m_flux, this->m_streamID);
             }
             DiffuseTraceFluxKernel<ExecSpace, false>(
                 m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
                 m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
                 this->m_norms, m_penFactor, m_bndEnergyWeight, this->m_gloT0,
-                m_gloT1Diff, m_gloDerivT0, m_gloDerivT1, this->m_flux);
+                m_gloT1Diff, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                this->m_streamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage

@@ -63,6 +63,20 @@ class BndCondUpdateOp : public MultiRegions::Operator<TData>
 public:
     static inline const std::string name = "";
 
+    /// Run all of the work on stream @p streamID, the default stream unless
+    /// set. The trace flux operator sets its own, on which it seeds and reads
+    /// the boundary storage.
+    void SetStreamID(const unsigned int streamID)
+    {
+        m_streamID = streamID;
+    }
+
+    /// Run on the default stream again, undoing SetStreamID().
+    void ResetStreamID()
+    {
+        m_streamID = m_defaultStreamID;
+    }
+
     /// Storage to write into. Must be the same instance the trace flux
     /// operator gathers from, or the computed values go nowhere.
     void SetBndCondPhysOp(
@@ -210,6 +224,11 @@ public:
     }
 
 protected:
+    /// Stream the work runs on unless SetStreamID() says otherwise.
+    static constexpr unsigned int m_defaultStreamID = 0;
+    /// Stream all of the work runs on. See SetStreamID().
+    unsigned int m_streamID = m_defaultStreamID;
+
     std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> m_bndCondPhysOp;
 
     BndCondUpdateOp(const MultiRegions::ExpListSharedPtr &expansionList,

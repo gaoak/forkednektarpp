@@ -186,8 +186,9 @@ protected:
                 continue;
             }
 
-            const auto stride  = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            const auto *bndPtr = this->m_bndCondPhysOp->GetBlockPtr(blk);
+            const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
+            const auto *bndPtr =
+                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_streamID);
 
             // The boundary storage lives in the execution space's memory, so
             // the copy runs there as a kernel - a host-side assign from this
@@ -195,11 +196,11 @@ protected:
             // device.
             m_pressure[blk] = LibUtilities::MemoryRegion<TData>(stride);
             m_pressure[blk].template Initialize<MemSpace>(0);
-            TData *pOut =
-                m_pressure[blk].template GetPtr<MemSpace, ReadWrite>();
+            TData *pOut = m_pressure[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
 
-            CopyPrescribedPressureBlock<ExecSpace>(stride, m_numComp - 1,
-                                                   bndPtr, pOut);
+            CopyPrescribedPressureBlock<ExecSpace>(
+                stride, m_numComp - 1, bndPtr, pOut, this->m_streamID);
         }
     }
 
@@ -217,22 +218,21 @@ protected:
                 continue;
             }
 
-            // Stream 0, as the trace flux work around this runs there.
-            const unsigned int streamID = 0;
-
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
+            auto bndPtr =
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
             const TData *pOut =
-                m_pressure[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_pressure[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             ASSERTL1(m_pressure[blk].size() == stride,
                      "Prescribed outflow pressure was taken for a different "
                      "block size than the storage now reports.");
 
-            ApplyPressureOutflowBlock<ExecSpace>(stride, m_coordDim,
-                                                 m_numComp - 1, m_EoS, pOut,
-                                                 norms, bndPtr, streamID);
+            ApplyPressureOutflowBlock<ExecSpace>(
+                stride, m_coordDim, m_numComp - 1, m_EoS, pOut, norms, bndPtr,
+                this->m_streamID);
         }
     }
 };

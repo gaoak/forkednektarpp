@@ -143,12 +143,13 @@ public:
     ///        device memory that stream produced.
     ///
     /// The event is the one the backend registry holds for \p
-    /// producerStreamID (recorded through CUDAStream::RecordEvent,
-    /// HIPStream::RecordEvent or SYCLQueue::SetEvent). Callers that only
-    /// go through UploadPhys/UploadCoef (host pointers) do not need this,
-    /// since those copies read host memory, not another stream's device
-    /// writes. No-op if no event has been recorded on \p producerStreamID,
-    /// or if it is this object's own stream.
+    /// producerStreamID (recorded through RecordStreamEvent, or on SYCL by
+    /// the stream's last submission), waited on through
+    /// SetStreamDependencies. Callers that only go through
+    /// UploadPhys/UploadCoef (host pointers) do not need this, since those
+    /// copies read host memory, not another stream's device writes. No-op if
+    /// no event has been recorded on \p producerStreamID, or if it is this
+    /// object's own stream.
     ///
     /// \param producerStreamID Id of the stream that produced the data.
     void WaitOnStream(unsigned int producerStreamID);

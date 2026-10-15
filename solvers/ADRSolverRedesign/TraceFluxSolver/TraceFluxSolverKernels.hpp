@@ -50,7 +50,8 @@ template <template <typename> typename FluxKernel, typename ExecSpace,
 NEK_FORCE_INLINE static void FluxKernelLauncher(
     const size_t blksize, const unsigned int velComps,
     const unsigned int fluxComps, const TData *velbase, const TData *normbase,
-    const TData *fwdbase, const TData *bwdbase, TData *fluxbase)
+    const TData *fwdbase, const TData *bwdbase, TData *fluxbase,
+    const unsigned int streamID = 0)
 {
     // Explicit vectorisation for AVX backend,
     // vec_t = tinysimd::simd<TData> for AVX,
@@ -68,6 +69,8 @@ NEK_FORCE_INLINE static void FluxKernelLauncher(
              "The block size is not a multiple of the vector width.");
     const size_t groupsize = (blksize + vec_width - 1) / vec_width;
 
+    Nektar::LoopExecutionSetStreamID(streamID);
+
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             FluxKernel<ExecSpace>()(
@@ -75,5 +78,7 @@ NEK_FORCE_INLINE static void FluxKernelLauncher(
                 normbase + i * vec_width, fwdbase + i * vec_width,
                 bwdbase + i * vec_width, fluxbase + i * vec_width);
         });
+
+    Nektar::LoopExecutionSetStreamID(0);
 }
 } // namespace Nektar::detail

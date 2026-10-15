@@ -44,6 +44,7 @@
 #include <string>
 #include <unordered_map>
 
+#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/Backends/HIPStream.hpp>
 #include <LibUtilities/FFT/NekDeviceFFT.h>
 #include <LibUtilities/FFT/NekDeviceFFTHIPCUDAHelper.h>
@@ -410,11 +411,7 @@ void NekDeviceFFTImpl<TData>::LaunchScaleRealsImpl(TData alpha)
 template <typename TData>
 void NekDeviceFFTImpl<TData>::WaitOnStream(unsigned int producerStreamID)
 {
-    const hipEvent_t event = HIPStream::GetEvent(producerStreamID);
-    if (producerStreamID != m_streamID && event != nullptr)
-    {
-        CHECK_HIPCUDA_ERROR(hipStreamWaitEvent(AsStream(m_streamID), event, 0));
-    }
+    SetStreamDependencies<NektarSpaces::Device>(m_streamID, producerStreamID);
 }
 
 template <typename TData>
