@@ -1494,7 +1494,7 @@ protected:
     };
     std::vector<BndCondLocation> m_bndCondLoc;
 
-    /// Base pointer of each boundary-data block, refreshed on every apply.
+    /// Base pointer of each boundary-data block (UploadBlockPointers()).
     LibUtilities::MemoryRegion<const TData *> m_bndCondBase;
     /// Writable counterpart, used only by GatherBndInteriorState().
     LibUtilities::MemoryRegion<TData *> m_bndCondBaseW;
@@ -1503,6 +1503,38 @@ protected:
     LibUtilities::MemoryRegion<unsigned> m_bndCondOwned;
     std::vector<bool> m_bndCondOwnedBlocks;
     bool m_bndCondOwnedSet = false;
+    /// The pointers last uploaded to #m_bndCondBase and #m_bndCondBaseW.
+    std::vector<const TData *> m_bndCondBaseHost;
+    std::vector<TData *> m_bndCondBaseWHost;
+
+    /**
+     * @brief Point @p table at the boundary-data blocks, @p get(k) giving
+     * block k, copying it to the device only when a pointer has changed.
+     *
+     * The blocks move only when the boundary storage is reallocated, so in
+     * a time loop the table is copied once and a step makes no host-to-
+     * device copy here. @p get is called for every block on every call, as
+     * before, since it also marks the block's storage as read or written.
+     */
+    template <typename TPtr, typename GetFn>
+    void UploadBlockPointers(LibUtilities::MemoryRegion<TPtr> &table,
+                             std::vector<TPtr> &uploaded, GetFn &&get)
+    {
+        const unsigned numBlocks = this->m_BndCondOp->GetNumBlocks();
+        std::vector<TPtr> current(numBlocks);
+        for (unsigned k = 0; k < numBlocks; ++k)
+        {
+            current[k] = get(k);
+        }
+        if (current != uploaded)
+        {
+            auto hostBases =
+                table.template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    this->m_streamID);
+            std::copy(current.begin(), current.end(), hostBases);
+            uploaded = std::move(current);
+        }
+    }
 
     /// SpatialDomains::BoundaryConditionType of every (storage block,
     /// component) pair, indexed [storageBlk * m_numBCComp + comp]. Built once
@@ -3566,17 +3598,11 @@ protected:
 
         if (!singleBlock)
         {
-            {
-                auto hostBases =
-                    m_bndCondBase
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                            this->m_streamID);
-                for (unsigned k = 0; k < this->m_BndCondOp->GetNumBlocks(); ++k)
-                {
-                    hostBases[k] =
-                        this->m_BndCondOp->GetBlockPtr(k, this->m_streamID);
-                }
-            }
+            UploadBlockPointers(m_bndCondBase, m_bndCondBaseHost,
+                                [&](const unsigned k) -> const TData * {
+                                    return this->m_BndCondOp->GetBlockPtr(
+                                        k, this->m_streamID);
+                                });
 
             bases = m_bndCondBase.template GetPtr<MemSpace, ReadOnly>(
                 this->m_streamID);
@@ -3660,17 +3686,10 @@ protected:
                 this->m_streamID);
         const auto width = trace.GetBlocks()[0].GetInterleaveWidth();
 
-        {
-            auto hostBases =
-                m_bndCondBaseW
-                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                        this->m_streamID);
-            for (unsigned k = 0; k < this->m_BndCondOp->GetNumBlocks(); ++k)
-            {
-                hostBases[k] =
-                    this->m_BndCondOp->UpdateBlockPtr(k, this->m_streamID);
-            }
-        }
+        UploadBlockPointers(
+            m_bndCondBaseW, m_bndCondBaseWHost, [&](const unsigned k) {
+                return this->m_BndCondOp->UpdateBlockPtr(k, this->m_streamID);
+            });
         TData *const *bases =
             m_bndCondBaseW.template GetPtr<MemSpace, ReadOnly>(
                 this->m_streamID);
@@ -3824,17 +3843,11 @@ protected:
 
         if (!singleBlock)
         {
-            {
-                auto hostBases =
-                    m_bndCondBase
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                            this->m_streamID);
-                for (unsigned k = 0; k < this->m_BndCondOp->GetNumBlocks(); ++k)
-                {
-                    hostBases[k] =
-                        this->m_BndCondOp->GetBlockPtr(k, this->m_streamID);
-                }
-            }
+            UploadBlockPointers(m_bndCondBase, m_bndCondBaseHost,
+                                [&](const unsigned k) -> const TData * {
+                                    return this->m_BndCondOp->GetBlockPtr(
+                                        k, this->m_streamID);
+                                });
 
             bases = m_bndCondBase.template GetPtr<MemSpace, ReadOnly>(
                 this->m_streamID);
