@@ -147,6 +147,36 @@ template <typename ExecSpace> void RunMultiDot()
     }
 }
 
+/// Columns 0 to 4 of 6, over segments of 2 columns, with column 4 of the
+/// MultiField and column 5 beyond the range, as GMRES uses them.
+template <typename ExecSpace> void RunMultiDot2()
+{
+    LibUtilities::MultiField<double, FieldState::Coeff> X("X", blockAttr,
+                                                          components, 2);
+    X.ResizeNumField(6);
+    for (unsigned int j = 0; j < X.GetNumField(); ++j)
+    {
+        FillColumn(X[j], j);
+    }
+
+    MaskField mask("mask", blockAttr, components, 1);
+    Fill(mask, [](const size_t g, const bool padding) {
+        return !padding && g % 3 != 0;
+    });
+
+    std::vector<double> dots(10);
+    SolverCore::MultiDot2<ExecSpace>(mask, X, 0, 5, X[4], X[5], dots.data());
+
+    for (size_t j = 0; j < 5; ++j)
+    {
+        double ref0, ref1;
+        Math::ddot<ExecSpace>(mask, X[j], X[4], &ref0);
+        Math::ddot<ExecSpace>(mask, X[j], X[5], &ref1);
+        BOOST_CHECK_CLOSE(dots[j], ref0, 1.0E-10);
+        BOOST_CHECK_CLOSE(dots[5 + j], ref1, 1.0E-10);
+    }
+}
+
 template <typename ExecSpace> void RunMultiAxpy()
 {
     LibUtilities::MultiField<double, FieldState::Coeff> X("X", blockAttr,
@@ -187,6 +217,45 @@ template <typename ExecSpace> void RunMultiAxpy()
         Math::daxpy<ExecSpace>(coeffs[j], X[j], zRef, zRef);
     }
     BOOST_CHECK(Close(z, zRef, 1.0E-13));
+}
+
+/// Columns 4 and 5 of 6, in one segment of 2 columns, then columns 3 and 4, in
+/// two, from columns 0 to 2, which span two segments, as GMRES uses them.
+template <typename ExecSpace> void RunMultiAxpy2()
+{
+    const std::vector<double> coeffs = {0.5, -1.25, 2.0, 0.75, 1.5, -0.25};
+
+    for (const unsigned int j : {4u, 3u})
+    {
+        LibUtilities::MultiField<double, FieldState::Coeff> X("X", blockAttr,
+                                                              components, 2);
+        X.ResizeNumField(6);
+        for (unsigned int i = 0; i < X.GetNumField(); ++i)
+        {
+            FillColumn(X[i], i);
+        }
+
+        // X[j + l] = -0.5 X[j + l] + 2 X[0:3] coeffs[3 l:3 l + 3].
+        CoeffField ref0("ref0", blockAttr, components, 1);
+        CoeffField ref1("ref1", blockAttr, components, 1);
+        CoeffField *ref[2] = {&ref0, &ref1};
+        for (unsigned int l = 0; l < 2; ++l)
+        {
+            FillColumn(*ref[l], j + l);
+            Math::mul<ExecSpace>(-0.5, *ref[l], *ref[l]);
+            for (size_t i = 0; i < 3; ++i)
+            {
+                Math::daxpy<ExecSpace>(2.0 * coeffs[3 * l + i], X[i], *ref[l],
+                                       *ref[l]);
+            }
+        }
+
+        SolverCore::MultiAxpy2<ExecSpace>(2.0, X, 0, 3, coeffs.data(), -0.5, X,
+                                          j);
+
+        BOOST_CHECK(Close(X[j], ref0, 1.0E-13));
+        BOOST_CHECK(Close(X[j + 1], ref1, 1.0E-13));
+    }
 }
 
 /// Gram matrix of columns 1 to 3 of 4, in one segment.
@@ -238,6 +307,25 @@ BOOST_AUTO_TEST_CASE(MultiField_MultiDot)
     }
 }
 
+BOOST_AUTO_TEST_CASE(MultiField_MultiDot2)
+{
+    const std::string &execStr = GlobalConfiguration::ExecStr();
+    if (execStr == "Serial")
+    {
+        RunMultiDot2<NektarSpaces::Serial>();
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execStr == "AVX")
+    {
+        RunMultiDot2<NektarSpaces::AVX>();
+    }
+#endif
+    else
+    {
+        BOOST_FAIL("Unsupported execution space: " + execStr);
+    }
+}
+
 BOOST_AUTO_TEST_CASE(MultiField_MultiAxpy)
 {
     const std::string &execStr = GlobalConfiguration::ExecStr();
@@ -249,6 +337,25 @@ BOOST_AUTO_TEST_CASE(MultiField_MultiAxpy)
     else if (execStr == "AVX")
     {
         RunMultiAxpy<NektarSpaces::AVX>();
+    }
+#endif
+    else
+    {
+        BOOST_FAIL("Unsupported execution space: " + execStr);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(MultiField_MultiAxpy2)
+{
+    const std::string &execStr = GlobalConfiguration::ExecStr();
+    if (execStr == "Serial")
+    {
+        RunMultiAxpy2<NektarSpaces::Serial>();
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execStr == "AVX")
+    {
+        RunMultiAxpy2<NektarSpaces::AVX>();
     }
 #endif
     else

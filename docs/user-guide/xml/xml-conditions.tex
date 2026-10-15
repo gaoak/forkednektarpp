@@ -346,6 +346,17 @@ with the approach: for example \texttt{IterativeStaticCond} or
   pass recovers the orthogonality lost to rounding, at the cost of a second
   global reduction per iteration. It only applies when
   \textbf{ModifiedGramSchmidt} is 0.
+\item \textbf{GMRESLowSync}, as the value of \textbf{LinSysIterSolver},
+  selects GMRES with a low-synchronisation Gram-Schmidt process, taking a
+  single global reduction per iteration. It normalises each basis vector one
+  iteration late, so that a restart cycle takes one more matrix-vector product
+  once it converges. \textbf{ModifiedGramSchmidt} selects the modified process
+  (1, the default), whose projections the reduction gives directly, or the
+  classical process applied twice (0), whose second projection is also one
+  iteration late. The latter keeps the Krylov basis orthogonal to machine
+  precision, at the cost of a second pass over the basis per iteration. It
+  takes the other options of GMRES except \textbf{GMRESDeltaDirection},
+  \textbf{GMRESMaxHessMatBand} and \textbf{GMRESReorthogonalize}.
 \item \textbf{IDRClassicalGramSchmidt} specifies if IDR(s) bi-orthogonalises
   its basis vectors with the classical Gram-Schmidt process applied twice
   (CGS2) (1) or with the modified process (0) (Default is 0). CGS2 needs two

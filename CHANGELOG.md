@@ -82,6 +82,7 @@ v5.11.0
 - Add LHSOp combining the linear system element operator and Robin boundary condition operator (!2841)
 - Run the redesign trace flux and its parallel exchange on an explicit stream, ordered against the block streams with events instead of through the legacy default stream; let the boundary-condition operators it drives take its stream through SetStreamID()/ResetStreamID() (!2837)
 - Move the zero-Dirichlet assembly into LHSOp so linear solvers no longer assemble each product explicitly (!2842)
+- Add Low Sync GMRES iterative approach (!2840)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

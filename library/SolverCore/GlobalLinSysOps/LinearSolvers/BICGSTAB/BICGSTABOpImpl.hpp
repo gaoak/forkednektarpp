@@ -167,7 +167,6 @@ protected:
         // Device-to-host copy.
         auto exchangeHost =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
         rhsMagnitude = this->GetRhsMagnitude(exchangeHost[1]);
         eps          = exchangeHost[0];
 
@@ -262,6 +261,8 @@ protected:
             exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            // Update coefficients.
             omega0 = exchangeHost[0];
             omega1 = exchangeHost[1];
             omega  = omega0 / omega1;
@@ -287,7 +288,14 @@ protected:
             exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            eps = exchangeHost[0];
+
+            // Update coefficients.
+            eps     = exchangeHost[0];
+            rho     = rho_new;
+            rho_new = exchangeHost[1];
+            beta    = rho_new / rho * (alpha / omega);
+
+            // Test if norm is within tolerance.
             if (eps < this->m_tol * this->m_tol * rhsMagnitude)
             {
                 this->PrintVerboseOutput(this->name, "error",
@@ -295,11 +303,6 @@ protected:
                                          rhsMagnitude);
                 break;
             }
-
-            // Update coefficients.
-            rho     = rho_new;
-            rho_new = exchangeHost[1];
-            beta    = rho_new / rho * (alpha / omega);
         }
     }
 };

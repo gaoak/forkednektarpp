@@ -262,6 +262,8 @@ protected:
             exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            // Update coefficients.
             rho     = rho_new;
             rho_new = exchangeHost[0];
             eps     = exchangeHost[1];

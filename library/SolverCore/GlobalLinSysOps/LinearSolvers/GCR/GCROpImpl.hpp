@@ -292,6 +292,7 @@ protected:
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
+            // Update coefficients.
             scale[ii]    = exchangeHost[1];
             alpha        = exchangeHost[0] / scale[ii];
             m_alphas[ii] = alpha;
