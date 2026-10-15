@@ -463,6 +463,32 @@ double FrobeniusNormDiff(const DNekMat &lhs, const DNekMat &rhs)
         BOOST_TEST(Compare(tol));                                              \
     }
 
+// GMRES with a low-synchronisation Gram-Schmidt process (mgs: 1 for modified,
+// 0 for classical applied twice), with the preconditioner side, flexible
+// variant and restart length given.
+#define TEST_LINEARADRSOLVE_GMRESLOWSYNC(test_name, test, tol, mgs, left,      \
+                                         right, flexible, maxStorage)          \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        int LinSysLeftPrecon    = left;                                        \
+        int LinSysRightPrecon   = right;                                       \
+        int FlexibleGMRES       = flexible;                                    \
+        int LinSysMaxStorage    = maxStorage;                                  \
+        int ModifiedGramSchmidt = mgs;                                         \
+        this->m_session->SetParameter("LinSysLeftPrecon", LinSysLeftPrecon);   \
+        this->m_session->SetParameter("LinSysRightPrecon", LinSysRightPrecon); \
+        this->m_session->SetParameter("FlexibleGMRES", FlexibleGMRES);         \
+        this->m_session->SetParameter("LinSysMaxStorage", LinSysMaxStorage);   \
+        this->m_session->SetParameter("ModifiedGramSchmidt",                   \
+                                      ModifiedGramSchmidt);                    \
+        RunTestCase("GMRESLowSync");                                           \
+        BOOST_TEST(Compare(tol));                                              \
+    }
+
 #define TEST_LINEARADRSOLVE_TFQMR(test_name, test, tol)                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -825,6 +851,30 @@ TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_null_precon_all_bcs,
 TEST_LINEARADRSOLVE_GMRES_OPTIONS(linearadrsolve_gmres_truncated_all_bcs,
                                   Helmholtz2D_AllBCs, 5.0E-10, 0, 1, 1, 0, 30,
                                   5, "Diagonal")
+
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_gmreslowsync_all_bcs,
+                                 Helmholtz2D_AllBCs, 5.0E-10, 1, 0, 1, 0, 100)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(
+    linearadrsolve_gmreslowsync_left_precon_all_bcs, Helmholtz2D_AllBCs,
+    5.0E-10, 1, 1, 0, 0, 100)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_gmreslowsync_restart_all_bcs,
+                                 Helmholtz2D_AllBCs, 1.0E-10, 1, 0, 1, 0, 10)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_fgmreslowsync_all_bcs,
+                                 Helmholtz2D_AllBCs, 1.0E-10, 1, 0, 1, 1, 10)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_gmreslowsync_hex_3c,
+                                 Helmholtz3D_Hex_3C, 2.0E-09, 1, 0, 1, 0, 20)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_gmreslowsync_cgs2_all_bcs,
+                                 Helmholtz2D_AllBCs, 5.0E-10, 0, 0, 1, 0, 100)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(
+    linearadrsolve_gmreslowsync_cgs2_left_precon_all_bcs, Helmholtz2D_AllBCs,
+    5.0E-10, 0, 1, 0, 0, 100)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(
+    linearadrsolve_gmreslowsync_cgs2_restart_all_bcs, Helmholtz2D_AllBCs,
+    1.0E-10, 0, 0, 1, 0, 10)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_fgmreslowsync_cgs2_all_bcs,
+                                 Helmholtz2D_AllBCs, 1.0E-10, 0, 0, 1, 1, 10)
+TEST_LINEARADRSOLVE_GMRESLOWSYNC(linearadrsolve_gmreslowsync_cgs2_hex_3c,
+                                 Helmholtz3D_Hex_3C, 2.0E-09, 0, 0, 1, 0, 20)
 
 TEST_LINEARADRSOLVE_TFQMR(linearadrsolve_tfqmr_seg_3c, Helmholtz1D_Seg_3C,
                           1.0E-12)

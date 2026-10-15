@@ -559,6 +559,8 @@ protected:
             exchangeHost =
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+            // Update coefficients.
             omega0 = exchangeHost[0];
             omega1 = exchangeHost[1];
             omega  = omega0 / omega1;
