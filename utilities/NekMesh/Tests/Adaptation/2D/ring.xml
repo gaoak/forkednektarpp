@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYICAc7pVrBsSfOyfTrtRlJHkYA8VZmCE0n9WfrzkiyQOA0wo8gEY8sxQ+rukxcbGF3b2ywxWbCqaZAdXx4KmHt0eVii9ilXH2Bgo7hez6/A5oDth8mxY9SPcwQ6lfSD69q+DmgOT50C1dz+6+zmhNBf7Ne2qQrv929+ke3yVtIfr54LS0HDbDwtHmDw3qrswzAcAmWBGqwAA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1jzcSgEAMA33knOH/T6WALdgZ1HgsySddxIMUXyTNTDO05+8sfnYm75XywVfiQa070MiP3ioXvlMOfC8/+qAceozKQZ/kQ5+102NRLvoqH/qmvuTs4ulz6B3+deoe/dI9uTd91wHy</EDGE>
+        <ELEMENT>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxdjjkSwCAMA0kgB+SAnP9/ahqpyLrZsa2RFMJ/OrHHHsUkDtCNuHsi/pM4wy9D77/9irhAb99V3MQdeVVs4oGcU7zgl6F3/o1eD3Ir9O71oscH7sABwQAA</T>
+        </ELEMENT>
+        <CURVED COMPRESSED="B64Z-LittleEndian" BITSIZE="64">
+            <E>eJx10ysPAjEQReHlzfJanptgMBgMBoPBYDAYDAaDwWD4/xLBHHPC1Nx052vSdrpF8RujyE7xf7QjG5F14pnjm5HDxA/kW/puX8mTZeKXctT7iV/LdyN7id/I41hnv5X3Pux38qXm9nvVucdF4g/y9Gme+KM872aV+JP8OJK+2J/lJ5GzxF/kK6X9VX4ayTu1v8mzD9bZ3+W5R961/UOePnFu+6c898h/af+Sp0/0wf4tX6tu/5H/Al2cB7sA</E>
+            <DATAPOINTS ID="0">
+                <INDEX>eJwtxcUiAwAAANAZhmkzpru7u3tymJ7u5v8PDt67vEDgX5qDTneGMx1ylrOd47Bzned8F7jQRS52iSMuddRlLnfMFa50latd41rXud4NbnSTm93iVre53R3udJe73eNe97nfAx70kIc94lGPedwTnvSUpz3jWc953gte9JKXveJVr3ndG45701ve9o53veeE933gQyd95GOf+NRnPveFU770la9941vf+d4PfvSTn/3iV7/53R/+9Je//eNf/wH1+hmc</INDEX>
+                <POINTS>eJyFlntQVFUcxyEEVECRpyj4AJEUyYVFFhbds7u6C4u8KWINU1BCUDF5aJK2olkWBCFNTSYTjg6BKAqIRggnNDNsooZHg6WNjKI4WWOSS74ghvs757B32bnnnw87H+49vz1nf99zzMy48az6n86oVDk24w1zYEBBV4ouV4kn787L6Djqgoh/gXiLxNXFKWp80XKJWJwqot4CuOxAb2B5dAQuOPnkx4ezQ6mfBIxM/uZSx/pIXDv2vJx6S4H6rICSLy3K/ypFOGGr3/ah4vn0eWugi2QEHfeVYDeO1E8GarjncAj3Huqn8OaDOqifKuBteP7YM6uQoqCV1Nvy/Cxd5oXcsnDq7Xg+ybwDrX0QRf20CeePpX66gLcHLp5V9NbTE65I1XKgcEkc8zPIvL6fH/PWi5C4VtbfXhlDvQPwTnNDWvy+UNR5etGeX1pYfY7AE7Cv0dw+U+80YX1s/ZyBZd71+LNuZ/SwblqFz7j1cwEWZH50Zd3bIrRj3kBDxXU19a7AIpeP/yzskaLKvrOxU6ojqJ8pUJ8bcMgtuK5gQIYqRVX12Ydk1M8CpkV+0HB4UIZavuu+6VSkoH42cOnzGTt0NQj93mZnMbNHRb078L/EKPd6fznSt6q9Z89h9XkI1DdHwM8FhifYiEduKpG5z92fsn9g758H7Mq7tq/YNwx5ldk/bxol8fOBz2wmpcSMPveFIifXv09JvSewwy/f8szovP2f9mZvGrd/XgLrtwCYMVQaMFyoQB4VrT0/DzLvDTzjIFow3K1CstaQxvYa1p8LgXf8OpyHPSLQiqw1V/v82fw+AvW9KFDfIuC3p889XJWDkH239KjWRkr9YqBEv6HOYbT+202NmX6VLP98gQ4+BwuvpyqQpGhnVW4uy88lZH15v3sy/Hif+f/3EjAeck/Cy6+lQHfIPQde/omAwfBcBC8//QXqCzDwsUb5LAZmcbll5APJ9+Byz8gvA17mctPIBxnWZ+QlAvUFA9Vc7mE7yEHiQ8j34HIPayEHiZcCe7jcw72Qg8SHAk2db8sF/Arg3YVjfYuzoI+JlwFHDo31LdZDHxNP/tjF9S12tOX6mHg5EPoCkz4hXiHglUDduukttftCsVd/q2fzuPxfCWyMa7NO0YvwJ4vUD9rGnR+rgGfqt02PrXHF+r2d9uPPH5WZ4eCfX2qB+sKAxy+duhvhHopv6Mou749m3z8cqDkVpBk4KcI5cxsKbjWy80MD1NrqcpqVLris651234Xs/ImYsD62f6uBU61/9c3fLsPn76eHP3Jj/RkJDOByD6dDDhIfBYzhcg/XQw4SH03q4HIP/w05SHyMwPrEAk3lYxzQE/Z1L7fP1McDyb6e4/aZ+gQg2Vc9t8/Uv2ywbmxfyXiF95m/volAD+3hs033nHDvNddJV7Rs/V4FLv96T+ZtSxHu69PgLTXMJwFVJUdb4t8Pwf15N0qtxOz9WqCp/VsjUN9rwKDNd5RmKkekqNpVUpfC5k8GXk1KzjwoFaHBr2p/s9MzvxaYVvpuwpMCKap+0H7xQ0f2/teBps6vdUBT+bIe6ITH7h14CO4hxKcAn3L3FrwM7jHEpwL/4O49eCfcg4jfILB+G02sGxlpQP69mYw3gPx7MxnpQP69mYxNBvMb//4yBOrPBOZXRx+89whh+41tI0eCWX9sBh73k8r/PS/HF05oH5s1B1C/BSi6NU9cUi7Hu8MexxVVeFC/1aA+4/Mty9Ab1b8NGGhz28JuWImqPO/r1pSz+8ebwPc0iiPf16pRZKEypuQ069/twAHIzVIuR6nPBprKj/8BrUD9LgAA</POINTS>
+            </DATAPOINTS>
+        </CURVED>
+        <COMPOSITE>
+            <C ID="1"> E[20-21,18] </C>
+            <C ID="2"> E[2,7,10] </C>
+            <C ID="3"> E[1] </C>
+            <C ID="4"> E[4] </C>
+            <C ID="5"> E[22] </C>
+            <C ID="6"> E[19] </C>
+            <C ID="100"> T[0-11] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[100] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/master</GitBranch>
+            <GitSHA1>cc5ef7816ad70f620a66e4cd1a4635c9668de17c</GitSHA1>
+            <Hostname>WINDOWS-G7KA7IF</Hostname>
+            <NektarVersion>5.3.0</NektarVersion>
+            <Timestamp>05-Apr-2023 19:00:55</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>ring.mcf ring.xml -v -f </NekMeshCommandLine>
+        <NekMeshMCF>
+            <MESHING>
+                <INFORMATION>
+                    <I PROPERTY="CADFile" VALUE="halfcircle.step" />
+                    <I PROPERTY="MeshType" VALUE="2D" />
+                </INFORMATION>
+                <PARAMETERS>
+                    <P PARAM="MinDelta" VALUE="0.00054" />
+                    <P PARAM="MaxDelta" VALUE="0.5" />
+                    <P PARAM="EPS" VALUE="0.015" />
+                    <P PARAM="Order" VALUE="4" />
+                </PARAMETERS>
+                <BOOLPARAMETERS>
+                    <P VALUE="VariationalOptimiser" />
+                </BOOLPARAMETERS>
+            </MESHING>
+        </NekMeshMCF>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[100]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
+    </EXPANSIONS>
+</NEKTAR>

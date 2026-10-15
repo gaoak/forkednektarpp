@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYICAc7pVrBsSfOyfTrtRlJHkYA8VZmCE0n9WfrzkiyQOA0wo8gEY8sxQ+rukxcbGF3b2ywxWbCqaZAdXx4KmHt0eVii9ilXH2Bgo7hez6/A5oDth8mxY9SPcwQ6lfSD69q+DmgOT50C1dz+6+zmhNBf7Ne2qQrv929+ke3yVtIfr54LS0HDbDwtHmDw3qrswzOeB0nrm/+2XaJvbK0FpmDwvlJ7g6Tjn2Do3+8BuJ//+9QZweT4o/ab0ZlOftru93WSBvzuBNEyeH0p3ZPUej682sO9TeLF5wR03uLwAlD4WEZPVYWVgz7Ji3S3eb45weUEofULIQOXfFVd7o32WW0+uRvhfCKbur2BZPVD8zUFeZomrrnB5AI8kd0gA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxdk0cWglAQBL8kxYQ5K+Zw/wu6mVpQbPpR3cyfYSCl7pWF9sQn8jPxXDoOLcRnoaVy8ErnzkP7Og8+UP1paC1OfqgcfKR8o/7gC/XRiFO3lI9W8j03Oc/H/JxTy18qh7/SPfOvQwv5G+Xwt6G8J87ZidPPXs8z30H14UfVxT+pLvXOoXyn7OkSmstvdc/+rsrDb6Hsib3exdnHQzn4U32z35c438FbOfhH/fP/fVWH9/BL3Yu+/k3GBkMA</EDGE>
+        <ELEMENT>
+            <T COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx10scSglAQRFHMomLOOYf//0E39y7sKtmcgoJ5Mz0Uxe9Vw3rcN7CJrT/vtbET33WxxF7U6+MAqzhniCMcx3kTnOIs+pjjApfR1wrXUa+M9ze4jTl2ca7nOZd97aMP5z3gEc2tiucnPKO5XPCKNzSvOz7wieZo3Re6V3Nwbuv4nXNZ943uzTzM0b5zL+7xg+ZqTs7lvObiXvI/cj73as7u23y+GtgGigAA</T>
+        </ELEMENT>
+        <CURVED COMPRESSED="B64Z-LittleEndian" BITSIZE="64">
+            <E>eJx11as7RFEUhvFxZ9zv9/s9KIqiKIqiKIqiKIqiKIqiKIqiKIqiKIqi+J+U9Qbv4zvle2bmN2vWPrP3Oo3G36uj8f/VXtlSuRk8r/Gt+p59s3K4sk3fsx9UfXIx+DHV5/Ol4KdVt1N92S/Id1XOB7+qfrort4LnfXyPfs9+R74pZ7+rer2V68HvqX5f5Ubw+6rfX8l9tj+QH6icC/5Qnv0xEvyR/FDlaPDH8qx7PPgTefpgH9qfytPHRPBn8tSdCf5cnr5ng7+Qp4/J4C/lcVPBX8njfD65ruXZN5w7+xt57gv7wv5WnvvCObW/k2dfMifs7ytZH3NhJfgHedbJubF/VD/MQc6l/ZPqL1VuB/8sv1y5FvyLPOtkLtq/VtI/951zaf8mTx/MCft39cNcY87Zf6g+c41123+qPs9F5rr9l+oz3z2nub7l+Z94Dtj/qJ9fMw4ZvAAA</E>
+            <DATAPOINTS ID="0">
+                <INDEX>eJwtxddCCAAAAMCKskpCKCIzM3tL9sqKzMjeCplZ2bNQyN6bUCojmxAR/siDu5cLCPgv0EGu4ZoOdohrubbruK7rOdRhru9wN3CEG7qRGzvSTdzUzRzlaDd3C8e4pVs51q3dxm3dzu3dwXHu6E7u7C7u6m6Od3f3cE/3cm/3cV/3c38P8EAP8mAPcYKHOtHDPNwjPNKjPNpjPNbjPN4TnOSJnuTJnuKpTvY0T3eKZ3imZ3m253iuUz3P853mBV7oRV7sJV7qZV7uFV7pVV7tNV7rdGd4ndd7gzO90Zu82Vu81duc5e3e4Z3e5d3O9h7v9T7v9wEf9CEf9hEf9TEfd45zfcInfcp5zvdpn/FZF/icz/uCL/qSL/uKr/qar/uGb/qWb/uO7/qe7/uBH/qRC/3YT/zURS72M5e41GV+7hd+6Vcu92u/8Vu/83t/8Ed/8mdX+Iu/+psr/d0/XOWf/uVq//Yf//U/etxVugAA</INDEX>
+                <POINTS>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</POINTS>
+            </DATAPOINTS>
+        </CURVED>
+        <COMPOSITE>
+            <C ID="1"> E[26-27,23] </C>
+            <C ID="2"> E[0,33,15,41] </C>
+            <C ID="3"> E[39] </C>
+            <C ID="4"> E[40,29] </C>
+            <C ID="5"> E[28] </C>
+            <C ID="6"> E[24] </C>
+            <C ID="100"> T[0-23] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[100] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/feature/h-adaptation</GitBranch>
+            <GitSHA1>f9cbd6818326bdd09d40e5aa6bf5706e574dd013</GitSHA1>
+            <Hostname>WINDOWS-G7KA7IF</Hostname>
+            <NektarVersion>5.5.0</NektarVersion>
+            <Timestamp>14-Mar-2024 14:50:11</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>-m h_adaptation:order=4:adaptfile=AdaptID_Serial1.txt ringh2.xml ringh2.xml </NekMeshCommandLine>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[100]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
+    </EXPANSIONS>
+</NEKTAR>

@@ -85,6 +85,7 @@
 //    gnuplot OneDFiniteDiffAdvDiffSolverOutputL2Norm.p
 //
 // -----------------------------------------------------------------
+#include <cfloat>
 #include <fstream>
 #include <iomanip>
 #include <iostream>

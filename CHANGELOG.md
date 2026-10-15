@@ -87,6 +87,7 @@ v5.11.0
 - Improve CGNS read support for multiple volumes, boundary condition/family names, and fix various mesh reorientation issues (!2778)
 - Overhaul the variational optimiser: correct its search direction, the Hessian of two of its functionals and its three-dimensional strain tensor; regularise the Jacobian against the whole mesh, under a cap that stops one inverted element flattening the energy everywhere, and measure convergence against the mesh's size; let nodes on the CAD slide again and leave alone those belonging to no element, which a boundary-layer mesh has thousands of and which ended the run; fix the node ordering of prisms and support hexahedra; and evaluate the energy from derivatives the elements keep, which is three to four times faster in a third of the memory (!2789)
 - NekMesh mesh generation quality pass: diagnose failures that used to crash or assert, and cut the memory and CAD work the generator wastes (!2816)
+- Adding high-order curvilinear (isoparametric) mesh h-adaptation in 2D (!2830)
 
 **CI**
 - Added DEBUG_IMAGES option to reduce load on registry storage (2648)
