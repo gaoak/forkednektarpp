@@ -92,6 +92,10 @@ NEK_FORCE_INLINE static void CFLVelocityCFEKernel(
 
             outvec[ndim * outVecStride + i] = GetSoundSpeed(EoS, rho, e);
         });
+
+    // Restore the default for whatever runs next: a kernel that inherits the
+    // stream would otherwise land on this block's stream.
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 } // namespace Nektar::detail
