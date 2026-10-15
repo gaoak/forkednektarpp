@@ -111,8 +111,8 @@ public:
 
         // Return if no Neumann boundary coefficients on any rank. Must be a
         // global reduction rather than the purely local
-        // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below constructs
-        // a fresh ContField per component, which is collective over the row
+        // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below may build
+        // a component's assembly map, which is collective over the row
         // communicator. If one rank's local partition has zero Neumann dofs
         // while another rank's has some, a per-rank-only check makes some
         // ranks skip that collective construction while others enter it,

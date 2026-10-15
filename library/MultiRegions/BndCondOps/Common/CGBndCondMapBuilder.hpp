@@ -390,27 +390,20 @@ CGBndCondCoeffMaps<TData> BuildCGBndCondCoeffMaps(
     std::vector<std::vector<size_t>> groupSrcByBlk(domainBlocks.size());
     std::vector<std::vector<TData>> groupSignByBlk(domainBlocks.size());
 
-    auto session = expansionList->GetSession();
-    auto graph   = expansionList->GetGraph();
     auto expContField =
         std::dynamic_pointer_cast<MultiRegions::ContField>(expansionList);
+    ASSERTL0(expContField, "A continuous boundary condition operator needs a "
+                           "continuous expansion list.");
 
     for (unsigned int nc = 0; nc < nComp; ++nc)
     {
-        MultiRegions::AssemblyMapCGSharedPtr assmbMap;
-        if (expContField &&
-            expContField->GetLocalToGlobalMap()->GetVariable() ==
-                components[nc])
-        {
-            assmbMap = expContField->GetLocalToGlobalMap();
-        }
-        else
-        {
-            MultiRegions::ContField compfield(session, graph, components[nc],
-                                              true, false,
-                                              Collections::eNoCollection);
-            assmbMap = compfield.GetLocalToGlobalMap();
-        }
+        // Use the assembly map of this component's variable, not that of
+        // the expansion list's own variable: the components can have
+        // different boundary conditions, and so different Dirichlet degrees
+        // of freedom and boundary-to-local maps and signs read below. The
+        // lookup shares or builds each variable's map only once.
+        const MultiRegions::AssemblyMapCGSharedPtr &assmbMap =
+            expContField->GetLocalToGlobalMap(components[nc]);
         auto &sign            = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
         auto &map             = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
         result.signChange[nc] = assmbMap->GetSignChange();

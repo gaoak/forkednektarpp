@@ -109,8 +109,8 @@ public:
 
         // Return if no Dirichlet boundary coefficients on any rank. This
         // must be a global reduction rather than the purely local
-        // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below constructs
-        // a fresh ContField per component, which is collective over the row
+        // m_numBndCoeffCompSize: BuildCGBndCondCoeffMaps() below may build
+        // a component's assembly map, which is collective over the row
         // communicator, and SetUpUniversalDirComm() below builds each
         // component's AssemblyComm, whose shared-id discovery is itself a
         // ring exchange every rank must enter. If one rank's local partition

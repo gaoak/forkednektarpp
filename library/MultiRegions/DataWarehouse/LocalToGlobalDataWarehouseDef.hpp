@@ -57,34 +57,20 @@ std::vector<AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::GetAssemblyMap(
         return it->second;
     }
 
-    auto session = this->m_expansionList->GetSession();
-    auto graph   = this->m_expansionList->GetGraph();
+    auto contfield =
+        std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+    ASSERTL0(contfield, "An assembly map needs a continuous expansion list.");
     std::vector<AssemblyMapCGSharedPtr> assemblyMap;
 
     if (components.empty())
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         assemblyMap.push_back(contfield->GetLocalToGlobalMap());
     }
     else
     {
-        auto expContField =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-
         for (const auto &component : components)
         {
-            if (expContField &&
-                expContField->GetLocalToGlobalMap()->GetVariable() == component)
-            {
-                assemblyMap.push_back(expContField->GetLocalToGlobalMap());
-                continue;
-            }
-
-            auto contfield = MemoryManager<ContField>::AllocateSharedPtr(
-                session, graph, component, true, false,
-                Collections::eNoCollection);
-            assemblyMap.push_back(contfield->GetLocalToGlobalMap());
+            assemblyMap.push_back(contfield->GetLocalToGlobalMap(component));
         }
     }
 

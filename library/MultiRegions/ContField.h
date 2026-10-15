@@ -45,6 +45,10 @@
 #include <MultiRegions/MultiRegionsDeclspec.h>
 #include <SpatialDomains/Conditions.h>
 
+#include <map>
+#include <memory>
+#include <string>
+
 namespace Nektar::MultiRegions
 {
 
@@ -100,6 +104,11 @@ public:
     /// Returns the map from local to global level.
     inline const AssemblyMapCGSharedPtr &GetLocalToGlobalMap() const;
 
+    /// Returns the map from local to global level of another variable
+    /// sharing this field's expansion.
+    MULTI_REGIONS_EXPORT const AssemblyMapCGSharedPtr &GetLocalToGlobalMap(
+        const std::string &variable);
+
     /// Solves the two-dimensional Laplace equation, subject to the
     /// boundary conditions specified.
     MULTI_REGIONS_EXPORT void LaplaceSolve(
@@ -151,6 +160,12 @@ protected:
     /// global degrees of freedom.
     AssemblyMapCGSharedPtr m_locToGloMap;
 
+    /// Maps from local to global level of the variables on this field's
+    /// element expansions, by variable name, shared with the fields copied
+    /// from this one; see GetLocalToGlobalMap(variable).
+    std::shared_ptr<std::map<std::string, AssemblyMapCGSharedPtr>>
+        m_locToGloMaps;
+
     /// (A shared pointer to) a list which collects all the global
     /// matrices being assembled, such that they should be constructed
     /// only once.
@@ -164,6 +179,9 @@ protected:
 
     /// Data for Gradient Jump Penalisation (GJP) stabilisaiton
     GJPStabilisationSharedPtr m_GJPData;
+
+    /// Adds this field's map to #m_locToGloMaps as the map of \a variable.
+    void ShareLocalToGlobalMap(const std::string &variable);
 
     /// Returns the global matrix specified by \a mkey.
     MULTI_REGIONS_EXPORT GlobalMatrixSharedPtr
