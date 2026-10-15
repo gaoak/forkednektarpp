@@ -5,6 +5,7 @@ SET(StdRegionsUnitTestsSources
     TestGLLSpaced.cpp
     TestInvBwdTrans.cpp
     TestReduceOrderCoeffs.cpp
+    TestTetExactMass.cpp
 )
 
 ADD_DEFINITIONS(-DENABLE_NEKTAR_EXCEPTIONS)

@@ -16,6 +16,18 @@ or, if we have more then one variable we can apply the same basis to all using
 <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u,v,p" TYPE="MODIFIED" />
 \end{lstlisting}
 
+Each type chooses its own quadrature. \inltt{MODIFIED} and
+\inltt{GLL\_LAGRANGE} take one point more than modes on
+Gauss-Lobatto-Legendre points in the tensor-product directions and as many
+points as modes on Gauss-Radau points in the collapsed ones.
+\inltt{ORTHOGONAL} takes as many points as modes on the Gauss family:
+Gauss-Legendre in the tensor-product directions and in a direction collapsed
+once (the second of a triangle or tetrahedron, the third of a prism), and
+Gauss-Jacobi(1,0) in a direction collapsed twice (the third of a tetrahedron
+or pyramid). The orthogonal mass matrix is then integrated exactly on every
+shape but the pyramid, every direction has the same count, and the element
+and trace points coincide wherever the rule is Gauss-Legendre.
+
 The expansion basis can also be specified in detail as a combination of
 one-dimensional bases, and thus the user is able to, for example, increase the
 quadrature order. For tet elements this takes the form:

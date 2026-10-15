@@ -929,10 +929,22 @@ const LibUtilities::BasisKey StdTriExp::v_GetTraceBasisKey(
         {
             switch (m_base[dir]->GetPointsType())
             {
+                // The edge keeps the element's own points, as a
+                // quadrilateral's edge does.
                 case LibUtilities::eGaussLegendreWithMP:
                 case LibUtilities::eGaussLobattoLegendre:
                 {
                     return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
+                                                  m_base[dir]->GetNumModes(),
+                                                  m_base[dir]->GetPointsKey());
+                }
+                break;
+                // On a Gauss rule the edge's nodal basis is the one through
+                // Gauss points, collocated with the rule when the mode and
+                // point counts agree.
+                case LibUtilities::eGaussGaussLegendre:
+                {
+                    return LibUtilities::BasisKey(LibUtilities::eGauss_Lagrange,
                                                   m_base[dir]->GetNumModes(),
                                                   m_base[dir]->GetPointsKey());
                 }
@@ -984,6 +996,26 @@ const LibUtilities::BasisKey StdTriExp::v_GetTraceBasisKey(
                             1,
                         LibUtilities::eGaussLobattoLegendre);
                     return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
+                                                  m_base[dir]->GetNumModes(),
+                                                  pkey);
+                }
+                break;
+                // A Gauss rule in the collapsed direction: the edge takes
+                // Gauss-Legendre points of the same count, as a quadrilateral's
+                // edge does and as a tetrahedron's face does for a
+                // Gauss-Jacobi rule, so the edge points coincide with the
+                // element's where the rule is Gauss-Legendre; its nodal basis
+                // is the one through Gauss points.
+                case LibUtilities::eGaussGaussLegendre:
+                case LibUtilities::eGaussGaussAlpha1Beta0:
+                {
+                    LibUtilities::PointsKey pkey(
+                        m_base[dir]
+                            ->GetBasisKey()
+                            .GetPointsKey()
+                            .GetNumPoints(),
+                        LibUtilities::eGaussGaussLegendre);
+                    return LibUtilities::BasisKey(LibUtilities::eGauss_Lagrange,
                                                   m_base[dir]->GetNumModes(),
                                                   pkey);
                 }

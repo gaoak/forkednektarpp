@@ -619,7 +619,9 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
             int nquad1 = m_base[1]->GetNumPoints();
 
             if (m_base[1]->GetPointsType() ==
-                LibUtilities::eGaussRadauMAlpha1Beta0)
+                    LibUtilities::eGaussRadauMAlpha1Beta0 ||
+                m_base[1]->GetPointsType() ==
+                    LibUtilities::eGaussGaussAlpha1Beta0)
             {
                 Vmath::Smul(nquad1, 0.5, returnval.data(), 1, returnval.data(),
                             1);
@@ -650,7 +652,9 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
                 mkey.m_basisKey.GetBasisType() == LibUtilities::eOrtho_B)
             {
                 if (m_base[2]->GetPointsType() ==
-                    LibUtilities::eGaussRadauMAlpha1Beta0)
+                        LibUtilities::eGaussRadauMAlpha1Beta0 ||
+                    m_base[2]->GetPointsType() ==
+                        LibUtilities::eGaussGaussAlpha1Beta0)
                 {
                     Vmath::Smul(nquad2, 0.5, returnval.data(), 1,
                                 returnval.data(), 1);
@@ -677,6 +681,7 @@ std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
                     break;
                         // (1,0) Jacobi inner product.
                     case LibUtilities::eGaussRadauMAlpha1Beta0:
+                    case LibUtilities::eGaussGaussAlpha1Beta0:
                     {
                         const Array<OneD, NekDouble> z2 = m_base[2]->GetZ();
 

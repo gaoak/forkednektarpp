@@ -92,12 +92,17 @@ enum PointsType
     eNodalPrismSPI, //!<  3D prism SPI
     eNodalQuadElec, //!<  2D GLL for quad
     eNodalHexElec,  //!<  3D GLL for hex
-    eGaussLegendreWithMP,  //!<  1D Gauss-Legendre quadrature points with
-                           //!<  additional x=-1 and x=1 end points
-    eGaussLegendreWithM,   //!<  1D Gauss-Legendre quadrature points with
-                           //!<  additional x=-1 point
-    eNodalPyrEvenlySpaced, //!<  3D Nodal Pyramid evenly spaced points
-    SIZE_PointsType        //!<  Length of enum list
+    eGaussLegendreWithMP,   //!<  1D Gauss-Legendre quadrature points with
+                            //!<  additional x=-1 and x=1 end points
+    eGaussLegendreWithM,    //!<  1D Gauss-Legendre quadrature points with
+                            //!<  additional x=-1 point
+    eNodalPyrEvenlySpaced,  //!<  3D Nodal Pyramid evenly spaced points
+    eGaussGaussAlpha1Beta0, //!<  1D Gauss-Jacobi quadrature points,
+                            //!<  \f$ \alpha = 1, \beta = 0 \f$
+    // New types are appended: the enumerator values are stored as integers
+    // in the compressed XML (CURVED) and HDF5 mesh formats, so reordering
+    // would change the meaning of existing files.
+    SIZE_PointsType //!<  Length of enum list
 };
 
 constexpr unsigned PointsTypeNumEndPts[SIZE_PointsType] = {
@@ -136,7 +141,9 @@ constexpr unsigned PointsTypeNumEndPts[SIZE_PointsType] = {
     0, // eNodalQuadElec,
     0, // eNodalHexElec,
     1, // eGaussLegendreWithMP,
-    2  // eGaussLegendreWithM,
+    2, // eGaussLegendreWithM,
+    0, // eNodalPyrEvenlySpaced,
+    0  // eGaussGaussAlpha1Beta0,
 };
 
 static std::vector<LibUtilities::PointsType> NullPointsTypeVector;

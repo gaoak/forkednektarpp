@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <NEKTAR>
     <EXPANSIONS>
-        <E COMPOSITE="C[1]" NUMMODES="4" FIELDS="u" TYPE="ORTHOGONAL" />
+        <E COMPOSITE="C[1]" BASISTYPE="Ortho_A,Ortho_B,Ortho_C" NUMMODES="4,4,4" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0,GaussRadauMAlpha2Beta0" NUMPOINTS="5,4,4" FIELDS="u" />
     </EXPANSIONS>
     <GEOMETRY DIM="3" SPACE="3">
         <VERTEX>

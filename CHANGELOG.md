@@ -36,6 +36,8 @@ v5.11.0
 - Reduce the memory the geometry object model uses: allocate the mapping coefficients on first fill, hold the shared mapping by raw pointer, pack Geometry's flags into a single word, cap the object pool block size and store geometry in a flat map (!2761)
 - Generalise the face-to-element map to a facet-to-element map, so that a two-dimensional mesh gets the same cached edge-to-element lookup a three-dimensional one already had in place of a scan over every element (!2761)
 - Speed up compressed XML mesh I/O by decompressing in place and writing geometry at a lower zlib level (!2772)
+- Add the Gauss-Jacobi(1,0) point type `GaussGaussAlpha1Beta0` and the tetrahedral rules that use it for an exact mass matrix (!2802)
+- Put the `ORTHOGONAL` expansion type on the Gauss family with as many points as modes: Gauss-Legendre, with Gauss-Jacobi(1,0) in a direction collapsed twice; triangles accept Gauss rules in their trace keys (!2802)
 - Allow a composites and boundary conditions to be referred to by name wherever a composite list is written (!2778)
 - Add HDF5 output format for the HistoryPoints filter, selected by giving OutputFile a .h5 or .hdf5 extension (!2781)
 - Assemble every Krylov vector of the redesign GMRES solver and take its inner products with the global inner-product mask, which it now shares with the redesign CG solver, so that tight tolerances no longer stall (!2786)

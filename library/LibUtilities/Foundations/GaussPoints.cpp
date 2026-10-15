@@ -74,6 +74,8 @@ bool GaussPoints::initPointsManager[] = {
     PointsManager().RegisterCreator(PointsKey(0, eGaussLegendreWithMP),
                                     GaussPoints::Create),
     PointsManager().RegisterCreator(PointsKey(0, eGaussLegendreWithM),
+                                    GaussPoints::Create),
+    PointsManager().RegisterCreator(PointsKey(0, eGaussGaussAlpha1Beta0),
                                     GaussPoints::Create)};
 
 void GaussPoints::v_CalculatePoints()
@@ -157,6 +159,11 @@ void GaussPoints::v_CalculatePoints()
         case eGaussRadauMAlpha2Beta0:
             Polylib::zwgrjm(m_points[0].data(), m_weights.data(), numpoints,
                             2.0, 0.0);
+            break;
+
+        case eGaussGaussAlpha1Beta0:
+            Polylib::zwgj(m_points[0].data(), m_weights.data(), numpoints, 1.0,
+                          0.0);
             break;
 
         case eGaussKronrodLegendre:
@@ -249,6 +256,10 @@ void GaussPoints::v_CalculateDerivMatrix()
 
         case eGaussRadauMAlpha2Beta0:
             Polylib::Dgrjm(dmtemp, m_points[0].data(), numpoints, 2.0, 0.0);
+            break;
+
+        case eGaussGaussAlpha1Beta0:
+            Polylib::Dgj(dmtemp, m_points[0].data(), numpoints, 1.0, 0.0);
             break;
 
         case eGaussLegendreWithMP:
@@ -366,6 +377,11 @@ void GaussPoints::CalculateInterpMatrix(
         case eGaussRadauMAlpha2Beta0:
             Polylib::Imgrjm(interp.data(), m_points[0].data(), xpoints.data(),
                             GetNumPoints(), npts, 2.0, 0.0);
+            break;
+
+        case eGaussGaussAlpha1Beta0:
+            Polylib::Imgj(interp.data(), m_points[0].data(), xpoints.data(),
+                          GetNumPoints(), npts, 1.0, 0.0);
             break;
 
         case eGaussKronrodLegendre:

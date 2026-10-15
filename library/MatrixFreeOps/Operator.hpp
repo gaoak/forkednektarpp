@@ -599,7 +599,9 @@ protected:
             const Array<OneD, const NekDouble> w = basis[i]->GetW();
             NekDouble fac                        = 1.0;
             if (basis[i]->GetPointsType() ==
-                LibUtilities::eGaussRadauMAlpha1Beta0)
+                    LibUtilities::eGaussRadauMAlpha1Beta0 ||
+                basis[i]->GetPointsType() ==
+                    LibUtilities::eGaussGaussAlpha1Beta0)
             {
                 fac = 0.5;
             }

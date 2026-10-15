@@ -8,6 +8,7 @@ SET(LibUtilitiesUnitTestSources
     TestSessionNode.cpp
     TestInterpCoeff.cpp
     TestPolylib.cpp
+    TestGaussGaussAlpha1Beta0.cpp
     TestCrystalRouter.cpp
     TestNodalPointOrdering.cpp
     TestSharedIdResolvers.cpp

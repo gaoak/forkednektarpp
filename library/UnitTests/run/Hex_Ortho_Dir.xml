@@ -154,7 +154,7 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="ORTHOGONAL" FIELDS="u,v,w" />
+        <E COMPOSITE="C[0]" BASISTYPE="Ortho_A,Ortho_A,Ortho_A" NUMMODES="4,4,4" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre,GaussLobattoLegendre" NUMPOINTS="5,5,5" FIELDS="u,v,w" />
     </EXPANSIONS>
 
     <CONDITIONS>
