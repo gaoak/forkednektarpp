@@ -304,22 +304,7 @@ void NekDeviceFFTImpl<TData>::LaunchScaleRealsImpl(TData alpha)
 template <typename TData>
 void NekDeviceFFTImpl<TData>::WaitOnStream(unsigned int producerStreamID)
 {
-    if (producerStreamID != m_streamID)
-    {
-        [[maybe_unused]] sycl::event &event =
-            SYCLQueue::GetEvent(producerStreamID);
-#if defined(__ADAPTIVECPP__)
-        AsQueue(m_streamID).submit([&](sycl::handler &cgh) {
-            cgh.depends_on(event);
-            cgh.AdaptiveCpp_enqueue_custom_operation(
-                [=]([[maybe_unused]] sycl::interop_handle ih) {});
-        });
-#elif defined(__DPCPP_COMPILER)
-        AsQueue(m_streamID).submit([&](sycl::handler &cgh) {
-            cgh.ext_oneapi_barrier({event});
-        });
-#endif
-    }
+    SetStreamDependencies<NektarSpaces::Device>(m_streamID, producerStreamID);
 }
 
 template <typename TData>

@@ -303,8 +303,13 @@ public:
     /**
      * @brief Templated initialize method: set every entry to @p val, but the
      * padding, which is zero.
+     *
+     * @param val      - Value to set.
+     * @param streamID - Stream every block is set on. 0, the default, sets
+     *                   each block on its own stream (block index + 1).
      */
-    template <typename MemSpace> void Initialize(const TData val)
+    template <typename MemSpace>
+    void Initialize(const TData val, const unsigned int streamID = 0)
     {
         if (!m_instantiated)
         {
@@ -320,13 +325,13 @@ public:
 
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
-            const unsigned int streamID = blk + 1;
-            auto &block                 = this->GetBlocks()[blk];
+            const unsigned int blkStreamID = streamID == 0 ? blk + 1 : streamID;
+            auto &block                    = this->GetBlocks()[blk];
             block.m_memory_region.template Initialize<MemSpace>(val, 0, 0,
-                                                                streamID);
+                                                                blkStreamID);
             if (val != TData(0))
             {
-                ZeroPadding<MemSpace>(block, streamID);
+                ZeroPadding<MemSpace>(block, blkStreamID);
             }
         }
     }

@@ -200,9 +200,10 @@ protected:
                 continue;
             }
 
-            const auto stride  = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            const auto *bndPtr = this->m_bndCondPhysOp->GetBlockPtr(blk);
-            const auto *norms  = this->m_bndCondPhysOp->GetBlockNormals(blk);
+            const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
+            const auto *bndPtr =
+                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_streamID);
+            const auto *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             // The boundary storage and normals live in the execution space's
             // memory, so the reduction runs there as a kernel - a host loop
@@ -218,14 +219,18 @@ protected:
             m_velBC[blk].template Initialize<MemSpace>(0);
             m_VnInf[blk].template Initialize<MemSpace>(0);
 
-            TData *rhoBC = m_rhoBC[blk].template GetPtr<MemSpace, ReadWrite>();
-            TData *pBC   = m_pBC[blk].template GetPtr<MemSpace, ReadWrite>();
-            TData *velBC = m_velBC[blk].template GetPtr<MemSpace, ReadWrite>();
-            TData *VnInf = m_VnInf[blk].template GetPtr<MemSpace, ReadWrite>();
+            TData *rhoBC = m_rhoBC[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
+            TData *pBC = m_pBC[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
+            TData *velBC = m_velBC[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
+            TData *VnInf = m_VnInf[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
 
-            ReduceEntropyStateBlock<ExecSpace>(stride, m_coordDim,
-                                               m_numComp - 1, m_gamma, bndPtr,
-                                               norms, rhoBC, pBC, velBC, VnInf);
+            ReduceEntropyStateBlock<ExecSpace>(
+                stride, m_coordDim, m_numComp - 1, m_gamma, bndPtr, norms,
+                rhoBC, pBC, velBC, VnInf, this->m_streamID);
         }
     }
 
@@ -243,25 +248,26 @@ protected:
                 continue;
             }
 
-            // Stream 0, as the trace flux work around this runs there.
-            const unsigned int streamID = 0;
-
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
+            auto bndPtr =
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             const TData *rhoBC =
-                m_rhoBC[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-            const TData *pBC =
-                m_pBC[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_rhoBC[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
+            const TData *pBC = m_pBC[blk].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
             const TData *velBC =
-                m_velBC[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_velBC[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
             const TData *VnInf =
-                m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
 
             ApplyEnforceEntropyBlock<ExecSpace, Policy>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, rhoBC, pBC, velBC,
-                VnInf, norms, bndPtr, streamID);
+                VnInf, norms, bndPtr, this->m_streamID);
         }
     }
 };

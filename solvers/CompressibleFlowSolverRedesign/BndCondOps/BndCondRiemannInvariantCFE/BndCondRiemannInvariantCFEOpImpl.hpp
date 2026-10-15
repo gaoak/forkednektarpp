@@ -193,10 +193,12 @@ protected:
             // device.
             m_VnInf[blk] = LibUtilities::MemoryRegion<TData>(stride);
             m_VnInf[blk].template Initialize<MemSpace>(0);
-            TData *VnInf = m_VnInf[blk].template GetPtr<MemSpace, ReadWrite>();
+            TData *VnInf = m_VnInf[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
 
-            ProjectFreestreamVelocityBlock<ExecSpace>(
-                stride, m_coordDim, m_velInf.data(), norms, VnInf);
+            ProjectFreestreamVelocityBlock<ExecSpace>(stride, m_coordDim,
+                                                      m_velInf.data(), norms,
+                                                      VnInf, this->m_streamID);
         }
     }
 
@@ -214,18 +216,17 @@ protected:
                 continue;
             }
 
-            // Stream 0, as the trace flux work around this runs there.
-            const unsigned int streamID = 0;
-
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
+            auto bndPtr =
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
             const TData *VnInf =
-                m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
 
             ApplyRiemannInvariantBlock<ExecSpace>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, m_rhoInf, m_pInf,
-                m_velInf.data(), VnInf, norms, bndPtr, streamID);
+                m_velInf.data(), VnInf, norms, bndPtr, this->m_streamID);
         }
     }
 };

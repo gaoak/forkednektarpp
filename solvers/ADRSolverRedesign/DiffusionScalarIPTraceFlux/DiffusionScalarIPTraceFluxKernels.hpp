@@ -111,6 +111,8 @@ namespace Nektar::detail
  * @param derivfwdbase      - Forward-side solution gradient.
  * @param derivbwdbase      - Backward-side solution gradient.
  * @param fluxbase          - Output flux, @p nvarComps components.
+ * @param streamID          - Stream the launch runs in; reset to the default
+ * afterwards.
  *
  */
 template <typename ExecSpace, bool IsInterior, typename TData>
@@ -119,7 +121,7 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
     const size_t traceStride, const TData penaltyCoeff, const TData *diffCoeff,
     const TData *normbase, const TData *penaltyFactorBase, const TData *fwdbase,
     const TData *bwdbase, const TData *derivfwdbase, const TData *derivbwdbase,
-    TData *fluxbase)
+    TData *fluxbase, const unsigned int streamID = 0)
 {
     using vec_t =
         typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -151,6 +153,8 @@ NEK_FORCE_INLINE static void DiffuseScalarTraceFluxKernel(
     const TData fWeightAver = TData(0.5);
     const TData bWeightJump = (IsInterior) ? TData(1.0) : TData(0.0);
     const TData fWeightJump = (IsInterior) ? TData(1.0) : TData(2.0);
+
+    Nektar::LoopExecutionSetStreamID(streamID);
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {

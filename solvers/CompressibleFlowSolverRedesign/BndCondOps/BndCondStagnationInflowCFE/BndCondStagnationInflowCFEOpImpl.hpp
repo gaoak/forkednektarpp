@@ -161,9 +161,10 @@ protected:
                 continue;
             }
 
-            const auto stride  = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            const auto *bndPtr = this->m_bndCondPhysOp->GetBlockPtr(blk);
-            const auto *norms  = this->m_bndCondPhysOp->GetBlockNormals(blk);
+            const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
+            const auto *bndPtr =
+                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_streamID);
+            const auto *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             // The boundary storage and normals live in the execution space's
             // memory, so the reduction runs there as a kernel - a host loop
@@ -177,13 +178,16 @@ protected:
             m_dir[blk].template Initialize<MemSpace>(0);
 
             TData *rhoStag =
-                m_rhoStag[blk].template GetPtr<MemSpace, ReadWrite>();
-            TData *EStag = m_EStag[blk].template GetPtr<MemSpace, ReadWrite>();
-            TData *dir   = m_dir[blk].template GetPtr<MemSpace, ReadWrite>();
+                m_rhoStag[blk].template GetPtr<MemSpace, ReadWrite>(
+                    this->m_streamID);
+            TData *EStag = m_EStag[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
+            TData *dir = m_dir[blk].template GetPtr<MemSpace, ReadWrite>(
+                this->m_streamID);
 
-            ReduceStagnationStateBlock<ExecSpace>(stride, m_coordDim,
-                                                  m_numComp - 1, bndPtr, norms,
-                                                  rhoStag, EStag, dir);
+            ReduceStagnationStateBlock<ExecSpace>(
+                stride, m_coordDim, m_numComp - 1, bndPtr, norms, rhoStag,
+                EStag, dir, this->m_streamID);
         }
     }
 
@@ -201,22 +205,22 @@ protected:
                 continue;
             }
 
-            // Stream 0, as the trace flux work around this runs there.
-            const unsigned int streamID = 0;
-
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
-            auto bndPtr = this->m_bndCondPhysOp->UpdateBlockPtr(blk, streamID);
+            auto bndPtr =
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
 
             const TData *rhoStag =
-                m_rhoStag[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_rhoStag[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
             const TData *EStag =
-                m_EStag[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
-            const TData *dir =
-                m_dir[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
+                m_EStag[blk].template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
+            const TData *dir = m_dir[blk].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
 
             ApplyStagnationInflowBlock<ExecSpace>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, rhoStag, EStag, dir,
-                bndPtr, streamID);
+                bndPtr, this->m_streamID);
         }
     }
 };

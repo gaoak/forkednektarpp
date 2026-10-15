@@ -274,7 +274,10 @@ public:
     {
         if (m_BndCondOp)
         {
+            // The storage is read on this operator's stream.
+            m_BndCondOp->SetStreamID(m_streamID);
             m_BndCondOp->UpdateBndPhys(time);
+            m_BndCondOp->ResetStreamID();
         }
     }
 
@@ -308,11 +311,17 @@ public:
             return;
         }
 
+        // The condition works on the boundary storage, which this operator
+        // seeds and reads on its own stream.
+        ptr->SetStreamID(m_streamID);
+
         // Attaching the storage also lets the condition take a copy of
         // anything the session evaluated into it, which it must do now: every
         // block it owns is overwritten with the interior state before its
         // Apply() runs.
         ptr->SetBndCondPhysOp(m_BndCondOp);
+
+        ptr->ResetStreamID();
 
         // Let it declare conditions the session could not express - an
         // adiabatic wall's Neumann energy component - and re-resolve the
@@ -356,10 +365,14 @@ public:
 
         GatherBndInteriorState(trace, OwnedBndCondBlocks());
 
+        SetBndCondStreams();
+
         for (auto &op : m_bndCondUpdateOps)
         {
             op->Apply();
         }
+
+        ResetBndCondStreams();
     }
 
     /**
@@ -390,6 +403,10 @@ public:
     }
 
 protected:
+    /// Stream all of the trace work runs on, the first element block's. Each
+    /// entry point orders it against the element block streams with events.
+    unsigned int m_streamID = 1;
+
     LibUtilities::Field<TData, FieldState::Phys> m_traceNormals;
     /// Set once SetTraceNormals() has supplied normals from outside. The
     /// mesh-derived default must not overwrite them after that; see
@@ -404,6 +421,25 @@ protected:
     bool m_append = false;
     /// ValidateBndCondTags() runs once, on the first UpdateBndCond().
     bool m_bndCondUpdatesValidated = false;
+
+    /// Run the attached conditions on this operator's stream, on which it
+    /// seeds and reads the boundary storage, until ResetBndCondStreams().
+    void SetBndCondStreams()
+    {
+        for (auto &op : m_bndCondUpdateOps)
+        {
+            op->SetStreamID(m_streamID);
+        }
+    }
+
+    /// Return the attached conditions to their default stream.
+    void ResetBndCondStreams()
+    {
+        for (auto &op : m_bndCondUpdateOps)
+        {
+            op->ResetStreamID();
+        }
+    }
 
     /**
      * @brief Fail on a boundary tag that nothing is going to act on.

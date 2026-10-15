@@ -209,11 +209,12 @@ protected:
      * own length, since they do not share a block count.
      */
     template <typename MemAccess, typename TField>
-    NEK_FORCE_INLINE static void SyncTrailingBlocks(TField &field)
+    NEK_FORCE_INLINE void SyncTrailingBlocks(TField &field)
     {
         for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
         {
-            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>();
+            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
+                this->m_streamID);
         }
     }
 
@@ -295,6 +296,8 @@ protected:
                  LibUtilities::Field<TData, FieldState::Phys> &inDeriv,
                  LibUtilities::Field<TData, FieldState::Phys> &flux) override
     {
+        this->JoinBlockStreams();
+
         switch (this->m_traceDim)
         {
             case 0:
@@ -310,6 +313,8 @@ protected:
                 this->template BoundaryOp<2>(in, inDeriv, flux);
                 break;
         }
+
+        this->ReleaseBlockStreams();
     }
 
     /**
@@ -325,6 +330,13 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &inDeriv,
         LibUtilities::Field<TData, FieldState::Phys> &flux) override
     {
+        if (this->m_parT0.empty())
+        {
+            return;
+        }
+
+        this->JoinBlockStreams();
+
         switch (this->m_traceDim)
         {
             case 0:
@@ -337,6 +349,8 @@ protected:
                 this->template ParallelOp<2>(in, inDeriv, flux);
                 break;
         }
+
+        this->ReleaseBlockStreams();
     }
 
     /**
@@ -366,14 +380,17 @@ protected:
                  "same as the flux components");
 
         // get field pointers
-        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         auto inDerivPtr =
-            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto fluxPtr =
-            flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
+            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
+            this->m_streamID);
 
-        auto normPtr = this->m_traceNormals.GetBlocks()[0]
-                           .template GetPtr<MemSpace, ReadOnly>();
+        auto normPtr =
+            this->m_traceNormals.GetBlocks()[0]
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -382,7 +399,8 @@ protected:
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
-        auto diffCoeff = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeff =
+            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
@@ -424,14 +442,16 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, m_nDim, normPtr, G,
-                this->m_norms);
+                this->m_norms, this->m_streamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
-                numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor);
+                numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor,
+                this->m_streamID);
 
             DiffuseScalarTraceFluxKernel<ExecSpace, true>(
                 npTBlock, m_nDim, m_nComp, npTBlock, m_IPPenaltyCoeff,
                 diffCoeff, this->m_norms, m_penFactor, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux);
+                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                this->m_streamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
@@ -489,20 +509,24 @@ protected:
 
         this->SetWorkSpace(numflux);
 
-        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         auto inDerivPtr =
-            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto fluxPtr =
-            flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>();
-        auto normPtr = this->m_traceNormals.GetBlocks()[0]
-                           .template GetPtr<MemSpace, ReadOnly>();
+            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
+            this->m_streamID);
+        auto normPtr =
+            this->m_traceNormals.GetBlocks()[0]
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
         SyncTrailingBlocks<ReadWrite>(flux);
         SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
-        auto diffCoeff = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeff =
+            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
@@ -539,14 +563,16 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, m_nDim, normPtr, G,
-                this->m_norms);
+                this->m_norms, this->m_streamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
-                numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor);
+                numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor,
+                this->m_streamID);
 
             DiffuseScalarTraceFluxKernel<ExecSpace, true>(
                 npTBlock, m_nDim, m_nComp, npTBlock, m_IPPenaltyCoeff,
                 diffCoeff, this->m_norms, m_penFactor, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux);
+                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                this->m_streamID);
 
             // Step 3: Replace flux values into the local flux storage, this
             // side only.
@@ -592,20 +618,24 @@ protected:
                  "same as the flux components");
 
         // get field pointers
-        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         auto inDerivPtr =
-            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
-        auto fluxPtr =
-            flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
-        auto normPtr = this->m_traceNormals.GetBlocks()[0]
-                           .template GetPtr<MemSpace, ReadOnly>();
+            inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
+            this->m_streamID);
+        auto normPtr =
+            this->m_traceNormals.GetBlocks()[0]
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
         SyncTrailingBlocks<WriteOnly>(flux);
         SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
-        auto diffCoeff = m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto diffCoeff =
+            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
@@ -643,9 +673,10 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, m_nDim, normPtr, G,
-                this->m_norms);
+                this->m_norms, this->m_streamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
-                numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor);
+                numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor,
+                this->m_streamID);
 
             // The gradient carries the Neumann conditions; components with any
             // other condition keep the exterior gradient equal to the interior.
@@ -672,7 +703,7 @@ protected:
             // excludes its walls.
             SolverCore::detail::MakeDirichletGhostStateKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, numflux, this->m_gloT0,
-                this->m_gloT1);
+                this->m_gloT1, this->m_streamID);
 
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -680,7 +711,8 @@ protected:
             DiffuseScalarTraceFluxKernel<ExecSpace, false>(
                 npTBlock, m_nDim, m_nComp, npTBlock, m_IPPenaltyCoeff,
                 diffCoeff, this->m_norms, m_penFactor, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux);
+                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                this->m_streamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage

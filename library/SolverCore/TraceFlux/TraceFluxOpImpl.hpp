@@ -192,6 +192,11 @@ public:
             MultiRegions::GetLocTraceBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
 
+        for (unsigned blk = 0; blk < blocks.size(); ++blk)
+        {
+            m_blockStreams.push_back(blk + 1);
+        }
+
         // Set up a list map of periodic local ids
         std::map<size_t, std::pair<size_t, StdRegions::Orientation>>
             PeriodicGIDs;
@@ -1032,11 +1037,13 @@ public:
             auto wspsize = interpWspPad + locPad + 3 * numCompPad + dimPad;
 
             m_workSpace = LibUtilities::MemoryRegion<TData>(wspsize);
-            m_workSpace.template Initialize<MemSpace>(0.0);
+            m_workSpace.template Initialize<MemSpace>(0.0, 0, 0,
+                                                      this->m_streamID);
 
             // believe we only need this locally on device or host so
             // making it WriteOnly space to avoid unnecessary copies?
-            m_wsp   = m_workSpace.template GetPtr<MemSpace, WriteOnly>();
+            m_wsp = m_workSpace.template GetPtr<MemSpace, WriteOnly>(
+                this->m_streamID);
             m_loc   = m_wsp + interpWspPad;
             m_gloT0 = m_loc + locPad;
             m_gloT1 = m_gloT0 + numCompPad;
@@ -1048,6 +1055,21 @@ public:
     }
 
 protected:
+    /// Order the trace work after the work already queued on the element
+    /// block streams, which produced the trace fields it reads and last
+    /// touched the ones it writes.
+    void JoinBlockStreams()
+    {
+        JoinStreams<ExecSpace>(this->m_streamID, m_blockStreams);
+    }
+
+    /// Order the work queued next on the element block streams after the
+    /// trace work.
+    void ReleaseBlockStreams()
+    {
+        ReleaseStreams<ExecSpace>(this->m_streamID, m_blockStreams);
+    }
+
     /**
      * @brief Load the mesh's trace normals into TraceFluxOp::m_traceNormals.
      *
@@ -1514,6 +1536,10 @@ protected:
     /// #m_wsp, which the gather kernels index by flattened (trace, component);
     /// see AccumulateWorkSpaceBound().
     size_t m_maxTraceXnPts = 0;
+
+    /// Streams of the element blocks the trace fields are laid out by: block
+    /// @em b runs on stream @em b + 1.
+    std::vector<unsigned int> m_blockStreams;
 
     /// Backing allocation for all of the scratch pointers below.
     LibUtilities::MemoryRegion<TData> m_workSpace;
@@ -2586,9 +2612,12 @@ protected:
     {
         GloTraceOffsetView v;
 
-        v.gloTOffset   = d.gloTOffset.template GetPtr<MemSpace, ReadOnly>();
-        v.scalarOffset = d.scalarOffset.template GetPtr<MemSpace, ReadOnly>();
-        v.compSize     = d.compSize.template GetPtr<MemSpace, ReadOnly>();
+        v.gloTOffset =
+            d.gloTOffset.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+        v.scalarOffset = d.scalarOffset.template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
+        v.compSize =
+            d.compSize.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         return v;
     }
@@ -2602,25 +2631,32 @@ protected:
     {
         TraceBlockView v;
 
-        v.offset_st = d.offset_st.template GetPtr<MemSpace, ReadOnly>();
-        v.offset    = d.offset.template GetPtr<MemSpace, ReadOnly>();
+        v.offset_st =
+            d.offset_st.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+        v.offset =
+            d.offset.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
         if (width != 1)
         {
             ASSERTL0(width == s_ilvWidth && d.offsetIlv.size() == d.numTrace,
                      "Interleaved element-local traces are addressed only at "
                      "the execution space's lane width.");
-            v.offset = d.offsetIlv.template GetPtr<MemSpace, ReadOnly>();
+            v.offset = d.offsetIlv.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
             v.stride = width;
         }
-        v.compSize = d.compSize.template GetPtr<MemSpace, ReadOnly>();
-        v.orient   = d.orient.size()
-                         ? d.orient.template GetPtr<MemSpace, ReadOnly>()
-                         : nullptr;
+        v.compSize =
+            d.compSize.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+        v.orient =
+            d.orient.size()
+                ? d.orient.template GetPtr<MemSpace, ReadOnly>(this->m_streamID)
+                : nullptr;
         v.numTrace = d.numTrace;
         if (d.ptMapFwd.size())
         {
-            v.ptMapFwd    = d.ptMapFwd.template GetPtr<MemSpace, ReadOnly>();
-            v.ptMapBwd    = d.ptMapBwd.template GetPtr<MemSpace, ReadOnly>();
+            v.ptMapFwd = d.ptMapFwd.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+            v.ptMapBwd = d.ptMapBwd.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
             v.ptsPerTrace = d.ptsPerTrace;
         }
 
@@ -2747,9 +2783,9 @@ protected:
         {
             // component packed vector which is padded in AVX case
             LocPointToGloPointBlock<ExecSpace>(numflux, T0, inPtr, gloT0,
-                                               npTBlock);
+                                               npTBlock, this->m_streamID);
             LocPointToGloPointBlock<ExecSpace>(numflux, T1, inPtr, gloT1,
-                                               npTBlock);
+                                               npTBlock, this->m_streamID);
         }
         else if constexpr (TRACEDIM == 1)
         {
@@ -2757,11 +2793,11 @@ protected:
             // component packed vector
             LocEdgeToGloEdgeBlock<ExecSpace>(
                 numflux, T0, m_intT0[b].interpFwd[0], m_npT0[0], inPtr, m_loc,
-                m_npTot, gloT0, npTBlock, m_T0Collocated[0]);
+                m_npTot, gloT0, npTBlock, m_T0Collocated[0], this->m_streamID);
 
             LocEdgeToGloEdgeBlock<ExecSpace>(
                 numflux, T1, m_intT1[b].interpFwd[0], m_npT1[0], inPtr, m_loc,
-                m_npTot, gloT1, npTBlock, m_T1Collocated[0]);
+                m_npTot, gloT1, npTBlock, m_T1Collocated[0], this->m_streamID);
         }
         else if constexpr (TRACEDIM == 2)
         {
@@ -2770,12 +2806,14 @@ protected:
             LocFaceToGloFaceBlock<ExecSpace>(
                 numflux, T0, m_intT0[b].interpFwd[0], m_intT0[b].interpFwd[1],
                 m_npT0[0], m_npT0[1], inPtr, m_loc, m_wsp, m_npT[0], m_npT[1],
-                gloT0, npTBlock, m_T0Collocated[0], m_T0Collocated[1]);
+                gloT0, npTBlock, m_T0Collocated[0], m_T0Collocated[1],
+                this->m_streamID);
 
             LocFaceToGloFaceBlock<ExecSpace>(
                 numflux, T1, m_intT1[b].interpFwd[0], m_intT1[b].interpFwd[1],
                 m_npT1[0], m_npT1[1], inPtr, m_loc, m_wsp, m_npT[0], m_npT[1],
-                gloT1, npTBlock, m_T1Collocated[0], m_T1Collocated[1]);
+                gloT1, npTBlock, m_T1Collocated[0], m_T1Collocated[1],
+                this->m_streamID);
         }
     }
 
@@ -2815,12 +2853,14 @@ protected:
         if constexpr (TRACEDIM == 0)
         {
             GloPointToLocPointBlock<APPEND, ExecSpace>(
-                numflux, T0, npTBlock, TData(1.0), m_flux, fluxPtr);
+                numflux, T0, npTBlock, TData(1.0), m_flux, fluxPtr,
+                this->m_streamID);
 
             // The backward trace sees the opposite normal. Apply the sign
             // during scattering to avoid a separate pass over the flux data.
             GloPointToLocPointBlock<APPEND, ExecSpace>(
-                numflux, T1, npTBlock, TData(-1.0), m_flux, fluxPtr);
+                numflux, T1, npTBlock, TData(-1.0), m_flux, fluxPtr,
+                this->m_streamID);
         }
         else if constexpr (TRACEDIM == 1)
         {
@@ -2831,23 +2871,27 @@ protected:
             // order they are visited in, and so on the partitioning.
             GloEdgeToLocEdgeBlock<APPEND, ExecSpace, false>(
                 numflux, T0, m_intT0[b].interpBwd[0], m_npT[0], m_flux,
-                npTBlock, m_loc, m_npT0[0], fluxPtr, m_T0CollocatedBwd[0]);
+                npTBlock, m_loc, m_npT0[0], fluxPtr, m_T0CollocatedBwd[0],
+                this->m_streamID);
 
             GloEdgeToLocEdgeBlock<APPEND, ExecSpace, true>(
                 numflux, T1, m_intT1[b].interpBwd[0], m_npT[0], m_flux,
-                npTBlock, m_loc, m_npT1[0], fluxPtr, m_T1CollocatedBwd[0]);
+                npTBlock, m_loc, m_npT1[0], fluxPtr, m_T1CollocatedBwd[0],
+                this->m_streamID);
         }
         else if constexpr (TRACEDIM == 2)
         {
             GloFaceToLocFaceBlock<APPEND, ExecSpace, false>(
                 numflux, T0, m_intT0[b].interpBwd[0], m_intT0[b].interpBwd[1],
                 m_npT[0], m_npT[1], m_flux, npTBlock, m_loc, m_wsp, m_npT0[0],
-                m_npT0[1], fluxPtr, m_T0CollocatedBwd[0], m_T0CollocatedBwd[1]);
+                m_npT0[1], fluxPtr, m_T0CollocatedBwd[0], m_T0CollocatedBwd[1],
+                this->m_streamID);
 
             GloFaceToLocFaceBlock<APPEND, ExecSpace, true>(
                 numflux, T1, m_intT1[b].interpBwd[0], m_intT1[b].interpBwd[1],
                 m_npT[0], m_npT[1], m_flux, npTBlock, m_loc, m_wsp, m_npT1[0],
-                m_npT1[1], fluxPtr, m_T1CollocatedBwd[0], m_T1CollocatedBwd[1]);
+                m_npT1[1], fluxPtr, m_T1CollocatedBwd[0], m_T1CollocatedBwd[1],
+                this->m_streamID);
         }
     }
 
@@ -2860,14 +2904,8 @@ protected:
             return;
         }
 
-        // The exchange path is correct on a device because it runs in stream
-        // 0. The numbered streams are created blocking, so a kernel launched
-        // into the legacy stream is a full ordering point against every
-        // per-block stream - including the ones that extracted the trace this
-        // pack is about to read. Pin that here rather than inheriting it from
-        // the previous operator's reset, which is a convention, not a
-        // guarantee.
-        Nektar::LoopExecutionSetStreamID(0);
+        // The pack reads the trace the element block streams extracted.
+        JoinBlockStreams();
 
         auto &c = m_parChannel[chan];
 
@@ -2879,11 +2917,16 @@ protected:
 
         SetUpParallelComm(chan, numComp);
 
-        auto inPtr = trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr = trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         PackParallelSendBuffer(chan, inPtr, numComp,
                                trace.GetBlocks()[0].GetInterleaveWidth());
 
         SyncSendBufferForComm(c);
+
+        // No ReleaseBlockStreams(): SyncSendBufferForComm() has the host wait
+        // for the pack, so no block stream work queued after this call can
+        // overtake it. Release here if that wait is ever removed.
 
         c.comm->BeginComm();
         c.inFlight = true;
@@ -2895,13 +2938,6 @@ protected:
         {
             return;
         }
-
-        // Pin stream 0 for the receive side too: the H2D fetch below and the
-        // gather, flux and scatter kernels of the ApplyParallel() that
-        // follows all launch on the current stream, and stream 0 is what
-        // orders them against the per-block streams (see the note in
-        // v_BeginParallelExchange).
-        Nektar::LoopExecutionSetStreamID(0);
 
         [[maybe_unused]] bool any = false;
         for (auto &c : m_parChannel)
@@ -2923,31 +2959,20 @@ protected:
     /// Bring a packed send buffer to wherever the communicator will read it.
     NEK_FORCE_INLINE void SyncSendBufferForComm(ParallelChannel &c)
     {
-#if defined(NEKTAR_ENABLE_SYCL)
-        // SYCL has no legacy-stream semantics: queue 0 gives no ordering
-        // against the per-block queues that wrote the trace the pack read,
-        // so join every queue before anything - the D2H fetch or MPI itself
-        // - consumes the send buffer.
-        if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
-        {
-            nekDeviceSynchronize();
-        }
-#endif
         if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
             !m_rowComm->IsGPUAware())
         {
             // Without GPU-aware MPI the message is sent from the host, so the
             // pack has to be brought back before it is posted. Fetching the
             // host pointer is what performs the copy.
-            c.sendBuffer.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            c.sendBuffer.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                this->m_streamID);
         }
         else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
-            // Draining the legacy stream is enough on CUDA and HIP: the pack
-            // kernel ran in stream 0, and launching there already made it
-            // wait on every blocking per-block stream, so its completion
-            // means the whole chain that produced this buffer is done.
-            nekStreamSynchronize(0);
+            // The pack ran on the trace stream, after the work it waited on,
+            // so draining that stream is enough before MPI reads the buffer.
+            nekStreamSynchronize(this->m_streamID);
         }
     }
 
@@ -2959,9 +2984,12 @@ protected:
         {
             // MPI wrote the host copy through a raw pointer, which the region
             // cannot see, so first mark the host side as modified, then let
-            // the device fetch copy it across.
-            c.recvBuffer.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-            c.recvBuffer.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+            // the device fetch copy it across on the trace stream, ahead of
+            // the kernels that read it.
+            c.recvBuffer.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(
+                this->m_streamID);
+            c.recvBuffer.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
+                this->m_streamID);
         }
     }
 
@@ -2982,9 +3010,6 @@ protected:
         {
             return;
         }
-
-        // Same stream discipline as the split Begin/End pair.
-        Nektar::LoopExecutionSetStreamID(0);
 
         auto &c = m_parChannel[chan];
 
@@ -3149,23 +3174,27 @@ protected:
                  "The trace field is at an interleave width with no pack "
                  "table.");
         const auto offset_st =
-            m_parSendDev.offset_st.template GetPtr<MemSpace, ReadOnly>();
+            m_parSendDev.offset_st.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
         const auto offset =
             (width == 1 ? m_parSendDev.offset : m_parSendDev.offsetIlv)
-                .template GetPtr<MemSpace, ReadOnly>();
+                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
         const auto compSize =
-            m_parSendDev.compSize.template GetPtr<MemSpace, ReadOnly>();
-        const auto npts =
-            m_parSendDev.npts.template GetPtr<MemSpace, ReadOnly>();
+            m_parSendDev.compSize.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+        const auto npts = m_parSendDev.npts.template GetPtr<MemSpace, ReadOnly>(
+            this->m_streamID);
         const auto bufOffset =
-            m_parSendDev.bufOffset.template GetPtr<MemSpace, ReadOnly>();
+            m_parSendDev.bufOffset.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
 
-        TData *sendPtr = m_parChannel[chan]
-                             .sendBuffer.template GetPtr<MemSpace, WriteOnly>();
+        TData *sendPtr =
+            m_parChannel[chan].sendBuffer.template GetPtr<MemSpace, WriteOnly>(
+                this->m_streamID);
 
         PackParallelSendBlock<ExecSpace>(numEntry, numComp, offset_st, offset,
                                          compSize, npts, bufOffset, inPtr,
-                                         sendPtr, width);
+                                         sendPtr, width, this->m_streamID);
     }
 
     /**
@@ -3273,36 +3302,39 @@ protected:
         const auto npTBlock = m_parT0[b].m_nTraceXnPtsPad;
 
         const TData *recvPtr =
-            m_parChannel[chan].recvBuffer.template GetPtr<MemSpace, ReadOnly>();
+            m_parChannel[chan].recvBuffer.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
 
         if constexpr (TRACEDIM == 0)
         {
             LocPointToGloPointBlock<ExecSpace>(numflux, T0, inPtr, gloT0,
-                                               npTBlock);
+                                               npTBlock, this->m_streamID);
             LocPointToGloPointBlock<ExecSpace>(numflux, T1, recvPtr, gloT1,
-                                               npTBlock);
+                                               npTBlock, this->m_streamID);
         }
         else if constexpr (TRACEDIM == 1)
         {
             LocEdgeToGloEdgeBlock<ExecSpace>(
                 numflux, T0, m_parT0[b].interpFwd[0], m_npT0[0], inPtr, m_loc,
-                m_npTot, gloT0, npTBlock, m_T0Collocated[0]);
+                m_npTot, gloT0, npTBlock, m_T0Collocated[0], this->m_streamID);
 
             LocEdgeToGloEdgeBlock<ExecSpace>(
                 numflux, T1, m_parT1[b].interpFwd[0], m_npT1[0], recvPtr, m_loc,
-                m_npTot, gloT1, npTBlock, m_T1Collocated[0]);
+                m_npTot, gloT1, npTBlock, m_T1Collocated[0], this->m_streamID);
         }
         else if constexpr (TRACEDIM == 2)
         {
             LocFaceToGloFaceBlock<ExecSpace>(
                 numflux, T0, m_parT0[b].interpFwd[0], m_parT0[b].interpFwd[1],
                 m_npT0[0], m_npT0[1], inPtr, m_loc, m_wsp, m_npT[0], m_npT[1],
-                gloT0, npTBlock, m_T0Collocated[0], m_T0Collocated[1]);
+                gloT0, npTBlock, m_T0Collocated[0], m_T0Collocated[1],
+                this->m_streamID);
 
             LocFaceToGloFaceBlock<ExecSpace>(
                 numflux, T1, m_parT1[b].interpFwd[0], m_parT1[b].interpFwd[1],
                 m_npT1[0], m_npT1[1], recvPtr, m_loc, m_wsp, m_npT[0], m_npT[1],
-                gloT1, npTBlock, m_T1Collocated[0], m_T1Collocated[1]);
+                gloT1, npTBlock, m_T1Collocated[0], m_T1Collocated[1],
+                this->m_streamID);
         }
     }
 
@@ -3334,7 +3366,8 @@ protected:
         if constexpr (TRACEDIM == 0)
         {
             GloPointToLocPointBlock<APPEND, ExecSpace>(
-                numflux, T0, npTBlock, TData(1.0), m_flux, fluxPtr);
+                numflux, T0, npTBlock, TData(1.0), m_flux, fluxPtr,
+                this->m_streamID);
         }
         else if constexpr (TRACEDIM == 1)
         {
@@ -3346,14 +3379,16 @@ protected:
             // is only right while T0 is collocated.
             GloEdgeToLocEdgeBlock<APPEND, ExecSpace, false>(
                 numflux, T0, m_parT0[b].interpBwd[0], m_npT[0], m_flux,
-                npTBlock, m_loc, m_npT0[0], fluxPtr, m_T0CollocatedBwd[0]);
+                npTBlock, m_loc, m_npT0[0], fluxPtr, m_T0CollocatedBwd[0],
+                this->m_streamID);
         }
         else if constexpr (TRACEDIM == 2)
         {
             GloFaceToLocFaceBlock<APPEND, ExecSpace, false>(
                 numflux, T0, m_parT0[b].interpBwd[0], m_parT0[b].interpBwd[1],
                 m_npT[0], m_npT[1], m_flux, npTBlock, m_loc, m_wsp, m_npT0[0],
-                m_npT0[1], fluxPtr, m_T0CollocatedBwd[0], m_T0CollocatedBwd[1]);
+                m_npT0[1], fluxPtr, m_T0CollocatedBwd[0], m_T0CollocatedBwd[1],
+                this->m_streamID);
         }
     }
 
@@ -3439,20 +3474,21 @@ protected:
         {
             // component packed vector which is padded in AVX case
             LocPointToGloPointBlock<ExecSpace>(numflux, T0, inPtr, gloT0,
-                                               npTBlock);
+                                               npTBlock, this->m_streamID);
         }
         else if constexpr (TRACEDIM == 1)
         {
             LocEdgeToGloEdgeBlock<ExecSpace>(
                 numflux, T0, m_bndT0[b].interpFwd[0], m_npT0[0], inPtr, m_loc,
-                m_npTot, gloT0, npTBlock, m_T0Collocated[0]);
+                m_npTot, gloT0, npTBlock, m_T0Collocated[0], this->m_streamID);
         }
         else if constexpr (TRACEDIM == 2)
         {
             LocFaceToGloFaceBlock<ExecSpace>(
                 numflux, T0, m_bndT0[b].interpFwd[0], m_bndT0[b].interpFwd[1],
                 m_npT0[0], m_npT0[1], inPtr, m_loc, m_wsp, m_npT[0], m_npT[1],
-                gloT0, npTBlock, m_T0Collocated[0], m_T0Collocated[1]);
+                gloT0, npTBlock, m_T0Collocated[0], m_T0Collocated[1],
+                this->m_streamID);
         }
     }
 
@@ -3495,13 +3531,15 @@ protected:
             // No boundary values for this quantity: copy the interior side
             // across so the trace carries no jump.
             CopyGloTraceFwdToBwd<ExecSpace>(numflux, numBlock, m_npTot,
-                                            npTBlock, gloT0, gloT1);
+                                            npTBlock, gloT0, gloT1,
+                                            this->m_streamID);
 
             return;
         }
 
-        auto &loc       = m_bndCondLoc[b];
-        const auto *off = loc.offset.template GetPtr<MemSpace, ReadOnly>();
+        auto &loc = m_bndCondLoc[b];
+        const auto *off =
+            loc.offset.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         // The trace-to-block mapping is precomputed; only the base pointers are
         // refetched, once per boundary-data block rather than once per trace,
@@ -3517,7 +3555,8 @@ protected:
 
         const unsigned singleBlockId = loc.singleBlockId;
         const TData *singleBlockBase =
-            singleBlock ? this->m_BndCondOp->GetBlockPtr(singleBlockId)
+            singleBlock ? this->m_BndCondOp->GetBlockPtr(singleBlockId,
+                                                         this->m_streamID)
                         : nullptr;
         const size_t compStride = loc.compStride;
 
@@ -3530,23 +3569,28 @@ protected:
             {
                 auto hostBases =
                     m_bndCondBase
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                            this->m_streamID);
                 for (unsigned k = 0; k < this->m_BndCondOp->GetNumBlocks(); ++k)
                 {
-                    hostBases[k] = this->m_BndCondOp->GetBlockPtr(k);
+                    hostBases[k] =
+                        this->m_BndCondOp->GetBlockPtr(k, this->m_streamID);
                 }
             }
 
-            bases = m_bndCondBase.template GetPtr<MemSpace, ReadOnly>();
-            blk   = loc.blk.template GetPtr<MemSpace, ReadOnly>();
-            cOff  = loc.compOffset.template GetPtr<MemSpace, ReadOnly>();
+            bases = m_bndCondBase.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+            blk = loc.blk.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+            cOff = loc.compOffset.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
         }
 
         ASSERTL1(numflux <= m_numBCComp,
                  "More flux components than the boundary condition operator "
                  "holds, so their condition type cannot be resolved.");
 
-        const auto *bcType = m_bcTypeMask.template GetPtr<MemSpace, ReadOnly>();
+        const auto *bcType =
+            m_bcTypeMask.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
         const auto numBCComp = m_numBCComp;
         const unsigned dirCode =
             static_cast<unsigned>(SpatialDomains::eDirichlet);
@@ -3558,7 +3602,7 @@ protected:
         FillDirBCTraceBlock<ExecSpace, TRACEDIM>(
             numBlock, numflux, singleBlock, singleBlockId, singleBlockBase,
             compStride, blk, off, cOff, bases, bcType, numBCComp, dirCode,
-            npTot, npTBlock, np0, np1, gloT0, gloT1);
+            npTot, npTBlock, np0, np1, gloT0, gloT1, this->m_streamID);
     }
 
     /**
@@ -3607,23 +3651,29 @@ protected:
             return;
         }
 
+        JoinBlockStreams();
+
         const unsigned numComp = trace.GetNumComponents();
 
         auto tracePtr =
-            trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+            trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
         const auto width = trace.GetBlocks()[0].GetInterleaveWidth();
 
         {
             auto hostBases =
                 m_bndCondBaseW
-                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                        this->m_streamID);
             for (unsigned k = 0; k < this->m_BndCondOp->GetNumBlocks(); ++k)
             {
-                hostBases[k] = this->m_BndCondOp->UpdateBlockPtr(k);
+                hostBases[k] =
+                    this->m_BndCondOp->UpdateBlockPtr(k, this->m_streamID);
             }
         }
         TData *const *bases =
-            m_bndCondBaseW.template GetPtr<MemSpace, ReadOnly>();
+            m_bndCondBaseW.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
 
         SetWorkSpace(numComp);
 
@@ -3664,20 +3714,26 @@ protected:
             const auto numBlock = m_bndT0[b].offset.size();
             const auto npTot    = m_npTot;
 
-            auto &loc       = m_bndCondLoc[b];
-            const auto *blk = loc.blk.template GetPtr<MemSpace, ReadOnly>();
-            const auto *off = loc.offset.template GetPtr<MemSpace, ReadOnly>();
+            auto &loc = m_bndCondLoc[b];
+            const auto *blk =
+                loc.blk.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+            const auto *off = loc.offset.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
             const auto *cOff =
-                loc.compOffset.template GetPtr<MemSpace, ReadOnly>();
+                loc.compOffset.template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
 
             const TData *gloT0 = m_gloT0;
             const auto *owned =
-                m_bndCondOwned.template GetPtr<MemSpace, ReadOnly>();
+                m_bndCondOwned.template GetPtr<MemSpace, ReadOnly>(
+                    this->m_streamID);
 
-            ScatterGloTraceToBndStore<ExecSpace>(numComp, numBlock, npTot,
-                                                 npTBlock, blk, off, cOff,
-                                                 owned, bases, gloT0);
+            ScatterGloTraceToBndStore<ExecSpace>(
+                numComp, numBlock, npTot, npTBlock, blk, off, cOff, owned,
+                bases, gloT0, this->m_streamID);
         }
+
+        ReleaseBlockStreams();
     }
 
     /**
@@ -3747,8 +3803,9 @@ protected:
         const auto npTBlock = m_bndT0[b].m_nTraceXnPtsPad;
         const auto numBlock = m_bndT0[b].offset.size();
 
-        auto &loc       = m_bndCondLoc[b];
-        const auto *off = loc.offset.template GetPtr<MemSpace, ReadOnly>();
+        auto &loc = m_bndCondLoc[b];
+        const auto *off =
+            loc.offset.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
 
         // Same base-pointer handling as GetDirBCTrace(): resolved per apply so
         // the memory manager sees the access, and collapsed to a single pointer
@@ -3756,7 +3813,8 @@ protected:
         const bool singleBlock       = loc.singleBlock;
         const unsigned singleBlockId = loc.singleBlockId;
         const TData *singleBlockBase =
-            singleBlock ? this->m_BndCondOp->GetBlockPtr(singleBlockId)
+            singleBlock ? this->m_BndCondOp->GetBlockPtr(singleBlockId,
+                                                         this->m_streamID)
                         : nullptr;
         const size_t compStride = loc.compStride;
 
@@ -3769,23 +3827,28 @@ protected:
             {
                 auto hostBases =
                     m_bndCondBase
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                            this->m_streamID);
                 for (unsigned k = 0; k < this->m_BndCondOp->GetNumBlocks(); ++k)
                 {
-                    hostBases[k] = this->m_BndCondOp->GetBlockPtr(k);
+                    hostBases[k] =
+                        this->m_BndCondOp->GetBlockPtr(k, this->m_streamID);
                 }
             }
 
-            bases = m_bndCondBase.template GetPtr<MemSpace, ReadOnly>();
-            blk   = loc.blk.template GetPtr<MemSpace, ReadOnly>();
-            cOff  = loc.compOffset.template GetPtr<MemSpace, ReadOnly>();
+            bases = m_bndCondBase.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
+            blk = loc.blk.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+            cOff = loc.compOffset.template GetPtr<MemSpace, ReadOnly>(
+                this->m_streamID);
         }
 
         ASSERTL1(numflux <= m_numBCComp,
                  "More flux components than the boundary condition operator "
                  "holds, so their condition type cannot be resolved.");
 
-        const auto *bcType = m_bcTypeMask.template GetPtr<MemSpace, ReadOnly>();
+        const auto *bcType =
+            m_bcTypeMask.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
         const auto numBCComp = m_numBCComp;
         const unsigned neuCode =
             static_cast<unsigned>(SpatialDomains::eNeumann);
@@ -3795,7 +3858,8 @@ protected:
         FillNeuBCDerivBlock<ExecSpace>(
             numBlock, numflux, ndim, singleBlock, singleBlockId,
             singleBlockBase, compStride, blk, off, cOff, bases, bcType,
-            numBCComp, neuCode, npTot, npTBlock, norms, gloDerivT0, gloDerivT1);
+            numBCComp, neuCode, npTot, npTBlock, norms, gloDerivT0, gloDerivT1,
+            this->m_streamID);
     }
 
     /**
@@ -3888,20 +3952,23 @@ protected:
         if constexpr (TRACEDIM == 0)
         {
             GloPointToLocPointBlock<APPEND, ExecSpace>(
-                numflux, T0, npTBlock, TData(1.0), m_flux, fluxPtr);
+                numflux, T0, npTBlock, TData(1.0), m_flux, fluxPtr,
+                this->m_streamID);
         }
         else if constexpr (TRACEDIM == 1)
         {
             GloEdgeToLocEdgeBlock<APPEND, ExecSpace, false>(
                 numflux, T0, m_bndT0[b].interpBwd[0], m_npT[0], m_flux,
-                npTBlock, m_loc, m_npT0[0], fluxPtr, m_T0CollocatedBwd[0]);
+                npTBlock, m_loc, m_npT0[0], fluxPtr, m_T0CollocatedBwd[0],
+                this->m_streamID);
         }
         else if constexpr (TRACEDIM == 2)
         {
             GloFaceToLocFaceBlock<APPEND, ExecSpace, false>(
                 numflux, T0, m_bndT0[b].interpBwd[0], m_bndT0[b].interpBwd[1],
                 m_npT[0], m_npT[1], m_flux, npTBlock, m_loc, m_wsp, m_npT0[0],
-                m_npT0[1], fluxPtr, m_T0CollocatedBwd[0], m_T0CollocatedBwd[1]);
+                m_npT0[1], fluxPtr, m_T0CollocatedBwd[0], m_T0CollocatedBwd[1],
+                this->m_streamID);
         }
     }
 };

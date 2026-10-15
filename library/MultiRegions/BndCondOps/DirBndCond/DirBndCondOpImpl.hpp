@@ -1144,7 +1144,7 @@ protected:
         {
             for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
             {
-                RecordDirBndCondEvent<ExecSpace>(blk + 1);
+                RecordStreamEvent<ExecSpace>(blk + 1);
             }
         }
 
@@ -1191,7 +1191,7 @@ protected:
                     inptr + nc * blksize1, outptr + nc * blksize0, streamID);
 
                 // Record event for synchronization.
-                RecordDirBndCondEvent<ExecSpace>(streamID);
+                RecordStreamEvent<ExecSpace>(streamID);
             }
         }
 
