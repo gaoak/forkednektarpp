@@ -85,7 +85,10 @@ namespace Nektar::MultiRegions
  *
  */
 ContField::ContField()
-    : DisContField(), m_locToGloMap(), m_globalMat(),
+    : DisContField(), m_locToGloMap(),
+      m_locToGloMaps(
+          std::make_shared<std::map<std::string, AssemblyMapCGSharedPtr>>()),
+      m_globalMat(),
       m_globalLinSysManager(
           std::bind(&ContField::GenGlobalLinSys, this, std::placeholders::_1),
           std::string("GlobalLinSys")),
@@ -122,6 +125,8 @@ ContField::ContField(const LibUtilities::SessionReaderSharedPtr &pSession,
                      const Collections::ImplementationType ImpType)
     : DisContField(pSession, graph, variable, false, DeclareCoeffPhysArrays,
                    ImpType),
+      m_locToGloMaps(
+          std::make_shared<std::map<std::string, AssemblyMapCGSharedPtr>>()),
       m_globalMat(MemoryManager<GlobalMatrixMap>::AllocateSharedPtr()),
       m_globalLinSysManager(
           std::bind(&ContField::GenGlobalLinSys, this, std::placeholders::_1),
@@ -136,6 +141,8 @@ ContField::ContField(const LibUtilities::SessionReaderSharedPtr &pSession,
     {
         m_locToGloMap->PrintStats(std::cout, variable, true, "CG");
     }
+
+    ShareLocalToGlobalMap(variable);
 }
 
 /**
@@ -166,6 +173,7 @@ ContField::ContField(const ContField &In,
                      const std::string &variable, bool DeclareCoeffPhysArrays,
                      const bool CheckIfSingularSystem)
     : DisContField(In, graph, variable, false, DeclareCoeffPhysArrays),
+      m_locToGloMaps(In.m_locToGloMaps),
       m_globalMat(MemoryManager<GlobalMatrixMap>::AllocateSharedPtr()),
       m_globalLinSysManager(
           std::bind(&ContField::GenGlobalLinSys, this, std::placeholders::_1),
@@ -188,6 +196,8 @@ ContField::ContField(const ContField &In,
     {
         m_locToGloMap = In.m_locToGloMap;
     }
+
+    ShareLocalToGlobalMap(variable);
 }
 
 /**
@@ -198,7 +208,7 @@ ContField::ContField(const ContField &In,
  */
 ContField::ContField(const ContField &In, bool DeclareCoeffPhysArrays)
     : DisContField(In, DeclareCoeffPhysArrays), m_locToGloMap(In.m_locToGloMap),
-      m_globalMat(In.m_globalMat),
+      m_locToGloMaps(In.m_locToGloMaps), m_globalMat(In.m_globalMat),
       m_globalLinSysManager(In.m_globalLinSysManager), m_GJPData(In.m_GJPData)
 {
 }
@@ -212,12 +222,16 @@ ContField::ContField(const ContField &In, bool DeclareCoeffPhysArrays)
 ContField::ContField(const LibUtilities::SessionReaderSharedPtr &pSession,
                      const ExpList &In)
     : DisContField(In), m_locToGloMap(),
+      m_locToGloMaps(
+          std::make_shared<std::map<std::string, AssemblyMapCGSharedPtr>>()),
       m_globalLinSysManager(
           std::bind(&ContField::GenGlobalLinSys, this, std::placeholders::_1),
           std::string("GlobalLinSys"))
 {
     m_locToGloMap = MemoryManager<AssemblyMapCG>::AllocateSharedPtr(
         pSession, m_ncoeffs, In);
+
+    ShareLocalToGlobalMap(m_locToGloMap->GetVariable());
 }
 
 /**
@@ -225,6 +239,96 @@ ContField::ContField(const LibUtilities::SessionReaderSharedPtr &pSession,
  */
 ContField::~ContField()
 {
+}
+
+/**
+ * Returns the map from local to global level of \a variable on this
+ * field's expansion. A variable's map depends on its boundary conditions,
+ * through its Dirichlet degrees of freedom, so it need not be this field's
+ * own.
+ *
+ * The maps are kept by variable in #m_locToGloMaps, which this field shares
+ * with the fields copied from it for other variables, as they share its
+ * element expansions. Each of these fields adds its own map when it is
+ * constructed, so a variable with a field already has its map there.
+ *
+ * This field's own map is returned when \a variable is its variable. For
+ * another variable without a map, a field is copied from this one for \a
+ * variable, which adds its map: it shares this field's map when the types of
+ * the boundary conditions agree region by region, and otherwise builds its
+ * own from this field's element and boundary expansions. The copy points the
+ * element expansions it shares with this field only at boundary expansions it
+ * also shares, so nothing they refer to goes with it. A field is constructed
+ * from scratch instead for a variable expanded differently; when this field's
+ * map pins a degree of freedom of a singular system, which no other variable
+ * may inherit; and under a mixed CG/DG projection, where a copy with other
+ * types of boundary conditions would point the shared element expansions at a
+ * trace space of its own. Each map is thus built at most once per variable.
+ *
+ * The first call for a variable without a map is collective over the row
+ * communicator; a later one is not, so every rank must make the same calls.
+ *
+ * @param   variable    Name of the variable.
+ */
+const AssemblyMapCGSharedPtr &ContField::GetLocalToGlobalMap(
+    const std::string &variable)
+{
+    // A map that pins a degree of freedom of a singular system is not in
+    // m_locToGloMaps, so this field's own map is returned here.
+    const std::string ownVariable = m_locToGloMap->GetVariable();
+    if (variable == ownVariable)
+    {
+        return m_locToGloMap;
+    }
+
+    auto it = m_locToGloMaps->find(variable);
+    if (it != m_locToGloMaps->end())
+    {
+        return it->second;
+    }
+
+    bool mixedCGDG = false;
+    if (m_session->DefinesSolverInfo("PROJECTION"))
+    {
+        const std::string &projection = m_session->GetSolverInfo("PROJECTION");
+        mixedCGDG =
+            projection == "MixedCGDG" || projection == "Mixed_CG_Discontinuous";
+    }
+
+    AssemblyMapCGSharedPtr map;
+    if (!m_locToGloMap->GetSingularSystem() && !mixedCGDG &&
+        m_graph->ExpansionInfoDefined(ownVariable) &&
+        m_graph->ExpansionInfoDefined(variable) &&
+        m_graph->SameExpansionInfo(ownVariable, variable))
+    {
+        ContField field(*this, m_graph, variable, false, false);
+        map = field.GetLocalToGlobalMap();
+    }
+    else
+    {
+        ContField field(m_session, m_graph, variable, false, false,
+                        Collections::eNoCollection);
+        map = field.GetLocalToGlobalMap();
+    }
+
+    return m_locToGloMaps->emplace(variable, map).first->second;
+}
+
+/**
+ * Adds this field's map to #m_locToGloMaps as the map of \a variable, the
+ * variable of this field, unless the map pins a degree of freedom of a
+ * singular system: such a map is this field's only, and is not shared with
+ * the fields on the same element expansions. A map already there for \a
+ * variable is kept.
+ *
+ * @param   variable    Name of this field's variable.
+ */
+void ContField::ShareLocalToGlobalMap(const std::string &variable)
+{
+    if (!m_locToGloMap->GetSingularSystem())
+    {
+        m_locToGloMaps->emplace(variable, m_locToGloMap);
+    }
 }
 
 /**

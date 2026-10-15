@@ -83,6 +83,19 @@ EquationSystem::EquationSystem(
     // Hard set the GlobalSysSoln to the only supported type: IterativeFull
     m_session->SetSolverInfo("GlobalSysSoln", "IterativeFull");
 
+    // Without a .opt file the expansion lists would time every
+    // implementation of the legacy collection operators to write one, at a
+    // cost in time and memory. The operators of this library do not use
+    // them, and the few legacy operations still called are served by the
+    // default implementations, so they are timed only on request
+    // (--write-opt-file).
+    // The grouping of the elements into collections, which sets the blocks
+    // of the fields, does not depend on the timing.
+    if (!m_session->DefinesCmdLineArgument("write-opt-file"))
+    {
+        m_session->SetUpdateOptFile(false);
+    }
+
     // Get projection CG, DG or mixed CG/DG
     const std::string projection = m_session->GetSolverInfo("PROJECTION");
     m_projectionType             = GetProjectionType(projection);
@@ -437,10 +450,18 @@ void EquationSystem::DeclareExpansionLists()
                 m_checkIfSystemSingular[0]);
         m_expansionLists[0] = firstField;
 
+        // Set up the trace before the other fields are copied from this one,
+        // so that those with the same types of boundary conditions share it
+        // rather than each setting up its own below.
+        firstField->GetTrace();
+
         for (int i = 1; i < m_nVariables; ++i)
         {
             if (m_graph->SameExpansionInfo(m_variables[0], m_variables[i]))
             {
+                // The copy adds its map to those the first field shares
+                // with it, where the operators set up on the first field
+                // look up the maps of the other variables.
                 m_expansionLists[i] =
                     MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
                         *firstField, m_graph, m_variables[i], false,

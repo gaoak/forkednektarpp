@@ -46,6 +46,8 @@
 #include <boost/graph/cuthill_mckee_ordering.hpp>
 #include <boost/graph/properties.hpp>
 
+#include <unordered_map>
+
 using namespace std;
 
 namespace Nektar::MultiRegions
@@ -267,9 +269,30 @@ int AssemblyMapCG::CreateGraph(
     // partition and see if they match the values stored in the vertlist
     // from other processors and if so record the meshVertId/meshEdgeId
     // and the processor it comes from.
-    for (i = 0; i < n; ++i)
+    //
+    // An entity is recorded in the pass over the lowest other process
+    // whose list holds it, so each is looked up by its id for that
+    // process rather than searched for in every list.
+    unordered_map<int, int> vertProc, edgeProc;
+    for (i = n - 1; i >= 0; --i)
     {
         if (i == p)
+        {
+            continue;
+        }
+        for (l = 0; l < vertcounts[i]; ++l)
+        {
+            vertProc[vertlist[vertoffsets[i] + l]] = i;
+        }
+        for (l = 0; l < edgecounts[i]; ++l)
+        {
+            edgeProc[edgelist[edgeoffsets[i] + l]] = i;
+        }
+    }
+
+    for (i = 0; i < n; ++i)
+    {
+        if (i == p || (vertcounts[i] == 0 && edgecounts[i] == 0))
         {
             continue;
         }
@@ -283,14 +306,12 @@ int AssemblyMapCG::CreateGraph(
                 meshVertId = exp->GetGeom()->GetVid(k);
                 if (graph[0].count(meshVertId) == 0)
                 {
-                    for (l = 0; l < vertcounts[i]; ++l)
+                    auto proc = vertProc.find(meshVertId);
+                    if (proc != vertProc.end() && proc->second == i)
                     {
-                        if (vertlist[vertoffsets[i] + l] == meshVertId)
-                        {
-                            extraDirVertIds[meshVertId] = i;
-                            graph[0][meshVertId]        = graphVertId++;
-                            nExtraDirichlet++;
-                        }
+                        extraDirVertIds[meshVertId] = i;
+                        graph[0][meshVertId]        = graphVertId++;
+                        nExtraDirichlet++;
                     }
                 }
             }
@@ -300,23 +321,21 @@ int AssemblyMapCG::CreateGraph(
                 meshEdgeId = exp->GetGeom()->GetEid(k);
                 if (graph[1].count(meshEdgeId) == 0)
                 {
-                    for (l = 0; l < edgecounts[i]; ++l)
+                    auto proc = edgeProc.find(meshEdgeId);
+                    if (proc != edgeProc.end() && proc->second == i)
                     {
-                        if (edgelist[edgeoffsets[i] + l] == meshEdgeId)
+                        extraDirEdgeIds[meshEdgeId] = i;
+                        graph[1][meshEdgeId]        = graphVertId++;
+                        if (exp->GetGeom()->GetNumFaces())
                         {
-                            extraDirEdgeIds[meshEdgeId] = i;
-                            graph[1][meshEdgeId]        = graphVertId++;
-                            if (exp->GetGeom()->GetNumFaces())
-                            {
-                                nExtraDirichlet +=
-                                    exp->as<LocalRegions::Expansion3D>()
-                                        ->GetEdgeNcoeffs(k) -
-                                    2;
-                            }
-                            else
-                            {
-                                nExtraDirichlet += exp->GetTraceNcoeffs(k) - 2;
-                            }
+                            nExtraDirichlet +=
+                                exp->as<LocalRegions::Expansion3D>()
+                                    ->GetEdgeNcoeffs(k) -
+                                2;
+                        }
+                        else
+                        {
+                            nExtraDirichlet += exp->GetTraceNcoeffs(k) - 2;
                         }
                     }
                 }
