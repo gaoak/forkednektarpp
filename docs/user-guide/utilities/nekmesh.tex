@@ -1012,10 +1012,13 @@ the scaling takes place. With this option, the \emph{r}-adaption uses a fixed
 scaling factor for all elements which are on or within a specified distance from
 the curve.
 
-The call is similar to the \emph{r}-adaption with interpolation file, with the difference of replacing the file with a list of CAD curve IDs, the scaling factor and an optional distance from the curve:
+The call is similar to the \emph{r}-adaption with interpolation file, with the 
+difference of replacing the file with a list of CAD curve IDs, the scaling factor
+and an optional distance from the curve:
 \begin{lstlisting}[style=BashInputStyle]
   NekMesh -m varopti:type:radaptcurves=CurveIDs:radaptscale=scale:radaptrad=rad:subiter=x inital.xml adapted.xml
 \end{lstlisting}
+
 where \texttt{radaptcurves}, \texttt{radaptscale} and \texttt{radaptscale} are
 additional containing the list of CAD curve IDs (integers separated by commas,
 or with a dash for ranges, i.e. 1-3,6 would select curves with ID 1, 2, 3, and
@@ -1025,8 +1028,47 @@ float, respectively. As with the \emph{r}-adaption with interpolation file,
 their target scaling based on their current proximity to the selected CAD
 curves.
 
+
+
+\subsection{\emph{h}-adaptation (2D)}
+This module performs high-order mesh modification through mesh refinement
+and mesh swapping for triangular and hybrid triangular-quad meshes. 
+The module uses the concept of Isoparametric splitting based on
+predefined maps that are defined in standard space (reference space).
+This way the geometrical accuracy and validity of the element is conserved
+without the need for the CAD itself or CAD-API queries. If the element is
+straight-sided, it does perform a standard splitting, hence without expensive
+operation. Additionally, one can use a separate call of the module to improve
+the quality of the mesh through high-order isoparametric swapping. This module
+can be used also for a-posteriori mesh adaptation h, hr, hp mesh adaptation
+efficiently together with DriverAdaptive. In general, the triangular elements
+will be split based on a metric or user input file and the conformity will be
+ensured by propagation in the adjacent elements both quad and triangular ones. 
+
+Example call: 
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh -m h_adaptation:adaptfile=ElementsIDToAdapt.txt:order=4:finest inital.xml adapted.xml
+\end{lstlisting}
+
+\begin{itemize}
+	\item Options for Element Selection:
+		\subitem \inltt{uniform} - Refine all elements in the mesh.
+		\subitem \inltt{adaptfile} - From .txt file containing the ID of the elements to be adapted.
+		\subitem \inltt{areafile} - From .txt file (similar to r-adaptation) that defines field - (x,y $A_{ideal}$). Note the module uses interpolation and runs a single cycle of refinement. 
+		\subitem \inltt{adaptfileEdges} - From .txt file containing the ID of the edges to be split.
+	\item Adaptation options
+		\subitem \inltt{order} - Desirable to be the same as the input mesh, but not necessary.	
+		\subitem \inltt{finest} - Selected elements to be adapted will be split with a map 1:4. This ensures best overall quality of the refined elements. Default options selects the longest edge of the element.
+		\subitem \inltt{swap} - Activates the isoparametric swapping.
+		\subitem \inltt{$h \textunderscore min$} - Creates minimum size condition (area) for the triangle to be split.
+	\item A-posteriori adaptive mesh refinement options
+		\subitem \inltt{hr} - creates "r-scales.txt" file with a scale field that can be used for hr-adaptation marking the same elements to be adapted with r=0.5 and the ones not with r=1.0.
+\end{itemize}
+
+ 
+
 \subsection{Mesh Curving}
-This module can take any linear mesh or high-order mesh, given that it is a close
+This module can take any linear mesh, providing that it is a close
 representation of the CAD and project the boundary of the mesh onto the CAD.
 This will reconstruct the connectivity between the CAD and the surface mesh.
 Then it will curve and optimize the surface of the mesh. The method has a number

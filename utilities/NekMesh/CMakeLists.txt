@@ -23,6 +23,13 @@ IF (NOT WIN32 AND NEKTAR_SOLVER_INCNAVIERSTOKES)
     ADD_NEKTAR_TEST(Nektar++/peralign_double_periodic_hybrid)
 ENDIF ()
 
+# Adaptation tests
+ADD_NEKTAR_TEST(Adaptation/2D/2DAdaptTetHOUniform)
+ADD_NEKTAR_TEST(Adaptation/2D/2DAdaptTriagHOID)
+ADD_NEKTAR_TEST(Adaptation/2D/2DAdaptTriagHOIDSWAP)
+ADD_NEKTAR_TEST(Adaptation/2D/2DAdaptHybridQuadNACAHO)
+
+
 # MeshGen test
 IF(NEKTAR_USE_MESHGEN)
     ADD_NEKTAR_TEST(MeshGen/GEO/2d_adapt)

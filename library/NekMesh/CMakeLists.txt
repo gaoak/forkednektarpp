@@ -36,6 +36,10 @@ SET(NEKMESH_SOURCES
     Module/ProcessModules/ProcessScale.cpp
 
 
+    Module/ProcessModules/Adaptation/2D/ProcessHAdaptation.cpp
+    Module/ProcessModules/Adaptation/2D/ProcessReorder.cpp
+    Module/ProcessModules/Adaptation/2D/ProcessSmoothing.cpp
+
     MeshElements/Mesh.cpp
     MeshElements/Element.cpp
     MeshElements/BooleanOperators.cpp
@@ -47,6 +51,7 @@ SET(NEKMESH_SOURCES
     MeshElements/Prism.cpp
     MeshElements/Hexahedron.cpp
     CADSystem/ProcessLoadCAD.cpp
+
     )
 
 SET(NEKMESH_HEADERS
@@ -94,6 +99,12 @@ SET(NEKMESH_HEADERS
     MeshElements/HOAlignment.h
     MeshElements/ElementConfig.h
     CADSystem/ProcessLoadCAD.h
+    Module/ProcessModules/Adaptation/2D/ProcessHAdaptation.h
+    Module/ProcessModules/Adaptation/2D/ProcessHAdaptationMaps.h
+    Module/ProcessModules/Adaptation/2D/ProcessReorder.h
+    Module/ProcessModules/Adaptation/2D/ProcessSmoothing.h
+    Module/ProcessModules/Adaptation/HangingNodes.h
+
     )
 
 IF(NEKTAR_USE_MESHGEN)
