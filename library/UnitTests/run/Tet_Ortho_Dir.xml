@@ -317,10 +317,10 @@
         <DOMAIN> C[10-13] </DOMAIN>
     </GEOMETRY>
     <EXPANSIONS>
-        <E COMPOSITE="C[10]" NUMMODES="5" FIELDS="u" TYPE="ORTHOGONAL" />
-        <E COMPOSITE="C[11]" NUMMODES="5" FIELDS="u" TYPE="ORTHOGONAL" />
-        <E COMPOSITE="C[12]" NUMMODES="5" FIELDS="u" TYPE="ORTHOGONAL" />
-        <E COMPOSITE="C[13]" NUMMODES="5" FIELDS="u" TYPE="ORTHOGONAL" />
+        <E COMPOSITE="C[10]" BASISTYPE="Ortho_A,Ortho_B,Ortho_C" NUMMODES="5,5,5" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0,GaussRadauMAlpha2Beta0" NUMPOINTS="6,5,5" FIELDS="u" />
+        <E COMPOSITE="C[11]" BASISTYPE="Ortho_A,Ortho_B,Ortho_C" NUMMODES="5,5,5" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0,GaussRadauMAlpha2Beta0" NUMPOINTS="6,5,5" FIELDS="u" />
+        <E COMPOSITE="C[12]" BASISTYPE="Ortho_A,Ortho_B,Ortho_C" NUMMODES="5,5,5" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0,GaussRadauMAlpha2Beta0" NUMPOINTS="6,5,5" FIELDS="u" />
+        <E COMPOSITE="C[13]" BASISTYPE="Ortho_A,Ortho_B,Ortho_C" NUMMODES="5,5,5" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0,GaussRadauMAlpha2Beta0" NUMPOINTS="6,5,5" FIELDS="u" />
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>

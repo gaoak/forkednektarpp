@@ -242,6 +242,7 @@ public:
         {
             case eGaussGaussLegendre:
             case eGaussGaussChebyshev:
+            case eGaussGaussAlpha1Beta0:
             {
                 return 2 * npt - 1;
             }

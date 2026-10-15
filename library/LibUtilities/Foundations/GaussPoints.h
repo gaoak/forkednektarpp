@@ -95,6 +95,9 @@ public:
             PointsKey(0, eGaussRadauMAlpha2Beta0),
             std::bind(&GaussPoints::CreateMatrix, this, pl::_1));
         m_InterpManager.RegisterCreator(
+            PointsKey(0, eGaussGaussAlpha1Beta0),
+            std::bind(&GaussPoints::CreateMatrix, this, pl::_1));
+        m_InterpManager.RegisterCreator(
             PointsKey(0, eGaussKronrodLegendre),
             std::bind(&GaussPoints::CreateMatrix, this, pl::_1));
         m_InterpManager.RegisterCreator(
@@ -159,6 +162,9 @@ public:
             std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
         m_GalerkinProjectionManager.RegisterCreator(
             PointsKey(0, eGaussRadauMAlpha2Beta0),
+            std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
+        m_GalerkinProjectionManager.RegisterCreator(
+            PointsKey(0, eGaussGaussAlpha1Beta0),
             std::bind(&GaussPoints::CreateGPMatrix, this, pl::_1));
         m_GalerkinProjectionManager.RegisterCreator(
             PointsKey(0, eGaussKronrodLegendre),

@@ -563,8 +563,14 @@ const LibUtilities::BasisKey StdQuadExp::v_GetTraceBasisKey(
         {
             case LibUtilities::eOrtho_A:
             {
-                return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
-                                              GetBasis(0)->GetNumModes(),
+                // The edge keeps the element's points; on a Gauss rule its
+                // nodal basis is the one through Gauss points, collocated
+                // with the rule when the mode and point counts agree.
+                const auto bType = GetBasis(0)->GetPointsType() ==
+                                           LibUtilities::eGaussGaussLegendre
+                                       ? LibUtilities::eGauss_Lagrange
+                                       : LibUtilities::eGLL_Lagrange;
+                return LibUtilities::BasisKey(bType, GetBasis(0)->GetNumModes(),
                                               GetBasis(0)->GetPointsKey());
             }
             break;
@@ -580,8 +586,14 @@ const LibUtilities::BasisKey StdQuadExp::v_GetTraceBasisKey(
         {
             case LibUtilities::eOrtho_A:
             {
-                return LibUtilities::BasisKey(LibUtilities::eGLL_Lagrange,
-                                              GetBasis(1)->GetNumModes(),
+                // The edge keeps the element's points; on a Gauss rule its
+                // nodal basis is the one through Gauss points, collocated
+                // with the rule when the mode and point counts agree.
+                const auto bType = GetBasis(1)->GetPointsType() ==
+                                           LibUtilities::eGaussGaussLegendre
+                                       ? LibUtilities::eGauss_Lagrange
+                                       : LibUtilities::eGLL_Lagrange;
+                return LibUtilities::BasisKey(bType, GetBasis(1)->GetNumModes(),
                                               GetBasis(1)->GetPointsKey());
             }
             break;

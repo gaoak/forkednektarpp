@@ -76,7 +76,8 @@ MemoryRegion<TData> BasisDataCreator::Create(
                 case eModified_B:
                 case eOrtho_B:
                 {
-                    if (basis->GetPointsType() == eGaussRadauMAlpha1Beta0)
+                    if (basis->GetPointsType() == eGaussRadauMAlpha1Beta0 ||
+                        basis->GetPointsType() == eGaussGaussAlpha1Beta0)
                     {
                         Vmath::Smul(ndata, 0.5, basis->GetW().data(), 1,
                                     wTmp.data(), 1);
@@ -102,7 +103,9 @@ MemoryRegion<TData> BasisDataCreator::Create(
                         Vmath::Smul(ndata, 0.25, basis->GetW().data(), 1,
                                     wTmp.data(), 1);
                     }
-                    else if (basis->GetPointsType() == eGaussRadauMAlpha1Beta0)
+                    else if (basis->GetPointsType() ==
+                                 eGaussRadauMAlpha1Beta0 ||
+                             basis->GetPointsType() == eGaussGaussAlpha1Beta0)
                     {
                         const auto z = basis->GetZ();
                         const auto w = basis->GetW();

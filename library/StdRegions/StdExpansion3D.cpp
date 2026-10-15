@@ -730,6 +730,11 @@ LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
                     pType     = LibUtilities::eGaussLegendreWithMP;
                 }
                 break;
+                case LibUtilities::eGaussGaussAlpha1Beta0:
+                {
+                    pType = LibUtilities::eGaussGaussLegendre;
+                }
+                break;
                 default: // do not change points
                 {
                     pType = faceDirBasis->GetPointsType();
@@ -765,6 +770,11 @@ LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
                 {
                     numpoints = numpoints + 1;
                     pType     = LibUtilities::eGaussLegendreWithMP;
+                }
+                break;
+                case LibUtilities::eGaussGaussAlpha1Beta0:
+                {
+                    pType = LibUtilities::eGaussGaussLegendre;
                 }
                 break;
                 default: // do not change points
@@ -831,6 +841,12 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                                 LibUtilities::eGaussLegendreWithMP);
                         }
                         break;
+                        case LibUtilities::eGaussGaussAlpha1Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints, LibUtilities::eGaussGaussLegendre);
+                        }
+                        break;
                         default: // For other points type, just return the
                                  // points key
                         {
@@ -861,6 +877,19 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                                     numpoints,
                                     LibUtilities::eGaussRadauMAlpha1Beta0);
                             }
+                        }
+                        break;
+                        // A Gauss rule in the collapsed direction: the face
+                        // takes the Gauss-Jacobi(1,0) rule of the same count
+                        // in its singular direction, as the Radau rules take
+                        // Radau(1,0), so every triangular face of a Gauss
+                        // tetrahedron, prism or pyramid carries one rule.
+                        case LibUtilities::eGaussGaussLegendre:
+                        case LibUtilities::eGaussGaussAlpha1Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints,
+                                LibUtilities::eGaussGaussAlpha1Beta0);
                         }
                         break;
                         default: // For other points type, just return the
@@ -940,6 +969,12 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                                 LibUtilities::eGaussLegendreWithMP);
                         }
                         break;
+                        case LibUtilities::eGaussGaussAlpha1Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints, LibUtilities::eGaussGaussLegendre);
+                        }
+                        break;
                         default: // For other points type, just return the
                                  // points key
                         {
@@ -960,6 +995,16 @@ LibUtilities::BasisKey EvaluateTriFaceBasisKey(
                             pkey = LibUtilities::PointsKey(
                                 numpoints,
                                 LibUtilities::eGaussRadauMAlpha1Beta0);
+                        }
+                        break;
+                        // A Gauss rule in the collapsed direction takes the
+                        // Gauss-Jacobi(1,0) rule of the same count, as above.
+                        case LibUtilities::eGaussGaussLegendre:
+                        case LibUtilities::eGaussGaussAlpha1Beta0:
+                        {
+                            pkey = LibUtilities::PointsKey(
+                                numpoints,
+                                LibUtilities::eGaussGaussAlpha1Beta0);
                         }
                         break;
                         default: // For other points type, just return the

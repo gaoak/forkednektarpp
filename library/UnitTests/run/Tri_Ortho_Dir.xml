@@ -21,8 +21,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[5]" NUMMODES="2" FIELDS="u" TYPE="ORTHOGONAL" />
-        <E COMPOSITE="C[6]" NUMMODES="2" FIELDS="u" TYPE="ORTHOGONAL" />
+        <E COMPOSITE="C[5]" BASISTYPE="Ortho_A,Ortho_B" NUMMODES="2,2" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0" NUMPOINTS="3,2" FIELDS="u" />
+        <E COMPOSITE="C[6]" BASISTYPE="Ortho_A,Ortho_B" NUMMODES="2,2" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0" NUMPOINTS="3,2" FIELDS="u" />
     </EXPANSIONS>
 
     <CONDITIONS>

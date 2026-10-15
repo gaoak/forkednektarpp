@@ -29,7 +29,7 @@
     </Metadata>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[601]" NUMMODES="4" FIELDS="u,v" TYPE="ORTHOGONAL" />
+        <E COMPOSITE="C[601]" BASISTYPE="Ortho_A,Ortho_A" NUMMODES="4,4" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre" NUMPOINTS="5,5" FIELDS="u,v" />
     </EXPANSIONS>
 
     <CONDITIONS>
