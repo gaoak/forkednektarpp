@@ -281,7 +281,6 @@ protected:
             {
                 // This is A*x
                 this->m_lhs->Apply(out, m_r0);
-                this->m_robBndCondOp->Apply(out, m_r0);
 
                 // This is r0 = b-A*x
                 Math::sub<ExecSpace>(in, m_r0, m_r0);
@@ -364,7 +363,6 @@ protected:
                 // -- Begin Arnoldi --
                 // Apply lhs and assemble.
                 this->m_lhs->Apply(Z1, m_w);
-                this->m_robBndCondOp->Apply(Z1, m_w);
                 this->m_assmbScatrZeroDirOp->Apply(m_w);
 
                 // Apply preconditioner. Its scaling of m_w is applied with
@@ -593,7 +591,6 @@ protected:
 
             // Calculate difference in residual of solution.
             this->m_lhs->Apply(out, m_r0);
-            this->m_robBndCondOp->Apply(out, m_r0);
             Math::sub<ExecSpace>(in, m_r0, m_r0);
             this->m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
             eps_real = this->m_math.ddot(m_w, m_r0);

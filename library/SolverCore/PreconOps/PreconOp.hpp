@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
 #include "SolverCore/SolverCore.hpp"
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
@@ -93,8 +94,7 @@ public:
             factory.CreateInstance(requestedKey, expansionList, components));
     }
 
-    void Configure(const std::shared_ptr<MultiRegions::ElmtOp<
-                       FieldState::Coeff, FieldState::Coeff, TData>> &op)
+    void Configure(const std::shared_ptr<LHSOp<TData>> &op)
     {
         v_Configure(op);
     }
@@ -109,10 +109,7 @@ protected:
 
     ~PreconOp() override = default;
 
-    virtual void v_Configure(
-        const std::shared_ptr<
-            MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
-            &op) = 0;
+    virtual void v_Configure(const std::shared_ptr<LHSOp<TData>> &op) = 0;
 };
 
 } // namespace Nektar::SolverCore

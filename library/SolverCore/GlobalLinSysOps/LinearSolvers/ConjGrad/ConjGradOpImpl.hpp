@@ -259,7 +259,6 @@ protected:
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(w, m_s);
-            this->m_robBndCondOp->Apply(w, m_s);
 
             // <w_{k+1}, s_{k+1}>
             Math::ddot<ExecSpace>(w, m_s, exchange + 2);

@@ -278,7 +278,6 @@ protected:
                     this->m_precon->Apply(m_u[ii], tmp);
                 }
                 this->m_lhs->Apply(tmp, m_u[ii + 1]);
-                this->m_robBndCondOp->Apply(tmp, m_u[ii + 1]);
                 this->m_assmbScatrZeroDirOp->Apply(m_u[ii + 1]);
                 if (this->m_leftPreconditioner)
                 {
@@ -316,7 +315,6 @@ protected:
                     this->m_precon->Apply(m_r[ii], tmp2);
                 }
                 this->m_lhs->Apply(tmp2, m_r[ii + 1]);
-                this->m_robBndCondOp->Apply(tmp2, m_r[ii + 1]);
                 this->m_assmbScatrZeroDirOp->Apply(m_r[ii + 1]);
                 if (this->m_leftPreconditioner)
                 {
@@ -485,7 +483,6 @@ protected:
                         this->m_precon->Apply(m_acc, tmp3);
                     }
                     this->m_lhs->Apply(tmp3, m_r[0]);
-                    this->m_robBndCondOp->Apply(tmp3, m_r[0]);
                     this->m_assmbScatrZeroDirOp->Apply(m_r[0]);
                     if (this->m_leftPreconditioner)
                     {

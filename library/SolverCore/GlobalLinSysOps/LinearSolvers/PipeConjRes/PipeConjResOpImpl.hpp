@@ -198,7 +198,6 @@ protected:
         alpha = 1.0;
         rho   = 1.0;
         this->m_lhs->Apply(m_r, m_w);
-        this->m_robBndCondOp->Apply(m_r, m_w);
         while (true)
         {
             if (this->m_niter > this->m_maxIter)
@@ -218,7 +217,6 @@ protected:
             if (replace)
             {
                 this->m_lhs->Apply(out, m_r);
-                this->m_robBndCondOp->Apply(out, m_r);
                 Math::sub<ExecSpace>(in, m_r, m_r);
                 this->m_assmbScatrZeroDirOp->Apply(m_r);
                 if (this->m_leftPreconditioner)
@@ -226,7 +224,6 @@ protected:
                     this->m_precon->Apply(m_r, m_r);
                 }
                 this->m_lhs->Apply(m_r, m_w);
-                this->m_robBndCondOp->Apply(m_r, m_w);
             }
 
             // Otherwise, the products were computed with the update of the
@@ -256,7 +253,6 @@ protected:
 
             // Overlap communication with matrix-vector multiply operation.
             this->m_lhs->Apply(m_wk, m_s);
-            this->m_robBndCondOp->Apply(m_wk, m_s);
 
             // End communication.
             this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,

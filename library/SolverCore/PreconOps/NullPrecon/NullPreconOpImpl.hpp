@@ -76,9 +76,7 @@ protected:
     }
 
     void v_Configure(
-        [[maybe_unused]] const std::shared_ptr<
-            MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
-            &op) override
+        [[maybe_unused]] const std::shared_ptr<LHSOp<TData>> &op) override
     {
     }
 };

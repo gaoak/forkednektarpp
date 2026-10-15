@@ -202,7 +202,6 @@ protected:
         // Overlap communication with matrix-vector multiply operation.
         m_p.template Copy<MemSpace>(m_u);
         this->m_lhs->Apply(m_p, m_s);
-        this->m_robBndCondOp->Apply(m_p, m_s);
 
         // End communication.
         this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,
@@ -280,7 +279,6 @@ protected:
 
             // Overlap communication with matrix-vector multiply operation.
             this->m_lhs->Apply(m_u, m_w);
-            this->m_robBndCondOp->Apply(m_u, m_w);
 
             // End communication.
             this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,

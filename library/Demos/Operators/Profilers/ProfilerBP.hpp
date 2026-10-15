@@ -281,7 +281,10 @@ void LaunchProfiler(
         DiagPreconOp<TData>::Create(expList, session->GetVariables());
     auto conjGradOp =
         ConjGradOp<TData>::Create(expList, session->GetVariables());
-    conjGradOp->SetLHS(elmtOp);
+    auto lhsOp =
+        std::make_shared<LHSOp<TData>>(expList, session->GetVariables());
+    lhsOp->SetElmtOp(elmtOp);
+    conjGradOp->SetLHS(lhsOp);
     conjGradOp->SetPrecon(diagPreconOp);
     conjGradOp->UpdatePrecon();
 

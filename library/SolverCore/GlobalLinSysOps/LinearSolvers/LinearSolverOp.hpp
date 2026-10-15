@@ -41,13 +41,12 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include "SolverCore/SolverCore.hpp"
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
-#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 #include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
-#include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
@@ -126,8 +125,7 @@ public:
         this->v_Apply(in, out);
     }
 
-    void SetLHS(const std::shared_ptr<MultiRegions::ElmtOp<
-                    FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
+    void SetLHS(const std::shared_ptr<LHSOp<TData>> &ptr)
     {
         this->m_lhs = ptr;
     }
@@ -149,11 +147,8 @@ public:
 
 protected:
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
-    std::shared_ptr<
-        MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
-        m_lhs;
+    std::shared_ptr<LHSOp<TData>> m_lhs;
     std::shared_ptr<PreconOp<TData>> m_precon;
-    std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_robBndCondOp;
     std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrOp;
     std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
     LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
@@ -265,8 +260,6 @@ protected:
         this->m_assmbScatrZeroDirOp =
             MultiRegions::AssmbScatrZeroDirOp<TData>::Create(
                 this->m_expansionList, this->m_components, ExecSpace::name);
-        this->m_robBndCondOp = MultiRegions::RobBndCondOp<TData>::Create(
-            this->m_expansionList, this->m_components, ExecSpace::name);
         this->m_rowComm       = session->GetComm()->GetRowComm();
         this->m_root          = this->m_rowComm->GetRank() == 0;
         this->m_verboseOutput = session->DefinesCmdLineArgument("verbose");

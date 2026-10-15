@@ -172,7 +172,10 @@ public:
             m_expList, m_session->GetVariables(), method);
         op->SetLambda(m_lambda);
         op->SetDiffCoeff(m_diffCoeff);
-        precon->Configure(op);
+        auto lhs = std::make_shared<LHSOp<TData>>(m_expList,
+                                                  m_session->GetVariables());
+        lhs->SetElmtOp(op);
+        precon->Configure(lhs);
         assmb->Apply(m_in, m_out);
 
         // reshape m_out

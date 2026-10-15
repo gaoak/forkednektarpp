@@ -365,7 +365,6 @@ protected:
                 // Perform the method-specific matrix-vector Math::multiply
                 // operation.
                 this->m_lhs->Apply(m_U[k], m_G[k]);
-                this->m_robBndCondOp->Apply(m_U[k], m_G[k]);
                 this->m_assmbScatrZeroDirOp->Apply(m_G[k]);
                 if (this->m_leftPreconditioner)
                 {
@@ -541,7 +540,6 @@ protected:
                 this->m_precon->Apply(m_r, tmp);
             }
             this->m_lhs->Apply(tmp, m_w);
-            this->m_robBndCondOp->Apply(tmp, m_w);
             this->m_assmbScatrZeroDirOp->Apply(m_w);
             if (this->m_leftPreconditioner)
             {

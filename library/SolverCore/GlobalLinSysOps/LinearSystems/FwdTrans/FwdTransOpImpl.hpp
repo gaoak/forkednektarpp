@@ -58,8 +58,9 @@ public:
         // Add default Dirichlet BC
         this->m_DirBCOps.push_back(MultiRegions::DirBndCondOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name));
-        this->m_RobBCOp = MultiRegions::RobBndCondOp<TData>::Create(
+        this->m_LHSOp = std::make_shared<LHSOp<TData>>(
             this->m_expansionList, components, ExecSpace::name);
+        this->m_LHSOp->SetElmtOp(this->m_ElmtOp);
     }
 
     // className - for OperatorFactory
@@ -87,11 +88,8 @@ protected:
             dirBCOp->Apply(out);
         }
 
-        // Apply Mass operator.
-        this->m_ElmtOp->Apply(out, this->m_tmp);
-
-        // Handle Robin BCs.
-        this->m_RobBCOp->Apply(out, this->m_tmp);
+        // Apply Mass operator, with Robin BCs.
+        this->m_LHSOp->Apply(out, this->m_tmp);
 
         // Solve linear system.
         Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
