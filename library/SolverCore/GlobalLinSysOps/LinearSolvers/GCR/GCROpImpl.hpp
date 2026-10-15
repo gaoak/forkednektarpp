@@ -245,7 +245,6 @@ protected:
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_P[ii], m_Q[ii]);
-            this->m_robBndCondOp->Apply(m_P[ii], m_Q[ii]);
             this->m_assmbScatrZeroDirOp->Apply(m_Q[ii]);
 
             // Update vector: Q[ii] loses its components along the previous

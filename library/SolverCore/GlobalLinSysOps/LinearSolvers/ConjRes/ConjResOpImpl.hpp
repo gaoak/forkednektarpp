@@ -188,7 +188,6 @@ protected:
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_r, m_s);
-            this->m_robBndCondOp->Apply(m_r, m_s);
 
             // Update vector.
             if (this->m_niter == 0)

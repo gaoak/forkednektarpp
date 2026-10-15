@@ -172,7 +172,6 @@ protected:
 
             // This is A*x
             this->m_lhs->Apply(out, m_r);
-            this->m_robBndCondOp->Apply(out, m_r);
 
             // This is r = b-A*x
             Math::sub<ExecSpace>(in, m_r, m_r);

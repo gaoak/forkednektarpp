@@ -222,7 +222,6 @@ protected:
                 this->m_precon->Apply(m_u, tmp);
             }
             this->m_lhs->Apply(tmp, m_s);
-            this->m_robBndCondOp->Apply(tmp, m_s);
             this->m_assmbScatrZeroDirOp->Apply(m_s);
             if (this->m_leftPreconditioner)
             {
@@ -274,7 +273,6 @@ protected:
                 this->m_precon->Apply(m_u, tmp2);
             }
             this->m_lhs->Apply(tmp, m_s);
-            this->m_robBndCondOp->Apply(tmp, m_s);
             this->m_assmbScatrZeroDirOp->Apply(m_s);
             if (this->m_leftPreconditioner)
             {

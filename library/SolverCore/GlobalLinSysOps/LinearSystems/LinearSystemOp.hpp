@@ -37,10 +37,10 @@
 #include <MultiRegions/Common/Operator.hpp>
 
 #include "SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
+#include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
 #include "SolverCore/PreconOps/PreconOp.hpp"
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
-#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 
@@ -67,7 +67,7 @@ public:
     void SetLinearSolver(const std::shared_ptr<LinearSolverOp<TData>> &linsolve)
     {
         m_LinSolverOp = linsolve;
-        m_LinSolverOp->SetLHS(m_ElmtOp);
+        m_LinSolverOp->SetLHS(m_LHSOp);
     }
 
     void SetPrecon(const std::shared_ptr<PreconOp<TData>> &precon)
@@ -112,10 +112,10 @@ protected:
     std::shared_ptr<
         MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_ElmtOp;
+    std::shared_ptr<LHSOp<TData>> m_LHSOp;
     std::vector<std::shared_ptr<MultiRegions::DirBndCondOp<TData>>> m_DirBCOps;
     std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>> m_IProdOp;
     std::vector<std::shared_ptr<MultiRegions::NeuBndCondOp<TData>>> m_NeuBCOps;
-    std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_RobBCOp;
 
     LibUtilities::Field<TData, FieldState::Coeff> m_rhs;
     LibUtilities::Field<TData, FieldState::Coeff> m_tmp;

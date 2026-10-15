@@ -76,6 +76,7 @@ v5.11.0
 - Test convergence with the global inner-product mask in the redesign BiCGStab (half step), ConjRes, GCR and Richardson solvers; apply the GCR solution update once per restart cycle instead of orthogonalising the search directions at every iteration; fuse each modified Gram-Schmidt update of GMRES with the dot product that follows it; add a deferred normalisation option to MINRES (MINRESDeferredNormalisation) (!2832)
 - Consistently name block operator files `<Name>BlockOp<ExecSpace><Impl>` (!2834)
 - Optimise pipelined ConjGrad and ConjRes (!2839)
+- Add LHSOp combining the linear system element operator and Robin boundary condition operator (!2841)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

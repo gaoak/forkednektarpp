@@ -39,7 +39,6 @@
 #include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
-#include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 
 #include "SolverCore/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 
@@ -60,8 +59,6 @@ public:
     {
         m_assmbScatrNoSignOp = MultiRegions::AssmbScatrNoSignOp<TData>::Create(
             this->m_expansionList, components, ExecSpace::name);
-        m_robBCOp = MultiRegions::RobBndCondOp<TData>::Create(
-            this->m_expansionList, components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -78,7 +75,6 @@ public:
 
 protected:
     std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrNoSignOp;
-    std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_robBCOp;
 
     LibUtilities::Field<TData, FieldState::Coeff> m_invDiag;
 
@@ -129,10 +125,7 @@ protected:
         }
     }
 
-    void v_Configure(
-        const std::shared_ptr<
-            MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
-            &op) override
+    void v_Configure(const std::shared_ptr<LHSOp<TData>> &op) override
     {
         // Create block attributes.
         auto blockAttr =
@@ -202,7 +195,6 @@ protected:
 
             // Apply the operator to unit vector and store in the action field.
             op->Apply(unit_vec, action);
-            m_robBCOp->Apply(unit_vec, action);
 
             for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
             {

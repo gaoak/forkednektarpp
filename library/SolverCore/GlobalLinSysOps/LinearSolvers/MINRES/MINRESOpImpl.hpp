@@ -220,7 +220,6 @@ protected:
             // Perform the method-specific matrix-vector Math::multiply
             // operation.
             this->m_lhs->Apply(m_w, m_q);
-            this->m_robBndCondOp->Apply(m_w, m_q);
 
             // Update coefficients.
             alpha = this->m_math.ddot(m_w, m_q);
