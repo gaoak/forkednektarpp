@@ -178,7 +178,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r, m_u);
+        this->m_lhs->Assemble(m_r, m_u);
         Math::ddot<ExecSpace>(m_r, m_u, exchange + 0);
 
         // Apply preconditioner
@@ -209,7 +209,7 @@ protected:
         // Iteration >= 1
         alpha = 1.0;
         rho   = 1.0;
-        this->m_lhs->Apply(m_u, m_w);
+        this->m_lhs->ApplyLocal(m_u, m_w);
         while (true)
         {
             if (this->m_niter > this->m_maxIter)
@@ -228,14 +228,14 @@ protected:
                                  this->m_niter % residualReplacementFreq == 0;
             if (replace)
             {
-                this->m_lhs->Apply(out, m_r);
+                this->m_lhs->ApplyLocal(out, m_r);
                 Math::sub<ExecSpace>(in, m_r, m_r);
-                this->m_assmbScatrZeroDirOp->Apply(m_r, m_u);
+                this->m_lhs->Assemble(m_r, m_u);
                 if (this->m_leftPreconditioner)
                 {
                     this->m_precon->Apply(m_u, m_u);
                 }
-                this->m_lhs->Apply(m_u, m_w);
+                this->m_lhs->ApplyLocal(m_u, m_w);
             }
 
             // Otherwise, the products were computed with the update of the
@@ -257,12 +257,12 @@ protected:
                 m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
             // Overlap communication with matrix-vector multiply operation.
-            this->m_assmbScatrZeroDirOp->Apply(m_w, m_m);
+            this->m_lhs->Assemble(m_w, m_m);
             if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_m, m_m);
             }
-            this->m_lhs->Apply(m_m, m_n);
+            this->m_lhs->ApplyLocal(m_m, m_n);
 
             // End communication.
             this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,

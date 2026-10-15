@@ -235,7 +235,7 @@ protected:
         // Calculate prefactor.
         if (this->m_leftPreconditioner)
         {
-            this->m_assmbScatrZeroDirOp->Apply(in, m_w);
+            this->m_lhs->Assemble(in, m_w);
             Math::ddot<ExecSpace>(in, m_w, exchange + 1);
         }
 
@@ -280,7 +280,7 @@ protected:
             else
             {
                 // This is A*x
-                this->m_lhs->Apply(out, m_r0);
+                this->m_lhs->ApplyLocal(out, m_r0);
 
                 // This is r0 = b-A*x
                 Math::sub<ExecSpace>(in, m_r0, m_r0);
@@ -290,7 +290,7 @@ protected:
             // scattered, with zero Dirichlet coefficients, so that each
             // global coefficient has one value however many elements share
             // it.
-            this->m_assmbScatrZeroDirOp->Apply(m_r0);
+            this->m_lhs->Assemble(m_r0);
 
             // Apply preconditioner.
             if (this->m_leftPreconditioner)
@@ -363,7 +363,6 @@ protected:
                 // -- Begin Arnoldi --
                 // Apply lhs and assemble.
                 this->m_lhs->Apply(Z1, m_w);
-                this->m_assmbScatrZeroDirOp->Apply(m_w);
 
                 // Apply preconditioner. Its scaling of m_w is applied with
                 // the first Gram-Schmidt update.
@@ -590,9 +589,9 @@ protected:
             TData eps_real;
 
             // Calculate difference in residual of solution.
-            this->m_lhs->Apply(out, m_r0);
+            this->m_lhs->ApplyLocal(out, m_r0);
             Math::sub<ExecSpace>(in, m_r0, m_r0);
-            this->m_assmbScatrZeroDirOp->Apply(m_r0, m_w);
+            this->m_lhs->Assemble(m_r0, m_w);
             eps_real = this->m_math.ddot(m_w, m_r0);
             this->m_rowComm->AllReduce(eps_real, LibUtilities::ReduceSum);
 

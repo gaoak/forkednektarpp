@@ -130,7 +130,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_lhs->Assemble(m_r);
         Math::ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Communication.
@@ -171,13 +171,13 @@ protected:
             Math::daxpy<ExecSpace>(m_scale, m_w, out, out);
 
             // This is A*x
-            this->m_lhs->Apply(out, m_r);
+            this->m_lhs->ApplyLocal(out, m_r);
 
             // This is r = b-A*x
             Math::sub<ExecSpace>(in, m_r, m_r);
 
             // This is D^-1 * r
-            this->m_assmbScatrZeroDirOp->Apply(m_r);
+            this->m_lhs->Assemble(m_r);
             this->m_precon->Apply(m_r, m_w);
 
             // <r_{k+1}, r_{k+1}>

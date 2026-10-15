@@ -161,7 +161,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial vector.
         m_v0.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_v0, m_w);
+        this->m_lhs->Assemble(m_v0, m_w);
         if (this->m_leftPreconditioner)
         {
             this->m_precon->Apply(m_w, m_w);
@@ -219,7 +219,7 @@ protected:
 
             // Perform the method-specific matrix-vector Math::multiply
             // operation.
-            this->m_lhs->Apply(m_w, m_q);
+            this->m_lhs->ApplyLocal(m_w, m_q);
 
             // Update coefficients.
             alpha = this->m_math.ddot(m_w, m_q);
@@ -254,7 +254,7 @@ protected:
             }
 
             // Apply preconditioner.
-            this->m_assmbScatrZeroDirOp->Apply(m_v1, m_q);
+            this->m_lhs->Assemble(m_v1, m_q);
             if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_q, m_q);

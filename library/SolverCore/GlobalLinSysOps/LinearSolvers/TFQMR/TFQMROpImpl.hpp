@@ -154,7 +154,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_lhs->Assemble(m_r);
 
         if (this->m_leftPreconditioner)
         {
@@ -222,7 +222,6 @@ protected:
                 this->m_precon->Apply(m_u, tmp);
             }
             this->m_lhs->Apply(tmp, m_s);
-            this->m_assmbScatrZeroDirOp->Apply(m_s);
             if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_s, m_s);
@@ -273,7 +272,6 @@ protected:
                 this->m_precon->Apply(m_u, tmp2);
             }
             this->m_lhs->Apply(tmp, m_s);
-            this->m_assmbScatrZeroDirOp->Apply(m_s);
             if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_s, m_s);

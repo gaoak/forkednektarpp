@@ -190,7 +190,7 @@ protected:
         // Copy RHS into initial residual and assemble with Zero
         // Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_lhs->Assemble(m_r);
         Math::ddot<ExecSpace>(m_r, m_r, exchange + 0);
 
         // Communication.
@@ -245,7 +245,6 @@ protected:
 
             // Perform the method-specific matrix-vector multiply operation.
             this->m_lhs->Apply(m_P[ii], m_Q[ii]);
-            this->m_assmbScatrZeroDirOp->Apply(m_Q[ii]);
 
             // Update vector: Q[ii] loses its components along the previous
             // directions, with coefficients -beta_i / scale_i,

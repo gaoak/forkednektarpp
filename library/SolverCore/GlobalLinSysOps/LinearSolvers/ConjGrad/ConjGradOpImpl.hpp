@@ -159,7 +159,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_lhs->Assemble(m_r);
         Math::ddot<ExecSpace>(in, m_r, exchange + 0);
 
         // Communication.
@@ -227,7 +227,7 @@ protected:
             {
                 // Assemble matrix output from previous matrix-vector multiply
                 // could be moved around loop if optimal elsewhere.
-                this->m_assmbScatrZeroDirOp->Apply(m_s);
+                this->m_lhs->Assemble(m_s);
 
                 // Compute new search direction.
                 // Math::daxpy<ExecSpace>(beta, m_p, m_w, m_p);
@@ -258,7 +258,7 @@ protected:
             }
 
             // Perform the method-specific matrix-vector multiply operation.
-            this->m_lhs->Apply(w, m_s);
+            this->m_lhs->ApplyLocal(w, m_s);
 
             // <w_{k+1}, s_{k+1}>
             Math::ddot<ExecSpace>(w, m_s, exchange + 2);

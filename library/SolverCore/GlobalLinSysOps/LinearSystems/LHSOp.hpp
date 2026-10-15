@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
 #include <MultiRegions/BndCondOps/RobBndCond/RobBndCondOp.hpp>
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
@@ -42,11 +43,17 @@ namespace Nektar::SolverCore
 
 /**
  * @brief Left-hand side operator of a linear system: an element operator
- * plus the Robin boundary contribution.
+ * plus the Robin boundary contribution, assembled with zero Dirichlet
+ * coefficients.
  *
  * The element operator is set with SetElmtOp() and shared with its owner,
- * which keeps setting its parameters directly. The Robin operator is built
- * here and adds its contribution to the element operator's output.
+ * which keeps setting its parameters directly. The Robin and assembly
+ * operators are built here.
+ *
+ * Apply() returns the assembled product, in the form the preconditioners
+ * and the masked inner products expect. ApplyLocal() returns the product
+ * before assembly, and Assemble() completes it, for callers that combine
+ * the unassembled product with other work first.
  *
  * @tparam TData  Floating-point type of the field data.
  */
@@ -57,7 +64,10 @@ public:
           const std::vector<std::string> &components,
           const std::string &execStr = "")
         : m_robBCOp(MultiRegions::RobBndCondOp<TData>::Create(
-              expansionList, components, execStr))
+              expansionList, components, execStr)),
+          m_assmbScatrZeroDirOp(
+              MultiRegions::AssmbScatrZeroDirOp<TData>::Create(
+                  expansionList, components, execStr))
     {
     }
 
@@ -69,9 +79,19 @@ public:
         m_elmtOp = elmtOp;
     }
 
-    /// @brief Apply the element operator, then add the Robin contribution.
+    /// @brief Apply the operator and assemble the result with zero
+    /// Dirichlet coefficients.
     void Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                LibUtilities::Field<TData, FieldState::Coeff> &out)
+    {
+        ApplyLocal(in, out);
+        m_assmbScatrZeroDirOp->Apply(out);
+    }
+
+    /// @brief Apply the element operator, then add the Robin contribution,
+    /// without assembling the result.
+    void ApplyLocal(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                    LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         ASSERTL1(m_elmtOp, "Element operator not set: call SetElmtOp()");
 
@@ -79,11 +99,25 @@ public:
         m_robBCOp->Apply(in, out);
     }
 
+    /// @brief Assemble @p inout in place with zero Dirichlet coefficients.
+    void Assemble(LibUtilities::Field<TData, FieldState::Coeff> &inout)
+    {
+        m_assmbScatrZeroDirOp->Apply(inout);
+    }
+
+    /// @brief Assemble @p in with zero Dirichlet coefficients into @p out.
+    void Assemble(LibUtilities::Field<TData, FieldState::Coeff> &in,
+                  LibUtilities::Field<TData, FieldState::Coeff> &out)
+    {
+        m_assmbScatrZeroDirOp->Apply(in, out);
+    }
+
 protected:
     std::shared_ptr<
         MultiRegions::ElmtOp<FieldState::Coeff, FieldState::Coeff, TData>>
         m_elmtOp;
     std::shared_ptr<MultiRegions::RobBndCondOp<TData>> m_robBCOp;
+    std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
 };
 
 } // namespace Nektar::SolverCore
