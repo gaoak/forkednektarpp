@@ -225,7 +225,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r);
+        this->m_lhs->Assemble(m_r);
 
         if (this->m_leftPreconditioner)
         {
@@ -365,7 +365,6 @@ protected:
                 // Perform the method-specific matrix-vector Math::multiply
                 // operation.
                 this->m_lhs->Apply(m_U[k], m_G[k]);
-                this->m_assmbScatrZeroDirOp->Apply(m_G[k]);
                 if (this->m_leftPreconditioner)
                 {
                     this->m_precon->Apply(m_G[k], m_G[k]);
@@ -540,7 +539,6 @@ protected:
                 this->m_precon->Apply(m_r, tmp);
             }
             this->m_lhs->Apply(tmp, m_w);
-            this->m_assmbScatrZeroDirOp->Apply(m_w);
             if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_w, m_w);

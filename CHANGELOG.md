@@ -77,6 +77,7 @@ v5.11.0
 - Consistently name block operator files `<Name>BlockOp<ExecSpace><Impl>` (!2834)
 - Optimise pipelined ConjGrad and ConjRes (!2839)
 - Add LHSOp combining the linear system element operator and Robin boundary condition operator (!2841)
+- Move the zero-Dirichlet assembly into LHSOp so linear solvers no longer assemble each product explicitly (!2842)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -89,7 +89,7 @@ protected:
         }
 
         // Apply Mass operator, with Robin BCs.
-        this->m_LHSOp->Apply(out, this->m_tmp);
+        this->m_LHSOp->ApplyLocal(out, this->m_tmp);
 
         // Solve linear system.
         Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);

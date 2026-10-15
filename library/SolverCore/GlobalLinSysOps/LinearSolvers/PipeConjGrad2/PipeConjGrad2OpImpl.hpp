@@ -159,7 +159,7 @@ protected:
         // Iteration 0
         // Copy RHS into initial residual and assemble with Zero Dirichlet BCs.
         m_r.template Copy<MemSpace>(in);
-        this->m_assmbScatrZeroDirOp->Apply(m_r, m_u);
+        this->m_lhs->Assemble(m_r, m_u);
         Math::ddot<ExecSpace>(m_r, m_u, exchange + 0);
 
         // Begin communication.
@@ -201,7 +201,7 @@ protected:
 
         // Overlap communication with matrix-vector multiply operation.
         m_p.template Copy<MemSpace>(m_u);
-        this->m_lhs->Apply(m_p, m_s);
+        this->m_lhs->ApplyLocal(m_p, m_s);
 
         // End communication.
         this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,
@@ -243,7 +243,7 @@ protected:
                 m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
             // Overlap communication with matrix-vector multiply operation.
-            this->m_assmbScatrZeroDirOp->Apply(m_s, m_q);
+            this->m_lhs->Assemble(m_s, m_q);
             if (this->m_leftPreconditioner)
             {
                 this->m_precon->Apply(m_q, m_q);
@@ -278,7 +278,7 @@ protected:
                 m_vExchange, Nektar::LibUtilities::ReduceSum, m_request);
 
             // Overlap communication with matrix-vector multiply operation.
-            this->m_lhs->Apply(m_u, m_w);
+            this->m_lhs->ApplyLocal(m_u, m_w);
 
             // End communication.
             this->m_rowComm->template AllReduceEnd<MemSpace>(m_vExchange,

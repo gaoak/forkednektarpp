@@ -150,7 +150,6 @@ protected:
     std::shared_ptr<LHSOp<TData>> m_lhs;
     std::shared_ptr<PreconOp<TData>> m_precon;
     std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrOp;
-    std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrZeroDirOp;
     LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
     Math::MathHelper m_math;
     bool m_root;
@@ -257,9 +256,6 @@ protected:
         // Set operators.
         this->m_assmbScatrOp = MultiRegions::AssmbScatrOp<TData>::Create(
             this->m_expansionList, this->m_components, ExecSpace::name);
-        this->m_assmbScatrZeroDirOp =
-            MultiRegions::AssmbScatrZeroDirOp<TData>::Create(
-                this->m_expansionList, this->m_components, ExecSpace::name);
         this->m_rowComm       = session->GetComm()->GetRowComm();
         this->m_root          = this->m_rowComm->GetRank() == 0;
         this->m_verboseOutput = session->DefinesCmdLineArgument("verbose");

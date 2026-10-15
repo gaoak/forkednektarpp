@@ -194,7 +194,7 @@ protected:
             }
 
             // Apply the operator to unit vector and store in the action field.
-            op->Apply(unit_vec, action);
+            op->ApplyLocal(unit_vec, action);
 
             for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
             {
