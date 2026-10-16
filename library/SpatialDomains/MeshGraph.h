@@ -603,9 +603,12 @@ public:
 
     inline const std::string GetGeomInfo(std::string parameter);
 
+    /// The basis keys of expansion type @p type at @p order on @p in,
+    /// with @p numpoints quadrature points in every direction, or the
+    /// type's own counts when @p numpoints is negative.
     SPATIAL_DOMAINS_EXPORT static LibUtilities::BasisKeyVector
     DefineBasisKeyFromExpansionType(Geometry *in, ExpansionType type,
-                                    const int order);
+                                    const int order, const int numpoints = -1);
 
     SPATIAL_DOMAINS_EXPORT LibUtilities::BasisKeyVector
     DefineBasisKeyFromExpansionTypeHomo(Geometry *in, ExpansionType type_x,

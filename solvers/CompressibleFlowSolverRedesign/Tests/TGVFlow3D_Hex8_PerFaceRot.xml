@@ -162,7 +162,7 @@
     </Metadata>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[7]" NUMMODES="7" FIELDS="rho,rhou,rhov,rhow,E" TYPE="MODIFIED" />
+        <E COMPOSITE="C[7]" NUMMODES="7" FIELDS="rho,rhou,rhov,rhow,E" TYPE="ORTHOGONAL" />
     </EXPANSIONS>
 
     <CONDITIONS>

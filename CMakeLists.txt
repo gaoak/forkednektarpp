@@ -291,18 +291,27 @@ IF (${CMAKE_COMPILER_IS_GNUCXX})
     MARK_AS_ADVANCED(NEKTAR_ENABLE_PROFILE)
 ENDIF (${CMAKE_COMPILER_IS_GNUCXX})
 
-# Automatic Switch generation range
+# Automatic Switch generation range: the element operators are compiled
+# with the mode count as a template parameter for NEKTAR_SWITCH_MIN to
+# NEKTAR_SWITCH_MAX modes per direction, and for each mode count nm with
+# nm to NEKTAR_SWITCH_QMAX_MUL * nm + NEKTAR_SWITCH_QMAX_ADD quadrature
+# points. Any other size runs through the non-templated operator, with a
+# warning naming it. The defaults cover orders one to five with up to two
+# points more than modes, which is every rule the solvers use by default
+# and the 3/2 dealiasing rule up to order three; raise them for higher
+# orders or more over-integration, at a compile-time cost that grows with
+# the number of cases.
 SET(NEKTAR_SWITCH_MIN 2 CACHE STRING "Set min range of auto generated switch")
 MARK_AS_ADVANCED(NEKTAR_SWITCH_MIN)
 
-SET(NEKTAR_SWITCH_MAX 8 CACHE STRING "Set max range of auto generated switch")
+SET(NEKTAR_SWITCH_MAX 6 CACHE STRING "Set max range of auto generated switch")
 MARK_AS_ADVANCED(NEKTAR_SWITCH_MAX)
 MATH(EXPR NEKTAR_SWITCH_MAX_PLUSONE "${NEKTAR_SWITCH_MAX} + 1")
 
-SET(NEKTAR_SWITCH_QMAX_MUL 2 CACHE STRING "Set max quad range integer multiplier")
+SET(NEKTAR_SWITCH_QMAX_MUL 1 CACHE STRING "Set max quad range integer multiplier")
 MARK_AS_ADVANCED(NEKTAR_SWITCH_QMAX_MUL)
 
-SET(NEKTAR_SWITCH_QMAX_ADD 0 CACHE STRING "Set max quad range integer addition")
+SET(NEKTAR_SWITCH_QMAX_ADD 2 CACHE STRING "Set max quad range integer addition")
 MARK_AS_ADVANCED(NEKTAR_SWITCH_QMAX_ADD)
 
 # Memory pools

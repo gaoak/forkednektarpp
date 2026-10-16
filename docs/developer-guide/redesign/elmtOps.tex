@@ -213,7 +213,16 @@ orders that are defined by the Cmake defined options
 assume that each polynomial order is the same and that the standard
 quadrature orders are applied for each shape. For operators involving
 both polynomial and quadrature orders the quadrature order runs from
-the polynomial order to twice the polynomial order. The boost
+the polynomial order to \texttt{NEKTAR\_SWITCH\_QMAX\_MUL} times the
+polynomial order plus \texttt{NEKTAR\_SWITCH\_QMAX\_ADD}, and the
+polynomial order from \texttt{NEKTAR\_SWITCH\_MIN} to
+\texttt{NEKTAR\_SWITCH\_MAX}; these are CMake cache variables, by default
+2 to 6 modes per direction with up to two points more than modes. A
+tetrahedron also has templated cases for equal point counts in every
+direction, the rule a Gauss point set on each collapsed direction
+gives. A size outside the range runs through the non-templated method
+and prints a warning naming it once, so raising the range is the
+remedy when a production case reports one. The boost
 preprocessing code look in the files similar to
 \texttt{Common/BlockOpSwitchCode.h.in}.  This rather convoluted file
 structure helps abstract the boost prepropcessing codes and also

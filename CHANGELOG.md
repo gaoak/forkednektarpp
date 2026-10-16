@@ -70,6 +70,8 @@ v5.11.0
 - Consistently use streamID for DeviceFFT (!2810)
 - Minimise memory traffic for LinearSolvers (!2809)
 - Add MultiField, a set of fields stored as contiguous columns, and use it with BLAS products in the redesign GMRES, GCR, IDRS and BICGSTABL solvers; add a CGS2 option to GMRES (GMRESReorthogonalize) (!2813)
+- Narrow the default range of the generated size switch to 2 to 6 modes per direction with up to two points more than modes (NEKTAR_SWITCH_MAX 6, NEKTAR_SWITCH_QMAX_MUL 1, NEKTAR_SWITCH_QMAX_ADD 2), and compile the equal-count cases of every collapsed shape on the host as well as on Device, with -fno-split-loops on those units under GCC 13 (!2817)
+- Add NUMPOINTS to the short-hand EXPANSIONS form, one count for every direction (!2817)
 - Keep the padding of redesign fields zero, so that the MultiField products and the Math sum reductions no longer copy or mask it; batch independent reductions, fuse dot products sharing a vector (Math::ddot2) and fuse vector updates in the redesign linear solvers; make Math::div return zero for a zero divisor; add a CGS2 option to IDR(s) (IDRClassicalGramSchmidt) (!2814)
 - Remove unused enums AdjacentTraceOrientation, AdjacentFaceOrientation, OutputFormat, StdRegions::ElementType and BndToLocMatrixMapType (!2818)
 - Fix a deadlock when the `std::thread` ThreadManager is torn down (!2819)

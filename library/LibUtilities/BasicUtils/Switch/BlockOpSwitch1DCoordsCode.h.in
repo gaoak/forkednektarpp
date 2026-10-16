@@ -218,6 +218,16 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter2D<2, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+// Equal point counts in both directions: the quadrilateral's pattern.
+#undef OPERATOR_E
+#define OPERATOR_E(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ(i)>());                  \
+        break;
+#endif
             
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
@@ -242,6 +252,26 @@ const auto nq0 = m_nq[0];
                 }
                 break;
             }
+// Equal point counts in both directions, as in BlockOpSwitchCode.h.in.
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            else if (nq0 == nq1)
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR_E);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,
+                                   "Executing nq = " + std::to_string(nq0) +
+                                   " non-templated operator");
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;
+                    }
+                    break;
+                }
+            }
+#endif
             else
             {
                 WARNINGL0( m_warnOnceTemplate,               
@@ -270,6 +300,16 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter2D<3, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+// Equal point counts in both directions: the quadrilateral's pattern.
+#undef OPERATOR_E
+#define OPERATOR_E(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ(i)>());                  \
+        break;
+#endif
             
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
@@ -294,6 +334,26 @@ const auto nq0 = m_nq[0];
                 }
                 break;
             }
+// Equal point counts in both directions, as in BlockOpSwitchCode.h.in.
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            else if (nq0 == nq1)
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR_E);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,
+                                   "Executing nq = " + std::to_string(nq0) +
+                                   " non-templated operator");
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;
+                    }
+                    break;
+                }
+            }
+#endif
             else
             {
                 
@@ -336,6 +396,16 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter2D<2, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+// Equal point counts in both directions: the quadrilateral's pattern.
+#undef OPERATOR_E
+#define OPERATOR_E(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<2, NQ(i), NQ(i)>());                  \
+        break;
+#endif
             
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
@@ -360,6 +430,26 @@ const auto nq0 = m_nq[0];
                 }
                 break;
             }
+// Equal point counts in both directions, as in BlockOpSwitchCode.h.in.
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            else if (nq0 == nq1)
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR_E);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,
+                                   "Executing nq = " + std::to_string(nq0) +
+                                   " non-templated operator");
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;
+                    }
+                    break;
+                }
+            }
+#endif
             else
             {
                 WARNINGL0( m_warnOnceTemplate,               
@@ -388,6 +478,16 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter2D<3, NQ(i), NQ_M1(i)>());               \
         break;
 #endif
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+// Equal point counts in both directions: the quadrilateral's pattern.
+#undef OPERATOR_E
+#define OPERATOR_E(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::Tri, false>(                              \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter2D<3, NQ(i), NQ(i)>());                  \
+        break;
+#endif
             
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Quad)
@@ -412,6 +512,26 @@ const auto nq0 = m_nq[0];
                 }
                 break;
             }
+// Equal point counts in both directions, as in BlockOpSwitchCode.h.in.
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+            else if (nq0 == nq1)
+            {
+                switch (nq0)
+                {
+                    BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                                 LEV1UPDATE, OPERATOR_E);
+                default:
+                    {
+                        WARNINGL0( m_warnOnceTemplate,
+                                   "Executing nq = " + std::to_string(nq0) +
+                                   " non-templated operator");
+                        m_warnOnceTemplate = true;
+                        OPERATOR_DEF;
+                    }
+                    break;
+                }
+            }
+#endif
             else
             {
                 WARNINGL0( m_warnOnceTemplate,               
@@ -464,6 +584,17 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i)>());        \
         break;
 #endif
+// Equal point counts in all three directions, a Gauss rule on every
+// collapsed direction: the hexahedron's pattern, on every collapsed shape.
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_E
+#define OPERATOR_E(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
+        break;
+#endif
 
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Hex)
@@ -490,6 +621,26 @@ const auto nq0 = m_nq[0];
                 break;
             }
         }
+// Equal point counts in every direction, as in BlockOpSwitchCode.h.in.
+#if !defined(SHAPE_TYPE_Hex)
+        else if ((nq0 == nq1) && (nq1 == nq2))
+        {
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR_E);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                               "Executing nq = " + std::to_string(nq0) +
+                               " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,               
@@ -534,6 +685,17 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter3D<NQ(i), NQ_M1(i), NQ_M1(i)>());        \
         break;
 #endif
+// Equal point counts in all three directions, a Gauss rule on every
+// collapsed direction: the hexahedron's pattern, on every collapsed shape.
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_E
+#define OPERATOR_E(r, i)                                                       \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                               \
+            inblock, outblock,                                                 \
+            TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
+        break;
+#endif
 
             // loop case over quarature points 
 #if defined(SHAPE_TYPE_Hex)
@@ -560,6 +722,26 @@ const auto nq0 = m_nq[0];
                 break;
             }
         }
+// Equal point counts in every direction, as in BlockOpSwitchCode.h.in.
+#if !defined(SHAPE_TYPE_Hex)
+        else if ((nq0 == nq1) && (nq1 == nq2))
+        {
+            switch (nq0)
+            {
+                BOOST_PP_FOR((MIN1D, MAXPLUSONE1D), LEV1TEST,
+                             LEV1UPDATE, OPERATOR_E);
+            default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                               "Executing nq = " + std::to_string(nq0) +
+                               " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF;
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,               

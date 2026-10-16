@@ -20,6 +20,13 @@
    and the guards below send anything else to the non-templated call, as
    a point count outside the compiled range already goes.
 
+   One further pattern is matched for tetrahedra: a Gauss rule with equal
+   counts on all three directions (the orthogonal P3 tet at 4,4,4, say),
+   whose faces keep it, so every volume and trace count is equal, as on a
+   hexahedron. That case is compiled for CUDA and HIP only (see the guard
+   below); BlockOpSwitchCode.h.in and BlockOpSwitch1DCoordsCode.h.in carry
+   the same case for the volume operators.
+
    NQ(i) is that point count and NQ_M1(i) is one less, which is what a
    collapsed direction carries. */
 
@@ -126,6 +133,17 @@
             TemplatedTraceSizeParameter2D<NQ(i), NQ_M1(i), NQ(i), NQ(i)>());   \
         break;
 #endif
+#if defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+// Equal counts everywhere, a Gauss rule on the collapsed direction, whose
+// edges keep it: the quadrilateral's pattern.
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                           \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ(i), NQ(i), NQ(i)>());      \
+        break;
+#endif
 
         // templated cases on the standard point distributions, where the
         // trace counts follow the volume counts. Note this will likely not
@@ -150,6 +168,25 @@
                 break;
             }
         }
+// Equal counts everywhere, a Gauss rule on the collapsed direction.
+#if defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+        else if ((nm0 == nm1) && (nq0 == nq1) && (nq0 == nm0))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_QE)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,
@@ -186,6 +223,17 @@
             TemplatedTraceSizeParameter2D<NQ(i), NQ_M1(i), NQ(i), NQ(i)>());   \
         break;
 #endif
+#if defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+// Equal counts everywhere, a Gauss rule on the collapsed direction, whose
+// edges keep it: the quadrilateral's pattern.
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                          \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter2D<NQ(i), NQ(i), NQ(i), NQ(i)>());      \
+        break;
+#endif
 
         // templated cases on the standard point distributions, where the
         // trace counts follow the volume counts. Note this will likely not
@@ -210,6 +258,25 @@
                 break;
             }
         }
+// Equal counts everywhere, a Gauss rule on the collapsed direction.
+#if defined(SHAPE_TYPE_Tri)|| defined(SHAPE_TYPE_NodalTri)
+        else if ((nm0 == nm1) && (nq0 == nq1) && (nq0 == nm0))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_QE)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,
@@ -275,6 +342,19 @@
                                           NQ_M1(i)>());                        \
         break;
 #endif
+// Equal counts everywhere, a Gauss rule on every collapsed direction,
+// whose faces keep it: the hexahedron's pattern, on every collapsed shape.
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i)>());                           \
+        break;
+#endif
 
         // templated cases on the standard point distributions, where the
         // trace counts follow the volume counts
@@ -307,6 +387,28 @@
                 break;
             }
         }
+// Equal point counts in every direction, a Gauss rule on each collapsed
+// direction, on every collapsed shape; see BlockOpSwitchCode.h.in.
+#if !defined(SHAPE_TYPE_Hex)
+        else if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq01) &&
+                 (nq00 == nq10) && (nq00 == nq11) && (nq00 == nq20) &&
+                 (nq00 == nq21) && (nq00 == nm0))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_QE)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,
@@ -360,6 +462,19 @@
                                           NQ_M1(i)>());                        \
         break;
 #endif
+// Equal counts everywhere, a Gauss rule on every collapsed direction,
+// whose faces keep it: the hexahedron's pattern, on every collapsed shape.
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+        OperatorND<LibUtilities::@Shape@, false>(                               \
+            inblock, outblock,                                                 \
+            TemplatedTraceSizeParameter3D<NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i), NQ(i), NQ(i), NQ(i),          \
+                                          NQ(i)>());                           \
+        break;
+#endif
 
         // templated cases on the standard point distributions, where the
         // trace counts follow the volume counts
@@ -392,6 +507,28 @@
                 break;
             }
         }
+// Equal point counts in every direction, a Gauss rule on each collapsed
+// direction, on every collapsed shape; see BlockOpSwitchCode.h.in.
+#if !defined(SHAPE_TYPE_Hex)
+        else if ((nm0 == nm1) && (nm1 == nm2) && (nq00 == nq01) &&
+                 (nq00 == nq10) && (nq00 == nq11) && (nq00 == nq20) &&
+                 (nq00 == nq21) && (nq00 == nm0))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR_QE)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                           "Executing nm = " + std::to_string(nm0) +
+                           " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,

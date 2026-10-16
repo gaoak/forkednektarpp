@@ -166,6 +166,21 @@
     }                                                                          \
     break;
 #endif
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+// Equal point counts in both directions, a Gauss rule on the collapsed
+// direction: the quadrilateral's pattern.
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i));                              \
+        OperatorND<LibUtilities::@Shape@, true>(                           \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ(i)>());    \
+    }                                                                          \
+    break;
+#endif
 
         // outer loop case over modes
 #undef OPERATOR_M
@@ -191,6 +206,31 @@
     }                                                                          \
     break;
 
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+#undef OPERATOR_ME
+#define OPERATOR_ME(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_QE)               \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                OPERATOR_DEF                                                   \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+#endif
+
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
 #if defined(SHAPE_TYPE_Quad)
@@ -214,6 +254,27 @@
                 break;
             }
         }
+// Equal point counts in both directions, a Gauss rule on the collapsed
+// direction.
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+        else if ((nm0 == nm1) && (nq0 == nq1))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             OPERATOR_ME)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,                                 
@@ -263,6 +324,21 @@
     }                                                                          \
     break;
 #endif
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+// Equal point counts in both directions, a Gauss rule on the collapsed
+// direction: the quadrilateral's pattern.
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i));                              \
+        OperatorND<LibUtilities::@Shape@, false>(                          \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter2D<NM(i), NM(i), nmTot, NQ(i), NQ(i)>());    \
+    }                                                                          \
+    break;
+#endif
 
         // outer loop case over modes
 #undef OPERATOR_M
@@ -288,6 +364,31 @@
     }                                                                          \
     break;
 
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+#undef OPERATOR_ME
+#define OPERATOR_ME(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_QE)               \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                OPERATOR_DEF                                                   \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+#endif
+
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
 #if defined(SHAPE_TYPE_Quad)
@@ -305,6 +406,27 @@
                     break;
             }
         }
+// Equal point counts in both directions, a Gauss rule on the collapsed
+// direction.
+#if defined(SHAPE_TYPE_Tri) || defined(SHAPE_TYPE_NodalTri)
+        else if ((nm0 == nm1) && (nq0 == nq1))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             OPERATOR_ME)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,                                 
@@ -378,6 +500,23 @@
     }                                                                          \
     break;
 #endif
+// Equal point counts in all three directions, a Gauss rule on every
+// collapsed direction: the counts follow the hexahedron's pattern, on
+// every collapsed shape.
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, true>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ(i)>());                                \
+    }                                                                          \
+    break;
+#endif
 
         // outer loop case over modes
 #undef OPERATOR_M
@@ -402,6 +541,31 @@
         }                                                                      \
     }                                                                          \
     break;
+
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_ME
+#define OPERATOR_ME(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_QE)               \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                OPERATOR_DEF                                                   \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+#endif
 
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
@@ -431,6 +595,30 @@
                 break;
             }
         }
+// Equal point counts in every direction, a Gauss rule on each collapsed
+// direction, on every collapsed shape. GCC 13 fails with an internal
+// compiler error in loop splitting on the collapsed-shape units of the
+// larger operators, so those units are compiled with -fno-split-loops
+// (library/MultiRegions).
+#if !defined(SHAPE_TYPE_Hex)
+        else if ((nm0 == nm1) && (nm1 == nm2) && (nq0 == nq1) && (nq1 == nq2))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             OPERATOR_ME)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,
@@ -495,6 +683,23 @@
     }                                                                          \
     break;
 #endif
+// Equal point counts in all three directions, a Gauss rule on every
+// collapsed direction: the counts follow the hexahedron's pattern, on
+// every collapsed shape.
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_QE
+#define OPERATOR_QE(r, i)                                                      \
+    case NQ(i):                                                                \
+    {                                                                          \
+        constexpr unsigned int nmTot = LibUtilities::GetNumberOfCoefficients(  \
+            LibUtilities::@Shape@, NM(i), NM(i), NM(i));                       \
+        OperatorND<LibUtilities::@Shape@, false>(                               \
+            inblock, outblock,                                                 \
+            TemplatedSizeParameter3D<NM(i), NM(i), NM(i), nmTot, NQ(i), NQ(i), \
+                                     NQ(i)>());                                \
+    }                                                                          \
+    break;
+#endif
 
         // outer loop case over modes
 #undef OPERATOR_M
@@ -519,6 +724,31 @@
         }                                                                      \
     }                                                                          \
     break;
+
+#if !defined(SHAPE_TYPE_Hex)
+#undef OPERATOR_ME
+#define OPERATOR_ME(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nq0)                                                           \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM(i),                                    \
+               BOOST_PP_ADD(BOOST_PP_MUL(@NEKTAR_SWITCH_QMAX_MUL@, NM(i)),     \
+                         @NEKTAR_SWITCH_QMAX_ADD@)),                           \
+                             LEV2TEST1, LEV2UPDATE1, OPERATOR_QE)               \
+            default :                                                          \
+            {                                                                  \
+                WARNINGL0( m_warnOnceTemplate,                                 \
+                           "Executing nq = " + std::to_string(nq0) +           \
+                           " non-templated operator");                         \
+                m_warnOnceTemplate = true;                                     \
+                OPERATOR_DEF                                                   \
+            }                                                                  \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+#endif
 
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
@@ -548,6 +778,30 @@
                 break;
             }
         }
+// Equal point counts in every direction, a Gauss rule on each collapsed
+// direction, on every collapsed shape. GCC 13 fails with an internal
+// compiler error in loop splitting on the collapsed-shape units of the
+// larger operators, so those units are compiled with -fno-split-loops
+// (library/MultiRegions).
+#if !defined(SHAPE_TYPE_Hex)
+        else if ((nm0 == nm1) && (nm1 == nm2) && (nq0 == nq1) && (nq1 == nq2))
+        {
+            switch (nm0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             OPERATOR_ME)
+                default:
+                {
+                    WARNINGL0( m_warnOnceTemplate,
+                       "Executing nm = " + std::to_string(nm0) +
+                       " non-templated operator");
+                    m_warnOnceTemplate = true;
+                    OPERATOR_DEF
+                }
+                break;
+            }
+        }
+#endif
         else
         {
             WARNINGL0( m_warnOnceTemplate,
