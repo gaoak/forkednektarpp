@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <unordered_map>
 // AssemblyComm.h uses std::unordered_set/std::unordered_map without
@@ -355,6 +356,9 @@ public:
         // WriteOnly device access, never read before being written).
         m_compactBndCoeff =
             LibUtilities::MemoryRegion<TData>(nComp * m_numBndCoeffCompSize);
+        // Allocated here, on the null stream, so the region block streams
+        // that write it never race the allocation.
+        m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>();
 
         // Staging for the device-resident universal Dirichlet assembly.
         // Fully overwritten by the flatten at the start of every assembly,
@@ -382,6 +386,23 @@ public:
                 LibUtilities::MemoryRegion<int>::template FromVector<MemSpace,
                                                                      int>(
                     parDirBlockByBlk[blk]));
+        }
+
+        // The domain blocks flatten and unflatten the field around the
+        // universal assembly. The region blocks write the compact array and
+        // the domain blocks read the values gathered from it.
+        for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
+        {
+            m_blockStreams.push_back(blk + 1);
+        }
+        size_t nUpdateStreams = domainBlocks.size();
+        for (auto &wsp : m_wsp_coeffs)
+        {
+            nUpdateStreams = std::max(nUpdateStreams, wsp.GetBlocks().size());
+        }
+        for (unsigned int id = 1; id <= nUpdateStreams; ++id)
+        {
+            m_updateStreams.push_back(id);
         }
 
         this->UpdateBndCoeffs(static_cast<TData>(0.0));
@@ -439,6 +460,15 @@ protected:
     // work.
     bool m_hasAnyBndCoeff = false;
     std::vector<bool> m_signChange;
+
+    /// Stream the gather and the universal assembly run on, the first
+    /// block's. They order it against the block streams with events.
+    unsigned int m_opStreamID = 1;
+    /// Stream of each domain block, which produces and consumes the field.
+    std::vector<unsigned int> m_blockStreams;
+    /// Streams of the region and domain blocks, which write the compact
+    /// array and read the gathered boundary values.
+    std::vector<unsigned int> m_updateStreams;
 
     // ---------------------------------------------------------------------
     // Device-resident universal Dirichlet assembly.
@@ -566,7 +596,8 @@ protected:
         // ExpressionOp's masked-out, zeroed wsp_phys, not a skipped write),
         // so every element gets overwritten unconditionally on every call.
         auto compactPtr =
-            m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>();
+            m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>(
+                m_opStreamID);
 
         for (unsigned int iDir = 0; iDir < m_expressionOps.size(); ++iDir)
         {
@@ -615,18 +646,24 @@ protected:
                      "Unexpected boundary coefficient vector size.");
         }
 
-        // The gather reads entries written on any region block's stream, so
-        // it stays on stream 0 to join them.
+        // The gather reads entries written on any region block's stream and
+        // overwrites values the domain block streams last read.
+        JoinStreams<ExecSpace>(m_opStreamID, m_updateStreams);
+
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
             auto idxPtr =
-                m_bndCoeffSrc[blk].template GetPtr<MemSpace, ReadOnly>();
-            auto dstPtr =
-                m_bndCoeff[blk].template GetPtr<MemSpace, WriteOnly>();
+                m_bndCoeffSrc[blk].template GetPtr<MemSpace, ReadOnly>(
+                    m_opStreamID);
+            auto dstPtr = m_bndCoeff[blk].template GetPtr<MemSpace, WriteOnly>(
+                m_opStreamID);
 
             CGBndCondGatherKernel<ExecSpace>(m_bndCoeffSrc[blk].size(), idxPtr,
-                                             compactPtr, dstPtr, 0);
+                                             compactPtr, dstPtr, m_opStreamID);
         }
+
+        // Order the work queued next on the block streams after the gather.
+        ReleaseStreams<ExecSpace>(m_opStreamID, m_updateStreams);
     }
 
     size_t v_GetNumBndDofs() const override
@@ -838,10 +875,10 @@ protected:
                  "Field component count does not match the number of "
                  "Dirichlet assembly maps.");
 
-        // No host sync of the block streams is needed: the flatten stays on
-        // them, the gather, pack and broadcast kernels run on stream 0, which
-        // orders after them, and MPI reads only the send buffers those
-        // stream-0 kernels write.
+        // No host sync of the block streams is needed: the flatten and
+        // unflatten stay on them, the gather, pack and broadcast kernels run
+        // on #m_opStreamID, ordered against them with events, and MPI reads
+        // only the send buffers those kernels write.
 
         // Nothing to reconcile: no component has a locally duplicated
         // Dirichlet dof, and no component has a dof shared with another
@@ -855,12 +892,17 @@ protected:
             return;
         }
 
-        auto flatPtr  = m_flatBuf.template GetPtr<MemSpace, ReadWrite>();
-        TData *tmpPtr = m_maxLocalDup > 0
-                            ? m_tmpBuf.template GetPtr<MemSpace, ReadWrite>()
-                            : nullptr;
+        auto flatPtr =
+            m_flatBuf.template GetPtr<MemSpace, ReadWrite>(m_opStreamID);
+        TData *tmpPtr =
+            m_maxLocalDup > 0
+                ? m_tmpBuf.template GetPtr<MemSpace, ReadWrite>(m_opStreamID)
+                : nullptr;
 
         FlattenBlocks(inout, flatPtr, true);
+
+        // The assembly reads what the block streams flattened.
+        JoinStreams<ExecSpace>(m_opStreamID, m_blockStreams);
 
         // 1. Fold duplicated local copies of a shared Dirichlet dof into
         //    that dof's representative. Needed on a single rank too: this is
@@ -875,11 +917,13 @@ protected:
             }
 
             CGBndCondGatherKernel<ExecSpace>(
-                dc.nLocalDup, dc.locIdx.template GetPtr<MemSpace, ReadOnly>(),
-                flatPtr + nc * m_flatCompSize, tmpPtr, 0);
+                dc.nLocalDup,
+                dc.locIdx.template GetPtr<MemSpace, ReadOnly>(m_opStreamID),
+                flatPtr + nc * m_flatCompSize, tmpPtr, m_opStreamID);
             CGBndCondUnpackAbsMaxKernel<ExecSpace>(
-                dc.nLocalDup, dc.repIdx.template GetPtr<MemSpace, ReadOnly>(),
-                tmpPtr, flatPtr + nc * m_flatCompSize, 0);
+                dc.nLocalDup,
+                dc.repIdx.template GetPtr<MemSpace, ReadOnly>(m_opStreamID),
+                tmpPtr, flatPtr + nc * m_flatCompSize, m_opStreamID);
         }
 
         if (m_isParallel)
@@ -898,9 +942,12 @@ protected:
 
                 CGBndCondGatherKernel<ExecSpace>(
                     dc.nSREntries,
-                    dc.srEntries.template GetPtr<MemSpace, ReadOnly>(),
+                    dc.srEntries.template GetPtr<MemSpace, ReadOnly>(
+                        m_opStreamID),
                     flatPtr + nc * m_flatCompSize,
-                    dc.sendBuffer.template GetPtr<MemSpace, WriteOnly>(), 0);
+                    dc.sendBuffer.template GetPtr<MemSpace, WriteOnly>(
+                        m_opStreamID),
+                    m_opStreamID);
             }
 
             // Stage the send buffers where MPI will read them from.
@@ -915,8 +962,9 @@ protected:
                     if (m_dirComm[nc].nSREntries > 0)
                     {
                         m_dirComm[nc]
-                            .sendBuffer.template GetPtr<NektarSpaces::HostSpace,
-                                                        ReadOnly>();
+                            .sendBuffer
+                            .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                                m_opStreamID);
                     }
                 }
             }
@@ -925,7 +973,7 @@ protected:
             {
                 // MPI reads the device buffer directly, so just make sure
                 // the packing kernels have completed.
-                nekStreamSynchronize(0);
+                nekStreamSynchronize(m_opStreamID);
             }
 
             for (unsigned nc = 0; nc < nComp; ++nc)
@@ -950,13 +998,15 @@ protected:
                 if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
                     m_rowComm->IsGPUAware())
                 {
-                    dc.recvBuffer.template GetPtr<NektarSpaces::DeviceSpace,
-                                                  WriteOnly>();
+                    dc.recvBuffer
+                        .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>(
+                            m_opStreamID);
                 }
                 else
                 {
                     dc.recvBuffer
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                            m_opStreamID);
                 }
             }
 
@@ -982,9 +1032,11 @@ protected:
 
                 CGBndCondUnpackAbsMaxKernel<ExecSpace>(
                     dc.nSREntries,
-                    dc.srEntries.template GetPtr<MemSpace, ReadOnly>(),
-                    dc.recvBuffer.template GetPtr<MemSpace, ReadOnly>(),
-                    flatPtr + nc * m_flatCompSize, 0);
+                    dc.srEntries.template GetPtr<MemSpace, ReadOnly>(
+                        m_opStreamID),
+                    dc.recvBuffer.template GetPtr<MemSpace, ReadOnly>(
+                        m_opStreamID),
+                    flatPtr + nc * m_flatCompSize, m_opStreamID);
             }
         }
 
@@ -1001,13 +1053,18 @@ protected:
             }
 
             CGBndCondGatherKernel<ExecSpace>(
-                dc.nLocalDup, dc.repIdx.template GetPtr<MemSpace, ReadOnly>(),
-                flatPtr + nc * m_flatCompSize, tmpPtr, 0);
+                dc.nLocalDup,
+                dc.repIdx.template GetPtr<MemSpace, ReadOnly>(m_opStreamID),
+                flatPtr + nc * m_flatCompSize, tmpPtr, m_opStreamID);
             // outptr[mapPtr[i]] = inptr[i]
             DirBndCondKernel<ExecSpace>(
-                dc.nLocalDup, dc.locIdx.template GetPtr<MemSpace, ReadOnly>(),
-                tmpPtr, flatPtr + nc * m_flatCompSize, 0);
+                dc.nLocalDup,
+                dc.locIdx.template GetPtr<MemSpace, ReadOnly>(m_opStreamID),
+                tmpPtr, flatPtr + nc * m_flatCompSize, m_opStreamID);
         }
+
+        // Order the unflatten on the block streams after the assembly.
+        ReleaseStreams<ExecSpace>(m_opStreamID, m_blockStreams);
 
         FlattenBlocks(inout, flatPtr, false);
     }

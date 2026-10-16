@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <MultiRegions/ContField.h>
 
 #include <MultiRegions/BndCondOps/Common/CGBndCondKernels.hpp>
@@ -202,6 +204,21 @@ public:
         // WriteOnly device access, never read before being written).
         m_compactBndCoeff =
             LibUtilities::MemoryRegion<TData>(nComp * m_numBndCoeffCompSize);
+        // Allocated here, on the null stream, so the region block streams
+        // that write it never race the allocation.
+        m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>();
+
+        // The region blocks write the compact array and the domain blocks
+        // read the values gathered from it.
+        size_t nUpdateStreams = m_bndCoeff.size();
+        for (auto &wsp : m_wsp_coeffs)
+        {
+            nUpdateStreams = std::max(nUpdateStreams, wsp.GetBlocks().size());
+        }
+        for (unsigned int id = 1; id <= nUpdateStreams; ++id)
+        {
+            m_updateStreams.push_back(id);
+        }
 
         this->UpdateBndCoeffs(static_cast<TData>(0.0));
     }
@@ -222,6 +239,13 @@ protected:
     bool m_anySignChange         = false;
     size_t m_numBndCoeffCompSize = 0;
     std::vector<bool> m_signChange;
+
+    /// Stream the gather runs on, the first block's. It orders it against
+    /// the block streams with events.
+    unsigned int m_opStreamID = 1;
+    /// Streams of the region and domain blocks, which write the compact
+    /// array and read the gathered boundary values.
+    std::vector<unsigned int> m_updateStreams;
 
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_wsp_phys;
     std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
@@ -277,7 +301,8 @@ protected:
         // ExpressionOp's masked-out, zeroed wsp_phys, not a skipped write),
         // so every element gets overwritten unconditionally on every call.
         auto compactPtr =
-            m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>();
+            m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>(
+                m_opStreamID);
 
         for (unsigned int iNeu = 0; iNeu < m_expressionOps.size(); ++iNeu)
         {
@@ -355,30 +380,38 @@ protected:
                      "Unexpected boundary coefficient vector size.");
         }
 
-        // The gather reads entries written on any region block's stream, so
-        // it stays on stream 0 to join them.
+        // The gather reads entries written on any region block's stream and
+        // overwrites values the domain block streams last read.
+        JoinStreams<ExecSpace>(m_opStreamID, m_updateStreams);
+
         for (unsigned int blk = 0; blk < m_bndCoeff.size(); ++blk)
         {
             auto idxPtr =
-                m_bndCoeffSrc[blk].template GetPtr<MemSpace, ReadOnly>();
-            auto dstPtr =
-                m_bndCoeff[blk].template GetPtr<MemSpace, WriteOnly>();
+                m_bndCoeffSrc[blk].template GetPtr<MemSpace, ReadOnly>(
+                    m_opStreamID);
+            auto dstPtr = m_bndCoeff[blk].template GetPtr<MemSpace, WriteOnly>(
+                m_opStreamID);
 
             CGBndCondGatherKernel<ExecSpace>(m_bndCoeffSrc[blk].size(), idxPtr,
-                                             compactPtr, dstPtr, 0);
+                                             compactPtr, dstPtr, m_opStreamID);
 
             // Gathered unconditionally (nsize may be 0, in which case the
             // kernel is a no-op) so that m_groupValue[blk] is always marked
             // valid before v_Apply() reads it -- mirrors m_bndCoeff above.
             auto groupIdxPtr =
-                m_groupSrc[blk].template GetPtr<MemSpace, ReadOnly>();
+                m_groupSrc[blk].template GetPtr<MemSpace, ReadOnly>(
+                    m_opStreamID);
             auto groupDstPtr =
-                m_groupValue[blk].template GetPtr<MemSpace, WriteOnly>();
+                m_groupValue[blk].template GetPtr<MemSpace, WriteOnly>(
+                    m_opStreamID);
 
             CGBndCondGatherKernel<ExecSpace>(m_groupSrc[blk].size(),
                                              groupIdxPtr, compactPtr,
-                                             groupDstPtr, 0);
+                                             groupDstPtr, m_opStreamID);
         }
+
+        // Order the work queued next on the block streams after the gather.
+        ReleaseStreams<ExecSpace>(m_opStreamID, m_updateStreams);
     }
 
     size_t v_GetNumBndDofs() const override

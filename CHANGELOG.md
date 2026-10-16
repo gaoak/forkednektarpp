@@ -88,6 +88,7 @@ v5.11.0
 - Make the redesign assemble-scatter operator act on interleaved fields directly instead of reshaping them, with its tables built for the field's interleave widths and the interior DOFs ordered so device accesses coalesce in either layout; map a StdMat request for the trace operators to SumFacTOP on the device; derive the local-to-global data warehouse keys from a common base whose hash includes the padding type, so float and double tables no longer share a cache entry; build the gather-scatter tables privately in the local-to-global data creator rather than through its own data warehouse (!2843)
 - Move the zero-Dirichlet assembly into LHSOp so linear solvers no longer assemble each product explicitly (!2842)
 - Add Low Sync GMRES iterative approach (!2840)
+- Run the CG Dirichlet/Neumann boundary-condition operators' cross-block work on an explicit stream instead of the legacy default stream, and remove the unused DGDirBndCond and DGPerBndCond operators (!2845)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
