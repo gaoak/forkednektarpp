@@ -263,7 +263,7 @@ public:
         ASSERTL1(vals.size() == m_numComp * m_regionNumPhys[reg],
                  "Unexpected boundary phys vector size.");
 
-        m_bndPhys[reg].template CopyVector<MemSpace>(vals, this->m_streamID);
+        m_bndPhys[reg].template CopyVector<MemSpace>(vals, this->m_opStreamID);
     }
 
     // className - for OperatorFactory

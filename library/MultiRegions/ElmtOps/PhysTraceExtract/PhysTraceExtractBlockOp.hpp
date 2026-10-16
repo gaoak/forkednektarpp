@@ -192,6 +192,30 @@ public:
         }
     }
 
+    /**
+     * @brief Choose which trace quadrature this block interpolates onto.
+     *
+     * @details
+     * False, the state the constructor leaves, is the element's own trace
+     * quadrature: on the collapsed direction of a face of a tetrahedron,
+     * prism or pyramid that is a Gauss-Radau distribution, which has no
+     * point at the collapsed end. True is the Gauss-Lobatto variant the
+     * expansion offers instead, one point more in that direction, which is
+     * what a continuous field's trace and boundary expansions carry. A
+     * triangle already reports the Gauss-Lobatto points for its edges.
+     *
+     * The tables, point counts, collocation flags and workspaces are all
+     * rebuilt, so the storage the caller passes to Apply() must be sized
+     * with the same choice; see GetLocTraceBlockAttributes(). The rebuilt
+     * collocation flags replace any set by SetIsCollocated().
+     *
+     * @param   useGLLTracePoints   True for the Gauss-Lobatto variant.
+     */
+    void SetUseGLLTracePoints(const bool useGLLTracePoints)
+    {
+        v_SetUseGLLTracePoints(useGLLTracePoints);
+    }
+
 protected:
     /// One flag per (normal direction, tangential direction), filled by the
     /// implementation's constructor: the trace points of that direction
@@ -200,6 +224,10 @@ protected:
     /// entries in three dimensions, two in two, one entry in one.
     /// Overwritten wholesale by SetIsCollocated().
     std::vector<bool> m_isCollocated;
+
+    /// Whether the implementation's tables are built for the Gauss-Lobatto
+    /// trace points; see SetUseGLLTracePoints().
+    bool m_useGLLTracePoints = false;
 
     /**
      * @brief Construct the interface part of a concrete block operator;
@@ -221,6 +249,11 @@ protected:
     }
 
     ~PhysTraceExtractBlockOp() override = default;
+
+    /// Implementation hook for SetUseGLLTracePoints(): store the choice in
+    /// #m_useGLLTracePoints and rebuild the tables for it; the tables belong
+    /// to the implementation.
+    virtual void v_SetUseGLLTracePoints(const bool useGLLTracePoints) = 0;
 
     /// @brief Default hook: an implementation without a per-trace entry
     /// point raises a fatal error; see ExtractTrace() for the contract.

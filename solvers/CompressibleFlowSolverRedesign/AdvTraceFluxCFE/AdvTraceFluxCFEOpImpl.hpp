@@ -204,7 +204,7 @@ protected:
         for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
         {
             field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
-                this->m_streamID);
+                this->m_opStreamID);
         }
     }
 
@@ -355,12 +355,12 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<WriteOnly>(flux);
@@ -383,17 +383,17 @@ protected:
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr,
                 this->GetGloTraceOffsetView(this->m_intGloTraceDev[b]),
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
 
             // get hold of rotation matrix if TraceDim == 2
             auto rotMatPtr =
                 (TRACEDIM == 2)
                     ? (m_updateIntRotMat)
                           ? m_intRotMat.template GetPtr<MemSpace, WriteOnly>(
-                                this->m_streamID) +
+                                this->m_opStreamID) +
                                 rotMatOffset * 9
                           : m_intRotMat.template GetPtr<MemSpace, ReadOnly>(
-                                this->m_streamID) +
+                                this->m_opStreamID) +
                                 rotMatOffset * 9
                     : this->m_norms;
 
@@ -405,7 +405,7 @@ protected:
                                       dim, true>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_streamID);
+                    this->m_flux, this->m_opStreamID);
             }
             else
             {
@@ -413,7 +413,7 @@ protected:
                                       dim, false>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_streamID);
+                    this->m_flux, this->m_opStreamID);
             }
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
@@ -476,12 +476,12 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadWrite>(flux);
@@ -505,17 +505,17 @@ protected:
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr,
                 this->GetGloTraceOffsetView(this->m_parGloTraceDev[b]),
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
 
             // get hold of rotation matrix if TraceDim == 2
             auto rotMatPtr =
                 (TRACEDIM == 2)
                     ? (m_updateParRotMat)
                           ? m_parRotMat.template GetPtr<MemSpace, WriteOnly>(
-                                this->m_streamID) +
+                                this->m_opStreamID) +
                                 rotMatOffset * 9
                           : m_parRotMat.template GetPtr<MemSpace, ReadOnly>(
-                                this->m_streamID) +
+                                this->m_opStreamID) +
                                 rotMatOffset * 9
                     : this->m_norms;
 
@@ -527,7 +527,7 @@ protected:
                                       dim, true>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_streamID);
+                    this->m_flux, this->m_opStreamID);
             }
             else
             {
@@ -535,7 +535,7 @@ protected:
                                       dim, false>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_streamID);
+                    this->m_flux, this->m_opStreamID);
             }
 
             // Step 3: Replace flux values into the local flux storage, this
@@ -583,12 +583,12 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<WriteOnly>(flux);
@@ -611,17 +611,17 @@ protected:
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr,
                 this->GetGloTraceOffsetView(this->m_bndGloTraceDev[b]),
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
 
             // get hold of rotation matrix
             auto rotMatPtr =
                 (TRACEDIM == 2)
                     ? (m_updateDirRotMat)
                           ? m_dirRotMat.template GetPtr<MemSpace, WriteOnly>(
-                                this->m_streamID) +
+                                this->m_opStreamID) +
                                 rotMatOffset * 9
                           : m_dirRotMat.template GetPtr<MemSpace, ReadOnly>(
-                                this->m_streamID) +
+                                this->m_opStreamID) +
                                 rotMatOffset * 9
                     : this->m_norms;
 
@@ -634,7 +634,7 @@ protected:
                                       dim, true>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_streamID);
+                    this->m_flux, this->m_opStreamID);
             }
             else
             {
@@ -642,7 +642,7 @@ protected:
                                       dim, false>(
                     m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
                     m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_streamID);
+                    this->m_flux, this->m_opStreamID);
             }
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into

@@ -39,6 +39,9 @@ Expression operator & \texttt{Expression} & Evaluates analytical expressions $f_
       \hline
 Forward transform BC & \texttt{FwdTransBC} & Evaluates Dirichlet forcing on boundaries for CG see chapter 4.3.2 in \cite{KaSh05} \\
       \hline
+Interpolate $u$ onto the trace & \texttt{PhysTraceExtract} & $u(\boldsymbol\xi^{tr}) = \sum_{\boldsymbol p} u_{\boldsymbol p} h_{\boldsymbol p}(\boldsymbol\xi^{tr})$, see section \ref{sec:phystraceextract} \\
+quadrature points of every element & & \\
+      \hline
     \end{tabular}
     }
     \end{center}
@@ -1151,3 +1154,229 @@ whatever last wrote the input.
     cuFFTDx header-only library and a compatible GPU architecture.
 \end{description}
 %%TODO: describe difference between shared and non-shared wsp in sumfactop and sumfac
+
+\section{Trace extraction}
+\label{sec:phystraceextract}
+
+\texttt{PhysTraceExtractOp} interpolates a volume field, given at the
+quadrature points of every element, onto the quadrature points of the
+element's traces:
+\begin{equation}
+  u(\boldsymbol\xi^{tr}) = \sum_{\boldsymbol p} u_{\boldsymbol p}\,
+  h_{\boldsymbol p}(\boldsymbol\xi^{tr}),
+  \qquad
+  h_{\boldsymbol p}(\boldsymbol\xi) = \prod_a h_{p_a}(\xi_a),
+\end{equation}
+where $h_{p}$ are the cardinal functions of the volume quadrature grid,
+$h_p(\xi_q) = \delta_{pq}$. On a trace at $\xi_a = \pm 1$ the tensor
+product factorises into an interpolation in the normal direction with
+$h_{p_a}(\pm 1)$, which collapses the volume array onto the plane of the
+trace, followed by a tangential interpolation of that plane onto the trace
+quadrature points. The operator is a pure interpolation: no quadrature
+weights and no Jacobian enter it. It is the adjoint, in the cardinal basis,
+of \texttt{IProductWRTPhysTraceOp}.
+
+The operator follows the standard element-operator layout: the interface
+\texttt{PhysTraceExtractOp.hpp}, the whole-field implementation
+\texttt{PhysTraceExtractOpImpl.hpp}, the per-block interface
+\texttt{PhysTraceExtractBlockOp.hpp}, and the per-block implementations
+\texttt{PhysTraceExtractSerialAVXSumFac.hpp} (Serial and AVX) and
+\texttt{PhysTraceExtractDeviceSumFac.hpp} (Device), with their kernels.
+Its input is a volume field laid out by
+\texttt{MultiRegions::GetBlockAttributes()}; its output is a packed trace
+field laid out by \texttt{MultiRegions::GetLocTraceBlockAttributes()}, in
+which every element carries every point of every one of its traces.
+\texttt{Apply()} fills the whole packed record, and
+\texttt{ExtractTrace(traceid, in, out, outOffset)} extracts one local trace
+of every element into a given offset of it. An overload taking two blocks
+and the index \texttt{blk} of a block of the operator's expansion list,
+\texttt{ExtractTrace(traceid, inblock, outblock, outOffset, blk)}, does the
+same for that block alone, for a caller holding blocks rather than fields.
+
+\texttt{SetIsCollocated()} overwrites the collocation flags of every block.
+The implementations set one flag per pair of normal and tangential
+directions where the trace points coincide with the volume points, and take
+a straight copy there instead of the tangential interpolation. Clearing the
+flags forces the general interpolation, which the unit tests use to reach
+that code path.
+
+\subsection{Extraction onto the Gauss--Lobatto trace points}
+\label{sec:phystraceextract-gll}
+
+By default the operator extracts onto each element's own trace quadrature.
+On a collapsed direction of a triangle, tetrahedron, prism or pyramid the
+volume quadrature is of Gauss--Radau type, with no point at the collapsed
+end, and on the faces of tetrahedra, prisms and pyramids so are the trace
+points the element reports for it. (A triangle already reports a
+Gauss--Lobatto distribution, with the extra point, for its edges.) The trace
+and boundary expansions of a continuous field instead carry the
+Gauss--Lobatto variant, with one point more in that direction. Extracting a
+volume field directly onto the points of a continuous boundary therefore
+needs that variant, which
+\begin{lstlisting}[style=C++Style]
+op->SetUseGLLTracePoints(true);
+\end{lstlisting}
+selects. The choice is held by \texttt{PhysTraceExtractBlockOp} and applied
+by each implementation through the hook \texttt{v\_SetUseGLLTracePoints()},
+which rebuilds the interpolation tables, the point counts, the collocation
+flags and, on Serial and AVX, the workspaces against
+\texttt{GetTraceBasisKey(traceid, dir, true)}. It is a choice of table, not
+an additional stage: the values land directly on the Gauss--Lobatto points.
+A discontinuous field's trace keeps the element's own points, and asking for
+the variant there would interpolate onto points the destination does not
+have. On an element without a collapsed direction, such as a hexahedron,
+both choices give the same points.
+
+The number of trace points changes with the choice, so the output storage
+must be sized with the same one: the last argument of
+\begin{lstlisting}[style=C++Style]
+MultiRegions::GetLocTraceBlockAttributes<TData, FieldState::Phys>(
+    expList, interleaveWidth, useGLLTracePoints);
+\end{lstlisting}
+must agree with the argument given to the operator. The collocation flags
+are worked out again for the new points and replace any set by
+\texttt{SetIsCollocated()}. The Gauss--Lobatto choice is therefore made
+first, and \texttt{SetIsCollocated()}, if needed, afterwards.
+
+\texttt{TestPhysTraceExtract} extracts onto the Gauss--Lobatto trace points
+of tetrahedra, prisms and pyramids, of uniform and of variable order, and
+checks that a hexahedron is unaffected.
+
+\subsection{Extraction onto a continuous boundary region}
+\label{sec:phystraceextractbndcond}
+
+The class template \texttt{PhysTraceExtractBndCond<ExecSpace, TData>}, in
+the namespace \texttt{MultiRegions::detail}, extracts a volume field onto the
+physical points of a named boundary region of a continuous field, for the
+boundary conditions that need volume data on their points. It applies no
+condition itself, so it is not a factory-registered boundary-condition
+operator: it is a header-only helper in \texttt{BndCondOps/Common}, beside
+the continuous Galerkin coefficient-map builder, defined in
+\texttt{PhysTraceExtractBndCond.hpp}.
+\texttt{ExtractTrace()} extracts one local trace of every element of a
+block, whereas a boundary region touches a subset of the elements, through
+different local traces and orientations. The helper bridges the two:
+\begin{lstlisting}[style=C++Style]
+PhysTraceExtractBndCond(
+    const MultiRegions::ExpListSharedPtr &volumeExpList,
+    const std::vector<std::string> &components,
+    const MultiRegions::ExpListSharedPtr &bcExpList,
+    const std::string &execStr = "",
+    const SpatialDomains::MeshGraphSharedPtr &graph = nullptr);
+
+void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
+           LibUtilities::Field<TData, FieldState::Phys> &out);
+\end{lstlisting}
+The input \texttt{in} is laid out as
+\texttt{GetBlockAttributes(volumeExpList)} and the output \texttt{out} as
+\texttt{GetBlockAttributes(bcExpList)}. Homogeneous fields are not
+supported.
+
+\subsubsection*{Construction}
+
+All the bookkeeping is done in the constructor:
+\begin{enumerate}
+  \item \textbf{Geometry-id matching.} Every trace of every volume element
+    is recorded under its trace geometry id, with the block, element and
+    local trace of its owner. Every element of the boundary expansion list
+    is then looked up by its own geometry id: both lists come from one mesh
+    graph, so the boundary element is the trace of the volume element
+    owning it. A boundary element with no owner among the volume elements
+    is skipped.
+  \item \textbf{Bucketing.} The matched elements are sorted into buckets
+    keyed by the shape of the owner, its local trace, its number of modes
+    in each direction, the boundary block and the volume block. Within a
+    bucket every element extracts the same trace with the same tables and
+    scatters into the same boundary block.
+  \item \textbf{Restricted expansion lists.} For every bucket a volume
+    expansion list is built from the expansion information of its elements
+    only, taken from the mesh graph of \texttt{volumeExpList} or from the
+    \texttt{graph} argument, which is needed when \texttt{volumeExpList}
+    was built from an \texttt{ExpansionInfoMap} and has no graph. The
+    restricted list must form a single block, and it orders its elements by
+    geometry id. Every bucket has its own \texttt{PhysTraceExtractOp} on
+    this list, and its own volume and trace storage at interleave width 1,
+    each a single \texttt{BlockAccessor} belonging to no field; the trace
+    block is padded to the largest vector width, as the input block of
+    \texttt{ExtractTrace()} is.
+  \item \textbf{Trace points.} The boundary element carries Gauss--Lobatto
+    points in every direction. Where the owner's own trace points differ
+    in number from the boundary element's, on a collapsed direction, the
+    bucket's operator is switched to the Gauss--Lobatto variant with
+    \texttt{SetUseGLLTracePoints(true)}
+    (section~\ref{sec:phystraceextract-gll}). The shape, order and trace
+    of the bucket key fix this choice for the whole bucket.
+  \item \textbf{Reorientation map.} The extracted points are then the
+    boundary element's points, and only their order differs. For a face the
+    map from extracted to boundary points is the backward map of
+    \texttt{ReOrientTracePhysMap()} (\texttt{Forwards = false}) for the
+    trace orientation of the owner, which transposes, flips or rotates the
+    face. The forward map is its inverse and differs from it for a face
+    rotated by 90 degrees and for a transposed face with a different number
+    of points in each direction. An edge is reversed when its
+    orientation is \texttt{eBackwards}. Combined with the position of each
+    element in the boundary block, this gives one scatter index per
+    extracted point. Every bucket also has one gather index per point of
+    its restricted list, the position of that point in the volume block, so
+    that neither kernel divides an index. It depends on the interleave width
+    of the volume block, which is known only when \texttt{Apply()} is
+    called, so \texttt{Apply()} builds one on the host for each width the
+    first time it sees it, and keeps it, so that no index a kernel may
+    still read is overwritten. The volume field itself is not reshaped: it is usually far
+    larger than the elements gathered from it.
+\end{enumerate}
+
+\subsubsection*{Application}
+
+For every bucket \texttt{Apply()}
+\begin{enumerate}
+  \item \textbf{gathers} its elements from their block of the volume field
+    into the bucket's volume storage through the gather index, with
+    \texttt{CGBndCondGatherKernel};
+  \item \textbf{extracts} their trace with the block-level
+    \texttt{ExtractTrace(traceId, volume, trace, 0, 0)}, on the restricted
+    list's only block;
+  \item \textbf{scatters} the trace values onto the boundary field through
+    the scatter index, with \texttt{DirBndCondKernel}. Every extracted value
+    has its own destination, so no atomic operation is needed.
+\end{enumerate}
+All the work runs on a single stream: the stream of the first block of the
+\texttt{PhysTraceExtractOp} of every bucket. \texttt{Apply()} does not
+synchronise the host. It records an event on the stream of every volume and
+boundary block it reads or writes, block $b$ running on stream $b + 1$, and
+makes its own stream wait on those events; once its work is queued, it
+records an event on its own stream and makes each of those block streams
+wait on it. Work queued on a block stream before \texttt{Apply()} therefore
+runs before the extraction, and work queued after it runs after, without the
+host waiting on either. Serial and AVX have no streams.
+
+\subsubsection*{Compilation and testing}
+
+The helper is header-only and lives in \texttt{MultiRegions::detail}: it is
+not a factory-registered operator, and it is instantiated for a given
+execution space by the operator code that uses it. Its gather and scatter
+kernels are \texttt{parallel\_for} loops over \texttt{NEKTAR\_LAMBDA}, so a
+\texttt{Device} instantiation compiles only in a translation unit built for
+the device, such as a device operator implementation.
+
+\texttt{TestPhysTraceExtractBndCond} therefore runs on Serial and AVX. It
+seeds the volume field with $u = x + 2y + 3z$, which is exact at every
+order, extracts it onto a boundary region and compares the result with the
+same polynomial evaluated at the region's own coordinates. The cases cover
+\begin{itemize}
+  \item a single face of hexahedra, and all six faces of a cube of
+    hexahedra of anisotropic order in one region, which exercises several
+    buckets and face orientations at once;
+  \item the boundary of a mesh of hexahedra with a different number of
+    points in each direction, whose faces take seven of the eight
+    orientations, including both rotations by 90 degrees;
+  \item faces on a collapsed direction, extracted onto the Gauss--Lobatto
+    trace points, on tetrahedra of variable order and on prisms of uniform
+    and variable order;
+  \item edges of a two-dimensional mesh of triangles and quadrilaterals;
+  \item a region whose faces come from both tetrahedra and prisms, also with
+    the volume field at the largest vector width and then again at width
+    1, so that the gather index is built for both;
+  \item two-dimensional meshes embedded in three-dimensional space, of
+    triangles and of quadrilaterals on a warped surface.
+\end{itemize}

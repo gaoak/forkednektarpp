@@ -165,7 +165,8 @@ namespace Nektar::MultiRegions
  * - Apply() (inherited from ElmtOp) extracts the whole element boundary
  *   in one call, filling every trace of the packed record.
  * - ExtractTrace() extracts one trace of every element into a
- *   caller-chosen offset of the packed record.
+ *   caller-chosen offset of the packed record, of every block of a Field
+ *   or of one given block.
  *
  * This operator has no append flag: both paths write the entries they
  * are responsible for.
@@ -258,22 +259,51 @@ public:
                       LibUtilities::Field<TData, FieldState::Phys> &out,
                       const unsigned outOffset)
     {
-        ASSERTL1(in.GetNumComponents() == out.GetNumComponents(),
-                 "Number of input and output components differ");
-
-        ASSERTL1(in.GetNumHomoModes() == out.GetNumHomoModes(),
-                 "Number of input and output homogeneous modes differ");
-
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
-            // Block dependent.
-            auto &inblock  = in.GetBlocks()[blk];
-            auto &outblock = out.GetBlocks()[blk];
-
-            this->m_blockOp[blk]->ExtractTrace(traceid, inblock, outblock,
-                                               outOffset);
+            ExtractTrace(traceid, in.GetBlocks()[blk], out.GetBlocks()[blk],
+                         outOffset, blk);
         }
+    }
+
+    /**
+     * @brief Extract a single trace of every element of block @p blk into
+     * @p outblock at @p outOffset.
+     *
+     * @details
+     * The block-level counterpart of the Field overload above, for a
+     * caller holding single blocks rather than Fields.
+     *
+     * @param   traceid     Local trace index within the element's shape.
+     * @param   inblock     Volume-shaped input block, laid out as block
+     *                      @p blk of GetBlockAttributes().
+     * @param   outblock    Packed trace block, laid out as block @p blk
+     *                      of GetLocTraceBlockAttributes(), written at
+     *                      @p outOffset.
+     * @param   outOffset   Offset of this trace's data within one
+     *                      element's packed trace entries, counted in
+     *                      entries per element.
+     * @param   blk         Index of the block of the operator's expansion
+     *                      list whose block operator is applied.
+     */
+    void ExtractTrace(
+        const unsigned traceid,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
+        const unsigned outOffset, const unsigned blk)
+    {
+        ASSERTL1(blk < this->m_blockOp.size(),
+                 "Block index exceeds the number of blocks");
+
+        ASSERTL1(inblock.GetNumComponents() == outblock.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        ASSERTL1(inblock.GetNumHomoModes() == outblock.GetNumHomoModes(),
+                 "Number of input and output homogeneous modes differ");
+
+        this->m_blockOp[blk]->ExtractTrace(traceid, inblock, outblock,
+                                           outOffset);
     }
 
     /**
@@ -306,6 +336,42 @@ public:
         for (unsigned blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetIsCollocated(isCollocated);
+        }
+    }
+
+    /**
+     * @brief Extract onto the Gauss-Lobatto trace points rather than the
+     * element's own.
+     *
+     * @details
+     * The operator evaluates the volume field at whichever trace points
+     * the expansion reports, so the choice is a choice of table, not an
+     * extra stage: passing true builds the interpolation against the
+     * Gauss-Lobatto variant and the values land directly on it.
+     *
+     * It matters on the collapsed direction of a face of a tetrahedron,
+     * prism or pyramid, where the element's own trace quadrature is
+     * Gauss-Radau and has no point at the collapsed end, while the trace
+     * and boundary expansions of a continuous field carry Gauss-Lobatto
+     * with one point more. Extracting onto a continuous field's boundary
+     * needs that variant; a discontinuous field's trace keeps the
+     * element's own, and passing true there would interpolate onto points
+     * the destination does not have.
+     *
+     * The output storage must be sized the same way; see
+     * MultiRegions::GetLocTraceBlockAttributes(), whose last argument
+     * carries the same choice. The collocation flags are worked out again
+     * for the new points, replacing any set by SetIsCollocated(), so call
+     * this first.
+     *
+     * @param   useGLLTracePoints   True for the Gauss-Lobatto variant.
+     */
+    void SetUseGLLTracePoints(const bool useGLLTracePoints)
+    {
+        // Loop over the blocks.
+        for (unsigned blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetUseGLLTracePoints(useGLLTracePoints);
         }
     }
 

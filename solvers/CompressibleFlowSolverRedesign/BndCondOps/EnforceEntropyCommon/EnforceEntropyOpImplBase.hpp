@@ -202,7 +202,7 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             const auto *bndPtr =
-                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_opStreamID);
             const auto *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             // The boundary storage and normals live in the execution space's
@@ -220,17 +220,17 @@ protected:
             m_VnInf[blk].template Initialize<MemSpace>(0);
 
             TData *rhoBC = m_rhoBC[blk].template GetPtr<MemSpace, ReadWrite>(
-                this->m_streamID);
+                this->m_opStreamID);
             TData *pBC = m_pBC[blk].template GetPtr<MemSpace, ReadWrite>(
-                this->m_streamID);
+                this->m_opStreamID);
             TData *velBC = m_velBC[blk].template GetPtr<MemSpace, ReadWrite>(
-                this->m_streamID);
+                this->m_opStreamID);
             TData *VnInf = m_VnInf[blk].template GetPtr<MemSpace, ReadWrite>(
-                this->m_streamID);
+                this->m_opStreamID);
 
             ReduceEntropyStateBlock<ExecSpace>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, bndPtr, norms,
-                rhoBC, pBC, velBC, VnInf, this->m_streamID);
+                rhoBC, pBC, velBC, VnInf, this->m_opStreamID);
         }
     }
 
@@ -250,24 +250,24 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             auto bndPtr =
-                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_opStreamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             const TData *rhoBC =
                 m_rhoBC[blk].template GetPtr<MemSpace, ReadOnly>(
-                    this->m_streamID);
+                    this->m_opStreamID);
             const TData *pBC = m_pBC[blk].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
             const TData *velBC =
                 m_velBC[blk].template GetPtr<MemSpace, ReadOnly>(
-                    this->m_streamID);
+                    this->m_opStreamID);
             const TData *VnInf =
                 m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(
-                    this->m_streamID);
+                    this->m_opStreamID);
 
             ApplyEnforceEntropyBlock<ExecSpace, Policy>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, rhoBC, pBC, velBC,
-                VnInf, norms, bndPtr, this->m_streamID);
+                VnInf, norms, bndPtr, this->m_opStreamID);
         }
     }
 };

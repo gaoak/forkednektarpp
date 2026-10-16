@@ -238,86 +238,7 @@ public:
         : PhysTraceExtractBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
-
-        // Determine shape and type of the element.
-        m_shapeType = exp->DetShapeType();
-        m_dimension = exp->GetShapeDimension();
-
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            m_nm.push_back(exp->GetNumPoints(d));
-        }
-
-        // set up end points interpolation expansion in normal direction
-        for (unsigned int dir = 0; dir < m_dimension; ++dir)
-        {
-            auto bkey = exp->GetBasis(dir)->GetBasisKey();
-            auto ntrace =
-                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
-            auto endPtsType = (ntrace == 1)
-                                  ? LibUtilities::eGaussLegendreWithM
-                                  : LibUtilities::eGaussLobattoLegendre;
-
-            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(bkey, LibUtilities::eInterp,
-                                                  ntrace, endPtsType)));
-
-            // Check to see if end point collocated
-            if (LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()])
-            {
-                m_endPtsCollocated.push_back(true);
-                ASSERTL1(
-                    LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()] ==
-                        ntrace,
-                    "Trace and number of end points in PointsType differ");
-            }
-            else
-            {
-                m_endPtsCollocated.push_back(false);
-            }
-        }
-
-        // set trace interpolation bases
-        auto expPtsKeys = exp->GetPointsKeys();
-        for (unsigned int f = 0; f < m_dimension; ++f)
-        {
-            // load basis in normal orientation
-            const unsigned int tr = m_dimension - 1 - f;
-
-            // trace directions
-            for (unsigned int d = 0; d < m_dimension - 1; ++d)
-            {
-                const auto dir = exp->GetGeom()->GetDir(tr, d);
-                auto trPtsKey  = exp->GetTraceBasisKey(tr, d).GetPointsKey();
-                auto nq        = trPtsKey.GetNumPoints();
-
-                if (expPtsKeys[dir] == trPtsKey)
-                {
-                    this->m_isCollocated.push_back(true);
-                }
-                else
-                {
-                    this->m_isCollocated.push_back(false);
-                }
-
-                m_nq.push_back(nq);
-
-                // Fetch basis data.
-                m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                    LibUtilities::BasisDataKey<TData>(
-                        exp->GetBasis(dir)->GetBasisKey(),
-                        LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
-            }
-        }
-
-        // spatial case for 1D
-        if (m_dimension == 1)
-        {
-            // nq not required in 1D (formally it is 2) use nm value to
-            // ensure templated version is adopted when possible
-            m_nq.push_back(m_nm[0]);
-            this->m_isCollocated.push_back(false);
-        }
+        Setup();
     }
 
     /// Registration name for BlockOperatorFactory, defined by the
@@ -398,6 +319,112 @@ protected:
     bool m_extractTraceInit = false;
 
     /**
+     * @brief Record the trace quadrature and rebuild the tables for it.
+     */
+    void v_SetUseGLLTracePoints(const bool useGLLTracePoints) override
+    {
+        this->m_useGLLTracePoints = useGLLTracePoints;
+
+        m_nm.clear();
+        m_nq.clear();
+        m_B.clear();
+        m_endPtsCollocated.clear();
+        this->m_isCollocated.clear();
+        Setup();
+    }
+
+    /**
+     * @brief Fill the tables, point counts and collocation flags for the
+     * trace quadrature #m_useGLLTracePoints selects.
+     */
+    void Setup()
+    {
+        auto exp                     = this->m_exp;
+        const bool useGLLTracePoints = this->m_useGLLTracePoints;
+
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_dimension = exp->GetShapeDimension();
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            m_nm.push_back(exp->GetNumPoints(d));
+        }
+
+        // set up end points interpolation expansion in normal direction
+        for (unsigned int dir = 0; dir < m_dimension; ++dir)
+        {
+            auto bkey = exp->GetBasis(dir)->GetBasisKey();
+            auto ntrace =
+                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
+            auto endPtsType = (ntrace == 1)
+                                  ? LibUtilities::eGaussLegendreWithM
+                                  : LibUtilities::eGaussLobattoLegendre;
+
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
+                LibUtilities::BasisDataKey<TData>(bkey, LibUtilities::eInterp,
+                                                  ntrace, endPtsType)));
+
+            // Check to see if end point collocated
+            if (LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()])
+            {
+                m_endPtsCollocated.push_back(true);
+                ASSERTL1(
+                    LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()] ==
+                        ntrace,
+                    "Trace and number of end points in PointsType differ");
+            }
+            else
+            {
+                m_endPtsCollocated.push_back(false);
+            }
+        }
+
+        // set trace interpolation bases
+        auto expPtsKeys = exp->GetPointsKeys();
+        for (unsigned int f = 0; f < m_dimension; ++f)
+        {
+            // load basis in normal orientation
+            const unsigned int tr = m_dimension - 1 - f;
+
+            // trace directions
+            for (unsigned int d = 0; d < m_dimension - 1; ++d)
+            {
+                const auto dir = exp->GetGeom()->GetDir(tr, d);
+                auto trPtsKey  = exp->GetTraceBasisKey(tr, d, useGLLTracePoints)
+                                    .GetPointsKey();
+                auto nq = trPtsKey.GetNumPoints();
+
+                if (expPtsKeys[dir] == trPtsKey)
+                {
+                    this->m_isCollocated.push_back(true);
+                }
+                else
+                {
+                    this->m_isCollocated.push_back(false);
+                }
+
+                m_nq.push_back(nq);
+
+                // Fetch basis data.
+                m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
+                    LibUtilities::BasisDataKey<TData>(
+                        exp->GetBasis(dir)->GetBasisKey(),
+                        LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
+            }
+        }
+
+        // spatial case for 1D
+        if (m_dimension == 1)
+        {
+            // nq not required in 1D (formally it is 2) use nm value to
+            // ensure templated version is adopted when possible
+            m_nq.push_back(m_nm[0]);
+            this->m_isCollocated.push_back(false);
+        }
+    }
+
+    /**
      * @brief Number of trace quadrature points of one trace of the
      * shape, that is how many values one element contributes for
      * @p traceid.
@@ -425,11 +452,17 @@ protected:
 
         if (m_dimension == 2)
         {
-            return this->m_exp->GetTraceBasisKey(traceid).GetNumPoints();
+            return this->m_exp
+                ->GetTraceBasisKey(traceid, -1, this->m_useGLLTracePoints)
+                .GetNumPoints();
         }
 
-        return this->m_exp->GetTraceBasisKey(traceid, 0).GetNumPoints() *
-               this->m_exp->GetTraceBasisKey(traceid, 1).GetNumPoints();
+        return this->m_exp
+                   ->GetTraceBasisKey(traceid, 0, this->m_useGLLTracePoints)
+                   .GetNumPoints() *
+               this->m_exp
+                   ->GetTraceBasisKey(traceid, 1, this->m_useGLLTracePoints)
+                   .GetNumPoints();
     }
 
     /**

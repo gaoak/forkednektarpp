@@ -275,7 +275,7 @@ public:
         if (m_BndCondOp)
         {
             // The storage is read on this operator's stream.
-            m_BndCondOp->SetStreamID(m_streamID);
+            m_BndCondOp->SetStreamID(m_opStreamID);
             m_BndCondOp->UpdateBndPhys(time);
             m_BndCondOp->ResetStreamID();
         }
@@ -313,7 +313,7 @@ public:
 
         // The condition works on the boundary storage, which this operator
         // seeds and reads on its own stream.
-        ptr->SetStreamID(m_streamID);
+        ptr->SetStreamID(m_opStreamID);
 
         // Attaching the storage also lets the condition take a copy of
         // anything the session evaluated into it, which it must do now: every
@@ -405,7 +405,7 @@ public:
 protected:
     /// Stream all of the trace work runs on, the first element block's. Each
     /// entry point orders it against the element block streams with events.
-    unsigned int m_streamID = 1;
+    unsigned int m_opStreamID = 1;
 
     LibUtilities::Field<TData, FieldState::Phys> m_traceNormals;
     /// Set once SetTraceNormals() has supplied normals from outside. The
@@ -428,7 +428,7 @@ protected:
     {
         for (auto &op : m_bndCondUpdateOps)
         {
-            op->SetStreamID(m_streamID);
+            op->SetStreamID(m_opStreamID);
         }
     }
 

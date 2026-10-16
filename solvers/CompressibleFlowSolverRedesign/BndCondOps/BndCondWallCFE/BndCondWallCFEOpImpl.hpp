@@ -235,7 +235,7 @@ protected:
 
         ImposeIsothermalWallEnergyBlock<ExecSpace>(
             nPts, compStride, m_coordDim, m_numComp - 1, m_EoS, m_Twall[blk],
-            interior, ext, this->m_streamID);
+            interior, ext, this->m_opStreamID);
     }
 
     /// The blocks this operator owns, i.e. the regions tagged as viscous or
@@ -297,10 +297,10 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             auto bndPtr =
-                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_opStreamID);
 
             ReverseMomentumBlock<ExecSpace>(stride, m_coordDim, bndPtr,
-                                            this->m_streamID);
+                                            this->m_opStreamID);
         }
     }
 };

@@ -214,7 +214,7 @@ protected:
         for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
         {
             field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
-                this->m_streamID);
+                this->m_opStreamID);
         }
     }
 
@@ -381,16 +381,16 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto inDerivPtr =
             inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
 
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -400,7 +400,7 @@ protected:
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
         auto diffCoeff =
-            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
@@ -442,16 +442,16 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, m_nDim, normPtr, G,
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
                 numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor,
-                this->m_streamID);
+                this->m_opStreamID);
 
             DiffuseScalarTraceFluxKernel<ExecSpace, true>(
                 npTBlock, m_nDim, m_nComp, npTBlock, m_IPPenaltyCoeff,
                 diffCoeff, this->m_norms, m_penFactor, this->m_gloT0,
                 this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
-                this->m_streamID);
+                this->m_opStreamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
@@ -510,15 +510,15 @@ protected:
         this->SetWorkSpace(numflux);
 
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto inDerivPtr =
             inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -526,7 +526,7 @@ protected:
         SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
         auto diffCoeff =
-            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
@@ -563,16 +563,16 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, m_nDim, normPtr, G,
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
                 numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor,
-                this->m_streamID);
+                this->m_opStreamID);
 
             DiffuseScalarTraceFluxKernel<ExecSpace, true>(
                 npTBlock, m_nDim, m_nComp, npTBlock, m_IPPenaltyCoeff,
                 diffCoeff, this->m_norms, m_penFactor, this->m_gloT0,
                 this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
-                this->m_streamID);
+                this->m_opStreamID);
 
             // Step 3: Replace flux values into the local flux storage, this
             // side only.
@@ -619,15 +619,15 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto inDerivPtr =
             inDeriv.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
@@ -635,7 +635,7 @@ protected:
         SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
         auto diffCoeff =
-            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+            m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
@@ -673,10 +673,10 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, m_nDim, normPtr, G,
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
             SolverCore::detail::GatherGloTraceScalarKernel<ExecSpace>(
                 numBlock, this->m_npTot, m_penFactorPtr, G, m_penFactor,
-                this->m_streamID);
+                this->m_opStreamID);
 
             // The gradient carries the Neumann conditions; components with any
             // other condition keep the exterior gradient equal to the interior.
@@ -703,7 +703,7 @@ protected:
             // excludes its walls.
             SolverCore::detail::MakeDirichletGhostStateKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, numflux, this->m_gloT0,
-                this->m_gloT1, this->m_streamID);
+                this->m_gloT1, this->m_opStreamID);
 
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -712,7 +712,7 @@ protected:
                 npTBlock, m_nDim, m_nComp, npTBlock, m_IPPenaltyCoeff,
                 diffCoeff, this->m_norms, m_penFactor, this->m_gloT0,
                 this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
-                this->m_streamID);
+                this->m_opStreamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage

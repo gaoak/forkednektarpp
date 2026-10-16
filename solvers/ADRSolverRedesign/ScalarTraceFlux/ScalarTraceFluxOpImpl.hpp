@@ -175,7 +175,7 @@ protected:
         for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
         {
             field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
-                this->m_streamID);
+                this->m_opStreamID);
         }
     }
     /// The caller's advection velocity on the local trace, not owned here.
@@ -221,7 +221,7 @@ protected:
         // primarily here to ensure all blocks are intialised since
         // the GetPtr() below will only intiialise first block. On the trace
         // stream, which the kernels writing the flux run on.
-        flux.template Initialize<MemSpace>(0, this->m_streamID);
+        flux.template Initialize<MemSpace>(0, this->m_opStreamID);
 
         switch (this->m_traceDim)
         {
@@ -319,15 +319,15 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<WriteOnly>(flux);
@@ -353,16 +353,16 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, advVelPtr, G,
-                this->m_advVel, this->m_streamID);
+                this->m_advVel, this->m_opStreamID);
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr, G,
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
 
             // input close packed variables from both traces
             // (m_gloT0, m_gloT1), apply flux Kernel and return flux
             FluxKernelLauncher<FluxKernel, ExecSpace>(
                 npTBlock, dim, numflux, this->m_advVel, this->m_norms,
-                this->m_gloT0, this->m_gloT1, this->m_flux, this->m_streamID);
+                this->m_gloT0, this->m_gloT1, this->m_flux, this->m_opStreamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
@@ -418,15 +418,15 @@ protected:
                  "same as the flux components");
 
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadWrite>(flux);
@@ -451,14 +451,14 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, advVelPtr, G,
-                this->m_advVel, this->m_streamID);
+                this->m_advVel, this->m_opStreamID);
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr, G,
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
 
             FluxKernelLauncher<FluxKernel, ExecSpace>(
                 npTBlock, dim, numflux, this->m_advVel, this->m_norms,
-                this->m_gloT0, this->m_gloT1, this->m_flux, this->m_streamID);
+                this->m_gloT0, this->m_gloT1, this->m_flux, this->m_opStreamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
@@ -502,15 +502,15 @@ protected:
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto normPtr =
             this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-                this->m_streamID);
+                this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<WriteOnly>(flux);
@@ -535,17 +535,17 @@ protected:
 
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, advVelPtr, G,
-                this->m_advVel, this->m_streamID);
+                this->m_advVel, this->m_opStreamID);
             SolverCore::detail::GatherGloTraceComponentsKernel<ExecSpace>(
                 numBlock, this->m_npTot, npTBlock, dim, normPtr, G,
-                this->m_norms, this->m_streamID);
+                this->m_norms, this->m_opStreamID);
 
             // input close packed variables from both traces
             // (m_gloT0, m_gloT1), apply flux Kernel and
             // return flux
             FluxKernelLauncher<FluxKernel, ExecSpace>(
                 npTBlock, dim, numflux, this->m_advVel, this->m_norms,
-                this->m_gloT0, this->m_gloT1, this->m_flux, this->m_streamID);
+                this->m_gloT0, this->m_gloT1, this->m_flux, this->m_opStreamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
@@ -584,10 +584,10 @@ protected:
 
         // get field pointers
         auto inPtr = AdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
-            this->m_streamID);
+            this->m_opStreamID);
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0]
-                .template GetPtr<MemSpace, WriteOnly>(this->m_streamID);
+                .template GetPtr<MemSpace, WriteOnly>(this->m_opStreamID);
 
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
@@ -619,7 +619,7 @@ protected:
                                                                 true>(
                 numBlock, npT, npTBlock, numComp, this->m_gloT0, this->m_gloT1,
                 this->GetGloTraceOffsetView(this->m_intGloTraceDev[b]),
-                advVelPtr, this->m_streamID);
+                advVelPtr, this->m_opStreamID);
         }
 
         // A trace cut by the partitioner takes the same average as any other
@@ -642,7 +642,7 @@ protected:
                 numBlock, this->m_npTot, npTBlock, numComp, this->m_gloT0,
                 this->m_gloT1,
                 this->GetGloTraceOffsetView(this->m_parGloTraceDev[b]),
-                advVelPtr, this->m_streamID);
+                advVelPtr, this->m_opStreamID);
         }
 
         // just take interior points rather than average since
@@ -666,7 +666,7 @@ protected:
                 numBlock, this->m_npTot, npTBlock, numComp, this->m_gloT0,
                 static_cast<const TData *>(nullptr),
                 this->GetGloTraceOffsetView(this->m_bndGloTraceDev[b]),
-                advVelPtr, this->m_streamID);
+                advVelPtr, this->m_opStreamID);
         }
     }
 

@@ -36,6 +36,9 @@
 
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
+#include <LocalRegions/QuadExp.h>
+#include <LocalRegions/TriExp.h>
+
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
@@ -47,8 +50,19 @@ class TestPhysTraceExtract
 public:
     TestPhysTraceExtract() = default;
 
-    void Configure()
+    /**
+     * @brief Build the session, expansion list and fields.
+     *
+     * @param   useGLLTracePoints   Extract onto the Gauss-Lobatto trace
+     *                              points rather than the element's own;
+     *                              see PhysTraceExtractOp::
+     *                              SetUseGLLTracePoints(). It sizes the
+     *                              storage, so it is fixed here rather
+     *                              than at the call to the operator.
+     */
+    void Configure(const bool useGLLTracePoints = false)
     {
+        m_useGLLTracePoints = useGLLTracePoints;
         this->SetSession();
         this->SetExpList();
         this->fixt_explist->SetDataWarehouse();
@@ -62,7 +76,7 @@ public:
         auto inblockAttr =
             GetBlockAttributes<TData, FieldState::Phys>(this->fixt_explist);
         auto outblockAttr = GetLocTraceBlockAttributes<TData, FieldState::Phys>(
-            this->fixt_explist);
+            this->fixt_explist, 1, m_useGLLTracePoints);
 
         auto f_in =
             Field<TData, FieldState::Phys>("f_in", inblockAttr, nin, nhomo);
@@ -111,6 +125,11 @@ public:
         auto op = PhysTraceExtractOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
 
+        if (m_useGLLTracePoints)
+        {
+            op->SetUseGLLTracePoints(true);
+        }
+
         if (nonCollocated)
         {
             op->SetIsCollocated(false);
@@ -123,6 +142,11 @@ public:
     {
         auto op = PhysTraceExtractOp<TData>::Create(
             this->fixt_explist, this->session->GetVariables());
+
+        if (m_useGLLTracePoints)
+        {
+            op->SetUseGLLTracePoints(true);
+        }
 
         if (nonCollocated)
         {
@@ -214,6 +238,44 @@ public:
         }
     }
 
+    /**
+     * @brief Build the trace expansion on the Gauss-Lobatto trace points.
+     *
+     * @details
+     * The counterpart of Expansion::GetLocTraceExp() for the variant the
+     * operator is being asked for, so that the legacy GetTracePhysVals()
+     * below interpolates onto the same points the operator writes. Only a
+     * three-dimensional element has anything to choose: a triangle already
+     * hands its collapsed edges a Gauss-Lobatto basis with the extra point.
+     *
+     * @param   expPtr    Element whose trace is wanted.
+     * @param   traceid   Trace of that element.
+     *
+     * @return  The trace expansion on the Gauss-Lobatto points.
+     */
+    LocalRegions::ExpansionSharedPtr GLLTraceExp(
+        const LocalRegions::ExpansionSharedPtr &expPtr, const unsigned traceid)
+    {
+        if (expPtr->GetShapeDimension() < 3)
+        {
+            return expPtr->GetLocTraceExp(traceid);
+        }
+
+        auto geom     = expPtr->GetGeom();
+        auto faceGeom = geom->GetFace(traceid);
+        const auto Ba = expPtr->GetTraceBasisKey(traceid, 0, true);
+        const auto Bb = expPtr->GetTraceBasisKey(traceid, 1, true);
+
+        if (faceGeom->GetNumVerts() == 3)
+        {
+            return MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
+                Ba, Bb, geom->GetFace(traceid));
+        }
+
+        return MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
+            Ba, Bb, geom->GetFace(traceid));
+    }
+
     void ExpectedSolution()
     {
         const unsigned numComp = this->fixt_in->GetNumComponents();
@@ -259,7 +321,9 @@ public:
                     {
                         for (unsigned t = 0; t < nface; ++t)
                         {
-                            TraceExp[t] = expPtr->GetLocTraceExp(t);
+                            TraceExp[t] = m_useGLLTracePoints
+                                              ? GLLTraceExp(expPtr, t)
+                                              : expPtr->GetLocTraceExp(t);
                         }
                     }
                     ntrace = 0;
@@ -473,6 +537,12 @@ public:
             eid += numElmts;
         }
     }
+
+protected:
+    /// Whether the fields are sized for, and the operator asked for, the
+    /// Gauss-Lobatto trace points rather than the element's own; set by
+    /// Configure().
+    bool m_useGLLTracePoints = false;
 
 private:
 };

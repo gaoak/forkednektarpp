@@ -45,8 +45,12 @@ typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *BlockAccess
     // If not yet allocated, allocate contiguous host OR device memory
     // accross all MemoryRegion objects from m_field. Note: m_field is a
     // pointer to a Field object from which the current BlockAccessor object
-    // belong to.
-    Field<TData, TState>::template AllocateFieldStorage<MemSpace>(m_field);
+    // belong to. A block of no Field (m_field is null) owns its memory
+    // region, which allocates its own storage.
+    if (m_field)
+    {
+        Field<TData, TState>::template AllocateFieldStorage<MemSpace>(m_field);
+    }
 
     return m_memory_region.template GetPtr<MemSpace, MemAccess>(streamID);
 }

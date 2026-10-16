@@ -226,118 +226,7 @@ public:
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : PhysTraceExtractBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
-        // Determine shape and type of the element.
-        m_shapeType = exp->DetShapeType();
-        m_dimension = exp->GetShapeDimension();
-
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            m_nm.push_back(exp->GetNumPoints(d));
-        }
-
-        // set up end points interplation expansion in normal direction
-        for (unsigned int dir = 0; dir < m_dimension; ++dir)
-        {
-            auto bkey = exp->GetBasis(dir)->GetBasisKey();
-
-            // set up end point interpolation depending on number of faces
-            unsigned int ntrace =
-                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
-
-            // used GLwithM nodes to get z=-1 as zero if ntrace = 1 otherwise
-            // GLL
-            LibUtilities::PointsType endPtsType =
-                (ntrace == 1) ? LibUtilities::eGaussLegendreWithM
-                              : LibUtilities::eGaussLobattoLegendre;
-
-            // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(bkey, LibUtilities::eInterp,
-                                                  ntrace, endPtsType)));
-
-            if (LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()])
-            {
-                m_endPtsCollocated.push_back(true);
-                ASSERTL1(
-                    LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()] ==
-                        ntrace,
-                    "Trace and number of end points in PointsType differ");
-            }
-            else
-            {
-                m_endPtsCollocated.push_back(false);
-            }
-        }
-
-        // set trace interpolation bases
-        auto expPtsKeys = exp->GetPointsKeys();
-        for (unsigned int f = 0; f < m_dimension; ++f)
-        {
-            // load basis in normal orientation
-            unsigned int tr = m_dimension - 1 - f;
-
-            // trace directions
-            for (unsigned int d = 0; d < m_dimension - 1; ++d)
-            {
-                auto dir      = exp->GetGeom()->GetDir(tr, d);
-                auto trBKey   = exp->GetTraceBasisKey(tr, d);
-                auto trPtsKey = trBKey.GetPointsKey();
-                auto nq       = trPtsKey.GetNumPoints();
-
-                if (expPtsKeys[dir] == trPtsKey)
-                {
-                    this->m_isCollocated.push_back(true);
-                }
-                else
-                {
-                    this->m_isCollocated.push_back(false);
-                }
-
-                m_nq.push_back(nq);
-
-                // Fetch basis data.
-                m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                    LibUtilities::BasisDataKey<TData>(
-                        exp->GetBasis(dir)->GetBasisKey(),
-                        LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
-            }
-        }
-
-        if (m_dimension == 1)
-        {
-            // nq not required in 1D (formally it is 2) use nm value to
-            // ensure templated version is adopted when possible
-            m_nq.push_back(m_nm[0]);
-            this->m_isCollocated.push_back(
-                false); // cannot have collocated basis in this case since trace
-                        // cannot be same as inteior
-        }
-
-        // Workspaces, sized for the largest intermediate any shape of
-        // this dimension can need. A segment has no tangential stage
-        // and so needs none.
-        if (m_dimension == 2)
-        {
-            // The values of an edge pair the normal-direction stage
-            // extracts, before the tangential interpolation reads them.
-            m_wsp.push_back(std::vector<simd_t, tinysimd::allocator<simd_t>>(
-                2 * std::max(m_nm[0], m_nm[1])));
-        }
-        else if (m_dimension == 3)
-        {
-            // The face blocks of a face pair, then the scratch of the
-            // general face interpolation: the first in-trace direction
-            // already interpolated while the second is still on the
-            // volume points.
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(std::max(
-                    m_nm[0] * m_nm[1] * 2,
-                    std::max(m_nm[1] * m_nm[2] * 2, m_nm[0] * m_nm[2] * 2))));
-            m_wsp.push_back(
-                std::vector<simd_t, tinysimd::allocator<simd_t>>(std::max(
-                    m_nq[4] * m_nm[1] * 2,
-                    std::max(m_nq[2] * m_nm[2] * 2, m_nq[0] * m_nm[2] * 2))));
-        }
+        Setup();
     }
 
     /// Registration name for BlockOperatorFactory, defined by the
@@ -415,6 +304,146 @@ protected:
     // is saturated with warnings
     bool m_warnOnce = false;
 #endif
+
+    /**
+     * @brief Record the trace quadrature and rebuild the tables and
+     * workspaces for it.
+     */
+    void v_SetUseGLLTracePoints(const bool useGLLTracePoints) override
+    {
+        this->m_useGLLTracePoints = useGLLTracePoints;
+
+        m_nm.clear();
+        m_nq.clear();
+        m_B.clear();
+        m_endPtsCollocated.clear();
+        this->m_isCollocated.clear();
+        m_wsp.clear();
+        Setup();
+    }
+
+    /**
+     * @brief Fill the tables, point counts, collocation flags and
+     * workspaces for the trace quadrature #m_useGLLTracePoints selects.
+     */
+    void Setup()
+    {
+        auto exp                     = this->m_exp;
+        const bool useGLLTracePoints = this->m_useGLLTracePoints;
+
+        // Determine shape and type of the element.
+        m_shapeType = exp->DetShapeType();
+        m_dimension = exp->GetShapeDimension();
+
+        for (unsigned int d = 0; d < m_dimension; d++)
+        {
+            m_nm.push_back(exp->GetNumPoints(d));
+        }
+
+        // set up end points interplation expansion in normal direction
+        for (unsigned int dir = 0; dir < m_dimension; ++dir)
+        {
+            auto bkey = exp->GetBasis(dir)->GetBasisKey();
+
+            // set up end point interpolation depending on number of faces
+            unsigned int ntrace =
+                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
+
+            // used GLwithM nodes to get z=-1 as zero if ntrace = 1 otherwise
+            // GLL
+            LibUtilities::PointsType endPtsType =
+                (ntrace == 1) ? LibUtilities::eGaussLegendreWithM
+                              : LibUtilities::eGaussLobattoLegendre;
+
+            // Fetch basis data.
+            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
+                LibUtilities::BasisDataKey<TData>(bkey, LibUtilities::eInterp,
+                                                  ntrace, endPtsType)));
+
+            if (LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()])
+            {
+                m_endPtsCollocated.push_back(true);
+                ASSERTL1(
+                    LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()] ==
+                        ntrace,
+                    "Trace and number of end points in PointsType differ");
+            }
+            else
+            {
+                m_endPtsCollocated.push_back(false);
+            }
+        }
+
+        // set trace interpolation bases
+        auto expPtsKeys = exp->GetPointsKeys();
+        for (unsigned int f = 0; f < m_dimension; ++f)
+        {
+            // load basis in normal orientation
+            unsigned int tr = m_dimension - 1 - f;
+
+            // trace directions
+            for (unsigned int d = 0; d < m_dimension - 1; ++d)
+            {
+                auto dir      = exp->GetGeom()->GetDir(tr, d);
+                auto trBKey   = exp->GetTraceBasisKey(tr, d, useGLLTracePoints);
+                auto trPtsKey = trBKey.GetPointsKey();
+                auto nq       = trPtsKey.GetNumPoints();
+
+                if (expPtsKeys[dir] == trPtsKey)
+                {
+                    this->m_isCollocated.push_back(true);
+                }
+                else
+                {
+                    this->m_isCollocated.push_back(false);
+                }
+
+                m_nq.push_back(nq);
+
+                // Fetch basis data.
+                m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
+                    LibUtilities::BasisDataKey<TData>(
+                        exp->GetBasis(dir)->GetBasisKey(),
+                        LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
+            }
+        }
+
+        if (m_dimension == 1)
+        {
+            // nq not required in 1D (formally it is 2) use nm value to
+            // ensure templated version is adopted when possible
+            m_nq.push_back(m_nm[0]);
+            this->m_isCollocated.push_back(
+                false); // cannot have collocated basis in this case since trace
+                        // cannot be same as inteior
+        }
+
+        // Workspaces, sized for the largest intermediate any shape of
+        // this dimension can need. A segment has no tangential stage
+        // and so needs none.
+        if (m_dimension == 2)
+        {
+            // The values of an edge pair the normal-direction stage
+            // extracts, before the tangential interpolation reads them.
+            m_wsp.push_back(std::vector<simd_t, tinysimd::allocator<simd_t>>(
+                2 * std::max(m_nm[0], m_nm[1])));
+        }
+        else if (m_dimension == 3)
+        {
+            // The face blocks of a face pair, then the scratch of the
+            // general face interpolation: the first in-trace direction
+            // already interpolated while the second is still on the
+            // volume points.
+            m_wsp.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(std::max(
+                    m_nm[0] * m_nm[1] * 2,
+                    std::max(m_nm[1] * m_nm[2] * 2, m_nm[0] * m_nm[2] * 2))));
+            m_wsp.push_back(
+                std::vector<simd_t, tinysimd::allocator<simd_t>>(std::max(
+                    m_nq[4] * m_nm[1] * 2,
+                    std::max(m_nq[2] * m_nm[2] * 2, m_nq[0] * m_nm[2] * 2))));
+        }
+    }
 
     /**
      * @brief Per-trace path: extract trace @p traceid of every element

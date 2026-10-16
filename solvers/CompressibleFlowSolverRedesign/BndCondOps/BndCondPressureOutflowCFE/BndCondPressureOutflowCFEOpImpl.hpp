@@ -188,7 +188,7 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             const auto *bndPtr =
-                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->GetBlockPtr(blk, this->m_opStreamID);
 
             // The boundary storage lives in the execution space's memory, so
             // the copy runs there as a kernel - a host-side assign from this
@@ -197,10 +197,10 @@ protected:
             m_pressure[blk] = LibUtilities::MemoryRegion<TData>(stride);
             m_pressure[blk].template Initialize<MemSpace>(0);
             TData *pOut = m_pressure[blk].template GetPtr<MemSpace, ReadWrite>(
-                this->m_streamID);
+                this->m_opStreamID);
 
             CopyPrescribedPressureBlock<ExecSpace>(
-                stride, m_numComp - 1, bndPtr, pOut, this->m_streamID);
+                stride, m_numComp - 1, bndPtr, pOut, this->m_opStreamID);
         }
     }
 
@@ -220,10 +220,10 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             auto bndPtr =
-                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_opStreamID);
             const TData *pOut =
                 m_pressure[blk].template GetPtr<MemSpace, ReadOnly>(
-                    this->m_streamID);
+                    this->m_opStreamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             ASSERTL1(m_pressure[blk].size() == stride,
@@ -232,7 +232,7 @@ protected:
 
             ApplyPressureOutflowBlock<ExecSpace>(
                 stride, m_coordDim, m_numComp - 1, m_EoS, pOut, norms, bndPtr,
-                this->m_streamID);
+                this->m_opStreamID);
         }
     }
 };

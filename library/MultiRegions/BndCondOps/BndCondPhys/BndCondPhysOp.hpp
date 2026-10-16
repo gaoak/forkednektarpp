@@ -64,13 +64,13 @@ public:
     /// set. The trace flux operator sets the one it reads the storage on.
     void SetStreamID(const unsigned int streamID)
     {
-        m_streamID = streamID;
+        m_opStreamID = streamID;
     }
 
     /// Refill on the default stream again, undoing SetStreamID().
     void ResetStreamID()
     {
-        m_streamID = m_defaultStreamID;
+        m_opStreamID = m_defaultStreamID;
     }
 
     /// Number of blocks the boundary data is stored in.
@@ -258,7 +258,7 @@ protected:
     /// Stream the storage is refilled on unless SetStreamID() says otherwise.
     static constexpr unsigned int m_defaultStreamID = 0;
     /// Stream the storage is refilled on. See SetStreamID().
-    unsigned int m_streamID = m_defaultStreamID;
+    unsigned int m_opStreamID = m_defaultStreamID;
 
     /// Set once the constructor's initial evaluation has happened, so that
     /// UpdateBndPhys() can skip regions that will never change.
