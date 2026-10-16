@@ -28,7 +28,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 //  DEALINGS IN THE SOFTWARE.
 //
-//  Description: Outputs the number of DOF.
+//  Description: Outputs the number of global continuous Galerkin DOF.
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -40,7 +40,7 @@
 namespace Nektar::FieldUtils
 {
 /**
- * @brief This processing module calculates the number of DOF.
+ * @brief This processing module counts global continuous Galerkin DOF.
  */
 class ProcessDOF : public ProcessModule
 {
@@ -56,7 +56,7 @@ public:
     ~ProcessDOF() override;
 
 protected:
-    /// Write mesh to output file.
+    /// Count global continuous Galerkin DOF for each variable and boundary.
     void v_Process(po::variables_map &vm) override;
 
     std::string v_GetModuleName() override
@@ -66,7 +66,7 @@ protected:
 
     std::string v_GetModuleDescription() override
     {
-        return "Calculating number of DOF";
+        return "Counting global continuous Galerkin DOF";
     }
 
     ModulePriority v_GetModulePriority() override

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX>
+            <V ID="0">0 0 0</V>
+            <V ID="1">1 0 0</V>
+            <V ID="2">2 0 0</V>
+            <V ID="3">0 1 0</V>
+            <V ID="4">1 1 0</V>
+            <V ID="5">2 1 0</V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0">0 1</E>
+            <E ID="1">1 2</E>
+            <E ID="2">2 5</E>
+            <E ID="3">5 4</E>
+            <E ID="4">4 3</E>
+            <E ID="5">3 0</E>
+            <E ID="6">1 4</E>
+        </EDGE>
+        <ELEMENT>
+            <Q ID="0">0 6 4 5</Q>
+            <Q ID="1">1 2 3 6</Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0">Q[0-1]</C>
+            <C ID="1">E[0]</C>
+            <C ID="2">E[1]</C>
+            <C ID="3">E[3-4]</C>
+            <C ID="4">E[5]</C>
+            <C ID="5">E[2]</C>
+        </COMPOSITE>
+        <DOMAIN>C[0]</DOMAIN>
+    </GEOMETRY>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
+        <E COMPOSITE="C[0]" NUMMODES="3" TYPE="MODIFIED" FIELDS="p" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GlobalSysSoln" VALUE="IterativeStaticCond" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+            <V ID="1">p</V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="2">C[1]</B>
+            <B ID="7">C[2]</B>
+            <B ID="11">C[3]</B>
+            <B ID="20">C[4]</B>
+            <B ID="31">C[5]</B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="2"><D VAR="u" VALUE="0" /><N VAR="p" VALUE="0" /></REGION>
+            <REGION REF="7"><D VAR="u" VALUE="0" /><N VAR="p" VALUE="0" /></REGION>
+            <REGION REF="11"><D VAR="u" VALUE="0" /><N VAR="p" VALUE="0" /></REGION>
+            <REGION REF="20"><P VAR="u" VALUE="[31]" /><P VAR="p" VALUE="[31]" /></REGION>
+            <REGION REF="31"><P VAR="u" VALUE="[20]" /><P VAR="p" VALUE="[20]" /></REGION>
+        </BOUNDARYCONDITIONS>
+    </CONDITIONS>
+</NEKTAR>

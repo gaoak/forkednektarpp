@@ -421,7 +421,7 @@ possibly also Reynolds stresses) into single file;
 \item \inltt{compressiblefields}: Computes the velocity, pressure, temperature, entropy, sound speed and Mach number from the conservative variables of a compressible flow;
 \item \inltt{concatenate}: Concatenate a \nekpp binary output (.chk or .fld) field file into single file (deprecated);
 \item \inltt{divergence}: Computes the divergence of the velocity field.
-\item \inltt{dof}: Count the total number of DOF;
+\item \inltt{dof}: Count the global continuous Galerkin DOF for each variable and boundary region;
 \item \inltt{equispacedoutput}: Write data as equi-spaced output using simplices to represent the data for connecting points;
 \item \inltt{extract}: Extract a boundary field;
 \item \inltt{gradient}: Computes gradient of fields;
@@ -696,6 +696,23 @@ one can run the following command
 \begin{lstlisting}[style=BashInputStyle]
 FieldConvert -m dof file.xml file.fld out.stdout
 \end{lstlisting}
+The module prints the number of globally independent continuous Galerkin
+(CG) DOF for each variable, using that variable's own expansion order,
+followed by its count on each boundary region, identified by its boundary
+region ID. The CG assembly map identifies shared vertices, edges and faces,
+as well as periodic identifications where boundary conditions are supplied.
+MPI ownership flags ensure that DOF shared across partitions are counted
+once. Dirichlet DOF are included; the count is the dimension of the CG space
+before eliminating prescribed boundary values.
+
+The module then prints the boundary counts summed over all variables, and
+finally the total volume DOF summed over all variables. Boundary counts are
+not added to the volume total. A DOF on the intersection of two boundary
+regions belongs to both region counts. Homogeneous directions are included.
+Results are printed on spatial rank zero. A mesh-only input can also be
+used by omitting \inltt{file.fld}; variables are taken from the session, or
+reported as \inltt{DefaultVar} if none are declared. Without boundary
+conditions, only geometric continuity is imposed.
 %
 %
 %
