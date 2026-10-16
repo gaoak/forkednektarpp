@@ -28,6 +28,14 @@ or pyramid). The orthogonal mass matrix is then integrated exactly on every
 shape but the pyramid, every direction has the same count, and the element
 and trace points coincide wherever the rule is Gauss-Legendre.
 
+The short-hand form takes an optional \inltt{NUMPOINTS}, the number of
+quadrature points in every direction, with the same expression syntax as
+\inltt{NUMMODES}; it replaces the type's own count and keeps its point types:
+
+\begin{lstlisting}[style=XMLStyle]
+<E COMPOSITE="C[0]" NUMMODES="4" NUMPOINTS="5" FIELDS="u" TYPE="ORTHOGONAL" />
+\end{lstlisting}
+
 The expansion basis can also be specified in detail as a combination of
 one-dimensional bases, and thus the user is able to, for example, increase the
 quadrature order. For tet elements this takes the form:

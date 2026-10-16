@@ -146,6 +146,26 @@ MACRO(ADD_ELMT_OPERATOR dir)
                         CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
                         LIST(APPEND ${NAME_SOURCES}
                             "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                        # GCC 13 fails with an internal compiler error in
+                        # its loop-splitting pass on the collapsed-shape
+                        # units of the larger operators (Helmholtz,
+                        # Laplacian) once the equal-count cases of the size
+                        # switch are compiled; the pass gains nothing here.
+                        # With the switch widened past order 6 the same
+                        # assertion fires in complete unrolling on the
+                        # pyramid units, so those lose that pass as well.
+                        IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+                           AND "${SOURCE_EXT}" STREQUAL "cpp"
+                           AND "${Shape}" MATCHES "(Tri|Prism|Pyr|Tet)$")
+                            SET(SwitchFlags "-fno-split-loops")
+                            IF("${Shape}" STREQUAL "Pyr"
+                               AND NEKTAR_SWITCH_MAX GREATER 6)
+                                LIST(APPEND SwitchFlags "-fdisable-tree-cunroll")
+                            ENDIF()
+                            SET_SOURCE_FILES_PROPERTIES(
+                                "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}"
+                                PROPERTIES COMPILE_OPTIONS "${SwitchFlags}")
+                        ENDIF()
                     ENDFOREACH()
                 ENDIF()
 

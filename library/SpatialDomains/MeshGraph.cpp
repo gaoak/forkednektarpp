@@ -1914,9 +1914,14 @@ void MeshGraph::ResetExpansionInfoToModified(std::string var)
  *
  */
 LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
-    Geometry *in, ExpansionType type, const int nummodes)
+    Geometry *in, ExpansionType type, const int nummodes, const int numpoints)
 {
     LibUtilities::BasisKeyVector returnval;
+    // The number of points in a direction: NUMPOINTS when given, otherwise
+    // the expansion type's own count for that direction.
+    const auto np = [numpoints](const int dflt) {
+        return numpoints < 0 ? dflt : numpoints;
+    };
 
     LibUtilities::ShapeType shape = in->GetShapeType();
 
@@ -1949,7 +1954,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
@@ -1959,7 +1964,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
@@ -1970,7 +1975,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
@@ -1982,14 +1987,14 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eTriangle:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes + quadoffset - 1,
+                        np(nummodes + quadoffset - 1),
                         LibUtilities::eGaussRadauMAlpha1Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eModified_B,
                                                  nummodes, pkey1);
@@ -2000,14 +2005,14 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eTetrahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes + quadoffset - 1,
+                        np(nummodes + quadoffset - 1),
                         LibUtilities::eGaussRadauMAlpha1Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eModified_B,
                                                  nummodes, pkey1);
@@ -2016,7 +2021,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     if (type == eModifiedGLLRadau10)
                     {
                         const LibUtilities::PointsKey pkey2(
-                            nummodes + quadoffset - 1,
+                            np(nummodes + quadoffset - 1),
                             LibUtilities::eGaussRadauMAlpha1Beta0);
                         LibUtilities::BasisKey bkey2(LibUtilities::eModified_C,
                                                      nummodes, pkey2);
@@ -2025,7 +2030,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     else
                     {
                         const LibUtilities::PointsKey pkey2(
-                            nummodes + quadoffset - 1,
+                            np(nummodes + quadoffset - 1),
                             LibUtilities::eGaussRadauMAlpha2Beta0);
                         LibUtilities::BasisKey bkey2(LibUtilities::eModified_C,
                                                      nummodes, pkey2);
@@ -2036,7 +2041,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::ePyramid:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
@@ -2044,7 +2049,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes + quadoffset - 1,
+                        np(nummodes + quadoffset - 1),
                         LibUtilities::eGaussRadauMAlpha2Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eModifiedPyr_C,
                                                  nummodes, pkey1);
@@ -2054,7 +2059,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::ePrism:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eModified_A,
                                                 nummodes, pkey);
@@ -2062,7 +2067,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes + quadoffset - 1,
+                        np(nummodes + quadoffset - 1),
                         LibUtilities::eGaussRadauMAlpha1Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eModified_B,
                                                  nummodes, pkey1);
@@ -2086,7 +2091,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes + 1), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2095,7 +2100,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes + 1), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2107,13 +2112,13 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     // define with corrects points key
                     // and change to Ortho on construction
                     const LibUtilities::PointsKey pkey(
-                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes + 1), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussRadauMAlpha1Beta0);
+                        np(nummodes), LibUtilities::eGaussRadauMAlpha1Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
                                                  nummodes, pkey1);
                     returnval.push_back(bkey1);
@@ -2122,7 +2127,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes + 1), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
 
@@ -2136,7 +2141,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     // define with corrects points key
                     // and change to Ortho on construction
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
@@ -2148,7 +2153,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey1);
 
                     const LibUtilities::PointsKey pkey2(
-                        nummodes + quadoffset - 1,
+                        np(nummodes + quadoffset - 1),
                         LibUtilities::eGaussRadauMAlpha1Beta0);
                     LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_B,
                                                  nummodes, pkey2);
@@ -2160,14 +2165,14 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     // define with corrects points key
                     // and change to Ortho on construction
                     const LibUtilities::PointsKey pkey(
-                        nummodes + quadoffset,
+                        np(nummodes + quadoffset),
                         LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes + quadoffset - 1,
+                        np(nummodes + quadoffset - 1),
                         LibUtilities::eGaussRadauMAlpha1Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
                                                  nummodes, pkey1);
@@ -2176,7 +2181,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     if (type == eModifiedGLLRadau10)
                     {
                         const LibUtilities::PointsKey pkey2(
-                            nummodes + quadoffset - 1,
+                            np(nummodes + quadoffset - 1),
                             LibUtilities::eGaussRadauMAlpha1Beta0);
                         LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_C,
                                                      nummodes, pkey2);
@@ -2185,7 +2190,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     else
                     {
                         const LibUtilities::PointsKey pkey2(
-                            nummodes + quadoffset - 1,
+                            np(nummodes + quadoffset - 1),
                             LibUtilities::eGaussRadauMAlpha2Beta0);
                         LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_C,
                                                      nummodes, pkey2);
@@ -2210,7 +2215,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGauss_Lagrange,
                                                 nummodes, pkey);
 
@@ -2220,7 +2225,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGauss_Lagrange,
                                                 nummodes, pkey);
 
@@ -2231,7 +2236,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGauss_Lagrange,
                                                 nummodes, pkey);
 
@@ -2250,6 +2255,12 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
         }
         break;
 
+        // An orthogonal basis on Gauss-Legendre points, as many points as
+        // modes in every direction: the mass matrix is then exact (and
+        // diagonal on every shape but the pyramid), and every direction has
+        // the same count, which the size switch and the fused operators
+        // take as one case. Gauss-Jacobi points in the collapsed directions
+        // are to follow once they are available.
         case eOrthogonal:
         {
             // An orthogonal basis on the Gauss family with as many points as
@@ -2266,7 +2277,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
 
@@ -2276,14 +2287,14 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eTriangle:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
 
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
                                                  nummodes, pkey1);
 
@@ -2293,7 +2304,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
 
@@ -2304,7 +2315,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2315,14 +2326,14 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::ePyramid:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussGaussAlpha1Beta0);
+                        np(nummodes), LibUtilities::eGaussGaussAlpha1Beta0);
                     LibUtilities::BasisKey bkey1(LibUtilities::eOrthoPyr_C,
                                                  nummodes, pkey1);
                     returnval.push_back(bkey1);
@@ -2331,14 +2342,14 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::ePrism:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
                                                  nummodes, pkey1);
                     returnval.push_back(bkey1);
@@ -2347,21 +2358,21 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eTetrahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eOrtho_A,
                                                 nummodes, pkey);
 
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussGaussLegendre);
+                        np(nummodes), LibUtilities::eGaussGaussLegendre);
                     LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_B,
                                                  nummodes, pkey1);
 
                     returnval.push_back(bkey1);
 
                     const LibUtilities::PointsKey pkey2(
-                        nummodes, LibUtilities::eGaussGaussAlpha1Beta0);
+                        np(nummodes), LibUtilities::eGaussGaussAlpha1Beta0);
                     LibUtilities::BasisKey bkey2(LibUtilities::eOrtho_C,
                                                  nummodes, pkey2);
 
@@ -2385,7 +2396,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
 
@@ -2395,7 +2406,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
 
@@ -2406,7 +2417,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
                                                 nummodes, pkey);
 
@@ -2432,7 +2443,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierEvenlySpaced);
+                        np(nummodes), LibUtilities::eFourierEvenlySpaced);
                     LibUtilities::BasisKey bkey(LibUtilities::eFourier,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2441,7 +2452,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierEvenlySpaced);
+                        np(nummodes), LibUtilities::eFourierEvenlySpaced);
                     LibUtilities::BasisKey bkey(LibUtilities::eFourier,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2451,7 +2462,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierEvenlySpaced);
+                        np(nummodes), LibUtilities::eFourierEvenlySpaced);
                     LibUtilities::BasisKey bkey(LibUtilities::eFourier,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2476,7 +2487,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierSingleMode, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2485,7 +2496,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierSingleMode, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2495,7 +2506,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierSingleMode, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2520,7 +2531,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierHalfModeRe, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2529,7 +2540,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierHalfModeRe, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2539,7 +2550,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierHalfModeRe, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2564,7 +2575,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierHalfModeIm, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2573,7 +2584,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierHalfModeIm, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2583,7 +2594,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierSingleModeSpaced);
+                        np(nummodes), LibUtilities::eFourierSingleModeSpaced);
                     LibUtilities::BasisKey bkey(
                         LibUtilities::eFourierHalfModeIm, nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2608,7 +2619,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eSegment:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussChebyshev);
+                        np(nummodes), LibUtilities::eGaussGaussChebyshev);
                     LibUtilities::BasisKey bkey(LibUtilities::eChebyshev,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2617,7 +2628,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussChebyshev);
+                        np(nummodes), LibUtilities::eGaussGaussChebyshev);
                     LibUtilities::BasisKey bkey(LibUtilities::eChebyshev,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2627,7 +2638,7 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eHexahedron:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eGaussGaussChebyshev);
+                        np(nummodes), LibUtilities::eGaussGaussChebyshev);
                     LibUtilities::BasisKey bkey(LibUtilities::eChebyshev,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2652,13 +2663,13 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierEvenlySpaced);
+                        np(nummodes), LibUtilities::eFourierEvenlySpaced);
                     LibUtilities::BasisKey bkey(LibUtilities::eFourier,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussGaussChebyshev);
+                        np(nummodes), LibUtilities::eGaussGaussChebyshev);
                     LibUtilities::BasisKey bkey1(LibUtilities::eChebyshev,
                                                  nummodes, pkey1);
                     returnval.push_back(bkey1);
@@ -2681,13 +2692,13 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey1(
-                        nummodes, LibUtilities::eGaussGaussChebyshev);
+                        np(nummodes), LibUtilities::eGaussGaussChebyshev);
                     LibUtilities::BasisKey bkey1(LibUtilities::eChebyshev,
                                                  nummodes, pkey1);
                     returnval.push_back(bkey1);
 
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierEvenlySpaced);
+                        np(nummodes), LibUtilities::eFourierEvenlySpaced);
                     LibUtilities::BasisKey bkey(LibUtilities::eFourier,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
@@ -2710,13 +2721,13 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                 case LibUtilities::eQuadrilateral:
                 {
                     const LibUtilities::PointsKey pkey(
-                        nummodes, LibUtilities::eFourierEvenlySpaced);
+                        np(nummodes), LibUtilities::eFourierEvenlySpaced);
                     LibUtilities::BasisKey bkey(LibUtilities::eFourier,
                                                 nummodes, pkey);
                     returnval.push_back(bkey);
 
                     const LibUtilities::PointsKey pkey1(
-                        nummodes + 1, LibUtilities::eGaussLobattoLegendre);
+                        np(nummodes + 1), LibUtilities::eGaussLobattoLegendre);
                     LibUtilities::BasisKey bkey1(LibUtilities::eModified_A,
                                                  nummodes, pkey1);
                     returnval.push_back(bkey1);
@@ -3586,6 +3597,7 @@ void MeshGraph::ReadExpansionInfo(TiXmlElement *expansionTypes)
                 m_useExpansionType           = false;
                 ExpansionType expansion_type = eNoExpansionType;
                 int num_modes                = 0;
+                int num_points               = -1;
 
                 LibUtilities::BasisKeyVector basiskeyvec;
                 const char *tStr = expansion->Attribute("TYPE");
@@ -3631,6 +3643,23 @@ void MeshGraph::ReadExpansionInfo(TiXmlElement *expansionTypes)
                     else
                     {
                         num_modes = std::stoi(nummodesStr);
+                    }
+
+                    // NUMPOINTS, optional: one count for every direction.
+                    const char *npStr = expansion->Attribute("NUMPOINTS");
+                    if (npStr)
+                    {
+                        std::string numpointsStr = npStr;
+                        if (m_session)
+                        {
+                            LibUtilities::Equation numpointsEqn(
+                                m_session->GetInterpreter(), numpointsStr);
+                            num_points = (int)numpointsEqn.Evaluate();
+                        }
+                        else
+                        {
+                            num_points = std::stoi(numpointsStr);
+                        }
                     }
 
                     m_useExpansionType = true;
@@ -3782,7 +3811,8 @@ void MeshGraph::ReadExpansionInfo(TiXmlElement *expansionTypes)
                         {
                             (x->second)->m_basisKeyVector =
                                 MeshGraph::DefineBasisKeyFromExpansionType(
-                                    *geomVecIter, expansion_type, num_modes);
+                                    *geomVecIter, expansion_type, num_modes,
+                                    num_points);
                         }
                         else
                         {

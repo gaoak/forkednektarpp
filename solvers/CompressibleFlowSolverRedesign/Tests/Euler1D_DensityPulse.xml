@@ -54,7 +54,7 @@
         <DOMAIN> C[0] </DOMAIN>
     </GEOMETRY>
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="rho,rhou,E" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="rho,rhou,E" TYPE="ORTHOGONAL" />
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>

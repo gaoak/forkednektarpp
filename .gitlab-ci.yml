@@ -411,6 +411,9 @@ include:
   script:
     - cd "$CI_PROJECT_DIR"
     - EXPORT_COMPILE_COMMANDS=1 BUILD_TYPE=full bash -x .gitlab-ci/build-and-test.sh
+    # The compile database comes from the GCC build; the GCC-only options
+    # the size-switch units carry are unknown to clang-tidy's front end.
+    - sed -i -e 's/ -fno-split-loops//g' -e 's/ -fdisable-tree-cunroll//g' build/compile_commands.json
     - run-clang-tidy-$CL_T_VER -p build -header-filter='(library|solver|tests)' -j$NUM_CPUS -fix -clang-tidy-binary=clang-tidy-$CL_T_VER -clang-apply-replacements-binary=clang-apply-replacements-$CL_T_VER
     - find $TARGETS -iname "*.cpp" -o -iname "*.h" -o -iname "*.hpp" -o -iname "*.cu" -o -iname "*.cuh" | xargs clang-format-$CL_F_VER -i
     - git diff > clang-tidy.diff

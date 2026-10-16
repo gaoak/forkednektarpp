@@ -29,7 +29,7 @@
     </Metadata>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[601]" NUMMODES="4" FIELDS="rho,rhou,rhov,E" TYPE="MODIFIED" />
+        <E COMPOSITE="C[601]" NUMMODES="4" FIELDS="rho,rhou,rhov,E" TYPE="ORTHOGONAL" />
     </EXPANSIONS>
 
     <CONDITIONS>
