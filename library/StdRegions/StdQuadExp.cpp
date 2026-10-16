@@ -1474,7 +1474,8 @@ void StdQuadExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
     // SVV parameters loaded from the .xml case file
     Array<OneD, NekDouble> orthocoeffs(OrthoExp.GetNcoeffs());
 
-    // project onto modal  space.
+    // project onto modal  space. The coefficients are stored with the first
+    // direction fastest, so mode (j, k) sits at k * nmodes_a + j.
     OrthoExp.FwdTrans(array, orthocoeffs);
 
     if (mkey.ConstFactorExists(
@@ -1485,16 +1486,16 @@ void StdQuadExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
             mkey.GetConstFactor(eFactorSVVPowerKerDiffCoeff) *
             mkey.GetConstFactor(eFactorSVVDiffCoeff);
 
-        for (int j = 0; j < nmodes_a; ++j)
+        for (int k = 0; k < nmodes_b; ++k)
         {
-            for (int k = 0; k < nmodes_b; ++k)
+            for (int j = 0; j < nmodes_a; ++j)
             {
                 // linear space but makes high modes very negative
                 NekDouble fac = std::max(
                     pow((1.0 * j) / (nmodes_a - 1), cutoff * nmodes_a),
                     pow((1.0 * k) / (nmodes_b - 1), cutoff * nmodes_b));
 
-                orthocoeffs[j * nmodes_b + k] *= SvvDiffCoeff * fac;
+                orthocoeffs[k * nmodes_a + j] *= SvvDiffCoeff * fac;
             }
         }
     }
@@ -1508,14 +1509,14 @@ void StdQuadExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
         max_ab     = max(max_ab, 0);
         max_ab     = min(max_ab, kSVVDGFiltermodesmax - kSVVDGFiltermodesmin);
 
-        for (int j = 0; j < nmodes_a; ++j)
+        for (int k = 0; k < nmodes_b; ++k)
         {
-            for (int k = 0; k < nmodes_b; ++k)
+            for (int j = 0; j < nmodes_a; ++j)
             {
                 int maxjk = max(j, k);
                 maxjk     = min(maxjk, kSVVDGFiltermodesmax - 1);
 
-                orthocoeffs[j * nmodes_b + k] *=
+                orthocoeffs[k * nmodes_a + j] *=
                     SvvDiffCoeff * kSVVDGFilter[max_ab][maxjk];
             }
         }
@@ -1528,13 +1529,13 @@ void StdQuadExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
                            min(nmodes_a, nmodes_b));
 
         //------"New" Version August 22nd '13--------------------
-        for (int j = 0; j < nmodes_a; ++j)
+        for (int k = 0; k < nmodes_b; ++k)
         {
-            for (int k = 0; k < nmodes_b; ++k)
+            for (int j = 0; j < nmodes_a; ++j)
             {
                 if (j + k >= cutoff) // to filter out only the "high-modes"
                 {
-                    orthocoeffs[j * nmodes_b + k] *=
+                    orthocoeffs[k * nmodes_a + j] *=
                         (SvvDiffCoeff *
                          exp(-(j + k - nmodes) * (j + k - nmodes) /
                              ((NekDouble)((j + k - cutoff + 1) *
@@ -1542,7 +1543,7 @@ void StdQuadExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
                 }
                 else
                 {
-                    orthocoeffs[j * nmodes_b + k] *= 0.0;
+                    orthocoeffs[k * nmodes_a + j] *= 0.0;
                 }
             }
         }
