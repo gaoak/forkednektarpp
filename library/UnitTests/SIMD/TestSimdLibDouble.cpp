@@ -35,7 +35,6 @@
 #include <LibUtilities/SimdLib/io.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include <boost/test/tools/floating_point_comparison.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <array>

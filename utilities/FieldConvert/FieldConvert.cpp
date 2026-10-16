@@ -629,10 +629,10 @@ int main(int argc, char *argv[])
 
                     for (int b = 0; b < f->m_bndRegionsToWrite.size(); ++b)
                     {
-                        string outfilenew = name + "_b" +
-                                            boost::lexical_cast<string>(
-                                                f->m_bndRegionsToWrite[b]) +
-                                            "." + ext;
+                        string outfilenew =
+                            name + "_b" +
+                            std::to_string(f->m_bndRegionsToWrite[b]) + "." +
+                            ext;
                         mod->RegisterConfig("outfile", outfilenew);
                         RunModule(mod, vm, verbose);
                     }

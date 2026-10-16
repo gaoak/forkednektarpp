@@ -40,7 +40,6 @@
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <NekMesh/MeshElements/Element.h>
-#include <boost/algorithm/string.hpp>
 
 #include "InputNek5000.h"
 

@@ -43,14 +43,10 @@
 #include <SolverUtils/Filters/FilterInterfaces.hpp>
 #include <SolverUtils/Forcing/Forcing.h>
 #include <SolverUtils/UnsteadySystem.h>
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/vector.hpp>
 #include <complex>
 
 namespace Nektar
 {
-namespace bnu = boost::numeric::ublas;
-
 enum SolverType
 {
     eNoSolverType,

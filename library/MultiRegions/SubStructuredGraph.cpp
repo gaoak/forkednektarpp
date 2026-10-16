@@ -38,7 +38,6 @@
 
 #include <algorithm>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/config.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/bandwidth.hpp>
 #include <boost/graph/cuthill_mckee_ordering.hpp>

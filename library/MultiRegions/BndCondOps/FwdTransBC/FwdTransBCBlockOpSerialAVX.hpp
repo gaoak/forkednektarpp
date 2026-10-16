@@ -35,7 +35,6 @@
 #pragma once
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
-#include <boost/intrusive/pointer_traits.hpp>
 
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCBlockOp.hpp>
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCBlockOpSerialAVXKernels.hpp>

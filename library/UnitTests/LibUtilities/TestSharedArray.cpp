@@ -34,7 +34,6 @@
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
-#include <boost/test/tools/floating_point_comparison.hpp>
 #include <boost/test/unit_test.hpp>
 
 namespace Nektar::SharedArrayUnitTests

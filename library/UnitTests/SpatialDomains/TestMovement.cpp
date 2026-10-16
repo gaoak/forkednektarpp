@@ -37,7 +37,6 @@
 #include <SpatialDomains/Movement/InterfaceInterpolation.h>
 #include <SpatialDomains/Movement/Movement.h>
 #include <SpatialDomains/Movement/Zones.h>
-#include <boost/test/tools/floating_point_comparison.hpp>
 #include <boost/test/unit_test.hpp>
 
 namespace Nektar::MovementTests

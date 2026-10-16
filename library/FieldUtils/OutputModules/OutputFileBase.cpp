@@ -39,7 +39,6 @@
 #include "OutputFileBase.h"
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
-#include <boost/format.hpp>
 
 using namespace std;
 

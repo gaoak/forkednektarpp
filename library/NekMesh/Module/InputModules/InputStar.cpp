@@ -33,7 +33,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
-#include <boost/algorithm/string.hpp>
 
 #include "InputStar.h"
 #include <NekMesh/MeshElements/Element.h>

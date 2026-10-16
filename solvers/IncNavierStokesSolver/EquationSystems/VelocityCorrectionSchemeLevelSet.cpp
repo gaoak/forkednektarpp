@@ -41,8 +41,6 @@
 #include <MultiRegions/GJPStabilisation.h>
 #include <SolverUtils/Core/Misc.h>
 
-#include <boost/algorithm/string.hpp>
-
 using namespace std;
 
 namespace Nektar

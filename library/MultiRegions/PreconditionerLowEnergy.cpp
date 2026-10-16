@@ -1405,7 +1405,6 @@ SpatialDomains::PyrGeomUniquePtr PreconditionerLowEnergy::CreateRefPyrGeom()
                                {-1, 1, 0},
                                {0, 0, sqrt(double(2))}};
 
-    // boost::shared_ptr<SpatialDomains::PointGeom> verts[6];
     const int three = 3;
     SpatialDomains::PointGeomUniquePtr verts[5];
     for (int i = 0; i < nVerts; ++i)

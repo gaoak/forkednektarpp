@@ -38,9 +38,6 @@
 #include <UnitTests/CountedObject.h>
 #include <UnitTests/util.h>
 
-#include <boost/test/tools/floating_point_comparison.hpp>
-#include <boost/test/unit_test.hpp>
-
 namespace Nektar::UpperTriangularUnitTests
 {
 typedef UpperTriangularMatrixFuncs Policy;

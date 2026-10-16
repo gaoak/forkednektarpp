@@ -32,8 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
-
 #include <TestException.hpp>
 #include <TestFile.h>
 

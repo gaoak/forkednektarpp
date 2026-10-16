@@ -270,10 +270,9 @@ void GlobalLinSysIterativeFull::Initialise(
         if (pSession->DefinesGlobalSysSolnInfo(variable,
                                                "IterativeSolverTolerance"))
         {
-            sysKey.m_NekLinSysTolerance = boost::lexical_cast<double>(
-                pSession
-                    ->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
-                    .c_str());
+            sysKey.m_NekLinSysTolerance =
+                std::stod(pSession->GetGlobalSysSolnInfo(
+                    variable, "IterativeSolverTolerance"));
         }
         else
         {

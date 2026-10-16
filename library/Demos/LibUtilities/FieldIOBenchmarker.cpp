@@ -36,8 +36,9 @@
 #include <LibUtilities/BasicUtils/FieldIOXml.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/Communication/CommMpi.h>
-#include <boost/algorithm/string.hpp>
+
 #include <boost/program_options.hpp>
+#include <list>
 #include <string>
 #include <unordered_set>
 

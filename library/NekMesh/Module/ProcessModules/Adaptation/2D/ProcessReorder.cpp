@@ -36,9 +36,6 @@
 #include <NekMesh/MeshElements/Element.h>
 #include <NekMesh/Module/ProcessModules/Adaptation/2D/ProcessReorder.h>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
-
 #include <LibUtilities/BasicUtils/Progressbar.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h>
 

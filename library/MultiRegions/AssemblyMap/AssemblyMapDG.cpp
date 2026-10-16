@@ -42,7 +42,6 @@
 #include <MultiRegions/ExpList.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/config.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
 using namespace std;

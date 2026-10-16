@@ -35,7 +35,6 @@
 #include <SolverCore/Driver/DriverStandard.h>
 
 #include <LibUtilities/Backends/Backends.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 
 namespace Nektar::SolverCore
 {

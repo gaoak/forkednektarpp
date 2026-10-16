@@ -44,6 +44,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <tuple>
 #include <vector>
 
 #include <tinyxml.h>
@@ -56,7 +57,6 @@
 #include <LibUtilities/Foundations/Foundations.hpp>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/format.hpp>
 #include <boost/graph/adjacency_iterator.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/detail/edge.hpp>
@@ -357,7 +357,7 @@ void MeshPartition::PrintPartInfo(std::ostream &out)
         }
     }
 
-    for (boost::tie(vertit, vertit_end) = boost::vertices(m_graph);
+    for (std::tie(vertit, vertit_end) = boost::vertices(m_graph);
          vertit != vertit_end; ++vertit)
     {
         int partId = m_graph[*vertit].partition;
@@ -625,10 +625,10 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
         // Initialise starting point of adjacency array.
         xadj[0] = 0;
 
-        for (boost::tie(vertit, vertit_end) = boost::vertices(m_graph);
+        for (std::tie(vertit, vertit_end) = boost::vertices(m_graph);
              vertit != vertit_end && vcnt < nLocal; ++vertit)
         {
-            for (boost::tie(adjvertit, adjvertit_end) =
+            for (std::tie(adjvertit, adjvertit_end) =
                      boost::adjacent_vertices(*vertit, m_graph);
                  adjvertit != adjvertit_end; ++adjvertit, ++acnt)
             {
@@ -745,7 +745,7 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
     if (!m_parallel)
     {
         // Populate subgraph(s) for each rank.
-        for (boost::tie(vertit, vertit_end) = boost::vertices(m_graph);
+        for (std::tie(vertit, vertit_end) = boost::vertices(m_graph);
              vertit != vertit_end; ++vertit, ++i)
         {
             m_localPartition[part[i]].push_back(m_graph[*vertit].id);
@@ -759,7 +759,7 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
         std::vector<int> numToSend(nproc, 0), numToRecv(nproc);
         std::map<int, std::vector<int>> procMap;
 
-        for (boost::tie(vertit, vertit_end) = boost::vertices(m_graph);
+        for (std::tie(vertit, vertit_end) = boost::vertices(m_graph);
              vertit != vertit_end && i < nLocal; ++vertit, ++i)
         {
             int toProc = part[i];
@@ -822,10 +822,10 @@ void MeshPartition::PartitionGraph(int nParts, bool overlapping)
                      "parallel execution");
         }
 
-        for (boost::tie(vertit, vertit_end) = boost::vertices(m_graph);
+        for (std::tie(vertit, vertit_end) = boost::vertices(m_graph);
              vertit != vertit_end; ++vertit)
         {
-            for (boost::tie(adjvertit, adjvertit_end) =
+            for (std::tie(adjvertit, adjvertit_end) =
                      boost::adjacent_vertices(*vertit, m_graph);
                  adjvertit != adjvertit_end; ++adjvertit)
             {

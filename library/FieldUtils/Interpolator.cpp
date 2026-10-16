@@ -35,6 +35,7 @@
 
 #include <FieldUtils/Interpolator.h>
 #include <boost/geometry.hpp>
+#include <cmath>
 
 using namespace std;
 
@@ -238,7 +239,7 @@ void Interpolator<T>::Interpolate(const T expInField,
                         Lcoords, expInField[f]->GetPhys() + offset);
                 }
 
-                if ((boost::math::isnan)(value))
+                if (std::isnan(value))
                 {
                     ASSERTL0(false, "new value is not a number");
                 }
