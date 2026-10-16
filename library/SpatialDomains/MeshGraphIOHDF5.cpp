@@ -844,6 +844,11 @@ void MeshGraphIOHDF5::v_PartitionMesh(
 
                         const GhostId &p = sharer.second;
                         auto it          = partElmts.find(p.id);
+                        if (sharer.first == interRank)
+                        {
+                            continue;
+                        }
+
                         if (it == partElmts.end())
                         {
                             MeshEntity ghost;

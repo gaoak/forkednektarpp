@@ -162,6 +162,7 @@ v5.11.0
 - Require NEKTAR_DEVICE_ARCH for the CUDA, HIP and DPC++ SYCL-HIP back-ends instead of building for a list of default architectures, and validate it on every back-end (!2824)
 - Allow ahead-of-time compilation for AdaptiveCpp SYCL-HIP and build oneMath for the same AdaptiveCpp target as Nektar++ (!2824)
 - Fix OutputVTK compulication error cout without std (!2846)
+- Fix minor improvement for HDF5 reading mesh in parallel not reading all faces (!2788) 
 
 v5.10.0
 -------
