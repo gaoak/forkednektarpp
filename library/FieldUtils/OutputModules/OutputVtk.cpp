@@ -1595,7 +1595,7 @@ void OutputVtk::WritePVtu(po::variables_map &vm)
     outfile << "  </PUnstructuredGrid>" << endl;
     outfile << "</VTKFile>" << endl;
 
-    cout << "Written file: " << filename << endl;
+    std::cout << "Written file: " << filename << std::endl;
 }
 
 void OutputVtk::v_OutputFromData([[maybe_unused]] po::variables_map &vm)
