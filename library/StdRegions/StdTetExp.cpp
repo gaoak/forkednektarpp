@@ -1929,7 +1929,7 @@ void StdTetExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
 
         for (i = 0; i < nmodes_a; ++i)
         {
-            for (j = 0; j < nmodes_b - j; ++j)
+            for (j = 0; j < nmodes_b - i; ++j)
             {
                 NekDouble fac1 = std::max(
                     pow((1.0 * i) / (nmodes_a - 1), cutoff * nmodes_a),
@@ -1962,7 +1962,7 @@ void StdTetExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
 
         for (i = 0; i < nmodes_a; ++i)
         {
-            for (j = 0; j < nmodes_b - j; ++j)
+            for (j = 0; j < nmodes_b - i; ++j)
             {
                 int maxij = max(i, j);
 

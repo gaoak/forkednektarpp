@@ -2233,7 +2233,9 @@ void StdHexExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
     Array<OneD, NekDouble> orthocoeffs(OrthoExp.GetNcoeffs());
     int cnt = 0;
 
-    // project onto modal  space.
+    // project onto modal  space. The coefficients are stored with the first
+    // direction fastest, so they are traversed with k outermost and i
+    // innermost.
     OrthoExp.FwdTrans(array, orthocoeffs);
 
     if (mkey.ConstFactorExists(eFactorSVVPowerKerDiffCoeff))
@@ -2244,19 +2246,19 @@ void StdHexExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
             mkey.GetConstFactor(eFactorSVVPowerKerDiffCoeff) *
             mkey.GetConstFactor(eFactorSVVDiffCoeff);
 
-        for (int i = 0; i < nmodes_a; ++i)
+        for (int k = 0; k < nmodes_c; ++k)
         {
             for (int j = 0; j < nmodes_b; ++j)
             {
                 NekDouble fac1 = std::max(
-                    pow((1.0 * i) / (nmodes_a - 1), cutoff * nmodes_a),
-                    pow((1.0 * j) / (nmodes_b - 1), cutoff * nmodes_b));
+                    pow((1.0 * j) / (nmodes_b - 1), cutoff * nmodes_b),
+                    pow((1.0 * k) / (nmodes_c - 1), cutoff * nmodes_c));
 
-                for (int k = 0; k < nmodes_c; ++k)
+                for (int i = 0; i < nmodes_a; ++i)
                 {
                     NekDouble fac =
-                        std::max(fac1, pow((1.0 * k) / (nmodes_c - 1),
-                                           cutoff * nmodes_c));
+                        std::max(fac1, pow((1.0 * i) / (nmodes_a - 1),
+                                           cutoff * nmodes_a));
 
                     orthocoeffs[cnt] *= SvvDiffCoeff * fac;
                     cnt++;
@@ -2277,15 +2279,15 @@ void StdHexExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
         max_abc = max(max_abc, 0);
         max_abc = min(max_abc, kSVVDGFiltermodesmax - kSVVDGFiltermodesmin);
 
-        for (int i = 0; i < nmodes_a; ++i)
+        for (int k = 0; k < nmodes_c; ++k)
         {
             for (int j = 0; j < nmodes_b; ++j)
             {
-                int maxij = max(i, j);
+                int maxjk = max(j, k);
 
-                for (int k = 0; k < nmodes_c; ++k)
+                for (int i = 0; i < nmodes_a; ++i)
                 {
-                    int maxijk = max(maxij, k);
+                    int maxijk = max(maxjk, i);
                     maxijk     = min(maxijk, kSVVDGFiltermodesmax - 1);
 
                     orthocoeffs[cnt] *=
@@ -2312,23 +2314,22 @@ void StdHexExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
             fac[j] *= fac[j]; // added this line to conform with equation
         }
 
-        for (int i = 0; i < nmodes_a; ++i)
+        for (int k = 0; k < nmodes_c; ++k)
         {
             for (int j = 0; j < nmodes_b; ++j)
             {
-                for (int k = 0; k < nmodes_c; ++k)
+                for (int i = 0; i < nmodes_a; ++i)
                 {
                     if ((i >= cutoff) || (j >= cutoff) || (k >= cutoff))
                     {
-                        orthocoeffs[i * nmodes_a * nmodes_b + j * nmodes_c +
-                                    k] *=
+                        orthocoeffs[cnt] *=
                             (SvvDiffCoeff * exp(-(fac[i] + fac[j] + fac[k])));
                     }
                     else
                     {
-                        orthocoeffs[i * nmodes_a * nmodes_b + j * nmodes_c +
-                                    k] *= 0.0;
+                        orthocoeffs[cnt] *= 0.0;
                     }
+                    cnt++;
                 }
             }
         }

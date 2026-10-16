@@ -554,7 +554,7 @@ void StdSegExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
 
     // SVV parameters loaded from the .xml case file
     NekDouble SvvDiffCoeff = mkey.GetConstFactor(eFactorSVVDiffCoeff);
-    int cutoff = (int)(mkey.GetConstFactor(eFactorSVVCutoffRatio)) * nmodes;
+    int cutoff = (int)(mkey.GetConstFactor(eFactorSVVCutoffRatio) * nmodes);
 
     Array<OneD, NekDouble> orthocoeffs(OrthoExp.GetNcoeffs());
 
