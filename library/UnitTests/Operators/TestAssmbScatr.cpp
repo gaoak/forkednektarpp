@@ -74,6 +74,28 @@
         }                                                                      \
     }
 
+// Apply one operator to the input at interleave width 1, at the execution
+// space's width and at width 1 again.
+#define TEST_ASSMBSCATR_INTERLEAVE(test_name, test, zeroDir, tol)              \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        if (this->session->GetComm()->GetRank() == 0)                          \
+        {                                                                      \
+            std::cout << std::string("Run: ") + std::string(#test_name)        \
+                      << std::endl;                                            \
+        }                                                                      \
+        SetTestCase(zeroDir);                                                  \
+        auto op                  = CreateOp(zeroDir);                          \
+        const unsigned int width = NektarSpaces::GetVectorWidth<double>(       \
+            Operator<double>::GetOpExecSpace(this->session));                  \
+        for (const unsigned int interleaveWidth : {1u, width, 1u})             \
+        {                                                                      \
+            RunTestCaseAtWidth(*op, interleaveWidth);                          \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteAssmbScatr)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -122,6 +144,18 @@ TEST_ASSMBSCATR(assmbscatr_cube_all_elements, CubeAllElements, 1.0E-12)
 
 TEST_ASSMBSCATR_ZERODIR(assmbscatr_cube_all_elements_zerodir, CubeAllElements,
                         1.0E-12)
+
+TEST_ASSMBSCATR_INTERLEAVE(assmbscatr_square_all_elements_interleave,
+                           SquareAllElements, false, 1.0E-12)
+
+TEST_ASSMBSCATR_INTERLEAVE(assmbscatr_square_all_elements_zerodir_interleave,
+                           SquareAllElements, true, 1.0E-12)
+
+TEST_ASSMBSCATR_INTERLEAVE(assmbscatr_cube_all_elements_interleave,
+                           CubeAllElements, false, 1.0E-12)
+
+TEST_ASSMBSCATR_INTERLEAVE(assmbscatr_cube_all_elements_zerodir_interleave,
+                           CubeAllElements, true, 1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

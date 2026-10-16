@@ -97,9 +97,9 @@
  *
  * @note There is one algorithm here, registered under MultiRegions::SumFac
  * and, where an execution space provides it, under SumFacTOP. A StdMat request
- * is mapped to SumFac by IProductWRTPhysNormalDerivTraceBlockOp::Create(),
- * so a whole-field selection of StdMat, SumFac or SumFacTOP can include
- * this operator.
+ * is mapped to SumFac on the host and SumFacTOP on the device by
+ * IProductWRTPhysNormalDerivTraceBlockOp::Create(), so a whole-field selection
+ * of StdMat, SumFac or SumFacTOP can include this operator.
  *
  * @see IProductWRTPhysTraceOp.hpp for the plain trace lift this operator
  * is built on, whose layouts and conventions it follows.
@@ -180,8 +180,8 @@ public:
      * @param   execStr         Execution space ("Serial", "AVX" or
      *                          "Device"); session default if empty.
      * @param   implStr         Block implementation; StdMat resolves to
-     *                          the SumFac registration, see the file
-     *                          notes.
+     *                          SumFac on the host and SumFacTOP on the
+     *                          device, see the file notes.
      *
      * @return The fully assembled operator, ready to Apply.
      */

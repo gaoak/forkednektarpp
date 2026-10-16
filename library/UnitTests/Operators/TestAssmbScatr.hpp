@@ -115,6 +115,29 @@ public:
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
+    /// Create the operator under test, the zero-Dirichlet variant if
+    /// @p ZeroDir is set.
+    std::shared_ptr<AssmbScatrOp<TData>> CreateOp(bool ZeroDir = false)
+    {
+        if (ZeroDir)
+        {
+            return AssmbScatrZeroDirOp<TData>::Create(
+                this->fixt_explist, this->session->GetVariables());
+        }
+        return AssmbScatrOp<TData>::Create(this->fixt_explist,
+                                           this->session->GetVariables());
+    }
+
+    /// Reshape the input to @p interleaveWidth and apply @p op to it.
+    void RunTestCaseAtWidth(AssmbScatrOp<TData> &op,
+                            const unsigned int interleaveWidth)
+    {
+        std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
+
+        this->fixt_in->ReshapeStorage(interleaveWidth, execStr);
+        op.Apply(*this->fixt_in, *this->fixt_out);
+    }
+
     void ExpectedSolution(bool ZeroDir = false)
     {
         std::vector<std::string> variables = this->session->GetVariables();

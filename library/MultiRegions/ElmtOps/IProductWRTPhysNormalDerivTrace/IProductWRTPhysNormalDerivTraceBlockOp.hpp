@@ -161,8 +161,9 @@ namespace Nektar::MultiRegions
  * There is a single implementation, registered under MultiRegions::SumFac
  * and, where an execution space provides it, under SumFacTOP. No
  * standard-matrix formulation is intended, so
- * Create() serves a StdMat request from the SumFac registration by
- * mapping the implementation name before the factory lookup, as
+ * Create() serves a StdMat request from the SumFac registration on the
+ * host and the SumFacTOP one on the device, by mapping the implementation
+ * name before the factory lookup, as
  * IProductWRTPhysTraceBlockOp::Create() does.
  *
  * @tparam TData Floating-point type of the field data.
@@ -189,7 +190,8 @@ public:
      *                          operators on the expansion list.
      * @param   execStr         Execution-space part of the factory key.
      * @param   implStr         Implementation part of the factory key;
-     *                          StdMat resolves to SumFac.
+     *                          StdMat resolves to SumFac on the
+     *                          host and SumFacTOP on the device.
      *
      * @return The newly created block operator.
      */
@@ -200,13 +202,17 @@ public:
         const std::string &execStr, const std::string &implStr)
     {
         // No standard-matrix formulation of a trace operator is intended;
-        // the SumFac registration serves a StdMat request.
+        // SumFac serves a StdMat request on the host and SumFacTOP on the
+        // device.
+        const std::string stdMatImpl =
+            (execStr == "Device") ? SumFacTOP::name : SumFac::name;
         WARNINGL1(implStr != StdMat::name,
                   "IProductWRTPhysNormalDerivTrace has no StdMat "
-                  "implementation; the request is served by SumFac.");
+                  "implementation; the request is "
+                  "served by " +
+                      stdMatImpl + ".");
 
-        std::string implStr0 =
-            (implStr == StdMat::name) ? SumFac::name : implStr;
+        std::string implStr0 = (implStr == StdMat::name) ? stdMatImpl : implStr;
 
         return ElmtBlockOp<FieldState::Phys, FieldState::Phys, TData>::
             template Create<IProductWRTPhysNormalDerivTraceBlockOp>(

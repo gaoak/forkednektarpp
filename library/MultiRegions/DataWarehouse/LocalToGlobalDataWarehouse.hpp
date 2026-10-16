@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Data warehouse keys and creator for the local-to-global
+// assembly tables.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -37,6 +38,10 @@
 #include "LibUtilities/BasicUtils/DataWarehouse/NekDataWarehouse.hpp"
 
 #include <cstdint>
+#include <string>
+#include <type_traits>
+#include <typeindex>
+#include <vector>
 
 namespace Nektar::MultiRegions
 {
@@ -52,448 +57,249 @@ typedef std::shared_ptr<AssemblyMapCG> AssemblyMapCGSharedPtr;
 
 class LocalToGlobalDataCreator;
 
-template <typename TPadding>
-class DeviceLocalToGlobalKey : public LibUtilities::BaseKey
+/**
+ * @brief Base of the LocalToGlobalDataCreator keys: holds the parameters the
+ * tables depend on and hashes them with the key's tag and padding type.
+ *
+ * All keys of the creator share one map in the data warehouse, so each
+ * derived key passes a unique tag.
+ */
+template <typename TPadding, typename TValue>
+class LocalToGlobalKeyBase : public LibUtilities::BaseKey
 {
-    // The TPadding type is use to dertermine the padding requirement and must
+    // The TPadding type is used to determine the padding requirement and must
     // be of floating point type.
     static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalKey: Data type must be float or double.");
+                  "LocalToGlobalKeyBase: Data type must be float or double.");
 
     friend class LocalToGlobalDataCreator;
 
 public:
     using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
+    typedef TValue value_type;
 
-    ~DeviceLocalToGlobalKey() override = default;
+    ~LocalToGlobalKeyBase() override = default;
 
-    DeviceLocalToGlobalKey(bool zeroDir,
-                           const std::vector<std::string> &components,
-                           unsigned width = 1)
-        : m_zeroDir(zeroDir), m_width(width), m_components(components)
+protected:
+    LocalToGlobalKeyBase(
+        const std::string &tag, const std::vector<std::string> &components,
+        bool zeroDir = false, bool signChange = false, unsigned width = 1,
+        const std::vector<unsigned> &fieldInterleaveWidths = {})
+        : m_zeroDir(zeroDir), m_signChange(signChange), m_width(width),
+          m_components(components),
+          m_fieldInterleaveWidths(fieldInterleaveWidths)
     {
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobalKey");
+        hash_combine(m_hash, tag, std::type_index(typeid(TPadding)), m_zeroDir,
+                     m_signChange, m_width);
         for (const auto &component : m_components)
         {
             hash_combine(m_hash, component);
+        }
+        for (const auto &fieldInterleaveWidth : m_fieldInterleaveWidths)
+        {
+            hash_combine(m_hash, fieldInterleaveWidth);
         }
     }
 
 private:
     bool m_zeroDir;
+    bool m_signChange;
     unsigned m_width;
     std::vector<std::string> m_components;
+    /// Interleave width of each block of the field the tables address.
+    std::vector<unsigned> m_fieldInterleaveWidths;
 };
 
+/// Number of interior global DOFs to assemble.
 template <typename TPadding>
-class DeviceLocalToGlobalNumAssembleKey : public LibUtilities::BaseKey
+class DeviceLocalToGlobalNumGidsKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalNumAssembleKey: Data type must be float "
-                  "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
+    DeviceLocalToGlobalNumGidsKey(
+        bool zeroDir, const std::vector<std::string> &components,
+        unsigned width, const std::vector<unsigned> &fieldInterleaveWidths)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceLocalToGlobalNumGidsKey", components, zeroDir, false,
+              width, fieldInterleaveWidths)
+    {
+    }
+};
 
-    ~DeviceLocalToGlobalNumAssembleKey() override = default;
-
+/// Number of local copies of each interior global DOF.
+template <typename TPadding>
+class DeviceLocalToGlobalNumAssembleKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
+{
+public:
     DeviceLocalToGlobalNumAssembleKey(
         bool zeroDir, const std::vector<std::string> &components,
-        unsigned width)
-        : m_zeroDir(zeroDir), m_width(width), m_components(components)
+        unsigned width, const std::vector<unsigned> &fieldInterleaveWidths)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceLocalToGlobalNumAssembleKey", components, zeroDir, false,
+              width, fieldInterleaveWidths)
     {
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobaNumAssemblelKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    bool m_zeroDir;
-    unsigned m_width;
-    std::vector<std::string> m_components;
 };
 
+/// Local indices of the interior global DOFs, packed width-major.
 template <typename TPadding>
-class DeviceLocalToGlobalIndexKey : public LibUtilities::BaseKey
+class DeviceLocalToGlobalIndexKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(
-        std::is_floating_point_v<TPadding>,
-        "DeviceLocalToGlobalIndexKey: Data type must be float or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceLocalToGlobalIndexKey() override = default;
-
-    DeviceLocalToGlobalIndexKey(bool zeroDir,
-                                const std::vector<std::string> &components,
-                                unsigned width)
-        : m_zeroDir(zeroDir), m_width(width), m_components(components)
+    DeviceLocalToGlobalIndexKey(
+        bool zeroDir, const std::vector<std::string> &components,
+        unsigned width, const std::vector<unsigned> &fieldInterleaveWidths)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceLocalToGlobalIndexKey", components, zeroDir, false, width,
+              fieldInterleaveWidths)
     {
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobaIndexlKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    bool m_zeroDir;
-    unsigned m_width;
-    std::vector<std::string> m_components;
 };
 
+/// Offset of each interior global DOF into the index and sign tables.
 template <typename TPadding>
-class DeviceLocalToGlobalIndexOffsetKey : public LibUtilities::BaseKey
+class DeviceLocalToGlobalIndexOffsetKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalIndexOffsetKey: Data type must be float "
-                  "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceLocalToGlobalIndexOffsetKey() override = default;
-
     DeviceLocalToGlobalIndexOffsetKey(
         bool zeroDir, const std::vector<std::string> &components,
-        unsigned width)
-        : m_zeroDir(zeroDir), m_width(width), m_components(components)
+        unsigned width, const std::vector<unsigned> &fieldInterleaveWidths)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceLocalToGlobalIndexOffsetKey", components, zeroDir, false,
+              width, fieldInterleaveWidths)
     {
-        hash_combine(m_hash, m_zeroDir, m_width, typeid(value_type).name(),
-                     "DeviceLocalToGlobaIndexOffsetlKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    bool m_zeroDir;
-    unsigned m_width;
-    std::vector<std::string> m_components;
 };
 
+/// Signs of the interior local copies, packed as the index table.
 template <typename TPadding>
-class DeviceLocalToGlobalSignKey : public LibUtilities::BaseKey
+class DeviceLocalToGlobalSignKey : public LocalToGlobalKeyBase<TPadding, int8_t>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(
-        std::is_floating_point_v<TPadding>,
-        "DeviceLocalToGlobalSignKey: Data type must be float or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef int8_t value_type;
-
-    ~DeviceLocalToGlobalSignKey() override = default;
-
-    DeviceLocalToGlobalSignKey(bool zeroDir, bool signChange,
-                               const std::vector<std::string> &components,
-                               unsigned width = 1)
-        : m_zeroDir(zeroDir), m_signChange(signChange), m_width(width),
-          m_components(components)
+    DeviceLocalToGlobalSignKey(
+        bool zeroDir, bool signChange,
+        const std::vector<std::string> &components, unsigned width,
+        const std::vector<unsigned> &fieldInterleaveWidths)
+        : LocalToGlobalKeyBase<TPadding, int8_t>(
+              "DeviceLocalToGlobalSignKey", components, zeroDir, signChange,
+              width, fieldInterleaveWidths)
     {
-        hash_combine(m_hash, m_zeroDir, m_signChange, m_width,
-                     typeid(value_type).name(), "DeviceLocalToGlobalSignKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    bool m_zeroDir;
-    bool m_signChange;
-    unsigned m_width;
-    std::vector<std::string> m_components;
 };
 
+/// Number of parallel-boundary global DOFs to assemble.
 template <typename TPadding>
-class DeviceBndLocalToGlobalKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalNumGidsKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(
-        std::is_floating_point_v<TPadding>,
-        "DeviceBndLocalToGlobalKey: Data type must be float or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalKey() override = default;
-
-    DeviceBndLocalToGlobalKey(const std::vector<std::string> &components)
-        : m_components(components)
+    DeviceBndLocalToGlobalNumGidsKey(const std::vector<std::string> &components)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceBndLocalToGlobalNumGidsKey", components)
     {
-        hash_combine(m_hash, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobalKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
+/// Number of local copies of each parallel-boundary global DOF.
 template <typename TPadding>
-class DeviceBndLocalToGlobalNumAssembleKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalNumAssembleKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalNumAssembleKey: Data type must be float "
-                  "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalNumAssembleKey() override = default;
-
     DeviceBndLocalToGlobalNumAssembleKey(
         const std::vector<std::string> &components)
-        : m_components(components)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceBndLocalToGlobalNumAssembleKey", components)
     {
-        hash_combine(m_hash, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobaNumAssemblelKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
+/// Number of communication buffer slots of each parallel-boundary global DOF.
 template <typename TPadding>
-class DeviceBndLocalToGlobalNumBndValsKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalNumBndValsKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalNumBndValsKey: Data type must be float "
-                  "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalNumBndValsKey() override = default;
-
     DeviceBndLocalToGlobalNumBndValsKey(
         const std::vector<std::string> &components)
-        : m_components(components)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceBndLocalToGlobalNumBndValsKey", components)
     {
-        hash_combine(m_hash, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobaNumBndValslKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
+/// Local indices and buffer slots of the parallel-boundary global DOFs.
 template <typename TPadding>
-class DeviceBndLocalToGlobalIndexKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalIndexKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalIndexKey: Data type must be float "
-                  "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalIndexKey() override = default;
-
-    DeviceBndLocalToGlobalIndexKey(const std::vector<std::string> &components)
-        : m_components(components)
+    DeviceBndLocalToGlobalIndexKey(
+        const std::vector<std::string> &components,
+        const std::vector<unsigned> &fieldInterleaveWidths)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceBndLocalToGlobalIndexKey", components, false, false, 1,
+              fieldInterleaveWidths)
     {
-        hash_combine(m_hash, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobaIndexlKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
+/// Offset of each parallel-boundary global DOF into the index and sign tables.
 template <typename TPadding>
-class DeviceBndLocalToGlobalOffsetKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalOffsetKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "DeviceLocalToGlobalOffsetKey: Data type must be float "
-                  "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalOffsetKey() override = default;
-
     DeviceBndLocalToGlobalOffsetKey(const std::vector<std::string> &components)
-        : m_components(components)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceBndLocalToGlobalOffsetKey", components)
     {
-        hash_combine(m_hash, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobaOffsetlKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
+/// Position of this rank among the ranks sharing each parallel-boundary
+/// global DOF, which fixes the order of assembly.
 template <typename TPadding>
-class DeviceBndLocalToGlobalAssembleOrderKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalAssembleOrderKey
+    : public LocalToGlobalKeyBase<TPadding, unsigned>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(
-        std::is_floating_point_v<TPadding>,
-        "DeviceLocalToGlobalAssembleOrderKey: Data type must be float "
-        "or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef unsigned value_type;
-
-    ~DeviceBndLocalToGlobalAssembleOrderKey() override = default;
-
     DeviceBndLocalToGlobalAssembleOrderKey(
         const std::vector<std::string> &components)
-        : m_components(components)
+        : LocalToGlobalKeyBase<TPadding, unsigned>(
+              "DeviceBndLocalToGlobalAssembleOrderKey", components)
     {
-        hash_combine(m_hash, typeid(value_type).name(),
-                     "DeviceBndLocalToGlobaAssembleOrderlKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
+/// Signs of the parallel-boundary local copies, packed as the index table
+/// with zeros in the buffer slots.
 template <typename TPadding>
-class DeviceBndLocalToGlobalSignKey : public LibUtilities::BaseKey
+class DeviceBndLocalToGlobalSignKey
+    : public LocalToGlobalKeyBase<TPadding, int8_t>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(
-        std::is_floating_point_v<TPadding>,
-        "DeviceBndLocalToGlobalSignKey: Data type must be float or double.");
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef int8_t value_type;
-
-    ~DeviceBndLocalToGlobalSignKey() override = default;
-
     DeviceBndLocalToGlobalSignKey(bool zeroDir, bool signChange,
                                   const std::vector<std::string> &components)
-        : m_zeroDir(zeroDir), m_signChange(signChange), m_components(components)
+        : LocalToGlobalKeyBase<TPadding, int8_t>(
+              "DeviceBndLocalToGlobalSignKey", components, zeroDir, signChange)
     {
-        hash_combine(m_hash, m_zeroDir, m_signChange, typeid(value_type).name(),
-                     "DeviceLocalToGlobalSignKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    bool m_zeroDir;
-    bool m_signChange;
-    std::vector<std::string> m_components;
 };
 
+/// Mask selecting one local copy of each global DOF this rank owns.
 template <typename TPadding>
-class LocalToGlobalMaskKey : public LibUtilities::BaseKey
+class LocalToGlobalMaskKey : public LocalToGlobalKeyBase<TPadding, std::uint8_t>
 {
-    // The TPadding type is use to dertermine the padding requirement and must
-    // be of floating point type.
-    static_assert(std::is_floating_point_v<TPadding>,
-                  "LocalToGlobalMaskKey: Data type must be float or double.");
-
-    friend class LocalToGlobalDatareator;
-
-    friend class LocalToGlobalDataCreator;
-
 public:
-    using creator = LocalToGlobalDataCreator;
-    typedef std::uint8_t value_type;
-
-    ~LocalToGlobalMaskKey() override = default;
-
     LocalToGlobalMaskKey(const std::vector<std::string> &components)
-        : m_components(components)
+        : LocalToGlobalKeyBase<TPadding, std::uint8_t>("LocalToGlobalMaskKey",
+                                                       components)
     {
-        hash_combine(m_hash, typeid(value_type).name(), "LocalToGlobalMaskKey");
-        for (const auto &component : m_components)
-        {
-            hash_combine(m_hash, component);
-        }
     }
-
-private:
-    std::vector<std::string> m_components;
 };
 
 class LocalToGlobalDataCreator : public LibUtilities::DataCreatorClass
@@ -503,13 +309,10 @@ public:
     LocalToGlobalDataCreator(const ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList) {};
 
-    std::vector<AssemblyMapCGSharedPtr> &GetAssemblyMap(
-        const std::vector<std::string> &components);
-
     template <typename MemSpace, typename TPadding>
     LibUtilities::MemoryRegion<
-        typename DeviceLocalToGlobalKey<TPadding>::value_type>
-    Create(const DeviceLocalToGlobalKey<TPadding> &LocToGloKey);
+        typename DeviceLocalToGlobalNumGidsKey<TPadding>::value_type>
+    Create(const DeviceLocalToGlobalNumGidsKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
     LibUtilities::MemoryRegion<
@@ -533,8 +336,8 @@ public:
 
     template <typename MemSpace, typename TPadding>
     LibUtilities::MemoryRegion<
-        typename DeviceBndLocalToGlobalKey<TPadding>::value_type>
-    Create(const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey);
+        typename DeviceBndLocalToGlobalNumGidsKey<TPadding>::value_type>
+    Create(const DeviceBndLocalToGlobalNumGidsKey<TPadding> &LocToGloKey);
 
     template <typename MemSpace, typename TPadding>
     LibUtilities::MemoryRegion<
@@ -569,12 +372,7 @@ public:
     template <typename MemSpace, typename TPadding>
     LibUtilities::MemoryRegion<
         typename LocalToGlobalMaskKey<TPadding>::value_type>
-    Create([[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
-
-    template <typename TPadding>
-    void FillSignArray(std::vector<unsigned> &index,
-                       const std::vector<AssemblyMapCGSharedPtr> &loc2glo,
-                       bool zeroDir, bool signChange, int8_t *out);
+    Create(const LocalToGlobalMaskKey<TPadding> &LocToGloKey);
 
     inline static const std::string m_name = "LocalToGlobalCreator";
 
@@ -582,6 +380,28 @@ private:
     ExpListSharedPtr m_expansionList;
     std::unordered_map<size_t, std::vector<AssemblyMapCGSharedPtr>>
         m_assemblyMaps;
+    /// Interior gather-scatter tables the interior keys are built from.
+    std::unordered_map<size_t, std::vector<unsigned>> m_gsInfo;
+    /// Parallel-boundary gather-scatter tables the boundary keys are built
+    /// from.
+    std::unordered_map<size_t, std::vector<unsigned>> m_gsBndInfo;
+
+    std::vector<AssemblyMapCGSharedPtr> &GetAssemblyMap(
+        const std::vector<std::string> &components);
+
+    template <typename TPadding>
+    const std::vector<unsigned> &GetGSInfo(
+        bool zeroDir, const std::vector<std::string> &components,
+        unsigned width, const std::vector<unsigned> &fieldInterleaveWidths);
+
+    template <typename TPadding>
+    const std::vector<unsigned> &GetGSBndInfo(
+        const std::vector<std::string> &components);
+
+    template <typename TPadding>
+    void FillSignArray(std::vector<unsigned> &index,
+                       const std::vector<AssemblyMapCGSharedPtr> &loc2glo,
+                       bool zeroDir, bool signChange, int8_t *out);
 };
 
 } // namespace Nektar::MultiRegions
