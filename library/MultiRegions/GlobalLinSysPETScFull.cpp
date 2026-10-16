@@ -85,9 +85,8 @@ GlobalLinSysPETScFull::GlobalLinSysPETScFull(
     if (pSession->DefinesGlobalSysSolnInfo(variable,
                                            "IterativeSolverTolerance"))
     {
-        IterativeSolverTolerance = boost::lexical_cast<double>(
-            pSession->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
-                .c_str());
+        IterativeSolverTolerance = std::stod(pSession->GetGlobalSysSolnInfo(
+            variable, "IterativeSolverTolerance"));
     }
     else if (pSession->DefinesParameter("IterativeSolverTolerance"))
     {

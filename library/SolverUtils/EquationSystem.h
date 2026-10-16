@@ -48,7 +48,6 @@
 #include <SolverUtils/Core/SessionFunction.h>
 #include <SolverUtils/Filters/Filter.h>
 #include <SolverUtils/SolverUtilsDeclspec.h>
-#include <boost/numeric/ublas/matrix.hpp>
 
 namespace Nektar
 {

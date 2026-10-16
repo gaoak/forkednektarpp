@@ -35,9 +35,11 @@
 
 #include <MetricExecutionTime.h>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include <stdexcept>
+#include <string>
 
 using namespace std;
 
@@ -184,13 +186,13 @@ bool MetricExecutionTime::v_Test(istream &pStdout, istream &pStderr)
                 double val;
                 try
                 {
-                    val = boost::lexical_cast<double>(match);
+                    val = std::stod(match);
 
                     // Add value to the list of found execution times.
                     times.push_back(val);
                     matched = true;
                 }
-                catch (boost::bad_lexical_cast &e)
+                catch (std::logic_error &e)
                 {
                     cerr << "Could not convert match " << match << " to double"
                          << endl;
@@ -229,8 +231,7 @@ bool MetricExecutionTime::v_Test(istream &pStdout, istream &pStderr)
              "No test conditions defined for execution time.");
 
     // Check that the average time is within the tolerance.
-    if (fabs(minTime - boost::lexical_cast<double>(m_match.m_value)) >
-            m_match.m_tolerance &&
+    if (fabs(minTime - std::stod(m_match.m_value)) > m_match.m_tolerance &&
         !m_match.m_skip)
     {
         cerr << endl;
@@ -289,12 +290,12 @@ void MetricExecutionTime::v_Generate(istream &pStdout, istream &pStderr)
                 double val;
                 try
                 {
-                    val = boost::lexical_cast<double>(match);
+                    val = std::stod(match);
 
                     sampleTimes.push_back(val);
                     matched = true;
                 }
-                catch (boost::bad_lexical_cast &e)
+                catch (std::logic_error &e)
                 {
                     cerr << "Could not convert match " << match << " to double"
                          << endl;

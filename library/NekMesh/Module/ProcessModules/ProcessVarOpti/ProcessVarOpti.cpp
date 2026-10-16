@@ -51,7 +51,6 @@
 #include <sstream>
 
 #include <SpatialDomains/CADSystem/CADAssociation.h>
-#include <boost/algorithm/string.hpp>
 
 // Including Timer.h includes Windows.h, which causes GetJob to be set as a
 // macro for some reason.
@@ -430,7 +429,7 @@ void ProcessVarOpti::Process()
 
     if (m_mesh->m_meshGraph->HasCAD())
     {
-        if (boost::equals(m_mesh->m_meshGraph->GetCAD()->GetEngine(), "cfi"))
+        if (m_mesh->m_meshGraph->GetCAD()->GetEngine() == "cfi")
         {
             m_log(WARNING) << "CFI is not thread-safe; forcing to "
                            << "'numthreads=1'." << endl;

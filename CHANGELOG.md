@@ -89,6 +89,7 @@ v5.11.0
 - Move the zero-Dirichlet assembly into LHSOp so linear solvers no longer assemble each product explicitly (!2842)
 - Add Low Sync GMRES iterative approach (!2840)
 - Run the CG Dirichlet/Neumann boundary-condition operators' cross-block work on an explicit stream instead of the legacy default stream, and remove the unused DGDirBndCond and DGPerBndCond operators (!2845)
+- Remove unused boost includes and use std::isnan, std::tie and the local hash_range instead of boost (!2847)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

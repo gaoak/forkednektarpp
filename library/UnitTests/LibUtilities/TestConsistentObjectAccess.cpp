@@ -35,7 +35,6 @@
 #include <LibUtilities/BasicUtils/ConsistentObjectAccess.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <UnitTests/util.h>
-#include <boost/test/tools/floating_point_comparison.hpp>
 #include <boost/test/unit_test.hpp>
 
 namespace Nektar::ConsistentObjectAccessUnitTests

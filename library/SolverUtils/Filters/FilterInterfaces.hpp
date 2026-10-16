@@ -35,9 +35,6 @@
 #ifndef NEKTAR_SOLVERUTILS_FILTERS_FILTERINTERFACES_HPP
 #define NEKTAR_SOLVERUTILS_FILTERS_FILTERINTERFACES_HPP
 
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/vector.hpp>
-
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <SolverUtils/SolverUtilsDeclspec.h>
 #include <set>

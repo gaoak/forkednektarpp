@@ -90,7 +90,6 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>

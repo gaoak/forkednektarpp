@@ -39,14 +39,8 @@
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <LocalRegions/Expansion3D.h>
 #include <SolverUtils/Filters/Filter.h>
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/vector.hpp>
 
-namespace Nektar
-{
-namespace bnu = boost::numeric::ublas;
-
-namespace SolverUtils
+namespace Nektar::SolverUtils
 {
 class FilterAeroForces : public Filter
 {
@@ -151,7 +145,6 @@ private:
 };
 
 typedef std::shared_ptr<FilterAeroForces> FilterAeroForcesSharedPtr;
-} // namespace SolverUtils
-} // namespace Nektar
+} // namespace Nektar::SolverUtils
 
 #endif /* NEKTAR_SOLVERUTILS_FILTERS_FILTERCHECKPOINT_H */

@@ -35,7 +35,6 @@
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
-#include <boost/lexical_cast.hpp>
 #include <boost/spirit/include/qi_auto.hpp>
 #include <boost/spirit/include/qi_core.hpp>
 #include <sstream>

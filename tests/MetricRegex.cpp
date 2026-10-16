@@ -37,6 +37,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <stdexcept>
+#include <string>
+
 using namespace std;
 
 namespace Nektar
@@ -151,11 +154,10 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
                     double val;
                     try
                     {
-                        val = fabs(fabs(boost::lexical_cast<double>(
-                                       okValues[i - 1].m_value)) -
-                                   fabs(boost::lexical_cast<double>(match)));
+                        val = fabs(fabs(std::stod(okValues[i - 1].m_value)) -
+                                   fabs(std::stod(match)));
                     }
-                    catch (boost::bad_lexical_cast &e)
+                    catch (std::logic_error &e)
                     {
                         cerr << "Could not convert one of " << match
                              << " (match) or " << okValues[i - 1].m_value
@@ -188,11 +190,10 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
                     int val;
                     try
                     {
-                        val = abs(
-                            boost::lexical_cast<int>(okValues[i - 1].m_value) -
-                            boost::lexical_cast<int>(match));
+                        val = abs(std::stoi(okValues[i - 1].m_value) -
+                                  std::stoi(match));
                     }
-                    catch (boost::bad_lexical_cast &e)
+                    catch (std::logic_error &e)
                     {
                         cerr << "Could not convert one of " << match
                              << " (match) or " << okValues[i - 1].m_value
@@ -320,7 +321,7 @@ void MetricRegex::v_Generate(std::istream &pStdout, std::istream &pStderr)
                 TiXmlElement *field = new TiXmlElement("field");
                 match->LinkEndChild(field);
 
-                field->SetAttribute("id", boost::lexical_cast<std::string>(j));
+                field->SetAttribute("id", std::to_string(j));
 
                 if (m_matches[i][j].m_useTolerance)
                 {

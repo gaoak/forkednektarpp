@@ -35,8 +35,6 @@
 #include <regex>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
-
 #include <MetricFileExists.h>
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>

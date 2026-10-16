@@ -90,8 +90,8 @@ std::string TestData::GetMetricType(unsigned int pId) const
 
     // read the property name
     ASSERTL0(m_metrics[pId]->Attribute("type"),
-             "Missing 'type' attribute in metric " +
-                 boost::lexical_cast<string>(pId) + ").");
+             "Missing 'type' attribute in metric " + std::to_string(pId) +
+                 ").");
     return boost::to_upper_copy(string(m_metrics[pId]->Attribute("type")));
 }
 

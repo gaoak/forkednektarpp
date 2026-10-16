@@ -37,8 +37,6 @@
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
 
-#include <boost/algorithm/string.hpp>
-
 using namespace std;
 
 namespace Nektar::NekMesh

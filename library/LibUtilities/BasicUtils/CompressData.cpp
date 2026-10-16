@@ -39,8 +39,6 @@
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/binary_from_base64.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
-#include <boost/assign/list_of.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include <cstdint>
 #include <set>

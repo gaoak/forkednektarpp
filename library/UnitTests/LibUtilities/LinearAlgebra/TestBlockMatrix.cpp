@@ -37,9 +37,6 @@
 #include <LibUtilities/LinearAlgebra/NekMatrix.hpp>
 #include <UnitTests/CountedObject.h>
 
-#include <boost/test/tools/floating_point_comparison.hpp>
-#include <boost/test/unit_test.hpp>
-
 namespace Nektar::BlockMatrixUnitTests
 {
 BOOST_AUTO_TEST_CASE(TestRowsAndColumnsPerBlockAccess)

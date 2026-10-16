@@ -36,6 +36,8 @@
 #define NEKTAR_TESTS_TESTEXCEPTION_H
 
 #include <exception>
+#include <stdexcept>
+#include <string>
 
 namespace Nektar
 {

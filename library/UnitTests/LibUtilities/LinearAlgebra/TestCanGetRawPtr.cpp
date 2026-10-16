@@ -36,9 +36,6 @@
 
 #include <LibUtilities/LinearAlgebra/CanGetRawPtr.hpp>
 
-#include <boost/test/tools/floating_point_comparison.hpp>
-#include <boost/test/unit_test.hpp>
-
 namespace Nektar
 {
 BOOST_AUTO_TEST_CASE(TestCanGetRawPtr)

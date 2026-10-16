@@ -38,7 +38,6 @@
 #include <LibUtilities/LinearAlgebra/NekNonlinSysIter.h>
 #include <LibUtilities/LinearAlgebra/NekTypeDefs.hpp>
 #include <LibUtilities/LinearAlgebra/NekVector.hpp>
-#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <string>
 using namespace std;

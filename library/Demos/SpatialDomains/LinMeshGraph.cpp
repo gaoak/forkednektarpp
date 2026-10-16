@@ -42,7 +42,6 @@
 #include <SpatialDomains/MeshGraphIO.h>
 #include <SpatialDomains/MeshPartition.h>
 
-#include <boost/format.hpp>
 #include <iostream>
 
 using namespace Nektar;

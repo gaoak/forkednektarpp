@@ -41,13 +41,9 @@
 #include <NekMesh/Module/ProcessModules/ProcessVarOpti/ProcessVarOpti.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/core/ignore_unused.hpp>
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Foundations/NodalUtil.h>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 
 #include <LibUtilities/BasicUtils/Progressbar.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h>
@@ -566,7 +562,6 @@ void ProcessHAdaptation::InterpolateElementToAdapt()
                         NekDouble area = 0.5 * (v0->x() * (v1->y() - v2->y()) +
                                                 v1->x() * (v2->y() - v0->y()) +
                                                 v2->x() * (v0->y() - v1->y()));
-                        boost::ignore_unused(area, areaNow);
                         if (area > 1.4 * areaNow)
                         {
                             m_ElementsIDAdapt.push_back(

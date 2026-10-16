@@ -137,7 +137,6 @@ public:
     }
 
 private:
-    // boost::thread_specific_ptr<boost::pool<> > m_pool;
     boost::pool<> *m_pool;
     size_t m_blockSize;
 #ifdef NEKTAR_USE_THREAD_SAFETY

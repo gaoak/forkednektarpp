@@ -70,7 +70,7 @@
 #include <MetricNoWarning.h>
 
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
+#include <string>
 
 namespace Nektar
 {
@@ -265,7 +265,7 @@ void MetricNoWarning::v_Generate(std::istream &pStdout, std::istream &pStderr)
             TiXmlElement *field = new TiXmlElement("field");
             match->LinkEndChild(field);
 
-            field->SetAttribute("id", boost::lexical_cast<std::string>(j++));
+            field->SetAttribute("id", std::to_string(j++));
 
             field->LinkEndChild(new TiXmlText(field_it));
         }

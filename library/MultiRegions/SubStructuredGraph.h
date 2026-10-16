@@ -41,7 +41,6 @@
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
-#include <boost/config.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/bandwidth.hpp>
 #include <boost/graph/cuthill_mckee_ordering.hpp>

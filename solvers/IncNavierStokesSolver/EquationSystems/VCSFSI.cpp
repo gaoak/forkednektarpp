@@ -35,8 +35,6 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SolverUtils/Core/Misc.h>
 
-#include <boost/algorithm/string.hpp>
-
 namespace Nektar
 {
 std::string VCSFSI::className =

@@ -45,6 +45,8 @@
 
 #include <boost/format.hpp>
 
+#include <cmath>
+
 #define OUTPUT_FREQ 0
 
 namespace Nektar::SolverUtils
@@ -357,7 +359,7 @@ void CouplingCwipi::EvaluateFields(
             NekDouble value = m_evalField->GetExp(elmtid)->StdPhysEvaluate(
                 Lcoords, m_sendField[f] + offset);
 
-            ASSERTL0(!(boost::math::isnan)(value), "new value is not a number");
+            ASSERTL0(!std::isnan(value), "new value is not a number");
             interpField[f][i] = value;
         }
     }

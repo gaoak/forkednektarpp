@@ -41,7 +41,6 @@
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point.hpp>
 #include <boost/geometry/index/rtree.hpp>
-#include <boost/math/special_functions/fpclassify.hpp>
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
@@ -1024,8 +1023,7 @@ void ProcessSpherigon::Process()
                 P += Q[k] * blend[k];
             }
 
-            if ((boost::math::isnan)(P.x) || (boost::math::isnan)(P.y) ||
-                (boost::math::isnan)(P.z))
+            if (std::isnan(P.x) || std::isnan(P.y) || std::isnan(P.z))
             {
                 m_log(FATAL) << "Found a spherigon point with a NaN value. "
                              << "Check to see if ply file is correct if using "
