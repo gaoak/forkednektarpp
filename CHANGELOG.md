@@ -83,6 +83,7 @@ v5.11.0
 - Optimise pipelined ConjGrad and ConjRes (!2839)
 - Add LHSOp combining the linear system element operator and Robin boundary condition operator (!2841)
 - Run the redesign trace flux and its parallel exchange on an explicit stream, ordered against the block streams with events instead of through the legacy default stream; let the boundary-condition operators it drives take its stream through SetStreamID()/ResetStreamID() (!2837)
+- Make the redesign assemble-scatter operator act on interleaved fields directly instead of reshaping them, with its tables built for the field's interleave widths and the interior DOFs ordered so device accesses coalesce in either layout; map a StdMat request for the trace operators to SumFacTOP on the device; derive the local-to-global data warehouse keys from a common base whose hash includes the padding type, so float and double tables no longer share a cache entry; build the gather-scatter tables privately in the local-to-global data creator rather than through its own data warehouse (!2843)
 - Move the zero-Dirichlet assembly into LHSOp so linear solvers no longer assemble each product explicitly (!2842)
 - Add Low Sync GMRES iterative approach (!2840)
 

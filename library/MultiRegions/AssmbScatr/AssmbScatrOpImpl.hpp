@@ -59,6 +59,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
 
 #include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
@@ -91,16 +93,21 @@ namespace Nektar::MultiRegions::detail
  * each index already includes the block and component offsets, and the
  * blocks of a Field are allocated contiguously (see
  * Field::AllocateFieldStorage), so block 0's pointer serves as the base
- * of the whole field. The interior tables are interleaved in groups of
- * #m_device_width (WIDTH) DOFs: the j-th index/sign entries of the WIDTH
- * DOFs of a group are adjacent in memory. On the Device back-end the
- * lanes of a warp therefore read them with unit stride (coalesced); on
- * AVX the tables are interleaved at the SIMD width, although the current
- * kernel walks the lanes with scalar loops. Each group occupies a
- * rectangular block sized by its largest valence (the group is permuted
- * so that its first DOF carries that valence); surplus slots repeat a
- * valid index with sign 0 so they are harmless if read. For the Serial
- * back-end WIDTH is 1 and the tables are simply packed.
+ * of the whole field. The tables are built for the interleave width of
+ * each block of the field (#m_fieldInterleaveWidths), so the kernels act
+ * on the field in its own layout. The interior tables are interleaved
+ * in groups of #m_device_width (WIDTH) DOFs: the j-th index/sign entries
+ * of the WIDTH DOFs of a group are adjacent in memory. On the Device
+ * back-end the lanes of a warp therefore read them with unit stride
+ * (coalesced); on AVX the tables are interleaved at the SIMD width,
+ * although the current kernel walks the lanes with scalar loops. Each
+ * group occupies a rectangular block sized by its largest valence. The
+ * DOFs are ordered by descending valence, so the DOFs of a group mostly
+ * share one valence and its first DOF carries the largest, and then by
+ * the position of their first local copy in the field, so the lanes of a
+ * group address neighbouring coefficients in either layout; surplus slots
+ * repeat a valid index with sign 0 so they are harmless if read.
+ * For the Serial back-end WIDTH is 1 and the tables are simply packed.
  *
  * ### The sign table
  * #m_gsSign holds one factor per index entry:
@@ -154,11 +161,20 @@ class AssmbScatrOpImpl : public AssmbScatrOp<TData>
 
 public:
     /// Forwards to AssmbScatrOp; the assembly tables and, in parallel, the
-    /// communication are set up lazily by SetUpMaps() on the first Apply().
+    /// communication are set up lazily by SetUpMaps() and SetUpLayoutMaps()
+    /// on the first Apply().
     AssmbScatrOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                      const std::vector<std::string> &components)
         : AssmbScatrOp<TData>(expansionList, components)
     {
+        const auto numBlocks =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                expansionList)
+                .size();
+        for (unsigned blk = 0; blk < numBlocks; ++blk)
+        {
+            m_blockStreams.push_back(blk + 1);
+        }
     }
 
     /// Operator class name; defined by the generated factory code.
@@ -179,6 +195,11 @@ protected:
     /// vector width (AVX) or the device warp size (Device).
     static constexpr unsigned m_device_width =
         NektarSpaces::vector_width<ExecSpace, TData>::value;
+    /// Stream all of the operator's work runs on, the first block's.
+    /// v_Apply() orders it against the block streams with events.
+    unsigned int m_streamID = 1;
+    /// Stream of each block of the field, which produces and consumes it.
+    std::vector<unsigned int> m_blockStreams;
     /// Number of local contributions (valence) per interior DOF.
     const unsigned *m_gsNumAssmb = nullptr;
     /// Interleaved local-coefficient indices of the interior DOFs.
@@ -214,6 +235,10 @@ protected:
     /// Number of field components the tables and buffers are set up for;
     /// 0 until the first Apply() calls SetUpMaps().
     unsigned m_numAssemblyComps = 0;
+    /// Interleave width of each field block the interior tables and
+    /// #m_gsBndIndex are built for; empty until the first Apply() calls
+    /// SetUpLayoutMaps().
+    std::vector<unsigned> m_fieldInterleaveWidths;
 
     /// True when the row communicator has more than one rank, i.e. when
     /// the boundary exchange is active; set by SetUpMaps().
@@ -229,14 +254,14 @@ protected:
     LibUtilities::MemoryRegion<TData> m_recv_buffer;
 
     /**
-     * @brief Fetch (or build) the assembly tables for the operator's
-     * component list and, in parallel, set up the boundary tables, the
-     * persistent communication and the message buffers.
+     * @brief In parallel, set up the boundary tables other than the index
+     * table, the persistent communication and the message buffers.
      *
-     * The interior tables are obtained from the data warehouse keyed on
-     * the operator's components, the ZERODIR flag and #m_device_width
-     * (the sign table additionally on SIGNCHANGE), so they are created
-     * once per configuration and shared between operator instances.
+     * The tables are obtained from the data warehouse keyed on the
+     * operator's components (the sign table additionally on ZERODIR and
+     * SIGNCHANGE), so they are created once per configuration and shared
+     * between operator instances. The interior tables depend on the field's
+     * layout and are fetched by SetUpLayoutMaps().
      *
      * When the row communicator has more than one rank, a
      * MultiRegions::AssemblyComm is constructed from the universal IDs
@@ -263,38 +288,6 @@ protected:
     void SetUpMaps(unsigned numComp)
     {
         m_numAssemblyComps = numComp;
-
-        // setup GS info of values interior to device
-        auto GSNumAssmbKey =
-            MultiRegions::DeviceLocalToGlobalNumAssembleKey<TData>(
-                ZERODIR, this->m_components, m_device_width);
-        m_gsNumAssmb =
-            this->m_dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
-
-        auto GSIndexKey = MultiRegions::DeviceLocalToGlobalIndexKey<TData>(
-            ZERODIR, this->m_components, m_device_width);
-        m_gsIndex =
-            this->m_dataWarehouse->template GetData<MemSpace>(GSIndexKey);
-
-        auto GSOffsetKey =
-            MultiRegions::DeviceLocalToGlobalIndexOffsetKey<TData>(
-                ZERODIR, this->m_components, m_device_width);
-        m_gsOffset =
-            this->m_dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
-
-        // set up sign change array
-        m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
-            MultiRegions::DeviceLocalToGlobalSignKey<TData>(
-                ZERODIR, SIGNCHANGE, this->m_components, m_device_width));
-
-        auto GSInfoKey = MultiRegions::DeviceLocalToGlobalKey<TData>(
-            ZERODIR, this->m_components, m_device_width);
-        // get a copy of the host to evaluate number of GIDs to assemble
-        auto hostGSInfo =
-            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-                GSInfoKey);
-
-        m_nGids = hostGSInfo[0];
 
         m_rowComm =
             this->m_expansionList->GetSession()->GetComm()->GetRowComm();
@@ -332,12 +325,6 @@ protected:
             m_gsNumBndVals = this->m_dataWarehouse->template GetData<MemSpace>(
                 GSNumBndValsKey);
 
-            auto GSBndIndexKey =
-                MultiRegions::DeviceBndLocalToGlobalIndexKey<TData>(
-                    this->m_components);
-            m_gsBndIndex = this->m_dataWarehouse->template GetData<MemSpace>(
-                GSBndIndexKey);
-
             auto GSBndOffsetKey =
                 MultiRegions::DeviceBndLocalToGlobalOffsetKey<TData>(
                     this->m_components);
@@ -355,16 +342,12 @@ protected:
                 MultiRegions::DeviceBndLocalToGlobalSignKey<TData>(
                     ZERODIR, SIGNCHANGE, this->m_components));
 
-            // setup GS info of values for parallal boundary of device
-            auto GSBndInfoKey = MultiRegions::DeviceBndLocalToGlobalKey<TData>(
-                this->m_components);
-
-            // get a copy of the host to evaluate  number of GiDs to assemble
-            auto hostGSBndInfo =
+            // number of GIDs to assemble on the parallel boundary
+            m_nBndGids =
                 this->m_dataWarehouse
-                    ->template GetData<NektarSpaces::HostSpace>(GSBndInfoKey);
-
-            m_nBndGids = hostGSBndInfo[0];
+                    ->template GetData<NektarSpaces::HostSpace>(
+                        MultiRegions::DeviceBndLocalToGlobalNumGidsKey<TData>(
+                            this->m_components))[0];
 
             auto nbuf = m_assmbCommCG->GetSREntries().size() * numComp;
 
@@ -382,29 +365,105 @@ protected:
                 m_rowComm->IsGPUAware())
             {
                 m_send_buffer.template Initialize<NektarSpaces::DeviceSpace>(
-                    0.0);
+                    0.0, 0, 0, m_streamID);
                 m_recv_buffer.template Initialize<NektarSpaces::DeviceSpace>(
-                    0.0);
+                    0.0, 0, 0, m_streamID);
                 send_buffer_ptr =
                     (TData *)m_send_buffer
-                        .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+                        .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
+                            m_streamID);
                 recv_buffer_ptr =
                     (TData *)m_recv_buffer
-                        .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>();
+                        .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
+                            m_streamID);
             }
             else
             {
-                m_send_buffer.template Initialize<NektarSpaces::HostSpace>(0.0);
-                m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(0.0);
+                m_send_buffer.template Initialize<NektarSpaces::HostSpace>(
+                    0.0, 0, 0, m_streamID);
+                m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(
+                    0.0, 0, 0, m_streamID);
                 send_buffer_ptr =
                     (TData *)m_send_buffer
-                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                            m_streamID);
                 recv_buffer_ptr =
                     (TData *)m_recv_buffer
-                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                            m_streamID);
             }
             m_assmbCommCG->InitSendRecvComms(nbuf, send_buffer_ptr,
                                              recv_buffer_ptr, numComp);
+        }
+    }
+
+    /**
+     * @brief Fetch (or build) the interior tables and, in parallel, the
+     * boundary index table for @p inout at the interleave width of each of
+     * its blocks.
+     *
+     * The interior DOFs are ordered by the position of their first local
+     * copy in the field's layout, so a warp's accesses to the field
+     * coalesce whether the field is interleaved or not; the indices address
+     * the field in that layout. The tables are keyed on the widths in the
+     * data warehouse, so switching back to an earlier layout does not
+     * rebuild them.
+     *
+     * Called from v_Apply() whenever the interleave widths differ from
+     * those of the previous call.
+     *
+     * @param   inout   Coefficient-space field the tables will address.
+     */
+    void SetUpLayoutMaps(LibUtilities::Field<TData, FieldState::Coeff> &inout)
+    {
+        m_fieldInterleaveWidths.resize(inout.GetBlocks().size());
+        for (unsigned blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        {
+            m_fieldInterleaveWidths[blk] =
+                inout.GetBlocks()[blk].GetInterleaveWidth();
+        }
+
+        // setup GS info of values interior to device
+        auto GSNumAssmbKey =
+            MultiRegions::DeviceLocalToGlobalNumAssembleKey<TData>(
+                ZERODIR, this->m_components, m_device_width,
+                m_fieldInterleaveWidths);
+        m_gsNumAssmb =
+            this->m_dataWarehouse->template GetData<MemSpace>(GSNumAssmbKey);
+
+        auto GSOffsetKey =
+            MultiRegions::DeviceLocalToGlobalIndexOffsetKey<TData>(
+                ZERODIR, this->m_components, m_device_width,
+                m_fieldInterleaveWidths);
+        m_gsOffset =
+            this->m_dataWarehouse->template GetData<MemSpace>(GSOffsetKey);
+
+        // set up sign change array
+        m_gsSign = this->m_dataWarehouse->template GetData<MemSpace>(
+            MultiRegions::DeviceLocalToGlobalSignKey<TData>(
+                ZERODIR, SIGNCHANGE, this->m_components, m_device_width,
+                m_fieldInterleaveWidths));
+
+        // number of interior GIDs to assemble
+        m_nGids =
+            this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(
+                MultiRegions::DeviceLocalToGlobalNumGidsKey<TData>(
+                    ZERODIR, this->m_components, m_device_width,
+                    m_fieldInterleaveWidths))[0];
+
+        auto GSIndexKey = MultiRegions::DeviceLocalToGlobalIndexKey<TData>(
+            ZERODIR, this->m_components, m_device_width,
+            m_fieldInterleaveWidths);
+        m_gsIndex =
+            this->m_dataWarehouse->template GetData<MemSpace>(GSIndexKey);
+
+        if (m_isParallel)
+        {
+            auto GSBndIndexKey =
+                MultiRegions::DeviceBndLocalToGlobalIndexKey<TData>(
+                    this->m_components, m_fieldInterleaveWidths);
+            m_gsBndIndex = this->m_dataWarehouse->template GetData<MemSpace>(
+                GSBndIndexKey);
         }
     }
 
@@ -443,18 +502,20 @@ protected:
      * The steps are:
      * -# Rebuild the tables and communication via SetUpMaps() if the
      *    number of components differs from the current setup.
-     * -# Reshape any vector-interleaved block to interleave width 1,
-     *    since the index tables address coefficients in non-interleaved
-     *    layout; the original width is restored before returning.
-     * -# Fetch every block's pointer in MemSpace so the whole field is
-     *    resident there; the kernels then address the field's contiguous
-     *    storage through block 0's base pointer alone.
+     * -# Fetch the interior tables via SetUpLayoutMaps() if the interleave
+     *    widths of the blocks differ from the current setup; the field
+     *    is never reshaped.
+     * -# Order #m_streamID, which all of the work below runs on, after the
+     *    block streams (JoinStreams()), and fetch every block's pointer in
+     *    MemSpace on it so the whole field is resident there; the kernels
+     *    then address the field's contiguous storage through block 0's
+     *    base pointer alone.
      * -# Parallel only: AssembleScatrBndKernel partially assembles the
      *    partition-boundary DOFs into #m_send_buffer, parking each
      *    partial sum in its DOF's first local coefficient. The buffer is
      *    then made visible to MPI -- copied to the host or, with a
-     *    GPU-aware communicator, published by synchronising the kernel
-     *    stream -- and BeginComm() starts the persistent exchange.
+     *    GPU-aware communicator, published by synchronising #m_streamID --
+     *    and BeginComm() starts the persistent exchange.
      * -# AssembleScatrKernel assembles and scatters the interior DOFs;
      *    in parallel this overlaps with the message exchange.
      * -# Parallel only: #m_recv_buffer is marked as written in the
@@ -462,6 +523,7 @@ protected:
      *    exchange, and AssembleFromBndKernel completes the boundary DOFs
      *    from the received partial sums in ascending rank order (see the
      *    class notes on cross-rank determinism).
+     * -# Order the block streams after #m_streamID (ReleaseStreams()).
      *
      * @param   inout   Coefficient-space field, assembled and scattered
      *                  in place.
@@ -477,54 +539,42 @@ protected:
             SetUpMaps(numComp);
         }
 
-        // reshape data into non-interleaved if ncessary
-        bool reshapeOutput = false;
-        std::vector<unsigned> save_width;
-        for (unsigned blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        // set up tables for the interleave widths of the field
+        if (!std::equal(inout.GetBlocks().begin(), inout.GetBlocks().end(),
+                        m_fieldInterleaveWidths.begin(),
+                        m_fieldInterleaveWidths.end(),
+                        [](const auto &blk, const unsigned width) {
+                            return blk.GetInterleaveWidth() == width;
+                        }))
         {
-            const unsigned int streamID = blk + 1;
-
-            auto &inoutblk  = inout.GetBlocks()[blk];
-            auto inoutwidth = inoutblk.GetInterleaveWidth();
-            save_width.push_back(inoutwidth);
-
-            if (inoutwidth != 1)
-            {
-                auto inoutPtr =
-                    inoutblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    1u, inoutwidth,
-                    inoutblk.GetNumElementsWithPadding() * numComp,
-                    inoutblk.GetNumData(), inoutPtr, streamID);
-                inoutblk.template SetInterleaveWidth<TData>(1);
-                reshapeOutput = true;
-            }
+            SetUpLayoutMaps(inout);
         }
 
-        // Initialize pointer.
-        const unsigned int streamID0 = 1;
+        // The assembly reads and writes the field the block streams last
+        // touched.
+        JoinStreams<ExecSpace>(m_streamID, m_blockStreams);
 
+        // Initialize pointer; every block is synchronised, since the kernels
+        // address the whole field from block 0's pointer.
         auto inoutPtr =
             inout.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
-                streamID0);
+                m_streamID);
         for (unsigned blk = 1; blk < inout.GetBlocks().size(); ++blk)
         {
-            const unsigned int streamID = blk + 1;
-
             inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
-                streamID);
+                m_streamID);
         }
 
         if (m_isParallel)
         {
             // setup send buffer pointer
-            auto sendPtr = m_send_buffer.template GetPtr<MemSpace, WriteOnly>();
+            auto sendPtr =
+                m_send_buffer.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
             //  assemble data into boundary send buffer
             AssembleScatrBndKernel<ExecSpace>(
                 m_nBndGids, m_gsBndNumAssmb, m_gsNumBndVals, m_gsBndIndex,
-                m_gsBndOffset, m_gsBndSign, inoutPtr, sendPtr);
+                m_gsBndOffset, m_gsBndSign, inoutPtr, sendPtr, m_streamID);
 
             // Synchronize memory, if necessary.
             if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
@@ -533,13 +583,15 @@ protected:
                 // Data must be copied to the host without GPU-aware MPI before
                 // communication. No memory copy is require otherwise.
                 m_send_buffer
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                        m_streamID);
             }
             else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
                      m_rowComm->IsGPUAware())
             {
-                // Synchronize stream before communication.
-                nekStreamSynchronize(0);
+                // The pack ran on the operator stream, so draining that
+                // stream is enough before MPI reads the buffer.
+                nekStreamSynchronize(m_streamID);
             }
 
             // start  comms
@@ -547,7 +599,8 @@ protected:
         }
 
         AssembleScatrKernel<ExecSpace>(m_nGids, m_gsNumAssmb, m_gsIndex,
-                                       m_gsOffset, m_gsSign, inoutPtr);
+                                       m_gsOffset, m_gsSign, inoutPtr,
+                                       m_streamID);
 
         if (m_isParallel)
         {
@@ -557,50 +610,32 @@ protected:
             {
                 // Data is received on the device with GPU-aware MPI.
                 m_recv_buffer
-                    .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>();
+                    .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>(
+                        m_streamID);
             }
             else
             {
                 // Data is received on the host without GPU-aware MPI.
                 m_recv_buffer
-                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                        m_streamID);
             }
 
             // finish comms and syncronize
             m_assmbCommCG->EndComm();
 
-            auto recvPtr = m_recv_buffer.template GetPtr<MemSpace, ReadOnly>();
+            auto recvPtr =
+                m_recv_buffer.template GetPtr<MemSpace, ReadOnly>(m_streamID);
 
             //  assemble data into boundary send buffer
             AssembleFromBndKernel<ExecSpace>(
                 m_nBndGids, m_gsBndNumAssmb, m_gsNumBndVals, m_gsBndIndex,
-                m_gsBndOffset, m_gsBndSign, m_gsBndAssOrder, recvPtr, inoutPtr);
+                m_gsBndOffset, m_gsBndSign, m_gsBndAssOrder, recvPtr, inoutPtr,
+                m_streamID);
         }
 
-        // reshape data into non-interleaved if necessary
-        if (reshapeOutput)
-        {
-            for (unsigned blk = 0; blk < inout.GetBlocks().size(); ++blk)
-            {
-                const unsigned int streamID = blk + 1;
-
-                auto &inoutblk = inout.GetBlocks()[blk];
-                auto width     = save_width[blk];
-
-                if (inoutblk.GetInterleaveWidth() != width)
-                {
-                    ASSERTL1(width == m_device_width, "Unexpected width value");
-                    auto inoutPtr =
-                        inoutblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        width, 1u,
-                        inoutblk.GetNumElementsWithPadding() * numComp,
-                        inoutblk.GetNumData(), inoutPtr, streamID);
-                    inoutblk.template SetInterleaveWidth<TData>(width);
-                }
-            }
-        }
+        // Order the work queued next on the block streams after the assembly.
+        ReleaseStreams<ExecSpace>(m_streamID, m_blockStreams);
     }
 };
 

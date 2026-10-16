@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Instantiation of the local-to-global assembly tables.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -38,22 +38,22 @@ namespace Nektar::MultiRegions
 {
 
 template LibUtilities::MemoryRegion<
-    typename DeviceLocalToGlobalKey<double>::value_type>
+    typename DeviceLocalToGlobalNumGidsKey<double>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
-    const DeviceLocalToGlobalKey<double> &LocToGloKey);
+    const DeviceLocalToGlobalNumGidsKey<double> &LocToGloKey);
 template LibUtilities::MemoryRegion<
-    typename DeviceLocalToGlobalKey<float>::value_type>
+    typename DeviceLocalToGlobalNumGidsKey<float>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
-    const DeviceLocalToGlobalKey<float> &LocToGloKey);
+    const DeviceLocalToGlobalNumGidsKey<float> &LocToGloKey);
 #if defined(NEKTAR_ENABLE_DEVICE)
 template LibUtilities::MemoryRegion<
-    typename DeviceLocalToGlobalKey<double>::value_type>
+    typename DeviceLocalToGlobalNumGidsKey<double>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
-    const DeviceLocalToGlobalKey<double> &LocToGloKey);
+    const DeviceLocalToGlobalNumGidsKey<double> &LocToGloKey);
 template LibUtilities::MemoryRegion<
-    typename DeviceLocalToGlobalKey<float>::value_type>
+    typename DeviceLocalToGlobalNumGidsKey<float>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
-    const DeviceLocalToGlobalKey<float> &LocToGloKey);
+    const DeviceLocalToGlobalNumGidsKey<float> &LocToGloKey);
 #endif
 
 template LibUtilities::MemoryRegion<
@@ -133,22 +133,22 @@ LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
 #endif
 
 template LibUtilities::MemoryRegion<
-    typename DeviceBndLocalToGlobalKey<double>::value_type>
+    typename DeviceBndLocalToGlobalNumGidsKey<double>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, double>(
-    const DeviceBndLocalToGlobalKey<double> &LocToGloKey);
+    const DeviceBndLocalToGlobalNumGidsKey<double> &LocToGloKey);
 template LibUtilities::MemoryRegion<
-    typename DeviceBndLocalToGlobalKey<float>::value_type>
+    typename DeviceBndLocalToGlobalNumGidsKey<float>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::HostSpace, float>(
-    const DeviceBndLocalToGlobalKey<float> &LocToGloKey);
+    const DeviceBndLocalToGlobalNumGidsKey<float> &LocToGloKey);
 #if defined(NEKTAR_ENABLE_DEVICE)
 template LibUtilities::MemoryRegion<
-    typename DeviceBndLocalToGlobalKey<double>::value_type>
+    typename DeviceBndLocalToGlobalNumGidsKey<double>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, double>(
-    const DeviceBndLocalToGlobalKey<double> &LocToGloKey);
+    const DeviceBndLocalToGlobalNumGidsKey<double> &LocToGloKey);
 template LibUtilities::MemoryRegion<
-    typename DeviceBndLocalToGlobalKey<float>::value_type>
+    typename DeviceBndLocalToGlobalNumGidsKey<float>::value_type>
 LocalToGlobalDataCreator::Create<NektarSpaces::DeviceSpace, float>(
-    const DeviceBndLocalToGlobalKey<float> &LocToGloKey);
+    const DeviceBndLocalToGlobalNumGidsKey<float> &LocToGloKey);
 #endif
 
 template LibUtilities::MemoryRegion<

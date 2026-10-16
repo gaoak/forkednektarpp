@@ -66,7 +66,7 @@
  * the one implementation built for Serial and AVX, and nothing in the
  * class reads it: it is only forwarded to name the instantiation. A
  * StdMat request reaches this class through
- * PhysTraceExtractBlockOp::Create(), which maps it to SumFac.
+ * PhysTraceExtractBlockOp::Create(), which maps it to SumFac on the host.
  *
  * @note The class below is the primary
  * detail::PhysTraceExtractBlockOpImpl template, with an unconstrained

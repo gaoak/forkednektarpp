@@ -99,8 +99,9 @@
  *
  * @note There is one trace inner-product algorithm, registered under
  * MultiRegions::SumFac and, for some execution spaces, also under
- * MultiRegions::SumFacTOP. A StdMat request is mapped
- * to SumFac by IProductWRTPhysTraceBlockOp::Create(), so a whole-field
+ * MultiRegions::SumFacTOP. A StdMat request is mapped to SumFac on the
+ * host and SumFacTOP on the device by IProductWRTPhysTraceBlockOp::Create(),
+ * so a whole-field
  * selection of StdMat, SumFac or SumFacTOP can include this operator.
  *
  * @warning A nodal expansion gets a result in the modal space. The
@@ -195,8 +196,8 @@ public:
      * @param   execStr         Execution space ("Serial", "AVX" or
      *                          "Device"); session default if empty.
      * @param   implStr         Block implementation; StdMat resolves to
-     *                          the SumFac registration, see the file
-     *                          notes.
+     *                          SumFac on the host and SumFacTOP on the
+     *                          device, see the file notes.
      *
      * @return The fully assembled operator, ready to Apply.
      */

@@ -28,11 +28,15 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Creation of the local-to-global assembly tables.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+
+#include <algorithm>
+#include <limits>
+#include <typeindex>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
@@ -77,19 +81,65 @@ std::vector<AssemblyMapCGSharedPtr> &LocalToGlobalDataCreator::GetAssemblyMap(
     return m_assemblyMaps.emplace(hash, std::move(assemblyMap)).first->second;
 }
 
-template <typename MemSpace, typename TPadding>
-LibUtilities::MemoryRegion<
-    typename DeviceLocalToGlobalKey<TPadding>::value_type>
-LocalToGlobalDataCreator::Create(
-    const DeviceLocalToGlobalKey<TPadding> &LocToGloKey)
+/**
+ * @brief Position of the local coefficient @p lid, numbered as in a field
+ * with every block at interleave width 1, in the same field with each block
+ * `blk` interleaved at `fieldInterleaveWidths[blk]`.
+ */
+template <FieldState TState>
+static unsigned InterleavedIndex(
+    const unsigned lid,
+    const std::vector<LibUtilities::BlockAttributes<TState>> &blockAttr,
+    const unsigned numComp, const std::vector<unsigned> &fieldInterleaveWidths)
 {
-    using value_type = typename DeviceLocalToGlobalKey<TPadding>::value_type;
+    unsigned blk       = 0;
+    unsigned blkOffset = 0;
+    while (lid >= blkOffset + blockAttr[blk].CompSize() * numComp)
+    {
+        blkOffset += blockAttr[blk].CompSize() * numComp;
+        ++blk;
+    }
 
-    auto zeroDir = LocToGloKey.m_zeroDir;
-    auto width   = LocToGloKey.m_width;
+    const unsigned width    = fieldInterleaveWidths[blk];
+    const unsigned ndata    = blockAttr[blk].GetNumData();
+    const unsigned compSize = blockAttr[blk].CompSize();
+    const unsigned blkLid   = lid - blkOffset;
+    const unsigned nc       = blkLid / compSize;
+    const unsigned elmt     = (blkLid % compSize) / ndata;
+    const unsigned ilane    = elmt % width;
+    const unsigned iwarp    = elmt / width;
+
+    return blkOffset + nc * compSize + iwarp * ndata * width +
+           (blkLid % ndata) * width + ilane;
+}
+
+/**
+ * @brief Interior gather-scatter table, built once per set of parameters.
+ */
+template <typename TPadding>
+const std::vector<unsigned> &LocalToGlobalDataCreator::GetGSInfo(
+    bool zeroDir, const std::vector<std::string> &components, unsigned width,
+    const std::vector<unsigned> &fieldInterleaveWidths)
+{
+    size_t hash = 0;
+    hash_combine(hash, std::type_index(typeid(TPadding)), zeroDir, width);
+    for (const auto &component : components)
+    {
+        hash_combine(hash, component);
+    }
+    for (const auto &fieldInterleaveWidth : fieldInterleaveWidths)
+    {
+        hash_combine(hash, fieldInterleaveWidth);
+    }
+
+    auto it = m_gsInfo.find(hash);
+    if (it != m_gsInfo.end())
+    {
+        return it->second;
+    }
 
     // Get Local To Global Map.
-    auto &loc2glo = GetAssemblyMap(LocToGloKey.m_components);
+    auto &loc2glo = GetAssemblyMap(components);
     auto numComp  = loc2glo.size();
 
     Array<OneD, unsigned> ndir(numComp);
@@ -200,43 +250,60 @@ LocalToGlobalDataCreator::Create(
         coeff_offset += blksize;
     }
 
-    // If width > 1 ensure that the valence associated with
-    // SortVals[i*width] is as large the valence associated with SortVals[j]
-    // for i*width < j < (i+1)*width. This is because we will use the
-    // valence associated with SortVals[i*width] to store the index and sign
-    // of the following values in this width block -- Neede for efficient
-    // access on Devices
-    if (width > 1)
+    // Order the values by the position of their first local copy in the
+    // field, at its interleave widths, so that consecutive values address
+    // neighbouring coefficients: consecutive coefficients of an element at
+    // width 1, the same coefficient of consecutive elements when interleaved.
+    // If width > 1 order by descending valence first, so that the values of
+    // a width block share their valence wherever possible and
+    // SortVals[i*width] carries the largest valence of its block, which sizes
+    // the index and sign storage of the block.
+    ASSERTL1(fieldInterleaveWidths.size() == nblks,
+             "One interleave width per block is required");
+
+    struct SortKey
     {
-        unsigned ind = 0;
-        while (ind < nvalstot)
+        unsigned valence;
+        unsigned position;
+        std::pair<unsigned, unsigned> val;
+    };
+    std::vector<SortKey> keys;
+    keys.reserve(nvalstot);
+    for (auto &sort : SortVals)
+    {
+        auto gid = sort.second.first;
+        auto nc  = sort.second.second;
+
+        unsigned position = std::numeric_limits<unsigned>::max();
+        for (auto &[blk, lid] : GloToLoc[gid])
         {
-            auto val0  = GloToLoc[SortVals[ind].first].size();
-            unsigned w = 1;
-            for (; w < width; ++w)
-            {
-                if (ind + w == nvalstot) // ensure we do not overun map
-                {
-                    break;
-                }
-                auto valw = GloToLoc[SortVals[ind + w].first].size();
-
-                if (valw > val0) // swap values
-                {
-                    auto save = SortVals[ind + w];
-
-                    SortVals[ind + w] = SortVals[ind];
-                    SortVals[ind]     = save;
-                    val0              = valw;
-                }
-            }
-            ind += width;
+            position = std::min(
+                position,
+                InterleavedIndex(lid + BlkOffset[blk] +
+                                     blockAttr[blk].CompSize() * nc,
+                                 blockAttr, numComp, fieldInterleaveWidths));
         }
+        keys.push_back(SortKey{static_cast<unsigned>(GloToLoc[gid].size()),
+                               position, sort.second});
+    }
+
+    std::sort(keys.begin(), keys.end(),
+              [width](const SortKey &a, const SortKey &b) {
+                  if (width > 1 && a.valence != b.valence)
+                  {
+                      return a.valence > b.valence;
+                  }
+                  return a.position < b.position;
+              });
+
+    for (unsigned i = 0; i < nvalstot; ++i)
+    {
+        SortVals[i] = keys[i].val;
     }
 
     // Decalare memory for all local to global informaiton.
-    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvalstot + 2 + nidx);
-    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    std::vector<unsigned> gsInfo(nvalstot + 2 + nidx);
+    auto ptr = gsInfo.data();
 
     // Fill the pointer
     //  ptr[0] = nvals = number global points i
@@ -275,6 +342,26 @@ LocalToGlobalDataCreator::Create(
         cnt++;
     }
 
+    return m_gsInfo.emplace(hash, std::move(gsInfo)).first->second;
+}
+
+template <typename MemSpace, typename TPadding>
+LibUtilities::MemoryRegion<
+    typename DeviceLocalToGlobalNumGidsKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceLocalToGlobalNumGidsKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceLocalToGlobalNumGidsKey<TPadding>::value_type;
+
+    const auto &gsinfo = GetGSInfo<TPadding>(
+        LocToGloKey.m_zeroDir, LocToGloKey.m_components, LocToGloKey.m_width,
+        LocToGloKey.m_fieldInterleaveWidths);
+
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(1);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    ptr[0]   = gsinfo[0];
+
     return LocToGlo;
 }
 
@@ -290,11 +377,10 @@ LocalToGlobalDataCreator::Create(
     auto zeroDir = LocToGloKey.m_zeroDir;
     auto width   = LocToGloKey.m_width;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(zeroDir, LocToGloKey.m_components,
-                                             width));
+    const unsigned *gsinfo =
+        GetGSInfo<TPadding>(zeroDir, LocToGloKey.m_components, width,
+                            LocToGloKey.m_fieldInterleaveWidths)
+            .data();
 
     auto nvals = gsinfo[0];
     unsigned nvalswidth =
@@ -329,14 +415,19 @@ LocalToGlobalDataCreator::Create(
     auto zeroDir = LocToGloKey.m_zeroDir;
     auto width   = LocToGloKey.m_width;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(zeroDir, LocToGloKey.m_components,
-                                             width));
+    const unsigned *gsinfo =
+        GetGSInfo<TPadding>(zeroDir, LocToGloKey.m_components, width,
+                            LocToGloKey.m_fieldInterleaveWidths)
+            .data();
 
     auto nvals = gsinfo[0];
     auto nidx  = 0;
+
+    auto numComp = GetAssemblyMap(LocToGloKey.m_components).size();
+    auto blockAttr =
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
+    ASSERTL1(LocToGloKey.m_fieldInterleaveWidths.size() == blockAttr.size(),
+             "One interleave width per block is required");
 
     // calculate number of indices as sum of i*width point times width
     for (unsigned i = 0; i < nvals; i = i + width)
@@ -363,10 +454,13 @@ LocalToGlobalDataCreator::Create(
             auto loc = gsinfo[i + j + 1];
             // number of points to be assembled
             auto nassmb = gsinfo[i + j + 2] - loc;
-            // redistribute indices in width major format
+            // redistribute indices in width major format, addressing the
+            // field at its interleave widths
             for (k = 0; k < nassmb; ++k)
             {
-                index                    = gsinfo[offset + loc + k];
+                index = InterleavedIndex(gsinfo[offset + loc + k], blockAttr,
+                                         numComp,
+                                         LocToGloKey.m_fieldInterleaveWidths);
                 ptr[cnt + k * width + j] = index;
             }
             // fill out any unused value with the last index.
@@ -400,11 +494,10 @@ LocalToGlobalDataCreator::Create(
     auto zeroDir = LocToGloKey.m_zeroDir;
     auto width   = LocToGloKey.m_width;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(zeroDir, LocToGloKey.m_components,
-                                             width));
+    const unsigned *gsinfo =
+        GetGSInfo<TPadding>(zeroDir, LocToGloKey.m_components, width,
+                            LocToGloKey.m_fieldInterleaveWidths)
+            .data();
 
     auto nvals = gsinfo[0];
     unsigned nvalswidth =
@@ -551,13 +644,10 @@ LocalToGlobalDataCreator::Create(
     auto width      = LocToGloKey.m_width;
     auto &loc2glo   = GetAssemblyMap(LocToGloKey.m_components);
 
-    // Get Local To Global Map.
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceLocalToGlobalKey<TPadding>(zeroDir, LocToGloKey.m_components,
-                                             width));
+    const unsigned *gsinfo =
+        GetGSInfo<TPadding>(zeroDir, LocToGloKey.m_components, width,
+                            LocToGloKey.m_fieldInterleaveWidths)
+            .data();
 
     auto nvals = gsinfo[0];
     auto nidx  = gsinfo[nvals + 1];
@@ -624,18 +714,31 @@ LocalToGlobalDataCreator::Create(
     return LocToGloSign;
 }
 
-template <typename MemSpace, typename TPadding>
-LibUtilities::MemoryRegion<
-    typename DeviceBndLocalToGlobalKey<TPadding>::value_type>
-LocalToGlobalDataCreator::Create(
-    const DeviceBndLocalToGlobalKey<TPadding> &LocToGloKey)
+/**
+ * @brief Parallel-boundary gather-scatter table, built once per set of
+ * components.
+ */
+template <typename TPadding>
+const std::vector<unsigned> &LocalToGlobalDataCreator::GetGSBndInfo(
+    const std::vector<std::string> &components)
 {
-    using value_type = typename DeviceBndLocalToGlobalKey<TPadding>::value_type;
+    size_t hash = 0;
+    hash_combine(hash, std::type_index(typeid(TPadding)));
+    for (const auto &component : components)
+    {
+        hash_combine(hash, component);
+    }
+
+    auto it = m_gsBndInfo.find(hash);
+    if (it != m_gsBndInfo.end())
+    {
+        return it->second;
+    }
 
     // Get Local To Global Map.
-    auto &loc2gloAll = GetAssemblyMap(LocToGloKey.m_components);
+    auto &loc2gloAll = GetAssemblyMap(components);
     auto loc2glo     = loc2gloAll[0];
-    auto numComp     = LocToGloKey.m_components.size();
+    auto numComp     = loc2gloAll.size();
 
     unsigned myrank = loc2glo->GetComm()->GetRank();
 
@@ -791,8 +894,8 @@ LocalToGlobalDataCreator::Create(
     }
 
     // Decalare memory for all local to global informaiton.
-    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvalstot + 2 + nidx);
-    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    std::vector<unsigned> gsBndInfo(nvalstot + 2 + nidx);
+    auto ptr = gsBndInfo.data();
 
     // Fill the pointer
     //  ptr[0] = nvals = number global points i
@@ -839,6 +942,24 @@ LocalToGlobalDataCreator::Create(
         cnt++;
     }
 
+    return m_gsBndInfo.emplace(hash, std::move(gsBndInfo)).first->second;
+}
+
+template <typename MemSpace, typename TPadding>
+LibUtilities::MemoryRegion<
+    typename DeviceBndLocalToGlobalNumGidsKey<TPadding>::value_type>
+LocalToGlobalDataCreator::Create(
+    const DeviceBndLocalToGlobalNumGidsKey<TPadding> &LocToGloKey)
+{
+    using value_type =
+        typename DeviceBndLocalToGlobalNumGidsKey<TPadding>::value_type;
+
+    const auto &gsinfo = GetGSBndInfo<TPadding>(LocToGloKey.m_components);
+
+    auto LocToGlo = LibUtilities::MemoryRegion<value_type>(1);
+    auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    ptr[0]   = gsinfo[0];
+
     return LocToGlo;
 }
 
@@ -851,10 +972,8 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceBndLocalToGlobalNumAssembleKey<TPadding>::value_type;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TPadding>(LocToGloKey.m_components));
+    const unsigned *gsinfo =
+        GetGSBndInfo<TPadding>(LocToGloKey.m_components).data();
 
     auto nvals = gsinfo[0];
 
@@ -881,10 +1000,8 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceBndLocalToGlobalNumBndValsKey<TPadding>::value_type;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TPadding>(LocToGloKey.m_components));
+    const unsigned *gsinfo =
+        GetGSBndInfo<TPadding>(LocToGloKey.m_components).data();
 
     auto nvals = gsinfo[0];
 
@@ -911,10 +1028,8 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceBndLocalToGlobalIndexKey<TPadding>::value_type;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TPadding>(LocToGloKey.m_components));
+    const unsigned *gsinfo =
+        GetGSBndInfo<TPadding>(LocToGloKey.m_components).data();
 
     auto nvals           = gsinfo[0];
     const unsigned *ind  = gsinfo + nvals + 2;
@@ -930,13 +1045,29 @@ LocalToGlobalDataCreator::Create(
     auto LocToGlo = LibUtilities::MemoryRegion<value_type>(nvaltot);
     auto ptr = LocToGlo.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
+    auto numComp = GetAssemblyMap(LocToGloKey.m_components).size();
+    auto blockAttr =
+        GetBlockAttributes<TPadding, FieldState::Coeff>(this->m_expansionList);
+    ASSERTL1(LocToGloKey.m_fieldInterleaveWidths.size() == blockAttr.size(),
+             "One interleave width per block is required");
+
     unsigned cnt = 0;
     for (unsigned i = 0; i < nvals; ++i)
     {
         unsigned offset = gsinfo[1 + i];
-        unsigned nind   = ind[offset] + ind[offset + 1];
+        unsigned nloc   = ind[offset];
+        unsigned nbnd   = ind[offset + 1];
 
-        for (unsigned j = 0; j < nind; ++j)
+        // local indices address the field at its interleave widths
+        for (unsigned j = 0; j < nloc; ++j)
+        {
+            ptr[cnt++] =
+                InterleavedIndex(ind[offset + 2 + j], blockAttr, numComp,
+                                 LocToGloKey.m_fieldInterleaveWidths);
+        }
+
+        // buffer slots
+        for (unsigned j = nloc; j < nloc + nbnd; ++j)
         {
             ptr[cnt++] = ind[offset + 2 + j];
         }
@@ -954,10 +1085,8 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceBndLocalToGlobalOffsetKey<TPadding>::value_type;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TPadding>(LocToGloKey.m_components));
+    const unsigned *gsinfo =
+        GetGSBndInfo<TPadding>(LocToGloKey.m_components).data();
 
     auto nvals          = gsinfo[0];
     const unsigned *ind = gsinfo + nvals + 2;
@@ -988,10 +1117,8 @@ LocalToGlobalDataCreator::Create(
     using value_type =
         typename DeviceBndLocalToGlobalAssembleOrderKey<TPadding>::value_type;
 
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TPadding>(LocToGloKey.m_components));
+    const unsigned *gsinfo =
+        GetGSBndInfo<TPadding>(LocToGloKey.m_components).data();
 
     auto nvals          = gsinfo[0];
     const unsigned *ind = gsinfo + nvals + 2;
@@ -1024,12 +1151,9 @@ LocalToGlobalDataCreator::Create(
     auto zeroDir    = LocToGloKey.m_zeroDir;
     auto signChange = LocToGloKey.m_signChange;
 
-    auto &loc2glo      = GetAssemblyMap(LocToGloKey.m_components);
-    auto dataWarehouse = this->m_expansionList->GetDataWarehouseSharedPtr();
-
-    const auto *gsinfo =
-        dataWarehouse->template GetData<NektarSpaces::HostSpace>(
-            DeviceBndLocalToGlobalKey<TPadding>(LocToGloKey.m_components));
+    auto &loc2glo = GetAssemblyMap(LocToGloKey.m_components);
+    const unsigned *gsinfo =
+        GetGSBndInfo<TPadding>(LocToGloKey.m_components).data();
 
     // extract lids from gsinfo
     std::vector<unsigned> lids;
@@ -1078,7 +1202,7 @@ LocalToGlobalDataCreator::Create(
 template <typename MemSpace, typename TPadding>
 LibUtilities::MemoryRegion<typename LocalToGlobalMaskKey<TPadding>::value_type>
 LocalToGlobalDataCreator::Create(
-    [[maybe_unused]] const LocalToGlobalMaskKey<TPadding> &LocToGloKey)
+    const LocalToGlobalMaskKey<TPadding> &LocToGloKey)
 {
     using value_type = typename LocalToGlobalMaskKey<TPadding>::value_type;
 

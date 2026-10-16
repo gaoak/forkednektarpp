@@ -123,13 +123,15 @@ namespace Nektar::MultiRegions::detail
  * @param   offset      Start of each DOF's entries in @p index / @p sign.
  * @param   sign        Interleaved sign factors (see file documentation).
  * @param   inoutptr    Coefficient array, updated in place.
+ * @param   streamID    Unused; host kernels run in submission order.
  */
 template <typename ExecSpace, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
               Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const unsigned *offset, const int8_t *sign, TData *inoutptr)
+    const unsigned *offset, const int8_t *sign, TData *inoutptr,
+    [[maybe_unused]] const unsigned int streamID)
 {
     constexpr unsigned int vector_width =
         NektarSpaces::vector_width<NektarSpaces::AVX, TData>::value;
@@ -180,6 +182,7 @@ NEK_FORCE_INLINE static void AssembleScatrKernel(
  * @param   offset      Unused (see above).
  * @param   sign        Sign factors (see file documentation).
  * @param   inoutptr    Coefficient array, updated in place.
+ * @param   streamID    Unused; host kernels run in submission order.
  */
 template <
     typename ExecSpace, typename TData,
@@ -188,7 +191,7 @@ template <
 NEK_FORCE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *ind,
     [[maybe_unused]] const unsigned *offset, const int8_t *sign,
-    TData *inoutptr)
+    TData *inoutptr, [[maybe_unused]] const unsigned int streamID)
 
 {
     unsigned cnt = 0;
@@ -246,6 +249,7 @@ NEK_FORCE_INLINE static void AssembleScatrKernel(
  * @param   inoutptr    Coefficient array; only the first local slot of
  *                      each boundary DOF is written.
  * @param   bndptr      Send buffer receiving the partial sums.
+ * @param   streamID    Unused; host kernels run in submission order.
  */
 template <typename ExecSpace, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
@@ -255,7 +259,8 @@ template <typename ExecSpace, typename TData,
 NEK_FORCE_INLINE static void AssembleScatrBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
     const unsigned *index, const unsigned *offset, const int8_t *sign,
-    TData *inoutptr, TData *bndptr)
+    TData *inoutptr, TData *bndptr,
+    [[maybe_unused]] const unsigned int streamID)
 {
     for (unsigned idx = 0; idx < nvals; ++idx)
     {
@@ -321,6 +326,7 @@ NEK_FORCE_INLINE static void AssembleScatrBndKernel(
  * @param   inoutptr    Coefficient array; all local copies of each
  *                      boundary DOF are overwritten with the assembled
  *                      value.
+ * @param   streamID    Unused; host kernels run in submission order.
  */
 template <typename ExecSpace, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
@@ -330,7 +336,8 @@ template <typename ExecSpace, typename TData,
 NEK_FORCE_INLINE static void AssembleFromBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
     const unsigned *index, const unsigned *offset, const int8_t *sign,
-    const unsigned *norder, const TData *bndptr, TData *inoutptr)
+    const unsigned *norder, const TData *bndptr, TData *inoutptr,
+    [[maybe_unused]] const unsigned int streamID)
 {
     for (unsigned idx = 0; idx < nvals; ++idx)
     {

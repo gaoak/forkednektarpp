@@ -81,7 +81,10 @@
  *   NektarSpaces::Device::warpSize so that consecutive threads of a warp
  *   read consecutive memory locations (coalesced access). The kernel
  *   bakes the same constant in, so kernel and map builder agree by
- *   construction.
+ *   construction. The DOFs are ordered by the position of their first
+ *   local copy in the field, at its interleave widths, so consecutive
+ *   threads also address neighbouring coefficients whether the field is
+ *   interleaved or not.
  * - The boundary maps are contiguous: each DOF owns a run of nassemble
  *   local-coefficient indices followed by nbndvals communication-buffer
  *   slot indices.
@@ -147,8 +150,8 @@ namespace Nektar::MultiRegions::detail
  *                      @p index and @p sign.
  * @param   sign        Interleaved factors in {-1, 0, +1}; see the
  *                      file-level notes on sign entries.
- * @param   inoutptr    Coefficient array in non-interleaved (width-1)
- *                      layout; read and overwritten in place.
+ * @param   inoutptr    Coefficient array in the layout @p index
+ *                      addresses; read and overwritten in place.
  * @param   threadBlock Thread-block handle used by getGlobalIdx() and
  *                      getGlobalRange() to form the grid-stride loop.
  */
@@ -229,7 +232,7 @@ NEK_DEVICE_KERNEL static void AssembleScatrKernel(
  * @param   sign        Factors in {-1, 0, +1} for the local-coefficient
  *                      entries; the trailing buffer-slot entries are
  *                      zero-filled and never read.
- * @param   inoutptr    Coefficient array (width-1 layout); only the
+ * @param   inoutptr    Coefficient array; only the
  *                      first local coefficient per target is updated.
  * @param   bndptr      Send buffer of the assembly communicator; write
  *                      only.
@@ -313,7 +316,7 @@ NEK_DEVICE_KERNEL static void AssembleScatrBndKernel(
  *                      number of sharing ranks with a lower rank id.
  * @param   bndptr      Receive buffer holding the other ranks' partial
  *                      sums; read only.
- * @param   inoutptr    Coefficient array (width-1 layout); the parked
+ * @param   inoutptr    Coefficient array; the parked
  *                      partial sum is read from it and the final values
  *                      are written back.
  * @param   threadBlock Thread-block handle used by getGlobalIdx() and
@@ -369,7 +372,7 @@ NEK_DEVICE_KERNEL static void AssembleFromBndKernel(
  * Device execution-space overload, selected by SFINAE against the Serial
  * and AVX overloads in AssmbScatrSerialAVXKernels.hpp. Launches a 1-D
  * grid of Device::defaultBlockSize-thread blocks, sized to give one
- * thread per assembly target, on the back-end's stream 0. Arguments are
+ * thread per assembly target, on stream @p streamID. The other arguments are
  * forwarded unchanged to the device kernel above, which documents their
  * meanings and the required interleaved map layout.
  */
@@ -379,14 +382,15 @@ template <
         Enable = true>
 NEK_FORCE_INLINE static void AssembleScatrKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *index,
-    const unsigned *offset, const int8_t *sign, TData *inoutptr)
+    const unsigned *offset, const int8_t *sign, TData *inoutptr,
+    const unsigned int streamID)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(AssembleScatrKernel, gridSize,
-                                          blockSize, 0, nvals, nassemble, index,
-                                          offset, sign, inoutptr);
+                                          blockSize, streamID, nvals, nassemble,
+                                          index, offset, sign, inoutptr);
 }
 
 /**
@@ -395,7 +399,7 @@ NEK_FORCE_INLINE static void AssembleScatrKernel(
  * Device execution-space overload, selected by SFINAE against the
  * Serial/AVX overload in AssmbScatrSerialAVXKernels.hpp. Launches a 1-D
  * grid of Device::defaultBlockSize-thread blocks, sized to give one
- * thread per boundary target, on the back-end's stream 0. Arguments are
+ * thread per boundary target, on stream @p streamID. The other arguments are
  * forwarded unchanged to the device kernel above, which documents their
  * meanings and the contiguous boundary map layout. The caller is
  * responsible for making @p bndptr visible to the communication layer
@@ -408,14 +412,14 @@ template <
 NEK_FORCE_INLINE static void AssembleScatrBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
     const unsigned *index, const unsigned *offset, const int8_t *sign,
-    TData *inoutptr, TData *bndptr)
+    TData *inoutptr, TData *bndptr, const unsigned int streamID)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-        AssembleScatrBndKernel<>, gridSize, blockSize, 0, nvals, nassemble,
-        nbndvals, index, offset, sign, inoutptr, bndptr);
+        AssembleScatrBndKernel<>, gridSize, blockSize, streamID, nvals,
+        nassemble, nbndvals, index, offset, sign, inoutptr, bndptr);
 }
 
 /**
@@ -424,7 +428,7 @@ NEK_FORCE_INLINE static void AssembleScatrBndKernel(
  * Device execution-space overload, selected by SFINAE against the
  * Serial/AVX overload in AssmbScatrSerialAVXKernels.hpp. Launches a 1-D
  * grid of Device::defaultBlockSize-thread blocks, sized to give one
- * thread per boundary target, on the back-end's stream 0. Arguments are
+ * thread per boundary target, on stream @p streamID. The other arguments are
  * forwarded unchanged to the device kernel above. Must only run once
  * communication has completed and @p bndptr holds the received partial
  * sums in the memory space the kernel executes in (see
@@ -437,14 +441,15 @@ template <
 NEK_FORCE_INLINE static void AssembleFromBndKernel(
     const unsigned nvals, const unsigned *nassemble, const unsigned *nbndvals,
     const unsigned *index, const unsigned *offset, const int8_t *sign,
-    const unsigned *norder, const TData *bndptr, TData *inoutptr)
+    const unsigned *norder, const TData *bndptr, TData *inoutptr,
+    const unsigned int streamID)
 {
     const unsigned blockSize = NektarSpaces::Device::defaultBlockSize;
     const unsigned gridSize  = (nvals + blockSize - 1) / blockSize;
 
     DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-        AssembleFromBndKernel<>, gridSize, blockSize, 0, nvals, nassemble,
-        nbndvals, index, offset, sign, norder, bndptr, inoutptr);
+        AssembleFromBndKernel<>, gridSize, blockSize, streamID, nvals,
+        nassemble, nbndvals, index, offset, sign, norder, bndptr, inoutptr);
 }
 #endif
 
