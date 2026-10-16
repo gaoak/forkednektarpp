@@ -135,11 +135,11 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             auto bndPtr =
-                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_opStreamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
 
             MirrorNormalMomentumBlock<ExecSpace>(stride, m_coordDim, norms,
-                                                 bndPtr, this->m_streamID);
+                                                 bndPtr, this->m_opStreamID);
         }
     }
 };

@@ -55,6 +55,7 @@ v5.11.0
 - Add StdMat (generic, LibXSMM, cuBLAS), SumFac and SumFacTOP implementation strategies shared by Serial, AVX and Device back-ends (!1842, !1903, !2150, !2153, !2154, !2162, !2450)
 - Add element Operator classes: BwdTrans, IProductWRTBase, IProductWRTDerivBase, PhysDeriv, Mass, Helmholtz, MultiplyByElmtInvMass, PhysInterp1DScaled, LinAdvDiffReaction, Expression, Laplacian, Divergence, Advection, CurlCurl and AdvectionDealias for Serial, AVX, and Device back-ends (!1767, !1772, !1959, !1962, !1973, !2027, !2090, !2121, !2342, !2444, !2452, !2531, !2675)
 - Add trace operators: PhysTraceExtract, IProductWRTPhysTrace, IProductWRTPhysNormalDerivTrace and parallel DG trace exchange for Serial, AVX, and Device back-ends (!1835, !2426, !2469, !2684, !2712, !2730, !2734)
+- Add Gauss-Lobatto trace points on collapsed directions to PhysTraceExtract, and extraction of a volume field onto the points of a continuous boundary region (!2774)
 - Add boundary-condition operators: Dirichlet, Neumann, Robin, FwdTransBC, DG and time-dependent conditions, with multi-component processing for Serial, AVX, and Device back-ends (!1836, !2256, !2258, !2469, !2592)
 - Add assembly/scatter operator for continuous Galerkin on all back-ends (!1854, !2201)
 - Introduce the `SolverCore` library: Driver, EquationSystem, UnsteadySystem, filters, forcing and restarts (!2540, !2673, !2685, !2738)

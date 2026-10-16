@@ -53,6 +53,25 @@
         }                                                                      \
     }
 
+/// As TEST_PHYSTRACEEXTRACT, but extracting onto the Gauss-Lobatto trace
+/// points that a continuous field's trace and boundary expansions carry,
+/// rather than the element's own. The two differ only on a collapsed
+/// direction of a three-dimensional element, whose triangular faces sit on
+/// Gauss-Radau points with nothing at the collapsed end.
+#define TEST_PHYSTRACEEXTRACT_GLL(test_name, test, tol, nonColl)               \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure(true);                                                       \
+        SetTestCase();                                                         \
+        RunTestCase(nonColl);                                                  \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 #define TEST_PHYSTRACEEXTRACTTRACE(test_name, test, tol, nonColl)              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
@@ -183,6 +202,28 @@ TEST_PHYSTRACEEXTRACT(phystraceext_cube_prism_hex_endpts, CubePrismHex, 1.0E-12,
 
 TEST_PHYSTRACEEXTRACT(phystraceext_cube_all_elements_endpts, CubeAllElements,
                       1.0E-12, true)
+
+// The Gauss-Lobatto trace points of a collapsed direction: one point more
+// than the element carries, so every value on the collapsed end row is
+// interpolated rather than copied.
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_tet_gll, Tet, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_tet_varp_gll, TetVarP, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_tet_nodal_gll, TetNodal, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_prism_gll, Prism, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_prism_varp_gll, PrismVarP, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_pyr_gll, Pyr, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_pyr_varp_gll, PyrVarP, 1.0E-12, true)
+
+// A hexahedron has no collapsed direction, so the two point sets coincide
+// and asking for the variant must change nothing.
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_hex_gll, Hex, 1.0E-12, true)
+
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

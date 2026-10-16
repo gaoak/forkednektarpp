@@ -194,11 +194,11 @@ protected:
             m_VnInf[blk] = LibUtilities::MemoryRegion<TData>(stride);
             m_VnInf[blk].template Initialize<MemSpace>(0);
             TData *VnInf = m_VnInf[blk].template GetPtr<MemSpace, ReadWrite>(
-                this->m_streamID);
+                this->m_opStreamID);
 
-            ProjectFreestreamVelocityBlock<ExecSpace>(stride, m_coordDim,
-                                                      m_velInf.data(), norms,
-                                                      VnInf, this->m_streamID);
+            ProjectFreestreamVelocityBlock<ExecSpace>(
+                stride, m_coordDim, m_velInf.data(), norms, VnInf,
+                this->m_opStreamID);
         }
     }
 
@@ -218,15 +218,15 @@ protected:
 
             const auto stride = this->m_bndCondPhysOp->GetBlockCompStride(blk);
             auto bndPtr =
-                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_streamID);
+                this->m_bndCondPhysOp->UpdateBlockPtr(blk, this->m_opStreamID);
             const TData *norms = this->m_bndCondPhysOp->GetBlockNormals(blk);
             const TData *VnInf =
                 m_VnInf[blk].template GetPtr<MemSpace, ReadOnly>(
-                    this->m_streamID);
+                    this->m_opStreamID);
 
             ApplyRiemannInvariantBlock<ExecSpace>(
                 stride, m_coordDim, m_numComp - 1, m_gamma, m_rhoInf, m_pInf,
-                m_velInf.data(), VnInf, norms, bndPtr, this->m_streamID);
+                m_velInf.data(), VnInf, norms, bndPtr, this->m_opStreamID);
         }
     }
 };

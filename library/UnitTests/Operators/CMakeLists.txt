@@ -89,6 +89,8 @@ ADD_NEKTAR_EXECUTABLE(TestIProductWRTPhysNormalDerivTrace
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestIProductWRTPhysNormalDerivTrace.cpp)
 ADD_NEKTAR_EXECUTABLE(TestPhysTraceExtract
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestPhysTraceExtract.cpp)
+ADD_NEKTAR_EXECUTABLE(TestPhysTraceExtractBndCond
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestPhysTraceExtractBndCond.cpp)
 
 IF (NEKTAR_ENABLE_DOUBLE_PRECISION) # Only enable unit tests for double precision, for now
 SET_UNIT_TEST(Optimization TestOptimization none none FALSE)
@@ -133,6 +135,7 @@ SET_UNIT_TEST(AdvectionDealias_serial_stdmat TestAdvectionDealias Serial StdMat 
 SET_UNIT_TEST(IProductWRTPhysTrace_serial_sumfac TestIProductWRTPhysTrace Serial SumFac FALSE)
 SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_serial_sumfac TestIProductWRTPhysNormalDerivTrace Serial SumFac FALSE)
 SET_UNIT_TEST(PhysTraceExtract_serial_sumfac TestPhysTraceExtract Serial SumFac FALSE)
+SET_UNIT_TEST(PhysTraceExtractBndCond_serial_sumfac TestPhysTraceExtractBndCond Serial SumFac FALSE)
 SET_UNIT_TEST(BwdTrans_serial_sumfac TestBwdTrans Serial SumFac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac TestHelmholtz Serial SumFac FALSE)
 SET_UNIT_TEST(Laplacian_serial_sumfac TestLaplacian Serial SumFac FALSE)
@@ -193,6 +196,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(IProductWRTPhysTrace_avx_sumfac TestIProductWRTPhysTrace AVX SumFac FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_avx_sumfac TestIProductWRTPhysNormalDerivTrace AVX SumFac FALSE)
     SET_UNIT_TEST(PhysTraceExtract_avx_sumfac TestPhysTraceExtract AVX SumFac FALSE)
+    SET_UNIT_TEST(PhysTraceExtractBndCond_avx_sumfac TestPhysTraceExtractBndCond AVX SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac TestBwdTrans AVX SumFac FALSE)
     SET_UNIT_TEST(Helmholtz_avx_sumfac TestHelmholtz AVX SumFac FALSE)
     SET_UNIT_TEST(Laplacian_avx_sumfac TestLaplacian AVX SumFac FALSE)    

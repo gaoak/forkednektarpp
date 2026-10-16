@@ -51,6 +51,9 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
    available for this implementation", keeps that default, because the
    refusal is shared and copying it into every class that does not provide
    the entry point says no more than the base already did.
+   The public non-virtual method only forwards to its hook: it sets no
+   member and has no other side effect of its own, which belongs in the
+   hook's implementations.
 9. **Nothing is public without a reason.** Member functions and variables are
    protected or private unless public access is required; no `Get...()` for
    every `Set...()`.
@@ -65,7 +68,10 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     only in case cannot both exist on macOS or Windows.
 12. **Sibling implementations match** (Serial/AVX vs Device, 1D/2D/3D): the
     same comments, member declaration order, local names and section
-    comments. Member variables are declared before member functions. For
+    comments. Each access specifier appears once, in the order `public`,
+    `protected`, `private`; a protected or private member added later goes
+    into its section, not between public members. Within a section, member
+    variables are declared before member functions. For
     ElmtOps, follow the pattern, names and types of `BwdTrans`, `Helmholtz`,
     `IProductWRTBase`, `LinAdvDiffReaction` and `PhysDeriv`.
 13. **Comments say what the code does.** No provenance ("as legacy does"), no
@@ -240,3 +246,24 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 38. **A session file contains no unused parameters.** Every `SOLVERINFO`
     property and parameter it sets is read by the solver running it or used
     by an expression in the session.
+
+## Synchronisation and indexing
+
+39. **An operator orders the streams it touches itself.** Beyond the event
+    of rule 31 that makes the reader wait on the writer, the writer's stream
+    waits on the reader in turn before it may overwrite what is still being
+    read. The operator does this itself, rather than leaving it to the
+    caller through a stream setter. `nekStreamSynchronize` stalls every
+    stream behind the host and is reserved for where the host reads the
+    result, or for one-off set-up.
+40. **Index arithmetic is done on the host, once.** A kernel that gathers or
+    scatters reads a precomputed index map, built at construction, and does
+    no per-thread integer `/` or `%` to recover an element, point, group or
+    lane. Where a map depends on something known only at `Apply()`, such as
+    the interleave width of an input, it is built when that value is first
+    seen and kept. Reading a few elements of a field does not justify
+    reshaping the whole field: index it at its own width.
+41. **Look for an existing kernel before writing one.** Indexed copies
+    (`CGBndCondGatherKernel`, `DirBndCondKernel`), interleaving
+    (`ReshapeStorage`) and the `Math` kernels already exist; a second copy
+    of one under a new name is review noise and a second place to fix.

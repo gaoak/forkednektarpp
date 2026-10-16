@@ -154,7 +154,7 @@ template std::vector<BlockAttributes<FieldState::Coeff>> GetBlockAttributes<
 template <typename TPadding, FieldState TState>
 std::vector<BlockAttributes<TState>> GetLocTraceBlockAttributes(
     const MultiRegions::ExpListSharedPtr explist,
-    const unsigned interleave_width)
+    const unsigned interleave_width, const bool useGLLTracePoints)
 {
     // The TPadding type is use to dertermine the padding requirement and must
     // be of floating point type.
@@ -183,7 +183,9 @@ std::vector<BlockAttributes<TState>> GetLocTraceBlockAttributes(
                 {
                     continue;
                 }
-                ndata *= expPtr->GetTraceBasisKey(dimension - 1 - d, cnt++)
+                ndata *= expPtr
+                             ->GetTraceBasisKey(dimension - 1 - d, cnt++,
+                                                useGLLTracePoints)
                              .GetNumPoints();
             }
             ndatatot +=
@@ -201,10 +203,12 @@ std::vector<BlockAttributes<TState>> GetLocTraceBlockAttributes(
 
 template std::vector<BlockAttributes<FieldState::Phys>> GetLocTraceBlockAttributes<
     double, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
-                              const unsigned interleave_width);
+                              const unsigned interleave_width,
+                              const bool useGLLTracePoints);
 template std::vector<BlockAttributes<FieldState::Phys>> GetLocTraceBlockAttributes<
     float, FieldState::Phys>(const MultiRegions::ExpListSharedPtr explist,
-                             const unsigned interleave_width);
+                             const unsigned interleave_width,
+                             const bool useGLLTracePoints);
 
 /**
  * @brief As GetBlockAttributes(), but on the @p scale over-integrated grid.

@@ -118,10 +118,20 @@ GetBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
 /// As GetBlockAttributes(), but sized for the element-local traces: one
 /// block per collection, each element carrying every point of every one
 /// of its traces.
+///
+/// @p useGLLTracePoints selects which trace quadrature the layout is sized
+/// for. False, the default, is each element's own: on the collapsed
+/// direction of a face of a tetrahedron, prism or pyramid that is a
+/// Gauss-Radau distribution, which omits the collapsed end point. True asks
+/// the expansion for the Gauss-Lobatto variant instead, the one a continuous
+/// field's trace and boundary expansions carry, which has one point more in
+/// that direction. It must agree with the same argument given to the
+/// operator filling the storage.
 template <typename TPadding, FieldState TState>
 MULTI_REGIONS_EXPORT std::vector<LibUtilities::BlockAttributes<TState>>
 GetLocTraceBlockAttributes(const MultiRegions::ExpListSharedPtr explist,
-                           const unsigned interleave_width = 1);
+                           const unsigned interleave_width = 1,
+                           const bool useGLLTracePoints    = false);
 
 /// As GetBlockAttributes(), but sized for the @p scale over-integrated grid
 /// the 1D interpolation and Galerkin projection matrices are built for:

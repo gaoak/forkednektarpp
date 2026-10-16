@@ -68,13 +68,13 @@ public:
     /// the boundary storage.
     void SetStreamID(const unsigned int streamID)
     {
-        m_streamID = streamID;
+        m_opStreamID = streamID;
     }
 
     /// Run on the default stream again, undoing SetStreamID().
     void ResetStreamID()
     {
-        m_streamID = m_defaultStreamID;
+        m_opStreamID = m_defaultStreamID;
     }
 
     /// Storage to write into. Must be the same instance the trace flux
@@ -227,7 +227,7 @@ protected:
     /// Stream the work runs on unless SetStreamID() says otherwise.
     static constexpr unsigned int m_defaultStreamID = 0;
     /// Stream all of the work runs on. See SetStreamID().
-    unsigned int m_streamID = m_defaultStreamID;
+    unsigned int m_opStreamID = m_defaultStreamID;
 
     std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> m_bndCondPhysOp;
 

@@ -277,7 +277,8 @@ public:
 
 private:
     // Note: m_field is a pointer to a Field object from which the current
-    // BlockAccessor object belong to.
+    // BlockAccessor object belong to, or null for a block of no Field,
+    // whose memory region then allocates its own storage.
     MemoryRegion<TData> m_memory_region;
     Field<TData, TState> *m_field;
     unsigned int m_num_components = 0;
