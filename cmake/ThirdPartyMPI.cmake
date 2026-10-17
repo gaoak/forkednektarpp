@@ -58,6 +58,36 @@ IF( NEKTAR_USE_MPI )
 
     ADD_DEFINITIONS(-DNEKTAR_USE_MPI)
 
+    # Stream-ordered device communication through the MPIX_Stream enqueue
+    # extension of MPICH (>= 4.1, built with CUDA or HIP support). The SYCL
+    # back-ends reach the CUDA or HIP stream behind their queues.
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "HIP" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+        OPTION(NEKTAR_USE_MPIX_STREAM
+            "Enqueue device communication on streams with MPIX_Stream." OFF)
+        MARK_AS_ADVANCED(NEKTAR_USE_MPIX_STREAM)
+
+        IF (NEKTAR_USE_MPIX_STREAM)
+            INCLUDE(CheckCXXSymbolExists)
+            SET(CMAKE_REQUIRED_INCLUDES ${MPI_CXX_INCLUDE_PATH})
+            SET(CMAKE_REQUIRED_LIBRARIES ${MPI_CXX_LIBRARIES})
+            CHECK_CXX_SYMBOL_EXISTS(MPIX_Allreduce_enqueue mpi.h
+                HAVE_MPIX_ALLREDUCE_ENQUEUE)
+            UNSET(CMAKE_REQUIRED_INCLUDES)
+            UNSET(CMAKE_REQUIRED_LIBRARIES)
+
+            IF (NOT HAVE_MPIX_ALLREDUCE_ENQUEUE)
+                MESSAGE(FATAL_ERROR "NEKTAR_USE_MPIX_STREAM requires an MPI "
+                    "providing MPIX_Allreduce_enqueue (MPICH >= 4.1).")
+            ENDIF()
+
+            ADD_DEFINITIONS(-DNEKTAR_USE_MPIX_STREAM)
+            MESSAGE(STATUS "Using MPIX_Stream for device communication")
+        ENDIF()
+    ENDIF()
+
     IF (THIRDPARTY_BUILD_GSMPI)
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(GSMPI_LIBRARY STATIC gsmpi DESCRIPTION "GSMPI Library")

@@ -42,6 +42,15 @@
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
+#include <mutex>
+#if defined(SYCL_ENABLE_CUDA)
+#include <LibUtilities/Backends/CUDAStream.hpp>
+#elif defined(SYCL_ENABLE_HIP)
+#include <LibUtilities/Backends/HIPStream.hpp>
+#endif
+#endif
+
 #ifndef MPI_SYNC
 #define MPISYNC 0
 #else
@@ -138,6 +147,19 @@ protected:
     MPI_Comm m_comm;
     int m_rank{};
     bool m_controls_mpi;
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    /// Communicator bound to #m_commStream.
+    MPI_Comm m_streamComm    = MPI_COMM_NULL;
+    MPIX_Stream m_mpixStream = MPIX_STREAM_NULL;
+    /// Non-blocking stream the enqueued communication runs on.
+    nekStream m_commStream = nullptr;
+    /// Recorded on the caller's stream before the communication.
+    nekEvent m_readyEvent = nullptr;
+    /// Recorded on #m_commStream after the communication.
+    nekEvent m_doneEvent = nullptr;
+    /// Serialises the enqueueing, which SYCL runs on its own threads.
+    std::mutex m_enqueueMutex;
+#endif
 
     explicit CommMpi(MPI_Comm pComm);
 
@@ -149,41 +171,52 @@ protected:
     void v_Block() final;
     double v_Wtime() final;
 
-    void v_Send(const void *buf, int count, CommDataType dt, int dest) final;
-    void v_Recv(void *buf, int count, CommDataType dt, int source) final;
+    void v_Send(const void *buf, int count, CommDataType dt, int dest,
+                std::optional<unsigned int> streamID) final;
+    void v_Recv(void *buf, int count, CommDataType dt, int source,
+                std::optional<unsigned int> streamID) final;
     void v_SendRecv(const void *sendbuf, int sendcount, CommDataType sendtype,
                     int dest, void *recvbuf, int recvcount,
-                    CommDataType recvtype, int source) final;
+                    CommDataType recvtype, int source,
+                    std::optional<unsigned int> streamID) final;
 
     void v_AllReduce(void *buf, int count, CommDataType dt,
-                     enum ReduceOperator pOp) final;
+                     enum ReduceOperator pOp,
+                     std::optional<unsigned int> streamID) final;
     void v_AllReduceBegin(void *buf, int count, CommDataType dt,
-                          enum ReduceOperator pOp,
-                          CommRequestSharedPtr request) final;
-    void v_AllReduceEnd(CommRequestSharedPtr request) final;
+                          enum ReduceOperator pOp, CommRequestSharedPtr request,
+                          std::optional<unsigned int> streamID) final;
+    void v_AllReduceEnd(CommRequestSharedPtr request,
+                        std::optional<unsigned int> streamID) final;
 
     void v_AlltoAll(const void *sendbuf, int sendcount, CommDataType sendtype,
-                    void *recvbuf, int recvcount, CommDataType recvtype) final;
+                    void *recvbuf, int recvcount, CommDataType recvtype,
+                    std::optional<unsigned int> streamID) final;
     void v_AlltoAllv(const void *sendbuf, const int *sendcounts,
                      const int *senddispls, CommDataType sendtype,
                      void *recvbuf, const int *recvcounts,
-                     const int *recvdispls, CommDataType recvtype) final;
+                     const int *recvdispls, CommDataType recvtype,
+                     std::optional<unsigned int> streamID) final;
 
     void v_AllGather(const void *sendbuf, int sendcount, CommDataType sendtype,
-                     void *recvbuf, int recvcount, CommDataType recvtype) final;
+                     void *recvbuf, int recvcount, CommDataType recvtype,
+                     std::optional<unsigned int> streamID) final;
     void v_AllGatherv(const void *sendbuf, int sendcount, CommDataType sendtype,
                       void *recvbuf, const int *recvcounts,
-                      const int *recvdispls, CommDataType recvtype) final;
+                      const int *recvdispls, CommDataType recvtype,
+                      std::optional<unsigned int> streamID) final;
     void v_AllGatherv(void *recvbuf, const int *recvcounts,
-                      const int *recvdispls, CommDataType recvtype) final;
+                      const int *recvdispls, CommDataType recvtype,
+                      std::optional<unsigned int> streamID) final;
 
-    void v_Bcast(void *buffer, int count, CommDataType dt, int root) final;
+    void v_Bcast(void *buffer, int count, CommDataType dt, int root,
+                 std::optional<unsigned int> streamID) final;
     void v_Gather(const void *sendbuf, int sendcount, CommDataType sendtype,
-                  void *recvbuf, int recvcount, CommDataType recvtype,
-                  int root) final;
+                  void *recvbuf, int recvcount, CommDataType recvtype, int root,
+                  std::optional<unsigned int> streamID) final;
     void v_Scatter(const void *sendbuf, int sendcount, CommDataType sendtype,
                    void *recvbuf, int recvcount, CommDataType recvtype,
-                   int root) final;
+                   int root, std::optional<unsigned int> streamID) final;
     void v_Gatherv(const void *sendbuf, int sendcount, CommDataType sendtype,
                    void *recvbuf, const int *recvcounts, const int *recvdispls,
                    CommDataType recvtype, int root) final;
@@ -194,8 +227,8 @@ protected:
     void v_NeighborAlltoAllv(const void *sendbuf, const int *sendcounts,
                              const int *senddispls, CommDataType sendtype,
                              void *recvbuf, const int *recvcounts,
-                             const int *recvdispls,
-                             CommDataType recvtype) final;
+                             const int *recvdispls, CommDataType recvtype,
+                             std::optional<unsigned int> streamID) final;
 
     void v_Irsend(const void *buf, int count, CommDataType dt, int dest,
                   CommRequestSharedPtr request, int loc) final;
@@ -215,6 +248,20 @@ protected:
     void v_SplitComm(int pRows, int pColumns, int pTime) override;
     CommSharedPtr v_CommCreateIf(int flag) final;
     std::pair<CommSharedPtr, CommSharedPtr> v_SplitCommNode() final;
+
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    void InitStreamComm();
+    void FreeStreamComm();
+
+private:
+    template <typename Command>
+    void RunOnStream(const unsigned int streamID, const Command &command);
+    template <typename Enqueue>
+    void EnqueueOnStream(const unsigned int streamID, const Enqueue &enqueue,
+                         const bool join = true);
+    void JoinCommDone(const unsigned int streamID);
+    void CreateStreamResources();
+#endif
 };
 } // namespace Nektar::LibUtilities
 

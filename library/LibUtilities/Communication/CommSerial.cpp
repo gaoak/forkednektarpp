@@ -119,7 +119,8 @@ NekDouble CommSerial::v_Wtime()
 void CommSerial::v_Send([[maybe_unused]] const void *buf,
                         [[maybe_unused]] int count,
                         [[maybe_unused]] CommDataType dt,
-                        [[maybe_unused]] int dest)
+                        [[maybe_unused]] int dest,
+                        [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
@@ -128,7 +129,8 @@ void CommSerial::v_Send([[maybe_unused]] const void *buf,
  */
 void CommSerial::v_Recv([[maybe_unused]] void *buf, [[maybe_unused]] int count,
                         [[maybe_unused]] CommDataType dt,
-                        [[maybe_unused]] int source)
+                        [[maybe_unused]] int source,
+                        [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
@@ -139,45 +141,48 @@ void CommSerial::v_SendRecv(
     [[maybe_unused]] const void *sendbuf, [[maybe_unused]] int sendcount,
     [[maybe_unused]] CommDataType sendtype, [[maybe_unused]] int dest,
     [[maybe_unused]] void *recvbuf, [[maybe_unused]] int recvcount,
-    [[maybe_unused]] CommDataType recvtype, [[maybe_unused]] int source)
+    [[maybe_unused]] CommDataType recvtype, [[maybe_unused]] int source,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
 /**
  *
  */
-void CommSerial::v_AllReduce([[maybe_unused]] void *buf,
-                             [[maybe_unused]] int count,
-                             [[maybe_unused]] CommDataType dt,
-                             [[maybe_unused]] enum ReduceOperator pOp)
+void CommSerial::v_AllReduce(
+    [[maybe_unused]] void *buf, [[maybe_unused]] int count,
+    [[maybe_unused]] CommDataType dt, [[maybe_unused]] enum ReduceOperator pOp,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
 /**
  *
  */
-void CommSerial::v_AllReduceBegin([[maybe_unused]] void *buf,
-                                  [[maybe_unused]] int count,
-                                  [[maybe_unused]] CommDataType dt,
-                                  [[maybe_unused]] enum ReduceOperator pOp,
-                                  [[maybe_unused]] CommRequestSharedPtr request)
+void CommSerial::v_AllReduceBegin(
+    [[maybe_unused]] void *buf, [[maybe_unused]] int count,
+    [[maybe_unused]] CommDataType dt, [[maybe_unused]] enum ReduceOperator pOp,
+    [[maybe_unused]] CommRequestSharedPtr request,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
 /**
  *
  */
-void CommSerial::v_AllReduceEnd([[maybe_unused]] CommRequestSharedPtr request)
+void CommSerial::v_AllReduceEnd(
+    [[maybe_unused]] CommRequestSharedPtr request,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
 /**
  *
  */
-void CommSerial::v_AlltoAll(const void *sendbuf, int sendcount,
-                            CommDataType sendtype, void *recvbuf,
-                            [[maybe_unused]] int recvcount,
-                            [[maybe_unused]] CommDataType recvtype)
+void CommSerial::v_AlltoAll(
+    const void *sendbuf, int sendcount, CommDataType sendtype, void *recvbuf,
+    [[maybe_unused]] int recvcount, [[maybe_unused]] CommDataType recvtype,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
     // Single process: the only block this rank sends is the one it sends to
     // itself, so the exchange degenerates to a copy. Mirrors MPI_Alltoall at
@@ -193,11 +198,12 @@ void CommSerial::v_AlltoAll(const void *sendbuf, int sendcount,
 /**
  *
  */
-void CommSerial::v_AlltoAllv(const void *sendbuf, const int *sendcounts,
-                             const int *senddispls, CommDataType sendtype,
-                             void *recvbuf,
-                             [[maybe_unused]] const int *recvcounts,
-                             const int *recvdispls, CommDataType recvtype)
+void CommSerial::v_AlltoAllv(
+    const void *sendbuf, const int *sendcounts, const int *senddispls,
+    CommDataType sendtype, void *recvbuf,
+    [[maybe_unused]] const int *recvcounts, const int *recvdispls,
+    CommDataType recvtype,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
     // Single process: as v_AlltoAll above, but honouring the displacements --
     // this rank's block for itself sits at senddispls[0] and belongs at
@@ -215,25 +221,24 @@ void CommSerial::v_AlltoAllv(const void *sendbuf, const int *sendcounts,
 /**
  *
  */
-void CommSerial::v_AllGather([[maybe_unused]] const void *sendbuf,
-                             [[maybe_unused]] int sendcount,
-                             [[maybe_unused]] CommDataType sendtype,
-                             [[maybe_unused]] void *recvbuf,
-                             [[maybe_unused]] int recvcount,
-                             [[maybe_unused]] CommDataType recvtype)
+void CommSerial::v_AllGather(
+    [[maybe_unused]] const void *sendbuf, [[maybe_unused]] int sendcount,
+    [[maybe_unused]] CommDataType sendtype, [[maybe_unused]] void *recvbuf,
+    [[maybe_unused]] int recvcount, [[maybe_unused]] CommDataType recvtype,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
 /**
  *
  */
-void CommSerial::v_AllGatherv([[maybe_unused]] const void *sendbuf,
-                              [[maybe_unused]] int sendcount,
-                              [[maybe_unused]] CommDataType sendtype,
-                              [[maybe_unused]] void *recvbuf,
-                              [[maybe_unused]] const int *recvcounts,
-                              [[maybe_unused]] const int *recvdispls,
-                              [[maybe_unused]] CommDataType recvtype)
+void CommSerial::v_AllGatherv(
+    [[maybe_unused]] const void *sendbuf, [[maybe_unused]] int sendcount,
+    [[maybe_unused]] CommDataType sendtype, [[maybe_unused]] void *recvbuf,
+    [[maybe_unused]] const int *recvcounts,
+    [[maybe_unused]] const int *recvdispls,
+    [[maybe_unused]] CommDataType recvtype,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
     // Single process: the gather result is just this rank's own send buffer,
     // placed at its displacement (recvdispls[0]). Mirrors MPI_Allgatherv,
@@ -247,10 +252,11 @@ void CommSerial::v_AllGatherv([[maybe_unused]] const void *sendbuf,
 /**
  *
  */
-void CommSerial::v_AllGatherv([[maybe_unused]] void *recvbuf,
-                              [[maybe_unused]] const int *recvcounts,
-                              [[maybe_unused]] const int *recvdispls,
-                              [[maybe_unused]] CommDataType recvtype)
+void CommSerial::v_AllGatherv(
+    [[maybe_unused]] void *recvbuf, [[maybe_unused]] const int *recvcounts,
+    [[maybe_unused]] const int *recvdispls,
+    [[maybe_unused]] CommDataType recvtype,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
@@ -260,7 +266,8 @@ void CommSerial::v_AllGatherv([[maybe_unused]] void *recvbuf,
 void CommSerial::v_Bcast([[maybe_unused]] void *buffer,
                          [[maybe_unused]] int count,
                          [[maybe_unused]] CommDataType dt,
-                         [[maybe_unused]] int root)
+                         [[maybe_unused]] int root,
+                         [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 
@@ -271,7 +278,8 @@ void CommSerial::v_Gather(const void *sendbuf, int sendcount,
                           CommDataType sendtype, void *recvbuf,
                           [[maybe_unused]] int recvcount,
                           [[maybe_unused]] CommDataType recvtype,
-                          [[maybe_unused]] int root)
+                          [[maybe_unused]] int root,
+                          [[maybe_unused]] std::optional<unsigned int> streamID)
 {
     std::memcpy(recvbuf, sendbuf, sendcount * CommDataTypeGetSize(sendtype));
 }
@@ -279,11 +287,11 @@ void CommSerial::v_Gather(const void *sendbuf, int sendcount,
 /**
  *
  */
-void CommSerial::v_Scatter(const void *sendbuf, int sendcount,
-                           CommDataType sendtype, void *recvbuf,
-                           [[maybe_unused]] int recvcount,
-                           [[maybe_unused]] CommDataType recvtype,
-                           [[maybe_unused]] int root)
+void CommSerial::v_Scatter(
+    const void *sendbuf, int sendcount, CommDataType sendtype, void *recvbuf,
+    [[maybe_unused]] int recvcount, [[maybe_unused]] CommDataType recvtype,
+    [[maybe_unused]] int root,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
     std::memcpy(recvbuf, sendbuf, sendcount * CommDataTypeGetSize(sendtype));
 }
@@ -318,14 +326,15 @@ CommSharedPtr CommSerial::v_DistGraphCreateAdjacent(
 /**
  *
  */
-void CommSerial::v_NeighborAlltoAllv([[maybe_unused]] const void *sendbuf,
-                                     [[maybe_unused]] const int *sendcounts,
-                                     [[maybe_unused]] const int *senddispls,
-                                     [[maybe_unused]] CommDataType sendtype,
-                                     [[maybe_unused]] void *recvbuf,
-                                     [[maybe_unused]] const int *recvcounts,
-                                     [[maybe_unused]] const int *recvdispls,
-                                     [[maybe_unused]] CommDataType recvtype)
+void CommSerial::v_NeighborAlltoAllv(
+    [[maybe_unused]] const void *sendbuf,
+    [[maybe_unused]] const int *sendcounts,
+    [[maybe_unused]] const int *senddispls,
+    [[maybe_unused]] CommDataType sendtype, [[maybe_unused]] void *recvbuf,
+    [[maybe_unused]] const int *recvcounts,
+    [[maybe_unused]] const int *recvdispls,
+    [[maybe_unused]] CommDataType recvtype,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }
 

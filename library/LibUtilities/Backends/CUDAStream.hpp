@@ -66,6 +66,18 @@ namespace Nektar
         }                                                                      \
     }
 
+// Stream and event API, named alike for CUDA and HIP.
+#define nekStream cudaStream_t
+#define nekEvent cudaEvent_t
+#define nekStreamCreateWithFlags cudaStreamCreateWithFlags
+#define nekStreamNonBlocking cudaStreamNonBlocking
+#define nekStreamDestroy cudaStreamDestroy
+#define nekStreamWaitEvent cudaStreamWaitEvent
+#define nekEventCreateWithFlags cudaEventCreateWithFlags
+#define nekEventDisableTiming cudaEventDisableTiming
+#define nekEventDestroy cudaEventDestroy
+#define nekEventRecord cudaEventRecord
+
 class CUDAStream
 {
 public:

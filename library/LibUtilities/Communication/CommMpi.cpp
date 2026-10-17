@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cstdlib>
+
 #ifdef NEKTAR_USING_PETSC
 #include "petscsys.h"
 #endif
@@ -46,6 +48,103 @@
 namespace Nektar::LibUtilities
 {
 
+/**
+ * Return the MPI operation of @p pOp.
+ */
+static MPI_Op GetMpiOp(enum ReduceOperator pOp)
+{
+    switch (pOp)
+    {
+        case ReduceMax:
+            return MPI_MAX;
+        case ReduceMin:
+            return MPI_MIN;
+        case ReduceSum:
+        default:
+            return MPI_SUM;
+    }
+}
+
+/**
+ * Return whether the MPI implementation is GPU-aware. The SYCL back-ends
+ * offloading to CUDA or HIP devices are detected as the native back-ends.
+ */
+static bool IsMpiGPUAware()
+{
+    bool gpuAware = false;
+
+#if (defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)) &&              \
+    defined(OMPI_HAVE_MPI_EXT_CUDA) && OMPI_HAVE_MPI_EXT_CUDA
+    // CUDA-aware OpenMPI/MVAPICH2
+    // https://docs.open-mpi.org/en/main/tuning-apps/networking/cuda.html
+    gpuAware = (bool)MPIX_Query_cuda_support();
+#elif (defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)) &&              \
+    defined(OMPI_HAVE_MPI_EXT_ROCM) && OMPI_HAVE_MPI_EXT_ROCM
+    // ROCM-aware OpenMPI
+    // https://docs.open-mpi.org/en/main/tuning-apps/networking/rocm.html
+    // https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-gpu-aware-mpi-readme/
+    gpuAware = (bool)MPIX_Query_rocm_support();
+#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||             \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    // CUDA/ROCM-aware CRAY MPICH
+    // https://docs.nersc.gov/development/programming-models/mpi/cray-mpich/
+    // Note: Environment variable must bet set as follow:
+    //       export MPICH_GPU_SUPPORT_ENABLED=1
+    // Note: It is the user responsibilities to compile Nektar++ with Cray MPICH
+    // when using the MPICH_GPU_SUPPORT_ENABLED option.
+    gpuAware = (bool)std::getenv("MPICH_GPU_SUPPORT_ENABLED");
+#elif defined(SYCL_ENABLE_INTEL)
+    // GPU-aware Intel MPI
+    // https://www.intel.com/content/www/us/en/docs/mpi-library/developer-guide-linux/current/gpu-support.html
+    // Note: Environment variable must be set as follow:
+    //       export I_MPI_OFFLOAD=1
+    gpuAware = (bool)std::getenv("I_MPI_OFFLOAD");
+#endif
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(NEKTAR_ENABLE_SYCL)
+    // Can't automatically determine if MPI is GPU aware or not. Manually set
+    // GPU-aware flag. Note: Environment variable must bet set as follow:
+    //       export MPI_GPU_AWARE=1
+    // Note: It is the user responsibilities to compile Nektar++ with GPU-aware
+    // implementation when using the MPI_GPU_AWARE option.
+    gpuAware = gpuAware || (bool)std::getenv("MPI_GPU_AWARE");
+#endif
+
+    return gpuAware;
+}
+
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+/**
+ * Return the node-local rank the MPI launcher sets in the environment, or -1
+ * when it sets none.
+ */
+static int GetLauncherLocalRank()
+{
+    static const char *const names[] = {
+        "MPI_LOCALRANKID",            // MPICH (Hydra)
+        "OMPI_COMM_WORLD_LOCAL_RANK", // Open MPI
+        "MV2_COMM_WORLD_LOCAL_RANK",  // MVAPICH2
+        "PALS_LOCAL_RANKID",          // Cray PALS
+        "SLURM_LOCALID"};             // Slurm srun
+
+    for (const char *name : names)
+    {
+        if (const char *value = std::getenv(name))
+        {
+            char *end;
+            const long rank = std::strtol(value, &end, 10);
+            if (end != value && *end == '\0' && rank >= 0)
+            {
+                return static_cast<int>(rank);
+            }
+        }
+    }
+
+    return -1;
+}
+#endif
+
 std::string CommMpi::className = GetCommFactory().RegisterCreatorFunction(
     "ParallelMPI", CommMpi::create, "Parallel communication using MPI.");
 
@@ -59,6 +158,20 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
 
     if (!init)
     {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        // Bind local MPI rank to GPU. Skipped entirely when no device is
+        // visible to this process, as is the case for a build with device
+        // support enabled running on a machine without a GPU. A GPU-aware MPI
+        // sets up its device support on the current device in MPI_Init, so
+        // the binding comes first wherever the launcher gives the local rank.
+        const auto num_device   = nekGetNumDevice();
+        const int launcher_rank = num_device > 0 ? GetLauncherLocalRank() : -1;
+        if (launcher_rank >= 0)
+        {
+            nekSetDevice(launcher_rank % num_device);
+        }
+#endif
+
         int thread_support = 0;
         if (MPI_Init_thread(&narg, &arg, MPI_THREAD_MULTIPLE,
                             &thread_support) != MPI_SUCCESS)
@@ -74,11 +187,8 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
         m_controls_mpi = true;
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
-        // Bind local MPI rank to GPU. Skipped entirely when no device is
-        // visible to this process, as is the case for a build with device
-        // support enabled running on a machine without a GPU.
-        auto num_device = nekGetNumDevice();
-        if (num_device > 0)
+        // Otherwise bind it from its rank on the node, once MPI is up.
+        if (num_device > 0 && launcher_rank < 0)
         {
             MPI_Comm local_comm;
             int local_rank, local_size;
@@ -118,36 +228,17 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
 
     m_type = "Parallel MPI";
 
-// GPU-aware MPI
-#if defined(NEKTAR_ENABLE_CUDA) && defined(OMPI_HAVE_MPI_EXT_CUDA) &&          \
-    OMPI_HAVE_MPI_EXT_CUDA
-    // CUDA-aware OpenMPI/MVAPICH2
-    // https://docs.open-mpi.org/en/main/tuning-apps/networking/cuda.html
-    m_gpu_aware = (bool)MPIX_Query_cuda_support();
-#elif defined(NEKTAR_ENABLE_ROCM) && defined(OMPI_HAVE_MPI_EXT_ROCM) &&        \
-    OMPI_HAVE_MPI_EXT_ROCM
-    // ROCM-aware OpenMPI
-    // https://docs.open-mpi.org/en/main/tuning-apps/networking/rocm.html
-    // https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-gpu-aware-mpi-readme/
-    m_gpu_aware = (bool)MPIX_Query_rocm_support();
-#elif defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)
-    // CUDA/ROCM-aware CRAY MPICH
-    // https://docs.nersc.gov/development/programming-models/mpi/cray-mpich/
-    // Note: Environment variable must bet set as follow:
-    //       export MPICH_GPU_SUPPORT_ENABLED=1
-    // Note: It is the user responsibilities to compile Nektar++ with Cray MPICH
-    // when using the MPICH_GPU_SUPPORT_ENABLED option.
-    m_gpu_aware = (bool)std::getenv("MPICH_GPU_SUPPORT_ENABLED");
-#endif
+    m_gpu_aware = IsMpiGPUAware();
 
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL)
-    // Can't automatically determine if MPI is GPU aware or not. Manually set
-    // GPU-aware flag. Note: Environment variable must bet set as follow:
-    //       export MPI_GPU_AWARE=1
-    // Note: It is the user responsibilities to compile Nektar++ with GPU-aware
-    // implementation when using the MPI_GPU_AWARE option.
-    m_gpu_aware = m_gpu_aware || (bool)std::getenv("MPI_GPU_AWARE");
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    // Device communication is enqueued on a stream whenever a device is
+    // visible. An MPI enqueuing on device streams is built with device
+    // support, so is GPU-aware.
+    if (nekGetNumDevice() > 0)
+    {
+        m_gpu_aware = true;
+        InitStreamComm();
+    }
 #endif
 }
 
@@ -161,6 +252,19 @@ CommMpi::CommMpi(MPI_Comm pComm) : Comm()
     MPI_Comm_rank(m_comm, &m_rank);
 
     m_type = "Parallel MPI";
+
+    m_gpu_aware = IsMpiGPUAware();
+
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    // Device communication is enqueued on a stream whenever a device is
+    // visible. An MPI enqueuing on device streams is built with device
+    // support, so is GPU-aware.
+    if (nekGetNumDevice() > 0)
+    {
+        m_gpu_aware = true;
+        InitStreamComm();
+    }
+#endif
 }
 
 /**
@@ -168,6 +272,10 @@ CommMpi::CommMpi(MPI_Comm pComm) : Comm()
  */
 CommMpi::~CommMpi()
 {
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    FreeStreamComm();
+#endif
+
     int flag;
     MPI_Finalized(&flag);
     if (!flag && m_comm != MPI_COMM_WORLD)
@@ -192,6 +300,10 @@ void CommMpi::v_Finalise()
 #ifdef NEKTAR_USING_PETSC
     PetscFinalize();
 #endif
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    FreeStreamComm();
+#endif
+
     int flag;
     MPI_Finalized(&flag);
     if ((!flag) && m_controls_mpi)
@@ -253,11 +365,107 @@ double CommMpi::v_Wtime()
     return MPI_Wtime();
 }
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
+#if defined(NEKTAR_ENABLE_SYCL) && defined(__DPCPP_COMPILER) &&                \
+    !defined(SYCL_EXT_ONEAPI_ENQUEUE_NATIVE_COMMAND)
+#error "NEKTAR_USE_MPIX_STREAM with DPC++ requires the \
+sycl_ext_oneapi_enqueue_native_command extension."
+#endif
+
 /**
- *
+ * Run @p command with the native stream the work on @p streamID is queued
+ * on. Under SYCL, that is the stream behind the queue, reached from a native
+ * command submitted to it, which the runtime may run on a thread of its own.
  */
-void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest)
+template <typename Command>
+void CommMpi::RunOnStream(const unsigned int streamID, const Command &command)
 {
+#if defined(NEKTAR_ENABLE_CUDA)
+    command(CUDAStream::GetInstance(streamID));
+#elif defined(NEKTAR_ENABLE_HIP)
+    command(HIPStream::GetInstance(streamID));
+#elif defined(NEKTAR_ENABLE_SYCL)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        auto native = [command](sycl::interop_handle ih) {
+            command(
+                static_cast<nekStream>(ih.get_native_queue<sycl_backend>()));
+        };
+#if defined(__ADAPTIVECPP__)
+        cgh.AdaptiveCpp_enqueue_custom_operation(native);
+#elif defined(__DPCPP_COMPILER)
+        cgh.ext_oneapi_enqueue_native_command(native);
+#endif
+    });
+    SYCLQueue::SetEvent(streamID, e);
+#endif
+}
+
+/**
+ * Enqueue the communication @p enqueue on #m_commStream, ordered after the
+ * work queued so far on @p streamID. With @p join, the work queued next on
+ * @p streamID is ordered after the communication; otherwise JoinCommDone()
+ * orders it.
+ */
+template <typename Enqueue>
+void CommMpi::EnqueueOnStream(const unsigned int streamID,
+                              const Enqueue &enqueue, const bool join)
+{
+    RunOnStream(streamID, [this, enqueue, join](nekStream stream) {
+        std::lock_guard<std::mutex> lock(m_enqueueMutex);
+
+        CHECK_HIPCUDA_ERROR(nekEventRecord(m_readyEvent, stream));
+        CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(m_commStream, m_readyEvent));
+
+        enqueue();
+
+        CHECK_HIPCUDA_ERROR(nekEventRecord(m_doneEvent, m_commStream));
+        if (join)
+        {
+            CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(stream, m_doneEvent));
+        }
+    });
+}
+
+/**
+ * Order the work queued next on @p streamID after the communication last
+ * enqueued on #m_commStream.
+ */
+void CommMpi::JoinCommDone(const unsigned int streamID)
+{
+    RunOnStream(streamID, [this](nekStream stream) {
+        std::lock_guard<std::mutex> lock(m_enqueueMutex);
+
+        CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(stream, m_doneEvent));
+    });
+}
+#endif
+
+/**
+ * Device data is ordered on @p streamID: with MPIX streams the send is
+ * enqueued on #m_commStream, without blocking the host; otherwise
+ * @p streamID is synchronised first.
+ */
+void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
+                     std::optional<unsigned int> streamID)
+{
+    if (streamID)
+    {
+#if defined(NEKTAR_USE_MPIX_STREAM)
+        EnqueueOnStream(*streamID, [this, buf, count, dt, dest]() {
+            int retval =
+                MPIX_Send_enqueue(buf, count, dt, dest, 0, m_streamComm);
+
+            ASSERTL0(retval == MPI_SUCCESS,
+                     "MPI error performing stream-ordered send.");
+        });
+        return;
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     if (MPISYNC)
     {
         MPI_Ssend(buf, count, dt, dest, 0, m_comm);
@@ -269,20 +477,72 @@ void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest)
 }
 
 /**
- *
+ * Device data is ordered on @p streamID: with MPIX streams the receive is
+ * enqueued on #m_commStream, without blocking the host; otherwise
+ * @p streamID is synchronised first.
  */
-void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source)
+void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
+                     std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_USE_MPIX_STREAM)
+        EnqueueOnStream(*streamID, [this, buf, count, dt, source]() {
+            int retval = MPIX_Recv_enqueue(buf, count, dt, source, 0,
+                                           m_streamComm, MPI_STATUS_IGNORE);
+
+            ASSERTL0(retval == MPI_SUCCESS,
+                     "MPI error performing stream-ordered receive.");
+        });
+        return;
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     MPI_Recv(buf, count, dt, source, 0, m_comm, MPI_STATUS_IGNORE);
 }
 
 /**
- *
+ * Device data is ordered on @p streamID: with MPIX streams the send and
+ * receive are enqueued on #m_commStream and completed by one wait, without
+ * blocking the host; otherwise @p streamID is synchronised first.
  */
 void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
                          CommDataType sendtype, int dest, void *recvbuf,
-                         int recvcount, CommDataType recvtype, int source)
+                         int recvcount, CommDataType recvtype, int source,
+                         std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_USE_MPIX_STREAM)
+        EnqueueOnStream(*streamID, [this, sendbuf, sendcount, sendtype, dest,
+                                    recvbuf, recvcount, recvtype, source]() {
+            MPI_Request request[2];
+            int retval =
+                MPIX_Irecv_enqueue(recvbuf, recvcount, recvtype, source, 0,
+                                   m_streamComm, &request[0]);
+            ASSERTL0(retval == MPI_SUCCESS, "MPI error performing "
+                                            "stream-ordered send-receive of "
+                                            "data.");
+
+            retval = MPIX_Isend_enqueue(sendbuf, sendcount, sendtype, dest, 0,
+                                        m_streamComm, &request[1]);
+            ASSERTL0(retval == MPI_SUCCESS, "MPI error performing "
+                                            "stream-ordered send-receive of "
+                                            "data.");
+
+            retval = MPIX_Waitall_enqueue(2, request, MPI_STATUSES_IGNORE);
+            ASSERTL0(retval == MPI_SUCCESS, "MPI error performing "
+                                            "stream-ordered send-receive of "
+                                            "data.");
+        });
+        return;
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     MPI_Status status;
     int retval = MPI_Sendrecv(sendbuf, sendcount, sendtype, dest, 0, recvbuf,
                               recvcount, recvtype, source, 0, m_comm, &status);
@@ -292,61 +552,78 @@ void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
 }
 
 /**
- *
+ * Device data is ordered on @p streamID: with MPIX streams the all-reduce is
+ * enqueued on #m_commStream, without blocking the host; otherwise
+ * @p streamID is synchronised first.
  */
 void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
-                          enum ReduceOperator pOp)
+                          enum ReduceOperator pOp,
+                          std::optional<unsigned int> streamID)
 {
     if (GetSize() == 1)
     {
         return;
     }
 
-    MPI_Op vOp;
-    switch (pOp)
+    MPI_Op vOp = GetMpiOp(pOp);
+
+    if (streamID)
     {
-        case ReduceMax:
-            vOp = MPI_MAX;
-            break;
-        case ReduceMin:
-            vOp = MPI_MIN;
-            break;
-        case ReduceSum:
-        default:
-            vOp = MPI_SUM;
-            break;
+#if defined(NEKTAR_USE_MPIX_STREAM)
+        EnqueueOnStream(*streamID, [this, buf, count, dt, vOp]() {
+            int retval = MPIX_Allreduce_enqueue(MPI_IN_PLACE, buf, count, dt,
+                                                vOp, m_streamComm);
+
+            ASSERTL0(retval == MPI_SUCCESS,
+                     "MPI error performing stream-ordered All-reduce.");
+        });
+        return;
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
     }
+
     int retval = MPI_Allreduce(MPI_IN_PLACE, buf, count, dt, vOp, m_comm);
 
     ASSERTL0(retval == MPI_SUCCESS, "MPI error performing All-reduce.");
 }
 
 /**
- *
+ * Device data is ordered on @p streamID: with MPIX streams the all-reduce is
+ * enqueued on #m_commStream and neither the host nor @p streamID blocks
+ * until v_AllReduceEnd(); otherwise @p streamID is synchronised first.
  */
 void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
                                enum ReduceOperator pOp,
-                               CommRequestSharedPtr request)
+                               CommRequestSharedPtr request,
+                               std::optional<unsigned int> streamID)
 {
     if (GetSize() == 1)
     {
         return;
     }
 
-    MPI_Op vOp;
-    switch (pOp)
+    MPI_Op vOp = GetMpiOp(pOp);
+
+    if (streamID)
     {
-        case ReduceMax:
-            vOp = MPI_MAX;
-            break;
-        case ReduceMin:
-            vOp = MPI_MIN;
-            break;
-        case ReduceSum:
-        default:
-            vOp = MPI_SUM;
-            break;
+#if defined(NEKTAR_USE_MPIX_STREAM)
+        EnqueueOnStream(
+            *streamID,
+            [this, buf, count, dt, vOp]() {
+                int retval = MPIX_Allreduce_enqueue(MPI_IN_PLACE, buf, count,
+                                                    dt, vOp, m_streamComm);
+
+                ASSERTL0(retval == MPI_SUCCESS,
+                         "MPI error performing stream-ordered All-reduce.");
+            },
+            false);
+        return;
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
     }
+
     CommRequestMpiSharedPtr req =
         std::static_pointer_cast<CommRequestMpi>(request);
     int retval = MPI_Iallreduce(MPI_IN_PLACE, buf, count, dt, vOp, m_comm,
@@ -356,13 +633,23 @@ void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
 }
 
 /**
- *
+ * With MPIX streams, the work queued next on @p streamID is ordered after
+ * the all-reduce, without blocking the host.
  */
-void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request)
+void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request,
+                             std::optional<unsigned int> streamID)
 {
     if (GetSize() == 1)
     {
         return;
+    }
+
+    if (streamID)
+    {
+#if defined(NEKTAR_USE_MPIX_STREAM)
+        JoinCommDone(*streamID);
+        return;
+#endif
     }
 
     CommRequestMpiSharedPtr req =
@@ -373,13 +660,120 @@ void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request)
     }
 }
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
+/**
+ * Create #m_commStream, non-blocking so that it does not synchronise with
+ * the default stream, and the events that order it.
+ */
+void CommMpi::CreateStreamResources()
+{
+    CHECK_HIPCUDA_ERROR(
+        nekStreamCreateWithFlags(&m_commStream, nekStreamNonBlocking));
+    CHECK_HIPCUDA_ERROR(
+        nekEventCreateWithFlags(&m_readyEvent, nekEventDisableTiming));
+    CHECK_HIPCUDA_ERROR(
+        nekEventCreateWithFlags(&m_doneEvent, nekEventDisableTiming));
+}
+
+/**
+ * Create #m_commStream and the stream communicator bound to it. Collective
+ * over #m_comm, so it is called on construction: point-to-point calls could
+ * not create it.
+ */
+void CommMpi::InitStreamComm()
+{
+    // Under SYCL, created in a native command so that it shares the device
+    // and context of the queues.
+    RunOnStream(0, [this](nekStream) { CreateStreamResources(); });
+#if defined(NEKTAR_ENABLE_SYCL)
+    SYCLQueue::GetInstance(0).wait();
+#endif
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+    const char *streamType = "cudaStream_t";
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
+    const char *streamType = "hipStream_t";
+#endif
+
+    MPI_Info info;
+    MPI_Info_create(&info);
+    MPI_Info_set(info, "type", streamType);
+    MPIX_Info_set_hex(info, "value", &m_commStream, sizeof(m_commStream));
+    int retval = MPIX_Stream_create(info, &m_mpixStream);
+    MPI_Info_free(&info);
+
+    ASSERTL0(retval == MPI_SUCCESS, "MPI error creating MPIX stream.");
+
+    retval = MPIX_Stream_comm_create(m_comm, m_mpixStream, &m_streamComm);
+
+    ASSERTL0(retval == MPI_SUCCESS,
+             "MPI error creating MPIX stream communicator.");
+}
+
+/**
+ * Free the stream communicator and the device resources behind it. The MPI
+ * objects are left to MPI_Finalize() once it has run.
+ */
+void CommMpi::FreeStreamComm()
+{
+#if defined(NEKTAR_ENABLE_SYCL)
+    // Native commands still queued may use the resources freed below.
+    if (m_commStream != nullptr)
+    {
+        nekDeviceSynchronize();
+    }
+#endif
+
+    int flag;
+    MPI_Finalized(&flag);
+    if (!flag)
+    {
+        if (m_streamComm != MPI_COMM_NULL)
+        {
+            MPI_Comm_free(&m_streamComm);
+        }
+        if (m_mpixStream != MPIX_STREAM_NULL)
+        {
+            MPIX_Stream_free(&m_mpixStream);
+        }
+    }
+    m_streamComm = MPI_COMM_NULL;
+    m_mpixStream = MPIX_STREAM_NULL;
+
+    // Errors are ignored: this may run after the device runtime has unloaded.
+    if (m_doneEvent != nullptr)
+    {
+        (void)nekEventDestroy(m_doneEvent);
+    }
+    if (m_readyEvent != nullptr)
+    {
+        (void)nekEventDestroy(m_readyEvent);
+    }
+    if (m_commStream != nullptr)
+    {
+        (void)nekStreamDestroy(m_commStream);
+    }
+    m_doneEvent  = nullptr;
+    m_readyEvent = nullptr;
+    m_commStream = nullptr;
+}
+#endif
+
 /**
  *
  */
 void CommMpi::v_AlltoAll(const void *sendbuf, int sendcount,
                          CommDataType sendtype, void *recvbuf, int recvcount,
-                         CommDataType recvtype)
+                         CommDataType recvtype,
+                         std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Alltoall(sendbuf, sendcount, sendtype, recvbuf, recvcount,
                               recvtype, m_comm);
 
@@ -392,8 +786,16 @@ void CommMpi::v_AlltoAll(const void *sendbuf, int sendcount,
 void CommMpi::v_AlltoAllv(const void *sendbuf, const int *sendcounts,
                           const int *senddispls, CommDataType sendtype,
                           void *recvbuf, const int *recvcounts,
-                          const int *recvdispls, CommDataType recvtype)
+                          const int *recvdispls, CommDataType recvtype,
+                          std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval =
         MPI_Alltoallv(sendbuf, sendcounts, senddispls, sendtype, recvbuf,
                       recvcounts, recvdispls, recvtype, m_comm);
@@ -406,8 +808,16 @@ void CommMpi::v_AlltoAllv(const void *sendbuf, const int *sendcounts,
  */
 void CommMpi::v_AllGather(const void *sendbuf, int sendcount,
                           CommDataType sendtype, void *recvbuf, int recvcount,
-                          CommDataType recvtype)
+                          CommDataType recvtype,
+                          std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Allgather(sendbuf, sendcount, sendtype, recvbuf, recvcount,
                                recvtype, m_comm);
 
@@ -420,8 +830,16 @@ void CommMpi::v_AllGather(const void *sendbuf, int sendcount,
 void CommMpi::v_AllGatherv(const void *sendbuf, int sendcount,
                            CommDataType sendtype, void *recvbuf,
                            const int *recvcounts, const int *recvdispls,
-                           CommDataType recvtype)
+                           CommDataType recvtype,
+                           std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Allgatherv(sendbuf, sendcount, sendtype, recvbuf,
                                 recvcounts, recvdispls, recvtype, m_comm);
 
@@ -432,8 +850,16 @@ void CommMpi::v_AllGatherv(const void *sendbuf, int sendcount,
  *
  */
 void CommMpi::v_AllGatherv(void *recvbuf, const int *recvcounts,
-                           const int *recvdispls, CommDataType recvtype)
+                           const int *recvdispls, CommDataType recvtype,
+                           std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, recvbuf,
                                 recvcounts, recvdispls, recvtype, m_comm);
 
@@ -443,8 +869,16 @@ void CommMpi::v_AllGatherv(void *recvbuf, const int *recvcounts,
 /**
  *
  */
-void CommMpi::v_Bcast(void *buffer, int count, CommDataType dt, int root)
+void CommMpi::v_Bcast(void *buffer, int count, CommDataType dt, int root,
+                      std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Bcast(buffer, count, dt, root, m_comm);
 
     ASSERTL0(retval == MPI_SUCCESS, "MPI error performing Bcast-v.");
@@ -455,8 +889,16 @@ void CommMpi::v_Bcast(void *buffer, int count, CommDataType dt, int root)
  */
 void CommMpi::v_Gather(const void *sendbuf, int sendcount,
                        CommDataType sendtype, void *recvbuf, int recvcount,
-                       CommDataType recvtype, int root)
+                       CommDataType recvtype, int root,
+                       std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Gather(sendbuf, sendcount, sendtype, recvbuf, recvcount,
                             recvtype, root, m_comm);
 
@@ -468,8 +910,16 @@ void CommMpi::v_Gather(const void *sendbuf, int sendcount,
  */
 void CommMpi::v_Scatter(const void *sendbuf, int sendcount,
                         CommDataType sendtype, void *recvbuf, int recvcount,
-                        CommDataType recvtype, int root)
+                        CommDataType recvtype, int root,
+                        std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
     int retval = MPI_Scatter(sendbuf, sendcount, sendtype, recvbuf, recvcount,
                              recvtype, root, m_comm);
 
@@ -525,8 +975,16 @@ void CommMpi::v_NeighborAlltoAllv([[maybe_unused]] const void *sendbuf,
                                   [[maybe_unused]] void *recvbuf,
                                   [[maybe_unused]] const int *recvcounts,
                                   [[maybe_unused]] const int *recvdispls,
-                                  [[maybe_unused]] CommDataType recvtype)
+                                  [[maybe_unused]] CommDataType recvtype,
+                                  std::optional<unsigned int> streamID)
 {
+    if (streamID)
+    {
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
 #if MPI_VERSION < 3
     ASSERTL0(false, "MPI_Neighbor_alltoallv is not supported in your "
                     "installed MPI version.");
