@@ -40,7 +40,7 @@
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <SolverUtils/RiemannSolvers/UpwindSolver.h>
 
-#include "UnitTests/Operators/TestOp.hpp"
+#include "UnitTests/MultiRegions/TestOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

@@ -40,7 +40,7 @@
 #include <SolverUtils/Diffusion/Diffusion.h>
 #include <SolverUtils/Diffusion/DiffusionIP.h>
 
-#include "UnitTests/Operators/TestOp.hpp"
+#include "UnitTests/MultiRegions/TestOp.hpp"
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;

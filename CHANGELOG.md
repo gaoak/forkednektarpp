@@ -166,6 +166,7 @@ v5.11.0
 - Allow ahead-of-time compilation for AdaptiveCpp SYCL-HIP and build oneMath for the same AdaptiveCpp target as Nektar++ (!2824)
 - Fix OutputVTK compulication error cout without std (!2846)
 - Fix minor improvement for HDF5 reading mesh in parallel not reading all faces (!2788) 
+- Move remaining Operators unit tests to MultiRegions (!2851)
 
 v5.10.0
 -------

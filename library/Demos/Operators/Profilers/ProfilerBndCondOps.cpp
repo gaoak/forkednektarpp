@@ -68,7 +68,7 @@
  *      defines Dirichlet and/or Neumann boundary conditions (with non-zero
  *      expressions) on the session variable(s) so the operators being
  *      profiled actually have boundary coefficients to process. The
- *      Helmholtz test meshes under library/UnitTests/Operators/run (e.g.
+ *      Helmholtz test meshes under library/UnitTests/run (e.g.
  *      Helmholtz3D_Hex_AllBCs_P6.xml) are good starting points.
  *
  *  3.  Run the profiler executable with the mesh file and other parameters.
