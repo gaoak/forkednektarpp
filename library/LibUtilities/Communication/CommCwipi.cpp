@@ -69,6 +69,15 @@ CommCwipi::CommCwipi(int narg, char *arg[]) : CommMpi(narg, arg)
     MPI_Comm_size(m_comm, &m_size);
     MPI_Comm_rank(m_comm, &m_rank);
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
+    // Rebind the stream communicator to the CWIPI-local communicator.
+    FreeStreamComm();
+    if (nekGetNumDevice() > 0)
+    {
+        InitStreamComm();
+    }
+#endif
+
 #ifdef NEKTAR_USING_PETSC
     PETSC_COMM_WORLD = m_comm;
     PetscInitializeNoArguments();

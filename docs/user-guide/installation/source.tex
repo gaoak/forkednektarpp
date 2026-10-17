@@ -695,6 +695,22 @@ can be selected using the following options:
     Build \nekpp with MPI parallelisation. This allows solvers to be run in
     serial or parallel.
 
+    \item \inlsh{NEKTAR\_USE\_MPIX\_STREAM} (Requires \inlsh{NEKTAR\_USE\_MPI}
+    and \inlsh{NEKTAR\_ENABLE\_DEVICE} set to \inlsh{CUDA}, \inlsh{HIP},
+    \inlsh{SYCL-CUDA} or \inlsh{SYCL-HIP})
+
+    Enqueue communication of device data on device streams using the
+    \inlsh{MPIX\_Stream} extension of MPICH, so that it is ordered against the
+    device work without synchronising the host. This requires an MPICH
+    (version 4.1 or later) built with CUDA or HIP support; configuration fails
+    if \inlsh{MPIX\_Allreduce\_enqueue} is not available. When a device is
+    visible, MPI is treated as GPU-aware and the \inlsh{MPI\_GPU\_AWARE}
+    environment variable is not needed. With the SYCL back-ends, the
+    communication is ordered on the CUDA or HIP stream behind each queue,
+    which DPC++ reaches through the
+    \inlsh{sycl\_ext\_oneapi\_enqueue\_native\_command} extension. This is
+    an advanced option and is disabled by default.
+
     \item \inlsh{NEKTAR\_USE\_PETSC}
 
     Build \nekpp with support for the PETSc package for solving linear systems. 

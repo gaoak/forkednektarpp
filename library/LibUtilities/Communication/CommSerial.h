@@ -73,56 +73,61 @@ protected:
     LIB_UTILITIES_EXPORT void v_Block() final;
     LIB_UTILITIES_EXPORT NekDouble v_Wtime() final;
 
-    LIB_UTILITIES_EXPORT void v_Send(const void *buf, int count,
-                                     CommDataType dt, int dest) final;
-    LIB_UTILITIES_EXPORT void v_Recv(void *buf, int count, CommDataType dt,
-                                     int source) final;
-    LIB_UTILITIES_EXPORT void v_SendRecv(const void *sendbuf, int sendcount,
-                                         CommDataType sendtype, int dest,
-                                         void *recvbuf, int recvcount,
-                                         CommDataType recvtype,
-                                         int source) final;
+    LIB_UTILITIES_EXPORT void v_Send(
+        const void *buf, int count, CommDataType dt, int dest,
+        std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_Recv(
+        void *buf, int count, CommDataType dt, int source,
+        std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_SendRecv(
+        const void *sendbuf, int sendcount, CommDataType sendtype, int dest,
+        void *recvbuf, int recvcount, CommDataType recvtype, int source,
+        std::optional<unsigned int> streamID) final;
 
-    LIB_UTILITIES_EXPORT void v_AllReduce(void *buf, int count, CommDataType dt,
-                                          enum ReduceOperator pOp) final;
+    LIB_UTILITIES_EXPORT void v_AllReduce(
+        void *buf, int count, CommDataType dt, enum ReduceOperator pOp,
+        std::optional<unsigned int> streamID) final;
     LIB_UTILITIES_EXPORT void v_AllReduceBegin(
         void *buf, int count, CommDataType dt, enum ReduceOperator pOp,
-        CommRequestSharedPtr request) final;
+        CommRequestSharedPtr request,
+        std::optional<unsigned int> streamID) final;
     LIB_UTILITIES_EXPORT void v_AllReduceEnd(
-        CommRequestSharedPtr request) final;
+        CommRequestSharedPtr request,
+        std::optional<unsigned int> streamID) final;
 
-    LIB_UTILITIES_EXPORT void v_AlltoAll(const void *sendbuf, int sendcount,
-                                         CommDataType sendtype, void *recvbuf,
-                                         int recvcount,
-                                         CommDataType recvtype) final;
+    LIB_UTILITIES_EXPORT void v_AlltoAll(
+        const void *sendbuf, int sendcount, CommDataType sendtype,
+        void *recvbuf, int recvcount, CommDataType recvtype,
+        std::optional<unsigned int> streamID) final;
     LIB_UTILITIES_EXPORT void v_AlltoAllv(
         const void *sendbuf, const int *sendcounts, const int *senddispls,
         CommDataType sendtype, void *recvbuf, const int *recvcounts,
-        const int *recvdispls, CommDataType recvtype) final;
+        const int *recvdispls, CommDataType recvtype,
+        std::optional<unsigned int> streamID) final;
 
-    LIB_UTILITIES_EXPORT void v_AllGather(const void *sendbuf, int sendcount,
-                                          CommDataType sendtype, void *recvbuf,
-                                          int recvcount,
-                                          CommDataType recvtype) final;
-    LIB_UTILITIES_EXPORT void v_AllGatherv(const void *sendbuf, int sendcount,
-                                           CommDataType sendtype, void *recvbuf,
-                                           const int *recvcounts,
-                                           const int *recvdispls,
-                                           CommDataType recvtype) final;
-    LIB_UTILITIES_EXPORT void v_AllGatherv(void *recvbuf, const int *recvcounts,
-                                           const int *recvdispls,
-                                           CommDataType recvtype) final;
+    LIB_UTILITIES_EXPORT void v_AllGather(
+        const void *sendbuf, int sendcount, CommDataType sendtype,
+        void *recvbuf, int recvcount, CommDataType recvtype,
+        std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_AllGatherv(
+        const void *sendbuf, int sendcount, CommDataType sendtype,
+        void *recvbuf, const int *recvcounts, const int *recvdispls,
+        CommDataType recvtype, std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_AllGatherv(
+        void *recvbuf, const int *recvcounts, const int *recvdispls,
+        CommDataType recvtype, std::optional<unsigned int> streamID) final;
 
-    LIB_UTILITIES_EXPORT void v_Bcast(void *buffer, int count, CommDataType dt,
-                                      int root) final;
-    LIB_UTILITIES_EXPORT void v_Gather(const void *sendbuf, int sendcount,
-                                       CommDataType sendtype, void *recvbuf,
-                                       int recvcount, CommDataType recvtype,
-                                       int root) final;
-    LIB_UTILITIES_EXPORT void v_Scatter(const void *sendbuf, int sendcount,
-                                        CommDataType sendtype, void *recvbuf,
-                                        int recvcount, CommDataType recvtype,
-                                        int root) final;
+    LIB_UTILITIES_EXPORT void v_Bcast(
+        void *buffer, int count, CommDataType dt, int root,
+        std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_Gather(
+        const void *sendbuf, int sendcount, CommDataType sendtype,
+        void *recvbuf, int recvcount, CommDataType recvtype, int root,
+        std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_Scatter(
+        const void *sendbuf, int sendcount, CommDataType sendtype,
+        void *recvbuf, int recvcount, CommDataType recvtype, int root,
+        std::optional<unsigned int> streamID) final;
     LIB_UTILITIES_EXPORT void v_Gatherv(const void *sendbuf, int sendcount,
                                         CommDataType sendtype, void *recvbuf,
                                         const int *recvcounts,
@@ -135,7 +140,8 @@ protected:
     LIB_UTILITIES_EXPORT void v_NeighborAlltoAllv(
         const void *sendbuf, const int *sendcounts, const int *senddispls,
         CommDataType sendtype, void *recvbuf, const int *recvcounts,
-        const int *recvdispls, CommDataType recvtype) final;
+        const int *recvdispls, CommDataType recvtype,
+        std::optional<unsigned int> streamID) final;
 
     LIB_UTILITIES_EXPORT void v_Irsend(const void *buf, int count,
                                        CommDataType dt, int dest,

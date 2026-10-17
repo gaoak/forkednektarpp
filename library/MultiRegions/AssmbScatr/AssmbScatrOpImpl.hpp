@@ -197,7 +197,7 @@ protected:
         NektarSpaces::vector_width<ExecSpace, TData>::value;
     /// Stream all of the operator's work runs on, the first block's.
     /// v_Apply() orders it against the block streams with events.
-    unsigned int m_streamID = 1;
+    unsigned int m_opStreamID = 1;
     /// Stream of each block of the field, which produces and consumes it.
     std::vector<unsigned int> m_blockStreams;
     /// Number of local contributions (valence) per interior DOF.
@@ -365,32 +365,32 @@ protected:
                 m_rowComm->IsGPUAware())
             {
                 m_send_buffer.template Initialize<NektarSpaces::DeviceSpace>(
-                    0.0, 0, 0, m_streamID);
+                    0.0, 0, 0, m_opStreamID);
                 m_recv_buffer.template Initialize<NektarSpaces::DeviceSpace>(
-                    0.0, 0, 0, m_streamID);
+                    0.0, 0, 0, m_opStreamID);
                 send_buffer_ptr =
                     (TData *)m_send_buffer
                         .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
-                            m_streamID);
+                            m_opStreamID);
                 recv_buffer_ptr =
                     (TData *)m_recv_buffer
                         .template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
-                            m_streamID);
+                            m_opStreamID);
             }
             else
             {
                 m_send_buffer.template Initialize<NektarSpaces::HostSpace>(
-                    0.0, 0, 0, m_streamID);
+                    0.0, 0, 0, m_opStreamID);
                 m_recv_buffer.template Initialize<NektarSpaces::HostSpace>(
-                    0.0, 0, 0, m_streamID);
+                    0.0, 0, 0, m_opStreamID);
                 send_buffer_ptr =
                     (TData *)m_send_buffer
                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
-                            m_streamID);
+                            m_opStreamID);
                 recv_buffer_ptr =
                     (TData *)m_recv_buffer
                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
-                            m_streamID);
+                            m_opStreamID);
             }
             m_assmbCommCG->InitSendRecvComms(nbuf, send_buffer_ptr,
                                              recv_buffer_ptr, numComp);
@@ -505,7 +505,7 @@ protected:
      * -# Fetch the interior tables via SetUpLayoutMaps() if the interleave
      *    widths of the blocks differ from the current setup; the field
      *    is never reshaped.
-     * -# Order #m_streamID, which all of the work below runs on, after the
+     * -# Order #m_opStreamID, which all of the work below runs on, after the
      *    block streams (JoinStreams()), and fetch every block's pointer in
      *    MemSpace on it so the whole field is resident there; the kernels
      *    then address the field's contiguous storage through block 0's
@@ -514,7 +514,7 @@ protected:
      *    partition-boundary DOFs into #m_send_buffer, parking each
      *    partial sum in its DOF's first local coefficient. The buffer is
      *    then made visible to MPI -- copied to the host or, with a
-     *    GPU-aware communicator, published by synchronising #m_streamID --
+     *    GPU-aware communicator, published by synchronising #m_opStreamID --
      *    and BeginComm() starts the persistent exchange.
      * -# AssembleScatrKernel assembles and scatters the interior DOFs;
      *    in parallel this overlaps with the message exchange.
@@ -523,7 +523,7 @@ protected:
      *    exchange, and AssembleFromBndKernel completes the boundary DOFs
      *    from the received partial sums in ascending rank order (see the
      *    class notes on cross-rank determinism).
-     * -# Order the block streams after #m_streamID (ReleaseStreams()).
+     * -# Order the block streams after #m_opStreamID (ReleaseStreams()).
      *
      * @param   inout   Coefficient-space field, assembled and scattered
      *                  in place.
@@ -552,29 +552,29 @@ protected:
 
         // The assembly reads and writes the field the block streams last
         // touched.
-        JoinStreams<ExecSpace>(m_streamID, m_blockStreams);
+        JoinStreams<ExecSpace>(m_opStreamID, m_blockStreams);
 
         // Initialize pointer; every block is synchronised, since the kernels
         // address the whole field from block 0's pointer.
         auto inoutPtr =
             inout.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
-                m_streamID);
+                m_opStreamID);
         for (unsigned blk = 1; blk < inout.GetBlocks().size(); ++blk)
         {
             inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
-                m_streamID);
+                m_opStreamID);
         }
 
         if (m_isParallel)
         {
             // setup send buffer pointer
-            auto sendPtr =
-                m_send_buffer.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+            auto sendPtr = m_send_buffer.template GetPtr<MemSpace, WriteOnly>(
+                m_opStreamID);
 
             //  assemble data into boundary send buffer
             AssembleScatrBndKernel<ExecSpace>(
                 m_nBndGids, m_gsBndNumAssmb, m_gsNumBndVals, m_gsBndIndex,
-                m_gsBndOffset, m_gsBndSign, inoutPtr, sendPtr, m_streamID);
+                m_gsBndOffset, m_gsBndSign, inoutPtr, sendPtr, m_opStreamID);
 
             // Synchronize memory, if necessary.
             if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
@@ -584,14 +584,14 @@ protected:
                 // communication. No memory copy is require otherwise.
                 m_send_buffer
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
-                        m_streamID);
+                        m_opStreamID);
             }
             else if (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace> &&
                      m_rowComm->IsGPUAware())
             {
                 // The pack ran on the operator stream, so draining that
                 // stream is enough before MPI reads the buffer.
-                nekStreamSynchronize(m_streamID);
+                nekStreamSynchronize(m_opStreamID);
             }
 
             // start  comms
@@ -600,7 +600,7 @@ protected:
 
         AssembleScatrKernel<ExecSpace>(m_nGids, m_gsNumAssmb, m_gsIndex,
                                        m_gsOffset, m_gsSign, inoutPtr,
-                                       m_streamID);
+                                       m_opStreamID);
 
         if (m_isParallel)
         {
@@ -611,31 +611,31 @@ protected:
                 // Data is received on the device with GPU-aware MPI.
                 m_recv_buffer
                     .template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>(
-                        m_streamID);
+                        m_opStreamID);
             }
             else
             {
                 // Data is received on the host without GPU-aware MPI.
                 m_recv_buffer
                     .template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                        m_streamID);
+                        m_opStreamID);
             }
 
             // finish comms and syncronize
             m_assmbCommCG->EndComm();
 
             auto recvPtr =
-                m_recv_buffer.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+                m_recv_buffer.template GetPtr<MemSpace, ReadOnly>(m_opStreamID);
 
             //  assemble data into boundary send buffer
             AssembleFromBndKernel<ExecSpace>(
                 m_nBndGids, m_gsBndNumAssmb, m_gsNumBndVals, m_gsBndIndex,
                 m_gsBndOffset, m_gsBndSign, m_gsBndAssOrder, recvPtr, inoutPtr,
-                m_streamID);
+                m_opStreamID);
         }
 
         // Order the work queued next on the block streams after the assembly.
-        ReleaseStreams<ExecSpace>(m_streamID, m_blockStreams);
+        ReleaseStreams<ExecSpace>(m_opStreamID, m_blockStreams);
     }
 };
 
