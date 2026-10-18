@@ -35,11 +35,21 @@
 
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
+#include <stdexcept>
+
 #include "libxsmm.h"
 
 namespace Nektar::NekBlas
 {
+// NekBlas does not link LibUtilities, so it cannot use ErrorUtil.
+static inline void XsmmCheck(const bool condition, const char *msg)
+{
+    if (!condition)
+    {
+        throw std::runtime_error(msg);
+    }
+}
+
 template <typename TData>
 void Gemm([[maybe_unused]] Handle<NektarSpaces::AVX> handle,
           std::string transposeA, std::string transposeB, const int M,
@@ -47,15 +57,15 @@ void Gemm([[maybe_unused]] Handle<NektarSpaces::AVX> handle,
           const int lda, const TData *b, const int ldb, const TData beta,
           TData *c, const int ldc)
 {
-    ASSERTL0(transposeA == "N" && transposeB == "N",
-             "libxsmm: matrix transpose is not supported");
-    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
-    ASSERTL0(beta == 0.0 || beta == 1.0,
-             "libxsmm: beta must be equal to 0.0 or 1.0");
+    XsmmCheck(transposeA == "N" && transposeB == "N",
+              "libxsmm: matrix transpose is not supported");
+    XsmmCheck(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
+    XsmmCheck(beta == 0.0 || beta == 1.0,
+              "libxsmm: beta must be equal to 0.0 or 1.0");
     if (alpha != 1.0)
     {
-        ASSERTL0(beta == 0.0,
-                 "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
+        XsmmCheck(beta == 0.0,
+                  "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
     }
 
     // Dispatch kernel.
@@ -82,15 +92,15 @@ void GemmStridedBatched([[maybe_unused]] Handle<NektarSpaces::AVX> handle,
                         const int strideB, const TData beta, TData *c,
                         const int ldc, const int strideC, const int batchSize)
 {
-    ASSERTL0(transposeA == "N" && transposeB == "N",
-             "libxsmm: matrix transpose is not supported");
-    ASSERTL0(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
-    ASSERTL0(beta == 0.0 || beta == 1.0,
-             "libxsmm: beta must be equal to 0.0 or 1.0");
+    XsmmCheck(transposeA == "N" && transposeB == "N",
+              "libxsmm: matrix transpose is not supported");
+    XsmmCheck(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
+    XsmmCheck(beta == 0.0 || beta == 1.0,
+              "libxsmm: beta must be equal to 0.0 or 1.0");
     if (alpha != 1.0)
     {
-        ASSERTL0(beta == 0.0,
-                 "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
+        XsmmCheck(beta == 0.0,
+                  "libxsmm: beta must be equal to 0.0 when alpha != 1.0");
     }
 
     // Dispatch kernel.
@@ -117,15 +127,19 @@ void Gemv(Handle<NektarSpaces::AVX>, std::string transpose, const int M,
           const TData *x, const int incx, const TData beta, TData *y,
           const int incy)
 {
-    ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
+    XsmmCheck(transpose == "N", "libxsmm: transpose not supported in Gemv");
+    XsmmCheck(incx == 1 && incy == 1, "libxsmm: Gemv needs unit increments");
+    XsmmCheck(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
+    XsmmCheck(beta == 0.0 || beta == 1.0,
+              "libxsmm: beta must be equal to 0.0 or 1.0");
 
     // Gemv is just Gemm with a single column vector
-    int lda0  = lda;
-    int incx0 = incx;
-    int incy0 = incy;
-    int n     = 1;
-    libxsmm_gemm(nullptr, nullptr, M, n, N, &alpha, A, &lda0, x, &incx0, &beta,
-                 y, &incy0);
+    int lda0 = lda;
+    int ldx0 = N;
+    int ldy0 = M;
+    int n    = 1;
+    libxsmm_gemm(nullptr, nullptr, M, n, N, &alpha, A, &lda0, x, &ldx0, &beta,
+                 y, &ldy0);
 }
 
 template <typename TData>
@@ -136,17 +150,21 @@ void GemvStridedBatched([[maybe_unused]] Handle<NektarSpaces::AVX> handle,
                         const int strideX, const TData beta, TData *y,
                         const int incy, const int strideY, const int batchSize)
 {
-    ASSERTL0(transpose == "N", "libxsmm: transpose not supported in Gemv");
+    XsmmCheck(transpose == "N", "libxsmm: transpose not supported in Gemv");
+    XsmmCheck(incx == 1 && incy == 1, "libxsmm: Gemv needs unit increments");
+    XsmmCheck(alpha == 1.0, "libxsmm: alpha must be equal to 1.0");
+    XsmmCheck(beta == 0.0 || beta == 1.0,
+              "libxsmm: beta must be equal to 0.0 or 1.0");
 
     for (int i = 0; i < batchSize; i++)
     {
         // Gemv is just Gemm with a single column vector
-        int lda0  = lda;
-        int incx0 = incx;
-        int incy0 = incy;
-        int n     = 1;
+        int lda0 = lda;
+        int ldx0 = N;
+        int ldy0 = M;
+        int n    = 1;
         libxsmm_gemm(nullptr, nullptr, M, n, N, &alpha, a + strideA * i, &lda0,
-                     x + strideX * i, &incx0, &beta, y + strideY * i, &incy0);
+                     x + strideX * i, &ldx0, &beta, y + strideY * i, &ldy0);
     }
 }
 
@@ -157,7 +175,7 @@ void GeamStridedBatched(Handle<NektarSpaces::AVX>, std::string, std::string,
                         const int, const int, TData *, const int, const int,
                         const int)
 {
-    ASSERTL0(false, "GeamStridedBatched is not available for libxsmm");
+    throw std::runtime_error("GeamStridedBatched is not available for libxsmm");
 }
 
 template void Gemm<float>(Handle<NektarSpaces::AVX> handle,

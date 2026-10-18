@@ -1,0 +1,13 @@
+--- libxsmm-2.1.0/src/libxsmm_cpuid_arm.c	2026-10-18 18:31:50.171508904 +0100
++++ libxsmm-2.1.0-new/src/libxsmm_cpuid_arm.c	2026-10-18 18:31:50.208105652 +0100
+@@ -172,7 +172,9 @@
+           result = LIBXSMM_AARCH64_APPL_M1;
+       }
+     } else {
+-      fprintf(stderr, "LIBXSMM WARNING: Apple CPU detection failed !\n");
++      /* Older macOS lacks hw.optional.arm.FEAT_SME and predates SME-capable
++       * chips, so fall back to the M1 (NEON) code path. */
++      result = LIBXSMM_AARCH64_APPL_M1;
+     }
+ 
+     return result;

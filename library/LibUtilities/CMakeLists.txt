@@ -594,12 +594,10 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # LIBXSMM specific file
     IF(NEKTAR_ENABLE_SIMD)
-        IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
-            SET(NEKBLAS_SOURCES
-                ${NEKBLAS_SOURCES}
-                ./LinearAlgebra/NekBlas/xsmm.cpp
-            )
-        ENDIF()
+        SET(NEKBLAS_SOURCES
+            ${NEKBLAS_SOURCES}
+            ./LinearAlgebra/NekBlas/xsmm.cpp
+        )
     ENDIF()
 
     # MAGMA specific file
@@ -680,10 +678,8 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # LIBXSMM
     IF(NEKTAR_ENABLE_SIMD)
-        IF(_SYSTEM_PROCESSOR STREQUAL "x86_64")
-            TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${LIBXSMM_LIBRARY})
-            ADD_DEPENDENCIES(NekBlas libxsmm-1.17)
-        ENDIF()
+        TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${LIBXSMM_LIBRARY})
+        ADD_DEPENDENCIES(NekBlas libxsmm-${LIBXSMM_VERSION})
     ENDIF()
 
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC NekBlas)
