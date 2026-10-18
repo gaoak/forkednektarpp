@@ -96,6 +96,7 @@ v5.11.0
 - Detect GPU-aware MPI for the SYCL back-ends (!2844)
 - Run the CG Dirichlet/Neumann boundary-condition operators' cross-block work on an explicit stream instead of the legacy default stream, and remove the unused DGDirBndCond and DGPerBndCond operators (!2845)
 - Remove unused boost includes and use std::isnan, std::tie and the local hash_range instead of boost (!2847)
+- Use LibXSMM 2.1.0 on ARM64 to allow ARM64 support, keeping 1.17 on x86_64 (!2856)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -58,6 +58,11 @@ public:
         Blas::Gemm('N', 'N', m, n, k, alpha, a, m, b, k, beta, c, m);
     }
 
+    operator const void *() const
+    {
+        return this;
+    }
+
 private:
     int m;
     int n;
@@ -80,6 +85,8 @@ template <typename TData> struct LibxsmmDispatchWrapper
         ASSERTL0(beta == 0.0 || beta == 1.0,
                  "libxsmm: beta must be equal to 0.0 or 1.0");
 
-        return KernelFunc(flags, m, n, k, alpha, beta, prefetch);
+        KernelFunc kernel(flags, m, n, k, alpha, beta, prefetch);
+        ASSERTL0(kernel, "libxsmm: kernel dispatch failed");
+        return kernel;
     }
 };
