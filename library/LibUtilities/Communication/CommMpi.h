@@ -42,15 +42,6 @@
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
-#if defined(NEKTAR_USE_MPIX_STREAM)
-#include <mutex>
-#if defined(SYCL_ENABLE_CUDA)
-#include <LibUtilities/Backends/CUDAStream.hpp>
-#elif defined(SYCL_ENABLE_HIP)
-#include <LibUtilities/Backends/HIPStream.hpp>
-#endif
-#endif
-
 #ifndef MPI_SYNC
 #define MPISYNC 0
 #else
@@ -148,17 +139,9 @@ protected:
     int m_rank{};
     bool m_controls_mpi;
 #if defined(NEKTAR_USE_MPIX_STREAM)
-    /// Communicator bound to #m_commStream.
-    MPI_Comm m_streamComm    = MPI_COMM_NULL;
-    MPIX_Stream m_mpixStream = MPIX_STREAM_NULL;
-    /// Non-blocking stream the enqueued communication runs on.
-    nekStream m_commStream = nullptr;
-    /// Recorded on the caller's stream before the communication.
-    nekEvent m_readyEvent = nullptr;
-    /// Recorded on #m_commStream after the communication.
-    nekEvent m_doneEvent = nullptr;
-    /// Serialises the enqueueing, which SYCL runs on its own threads.
-    std::mutex m_enqueueMutex;
+    struct MpixState;
+    /// MPIX stream communicator, set when a device is visible.
+    std::unique_ptr<MpixState> m_mpix;
 #endif
 
     explicit CommMpi(MPI_Comm pComm);
@@ -252,15 +235,6 @@ protected:
 #if defined(NEKTAR_USE_MPIX_STREAM)
     void InitStreamComm();
     void FreeStreamComm();
-
-private:
-    template <typename Command>
-    void RunOnStream(const unsigned int streamID, const Command &command);
-    template <typename Enqueue>
-    void EnqueueOnStream(const unsigned int streamID, const Enqueue &enqueue,
-                         const bool join = true);
-    void JoinCommDone(const unsigned int streamID);
-    void CreateStreamResources();
 #endif
 };
 } // namespace Nektar::LibUtilities

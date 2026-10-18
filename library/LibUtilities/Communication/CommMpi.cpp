@@ -40,6 +40,15 @@
 
 #include <LibUtilities/Communication/CommMpi.h>
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
+#include <mutex>
+#if defined(SYCL_ENABLE_CUDA)
+#include <LibUtilities/Backends/CUDAStream.hpp>
+#elif defined(SYCL_ENABLE_HIP)
+#include <LibUtilities/Backends/HIPStream.hpp>
+#endif
+#endif
+
 #if __has_include(<mpi-ext.h>)
 /* Needed for MPIX_Query_*_support() */
 #include <mpi-ext.h> // OpenMPI
@@ -145,6 +154,194 @@ static int GetLauncherLocalRank()
 }
 #endif
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
+#if defined(NEKTAR_ENABLE_SYCL) && defined(__DPCPP_COMPILER) &&                \
+    !defined(SYCL_EXT_ONEAPI_ENQUEUE_NATIVE_COMMAND)
+#error "NEKTAR_USE_MPIX_STREAM with DPC++ requires the \
+sycl_ext_oneapi_enqueue_native_command extension."
+#endif
+
+/**
+ * Run @p command with the native stream the work on @p streamID is queued
+ * on. Under SYCL, that is the stream behind the queue, reached from a native
+ * command submitted to it, which the runtime may run on a thread of its own.
+ */
+template <typename Command>
+static void RunOnStream(const unsigned int streamID, const Command &command)
+{
+#if defined(NEKTAR_ENABLE_CUDA)
+    command(CUDAStream::GetInstance(streamID));
+#elif defined(NEKTAR_ENABLE_HIP)
+    command(HIPStream::GetInstance(streamID));
+#elif defined(NEKTAR_ENABLE_SYCL)
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([&](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        auto native = [command](sycl::interop_handle ih) {
+            command(
+                static_cast<nekStream>(ih.get_native_queue<sycl_backend>()));
+        };
+#if defined(__ADAPTIVECPP__)
+        cgh.AdaptiveCpp_enqueue_custom_operation(native);
+#elif defined(__DPCPP_COMPILER)
+        cgh.ext_oneapi_enqueue_native_command(native);
+#endif
+    });
+    SYCLQueue::SetEvent(streamID, e);
+#endif
+}
+
+/**
+ * Stream communicator of the MPIX_Stream extension over the ranks of
+ * #m_comm, with the device stream it enqueues on and the events that order
+ * that stream against the caller's.
+ */
+struct CommMpi::MpixState
+{
+    /// Communicator bound to #commStream.
+    MPI_Comm streamComm    = MPI_COMM_NULL;
+    MPIX_Stream mpixStream = MPIX_STREAM_NULL;
+    /// Non-blocking stream the enqueued communication runs on.
+    nekStream commStream = nullptr;
+    /// Recorded on the caller's stream before the communication.
+    nekEvent readyEvent = nullptr;
+    /// Recorded on #commStream after the communication.
+    nekEvent doneEvent = nullptr;
+    /// Serialises the enqueueing, which SYCL runs on its own threads.
+    std::mutex mutex;
+
+    /**
+     * Create #commStream, non-blocking so that it does not synchronise with the
+     * default stream, its events, and the stream communicator over @p mpiComm
+     * bound to it. Collective over @p mpiComm.
+     */
+    void Init(MPI_Comm mpiComm)
+    {
+        // Under SYCL, created in a native command so that it shares the device
+        // and context of the queues.
+        RunOnStream(0, [this](nekStream) {
+            CHECK_HIPCUDA_ERROR(
+                nekStreamCreateWithFlags(&commStream, nekStreamNonBlocking));
+            CHECK_HIPCUDA_ERROR(
+                nekEventCreateWithFlags(&readyEvent, nekEventDisableTiming));
+            CHECK_HIPCUDA_ERROR(
+                nekEventCreateWithFlags(&doneEvent, nekEventDisableTiming));
+        });
+#if defined(NEKTAR_ENABLE_SYCL)
+        SYCLQueue::GetInstance(0).wait();
+#endif
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+        const char *streamType = "cudaStream_t";
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
+        const char *streamType = "hipStream_t";
+#endif
+
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_Info_set(info, "type", streamType);
+        MPIX_Info_set_hex(info, "value", &commStream, sizeof(commStream));
+        int retval = MPIX_Stream_create(info, &mpixStream);
+        MPI_Info_free(&info);
+
+        ASSERTL0(retval == MPI_SUCCESS, "MPI error creating MPIX stream.");
+
+        retval = MPIX_Stream_comm_create(mpiComm, mpixStream, &streamComm);
+
+        ASSERTL0(retval == MPI_SUCCESS,
+                 "MPI error creating MPIX stream communicator.");
+    }
+
+    /**
+     * Free the stream communicator and the device resources behind it. The MPI
+     * objects are left to MPI_Finalize() once it has run.
+     */
+    void Free()
+    {
+#if defined(NEKTAR_ENABLE_SYCL)
+        // Native commands still queued may use the resources freed below.
+        if (commStream != nullptr)
+        {
+            nekDeviceSynchronize();
+        }
+#endif
+
+        int flag;
+        MPI_Finalized(&flag);
+        if (!flag)
+        {
+            if (streamComm != MPI_COMM_NULL)
+            {
+                MPI_Comm_free(&streamComm);
+            }
+            if (mpixStream != MPIX_STREAM_NULL)
+            {
+                MPIX_Stream_free(&mpixStream);
+            }
+        }
+        streamComm = MPI_COMM_NULL;
+        mpixStream = MPIX_STREAM_NULL;
+
+        // Errors are ignored: this may run after the device runtime has
+        // unloaded.
+        if (doneEvent != nullptr)
+        {
+            (void)nekEventDestroy(doneEvent);
+        }
+        if (readyEvent != nullptr)
+        {
+            (void)nekEventDestroy(readyEvent);
+        }
+        if (commStream != nullptr)
+        {
+            (void)nekStreamDestroy(commStream);
+        }
+        doneEvent  = nullptr;
+        readyEvent = nullptr;
+        commStream = nullptr;
+    }
+
+    /**
+     * Enqueue the communication @p enqueue, given #streamComm, on #commStream,
+     * ordered after the work queued so far on @p streamID. With @p join, the
+     * work queued next on @p streamID is ordered after the communication;
+     * otherwise JoinCommDone() orders it.
+     */
+    template <typename Enqueue>
+    void EnqueueOnStream(const unsigned int streamID, const Enqueue &enqueue,
+                         const bool join = true)
+    {
+        RunOnStream(streamID, [this, enqueue, join](nekStream stream) {
+            std::lock_guard<std::mutex> lock(mutex);
+
+            CHECK_HIPCUDA_ERROR(nekEventRecord(readyEvent, stream));
+            CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(commStream, readyEvent));
+
+            enqueue(streamComm);
+
+            CHECK_HIPCUDA_ERROR(nekEventRecord(doneEvent, commStream));
+            if (join)
+            {
+                CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(stream, doneEvent));
+            }
+        });
+    }
+
+    /**
+     * Order the work queued next on @p streamID after the communication last
+     * enqueued on #commStream.
+     */
+    void JoinCommDone(const unsigned int streamID)
+    {
+        RunOnStream(streamID, [this](nekStream stream) {
+            std::lock_guard<std::mutex> lock(mutex);
+
+            CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(stream, doneEvent));
+        });
+    }
+};
+#endif
+
 std::string CommMpi::className = GetCommFactory().RegisterCreatorFunction(
     "ParallelMPI", CommMpi::create, "Parallel communication using MPI.");
 
@@ -231,14 +428,7 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
     m_gpu_aware = IsMpiGPUAware();
 
 #if defined(NEKTAR_USE_MPIX_STREAM)
-    // Device communication is enqueued on a stream whenever a device is
-    // visible. An MPI enqueuing on device streams is built with device
-    // support, so is GPU-aware.
-    if (nekGetNumDevice() > 0)
-    {
-        m_gpu_aware = true;
-        InitStreamComm();
-    }
+    InitStreamComm();
 #endif
 }
 
@@ -256,14 +446,7 @@ CommMpi::CommMpi(MPI_Comm pComm) : Comm()
     m_gpu_aware = IsMpiGPUAware();
 
 #if defined(NEKTAR_USE_MPIX_STREAM)
-    // Device communication is enqueued on a stream whenever a device is
-    // visible. An MPI enqueuing on device streams is built with device
-    // support, so is GPU-aware.
-    if (nekGetNumDevice() > 0)
-    {
-        m_gpu_aware = true;
-        InitStreamComm();
-    }
+    InitStreamComm();
 #endif
 }
 
@@ -366,85 +549,40 @@ double CommMpi::v_Wtime()
 }
 
 #if defined(NEKTAR_USE_MPIX_STREAM)
-#if defined(NEKTAR_ENABLE_SYCL) && defined(__DPCPP_COMPILER) &&                \
-    !defined(SYCL_EXT_ONEAPI_ENQUEUE_NATIVE_COMMAND)
-#error "NEKTAR_USE_MPIX_STREAM with DPC++ requires the \
-sycl_ext_oneapi_enqueue_native_command extension."
-#endif
-
 /**
- * Run @p command with the native stream the work on @p streamID is queued
- * on. Under SYCL, that is the stream behind the queue, reached from a native
- * command submitted to it, which the runtime may run on a thread of its own.
+ * Create the MPIX stream communicator over #m_comm, when a device is
+ * visible. Collective, so it is called on construction: point-to-point
+ * calls could not create it.
  */
-template <typename Command>
-void CommMpi::RunOnStream(const unsigned int streamID, const Command &command)
+void CommMpi::InitStreamComm()
 {
-#if defined(NEKTAR_ENABLE_CUDA)
-    command(CUDAStream::GetInstance(streamID));
-#elif defined(NEKTAR_ENABLE_HIP)
-    command(HIPStream::GetInstance(streamID));
-#elif defined(NEKTAR_ENABLE_SYCL)
-    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
-    sycl::event e  = Q.submit([&](sycl::handler &cgh) {
-        setSYCLDefaultExecutionDependency(streamID, cgh);
-        auto native = [command](sycl::interop_handle ih) {
-            command(
-                static_cast<nekStream>(ih.get_native_queue<sycl_backend>()));
-        };
-#if defined(__ADAPTIVECPP__)
-        cgh.AdaptiveCpp_enqueue_custom_operation(native);
-#elif defined(__DPCPP_COMPILER)
-        cgh.ext_oneapi_enqueue_native_command(native);
-#endif
-    });
-    SYCLQueue::SetEvent(streamID, e);
-#endif
+    // Device communication is enqueued on a stream whenever a device is
+    // visible. An MPI enqueuing on device streams is built with device
+    // support, so is GPU-aware.
+    if (nekGetNumDevice() > 0)
+    {
+        m_gpu_aware = true;
+        m_mpix      = std::make_unique<MpixState>();
+        m_mpix->Init(m_comm);
+    }
 }
 
 /**
- * Enqueue the communication @p enqueue on #m_commStream, ordered after the
- * work queued so far on @p streamID. With @p join, the work queued next on
- * @p streamID is ordered after the communication; otherwise JoinCommDone()
- * orders it.
+ * Free the MPIX stream communicator.
  */
-template <typename Enqueue>
-void CommMpi::EnqueueOnStream(const unsigned int streamID,
-                              const Enqueue &enqueue, const bool join)
+void CommMpi::FreeStreamComm()
 {
-    RunOnStream(streamID, [this, enqueue, join](nekStream stream) {
-        std::lock_guard<std::mutex> lock(m_enqueueMutex);
-
-        CHECK_HIPCUDA_ERROR(nekEventRecord(m_readyEvent, stream));
-        CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(m_commStream, m_readyEvent));
-
-        enqueue();
-
-        CHECK_HIPCUDA_ERROR(nekEventRecord(m_doneEvent, m_commStream));
-        if (join)
-        {
-            CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(stream, m_doneEvent));
-        }
-    });
-}
-
-/**
- * Order the work queued next on @p streamID after the communication last
- * enqueued on #m_commStream.
- */
-void CommMpi::JoinCommDone(const unsigned int streamID)
-{
-    RunOnStream(streamID, [this](nekStream stream) {
-        std::lock_guard<std::mutex> lock(m_enqueueMutex);
-
-        CHECK_HIPCUDA_ERROR(nekStreamWaitEvent(stream, m_doneEvent));
-    });
+    if (m_mpix)
+    {
+        m_mpix->Free();
+        m_mpix.reset();
+    }
 }
 #endif
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the send is
- * enqueued on #m_commStream, without blocking the host; otherwise
+ * enqueued on MpixState::commStream, without blocking the host; otherwise
  * @p streamID is synchronised first.
  */
 void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
@@ -453,9 +591,9 @@ void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
     if (streamID)
     {
 #if defined(NEKTAR_USE_MPIX_STREAM)
-        EnqueueOnStream(*streamID, [this, buf, count, dt, dest]() {
-            int retval =
-                MPIX_Send_enqueue(buf, count, dt, dest, 0, m_streamComm);
+        m_mpix->EnqueueOnStream(*streamID, [buf, count, dt,
+                                            dest](MPI_Comm streamComm) {
+            int retval = MPIX_Send_enqueue(buf, count, dt, dest, 0, streamComm);
 
             ASSERTL0(retval == MPI_SUCCESS,
                      "MPI error performing stream-ordered send.");
@@ -478,7 +616,7 @@ void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the receive is
- * enqueued on #m_commStream, without blocking the host; otherwise
+ * enqueued on MpixState::commStream, without blocking the host; otherwise
  * @p streamID is synchronised first.
  */
 void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
@@ -487,13 +625,14 @@ void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
     if (streamID)
     {
 #if defined(NEKTAR_USE_MPIX_STREAM)
-        EnqueueOnStream(*streamID, [this, buf, count, dt, source]() {
-            int retval = MPIX_Recv_enqueue(buf, count, dt, source, 0,
-                                           m_streamComm, MPI_STATUS_IGNORE);
+        m_mpix->EnqueueOnStream(
+            *streamID, [buf, count, dt, source](MPI_Comm streamComm) {
+                int retval = MPIX_Recv_enqueue(buf, count, dt, source, 0,
+                                               streamComm, MPI_STATUS_IGNORE);
 
-            ASSERTL0(retval == MPI_SUCCESS,
-                     "MPI error performing stream-ordered receive.");
-        });
+                ASSERTL0(retval == MPI_SUCCESS,
+                         "MPI error performing stream-ordered receive.");
+            });
         return;
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
@@ -505,8 +644,8 @@ void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the send and
- * receive are enqueued on #m_commStream and completed by one wait, without
- * blocking the host; otherwise @p streamID is synchronised first.
+ * receive are enqueued on MpixState::commStream and completed by one wait,
+ * without blocking the host; otherwise @p streamID is synchronised first.
  */
 void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
                          CommDataType sendtype, int dest, void *recvbuf,
@@ -516,18 +655,18 @@ void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
     if (streamID)
     {
 #if defined(NEKTAR_USE_MPIX_STREAM)
-        EnqueueOnStream(*streamID, [this, sendbuf, sendcount, sendtype, dest,
-                                    recvbuf, recvcount, recvtype, source]() {
+        m_mpix->EnqueueOnStream(*streamID, [sendbuf, sendcount, sendtype, dest,
+                                            recvbuf, recvcount, recvtype,
+                                            source](MPI_Comm streamComm) {
             MPI_Request request[2];
-            int retval =
-                MPIX_Irecv_enqueue(recvbuf, recvcount, recvtype, source, 0,
-                                   m_streamComm, &request[0]);
+            int retval = MPIX_Irecv_enqueue(recvbuf, recvcount, recvtype,
+                                            source, 0, streamComm, &request[0]);
             ASSERTL0(retval == MPI_SUCCESS, "MPI error performing "
                                             "stream-ordered send-receive of "
                                             "data.");
 
             retval = MPIX_Isend_enqueue(sendbuf, sendcount, sendtype, dest, 0,
-                                        m_streamComm, &request[1]);
+                                        streamComm, &request[1]);
             ASSERTL0(retval == MPI_SUCCESS, "MPI error performing "
                                             "stream-ordered send-receive of "
                                             "data.");
@@ -553,7 +692,7 @@ void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the all-reduce is
- * enqueued on #m_commStream, without blocking the host; otherwise
+ * enqueued on MpixState::commStream, without blocking the host; otherwise
  * @p streamID is synchronised first.
  */
 void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
@@ -570,13 +709,14 @@ void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
     if (streamID)
     {
 #if defined(NEKTAR_USE_MPIX_STREAM)
-        EnqueueOnStream(*streamID, [this, buf, count, dt, vOp]() {
-            int retval = MPIX_Allreduce_enqueue(MPI_IN_PLACE, buf, count, dt,
-                                                vOp, m_streamComm);
+        m_mpix->EnqueueOnStream(
+            *streamID, [buf, count, dt, vOp](MPI_Comm streamComm) {
+                int retval = MPIX_Allreduce_enqueue(MPI_IN_PLACE, buf, count,
+                                                    dt, vOp, streamComm);
 
-            ASSERTL0(retval == MPI_SUCCESS,
-                     "MPI error performing stream-ordered All-reduce.");
-        });
+                ASSERTL0(retval == MPI_SUCCESS,
+                         "MPI error performing stream-ordered All-reduce.");
+            });
         return;
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
@@ -590,8 +730,8 @@ void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the all-reduce is
- * enqueued on #m_commStream and neither the host nor @p streamID blocks
- * until v_AllReduceEnd(); otherwise @p streamID is synchronised first.
+ * enqueued on MpixState::commStream and neither the host nor @p streamID
+ * blocks until v_AllReduceEnd(); otherwise @p streamID is synchronised first.
  */
 void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
                                enum ReduceOperator pOp,
@@ -608,11 +748,11 @@ void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
     if (streamID)
     {
 #if defined(NEKTAR_USE_MPIX_STREAM)
-        EnqueueOnStream(
+        m_mpix->EnqueueOnStream(
             *streamID,
-            [this, buf, count, dt, vOp]() {
+            [buf, count, dt, vOp](MPI_Comm streamComm) {
                 int retval = MPIX_Allreduce_enqueue(MPI_IN_PLACE, buf, count,
-                                                    dt, vOp, m_streamComm);
+                                                    dt, vOp, streamComm);
 
                 ASSERTL0(retval == MPI_SUCCESS,
                          "MPI error performing stream-ordered All-reduce.");
@@ -647,7 +787,7 @@ void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request,
     if (streamID)
     {
 #if defined(NEKTAR_USE_MPIX_STREAM)
-        JoinCommDone(*streamID);
+        m_mpix->JoinCommDone(*streamID);
         return;
 #endif
     }
@@ -659,105 +799,6 @@ void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request,
         MPI_Wait(req->GetRequest(0), MPI_STATUS_IGNORE);
     }
 }
-
-#if defined(NEKTAR_USE_MPIX_STREAM)
-/**
- * Create #m_commStream, non-blocking so that it does not synchronise with
- * the default stream, and the events that order it.
- */
-void CommMpi::CreateStreamResources()
-{
-    CHECK_HIPCUDA_ERROR(
-        nekStreamCreateWithFlags(&m_commStream, nekStreamNonBlocking));
-    CHECK_HIPCUDA_ERROR(
-        nekEventCreateWithFlags(&m_readyEvent, nekEventDisableTiming));
-    CHECK_HIPCUDA_ERROR(
-        nekEventCreateWithFlags(&m_doneEvent, nekEventDisableTiming));
-}
-
-/**
- * Create #m_commStream and the stream communicator bound to it. Collective
- * over #m_comm, so it is called on construction: point-to-point calls could
- * not create it.
- */
-void CommMpi::InitStreamComm()
-{
-    // Under SYCL, created in a native command so that it shares the device
-    // and context of the queues.
-    RunOnStream(0, [this](nekStream) { CreateStreamResources(); });
-#if defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance(0).wait();
-#endif
-
-#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
-    const char *streamType = "cudaStream_t";
-#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
-    const char *streamType = "hipStream_t";
-#endif
-
-    MPI_Info info;
-    MPI_Info_create(&info);
-    MPI_Info_set(info, "type", streamType);
-    MPIX_Info_set_hex(info, "value", &m_commStream, sizeof(m_commStream));
-    int retval = MPIX_Stream_create(info, &m_mpixStream);
-    MPI_Info_free(&info);
-
-    ASSERTL0(retval == MPI_SUCCESS, "MPI error creating MPIX stream.");
-
-    retval = MPIX_Stream_comm_create(m_comm, m_mpixStream, &m_streamComm);
-
-    ASSERTL0(retval == MPI_SUCCESS,
-             "MPI error creating MPIX stream communicator.");
-}
-
-/**
- * Free the stream communicator and the device resources behind it. The MPI
- * objects are left to MPI_Finalize() once it has run.
- */
-void CommMpi::FreeStreamComm()
-{
-#if defined(NEKTAR_ENABLE_SYCL)
-    // Native commands still queued may use the resources freed below.
-    if (m_commStream != nullptr)
-    {
-        nekDeviceSynchronize();
-    }
-#endif
-
-    int flag;
-    MPI_Finalized(&flag);
-    if (!flag)
-    {
-        if (m_streamComm != MPI_COMM_NULL)
-        {
-            MPI_Comm_free(&m_streamComm);
-        }
-        if (m_mpixStream != MPIX_STREAM_NULL)
-        {
-            MPIX_Stream_free(&m_mpixStream);
-        }
-    }
-    m_streamComm = MPI_COMM_NULL;
-    m_mpixStream = MPIX_STREAM_NULL;
-
-    // Errors are ignored: this may run after the device runtime has unloaded.
-    if (m_doneEvent != nullptr)
-    {
-        (void)nekEventDestroy(m_doneEvent);
-    }
-    if (m_readyEvent != nullptr)
-    {
-        (void)nekEventDestroy(m_readyEvent);
-    }
-    if (m_commStream != nullptr)
-    {
-        (void)nekStreamDestroy(m_commStream);
-    }
-    m_doneEvent  = nullptr;
-    m_readyEvent = nullptr;
-    m_commStream = nullptr;
-}
-#endif
 
 /**
  *

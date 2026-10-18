@@ -72,10 +72,7 @@ CommCwipi::CommCwipi(int narg, char *arg[]) : CommMpi(narg, arg)
 #if defined(NEKTAR_USE_MPIX_STREAM)
     // Rebind the stream communicator to the CWIPI-local communicator.
     FreeStreamComm();
-    if (nekGetNumDevice() > 0)
-    {
-        InitStreamComm();
-    }
+    InitStreamComm();
 #endif
 
 #ifdef NEKTAR_USING_PETSC
