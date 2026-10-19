@@ -506,9 +506,8 @@ void NekMatrix<NekMatrix<DataType, InnerMatrixType>,
 }
 
 template <typename DataType, typename InnerMatrixType>
-typename boost::call_traits<
-    typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
-                       BlockMatrixTag>::NumberType>::value_type
+typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
+                   BlockMatrixTag>::NumberType
 NekMatrix<NekMatrix<DataType, InnerMatrixType>, BlockMatrixTag>::v_GetValue(
     unsigned int row, unsigned int column) const
 {

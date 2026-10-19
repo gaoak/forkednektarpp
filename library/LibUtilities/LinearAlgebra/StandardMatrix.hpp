@@ -79,9 +79,8 @@ public:
 
         typedef typename TagType<T>::type iterator_category;
         typedef unsigned int difference_type;
-        typedef typename boost::call_traits<value_type>::reference reference;
-        typedef typename boost::call_traits<value_type>::const_reference
-            const_reference;
+        typedef value_type &reference;
+        typedef const value_type &const_reference;
         typedef typename std::remove_reference<value_type>::type *pointer;
 
     public:
@@ -247,8 +246,7 @@ public:
     ///                           if the StoragePolicy for this matrix has
     ///                           policy specific data.
     LIB_UTILITIES_EXPORT NekMatrix(
-        unsigned int rows, unsigned int columns,
-        typename boost::call_traits<DataType>::const_reference initValue,
+        unsigned int rows, unsigned int columns, const DataType &initValue,
         MatrixStorage policy        = eFULL,
         unsigned int subDiagonals   = std::numeric_limits<unsigned int>::max(),
         unsigned int superDiagonals = std::numeric_limits<unsigned int>::max());
@@ -399,8 +397,8 @@ public:
         unsigned int row, unsigned int col, const char transpose) const;
 
     /// \brief Returns the element value at the given row and column.
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference
-    GetValue(unsigned int row, unsigned int column) const;
+    LIB_UTILITIES_EXPORT const DataType &GetValue(unsigned int row,
+                                                  unsigned int column) const;
 
     /// \brief Returns the element value at the given row and column.
     /// \brief row The element's row.
@@ -479,14 +477,11 @@ public:
     LIB_UTILITIES_EXPORT Proxy operator()(unsigned int row, unsigned int column,
                                           char transpose);
 
-    LIB_UTILITIES_EXPORT void SetValue(
-        unsigned int row, unsigned int column,
-        typename boost::call_traits<DataType>::const_reference d);
+    LIB_UTILITIES_EXPORT void SetValue(unsigned int row, unsigned int column,
+                                       const DataType &d);
 
-    LIB_UTILITIES_EXPORT void SetValue(
-        unsigned int row, unsigned int column,
-        typename boost::call_traits<DataType>::const_reference d,
-        char transpose);
+    LIB_UTILITIES_EXPORT void SetValue(unsigned int row, unsigned int column,
+                                       const DataType &d, char transpose);
 
     LIB_UTILITIES_EXPORT Array<OneD, DataType> &GetPtr();
 
@@ -523,16 +518,14 @@ protected:
     LIB_UTILITIES_EXPORT void ResizeDataArrayIfNeeded();
 
     LIB_UTILITIES_EXPORT
-    typename boost::call_traits<DataType>::value_type v_GetValue(
-        unsigned int row, unsigned int column) const override;
+    DataType v_GetValue(unsigned int row, unsigned int column) const override;
 
     LIB_UTILITIES_EXPORT unsigned int v_GetStorageSize() const override;
 
     // We need to rethink class structure a little.  This shouldn't be
     // necessary.
-    LIB_UTILITIES_EXPORT void v_SetValue(
-        unsigned int row, unsigned int column,
-        typename boost::call_traits<DataType>::const_reference d) override;
+    LIB_UTILITIES_EXPORT void v_SetValue(unsigned int row, unsigned int column,
+                                         const DataType &d) override;
 
 private:
     LIB_UTILITIES_EXPORT void PerformCopyConstruction(const ThisType &rhs);

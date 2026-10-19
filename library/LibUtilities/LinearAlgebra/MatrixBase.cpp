@@ -38,8 +38,8 @@ namespace Nektar
 {
 
 template <typename DataType>
-typename boost::call_traits<DataType>::value_type ConstMatrix<
-    DataType>::operator()(unsigned int row, unsigned int column) const
+DataType ConstMatrix<DataType>::operator()(unsigned int row,
+                                           unsigned int column) const
 {
     ASSERTL2(row < GetRows(),
              std::string("Row ") + std::to_string(row) +
@@ -273,9 +273,8 @@ template <typename DataType> Matrix<DataType>::~Matrix()
 }
 
 template <typename DataType>
-void Matrix<DataType>::SetValue(
-    unsigned int row, unsigned int column,
-    typename boost::call_traits<DataType>::const_reference d)
+void Matrix<DataType>::SetValue(unsigned int row, unsigned int column,
+                                const DataType &d)
 {
     ASSERTL2(row < this->GetRows(),
              std::string("Row ") + std::to_string(row) +

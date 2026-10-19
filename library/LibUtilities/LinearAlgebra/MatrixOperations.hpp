@@ -131,7 +131,7 @@ operator*(const NekMatrix<RhsDataType, RhsMatrixType> &lhs, const DataType &rhs)
 template <typename LhsDataType>
 void MultiplyEqual(
     NekMatrix<LhsDataType, StandardMatrixTag> &lhs,
-    typename boost::call_traits<LhsDataType>::const_reference rhs);
+    const typename NekMatrix<LhsDataType, StandardMatrixTag>::NumberType &rhs);
 
 ///////////////////////////////////////////////////////////////////
 // Matrix-Matrix Multipliation

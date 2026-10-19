@@ -47,7 +47,6 @@
 #include <cmath>
 #include <functional>
 
-#include <boost/call_traits.hpp>
 #include <type_traits>
 
 namespace Nektar
@@ -63,16 +62,12 @@ public:
     LIB_UTILITIES_EXPORT explicit NekVector(unsigned int size);
 
     /// \brief Creates a vector with given size and initial value.
-    LIB_UTILITIES_EXPORT NekVector(
-        unsigned int size,
-        typename boost::call_traits<DataType>::const_reference a);
+    LIB_UTILITIES_EXPORT NekVector(unsigned int size, const DataType &a);
 
     LIB_UTILITIES_EXPORT explicit NekVector(const std::string &vectorValues);
 
-    LIB_UTILITIES_EXPORT NekVector(
-        typename boost::call_traits<DataType>::const_reference x,
-        typename boost::call_traits<DataType>::const_reference y,
-        typename boost::call_traits<DataType>::const_reference z);
+    LIB_UTILITIES_EXPORT NekVector(const DataType &x, const DataType &y,
+                                   const DataType &z);
 
     LIB_UTILITIES_EXPORT NekVector(const NekVector<DataType> &rhs);
 
@@ -123,26 +118,21 @@ public:
     /// assign a new value (i.e., p(2) = 3.2;)
     ///
     /// This operator performs range checking.
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::reference
-    operator()(unsigned int i);
+    LIB_UTILITIES_EXPORT DataType &operator()(unsigned int i);
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::reference
-    operator[](unsigned int i);
+    LIB_UTILITIES_EXPORT DataType &operator[](unsigned int i);
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::reference x();
+    LIB_UTILITIES_EXPORT DataType &x();
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::reference y();
+    LIB_UTILITIES_EXPORT DataType &y();
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::reference z();
+    LIB_UTILITIES_EXPORT DataType &z();
 
-    LIB_UTILITIES_EXPORT void SetX(
-        typename boost::call_traits<DataType>::const_reference val);
+    LIB_UTILITIES_EXPORT void SetX(const DataType &val);
 
-    LIB_UTILITIES_EXPORT void SetY(
-        typename boost::call_traits<DataType>::const_reference val);
+    LIB_UTILITIES_EXPORT void SetY(const DataType &val);
 
-    LIB_UTILITIES_EXPORT void SetZ(
-        typename boost::call_traits<DataType>::const_reference val);
+    LIB_UTILITIES_EXPORT void SetZ(const DataType &val);
 
     LIB_UTILITIES_EXPORT NekVector<DataType> &operator+=(
         const NekVector<DataType> &rhs);
@@ -150,28 +140,21 @@ public:
     LIB_UTILITIES_EXPORT NekVector<DataType> &operator-=(
         const NekVector<DataType> &rhs);
 
-    LIB_UTILITIES_EXPORT NekVector<DataType> &operator*=(
-        typename boost::call_traits<DataType>::const_reference rhs);
+    LIB_UTILITIES_EXPORT NekVector<DataType> &operator*=(const DataType &rhs);
 
-    LIB_UTILITIES_EXPORT NekVector<DataType> &operator/=(
-        typename boost::call_traits<DataType>::const_reference rhs);
+    LIB_UTILITIES_EXPORT NekVector<DataType> &operator/=(const DataType &rhs);
 
     LIB_UTILITIES_EXPORT void Normalize();
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference
-    operator()(unsigned int i) const;
+    LIB_UTILITIES_EXPORT const DataType &operator()(unsigned int i) const;
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference
-    operator[](unsigned int i) const;
+    LIB_UTILITIES_EXPORT const DataType &operator[](unsigned int i) const;
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference x()
-        const;
+    LIB_UTILITIES_EXPORT const DataType &x() const;
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference y()
-        const;
+    LIB_UTILITIES_EXPORT const DataType &y() const;
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference z()
-        const;
+    LIB_UTILITIES_EXPORT const DataType &z() const;
 
     LIB_UTILITIES_EXPORT NekVector<DataType> operator-() const;
 

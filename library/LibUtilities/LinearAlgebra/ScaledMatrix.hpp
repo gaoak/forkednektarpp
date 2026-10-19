@@ -105,15 +105,13 @@ public:
 public:
     LIB_UTILITIES_EXPORT NekMatrix();
 
-    LIB_UTILITIES_EXPORT NekMatrix(
-        typename boost::call_traits<NumberType>::const_reference scale,
-        std::shared_ptr<const InnerType> m);
+    LIB_UTILITIES_EXPORT NekMatrix(const NumberType &scale,
+                                   std::shared_ptr<const InnerType> m);
 
     LIB_UTILITIES_EXPORT NekMatrix(const ThisType &rhs);
 
-    LIB_UTILITIES_EXPORT NekMatrix(
-        typename boost::call_traits<NumberType>::const_reference scale,
-        const ThisType &rhs);
+    LIB_UTILITIES_EXPORT NekMatrix(const NumberType &scale,
+                                   const ThisType &rhs);
 
     LIB_UTILITIES_EXPORT ThisType &operator=(const ThisType &) = default;
 
@@ -143,8 +141,7 @@ public:
 
 protected:
     LIB_UTILITIES_EXPORT
-    typename boost::call_traits<NumberType>::value_type v_GetValue(
-        unsigned int row, unsigned int column) const override;
+    NumberType v_GetValue(unsigned int row, unsigned int column) const override;
 
     LIB_UTILITIES_EXPORT unsigned int v_GetStorageSize() const override;
 

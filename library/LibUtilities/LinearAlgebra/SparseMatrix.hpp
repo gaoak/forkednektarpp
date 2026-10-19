@@ -44,8 +44,6 @@
 
 #include <LibUtilities/LinearAlgebra/SparseMatrixFwd.hpp>
 
-#include <boost/call_traits.hpp>
-
 namespace Nektar
 {
 
@@ -79,8 +77,8 @@ public:
     LIB_UTILITIES_EXPORT IndexType GetBandwidth();
     LIB_UTILITIES_EXPORT COOMatTypeSharedPtr GetCooStorage();
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference
-    operator()(const IndexType row, const IndexType column) const;
+    LIB_UTILITIES_EXPORT const DataType &operator()(
+        const IndexType row, const IndexType column) const;
     LIB_UTILITIES_EXPORT typename SparseStorageType::const_iterator begin()
         const;
     LIB_UTILITIES_EXPORT typename SparseStorageType::const_iterator end() const;

@@ -201,8 +201,7 @@ public:
 
 protected:
     LIB_UTILITIES_EXPORT
-    typename boost::call_traits<NumberType>::value_type v_GetValue(
-        unsigned int row, unsigned int column) const override;
+    NumberType v_GetValue(unsigned int row, unsigned int column) const override;
 
     LIB_UTILITIES_EXPORT unsigned int v_GetStorageSize() const override;
 

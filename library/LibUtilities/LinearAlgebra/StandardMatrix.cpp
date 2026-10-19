@@ -77,11 +77,12 @@ NekMatrix<DataType, StandardMatrixTag>::NekMatrix(unsigned int rows,
 }
 
 template <typename DataType>
-NekMatrix<DataType, StandardMatrixTag>::NekMatrix(
-    unsigned int rows, unsigned int columns,
-    typename boost::call_traits<DataType>::const_reference initValue,
-    MatrixStorage policy, unsigned int subDiagonals,
-    unsigned int superDiagonals)
+NekMatrix<DataType, StandardMatrixTag>::NekMatrix(unsigned int rows,
+                                                  unsigned int columns,
+                                                  const DataType &initValue,
+                                                  MatrixStorage policy,
+                                                  unsigned int subDiagonals,
+                                                  unsigned int superDiagonals)
     : Matrix<DataType>(rows, columns, policy), m_data(), m_wrapperType(eCopy),
       m_numberOfSuperDiagonals(superDiagonals),
       m_numberOfSubDiagonals(subDiagonals), m_tempSpace()
@@ -232,9 +233,8 @@ unsigned int NekMatrix<DataType, StandardMatrixTag>::CalculateIndex(
 }
 
 template <typename DataType>
-typename boost::call_traits<DataType>::const_reference NekMatrix<
-    DataType, StandardMatrixTag>::GetValue(unsigned int row,
-                                           unsigned int column) const
+const DataType &NekMatrix<DataType, StandardMatrixTag>::GetValue(
+    unsigned int row, unsigned int column) const
 {
     ASSERTL2(row < this->GetRows(),
              std::string("Row ") + std::to_string(row) +
@@ -577,9 +577,8 @@ void NekMatrix<DataType, StandardMatrixTag>::PerformCopyConstruction(
 }
 
 template <typename DataType>
-typename boost::call_traits<DataType>::value_type NekMatrix<
-    DataType, StandardMatrixTag>::v_GetValue(unsigned int row,
-                                             unsigned int column) const
+DataType NekMatrix<DataType, StandardMatrixTag>::v_GetValue(
+    unsigned int row, unsigned int column) const
 {
     return NekMatrix<DataType, StandardMatrixTag>::operator()(row, column);
 }
@@ -591,9 +590,9 @@ unsigned int NekMatrix<DataType, StandardMatrixTag>::v_GetStorageSize() const
 }
 
 template <typename DataType>
-void NekMatrix<DataType, StandardMatrixTag>::v_SetValue(
-    unsigned int row, unsigned int column,
-    typename boost::call_traits<DataType>::const_reference d)
+void NekMatrix<DataType, StandardMatrixTag>::v_SetValue(unsigned int row,
+                                                        unsigned int column,
+                                                        const DataType &d)
 {
     return NekMatrix<DataType, StandardMatrixTag>::SetValue(row, column, d);
 }
@@ -649,9 +648,9 @@ typename NekMatrix<DataType, StandardMatrixTag>::Proxy NekMatrix<
 }
 
 template <typename DataType>
-void NekMatrix<DataType, StandardMatrixTag>::SetValue(
-    unsigned int row, unsigned int column,
-    typename boost::call_traits<DataType>::const_reference d)
+void NekMatrix<DataType, StandardMatrixTag>::SetValue(unsigned int row,
+                                                      unsigned int column,
+                                                      const DataType &d)
 {
     ASSERTL2(row < this->GetRows(),
              std::string("Row ") + std::to_string(row) +
@@ -665,9 +664,10 @@ void NekMatrix<DataType, StandardMatrixTag>::SetValue(
 }
 
 template <typename DataType>
-void NekMatrix<DataType, StandardMatrixTag>::SetValue(
-    unsigned int row, unsigned int column,
-    typename boost::call_traits<DataType>::const_reference d, char transpose)
+void NekMatrix<DataType, StandardMatrixTag>::SetValue(unsigned int row,
+                                                      unsigned int column,
+                                                      const DataType &d,
+                                                      char transpose)
 {
     unsigned int index = this->CalculateIndex(row, column, transpose);
     if (index != std::numeric_limits<unsigned int>::max())

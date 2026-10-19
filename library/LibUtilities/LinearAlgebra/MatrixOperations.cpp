@@ -116,7 +116,7 @@ NEKTAR_GENERATE_EXPLICIT_FUNCTION_INSTANTIATION_SINGLE_MATRIX(
 template <typename LhsDataType>
 void MultiplyEqual(
     NekMatrix<LhsDataType, StandardMatrixTag> &lhs,
-    typename boost::call_traits<LhsDataType>::const_reference rhs)
+    const typename NekMatrix<LhsDataType, StandardMatrixTag>::NumberType &rhs)
 {
     typedef
         typename NekMatrix<LhsDataType, StandardMatrixTag>::iterator iterator;

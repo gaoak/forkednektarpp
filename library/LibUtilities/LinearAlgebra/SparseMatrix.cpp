@@ -95,10 +95,8 @@ const typename NekSparseMatrix<SparseStorageType>::DataType NekSparseMatrix<
 }
 
 template <typename SparseStorageType>
-typename boost::call_traits<
-    typename SparseStorageType::DataType>::const_reference
-NekSparseMatrix<SparseStorageType>::operator()(unsigned int row,
-                                               unsigned int column) const
+const typename SparseStorageType::DataType &NekSparseMatrix<
+    SparseStorageType>::operator()(unsigned int row, unsigned int column) const
 {
     return m_sparseStorage->GetValue(row, column);
 }

@@ -50,8 +50,7 @@ NekMatrix<NekMatrix<DataType, InnerMatrixType>, ScaledMatrixTag>::NekMatrix()
 
 template <typename DataType, typename InnerMatrixType>
 NekMatrix<NekMatrix<DataType, InnerMatrixType>, ScaledMatrixTag>::NekMatrix(
-    typename boost::call_traits<NumberType>::const_reference scale,
-    std::shared_ptr<const InnerType> m)
+    const NumberType &scale, std::shared_ptr<const InnerType> m)
     : NekMatrix<NekMatrix<DataType, InnerMatrixType>,
                 ScaledMatrixTag>::BaseType(m->GetRows(), m->GetColumns(),
                                            m->GetStorageType()),
@@ -70,9 +69,8 @@ NekMatrix<NekMatrix<DataType, InnerMatrixType>, ScaledMatrixTag>::NekMatrix(
 
 template <typename DataType, typename InnerMatrixType>
 NekMatrix<NekMatrix<DataType, InnerMatrixType>, ScaledMatrixTag>::NekMatrix(
-    typename boost::call_traits<
-        typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
-                           ScaledMatrixTag>::NumberType>::const_reference scale,
+    const typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
+                             ScaledMatrixTag>::NumberType &scale,
     const NekMatrix<InnerType, ScaledMatrixTag> &rhs)
     : NekMatrix<NekMatrix<DataType, InnerMatrixType>,
                 ScaledMatrixTag>::BaseType(rhs),
@@ -180,9 +178,8 @@ NekMatrix<NekMatrix<DataType, InnerMatrixType>, ScaledMatrixTag>::CreateWrapper(
 }
 
 template <typename DataType, typename InnerMatrixType>
-typename boost::call_traits<
-    typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
-                       ScaledMatrixTag>::NumberType>::value_type
+typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
+                   ScaledMatrixTag>::NumberType
 NekMatrix<NekMatrix<DataType, InnerMatrixType>, ScaledMatrixTag>::v_GetValue(
     unsigned int row, unsigned int column) const
 {

@@ -49,8 +49,7 @@ NekVector<DataType>::NekVector(unsigned int size)
 }
 
 template <typename DataType>
-NekVector<DataType>::NekVector(
-    unsigned int size, typename boost::call_traits<DataType>::const_reference a)
+NekVector<DataType>::NekVector(unsigned int size, const DataType &a)
     : m_size(size), m_data(size), m_wrapperType(eCopy)
 {
     std::fill_n(m_data.data(), m_size, a);
@@ -76,10 +75,8 @@ NekVector<DataType>::NekVector(const std::string &vectorValues)
 }
 
 template <typename DataType>
-NekVector<DataType>::NekVector(
-    typename boost::call_traits<DataType>::const_reference x,
-    typename boost::call_traits<DataType>::const_reference y,
-    typename boost::call_traits<DataType>::const_reference z)
+NekVector<DataType>::NekVector(const DataType &x, const DataType &y,
+                               const DataType &z)
     : m_size(3), m_data(m_size), m_wrapperType(eCopy)
 {
     m_data[0] = x;
@@ -256,8 +253,7 @@ typename NekVector<DataType>::const_iterator NekVector<DataType>::end() const
 }
 
 template <typename DataType>
-typename boost::call_traits<DataType>::reference NekVector<
-    DataType>::operator()(unsigned int i)
+DataType &NekVector<DataType>::operator()(unsigned int i)
 {
     ASSERTL1(i < this->GetDimension(),
              "Invalid access to m_data via parenthesis operator");
@@ -265,52 +261,42 @@ typename boost::call_traits<DataType>::reference NekVector<
 }
 
 template <typename DataType>
-typename boost::call_traits<DataType>::reference NekVector<
-    DataType>::operator[](unsigned int i)
+DataType &NekVector<DataType>::operator[](unsigned int i)
 {
     return this->GetData()[i];
 }
 
-template <typename DataType>
-typename boost::call_traits<DataType>::reference NekVector<DataType>::x()
+template <typename DataType> DataType &NekVector<DataType>::x()
 {
     ASSERTL1(this->GetDimension() >= 1, "Invalid use of NekVector::x");
     return (*this)(0);
 }
 
-template <typename DataType>
-typename boost::call_traits<DataType>::reference NekVector<DataType>::y()
+template <typename DataType> DataType &NekVector<DataType>::y()
 {
     ASSERTL1(this->GetDimension() >= 2, "Invalid use of NekVector::y");
     return (*this)(1);
 }
 
-template <typename DataType>
-typename boost::call_traits<DataType>::reference NekVector<DataType>::z()
+template <typename DataType> DataType &NekVector<DataType>::z()
 {
     ASSERTL1(this->GetDimension() >= 3, "Invalid use of NekVector::z");
     return (*this)(2);
 }
 
-template <typename DataType>
-void NekVector<DataType>::SetX(
-    typename boost::call_traits<DataType>::const_reference val)
+template <typename DataType> void NekVector<DataType>::SetX(const DataType &val)
 {
     ASSERTL1(this->GetDimension() >= 1, "Invalid use of NekVector::SetX");
     this->GetData()[0] = val;
 }
 
-template <typename DataType>
-void NekVector<DataType>::SetY(
-    typename boost::call_traits<DataType>::const_reference val)
+template <typename DataType> void NekVector<DataType>::SetY(const DataType &val)
 {
     ASSERTL1(this->GetDimension() >= 2, "Invalid use of NekVector::SetX");
     this->GetData()[1] = val;
 }
 
-template <typename DataType>
-void NekVector<DataType>::SetZ(
-    typename boost::call_traits<DataType>::const_reference val)
+template <typename DataType> void NekVector<DataType>::SetZ(const DataType &val)
 {
     ASSERTL1(this->GetDimension() >= 3, "Invalid use of NekVector::SetX");
     this->GetData()[2] = val;
@@ -333,16 +319,14 @@ NekVector<DataType> &NekVector<DataType>::operator-=(
 }
 
 template <typename DataType>
-NekVector<DataType> &NekVector<DataType>::operator*=(
-    typename boost::call_traits<DataType>::const_reference rhs)
+NekVector<DataType> &NekVector<DataType>::operator*=(const DataType &rhs)
 {
     MultiplyEqual(*this, rhs);
     return *this;
 }
 
 template <typename DataType>
-NekVector<DataType> &NekVector<DataType>::operator/=(
-    typename boost::call_traits<DataType>::const_reference rhs)
+NekVector<DataType> &NekVector<DataType>::operator/=(const DataType &rhs)
 {
     DivideEqual(*this, rhs);
     return *this;
@@ -354,8 +338,7 @@ template <typename DataType> void NekVector<DataType>::Normalize()
 }
 
 template <typename DataType>
-typename boost::call_traits<DataType>::const_reference NekVector<
-    DataType>::operator()(unsigned int i) const
+const DataType &NekVector<DataType>::operator()(unsigned int i) const
 {
     ASSERTL1(i < GetDimension(),
              "Invalid access to m_data via parenthesis operator");
@@ -363,31 +346,24 @@ typename boost::call_traits<DataType>::const_reference NekVector<
 }
 
 template <typename DataType>
-typename boost::call_traits<DataType>::const_reference NekVector<
-    DataType>::operator[](unsigned int i) const
+const DataType &NekVector<DataType>::operator[](unsigned int i) const
 {
     return m_data[i];
 }
 
-template <typename DataType>
-typename boost::call_traits<DataType>::const_reference NekVector<DataType>::x()
-    const
+template <typename DataType> const DataType &NekVector<DataType>::x() const
 {
     ASSERTL1(GetDimension() >= 1, "Invalid use of NekVector::x");
     return (*this)(0);
 }
 
-template <typename DataType>
-typename boost::call_traits<DataType>::const_reference NekVector<DataType>::y()
-    const
+template <typename DataType> const DataType &NekVector<DataType>::y() const
 {
     ASSERTL1(GetDimension() >= 2, "Invalid use of NekVector::y");
     return (*this)(1);
 }
 
-template <typename DataType>
-typename boost::call_traits<DataType>::const_reference NekVector<DataType>::z()
-    const
+template <typename DataType> const DataType &NekVector<DataType>::z() const
 {
     ASSERTL1(GetDimension() >= 3, "Invalid use of NekVector::z");
     return (*this)(2);
