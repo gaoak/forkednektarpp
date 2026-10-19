@@ -36,6 +36,7 @@
 #ifndef LIBUTILITIES_BASICUTILS_HASHUTILS
 #define LIBUTILITIES_BASICUTILS_HASHUTILS
 
+#include <cstdint>
 #include <functional>
 
 namespace Nektar
@@ -45,11 +46,35 @@ inline void hash_combine([[maybe_unused]] std::size_t &seed)
 {
 }
 
+/**
+ * @brief Scatter the bits of @p x (the splitmix64 finaliser).
+ *
+ * The classic combine step, `seed ^= h + 0x9e3779b9 + (seed << 6) + (seed >>
+ * 2)`, is linear enough in small integers that related keys collide: with
+ * identity hashes of unsigned integers, combining (b, 64) gives the same seed
+ * as combining (b + 1, 1), because the shift by six turns the one of the first
+ * argument into the 64 of the second. Keys built from a block index and an
+ * interleave width hit exactly that pair on a back-end whose width is 64,
+ * and the data warehouse, which is keyed by hash alone, then hands one
+ * block's data to another. Mixing every combined value through this
+ * finaliser breaks the arithmetic relation.
+ */
+inline std::size_t hash_mix(std::size_t x)
+{
+    std::uint64_t y = x;
+    y ^= y >> 30;
+    y *= 0xbf58476d1ce4e5b9ULL;
+    y ^= y >> 27;
+    y *= 0x94d049bb133111ebULL;
+    y ^= y >> 31;
+    return static_cast<std::size_t>(y);
+}
+
 template <typename T, typename... Args>
 inline void hash_combine(std::size_t &seed, const T &v, Args... args)
 {
     std::hash<T> hasher;
-    seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed = hash_mix(seed + 0x9e3779b97f4a7c15ULL + hasher(v));
     hash_combine(seed, args...);
 }
 
