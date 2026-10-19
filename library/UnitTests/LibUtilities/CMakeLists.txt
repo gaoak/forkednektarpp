@@ -9,6 +9,7 @@ SET(LibUtilitiesUnitTestSources
     TestInterpCoeff.cpp
     TestPolylib.cpp
     TestGaussGaussAlpha1Beta0.cpp
+    TestHashUtils.cpp
     TestCrystalRouter.cpp
     TestNodalPointOrdering.cpp
     TestSharedIdResolvers.cpp
