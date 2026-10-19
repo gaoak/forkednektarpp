@@ -56,8 +56,8 @@ public:
     LIB_UTILITIES_EXPORT virtual ~ConstMatrix() = default;
 
 public:
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::value_type
-    operator()(unsigned int row, unsigned int column) const;
+    LIB_UTILITIES_EXPORT DataType operator()(unsigned int row,
+                                             unsigned int column) const;
 
     LIB_UTILITIES_EXPORT unsigned int GetStorageSize() const;
 
@@ -118,9 +118,9 @@ protected:
         return m_transpose;
     }
 
-    virtual typename boost::call_traits<DataType>::value_type v_GetValue(
-        unsigned int row, unsigned int column) const = 0;
-    virtual unsigned int v_GetStorageSize() const    = 0;
+    virtual DataType v_GetValue(unsigned int row,
+                                unsigned int column) const = 0;
+    virtual unsigned int v_GetStorageSize() const          = 0;
     LIB_UTILITIES_EXPORT virtual void v_Transpose();
     LIB_UTILITIES_EXPORT virtual char v_GetTransposeFlag() const;
 
@@ -135,9 +135,8 @@ template <typename DataType> class Matrix : public ConstMatrix<DataType>
 public:
     LIB_UTILITIES_EXPORT ~Matrix() override;
 
-    LIB_UTILITIES_EXPORT void SetValue(
-        unsigned int row, unsigned int column,
-        typename boost::call_traits<DataType>::const_reference d);
+    LIB_UTILITIES_EXPORT void SetValue(unsigned int row, unsigned int column,
+                                       const DataType &d);
 
 protected:
     // All constructors are private to enforce the abstract nature of
@@ -154,9 +153,9 @@ protected:
         const ConstMatrix<DataType> &rhs);
 
 private:
-    LIB_UTILITIES_EXPORT virtual void v_SetValue(
-        unsigned int row, unsigned int column,
-        typename boost::call_traits<DataType>::const_reference d) = 0;
+    LIB_UTILITIES_EXPORT virtual void v_SetValue(unsigned int row,
+                                                 unsigned int column,
+                                                 const DataType &d) = 0;
 };
 
 } // namespace Nektar

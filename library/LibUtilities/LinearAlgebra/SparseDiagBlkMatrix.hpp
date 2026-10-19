@@ -45,8 +45,6 @@
 
 #include <LibUtilities/LinearAlgebra/SparseMatrixFwd.hpp>
 
-#include <boost/call_traits.hpp>
-
 namespace Nektar
 {
 
@@ -83,11 +81,11 @@ public:
     LIB_UTILITIES_EXPORT IndexType GetNumNonZeroEntries(int i) const;
     LIB_UTILITIES_EXPORT DataType GetFillInRatio(int i) const;
 
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference
-    operator()(const IndexType row, const IndexType column) const;
-    LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::const_reference
-    operator()(const IndexType block, const IndexType row,
-               const IndexType column) const;
+    LIB_UTILITIES_EXPORT const DataType &operator()(
+        const IndexType row, const IndexType column) const;
+    LIB_UTILITIES_EXPORT const DataType &operator()(
+        const IndexType block, const IndexType row,
+        const IndexType column) const;
 
     LIB_UTILITIES_EXPORT void Multiply(const DataVectorType &in,
                                        DataVectorType &out);

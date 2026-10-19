@@ -150,19 +150,17 @@ typename NekSparseDiagBlkMatrix<SparseStorageType>::DataType NekSparseDiagBlkMat
 }
 
 template <typename SparseStorageType>
-typename boost::call_traits<
-    typename SparseStorageType::DataType>::const_reference
-NekSparseDiagBlkMatrix<SparseStorageType>::operator()(
-    IndexType block, IndexType loc_row, IndexType loc_column) const
+const typename SparseStorageType::DataType &NekSparseDiagBlkMatrix<
+    SparseStorageType>::operator()(IndexType block, IndexType loc_row,
+                                   IndexType loc_column) const
 {
     return m_submatrix[block]->GetValue(loc_row, loc_column);
 }
 
 template <typename SparseStorageType>
-typename boost::call_traits<
-    typename SparseStorageType::DataType>::const_reference
-NekSparseDiagBlkMatrix<SparseStorageType>::operator()(
-    IndexType glob_row, IndexType glob_column) const
+const typename SparseStorageType::DataType &NekSparseDiagBlkMatrix<
+    SparseStorageType>::operator()(IndexType glob_row,
+                                   IndexType glob_column) const
 {
     IndexType i                        = 0;
     static DataType defaultReturnValue = 0;
