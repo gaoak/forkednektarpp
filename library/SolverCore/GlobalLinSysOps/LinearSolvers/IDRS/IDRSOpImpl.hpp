@@ -510,16 +510,6 @@ protected:
 
             ++this->m_niter;
 
-            // Test if norm is within tolerance.
-            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
-            {
-                this->PrintVerboseOutput(this->name, "error",
-                                         std::sqrt(eps / rhsMagnitude),
-                                         rhsMagnitude);
-
-                return;
-            }
-
             if (this->m_niter > this->m_maxIter)
             {
                 std::stringstream msg;
@@ -577,6 +567,16 @@ protected:
             // Update residual norm.
             eps = this->m_math.ddot(m_r, m_r);
             this->m_rowComm->AllReduce(eps, Nektar::LibUtilities::ReduceSum);
+
+            // Test if norm is within tolerance.
+            if (eps < this->m_tol * this->m_tol * rhsMagnitude)
+            {
+                this->PrintVerboseOutput(this->name, "error",
+                                         std::sqrt(eps / rhsMagnitude),
+                                         rhsMagnitude);
+
+                return;
+            }
         }
     }
 };

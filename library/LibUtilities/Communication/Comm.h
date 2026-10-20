@@ -863,9 +863,8 @@ void Comm::AlltoAllv(LibUtilities::MemoryRegion<T> &pSendData,
  */
 template <class T> void Comm::AllGather(T &pSendData, T &pRecvData)
 {
-    BOOST_STATIC_ASSERT_MSG(
-        CommDataTypeTraits<T>::IsVector,
-        "AllGather only valid with Array or vector arguments.");
+    static_assert(CommDataTypeTraits<T>::IsVector,
+                  "AllGather only valid with Array or vector arguments.");
 
     int sendSize = CommDataTypeTraits<T>::GetCount(pSendData);
     int recvSize = sendSize;
@@ -924,9 +923,8 @@ void Comm::AllGatherv(T &pSendData, T &pRecvData,
                       Array<OneD, int> &pRecvDataSizeMap,
                       Array<OneD, int> &pRecvDataOffsetMap)
 {
-    BOOST_STATIC_ASSERT_MSG(
-        CommDataTypeTraits<T>::IsVector,
-        "AllGatherv only valid with Array or vector arguments.");
+    static_assert(CommDataTypeTraits<T>::IsVector,
+                  "AllGatherv only valid with Array or vector arguments.");
 
     int sendSize = CommDataTypeTraits<T>::GetCount(pSendData);
 
@@ -993,9 +991,8 @@ template <class T>
 void Comm::AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
                       Array<OneD, int> &pRecvDataOffsetMap)
 {
-    BOOST_STATIC_ASSERT_MSG(
-        CommDataTypeTraits<T>::IsVector,
-        "AllGatherv only valid with Array or vector arguments.");
+    static_assert(CommDataTypeTraits<T>::IsVector,
+                  "AllGatherv only valid with Array or vector arguments.");
 
     v_AllGatherv(CommDataTypeTraits<T>::GetPointer(pRecvData),
                  pRecvDataSizeMap.data(), pRecvDataOffsetMap.data(),

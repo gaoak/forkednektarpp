@@ -41,6 +41,10 @@
 namespace Nektar::Math
 {
 
+// Stream a reduction initialises its output on and the host reads it back
+// on: the null stream, ordered against the block streams that reduce into it.
+inline constexpr unsigned int internalReductionStreamID = 0;
+
 template <typename MemSpace> class internalMathKernelMask
 {
 public:
@@ -1321,7 +1325,7 @@ void reduceSum(LibUtilities::Field<TData, TFieldState> &x, TData *out)
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1350,7 +1354,7 @@ void reduceSum(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1408,7 +1412,8 @@ void reduceMax(LibUtilities::Field<TData, TFieldState> &x, TData *out)
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceFill(out, std::numeric_limits<TData>::lowest(), 1, 0);
+        deviceFill(out, std::numeric_limits<TData>::lowest(), 1,
+                   internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1444,7 +1449,8 @@ void reduceMax(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceFill(out, std::numeric_limits<TData>::lowest(), 1, 0);
+        deviceFill(out, std::numeric_limits<TData>::lowest(), 1,
+                   internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1502,7 +1508,8 @@ void reduceMin(LibUtilities::Field<TData, TFieldState> &x, TData *out)
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceFill(out, std::numeric_limits<TData>::max(), 1, 0);
+        deviceFill(out, std::numeric_limits<TData>::max(), 1,
+                   internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1538,7 +1545,8 @@ void reduceMin(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceFill(out, std::numeric_limits<TData>::max(), 1, 0);
+        deviceFill(out, std::numeric_limits<TData>::max(), 1,
+                   internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1628,7 +1636,7 @@ void ddot(LibUtilities::Field<TData, TFieldState> &x,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1673,7 +1681,7 @@ void ddot(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1729,7 +1737,7 @@ void ddot2(LibUtilities::Field<TData, TFieldState> &x,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, 2 * sizeof(TData), 0);
+        deviceMemset(out, 0, 2 * sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1783,7 +1791,7 @@ void ddot2(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, 2 * sizeof(TData), 0);
+        deviceMemset(out, 0, 2 * sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1852,7 +1860,7 @@ void l1norm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1881,7 +1889,7 @@ void l1norm(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1941,7 +1949,7 @@ void l2norm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -1970,7 +1978,7 @@ void l2norm(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -2032,7 +2040,7 @@ void lpnorm(const unsigned int p, LibUtilities::Field<TData, TFieldState> &x,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -2062,7 +2070,7 @@ void lpnorm(const unsigned int p,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -2122,7 +2130,7 @@ void linfnorm(LibUtilities::Field<TData, TFieldState> &x, TData *out)
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -2151,7 +2159,7 @@ void linfnorm(LibUtilities::Field<uint8_t, TFieldState> &mask,
     }
     else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
     {
-        deviceMemset(out, 0, sizeof(TData), 0);
+        deviceMemset(out, 0, sizeof(TData), internalReductionStreamID);
     }
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)

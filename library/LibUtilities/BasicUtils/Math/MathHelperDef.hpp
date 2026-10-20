@@ -506,7 +506,7 @@ typename T::value_type MathHelper::reduceSum(T &x, const std::string &execSpace)
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -551,7 +551,7 @@ typename T::value_type MathHelper::reduceSum(M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -595,7 +595,7 @@ typename T::value_type MathHelper::reduceMax(T &x, const std::string &execSpace)
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -640,7 +640,7 @@ typename T::value_type MathHelper::reduceMax(M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -684,7 +684,7 @@ typename T::value_type MathHelper::reduceMin(T &x, const std::string &execSpace)
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -729,7 +729,7 @@ typename T::value_type MathHelper::reduceMin(M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -774,7 +774,7 @@ typename T::value_type MathHelper::ddot(T &x, T &y,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -819,7 +819,7 @@ typename T::value_type MathHelper::ddot(M &mask, T &x, T &y,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -864,7 +864,7 @@ std::array<typename T::value_type, 2> MathHelper::ddot2(
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -910,7 +910,7 @@ std::array<typename T::value_type, 2> MathHelper::ddot2(
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -955,7 +955,7 @@ typename T::value_type MathHelper::l1norm(T &x, const std::string &execSpace)
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1000,7 +1000,7 @@ typename T::value_type MathHelper::l1norm(M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1044,7 +1044,7 @@ typename T::value_type MathHelper::l2norm(T &x, const std::string &execSpace)
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1089,7 +1089,7 @@ typename T::value_type MathHelper::l2norm(M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1134,7 +1134,7 @@ typename T::value_type MathHelper::lpnorm(const unsigned int p, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1179,7 +1179,7 @@ typename T::value_type MathHelper::lpnorm(const unsigned int p, M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1223,7 +1223,7 @@ typename T::value_type MathHelper::linfnorm(T &x, const std::string &execSpace)
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
@@ -1268,7 +1268,7 @@ typename T::value_type MathHelper::linfnorm(M &mask, T &x,
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace0 == "Device")
     {
-        const unsigned int streamID = 0;
+        const unsigned int streamID = internalReductionStreamID;
         if (internalDeviceBuffer == nullptr)
         {
             Nektar::deviceMalloc(&internalDeviceBuffer, internalMaxDataSizeByte,
