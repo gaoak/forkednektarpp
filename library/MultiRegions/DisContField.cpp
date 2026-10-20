@@ -4015,6 +4015,12 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                 if (m_bndConditions[i]->GetBoundaryConditionType() ==
                     SpatialDomains::eDirichlet)
                 {
+                    ASSERTL0(std::static_pointer_cast<
+                                 SpatialDomains::DirichletBoundaryCondition>(
+                                 m_bndConditions[i])
+                                 ->m_filename.empty(),
+                             "Boundary conditions read from FILE are not "
+                             "supported for 1D expansions.");
                     for (int n = 0; n < npoints; ++n)
                     {
                         m_bndCondExpansions[i]->SetCoeff(
@@ -4030,6 +4036,12 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                 else if (m_bndConditions[i]->GetBoundaryConditionType() ==
                          SpatialDomains::eNeumann)
                 {
+                    ASSERTL0(std::static_pointer_cast<
+                                 SpatialDomains::NeumannBoundaryCondition>(
+                                 m_bndConditions[i])
+                                 ->m_filename.empty(),
+                             "Boundary conditions read from FILE are not "
+                             "supported for 1D expansions.");
                     for (int n = 0; n < npoints; ++n)
                     {
                         m_bndCondExpansions[i]->SetCoeff(
@@ -4043,6 +4055,12 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                 else if (m_bndConditions[i]->GetBoundaryConditionType() ==
                          SpatialDomains::eRobin)
                 {
+                    ASSERTL0(std::static_pointer_cast<
+                                 SpatialDomains::RobinBoundaryCondition>(
+                                 m_bndConditions[i])
+                                 ->m_filename.empty(),
+                             "Boundary conditions read from FILE are not "
+                             "supported for 1D expansions.");
                     for (int n = 0; n < npoints; ++n)
                     {
                         m_bndCondExpansions[i]->SetCoeff(
@@ -4130,6 +4148,8 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                             SpatialDomains::NeumannBoundaryCondition>(
                             m_bndConditions[i]);
                     string bcfilename = bcPtr->m_filename;
+                    LibUtilities::EquationSharedPtr condition =
+                        bcPtr->m_neumannCondition;
 
                     if (bcfilename != "")
                     {
@@ -4138,14 +4158,20 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                             locExpList->UpdateCoeffs());
                         locExpList->BwdTrans(locExpList->GetCoeffs(),
                                              locExpList->UpdatePhys());
+
+                        // A VALUE given alongside FILE multiplies the
+                        // values read from file.
+                        if (!condition->GetExpression().empty())
+                        {
+                            Array<OneD, NekDouble> valuesExp(npoints);
+                            condition->Evaluate(x0, x1, x2, time, valuesExp);
+                            Vmath::Vmul(npoints, valuesExp, 1,
+                                        locExpList->GetPhys(), 1,
+                                        locExpList->UpdatePhys(), 1);
+                        }
                     }
                     else
                     {
-                        LibUtilities::EquationSharedPtr condition =
-                            std::static_pointer_cast<
-                                SpatialDomains::NeumannBoundaryCondition>(
-                                m_bndConditions[i])
-                                ->m_neumannCondition;
                         condition->Evaluate(x0, x1, x2, time,
                                             locExpList->UpdatePhys());
                     }
@@ -4162,6 +4188,8 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                             m_bndConditions[i]);
 
                     string bcfilename = bcPtr->m_filename;
+                    LibUtilities::EquationSharedPtr condition =
+                        bcPtr->m_robinFunction;
 
                     if (bcfilename != "")
                     {
@@ -4170,14 +4198,20 @@ void DisContField::v_EvaluateBoundaryConditions(const NekDouble time,
                             locExpList->UpdateCoeffs());
                         locExpList->BwdTrans(locExpList->GetCoeffs(),
                                              locExpList->UpdatePhys());
+
+                        // A VALUE given alongside FILE multiplies the
+                        // values read from file.
+                        if (!condition->GetExpression().empty())
+                        {
+                            Array<OneD, NekDouble> valuesExp(npoints);
+                            condition->Evaluate(x0, x1, x2, time, valuesExp);
+                            Vmath::Vmul(npoints, valuesExp, 1,
+                                        locExpList->GetPhys(), 1,
+                                        locExpList->UpdatePhys(), 1);
+                        }
                     }
                     else
                     {
-                        LibUtilities::EquationSharedPtr condition =
-                            std::static_pointer_cast<
-                                SpatialDomains::RobinBoundaryCondition>(
-                                m_bndConditions[i])
-                                ->m_robinFunction;
                         condition->Evaluate(x0, x1, x2, time,
                                             locExpList->UpdatePhys());
                     }
