@@ -5,7 +5,7 @@
 #SBATCH --gpus=1
 #SBATCH --ntasks-per-gpu=72 
 #SBATCH --mem=96GB
-#SBATCH --time=2:00:00
+#SBATCH --time=1:00:00
 #SBATCH --job-name=nektar-cluster-test
 
 # Import bash script arguments

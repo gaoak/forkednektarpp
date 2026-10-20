@@ -326,15 +326,17 @@ protected:
             }
             else
             {
-                const unsigned int streamID = 1;
+                // A point region has a single block.
+                const unsigned int blk      = 0;
+                const unsigned int streamID = blk + 1;
 
                 auto physptr =
                     m_wsp_phys[iNeu]
-                        .GetBlocks()[0]
+                        .GetBlocks()[blk]
                         .template GetPtr<MemSpace, ReadOnly>(streamID);
                 auto coeffptr =
                     m_wsp_coeffs[iNeu]
-                        .GetBlocks()[0]
+                        .GetBlocks()[blk]
                         .template GetPtr<MemSpace, WriteOnly>(streamID);
                 for (size_t nc = 0; nc < nComp; nc++)
                 {
@@ -343,8 +345,8 @@ protected:
                     // equivalent hence the copy is correct.
                     Math::copyKernel<ExecSpace>(nBndExpCoeff, physptr, coeffptr,
                                                 streamID);
-                    physptr += m_wsp_phys[iNeu].GetBlocks()[0].CompSize();
-                    coeffptr += m_wsp_coeffs[iNeu].GetBlocks()[0].CompSize();
+                    physptr += m_wsp_phys[iNeu].GetBlocks()[blk].CompSize();
+                    coeffptr += m_wsp_coeffs[iNeu].GetBlocks()[blk].CompSize();
                 }
             }
 
