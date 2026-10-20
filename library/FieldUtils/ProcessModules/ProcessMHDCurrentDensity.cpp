@@ -35,7 +35,7 @@
 #include <array>
 #include <string>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
@@ -66,7 +66,7 @@ int ProcessMHDCurrentDensity::FindField(const std::string &name) const
 {
     for (int i = 0; i < m_f->m_variables.size(); ++i)
     {
-        if (boost::iequals(m_f->m_variables[i], name))
+        if (StringUtils::IEquals(m_f->m_variables[i], name))
         {
             return i;
         }
@@ -76,7 +76,8 @@ int ProcessMHDCurrentDensity::FindField(const std::string &name) const
 
 std::string ProcessMHDCurrentDensity::GetElectromagneticFieldFunction() const
 {
-    if (!boost::iequals(m_config.at("function").as<std::string>(), "NotSet"))
+    if (!StringUtils::IEquals(m_config.at("function").as<std::string>(),
+                              "NotSet"))
     {
         return m_config.at("function").as<std::string>();
     }
@@ -88,7 +89,7 @@ std::string ProcessMHDCurrentDensity::GetElectromagneticFieldFunction() const
         while (force)
         {
             const char *type = force->Attribute("TYPE");
-            if (type && boost::iequals(type, "ForcingLorentz"))
+            if (type && StringUtils::IEquals(type, "ForcingLorentz"))
             {
                 TiXmlElement *fields =
                     force->FirstChildElement("ELECTRICMAGNETICFIELDS");

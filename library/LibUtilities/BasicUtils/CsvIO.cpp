@@ -35,7 +35,7 @@
 
 #include <LibUtilities/BasicUtils/CsvIO.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/tokenizer.hpp>
 
 #include <fstream>
@@ -84,9 +84,9 @@ void CsvIO::Write(const std::string &outFile,
     xyz.push_back("z");
     xyz.resize(ptsField->GetDim());
 
-    std::string fn = boost::algorithm::join(xyz, ",");
+    std::string fn = StringUtils::Join(xyz, ",");
     ptsFile << "# " << fn << ",";
-    fn = boost::algorithm::join(ptsField->GetFieldNames(), ",");
+    fn = StringUtils::Join(ptsField->GetFieldNames(), ",");
     ptsFile << fn;
     ptsFile << std::endl;
 
@@ -119,7 +119,7 @@ void CsvIO::v_ImportPtsFieldData(const std::string inFile,
 
     std::string line;
     std::getline(in, line);
-    boost::erase_first(line, "#");
+    StringUtils::EraseFirst(line, "#");
 
     std::vector<std::string> fieldNames;
     bool valid = ParseUtils::GenerateVector(line, fieldNames);
@@ -176,7 +176,7 @@ void CsvIO::v_ImportPtsFieldData(const std::string inFile,
                     if (cnt == loc_coord[j])
                     {
                         NekDouble CoordVal =
-                            std::stod(boost::trim_copy(std::string(it)));
+                            std::stod(StringUtils::TrimCopy(std::string(it)));
                         switch (j)
                         {
                             case 0:
@@ -218,7 +218,7 @@ void CsvIO::v_ImportPtsFieldData(const std::string inFile,
                 try
                 {
                     ptsSerial.push_back(
-                        std::stod(boost::trim_copy(std::string(it))));
+                        std::stod(StringUtils::TrimCopy(std::string(it))));
                 }
                 catch (...)
                 {

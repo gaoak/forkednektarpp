@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <TestData.h>
@@ -92,7 +92,7 @@ std::string TestData::GetMetricType(unsigned int pId) const
     ASSERTL0(m_metrics[pId]->Attribute("type"),
              "Missing 'type' attribute in metric " + std::to_string(pId) +
                  ").");
-    return boost::to_upper_copy(string(m_metrics[pId]->Attribute("type")));
+    return StringUtils::ToUpperCopy(string(m_metrics[pId]->Attribute("type")));
 }
 
 /// Returns the number of metrics to be collected for the test.

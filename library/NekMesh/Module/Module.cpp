@@ -33,6 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <algorithm>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <fstream>
@@ -91,7 +92,7 @@ void InputModule::OpenStream()
                      << std::endl;
     }
 
-    if (filename.size() > 3 && filename.substr(filename.size() - 3, 3) == ".gz")
+    if (StringUtils::EndsWith(filename, ".gz"))
     {
         m_mshFileStream.open(filename.c_str(), ios_base::in | ios_base::binary);
         m_mshFile.push(io::gzip_decompressor());
@@ -125,8 +126,7 @@ bool OutputModule::OpenStream(bool binary)
 
     if (overwrite)
     {
-        if (filename.size() > 3 &&
-            filename.substr(filename.size() - 3, 3) == ".gz")
+        if (StringUtils::EndsWith(filename, ".gz"))
         {
             m_mshFileStream.open(filename.c_str(),
                                  ios_base::out | ios_base::binary);
@@ -179,7 +179,7 @@ bool OutputModule::CheckOverwrite(const std::string &filename)
                    << std::flush;
     std::getline(std::cin, answer);
 
-    if (answer.compare("y") == 0)
+    if (answer == "y")
     {
         return true;
     }

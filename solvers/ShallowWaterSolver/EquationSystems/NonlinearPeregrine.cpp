@@ -36,6 +36,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 #include <ShallowWaterSolver/EquationSystems/NonlinearPeregrine.h>
 
@@ -67,7 +68,7 @@ void NonlinearPeregrine::v_InitObject(bool DeclareFields)
         std::string ProblemTypeStr = m_session->GetSolverInfo("PROBLEMTYPE");
         for (int i = 0; i < (int)SIZE_ProblemType; ++i)
         {
-            if (boost::iequals(ProblemTypeMap[i], ProblemTypeStr))
+            if (StringUtils::IEquals(ProblemTypeMap[i], ProblemTypeStr))
             {
                 m_problemType = (ProblemType)i;
                 break;
@@ -405,8 +406,8 @@ void NonlinearPeregrine::SetBoundaryConditionsForcing(
     for (int n = 0; n < m_fields[0]->GetBndConditions().size(); ++n)
     {
         // Wall Boundary Condition
-        if (boost::iequals(m_fields[0]->GetBndConditions()[n]->GetUserDefined(),
-                           "Wall"))
+        if (StringUtils::IEquals(
+                m_fields[0]->GetBndConditions()[n]->GetUserDefined(), "Wall"))
         {
             WallBoundaryForcing(n, cnt, inarray);
         }
@@ -545,8 +546,8 @@ void NonlinearPeregrine::SetBoundaryConditionsContVariables(
     for (int n = 0; n < m_fields[3]->GetBndConditions().size(); ++n)
     {
         // Wall Boundary Condition
-        if (boost::iequals(m_fields[3]->GetBndConditions()[n]->GetUserDefined(),
-                           "Wall") ||
+        if (StringUtils::IEquals(
+                m_fields[3]->GetBndConditions()[n]->GetUserDefined(), "Wall") ||
             m_fields[3]->GetBndConditions()[n]->IsTimeDependent())
         {
             WallBoundaryContVariables(n, cnt, inarray);

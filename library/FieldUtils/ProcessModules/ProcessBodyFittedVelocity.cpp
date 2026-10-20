@@ -46,6 +46,7 @@
 
 #include "ProcessBodyFittedVelocity.h"
 #include "ProcessWallNormalData.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -842,7 +843,8 @@ void ProcessBodyFittedVelocity::GetVelAndConvertToCartSys(
 
     // Check type of the fields and set variable offset
     vector<string> vars = m_f->m_exp[0]->GetSession()->GetVariables();
-    if (boost::iequals(vars[0], "rho") && boost::iequals(vars[1], "rhou"))
+    if (StringUtils::IEquals(vars[0], "rho") &&
+        StringUtils::IEquals(vars[1], "rhou"))
     {
         var_offset = spacedim + 2;
     }

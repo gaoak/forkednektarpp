@@ -33,7 +33,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <iomanip>
 
 #include <IncNavierStokesSolver/EquationSystems/IncNavierStokes.h>
@@ -103,7 +103,7 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
         for (j = 0; j < numfields; ++j)
         {
             std::string var = m_boundaryConditions->GetVariable(j);
-            if (boost::iequals(velids[i], var))
+            if (StringUtils::IEquals(velids[i], var))
             {
                 m_velocity[i] = j;
                 break;
@@ -181,7 +181,8 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
     if (DefinedForcing("MovingReferenceFrame"))
     {
         std::string vSolver = m_session->GetSolverInfo("SolverType");
-        const bool isVCS = boost::iequals(vSolver, "VelocityCorrectionScheme");
+        const bool isVCS =
+            StringUtils::IEquals(vSolver, "VelocityCorrectionScheme");
         if (isVCS)
         {
             ASSERTL0(false, "The Forcing MovingRefenceFrame is no "
@@ -226,7 +227,8 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
         BndExp   = m_fields[i]->GetBndCondExpansions();
         for (size_t n = 0; n < BndConds.size(); ++n)
         {
-            if (boost::iequals(BndConds[n]->GetUserDefined(), "Radiation"))
+            if (StringUtils::IEquals(BndConds[n]->GetUserDefined(),
+                                     "Radiation"))
             {
                 ASSERTL0(
                     BndConds[n]->GetBoundaryConditionType() ==
@@ -241,8 +243,8 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
                 }
                 radpts += BndExp[n]->GetTotPoints();
             }
-            if (boost::iequals(BndConds[n]->GetUserDefined(),
-                               "ZeroNormalComponent"))
+            if (StringUtils::IEquals(BndConds[n]->GetUserDefined(),
+                                     "ZeroNormalComponent"))
             {
                 ASSERTL0(BndConds[n]->GetBoundaryConditionType() ==
                              SpatialDomains::eDirichlet,
@@ -264,7 +266,8 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
 
         for (size_t n = 0; n < BndConds.size(); ++n)
         {
-            if (boost::iequals(BndConds[n]->GetUserDefined(), "Radiation"))
+            if (StringUtils::IEquals(BndConds[n]->GetUserDefined(),
+                                     "Radiation"))
             {
 
                 int npoints = BndExp[n]->GetNpoints();
@@ -294,7 +297,7 @@ void IncNavierStokes::v_InitObject(bool DeclareField)
     {
         for (size_t n = 0; n < m_fields[i]->GetBndConditions().size(); ++n)
         {
-            if (boost::istarts_with(
+            if (StringUtils::IStartsWith(
                     m_fields[i]->GetBndConditions()[n]->GetUserDefined(),
                     "Womersley"))
             {
@@ -363,7 +366,7 @@ void IncNavierStokes::SetBoundaryConditions(NekDouble time)
                 varName = m_session->GetVariable(i);
                 m_fields[i]->EvaluateBoundaryConditions(time, varName);
             }
-            else if (boost::istarts_with(
+            else if (StringUtils::IStartsWith(
                          m_fields[i]->GetBndConditions()[n]->GetUserDefined(),
                          "Womersley"))
             {
@@ -407,7 +410,7 @@ void IncNavierStokes::SetRadiationBoundaryForcing(int fieldid)
 
         if ((BndConds[n]->GetBoundaryConditionType() ==
              SpatialDomains::eRobin) &&
-            (boost::iequals(type, "Radiation")))
+            (StringUtils::IEquals(type, "Radiation")))
         {
             size_t nExp = BndExp[n]->GetExpSize();
             for (i = 0; i < nExp; ++i, cnt++)
@@ -483,8 +486,8 @@ void IncNavierStokes::SetZeroNormalVelocity()
     {
         if ((BndConds[0][n]->GetBoundaryConditionType() ==
              SpatialDomains::eDirichlet) &&
-            (boost::iequals(BndConds[0][n]->GetUserDefined(),
-                            "ZeroNormalComponent")))
+            (StringUtils::IEquals(BndConds[0][n]->GetUserDefined(),
+                                  "ZeroNormalComponent")))
         {
             size_t nExp = BndExp[0][n]->GetExpSize();
             for (i = 0; i < nExp; ++i, cnt++)
@@ -1047,7 +1050,7 @@ bool IncNavierStokes::DefinedForcing(const std::string &sForce)
     for (const LibUtilities::SessionNode *vForce :
          vForcing.GetChildren("FORCE"))
     {
-        if (boost::iequals(vForce->GetAttribute("TYPE"), sForce))
+        if (StringUtils::IEquals(vForce->GetAttribute("TYPE"), sForce))
         {
             return true;
         }

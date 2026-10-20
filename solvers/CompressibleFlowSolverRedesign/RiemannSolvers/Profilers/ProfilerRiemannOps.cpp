@@ -34,6 +34,8 @@
 
 #include "ProfilerRiemannOps.hpp"
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
+
 #if defined(NEKTAR_USE_MAGMA)
 #include "magma_v2.h"
 #endif
@@ -153,13 +155,11 @@ int main(int argc, char *argv[])
     }
     else
     {
-        std::stringstream ss(method);
-        std::string item;
-        while (std::getline(ss, item, ','))
+        std::vector<std::string> items;
+        StringUtils::Split(items, method, StringUtils::IsAnyOf(","));
+        for (auto &item : items)
         {
-            // trim spaces
-            item.erase(0, item.find_first_not_of(" \t"));
-            item.erase(item.find_last_not_of(" \t") + 1);
+            StringUtils::Trim(item);
             if (!item.empty())
             {
                 method0.push_back(item);

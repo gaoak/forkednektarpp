@@ -36,6 +36,7 @@
 #pragma once
 
 #include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -55,7 +56,7 @@ public:
 
         if (expansionList->GetSession()->DefinesEquationOfState())
         {
-            EoSName = boost::to_upper_copy(
+            EoSName = StringUtils::ToUpperCopy(
                 expansionList->GetSession()->GetEquationOfState().type);
         }
         else

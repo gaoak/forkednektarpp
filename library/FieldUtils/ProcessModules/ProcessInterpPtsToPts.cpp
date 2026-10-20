@@ -43,6 +43,7 @@
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessInterpPtsToPts.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -119,7 +120,7 @@ void ProcessInterpPtsToPts::v_Process(po::variables_map &vm)
     InterpolatePtsToPts(oldPts, m_f->m_fieldPts, clamp_low, clamp_up,
                         def_value);
 
-    if (!boost::iequals(m_config["cp"].as<string>(), "NotSet"))
+    if (!StringUtils::IEquals(m_config["cp"].as<string>(), "NotSet"))
     {
         calcCp0();
     }
@@ -131,7 +132,7 @@ void ProcessInterpPtsToPts::CreateFieldPts(
     int rank   = m_f->m_comm->GetSpaceComm()->GetRank();
     int nprocs = m_f->m_comm->GetSpaceComm()->GetSize();
     // Check for command line point specification
-    if (m_config["topts"].as<string>().compare("NotSet") != 0)
+    if (m_config["topts"].as<string>() != "NotSet")
     {
         string inFile = m_config["topts"].as<string>();
 
@@ -156,7 +157,7 @@ void ProcessInterpPtsToPts::CreateFieldPts(
             ASSERTL0(false, "unknown topts file type");
         }
     }
-    else if (m_config["line"].as<string>().compare("NotSet") != 0)
+    else if (m_config["line"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ASSERTL0(
@@ -207,7 +208,7 @@ void ProcessInterpPtsToPts::CreateFieldPts(
         m_f->m_fieldPts->SetPtsType(LibUtilities::ePtsLine);
         m_f->m_fieldPts->SetPointsPerEdge(ppe);
     }
-    else if (m_config["plane"].as<string>().compare("NotSet") != 0)
+    else if (m_config["plane"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ASSERTL0(
@@ -279,7 +280,7 @@ void ProcessInterpPtsToPts::CreateFieldPts(
         m_f->m_fieldPts->SetPtsType(LibUtilities::ePtsPlane);
         m_f->m_fieldPts->SetPointsPerEdge(ppe);
     }
-    else if (m_config["box"].as<string>().compare("NotSet") != 0)
+    else if (m_config["box"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ASSERTL0(
@@ -409,14 +410,14 @@ void ProcessInterpPtsToPts::calcCp0()
 
     for (int i = 0; i < pts->GetNFields(); ++i)
     {
-        if (boost::iequals(pts->GetFieldName(i), "p"))
+        if (StringUtils::IEquals(pts->GetFieldName(i), "p"))
         {
             pfield = i;
         }
 
-        if (boost::iequals(pts->GetFieldName(i), "u") ||
-            boost::iequals(pts->GetFieldName(i), "v") ||
-            boost::iequals(pts->GetFieldName(i), "w"))
+        if (StringUtils::IEquals(pts->GetFieldName(i), "u") ||
+            StringUtils::IEquals(pts->GetFieldName(i), "v") ||
+            StringUtils::IEquals(pts->GetFieldName(i), "w"))
         {
             velid.push_back(i);
         }

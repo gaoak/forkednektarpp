@@ -97,6 +97,7 @@ v5.11.0
 - Detect GPU-aware MPI for the SYCL back-ends (!2844)
 - Run the CG Dirichlet/Neumann boundary-condition operators' cross-block work on an explicit stream instead of the legacy default stream, and remove the unused DGDirBndCond and DGPerBndCond operators (!2845)
 - Remove unused boost includes and use std::isnan, std::tie and the local hash_range instead of boost (!2847)
+- Add a string utilities header (Nektar::StringUtils) and use it in place of Boost.StringAlgo and hand-rolled string helpers (!2850)
 - Use LibXSMM 2.1.0 on ARM64 to allow ARM64 support, keeping 1.17 on x86_64 (!2856)
 - Fix hash_combine, whose combine step made related integer keys collide, for example (b, 64) and (b + 1, 1); each step now mixes the combined value, so data-warehouse keys made from a block index and an interleave width no longer return another block's data on a 64-wide back-end (!2857)
 - Fix the redesign IDR(s) solver testing convergence of the residual updated after the minimal-residual step only after the next sweep of intermediate steps; name the stream of the device Math reductions (Math::internalReductionStreamID); use static_assert instead of BOOST_STATIC_ASSERT_MSG in Comm (!2860)

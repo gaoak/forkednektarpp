@@ -115,13 +115,13 @@
 #include <numeric>
 #include <random>
 #include <set>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/Communication/GsLib.hpp>
@@ -214,17 +214,15 @@ double Now()
 
 std::vector<std::string> Split(const std::string &s)
 {
-    std::vector<std::string> out;
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, ','))
+    // Trim, so "a2a, crystal" works as well as "a2a,crystal".
+    std::vector<std::string> items, out;
+    StringUtils::Split(items, s, StringUtils::IsAnyOf(","));
+    for (auto &item : items)
     {
-        // Trim, so "a2a, crystal" works as well as "a2a,crystal".
-        size_t b = item.find_first_not_of(" \t");
-        size_t e = item.find_last_not_of(" \t");
-        if (b != std::string::npos)
+        StringUtils::Trim(item);
+        if (!item.empty())
         {
-            out.push_back(item.substr(b, e - b + 1));
+            out.push_back(item);
         }
     }
     return out;

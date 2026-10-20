@@ -82,7 +82,7 @@ void ProcessInterpPointDataToFld::v_Process(po::variables_map &vm)
     int i, j;
     LibUtilities::PtsFieldSharedPtr fieldPts;
     // Load pts file
-    ASSERTL0(m_config["frompts"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["frompts"].as<string>() != "NotSet",
              "ProcessInterpPointDataToFld requires frompts parameter");
     string inFile = m_config["frompts"].as<string>().c_str();
 

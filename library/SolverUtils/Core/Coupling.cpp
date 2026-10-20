@@ -34,6 +34,7 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SessionNodeXml.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar::SolverUtils
 {
@@ -78,7 +79,7 @@ void Coupling::v_Init()
                                         element->Describe() + "'");
 
         // make sure that solver property is capitalised
-        std::string propertyUpper = boost::to_upper_copy(property);
+        std::string propertyUpper = StringUtils::ToUpperCopy(property);
 
         CouplingConfigMap::const_iterator x = m_config.find(propertyUpper);
         ASSERTL0(x != m_config.end(),

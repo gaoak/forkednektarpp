@@ -39,6 +39,7 @@
 
 #include "FieldUtils/ProcessModules/ProcessBodyFittedVelocity.h"
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
 
@@ -83,17 +84,17 @@ FilterBodyFittedVelocity::FilterBodyFittedVelocity(
     else
     {
         std::string sOptionType = it->second.c_str();
-        if (boost::iequals(sOptionType, "maximum") ||
-            boost::iequals(sOptionType, "max"))
+        if (StringUtils::IEquals(sOptionType, "maximum") ||
+            StringUtils::IEquals(sOptionType, "max"))
         {
             m_filterType = eMax;
         }
-        else if (boost::iequals(sOptionType, "minumun") ||
-                 boost::iequals(sOptionType, "min"))
+        else if (StringUtils::IEquals(sOptionType, "minumun") ||
+                 StringUtils::IEquals(sOptionType, "min"))
         {
             m_filterType = eMin;
         }
-        else if (boost::iequals(sOptionType, "original"))
+        else if (StringUtils::IEquals(sOptionType, "original"))
         {
             m_filterType = eOriginal;
         }
@@ -290,13 +291,14 @@ void FilterBodyFittedVelocity::v_FillVariablesName(
     // Check type of problem
     std::vector<std::string> varNames =
         pFields[0]->GetSession()->GetVariables();
-    if (boost::iequals(varNames[0], "u") && boost::iequals(varNames[1], "v"))
+    if (StringUtils::IEquals(varNames[0], "u") &&
+        StringUtils::IEquals(varNames[1], "v"))
     {
         m_problemType = eIncompressible;
         m_spaceDim    = pFields.size() - 1;
     }
-    else if (boost::iequals(varNames[0], "rho") &&
-             boost::iequals(varNames[1], "rhou"))
+    else if (StringUtils::IEquals(varNames[0], "rho") &&
+             StringUtils::IEquals(varNames[1], "rhou"))
     {
         m_problemType = eCompressible;
         m_spaceDim    = pFields.size() - 2;

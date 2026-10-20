@@ -39,6 +39,7 @@
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessBoundaryExtract.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -76,7 +77,7 @@ void ProcessBoundaryExtract::v_Process(po::variables_map &vm)
     vector<unsigned int> bndRegions;
     SpatialDomains::BoundaryConditions bcs(m_f->m_session, m_f->m_graph);
 
-    if (boost::iequals(bvalues, "All"))
+    if (StringUtils::IEquals(bvalues, "All"))
     {
         int numBndExp = 0;
 

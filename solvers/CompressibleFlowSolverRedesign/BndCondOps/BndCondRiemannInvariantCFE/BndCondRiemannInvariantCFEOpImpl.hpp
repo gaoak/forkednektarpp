@@ -36,7 +36,7 @@
 
 #include <algorithm>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/DisContField.h>
 
@@ -146,7 +146,7 @@ protected:
 
         auto EoS = m_session->GetEquationOfState();
 
-        ASSERTL0(boost::iequals(EoS.type, "IdealGas"),
+        ASSERTL0(StringUtils::IEquals(EoS.type, "IdealGas"),
                  "RiemannInvariant assumes the ideal gas entropy "
                  "s = p/rho^gamma and is not defined for equation of state '" +
                      EoS.type + "'.");

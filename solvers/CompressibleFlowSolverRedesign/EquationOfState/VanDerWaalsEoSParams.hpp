@@ -35,7 +35,7 @@
 #pragma once
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar::detail
 {
@@ -111,7 +111,7 @@ inline void SetUpEquationOfState(LibUtilities::SessionReaderSharedPtr session,
     {
         LibUtilities::EquationOfStateScheme EoS = session->GetEquationOfState();
 
-        if (boost::iequals(EoS.type, VanDerWaalsEoS<TData>::name))
+        if (StringUtils::IEquals(EoS.type, VanDerWaalsEoS<TData>::name))
         {
             if (EoS.params.count("GAMMA"))
             {

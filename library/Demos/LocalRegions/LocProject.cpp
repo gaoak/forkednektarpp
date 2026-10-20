@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
 
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
             PointsType tmp = eNoPointsType;
             for (int i = 1; i < SIZE_PointsType; ++i) // starts at nodal points
             {
-                if (boost::iequals(kPointsTypeStr[i], p))
+                if (StringUtils::IEquals(kPointsTypeStr[i], p))
                 {
                     tmp = static_cast<PointsType>(i);
                     break;
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
     {
         for (int i = 1; i < SIZE_PointsType; ++i) // starts at nodal points
         {
-            if (boost::iequals(kPointsTypeStr[i], ntype))
+            if (StringUtils::IEquals(kPointsTypeStr[i], ntype))
             {
                 nodaltype = static_cast<PointsType>(i);
                 break;
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
     {
         for (int i = 2; i < SIZE_ShapeType; ++i)
         {
-            if (boost::iequals(ShapeTypeMap[i], shape))
+            if (StringUtils::IEquals(ShapeTypeMap[i], shape))
             {
                 stype = static_cast<ShapeType>(i);
                 break;
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
         {
             for (int j = 1; j < SIZE_BasisType; ++j)
             {
-                if (boost::iequals(BasisTypeMap[j], basis[i]))
+                if (StringUtils::IEquals(BasisTypeMap[j], basis[i]))
                 {
                     btype[i] = static_cast<BasisType>(j);
                     break;

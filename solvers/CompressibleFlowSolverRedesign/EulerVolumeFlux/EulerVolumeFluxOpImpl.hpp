@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include <boost/algorithm/string/predicate.hpp>
 
 #include "EulerVolumeFlux/EulerVolumeFluxKernels.hpp"
 #include "EulerVolumeFlux/EulerVolumeFluxOp.hpp"

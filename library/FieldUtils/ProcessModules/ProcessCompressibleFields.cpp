@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 
@@ -71,7 +71,7 @@ void ProcessCompressibleFields::v_Process(po::variables_map &vm)
 
     std::string eosType;
     m_f->m_session->LoadSolverInfo("EquationOfState", eosType, "IdealGas");
-    ASSERTL0(boost::iequals(eosType, "IdealGas"),
+    ASSERTL0(StringUtils::IEquals(eosType, "IdealGas"),
              "ProcessCompressibleFields only supports the IdealGas equation "
              "of state.");
 

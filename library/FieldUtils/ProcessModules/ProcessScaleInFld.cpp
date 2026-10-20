@@ -60,7 +60,7 @@ ProcessScaleInFld::~ProcessScaleInFld()
 
 void ProcessScaleInFld::v_Process([[maybe_unused]] po::variables_map &vm)
 {
-    ASSERTL0(m_config["scale"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["scale"].as<string>() != "NotSet",
              "scaleinputfld: Need to specify a scale factor");
 
     string scalestr = m_config["scale"].as<string>();

@@ -32,8 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <Metric.h>
-#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -60,7 +60,7 @@ Metric::Metric(TiXmlElement *metric, bool generate)
         cerr << "Metric has no type" << endl;
     }
     m_id   = atoi(metric->Attribute("id"));
-    m_type = boost::to_upper_copy(string(metric->Attribute("type")));
+    m_type = StringUtils::ToUpperCopy(string(metric->Attribute("type")));
 }
 
 /// Calls a metric's \p v_Test function (or \p v_Generate if \p m_generate).

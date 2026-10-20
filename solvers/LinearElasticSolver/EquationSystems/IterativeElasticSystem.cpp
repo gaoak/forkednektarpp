@@ -44,6 +44,7 @@
 #include <StdRegions/StdQuadExp.h>
 #include <StdRegions/StdTriExp.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LinearElasticSolver/EquationSystems/IterativeElasticSystem.h>
 
 namespace Nektar
@@ -84,7 +85,7 @@ void IterativeElasticSystem::v_InitObject(bool DeclareFields)
 
         for (int i = 0; i < bndCond.size(); ++i)
         {
-            if (boost::iequals(bndCond[i]->GetUserDefined(), "Wall"))
+            if (StringUtils::IEquals(bndCond[i]->GetUserDefined(), "Wall"))
             {
                 m_toDeform.push_back(i);
             }

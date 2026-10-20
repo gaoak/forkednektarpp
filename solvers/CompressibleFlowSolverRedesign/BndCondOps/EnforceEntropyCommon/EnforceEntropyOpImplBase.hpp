@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <algorithm>
 
@@ -172,7 +172,7 @@ protected:
 
         auto EoS = m_session->GetEquationOfState();
 
-        ASSERTL0(boost::iequals(EoS.type, "IdealGas"),
+        ASSERTL0(StringUtils::IEquals(EoS.type, "IdealGas"),
                  std::string(Policy::tag) +
                      " assumes the ideal gas entropy s = p/rho^gamma and is "
                      "not defined for equation of state '" +

@@ -40,6 +40,7 @@
 
 #include "ProcessMapping.h"
 #include "ProcessVorticity.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -222,7 +223,7 @@ void ProcessVorticity::GetVelocity(Array<OneD, Array<OneD, NekDouble>> &vel,
                                    int totfields, int strip)
 {
     int npoints = m_f->m_exp[0]->GetNpoints();
-    if (boost::iequals(m_f->m_variables[0], "u"))
+    if (StringUtils::IEquals(m_f->m_variables[0], "u"))
     {
         // IncNavierStokesSolver
         for (int i = 0; i < m_spacedim; ++i)
@@ -232,8 +233,8 @@ void ProcessVorticity::GetVelocity(Array<OneD, Array<OneD, NekDouble>> &vel,
                          1, vel[i], 1);
         }
     }
-    else if (boost::iequals(m_f->m_variables[0], "rho") &&
-             boost::iequals(m_f->m_variables[1], "rhou"))
+    else if (StringUtils::IEquals(m_f->m_variables[0], "rho") &&
+             StringUtils::IEquals(m_f->m_variables[1], "rhou"))
     {
         // CompressibleFlowSolver
         for (int i = 0; i < m_spacedim; ++i)

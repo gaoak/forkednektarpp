@@ -50,13 +50,12 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cctype>
 #include <string>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/NekInline.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/MultiRegionsDeclspec.h>
@@ -263,9 +262,8 @@ public:
             return false;
         }
 
-        std::string projection = session->GetSolverInfo("Projection");
-        std::transform(projection.begin(), projection.end(), projection.begin(),
-                       [](unsigned char c) { return std::toupper(c); });
+        std::string projection =
+            StringUtils::ToUpperCopy(session->GetSolverInfo("Projection"));
         return projection == "DG" || projection == "DISCONTINUOUS";
     }
 

@@ -103,7 +103,7 @@ void ProcessInnerProduct::v_Process(po::variables_map &vm)
     vector<string> fromfiles;
     bool allfromflds = m_config["allfromflds"].as<bool>();
 
-    if (fields.compare("All") == 0)
+    if (fields == "All")
     {
         for (int i = 0; i < nfields; ++i)
         {
@@ -116,7 +116,7 @@ void ProcessInnerProduct::v_Process(po::variables_map &vm)
                  "Failed to interpret field string in module innerproduct");
     }
 
-    if (multifldidsstr.compare("NotSet") == 0)
+    if (multifldidsstr == "NotSet")
     {
         fromfiles.push_back(fromfld);
     }

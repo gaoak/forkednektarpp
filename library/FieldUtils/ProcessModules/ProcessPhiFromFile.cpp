@@ -87,9 +87,9 @@ void ProcessPhiFromFile::v_Process([[maybe_unused]] po::variables_map &vm)
     }
 
     // Read Phi function from the session file...
-    if (m_config["file"].as<string>().compare("NotSet") == 0)
+    if (m_config["file"].as<string>() == "NotSet")
     {
-        WARNINGL0(m_config["scale"].as<string>().compare("NotSet") == 0,
+        WARNINGL0(m_config["scale"].as<string>() == "NotSet",
                   "Reading Phi function from session file, the provided scale "
                   "value will not be used");
         GetPhifromSession();
@@ -97,7 +97,7 @@ void ProcessPhiFromFile::v_Process([[maybe_unused]] po::variables_map &vm)
     // ...or Read STL file and append Phi values to the existing expansions
     else
     {
-        ASSERTL0(m_config["scale"].as<string>().compare("NotSet") != 0,
+        ASSERTL0(m_config["scale"].as<string>() != "NotSet",
                  "Need to specify a scale coefficient, scale=value");
 
         STLobject phiFile = ReadSTL(m_config["file"].as<string>());

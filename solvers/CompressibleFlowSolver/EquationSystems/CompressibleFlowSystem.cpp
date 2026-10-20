@@ -34,6 +34,7 @@
 
 #include <CompressibleFlowSolver/EquationSystems/CompressibleFlowSystem.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SolverUtils/Advection/AdvectionWeakDG.h>
 
@@ -669,13 +670,13 @@ void CompressibleFlowSystem::v_GenerateSummary(SolverUtils::SummaryList &s)
     UnsteadySystem::v_GenerateSummary(s);
     if (m_session->DefinesSolverInfo("ICTYPE"))
     {
-        if (boost::iequals(m_session->GetSolverInfo("ICTYPE"),
-                           "IsentropicVortex"))
+        if (StringUtils::IEquals(m_session->GetSolverInfo("ICTYPE"),
+                                 "IsentropicVortex"))
         {
             SolverUtils::AddSummaryItem(s, "Problem Type", "IsentropicVortex");
         }
-        else if (boost::iequals(m_session->GetSolverInfo("ICTYPE"),
-                                "RinglebFlow"))
+        else if (StringUtils::IEquals(m_session->GetSolverInfo("ICTYPE"),
+                                      "RinglebFlow"))
         {
             SolverUtils::AddSummaryItem(s, "Problem Type", "RinglebFlow");
         }
@@ -694,7 +695,8 @@ void CompressibleFlowSystem::v_SetInitialConditions(
     [[maybe_unused]] const int domain)
 {
     if (m_session->DefinesSolverInfo("ICTYPE") &&
-        boost::iequals(m_session->GetSolverInfo("ICTYPE"), "IsentropicVortex"))
+        StringUtils::IEquals(m_session->GetSolverInfo("ICTYPE"),
+                             "IsentropicVortex"))
     {
         // Forward transform to fill the coefficient space
         for (int i = 0; i < m_fields.size(); ++i)
@@ -766,13 +768,13 @@ void CompressibleFlowSystem::v_EvaluateExactSolution(
     if (!m_session->DefinesFunction("ExactSolution") &&
         m_session->DefinesSolverInfo("ICTYPE"))
     {
-        if (boost::iequals(m_session->GetSolverInfo("ICTYPE"),
-                           "IsentropicVortex"))
+        if (StringUtils::IEquals(m_session->GetSolverInfo("ICTYPE"),
+                                 "IsentropicVortex"))
         {
             EvaluateIsentropicVortex(field, outfield, time);
         }
-        else if (boost::iequals(m_session->GetSolverInfo("ICTYPE"),
-                                "RinglebFlow"))
+        else if (StringUtils::IEquals(m_session->GetSolverInfo("ICTYPE"),
+                                      "RinglebFlow"))
         {
             GetExactRinglebFlow(field, outfield);
         }

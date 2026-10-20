@@ -36,6 +36,7 @@
 #include <string>
 
 #include "ProcessSurfDistance.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -59,7 +60,7 @@ ProcessSurfDistance::~ProcessSurfDistance()
 void ProcessSurfDistance::v_Process(po::variables_map &vm)
 {
     ProcessBoundaryExtract::v_Process(vm);
-    ASSERTL0(!boost::iequals(m_config["bnd"].as<string>(), "All"),
+    ASSERTL0(!StringUtils::IEquals(m_config["bnd"].as<string>(), "All"),
              "ProcessSurfDistance needs bnd parameter with a single id.");
 
     int i, j, k, cnt;

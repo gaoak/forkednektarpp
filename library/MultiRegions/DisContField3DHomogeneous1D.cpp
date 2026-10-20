@@ -131,7 +131,7 @@ DisContField3DHomogeneous1D::DisContField3DHomogeneous1D(
     SetCoeffPhys();
 
     // Do not set up BCs if default variable
-    if (variable.compare("DefaultVar") != 0)
+    if (variable != "DefaultVar")
     {
         SetupBoundaryConditions(HomoBasis, lhom, bcs, variable);
     }

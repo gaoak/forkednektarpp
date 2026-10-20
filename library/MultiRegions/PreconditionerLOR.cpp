@@ -48,6 +48,7 @@
 #include <MultiRegions/GlobalLinSysPETScFull.h>
 #endif
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <cmath>
 
 namespace Nektar::MultiRegions
@@ -95,13 +96,14 @@ void PreconditionerLOR::v_BuildPreconditioner()
     m_equiSpaced = false;
     if (session->DefinesGlobalSysSolnInfo(var, "LORPointDistribution"))
     {
-        if (boost::iequals("GLL", session->GetGlobalSysSolnInfo(
-                                      var, "LORPointDistribution")))
+        if (StringUtils::IEquals("GLL", session->GetGlobalSysSolnInfo(
+                                            var, "LORPointDistribution")))
         {
             m_equiSpaced = false;
         }
-        else if (boost::iequals("Equispaced", session->GetGlobalSysSolnInfo(
-                                                  var, "LORPointDistribution")))
+        else if (StringUtils::IEquals("Equispaced",
+                                      session->GetGlobalSysSolnInfo(
+                                          var, "LORPointDistribution")))
         {
             m_equiSpaced = true;
         }
@@ -110,8 +112,8 @@ void PreconditionerLOR::v_BuildPreconditioner()
     m_useSimplex = false;
     if (session->DefinesGlobalSysSolnInfo(var, "LORSimplex"))
     {
-        if (boost::iequals("True",
-                           session->GetGlobalSysSolnInfo(var, "LORSimplex")))
+        if (StringUtils::IEquals(
+                "True", session->GetGlobalSysSolnInfo(var, "LORSimplex")))
         {
             m_useSimplex = true;
         }
@@ -163,7 +165,7 @@ void PreconditionerLOR::v_BuildPreconditioner()
         preconType = "Diagonal";
     }
 
-    if (boost::iequals(m_slvType, "Preconditioner"))
+    if (StringUtils::IEquals(m_slvType, "Preconditioner"))
     {
         session->SetGlobalSysSolnInfo(var, "GlobalSysSoln", "IterativeFull");
     }
@@ -171,7 +173,7 @@ void PreconditionerLOR::v_BuildPreconditioner()
     {
         session->SetGlobalSysSolnInfo(var, "GlobalSysSoln", m_slvType.c_str());
 
-        if (boost::iequals(m_slvType, "IterativeFull"))
+        if (StringUtils::IEquals(m_slvType, "IterativeFull"))
         {
             m_verboseIter =
                 expList->GetSession()->DefinesCmdLineArgument("verbose");
@@ -251,12 +253,12 @@ void PreconditionerLOR::v_BuildPreconditioner()
                               m_lor_field->GetLocalToGlobalMap(),
                               m_linsys.lock()->GetKey().GetConstFactors());
 
-    if (boost::iequals(m_slvType, "DirectFull"))
+    if (StringUtils::IEquals(m_slvType, "DirectFull"))
     {
         m_LORLinSys = MemoryManager<GlobalLinSysDirectFull>::AllocateSharedPtr(
             preconKey, m_lor_field, m_lor_field->GetLocalToGlobalMap());
     }
-    else if (boost::iequals(m_slvType, "XxtFull"))
+    else if (StringUtils::IEquals(m_slvType, "XxtFull"))
     {
 #ifdef NEKTAR_USE_MPI
         m_LORLinSys = MemoryManager<GlobalLinSysXxtFull>::AllocateSharedPtr(
@@ -265,13 +267,13 @@ void PreconditionerLOR::v_BuildPreconditioner()
         ASSERTL0(false, "Nektar++ has not been compiled with MPI support.");
 #endif
     }
-    else if (boost::iequals(m_slvType, "IterativeFull"))
+    else if (StringUtils::IEquals(m_slvType, "IterativeFull"))
     {
         m_LORLinSys =
             MemoryManager<GlobalLinSysIterativeFull>::AllocateSharedPtr(
                 preconKey, m_lor_field, m_lor_field->GetLocalToGlobalMap());
     }
-    else if (boost::iequals(m_slvType, "PETScFull"))
+    else if (StringUtils::IEquals(m_slvType, "PETScFull"))
     {
 #ifdef NEKTAR_USING_PETSC
         m_LORLinSys = MemoryManager<GlobalLinSysPETScFull>::AllocateSharedPtr(
@@ -280,7 +282,7 @@ void PreconditionerLOR::v_BuildPreconditioner()
         ASSERTL0(false, "Nektar++ has not been compiled with PETSc support.");
 #endif
     }
-    else if (boost::iequals(m_slvType, "Preconditioner"))
+    else if (StringUtils::IEquals(m_slvType, "Preconditioner"))
     {
         AssemblyMapSharedPtr l2gmap = m_lor_field->GetLocalToGlobalMap();
 
@@ -383,10 +385,10 @@ void PreconditionerLOR::v_DoPreconditioner(const Array<OneD, NekDouble> &pInput,
     AssemblyMapSharedPtr l2gmap = m_lor_field->GetLocalToGlobalMap();
     Vmath::Zero(lor_nLocal, solve, 1);
 
-    if (boost::iequals(m_slvType, "DirectFull") ||
-        boost::iequals(m_slvType, "IterativeFull") ||
-        boost::iequals(m_slvType, "XxtFull") ||
-        boost::iequals(m_slvType, "PETScFull"))
+    if (StringUtils::IEquals(m_slvType, "DirectFull") ||
+        StringUtils::IEquals(m_slvType, "IterativeFull") ||
+        StringUtils::IEquals(m_slvType, "XxtFull") ||
+        StringUtils::IEquals(m_slvType, "PETScFull"))
     {
         m_LORLinSys->SolveLinearSystem(l2gmap->GetNumGlobalCoeffs(), fce, solve,
                                        l2gmap,

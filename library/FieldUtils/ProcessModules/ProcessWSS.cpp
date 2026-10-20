@@ -39,6 +39,7 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ExpList.h>
 
 using namespace std;
@@ -338,15 +339,15 @@ void ProcessWSS::GetViscosity(
     NekDouble m_mu;
     int npoints = exp[0]->GetNpoints();
 
-    if (boost::iequals(m_f->m_variables[0], "u"))
+    if (StringUtils::IEquals(m_f->m_variables[0], "u"))
     {
         // IncNavierStokesSolver
         m_mu = m_f->m_session->GetParameter("Kinvis");
         Vmath::Fill(npoints, m_mu, mu, 1);
         lambda = 0;
     }
-    else if (boost::iequals(m_f->m_variables[0], "rho") &&
-             boost::iequals(m_f->m_variables[1], "rhou"))
+    else if (StringUtils::IEquals(m_f->m_variables[0], "rho") &&
+             StringUtils::IEquals(m_f->m_variables[1], "rhou"))
     {
         // CompressibleFlowSolver
         std::string m_ViscosityType;
@@ -362,7 +363,7 @@ void ProcessWSS::GetViscosity(
             bool m_idealGas;
             m_f->m_session->LoadSolverInfo("EquationOfState", eosType,
                                            "IdealGas");
-            m_idealGas = boost::iequals(eosType, "IdealGas");
+            m_idealGas = StringUtils::IEquals(eosType, "IdealGas");
             ASSERTL0(
                 m_idealGas,
                 "Only IdealGas EOS implemented for Variable ViscosityType");
@@ -445,7 +446,7 @@ void ProcessWSS::GetVelocity(
     Array<OneD, Array<OneD, NekDouble>> &vel)
 {
     int npoints = exp[0]->GetNpoints();
-    if (boost::iequals(m_f->m_variables[0], "u"))
+    if (StringUtils::IEquals(m_f->m_variables[0], "u"))
     {
         // IncNavierStokesSolver
         for (int i = 0; i < m_spacedim; ++i)
@@ -454,8 +455,8 @@ void ProcessWSS::GetVelocity(
             Vmath::Vcopy(npoints, BndElmtPhys[i], 1, vel[i], 1);
         }
     }
-    else if (boost::iequals(m_f->m_variables[0], "rho") &&
-             boost::iequals(m_f->m_variables[1], "rhou"))
+    else if (StringUtils::IEquals(m_f->m_variables[0], "rho") &&
+             StringUtils::IEquals(m_f->m_variables[1], "rhou"))
     {
         // CompressibleFlowSolver
         for (int i = 0; i < m_spacedim; ++i)

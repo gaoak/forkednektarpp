@@ -106,7 +106,7 @@ void UnsteadyAdvectionDiffusion::v_InitObject(bool DeclareFields)
             std::string advName;
             m_session->LoadSolverInfo("AdvectionType", advName,
                                       "NonConservative");
-            if (advName.compare("WeakDG") == 0)
+            if (advName == "WeakDG")
             {
                 // Define the normal velocity fields
                 if (m_fields[0]->GetTrace())

@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <boost/algorithm/string/case_conv.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <SolverCore/BndCond/BndCondUpdateOp.hpp>
 
@@ -82,7 +82,7 @@ public:
 
         if (expansionList->GetSession()->DefinesEquationOfState())
         {
-            EoSName = boost::to_upper_copy(
+            EoSName = StringUtils::ToUpperCopy(
                 expansionList->GetSession()->GetEquationOfState().type);
         }
         else

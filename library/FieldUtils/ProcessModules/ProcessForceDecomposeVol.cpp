@@ -84,7 +84,7 @@ void ProcessForceDecomposeVol::v_Process(po::variables_map &vm)
     }
 
     Array<OneD, NekDouble> BoundBox;
-    if (m_config["box"].as<string>().compare("NotSet") != 0)
+    if (m_config["box"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ParseUtils::GenerateVector(m_config["box"].as<string>(), values);
@@ -109,7 +109,7 @@ void ProcessForceDecomposeVol::v_Process(po::variables_map &vm)
         BoundBox[5] = 1.;
     }
     int scanDir = 0;
-    if (m_config["scandir"].as<string>().compare("NotSet") != 0)
+    if (m_config["scandir"].as<string>() != "NotSet")
     {
         scanDir = m_config["scandir"].as<int>();
     }

@@ -33,10 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SolverUtils/Filters/FilterFieldConvert.h>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/program_options.hpp>
 
 namespace Nektar::SolverUtils
@@ -114,8 +112,8 @@ FilterFieldConvert::FilterFieldConvert(
     else
     {
         std::string sOption = it->second.c_str();
-        m_phaseSample       = (boost::iequals(sOption, "true")) ||
-                        (boost::iequals(sOption, "yes"));
+        m_phaseSample       = (StringUtils::IEquals(sOption, "true")) ||
+                        (StringUtils::IEquals(sOption, "yes"));
     }
 
     if (m_phaseSample)
@@ -203,7 +201,7 @@ FilterFieldConvert::FilterFieldConvert(
     CreateModules(modcmds);
     // Strip options from m_outputFile
     std::vector<std::string> tmp;
-    boost::split(tmp, m_outputFile, boost::is_any_of(":"));
+    StringUtils::Split(tmp, m_outputFile, StringUtils::IsAnyOf(":"));
     std::string outName = tmp[0];
     ext                 = fs::path(outName).extension().string();
     m_outputFile        = Filter::SetupOutput(ext, outName);
@@ -590,7 +588,7 @@ void FilterFieldConvert::CreateModules(std::vector<std::string> &modcmds)
         ModuleKey module;
         int offset = 1;
 
-        boost::split(tmp1, modcmds[i], boost::is_any_of(":"));
+        StringUtils::Split(tmp1, modcmds[i], StringUtils::IsAnyOf(":"));
 
         if (i == modcmds.size() - 1)
         {
@@ -632,7 +630,7 @@ void FilterFieldConvert::CreateModules(std::vector<std::string> &modcmds)
         for (int j = offset; j < tmp1.size(); ++j)
         {
             std::vector<std::string> tmp2;
-            boost::split(tmp2, tmp1[j], boost::is_any_of("="));
+            StringUtils::Split(tmp2, tmp1[j], StringUtils::IsAnyOf("="));
 
             if (tmp2.size() == 1)
             {

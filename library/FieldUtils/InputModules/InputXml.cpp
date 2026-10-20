@@ -41,6 +41,7 @@
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include "InputXml.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -225,13 +226,14 @@ void InputXml::v_Process(po::variables_map &vm)
 
         rng->m_checkShape = true;
 
-        string shapematch = boost::to_upper_copy(vm["onlyshape"].as<string>());
+        string shapematch =
+            StringUtils::ToUpperCopy(vm["onlyshape"].as<string>());
         int i;
         for (i = 0; i < LibUtilities::SIZE_ShapeType; ++i)
         {
             string shapeval = LibUtilities::ShapeTypeMap[i];
-            boost::to_upper(shapeval);
-            if (shapematch.compare(shapeval) == 0)
+            StringUtils::ToUpper(shapeval);
+            if (shapematch == shapeval)
             {
                 rng->m_shapeType = (LibUtilities::ShapeType)i;
                 break;
@@ -290,7 +292,7 @@ void InputXml::v_Process(po::variables_map &vm)
     if (vm.count("nparts"))
     {
         // make sure have pre-partitioned mesh for nparts option
-        ASSERTL0(boost::icontains(files[0], "_xml"),
+        ASSERTL0(StringUtils::IContains(files[0], "_xml"),
                  "Expect the mesh to have been pre-partitioned when "
                  " using the \"--nparts\" option. Please use \"--part-only\" "
                  "option to prepartition xml file.");

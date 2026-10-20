@@ -39,7 +39,7 @@
 #include <iostream>
 #include <sstream>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/format.hpp>
 
 #include <tinyxml.h>
@@ -311,7 +311,7 @@ void FileSolution::v_GetVelocity(
     Array<OneD, Array<OneD, NekDouble>> &velocity)
 {
     int npoints = m_fields[0]->GetNpoints();
-    if (boost::iequals(m_session->GetVariable(0), "u"))
+    if (StringUtils::IEquals(m_session->GetVariable(0), "u"))
     {
         // IncNavierStokesSolver
         for (int i = 0; i < velocity.size(); ++i)
@@ -319,8 +319,8 @@ void FileSolution::v_GetVelocity(
             Vmath::Vcopy(npoints, physfield[i], 1, velocity[i], 1);
         }
     }
-    else if (boost::iequals(m_session->GetVariable(0), "rho") &&
-             boost::iequals(m_session->GetVariable(1), "rhou"))
+    else if (StringUtils::IEquals(m_session->GetVariable(0), "rho") &&
+             StringUtils::IEquals(m_session->GetVariable(1), "rhou"))
     {
         // CompressibleFlowSolver
         for (int i = 0; i < velocity.size(); ++i)

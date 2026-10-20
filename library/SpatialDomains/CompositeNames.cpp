@@ -39,9 +39,7 @@
 #include <algorithm>
 #include <cctype>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/trim.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar::SpatialDomains
 {
@@ -57,7 +55,7 @@ std::string SanitiseCompositeName(const std::string &name)
     };
 
     std::replace_if(out.begin(), out.end(), isJunk, ' ');
-    boost::trim(out);
+    StringUtils::Trim(out);
 
     return out;
 }
@@ -83,7 +81,7 @@ bool ParseCompositeList(const std::string &str,
     }
 
     std::vector<std::string> entries;
-    boost::split(entries, str, boost::is_any_of(","));
+    StringUtils::Split(entries, str, StringUtils::IsAnyOf(","));
 
     // Reverse the labels once per list rather than searching them per entry.
     // A name may be shared, so this is not a one-to-one mapping.
@@ -101,7 +99,7 @@ bool ParseCompositeList(const std::string &str,
 
     for (auto &entry : entries)
     {
-        boost::trim(entry);
+        StringUtils::Trim(entry);
 
         if (entry.empty())
         {

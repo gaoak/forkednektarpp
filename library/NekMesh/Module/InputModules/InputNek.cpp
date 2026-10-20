@@ -37,11 +37,11 @@
 #include <string>
 #include <vector>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <NekMesh/MeshElements/Element.h>
 #include <NekMesh/MeshElements/HOAlignment.h>
 #include <NekMesh/Module/SurfaceHints.h>
-#include <boost/algorithm/string.hpp>
 
 #include "InputNek.h"
 
@@ -793,8 +793,7 @@ void InputNek::Process()
                 {
                     getline(m_mshFile, line);
                     size_t p = line.find_first_of('=');
-                    vals.push_back(
-                        boost::algorithm::trim_copy(line.substr(p + 1)));
+                    vals.push_back(StringUtils::TrimCopy(line.substr(p + 1)));
                     type.push_back(eDirichlet);
                 }
                 else
@@ -804,7 +803,7 @@ void InputNek::Process()
                         getline(m_mshFile, line);
                         size_t p = line.find_first_of('=');
                         vals.push_back(
-                            boost::algorithm::trim_copy(line.substr(p + 1)));
+                            StringUtils::TrimCopy(line.substr(p + 1)));
                         type.push_back(eDirichlet);
                     }
                     // Set high-order boundary condition for Dirichlet

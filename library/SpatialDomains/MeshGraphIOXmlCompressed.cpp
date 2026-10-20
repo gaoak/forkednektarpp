@@ -43,7 +43,7 @@
 #include <SpatialDomains/MeshEntities.hpp>
 
 // These are required for the Write(...) and Import(...) functions.
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/format.hpp>
 
 #include <tinyxml.h>
@@ -167,8 +167,8 @@ void MeshGraphIOXmlCompressed::v_ReadVertices()
     std::string IsCompressed;
     element->QueryStringAttribute("COMPRESSED", &IsCompressed);
 
-    if (boost::iequals(IsCompressed,
-                       LibUtilities::CompressData::GetCompressString()))
+    if (StringUtils::IEquals(IsCompressed,
+                             LibUtilities::CompressData::GetCompressString()))
     {
         // Extract the vertex body
         TiXmlNode *vertexChild = element->FirstChild();
@@ -341,8 +341,8 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
         return;
     }
 
-    ASSERTL0(boost::iequals(IsCompressed,
-                            LibUtilities::CompressData::GetCompressString()),
+    ASSERTL0(StringUtils::IEquals(
+                 IsCompressed, LibUtilities::CompressData::GetCompressString()),
              "Compressed formats do not match. Expected :" +
                  LibUtilities::CompressData::GetCompressString() + " but got " +
                  IsCompressed);
@@ -357,7 +357,7 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
     {
         const char *entitytype = x->Value();
         // read in edge or face info
-        if (boost::iequals(entitytype, "E"))
+        if (StringUtils::IEquals(entitytype, "E"))
         {
             // read in data
             std::string elmtStr;
@@ -371,7 +371,7 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
             LibUtilities::CompressData::ZlibDecodeFromBase64Str(elmtStr,
                                                                 edginfo);
         }
-        else if (boost::iequals(entitytype, "F"))
+        else if (StringUtils::IEquals(entitytype, "F"))
         {
             // read in data
             std::string elmtStr;
@@ -385,7 +385,7 @@ void MeshGraphIOXmlCompressed::v_ReadCurves()
             LibUtilities::CompressData::ZlibDecodeFromBase64Str(elmtStr,
                                                                 facinfo);
         }
-        else if (boost::iequals(entitytype, "DATAPOINTS"))
+        else if (StringUtils::IEquals(entitytype, "DATAPOINTS"))
         {
             int32_t id;
             ASSERTL0(x->Attribute("ID", &id),
@@ -502,8 +502,8 @@ void MeshGraphIOXmlCompressed::v_ReadEdges()
     std::string IsCompressed;
     field->QueryStringAttribute("COMPRESSED", &IsCompressed);
 
-    ASSERTL0(boost::iequals(IsCompressed,
-                            LibUtilities::CompressData::GetCompressString()),
+    ASSERTL0(StringUtils::IEquals(
+                 IsCompressed, LibUtilities::CompressData::GetCompressString()),
              "Compressed formats do not match. Expected :" +
                  LibUtilities::CompressData::GetCompressString() + " but got " +
                  IsCompressed);
@@ -572,8 +572,8 @@ void MeshGraphIOXmlCompressed::v_ReadFaces()
         element->QueryStringAttribute("COMPRESSED", &IsCompressed);
 
         ASSERTL0(
-            boost::iequals(IsCompressed,
-                           LibUtilities::CompressData::GetCompressString()),
+            StringUtils::IEquals(
+                IsCompressed, LibUtilities::CompressData::GetCompressString()),
             "Compressed formats do not match. Expected :" +
                 LibUtilities::CompressData::GetCompressString() + " but got " +
                 IsCompressed);
@@ -685,8 +685,8 @@ void MeshGraphIOXmlCompressed::v_ReadElements1D()
         std::string IsCompressed;
         segment->QueryStringAttribute("COMPRESSED", &IsCompressed);
         ASSERTL0(
-            boost::iequals(IsCompressed,
-                           LibUtilities::CompressData::GetCompressString()),
+            StringUtils::IEquals(
+                IsCompressed, LibUtilities::CompressData::GetCompressString()),
             "Compressed formats do not match. Expected :" +
                 LibUtilities::CompressData::GetCompressString() + " but got " +
                 IsCompressed);
@@ -767,8 +767,8 @@ void MeshGraphIOXmlCompressed::v_ReadElements2D()
         element->QueryStringAttribute("COMPRESSED", &IsCompressed);
 
         ASSERTL0(
-            boost::iequals(IsCompressed,
-                           LibUtilities::CompressData::GetCompressString()),
+            StringUtils::IEquals(
+                IsCompressed, LibUtilities::CompressData::GetCompressString()),
             "Compressed formats do not match. Expected :" +
                 LibUtilities::CompressData::GetCompressString() + " but got " +
                 IsCompressed);
@@ -883,8 +883,8 @@ void MeshGraphIOXmlCompressed::v_ReadElements3D()
         element->QueryStringAttribute("COMPRESSED", &IsCompressed);
 
         ASSERTL0(
-            boost::iequals(IsCompressed,
-                           LibUtilities::CompressData::GetCompressString()),
+            StringUtils::IEquals(
+                IsCompressed, LibUtilities::CompressData::GetCompressString()),
             "Compressed formats do not match. Expected :" +
                 LibUtilities::CompressData::GetCompressString() + " but got " +
                 IsCompressed);

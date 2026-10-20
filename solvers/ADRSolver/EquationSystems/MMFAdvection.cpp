@@ -35,7 +35,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <ADRSolver/EquationSystems/MMFAdvection.h>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -79,7 +79,7 @@ void MMFAdvection::v_InitObject(bool DeclareFields)
     std::string TestTypeStr = m_session->GetSolverInfo("TESTTYPE");
     for (int i = 0; i < (int)SIZE_TestType; ++i)
     {
-        if (boost::iequals(TestTypeMap[i], TestTypeStr))
+        if (StringUtils::IEquals(TestTypeMap[i], TestTypeStr))
         {
             m_TestType = (TestType)i;
             break;
@@ -273,8 +273,8 @@ void MMFAdvection::v_DoSolve()
             m_session->GetComm()->GetRank() == 0)
         {
             std::cout << "Steps: " << std::setw(8) << std::left << step + 1
-                      << " "
-                      << "Time: " << std::setw(12) << std::left << m_time;
+                      << " " << "Time: " << std::setw(12) << std::left
+                      << m_time;
 
             std::stringstream ss;
             ss << cpuTime << "s";

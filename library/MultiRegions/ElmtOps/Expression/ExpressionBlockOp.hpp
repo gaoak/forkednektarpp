@@ -44,7 +44,7 @@
 
 #pragma once
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include "LibUtilities/BasicUtils/Equation.h"
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
@@ -128,7 +128,8 @@ public:
         const LibUtilities::EquationSharedPtr &expression)
     {
         std::vector<std::string> vnames;
-        boost::split(vnames, expression->GetVlist(), boost::is_any_of(", "));
+        StringUtils::Split(vnames, expression->GetVlist(),
+                           StringUtils::IsAnyOf(", "));
         return vnames;
     }
 

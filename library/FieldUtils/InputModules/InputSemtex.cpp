@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/CompressData.h>
 
@@ -93,14 +93,14 @@ void InputSemtex::v_Process([[maybe_unused]] po::variables_map &vm)
     // Session name
     file.read(buf, 25);
     sessionName = string(buf, 25);
-    boost::trim(sessionName);
+    StringUtils::Trim(sessionName);
     getline(file, line);
     m_f->m_fieldMetaDataMap["SessionName0"] = sessionName;
 
     // Date
     file.read(buf, 25);
     date = string(buf, 25);
-    boost::trim(date);
+    StringUtils::Trim(date);
     getline(file, line);
 
     // nP, nZ, nElmt
@@ -133,7 +133,7 @@ void InputSemtex::v_Process([[maybe_unused]] po::variables_map &vm)
     // Fields
     file.read(buf, 25);
     fields = string(buf, 25);
-    boost::trim(fields);
+    StringUtils::Trim(fields);
     getline(file, line);
 
     // Endian-ness

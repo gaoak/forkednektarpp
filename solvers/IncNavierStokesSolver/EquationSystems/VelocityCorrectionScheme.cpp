@@ -41,7 +41,7 @@
 #include <MultiRegions/GJPStabilisation.h>
 #include <SolverUtils/Core/Misc.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -80,7 +80,7 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     m_explicitDiffusion = false;
 
     // Set m_pressure to point to last field of m_fields;
-    if (boost::iequals(m_session->GetVariable(m_fields.size() - 1), "p"))
+    if (StringUtils::IEquals(m_session->GetVariable(m_fields.size() - 1), "p"))
     {
         m_nConvectiveFields = m_fields.size() - 1;
         m_pressure          = m_fields[m_nConvectiveFields];
@@ -133,10 +133,11 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
 
     if (m_useGJPNormalVel)
     {
-        ASSERTL0(!boost::iequals(m_session->GetSolverInfo("GJPStabilisation"),
-                                 "SemiImplicit"),
-                 "Can not  specify GJPNormalVelocity with"
-                 " GJPStabilisation set to SemiImplicit");
+        ASSERTL0(
+            !StringUtils::IEquals(m_session->GetSolverInfo("GJPStabilisation"),
+                                  "SemiImplicit"),
+            "Can not  specify GJPNormalVelocity with"
+            " GJPStabilisation set to SemiImplicit");
     }
 
     m_session->LoadParameter("GJPJumpScale", m_GJPJumpScale, 1.0);
@@ -283,7 +284,7 @@ void VelocityCorrectionScheme::SetupFlowrate(NekDouble aii_dt)
     // Find the boundary condition that is tagged as the flowrate boundary.
     for (size_t i = 0; i < bcs.size(); ++i)
     {
-        if (boost::iequals(bcs[i]->GetUserDefined(), "Flowrate"))
+        if (StringUtils::IEquals(bcs[i]->GetUserDefined(), "Flowrate"))
         {
             m_flowrateBndID = i;
             break;
@@ -645,8 +646,8 @@ void VelocityCorrectionScheme::v_GenerateSummary(SolverUtils::SummaryList &s)
             m_session->GetSolverInfo("GJPStabilisation"));
         SolverUtils::AddSummaryItem(s, "GJP Stab. JumpScale", m_GJPJumpScale);
 
-        if (boost::iequals(m_session->GetSolverInfo("GJPStabilisation"),
-                           "Explicit"))
+        if (StringUtils::IEquals(m_session->GetSolverInfo("GJPStabilisation"),
+                                 "Explicit"))
         {
             SolverUtils::AddSummaryItem(
                 s, "GJP Normal Velocity",
@@ -1380,7 +1381,8 @@ void VelocityCorrectionScheme::SetEPInsulatorBCs(
     // calculate electric potential flux
     for (int n = 0; n < BndConds.size(); ++n)
     {
-        if (boost::iequals(BndConds[n]->GetUserDefined(), insulatorBCName))
+        if (StringUtils::IEquals(BndConds[n]->GetUserDefined(),
+                                 insulatorBCName))
         {
             int npts = BndExp[n]->GetTotPoints();
             // allocate boundary condition storage

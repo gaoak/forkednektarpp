@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include "InputNek5000.h"
 
@@ -120,7 +120,7 @@ void InputNek5000::v_Process([[maybe_unused]] po::variables_map &vm)
     string remain;
     ss >> nBytes >> nBlocksXYZ[0] >> nBlocksXYZ[1] >> nBlocksXYZ[2] >>
         nBlocks >> nTotBlocks >> time >> nCycle >> dir >> nDirs >> remain;
-    boost::trim(remain);
+    StringUtils::Trim(remain);
 
     nDim = nBlocksXYZ[2] == 1 ? 2 : 3;
 

@@ -36,8 +36,8 @@
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <MultiRegions/SubStructuredGraph.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <algorithm>
-#include <boost/algorithm/string/replace.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/bandwidth.hpp>
 #include <boost/graph/cuthill_mckee_ordering.hpp>
@@ -829,15 +829,15 @@ void MultiLevelBisectionReordering(
             ",ole=<OLEA>,ose=<OSEP>}}";
 
         // Replace flags in the string with appropriate values.
-        boost::replace_all(strat_str, "<SEPA>",
-                           "|m{rat=0.7,vert=100,low=h{pass=10},"
-                           "asc=b{width=3,bnd=f{bal=<BBAL>},"
-                           "org=(|h{pass=10})f{bal=<BBAL>}}}");
-        boost::replace_all(strat_str, "<OSEP>", "s");
-        boost::replace_all(strat_str, "<OLEA>", "s");
-        boost::replace_all(strat_str, "<BBAL>", "0.1");
-        boost::replace_all(strat_str, "<TSTS>",
-                           "vert>" + std::to_string(mdswitch));
+        StringUtils::ReplaceAll(strat_str, "<SEPA>",
+                                "|m{rat=0.7,vert=100,low=h{pass=10},"
+                                "asc=b{width=3,bnd=f{bal=<BBAL>},"
+                                "org=(|h{pass=10})f{bal=<BBAL>}}}");
+        StringUtils::ReplaceAll(strat_str, "<OSEP>", "s");
+        StringUtils::ReplaceAll(strat_str, "<OLEA>", "s");
+        StringUtils::ReplaceAll(strat_str, "<BBAL>", "0.1");
+        StringUtils::ReplaceAll(strat_str, "<TSTS>",
+                                "vert>" + std::to_string(mdswitch));
 
         // Set up the re-ordering strategy.
         SCOTCH_Strat strat;

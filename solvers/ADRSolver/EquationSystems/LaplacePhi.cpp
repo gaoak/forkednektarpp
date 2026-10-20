@@ -36,6 +36,7 @@
 
 #include <ADRSolver/EquationSystems/LaplacePhi.h>
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 namespace Nektar
 {
 std::string LaplacePhi::className =
@@ -75,7 +76,7 @@ void LaplacePhi::v_InitObject(bool DeclareFields)
         m_fields[0]->GetBndCondExpansions();
     for (int i = 0; i < m_BndConds.size(); ++i)
     {
-        if (boost::iequals(m_BndConds[i]->GetUserDefined(), "MOVE"))
+        if (StringUtils::IEquals(m_BndConds[i]->GetUserDefined(), "MOVE"))
         {
             numpts += m_BndExp[i]->GetTotPoints();
         }
@@ -104,7 +105,7 @@ void LaplacePhi::v_InitObject(bool DeclareFields)
     int offset = 0;
     for (int i = 0; i < m_BndConds.size(); ++i)
     {
-        if (boost::iequals(m_BndConds[i]->GetUserDefined(), "MOVE"))
+        if (StringUtils::IEquals(m_BndConds[i]->GetUserDefined(), "MOVE"))
         {
             int npts = m_BndExp[i]->GetTotPoints();
             Array<OneD, Array<OneD, NekDouble>> n(3);
@@ -191,7 +192,7 @@ void LaplacePhi::setUserDefinedBC(int n)
     int offset = 0;
     for (int i = 0; i < m_BndConds.size(); ++i)
     {
-        if (boost::iequals(m_BndConds[i]->GetUserDefined(), "MOVE"))
+        if (StringUtils::IEquals(m_BndConds[i]->GetUserDefined(), "MOVE"))
         {
             m_BndExp[i]->IProductWRTBase(m_boundValues[m] + offset,
                                          m_BndExp[i]->UpdateCoeffs());
@@ -212,7 +213,7 @@ void LaplacePhi::calculateAddedMass()
     int offset = 0;
     for (int i = 0; i < m_BndConds.size(); ++i)
     {
-        if (boost::iequals(m_BndConds[i]->GetUserDefined(), "MOVE"))
+        if (StringUtils::IEquals(m_BndConds[i]->GetUserDefined(), "MOVE"))
         {
             MultiRegions::ExpListSharedPtr edgeExplist = m_BndExp[i];
             Array<OneD, Array<OneD, NekDouble>> phi(nfld);

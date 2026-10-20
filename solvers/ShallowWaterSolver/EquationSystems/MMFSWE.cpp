@@ -35,7 +35,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/TimeIntegration/TimeIntegrationScheme.h>
@@ -92,7 +92,7 @@ void MMFSWE::v_InitObject(bool DeclareFields)
     std::string TestTypeStr = m_session->GetSolverInfo("TESTTYPE");
     for (int i = 0; i < (int)SIZE_TestType; ++i)
     {
-        if (boost::iequals(TestTypeMap[i], TestTypeStr))
+        if (StringUtils::IEquals(TestTypeMap[i], TestTypeStr))
         {
             m_TestType = (TestType)i;
             break;
@@ -313,8 +313,8 @@ void MMFSWE::v_DoSolve()
             m_session->GetComm()->GetRank() == 0)
         {
             std::cout << "Steps: " << std::setw(8) << std::left << step + 1
-                      << " "
-                      << "Time: " << std::setw(12) << std::left << m_time;
+                      << " " << "Time: " << std::setw(12) << std::left
+                      << m_time;
 
             std::stringstream ss;
             ss << cpuTime << "s";
@@ -347,11 +347,9 @@ void MMFSWE::v_DoSolve()
 
             std::cout << "dMass = " << std::setw(8) << std::left << Mass << " "
                       << ", dEnergy = " << std::setw(8) << std::left << Energy
-                      << " "
-                      << ", dEnstrophy = " << std::setw(8) << std::left
-                      << Enstrophy << " "
-                      << ", dVorticity = " << std::setw(8) << std::left
-                      << Vorticity << std::endl
+                      << " " << ", dEnstrophy = " << std::setw(8) << std::left
+                      << Enstrophy << " " << ", dVorticity = " << std::setw(8)
+                      << std::left << Vorticity << std::endl
                       << std::endl;
 
             cpuTime = 0.0;

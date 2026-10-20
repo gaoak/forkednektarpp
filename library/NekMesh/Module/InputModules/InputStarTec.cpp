@@ -32,7 +32,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 
 #include <LibUtilities/Foundations/ManagerAccess.h>
@@ -152,7 +152,7 @@ void InputTec::ReadZone(int &nComposite)
     {
         getline(m_mshFile, line);
 
-        boost::to_upper(line);
+        StringUtils::ToUpper(line);
 
         // cehck to see if readable data.
         if (sscanf(line.c_str(), "%lf", &value) == 1)

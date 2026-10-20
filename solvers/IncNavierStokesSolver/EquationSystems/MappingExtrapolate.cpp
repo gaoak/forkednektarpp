@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/EquationSystems/MappingExtrapolate.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -158,7 +159,7 @@ void MappingExtrapolate::v_CorrectPressureBCs(
         for (n = cnt = 0; n < m_PBndConds.size(); ++n)
         {
             // High order boundary condition;
-            if (boost::iequals(m_PBndConds[n]->GetUserDefined(), "H"))
+            if (StringUtils::IEquals(m_PBndConds[n]->GetUserDefined(), "H"))
             {
                 m_fields[0]->GetBndElmtExpansion(n, BndElmtExp);
 
@@ -310,7 +311,7 @@ void MappingExtrapolate::v_CalcNeumannPressureBCs(
         for (n = cnt = 0; n < m_PBndConds.size(); ++n)
         {
             // High order boundary condition;
-            if (boost::iequals(m_PBndConds[n]->GetUserDefined(), "H"))
+            if (StringUtils::IEquals(m_PBndConds[n]->GetUserDefined(), "H"))
             {
                 m_fields[0]->GetBndElmtExpansion(n, BndElmtExp);
                 size_t nq = BndElmtExp->GetTotPoints();

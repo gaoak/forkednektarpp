@@ -37,7 +37,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/DisContField.h>
 
@@ -137,7 +137,7 @@ protected:
 
         auto EoS = m_session->GetEquationOfState();
 
-        ASSERTL0(boost::iequals(EoS.type, "IdealGas"),
+        ASSERTL0(StringUtils::IEquals(EoS.type, "IdealGas"),
                  "StagnationInflow assumes the ideal gas enthalpy relations "
                  "and is not defined for equation of state '" +
                      EoS.type + "'.");

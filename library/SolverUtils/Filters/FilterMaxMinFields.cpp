@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <CompressibleFlowSolver/Misc/VariableConverter.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SolverUtils/Filters/FilterMaxMinFields.h>
 
 namespace Nektar::SolverUtils
@@ -66,12 +67,13 @@ FilterMaxMinFields::FilterMaxMinFields(
     // Load flag for max or min
     it                  = pParams.find("MaxOrMin");
     std::string sOption = it->second.c_str();
-    if (boost::iequals(sOption, "maximum") || boost::iequals(sOption, "max"))
+    if (StringUtils::IEquals(sOption, "maximum") ||
+        StringUtils::IEquals(sOption, "max"))
     {
         m_isMax = true;
     }
-    else if (boost::iequals(sOption, "minimum") ||
-             boost::iequals(sOption, "min"))
+    else if (StringUtils::IEquals(sOption, "minimum") ||
+             StringUtils::IEquals(sOption, "min"))
     {
         m_isMax = false;
     }
@@ -114,11 +116,11 @@ void FilterMaxMinFields::v_Initialise(
 
     // Check type of problem
     std::string firstVarName = pFields[0]->GetSession()->GetVariable(0);
-    if (boost::iequals(firstVarName, "u"))
+    if (StringUtils::IEquals(firstVarName, "u"))
     {
         m_problemType = eIncompressible;
     }
-    else if (boost::iequals(firstVarName, "rho"))
+    else if (StringUtils::IEquals(firstVarName, "rho"))
     {
         m_problemType = eCompressible;
     }

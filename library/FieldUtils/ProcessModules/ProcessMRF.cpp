@@ -120,7 +120,7 @@ void ProcessMRF::v_Process(po::variables_map &vm)
     // tranform vectors
     vector<Array<OneD, NekDouble>> data(m_spacedim);
     vector<int> vars;
-    if (m_config["vectors"].as<string>().compare("NotSet"))
+    if (m_config["vectors"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableVector(m_config["vectors"].as<string>(),
                                            m_f->m_variables, vars);

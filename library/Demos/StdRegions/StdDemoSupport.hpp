@@ -51,7 +51,7 @@
 #include <StdRegions/StdTetExp.h>
 #include <StdRegions/StdTriExp.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/program_options.hpp>
 
 using namespace Nektar;
@@ -149,7 +149,7 @@ public:
                 // starts at nodal points
                 for (int i = 1; i < SIZE_PointsType; ++i)
                 {
-                    if (boost::iequals(kPointsTypeStr[i], p))
+                    if (StringUtils::IEquals(kPointsTypeStr[i], p))
                     {
                         tmp = static_cast<PointsType>(i);
                         break;
@@ -170,7 +170,7 @@ public:
         {
             for (int i = 22; i < SIZE_PointsType; ++i) // starts at nodal points
             {
-                if (boost::iequals(kPointsTypeStr[i], m_ntype))
+                if (StringUtils::IEquals(kPointsTypeStr[i], m_ntype))
                 {
                     nodaltype = static_cast<PointsType>(i);
                     break;
@@ -233,7 +233,7 @@ public:
         {
             for (int i = 1; i < SIZE_ShapeType; ++i)
             {
-                if (boost::iequals(ShapeTypeMap[i], m_shape))
+                if (StringUtils::IEquals(ShapeTypeMap[i], m_shape))
                 {
                     stype = static_cast<ShapeType>(i);
                     break;
@@ -263,7 +263,7 @@ public:
             {
                 for (int j = 1; j < SIZE_BasisType; ++j)
                 {
-                    if (boost::iequals(BasisTypeMap[j], m_basis[i]))
+                    if (StringUtils::IEquals(BasisTypeMap[j], m_basis[i]))
                     {
                         btype[i] = static_cast<BasisType>(j);
                         break;

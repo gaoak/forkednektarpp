@@ -44,7 +44,7 @@
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 
-#include <boost/algorithm/string/case_conv.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/program_options/variables_map.hpp>
 
 class TiXmlElement;
@@ -591,7 +591,7 @@ template <typename T>
 inline const T SessionReader::GetSolverInfoAsEnum(
     const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     ASSERTL0(DefinesSolverInfo(vName),
              "Solver info '" + pName + "' not defined.");
 
@@ -614,7 +614,7 @@ template <typename T>
 inline const T SessionReader::GetValueAsEnum(const std::string &pName,
                                              const std::string &pValue) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
 
     auto x = GetSolverInfoEnums().find(vName);
     ASSERTL0(x != GetSolverInfoEnums().end(),
@@ -655,7 +655,7 @@ inline std::string SessionReader::RegisterEnumValue(std::string pEnum,
                                                     std::string pString,
                                                     int pEnumValue)
 {
-    std::string vEnum = boost::to_upper_copy(pEnum);
+    std::string vEnum = StringUtils::ToUpperCopy(pEnum);
     auto x            = GetSolverInfoEnums().find(vEnum);
 
     if (x == GetSolverInfoEnums().end())
@@ -688,7 +688,7 @@ inline std::string SessionReader::RegisterEnumValue(std::string pEnum,
 inline std::string SessionReader::RegisterDefaultSolverInfo(
     const std::string &pName, const std::string &pValue)
 {
-    std::string vName              = boost::to_upper_copy(pName);
+    std::string vName              = StringUtils::ToUpperCopy(pName);
     GetSolverInfoDefaults()[vName] = pValue;
     return pValue;
 }

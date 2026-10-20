@@ -42,7 +42,7 @@
 #include <boost/spirit/include/classic_push_back_actor.hpp>
 #include <boost/spirit/include/classic_symbols.hpp>
 
-#include <boost/algorithm/string/trim.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #if defined(__APPLE__)
 #include <boost/math/special_functions/bessel.hpp>
 #endif
@@ -749,7 +749,7 @@ public:
         VariableMap &variableMap, int stateIndex)
     {
         std::string valueStr(location->value.begin(), location->value.end());
-        boost::algorithm::trim(valueStr);
+        StringUtils::Trim(valueStr);
 
         const bsp::parser_id parserID = location->value.id();
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)

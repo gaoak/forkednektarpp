@@ -13,6 +13,7 @@ SET(LibUtilitiesUnitTestSources
     TestCrystalRouter.cpp
     TestNodalPointOrdering.cpp
     TestSharedIdResolvers.cpp
+    TestStringUtils.cpp
     TestThreadManager.cpp
     main.cpp
     ../util.cpp

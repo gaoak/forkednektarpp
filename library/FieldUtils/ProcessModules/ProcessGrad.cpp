@@ -64,7 +64,7 @@ ProcessGrad::~ProcessGrad()
 void ProcessGrad::ParserOptions(std::set<int> &variables,
                                 std::set<int> &directions)
 {
-    if (m_config["vars"].as<string>().compare("NotSet"))
+    if (m_config["vars"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableSet(m_config["vars"].as<string>(),
                                         m_f->m_variables, variables);
@@ -79,7 +79,7 @@ void ProcessGrad::ParserOptions(std::set<int> &variables,
     vector<string> coords = {"x", "y", "z"};
     int spacedim = m_f->m_numHomogeneousDir + m_f->m_graph->GetMeshDimension();
     coords.resize(spacedim);
-    if (m_config["dirs"].as<string>().compare("NotSet"))
+    if (m_config["dirs"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableSet(m_config["dirs"].as<string>(), coords,
                                         directions);

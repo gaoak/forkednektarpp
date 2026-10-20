@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <LocalRegions/Expansion1D.h>
 #include <LocalRegions/Expansion2D.h>
@@ -41,7 +42,6 @@
 #include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SolverUtils/Filters/FilterAeroForces.h>
 #include <SolverUtils/Filters/FilterInterfaces.hpp>
-#include <boost/algorithm/string.hpp>
 #include <iomanip>
 
 using namespace std;
@@ -100,8 +100,8 @@ FilterAeroForces::FilterAeroForces(
         else
         {
             std::string sOption = it->second.c_str();
-            m_outputAllPlanes   = (boost::iequals(sOption, "true")) ||
-                                (boost::iequals(sOption, "yes"));
+            m_outputAllPlanes   = (StringUtils::IEquals(sOption, "true")) ||
+                                (StringUtils::IEquals(sOption, "yes"));
         }
     }
     else
@@ -335,8 +335,7 @@ void FilterAeroForces::v_Initialise(
         m_outputStream << "# Forces and moments acting on bodies" << endl;
         for (int i = 0; i < expdim; i++)
         {
-            m_outputStream << "#"
-                           << " Direction" << i + 1 << " = (";
+            m_outputStream << "#" << " Direction" << i + 1 << " = (";
             m_outputStream.width(8);
             m_outputStream << setprecision(4) << m_directions[i][0];
             m_outputStream.width(8);
@@ -346,9 +345,7 @@ void FilterAeroForces::v_Initialise(
             m_outputStream << ")" << endl;
         }
 
-        m_outputStream << "#"
-                       << " Moments around"
-                       << " (";
+        m_outputStream << "#" << " Moments around" << " (";
         m_outputStream.width(8);
         m_outputStream << setprecision(4) << m_pivotPoint[0];
         m_outputStream.width(8);

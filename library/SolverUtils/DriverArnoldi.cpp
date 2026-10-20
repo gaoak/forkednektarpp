@@ -34,6 +34,7 @@
 
 #include <iomanip>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SolverUtils/DriverArnoldi.h>
 
 namespace Nektar::SolverUtils
@@ -72,8 +73,10 @@ void DriverArnoldi::v_InitObject(std::ostream &out)
     }
 
     if (m_session->DefinesSolverInfo("ModeType") &&
-        (boost::iequals(m_session->GetSolverInfo("ModeType"), "SingleMode") ||
-         boost::iequals(m_session->GetSolverInfo("ModeType"), "HalfMode")))
+        (StringUtils::IEquals(m_session->GetSolverInfo("ModeType"),
+                              "SingleMode") ||
+         StringUtils::IEquals(m_session->GetSolverInfo("ModeType"),
+                              "HalfMode")))
     {
         for (int i = 0; i < m_nfields; ++i)
         {
@@ -105,8 +108,8 @@ void DriverArnoldi::v_InitObject(std::ostream &out)
                      "Imaginary shift only supported with HOMOGENEOUS "
                      "expansion and ModeType set to SingleMode");
         }
-        else if (!boost::iequals(m_session->GetSolverInfo("ModeType"),
-                                 "SingleMode"))
+        else if (!StringUtils::IEquals(m_session->GetSolverInfo("ModeType"),
+                                       "SingleMode"))
         {
             NEKERROR(ErrorUtil::efatal,
                      "Imaginary shift only supported with HOMOGENEOUS "
@@ -132,7 +135,8 @@ void DriverArnoldi::ArnoldiSummary(std::ostream &out)
     if (m_comm->GetRank() == 0)
     {
         if (m_session->DefinesSolverInfo("ModeType") &&
-            boost::iequals(m_session->GetSolverInfo("ModeType"), "SingleMode"))
+            StringUtils::IEquals(m_session->GetSolverInfo("ModeType"),
+                                 "SingleMode"))
         {
             out << "\tSingle Fourier mode    : true " << std::endl;
             ASSERTL0(m_session->DefinesSolverInfo("Homogeneous"),

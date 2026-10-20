@@ -38,6 +38,7 @@ SET(BasicUtilsHeaders
     ./BasicUtils/ShapeType.hpp
     ./BasicUtils/SharedArray.hpp
     ./BasicUtils/Smath.hpp
+    ./BasicUtils/StringUtils.hpp
     ./BasicUtils/Thread.h
     ./BasicUtils/ThreadStd.h
     ./BasicUtils/Vmath.hpp

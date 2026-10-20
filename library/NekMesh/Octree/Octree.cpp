@@ -39,8 +39,8 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SpatialDomains/CADSystem/CADAssociation.h>
-#include <boost/algorithm/string.hpp>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -976,7 +976,8 @@ void Octree::CompileSourcePointList()
     {
         m_log(VERBOSE) << "  - Modifying based on refinement curves" << endl;
         vector<string> curves;
-        boost::split(curves, m_curverefinement, boost::is_any_of(":"));
+        StringUtils::Split(curves, m_curverefinement,
+                           StringUtils::IsAnyOf(":"));
         for (int i = 0; i < curves.size(); i++)
         {
             vector<NekDouble> data;
@@ -1214,7 +1215,7 @@ void Octree::CompileSourcePointList()
         // now deal with the user defined spacing
         vector<string> lines;
 
-        boost::split(lines, m_refinement, boost::is_any_of(":"));
+        StringUtils::Split(lines, m_refinement, StringUtils::IsAnyOf(":"));
 
         for (int i = 0; i < lines.size(); i++)
         {

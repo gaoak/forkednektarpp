@@ -67,7 +67,7 @@ void OutputInfo::v_Process([[maybe_unused]] po::variables_map &vm)
     string filename = m_config["outfile"].as<string>();
 
     // partition mesh
-    ASSERTL0(m_config["nparts"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["nparts"].as<string>() != "NotSet",
              "Need to specify nparts for info output");
     int nparts = m_config["nparts"].as<int>();
 

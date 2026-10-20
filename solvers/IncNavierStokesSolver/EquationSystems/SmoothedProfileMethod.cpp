@@ -35,6 +35,7 @@
 
 #include <IncNavierStokesSolver/EquationSystems/SmoothedProfileMethod.h>
 #include <IncNavierStokesSolver/Filters/FilterAeroForcesSPM.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ContField3DHomogeneous1D.h>
 #include <MultiRegions/ContField3DHomogeneous2D.h>
@@ -169,7 +170,7 @@ void SmoothedProfileMethod::v_InitObject(bool DeclareField)
 
     // Select 'm_gamma0' depending on IMEX order
     ASSERTL0(
-        boost::iequals(timeInt.method, "IMEX") && 1 <= timeInt.order &&
+        StringUtils::IEquals(timeInt.method, "IMEX") && 1 <= timeInt.order &&
             timeInt.order <= 4,
         "The TimeIntegrationMethod scheme must be IMEX with order '1' to '4'.")
 
@@ -196,7 +197,8 @@ void SmoothedProfileMethod::v_InitObject(bool DeclareField)
     m_forcesFilter = -1;
     for (size_t i = 0; i < m_session->GetFilters().size(); ++i)
     {
-        if (boost::iequals(m_session->GetFilters()[i].name, "AeroForcesSPM"))
+        if (StringUtils::IEquals(m_session->GetFilters()[i].name,
+                                 "AeroForcesSPM"))
         {
             m_forcesFilter = i;
             break;
@@ -357,7 +359,8 @@ void SmoothedProfileMethod::SolveCorrectedVelocity(
         // Adding -(1-m_phi)*grad(p_p) instead of -grad(p_p) reduces the
         // flux through the walls, but the flow is not incompressible
         if (m_session->DefinesSolverInfo("ForceBoundary") &&
-            boost::iequals(m_session->GetSolverInfo("ForceBoundary"), "True"))
+            StringUtils::IEquals(m_session->GetSolverInfo("ForceBoundary"),
+                                 "True"))
         {
             Vmath::Vvtvm(physTot, m_phi->GetPhys(), 1, Forcing[i], 1,
                          Forcing[i], 1, Forcing[i], 1);
@@ -521,7 +524,7 @@ bool SmoothedProfileMethod::GetVarTimeDependence(std::string funcName,
 
     // And search the element with name 'elemName'
     std::string varName = functionDef->Attribute("VAR");
-    while (functionDef && !boost::iequals(varName, elemName))
+    while (functionDef && !StringUtils::IEquals(varName, elemName))
     {
         functionDef = functionDef->NextSiblingElement();
         varName     = functionDef->Attribute("VAR");
@@ -533,7 +536,7 @@ bool SmoothedProfileMethod::GetVarTimeDependence(std::string funcName,
     // And return the value of USERDEFINEDTYPE
     std::string attr;
     int err     = functionDef->QueryStringAttribute("USERDEFINEDTYPE", &attr);
-    bool output = boost::iequals(attr, "TimeDependent");
+    bool output = StringUtils::IEquals(attr, "TimeDependent");
 
     ASSERTL0((err == TIXML_NO_ATTRIBUTE) || (err == TIXML_SUCCESS && output),
              "USERDEFINEDTYPE in " + elemName +
@@ -557,7 +560,7 @@ TiXmlElement *SmoothedProfileMethod::GetFunctionHdl(std::string functionName)
 
     // Loop over functions until the block 'name' is found
     std::string functionType = function->Attribute("NAME");
-    while (function && !boost::iequals(functionType, functionName))
+    while (function && !StringUtils::IEquals(functionType, functionName))
     {
         function     = function->NextSiblingElement("FUNCTION");
         functionType = function->Attribute("NAME");
@@ -576,7 +579,7 @@ void SmoothedProfileMethod::ReadPhi()
     m_filePhi              = false;
 
     // If defined by using a file
-    if (boost::iequals(child->ValueStr(), "F"))
+    if (StringUtils::IEquals(child->ValueStr(), "F"))
     {
         // Get name of STL file
         std::string fileName;
@@ -584,7 +587,8 @@ void SmoothedProfileMethod::ReadPhi()
         ASSERTL0(status == TIXML_SUCCESS,
                  "An FLD file with the values "
                  "of the phi function has to be supplied.")
-        ASSERTL0(boost::iequals(fileName.substr(fileName.length() - 4), ".fld"),
+        ASSERTL0(StringUtils::IEquals(fileName.substr(fileName.length() - 4),
+                                      ".fld"),
                  "A valid FLD file must be supplied in the "
                  "'ShapeFunction' field.")
 

@@ -35,6 +35,7 @@
 #include <LibUtilities/BasicUtils/CompressData.h>
 #include <LibUtilities/BasicUtils/FieldIOXml.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <boost/format.hpp>
 
@@ -821,12 +822,13 @@ void FieldIOXml::ImportFieldDefs(
                 }
                 else if (attrName == "COMPRESSED")
                 {
-                    WARNINGL0(boost::iequals(attr->Value(),
+                    WARNINGL0(
+                        StringUtils::IEquals(attr->Value(),
                                              CompressData::GetCompressString()),
-                              "Compressed formats do not "
-                              "match. Expected: " +
-                                  CompressData::GetCompressString() +
-                                  " but got " + std::string(attr->Value()));
+                        "Compressed formats do not "
+                        "match. Expected: " +
+                            CompressData::GetCompressString() + " but got " +
+                            std::string(attr->Value()));
                 }
                 else if (attrName == "BITSIZE")
                 {
@@ -1082,8 +1084,8 @@ void FieldIOXml::ImportFieldData(
             const char *CompressStr = element->Attribute("COMPRESSED");
             if (CompressStr)
             {
-                WARNINGL0(boost::iequals(CompressStr,
-                                         CompressData::GetCompressString()),
+                WARNINGL0(StringUtils::IEquals(
+                              CompressStr, CompressData::GetCompressString()),
                           "Compressed formats do not match. "
                           "Expected: " +
                               CompressData::GetCompressString() + " but got " +

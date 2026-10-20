@@ -35,6 +35,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LocalRegions/Expansion0D.h>
 #include <LocalRegions/Expansion1D.h>
@@ -97,7 +98,7 @@ DisContField::DisContField(const LibUtilities::SessionReaderSharedPtr &pSession,
         bcvar = bcvariable;
     }
 
-    if (bcvar.compare("DefaultVar") != 0)
+    if (bcvar != "DefaultVar")
     {
         SpatialDomains::BoundaryConditions bcs(m_session, graph);
 
@@ -625,7 +626,7 @@ DisContField::DisContField(const LibUtilities::SessionReaderSharedPtr &pSession,
     : ExpList(pSession, domain, graph1D, true, variable, SetToOneSpaceDimension,
               comm, ImpType)
 {
-    if (variable.compare("DefaultVar") != 0)
+    if (variable != "DefaultVar")
     {
         SpatialDomains::BoundaryConditionsSharedPtr DomBCs =
             GetDomainBCs(domain, Allbcs, variable);
@@ -684,7 +685,7 @@ DisContField::DisContField(const DisContField &In,
 
     // Set up boundary conditions for this variable.
     // Do not set up BCs if default variable
-    if (variable.compare("DefaultVar") != 0)
+    if (variable != "DefaultVar")
     {
         SpatialDomains::BoundaryConditions bcs(m_session, graph);
         GenerateBoundaryConditionExpansion(In.m_bndCondExpansions, bcs,
@@ -900,7 +901,8 @@ void DisContField::GenerateBoundaryConditionExpansion(
         // two conditions ideally should be in local solver setup (when
         // made into factory)
         if (bc->GetBoundaryConditionType() != SpatialDomains::eDirichlet ||
-            boost::iequals(type, "I") || boost::iequals(type, "CalcBC"))
+            StringUtils::IEquals(type, "I") ||
+            StringUtils::IEquals(type, "CalcBC"))
         {
             needPhysNormals = true;
         }
@@ -1004,7 +1006,8 @@ void DisContField::GenerateBoundaryConditionExpansion(
         // two conditions ideally should be in local solver setup (when
         // made into factory)
         if (bc->GetBoundaryConditionType() != SpatialDomains::eDirichlet ||
-            boost::iequals(type, "I") || boost::iequals(type, "CalcBC"))
+            StringUtils::IEquals(type, "I") ||
+            StringUtils::IEquals(type, "CalcBC"))
         {
             needPhysNormals = true;
         }
@@ -1827,14 +1830,15 @@ void DisContField::FindPeriodicTraces(
                 }
 
                 // check to see if boundary is rotationally aligned
-                if (boost::icontains(locBCond->GetUserDefined(), "Rotated"))
+                if (StringUtils::IContains(locBCond->GetUserDefined(),
+                                           "Rotated"))
                 {
                     vector<string> tmpstr;
 
-                    boost::split(tmpstr, locBCond->GetUserDefined(),
-                                 boost::is_any_of(":"));
+                    StringUtils::Split(tmpstr, locBCond->GetUserDefined(),
+                                       StringUtils::IsAnyOf(":"));
 
-                    if (boost::iequals(tmpstr[0], "Rotated"))
+                    if (StringUtils::IEquals(tmpstr[0], "Rotated"))
                     {
                         ASSERTL1(tmpstr.size() > 2,
                                  "Expected Rotated user defined string to "
@@ -3120,12 +3124,13 @@ void DisContField::v_PeriodicBwdRot(Array<OneD, Array<OneD, NekDouble>> &Bwd)
     for (int n = 0; n < m_bndConditions.size(); ++n)
     {
         // check to see if boundary is rotationally aligned
-        if (boost::icontains(m_bndConditions[n]->GetUserDefined(), "Rotated"))
+        if (StringUtils::IContains(m_bndConditions[n]->GetUserDefined(),
+                                   "Rotated"))
         {
             vector<string> tmpstr;
 
-            boost::split(tmpstr, m_bndConditions[n]->GetUserDefined(),
-                         boost::is_any_of(":"));
+            StringUtils::Split(tmpstr, m_bndConditions[n]->GetUserDefined(),
+                               StringUtils::IsAnyOf(":"));
 
             ASSERTL1(tmpstr.size() > 2,
                      "Expected Rotated user defined string to "
@@ -3167,12 +3172,13 @@ void DisContField::v_PeriodicDeriveBwdRot(TensorOfArray3D<NekDouble> &Bwd)
     for (int n = 0; n < m_bndConditions.size(); ++n)
     {
         // check to see if boundary is rotationally aligned
-        if (boost::icontains(m_bndConditions[n]->GetUserDefined(), "Rotated"))
+        if (StringUtils::IContains(m_bndConditions[n]->GetUserDefined(),
+                                   "Rotated"))
         {
             vector<string> tmpstr;
 
-            boost::split(tmpstr, m_bndConditions[n]->GetUserDefined(),
-                         boost::is_any_of(":"));
+            StringUtils::Split(tmpstr, m_bndConditions[n]->GetUserDefined(),
+                               StringUtils::IsAnyOf(":"));
 
             ASSERTL1(tmpstr.size() > 2,
                      "Expected Rotated user defined string to "

@@ -34,7 +34,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/PtsIO.h>
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <fstream>
 
@@ -145,7 +145,7 @@ void PtsIO::Write(const string &outFile,
     ptsFile << "<NEKTAR>" << endl;
     ptsFile << "    <POINTS ";
     ptsFile << "DIM=\"" << ptsField->GetDim() << "\" ";
-    string fn = boost::algorithm::join(ptsField->GetFieldNames(), ",");
+    string fn = StringUtils::Join(ptsField->GetFieldNames(), ",");
     ptsFile << "FIELDS=\"" << fn << "\" ";
     ptsFile << ">" << endl;
 
@@ -206,7 +206,7 @@ void PtsIO::v_ImportPtsFieldData(const string inFile,
     map<PtsInfo, int> ptsInfo = NullPtsInfoMap;
 
     const char *ptinfo = points->Attribute("PTSINFO");
-    if (ptinfo && boost::iequals(ptinfo, "EquiSpaced"))
+    if (ptinfo && StringUtils::IEquals(ptinfo, "EquiSpaced"))
     {
         ptsInfo[eIsEquiSpacedData] = 1;
     }

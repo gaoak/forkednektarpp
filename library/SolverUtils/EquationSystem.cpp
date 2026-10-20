@@ -388,7 +388,7 @@ void EquationSystem::v_InitObject(bool DeclareFields)
 
                             for (i = 0; i < m_fields.size(); i++)
                             {
-                                if (m_session->GetVariable(i).compare("w") == 0)
+                                if (m_session->GetVariable(i) == "w")
                                 {
                                     m_fields[i] = MemoryManager<
                                         MultiRegions::

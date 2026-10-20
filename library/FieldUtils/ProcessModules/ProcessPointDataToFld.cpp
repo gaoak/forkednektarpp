@@ -39,6 +39,7 @@
 #include "ProcessPointDataToFld.h"
 #include <LibUtilities/BasicUtils/CsvIO.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <cmath>
 
 using namespace std;
@@ -76,7 +77,7 @@ void ProcessPointDataToFld::v_Process(po::variables_map &vm)
     bool setnantovalue = false;
     NekDouble defvalue = 0.0;
 
-    if (!boost::iequals(m_config["setnantovalue"].as<string>(), "NotSet"))
+    if (!StringUtils::IEquals(m_config["setnantovalue"].as<string>(), "NotSet"))
     {
         setnantovalue = true;
         defvalue      = m_config["setnantovalue"].as<NekDouble>();
@@ -85,7 +86,7 @@ void ProcessPointDataToFld::v_Process(po::variables_map &vm)
     // Check for command line point specification if no .pts file specified
     // Load pts file
     LibUtilities::PtsFieldSharedPtr fieldPts;
-    ASSERTL0(m_config["frompts"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["frompts"].as<string>() != "NotSet",
              "ProcessInterpPointDataToFld requires frompts parameter");
     string inFile = m_config["frompts"].as<string>().c_str();
     LibUtilities::CommSharedPtr c =

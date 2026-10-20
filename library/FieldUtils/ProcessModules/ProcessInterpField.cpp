@@ -204,7 +204,7 @@ void ProcessInterpField::v_Process(po::variables_map &vm)
 
     // load field into expansion in fromfield.
     set<int> sinmode;
-    if (m_config["realmodetoimag"].as<string>().compare("NotSet"))
+    if (m_config["realmodetoimag"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableSet(m_config["realmodetoimag"].as<string>(),
                                         m_f->m_variables, sinmode);
