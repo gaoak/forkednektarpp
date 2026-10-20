@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <!--
+        Exact solution u = (1+x)^2 (1+y)(2+y) w(z), w(z) = 2+cos(2 PI z/LZ).
+        Every boundary condition reads g = (1+x)(1+y) from
+        Helmholtz_3DHomo1D_BndFile.bc and multiplies it by its VALUE
+        expression, which carries the z dependence, to give the condition on
+        that boundary.
+    -->
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX>
+            <V ID="0"> 0.0 0.0 0.0 </V>
+            <V ID="1"> 0.5 0.0 0.0 </V>
+            <V ID="2"> 1.0 0.0 0.0 </V>
+            <V ID="3"> 0.0 0.5 0.0 </V>
+            <V ID="4"> 0.5 0.5 0.0 </V>
+            <V ID="5"> 1.0 0.5 0.0 </V>
+            <V ID="6"> 0.0 1.0 0.0 </V>
+            <V ID="7"> 0.5 1.0 0.0 </V>
+            <V ID="8"> 1.0 1.0 0.0 </V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0"> 0 1 </E>
+            <E ID="1"> 1 2 </E>
+            <E ID="2"> 0 3 </E>
+            <E ID="3"> 1 4 </E>
+            <E ID="4"> 2 5 </E>
+            <E ID="5"> 3 4 </E>
+            <E ID="6"> 4 5 </E>
+            <E ID="7"> 3 6 </E>
+            <E ID="8"> 4 7 </E>
+            <E ID="9"> 5 8 </E>
+            <E ID="10"> 6 7 </E>
+            <E ID="11"> 7 8 </E>
+        </EDGE>
+        <ELEMENT>
+            <Q ID="0"> 0 3 5 2 </Q>
+            <Q ID="1"> 1 4 6 3 </Q>
+            <Q ID="2"> 5 8 10 7 </Q>
+            <Q ID="3"> 6 9 11 8 </Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> Q[0-3] </C>
+            <C ID="1"> E[0,1] </C>   <!-- y = 0 -->
+            <C ID="2"> E[2,7] </C>   <!-- x = 0 -->
+            <C ID="3"> E[4,9] </C>   <!-- x = 1 -->
+            <C ID="4"> E[10,11] </C> <!-- y = 1 -->
+        </COMPOSITE>
+        <DOMAIN> C[0] </DOMAIN>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="u" TYPE="MODIFIED" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <PARAMETERS>
+            <P> Lambda    = 1 </P>
+            <P> HomModesZ = 4 </P>
+            <P> LZ        = 1 </P>
+        </PARAMETERS>
+
+        <SOLVERINFO>
+            <I PROPERTY="EQTYPE"     VALUE="Helmholtz"  />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="HOMOGENEOUS" VALUE="1D"         />
+        </SOLVERINFO>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <!-- du/dn + u = -(1+x)^2 w, g = 1+x -->
+            <REGION REF="0">
+                <R VAR="u" VALUE="-(1+x)*(2+cos(2*PI*z/LZ))" PRIMCOEFF="1"
+                    FILE="Helmholtz_3DHomo1D_BndFile.bc" />
+            </REGION>
+            <!-- u = (1+y)(2+y) w, g = 1+y -->
+            <REGION REF="1">
+                <D VAR="u" VALUE="(2+y)*(2+cos(2*PI*z/LZ))" FILE="Helmholtz_3DHomo1D_BndFile.bc" />
+            </REGION>
+            <!-- du/dn = 4(1+y)(2+y) w, g = 2(1+y) -->
+            <REGION REF="2">
+                <N VAR="u" VALUE="2*(2+y)*(2+cos(2*PI*z/LZ))" FILE="Helmholtz_3DHomo1D_BndFile.bc" />
+            </REGION>
+            <!-- u = 6(1+x)^2 w, g = 2(1+x) -->
+            <REGION REF="3">
+                <D VAR="u" VALUE="3*(1+x)*(2+cos(2*PI*z/LZ))" FILE="Helmholtz_3DHomo1D_BndFile.bc" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="Forcing">
+            <E VAR="u" VALUE="(2*(1+y)*(2+y) + 2*(1+x)^2)*(2+cos(2*PI*z/LZ)) - (4*PI*PI/(LZ*LZ))*(1+x)^2*(1+y)*(2+y)*cos(2*PI*z/LZ) - Lambda*(1+x)^2*(1+y)*(2+y)*(2+cos(2*PI*z/LZ))" />
+        </FUNCTION>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="(1+x)^2*(1+y)*(2+y)*(2+cos(2*PI*z/LZ))" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

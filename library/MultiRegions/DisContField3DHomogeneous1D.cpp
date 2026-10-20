@@ -668,6 +668,8 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
                     m_bndConditions[i]);
 
                 std::string bcfilename = bcPtr->m_filename;
+                LibUtilities::EquationSharedPtr condition =
+                    bcPtr->m_neumannCondition;
 
                 if (bcfilename != "")
                 {
@@ -676,15 +678,19 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
                         locExpList->UpdateCoeffs());
                     locExpList->BwdTrans(locExpList->GetCoeffs(),
                                          locExpList->UpdatePhys());
+
+                    // A VALUE given alongside FILE multiplies the values
+                    // read from file.
+                    if (!condition->GetExpression().empty())
+                    {
+                        condition->Evaluate(x0, x1, x2, time, valuesExp);
+                        Vmath::Vmul(npoints, valuesExp, 1,
+                                    locExpList->GetPhys(), 1,
+                                    locExpList->UpdatePhys(), 1);
+                    }
                 }
                 else
                 {
-                    LibUtilities::EquationSharedPtr condition =
-                        std::static_pointer_cast<
-                            SpatialDomains::NeumannBoundaryCondition>(
-                            m_bndConditions[i])
-                            ->m_neumannCondition;
-
                     condition->Evaluate(x0, x1, x2, time,
                                         locExpList->UpdatePhys());
                 }
@@ -699,6 +705,8 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
                     SpatialDomains::RobinBoundaryCondition>(m_bndConditions[i]);
 
                 std::string bcfilename = bcPtr->m_filename;
+                LibUtilities::EquationSharedPtr condition =
+                    bcPtr->m_robinFunction;
 
                 if (bcfilename != "")
                 {
@@ -707,15 +715,19 @@ void DisContField3DHomogeneous1D::v_EvaluateBoundaryConditions(
                         locExpList->UpdateCoeffs());
                     locExpList->BwdTrans(locExpList->GetCoeffs(),
                                          locExpList->UpdatePhys());
+
+                    // A VALUE given alongside FILE multiplies the values
+                    // read from file.
+                    if (!condition->GetExpression().empty())
+                    {
+                        condition->Evaluate(x0, x1, x2, time, valuesExp);
+                        Vmath::Vmul(npoints, valuesExp, 1,
+                                    locExpList->GetPhys(), 1,
+                                    locExpList->UpdatePhys(), 1);
+                    }
                 }
                 else
                 {
-                    LibUtilities::EquationSharedPtr condition =
-                        std::static_pointer_cast<
-                            SpatialDomains::RobinBoundaryCondition>(
-                            m_bndConditions[i])
-                            ->m_robinFunction;
-
                     condition->Evaluate(x0, x1, x2, time,
                                         locExpList->UpdatePhys());
                 }

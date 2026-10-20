@@ -1079,9 +1079,8 @@ the Incompressible Navier-Stokes solver,
 </REGION>
 \end{lstlisting}
 
-Boundary conditions can also be loaded simultaneously from a file and from an 
-expression (currently only implemented in 3D).
-For example, in the scenario where a spatial boundary 
+Boundary conditions can also be loaded simultaneously from a file and from an
+expression. For example, in the scenario where a spatial boundary
 condition is read from a file, but needs to be modulated by a time-dependent 
 expression:
 \begin{lstlisting}[style=XMLStyle]
@@ -1092,7 +1091,13 @@ expression:
 \end{lstlisting}
 
 In the case where both \inltt{VALUE} and \inltt{FILE} are specified, the values
-are multiplied together to give the final value for the boundary condition. 
+are multiplied together to give the final value for the boundary condition.
+This applies to Dirichlet (\inltt{D}), Neumann (\inltt{N}) and Robin
+(\inltt{R}) conditions in two and three dimensions, including 3D
+homogeneous-1D (quasi-3D) expansions. For a Robin condition only the
+\inltt{VALUE} is multiplied by the file values; \inltt{PRIMCOEFF} is unchanged.
+Reading boundary conditions from file is not supported for one-dimensional
+expansions.
 
 \subsection{Functions}
 
