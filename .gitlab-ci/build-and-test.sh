@@ -112,6 +112,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_DEVICE:STRING=CUDA")
         CMAKEARGS+=("-DNEKTAR_DEVICE_ARCH=sm_90")
         CMAKEARGS+=("-DNEKTAR_USE_CUFFTDX:BOOL=ON")
+        CMAKEARGS+=("-DNEKTAR_USE_NVPL:BOOL=ON")
     elif [[ $BUILD_DEVICE == "SYCL-CPU" ]]; then
         if [[ $BUILD_CXX == "acpp" ]]; then
             # Load AdaptiveCpp compiler module for SYCL support on Linux

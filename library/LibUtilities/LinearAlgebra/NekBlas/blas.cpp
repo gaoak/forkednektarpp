@@ -28,8 +28,9 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: NekBlas backend for the Serial execution space (host BLAS).
-// Vendor headers are included here, never in NekBlas.hpp.
+// Description: NekBlas backend for the Serial execution space (host BLAS,
+// with NVPL batched extensions when available). Vendor headers are included
+// here, never in NekBlas.hpp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -39,8 +40,44 @@
 
 #include <stdexcept>
 
+#ifdef NEKTAR_USE_NVPL
+#include <nvpl_blas_cblas.h>
+
+#include <type_traits>
+#endif
+
 namespace Nektar::NekBlas
 {
+#ifdef NEKTAR_USE_NVPL
+namespace
+{
+template <typename TData>
+void NvplGemmStridedBatched(const char transA, const char transB, const int M,
+                            const int N, const int K, const TData alpha,
+                            const TData *a, const int lda, const int strideA,
+                            const TData *b, const int ldb, const int strideB,
+                            const TData beta, TData *c, const int ldc,
+                            const int strideC, const int batchSize)
+{
+    auto opA = transA == 'N' ? CblasNoTrans : CblasTrans;
+    auto opB = transB == 'N' ? CblasNoTrans : CblasTrans;
+
+    if constexpr (std::is_same_v<TData, double>)
+    {
+        cblas_dgemm_batch_strided(CblasColMajor, opA, opB, M, N, K, alpha, a,
+                                  lda, strideA, b, ldb, strideB, beta, c, ldc,
+                                  strideC, batchSize);
+    }
+    else
+    {
+        cblas_sgemm_batch_strided(CblasColMajor, opA, opB, M, N, K, alpha, a,
+                                  lda, strideA, b, ldb, strideB, beta, c, ldc,
+                                  strideC, batchSize);
+    }
+}
+} // namespace
+#endif
+
 template <typename TData>
 void Gemm([[maybe_unused]] Handle<NektarSpaces::Serial> handle,
           std::string transposeA, std::string transposeB, const int M,
@@ -66,11 +103,16 @@ void GemmStridedBatched([[maybe_unused]] Handle<NektarSpaces::Serial> handle,
     auto transA = *transposeA.c_str();
     auto transB = *transposeB.c_str();
 
+#ifdef NEKTAR_USE_NVPL
+    NvplGemmStridedBatched(transA, transB, M, N, K, alpha, a, lda, strideA, b,
+                           ldb, strideB, beta, c, ldc, strideC, batchSize);
+#else
     for (int i = 0; i < batchSize; i++)
     {
         Blas::Gemm(transA, transB, M, N, K, alpha, a + strideA * i, lda,
                    b + strideB * i, ldb, beta, c + strideC * i, ldc);
     }
+#endif
 }
 
 template <typename TData>
@@ -93,6 +135,18 @@ void GemvStridedBatched([[maybe_unused]] Handle<NektarSpaces::Serial> handle,
                         const int incy, const int strideY, const int batchSize)
 {
     auto trans = *transpose.c_str();
+
+#ifdef NEKTAR_USE_NVPL
+    // Unit-stride Gemv is a Gemm with a single column vector.
+    if (incx == 1 && incy == 1)
+    {
+        const int m = trans == 'N' ? M : N;
+        const int k = trans == 'N' ? N : M;
+        NvplGemmStridedBatched(trans, 'N', m, 1, k, alpha, a, lda, strideA, x,
+                               k, strideX, beta, y, m, strideY, batchSize);
+        return;
+    }
+#endif
 
     for (int i = 0; i < batchSize; i++)
     {

@@ -539,7 +539,6 @@ ENDIF( NEKTAR_USE_ARPACK )
 # Boost
 TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC
     ${Boost_IOSTREAMS_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     optimized ${ZLIB_LIBRARIES} debug ${ZLIB_LIBRARIES_DEBUG}
@@ -576,6 +575,9 @@ ENDIF()
 
 IF(THIRDPARTY_BUILD_BLAS_LAPACK)
     ADD_DEPENDENCIES(LibUtilities lapack-${LAPACK_VERSION})
+ENDIF()
+IF(NVPL_THIRDPARTY_TARGETS)
+    ADD_DEPENDENCIES(LibUtilities ${NVPL_THIRDPARTY_TARGETS})
 ENDIF()
 
 IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
@@ -636,6 +638,12 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         TARGET_LINK_LIBRARIES(NekBlas LINK_PRIVATE ${BLAS_LAPACK})
     ENDIF()
 
+    # NVPL batched BLAS extensions for the host backend
+    IF(NEKTAR_USE_NVPL)
+        TARGET_COMPILE_DEFINITIONS(NekBlas PRIVATE NEKTAR_USE_NVPL)
+        TARGET_INCLUDE_DIRECTORIES(NekBlas PRIVATE ${NVPL_INCLUDE_DIR})
+    ENDIF()
+
     # NekBlas's SYCL BLAS path references SYCLQueue statics defined in
     # LibUtilities, which is built after it and which NekBlas cannot link
     # without a cycle. A Linux shared library leaves that to load time and
@@ -646,6 +654,9 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     ENDIF()
     IF(THIRDPARTY_BUILD_BLAS_LAPACK)
         ADD_DEPENDENCIES(NekBlas lapack-${LAPACK_VERSION})
+    ENDIF()
+    IF(NVPL_THIRDPARTY_TARGETS)
+        ADD_DEPENDENCIES(NekBlas ${NVPL_THIRDPARTY_TARGETS})
     ENDIF()
     # MAGMA
     IF(NEKTAR_USE_MAGMA)

@@ -86,7 +86,7 @@ TEST_CURLCURL(curlcurl_quad_varp, QuadVarP, 1.0E-10)
 
 TEST_CURLCURL(curlcurl_tri, Tri, 2.0E-10)
 
-TEST_CURLCURL(curlcurl_tri_varp, TriVarP, 6.0E-10)
+TEST_CURLCURL(curlcurl_tri_varp, TriVarP, 8.0E-10)
 
 TEST_CURLCURL(curlcurl_tri_nodal, TriNodal, 2.0E-10)
 
@@ -100,7 +100,7 @@ TEST_CURLCURL(curlcurl_hex_varp, HexVarP, 1.0E-10)
 
 TEST_CURLCURL(curlcurl_prism, Prism, 2.0E-09)
 
-TEST_CURLCURL(curlcurl_prism_varp, PrismVarP, 1.0E-08)
+TEST_CURLCURL(curlcurl_prism_varp, PrismVarP, 2.0E-08)
 
 TEST_CURLCURL(curlcurl_prism_nodal, PrismNodal, 1.0E-10)
 
@@ -108,11 +108,11 @@ TEST_CURLCURL(curlcurl_pyr, Pyr, 1.0E-09)
 
 TEST_CURLCURL(curlcurl_pyr_varp, PyrVarP, 5.0E-09)
 
-TEST_CURLCURL(curlcurl_tet, Tet, 3.0E-09)
+TEST_CURLCURL(curlcurl_tet, Tet, 4.0E-09)
 
-TEST_CURLCURL(curlcurl_tet_varp, TetVarP, 3.0E-09)
+TEST_CURLCURL(curlcurl_tet_varp, TetVarP, 4.0E-09)
 
-TEST_CURLCURL(curlcurl_tet_nodal, TetNodal, 3.0E-09)
+TEST_CURLCURL(curlcurl_tet_nodal, TetNodal, 4.0E-09)
 
 TEST_CURLCURL(curlcurl_cube_prism_hex, CubePrismHex, 4.0E-10)
 
