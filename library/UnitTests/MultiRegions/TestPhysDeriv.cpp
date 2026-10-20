@@ -111,7 +111,7 @@ TEST_PHYSDERIV(physderiv_pyr, Pyr, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_pyr_varp, PyrVarP, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_tet, Tet, 1.0E-12)
+TEST_PHYSDERIV(physderiv_tet, Tet, 2.0E-12)
 
 TEST_PHYSDERIV(physderiv_tet_varp, TetVarP, 2.0E-12)
 

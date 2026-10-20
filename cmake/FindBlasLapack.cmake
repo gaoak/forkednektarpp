@@ -1,6 +1,20 @@
 IF (NEKTAR_USE_MKL)
     # Deal with MKL due to issues with FindBLAS VENDOR variable.
     INCLUDE (FindMKL)
+ELSEIF(NEKTAR_USE_NVPL)
+    # Library paths rather than the nvpl:: imported targets, as consumers of
+    # BLAS_LAPACK (e.g. PETSc) expect files.
+    IF(NOT NVPL_FOUND)
+        MESSAGE(FATAL_ERROR "Could not find NVPL BLAS/LAPACK. Check that it "
+            "is installed and visible to CMake (e.g. set nvpl_ROOT to its "
+            "install prefix), or disable NEKTAR_USE_NVPL.")
+    ENDIF()
+    SET(BLAS_LAPACK ${NVPL_LAPACK} ${NVPL_BLAS})
+    IF(NVPL_BLAS_CORE)
+        LIST(APPEND BLAS_LAPACK ${NVPL_BLAS_CORE})
+    ENDIF()
+    SET(BLAS_LAPACK ${BLAS_LAPACK} CACHE INTERNAL "BLAS/LAPACK location (NVPL)")
+    SET(LAPACK_FOUND TRUE)
 ELSEIF(NEKTAR_USE_WIN32_LAPACK)
     INCLUDE (FindWin32Lapack)
 ELSE()

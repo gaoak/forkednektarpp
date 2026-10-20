@@ -91,6 +91,7 @@ v5.11.0
 - Move the zero-Dirichlet assembly into LHSOp so linear solvers no longer assemble each product explicitly (!2842)
 - Add Low Sync GMRES iterative approach (!2840)
 - Add optional support for MPICH's MPIX_Stream extension, for the CUDA, HIP, SYCL-CUDA and SYCL-HIP back-ends (!2844)
+- Add NVIDIA Performance Libraries (NVPL) BLAS/LAPACK support, detected automatically or downloaded from NVIDIA with THIRDPARTY_BUILD_NVPL, with batched GEMM/GEMV in the NekBlas host back-end (!2858)
 - Move the MPIX stream state of CommMpi into the source file and check for a device in InitStreamComm() (!2854)
 - Bind each MPI rank to its GPU before MPI_Init where the launcher gives its node-local rank (!2844)
 - Detect GPU-aware MPI for the SYCL back-ends (!2844)
