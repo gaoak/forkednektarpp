@@ -66,7 +66,7 @@
 
 #pragma once
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
@@ -297,7 +297,7 @@ public:
         // Note that we use four by default: x, y, z, t
         std::vector<std::string> vars;
         auto variableList = expression->GetVlist();
-        boost::split(vars, variableList, boost::is_any_of(", "));
+        StringUtils::Split(vars, variableList, StringUtils::IsAnyOf(", "));
         return vars.size();
     }
 

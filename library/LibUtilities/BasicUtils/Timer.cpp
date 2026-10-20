@@ -32,8 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <boost/algorithm/string.hpp>
 #include <iomanip>
 #include <iostream>
 #include <tuple>
@@ -169,7 +169,7 @@ void Timer::PrintElapsedRegions(LibUtilities::CommSharedPtr comm,
              ++item)
         {
             // Avoid writing the "Execute" timer twice
-            if (boost::iequals(item->first, "Execute"))
+            if (StringUtils::IEquals(item->first, "Execute"))
             {
                 continue;
             }

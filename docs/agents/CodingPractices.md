@@ -267,3 +267,13 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     (`CGBndCondGatherKernel`, `DirBndCondKernel`), interleaving
     (`ReshapeStorage`) and the `Math` kernels already exist; a second copy
     of one under a new name is review noise and a second place to fix.
+
+## Strings
+
+42. **String handling goes through `StringUtils`.** Splitting, joining,
+    trimming, case conversion and case-insensitive comparison use the
+    functions in `LibUtilities/BasicUtils/StringUtils.hpp`, qualified as
+    `StringUtils::` at each use, rather than Boost.StringAlgo or a local
+    helper. The header is in `Nektar::StringUtils`, not
+    `Nektar::LibUtilities`. A function it lacks is added there, with a unit
+    test, rather than written beside its caller.

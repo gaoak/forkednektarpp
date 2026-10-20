@@ -41,7 +41,7 @@
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 #include <MultiRegions/ExpList.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
 using namespace std;
@@ -179,7 +179,8 @@ AssemblyMapDG::AssemblyMapDG(
             if (bndCond[i]->GetBoundaryConditionType() ==
                 SpatialDomains::ePeriodic)
             {
-                if (boost::icontains(bndCond[i]->GetUserDefined(), "Rotated"))
+                if (StringUtils::IContains(bndCond[i]->GetUserDefined(),
+                                           "Rotated"))
                 {
                     nrotperbndexp += bndCondExp[i]->GetExpSize();
                 }
@@ -200,7 +201,8 @@ AssemblyMapDG::AssemblyMapDG(
             if (bndCond[i]->GetBoundaryConditionType() ==
                 SpatialDomains::ePeriodic)
             {
-                if (boost::icontains(bndCond[i]->GetUserDefined(), "Rotated"))
+                if (StringUtils::IContains(bndCond[i]->GetUserDefined(),
+                                           "Rotated"))
                 {
 
                     for (j = 0; j < bndCondExp[i]->GetExpSize(); ++j)
@@ -527,7 +529,7 @@ AssemblyMapDG::AssemblyMapDG(
     {
         if (bndCond[i]->GetBoundaryConditionType() == SpatialDomains::ePeriodic)
         {
-            if (boost::icontains(bndCond[i]->GetUserDefined(), "Rotated"))
+            if (StringUtils::IContains(bndCond[i]->GetUserDefined(), "Rotated"))
             {
                 nrotperbndexp += bndCondExp[i]->GetExpSize();
             }
@@ -548,7 +550,7 @@ AssemblyMapDG::AssemblyMapDG(
     {
         if (bndCond[i]->GetBoundaryConditionType() == SpatialDomains::ePeriodic)
         {
-            if (boost::icontains(bndCond[i]->GetUserDefined(), "Rotated"))
+            if (StringUtils::IContains(bndCond[i]->GetUserDefined(), "Rotated"))
             {
 
                 for (j = 0; j < bndCondExp[i]->GetExpSize(); ++j)

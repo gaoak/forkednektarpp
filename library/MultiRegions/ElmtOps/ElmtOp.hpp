@@ -59,6 +59,7 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/Common/Operator.hpp>
 
 namespace Nektar::MultiRegions
@@ -266,7 +267,7 @@ public:
             bool OpImplSet = false;
 
             // Keys are stored uppercased by ParseOptimisations().
-            const std::string opNameUpper = boost::to_upper_copy(opName);
+            const std::string opNameUpper = StringUtils::ToUpperCopy(opName);
             if (opExecSpace == "Serial")
             {
                 LibUtilities::BackendMap &serialBackendInfo =

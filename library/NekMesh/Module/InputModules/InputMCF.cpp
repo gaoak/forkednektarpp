@@ -37,7 +37,7 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <SpatialDomains/CADSystem/CADCurve.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <tinyxml.h>
 
@@ -214,7 +214,7 @@ void InputMCF::ParseFile(string nm)
         while (v)
         {
             std::string tmp = v->GetText();
-            boost::trim(tmp);
+            StringUtils::Trim(tmp);
             ss << tmp << ";";
             v = v->NextSiblingElement("V");
         }
@@ -736,7 +736,7 @@ void InputMCF::Process()
     if (m_2D && m_periodic.size())
     {
         vector<string> lines;
-        boost::split(lines, m_periodic, boost::is_any_of(":"));
+        StringUtils::Split(lines, m_periodic, StringUtils::IsAnyOf(":"));
 
         for (auto &il : lines)
         {
@@ -744,7 +744,7 @@ void InputMCF::Process()
                 ModuleKey(eProcessModule, "peralign"), m_mesh);
 
             vector<string> tmp(2);
-            boost::split(tmp, il, boost::is_any_of(","));
+            StringUtils::Split(tmp, il, StringUtils::IsAnyOf(","));
             module->SetLogger(m_log);
             module->RegisterConfig("surf1", tmp[0]);
             module->RegisterConfig("surf2", tmp[1]);

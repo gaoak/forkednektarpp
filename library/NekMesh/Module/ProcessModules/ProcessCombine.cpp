@@ -36,9 +36,9 @@
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 #include <LibUtilities/BasicUtils/RealComparison.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <NekMesh/MeshElements/Element.h>
-#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -109,7 +109,7 @@ void ProcessCombine::Process()
     module.first = eInputModule;
 
     vector<string> tmp1;
-    boost::split(tmp1, fname, boost::is_any_of(":"));
+    StringUtils::Split(tmp1, fname, StringUtils::IsAnyOf(":"));
     if (tmp1.size() == 1)
     {
         int dot    = tmp1[0].find_last_of('.') + 1;
@@ -143,7 +143,7 @@ void ProcessCombine::Process()
     for (int j = 1; j < tmp1.size(); ++j)
     {
         vector<string> tmp2;
-        boost::split(tmp2, tmp1[j], boost::is_any_of("="));
+        StringUtils::Split(tmp2, tmp1[j], StringUtils::IsAnyOf("="));
 
         if (tmp2.size() == 1)
         {
@@ -551,8 +551,8 @@ void ProcessCombine::Process()
 
         for (auto &cIt : compRenumber)
         {
-            m_log << "- C[" << cIt.first << "] => "
-                  << "C[" << cIt.second << "]" << endl;
+            m_log << "- C[" << cIt.first << "] => " << "C[" << cIt.second << "]"
+                  << endl;
         }
     }
 }

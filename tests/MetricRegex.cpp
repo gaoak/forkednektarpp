@@ -34,7 +34,7 @@
 
 #include <MetricRegex.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <stdexcept>
@@ -224,7 +224,7 @@ bool MetricRegex::v_Test(std::istream &pStdout, std::istream &pStderr)
                 else
                 {
                     // Case insensitive match.
-                    if (!boost::iequals(match, okValues[i - 1].m_value))
+                    if (!StringUtils::IEquals(match, okValues[i - 1].m_value))
                     {
                         if (m_unordered)
                         {

@@ -32,10 +32,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/Forcing/ForcingLorentz.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Filters/FilterInterfaces.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 
 namespace Nektar::SolverUtils
 {
@@ -119,9 +119,10 @@ void ForcingLorentz::v_InitObject(
     if (pForce.DefinesChild("IMPLICITDAMPING"))
     {
         const std::string &text = pForce.GetValue("IMPLICITDAMPING");
-        ASSERTL0(boost::iequals(text, "true") || boost::iequals(text, "false"),
+        ASSERTL0(StringUtils::IEquals(text, "true") ||
+                     StringUtils::IEquals(text, "false"),
                  "IMPLICITDAMPING must be either True or False.");
-        m_implicitDamping = boost::iequals(text, "true");
+        m_implicitDamping = StringUtils::IEquals(text, "true");
     }
     if (m_implicitDamping)
     {

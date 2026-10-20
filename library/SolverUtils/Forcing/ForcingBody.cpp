@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Forcing/ForcingBody.h>
@@ -117,12 +117,12 @@ void ForcingBody::v_InitObject(
             LibUtilities::EquationSharedPtr eqn =
                 m_session->GetFunction(m_funcName, varStr);
             std::string vlist = eqn->GetVlist();
-            if (!boost::iequals(vlist, "x y z t"))
+            if (!StringUtils::IEquals(vlist, "x y z t"))
             {
                 // Coupled forcing
                 m_hasEvars = true;
                 std::vector<std::string> vars;
-                boost::split(vars, vlist, boost::is_any_of(", "));
+                StringUtils::Split(vars, vlist, StringUtils::IsAnyOf(", "));
                 for (size_t j = 4; j < vars.size(); ++j)
                 {
                     if (vars[j].size() != 0 &&

@@ -39,6 +39,7 @@
 
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LocalRegions/SegExp.h>
 #include <LocalRegions/TriExp.h>
 #include <SpatialDomains/MeshGraphIO.h>
@@ -116,7 +117,7 @@ ProcessDisplacement::~ProcessDisplacement()
 void ProcessDisplacement::v_Process(po::variables_map &vm)
 {
     ProcessBoundaryExtract::v_Process(vm);
-    ASSERTL0(!boost::iequals(m_config["bnd"].as<string>(), "All"),
+    ASSERTL0(!StringUtils::IEquals(m_config["bnd"].as<string>(), "All"),
              "ProcessDisplacement needs bnd parameter with a single id.");
 
     string toFile = m_config["to"].as<string>();

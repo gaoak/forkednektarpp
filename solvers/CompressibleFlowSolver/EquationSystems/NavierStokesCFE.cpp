@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <CompressibleFlowSolver/EquationSystems/NavierStokesCFE.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -524,7 +525,7 @@ void NavierStokesCFE::SpecialBndTreat(
                 m_fields[0]->GetTraceMap()->GetBndCondIDToGlobalTraceID(cnt++));
 
             // Imposing Temperature Twall at the wall
-            if (boost::iequals(
+            if (StringUtils::IEquals(
                     m_fields[nengy]->GetBndConditions()[j]->GetUserDefined(),
                     "WallViscous"))
             {

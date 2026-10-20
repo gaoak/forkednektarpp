@@ -45,6 +45,7 @@
 
 #include <boost/format.hpp>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <cmath>
 
 #define OUTPUT_FREQ 0
@@ -393,7 +394,7 @@ void CouplingCwipi::SetupSendInterpolation()
         MemoryManager<LibUtilities::PtsField>::AllocateSharedPtr(3, dist);
 
     LibUtilities::InterpMethod method = LibUtilities::eNearestNeighbour;
-    if (boost::to_upper_copy(m_config["SENDMETHOD"]) == "SHEPARD")
+    if (StringUtils::IEquals(m_config["SENDMETHOD"], "SHEPARD"))
     {
         method = LibUtilities::eShepard;
     }
@@ -570,8 +571,8 @@ void CouplingCwipi::SendCallback(
         interpField[i] = Array<OneD, NekDouble>(distCoords.size());
     }
 
-    if (boost::to_upper_copy(m_config["SENDMETHOD"]) == "NEARESTNEIGHBOUR" ||
-        boost::to_upper_copy(m_config["SENDMETHOD"]) == "SHEPARD")
+    if (StringUtils::IEquals(m_config["SENDMETHOD"], "NEARESTNEIGHBOUR") ||
+        StringUtils::IEquals(m_config["SENDMETHOD"], "SHEPARD"))
     {
         if (!m_sendInterpolator)
         {
@@ -799,7 +800,7 @@ void CouplingCwipi::ReceiveCwipi(const int step, const NekDouble time,
                 notLoc[i] = tmp[i] - 1;
             }
 
-            if (boost::to_upper_copy(m_config["NOTLOCMETHOD"]) == "KEEP")
+            if (StringUtils::IEquals(m_config["NOTLOCMETHOD"], "KEEP"))
             {
                 // interpolate from m_evalField to m_recvField
                 for (int i = 0; i < m_nRecvVars; ++i)
@@ -827,7 +828,7 @@ void CouplingCwipi::ReceiveCwipi(const int step, const NekDouble time,
             }
         }
 
-        if (boost::to_upper_copy(m_config["NOTLOCMETHOD"]) == "EXTRAPOLATE")
+        if (StringUtils::IEquals(m_config["NOTLOCMETHOD"], "EXTRAPOLATE"))
         {
             int doExtrapolate = 0;
             if (nNotLoc != 0)

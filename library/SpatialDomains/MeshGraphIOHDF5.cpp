@@ -32,7 +32,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <cstdint>
 #include <cstring>
 #include <tinyxml.h>
@@ -3228,7 +3228,7 @@ void MeshGraphIOHDF5::v_WriteGeometry(
     auto domain                  = m_meshGraph->GetDomain();
 
     std::vector<std::string> tmp;
-    boost::split(tmp, outfilename, boost::is_any_of("."));
+    StringUtils::Split(tmp, outfilename, StringUtils::IsAnyOf("."));
     std::string filenameXml  = tmp[0] + ".xml";
     std::string filenameHdf5 = tmp[0] + ".nekg";
 

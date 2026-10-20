@@ -46,6 +46,7 @@
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include "ProcessInterpPoints.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -220,7 +221,7 @@ void ProcessInterpPoints::v_Process(po::variables_map &vm)
 
     // load field into expansion in fromfield.
     set<int> sinmode;
-    if (m_config["realmodetoimag"].as<string>().compare("NotSet"))
+    if (m_config["realmodetoimag"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableSet(m_config["realmodetoimag"].as<string>(),
                                         m_f->m_variables, sinmode);
@@ -265,7 +266,7 @@ void ProcessInterpPoints::v_Process(po::variables_map &vm)
     InterpolateFieldToPts(fromField->m_exp, m_f->m_fieldPts, clamp_low,
                           clamp_up, def_value, tolerance);
 
-    if (!boost::iequals(m_config["cp"].as<string>(), "NotSet"))
+    if (!StringUtils::IEquals(m_config["cp"].as<string>(), "NotSet"))
     {
         calcCp0();
     }
@@ -277,7 +278,7 @@ void ProcessInterpPoints::CreateFieldPts([[maybe_unused]] po::variables_map &vm)
     int nprocs = m_f->m_comm->GetSpaceComm()->GetSize();
     // Check for command line point specification
 
-    if (m_config["topts"].as<string>().compare("NotSet") != 0)
+    if (m_config["topts"].as<string>() != "NotSet")
     {
         string inFile = m_config["topts"].as<string>();
 
@@ -302,7 +303,7 @@ void ProcessInterpPoints::CreateFieldPts([[maybe_unused]] po::variables_map &vm)
             ASSERTL0(false, "unknown topts file type");
         }
     }
-    else if (m_config["line"].as<string>().compare("NotSet") != 0)
+    else if (m_config["line"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ASSERTL0(
@@ -353,7 +354,7 @@ void ProcessInterpPoints::CreateFieldPts([[maybe_unused]] po::variables_map &vm)
         m_f->m_fieldPts->SetPtsType(LibUtilities::ePtsLine);
         m_f->m_fieldPts->SetPointsPerEdge(ppe);
     }
-    else if (m_config["plane"].as<string>().compare("NotSet") != 0)
+    else if (m_config["plane"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ASSERTL0(
@@ -425,7 +426,7 @@ void ProcessInterpPoints::CreateFieldPts([[maybe_unused]] po::variables_map &vm)
         m_f->m_fieldPts->SetPtsType(LibUtilities::ePtsPlane);
         m_f->m_fieldPts->SetPointsPerEdge(ppe);
     }
-    else if (m_config["box"].as<string>().compare("NotSet") != 0)
+    else if (m_config["box"].as<string>() != "NotSet")
     {
         vector<NekDouble> values;
         ASSERTL0(
@@ -554,14 +555,14 @@ void ProcessInterpPoints::calcCp0()
 
     for (int i = 0; i < pts->GetNFields(); ++i)
     {
-        if (boost::iequals(pts->GetFieldName(i), "p"))
+        if (StringUtils::IEquals(pts->GetFieldName(i), "p"))
         {
             pfield = i;
         }
 
-        if (boost::iequals(pts->GetFieldName(i), "u") ||
-            boost::iequals(pts->GetFieldName(i), "v") ||
-            boost::iequals(pts->GetFieldName(i), "w"))
+        if (StringUtils::IEquals(pts->GetFieldName(i), "u") ||
+            StringUtils::IEquals(pts->GetFieldName(i), "v") ||
+            StringUtils::IEquals(pts->GetFieldName(i), "w"))
         {
             velid.push_back(i);
         }

@@ -37,14 +37,16 @@
 
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <boost/lexical_cast.hpp>
-#include <boost/tokenizer.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 namespace Nektar
 {
@@ -462,14 +464,17 @@ bool fromString(const std::string &str, NekPoint<DataType> &result)
 {
     try
     {
-        typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
-        boost::char_separator<char> sep("(<,>) ");
-        tokenizer tokens(str, sep);
+        std::vector<std::string> tokens;
+        StringUtils::Split(tokens, str, StringUtils::IsAnyOf("(<,>) "),
+                           StringUtils::eTokenCompressOn);
         unsigned int i = 0;
-        for (tokenizer::iterator iter = tokens.begin(); iter != tokens.end();
-             ++iter)
+        for (const auto &token : tokens)
         {
-            result[i] = boost::lexical_cast<DataType>(*iter);
+            if (token.empty())
+            {
+                continue;
+            }
+            result[i] = boost::lexical_cast<DataType>(token);
             ++i;
         }
 

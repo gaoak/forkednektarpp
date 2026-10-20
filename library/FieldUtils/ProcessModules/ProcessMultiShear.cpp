@@ -73,7 +73,7 @@ void ProcessMultiShear::v_Process(po::variables_map &vm)
         return;
     }
 
-    ASSERTL0(m_config["fromfld"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["fromfld"].as<string>() != "NotSet",
              "Need to specify fromfld=file.fld ");
 
     int nstart, i, j, nfields = 0;

@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/AssemblyMap/AssemblyMap.h>
 
@@ -136,7 +136,7 @@ AssemblyMap::AssemblyMap(const LibUtilities::SessionReaderSharedPtr &pSession,
         std::string abstol =
             pSession->GetGlobalSysSolnInfo(variable, "AbsoluteTolerance");
         m_isAbsoluteTolerance =
-            boost::iequals(boost::to_upper_copy(abstol), "TRUE");
+            StringUtils::IEquals(StringUtils::ToUpperCopy(abstol), "TRUE");
     }
     else
     {

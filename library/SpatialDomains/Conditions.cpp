@@ -34,9 +34,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SpatialDomains/Conditions.h>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
 #include <tinyxml.h>
 
 namespace Nektar::SpatialDomains
@@ -353,7 +352,7 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
             TIXML_SUCCESS)
         {
             std::string refStr(refAttr);
-            boost::trim(refStr);
+            StringUtils::Trim(refStr);
 
             std::vector<int> named;
             for (auto &l : m_boundaryLabels)
@@ -468,9 +467,9 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                                          "USERDEFINEDTYPE attribute must have "
                                          "associated value.");
 
-                                userDefined = attrData;
-                                isTimeDependent =
-                                    boost::iequals(attrData, "TimeDependent");
+                                userDefined     = attrData;
+                                isTimeDependent = StringUtils::IEquals(
+                                    attrData, "TimeDependent");
                             }
                             else if (attrName == "VALUE")
                             {
@@ -564,9 +563,9 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                                          "USERDEFINEDTYPE attribute must have "
                                          "associated value.");
 
-                                userDefined = attrData;
-                                isTimeDependent =
-                                    boost::iequals(attrData, "TimeDependent");
+                                userDefined     = attrData;
+                                isTimeDependent = StringUtils::IEquals(
+                                    attrData, "TimeDependent");
                             }
                             else if (attrName == "VALUE")
                             {
@@ -582,11 +581,11 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
 
                                 equation = attrData;
 
-                                if (!boost::iequals(attrData, "0") &&
-                                    (boost::iequals(userDefined,
-                                                    "WallAdiabatic") ||
-                                     boost::iequals(userDefined,
-                                                    "WallViscous")))
+                                if (!StringUtils::IEquals(attrData, "0") &&
+                                    (StringUtils::IEquals(userDefined,
+                                                          "WallAdiabatic") ||
+                                     StringUtils::IEquals(userDefined,
+                                                          "WallViscous")))
                                 {
                                     isTimeDependent = true;
                                 }
@@ -674,9 +673,9 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                                          "USERDEFINEDTYPE attribute must have "
                                          "associated value.");
 
-                                userDefined = attrData;
-                                isTimeDependent =
-                                    boost::iequals(attrData, "TimeDependent");
+                                userDefined     = attrData;
+                                isTimeDependent = StringUtils::IEquals(
+                                    attrData, "TimeDependent");
                             }
                             else if (attrName == "VALUE")
                             {
@@ -772,9 +771,9 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                                          "USERDEFINEDTYPE attribute must have "
                                          "associated value.");
 
-                                userDefined = attrData;
-                                isTimeDependent =
-                                    boost::iequals(attrData, "TimeDependent");
+                                userDefined     = attrData;
+                                isTimeDependent = StringUtils::IEquals(
+                                    attrData, "TimeDependent");
                             }
                             else if (attrName == "VALUE")
                             {
@@ -809,7 +808,8 @@ void BoundaryConditions::ReadBoundaryConditions(TiXmlElement *conditions)
                                 // to none.
                                 if (!parseGood)
                                 {
-                                    boost::trim(periodicBndRegionIndexStr);
+                                    StringUtils::Trim(
+                                        periodicBndRegionIndexStr);
 
                                     for (auto &l : m_boundaryLabels)
                                     {

@@ -32,14 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <Collections/CollectionOptimisation.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
-
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 
 #include <tinyxml.h>
 
@@ -157,7 +154,7 @@ CollectionOptimisation::CollectionOptimisation(
             if (defaultImpl)
             {
                 const std::string collinfo = string(defaultImpl);
-                m_autotune                 = boost::iequals(collinfo, "auto");
+                m_autotune = StringUtils::IEquals(collinfo, "auto");
 
                 if (!m_autotune)
                 {
@@ -165,7 +162,7 @@ CollectionOptimisation::CollectionOptimisation(
                     for (int i = 1; i < Collections::SIZE_ImplementationType;
                          ++i)
                     {
-                        if (boost::iequals(
+                        if (StringUtils::IEquals(
                                 collinfo,
                                 Collections::ImplementationTypeMap[i]))
                         {
@@ -192,7 +189,7 @@ CollectionOptimisation::CollectionOptimisation(
                 }
             }
             const char *write = xmlCol->Attribute("WRITE");
-            if (write && boost::iequals(write, "true"))
+            if (write && StringUtils::IEquals(write, "true"))
             {
                 WriteFullCollections = true;
             }
@@ -254,7 +251,7 @@ void CollectionOptimisation::ReadCollOps(TiXmlElement *xmlCol,
     {
         string tagname = elmt->ValueStr();
 
-        ASSERTL0(boost::iequals(tagname, "OPERATOR"),
+        ASSERTL0(StringUtils::IEquals(tagname, "OPERATOR"),
                  "Only OPERATOR tags are supported inside the "
                  "COLLECTIONS tag.");
 
@@ -273,7 +270,7 @@ void CollectionOptimisation::ReadCollOps(TiXmlElement *xmlCol,
         while (elmt2)
         {
             string tagname = elmt2->ValueStr();
-            ASSERTL0(boost::iequals(tagname, "ELEMENT"),
+            ASSERTL0(StringUtils::IEquals(tagname, "ELEMENT"),
                      "Only ELEMENT tags are supported inside the "
                      "OPERATOR tag.");
 
@@ -417,8 +414,7 @@ OperatorImpMap CollectionOptimisation::SetWithTimings(
         {
             cout << pExp->GetBasis(i)->GetNumModes() << " ";
         }
-        cout << ")"
-             << " for ngeoms = " << pCollExp.size() << endl;
+        cout << ")" << " for ngeoms = " << pCollExp.size() << endl;
     }
     // set  up an array of collections
     CollectionVector coll;
@@ -512,10 +508,7 @@ OperatorImpMap CollectionOptimisation::SetWithTimings(
 
     if (verbose)
     {
-        cout << "\t "
-             << "   Op.    "
-             << ":\t"
-             << "opt. Impl."
+        cout << "\t " << "   Op.    " << ":\t" << "opt. Impl."
              << "\t (IterLocExp,  IterStdExp,  "
                 "StdMat,     SumFac,      MatrixFree)"
              << endl;

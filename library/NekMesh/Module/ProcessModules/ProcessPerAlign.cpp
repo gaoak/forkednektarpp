@@ -44,8 +44,8 @@
 
 #include "ProcessPerAlign.h"
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Interpreter/Interpreter.h>
-#include <boost/algorithm/string.hpp>
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <SpatialDomains/CADSystem/CADAssociation.h>
@@ -150,13 +150,13 @@ void ProcessPerAlign::Process()
     vector<string> dirV;
     if (dirIO.size())
     {
-        boost::split(dirV, dirIO, boost::is_any_of(";"));
+        StringUtils::Split(dirV, dirIO, StringUtils::IsAnyOf(";"));
     }
 
     vector<string> rotV;
     if (rotIO.size())
     {
-        boost::split(rotV, rotIO, boost::is_any_of(";"));
+        StringUtils::Split(rotV, rotIO, StringUtils::IsAnyOf(";"));
     }
 
     if (surf1.size() != surf2.size())
@@ -198,19 +198,19 @@ void ProcessPerAlign::Process()
         m_log(VERBOSE) << "surf2= " << surf2[pIt] << endl;
 
         vector<string> tmp1;
-        // boost::split() will return a vector of size 1 if input is an empty
-        // string and a delimiter is specified
+        // StringUtils::Split() will return a vector of size 1 if input is an
+        // empty string and a delimiter is specified
         if (dir.size() && dir != "false")
         {
             m_log(VERBOSE) << "dir = " << dir << endl;
-            boost::split(tmp1, dir, boost::is_any_of(","));
+            StringUtils::Split(tmp1, dir, StringUtils::IsAnyOf(","));
         }
 
         vector<string> tmp2;
         if (rot.size() && rot != "false")
         {
             m_log(VERBOSE) << "rot = " << dir << endl;
-            boost::split(tmp2, rot, boost::is_any_of(","));
+            StringUtils::Split(tmp2, rot, StringUtils::IsAnyOf(","));
         }
         bool rotalign = false;
 
@@ -506,11 +506,10 @@ void ProcessPerAlign::Process()
 
             if (!found)
             {
-                m_log(WARNING)
-                    << "Could not find matching edge for surface "
-                    << "element " << c1->m_geomVec[i]->GetGlobalID() << ". "
-                    << "Rot = " << rot << "."
-                    << "Skipping periodic alignment." << endl;
+                m_log(WARNING) << "Could not find matching edge for surface "
+                               << "element " << c1->m_geomVec[i]->GetGlobalID()
+                               << ". " << "Rot = " << rot << "."
+                               << "Skipping periodic alignment." << endl;
                 return;
             }
         }

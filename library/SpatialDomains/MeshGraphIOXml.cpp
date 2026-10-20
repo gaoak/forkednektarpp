@@ -45,7 +45,7 @@
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/Interpreter/Interpreter.h>
 
-#include <boost/algorithm/string/trim.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/format.hpp>
 
 #include <tinyxml.h>
@@ -1224,7 +1224,7 @@ void MeshGraphIOXml::ReadDomain()
             ASSERTL0(elementChild, "Unable to read DOMAIN body.");
             std::string elementStr = elementChild->ToText()->ValueStr();
 
-            elementStr = elementStr.substr(elementStr.find_first_not_of(" "));
+            StringUtils::Trim(elementStr);
 
             std::string::size_type indxBeg = elementStr.find_first_of('[') + 1;
             std::string::size_type indxEnd = elementStr.find_last_of(']') - 1;
@@ -1264,7 +1264,7 @@ void MeshGraphIOXml::ReadDomain()
         ASSERTL0(elementChild, "Unable to read DOMAIN body.");
         std::string elementStr = elementChild->ToText()->ValueStr();
 
-        elementStr = elementStr.substr(elementStr.find_first_not_of(" "));
+        StringUtils::Trim(elementStr);
 
         std::string::size_type indxBeg = elementStr.find_first_of('[') + 1;
         std::string::size_type indxEnd = elementStr.find_last_of(']') - 1;
@@ -3005,9 +3005,7 @@ void MeshGraphIOXml::WriteDomain(TiXmlElement *geomTag,
         TiXmlElement *c = new TiXmlElement("D");
         idxList.clear();
         std::stringstream s;
-        s << " "
-          << "C"
-          << "[";
+        s << " " << "C" << "[";
 
         for (const auto &elem : domain.second)
         {
@@ -3629,7 +3627,7 @@ void MeshGraphIOXml::WriteXMLGeometry(
             auto resolveBndRegion = [&vBndRegionNames](const std::string &ref,
                                                        int &id) {
                 std::string name(ref);
-                boost::trim(name);
+                StringUtils::Trim(name);
 
                 int found = 0;
                 for (auto &n : vBndRegionNames)
@@ -3725,7 +3723,7 @@ void MeshGraphIOXml::WriteXMLGeometry(
             m_session->GetElement("Nektar")->FirstChildElement();
         while (vSrc)
         {
-            std::string vName = boost::to_upper_copy(vSrc->ValueStr());
+            std::string vName = StringUtils::ToUpperCopy(vSrc->ValueStr());
             if (vName != "GEOMETRY" && vName != "CONDITIONS")
             {
                 root->LinkEndChild(new TiXmlElement(*vSrc));

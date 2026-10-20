@@ -35,9 +35,7 @@
 #include <SolverUtils/AdvectionSystem.h>
 #include <SolverUtils/DriverSteadyState.h>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/split.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar::SolverUtils
 {
@@ -115,7 +113,8 @@ void DriverSteadyState::v_Execute(std::ostream &out)
         m_session->GetSolverInfo("EqType") == "SteadyNavierStokes")
     {
         int nConvectiveFields = m_session->GetVariables().size();
-        if (boost::iequals(m_session->GetVariable(nConvectiveFields - 1), "p"))
+        if (StringUtils::IEquals(m_session->GetVariable(nConvectiveFields - 1),
+                                 "p"))
         {
             nConvectiveFields -= 1;
         }
@@ -570,8 +569,8 @@ void DriverSteadyState::ReadEVfile(int &KrylovSubspaceDim, NekDouble &growthEV,
 
         std::vector<std::string> tokens;
         std::getline(EVfile, line);
-        boost::algorithm::split(tokens, line, boost::is_any_of("\t "),
-                                boost::token_compress_on);
+        StringUtils::Split(tokens, line, StringUtils::IsAnyOf("\t "),
+                           StringUtils::eTokenCompressOn);
 
         ASSERTL0(tokens.size() >= 5,
                  "Unexpected formatting of .evl file while reading line:\n" +

@@ -36,6 +36,7 @@
 #include <iostream>
 
 #include <AcousticSolver/EquationSystems/LEE.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -80,13 +81,13 @@ void LEE::v_InitObject(bool DeclareFields)
 
     std::string riemName;
     m_session->LoadSolverInfo("UpwindType", riemName, "Upwind");
-    if (boost::to_lower_copy(riemName) == "characteristics" ||
-        boost::to_lower_copy(riemName) == "leeupwind" ||
-        boost::to_lower_copy(riemName) == "upwind")
+    if (StringUtils::IEquals(riemName, "characteristics") ||
+        StringUtils::IEquals(riemName, "leeupwind") ||
+        StringUtils::IEquals(riemName, "upwind"))
     {
         riemName = "LEEUpwind";
     }
-    if (boost::to_lower_copy(riemName) == "laxfriedrichs")
+    if (StringUtils::IEquals(riemName, "laxfriedrichs"))
     {
         riemName = "LEELaxFriedrichs";
     }

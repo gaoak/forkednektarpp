@@ -46,6 +46,7 @@
 #include <CompressibleFlowSolverRedesign/DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/EquationSystems/NavierStokesCFE.h>
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -155,7 +156,7 @@ void NavierStokesCFE::v_InitialiseOperators()
     std::string riemannMethod = m_session->GetSolverInfo("UpwindType");
 
     std::string EqnOfState =
-        boost::to_upper_copy(m_session->GetEquationOfState().type);
+        StringUtils::ToUpperCopy(m_session->GetEquationOfState().type);
 
     std::string AdvDiffMethod = "AdvDiffTraceFluxCFE" + riemannMethod +
                                 EqnOfState; // add prefix for local version

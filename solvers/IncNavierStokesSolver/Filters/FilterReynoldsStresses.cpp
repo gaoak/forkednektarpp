@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/Filters/FilterReynoldsStresses.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar::SolverUtils
 {
@@ -89,8 +90,8 @@ FilterReynoldsStresses::FilterReynoldsStresses(
     else
     {
         std::string sOption = it->second.c_str();
-        m_movAvg            = (boost::iequals(sOption, "true")) ||
-                   (boost::iequals(sOption, "yes"));
+        m_movAvg            = (StringUtils::IEquals(sOption, "true")) ||
+                   (StringUtils::IEquals(sOption, "yes"));
     }
 
     // Check if highOrder is switched on

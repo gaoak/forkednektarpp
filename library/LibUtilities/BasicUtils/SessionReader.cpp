@@ -51,7 +51,7 @@
 #define NEKTAR_GETPID getpid
 #endif
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
@@ -621,7 +621,7 @@ std::vector<std::string> SessionReader::ParseCommandLineArguments(int argc,
         {
             string sha1(NekConstants::kGitSha1);
             string branch(NekConstants::kGitBranch);
-            boost::replace_all(branch, "refs/heads/", "");
+            StringUtils::ReplaceAll(branch, "refs/heads/", "");
 
             cout << " (git changeset " << sha1.substr(0, 8) << ", ";
 
@@ -716,17 +716,17 @@ std::string SessionReader::ParseSessionName(std::vector<std::string> &filenames)
     std::string fname = filenames[0];
 
     // If loading a pre-partitioned mesh, remove _xml extension
-    if (fname.size() > 4 && fname.substr(fname.size() - 4, 4) == "_xml")
+    if (StringUtils::EndsWith(fname, "_xml"))
     {
         retval = fname.substr(0, fname.find_last_of("_"));
     }
     // otherwise remove the .xml extension
-    else if (fname.size() > 4 && fname.substr(fname.size() - 4, 4) == ".xml")
+    else if (StringUtils::EndsWith(fname, ".xml"))
     {
         retval = fname.substr(0, fname.find_last_of("."));
     }
     // If compressed .xml.gz, remove both extensions
-    else if (fname.size() > 7 && fname.substr(fname.size() - 7, 7) == ".xml.gz")
+    else if (StringUtils::EndsWith(fname, ".xml.gz"))
     {
         retval = fname.substr(0, fname.find_last_of("."));
         retval = retval.substr(0, retval.find_last_of("."));
@@ -768,9 +768,9 @@ TiXmlDocument &SessionReader::GetDocument()
  */
 TiXmlElement *SessionReader::GetElement(const string &pPath)
 {
-    std::string vPath = boost::to_upper_copy(pPath);
+    std::string vPath = StringUtils::ToUpperCopy(pPath);
     std::vector<std::string> st;
-    boost::split(st, vPath, boost::is_any_of("\\/ "));
+    StringUtils::Split(st, vPath, StringUtils::IsAnyOf("\\/ "));
     ASSERTL0(st.size() > 0, "No path given in XML element request.");
 
     TiXmlElement *vReturn = m_xmlDoc->FirstChildElement(st[0].c_str());
@@ -790,9 +790,9 @@ TiXmlElement *SessionReader::GetElement(const string &pPath)
  */
 bool SessionReader::DefinesElement(const std::string &pPath) const
 {
-    std::string vPath = boost::to_upper_copy(pPath);
+    std::string vPath = StringUtils::ToUpperCopy(pPath);
     std::vector<std::string> st;
-    boost::split(st, vPath, boost::is_any_of("\\/ "));
+    StringUtils::Split(st, vPath, StringUtils::IsAnyOf("\\/ "));
     ASSERTL0(st.size() > 0, "No path given in XML element request.");
 
     TiXmlElement *vReturn = m_xmlDoc->FirstChildElement(st[0].c_str());
@@ -854,7 +854,7 @@ void SessionReader::Finalise()
  */
 bool SessionReader::DefinesParameter(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     return m_parameters.find(vName) != m_parameters.end();
 }
 
@@ -868,7 +868,7 @@ bool SessionReader::DefinesParameter(const std::string &pName) const
  */
 const NekDouble &SessionReader::GetParameter(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
 
     ASSERTL0(paramIter != m_parameters.end(),
@@ -891,7 +891,7 @@ const ParameterMap &SessionReader::GetParameters()
  */
 void SessionReader::LoadParameter(const std::string &pName, int &pVar) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     ASSERTL0(paramIter != m_parameters.end(),
              "Required parameter '" + pName + "' not specified in session.");
@@ -905,7 +905,7 @@ void SessionReader::LoadParameter(const std::string &pName, int &pVar) const
 void SessionReader::LoadParameter(const std::string &pName, int &pVar,
                                   const int &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     if (paramIter != m_parameters.end())
     {
@@ -924,7 +924,7 @@ void SessionReader::LoadParameter(const std::string &pName, int &pVar,
 void SessionReader::LoadParameter(const std::string &pName,
                                   unsigned int &pVar) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     ASSERTL0(paramIter != m_parameters.end(),
              "Required parameter '" + pName + "' not specified in session.");
@@ -938,7 +938,7 @@ void SessionReader::LoadParameter(const std::string &pName,
 void SessionReader::LoadParameter(const std::string &pName, unsigned int &pVar,
                                   const unsigned int &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     if (paramIter != m_parameters.end())
     {
@@ -956,7 +956,7 @@ void SessionReader::LoadParameter(const std::string &pName, unsigned int &pVar,
  */
 void SessionReader::LoadParameter(const std::string &pName, size_t &pVar) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     ASSERTL0(paramIter != m_parameters.end(),
              "Required parameter '" + pName + "' not specified in session.");
@@ -970,7 +970,7 @@ void SessionReader::LoadParameter(const std::string &pName, size_t &pVar) const
 void SessionReader::LoadParameter(const std::string &pName, size_t &pVar,
                                   const size_t &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     if (paramIter != m_parameters.end())
     {
@@ -989,7 +989,7 @@ void SessionReader::LoadParameter(const std::string &pName, size_t &pVar,
 void SessionReader::LoadParameter(const std::string &pName,
                                   NekSingle &pVar) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     ASSERTL0(paramIter != m_parameters.end(),
              "Required parameter '" + pName + "' not specified in session.");
@@ -1002,7 +1002,7 @@ void SessionReader::LoadParameter(const std::string &pName,
 void SessionReader::LoadParameter(const std::string &pName,
                                   NekDouble &pVar) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     ASSERTL0(paramIter != m_parameters.end(),
              "Required parameter '" + pName + "' not specified in session.");
@@ -1015,7 +1015,7 @@ void SessionReader::LoadParameter(const std::string &pName,
 void SessionReader::LoadParameter(const std::string &pName, NekSingle &pVar,
                                   const NekSingle &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     if (paramIter != m_parameters.end())
     {
@@ -1033,7 +1033,7 @@ void SessionReader::LoadParameter(const std::string &pName, NekSingle &pVar,
 void SessionReader::LoadParameter(const std::string &pName, NekDouble &pVar,
                                   const NekDouble &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_parameters.find(vName);
     if (paramIter != m_parameters.end())
     {
@@ -1050,7 +1050,7 @@ void SessionReader::LoadParameter(const std::string &pName, NekDouble &pVar,
  */
 void SessionReader::SetParameter(const std::string &pName, int &pVar)
 {
-    std::string vName   = boost::to_upper_copy(pName);
+    std::string vName   = StringUtils::ToUpperCopy(pName);
     m_parameters[vName] = pVar;
     m_interpreter->SetParameter(pName, pVar);
 }
@@ -1060,7 +1060,7 @@ void SessionReader::SetParameter(const std::string &pName, int &pVar)
  */
 void SessionReader::SetParameter(const std::string &pName, unsigned int &pVar)
 {
-    std::string vName   = boost::to_upper_copy(pName);
+    std::string vName   = StringUtils::ToUpperCopy(pName);
     m_parameters[vName] = pVar;
     m_interpreter->SetParameter(pName, pVar);
 }
@@ -1070,7 +1070,7 @@ void SessionReader::SetParameter(const std::string &pName, unsigned int &pVar)
  */
 void SessionReader::SetParameter(const std::string &pName, size_t &pVar)
 {
-    std::string vName   = boost::to_upper_copy(pName);
+    std::string vName   = StringUtils::ToUpperCopy(pName);
     m_parameters[vName] = pVar;
     m_interpreter->SetParameter(pName, pVar);
 }
@@ -1080,7 +1080,7 @@ void SessionReader::SetParameter(const std::string &pName, size_t &pVar)
  */
 void SessionReader::SetParameter(const std::string &pName, NekDouble &pVar)
 {
-    std::string vName   = boost::to_upper_copy(pName);
+    std::string vName   = StringUtils::ToUpperCopy(pName);
     m_parameters[vName] = pVar;
     m_interpreter->SetParameter(pName, pVar);
 }
@@ -1090,7 +1090,7 @@ void SessionReader::SetParameter(const std::string &pName, NekDouble &pVar)
  */
 bool SessionReader::DefinesReferenceValue(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     return m_referenceValues.find(vName) != m_referenceValues.end();
 }
 
@@ -1101,7 +1101,7 @@ void SessionReader::LoadReferenceValue(const std::string &pName,
                                        NekSingle &pVar,
                                        const NekSingle &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_referenceValues.find(vName);
     if (paramIter != m_referenceValues.end())
     {
@@ -1124,7 +1124,7 @@ void SessionReader::LoadReferenceValue(const std::string &pName,
                                        NekDouble &pVar,
                                        const NekDouble &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto paramIter    = m_referenceValues.find(vName);
     if (paramIter != m_referenceValues.end())
     {
@@ -1145,7 +1145,7 @@ void SessionReader::LoadReferenceValue(const std::string &pName,
  */
 bool SessionReader::DefinesSolverInfo(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto infoIter     = m_solverInfo.find(vName);
     return (infoIter != m_solverInfo.end());
 }
@@ -1156,7 +1156,7 @@ bool SessionReader::DefinesSolverInfo(const std::string &pName) const
 const std::string &SessionReader::GetSolverInfo(
     const std::string &pProperty) const
 {
-    std::string vProperty = boost::to_upper_copy(pProperty);
+    std::string vProperty = StringUtils::ToUpperCopy(pProperty);
     auto iter             = m_solverInfo.find(vProperty);
 
     ASSERTL1(iter != m_solverInfo.end(),
@@ -1171,7 +1171,7 @@ const std::string &SessionReader::GetSolverInfo(
 void SessionReader::SetSolverInfo(const std::string &pProperty,
                                   const std::string &pValue)
 {
-    std::string vProperty = boost::to_upper_copy(pProperty);
+    std::string vProperty = StringUtils::ToUpperCopy(pProperty);
     auto iter             = m_solverInfo.find(vProperty);
 
     ASSERTL1(iter != m_solverInfo.end(),
@@ -1186,7 +1186,7 @@ void SessionReader::SetSolverInfo(const std::string &pProperty,
 void SessionReader::LoadSolverInfo(const std::string &pName, std::string &pVar,
                                    const std::string &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto infoIter     = m_solverInfo.find(vName);
     if (infoIter != m_solverInfo.end())
     {
@@ -1205,11 +1205,11 @@ void SessionReader::MatchSolverInfo(const std::string &pName,
                                     const std::string &pTrueVal, bool &pVar,
                                     const bool &pDefault) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto infoIter     = m_solverInfo.find(vName);
     if (infoIter != m_solverInfo.end())
     {
-        pVar = boost::iequals(infoIter->second, pTrueVal);
+        pVar = StringUtils::IEquals(infoIter->second, pTrueVal);
     }
     else
     {
@@ -1225,11 +1225,11 @@ bool SessionReader::MatchSolverInfo(const std::string &pName,
 {
     if (DefinesSolverInfo(pName))
     {
-        std::string vName = boost::to_upper_copy(pName);
+        std::string vName = StringUtils::ToUpperCopy(pName);
         auto iter         = m_solverInfo.find(vName);
         if (iter != m_solverInfo.end())
         {
-            return boost::iequals(iter->second, pTrueVal);
+            return StringUtils::IEquals(iter->second, pTrueVal);
         }
     }
     return false;
@@ -1247,7 +1247,7 @@ bool SessionReader::DefinesGlobalSysSolnInfo(const std::string &pVariable,
         return false;
     }
 
-    std::string vProperty = boost::to_upper_copy(pProperty);
+    std::string vProperty = StringUtils::ToUpperCopy(pProperty);
 
     auto iter1 = iter->second.find(vProperty);
     if (iter1 == iter->second.end())
@@ -1268,7 +1268,7 @@ const std::string &SessionReader::GetGlobalSysSolnInfo(
     ASSERTL0(iter != GetGloSysSolnList().end(),
              "Failed to find variable in GlobalSysSolnInfoList");
 
-    std::string vProperty = boost::to_upper_copy(pProperty);
+    std::string vProperty = StringUtils::ToUpperCopy(pProperty);
     auto iter1            = iter->second.find(vProperty);
 
     ASSERTL0(iter1 != iter->second.end(),
@@ -1286,7 +1286,7 @@ void SessionReader::SetGlobalSysSolnInfo(const std::string &pVariable,
                                          const std::string &pValue)
 {
 
-    std::string vProperty = boost::to_upper_copy(pProperty);
+    std::string vProperty = StringUtils::ToUpperCopy(pProperty);
 
     auto iter = GetGloSysSolnList().find(pVariable);
     if (iter == GetGloSysSolnList().end())
@@ -1429,7 +1429,7 @@ bool SessionReader::GetBackups() const
  */
 bool SessionReader::DefinesFunction(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     return m_functions.find(vName) != m_functions.end();
 }
 
@@ -1440,7 +1440,7 @@ bool SessionReader::DefinesFunction(const std::string &pName,
                                     const std::string &pVariable,
                                     const int pDomain) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
 
     // Check function exists
     auto it1 = m_functions.find(vName);
@@ -1462,7 +1462,7 @@ EquationSharedPtr SessionReader::GetFunction(const std::string &pName,
                                              const std::string &pVariable,
                                              const int pDomain) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto it1          = m_functions.find(vName);
 
     ASSERTL0(it1 != m_functions.end(),
@@ -1513,7 +1513,7 @@ enum FunctionType SessionReader::GetFunctionType(const std::string &pName,
                                                  const std::string &pVariable,
                                                  const int pDomain) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto it1          = m_functions.find(vName);
 
     ASSERTL0(it1 != m_functions.end(),
@@ -1561,7 +1561,7 @@ std::string SessionReader::GetFunctionFilename(const std::string &pName,
                                                const std::string &pVariable,
                                                const int pDomain) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto it1          = m_functions.find(vName);
 
     ASSERTL0(it1 != m_functions.end(),
@@ -1609,7 +1609,7 @@ std::string SessionReader::GetFunctionFilenameVariable(
     const std::string &pName, const std::string &pVariable,
     const int pDomain) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto it1          = m_functions.find(vName);
 
     ASSERTL0(it1 != m_functions.end(),
@@ -1644,7 +1644,7 @@ std::string SessionReader::GetFunctionFilenameVariable(
  */
 bool SessionReader::DefinesTag(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     return m_tags.find(vName) != m_tags.end();
 }
 
@@ -1653,7 +1653,7 @@ bool SessionReader::DefinesTag(const std::string &pName) const
  */
 void SessionReader::SetTag(const std::string &pName, const std::string &pValue)
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     m_tags[vName]     = pValue;
 }
 
@@ -1662,7 +1662,7 @@ void SessionReader::SetTag(const std::string &pName, const std::string &pValue)
  */
 const std::string &SessionReader::GetTag(const std::string &pName) const
 {
-    std::string vName = boost::to_upper_copy(pName);
+    std::string vName = StringUtils::ToUpperCopy(pName);
     auto vTagIterator = m_tags.find(vName);
     ASSERTL0(vTagIterator != m_tags.end(), "Requested tag does not exist.");
     return vTagIterator->second;
@@ -1730,8 +1730,7 @@ void SessionReader::GetXMLElementTimeLevel(TiXmlElement *&Element,
 void SessionReader::LoadDoc(const std::string &pFilename,
                             TiXmlDocument *pDoc) const
 {
-    if (pFilename.size() > 3 &&
-        pFilename.substr(pFilename.size() - 3, 3) == ".gz")
+    if (StringUtils::EndsWith(pFilename, ".gz"))
     {
         ifstream file(pFilename.c_str(), ios_base::in | ios_base::binary);
         ASSERTL0(file.good(), "Unable to open file: " + pFilename);
@@ -1750,8 +1749,7 @@ void SessionReader::LoadDoc(const std::string &pFilename,
                      "Error: File '" + pFilename + "' is corrupt.");
         }
     }
-    else if (pFilename.size() > 4 &&
-             pFilename.substr(pFilename.size() - 4, 4) == "_xml")
+    else if (StringUtils::EndsWith(pFilename, "_xml"))
     {
         fs::path pdirname(pFilename);
         boost::format pad("P%1$07d.xml");
@@ -1792,10 +1790,9 @@ TiXmlDocument *SessionReader::MergeDoc(
     // version already present in the loaded XML data.
     for (int i = 1; i < pFilenames.size(); ++i)
     {
-        if ((pFilenames[i].compare(pFilenames[i].size() - 3, 3, "xml") == 0) ||
-            (pFilenames[i].compare(pFilenames[i].size() - 6, 6, "xml.gz") ==
-             0) ||
-            (pFilenames[i].compare(pFilenames[i].size() - 3, 3, "opt") == 0))
+        if (StringUtils::EndsWith(pFilenames[i], "xml") ||
+            StringUtils::EndsWith(pFilenames[i], "xml.gz") ||
+            StringUtils::EndsWith(pFilenames[i], "opt"))
         {
             TiXmlDocument *vTempDoc = new TiXmlDocument;
             LoadDoc(pFilenames[i], vTempDoc);
@@ -1813,7 +1810,7 @@ TiXmlDocument *SessionReader::MergeDoc(
                 // First check if the new item is in fact blank
                 // replace if it is a COLLECTIONS section however.
                 if (!p->FirstChild() && vMainEntry &&
-                    !boost::iequals(p->Value(), "COLLECTIONS"))
+                    !StringUtils::IEquals(p->Value(), "COLLECTIONS"))
                 {
                     std::string warningmsg =
                         "File " + pFilenames[i] + " contains " +
@@ -1972,7 +1969,7 @@ void SessionReader::ParseOptimisations()
              opElem               = opElem->NextSiblingElement())
         {
             std::string opName = opElem->Value(); // e.g. "MASS"
-            boost::to_upper(opName);              // ensure UPPERCASE keys
+            StringUtils::ToUpper(opName);         // ensure UPPERCASE keys
 
             const char *opImpl = opElem->GetText(); // e.g. "StdMat" / "SumFac"
             if (opImpl && *opImpl)
@@ -2132,7 +2129,7 @@ void SessionReader::ReadParameters(TiXmlElement *conditions)
                     }
                     m_interpreter->SetParameter(lhs, value);
                     caseSensitiveParameters[lhs] = value;
-                    boost::to_upper(lhs);
+                    StringUtils::ToUpper(lhs);
                     m_parameters[lhs] = value;
                 }
             }
@@ -2179,7 +2176,7 @@ void SessionReader::ReadSolverInfo(TiXmlElement *conditions)
 
             // make sure that solver property is capitalised
             std::string solverPropertyUpper =
-                boost::to_upper_copy(solverProperty);
+                StringUtils::ToUpperCopy(solverProperty);
 
             // read the value
             ASSERTL0(solverInfo->Attribute("VALUE"),
@@ -2284,7 +2281,7 @@ void SessionReader::ReadGlobalSysSolnInfo(TiXmlElement *conditions)
 
                 // make sure that solver property is capitalised
                 std::string SysSolnPropertyUpper =
-                    boost::to_upper_copy(SysSolnProperty);
+                    StringUtils::ToUpperCopy(SysSolnProperty);
 
                 // read the value
                 ASSERTL0(SysSolnInfo->Attribute("VALUE"),
@@ -2402,7 +2399,7 @@ void SessionReader::ReadTimeIntScheme(TiXmlElement *conditions)
                  "TIMEINTEGRATIONSCHEME.");
 
         std::vector<std::string> pSplit;
-        boost::split(pSplit, paramsStr, boost::is_any_of(" "));
+        StringUtils::Split(pSplit, paramsStr, StringUtils::IsAnyOf(" "));
 
         m_timeIntScheme.freeParams.resize(pSplit.size());
         for (size_t i = 0; i < pSplit.size(); ++i)
@@ -2481,7 +2478,7 @@ void SessionReader::ReadEquationOfState(TiXmlElement *conditions)
             LibUtilities::Equation expession(m_interpreter, rhs);
             double value = expession.Evaluate();
 
-            m_eqnOfStateScheme.params[boost::to_upper_copy(name)] = value;
+            m_eqnOfStateScheme.params[StringUtils::ToUpperCopy(name)] = value;
 
             list = list->NextSiblingElement();
         }
@@ -2550,7 +2547,7 @@ void SessionReader::ReadReferenceValues(TiXmlElement *conditions)
         LibUtilities::Equation expession(m_interpreter, rhs);
         double value = expession.Evaluate();
 
-        m_referenceValues[boost::to_upper_copy(name)] = value;
+        m_referenceValues[StringUtils::ToUpperCopy(name)] = value;
 
         list = list->NextSiblingElement();
     }
@@ -2683,7 +2680,7 @@ void SessionReader::ReadFunctions(TiXmlElement *conditions)
                      tagcontent.str() + "'");
 
         // Store function names in uppercase to remain case-insensitive.
-        boost::to_upper(functionStr);
+        StringUtils::ToUpper(functionStr);
 
         // Retrieve first entry (variable, or file)
         TiXmlElement *element = function;
@@ -2785,7 +2782,8 @@ void SessionReader::ReadFunctions(TiXmlElement *conditions)
                              functionStr + "'.");
 
                 std::vector<std::string> fSplit;
-                boost::split(fSplit, filenameStr, boost::is_any_of(":"));
+                StringUtils::Split(fSplit, filenameStr,
+                                   StringUtils::IsAnyOf(":"));
                 ASSERTL0(fSplit.size() == 1 || fSplit.size() == 2,
                          "Incorrect filename specification in function " +
                              functionStr +
@@ -2818,7 +2816,8 @@ void SessionReader::ReadFunctions(TiXmlElement *conditions)
                              "function '" +
                                  functionStr + "'.");
 
-                    boost::split(varSplit, fSplit[1], boost::is_any_of(","));
+                    StringUtils::Split(varSplit, fSplit[1],
+                                       StringUtils::IsAnyOf(","));
                     ASSERTL0(varSplit.size() == variableList.size(),
                              "Filename variables should contain the "
                              "same number of variables defined in "
@@ -2960,11 +2959,13 @@ void SessionReader::ParseEquals(const std::string &line, std::string &lhs,
         throw 1;
     }
 
-    lhs = line.substr(line.find_first_not_of(" "), end - beg);
-    lhs = lhs.substr(0, lhs.find_last_not_of(" ") + 1);
-    rhs = line.substr(line.find_last_of("=") + 1);
-    rhs = rhs.substr(rhs.find_first_not_of(" "));
-    rhs = rhs.substr(0, rhs.find_last_not_of(" ") + 1);
+    lhs = StringUtils::TrimCopy(line.substr(0, end));
+    rhs = StringUtils::TrimCopy(line.substr(end + 1));
+    // Check for an empty parameter value
+    if (rhs.empty())
+    {
+        throw 1;
+    }
 }
 
 /**
@@ -2993,7 +2994,7 @@ void SessionReader::CmdLineOverride()
                                                 solverInfoList[i]);
             }
 
-            std::string lhsUpper   = boost::to_upper_copy(lhs);
+            std::string lhsUpper   = StringUtils::ToUpperCopy(lhs);
             m_solverInfo[lhsUpper] = rhs;
         }
     }
@@ -3018,7 +3019,7 @@ void SessionReader::CmdLineOverride()
                                                 parametersList[i]);
             }
 
-            std::string lhsUpper = boost::to_upper_copy(lhs);
+            std::string lhsUpper = StringUtils::ToUpperCopy(lhs);
 
             try
             {

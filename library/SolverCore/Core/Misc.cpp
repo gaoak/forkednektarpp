@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SolverCore/Core/Misc.h>
 
 #include <iomanip>
@@ -57,10 +58,7 @@ std::string GetProjectionString(MultiRegions::ProjectionType projectionType)
 
 MultiRegions::ProjectionType GetProjectionType(std::string projectionString)
 {
-    // Transform string to lower case
-    std::transform(projectionString.begin(), projectionString.end(),
-                   projectionString.begin(),
-                   [](unsigned char c) { return std::toupper(c); });
+    StringUtils::ToUpper(projectionString);
 
     if (projectionString == "CONTINUOUS" || projectionString == "GALERKIN" ||
         projectionString == "CG")

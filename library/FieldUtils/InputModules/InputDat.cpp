@@ -42,6 +42,7 @@
 #include <tinyxml.h>
 
 #include "InputDat.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -95,7 +96,7 @@ void InputDat::v_Process([[maybe_unused]] po::variables_map &vm)
     {
         getline(datFile, line);
         string linetest = line;
-        boost::to_upper(linetest);
+        StringUtils::ToUpper(linetest);
         if (linetest.find("VARIABLES") != string::npos)
         {
             std::size_t pos = line.find('=');
@@ -127,7 +128,7 @@ void InputDat::v_Process([[maybe_unused]] po::variables_map &vm)
     {
         getline(datFile, line);
         string linetest = line;
-        boost::to_upper(linetest);
+        StringUtils::ToUpper(linetest);
         if ((linetest.find("ZONE") != string::npos))
         {
             ReadTecplotFEBlockZone(datFile, line, pts, ptsConn);

@@ -102,8 +102,8 @@ GlobalLinSysIterative::GlobalLinSysIterative(
             "to suppress this warning.");
     }
 
-    if (m_isAconjugate && !m_linSysIterSolver.compare("GMRES") &&
-        !m_linSysIterSolver.compare("GMRESLoc"))
+    if (m_isAconjugate && m_linSysIterSolver == "GMRES" &&
+        m_linSysIterSolver == "GMRESLoc")
     {
         WARNINGL0(false, "To use A-conjugate projection, the matrix "
                          "should be symmetric positive definite.");

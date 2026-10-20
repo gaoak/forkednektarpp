@@ -35,6 +35,7 @@
 #include <iomanip>
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SolverUtils/Filters/FilterHistoryPoints.h>
@@ -127,8 +128,8 @@ FilterHistoryPoints::FilterHistoryPoints(
     else
     {
         std::string sOption = it->second.c_str();
-        m_outputOneFile     = (boost::iequals(sOption, "true")) ||
-                          (boost::iequals(sOption, "yes"));
+        m_outputOneFile     = (StringUtils::IEquals(sOption, "true")) ||
+                          (StringUtils::IEquals(sOption, "yes"));
     }
 
     // The HDF5 writer appends to a single file, so it has no equivalent of
@@ -161,8 +162,8 @@ FilterHistoryPoints::FilterHistoryPoints(
         else
         {
             std::string sOption = it->second.c_str();
-            m_waveSpace         = (boost::iequals(sOption, "true")) ||
-                          (boost::iequals(sOption, "yes"));
+            m_waveSpace         = (StringUtils::IEquals(sOption, "true")) ||
+                          (StringUtils::IEquals(sOption, "yes"));
         }
     }
 

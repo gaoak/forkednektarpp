@@ -35,7 +35,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <DiffusionSolver/EquationSystems/MMFDiffusion.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
@@ -101,7 +101,7 @@ void MMFDiffusion::v_InitObject(bool DeclareFields)
         int i;
         for (i = 0; i < (int)SIZE_TestType; ++i)
         {
-            if (boost::iequals(TestTypeMap[i], TestTypeStr))
+            if (StringUtils::IEquals(TestTypeMap[i], TestTypeStr))
             {
                 m_TestType = (TestType)i;
                 break;
@@ -118,7 +118,7 @@ void MMFDiffusion::v_InitObject(bool DeclareFields)
         std::string InitWaveTypeStr = m_session->GetSolverInfo("INITWAVETYPE");
         for (int i = 0; i < (int)SIZE_TestType; ++i)
         {
-            if (boost::iequals(InitWaveTypeMap[i], InitWaveTypeStr))
+            if (StringUtils::IEquals(InitWaveTypeMap[i], InitWaveTypeStr))
             {
                 m_InitWaveType = (InitWaveType)i;
                 break;

@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp"
@@ -69,7 +69,7 @@ public:
 
         std::string viscosityType;
         session->LoadSolverInfo("ViscosityType", viscosityType, "Constant");
-        if (boost::iequals(viscosityType, "Variable"))
+        if (StringUtils::IEquals(viscosityType, "Variable"))
         {
             m_isMuVariable = true;
             TData Tref, Tsuth;

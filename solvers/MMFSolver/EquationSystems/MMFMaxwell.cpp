@@ -34,8 +34,7 @@
 
 #include <MMFSolver/EquationSystems/MMFMaxwell.h>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <iomanip>
 #include <iostream>
 
@@ -142,8 +141,8 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
             m_session->GetSolverInfo("TESTMAXWELLTYPE");
         for (int i = 0; i < (int)SolverUtils::SIZE_TestMaxwellType; ++i)
         {
-            if (boost::iequals(SolverUtils::TestMaxwellTypeMap[i],
-                               TestMaxwellTypeStr))
+            if (StringUtils::IEquals(SolverUtils::TestMaxwellTypeMap[i],
+                                     TestMaxwellTypeStr))
             {
                 m_TestMaxwellType = (SolverUtils::TestMaxwellType)i;
                 break;
@@ -162,7 +161,7 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
         std::string PolTypeStr = m_session->GetSolverInfo("POLTYPE");
         for (int i = 0; i < (int)SolverUtils::SIZE_PolType; ++i)
         {
-            if (boost::iequals(SolverUtils::PolTypeMap[i], PolTypeStr))
+            if (StringUtils::IEquals(SolverUtils::PolTypeMap[i], PolTypeStr))
             {
                 m_PolType = (SolverUtils::PolType)i;
                 break;
@@ -180,7 +179,7 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
         std::string IncTypeStr = m_session->GetSolverInfo("INCTYPE");
         for (int i = 0; i < (int)SolverUtils::SIZE_IncType; ++i)
         {
-            if (boost::iequals(SolverUtils::IncTypeMap[i], IncTypeStr))
+            if (StringUtils::IEquals(SolverUtils::IncTypeMap[i], IncTypeStr))
             {
                 m_IncType = (SolverUtils::IncType)i;
                 break;
@@ -198,7 +197,7 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
         std::string CloakTypeStr = m_session->GetSolverInfo("CLOAKTYPE");
         for (int i = 0; i < (int)SIZE_CloakType; ++i)
         {
-            if (boost::iequals(CloakTypeMap[i], CloakTypeStr))
+            if (StringUtils::IEquals(CloakTypeMap[i], CloakTypeStr))
             {
                 m_CloakType = (CloakType)i;
                 break;
@@ -216,7 +215,7 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
         std::string SourceTypeStr = m_session->GetSolverInfo("SOURCETYPE");
         for (int i = 0; i < (int)SIZE_SourceType; ++i)
         {
-            if (boost::iequals(SourceTypeMap[i], SourceTypeStr))
+            if (StringUtils::IEquals(SourceTypeMap[i], SourceTypeStr))
             {
                 m_SourceType = (SourceType)i;
                 break;
@@ -630,8 +629,8 @@ void MMFMaxwell::v_DoSolve()
             m_session->GetComm()->GetRank() == 0)
         {
             std::cout << "Steps: " << std::setw(8) << std::left << step + 1
-                      << " "
-                      << "Time: " << std::setw(12) << std::left << m_time;
+                      << " " << "Time: " << std::setw(12) << std::left
+                      << m_time;
 
             std::stringstream ss;
             ss << cpuTime / 60.0 << " min.";

@@ -37,7 +37,7 @@
 #include <MultiRegions/ContField.h>
 #include <SolverUtils/Core/Misc.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -144,8 +144,8 @@ void VCSImplicit::v_GenerateSummary(SolverUtils::SummaryList &s)
             m_session->GetSolverInfo("GJPStabilisation"));
         SolverUtils::AddSummaryItem(s, "GJP Stab. JumpScale", m_GJPJumpScale);
 
-        if (boost::iequals(m_session->GetSolverInfo("GJPStabilisation"),
-                           "Explicit"))
+        if (StringUtils::IEquals(m_session->GetSolverInfo("GJPStabilisation"),
+                                 "Explicit"))
         {
             SolverUtils::AddSummaryItem(
                 s, "GJP Normal Velocity",

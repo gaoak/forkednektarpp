@@ -66,9 +66,9 @@ ProcessAverageFld::~ProcessAverageFld()
 void ProcessAverageFld::v_Process(po::variables_map &vm)
 {
     m_f->SetUpExp(vm);
-    ASSERTL0(m_config["inputfld"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["inputfld"].as<string>() != "NotSet",
              "Need to specify inputfld=file_%.fld ");
-    ASSERTL0(m_config["range"].as<string>().compare("NotSet") != 0,
+    ASSERTL0(m_config["range"].as<string>() != "NotSet",
              "Need to specify range=ns,dn,ne[include]");
 
     std::string infilename = m_config["inputfld"].as<string>();

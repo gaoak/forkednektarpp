@@ -33,6 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 #include <algorithm>
 #include <cmath>
+#include <deque>
 
 #include <NekMesh/2DGenerator/2DGenerator.h>
 
@@ -40,8 +41,8 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SpatialDomains/CADSystem/CADAssociation.h>
-#include <boost/algorithm/string.hpp>
 
 using namespace std;
 namespace Nektar::NekMesh
@@ -911,12 +912,12 @@ void Generator2D::PeriodicPrep()
     string s = m_config["periodic"].as<string>();
     vector<string> lines;
 
-    boost::split(lines, s, boost::is_any_of(":"));
+    StringUtils::Split(lines, s, StringUtils::IsAnyOf(":"));
 
     for (auto &il : lines)
     {
         vector<string> tmp;
-        boost::split(tmp, il, boost::is_any_of(","));
+        StringUtils::Split(tmp, il, StringUtils::IsAnyOf(","));
 
         if (tmp.size() != 2)
         {

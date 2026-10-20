@@ -53,6 +53,7 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField.h>
@@ -132,8 +133,8 @@ int main(int argc, char *argv[])
     std::string fieldFile;
     for (auto &file : filenames)
     {
-        if (file.size() > 4 && (file.substr(file.size() - 4, 4) == ".fld" ||
-                                file.substr(file.size() - 4, 4) == ".chk"))
+        if (StringUtils::EndsWith(file, ".fld") ||
+            StringUtils::EndsWith(file, ".chk"))
         {
             fieldFile = file;
             break;
@@ -942,59 +943,18 @@ int main(int argc, char *argv[])
     // Print the surface coordinates and the surface solution in a .txt file
     ofstream outfile;
     outfile.open(fname.c_str());
-    outfile << "%  x[m] "
-            << " \t"
-            << "y[m] "
-            << " \t"
-            << "z[m] "
-            << " \t"
-            << "nx[]  "
-            << " \t"
-            << "ny[]  "
-            << " \t"
-            << "tx[]  "
-            << " \t"
-            << "ty[]  "
-            << " \t"
-            << "rho[kg/m^3] "
-            << " \t"
-            << "rhou[kg/(m^2 s)] "
-            << " \t"
-            << "rhov[kg/(m^2 s)] "
-            << " \t"
-            << "E[Pa] "
-            << " \t"
-            << "p[Pa] "
-            << " \t"
-            << "T[k]  "
-            << " \t"
-            << "dT/dn[k/m]  "
-            << " \t"
-            << "dp/dT[Pa/m]  "
-            << " \t"
-            << "dp/dx[Pa/m]  "
-            << " \t"
-            << "dp/dy[Pa/m]  "
-            << " \t"
-            << "du/dx[s^-1]  "
-            << " \t"
-            << "du/dy[s^-1]  "
-            << " \t"
-            << "dv/dx[s^-1]  "
-            << " \t"
-            << "dv/dy[s^-1]  "
-            << " \t"
-            << "tau_xx[Pa]  "
-            << " \t"
-            << "tau_yy[Pa]  "
-            << " \t"
-            << "tau_xy[Pa]  "
-            << " \t"
-            << "tau_t[Pa]  "
-            << " \t"
-            << "mu[Pa s]  "
-            << " \t"
-            << "M[] "
+    outfile << "%  x[m] " << " \t" << "y[m] " << " \t" << "z[m] " << " \t"
+            << "nx[]  " << " \t" << "ny[]  " << " \t" << "tx[]  " << " \t"
+            << "ty[]  " << " \t" << "rho[kg/m^3] " << " \t"
+            << "rhou[kg/(m^2 s)] " << " \t" << "rhov[kg/(m^2 s)] " << " \t"
+            << "E[Pa] " << " \t" << "p[Pa] " << " \t" << "T[k]  " << " \t"
+            << "dT/dn[k/m]  " << " \t" << "dp/dT[Pa/m]  " << " \t"
+            << "dp/dx[Pa/m]  " << " \t" << "dp/dy[Pa/m]  " << " \t"
+            << "du/dx[s^-1]  " << " \t" << "du/dy[s^-1]  " << " \t"
+            << "dv/dx[s^-1]  " << " \t" << "dv/dy[s^-1]  " << " \t"
+            << "tau_xx[Pa]  " << " \t" << "tau_yy[Pa]  " << " \t"
+            << "tau_xy[Pa]  " << " \t" << "tau_t[Pa]  " << " \t" << "mu[Pa s]  "
+            << " \t" << "M[] "
             << " \t"
             //     << "Fxp " << " \t"
             << endl;

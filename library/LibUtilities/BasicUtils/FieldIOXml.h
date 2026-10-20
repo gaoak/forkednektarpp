@@ -35,7 +35,7 @@
 #ifndef NEKTAR_LIB_UTILITIES_BASIC_UTILS_FIELDIOXML_H
 #define NEKTAR_LIB_UTILITIES_BASIC_UTILS_FIELDIOXML_H
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
@@ -131,7 +131,7 @@ protected:
     /// Set an attribute key/value pair on this tag.
     void v_SetAttr(const std::string &key, const std::string &val) override
     {
-        if (boost::starts_with(key, "XML_"))
+        if (StringUtils::StartsWith(key, "XML_"))
         {
             // Auto-expand XML parameters.
             std::string elmtName = key.substr(4);

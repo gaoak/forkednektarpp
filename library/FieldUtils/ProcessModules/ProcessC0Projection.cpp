@@ -39,6 +39,7 @@
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include "ProcessC0Projection.h"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -85,17 +86,19 @@ void ProcessC0Projection::v_Process(po::variables_map &vm)
     // mass matrix
     if (m_f->m_graph->GetMeshDimension() == 3)
     {
-        if (boost::iequals(m_f->m_session->GetSolverInfo("GLOBALSYSSOLN"),
-                           "IterativeStaticCond"))
+        if (StringUtils::IEquals(m_f->m_session->GetSolverInfo("GLOBALSYSSOLN"),
+                                 "IterativeStaticCond"))
         {
-            if (boost::iequals(m_f->m_session->GetSolverInfo("PRECONDITIONER"),
-                               "Diagonal"))
+            if (StringUtils::IEquals(
+                    m_f->m_session->GetSolverInfo("PRECONDITIONER"),
+                    "Diagonal"))
             {
                 m_f->m_session->SetSolverInfo("PRECONDITIONER",
                                               "LowEnergyBlock");
             }
-            if (boost::iequals(m_f->m_session->GetSolverInfo("PRECONDITIONER"),
-                               "FullLinearSpaceWithDiagonal"))
+            if (StringUtils::IEquals(
+                    m_f->m_session->GetSolverInfo("PRECONDITIONER"),
+                    "FullLinearSpaceWithDiagonal"))
             {
                 m_f->m_session->SetSolverInfo(
                     "PRECONDITIONER", "FullLinearSpaceWithLowEnergyBlock");
@@ -113,11 +116,11 @@ void ProcessC0Projection::v_Process(po::variables_map &vm)
         }
     }
     bool JustPerformLocToGloMap = m_config["localtoglobalmap"].as<bool>();
-    bool HelmSmoother =
-        (boost::iequals(m_config["helmsmoothing"].as<string>(), "Not Set"))
-            ? false
-            : true;
-    int nfields = m_f->m_exp.size();
+    bool HelmSmoother           = (StringUtils::IEquals(
+                            m_config["helmsmoothing"].as<string>(), "Not Set"))
+                                      ? false
+                                      : true;
+    int nfields                 = m_f->m_exp.size();
     Array<OneD, MultiRegions::ExpListSharedPtr> C0ProjectExp(nfields);
     if (m_config["usexmlbcs"].as<bool>())
     {
@@ -147,7 +150,7 @@ void ProcessC0Projection::v_Process(po::variables_map &vm)
     vector<unsigned int> processFields;
     Array<OneD, NekDouble> tmp;
 
-    if (fields.compare("All") == 0)
+    if (fields == "All")
     {
         for (int i = 0; i < nfields; ++i)
         {

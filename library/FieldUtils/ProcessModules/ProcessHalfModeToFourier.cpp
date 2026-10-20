@@ -68,7 +68,7 @@ ProcessHalfModeToFourier::~ProcessHalfModeToFourier()
 void ProcessHalfModeToFourier::v_Process([[maybe_unused]] po::variables_map &vm)
 {
     set<int> sinmode;
-    if (m_config["realmodetoimag"].as<string>().compare("NotSet"))
+    if (m_config["realmodetoimag"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableSet(m_config["realmodetoimag"].as<string>(),
                                         m_f->m_variables, sinmode);

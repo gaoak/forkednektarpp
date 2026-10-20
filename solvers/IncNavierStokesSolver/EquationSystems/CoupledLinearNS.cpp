@@ -32,7 +32,7 @@
 // Navier Stokes equations
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <IncNavierStokesSolver/EquationSystems/CoupledLinearNS.h>
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -90,7 +90,7 @@ void CoupledLinearNS::v_InitObject(bool DeclareField)
         GenPressureExp(m_graph->GetExpansionInfo("u"));
 
     m_nConvectiveFields = m_fields.size();
-    if (boost::iequals(
+    if (StringUtils::IEquals(
             m_boundaryConditions->GetVariable(m_nConvectiveFields - 1), "p"))
     {
         ASSERTL0(false, "Last field is defined as pressure but this is not "

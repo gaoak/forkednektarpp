@@ -35,7 +35,7 @@
 #include <iostream>
 #include <string>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/program_options.hpp>
 
 #include <LibUtilities/Foundations/Foundations.hpp>
@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
     {
         string pointStr = vm["interp"].as<string>();
         vector<string> point;
-        boost::split(point, pointStr, boost::is_any_of(","));
+        StringUtils::Split(point, pointStr, StringUtils::IsAnyOf(","));
 
         if (point.size() != dim)
         {

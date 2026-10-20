@@ -38,7 +38,7 @@
 #include <ostream>
 #include <sstream>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
@@ -267,7 +267,8 @@ protected:
         auto absoluteTolerance =
             GetGlobalSysSolnInfo(session, "AbsoluteTolerance");
         this->m_absoluteTolerance =
-            absoluteTolerance && boost::iequals(*absoluteTolerance, "True");
+            absoluteTolerance &&
+            StringUtils::IEquals(*absoluteTolerance, "True");
 
         // Set math helper function.
         this->m_math = Math::MathHelper(ExecSpace::name);

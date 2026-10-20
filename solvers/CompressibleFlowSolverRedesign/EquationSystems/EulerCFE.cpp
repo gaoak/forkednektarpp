@@ -44,6 +44,7 @@
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondStagnationInflowCFE/BndCondStagnationInflowCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/EquationSystems/EulerCFE.h>
 #include <CompressibleFlowSolverRedesign/EulerVolumeFlux/EulerVolumeFluxOp.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <iomanip>
 
 namespace Nektar
@@ -157,7 +158,7 @@ void EulerCFE::v_InitialiseOperators()
     m_advectionWeakDGOp->SetVolumeFluxOp(volumeFluxOp);
 
     std::string EqnOfState =
-        boost::to_upper_copy(m_session->GetEquationOfState().type);
+        StringUtils::ToUpperCopy(m_session->GetEquationOfState().type);
     riemannMethod    = "AdvTraceFluxCFE" + riemannMethod + EqnOfState;
     auto traceFluxOp = SolverCore::TraceFluxOp<double>::Create(
         m_expansionLists[0], m_variables, riemannMethod, execName);

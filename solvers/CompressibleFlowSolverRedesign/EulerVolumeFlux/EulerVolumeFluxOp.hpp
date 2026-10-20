@@ -37,6 +37,7 @@
 #include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 
 #include "EquationOfState/SupportedEoS.hpp"
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -56,7 +57,7 @@ public:
 
         if (expansionList->GetSession()->DefinesEquationOfState())
         {
-            EoSName = boost::to_upper_copy(
+            EoSName = StringUtils::ToUpperCopy(
                 expansionList->GetSession()->GetEquationOfState().type);
         }
         else

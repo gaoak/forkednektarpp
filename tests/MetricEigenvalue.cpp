@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MetricEigenvalue.h>
 
@@ -75,7 +75,7 @@ MetricEigenvalue::MetricEigenvalue(TiXmlElement *metric, bool generate)
         // Read valute as comma-separate mag,angle parts
         std::string cmplx = value->GetText();
         std::vector<std::string> cmpts;
-        boost::split(cmpts, cmplx, boost::is_any_of(","));
+        StringUtils::Split(cmpts, cmplx, StringUtils::IsAnyOf(","));
         ASSERTL0(cmpts.size() == 2,
                  "Value should be magnitude and angle, separated by comma");
 

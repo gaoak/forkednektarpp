@@ -33,8 +33,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/BasicConst/GitRevision.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
@@ -140,8 +140,8 @@ int main(int argc, char *argv[])
     if (vm.count("modules-opt"))
     {
         vector<string> tmp1;
-        boost::split(tmp1, vm["modules-opt"].as<string>(),
-                     boost::is_any_of(":"));
+        StringUtils::Split(tmp1, vm["modules-opt"].as<string>(),
+                           StringUtils::IsAnyOf(":"));
 
         if (tmp1.size() != 2)
         {
@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
         ModuleKey module;
         int offset = 1;
 
-        boost::split(tmp1, modcmds[i], boost::is_any_of(":"));
+        StringUtils::Split(tmp1, modcmds[i], StringUtils::IsAnyOf(":"));
 
         if (i == 0 || i == modcmds.size() - 1)
         {
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
         for (int j = offset; j < tmp1.size(); ++j)
         {
             vector<string> tmp2;
-            boost::split(tmp2, tmp1[j], boost::is_any_of("="));
+            StringUtils::Split(tmp2, tmp1[j], StringUtils::IsAnyOf("="));
 
             if (tmp2.size() == 1)
             {

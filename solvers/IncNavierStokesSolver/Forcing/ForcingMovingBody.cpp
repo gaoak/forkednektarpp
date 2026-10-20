@@ -35,6 +35,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/Forcing/ForcingMovingBody.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ExpList.h>
 
 namespace Nektar
@@ -571,14 +572,14 @@ void ForcingMovingBody::Newmark_betaSolver(
     }
 
     // Implement Fourier transformation of the motion variables
-    if (boost::iequals(supptype, "Free-Free"))
+    if (StringUtils::IEquals(supptype, "Free-Free"))
     {
         for (size_t j = 0; j < 4; ++j)
         {
             m_FFT->FFTFwdTrans(fft_i[j], fft_o[j]);
         }
     }
-    else if (boost::iequals(supptype, "Pinned-Pinned"))
+    else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
     {
         // TODO:
         size_t N = fft_i[0].size();
@@ -633,14 +634,14 @@ void ForcingMovingBody::Newmark_betaSolver(
 
     // get physical coeffients via Backward fourier transformation of wave
     // coefficients
-    if (boost::iequals(supptype, "Free-Free"))
+    if (StringUtils::IEquals(supptype, "Free-Free"))
     {
         for (size_t var = 0; var < 3; var++)
         {
             m_FFT->FFTBwdTrans(fft_i[var], fft_o[var]);
         }
     }
-    else if (boost::iequals(supptype, "Pinned-Pinned"))
+    else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
     {
         // TODO:
         size_t N = fft_i[0].size();
@@ -711,15 +712,15 @@ void ForcingMovingBody::InitialiseCableModel(
 
     std::string vibtype = m_session->GetSolverInfo("VibrationType");
 
-    if (boost::iequals(vibtype, "Constrained"))
+    if (StringUtils::IEquals(vibtype, "Constrained"))
     {
         m_vdim = 1;
     }
-    else if (boost::iequals(vibtype, "Free"))
+    else if (StringUtils::IEquals(vibtype, "Free"))
     {
         m_vdim = 2;
     }
-    else if (boost::iequals(vibtype, "Forced"))
+    else if (StringUtils::IEquals(vibtype, "Forced"))
     {
         m_vdim = 0;
         return;
@@ -993,12 +994,12 @@ void ForcingMovingBody::SetDynEqCoeffMatrix(
         unsigned int K = 0;
         NekDouble beta = 0.0;
 
-        if (boost::iequals(supptype, "Free-Free"))
+        if (StringUtils::IEquals(supptype, "Free-Free"))
         {
             K    = plane / 2;
             beta = 2.0 * M_PI / m_lhom;
         }
-        else if (boost::iequals(supptype, "Pinned-Pinned"))
+        else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
         {
             K    = plane + 1;
             beta = M_PI / m_lhom;

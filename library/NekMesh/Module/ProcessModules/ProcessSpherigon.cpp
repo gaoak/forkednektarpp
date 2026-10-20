@@ -767,7 +767,7 @@ void ProcessSpherigon::Process()
     // then an approximation from the surface itself.
     std::string normalfile = m_config["usenormalfile"].as<string>();
 
-    if (normalfile.compare("NoFile") != 0)
+    if (normalfile != "NoFile")
     {
         NekDouble scale = m_config["scalefile"].as<NekDouble>();
 
@@ -822,7 +822,7 @@ void ProcessSpherigon::Process()
 
     // See if we should add noise to normals
     std::string normalnoise = m_config["normalnoise"].as<string>();
-    if (normalnoise.compare("NotSpecified") != 0)
+    if (normalnoise != "NotSpecified")
     {
         vector<NekDouble> values;
         if (!ParseUtils::GenerateVector(normalnoise, values))

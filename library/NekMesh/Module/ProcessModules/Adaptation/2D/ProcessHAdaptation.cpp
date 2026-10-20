@@ -40,8 +40,6 @@
 #include <NekMesh/Module/ProcessModules/ProcessProjectCAD.h>
 #include <NekMesh/Module/ProcessModules/ProcessVarOpti/ProcessVarOpti.h>
 
-#include <boost/algorithm/string.hpp>
-
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Foundations/NodalUtil.h>
 

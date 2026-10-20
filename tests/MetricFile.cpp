@@ -36,7 +36,7 @@
 #include <iterator>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 
@@ -170,7 +170,7 @@ bool MetricFile::v_Test([[maybe_unused]] std::istream &pStdout,
     for (it = m_filehash.begin(); it != m_filehash.end(); ++it)
     {
         std::string filehash = CalculateHash(it->first);
-        if (!boost::iequals(filehash, it->second))
+        if (!StringUtils::IEquals(filehash, it->second))
         {
             std::cerr << "Failed SHA1 hash test." << std::endl;
             std::cerr << "  Expected: " << it->second << std::endl;

@@ -36,7 +36,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LocalRegions/Expansion2D.h>
 
@@ -481,13 +481,13 @@ void DiffusionLDGNS::ApplyBCsO1(
                     fields[0]->GetTraceMap()->GetBndCondIDToGlobalTraceID(
                         cnt++));
 
-                if (boost::iequals(
+                if (StringUtils::IEquals(
                         fields[i]->GetBndConditions()[j]->GetUserDefined(),
                         "WallViscous") ||
-                    boost::iequals(
+                    StringUtils::IEquals(
                         fields[i]->GetBndConditions()[j]->GetUserDefined(),
                         "WallAdiabatic") ||
-                    boost::iequals(
+                    StringUtils::IEquals(
                         fields[i]->GetBndConditions()[j]->GetUserDefined(),
                         "WallRotational"))
                 {
@@ -500,10 +500,10 @@ void DiffusionLDGNS::ApplyBCsO1(
                         // velocity otherwise 0
                     }
                 }
-                else if (boost::iequals(
+                else if (StringUtils::IEquals(
                              fields[i]->GetBndConditions()[j]->GetUserDefined(),
                              "Wall") ||
-                         boost::iequals(
+                         StringUtils::IEquals(
                              fields[i]->GetBndConditions()[j]->GetUserDefined(),
                              "Symmetry"))
                 {
@@ -617,7 +617,7 @@ void DiffusionLDGNS::ApplyBCsO1(
                 fields[0]->GetTraceMap()->GetBndCondIDToGlobalTraceID(cnt++));
 
             // Imposing Temperature Twall at the wall
-            if (boost::iequals(
+            if (StringUtils::IEquals(
                     fields[nScalars]->GetBndConditions()[j]->GetUserDefined(),
                     "WallViscous"))
             {
@@ -653,10 +653,10 @@ void DiffusionLDGNS::ApplyBCsO1(
                         ->GetBndConditions()[j]
                         ->GetBoundaryConditionType() ==
                     SpatialDomains::eDirichlet &&
-                (!boost::iequals(
+                (!StringUtils::IEquals(
                      fields[nScalars]->GetBndConditions()[j]->GetUserDefined(),
                      "WallAdiabatic") ||
-                 boost::iequals(
+                 StringUtils::IEquals(
                      fields[nScalars]->GetBndConditions()[j]->GetUserDefined(),
                      "WallRotational")))
             {
@@ -668,14 +668,14 @@ void DiffusionLDGNS::ApplyBCsO1(
             else if (((fields[nScalars]->GetBndConditions()[j])
                           ->GetBoundaryConditionType() ==
                       SpatialDomains::eNeumann) ||
-                     boost::iequals(fields[nScalars]
-                                        ->GetBndConditions()[j]
-                                        ->GetUserDefined(),
-                                    "WallAdiabatic") ||
-                     boost::iequals(fields[nScalars]
-                                        ->GetBndConditions()[j]
-                                        ->GetUserDefined(),
-                                    "WallRotational"))
+                     StringUtils::IEquals(fields[nScalars]
+                                              ->GetBndConditions()[j]
+                                              ->GetUserDefined(),
+                                          "WallAdiabatic") ||
+                     StringUtils::IEquals(fields[nScalars]
+                                              ->GetBndConditions()[j]
+                                              ->GetUserDefined(),
+                                          "WallRotational"))
             {
                 Vmath::Vcopy(nBndEdgePts, &pFwd[nScalars - 1][id2], 1,
                              &fluxO1[nScalars - 1][id2], 1);
@@ -791,10 +791,10 @@ void DiffusionLDGNS::ApplyBCsO2(
                         ->GetBndConditions()[i]
                         ->GetBoundaryConditionType() ==
                     SpatialDomains::eDirichlet &&
-                !boost::iequals(
+                !StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallAdiabatic") &&
-                !boost::iequals(
+                !StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallRotational"))
             {
@@ -809,10 +809,10 @@ void DiffusionLDGNS::ApplyBCsO2(
             {
                 ASSERTL0(false, "Neumann bcs not implemented for LDGNS");
             }
-            else if (boost::iequals(
+            else if (StringUtils::IEquals(
                          fields[var]->GetBndConditions()[i]->GetUserDefined(),
                          "WallAdiabatic") ||
-                     boost::iequals(
+                     StringUtils::IEquals(
                          fields[var]->GetBndConditions()[i]->GetUserDefined(),
                          "WallRotational"))
             {

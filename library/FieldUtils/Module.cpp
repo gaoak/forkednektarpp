@@ -36,6 +36,8 @@
 
 #include "Module.h"
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
+
 using namespace std;
 
 namespace Nektar::FieldUtils
@@ -168,7 +170,7 @@ string InputModule::GuessFormat(string filename)
     string check(&data[0], 64);
 
     // Nek5000 format: first four characters are: #std
-    if (check.compare(0, 4, "#std") == 0)
+    if (StringUtils::StartsWith(check, "#std"))
     {
         inFile.close();
         return "fld5000";

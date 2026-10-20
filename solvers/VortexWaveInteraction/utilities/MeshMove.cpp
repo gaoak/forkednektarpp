@@ -40,6 +40,7 @@
 
 // #include <sstream>
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/LinearAlgebra/Lapack.hpp>
 #include <LocalRegions/QuadExp.h>
 #include <LocalRegions/SegExp.h>
@@ -3972,14 +3973,9 @@ void Replacevertices(string filename, Array<OneD, NekDouble> newx,
             {
                 throw 1;
             }
-            lhs = line.substr(line.find_first_not_of(" "), end - beg);
-            lhs = lhs.substr(0, lhs.find_last_not_of(" ") + 1);
+            lhs = StringUtils::TrimCopy(line.substr(0, end));
 
-            // rhs = line.substr(line.find_last_of("=")+1);
-            // rhs = rhs.substr(rhs.find_first_not_of(" "));
-            // rhs = rhs.substr(0, rhs.find_last_not_of(" ")+1);
-
-            boost::to_upper(lhs);
+            StringUtils::ToUpper(lhs);
             if (lhs == "ALPHA")
             {
                 alphastring = "Alpha   =  " + s_alp;

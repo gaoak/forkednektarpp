@@ -44,8 +44,7 @@
 
 #include <SpatialDomains/CompositeNames.h>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/trim.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 using namespace std;
 
@@ -983,8 +982,8 @@ void InputGmsh::Process()
                 // as the rest of the line rather than as the next token.
                 std::string name;
                 getline(sn, name);
-                boost::trim(name);
-                boost::trim_if(name, boost::is_any_of("\""));
+                StringUtils::Trim(name);
+                StringUtils::TrimIf(name, StringUtils::IsAnyOf("\""));
                 name = SpatialDomains::SanitiseCompositeName(name);
 
                 if (name.empty())

@@ -39,8 +39,8 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SpatialDomains/CADSystem/CADAssociation.h>
-#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -813,7 +813,7 @@ LibUtilities::Interpolator ProcessVarOpti::GetScalingFieldFromFile(string file)
         getline(f, fline);
 
         vector<string> tmp;
-        boost::split(tmp, fline, boost::is_any_of(" "));
+        StringUtils::Split(tmp, fline, StringUtils::IsAnyOf(" "));
 
         int i = 0;
         while (i < tmp.size())

@@ -34,6 +34,7 @@
 
 #include <iostream>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <ShallowWaterSolver/EquationSystems/ShallowWaterSystem.h>
 
 namespace Nektar
@@ -383,8 +384,8 @@ void ShallowWaterSystem::SetBoundaryConditions(
         }
 
         // Wall Boundary Condition
-        if (boost::iequals(m_fields[0]->GetBndConditions()[n]->GetUserDefined(),
-                           "Wall"))
+        if (StringUtils::IEquals(
+                m_fields[0]->GetBndConditions()[n]->GetUserDefined(), "Wall"))
         {
             WallBoundary2D(n, cnt, Fwd);
         }

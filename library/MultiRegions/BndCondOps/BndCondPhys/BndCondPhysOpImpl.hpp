@@ -36,7 +36,7 @@
 
 #include <map>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/Interpreter/Interpreter.h>
 
@@ -369,10 +369,10 @@ protected:
                                     std::map<std::string, std::string> &params)
     {
         std::vector<std::string> fields;
-        boost::split(fields, tag, boost::is_any_of(":"));
+        StringUtils::Split(fields, tag, StringUtils::IsAnyOf(":"));
 
         condition = fields.empty() ? std::string() : fields[0];
-        boost::trim(condition);
+        StringUtils::Trim(condition);
 
         for (size_t f = 1; f < fields.size(); ++f)
         {
@@ -383,9 +383,9 @@ protected:
             std::string val = (eq == std::string::npos)
                                   ? std::string()
                                   : fields[f].substr(eq + 1);
-            boost::trim(key);
-            boost::trim(val);
-            boost::to_lower(key);
+            StringUtils::Trim(key);
+            StringUtils::Trim(val);
+            StringUtils::ToLower(key);
 
             params[key] = val;
         }
@@ -401,7 +401,7 @@ protected:
                  "Component index out of range");
 
         std::string key = name;
-        boost::to_lower(key);
+        StringUtils::ToLower(key);
 
         const auto &params = m_bndUserDefinedParams[blk][comp];
         const auto it      = params.find(key);

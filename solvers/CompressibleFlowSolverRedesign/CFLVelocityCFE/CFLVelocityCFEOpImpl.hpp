@@ -33,7 +33,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include <boost/algorithm/string/predicate.hpp>
 
 #include "CFLVelocityCFE/CFLVelocityCFEKernels.hpp"
 #include "CFLVelocityCFE/CFLVelocityCFEOp.hpp"

@@ -36,8 +36,8 @@
 #include <LibUtilities/BasicUtils/SessionNode.h>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
-#include <cctype>
 #include <cerrno>
 #include <cstdlib>
 #include <limits>
@@ -51,43 +51,13 @@ namespace SessionNodeConvert
 namespace
 {
 
-/// Returns @p str with leading and trailing whitespace removed.
-std::string Trim(const std::string &str)
-{
-    auto isSpace = [](char c) {
-        return std::isspace(static_cast<unsigned char>(c)) != 0;
-    };
-
-    size_t begin = 0, end = str.size();
-    while (begin < end && isSpace(str[begin]))
-    {
-        ++begin;
-    }
-    while (end > begin && isSpace(str[end - 1]))
-    {
-        --end;
-    }
-    return str.substr(begin, end - begin);
-}
-
-/// Returns @p str converted to lower case.
-std::string ToLower(const std::string &str)
-{
-    std::string result = str;
-    for (char &c : result)
-    {
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    }
-    return result;
-}
-
 /**
  * @brief Convert @p str to a signed integer, checking that the whole of the
  * string is consumed and that the result is representable as a @p T.
  */
 template <typename T> bool ToSigned(const std::string &str, T &value)
 {
-    const std::string trimmed = Trim(str);
+    const std::string trimmed = StringUtils::TrimCopy(str);
     if (trimmed.empty())
     {
         return false;
@@ -120,7 +90,7 @@ template <typename T> bool ToSigned(const std::string &str, T &value)
  */
 template <typename T> bool ToUnsigned(const std::string &str, T &value)
 {
-    const std::string trimmed = Trim(str);
+    const std::string trimmed = StringUtils::TrimCopy(str);
     if (trimmed.empty() || trimmed[0] == '-')
     {
         return false;
@@ -149,7 +119,7 @@ template <typename T> bool ToUnsigned(const std::string &str, T &value)
  */
 template <typename T> bool ToFloat(const std::string &str, T &value)
 {
-    const std::string trimmed = Trim(str);
+    const std::string trimmed = StringUtils::TrimCopy(str);
     if (trimmed.empty())
     {
         return false;
@@ -178,7 +148,8 @@ bool FromString(const std::string &str, std::string &value)
 
 bool FromString(const std::string &str, bool &value)
 {
-    const std::string lower = ToLower(Trim(str));
+    const std::string lower =
+        StringUtils::ToLowerCopy(StringUtils::TrimCopy(str));
 
     if (lower == "true" || lower == "yes" || lower == "on" || lower == "1")
     {

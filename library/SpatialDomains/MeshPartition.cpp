@@ -56,7 +56,7 @@
 
 #include <LibUtilities/Foundations/Foundations.hpp>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/graph/adjacency_iterator.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/detail/edge.hpp>
@@ -402,7 +402,8 @@ void MeshPartition::ReadConditions()
                  "Solver info properties must have a non-empty "
                  "name. ");
         // make sure that solver property is capitalised
-        std::string solverPropertyUpper = boost::to_upper_copy(solverProperty);
+        std::string solverPropertyUpper =
+            StringUtils::ToUpperCopy(solverProperty);
 
         // read the value
         ASSERTL0(solverInfo->Attribute("VALUE"),
@@ -411,7 +412,7 @@ void MeshPartition::ReadConditions()
         ASSERTL0(!solverValue.empty(),
                  "Solver info properties must have a non-empty value");
         // make sure that property value is capitalised
-        std::string propertyValueUpper = boost::to_upper_copy(solverValue);
+        std::string propertyValueUpper = StringUtils::ToUpperCopy(solverValue);
 
         if (solverPropertyUpper == "WEIGHTPARTITIONS")
         {

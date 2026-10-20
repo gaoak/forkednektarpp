@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/LinearAlgebra/NekVector.hpp>
 
 namespace Nektar
@@ -1040,13 +1041,16 @@ std::vector<DataType> FromString(const std::string &str)
 
     try
     {
-        typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
-        boost::char_separator<char> sep("(<,>) ");
-        tokenizer tokens(str, sep);
-        for (tokenizer::iterator strIter = tokens.begin();
-             strIter != tokens.end(); ++strIter)
+        std::vector<std::string> tokens;
+        StringUtils::Split(tokens, str, StringUtils::IsAnyOf("(<,>) "),
+                           StringUtils::eTokenCompressOn);
+        for (const auto &token : tokens)
         {
-            result.push_back(boost::lexical_cast<DataType>(*strIter));
+            if (token.empty())
+            {
+                continue;
+            }
+            result.push_back(boost::lexical_cast<DataType>(token));
         }
     }
     catch (boost::bad_lexical_cast &)

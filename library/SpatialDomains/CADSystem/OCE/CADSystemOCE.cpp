@@ -45,8 +45,6 @@
 #include <SpatialDomains/CADSystem/OCE/GeoParser.hpp>
 #include <SpatialDomains/CADSystem/OCE/TransfiniteSurface.h>
 
-#include <boost/algorithm/string.hpp>
-
 #include <ElCLib.hxx>
 #include <Interface_Static.hxx>
 #include <gce_MakeCirc.hxx>

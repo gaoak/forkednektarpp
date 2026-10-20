@@ -715,7 +715,7 @@ struct Field
         int NumHomogeneousDir, std::string var = "DefaultVar",
         bool NewField = false)
     {
-        if (var.compare("DefaultVar") == 0 && m_requireBoundaryExpansion)
+        if (var == "DefaultVar" && m_requireBoundaryExpansion)
         {
             if (m_session->GetVariables().size())
             {

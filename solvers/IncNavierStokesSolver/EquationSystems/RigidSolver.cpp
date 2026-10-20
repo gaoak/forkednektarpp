@@ -45,6 +45,7 @@
 #include <IncNavierStokesSolver/EquationSystems/RigidSolver.h>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SessionNodeXml.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
 #include <LibUtilities/LinearAlgebra/Lapack.hpp>
 #include <MultiRegions/ExpList.h>
@@ -289,8 +290,7 @@ void RigidSolver::LoadParameters(
     {
         filename = session->GetSessionName();
     }
-    if (!(filename.length() >= 4 &&
-          filename.substr(filename.length() - 4) == ".mrf"))
+    if (!StringUtils::EndsWith(filename, ".mrf"))
     {
         filename += ".mrf";
     }

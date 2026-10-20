@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/EquationSystems/Extrapolate.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/Communication/Comm.h>
 
 namespace Nektar
@@ -653,7 +654,7 @@ void Extrapolate::GenerateHOPBCMap(
     for (n = 0; n < m_PBndConds.size(); ++n)
     {
         // High order boundary Neumann Condiiton
-        if (boost::iequals(m_PBndConds[n]->GetUserDefined(), "H"))
+        if (StringUtils::IEquals(m_PBndConds[n]->GetUserDefined(), "H"))
         {
             m_hbcType[n] = eHBCNeumann;
             m_numHBCDof += m_PBndExp[n]->GetNcoeffs();
@@ -663,7 +664,7 @@ void Extrapolate::GenerateHOPBCMap(
         // High order outflow convective condition
         if (m_PBndConds[n]->GetBoundaryConditionType() ==
                 SpatialDomains::eRobin &&
-            boost::iequals(m_PBndConds[n]->GetUserDefined(), "HOutflow"))
+            StringUtils::IEquals(m_PBndConds[n]->GetUserDefined(), "HOutflow"))
         {
             m_hbcType[n] = eConvectiveOBC;
             m_numHBCDof += m_PBndExp[n]->GetNcoeffs();
@@ -672,7 +673,8 @@ void Extrapolate::GenerateHOPBCMap(
             outHBCnumber++;
         }
         // High order outflow boundary condition;
-        else if (boost::iequals(m_PBndConds[n]->GetUserDefined(), "HOutflow"))
+        else if (StringUtils::IEquals(m_PBndConds[n]->GetUserDefined(),
+                                      "HOutflow"))
         {
             m_hbcType[n] = eOBC;
             numOutHBCPts += m_PBndExp[n]->GetTotPoints();
@@ -735,7 +737,8 @@ void Extrapolate::GenerateHOPBCMap(
 
         for (n = 0, cnt = 0; n < m_PBndConds.size(); ++n)
         {
-            if (boost::iequals(m_PBndConds[n]->GetUserDefined(), "HOutflow"))
+            if (StringUtils::IEquals(m_PBndConds[n]->GetUserDefined(),
+                                     "HOutflow"))
             {
                 m_houtflow->m_outflowVel[cnt] =
                     Array<OneD, Array<OneD, Array<OneD, NekDouble>>>(

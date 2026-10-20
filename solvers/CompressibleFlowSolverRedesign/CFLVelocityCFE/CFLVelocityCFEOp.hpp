@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include <boost/algorithm/string/case_conv.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/Common/Operator.hpp>
 
@@ -68,7 +68,8 @@ public:
         std::string EoSName;
         if (session->DefinesEquationOfState())
         {
-            EoSName = boost::to_upper_copy(session->GetEquationOfState().type);
+            EoSName =
+                StringUtils::ToUpperCopy(session->GetEquationOfState().type);
         }
         else
         {

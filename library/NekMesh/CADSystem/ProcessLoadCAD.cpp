@@ -35,7 +35,7 @@
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <SpatialDomains/CADSystem/CADSystem.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include "ProcessLoadCAD.h"
 
@@ -105,12 +105,12 @@ void ProcessLoadCAD::Process()
         std::vector<std::string> splitStr;
         std::vector<std::array<NekDouble, 3>> voidPts;
 
-        boost::split(splitStr, voidPoints, boost::is_any_of(";"));
+        StringUtils::Split(splitStr, voidPoints, StringUtils::IsAnyOf(";"));
 
         for (auto &tosplit : splitStr)
         {
             std::vector<std::string> coords;
-            boost::split(coords, tosplit, boost::is_any_of(" "));
+            StringUtils::Split(coords, tosplit, StringUtils::IsAnyOf(" "));
 
             if (coords.size() != 3)
             {

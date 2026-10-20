@@ -112,9 +112,9 @@ void ProcessCurve::v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge)
     NekDouble gamma = m_config["gamma"].as<double>();
 
     // Read function defining the curve
-    if (m_config["function"].as<string>().compare("NotSet") != 0)
+    if (m_config["function"].as<string>() != "NotSet")
     {
-        ASSERTL0(m_config["file"].as<string>().compare("NotSet") == 0,
+        ASSERTL0(m_config["file"].as<string>() == "NotSet",
                  "Function and file cannot be defined at the same time.");
 
         std::string fstr = m_config["function"].as<string>();
@@ -123,7 +123,7 @@ void ProcessCurve::v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge)
     }
     else
     {
-        ASSERTL0(m_config["file"].as<string>().compare("NotSet") != 0,
+        ASSERTL0(m_config["file"].as<string>() != "NotSet",
                  "Need to define either function or file.");
         std::string inFile = m_config["file"].as<string>();
 

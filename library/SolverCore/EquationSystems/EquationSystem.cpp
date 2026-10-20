@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
@@ -123,17 +123,17 @@ void EquationSystem::v_InitObject(bool declareExpansionLists)
     {
         const std::string value =
             m_session->GetSolverInfo("ProjectInitialConditions");
-        if (boost::iequals(value, "Average"))
+        if (StringUtils::IEquals(value, "Average"))
         {
             m_initialConditionProjection = InitialConditionProjection::Average;
         }
-        else if (boost::iequals(value, "Galerkin") ||
-                 boost::iequals(value, "True"))
+        else if (StringUtils::IEquals(value, "Galerkin") ||
+                 StringUtils::IEquals(value, "True"))
         {
             m_initialConditionProjection = InitialConditionProjection::Galerkin;
         }
-        else if (boost::iequals(value, "None") ||
-                 boost::iequals(value, "False"))
+        else if (StringUtils::IEquals(value, "None") ||
+                 StringUtils::IEquals(value, "False"))
         {
             m_initialConditionProjection = InitialConditionProjection::None;
         }

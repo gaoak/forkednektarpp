@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/EquationSystems/IncNavierStokes.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/GlobalLinSysKey.h>
 #include <SolverUtils/DriverModifiedArnoldi.h>
@@ -219,7 +220,7 @@ VortexWaveInteraction::VortexWaveInteraction(int argc, char *argv[])
             m_sessionVWI->GetSolverInfo("VWIIterationType");
         for (int i = 0; i < (int)eVWIIterationTypeSize; ++i)
         {
-            if (boost::iequals(VWIIterationTypeMap[i], IterationTypeStr))
+            if (StringUtils::IEquals(VWIIterationTypeMap[i], IterationTypeStr))
             {
                 m_VWIIterationType = (VWIIterationType)i;
                 break;

@@ -37,9 +37,7 @@
 #include <string>
 #include <thread>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/split.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <LibUtilities/BasicUtils/CppCommandLine.hpp>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
@@ -397,7 +395,7 @@ void OutputNekpp::Process()
             // the output name the same way. The session reader needs the
             // latter.
             vector<string> tmp;
-            boost::split(tmp, filename, boost::is_any_of("."));
+            StringUtils::Split(tmp, filename, StringUtils::IsAnyOf("."));
             filenames[0] = tmp[0] + ".xml";
         }
         else

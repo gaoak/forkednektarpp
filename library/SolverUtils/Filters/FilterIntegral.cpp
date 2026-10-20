@@ -38,7 +38,7 @@
 #include <LocalRegions/Expansion3D.h>
 #include <SolverUtils/Filters/FilterIntegral.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar::SolverUtils
 {
@@ -64,12 +64,12 @@ FilterIntegral::FilterIntegral(
     ASSERTL0(it->second.length() > 0, "Empty parameter 'Composites'.");
 
     std::vector<std::string> splitComposite;
-    boost::split(m_splitCompString, it->second, boost::is_any_of(","),
-                 boost::token_compress_on);
+    StringUtils::Split(m_splitCompString, it->second, StringUtils::IsAnyOf(","),
+                       StringUtils::eTokenCompressOn);
 
     for (auto &comp : m_splitCompString)
     {
-        boost::trim(comp);
+        StringUtils::Trim(comp);
         size_t first   = comp.find_first_of('[') + 1;
         size_t last    = comp.find_last_of(']') - 1;
         auto tmpString = comp.substr(first, last - first + 1);

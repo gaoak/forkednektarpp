@@ -33,7 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "CompressibleSolver.h"
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -51,7 +51,7 @@ CompressibleSolver::CompressibleSolver(
     pSession->LoadSolverInfo("EquationOfState", eosType, "IdealGas");
     m_eos = GetEquationOfStateFactory().CreateInstance(eosType, pSession);
     // Check if using ideal gas
-    m_idealGas = boost::iequals(eosType, "IdealGas");
+    m_idealGas = StringUtils::IEquals(eosType, "IdealGas");
 }
 
 CompressibleSolver::CompressibleSolver() : RiemannSolver(), m_idealGas(true)

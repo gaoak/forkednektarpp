@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 #include <SolverUtils/MMFSystem.h>
 
@@ -74,7 +75,7 @@ void MMFSystem::MMFInitObject(
         int i;
         for (i = 0; i < (int)SIZE_SurfaceType; ++i)
         {
-            if (boost::iequals(SurfaceTypeMap[i], SurfaceTypeStr))
+            if (StringUtils::IEquals(SurfaceTypeMap[i], SurfaceTypeStr))
             {
                 m_surfaceType = (SurfaceType)i;
                 break;
@@ -267,8 +268,7 @@ void MMFSystem::CheckMovingFrames(
     Vmath::Vcopy(nq, &movingframes[0][0], 1, &tmpx[0], 1);
     Vmath::Vcopy(nq, &movingframes[0][nq], 1, &tmpy[0], 1);
     Vmath::Vcopy(nq, &movingframes[0][2 * nq], 1, &tmpz[0], 1);
-    std::cout << nq << " , "
-              << "*** Avg MF1 = ( " << AvgAbsInt(tmpx) << " , "
+    std::cout << nq << " , " << "*** Avg MF1 = ( " << AvgAbsInt(tmpx) << " , "
               << AvgAbsInt(tmpy) << " , " << AvgAbsInt(tmpz) << " ) "
               << std::endl;
 

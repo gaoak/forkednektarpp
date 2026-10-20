@@ -48,6 +48,7 @@
 #include <AcousticSolver/EquationSystems/AcousticSystem.h>
 #include <AcousticSolver/LinerSolvers/PerforatedPlate.h>
 #include <LibUtilities/BasicUtils/SessionNodeXml.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -164,7 +165,7 @@ void AcousticSystem::v_InitObject(bool DeclareFields)
         {
             std::string userDefStr =
                 m_fields[0]->GetBndConditions()[i]->GetUserDefined();
-            if (boost::iequals(userDefStr, "LinerBC"))
+            if (StringUtils::IEquals(userDefStr, "LinerBC"))
             {
                 nPnt[i] = m_fields[0]->GetBndCondExpansions()[i]->GetExpSize();
             }
@@ -321,23 +322,23 @@ void AcousticSystem::SetBoundaryConditions(
         if (!userDefStr.empty())
         {
             // Wall Boundary Condition
-            if (boost::iequals(userDefStr, "Wall"))
+            if (StringUtils::IEquals(userDefStr, "Wall"))
             {
                 WallBC(n, cnt, Fwd, inarray);
             }
-            else if (boost::iequals(userDefStr, "WhiteNoise"))
+            else if (StringUtils::IEquals(userDefStr, "WhiteNoise"))
             {
                 WhiteNoiseBC(n, cnt, Fwd, bfFwd, inarray);
             }
-            else if (boost::iequals(userDefStr, "RiemannInvariantBC"))
+            else if (StringUtils::IEquals(userDefStr, "RiemannInvariantBC"))
             {
                 v_RiemannInvariantBC(n, cnt, Fwd, bfFwd, inarray);
             }
-            else if (boost::iequals(userDefStr, "LinerBC"))
+            else if (StringUtils::IEquals(userDefStr, "LinerBC"))
             {
                 v_LinerBC(n, cnt, Fwd, inarray, time, m_timestep);
             }
-            else if (boost::iequals(userDefStr, "TimeDependent"))
+            else if (StringUtils::IEquals(userDefStr, "TimeDependent"))
             {
                 for (int i = 0; i < nvariables; ++i)
                 {

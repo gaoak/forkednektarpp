@@ -35,6 +35,7 @@
 
 #include <IncNavierStokesSolverRedesign/EquationSystems/VelocityCorrectionScheme.h>
 
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
@@ -52,8 +53,6 @@
 #include <SolverCore/PreconOps/PreconOp.hpp>
 #include <SpatialDomains/Conditions.h>
 
-#include <algorithm>
-#include <cctype>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -727,9 +726,8 @@ void VelocityCorrectionScheme::InitialiseParameters()
     ASSERTL0(m_session->DefinesSolverInfo("FORMULATION"),
              "SolverInfo FORMULATION must be set to 'semiimplicit' or "
              "'linearimplicit'.");
-    auto formulation = m_session->GetSolverInfo("FORMULATION");
-    std::transform(formulation.begin(), formulation.end(), formulation.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
+    auto formulation =
+        StringUtils::ToLowerCopy(m_session->GetSolverInfo("FORMULATION"));
     if (formulation == "linearimplicit")
     {
         m_implicitAdvection = true;

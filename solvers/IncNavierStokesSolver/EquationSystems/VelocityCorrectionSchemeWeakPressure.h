@@ -36,6 +36,7 @@
 #define NEKTAR_SOLVERS_VELOCITYCORRECTIONSCHEMEWEAKPRESSURE_H
 
 #include <IncNavierStokesSolver/EquationSystems/VelocityCorrectionScheme.h>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -83,7 +84,7 @@ protected:
     std::string v_GetSubSteppingExtrapolateStr(
         const std::string &instr) override
     {
-        if (boost::iequals(instr, "SubStepping"))
+        if (StringUtils::IEquals(instr, "SubStepping"))
         {
             return "SubSteppingWeakPressure";
         }

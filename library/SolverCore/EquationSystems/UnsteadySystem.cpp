@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <cmath>
 #include <iomanip>
@@ -553,7 +553,7 @@ void UnsteadySystem::v_PrintSummaryStatistics(double intTime)
 {
     if (m_session->GetComm()->GetRank() == 0)
     {
-        if (boost::iequals(
+        if (StringUtils::IEquals(
                 m_session->GetCmdLineArgument<std::string>("opExecSpace"),
                 "Device"))
         {

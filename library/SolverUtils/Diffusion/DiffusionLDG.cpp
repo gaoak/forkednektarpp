@@ -35,7 +35,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <SolverUtils/Diffusion/DiffusionLDG.h>
 
@@ -319,19 +319,19 @@ void DiffusionLDG::ApplyScalarBCs(
                 fields[0]->GetTraceMap()->GetBndCondIDToGlobalTraceID(cnt++));
 
             // AV boundary conditions
-            if (boost::iequals(
+            if (StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "Wall") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "Symmetry") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallViscous") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallAdiabatic") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallRotational"))
             {
@@ -460,19 +460,19 @@ void DiffusionLDG::ApplyVectorBCs(
                 fields[0]->GetTraceMap()->GetBndCondIDToGlobalTraceID(cnt++));
 
             // AV boundary conditions
-            if (boost::iequals(
+            if (StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "Wall") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "Symmetry") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallViscous") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallAdiabatic") ||
-                boost::iequals(
+                StringUtils::IEquals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
                     "WallRotational"))
             {

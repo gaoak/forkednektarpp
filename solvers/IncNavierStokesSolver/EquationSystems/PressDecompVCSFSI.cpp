@@ -36,7 +36,7 @@
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SolverUtils/Core/Misc.h>
 
-#include <boost/algorithm/string.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 namespace Nektar
 {
@@ -134,7 +134,7 @@ void PressDecompVCSFSI::CalculateBCs(std::set<int> &dofs,
         m_pressure->GetBndCondExpansions();
     for (int i = 0; i < BndConds.size(); ++i)
     {
-        if (boost::iequals(BndConds[i]->GetUserDefined(), m_MRFABCname))
+        if (StringUtils::IEquals(BndConds[i]->GetUserDefined(), m_MRFABCname))
         {
             numpts += BndExp[i]->GetTotPoints();
         }
@@ -156,7 +156,7 @@ void PressDecompVCSFSI::CalculateBCs(std::set<int> &dofs,
     int offset = 0;
     for (int i = 0; i < BndConds.size(); ++i)
     {
-        if (boost::iequals(BndConds[i]->GetUserDefined(), m_MRFABCname))
+        if (StringUtils::IEquals(BndConds[i]->GetUserDefined(), m_MRFABCname))
         {
             int npts = BndExp[i]->GetTotPoints();
             Array<OneD, Array<OneD, NekDouble>> n(3);
@@ -214,7 +214,7 @@ void PressDecompVCSFSI::CalculateAddedMass(
                                  std::numeric_limits<NekDouble>::lowest());
     for (int i = 0; i < BndConds.size(); ++i)
     {
-        if (boost::iequals(BndConds[i]->GetUserDefined(), m_MRFABCname))
+        if (StringUtils::IEquals(BndConds[i]->GetUserDefined(), m_MRFABCname))
         {
             MultiRegions::ExpListSharedPtr edgeExplist = BndExp[i];
             Array<OneD, Array<OneD, NekDouble>> phi(nfld);
@@ -300,7 +300,7 @@ void PressDecompVCSFSI::SolvePa(int i, Array<OneD, NekDouble> bc,
     int offset = 0;
     for (int i = 0; i < BndConds.size(); ++i)
     {
-        if (boost::iequals(BndConds[i]->GetUserDefined(), m_MRFABCname))
+        if (StringUtils::IEquals(BndConds[i]->GetUserDefined(), m_MRFABCname))
         {
             BndExp[i]->IProductWRTBase(bc + offset, BndExp[i]->UpdateCoeffs());
             offset += BndExp[i]->GetTotPoints();

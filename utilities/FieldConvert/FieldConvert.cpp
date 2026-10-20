@@ -34,8 +34,8 @@
 
 #include <FieldUtils/Module.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <string>
 
@@ -167,8 +167,8 @@ int main(int argc, char *argv[])
     if (vm.count("modules-opt"))
     {
         vector<string> tmp1;
-        boost::split(tmp1, vm["modules-opt"].as<string>(),
-                     boost::is_any_of(":"));
+        StringUtils::Split(tmp1, vm["modules-opt"].as<string>(),
+                           StringUtils::IsAnyOf(":"));
 
         if (tmp1.size() != 2)
         {
@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
         {
             // First split each command by the colon separator.
             vector<string> tmp;
-            boost::split(tmp, *io, boost::is_any_of(":"));
+            StringUtils::Split(tmp, *io, StringUtils::IsAnyOf(":"));
 
             // Get original filename and extension.
             fs::path path   = tmp[0];
@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
         vector<string> tmp1;
         int offset = 1;
 
-        boost::split(tmp1, modcmds[i], boost::is_any_of(":"));
+        StringUtils::Split(tmp1, modcmds[i], StringUtils::IsAnyOf(":"));
 
         if (i < nInput || i == modcmds.size() - 1)
         {
@@ -474,7 +474,7 @@ int main(int argc, char *argv[])
         for (int j = offset; j < tmp1.size(); ++j)
         {
             vector<string> tmp2;
-            boost::split(tmp2, tmp1[j], boost::is_any_of("="));
+            StringUtils::Split(tmp2, tmp1[j], StringUtils::IsAnyOf("="));
 
             if (tmp2.size() == 1)
             {
@@ -597,7 +597,7 @@ int main(int argc, char *argv[])
         // Check to see if we have created a fld file.
         for (i = 0; i < modules.size(); ++i)
         {
-            if (boost::iequals(modules[i]->GetModuleName(), "OutputFld"))
+            if (StringUtils::IEquals(modules[i]->GetModuleName(), "OutputFld"))
             {
                 break;
             }

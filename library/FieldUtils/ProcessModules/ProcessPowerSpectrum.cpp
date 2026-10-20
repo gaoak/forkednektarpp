@@ -75,7 +75,7 @@ void ProcessPowerSpectrum::v_Process(po::variables_map &vm)
     }
 
     std::set<int> variables;
-    if (m_config["vars"].as<string>().compare("NotSet") != 0)
+    if (m_config["vars"].as<string>() != "NotSet")
     {
         ParseUtils::GenerateVariableSet(m_config["vars"].as<string>(),
                                         m_f->m_variables, variables);
@@ -87,7 +87,7 @@ void ProcessPowerSpectrum::v_Process(po::variables_map &vm)
         return;
     }
     std::vector<NekDouble> box;
-    if (m_config["box"].as<string>().compare("NotSet") != 0)
+    if (m_config["box"].as<string>() != "NotSet")
     {
         ASSERTL0(ParseUtils::GenerateVector(m_config["box"].as<string>(), box),
                  "Failed to interpret box string");

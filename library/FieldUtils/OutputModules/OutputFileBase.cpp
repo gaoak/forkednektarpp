@@ -346,7 +346,7 @@ bool OutputFileBase::WriteFile(std::string &filename, po::variables_map &vm)
                 string answer;
                 cout << "Did you wish to overwrite " << outFile << " (y/n)? ";
                 getline(cin, answer);
-                if (answer.compare("y") == 0)
+                if (answer == "y")
                 {
                     writeFile = 1;
                 }

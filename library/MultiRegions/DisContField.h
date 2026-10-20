@@ -44,7 +44,6 @@
 #include <MultiRegions/MultiRegions.hpp>
 #include <MultiRegions/MultiRegionsDeclspec.h>
 #include <SpatialDomains/Conditions.h>
-#include <boost/algorithm/string.hpp>
 
 namespace Nektar::MultiRegions
 {

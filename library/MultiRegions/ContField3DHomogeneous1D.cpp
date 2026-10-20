@@ -82,7 +82,7 @@ ContField3DHomogeneous1D::ContField3DHomogeneous1D(
 
     SetCoeffPhys();
 
-    if (variable.compare("DefaultVar") != 0)
+    if (variable != "DefaultVar")
     {
         SpatialDomains::BoundaryConditions bcs(m_session, graph2D);
         SetupBoundaryConditions(m_homogeneousBasis->GetBasisKey(), m_lhom, bcs,
@@ -152,7 +152,7 @@ ContField3DHomogeneous1D::ContField3DHomogeneous1D(
     SetCoeffPhys();
 
     // Do not set up BCs if default variable
-    if (variable.compare("DefaultVar") != 0)
+    if (variable != "DefaultVar")
     {
         SetupBoundaryConditions(HomoBasis, lhom, bcs, variable);
     }
