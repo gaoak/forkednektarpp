@@ -711,6 +711,35 @@ can be selected using the following options:
     \inlsh{sycl\_ext\_oneapi\_enqueue\_native\_command} extension. This is
     an advanced option and is disabled by default.
 
+    \item \inlsh{NEKTAR\_USE\_CCL} (Requires \inlsh{NEKTAR\_USE\_MPI} and
+    \inlsh{NEKTAR\_ENABLE\_DEVICE} set to \inlsh{CUDA}, \inlsh{HIP},
+    \inlsh{SYCL-CUDA}, \inlsh{SYCL-HIP} or \inlsh{SYCL-Intel})
+
+    Communicate device data with the collective communication library of the
+    device, NCCL (\inlsh{CUDA}, \inlsh{SYCL-CUDA}), RCCL (\inlsh{HIP},
+    \inlsh{SYCL-HIP}) or oneCCL (\inlsh{SYCL-Intel}, with DPC++ only), on the
+    device stream and without synchronising the host. The library carries the
+    point-to-point operations, all-reductions, broadcasts, gathers, scatters
+    and all-to-alls of device data; oneCCL must provide point-to-point and
+    group operations, as 2021.17 does. MPI still sets up the
+    communicators and carries all other communication, so MPI need not be
+    GPU-aware for these operations. A device communicator is created with each
+    MPI communicator of more than one rank. The library is searched for under
+    the \inlsh{CCL\_ROOT} CMake variable, then under the prefixes given by the
+    environment (\inlsh{NCCL\_ROOT}, \inlsh{NCCL\_HOME}, \inlsh{CUDA\_HOME}
+    or \inlsh{NVHPC\_ROOT} for NCCL; \inlsh{RCCL\_ROOT}, \inlsh{ROCM\_PATH} or
+    \inlsh{HIP\_PATH} for RCCL; \inlsh{CCL\_ROOT}, as set by the oneAPI
+    environment scripts, or \inlsh{ONEAPI\_ROOT} for oneCCL), then in the CUDA
+    toolkit, the NVIDIA HPC SDK providing the CUDA toolkit, MPI or compilers
+    (\inlsh{comm\_libs/<CUDA version>/nccl}), \inlsh{/opt/rocm} and
+    \inlsh{/opt/intel/oneapi} and the system paths. It can also be given directly with \inlsh{CCL\_INCLUDE\_DIR} and
+    \inlsh{CCL\_LIBRARY}. NCCL and RCCL need one GPU per MPI rank: when ranks
+    share a GPU, or the library cannot be set up, communicating device data
+    stops with a message saying why, while runs that only communicate host data
+    are unaffected. This option cannot be combined with
+    \inlsh{NEKTAR\_USE\_MPIX\_STREAM}. This is an advanced option and is
+    disabled by default.
+
     \item \inlsh{NEKTAR\_USE\_PETSC}
 
     Build \nekpp with support for the PETSc package for solving linear systems. 

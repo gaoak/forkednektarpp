@@ -76,6 +76,8 @@ namespace Nektar
 #define nekEventDisableTiming hipEventDisableTiming
 #define nekEventDestroy hipEventDestroy
 #define nekEventRecord hipEventRecord
+#define nekGetCurrentDevice hipGetDevice
+#define nekDeviceGetPCIBusId hipDeviceGetPCIBusId
 
 class HIPStream
 {

@@ -62,7 +62,7 @@ public:
     LIB_UTILITIES_EXPORT static std::string className;
 
     LIB_UTILITIES_EXPORT CommSerial(int argc, char *argv[]);
-    LIB_UTILITIES_EXPORT ~CommSerial() override;
+    LIB_UTILITIES_EXPORT ~CommSerial() override = default;
 
 protected:
     LIB_UTILITIES_EXPORT void v_Finalise() final;
@@ -82,6 +82,17 @@ protected:
     LIB_UTILITIES_EXPORT void v_SendRecv(
         const void *sendbuf, int sendcount, CommDataType sendtype, int dest,
         void *recvbuf, int recvcount, CommDataType recvtype, int source,
+        std::optional<unsigned int> streamID) final;
+
+    LIB_UTILITIES_EXPORT void v_Reduce(
+        void *buf, int count, CommDataType dt, enum ReduceOperator pOp,
+        int root, std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_ReduceBegin(
+        void *buf, int count, CommDataType dt, enum ReduceOperator pOp,
+        int root, CommRequestSharedPtr request,
+        std::optional<unsigned int> streamID) final;
+    LIB_UTILITIES_EXPORT void v_ReduceEnd(
+        CommRequestSharedPtr request,
         std::optional<unsigned int> streamID) final;
 
     LIB_UTILITIES_EXPORT void v_AllReduce(

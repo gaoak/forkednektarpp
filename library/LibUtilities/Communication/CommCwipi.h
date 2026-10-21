@@ -65,7 +65,7 @@ public:
 
     CommCwipi(int narg, char *arg[]);
 
-    ~CommCwipi() override;
+    ~CommCwipi() override = default;
 
 protected:
     void v_Finalise() override;

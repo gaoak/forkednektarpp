@@ -73,6 +73,11 @@ CommCwipi::CommCwipi(int narg, char *arg[]) : CommMpi(narg, arg)
     // Rebind the stream communicator to the CWIPI-local communicator.
     FreeStreamComm();
     InitStreamComm();
+#elif defined(NEKTAR_USE_CCL)
+    // Rebind the device collective communicator to the CWIPI-local
+    // communicator.
+    FreeCclComm();
+    InitCclComm();
 #endif
 
 #ifdef NEKTAR_USING_PETSC
@@ -80,13 +85,6 @@ CommCwipi::CommCwipi(int narg, char *arg[]) : CommMpi(narg, arg)
     PetscInitializeNoArguments();
 #endif
     m_type = "Parallel MPI with CWIPI";
-}
-
-/**
- *
- */
-CommCwipi::~CommCwipi()
-{
 }
 
 /**

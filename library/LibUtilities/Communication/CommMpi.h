@@ -142,6 +142,11 @@ protected:
     struct MpixState;
     /// MPIX stream communicator, set when a device is visible.
     std::unique_ptr<MpixState> m_mpix;
+#elif defined(NEKTAR_USE_CCL)
+    struct CclState;
+    /// Device collective communicator, set when a device is visible and
+    /// there is more than one rank.
+    std::unique_ptr<CclState> m_ccl;
 #endif
 
     explicit CommMpi(MPI_Comm pComm);
@@ -162,6 +167,16 @@ protected:
                     int dest, void *recvbuf, int recvcount,
                     CommDataType recvtype, int source,
                     std::optional<unsigned int> streamID) final;
+
+    void v_Reduce(void *buf, int count, CommDataType dt,
+                  enum ReduceOperator pOp, int root,
+                  std::optional<unsigned int> streamID) final;
+    void v_ReduceBegin(void *buf, int count, CommDataType dt,
+                       enum ReduceOperator pOp, int root,
+                       CommRequestSharedPtr request,
+                       std::optional<unsigned int> streamID) final;
+    void v_ReduceEnd(CommRequestSharedPtr request,
+                     std::optional<unsigned int> streamID) final;
 
     void v_AllReduce(void *buf, int count, CommDataType dt,
                      enum ReduceOperator pOp,
@@ -231,10 +246,16 @@ protected:
     void v_SplitComm(int pRows, int pColumns, int pTime) override;
     CommSharedPtr v_CommCreateIf(int flag) final;
     std::pair<CommSharedPtr, CommSharedPtr> v_SplitCommNode() final;
+#if defined(NEKTAR_USE_CCL)
+    bool v_HasCclComm(CommDataType dt) final;
+#endif
 
 #if defined(NEKTAR_USE_MPIX_STREAM)
     void InitStreamComm();
     void FreeStreamComm();
+#elif defined(NEKTAR_USE_CCL)
+    void InitCclComm();
+    void FreeCclComm();
 #endif
 };
 } // namespace Nektar::LibUtilities

@@ -77,6 +77,8 @@ namespace Nektar
 #define nekEventDisableTiming cudaEventDisableTiming
 #define nekEventDestroy cudaEventDestroy
 #define nekEventRecord cudaEventRecord
+#define nekGetCurrentDevice cudaGetDevice
+#define nekDeviceGetPCIBusId cudaDeviceGetPCIBusId
 
 class CUDAStream
 {
