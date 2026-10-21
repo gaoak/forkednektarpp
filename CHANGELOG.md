@@ -141,6 +141,7 @@ v5.11.0
 - Add check to CoupledLinearisedNS as the solver does not support MPI (!2762)
 - Fix NaNs from IncNavierStokesSolver restarts: write lower-order pressure checkpoints in the output expansion, and match trace normals to boundary quadrature and orientation in NormVectorIProductWRTBase and FilterAeroForces (!2792)
 - Add a Lorentz force to support quasi-static MHD simulation (!2625)
+- Fix MovingBody forcing: broadcast cable motion read from file to all processes and fix the Pinned-Pinned sine transforms (!2866)
 
 **ADRSolverRedesign**
 - Add `ADRSolverRedesign` built on the redesign operators and `SolverCore` (!2416)

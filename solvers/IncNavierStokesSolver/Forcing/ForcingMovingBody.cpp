@@ -581,21 +581,9 @@ void ForcingMovingBody::Newmark_betaSolver(
     }
     else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
     {
-        // TODO:
-        size_t N = fft_i[0].size();
-
         for (size_t var = 0; var < 4; var++)
         {
-            for (size_t i = 0; i < N; i++)
-            {
-                fft_o[var][i] = 0;
-
-                for (size_t k = 0; k < N; k++)
-                {
-                    fft_o[var][i] +=
-                        fft_i[var][k] * sin(M_PI / (N) * (k + 1 / 2) * (i + 1));
-                }
-            }
+            PinnedSineFwdTrans(fft_i[var], fft_o[var]);
         }
     }
     else
@@ -643,22 +631,9 @@ void ForcingMovingBody::Newmark_betaSolver(
     }
     else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
     {
-        // TODO:
-        size_t N = fft_i[0].size();
-
         for (size_t var = 0; var < 3; var++)
         {
-            for (size_t i = 0; i < N; i++)
-            {
-                fft_o[var][i] = 0;
-
-                for (size_t k = 0; k < N; k++)
-                {
-                    fft_o[var][i] += fft_i[var][k] *
-                                     sin(M_PI / (N) * (k + 1) * (i + 1 / 2)) *
-                                     2 / N;
-                }
-            }
+            PinnedSineBwdTrans(fft_i[var], fft_o[var]);
         }
     }
     else
@@ -836,6 +811,13 @@ void ForcingMovingBody::InitialiseCableModel(
                 // Close inputstream for cable motions
                 inputStream.close();
             }
+
+            // The structural model is solved on the root of every column
+            // communicator, not just on global rank 0, so every process
+            // needs the motion read from file
+            vcomm->Bcast(m_MotionVars[0], 0);
+            vcomm->Bcast(m_MotionVars[1], 0);
+
             cnt = cnt + 2;
         }
         else // Evaluate from the functions specified in xml file
@@ -990,24 +972,10 @@ void ForcingMovingBody::SetDynEqCoeffMatrix(
         m_CoeffMat_B[plane] =
             MemoryManager<DNekMat>::AllocateSharedPtr(nel, nel);
 
-        // Initialised to avoid compiler warnings.
-        unsigned int K = 0;
-        NekDouble beta = 0.0;
-
-        if (StringUtils::IEquals(supptype, "Free-Free"))
-        {
-            K    = plane / 2;
-            beta = 2.0 * M_PI / m_lhom;
-        }
-        else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
-        {
-            K    = plane + 1;
-            beta = M_PI / m_lhom;
-        }
-        else
-        {
-            ASSERTL0(false, "Unrecognized support type for cable's motion");
-        }
+        unsigned int K = CableWavenumber(supptype, plane);
+        NekDouble beta = StringUtils::IEquals(supptype, "Free-Free")
+                             ? 2.0 * M_PI / m_lhom
+                             : M_PI / m_lhom;
 
         tmp6 = beta * K;
         tmp6 = tmp6 * tmp6;
@@ -1036,6 +1004,73 @@ void ForcingMovingBody::SetDynEqCoeffMatrix(
         m_CoeffMat_A[plane]->Invert();
         (*m_CoeffMat_B[plane]) =
             (*m_CoeffMat_A[plane]) * (*m_CoeffMat_B[plane]);
+    }
+}
+
+/**
+ * The Free-Free model is solved in Fourier space, using the layout of the
+ * Fourier basis and NekFFTW: slots 2k and 2k + 1 hold the cosine and sine
+ * coefficients of wavenumber k. Slot 1, the sine of wavenumber 0, is
+ * identically zero, so the Nyquist mode is not represented. The Pinned-Pinned
+ * model is solved for the sine modes of PinnedSineFwdTrans, with wavenumber
+ * plane + 1 in slot plane.
+ */
+unsigned int ForcingMovingBody::CableWavenumber(const std::string &supptype,
+                                                size_t plane)
+{
+    if (StringUtils::IEquals(supptype, "Free-Free"))
+    {
+        return plane / 2;
+    }
+    else if (StringUtils::IEquals(supptype, "Pinned-Pinned"))
+    {
+        return plane + 1;
+    }
+
+    NEKERROR(ErrorUtil::efatal, "Unrecognized support type for cable's motion");
+    return 0;
+}
+
+/**
+ * Discrete sine transform (DST-II) of values at the N points
+ * \f$ z_k = (k + 1/2) L / N \f$:
+ * \f[ \hat{u}_i = \sum_{k=0}^{N-1} u_k \sin(\pi (k + 1/2)(i + 1) / N). \f]
+ */
+void ForcingMovingBody::PinnedSineFwdTrans(
+    const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out)
+{
+    size_t N = in.size();
+
+    for (size_t i = 0; i < N; i++)
+    {
+        out[i] = 0.0;
+
+        for (size_t k = 0; k < N; k++)
+        {
+            out[i] += in[k] * sin(M_PI / N * (k + 0.5) * (i + 1));
+        }
+    }
+}
+
+/**
+ * Inverse of PinnedSineFwdTrans (DST-III scaled by 2/N). The last mode is
+ * weighted by 1/2 so that the pair is an exact inverse pair.
+ */
+void ForcingMovingBody::PinnedSineBwdTrans(
+    const Array<OneD, const NekDouble> &in, Array<OneD, NekDouble> &out)
+{
+    size_t N = in.size();
+
+    for (size_t i = 0; i < N; i++)
+    {
+        out[i] = 0.0;
+
+        for (size_t k = 0; k < N; k++)
+        {
+            NekDouble weight = (k == N - 1) ? 0.5 : 1.0;
+            out[i] +=
+                weight * in[k] * sin(M_PI / N * (k + 1) * (i + 0.5)) * 2.0 / N;
+        }
     }
 }
 

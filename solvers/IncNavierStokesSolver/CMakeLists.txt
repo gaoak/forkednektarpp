@@ -98,6 +98,10 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
                           ${IncNavierStokesSolverHeaders} DEPENDS SolverUtils)
     ENDIF()
 
+    IF(NEKTAR_BUILD_UNIT_TESTS)
+        ADD_SUBDIRECTORY(Forcing/UnitTests)
+    ENDIF()
+
     SUBDIRS(Utilities)
 
     # The following test is disabled pending better integration with the CI system
