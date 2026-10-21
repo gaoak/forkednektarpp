@@ -54,8 +54,6 @@ CommSerial::CommSerial(int argc, char *argv[]) : Comm(argc, argv)
     m_type = "Serial";
 }
 
-CommSerial::~CommSerial() = default;
-
 /**
  *
  */
@@ -142,6 +140,38 @@ void CommSerial::v_SendRecv(
     [[maybe_unused]] CommDataType sendtype, [[maybe_unused]] int dest,
     [[maybe_unused]] void *recvbuf, [[maybe_unused]] int recvcount,
     [[maybe_unused]] CommDataType recvtype, [[maybe_unused]] int source,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
+{
+}
+
+/**
+ *
+ */
+void CommSerial::v_Reduce([[maybe_unused]] void *buf,
+                          [[maybe_unused]] int count,
+                          [[maybe_unused]] CommDataType dt,
+                          [[maybe_unused]] enum ReduceOperator pOp,
+                          [[maybe_unused]] int root,
+                          [[maybe_unused]] std::optional<unsigned int> streamID)
+{
+}
+
+/**
+ *
+ */
+void CommSerial::v_ReduceBegin(
+    [[maybe_unused]] void *buf, [[maybe_unused]] int count,
+    [[maybe_unused]] CommDataType dt, [[maybe_unused]] enum ReduceOperator pOp,
+    [[maybe_unused]] int root, [[maybe_unused]] CommRequestSharedPtr request,
+    [[maybe_unused]] std::optional<unsigned int> streamID)
+{
+}
+
+/**
+ *
+ */
+void CommSerial::v_ReduceEnd(
+    [[maybe_unused]] CommRequestSharedPtr request,
     [[maybe_unused]] std::optional<unsigned int> streamID)
 {
 }

@@ -37,6 +37,8 @@
 #include "TestComm.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
+
+#include <algorithm>
 #include <iostream>
 #include <memory>
 
@@ -235,6 +237,91 @@ BOOST_FIXTURE_TEST_CASE(sendrecv, TestComm)
             BOOST_TEST(std::count(ptr, ptr + recv.size(), val0) == recv.size());
         }
     }
+}
+
+BOOST_FIXTURE_TEST_CASE(reduce, TestComm)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    Configure();
+    double val0  = 3.0;
+    double val1  = 5.0;
+    int root     = 1;
+    auto reducer = MemoryRegion<double>("Send", 10);
+
+    // Initialize data.
+    double val = m_comm->GetRank() == 0 ? val0 : val1;
+    if (execStr == "HostSpace")
+    {
+        reducer.template Initialize<NektarSpaces::HostSpace>(val);
+    }
+    else if (execStr == "DeviceSpace")
+    {
+        reducer.template Initialize<NektarSpaces::DeviceSpace>(val);
+    }
+
+    // Reduce data onto the root.
+    if (execStr == "HostSpace")
+    {
+        m_comm->Reduce<NektarSpaces::HostSpace>(
+            reducer, Nektar::LibUtilities::ReduceSum, root);
+    }
+    else if (execStr == "DeviceSpace")
+    {
+        m_comm->Reduce<NektarSpaces::DeviceSpace>(
+            reducer, Nektar::LibUtilities::ReduceSum, root);
+    }
+
+    // Check results: the sum on the root, the other ranks unchanged.
+    double expected = m_comm->GetRank() == root ? val0 + val1 : val;
+    auto ptr = reducer.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    BOOST_TEST(std::count(ptr, ptr + reducer.size(), expected) ==
+               reducer.size());
+}
+
+BOOST_FIXTURE_TEST_CASE(reduce_begin_end, TestComm)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    Configure();
+    double val0  = 3.0;
+    double val1  = 5.0;
+    int root     = 1;
+    auto reducer = MemoryRegion<double>("Send", 10);
+    auto request = m_comm->CreateRequest(1);
+
+    // Initialize data.
+    double val = m_comm->GetRank() == 0 ? val0 : val1;
+    if (execStr == "HostSpace")
+    {
+        reducer.template Initialize<NektarSpaces::HostSpace>(val);
+    }
+    else if (execStr == "DeviceSpace")
+    {
+        reducer.template Initialize<NektarSpaces::DeviceSpace>(val);
+    }
+
+    // Reduce data onto the root.
+    if (execStr == "HostSpace")
+    {
+        m_comm->ReduceBegin<NektarSpaces::HostSpace>(
+            reducer, Nektar::LibUtilities::ReduceMax, root, request);
+        m_comm->ReduceEnd<NektarSpaces::HostSpace>(reducer, request);
+    }
+    else if (execStr == "DeviceSpace")
+    {
+        m_comm->ReduceBegin<NektarSpaces::DeviceSpace>(
+            reducer, Nektar::LibUtilities::ReduceMax, root, request);
+        m_comm->ReduceEnd<NektarSpaces::DeviceSpace>(reducer, request);
+    }
+
+    // Check results: the maximum on the root, the other ranks unchanged.
+    double expected = m_comm->GetRank() == root ? std::max(val0, val1) : val;
+    auto ptr = reducer.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    BOOST_TEST(std::count(ptr, ptr + reducer.size(), expected) ==
+               reducer.size());
 }
 
 BOOST_FIXTURE_TEST_CASE(allreduce, TestComm)

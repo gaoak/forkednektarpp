@@ -95,7 +95,7 @@ class Comm : public std::enable_shared_from_this<Comm>
 {
 public:
     LIB_UTILITIES_EXPORT Comm(int narg, char *arg[]);
-    LIB_UTILITIES_EXPORT virtual ~Comm();
+    LIB_UTILITIES_EXPORT virtual ~Comm() = default;
 
     LIB_UTILITIES_EXPORT inline void Finalise();
 
@@ -141,6 +141,27 @@ public:
     void SendRecv(int pSendProc, LibUtilities::MemoryRegion<T> &pSendData,
                   int pRecvProc, LibUtilities::MemoryRegion<T> &pRecvData,
                   const unsigned int streamID = 0);
+#endif
+
+    template <class T>
+    void Reduce(T &pData, enum ReduceOperator pOp, int pRoot);
+    template <class T>
+    void ReduceBegin(T &pData, enum ReduceOperator pOp, int pRoot,
+                     CommRequestSharedPtr request);
+    template <class T> void ReduceEnd(T &pData, CommRequestSharedPtr request);
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+    template <class MemSpace, class T>
+    void Reduce(LibUtilities::MemoryRegion<T> &pData, enum ReduceOperator pOp,
+                int pRoot, const unsigned int streamID = 0);
+    template <class MemSpace, class T>
+    void ReduceBegin(LibUtilities::MemoryRegion<T> &pData,
+                     enum ReduceOperator pOp, int pRoot,
+                     CommRequestSharedPtr request,
+                     const unsigned int streamID = 0);
+    template <class MemSpace, class T>
+    void ReduceEnd(LibUtilities::MemoryRegion<T> &pData,
+                   CommRequestSharedPtr request,
+                   const unsigned int streamID = 0);
 #endif
 
     template <class T> void AllReduce(T &pData, enum ReduceOperator pOp);
@@ -307,12 +328,13 @@ protected:
     CommSharedPtr m_commTime;
     CommSharedPtr m_commSpace;
 
-    Comm();
+    Comm() = default;
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
     template <class MemSpace>
     inline std::optional<unsigned int> GetStream(
         const unsigned int streamID) const;
+    inline bool HasDeviceComm(CommDataType dt);
 #endif
 
     virtual void v_Finalise()                                           = 0;
@@ -330,6 +352,15 @@ protected:
                             CommDataType sendtype, int dest, void *recvbuf,
                             int recvcount, CommDataType recvtype, int source,
                             std::optional<unsigned int> streamID)       = 0;
+    virtual void v_Reduce(void *buf, int count, CommDataType dt,
+                          enum ReduceOperator pOp, int root,
+                          std::optional<unsigned int> streamID)         = 0;
+    virtual void v_ReduceBegin(void *buf, int count, CommDataType dt,
+                               enum ReduceOperator pOp, int root,
+                               CommRequestSharedPtr request,
+                               std::optional<unsigned int> streamID)    = 0;
+    virtual void v_ReduceEnd(CommRequestSharedPtr request,
+                             std::optional<unsigned int> streamID)      = 0;
     virtual void v_AllReduce(void *buf, int count, CommDataType dt,
                              enum ReduceOperator pOp,
                              std::optional<unsigned int> streamID)      = 0;
@@ -408,6 +439,9 @@ protected:
     virtual CommSharedPtr v_CommCreateIf(int flag) = 0;
     LIB_UTILITIES_EXPORT virtual std::pair<CommSharedPtr, CommSharedPtr>
     v_SplitCommNode();
+#if defined(NEKTAR_USE_CCL)
+    LIB_UTILITIES_EXPORT virtual bool v_HasCclComm(CommDataType dt);
+#endif
 };
 
 /**
@@ -508,7 +542,7 @@ template <class MemSpace, class T>
 void Comm::Send(int pProc, LibUtilities::MemoryRegion<T> &pData,
                 const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_Send(pData.template GetPtr<MemSpace, ReadOnly>(streamID),
                pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc,
@@ -544,7 +578,7 @@ template <class MemSpace, class T>
 void Comm::Recv(int pProc, LibUtilities::MemoryRegion<T> &pData,
                 const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_Recv(pData.template GetPtr<MemSpace, WriteOnly>(streamID),
                pData.size(), CommDataTypeTraits<T>::GetDataType(), pProc,
@@ -587,7 +621,7 @@ void Comm::SendRecv(int pSendProc, LibUtilities::MemoryRegion<T> &pSendData,
                     int pRecvProc, LibUtilities::MemoryRegion<T> &pRecvData,
                     const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_SendRecv(pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
                    pSendData.size(), CommDataTypeTraits<T>::GetDataType(),
@@ -614,6 +648,40 @@ void Comm::SendRecv(int pSendProc, LibUtilities::MemoryRegion<T> &pSendData,
     }
 }
 #endif
+
+/**
+ * Reduce @p pData over all ranks with @p pOp, in place on @p pRoot; the
+ * other ranks' data is left unchanged.
+ */
+template <class T>
+void Comm::Reduce(T &pData, enum ReduceOperator pOp, int pRoot)
+{
+    v_Reduce(CommDataTypeTraits<T>::GetPointer(pData),
+             CommDataTypeTraits<T>::GetCount(pData),
+             CommDataTypeTraits<T>::GetDataType(), pOp, pRoot, std::nullopt);
+}
+
+/**
+ * Start Reduce() of @p pData, which completes with ReduceEnd().
+ */
+template <class T>
+void Comm::ReduceBegin(T &pData, enum ReduceOperator pOp, int pRoot,
+                       CommRequestSharedPtr request)
+{
+    v_ReduceBegin(CommDataTypeTraits<T>::GetPointer(pData),
+                  CommDataTypeTraits<T>::GetCount(pData),
+                  CommDataTypeTraits<T>::GetDataType(), pOp, pRoot, request,
+                  std::nullopt);
+}
+
+/**
+ * Complete the ReduceBegin() of @p request.
+ */
+template <class T>
+void Comm::ReduceEnd([[maybe_unused]] T &pData, CommRequestSharedPtr request)
+{
+    v_ReduceEnd(request, std::nullopt);
+}
 
 /**
  *
@@ -649,13 +717,97 @@ void Comm::AllReduceEnd([[maybe_unused]] T &pData, CommRequestSharedPtr request)
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 /**
+ * Reduce @p pData over all ranks with @p pOp, in place on @p pRoot. The other
+ * ranks only read @p pData.
+ */
+template <class MemSpace, class T>
+void Comm::Reduce(LibUtilities::MemoryRegion<T> &pData, enum ReduceOperator pOp,
+                  int pRoot, const unsigned int streamID)
+{
+    const bool amRoot = GetRank() == pRoot;
+
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
+    {
+        void *buf =
+            amRoot ? pData.template GetPtr<MemSpace, ReadWrite>(streamID)
+                   : const_cast<T *>(
+                         pData.template GetPtr<MemSpace, ReadOnly>(streamID));
+        v_Reduce(buf, pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp,
+                 pRoot, GetStream<MemSpace>(streamID));
+    }
+    else
+    {
+        void *buf =
+            amRoot
+                ? pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(
+                      streamID)
+                : const_cast<T *>(
+                      pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                          streamID));
+        v_Reduce(buf, pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp,
+                 pRoot, std::nullopt);
+    }
+}
+
+/**
+ * Start Reduce() of @p pData, which completes with ReduceEnd().
+ */
+template <class MemSpace, class T>
+void Comm::ReduceBegin(LibUtilities::MemoryRegion<T> &pData,
+                       enum ReduceOperator pOp, int pRoot,
+                       CommRequestSharedPtr request,
+                       const unsigned int streamID)
+{
+    const bool amRoot = GetRank() == pRoot;
+
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
+    {
+        void *buf =
+            amRoot ? pData.template GetPtr<MemSpace, ReadWrite>(streamID)
+                   : const_cast<T *>(
+                         pData.template GetPtr<MemSpace, ReadOnly>(streamID));
+        v_ReduceBegin(buf, pData.size(), CommDataTypeTraits<T>::GetDataType(),
+                      pOp, pRoot, request, GetStream<MemSpace>(streamID));
+    }
+    else
+    {
+        void *buf =
+            amRoot
+                ? pData.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(
+                      streamID)
+                : const_cast<T *>(
+                      pData.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                          streamID));
+        v_ReduceBegin(buf, pData.size(), CommDataTypeTraits<T>::GetDataType(),
+                      pOp, pRoot, request, std::nullopt);
+    }
+}
+
+/**
+ * Complete the ReduceBegin() of @p request.
+ */
+template <class MemSpace, class T>
+void Comm::ReduceEnd([[maybe_unused]] LibUtilities::MemoryRegion<T> &pData,
+                     CommRequestSharedPtr request, const unsigned int streamID)
+{
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
+    {
+        v_ReduceEnd(request, GetStream<MemSpace>(streamID));
+    }
+    else
+    {
+        v_ReduceEnd(request, std::nullopt);
+    }
+}
+
+/**
  *
  */
 template <class MemSpace, class T>
 void Comm::AllReduce(LibUtilities::MemoryRegion<T> &pData,
                      enum ReduceOperator pOp, const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_AllReduce(pData.template GetPtr<MemSpace, ReadWrite>(streamID),
                     pData.size(), CommDataTypeTraits<T>::GetDataType(), pOp,
@@ -678,7 +830,7 @@ void Comm::AllReduceBegin(LibUtilities::MemoryRegion<T> &pData,
                           enum ReduceOperator pOp, CommRequestSharedPtr request,
                           const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_AllReduceBegin(pData.template GetPtr<MemSpace, ReadWrite>(streamID),
                          pData.size(), CommDataTypeTraits<T>::GetDataType(),
@@ -701,7 +853,7 @@ void Comm::AllReduceEnd([[maybe_unused]] LibUtilities::MemoryRegion<T> &pData,
                         CommRequestSharedPtr request,
                         const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_AllReduceEnd(request, GetStream<MemSpace>(streamID));
     }
@@ -752,7 +904,7 @@ void Comm::AlltoAll(LibUtilities::MemoryRegion<T> &pSendData,
     ASSERTL0(count * GetSize() == sendSize,
              "Array size incompatible with size of communicator");
 
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_AlltoAll(pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
                    count, CommDataTypeTraits<T>::GetDataType(),
@@ -814,7 +966,7 @@ void Comm::AlltoAllv(LibUtilities::MemoryRegion<T> &pSendData,
                      LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                      const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         // Counts and offsets are read by MPI on the host.
         v_AlltoAllv(
@@ -889,7 +1041,7 @@ void Comm::AllGather(LibUtilities::MemoryRegion<T> &pSendData,
     int sendSize = pSendData.size();
     int recvSize = sendSize;
 
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         v_AllGather(pSendData.template GetPtr<MemSpace, ReadOnly>(streamID),
                     sendSize, CommDataTypeTraits<T>::GetDataType(),
@@ -948,7 +1100,7 @@ void Comm::AllGatherv(LibUtilities::MemoryRegion<T> &pSendData,
 {
     int sendSize = pSendData.size();
 
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         // Counts and offsets are read by MPI on the host.
         v_AllGatherv(
@@ -1009,7 +1161,7 @@ void Comm::AllGatherv(LibUtilities::MemoryRegion<T> &pRecvData,
                       LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
                       const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         // Counts and offsets are read by MPI on the host.
         v_AllGatherv(
@@ -1058,7 +1210,7 @@ template <class MemSpace, class T>
 void Comm::Bcast(LibUtilities::MemoryRegion<T> &pData, int pRoot,
                  const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         // Synchronize memory on the root process.
         if (GetRank() == pRoot)
@@ -1129,7 +1281,7 @@ LibUtilities::MemoryRegion<T> Comm::Gather(const int rootProc,
     LibUtilities::MemoryRegion<T> ans =
         LibUtilities::MemoryRegion<T>(nOut, eHostPinned, val.GetAlignment());
 
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         void *recvbuf = amRoot
                             ? ans.template GetPtr<MemSpace, WriteOnly>(streamID)
@@ -1198,7 +1350,7 @@ LibUtilities::MemoryRegion<T> Comm::Scatter(
     LibUtilities::MemoryRegion<T> ans =
         LibUtilities::MemoryRegion<T>(nEl, eHostPinned, pData.GetAlignment());
 
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         const void *sendbuf =
             amRoot ? pData.template GetPtr<MemSpace, ReadOnly>(streamID)
@@ -1382,7 +1534,7 @@ void Comm::NeighborAlltoAllv(
     LibUtilities::MemoryRegion<int> &pRecvDataOffsetMap,
     const unsigned int streamID)
 {
-    if (m_gpu_aware)
+    if (HasDeviceComm(CommDataTypeTraits<T>::GetDataType()))
     {
         // Counts and offsets are read by MPI on the host.
         v_NeighborAlltoAllv(
@@ -1655,6 +1807,20 @@ inline std::optional<unsigned int> Comm::GetStream(
         return streamID;
     }
     return std::nullopt;
+}
+
+/**
+ * Return whether device data of type @p dt is communicated on the device:
+ * through a GPU-aware MPI or, with NEKTAR_USE_CCL, the device collective
+ * library.
+ */
+inline bool Comm::HasDeviceComm([[maybe_unused]] CommDataType dt)
+{
+#if defined(NEKTAR_USE_CCL)
+    return m_gpu_aware || v_HasCclComm(dt);
+#else
+    return m_gpu_aware;
+#endif
 }
 #endif
 

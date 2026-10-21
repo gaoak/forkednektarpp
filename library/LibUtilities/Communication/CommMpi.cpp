@@ -40,12 +40,27 @@
 
 #include <LibUtilities/Communication/CommMpi.h>
 
-#if defined(NEKTAR_USE_MPIX_STREAM)
+#if defined(NEKTAR_USE_MPIX_STREAM) || defined(NEKTAR_USE_CCL)
 #include <mutex>
 #if defined(SYCL_ENABLE_CUDA)
 #include <LibUtilities/Backends/CUDAStream.hpp>
 #elif defined(SYCL_ENABLE_HIP)
 #include <LibUtilities/Backends/HIPStream.hpp>
+#endif
+#endif
+
+#if defined(NEKTAR_USE_CCL)
+#include <cstring>
+#include <optional>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+#include <nccl.h>
+#elif defined(NEKTAR_ENABLE_HIP) || defined(SYCL_ENABLE_HIP)
+#include <rccl/rccl.h>
+#elif defined(SYCL_ENABLE_INTEL)
+#include <oneapi/ccl.hpp>
 #endif
 #endif
 
@@ -154,10 +169,15 @@ static int GetLauncherLocalRank()
 }
 #endif
 
-#if defined(NEKTAR_USE_MPIX_STREAM)
+#if defined(NEKTAR_USE_MPIX_STREAM) ||                                         \
+    (defined(NEKTAR_USE_CCL) && !defined(SYCL_ENABLE_INTEL))
+// DPC++ names the extension sycl_ext_oneapi_enqueue_native_command, and its
+// earlier versions sycl_ext_codeplay_enqueue_native_command; both provide
+// handler::ext_codeplay_enqueue_native_command().
 #if defined(NEKTAR_ENABLE_SYCL) && defined(__DPCPP_COMPILER) &&                \
-    !defined(SYCL_EXT_ONEAPI_ENQUEUE_NATIVE_COMMAND)
-#error "NEKTAR_USE_MPIX_STREAM with DPC++ requires the \
+    !defined(SYCL_EXT_ONEAPI_ENQUEUE_NATIVE_COMMAND) &&                        \
+    !defined(SYCL_EXT_CODEPLAY_ENQUEUE_NATIVE_COMMAND)
+#error "Stream-ordered device communication with DPC++ requires the \
 sycl_ext_oneapi_enqueue_native_command extension."
 #endif
 
@@ -184,13 +204,17 @@ static void RunOnStream(const unsigned int streamID, const Command &command)
 #if defined(__ADAPTIVECPP__)
         cgh.AdaptiveCpp_enqueue_custom_operation(native);
 #elif defined(__DPCPP_COMPILER)
-        cgh.ext_oneapi_enqueue_native_command(native);
+        // Still named after Codeplay although the extension is now oneapi;
+        // likely to be renamed ext_oneapi_enqueue_native_command().
+        cgh.ext_codeplay_enqueue_native_command(native);
 #endif
     });
     SYCLQueue::SetEvent(streamID, e);
 #endif
 }
+#endif
 
+#if defined(NEKTAR_USE_MPIX_STREAM)
 /**
  * Stream communicator of the MPIX_Stream extension over the ranks of
  * #m_comm, with the device stream it enqueues on and the events that order
@@ -340,6 +364,662 @@ struct CommMpi::MpixState
         });
     }
 };
+#elif defined(NEKTAR_USE_CCL)
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+using CclDataType  = ncclDataType_t;
+using CclReduction = ncclRedOp_t;
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(SYCL_ENABLE_CUDA)
+static const char *const cclName = "NCCL";
+#else
+static const char *const cclName = "RCCL";
+#endif
+
+#define CHECK_NCCL_ERROR(err)                                                  \
+    {                                                                          \
+        const ncclResult_t nekCheckErr = (err);                                \
+        ASSERTL0(nekCheckErr == ncclSuccess,                                   \
+                 std::string("NCCL error: ") +                                 \
+                     ncclGetErrorString(nekCheckErr));                         \
+    }
+#elif defined(SYCL_ENABLE_INTEL)
+using CclDataType  = ccl::datatype;
+using CclReduction = ccl::reduction;
+#endif
+
+/**
+ * Return the device library type of @p dt, or none when it has none. Neither
+ * NCCL/RCCL nor oneCCL has a long double type, so MPI_LONG_DOUBLE is left to
+ * MPI.
+ */
+static std::optional<CclDataType> GetCclDataType(CommDataType dt)
+{
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    const std::pair<CommDataType, CclDataType> types[] = {
+        {MPI_DOUBLE, ncclFloat64},
+        {MPI_FLOAT, ncclFloat32},
+        {MPI_INT, ncclInt32},
+        {MPI_UNSIGNED, ncclUint32},
+        {MPI_LONG, sizeof(long) == 8 ? ncclInt64 : ncclInt32},
+        {MPI_UNSIGNED_LONG, sizeof(long) == 8 ? ncclUint64 : ncclUint32},
+        {MPI_LONG_LONG, ncclInt64},
+        {MPI_UNSIGNED_LONG_LONG, ncclUint64},
+        {MPI_CHAR, ncclInt8},
+        {MPI_BYTE, ncclUint8}};
+#elif defined(SYCL_ENABLE_INTEL)
+    const std::pair<CommDataType, CclDataType> types[] = {
+        {MPI_DOUBLE, ccl::datatype::float64},
+        {MPI_FLOAT, ccl::datatype::float32},
+        {MPI_INT, ccl::datatype::int32},
+        {MPI_UNSIGNED, ccl::datatype::uint32},
+        {MPI_LONG,
+         sizeof(long) == 8 ? ccl::datatype::int64 : ccl::datatype::int32},
+        {MPI_UNSIGNED_LONG,
+         sizeof(long) == 8 ? ccl::datatype::uint64 : ccl::datatype::uint32},
+        {MPI_LONG_LONG, ccl::datatype::int64},
+        {MPI_UNSIGNED_LONG_LONG, ccl::datatype::uint64},
+        {MPI_CHAR, ccl::datatype::int8},
+        {MPI_BYTE, ccl::datatype::uint8}};
+#endif
+
+    for (const auto &[mpiType, cclType] : types)
+    {
+        if (dt == mpiType)
+        {
+            return cclType;
+        }
+    }
+
+    return std::nullopt;
+}
+
+/**
+ * Return the device library operation of @p pOp.
+ */
+static CclReduction GetCclReduction(enum ReduceOperator pOp)
+{
+    switch (pOp)
+    {
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+        case ReduceMax:
+            return ncclMax;
+        case ReduceMin:
+            return ncclMin;
+        case ReduceSum:
+        default:
+            return ncclSum;
+#elif defined(SYCL_ENABLE_INTEL)
+        case ReduceMax:
+            return ccl::reduction::max;
+        case ReduceMin:
+            return ccl::reduction::min;
+        case ReduceSum:
+        default:
+            return ccl::reduction::sum;
+#endif
+    }
+}
+
+/**
+ * Return the size in bytes of an element of type @p dt.
+ */
+static size_t GetTypeSize(CommDataType dt)
+{
+    int typeSize = 0;
+    MPI_Type_size(dt, &typeSize);
+    return typeSize;
+}
+
+/**
+ * Device collective communicator over the ranks of #m_comm. The operations
+ * are written once over the library calls (CclSend() and the like), which
+ * alone differ between NCCL/RCCL and oneCCL.
+ */
+struct CommMpi::CclState
+{
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    using Stream = nekStream;
+#elif defined(SYCL_ENABLE_INTEL)
+    /// oneCCL stream a call runs on, the events it waits on, and the events
+    /// it completes with.
+    struct Stream
+    {
+        ccl::stream &stream;
+        const std::vector<ccl::event> &deps;
+        std::vector<sycl::event> &done;
+    };
+#endif
+
+    /// One message of an exchange: @p count elements, starting @p offset
+    /// elements into the buffer, to or from rank @p peer.
+    struct Message
+    {
+        int peer;
+        int count;
+        int offset;
+    };
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    ncclComm_t comm = nullptr;
+    /// Serialises the calls on #comm, which SYCL runs on its own threads.
+    std::mutex mutex;
+#elif defined(SYCL_ENABLE_INTEL)
+    std::unique_ptr<ccl::communicator> comm;
+    /// oneCCL stream of each queue the operations are ordered on.
+    std::unordered_map<unsigned int, ccl::stream> streams;
+#endif
+    /// Rank of this process and number of ranks in #comm.
+    int rank = 0;
+    int size = 0;
+    /// Why #comm could not be set up, reported when device data is first
+    /// communicated; empty when it was.
+    std::string error;
+
+    /**
+     * Create the device collective communicator over the @p size ranks of
+     * @p mpiComm, which carries its set-up. Collective over @p mpiComm.
+     *
+     * A failure leaves #comm unset and is recorded in #error, the same on
+     * every rank, so that only communicating device data fails: runs that
+     * communicate host data alone are unaffected.
+     */
+    void Init(MPI_Comm mpiComm, const int rank, const int size)
+    {
+        this->rank = rank;
+        this->size = size;
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+        // NCCL and RCCL refuse a communicator with two ranks on one GPU, so
+        // look for that first, to say so.
+        error = FindSharedGPU(mpiComm, rank);
+        if (!AllRanks(mpiComm, error.empty()))
+        {
+            if (error.empty())
+            {
+                error = std::string(cclName) +
+                        " needs one GPU per MPI rank, but ranks of this "
+                        "communicator on another node share one. Run one MPI "
+                        "rank per GPU, or configure without NEKTAR_USE_CCL.";
+            }
+            return;
+        }
+
+        // The other ranks wait for the root's id, so first tell them whether
+        // it has one.
+        ncclUniqueId id{};
+        ncclResult_t result = (rank == 0) ? ncclGetUniqueId(&id) : ncclSuccess;
+        int haveId          = (result == ncclSuccess);
+        MPI_Bcast(&haveId, 1, MPI_INT, 0, mpiComm);
+
+        if (haveId)
+        {
+            MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, mpiComm);
+
+            // Under SYCL, created in a native command so that it is on the
+            // device of the queues.
+            RunOnStream(0, [this, id, rank, size, &result](nekStream) {
+                result = ncclCommInitRank(&comm, size, id, rank);
+            });
+#if defined(NEKTAR_ENABLE_SYCL)
+            SYCLQueue::GetInstance(0).wait();
+#endif
+        }
+
+        if (!AllRanks(mpiComm, haveId && result == ncclSuccess))
+        {
+            if (comm != nullptr)
+            {
+                (void)ncclCommAbort(comm);
+                comm = nullptr;
+            }
+            error = std::string(cclName) + " could not be set up: " +
+                    (result != ncclSuccess ? ncclGetErrorString(result)
+                                           : "it failed on another rank") +
+                    ".";
+        }
+#elif defined(SYCL_ENABLE_INTEL)
+        static std::once_flag initFlag;
+        std::call_once(initFlag, [] { ccl::init(); });
+
+        ccl::shared_ptr_class<ccl::kvs> kvs;
+        ccl::kvs::address_type address;
+        if (rank == 0)
+        {
+            kvs     = ccl::create_main_kvs();
+            address = kvs->get_address();
+        }
+        MPI_Bcast(address.data(), address.size(), MPI_BYTE, 0, mpiComm);
+        if (rank != 0)
+        {
+            kvs = ccl::create_kvs(address);
+        }
+
+        std::string failure;
+        try
+        {
+            // create_communicator() takes the device by non-const reference.
+            sycl::queue &Q       = SYCLQueue::GetInstance(0);
+            ccl::device device   = ccl::create_device(Q.get_device());
+            ccl::context context = ccl::create_context(Q.get_context());
+            comm                 = std::make_unique<ccl::communicator>(
+                ccl::create_communicator(size, rank, device, context, kvs));
+        }
+        catch (const std::exception &e)
+        {
+            failure = e.what();
+        }
+
+        if (!AllRanks(mpiComm, failure.empty()))
+        {
+            comm.reset();
+            error = "oneCCL could not be set up: " +
+                    (failure.empty() ? std::string("it failed on another rank")
+                                     : failure) +
+                    ".";
+        }
+#endif
+    }
+
+    /**
+     * Return whether @p ok holds on every rank of @p mpiComm.
+     */
+    static bool AllRanks(MPI_Comm mpiComm, const bool ok)
+    {
+        int local = ok, all = 0;
+        MPI_Allreduce(&local, &all, 1, MPI_INT, MPI_MIN, mpiComm);
+        return all;
+    }
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    /**
+     * Return a message naming two ranks of @p mpiComm on this node that share
+     * a GPU, which their PCI bus ids tell, or an empty string when none do.
+     */
+    static std::string FindSharedGPU(MPI_Comm mpiComm, const int rank)
+    {
+        struct RankGPU
+        {
+            int rank;
+            char busId[32];
+        };
+        RankGPU own{rank, {}};
+
+        // Read where the device of the queues is current under SYCL.
+        RunOnStream(0, [&own](nekStream) {
+            int device = 0;
+            CHECK_HIPCUDA_ERROR(nekGetCurrentDevice(&device));
+            CHECK_HIPCUDA_ERROR(
+                nekDeviceGetPCIBusId(own.busId, sizeof(own.busId), device));
+        });
+#if defined(NEKTAR_ENABLE_SYCL)
+        SYCLQueue::GetInstance(0).wait();
+#endif
+
+        MPI_Comm nodeComm;
+        MPI_Comm_split_type(mpiComm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL,
+                            &nodeComm);
+        int nodeSize = 0;
+        MPI_Comm_size(nodeComm, &nodeSize);
+        std::vector<RankGPU> all(nodeSize);
+        MPI_Allgather(&own, sizeof(own), MPI_BYTE, all.data(), sizeof(own),
+                      MPI_BYTE, nodeComm);
+        MPI_Comm_free(&nodeComm);
+
+        for (size_t i = 0; i < all.size(); ++i)
+        {
+            for (size_t j = i + 1; j < all.size(); ++j)
+            {
+                if (std::strcmp(all[i].busId, all[j].busId) == 0)
+                {
+                    return std::string(cclName) +
+                           " needs one GPU per MPI rank, but ranks " +
+                           std::to_string(all[i].rank) + " and " +
+                           std::to_string(all[j].rank) +
+                           " share the GPU at PCI bus " + all[i].busId +
+                           ". Run one MPI rank per GPU, or configure "
+                           "without NEKTAR_USE_CCL.";
+                }
+            }
+        }
+
+        return std::string();
+    }
+#endif
+
+    /**
+     * Free the device collective communicator.
+     */
+    void Free()
+    {
+        if (!comm)
+        {
+            return;
+        }
+
+#if defined(NEKTAR_ENABLE_SYCL)
+        // Work still queued may use the communicator.
+        nekDeviceSynchronize();
+#endif
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+        // Errors are ignored: this may run after the device runtime has
+        // unloaded.
+        (void)ncclCommDestroy(comm);
+        comm = nullptr;
+#elif defined(SYCL_ENABLE_INTEL)
+        streams.clear();
+        comm.reset();
+#endif
+    }
+
+    /**
+     * Run @p calls, given the stream of @p streamID, after the work queued on
+     * @p streamID and without blocking the host.
+     */
+    template <typename Calls>
+    void Enqueue(const unsigned int streamID, const Calls &calls)
+    {
+        ASSERTL0(error.empty(), error);
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+        RunOnStream(streamID, [this, calls](nekStream stream) {
+            std::lock_guard<std::mutex> lock(mutex);
+
+            calls(stream);
+        });
+#elif defined(SYCL_ENABLE_INTEL)
+        auto stream = streams.find(streamID);
+        if (stream == streams.end())
+        {
+            stream =
+                streams
+                    .emplace(streamID, ccl::create_stream(
+                                           SYCLQueue::GetInstance(streamID)))
+                    .first;
+        }
+
+        // Ordered against the other queues as any other submission, see
+        // setSYCLDefaultExecutionDependency().
+        std::vector<ccl::event> deps;
+        if (streamID == 0)
+        {
+            for (auto &item : SYCLQueue::GetAllEvents())
+            {
+                if (item.first != 0)
+                {
+                    deps.push_back(ccl::create_event(item.second));
+                }
+            }
+        }
+        else
+        {
+            deps.push_back(ccl::create_event(SYCLQueue::GetEvent(0)));
+        }
+
+        std::vector<sycl::event> done;
+        calls(Stream{stream->second, deps, done});
+
+        // Mark where the queue stands once the calls have completed, for the
+        // other queues to wait on.
+        sycl::event e =
+            SYCLQueue::GetInstance(streamID).ext_oneapi_submit_barrier(done);
+        SYCLQueue::SetEvent(streamID, e);
+#endif
+    }
+
+    /**
+     * Reduce @p buf onto @p root, in place there, on @p streamID.
+     */
+    void Reduce(void *buf, int count, CommDataType dt, enum ReduceOperator pOp,
+                int root, const unsigned int streamID)
+    {
+        const CclDataType type = *GetCclDataType(dt);
+        const CclReduction op  = GetCclReduction(pOp);
+
+        Enqueue(streamID, [this, buf, count, type, op, root](const Stream &s) {
+            CclReduce(s, buf, count, type, op, root);
+        });
+    }
+
+    /**
+     * All-reduce @p buf in place, on @p streamID.
+     */
+    void AllReduce(void *buf, int count, CommDataType dt,
+                   enum ReduceOperator pOp, const unsigned int streamID)
+    {
+        const CclDataType type = *GetCclDataType(dt);
+        const CclReduction op  = GetCclReduction(pOp);
+
+        Enqueue(streamID, [this, buf, count, type, op](const Stream &s) {
+            CclAllReduce(s, buf, count, type, op);
+        });
+    }
+
+    /**
+     * Send the messages @p sends of @p sendbuf and receive the messages
+     * @p recvs into @p recvbuf, as one group on @p streamID. The point-to-point
+     * operations, all-to-alls, gathers and scatters are all such exchanges.
+     */
+    void Exchange(const void *sendbuf, CommDataType sendtype,
+                  std::vector<Message> sends, void *recvbuf,
+                  CommDataType recvtype, std::vector<Message> recvs,
+                  const unsigned int streamID)
+    {
+        // The types are read only for the side that has messages, as the other
+        // may be MPI_DATATYPE_NULL.
+        CclDataType sendType{}, recvType{};
+        size_t sendSize = 0, recvSize = 0;
+        if (!sends.empty())
+        {
+            sendType = *GetCclDataType(sendtype);
+            sendSize = GetTypeSize(sendtype);
+        }
+        if (!recvs.empty())
+        {
+            recvType = *GetCclDataType(recvtype);
+            recvSize = GetTypeSize(recvtype);
+        }
+
+        const char *sendBytes = static_cast<const char *>(sendbuf);
+        char *recvBytes       = static_cast<char *>(recvbuf);
+
+        Enqueue(streamID,
+                [this, sendBytes, sendType, sendSize, sends, recvBytes,
+                 recvType, recvSize, recvs](const Stream &s) {
+                    CclGroupStart();
+                    for (const auto &m : sends)
+                    {
+                        CclSend(s, sendBytes + m.offset * sendSize, m.count,
+                                sendType, m.peer);
+                    }
+                    for (const auto &m : recvs)
+                    {
+                        CclRecv(s, recvBytes + m.offset * recvSize, m.count,
+                                recvType, m.peer);
+                    }
+                    CclGroupEnd();
+                });
+    }
+
+    /**
+     * Gather @p sendcount elements of @p sendbuf from every rank into
+     * @p recvbuf, in rank order, on @p streamID.
+     */
+    void AllGather(const void *sendbuf, int sendcount, CommDataType sendtype,
+                   void *recvbuf, const unsigned int streamID)
+    {
+        const CclDataType type = *GetCclDataType(sendtype);
+
+        Enqueue(streamID,
+                [this, sendbuf, sendcount, type, recvbuf](const Stream &s) {
+                    CclAllGather(s, sendbuf, recvbuf, sendcount, type);
+                });
+    }
+
+    /**
+     * Gather @p recvcounts[r] elements from every rank r into @p recvbuf at
+     * @p recvdispls[r], as an exchange on @p streamID. This rank's elements are
+     * read from @p sendbuf or, when it is null, are already in place.
+     */
+    void AllGatherv(const void *sendbuf, void *recvbuf, const int *recvcounts,
+                    const int *recvdispls, CommDataType recvtype,
+                    const unsigned int streamID)
+    {
+        const bool inPlace = sendbuf == nullptr;
+        const void *own    = inPlace ? static_cast<char *>(recvbuf) +
+                                        recvdispls[rank] * GetTypeSize(recvtype)
+                                     : sendbuf;
+
+        // Every rank sends its elements to every rank, itself included unless
+        // they are already in place.
+        std::vector<Message> sends, recvs;
+        for (int r = 0; r < size; ++r)
+        {
+            if (inPlace && r == rank)
+            {
+                continue;
+            }
+            sends.push_back({r, recvcounts[rank], 0});
+            recvs.push_back({r, recvcounts[r], recvdispls[r]});
+        }
+
+        Exchange(own, recvtype, sends, recvbuf, recvtype, recvs, streamID);
+    }
+
+    /**
+     * Broadcast @p count elements of @p buffer from @p root, on @p streamID.
+     */
+    void Bcast(void *buffer, int count, CommDataType dt, int root,
+               const unsigned int streamID)
+    {
+        const CclDataType type = *GetCclDataType(dt);
+
+        Enqueue(streamID, [this, buffer, count, type, root](const Stream &s) {
+            CclBroadcast(s, buffer, count, type, root);
+        });
+    }
+
+    // The library calls, which alone differ between NCCL/RCCL and oneCCL.
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(SYCL_ENABLE_CUDA) || defined(SYCL_ENABLE_HIP)
+    void CclGroupStart()
+    {
+        CHECK_NCCL_ERROR(ncclGroupStart());
+    }
+
+    void CclGroupEnd()
+    {
+        CHECK_NCCL_ERROR(ncclGroupEnd());
+    }
+
+    void CclSend(const Stream &s, const void *buf, size_t count,
+                 CclDataType type, int peer)
+    {
+        CHECK_NCCL_ERROR(ncclSend(buf, count, type, peer, comm, s));
+    }
+
+    void CclRecv(const Stream &s, void *buf, size_t count, CclDataType type,
+                 int peer)
+    {
+        CHECK_NCCL_ERROR(ncclRecv(buf, count, type, peer, comm, s));
+    }
+
+    void CclReduce(const Stream &s, void *buf, size_t count, CclDataType type,
+                   CclReduction op, int root)
+    {
+        CHECK_NCCL_ERROR(ncclReduce(buf, buf, count, type, op, root, comm, s));
+    }
+
+    void CclAllReduce(const Stream &s, void *buf, size_t count,
+                      CclDataType type, CclReduction op)
+    {
+        CHECK_NCCL_ERROR(ncclAllReduce(buf, buf, count, type, op, comm, s));
+    }
+
+    void CclAllGather(const Stream &s, const void *sendbuf, void *recvbuf,
+                      size_t count, CclDataType type)
+    {
+        CHECK_NCCL_ERROR(ncclAllGather(sendbuf, recvbuf, count, type, comm, s));
+    }
+
+    void CclBroadcast(const Stream &s, void *buf, size_t count,
+                      CclDataType type, int root)
+    {
+        CHECK_NCCL_ERROR(ncclBroadcast(buf, buf, count, type, root, comm, s));
+    }
+#elif defined(SYCL_ENABLE_INTEL)
+    void CclGroupStart()
+    {
+        ccl::group_start();
+    }
+
+    void CclGroupEnd()
+    {
+        ccl::group_end();
+    }
+
+    void CclSend(const Stream &s, const void *buf, size_t count,
+                 CclDataType type, int peer)
+    {
+        ccl::event e =
+            ccl::send(const_cast<void *>(buf), count, type, peer, *comm,
+                      s.stream, ccl::default_pt2pt_attr, s.deps);
+        s.done.push_back(e.get_native());
+    }
+
+    void CclRecv(const Stream &s, void *buf, size_t count, CclDataType type,
+                 int peer)
+    {
+        ccl::event e = ccl::recv(buf, count, type, peer, *comm, s.stream,
+                                 ccl::default_pt2pt_attr, s.deps);
+        s.done.push_back(e.get_native());
+    }
+
+    void CclReduce(const Stream &s, void *buf, size_t count, CclDataType type,
+                   CclReduction op, int root)
+    {
+        ccl::event e = ccl::reduce(buf, buf, count, type, op, root, *comm,
+                                   s.stream, ccl::default_reduce_attr, s.deps);
+        s.done.push_back(e.get_native());
+    }
+
+    void CclAllReduce(const Stream &s, void *buf, size_t count,
+                      CclDataType type, CclReduction op)
+    {
+        ccl::event e =
+            ccl::allreduce(buf, buf, count, type, op, *comm, s.stream,
+                           ccl::default_allreduce_attr, s.deps);
+        s.done.push_back(e.get_native());
+    }
+
+    void CclAllGather(const Stream &s, const void *sendbuf, void *recvbuf,
+                      size_t count, CclDataType type)
+    {
+        ccl::event e =
+            ccl::allgather(sendbuf, recvbuf, count, type, *comm, s.stream,
+                           ccl::default_allgather_attr, s.deps);
+        s.done.push_back(e.get_native());
+    }
+
+    void CclBroadcast(const Stream &s, void *buf, size_t count,
+                      CclDataType type, int root)
+    {
+        ccl::event e = ccl::broadcast(buf, count, type, root, *comm, s.stream,
+                                      ccl::default_broadcast_attr, s.deps);
+        s.done.push_back(e.get_native());
+    }
+#endif
+};
+
 #endif
 
 std::string CommMpi::className = GetCommFactory().RegisterCreatorFunction(
@@ -429,6 +1109,8 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
 
 #if defined(NEKTAR_USE_MPIX_STREAM)
     InitStreamComm();
+#elif defined(NEKTAR_USE_CCL)
+    InitCclComm();
 #endif
 }
 
@@ -447,6 +1129,8 @@ CommMpi::CommMpi(MPI_Comm pComm) : Comm()
 
 #if defined(NEKTAR_USE_MPIX_STREAM)
     InitStreamComm();
+#elif defined(NEKTAR_USE_CCL)
+    InitCclComm();
 #endif
 }
 
@@ -457,6 +1141,8 @@ CommMpi::~CommMpi()
 {
 #if defined(NEKTAR_USE_MPIX_STREAM)
     FreeStreamComm();
+#elif defined(NEKTAR_USE_CCL)
+    FreeCclComm();
 #endif
 
     int flag;
@@ -485,6 +1171,8 @@ void CommMpi::v_Finalise()
 #endif
 #if defined(NEKTAR_USE_MPIX_STREAM)
     FreeStreamComm();
+#elif defined(NEKTAR_USE_CCL)
+    FreeCclComm();
 #endif
 
     int flag;
@@ -578,12 +1266,49 @@ void CommMpi::FreeStreamComm()
         m_mpix.reset();
     }
 }
+#elif defined(NEKTAR_USE_CCL)
+/**
+ * Return whether device data of type @p dt is communicated by the device
+ * collective library.
+ */
+bool CommMpi::v_HasCclComm(CommDataType dt)
+{
+    return m_ccl != nullptr && GetCclDataType(dt).has_value();
+}
+
+/**
+ * Create the device collective communicator over #m_comm, when a device is
+ * visible and there is more than one rank. Collective, so it is called on
+ * construction: point-to-point calls could not create it.
+ */
+void CommMpi::InitCclComm()
+{
+    if (nekGetNumDevice() > 0 && GetSize() > 1)
+    {
+        m_ccl = std::make_unique<CclState>();
+        m_ccl->Init(m_comm, m_rank, GetSize());
+    }
+}
+
+/**
+ * Free the device collective communicator.
+ */
+void CommMpi::FreeCclComm()
+{
+    if (m_ccl)
+    {
+        m_ccl->Free();
+        m_ccl.reset();
+    }
+}
+
 #endif
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the send is
- * enqueued on MpixState::commStream, without blocking the host; otherwise
- * @p streamID is synchronised first.
+ * enqueued on MpixState::commStream and with a device collective library it
+ * runs on @p streamID, both without blocking the host; otherwise @p streamID
+ * is synchronised first.
  */
 void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
                      std::optional<unsigned int> streamID)
@@ -599,6 +1324,14 @@ void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
                      "MPI error performing stream-ordered send.");
         });
         return;
+#elif defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->Exchange(buf, dt, {{dest, count, 0}}, nullptr,
+                            MPI_DATATYPE_NULL, {}, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
@@ -616,8 +1349,9 @@ void CommMpi::v_Send(const void *buf, int count, CommDataType dt, int dest,
 
 /**
  * Device data is ordered on @p streamID: with MPIX streams the receive is
- * enqueued on MpixState::commStream, without blocking the host; otherwise
- * @p streamID is synchronised first.
+ * enqueued on MpixState::commStream and with a device collective library it
+ * runs on @p streamID, both without blocking the host; otherwise @p streamID
+ * is synchronised first.
  */
 void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
                      std::optional<unsigned int> streamID)
@@ -634,6 +1368,14 @@ void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
                          "MPI error performing stream-ordered receive.");
             });
         return;
+#elif defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->Exchange(nullptr, MPI_DATATYPE_NULL, {}, buf, dt,
+                            {{source, count, 0}}, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
@@ -645,7 +1387,9 @@ void CommMpi::v_Recv(void *buf, int count, CommDataType dt, int source,
 /**
  * Device data is ordered on @p streamID: with MPIX streams the send and
  * receive are enqueued on MpixState::commStream and completed by one wait,
- * without blocking the host; otherwise @p streamID is synchronised first.
+ * and with a device collective library they run on @p streamID as one group,
+ * both without blocking the host; otherwise @p streamID is synchronised
+ * first.
  */
 void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
                          CommDataType sendtype, int dest, void *recvbuf,
@@ -677,6 +1421,14 @@ void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
                                             "data.");
         });
         return;
+#elif defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(sendtype) && v_HasCclComm(recvtype))
+        {
+            m_ccl->Exchange(sendbuf, sendtype, {{dest, sendcount, 0}}, recvbuf,
+                            recvtype, {{source, recvcount, 0}}, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
@@ -691,8 +1443,101 @@ void CommMpi::v_SendRecv(const void *sendbuf, int sendcount,
 }
 
 /**
- * Device data is ordered on @p streamID: with MPIX streams the all-reduce is
- * enqueued on MpixState::commStream, without blocking the host; otherwise
+ * Device data is ordered on @p streamID: with a device collective library
+ * the reduction runs on @p streamID without blocking the host; otherwise,
+ * MPIX streams included, @p streamID is synchronised first. The result is in
+ * place on @p root.
+ */
+void CommMpi::v_Reduce(void *buf, int count, CommDataType dt,
+                       enum ReduceOperator pOp, int root,
+                       std::optional<unsigned int> streamID)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    if (streamID)
+    {
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->Reduce(buf, count, dt, pOp, root, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
+    int retval = MPI_Reduce(m_rank == root ? MPI_IN_PLACE : buf, buf, count, dt,
+                            GetMpiOp(pOp), root, m_comm);
+
+    ASSERTL0(retval == MPI_SUCCESS, "MPI error performing Reduce.");
+}
+
+/**
+ * As v_Reduce(), completed by v_ReduceEnd(). With a device collective
+ * library, the reduction is ordered on @p streamID and leaves v_ReduceEnd()
+ * nothing to wait on.
+ */
+void CommMpi::v_ReduceBegin(void *buf, int count, CommDataType dt,
+                            enum ReduceOperator pOp, int root,
+                            CommRequestSharedPtr request,
+                            std::optional<unsigned int> streamID)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    if (streamID)
+    {
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->Reduce(buf, count, dt, pOp, root, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+        nekStreamSynchronize(*streamID);
+#endif
+    }
+
+    CommRequestMpiSharedPtr req =
+        std::static_pointer_cast<CommRequestMpi>(request);
+    int retval =
+        MPI_Ireduce(m_rank == root ? MPI_IN_PLACE : buf, buf, count, dt,
+                    GetMpiOp(pOp), root, m_comm, req->GetRequest(0));
+
+    ASSERTL0(retval == MPI_SUCCESS, "MPI error performing Reduce.");
+}
+
+/**
+ * Wait for the reduction v_ReduceBegin() started through MPI.
+ */
+void CommMpi::v_ReduceEnd(CommRequestSharedPtr request,
+                          [[maybe_unused]] std::optional<unsigned int> streamID)
+{
+    if (GetSize() == 1)
+    {
+        return;
+    }
+
+    CommRequestMpiSharedPtr req =
+        std::static_pointer_cast<CommRequestMpi>(request);
+    if (req->GetNumRequest() != 0)
+    {
+        MPI_Wait(req->GetRequest(0), MPI_STATUS_IGNORE);
+    }
+}
+
+/**
+ * Device data is ordered on @p streamID: with a device collective library
+ * the all-reduce runs on @p streamID, and with MPIX streams it is enqueued
+ * on MpixState::commStream, both without blocking the host; otherwise
  * @p streamID is synchronised first.
  */
 void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
@@ -718,6 +1563,13 @@ void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
                          "MPI error performing stream-ordered All-reduce.");
             });
         return;
+#elif defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->AllReduce(buf, count, dt, pOp, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
@@ -729,9 +1581,11 @@ void CommMpi::v_AllReduce(void *buf, int count, CommDataType dt,
 }
 
 /**
- * Device data is ordered on @p streamID: with MPIX streams the all-reduce is
- * enqueued on MpixState::commStream and neither the host nor @p streamID
- * blocks until v_AllReduceEnd(); otherwise @p streamID is synchronised first.
+ * Device data is ordered on @p streamID: with a device collective library
+ * the all-reduce runs on @p streamID without blocking the host; with MPIX
+ * streams it is enqueued on MpixState::commStream and neither the host nor
+ * @p streamID blocks until v_AllReduceEnd(); otherwise @p streamID is
+ * synchronised first.
  */
 void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
                                enum ReduceOperator pOp,
@@ -759,6 +1613,13 @@ void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
             },
             false);
         return;
+#elif defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->AllReduce(buf, count, dt, pOp, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
 #elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
@@ -774,7 +1635,8 @@ void CommMpi::v_AllReduceBegin(void *buf, int count, CommDataType dt,
 
 /**
  * With MPIX streams, the work queued next on @p streamID is ordered after
- * the all-reduce, without blocking the host.
+ * the all-reduce, without blocking the host. A device collective library
+ * runs the all-reduce on @p streamID itself, so leaves nothing to wait on.
  */
 void CommMpi::v_AllReduceEnd(CommRequestSharedPtr request,
                              std::optional<unsigned int> streamID)
@@ -810,7 +1672,21 @@ void CommMpi::v_AlltoAll(const void *sendbuf, int sendcount,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(sendtype) && v_HasCclComm(recvtype))
+        {
+            std::vector<CclState::Message> sends, recvs;
+            for (int r = 0; r < GetSize(); ++r)
+            {
+                sends.push_back({r, sendcount, r * sendcount});
+                recvs.push_back({r, recvcount, r * recvcount});
+            }
+            m_ccl->Exchange(sendbuf, sendtype, sends, recvbuf, recvtype, recvs,
+                            *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -832,7 +1708,21 @@ void CommMpi::v_AlltoAllv(const void *sendbuf, const int *sendcounts,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(sendtype) && v_HasCclComm(recvtype))
+        {
+            std::vector<CclState::Message> sends, recvs;
+            for (int r = 0; r < GetSize(); ++r)
+            {
+                sends.push_back({r, sendcounts[r], senddispls[r]});
+                recvs.push_back({r, recvcounts[r], recvdispls[r]});
+            }
+            m_ccl->Exchange(sendbuf, sendtype, sends, recvbuf, recvtype, recvs,
+                            *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -854,7 +1744,14 @@ void CommMpi::v_AllGather(const void *sendbuf, int sendcount,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(sendtype) && v_HasCclComm(recvtype))
+        {
+            m_ccl->AllGather(sendbuf, sendcount, sendtype, recvbuf, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -876,7 +1773,15 @@ void CommMpi::v_AllGatherv(const void *sendbuf, int sendcount,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(recvtype))
+        {
+            m_ccl->AllGatherv(sendbuf, recvbuf, recvcounts, recvdispls,
+                              recvtype, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -896,7 +1801,15 @@ void CommMpi::v_AllGatherv(void *recvbuf, const int *recvcounts,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(recvtype))
+        {
+            m_ccl->AllGatherv(nullptr, recvbuf, recvcounts, recvdispls,
+                              recvtype, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -915,7 +1828,14 @@ void CommMpi::v_Bcast(void *buffer, int count, CommDataType dt, int root,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(dt))
+        {
+            m_ccl->Bcast(buffer, count, dt, root, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -935,7 +1855,23 @@ void CommMpi::v_Gather(const void *sendbuf, int sendcount,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(sendtype))
+        {
+            std::vector<CclState::Message> recvs;
+            if (m_rank == root)
+            {
+                for (int r = 0; r < GetSize(); ++r)
+                {
+                    recvs.push_back({r, recvcount, r * recvcount});
+                }
+            }
+            m_ccl->Exchange(sendbuf, sendtype, {{root, sendcount, 0}}, recvbuf,
+                            recvtype, recvs, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -956,7 +1892,23 @@ void CommMpi::v_Scatter(const void *sendbuf, int sendcount,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(recvtype))
+        {
+            std::vector<CclState::Message> sends;
+            if (m_rank == root)
+            {
+                for (int r = 0; r < GetSize(); ++r)
+                {
+                    sends.push_back({r, sendcount, r * sendcount});
+                }
+            }
+            m_ccl->Exchange(sendbuf, sendtype, sends, recvbuf, recvtype,
+                            {{root, recvcount, 0}}, *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }
@@ -1021,7 +1973,37 @@ void CommMpi::v_NeighborAlltoAllv([[maybe_unused]] const void *sendbuf,
 {
     if (streamID)
     {
-#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+#if defined(NEKTAR_USE_CCL)
+        if (v_HasCclComm(sendtype) && v_HasCclComm(recvtype))
+        {
+            // The neighbours of this rank in the graph of #m_comm.
+            int indegree = 0, outdegree = 0, weighted = 0;
+            MPI_Dist_graph_neighbors_count(m_comm, &indegree, &outdegree,
+                                           &weighted);
+            std::vector<int> sources(indegree), destinations(outdegree);
+            std::vector<int> sourceweights(indegree), destweights(outdegree);
+            MPI_Dist_graph_neighbors(
+                m_comm, indegree, sources.data(),
+                weighted ? sourceweights.data() : MPI_UNWEIGHTED, outdegree,
+                destinations.data(),
+                weighted ? destweights.data() : MPI_UNWEIGHTED);
+
+            std::vector<CclState::Message> sends, recvs;
+            for (int i = 0; i < outdegree; ++i)
+            {
+                sends.push_back(
+                    {destinations[i], sendcounts[i], senddispls[i]});
+            }
+            for (int i = 0; i < indegree; ++i)
+            {
+                recvs.push_back({sources[i], recvcounts[i], recvdispls[i]});
+            }
+            m_ccl->Exchange(sendbuf, sendtype, sends, recvbuf, recvtype, recvs,
+                            *streamID);
+            return;
+        }
+        nekStreamSynchronize(*streamID);
+#elif defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
         nekStreamSynchronize(*streamID);
 #endif
     }

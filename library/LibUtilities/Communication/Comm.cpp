@@ -43,20 +43,6 @@ Comm::Comm([[maybe_unused]] int narg, [[maybe_unused]] char *arg[])
 /**
  *
  */
-Comm::Comm()
-{
-}
-
-/**
- *
- */
-Comm::~Comm()
-{
-}
-
-/**
- *
- */
 CommFactory &GetCommFactory()
 {
     static CommFactory instance;
@@ -70,5 +56,16 @@ std::pair<CommSharedPtr, CommSharedPtr> Comm::v_SplitCommNode()
 {
     return std::make_pair(CommSharedPtr(), CommSharedPtr());
 }
+
+#if defined(NEKTAR_USE_CCL)
+/**
+ * Return whether device data of type @p dt is communicated by the device
+ * collective library rather than MPI, whether or not MPI is GPU-aware.
+ */
+bool Comm::v_HasCclComm([[maybe_unused]] CommDataType dt)
+{
+    return false;
+}
+#endif
 
 } // namespace Nektar::LibUtilities

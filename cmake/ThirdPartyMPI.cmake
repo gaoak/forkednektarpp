@@ -88,6 +88,154 @@ IF( NEKTAR_USE_MPI )
         ENDIF()
     ENDIF()
 
+    # Stream-ordered device communication through the collective
+    # communication library of the device: NCCL (CUDA), RCCL (HIP) or oneCCL
+    # (Intel, with DPC++). MPI still sets up the communicators and carries
+    # everything else.
+    IF (NEKTAR_ENABLE_DEVICE STREQUAL "CUDA" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "HIP" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP" OR
+        NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-Intel")
+        OPTION(NEKTAR_USE_CCL
+            "Run device communication with NCCL, RCCL or oneCCL." OFF)
+        MARK_AS_ADVANCED(NEKTAR_USE_CCL)
+
+        IF (NEKTAR_USE_CCL)
+            IF (NEKTAR_USE_MPIX_STREAM)
+                MESSAGE(FATAL_ERROR "NEKTAR_USE_CCL and "
+                    "NEKTAR_USE_MPIX_STREAM cannot be enabled together.")
+            ENDIF()
+
+            # Besides the system paths, the library is looked for under
+            # CCL_ROOT, then the environment variables its installation or the
+            # vendor's environment scripts set, then its usual install
+            # locations. Setting CCL_INCLUDE_DIR and CCL_LIBRARY skips the
+            # search.
+            SET(CCL_ROOT "" CACHE PATH
+                "Install prefix of NCCL, RCCL or oneCCL, searched first.")
+            MARK_AS_ADVANCED(CCL_ROOT)
+
+            IF (NEKTAR_ENABLE_DEVICE MATCHES "CUDA$")
+                SET(CCL_NAME "NCCL")
+                SET(CCL_HEADER nccl.h)
+                SET(CCL_LIBNAME nccl)
+                SET(CCL_ENV NCCL_ROOT NCCL_HOME NCCL_DIR NCCL_PATH CUDA_HOME
+                    CUDA_PATH)
+                # NCCL alongside the CUDA toolkit, then the copies the NVIDIA
+                # HPC SDK ships with its communication libraries, per CUDA
+                # version (comm_libs/<version>/nccl) or not. The SDK's prefix
+                # is NVHPC_ROOT, or the part before cuda/ or comm_libs/ in the
+                # paths of the CUDA toolkit, MPI or compilers it provides.
+                SET(CCL_DEFAULTS ${CUDAToolkit_LIBRARY_ROOT})
+                SET(CCL_NVHPC_ROOTS)
+                IF (DEFINED ENV{NVHPC_ROOT})
+                    LIST(APPEND CCL_NVHPC_ROOTS $ENV{NVHPC_ROOT})
+                ENDIF()
+                FOREACH (CCL_PATH ${CUDAToolkit_LIBRARY_ROOT}
+                         ${MPI_CXX_LIBRARIES} ${MPI_C_LIBRARIES}
+                         ${CMAKE_CXX_COMPILER} ${CMAKE_C_COMPILER})
+                    IF (CCL_PATH MATCHES "^(.*)/(cuda|comm_libs)/")
+                        LIST(APPEND CCL_NVHPC_ROOTS ${CMAKE_MATCH_1})
+                    ENDIF()
+                ENDFOREACH()
+                IF (CCL_NVHPC_ROOTS)
+                    LIST(REMOVE_DUPLICATES CCL_NVHPC_ROOTS)
+                ENDIF()
+                FOREACH (CCL_NVHPC ${CCL_NVHPC_ROOTS})
+                    SET(CCL_CUDA_VERSION
+                        ${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR})
+                    FILE(GLOB CCL_NVHPC_NCCL ${CCL_NVHPC}/comm_libs/*/nccl)
+                    LIST(SORT CCL_NVHPC_NCCL)
+                    LIST(REVERSE CCL_NVHPC_NCCL)
+                    LIST(APPEND CCL_DEFAULTS
+                        ${CCL_NVHPC}/comm_libs/${CCL_CUDA_VERSION}/nccl
+                        ${CCL_NVHPC_NCCL} ${CCL_NVHPC}/comm_libs/nccl)
+                ENDFOREACH()
+            ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "HIP$")
+                SET(CCL_NAME "RCCL")
+                SET(CCL_HEADER rccl/rccl.h)
+                SET(CCL_LIBNAME rccl)
+                SET(CCL_ENV RCCL_ROOT RCCL_HOME ROCM_PATH ROCM_HOME HIP_PATH)
+                # The default ROCm, then the versioned ones, newest first.
+                FILE(GLOB CCL_DEFAULTS /opt/rocm-*)
+                LIST(SORT CCL_DEFAULTS)
+                LIST(REVERSE CCL_DEFAULTS)
+                LIST(INSERT CCL_DEFAULTS 0 /opt/rocm)
+            ELSE()
+                SET(CCL_NAME "oneCCL")
+                IF (NOT NEKTAR_SYCL_COMPILER STREQUAL "DPC++")
+                    MESSAGE(FATAL_ERROR "NEKTAR_USE_CCL with SYCL-Intel "
+                        "requires DPC++, whose SYCL objects oneCCL takes.")
+                ENDIF()
+                SET(CCL_HEADER oneapi/ccl.hpp)
+                SET(CCL_LIBNAME ccl)
+                # CCL_ROOT is set by the oneAPI environment scripts.
+                SET(CCL_ENV CCL_ROOT ONECCL_ROOT)
+                SET(CCL_DEFAULTS)
+                IF (DEFINED ENV{ONEAPI_ROOT})
+                    LIST(APPEND CCL_DEFAULTS $ENV{ONEAPI_ROOT}/ccl/latest)
+                ENDIF()
+                LIST(APPEND CCL_DEFAULTS /opt/intel/oneapi/ccl/latest)
+            ENDIF()
+
+            SET(CCL_HINTS ${CCL_ROOT})
+            FOREACH (CCL_VAR ${CCL_ENV})
+                IF (DEFINED ENV{${CCL_VAR}})
+                    LIST(APPEND CCL_HINTS $ENV{${CCL_VAR}})
+                ENDIF()
+            ENDFOREACH()
+            LIST(APPEND CCL_HINTS ${CCL_DEFAULTS})
+            IF (CCL_HINTS)
+                LIST(REMOVE_DUPLICATES CCL_HINTS)
+            ENDIF()
+
+            # Older oneCCL installs keep the SYCL build in cpu_gpu_dpcpp.
+            FIND_PATH(CCL_INCLUDE_DIR ${CCL_HEADER} HINTS ${CCL_HINTS}
+                PATH_SUFFIXES include include/cpu_gpu_dpcpp)
+            FIND_LIBRARY(CCL_LIBRARY ${CCL_LIBNAME} HINTS ${CCL_HINTS}
+                PATH_SUFFIXES lib lib64 lib/cpu_gpu_dpcpp)
+            MARK_AS_ADVANCED(CCL_INCLUDE_DIR CCL_LIBRARY)
+
+            IF (NOT CCL_INCLUDE_DIR OR NOT CCL_LIBRARY)
+                MESSAGE(FATAL_ERROR "NEKTAR_USE_CCL requires ${CCL_NAME}, "
+                    "which was not found: set CCL_ROOT to its install prefix, "
+                    "or CCL_INCLUDE_DIR and CCL_LIBRARY.")
+            ENDIF()
+
+            # The point-to-point and group operations of oneCCL carry the
+            # exchanges, and are recent.
+            IF (CCL_NAME STREQUAL "oneCCL")
+                INCLUDE(CheckCXXSourceCompiles)
+                SET(CMAKE_REQUIRED_INCLUDES ${CCL_INCLUDE_DIR})
+                SET(CMAKE_REQUIRED_LIBRARIES ${CCL_LIBRARY})
+                CHECK_CXX_SOURCE_COMPILES("
+                    #include <oneapi/ccl.hpp>
+                    int main()
+                    {
+                        ccl::group_start();
+                        ccl::group_end();
+                        const ccl::pt2pt_attr &attr = ccl::default_pt2pt_attr;
+                        (void)attr;
+                        return 0;
+                    }" NEKTAR_HAVE_ONECCL_PT2PT)
+                UNSET(CMAKE_REQUIRED_INCLUDES)
+                UNSET(CMAKE_REQUIRED_LIBRARIES)
+
+                IF (NOT NEKTAR_HAVE_ONECCL_PT2PT)
+                    MESSAGE(FATAL_ERROR "NEKTAR_USE_CCL requires a oneCCL "
+                        "with point-to-point and group operations, such as "
+                        "2021.17.")
+                ENDIF()
+            ENDIF()
+
+            INCLUDE_DIRECTORIES(SYSTEM ${CCL_INCLUDE_DIR})
+            ADD_DEFINITIONS(-DNEKTAR_USE_CCL)
+            MESSAGE(STATUS "Using ${CCL_NAME} for device communication: "
+                "${CCL_LIBRARY} (headers in ${CCL_INCLUDE_DIR})")
+        ENDIF()
+    ENDIF()
+
     IF (THIRDPARTY_BUILD_GSMPI)
         INCLUDE(ExternalProject)
         THIRDPARTY_LIBRARY(GSMPI_LIBRARY STATIC gsmpi DESCRIPTION "GSMPI Library")

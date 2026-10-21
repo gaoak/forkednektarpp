@@ -96,6 +96,8 @@ v5.11.0
 - Move the MPIX stream state of CommMpi into the source file and check for a device in InitStreamComm() (!2854)
 - Bind each MPI rank to its GPU before MPI_Init where the launcher gives its node-local rank (!2844)
 - Detect GPU-aware MPI for the SYCL back-ends (!2844)
+- Add optional NCCL, RCCL and oneCCL support for device communication (!2853)
+- Add Reduce, ReduceBegin and ReduceEnd to Comm, for host and device data (!2853)
 - Run the CG Dirichlet/Neumann boundary-condition operators' cross-block work on an explicit stream instead of the legacy default stream, and remove the unused DGDirBndCond and DGPerBndCond operators (!2845)
 - Remove unused boost includes and use std::isnan, std::tie and the local hash_range instead of boost (!2847)
 - Add a string utilities header (Nektar::StringUtils) and use it in place of Boost.StringAlgo and hand-rolled string helpers (!2850)
