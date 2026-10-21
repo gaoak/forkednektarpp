@@ -9,6 +9,192 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
 ENDIF()
 
 IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
+    # IncNS-specific operators.
+    SET(OPNAMESPACE "Nektar::detail")
+    FOREACH(child IN ITEMS
+            ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/HOPressureBndCond
+            ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/HOutflowBndCond)
+        ADD_OPERATOR(${child} OPNAMESPACE INCNS_OPERATORS_HEADERS
+            INCNS_OPERATORS_SOURCES)
+    ENDFOREACH()
+
+    IF(NEKTAR_BUILD_UNIT_TESTS AND NEKTAR_ENABLE_DOUBLE_PRECISION)
+        SET(INCNS_UNIT_TEST_DEPENDS SolverCore MultiRegions SolverUtils)
+        IF(BOOST_TEST_DYN_LINK)
+            LIST(APPEND INCNS_UNIT_TEST_DEPENDS
+                ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+        ENDIF()
+
+        ADD_NEKTAR_EXECUTABLE(TestHOPressureBndCond
+            COMPONENT unit-test
+            DEPENDS ${INCNS_UNIT_TEST_DEPENDS}
+            SOURCES UnitTests/TestHOPressureBndCond.cpp
+                    ${HOPressureBndCond_SOURCES})
+
+        ADD_NEKTAR_EXECUTABLE(TestHOutflowBndCond
+            COMPONENT unit-test
+            DEPENDS ${INCNS_UNIT_TEST_DEPENDS}
+            SOURCES UnitTests/TestHOutflowBndCond.cpp
+                    ${HOutflowBndCond_SOURCES})
+
+        # The pressure and velocity kernels at single points, without a
+        # session.
+        ADD_TEST(NAME OperatorsHOutflowBndCond_host_reference
+            COMMAND $<TARGET_FILE:TestHOutflowBndCond>
+                --detect_memory_leaks=0)
+
+        # The pressure condition on a region of two elements, through the
+        # operator, which checks the extraction and the block layout of the
+        # boundary data.
+        FUNCTION(ADD_HOUTFLOW_EXTRACTION_UNIT_TEST testname execspace implementation)
+            ADD_TEST(
+                NAME Operators${testname}
+                COMMAND $<TARGET_FILE:TestHOutflowBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOutflowBndCond/build_boundary_element_data_manufactured_multi_element
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOutflowBndCondExtraction2D.xml)
+        ENDFUNCTION()
+
+        ADD_HOUTFLOW_EXTRACTION_UNIT_TEST(
+            HOutflowBndCond_extraction_serial_stdmat Serial StdMat)
+        ADD_HOUTFLOW_EXTRACTION_UNIT_TEST(
+            HOutflowBndCond_extraction_serial_sumfac Serial SumFac)
+        IF(NEKTAR_ENABLE_SIMD)
+            ADD_HOUTFLOW_EXTRACTION_UNIT_TEST(
+                HOutflowBndCond_extraction_avx_sumfac AVX SumFac)
+        ENDIF()
+        IF(NEKTAR_ENABLE_DEVICE)
+            ADD_HOUTFLOW_EXTRACTION_UNIT_TEST(
+                HOutflowBndCond_extraction_device_sumfactop Device SumFacTOP)
+        ENDIF()
+
+        # The pressure and velocity conditions applied to fields at the
+        # interleave width of the execution space and at width 1, on two
+        # regions meeting at a corner of one element.
+        FUNCTION(ADD_HOUTFLOW_INTERLEAVED_UNIT_TEST testname execspace implementation)
+            ADD_TEST(
+                NAME Operators${testname}
+                COMMAND $<TARGET_FILE:TestHOutflowBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOutflowBndCond/apply_interleaved_matches_width_one
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOutflowBndCondCorner2D.xml)
+        ENDFUNCTION()
+
+        ADD_HOUTFLOW_INTERLEAVED_UNIT_TEST(
+            HOutflowBndCond_interleaved_serial_stdmat Serial StdMat)
+        ADD_HOUTFLOW_INTERLEAVED_UNIT_TEST(
+            HOutflowBndCond_interleaved_serial_sumfac Serial SumFac)
+        IF(NEKTAR_ENABLE_SIMD)
+            ADD_HOUTFLOW_INTERLEAVED_UNIT_TEST(
+                HOutflowBndCond_interleaved_avx_sumfac AVX SumFac)
+        ENDIF()
+        IF(NEKTAR_ENABLE_DEVICE)
+            ADD_HOUTFLOW_INTERLEAVED_UNIT_TEST(
+                HOutflowBndCond_interleaved_device_sumfactop Device SumFacTOP)
+        ENDIF()
+
+        FUNCTION(ADD_HOPRESSURE_UNIT_TEST testname execspace implementation)
+            SET(session HOPressureBndCond2D.xml)
+            IF(ARGC GREATER 3)
+                SET(session ${ARGV3})
+            ENDIF()
+            ADD_TEST(
+                NAME Operators${testname}
+                COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                    --detect_memory_leaks=0 -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/${session})
+        ENDFUNCTION()
+
+        FUNCTION(ADD_HOPRESSURE_SHAPE_UNIT_TESTS testprefix execspace implementation)
+            ADD_HOPRESSURE_UNIT_TEST(${testprefix}_tri ${execspace}
+                ${implementation} HOPressureBndCond2D_Tri.xml)
+            ADD_HOPRESSURE_UNIT_TEST(${testprefix}_hex ${execspace}
+                ${implementation} HOPressureBndCond3D_Hex.xml)
+            ADD_HOPRESSURE_UNIT_TEST(${testprefix}_tet ${execspace}
+                ${implementation} HOPressureBndCond3D_Tet.xml)
+            ADD_HOPRESSURE_UNIT_TEST(${testprefix}_prism ${execspace}
+                ${implementation} HOPressureBndCond3D_Prism.xml)
+        ENDFUNCTION()
+
+        FUNCTION(ADD_HOPRESSURE_KOVASZNAY_UNIT_TEST testname execspace implementation)
+            ADD_TEST(
+                NAME Operators${testname}
+                COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOPressureBndCond/update_then_apply_kovasznay_boundary_flux
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D.xml)
+        ENDFUNCTION()
+
+        # A region whose velocity is Dirichlet in one component and Neumann
+        # in the other: the Neumann component takes no acceleration, and its
+        # flux is formed from the explicit contribution.
+        FUNCTION(ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST testname execspace
+                 implementation)
+            ADD_TEST(
+                NAME Operators${testname}_neumann_velocity
+                COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOPressureBndCond/update_then_apply_neumann_velocity_boundary_flux
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCondNeumannVelocity2D.xml)
+        ENDFUNCTION()
+
+        ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_serial_stdmat
+            Serial StdMat)
+        ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
+            HOPressureBndCond_serial_stdmat Serial StdMat)
+        ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
+            HOPressureBndCond_serial_sumfac Serial SumFac)
+        ADD_HOPRESSURE_SHAPE_UNIT_TESTS(HOPressureBndCond_serial_stdmat
+            Serial StdMat)
+        ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_serial_sumfac
+            Serial SumFac)
+        ADD_HOPRESSURE_SHAPE_UNIT_TESTS(HOPressureBndCond_serial_sumfac
+            Serial SumFac)
+        ADD_HOPRESSURE_KOVASZNAY_UNIT_TEST(
+            HOPressureBndCond_kovasznay_serial_stdmat Serial StdMat)
+
+        # The selection of the boundary regions (USERDEFINEDTYPE="H") is
+        # host code, so Serial/StdMat covers it.
+        ADD_TEST(
+            NAME OperatorsHOPressureBndCond_selection_serial_stdmat
+            COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                --detect_memory_leaks=0
+                --run_test=TestHOPressureBndCond/update_then_apply_selection_respects_hop_tag
+                -- Serial StdMat
+                ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCondSelection2D.xml)
+        IF(NEKTAR_ENABLE_SIMD)
+            ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_avx_stdmat
+                AVX StdMat)
+            ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_avx_sumfac
+                AVX SumFac)
+            ADD_HOPRESSURE_SHAPE_UNIT_TESTS(HOPressureBndCond_avx_sumfac
+                AVX SumFac)
+            ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
+                HOPressureBndCond_avx_sumfac AVX SumFac)
+        ENDIF()
+        IF(NEKTAR_ENABLE_DEVICE)
+            ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_device_stdmat
+                Device StdMat)
+            ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_device_sumfac
+                Device SumFac)
+            ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_device_sumfactop
+                Device SumFacTOP)
+            ADD_HOPRESSURE_SHAPE_UNIT_TESTS(HOPressureBndCond_device_sumfactop
+                Device SumFacTOP)
+            ADD_HOPRESSURE_KOVASZNAY_UNIT_TEST(
+                HOPressureBndCond_kovasznay_device_sumfactop
+                Device SumFacTOP)
+            ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
+                HOPressureBndCond_device_stdmat Device StdMat)
+            ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
+                HOPressureBndCond_device_sumfactop Device SumFacTOP)
+        ENDIF()
+    ENDIF()
+
     # Default timestepping schemes.
     SET(Formulations linearimplicit semiimplicit)
 
@@ -68,6 +254,7 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
         SOURCES
             IncNavierStokesSolverRedesign.cpp
             EquationSystems/VelocityCorrectionScheme.cpp
+            ${INCNS_OPERATORS_SOURCES}
     )
 
     IF(NEKTAR_BUILD_SOLVER_LIBS)
@@ -78,6 +265,14 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             UniformFlow2D
             CouetteFlow2D
             ChannelFlow2D
+            ChannelFlowHOPBC2D
+            # Manufactured flow on the faceted-cylinder mesh, with non-zero
+            # advection, body forcing and CurlCurl contributions to the
+            # higher-order pressure boundary condition.
+            CylinderFlowHOPBC2D
+            # Steady exact flow with non-zero advection and spatially varying
+            # higher-order pressure boundary data.
+            KovasznayFlowHOPBC2D
             KovasznayFlow2D
             UniformFlow3D_Hex
             CouetteFlow3D_Hex
@@ -166,6 +361,85 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             PROPERTIES DISABLED TRUE)
     ENDIF()
 
+    # Mixed 3D higher-order pressure boundary condition regressions, on the
+    # main host and device implementations, covering hexahedron, prism and
+    # tetrahedron boundary faces.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(HOPBCMixedSession IN ITEMS
+                ChannelFlowHOPBC3D_Mixed
+                ChannelFlowHOPBC3D_TetPrism)
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_${HOPBCMixedSession}_linearimplicit_Serial_SumFac
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${HOPBCMixedSession}.tst -v
+                    --opExecSpace=Serial --opImpl=SumFac
+                    "--solver-options=-I Formulation=linearimplicit")
+
+            IF(NEKTAR_ENABLE_DEVICE)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_${HOPBCMixedSession}_linearimplicit_Device_SumFacTOP
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/${HOPBCMixedSession}.tst -v
+                        --opExecSpace=Device --opImpl=SumFacTOP
+                        "--solver-options=-I Formulation=linearimplicit")
+            ENDIF()
+        ENDFOREACH()
+    ENDIF()
+
+    # The mixed hex/prism channel with higher-order pressure regions whose
+    # velocity is not Dirichlet in every component: an all-Neumann inflow,
+    # whose normal lies along a Neumann component, and two slip side walls.
+    # Both formulations at the SumFac-family implementation of every
+    # execution space.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            FOREACH(Formulation IN LISTS Formulations)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlowHOPBC3D_NeumannVelocity_${Formulation}_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlowHOPBC3D_NeumannVelocity.tst
+                        -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=${Formulation}")
+            ENDFOREACH()
+        ENDFOREACH()
+    ENDIF()
+
+    # Dong's high-order outflow condition on the Kovasznay mesh: a steady
+    # exact solution, and an outlet with a sign-changing normal velocity.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        SET(HOutflowCases Serial:StdMat)
+        IF(NEKTAR_ENABLE_SIMD)
+            LIST(APPEND HOutflowCases AVX:SumFac)
+        ENDIF()
+        IF(NEKTAR_ENABLE_DEVICE)
+            LIST(APPEND HOutflowCases Device:SumFacTOP)
+        ENDIF()
+        FOREACH(HOutflowCase IN LISTS HOutflowCases)
+            STRING(REPLACE ":" ";" HOutflowCase ${HOutflowCase})
+            LIST(GET HOutflowCase 0 ExecSpace)
+            LIST(GET HOutflowCase 1 Implementation)
+            FOREACH(Formulation IN LISTS Formulations)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_HOutflowKovasznay2D_${Formulation}_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowKovasznay2D.tst -v
+                        --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=${Formulation}")
+            ENDFOREACH()
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOutflowBackflow2D_semiimplicit_${ExecSpace}_${Implementation}
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowBackflow2D.tst -v
+                    --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                    "--solver-options=-I Formulation=semiimplicit")
+        ENDFOREACH()
+    ENDIF()
+
     # Tests for time-order convergence
     # Note the test should be independent of implementation, hence, we test only for Execution Space
     IF(NEKTAR_BUILD_PYTHON)
@@ -206,6 +480,23 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             SET_TESTS_PROPERTIES(
                 IncNavierStokesSolverRedesign_ForcedMMS2D_TriQuad_IMEXdirkOrders23_Serial_SumFac
                 PROPERTIES PROCESSORS 4)
+
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOPBC_TimeIntegrationOrders23_Serial_SumFac
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/check_hopbc_time_order.py
+                        --solver $<TARGET_FILE:IncNavierStokesSolverRedesign>
+                        --session ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOPressureTimeConvergence2D.xml
+                        --op-exec-space Serial
+                        --op-impl SumFac
+                        --formulations semiimplicit linearimplicit)
+            # check_hopbc_time_order.py fans its (order, formulation) cases
+            # out across a thread pool too (default cap: 4, see
+            # --max-workers) - same reasoning as
+            # IncNavierStokesSolverRedesign_TimeIntegrationOrders123_* above.
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_HOPBC_TimeIntegrationOrders23_Serial_SumFac
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
         ENDIF()
 
         # Optional AVX execution space.

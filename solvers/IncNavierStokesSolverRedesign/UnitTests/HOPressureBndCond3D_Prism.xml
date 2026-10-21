@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX>
+            <V ID="0"> 0.0 0.0 0.5 </V>
+            <V ID="1"> 0.5 0.0 0.5 </V>
+            <V ID="2"> 0.5 0.0 0.0 </V>
+            <V ID="3"> 0.0 0.0 0.0 </V>
+            <V ID="4"> 0.5 0.5 0.5 </V>
+            <V ID="5"> 0.5 0.5 0.0 </V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0"> 0 1 </E>
+            <E ID="1"> 0 3 </E>
+            <E ID="2"> 0 4 </E>
+            <E ID="3"> 1 2 </E>
+            <E ID="4"> 1 4 </E>
+            <E ID="5"> 2 5 </E>
+            <E ID="6"> 3 2 </E>
+            <E ID="7"> 3 5 </E>
+            <E ID="8"> 4 5 </E>
+        </EDGE>
+        <FACE>
+            <Q ID="0"> 0 3 6 1 </Q>
+            <T ID="1"> 0 4 2 </T>
+            <Q ID="2"> 3 5 8 4 </Q>
+            <T ID="3"> 6 5 7 </T>
+            <Q ID="4"> 1 7 8 2 </Q>
+        </FACE>
+        <ELEMENT>
+            <R ID="0"> 0 1 2 3 4 </R>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> R[0] </C>
+            <C ID="1"> F[0-3] </C>
+            <C ID="2"> F[4] </C>
+        </COMPOSITE>
+        <DOMAIN> C[0] </DOMAIN>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" TYPE="MODIFIED"
+            FIELDS="u,v,w,p" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="PROJECTION" VALUE="Continuous" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+            <V ID="3"> p </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" USERDEFINEDTYPE="TimeDependent" VALUE="t" />
+                <D VAR="v" USERDEFINEDTYPE="TimeDependent" VALUE="2*t" />
+                <D VAR="w" USERDEFINEDTYPE="TimeDependent" VALUE="3*t" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" USERDEFINEDTYPE="TimeDependent" VALUE="t" />
+                <D VAR="v" USERDEFINEDTYPE="TimeDependent" VALUE="2*t" />
+                <D VAR="w" USERDEFINEDTYPE="TimeDependent" VALUE="3*t" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+    </CONDITIONS>
+</NEKTAR>

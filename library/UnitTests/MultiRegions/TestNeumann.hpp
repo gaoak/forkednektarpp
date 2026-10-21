@@ -36,6 +36,10 @@
 
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
 
+#include <LibUtilities/BasicUtils/VmathArray.hpp>
+
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
+
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;
@@ -71,6 +75,10 @@ public:
 
         auto op = NeuBndCondOp<TData>::Create(this->fixt_explist,
                                               this->session->GetVariables());
+        if (!excludedUserDefinedType.empty())
+        {
+            op->ExcludeUserDefinedType(excludedUserDefinedType);
+        }
         op->UpdateBndCoeffs(time);
         op->Apply(*this->fixt_out);
     }
@@ -102,13 +110,30 @@ public:
                                             variables[nc], true, false,
                                             Collections::eNoCollection);
 
-            // Update BC for this variable and impose
+            // Update BC for this variable, leave out the regions excluded
+            // from the operator, and impose
             bcfield.EvaluateBoundaryConditions(time, variables[nc]);
+            const auto &bndConditions = bcfield.GetBndConditions();
+            const auto &bndExpansions = bcfield.GetBndCondExpansions();
+            for (unsigned int n = 0; n < bndExpansions.size(); ++n)
+            {
+                if (!excludedUserDefinedType.empty() &&
+                    StringUtils::IEquals(bndConditions[n]->GetUserDefined(),
+                                         excludedUserDefinedType))
+                {
+                    Vmath::Zero(bndExpansions[n]->GetNcoeffs(),
+                                bndExpansions[n]->UpdateCoeffs(), 1);
+                }
+            }
             bcfield.ImposeNeumannConditions(tmp = outcoeffs + nc * ncoeffs);
         }
         this->fixt_expected->template CopyArray<NektarSpaces::HostSpace>(
             outcoeffs);
     }
+
+protected:
+    // User-defined type of the regions the operator leaves out, if any.
+    std::string excludedUserDefinedType = "";
 };
 
 // clang-format off
@@ -191,3 +216,29 @@ TEST(Helmholtz3D_Hex_AllBCs_TimeDependentBC,
 TEST(Helmholtz3D_Hex_3C, "run/Helmholtz3D_Hex_3C.xml")
 
 TEST(Helmholtz3D_Hex_3C_mixedBC, "run/Helmholtz3D_Hex_3C_mixedBC.xml")
+
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+// Every Neumann region of the session has USERDEFINEDTYPE="TimeDependent",
+// so the operator leaving that type out applies none.
+class Helmholtz2D_Tri_Quad_ExcludeTimeDependent : public TestNeumann<double>
+{
+public:
+    Helmholtz2D_Tri_Quad_ExcludeTimeDependent()
+    {
+        meshName = "run/Helmholtz2D_P7_AllBCs_TimeDependentDirichlet.xml";
+        excludedUserDefinedType = "TimeDependent";
+    }
+};
+
+// No region of the session has USERDEFINEDTYPE="H", so the operator leaving
+// that type out applies every Neumann region.
+class Helmholtz2D_Tri_Quad_ExcludeAbsentType : public TestNeumann<double>
+{
+public:
+    Helmholtz2D_Tri_Quad_ExcludeAbsentType()
+    {
+        meshName = "run/Helmholtz2D_P7_AllBCs_TimeDependentDirichlet.xml";
+        excludedUserDefinedType = "H";
+    }
+};
+#endif

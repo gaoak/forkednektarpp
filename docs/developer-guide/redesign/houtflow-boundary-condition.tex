@@ -1,0 +1,688 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Dong's high-order outflow boundary condition}
+\label{chap:houtflow-bndcond}
+
+\definecolor{nekblue}{HTML}{24527A}
+\definecolor{neklightblue}{HTML}{E8F1F7}
+\definecolor{nekred}{HTML}{B44B4B}
+\definecolor{neklightred}{HTML}{F8EAEA}
+\definecolor{nekgreen}{HTML}{3E7654}
+\definecolor{neklightgreen}{HTML}{E9F3EC}
+\definecolor{nekorange}{HTML}{C87827}
+\definecolor{neklightorange}{HTML}{FBF0E3}
+\definecolor{nekpurple}{HTML}{76518B}
+\definecolor{neklightpurple}{HTML}{F1EAF5}
+\definecolor{nekgray}{HTML}{505960}
+\definecolor{neklightgray}{HTML}{F1F3F4}
+\definecolor{nekdark}{HTML}{263238}
+
+\providecommand{\vect}[1]{\boldsymbol{#1}}
+\providecommand{\grad}{\boldsymbol{\nabla}}
+\providecommand{\HOutflow}{\textsc{HOutflow}}
+\providecommand{\Gammao}{\Gamma_{\!o}}
+
+\tikzset{
+  flow/.style={-{Latex[length=2.7mm]},line width=0.75pt,nekgray},
+  dataflow/.style={-{Latex[length=2.7mm]},line width=1pt,nekblue},
+  stateflow/.style={-{Latex[length=2.7mm]},line width=1pt,nekpurple},
+  box/.style={rounded corners=2pt,draw=nekgray,line width=0.65pt,
+    fill=white,align=center,inner sep=5pt,font=\small},
+  bluebox/.style={box,draw=nekblue,fill=neklightblue},
+  redbox/.style={box,draw=nekred,fill=neklightred},
+  greenbox/.style={box,draw=nekgreen,fill=neklightgreen},
+  orangebox/.style={box,draw=nekorange,fill=neklightorange},
+  purplebox/.style={box,draw=nekpurple,fill=neklightpurple},
+  graybox/.style={box,draw=nekgray,fill=neklightgray},
+  phase/.style={rounded corners=3pt,draw=nekgray,line width=0.8pt,
+    fill=white,align=left,inner sep=6pt,font=\small,text width=4.2cm},
+  tinylabel/.style={font=\scriptsize,align=center},
+  smalllabel/.style={font=\small,align=center}
+}
+
+The Dong high-order outflow boundary condition, \texttt{HOutflowBndCondOp}
+of the incompressible Navier--Stokes solver, is a coupled condition: it
+computes a pressure \emph{Dirichlet} value from an explicitly extrapolated
+velocity, solves the pressure Poisson problem, and then computes a velocity
+\emph{Neumann} value from that solved pressure. A backflow-selective energy
+term stabilises vortical structures as they cross an open boundary. This
+chapter follows one time-integration stage through mathematical evaluation,
+volume-to-boundary data movement, coefficient projection, and the two global
+linear solves. The operator is implemented in
+\path{HOutflowBndCondOpImpl.hpp}, in the directory
+\path{BoundaryConditions/HOutflowBndCond} of the solver, for the Serial, AVX
+and Device execution spaces.
+
+\begin{center}
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=5mm]
+  \node[bluebox,text width=3.5cm] (a) {extrapolated velocity\\$\vect u^*$ and $\grad\vect u^*$};
+  \node[purplebox,right=of a,text width=3.5cm] (b) {pressure boundary\\$p|_{\Gammao}$};
+  \node[greenbox,right=of b,text width=3.5cm] (c) {solved pressure\\$p^{n+1}$};
+  \node[orangebox,right=of c,text width=3.5cm] (d) {velocity boundary\\$\partial_n\vect u^{n+1}$};
+  \draw[dataflow] (a)--(b);
+  \draw[stateflow] (b)--(c);
+  \draw[dataflow] (c)--(d);
+\end{tikzpicture}}
+\end{center}
+
+\section{What problem does \HOutflow{} solve?}
+
+An ordinary outlet often prescribes a pressure and assumes zero normal
+velocity gradient.  That combination can reflect or destabilise vortices
+when part of the outlet experiences local backflow.  Dong's condition instead
+couples pressure and velocity through an energy flux that activates smoothly
+when the normal velocity changes sign \cite{DongKC2014}.
+
+Let $\vect n$ be the outward unit normal, $\nu>0$ the kinematic viscosity,
+$\vect u^*$ the explicitly extrapolated boundary velocity, and $\vect f_b$
+the vector expression supplied in the velocity boundary-condition
+\code{VALUE}.  On an outflow boundary $\Gammao$, the redesign implements
+\begin{align}
+  p
+  &= \nu\,\vect n\cdot(\grad\vect u^*)\vect n
+     - \bigl(\vect E(\vect n,\vect u^*)-\vect f_b\bigr)\cdot\vect n,
+     \label{houtflow:eq:pressure}\tag{P}\\
+  \frac{\partial\vect u^{n+1}}{\partial n}
+  &= \frac{1}{\nu}
+     \left\{
+       \bigl[p-\nu\,\grad\cdot\vect u^*\bigr]\vect n
+       +\vect E(\vect n,\vect u^*)-\vect f_b
+     \right\}.
+     \label{houtflow:eq:velocity}\tag{V}
+\end{align}
+Equation~\eqref{houtflow:eq:pressure} is evaluated \emph{before} the pressure solve;
+equation~\eqref{houtflow:eq:velocity} is evaluated \emph{after} it.  The divergence
+term in \eqref{houtflow:eq:velocity} is essential: omitting it can lock the velocity
+at the open boundary.
+
+\subsection{Backflow switch and generalised energy flux}
+
+Define the normal velocity and smooth switch
+\begin{equation}
+  u_n=\vect n\cdot\vect u^*,
+  \qquad
+  S_0(u_n)=\frac12\left[1-\tanh\left(\frac{u_n}{U_0\delta}\right)\right].
+  \label{houtflow:eq:switch}
+\end{equation}
+The energy vector is
+\begin{equation}
+  \boxed{
+  \vect E(\vect n,\vect u^*)=
+  \left[
+    \frac{\theta+\alpha_2}{2}\lvert\vect u^*\rvert^2\vect n
+    +\frac{1-\theta+\alpha_1}{2}u_n\vect u^*
+  \right]S_0(u_n).}
+  \label{houtflow:eq:energy}
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[>=Latex,x=1cm,y=1cm]
+  \draw[->,nekgray] (-4.5,0)--(4.7,0) node[right,font=\small] {$u_n/(U_0\delta)$};
+  \draw[->,nekgray] (0,-0.25)--(0,3.3) node[above,font=\small] {$S_0$};
+  \draw[nekgray!35,dashed] (-4.3,3)--(4.3,3);
+  \draw[nekgray!35,dashed] (-4.3,1.5)--(4.3,1.5);
+  \node[left,font=\scriptsize] at (0,3) {$1$};
+  \node[left,font=\scriptsize] at (0,1.5) {$1/2$};
+  \draw[very thick,nekred,smooth,domain=-4.2:4.2,samples=100]
+    plot (\x,{1.5*(1-tanh(\x))});
+  \node[redbox,text width=3.0cm] at (-3.0,2.2)
+    {local backflow\\$u_n<0$: energy term on};
+  \node[bluebox,text width=3.0cm] at (3.0,0.8)
+    {outgoing flow\\$u_n>0$: energy term off};
+  \draw[flow] (-2.0,2.2)--(-1.2,2.65);
+  \draw[flow] (2.0,0.8)--(1.2,0.35);
+\end{tikzpicture}
+\caption{The switch is continuous, strongly activating the stabilising
+energy flux under backflow and suppressing it for outward flow.  Its
+transition width is $U_0\delta$.}
+\label{houtflow:fig:switch}
+\end{figure}
+
+\section{Physical picture at an open boundary}
+
+The boundary condition is evaluated pointwise.  A single outlet can therefore
+contain outward-flow and backflow patches at the same time.  The switch in
+Figure~\ref{houtflow:fig:switch} responds to the local value of $u_n$, not to a
+region-averaged flow direction.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[>=Latex,scale=0.95]
+  \fill[neklightblue] (0,0) rectangle (11,5.2);
+  \draw[line width=0.9pt,nekblue] (0,0) rectangle (11,5.2);
+  \draw[line width=4pt,nekred] (11,0)--(11,5.2);
+  \node[rotate=90,nekred,font=\bfseries\small] at (11.45,2.6)
+    {$\Gammao$: \HOutflow{}};
+
+  \foreach \y in {0.65,1.35,2.05,3.85,4.55}
+    \draw[-{Latex[length=2.4mm]},nekblue,line width=0.9pt]
+      (7.4,\y)--(10.65,\y);
+  \foreach \y in {2.55,3.15}
+    \draw[-{Latex[length=2.4mm]},nekred,line width=1.05pt]
+      (10.65,\y)--(8.75,\y);
+
+  \draw[nekpurple,line width=1.15pt,
+    decoration={snake,amplitude=2.2mm,segment length=8mm},decorate]
+    (1.0,2.8)--(8.4,2.8);
+  \draw[->,nekgreen,line width=1.1pt] (11,4.55)--(12.2,4.55)
+    node[right,font=\small] {$\vect n$};
+
+  \node[bluebox,text width=3.0cm] at (4.0,4.25)
+    {outgoing patches\\$u_n>0,\ S_0\simeq0$};
+  \node[redbox,text width=3.0cm] at (6.0,1.15)
+    {vortex-induced backflow\\$u_n<0,\ S_0\simeq1$};
+  \draw[flow] (5.2,3.8)--(8.4,3.85);
+  \draw[flow] (7.3,1.45)--(9.6,2.55);
+\end{tikzpicture}
+\caption{A vortex crossing the outlet can produce a local reversal even
+when the net flow is outward.  The energy correction acts only where the
+normal component is negative.}
+\label{houtflow:fig:physical}
+\end{figure}
+
+\section{One time-integration stage: the complete workflow}
+
+The public operator, \code{HOutflowBndCondOp}, is not itself a boundary
+condition operator.  It holds the boundary data both conditions share and
+applies them with two methods: \code{ApplyPressure} sets the Dirichlet pressure
+coefficients, and \code{ApplyVelocity} adds the velocity flux.  Two adapters
+present these to the linear systems, which accept only Dirichlet and Neumann
+condition operators: \code{GetPressureDirichletOp} returns a
+\code{DirBndCondOp}, \code{HOutflowPressureAdapter}, added to the pressure
+system with \code{AddDirichletBCOp}, and \code{GetVelocityNeumannOp} a
+\code{NeuBndCondOp}, \code{HOutflowVelocityAdapter}, added to the velocity
+system with \code{AddNeumannBCOp}.  The \code{Apply} of each forwards to the
+matching method of the operator, which the operator hands each adapter with
+\code{SetOwner} when it creates it, so both refer to the same geometry,
+normals, and intermediate arrays.  Figure~\ref{houtflow:fig:stage} shows the
+exact ordering inside \code{SolveUnsteadyStokesSystem} of the class
+\code{VelocityCorrectionScheme}.
+
+\begin{figure}[p]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=5mm and 10mm]
+  \node[bluebox,text width=14.5cm] (hist) {\textbf{1. IMEX extrapolation}\\
+    Histories contain integrator-scaled velocity.  Extrapolate to
+    $\vect V^*$, then apply $s=1/(\gamma\Delta t)$ so
+    $\vect u^*=s\vect V^*$ and $\grad\vect u^*=s\grad\vect V^*$.};
+
+  \node[bluebox,below=of hist,text width=14.5cm] (gather) {\textbf{2. Restricted volume work}\\
+    Gather only velocity elements touching $\Gammao$; evaluate
+    $\grad\vect V^*$ with \code{PhysDerivOp}; trace the velocity from the
+    full field and all gradient components from those elements to boundary
+    quadrature points.};
+
+  \node[purplebox,below=of gather,text width=14.5cm] (pre) {\textbf{3. Pressure boundary update}\\
+    Evaluate $\vect f_b(t)$, $u_n$, $S_0$, $\vect E$, $\grad\cdot\vect u^*$,
+    and $\vect n\cdot(\grad\vect u^*)\vect n$.  Form (P), forward-transform
+    the boundary values, and set the pressure Dirichlet coefficients.};
+
+  \node[greenbox,below=of pre,text width=14.5cm] (psolve) {\textbf{4. Pressure Poisson solve}\\
+    The standard Dirichlet adapter first evaluates ordinary XML data;
+    \HOutflow{} then overwrites only its tagged pressure coefficients.
+    Solve for $p^{n+1}$ and backward-transform it to physical space.};
+
+  \node[orangebox,below=of psolve,text width=14.5cm] (vel) {\textbf{5. Velocity boundary update}\\
+    \code{SetPressure} hands the operator the solved pressure field.  When
+    the velocity solve applies the paired Neumann adapter, the adapter traces
+    $p^{n+1}$ to $\Gammao$ and combines it with the retained
+    $\vect E-\vect f_b$ and $\grad\cdot\vect u^*$ to form (V), projects it
+    with \code{IProductWRTBaseOp} and scatter-adds it.};
+
+  \node[redbox,below=of vel,text width=14.5cm] (vsolve) {\textbf{6. Velocity solve}\\
+    Apply the standard XML Neumann load on every other region, and the
+    paired \HOutflow{} load of step 5 on $\Gammao$.  Solve either Helmholtz
+    (semi-implicit) or linear ADR (linear-implicit) for $\vect u^{n+1}$.};
+
+  \foreach \a/\b in {hist/gather,gather/pre,pre/psolve,psolve/vel,vel/vsolve}
+    \draw[flow] (\a)--(\b);
+
+  \begin{scope}[on background layer]
+    \node[fit=(hist)(gather),rounded corners=5pt,fill=nekblue!4,
+      draw=nekblue!25,inner sep=7pt] {};
+    \node[fit=(pre)(psolve),rounded corners=5pt,fill=nekpurple!4,
+      draw=nekpurple!25,inner sep=7pt] {};
+    \node[fit=(vel)(vsolve),rounded corners=5pt,fill=nekorange!4,
+      draw=nekorange!25,inner sep=7pt] {};
+  \end{scope}
+\end{tikzpicture}}
+\caption{One complete implicit stage.  The retained state created in step 3
+is consumed in step 5; recomputing it after the pressure solve is neither
+necessary nor desirable.}
+\label{houtflow:fig:stage}
+\end{figure}
+
+\subsection{Why the stage scale multiplies velocity and its gradient}
+
+The history field passed to \code{UpdatePressure} is stored at the
+time-integrator scale.  If it is denoted by $\vect V^*$, the scale set by
+\code{SetScale} and the velocity the operator evaluates are
+\begin{equation}
+  s=\frac{1}{\gamma\Delta t},\qquad
+  \vect u^*=s\vect V^*,\qquad
+  \grad\vect u^*=s\grad\vect V^*.
+\end{equation}
+Scaling only the velocity would make the viscous normal derivative and
+divergence inconsistent with the switch and energy term.  The boundary
+kernel therefore applies \code{velocityScale} to both extracted quantities.
+
+\section{Setup performed once}
+
+Before time stepping, \code{SetVelocityContext} validates the session and
+builds reusable geometry and mapping data.  No XML extensions are introduced.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=6mm and 10mm]
+  \node[graybox,text width=3.3cm] (xml) {read pressure and velocity boundary maps};
+  \node[purplebox,right=of xml,text width=3.5cm] (pair) {select pressure\\Dirichlet + \code{HOutflow}};
+  \node[orangebox,right=of pair,text width=3.7cm] (valid) {require every velocity component\\Neumann + \code{HOutflow}};
+  \node[bluebox,below=11mm of pair,text width=3.8cm] (geom) {match boundary faces to velocity and pressure volume owners by geometry ID};
+  \node[greenbox,left=of geom,text width=3.4cm] (restrict) {build restricted list of boundary-adjacent velocity elements};
+  \node[graybox,right=of geom,text width=3.8cm] (maps) {build boundary extractions, normals, projection operators, and CG maps};
+
+  \draw[flow] (xml)--(pair);
+  \draw[flow] (pair)--(valid);
+  \draw[flow] (valid.south) |- (geom.east);
+  \draw[flow] (geom)--(restrict);
+  \draw[flow] (geom)--(maps);
+\end{tikzpicture}
+\caption{Setup and validation.  A tag on only one side of the coupled
+condition is rejected, as is a tagged pressure Neumann condition.  Pressure
+and velocity boundary block shapes and element ordering must agree.}
+\label{houtflow:fig:setup}
+\end{figure}
+
+The cached objects include:
+\begin{itemize}
+  \item indexed gathers from the full velocity field to the restricted field;
+  \item per region, the extraction of the velocity from the velocity field,
+        of its gradient from the restricted field, and of the pressure from
+        the pressure field, onto the boundary quadrature points, each an
+        \code{MultiRegions::detail::PhysTraceExtractBndCond}
+        (\S\ref{sec:phystraceextractbndcond}). The restricted list is built
+        from an expansion-information map and has no mesh graph, so the
+        gradient extraction is given the mesh graph of the velocity field.
+        The pressure and velocity boundary expansions are checked to have the
+        same points and block layout, so the extracted fields pair with the
+        normals and $\vect f_b$ point by point;
+  \item outward normals on each selected boundary region;
+  \item \code{PhysDerivOp}, pressure \code{FwdTransBCOp}, and velocity
+        \code{IProductWRTBaseOp} instances;
+  \item compact boundary-coefficient maps, orientation signs, unique scatter
+        targets, and grouped duplicate-target contributions.
+\end{itemize}
+
+For MPI partitions, an all-reduce ensures every rank participates in
+collective velocity-component assembly-map construction when any rank owns an
+\HOutflow{} face.  A rank with no local outlet coefficients then remains a
+valid no-op participant.
+
+\section{Pressure phase in detail}
+
+\subsection{Boundary evaluation}
+
+The velocity is extracted onto the boundary quadrature points from the full
+velocity field, and its gradient from the restricted elements, in one call
+each per region. At each point, the pressure kernel then computes
+\begin{align}
+  u_n &= n_i u_i^*, &
+  \lvert\vect u^*\rvert^2 &= u_i^*u_i^*,\\
+  d &= \grad\cdot\vect u^*=\partial_i u_i^*, &
+  q &= \vect n\cdot(\grad\vect u^*)\vect n
+      =n_i(\partial_j u_i^*)n_j.
+\end{align}
+With $\vect G=\vect E-\vect f_b$, the state retained for the later velocity
+phase is simply
+\begin{equation}
+  \boxed{\vect G,\quad d},
+\end{equation}
+while the pressure boundary value is $p=\nu q-\vect G\cdot\vect n$.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=5mm and 8mm]
+  \node[bluebox,text width=2.7cm] (full) {full velocity field\\$\vect V^*$};
+  \node[bluebox,right=of full,text width=2.8cm] (res) {restricted field\\outlet-adjacent elements};
+  \node[bluebox,right=of res,text width=2.5cm] (deriv) {volume derivative\\$\grad\vect V^*$};
+  \node[purplebox,right=of deriv,text width=2.8cm] (trace) {trace interpolation\\$\vect u^*,\grad\vect u^*$};
+  \node[redbox,below=11mm of trace,text width=3.0cm] (kernel) {pointwise kernel\\$S_0,\vect E,\vect G,d,q,p$};
+  \node[purplebox,left=of kernel,text width=2.9cm] (fwd) {strong projection\\\code{FwdTransBC}};
+  \node[greenbox,left=of fwd,text width=2.9cm] (compact) {compact pressure boundary coefficients};
+  \node[greenbox,left=of compact,text width=2.7cm] (set) {CG map/sign\\Dirichlet set};
+
+  \draw[dataflow] (full)--node[above,tinylabel]{indexed gather}(res);
+  \draw[dataflow] (res)--(deriv);
+  \draw[dataflow] (deriv)--node[above,tinylabel]{gradient}(trace);
+  \draw[dataflow] (full.north) to[bend left=12]
+    node[above,tinylabel]{velocity}(trace.north);
+  \draw[dataflow] (trace)--(kernel);
+  \draw[dataflow] (kernel)--(fwd);
+  \draw[dataflow] (fwd)--(compact);
+  \draw[dataflow] (compact)--(set);
+
+  \node[orangebox,below=8mm of kernel,text width=3.1cm] (fb) {$\vect f_b(t)$ from velocity XML expressions};
+  \node[graybox,left=of fb,text width=2.8cm] (norm) {cached normals\\$\vect n$};
+  \draw[flow] (fb)--(kernel);
+  \draw[flow] (norm)--(kernel);
+\end{tikzpicture}}
+\caption{Pressure-update pipeline.  Blue operations act on volume storage;
+purple/red operations act on boundary quadrature data; green operations
+produce the strong pressure Dirichlet lift.}
+\label{houtflow:fig:pressure-pipeline}
+\end{figure}
+
+\subsection{Strong Dirichlet coefficient path}
+
+The physical pressure values on $\Gammao$ are transformed with
+\code{FwdTransBCOp}.  They are gathered into a compact region-major array and
+then mapped into the domain coefficient field with the CG orientation signs.
+This is a \emph{set} operation: after the standard pressure Dirichlet adapter
+has evaluated ordinary XML conditions, the \HOutflow{} pressure adapter
+overwrites only its selected coefficients.
+
+\section{Velocity phase in detail}
+
+After the Poisson solve, \code{SetPressure} hands the operator the solved
+pressure field, which it does not own.  The velocity flux is not computed
+ahead of the velocity solve: the paired Neumann adapter computes it in its
+\code{Apply}, which the linear system calls once per solve, from the values
+the pressure field holds at that moment.  The flux applied can therefore
+never be older than the pressure, and no separate update call has to be
+ordered between the pressure and velocity solves; the adapter's
+\code{UpdateBndCoeffs} has nothing to do.  Inside \code{Apply}, the solved
+pressure is extracted from its boundary-adjacent pressure elements onto the
+same boundary quadrature points.
+Using retained $\vect G$ and $d$, the pointwise target is
+\begin{equation}
+  \vect h_{\mathrm{desired}}
+  =\frac{1}{\nu}\left[(p-\nu d)\vect n+\vect G\right]
+  =\frac{\partial\vect u^{n+1}}{\partial n}.
+  \label{houtflow:eq:desired}
+\end{equation}
+
+\subsection{Why the default adapter leaves the outlet out}
+
+The velocity values of the \HOutflow{} regions are interpreted as
+$\vect f_b$, which enters equations~\eqref{houtflow:eq:pressure}
+and~\eqref{houtflow:eq:velocity} through $\vect G=\vect E-\vect f_b$, and
+so $\vect h_{\mathrm{desired}}$ already.
+The velocity adapter is added to the velocity system with
+\code{AddNeumannBCOp(op, "HOutflow")}, so the default Neumann operator of
+the system, which evaluates the \code{VALUE} of every other velocity
+Neumann region, leaves these regions out, and the paired adapter supplies
+the whole load
+\begin{equation}
+  \vect h_{\mathrm{custom}}=\vect h_{\mathrm{desired}}.
+  \label{houtflow:eq:velocity-load}
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=6mm and 8mm]
+  \node[greenbox,text width=3.0cm] (p) {solved pressure volume field\\$p^{n+1}$};
+  \node[purplebox,right=of p,text width=2.9cm] (ptrace) {pressure trace\\$p|_{\Gammao}$};
+  \node[orangebox,right=of ptrace,text width=3.2cm] (combine) {combine with cached\\$\vect G,d,\vect n$};
+  \node[orangebox,right=of combine,text width=3.1cm] (adjust) {custom physical load\\$\vect h_{\mathrm{desired}}$};
+
+  \node[purplebox,below=11mm of adjust,text width=3.1cm] (iprod) {weak projection\\\code{IProductWRTBase}};
+  \node[greenbox,left=of iprod,text width=3.1cm] (coeff) {compact velocity boundary coefficients};
+  \node[greenbox,left=of coeff,text width=3.2cm] (scatter) {CG unique/group maps\\Neumann scatter-add};
+  \node[graybox,left=of scatter,text width=2.8cm] (rhs) {velocity-system RHS};
+
+  \draw[dataflow] (p)--(ptrace);
+  \draw[dataflow] (ptrace)--(combine);
+  \draw[dataflow] (combine)--(adjust);
+  \draw[dataflow] (adjust)--(iprod);
+  \draw[dataflow] (iprod)--(coeff);
+  \draw[dataflow] (coeff)--(scatter);
+  \draw[dataflow] (scatter)--(rhs);
+
+  \node[bluebox,below=8mm of scatter,text width=3.2cm] (default) {standard Neumann load\\other regions};
+  \draw[flow] (default)--(rhs);
+\end{tikzpicture}}
+\caption{Velocity-update pipeline.  Unlike pressure, velocity boundary data
+is a weak load: it is integrated against the boundary basis and scatter-added
+to the linear-system right-hand side.}
+\label{houtflow:fig:velocity-pipeline}
+\end{figure}
+
+Duplicate local CG targets at boundary corners or edges are handled by a
+unique-target subset plus grouped contributions.  This avoids both
+double-counting and atomics while preserving orientation signs.
+
+\section{Memory and execution-space workflow}
+
+The high-level solver has no backend-specific branches.  Factory registration
+selects the Serial, AVX or Device instantiation of
+\code{HOutflowBndCondOpImpl}; the
+same templated workflow then uses the chosen execution and memory spaces.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[node distance=7mm]
+  \node[graybox,text width=14.7cm] (setup) {\textbf{Host setup, once}\\
+    region/tag validation $\rightarrow$ geometry matching $\rightarrow$
+    boundary extractions and normals $\rightarrow$ maps copied to execution memory};
+
+  \node[bluebox,below=of setup,text width=14.7cm] (device) {\textbf{Execution memory, every stage}\\
+    restricted gather $\rightarrow$ volume derivative $\rightarrow$ trace
+    evaluation $\rightarrow$ pointwise kernels $\rightarrow$ projections
+    $\rightarrow$ CG set/add};
+
+  \node[purplebox,below=of device,text width=6.8cm,xshift=-3.95cm] (shared) {\textbf{Shared boundary state}\\
+    normals, $\vect E-\vect f_b$, $\grad\cdot\vect u^*$,
+    $\vect f_b$, pressure/velocity work fields};
+  \node[greenbox,right=8mm of shared,text width=6.8cm] (streams) {\textbf{Block streams}\\
+    events connect restricted derivatives, boundary batches, projections,
+    and mapped coefficient gathers};
+
+  \draw[dataflow] (setup)--node[right,tinylabel]{initial transfer}(device);
+  \draw[stateflow] (device)--(shared);
+  \draw[stateflow] (device)--(streams);
+  \draw[stateflow,dashed] (shared.north) to[bend left=24](device.south);
+\end{tikzpicture}}
+\caption{Host/device boundary.  Dynamic stage data stays in the active
+execution memory; the workflow introduces no per-step host round-trip of
+boundary fields.}
+\label{houtflow:fig:memory}
+\end{figure}
+
+The restricted velocity and its gradient take the interleave width of the
+velocity, 1 or that of the execution space, so that the volume derivative
+reads and writes them without reshaping. The restricted gather copies through
+index maps built on the host for the interleave widths of the source and the
+restricted block, the first time the pair is seen, and kept, so no kernel
+divides an index, and numbers its threads by restricted point, the element
+lane varying fastest, so that its writes are coalesced. Each gather runs on
+the stream of its restricted block,
+which waits on an event recorded on the stream of its source block, and the
+source streams wait on the gathers in turn; the host never waits. Block-local
+streams then order the derivative of the velocity. Each extraction, of the
+velocity, of its gradient and of the solved pressure, orders itself after
+the streams of the blocks it reads, and
+the streams of the region blocks the pointwise kernels run on after itself,
+with events (see \S\ref{sec:phystraceextractbndcond}). The projected boundary
+coefficients are copied into a compact array on the streams of the region
+blocks and gathered into the layout of each domain block on the stream of
+that block; the region and domain block streams wait on one another through
+the operator's own stream before and after the gathers. The final set or
+scatter-add indexes each block of the domain coefficient field at the
+interleave width of the block, 1 or that of the execution space, through
+target indices built on the host the first time a block at that width is
+seen, so the field is updated in its own layout and never reshaped.
+
+\FloatBarrier
+\section{Session configuration}
+
+The session syntax is that of the IncNavierStokesSolver.  Each selected
+region must pair velocity
+Neumann conditions and a pressure Dirichlet condition, all tagged with
+\code{USERDEFINEDTYPE="HOutflow"}.
+
+\begin{lstlisting}[style=XMLStyle,caption={Minimal two-dimensional HOutflow region.}]
+<REGION REF="1">
+  <N VAR="u" USERDEFINEDTYPE="HOutflow" VALUE="fb_u(x,y,t)" />
+  <N VAR="v" USERDEFINEDTYPE="HOutflow" VALUE="fb_v(x,y,t)" />
+  <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+</REGION>
+\end{lstlisting}
+
+The pressure \code{VALUE} is a placeholder evaluated by the ordinary
+Dirichlet adapter and then replaced by equation~\eqref{houtflow:eq:pressure}.  The
+velocity values are meaningful: they define the components of $\vect f_b$.
+
+\begin{table}[htbp]
+\centering
+\caption{Optional session parameters and preserved defaults.}
+\begin{tabular}{@{}lll p{6.8cm}@{}}
+\toprule
+Parameter & Symbol & Default & Role \\
+\midrule
+\code{OutflowBC\_theta}  & $\theta$  & $1$    & weights the normal kinetic-energy term \\
+\code{OutflowBC\_alpha1} & $\alpha_1$& $0$    & weights the $(\vect n\cdot\vect u)\vect u$ term \\
+\code{OutflowBC\_alpha2} & $\alpha_2$& $0$    & augments the normal kinetic-energy term \\
+\code{U0\_HighOrderBC}   & $U_0$     & $1$    & reference velocity in the switch \\
+\code{Delta\_HighOrderBC}& $\delta$  & $1/20$ & non-dimensional switch transition width \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$U_0$ and $\delta$ must be positive.  In three dimensions, all three velocity
+components must carry paired \HOutflow{} Neumann conditions.
+
+\section{Comparison with ordinary higher-order pressure boundaries}
+
+\begin{table}[htbp]
+\centering
+\caption{The two operators solve different boundary-condition problems.}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.0cm}
+                  >{\raggedright\arraybackslash}p{5.0cm}
+                  >{\raggedright\arraybackslash}p{5.4cm}@{}}
+\toprule
+ & HOPressure & Dong \HOutflow{} \\
+\midrule
+Pressure condition & Neumann, from momentum consistency & Dirichlet, from
+normal viscous stress and energy flux \\
+Velocity condition & prescribed Dirichlet & computed Neumann \\
+Primary explicit data & RHS, predictor, and extrapolated velocity &
+extrapolated velocity $\vect u^*$ \\
+After pressure solve & no paired update & solved pressure enters velocity
+condition \\
+Backflow stabilisation & none & smooth $S_0$-weighted energy term \\
+Linear-system action & pressure RHS scatter-add & pressure strong set;
+velocity RHS scatter-add \\
+Tag selection & pressure Neumann regions with
+\code{USERDEFINEDTYPE="H"} & paired
+\code{USERDEFINEDTYPE="HOutflow"} conditions \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The two operators select disjoint regions. \HOutflow{} requires a pressure
+Dirichlet condition, and a pressure Neumann condition tagged
+\code{USERDEFINEDTYPE="HOutflow"} is rejected at setup; the higher-order
+pressure condition of chapter~\ref{chap:hopressure-bndcond} selects only
+pressure Neumann regions tagged \code{USERDEFINEDTYPE="H"}.
+
+\FloatBarrier
+\section{Implementation map and invariants}
+
+\begin{table}[htbp]
+\centering
+\caption{Where each workflow stage lives in the redesign.}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.8cm}
+                  >{\raggedright\arraybackslash}p{10.0cm}@{}}
+\toprule
+Responsibility & Location under \path{solvers/IncNavierStokesSolverRedesign} \\
+\midrule
+Public paired interface &
+\path{BoundaryConditions/HOutflowBndCond/HOutflowBndCondOp.hpp} \\
+Portable kernels &
+\path{BoundaryConditions/HOutflowBndCond/HOutflowBndCondKernels.hpp} \\
+Setup, maps and workflow &
+\path{BoundaryConditions/HOutflowBndCond/HOutflowBndCondOpImpl.hpp} \\
+Factory registration &
+\code{ADD\_OPERATOR} in the solver's \path{CMakeLists.txt} \\
+Pressure/velocity call order &
+\path{EquationSystems/VelocityCorrectionScheme.cpp} \\
+Host formula reference &
+\path{UnitTests/TestHOutflowBndCond.cpp} \\
+Manufactured regressions &
+\path{Tests/HOutflowKovasznay2D.tst} and
+\path{Tests/HOutflowBackflow2D.tst} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+When modifying the workflow, preserve these invariants:
+\begin{itemize}
+  \item \code{UpdatePressure} precedes the Poisson solve, and the velocity
+        solve, whose Neumann adapter computes the velocity flux, follows it.
+  \item The kinematic viscosity is set with \code{SetKinvis} immediately
+        before \code{UpdatePressure} and again, with the pressure set by
+        \code{SetPressure}, immediately before the velocity solve; the time
+        is set with \code{SetTime} and the scale with \code{SetScale}
+        immediately before \code{UpdatePressure}: the operator is shared
+        with the pressure solve.
+  \item The same scaled $\vect u^*$ is used in $S_0$, $\vect E$, the normal
+        derivative, and the divergence.
+  \item $\vect E-\vect f_b$ and $\grad\cdot\vect u^*$ survive the pressure
+        solve without a host round-trip.
+  \item Pressure uses a strong forward transform and Dirichlet set; velocity
+        uses a boundary inner product and Neumann scatter-add.
+  \item The default Neumann operator of the velocity system leaves the
+        \HOutflow{} regions out, and the paired adapter applies the whole
+        load of equation~\eqref{houtflow:eq:velocity-load}.
+  \item Pressure Neumann regions, with or without the higher-order tag, are
+        not touched by this operator.
+\end{itemize}
+
+\FloatBarrier
+\section{A compact debugging checklist}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=6mm and 9mm]
+  \node[graybox,text width=3.5cm] (sym) {observed outlet instability or wrong sign};
+  \node[purplebox,right=of sym,text width=3.5cm] (tag) {paired tags and BC types correct?};
+  \node[bluebox,right=of tag,text width=3.5cm] (scale) {same stage scale on $\vect u$ and $\grad\vect u$?};
+  \node[orangebox,below=of tag,text width=3.5cm] (state) {$\vect G$ and divergence retained?};
+  \node[greenbox,right=of state,text width=3.5cm] (proj) {strong pressure / weak velocity projection?};
+  \draw[flow] (sym)--(tag);
+  \draw[flow] (tag)--(scale);
+  \draw[flow] (scale.south) |- (state.east);
+  \draw[flow] (state)--(proj);
+\end{tikzpicture}
+\caption{Recommended debugging order.  Most integration mistakes can be
+isolated before inspecting the global solver.}
+\label{houtflow:fig:debug}
+\end{figure}
+
+For a numerical sign check, use a planar outlet with $\vect n=(1,0)$ and a
+velocity whose first component changes sign along the boundary.  Then verify
+that $S_0\approx0$ on the positive portion, $S_0\approx1$ on the negative
+portion, and that the Neumann load the paired adapter assembles equals
+equation~\eqref{houtflow:eq:desired}.  The manufactured backflow regression follows
+exactly this pattern.
+
+\section{Summary}
+
+\HOutflow{} is best viewed as a two-stage boundary state machine:
+\begin{enumerate}
+  \item extrapolate $\vect u^*$, evaluate the backflow-aware energy state,
+        and impose the resulting pressure Dirichlet value;
+  \item solve pressure, combine it with the retained state, and impose the
+        resulting velocity Neumann load.
+\end{enumerate}
+The implementation keeps this state on the active backend, restricts volume
+derivatives to outlet-adjacent elements, and reuses the redesign's projection
+and CG mapping infrastructure.  The result is one solver-level workflow for
+the Serial, AVX and Device execution spaces, with the session syntax of the
+IncNavierStokesSolver.

@@ -35,6 +35,8 @@
 
 #pragma once
 
+#include <IncNavierStokesSolverRedesign/BoundaryConditions/HOPressureBndCond/HOPressureBndCondOp.hpp>
+#include <IncNavierStokesSolverRedesign/BoundaryConditions/HOutflowBndCond/HOutflowBndCondOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
@@ -97,6 +99,15 @@ protected:
     // dealiasing (local over-integration), false = native-order evaluation
     bool m_specHPDealiasing = false;
 
+    // true = this rank has a region with the higher-order pressure or the
+    // high-order outflow condition, whose velocity history it keeps
+    bool m_hasHighOrderPressureBCs = false;
+
+    // true = this rank has a higher-order pressure region with a velocity
+    // component that is not Dirichlet, whose explicit forcing history it
+    // keeps
+    bool m_hasPressureBCExplicitRhs = false;
+
     // Kinematic viscosity
     double m_kinvis;
 
@@ -120,12 +131,22 @@ protected:
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_fields_rhs;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_explicit_adv_rhs;
+    // Allocated only with m_hasHighOrderPressureBCs.
+    LibUtilities::Field<double, FieldState::Phys> m_pressureBCVelocity;
+    // Allocated only with m_hasPressureBCExplicitRhs.
+    LibUtilities::Field<double, FieldState::Phys> m_pressureBCExplicitRhs;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys_1c;
     LibUtilities::Field<double, FieldState::Coeff> m_pressure_coeff;
     std::map<unsigned int,
              std::deque<LibUtilities::Field<double, FieldState::Phys>>>
         m_advectionRhsHistories;
+    std::map<unsigned int,
+             std::deque<LibUtilities::Field<double, FieldState::Phys>>>
+        m_pressureBCVelocityHistories;
+    std::map<unsigned int,
+             std::deque<LibUtilities::Field<double, FieldState::Phys>>>
+        m_pressureBCRhsHistories;
 
     // Initialise operators
     std::shared_ptr<BwdTransOp<double>> m_bwdTransPressureOp;
@@ -138,6 +159,9 @@ protected:
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconFieldsOpMap;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconPressureOpMap;
     std::shared_ptr<PoissonSolveOp<double>> m_poissonSolveOp;
+    // Built only when a region of any rank has the condition.
+    std::shared_ptr<HOPressureBndCondOp<double>> m_hoPressureBCOp;
+    std::shared_ptr<HOutflowBndCondOp<double>> m_hOutflowBCOp;
     std::vector<ForcingSharedPtr> m_forcing;
     std::shared_ptr<DivergenceOp<double>> m_divergenceOp;
 
@@ -168,10 +192,20 @@ protected:
         LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
         const double &dt);
     std::deque<LibUtilities::Field<double, FieldState::Phys>> &
-    GetAdvectionRhsHistory(unsigned int historyId);
+    GetAdvectionRhsHistory(unsigned int historyId, unsigned int historySize);
+    void FreeStartupHistories(unsigned int historyId);
+    std::deque<LibUtilities::Field<double, FieldState::Phys>> &
+    GetPressureBCVelocityHistory(unsigned int historyId,
+                                 unsigned int historySize);
+    std::deque<LibUtilities::Field<double, FieldState::Phys>> &
+    GetPressureBCRhsHistory(unsigned int historyId, unsigned int historySize);
 
     void UpdateAdvectionRhsHistory(
         LibUtilities::Field<double, FieldState::Phys> &advRhs);
+    void UpdatePressureBCVelocityHistory(
+        LibUtilities::Field<double, FieldState::Phys> &velocity);
+    void UpdatePressureBCRhsHistory(
+        LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt);
 
     void v_InitObject(bool declareExpansionLists = true) override;
 
@@ -196,6 +230,9 @@ protected:
     void SetDiffusionCoeff();
 
     void InitialiseParameters();
+
+    bool HasUserDefinedType(const std::string &userDefinedType,
+                            const std::vector<std::string> &variables) const;
 };
 
 } // namespace Nektar

@@ -185,7 +185,10 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 31. **Every launch runs on the stream it is given; none given means the null
     stream.** Per-block work runs on the block's stream, `blk + 1`; an
     operator's work across blocks runs on its own stream. The pointer,
-    workspace, reshape and launch all take the same stream.
+    workspace, reshape and launch all take the same stream. A stream is
+    passed by a name saying which it is, `streamID = blk + 1` or
+    `m_opStreamID`, never as a literal; the null stream, the default, is
+    left implicit.
 32. **Order streams with events at the edges of each execution section, not
     host syncs.** On entry the operator's stream waits on the streams it
     reads or writes (`JoinStreams`); on exit those streams wait on it

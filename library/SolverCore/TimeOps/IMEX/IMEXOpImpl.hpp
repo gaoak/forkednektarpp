@@ -61,6 +61,10 @@ public:
     {
         // Initialize coefficients at construction time.
         SetCoefficients();
+
+        // Every implicit solve combines the explicit contributions of the
+        // last IntOrder steps.
+        this->m_explicitContributionHistorySize = IntOrder;
     }
 
     // className - for OperatorFactory
