@@ -69,6 +69,19 @@ public:
     /// Name of the class
     static std::string className;
 
+    /// Wavenumber of the cable mode stored in slot @p plane for the support
+    /// type @p supptype
+    static unsigned int CableWavenumber(const std::string &supptype,
+                                        size_t plane);
+
+    /// Sine transform of the cable motion for Pinned-Pinned supports
+    static void PinnedSineFwdTrans(const Array<OneD, const NekDouble> &in,
+                                   Array<OneD, NekDouble> &out);
+
+    /// Inverse of PinnedSineFwdTrans
+    static void PinnedSineBwdTrans(const Array<OneD, const NekDouble> &in,
+                                   Array<OneD, NekDouble> &out);
+
 protected:
     // Mapping object
     GlobalMapping::MappingSharedPtr m_mapping;
