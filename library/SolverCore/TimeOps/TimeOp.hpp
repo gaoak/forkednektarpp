@@ -40,6 +40,7 @@
 
 #include <deque>
 #include <memory>
+#include <numeric>
 #include <vector>
 
 namespace Nektar::SolverCore
@@ -247,8 +248,9 @@ public:
                  "solver definition.");
         if (m_useExplicitContributionExtrapolation)
         {
-            GetExplicitContributionContext().historyId =
-                m_explicitContributionHistoryId;
+            auto &context       = GetExplicitContributionContext();
+            context.historyId   = m_explicitContributionHistoryId;
+            context.historySize = m_explicitContributionHistorySize;
         }
         m_explicitRhsFunctor(in, out, time, factor);
     }
@@ -377,6 +379,36 @@ public:
         return GetExplicitContributionContext().historyId;
     }
 
+    /// History id of this scheme itself. During a startup step,
+    /// GetExplicitContributionHistoryId() returns the id of the startup
+    /// scheme instead.
+    unsigned int GetOwnExplicitContributionHistoryId() const
+    {
+        return m_explicitContributionHistoryId;
+    }
+
+    /// Number of explicit contributions the implicit solves of the scheme
+    /// evaluating the explicit RHS combine, which the history for
+    /// ExtrapolateExplicitContribution() holds; 0 for a scheme combining
+    /// none.
+    unsigned int GetExplicitContributionHistorySize() const
+    {
+        return GetExplicitContributionContext().historySize;
+    }
+
+    /// Sum of the coefficients with which the current implicit solve
+    /// combines the explicit contributions. It is the implicit coefficient
+    /// gamma of a multistep IMEX scheme but, in general, not that of an
+    /// IMEXdirk stage, whose coefficients are quadrature weights.
+    TData GetExplicitContributionCoefficientSum() const
+    {
+        const auto &coeffs = GetExplicitContributionContext().coefficients;
+        ASSERTL0(!coeffs.empty(),
+                 "No explicit contribution coefficients are available for "
+                 "this implicit solve.");
+        return std::accumulate(coeffs.begin(), coeffs.end(), TData(0));
+    }
+
     // Move‐out
     std::deque<LibUtilities::Field<TData, FieldState::Phys>> TakeSolutions()
     {
@@ -486,7 +518,8 @@ protected:
     struct ExplicitContributionContext
     {
         std::vector<TData> coefficients;
-        unsigned int historyId = 0;
+        unsigned int historyId   = 0;
+        unsigned int historySize = 0;
     };
 
     mutable ExplicitContributionContext m_explicitContributionContextStorage;
@@ -495,6 +528,9 @@ protected:
     bool m_useExplicitContributionExtrapolation                    = false;
     unsigned int m_explicitContributionHistoryId                   = 0;
     inline static unsigned int m_nextExplicitContributionHistoryId = 0;
+    // Most explicit contributions an implicit solve of this scheme combines,
+    // set by a scheme that provides them.
+    unsigned int m_explicitContributionHistorySize = 0;
 
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> components)

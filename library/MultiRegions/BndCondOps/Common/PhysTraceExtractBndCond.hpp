@@ -37,7 +37,6 @@
 #pragma once
 
 #include <MultiRegions/BndCondOps/Common/CGBndCondKernels.hpp>
-#include <MultiRegions/BndCondOps/DirBndCond/DirBndCondKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 #include <MultiRegions/ExpList.h>
@@ -46,6 +45,7 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 namespace Nektar::MultiRegions::detail
@@ -106,7 +106,8 @@ public:
         const SpatialDomains::MeshGraphSharedPtr &graph = nullptr);
 
     /**
-     * @brief Extract @p in onto @p out.
+     * @brief Extract the first components of @p in, as many as @p out has,
+     * onto @p out.
      *
      * @details
      * Work queued on the stream of a block of @p in or @p out before the
@@ -114,15 +115,25 @@ public:
      * runs after the extraction, without the host waiting on either.
      *
      * @param in  Volume field, laid out as
-     *            MultiRegions::GetBlockAttributes(volumeExpList).
+     *            MultiRegions::GetBlockAttributes(volumeExpList), with at
+     *            least as many components as @p out.
      * @param out Boundary field, laid out as
-     *            MultiRegions::GetBlockAttributes(bcExpList).
+     *            MultiRegions::GetBlockAttributes(bcExpList), with at most
+     *            as many components as the extraction was built for.
      */
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                LibUtilities::Field<TData, FieldState::Phys> &out);
 
 protected:
     using MemSpace = typename ExecSpace::memory_space;
+
+    /// Point of #Bucket::tracePhys and of the boundary block of every point
+    /// a bucket scatters.
+    struct ScatterIndices
+    {
+        LibUtilities::MemoryRegion<size_t> trace;
+        LibUtilities::MemoryRegion<size_t> boundary;
+    };
 
     /// Elements of one shape, order, local trace, boundary block and volume
     /// block, with the operator and storage to extract their trace.
@@ -141,14 +152,20 @@ protected:
         size_t nVolume = 0;
         /// Element of the volume block at every position of #volumePhys.
         std::vector<size_t> volumeElmt;
-        /// Point of the volume block of every point of #volumePhys, by the
-        /// interleave width of the volume block, built when a width is first
-        /// seen and kept.
+        /// Point of the boundary block of trace point q of position p, at
+        /// p * #nDst + q.
+        std::vector<size_t> boundaryPoint;
+        /// Point of the volume block of every point of #volumePhys, both
+        /// at the interleave width of the volume block, by that width, built
+        /// when a width is first seen and kept.
         std::map<unsigned int, LibUtilities::MemoryRegion<size_t>> gatherIndex;
-        /// Point of the boundary block of every point of #tracePhys.
-        LibUtilities::MemoryRegion<size_t> scatterIndex;
+        /// The points of #tracePhys, at the interleave width of the volume
+        /// block, and of the boundary block of every point scattered, by that
+        /// width, built when a width is first seen and kept.
+        std::map<unsigned int, ScatterIndices> scatterIndex;
         /// The bucket's elements, laid out as the single block of the
-        /// restricted expansion list of #op, and their extracted trace.
+        /// restricted expansion list of #op at the interleave width of the
+        /// volume block, and their extracted trace.
         LibUtilities::BlockAccessor<TData, FieldState::Phys> volumePhys;
         LibUtilities::BlockAccessor<TData, FieldState::Phys> tracePhys;
 
@@ -171,6 +188,10 @@ protected:
     /// Add to @p bucket.gatherIndex the index for a volume block at
     /// interleave width @p width.
     static void BuildGatherIndex(Bucket &bucket, const unsigned int width);
+
+    /// Add to @p bucket.scatterIndex the indices for a trace block at
+    /// interleave width @p width.
+    static void BuildScatterIndex(Bucket &bucket, const unsigned int width);
 };
 
 template <typename ExecSpace, typename TData>
@@ -442,20 +463,18 @@ PhysTraceExtractBndCond<ExecSpace, TData>::PhysTraceExtractBndCond(
                  "from those of their volume block.");
 
         bucket.volumeElmt.resize(bucket.nElmts);
-        std::vector<size_t> scatterIndex(bucket.nElmts * bucket.nDst);
+        bucket.boundaryPoint.resize(bucket.nElmts * bucket.nDst);
         for (const auto &face : build.faces)
         {
             const auto pos         = geomIdToPos.at(face.ownerGeomId);
             bucket.volumeElmt[pos] = face.ownerElmt;
             for (size_t q = 0; q < bucket.nDst; ++q)
             {
-                scatterIndex[pos * bucket.nDst + q] =
+                bucket.boundaryPoint[pos * bucket.nDst + q] =
                     face.bcElmtFlat * bucket.nDst +
                     static_cast<size_t>(face.idmap[q]);
             }
         }
-        bucket.scatterIndex = LibUtilities::MemoryRegion<
-            size_t>::template FromVector<MemSpace, size_t>(scatterIndex);
 
         m_buckets.push_back(std::move(bucket));
     }
@@ -474,15 +493,15 @@ void PhysTraceExtractBndCond<ExecSpace, TData>::Apply(
     LibUtilities::Field<TData, FieldState::Phys> &in,
     LibUtilities::Field<TData, FieldState::Phys> &out)
 {
-    const unsigned int nComp = in.GetNumComponents();
+    const unsigned int nComp = out.GetNumComponents();
     ASSERTL0(in.GetNumHomoModes() == 1,
              "PhysTraceExtractBndCond does not support homogeneous fields.");
-    ASSERTL0(out.GetNumComponents() == nComp &&
+    ASSERTL0(in.GetNumComponents() >= nComp &&
                  (m_buckets.empty() ||
                   m_buckets[0].volumePhys.GetNumComponents() >= nComp),
-             "PhysTraceExtractBndCond: the input and output fields must have "
-             "the same number of components, at most the number it was "
-             "built for.");
+             "PhysTraceExtractBndCond: the input field must have at least "
+             "as many components as the output field, which has at most the "
+             "number it was built for.");
 
     // Order #m_opStreamID after the work already queued on the streams of the
     // blocks read and written, on the device rather than on the host.
@@ -493,26 +512,32 @@ void PhysTraceExtractBndCond<ExecSpace, TData>::Apply(
         // Every kernel below indexes only into the block whose pointer it
         // takes: one block of in and out, volumePhys or tracePhys.
         auto &srcBlock = in.GetBlocks()[bucket.volumeBlock];
-        // The interleave width of the input is known only here. An index is
-        // built for every width seen and kept, so that none is overwritten
-        // while a kernel of an earlier call may still read it.
+        // The interleave width of the input is known only here. The bucket's
+        // storage takes it, so that the gather reads and writes along element
+        // lanes and ExtractTrace() reshapes only where its own width differs.
+        // An index is built for every width seen and kept, so that none is
+        // overwritten while a kernel of an earlier call may still read it.
         const unsigned int width = srcBlock.GetInterleaveWidth();
         if (bucket.gatherIndex.count(width) == 0)
         {
             BuildGatherIndex(bucket, width);
+            BuildScatterIndex(bucket, width);
         }
+        bucket.volumePhys.template SetInterleaveWidth<TData>(width);
+        bucket.tracePhys.template SetInterleaveWidth<TData>(width);
+
         auto srcPtr =
             srcBlock.template GetPtr<MemSpace, ReadOnly>(m_opStreamID);
         auto volumePtr = bucket.volumePhys.template GetPtr<MemSpace, WriteOnly>(
             m_opStreamID);
+        auto &gatherIndex = bucket.gatherIndex.at(width);
         auto gatherIdx =
-            bucket.gatherIndex.at(width).template GetPtr<MemSpace, ReadOnly>(
-                m_opStreamID);
+            gatherIndex.template GetPtr<MemSpace, ReadOnly>(m_opStreamID);
 
         for (unsigned int comp = 0; comp < nComp; ++comp)
         {
             CGBndCondGatherKernel<ExecSpace>(
-                bucket.nElmts * bucket.nVolume, gatherIdx,
+                gatherIndex.size(), gatherIdx,
                 srcPtr + comp * srcBlock.CompSize(),
                 volumePtr + comp * bucket.volumePhys.CompSize(), m_opStreamID);
         }
@@ -530,14 +555,17 @@ void PhysTraceExtractBndCond<ExecSpace, TData>::Apply(
             outBlock.template GetPtr<MemSpace, WriteOnly>(m_opStreamID);
         auto tracePtr =
             bucket.tracePhys.template GetPtr<MemSpace, ReadOnly>(m_opStreamID);
-        auto scatterIdx =
-            bucket.scatterIndex.template GetPtr<MemSpace, ReadOnly>(
+        auto &scatterIndex = bucket.scatterIndex.at(width);
+        auto traceIdx = scatterIndex.trace.template GetPtr<MemSpace, ReadOnly>(
+            m_opStreamID);
+        auto boundaryIdx =
+            scatterIndex.boundary.template GetPtr<MemSpace, ReadOnly>(
                 m_opStreamID);
 
         for (unsigned int comp = 0; comp < nComp; ++comp)
         {
-            DirBndCondKernel<ExecSpace>(
-                bucket.nElmts * bucket.nDst, scatterIdx,
+            CGBndCondGatherScatterKernel<ExecSpace>(
+                scatterIndex.trace.size(), traceIdx, boundaryIdx,
                 tracePtr + comp * bucket.tracePhys.CompSize(),
                 outPtr + comp * outBlock.CompSize(), m_opStreamID);
         }
@@ -553,24 +581,68 @@ void PhysTraceExtractBndCond<ExecSpace, TData>::BuildGatherIndex(
     Bucket &bucket, const unsigned int width)
 {
     // Point q of element e lies at (e / width) * width * nVolume + q * width
-    // + e % width of a block at interleave width @p width.
+    // + e % width of a block at interleave width @p width. The index runs
+    // over the element groups of #volumePhys in its own order, lane fastest,
+    // so that consecutive threads write consecutive points. A padding lane
+    // of the last group reads the group's first element.
     const size_t nVolume = bucket.nVolume;
-    std::vector<size_t> gatherIndex(bucket.nElmts * nVolume);
-    for (size_t pos = 0; pos < bucket.nElmts; ++pos)
+    const size_t nGroups = (bucket.nElmts + width - 1) / width;
+    std::vector<size_t> gatherIndex;
+    gatherIndex.reserve(nGroups * width * nVolume);
+    for (size_t group = 0; group < nGroups; ++group)
     {
-        const size_t elmt  = bucket.volumeElmt[pos];
-        const size_t group = elmt / width;
-        const size_t lane  = elmt % width;
         for (size_t q = 0; q < nVolume; ++q)
         {
-            gatherIndex[pos * nVolume + q] =
-                group * width * nVolume + q * width + lane;
+            for (size_t lane = 0; lane < width; ++lane)
+            {
+                const size_t pos  = group * width + lane < bucket.nElmts
+                                        ? group * width + lane
+                                        : group * width;
+                const size_t elmt = bucket.volumeElmt[pos];
+                gatherIndex.push_back((elmt / width) * width * nVolume +
+                                      q * width + elmt % width);
+            }
         }
     }
     bucket.gatherIndex.emplace(
         width, LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
                                                                        size_t>(
                    gatherIndex));
+}
+
+template <typename ExecSpace, typename TData>
+void PhysTraceExtractBndCond<ExecSpace, TData>::BuildScatterIndex(
+    Bucket &bucket, const unsigned int width)
+{
+    // Trace point q of position p lies at (p / width) * width * nDst
+    // + q * width + p % width of #tracePhys at interleave width @p width.
+    // The indices run over its element groups in its own order, lane
+    // fastest, so that consecutive threads read consecutive points, and skip
+    // the padding lanes of the last group.
+    const size_t nDst    = bucket.nDst;
+    const size_t nGroups = (bucket.nElmts + width - 1) / width;
+    std::vector<size_t> traceIndex, boundaryIndex;
+    traceIndex.reserve(bucket.nElmts * nDst);
+    boundaryIndex.reserve(bucket.nElmts * nDst);
+    for (size_t group = 0; group < nGroups; ++group)
+    {
+        for (size_t q = 0; q < nDst; ++q)
+        {
+            for (size_t lane = 0;
+                 lane < width && group * width + lane < bucket.nElmts; ++lane)
+            {
+                const size_t pos = group * width + lane;
+                traceIndex.push_back(group * width * nDst + q * width + lane);
+                boundaryIndex.push_back(bucket.boundaryPoint[pos * nDst + q]);
+            }
+        }
+    }
+    ScatterIndices indices;
+    indices.trace = LibUtilities::MemoryRegion<size_t>::template FromVector<
+        MemSpace, size_t>(traceIndex);
+    indices.boundary = LibUtilities::MemoryRegion<size_t>::template FromVector<
+        MemSpace, size_t>(boundaryIndex);
+    bucket.scatterIndex.emplace(width, std::move(indices));
 }
 
 } // namespace Nektar::MultiRegions::detail

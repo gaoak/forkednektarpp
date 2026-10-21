@@ -84,6 +84,21 @@ public:
         return v_GetNumBndDofs();
     }
 
+    /**
+     * @brief Leave the boundary regions whose Neumann condition has
+     * USERDEFINEDTYPE @p userDefinedType, compared without regard to case,
+     * to another operator, which supplies their Neumann value: this
+     * operator no longer applies them.
+     *
+     * @details
+     * Collective over the row communicator: every rank calls it, with the
+     * same @p userDefinedType.
+     */
+    void ExcludeUserDefinedType(const std::string &userDefinedType)
+    {
+        v_ExcludeUserDefinedType(userDefinedType);
+    }
+
 protected:
     bool m_bndCoeffsInitialised      = false;
     bool m_hasTimeDependentBndCoeffs = false;
@@ -102,6 +117,9 @@ protected:
     virtual void v_UpdateBndCoeffs(const TData &time) = 0;
 
     virtual size_t v_GetNumBndDofs() const = 0;
+
+    virtual void v_ExcludeUserDefinedType(
+        const std::string &userDefinedType) = 0;
 };
 
 } // namespace Nektar::MultiRegions

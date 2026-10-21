@@ -53,6 +53,7 @@
 #include <SolverCore/PreconOps/PreconOp.hpp>
 #include <SpatialDomains/Conditions.h>
 
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <sstream>
@@ -149,7 +150,10 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
         &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
     m_timeOp->DefineExplicitRhs(
         &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
-    if (m_implicitAdvection)
+    // The linear-implicit advection and the higher-order pressure boundary
+    // data are combined with the same coefficients as the explicit velocity
+    // contribution, for every IMEX step and startup stage.
+    if (m_implicitAdvection || m_hasHighOrderPressureBCs)
     {
         m_timeOp->EnableExplicitContributionExtrapolation();
     }
@@ -201,7 +205,7 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
  *  both terms are used for implicit-explicit (IMEX) schemes
  *  param out: = param in
  *  param time: = t^{n+1}
- *  param dt_inv_gamma: = \Delta t / \gamma
+ *  param dt_inv_gamma: = \gamma \Delta t
  *
  *  Upon output
  *  param in: = u^{n+1}
@@ -218,12 +222,12 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 
     if (m_implicitAdvection)
     {
-        m_math.copy(in, fieldRhs);
         auto &advectionRhsHistory = GetAdvectionRhsHistory(
-            m_timeOp->GetExplicitContributionHistoryId());
+            m_timeOp->GetExplicitContributionHistoryId(),
+            m_timeOp->GetExplicitContributionHistorySize());
         m_timeOp->ExtrapolateExplicitContribution(advectionRhsHistory,
                                                   m_wsp_explicit_adv_rhs);
-        m_math.daxpy(-1.0, m_wsp_explicit_adv_rhs, fieldRhs, fieldRhs);
+        m_math.daxpy(-1.0, m_wsp_explicit_adv_rhs, in, fieldRhs);
     }
 
     /// Set up forcing term for pressure Poisson equation
@@ -232,8 +236,54 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     // TODO this should only apply to the velocity components!
     m_divergenceOp->Apply(in, m_wsp_phys_1c);
 
-    // Scale divergence by \gamma / \Delta t
+    // Scale divergence by 1 / (\gamma \Delta t)
     m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
+
+    // The histories hold the velocity and the explicit forcing. They are
+    // combined with the coefficients of the explicit contributions, scaled to
+    // sum to the implicit step size gamma * dt, by which the boundary
+    // operators divide, so that a steady state gives the exact flux. For a
+    // multistep scheme the coefficients extrapolate and sum to gamma; for a
+    // later stage of an IMEXdirk scheme, such as the startup of a multistep
+    // scheme, they are quadrature weights with another sum.
+    if (m_hasHighOrderPressureBCs)
+    {
+        const double pressureBCScale =
+            dt_inv_gamma / m_timeOp->GetExplicitContributionCoefficientSum();
+        auto &pressureBCVelocityHistory = GetPressureBCVelocityHistory(
+            m_timeOp->GetExplicitContributionHistoryId(),
+            m_timeOp->GetExplicitContributionHistorySize());
+        m_timeOp->ExtrapolateExplicitContribution(
+            pressureBCVelocityHistory, m_pressureBCVelocity,
+            SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+        // The explicit forcing is extrapolated only for a region with a
+        // velocity component that is not Dirichlet, whose flux is formed
+        // from it.
+        if (m_hasPressureBCExplicitRhs)
+        {
+            auto &pressureBCRhsHistory = GetPressureBCRhsHistory(
+                m_timeOp->GetExplicitContributionHistoryId(),
+                m_timeOp->GetExplicitContributionHistorySize());
+            m_timeOp->ExtrapolateExplicitContribution(
+                pressureBCRhsHistory, m_pressureBCExplicitRhs,
+                SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+        }
+        if (m_hoPressureBCOp)
+        {
+            m_hoPressureBCOp->SetKinvis(m_kinvis);
+            m_hoPressureBCOp->SetTime(time);
+            m_hoPressureBCOp->SetScale(1.0 / dt_inv_gamma);
+            m_hoPressureBCOp->UpdateWithAcceleration(m_pressureBCExplicitRhs,
+                                                     m_pressureBCVelocity, in);
+        }
+        if (m_hOutflowBCOp)
+        {
+            m_hOutflowBCOp->SetKinvis(m_kinvis);
+            m_hOutflowBCOp->SetTime(time);
+            m_hOutflowBCOp->SetScale(1.0 / dt_inv_gamma);
+            m_hOutflowBCOp->UpdatePressure(m_pressureBCVelocity);
+        }
+    }
 
     // A singular (periodic) pressure system needs a zero-mean RHS; dealiased
     // advection's interpolate/project round trip can leave a small residual.
@@ -270,11 +320,10 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 
     /// Set up forcing term for Helmholtz problems
     // Evaluate p^{n+1} in physical space
-    m_bwdTransPressureOp->Apply(m_pressure_coeff, m_wsp_phys_1c);
-    m_math.copy(m_wsp_phys_1c, m_pressure);
+    m_bwdTransPressureOp->Apply(m_pressure_coeff, m_pressure);
 
     // Compute derivative \nabla p^{n+1}
-    m_physDerivPressureOp->Apply(m_wsp_phys_1c, m_wsp_phys_deriv_pressure);
+    m_physDerivPressureOp->Apply(m_pressure, m_wsp_phys_deriv_pressure);
 
     // Subtract the field-solve RHS/(aii_dt) and divide by kinvis. For the
     // linear-implicit formulation this RHS excludes explicit advection; the
@@ -284,7 +333,7 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     m_math.mul(1 / m_kinvis, m_wsp_phys, m_wsp_phys);
 
     /// Solve velocity systems
-    // Update \lambda = \gamma / \Delta t / \nu
+    // Update \lambda = 1 / (\gamma \Delta t \nu)
     m_lambda = 1.0 / dt_inv_gamma / m_kinvis;
 
     // Update LinearSystem
@@ -332,8 +381,15 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     // Solve diffusion problem for each component. m_fields_coeff holds the
     // continuous solution of the previous solve, or the initial condition,
     // and is the initial guess; the solve replaces its Dirichlet
-    // coefficients by the boundary values.
+    // coefficients by the boundary values. The high-order outflow velocity
+    // condition computes its flux from the solved pressure as the solve
+    // applies it.
     m_fieldsSolveOp->UpdateBndCoeffs(time);
+    if (m_hOutflowBCOp)
+    {
+        m_hOutflowBCOp->SetKinvis(m_kinvis);
+        m_hOutflowBCOp->SetPressure(m_pressure);
+    }
     m_fieldsSolveOp->Apply(m_wsp_phys, m_fields_coeff);
 
     // Transform to physical space
@@ -359,9 +415,21 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
     const double &dt)
 {
+    // Store u for the higher-order pressure boundary conditions, so that
+    // CurlCurl(u) is combined with the IMEX coefficients of the explicit
+    // velocity contribution.
+    if (m_hasHighOrderPressureBCs)
+    {
+        UpdatePressureBCVelocityHistory(in);
+    }
+
     EvaluateAdvectionContribution(in, out, time, dt);
+
     if (m_implicitAdvection)
     {
+        // The linear-implicit solve moves advection to its left-hand side and
+        // subtracts this extrapolated contribution from the IMEX RHS. Store
+        // it before the body forcing is added, which stays on the RHS.
         UpdateAdvectionRhsHistory(out);
     }
 
@@ -373,9 +441,13 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
         forcing->Apply(in, out, time, dt);
     }
 
-    // TODO Calculate High-Order pressure boundary conditions
-    // m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
-    // m_IncNavierStokesBCs->Update(inarray, outarray, params);
+    // Store forcing - advection, out without its factor dt, for a
+    // higher-order pressure region with a velocity component that is not
+    // Dirichlet.
+    if (m_hasPressureBCExplicitRhs)
+    {
+        UpdatePressureBCRhsHistory(out, dt);
+    }
 }
 
 void VelocityCorrectionScheme::EvaluateAdvectionContribution(
@@ -408,22 +480,31 @@ void VelocityCorrectionScheme::EvaluateAdvectionContribution(
     }
 }
 
+/**
+ * @brief The history of the explicit advection contribution of the scheme
+ * with history id @p historyId, which combines @p historySize explicit
+ * contributions in an implicit solve, created on first use.
+ */
 std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
-    GetAdvectionRhsHistory(unsigned int historyId)
+    GetAdvectionRhsHistory(unsigned int historyId, unsigned int historySize)
 {
     ASSERTL0(m_implicitAdvection,
              "Advection RHS history is only used by the linear-implicit "
              "formulation.");
 
+    FreeStartupHistories(historyId);
     auto [it, inserted] = m_advectionRhsHistories.try_emplace(historyId);
     auto &history       = it->second;
     if (inserted)
     {
-        constexpr unsigned int maxAdvectionRhsHistory = 4;
+        ASSERTL0(historySize > 0,
+                 "The linear-implicit formulation requires a time integration "
+                 "scheme whose implicit solves combine explicit "
+                 "contributions, such as IMEX or IMEXdirk.");
         auto bAtrPhys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
                 m_expansionLists[0]);
-        for (unsigned int i = 0; i < maxAdvectionRhsHistory; ++i)
+        for (unsigned int i = 0; i < historySize; ++i)
         {
             history.emplace_back("advection rhs history " + std::to_string(i),
                                  bAtrPhys, m_variablesFields.size(),
@@ -435,16 +516,137 @@ std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionSch
     return history;
 }
 
+/**
+ * @brief The history of the velocity of the scheme with history id
+ * @p historyId, which combines @p historySize explicit contributions in an
+ * implicit solve, created on first use.
+ *
+ * The higher-order boundary conditions read only the velocity, which is
+ * the whole solution: they do not support passive scalars.
+ */
+std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
+    GetPressureBCVelocityHistory(unsigned int historyId,
+                                 unsigned int historySize)
+{
+    FreeStartupHistories(historyId);
+    auto [it, inserted] = m_pressureBCVelocityHistories.try_emplace(historyId);
+    auto &history       = it->second;
+    if (inserted)
+    {
+        ASSERTL0(historySize > 0,
+                 "The higher-order pressure and outflow boundary conditions "
+                 "require a time integration scheme whose implicit solves "
+                 "combine explicit contributions, such as IMEX or IMEXdirk.");
+        auto bAtrPhys =
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]);
+        for (unsigned int i = 0; i < historySize; ++i)
+        {
+            history.emplace_back("pressure BC velocity history " +
+                                     std::to_string(i),
+                                 bAtrPhys, m_variablesVel.size(), m_npointsZ);
+            m_math.zero(history.back());
+        }
+    }
+
+    return history;
+}
+
+/**
+ * @brief The history of the explicit forcing of the scheme with history id
+ * @p historyId, which combines @p historySize explicit contributions in an
+ * implicit solve, created on first use.
+ */
+std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
+    GetPressureBCRhsHistory(unsigned int historyId, unsigned int historySize)
+{
+    FreeStartupHistories(historyId);
+    auto [it, inserted] = m_pressureBCRhsHistories.try_emplace(historyId);
+    auto &history       = it->second;
+    if (inserted)
+    {
+        ASSERTL0(historySize > 0,
+                 "The higher-order pressure boundary condition requires a "
+                 "time integration scheme whose implicit solves combine "
+                 "explicit contributions, such as IMEX or IMEXdirk.");
+        auto bAtrPhys =
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0]);
+        for (unsigned int i = 0; i < historySize; ++i)
+        {
+            history.emplace_back("pressure BC rhs history " + std::to_string(i),
+                                 bAtrPhys, m_variablesVel.size(), m_npointsZ);
+            m_math.zero(history.back());
+        }
+    }
+
+    return history;
+}
+
+/**
+ * @brief Free the histories of the startup schemes once the main scheme
+ * evaluates again.
+ *
+ * @details
+ * Every startup step runs a scheme of its own, with a history id of its
+ * own, which is dead once that step returns. The main scheme evaluates its
+ * explicit RHS at the start of every step, so when @p historyId is the main
+ * scheme's, every other history belongs to a finished startup step.
+ */
+void VelocityCorrectionScheme::FreeStartupHistories(unsigned int historyId)
+{
+    if (historyId != m_timeOp->GetOwnExplicitContributionHistoryId())
+    {
+        return;
+    }
+    for (auto *histories :
+         {&m_advectionRhsHistories, &m_pressureBCVelocityHistories,
+          &m_pressureBCRhsHistories})
+    {
+        for (auto it = histories->begin(); it != histories->end();)
+        {
+            it = it->first == historyId ? std::next(it) : histories->erase(it);
+        }
+    }
+}
+
 void VelocityCorrectionScheme::UpdateAdvectionRhsHistory(
     LibUtilities::Field<double, FieldState::Phys> &advRhs)
 {
     auto &history =
-        GetAdvectionRhsHistory(m_timeOp->GetExplicitContributionHistoryId());
+        GetAdvectionRhsHistory(m_timeOp->GetExplicitContributionHistoryId(),
+                               m_timeOp->GetExplicitContributionHistorySize());
 
     auto tmp = std::move(history.back());
     history.pop_back();
     history.push_front(std::move(tmp));
     m_math.copy(advRhs, history.front());
+}
+
+void VelocityCorrectionScheme::UpdatePressureBCRhsHistory(
+    LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt)
+{
+    auto &history =
+        GetPressureBCRhsHistory(m_timeOp->GetExplicitContributionHistoryId(),
+                                m_timeOp->GetExplicitContributionHistorySize());
+
+    auto tmp = std::move(history.back());
+    history.pop_back();
+    history.push_front(std::move(tmp));
+    m_math.mul(1.0 / dt, rhs, history.front());
+}
+
+void VelocityCorrectionScheme::UpdatePressureBCVelocityHistory(
+    LibUtilities::Field<double, FieldState::Phys> &velocity)
+{
+    auto &history = GetPressureBCVelocityHistory(
+        m_timeOp->GetExplicitContributionHistoryId(),
+        m_timeOp->GetExplicitContributionHistorySize());
+
+    auto tmp = std::move(history.back());
+    history.pop_back();
+    history.push_front(std::move(tmp));
+    m_math.copy(velocity, history.front());
 }
 
 /**
@@ -557,6 +759,86 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     // Configure PoissonSolve
     m_poissonSolveOp->SetLinearSolver(m_linearSolverPressureOp);
     m_poissonSolveOp->SetDiffCoeff(m_diffCoeff);
+
+    // The higher-order pressure and outflow condition operators are built
+    // only for a session with a region of their user-defined type. A rank
+    // holding none of the regions builds them with the others, since building
+    // them is collective.
+    //
+    // The higher-order pressure condition applies the pressure Neumann
+    // regions of its user-defined type in place of the default Neumann
+    // operator of the pressure system.
+    if (HasUserDefinedType(HOPressureBndCondOp<double>::userDefinedType,
+                           m_variablesPressure))
+    {
+        m_hoPressureBCOp = HOPressureBndCondOp<double>::Create(
+            m_expansionLists[m_pressureIndex], m_variablesPressure);
+        m_hoPressureBCOp->SetVelocityContext(m_expansionLists[0],
+                                             m_variablesVel);
+        m_poissonSolveOp->AddNeumannBCOp(
+            m_hoPressureBCOp, HOPressureBndCondOp<double>::userDefinedType);
+    }
+
+    // Dong's high-order outflow condition couples a pressure Dirichlet
+    // condition with a velocity Neumann condition, which share their
+    // boundary data. The velocity condition applies the velocity Neumann
+    // regions of its user-defined type in place of the default Neumann
+    // operator of the velocity system. A velocity condition of the type
+    // without its pressure condition also builds the operator, which refuses
+    // it.
+    std::vector<std::string> velocityAndPressure = m_variablesVel;
+    velocityAndPressure.push_back(m_variablesPressure[0]);
+    if (HasUserDefinedType(HOutflowBndCondOp<double>::userDefinedType,
+                           velocityAndPressure))
+    {
+        m_hOutflowBCOp = HOutflowBndCondOp<double>::Create(
+            m_expansionLists[m_pressureIndex], m_variablesPressure);
+        m_hOutflowBCOp->SetVelocityContext(m_expansionLists[0], m_variablesVel);
+        m_poissonSolveOp->AddDirichletBCOp(
+            m_hOutflowBCOp->GetPressureDirichletOp());
+        m_fieldsSolveOp->AddNeumannBCOp(
+            m_hOutflowBCOp->GetVelocityNeumannOp(),
+            HOutflowBndCondOp<double>::userDefinedType);
+    }
+
+    // The pressure BC velocity history is filled from the solution, which
+    // holds only the velocity while passive scalars are not supported with
+    // these conditions.
+    ASSERTL0(!(m_hoPressureBCOp || m_hOutflowBCOp) ||
+                 m_variablesFields.size() == m_variablesVel.size(),
+             "The higher-order pressure and outflow boundary conditions do "
+             "not support passive scalars.");
+
+    // The velocity history and its extrapolation are kept only on a rank
+    // where either condition has a region.
+    m_hasHighOrderPressureBCs =
+        (m_hoPressureBCOp && m_hoPressureBCOp->GetNumBndDofs() > 0) ||
+        (m_hOutflowBCOp &&
+         m_hOutflowBCOp->GetPressureDirichletOp()->GetNumBndDofs() > 0);
+    if (m_hasHighOrderPressureBCs)
+    {
+        m_pressureBCVelocity = LibUtilities::Field<double, FieldState::Phys>(
+            "pressure BC velocity",
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0],
+                Operator<double>::GetDefaultInterleaveWidth(m_session)),
+            m_variablesVel.size(), m_npointsZ);
+    }
+
+    // The explicit forcing history and its extrapolation are kept only on a
+    // rank with a higher-order pressure region whose velocity is not
+    // Dirichlet in every component.
+    m_hasPressureBCExplicitRhs =
+        m_hoPressureBCOp && m_hoPressureBCOp->HasNonDirichletVelocity();
+    if (m_hasPressureBCExplicitRhs)
+    {
+        m_pressureBCExplicitRhs = LibUtilities::Field<double, FieldState::Phys>(
+            "pressure BC explicit RHS",
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0],
+                Operator<double>::GetDefaultInterleaveWidth(m_session)),
+            m_variablesVel.size(), m_npointsZ);
+    }
 
     // Load forcing terms, if defined in the session file. For IncNS the
     // pressure variable is excluded, so forcing acts only on velocity fields.
@@ -751,6 +1033,39 @@ void VelocityCorrectionScheme::InitialiseParameters()
     // AdvectionDealiasOp is validated across Serial/AVX/Device.
     m_session->MatchSolverInfo("SPECTRALHPDEALIASING", "True",
                                m_specHPDealiasing, true);
+}
+
+/**
+ * @brief Whether a boundary region of any rank has a condition of
+ * USERDEFINEDTYPE @p userDefinedType on one of @p variables.
+ *
+ * The boundary conditions hold only the regions on this rank's partition, so
+ * the answer is reduced over the row communicator: every rank calls this, and
+ * every rank receives the same answer.
+ */
+bool VelocityCorrectionScheme::HasUserDefinedType(
+    const std::string &userDefinedType,
+    const std::vector<std::string> &variables) const
+{
+    const SpatialDomains::BoundaryConditions bcs(m_session, m_graph);
+    int hasType = 0;
+    for (const auto &[regionId, bndCondMap] : bcs.GetBoundaryConditions())
+    {
+        for (const auto &variable : variables)
+        {
+            const auto condIt = bndCondMap->find(variable);
+            if (condIt != bndCondMap->end() &&
+                StringUtils::IEquals(condIt->second->GetUserDefined(),
+                                     userDefinedType))
+            {
+                hasType = 1;
+            }
+        }
+    }
+
+    m_session->GetComm()->GetRowComm()->AllReduce(hasType,
+                                                  LibUtilities::ReduceMax);
+    return hasType != 0;
 }
 
 /*

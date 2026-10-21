@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX>
+            <V ID="0"> -1.0 -1.0 0.0 </V>
+            <V ID="1">  0.0 -1.0 0.0 </V>
+            <V ID="2">  1.0 -1.0 0.0 </V>
+            <V ID="3"> -1.0  1.0 0.0 </V>
+            <V ID="4">  0.0  1.0 0.0 </V>
+            <V ID="5">  1.0  1.0 0.0 </V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0"> 0 1 </E>
+            <E ID="1"> 1 4 </E>
+            <E ID="2"> 4 3 </E>
+            <E ID="3"> 3 0 </E>
+            <E ID="4"> 1 2 </E>
+            <E ID="5"> 2 5 </E>
+            <E ID="6"> 5 4 </E>
+        </EDGE>
+        <ELEMENT>
+            <Q ID="0"> 0 1 2 3 </Q>
+            <Q ID="1"> 4 5 6 1 </Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> Q[0-1] </C>
+            <C ID="1"> E[0,4] </C>
+            <C ID="2"> E[5] </C>
+            <C ID="3"> E[2,6] </C>
+            <C ID="4"> E[3] </C>
+        </COMPOSITE>
+        <DOMAIN> C[0] </DOMAIN>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" TYPE="MODIFIED"
+            FIELDS="u,v,p" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="PROJECTION" VALUE="Continuous" />
+        </SOLVERINFO>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <!-- The bottom (C[1]) and left (C[4]) regions both take the
+            outflow condition, so element Q[0] has two outflow edges, which
+            share the coefficient of vertex 0. With the outflow velocity of
+            the test, S0 = 0 and the pressure condition is n . f_b; f_b has
+            equal components, so both regions set the same value on the
+            shared coefficient. -->
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <N VAR="u" USERDEFINEDTYPE="HOutflow" VALUE="1+x*y" />
+                <N VAR="v" USERDEFINEDTYPE="HOutflow" VALUE="1+x*y" />
+                <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="3">
+                <N VAR="u" USERDEFINEDTYPE="HOutflow" VALUE="1+x*y" />
+                <N VAR="v" USERDEFINEDTYPE="HOutflow" VALUE="1+x*y" />
+                <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+    </CONDITIONS>
+</NEKTAR>

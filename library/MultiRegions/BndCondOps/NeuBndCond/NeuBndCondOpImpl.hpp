@@ -35,6 +35,10 @@
 #pragma once
 
 #include <algorithm>
+#include <string>
+#include <vector>
+
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 #include <MultiRegions/ContField.h>
 
@@ -63,9 +67,94 @@ public:
                      const std::vector<std::string> &components)
         : NeuBndCondOp<TData>(expansionList, components)
     {
+        BuildRegions();
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+    {
+        return std::make_unique<NeuBndCondOpImpl<ExecSpace, TData>>(
+            expansionList, components);
+    }
+
+protected:
+    bool m_anySignChange         = false;
+    size_t m_numBndCoeffCompSize = 0;
+    std::vector<bool> m_signChange;
+
+    /// Stream the gather runs on, the first block's. It orders it against
+    /// the block streams with events.
+    unsigned int m_opStreamID = 1;
+    /// Streams of the region and domain blocks, which write the compact
+    /// array and read the gathered boundary values.
+    std::vector<unsigned int> m_updateStreams;
+
+    std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_wsp_phys;
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
+    std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
+    std::vector<std::shared_ptr<IProductWRTBaseOp<TData>>> m_iprodOps;
+    std::vector<size_t> m_neuCoeffOffsets;
+    std::vector<size_t> m_neuNumCoeffs;
+    std::vector<bool> m_neuIsPoint;
+
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_sign;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_bndCoeff;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_bndCoeffSrc;
+    LibUtilities::MemoryRegion<TData> m_compactBndCoeff;
+    std::vector<std::vector<size_t>> m_compOffsets;
+    std::vector<std::vector<size_t>> m_compCounts;
+
+    // Local coefficient targets written by more than one boundary trace
+    // piece of the same element (see CGBndCondCoeffMaps::groupTarget) --
+    // summed locally and written with one non-atomic add in v_Apply()
+    // instead of racing an atomic_add per contribution.
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupTarget;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupOffset;
+    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupSrc;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_groupSign;
+    std::vector<LibUtilities::MemoryRegion<TData>> m_groupValue;
+    std::vector<std::vector<size_t>> m_compGroupOffsets;
+    std::vector<std::vector<size_t>> m_compGroupCounts;
+
+    // Total number of matched boundary trace coefficients, for
+    // v_GetNumBndDofs() -- see where this is set in BuildRegions().
+    size_t m_totalBndDofs = 0;
+
+    // Total number of grouped (duplicate-target) entries across every
+    // block/component -- see where this is set in BuildRegions().
+    size_t m_totalGroupCount = 0;
+
+    // User-defined types of the Neumann conditions another operator
+    // applies, set by ExcludeUserDefinedType().
+    std::vector<std::string> m_excludedUserDefinedTypes;
+
+    // Whether this operator applies @p bc: a Neumann condition whose
+    // user-defined type is not excluded.
+    bool IsApplied(const SpatialDomains::BoundaryConditionShPtr &bc) const
+    {
+        return std::dynamic_pointer_cast<
+                   SpatialDomains::NeumannBoundaryCondition>(bc) &&
+               std::none_of(m_excludedUserDefinedTypes.begin(),
+                            m_excludedUserDefinedTypes.end(),
+                            [&bc](const std::string &type) {
+                                return StringUtils::IEquals(
+                                    bc->GetUserDefined(), type);
+                            });
+    }
+
+    // Build the fields, operators and maps of the regions with a Neumann
+    // condition this operator applies (IsApplied()), and evaluate it.
+    void BuildRegions()
+    {
         auto session       = this->m_expansionList->GetSession();
         auto graph         = this->m_expansionList->GetGraph();
-        unsigned int nComp = components.size();
+        unsigned int nComp = this->m_components.size();
 
         // Create boundary conditions
         const SpatialDomains::BoundaryConditions bcs(session, graph);
@@ -75,19 +164,18 @@ public:
             bcs.GetBoundaryConditions();
 
         // Loop all boundary regions to create Fields and Operators, matching
-        // components with a Neumann condition. Everything shared with
-        // DirBndCondOpImpl's identical loop lives in BuildCGBndCondRegions();
-        // onMatchedRegion() below builds the one piece that is genuinely
-        // Neumann-specific -- the IProductWRTBaseOp (or, for 0D point
-        // regions, a plain copy) that turns the evaluated boundary values
-        // into boundary coefficients.
+        // components with a Neumann condition this operator applies. Everything
+        // shared with DirBndCondOpImpl's identical loop lives in
+        // BuildCGBndCondRegions(); onMatchedRegion() below builds the one piece
+        // that is genuinely Neumann-specific -- the IProductWRTBaseOp (or, for
+        // 0D point regions, a plain copy) that turns the evaluated boundary
+        // values into boundary coefficients.
         auto regions = BuildCGBndCondRegions<ExecSpace, TData>(
-            this->m_expansionList, components, bregions, bconditions,
+            this->m_expansionList, this->m_components, bregions, bconditions,
             "Neumann BC", this->m_wsp_phys, this->m_wsp_coeffs,
             this->m_expressionOps, this->m_hasTimeDependentBndCoeffs,
-            [](const SpatialDomains::BoundaryConditionShPtr &bc) {
-                return (bool)std::dynamic_pointer_cast<
-                    SpatialDomains::NeumannBoundaryCondition>(bc);
+            [this](const SpatialDomains::BoundaryConditionShPtr &bc) {
+                return IsApplied(bc);
             },
             [&](const MultiRegions::ExpListSharedPtr &bcExpList) {
                 m_neuNumCoeffs.push_back(bcExpList->GetNcoeffs());
@@ -98,7 +186,7 @@ public:
                 if (!m_neuIsPoint.back())
                 {
                     this->m_iprodOps.push_back(IProductWRTBaseOp<TData>::Create(
-                        bcExpList, components, ExecSpace::name));
+                        bcExpList, this->m_components, ExecSpace::name));
                 }
                 else
                 {
@@ -146,8 +234,8 @@ public:
         }
 
         auto maps = BuildCGBndCondCoeffMaps<ExecSpace, TData>(
-            this->m_expansionList, components, bregions, isNeumannByRegion,
-            numBcExpCoeffs, m_numBndCoeffCompSize,
+            this->m_expansionList, this->m_components, bregions,
+            isNeumannByRegion, numBcExpCoeffs, m_numBndCoeffCompSize,
             [](unsigned int, const MultiRegions::AssemblyMapCGSharedPtr &,
                const auto &, const auto &) {});
 
@@ -223,65 +311,78 @@ public:
         this->UpdateBndCoeffs(static_cast<TData>(0.0));
     }
 
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components)
+    // Leave the regions with user-defined type @p userDefinedType out,
+    // rebuilding the operator if any rank applies one of them.
+    void v_ExcludeUserDefinedType(const std::string &userDefinedType) override
     {
-        return std::make_unique<NeuBndCondOpImpl<ExecSpace, TData>>(
-            expansionList, components);
+        auto session = this->m_expansionList->GetSession();
+        const SpatialDomains::BoundaryConditions bcs(
+            session, this->m_expansionList->GetGraph());
+        const auto &bconditions = bcs.GetBoundaryConditions();
+
+        size_t hasExcludedRegion = 0;
+        for (const auto &[regionId, region] : bcs.GetBoundaryRegions())
+        {
+            const auto &conditionMap = *bconditions.at(regionId);
+            for (const auto &component : this->m_components)
+            {
+                const auto &bc = conditionMap.at(component);
+                if (IsApplied(bc) &&
+                    StringUtils::IEquals(bc->GetUserDefined(), userDefinedType))
+                {
+                    hasExcludedRegion = 1;
+                }
+            }
+        }
+        m_excludedUserDefinedTypes.push_back(userDefinedType);
+
+        // Collective, as BuildRegions() is: a rank holding none of the
+        // regions rebuilds with the others.
+        session->GetComm()->GetRowComm()->AllReduce(hasExcludedRegion,
+                                                    LibUtilities::ReduceMax);
+        if (hasExcludedRegion == 0)
+        {
+            return;
+        }
+
+        ClearRegions();
+        BuildRegions();
     }
 
-protected:
-    bool m_anySignChange         = false;
-    size_t m_numBndCoeffCompSize = 0;
-    std::vector<bool> m_signChange;
+    // Return the operator to its state before BuildRegions().
+    void ClearRegions()
+    {
+        this->m_bndCoeffsInitialised      = false;
+        this->m_hasTimeDependentBndCoeffs = false;
 
-    /// Stream the gather runs on, the first block's. It orders it against
-    /// the block streams with events.
-    unsigned int m_opStreamID = 1;
-    /// Streams of the region and domain blocks, which write the compact
-    /// array and read the gathered boundary values.
-    std::vector<unsigned int> m_updateStreams;
-
-    std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_wsp_phys;
-    std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_wsp_coeffs;
-    std::vector<std::shared_ptr<ExpressionOp<TData>>> m_expressionOps;
-    std::vector<std::shared_ptr<IProductWRTBaseOp<TData>>> m_iprodOps;
-    std::vector<size_t> m_neuCoeffOffsets;
-    std::vector<size_t> m_neuNumCoeffs;
-    std::vector<bool> m_neuIsPoint;
-
-    std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
-    std::vector<LibUtilities::MemoryRegion<TData>> m_sign;
-    std::vector<LibUtilities::MemoryRegion<TData>> m_bndCoeff;
-    std::vector<LibUtilities::MemoryRegion<size_t>> m_bndCoeffSrc;
-    LibUtilities::MemoryRegion<TData> m_compactBndCoeff;
-    std::vector<std::vector<size_t>> m_compOffsets;
-    std::vector<std::vector<size_t>> m_compCounts;
-
-    // Local coefficient targets written by more than one boundary trace
-    // piece of the same element (see CGBndCondCoeffMaps::groupTarget) --
-    // summed locally and written with one non-atomic add in v_Apply()
-    // instead of racing an atomic_add per contribution.
-    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupTarget;
-    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupOffset;
-    std::vector<LibUtilities::MemoryRegion<size_t>> m_groupSrc;
-    std::vector<LibUtilities::MemoryRegion<TData>> m_groupSign;
-    std::vector<LibUtilities::MemoryRegion<TData>> m_groupValue;
-    std::vector<std::vector<size_t>> m_compGroupOffsets;
-    std::vector<std::vector<size_t>> m_compGroupCounts;
-
-    // Total number of matched boundary trace coefficients, for
-    // v_GetNumBndDofs() -- see where this is set in the constructor.
-    size_t m_totalBndDofs = 0;
-
-    // Total number of grouped (duplicate-target) entries across every
-    // block/component -- see where this is set in the constructor.
-    size_t m_totalGroupCount = 0;
+        m_anySignChange       = false;
+        m_numBndCoeffCompSize = 0;
+        m_totalBndDofs        = 0;
+        m_totalGroupCount     = 0;
+        m_signChange.clear();
+        m_updateStreams.clear();
+        m_wsp_phys.clear();
+        m_wsp_coeffs.clear();
+        m_expressionOps.clear();
+        this->m_iprodOps.clear();
+        m_neuCoeffOffsets.clear();
+        m_neuNumCoeffs.clear();
+        m_neuIsPoint.clear();
+        m_map.clear();
+        m_sign.clear();
+        m_bndCoeff.clear();
+        m_bndCoeffSrc.clear();
+        m_compactBndCoeff = LibUtilities::MemoryRegion<TData>();
+        m_compOffsets.clear();
+        m_compCounts.clear();
+        m_groupTarget.clear();
+        m_groupOffset.clear();
+        m_groupSrc.clear();
+        m_groupSign.clear();
+        m_groupValue.clear();
+        m_compGroupOffsets.clear();
+        m_compGroupCounts.clear();
+    }
 
     void v_UpdateBndCoeffs(const TData &time) override
     {

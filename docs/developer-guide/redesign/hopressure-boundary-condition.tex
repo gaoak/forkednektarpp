@@ -1,0 +1,509 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Higher-order pressure boundary condition}
+\label{chap:hopressure-bndcond}
+
+\definecolor{nekblue}{HTML}{24527A}
+\definecolor{neklightblue}{HTML}{E9F2F8}
+\definecolor{nekred}{HTML}{B44B4B}
+\definecolor{neklightred}{HTML}{F8EBEB}
+\definecolor{nekgreen}{HTML}{3E7654}
+\definecolor{neklightgreen}{HTML}{EAF4ED}
+\definecolor{nekgray}{HTML}{535B63}
+\definecolor{neklightgray}{HTML}{F2F3F4}
+\providecommand{\vect}[1]{\boldsymbol{#1}}
+
+The higher-order pressure boundary-condition operator,
+\texttt{HOPressureBndCondOp} of the incompressible Navier--Stokes solver,
+constructs a consistent Neumann datum for the pressure Poisson equation in
+the velocity-correction scheme. It evaluates the curl--curl of an
+extrapolated velocity on the boundary-adjacent volume elements, traces the
+resulting strong-form vector flux to boundary quadrature points, contracts it
+with the outward normal, forms a boundary inner product, and scatters that
+weak boundary load back into the pressure coefficient right-hand side. This
+chapter describes the continuous condition, its time-discrete form, and each
+discrete data movement implemented in \path{HOPressureBndCondOpImpl.hpp}, in
+the directory \path{BoundaryConditions/HOPressureBndCond} of the solver.
+
+\section{Purpose of the condition}
+
+Write the incompressible momentum equation in the form
+\begin{equation}
+  \frac{\partial \vect{u}}{\partial t}
+  = \vect{r} - \nabla p
+    - \nu\,\nabla\times(\nabla\times\vect{u}),
+  \label{hopbc:eq:momentum-rotational}
+\end{equation}
+where \(\vect{r}\) denotes the explicit strong-form contribution, normally
+body forcing minus advection.  The rotational viscous form follows from
+\begin{equation}
+  \nabla^2\vect{u}
+  = \nabla(\nabla\cdot\vect{u})
+    - \nabla\times(\nabla\times\vect{u})
+  \simeq -\nabla\times(\nabla\times\vect{u})
+\end{equation}
+for a divergence-free velocity field.
+
+Taking the normal component of \eqref{hopbc:eq:momentum-rotational} gives the
+consistent pressure Neumann condition
+\begin{equation}
+  \boxed{
+  \frac{\partial p}{\partial n}
+  = \vect{n}\cdot
+    \left(
+      \vect{r}
+      - \nu\,\nabla\times(\nabla\times\vect{u})
+      - \frac{\partial\vect{u}}{\partial t}
+    \right).}
+  \label{hopbc:eq:continuous-hop}
+\end{equation}
+It is called a higher-order pressure condition because it retains the
+explicit, viscous, and acceleration terms dictated by the momentum equation;
+it is not the commonly used approximation \(\partial p/\partial n=0\).
+
+\section{The exact algebra evaluated by the code}
+
+Let
+\begin{center}
+\begin{tabular}{@{}>{$}l<{$} p{0.68\linewidth}@{}}
+\toprule
+\text{Symbol} & \text{Implementation quantity} \\
+\midrule
+s & \code{scale}, set by \code{SetScale} \\
+\nu & \code{kinvis}, set by \code{SetKinvis} \\
+\vect{R} & \code{rhs}, the extrapolated explicit contribution passed to
+\code{Update} \\
+\vect{V} & \code{velocity}, the extrapolated velocity quantity used by the
+curl--curl operator \\
+\vect{P} & \code{predictor}, the complete implicit-stage right-hand side \\
+\vect{u}_D(t) & prescribed velocity evaluated from the boundary expressions
+at the target time, set by \code{SetTime} \\
+\vect{C}(\vect{V}) & \(\nabla\times(\nabla\times\vect{V})\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\code{Update} evaluates
+\begin{equation}
+  g = s\,\vect{n}\cdot
+      \left[\vect{R}-\nu\vect{C}(\vect{V})\right],
+  \label{hopbc:eq:simple-overload}
+\end{equation}
+where \(g=\partial p/\partial n\).
+
+\code{UpdateWithAcceleration}, which \code{VelocityCorrectionScheme} calls,
+adds the acceleration to the flux of \code{Update}:
+\begin{align}
+  \vect{F}_{\mathrm{base}}
+    &=s\left[\vect{R}-\nu\vect{C}(\vect{V})\right],\\
+  \vect{F}_{\mathrm{acc}}
+    &=s\left[\vect{P}-\vect{R}\right].
+\end{align}
+Their explicit contributions cancel exactly, so it takes the predictor
+\(\vect P\) and not \(\vect R\). It then subtracts the prescribed boundary
+velocity, producing
+\begin{equation}
+  \boxed{
+  g=s\,\vect{n}\cdot
+    \left[\vect{P}-\vect{u}_D(t)-\nu\vect{C}(\vect{V})\right].}
+  \label{hopbc:eq:implemented-hop}
+\end{equation}
+
+A velocity component \(d\) that is not Dirichlet on a region, such as a
+Neumann component of a slip wall or of an inflow, has no prescribed boundary
+velocity and takes no acceleration there: its term in the flux is
+\(s\,n_d\left[R_d-\nu C_d(\vect{V})\right]\). On such a region the operator
+takes \(u_{D,d}=0\) and subtracts \(s\,n_d\left[P_d-R_d\right]\) from
+\eqref{hopbc:eq:implemented-hop}, so \code{UpdateWithAcceleration} also reads
+\(\vect R\). \code{VelocityCorrectionScheme} keeps the history of the
+explicit forcing from which \(\vect R\) is extrapolated only on a rank
+holding such a region, as \code{HasNonDirichletVelocity} reports.
+
+In the current solver call,
+\begin{equation}
+  s=\frac{1}{\gamma\Delta t},
+\end{equation}
+with \(\gamma\Delta t\) the implicit step size of the stage.  The predictor
+contains time-integrator-scaled explicit terms.  \code{VelocityCorrectionScheme}
+keeps histories of the velocity and of the explicit forcing, and combines them
+into \(\vect{V}\) and \(\vect{R}\) with the coefficients \(c_k\) of the explicit
+contributions of the stage, scaled to sum to \(\gamma\Delta t\):
+\begin{equation}
+  \vect{V}=\frac{\gamma\Delta t}{\sum_k c_k}\sum_k c_k\,\vect{u}^{(k)},\qquad
+  \vect{R}=\frac{\gamma\Delta t}{\sum_k c_k}\sum_k c_k\,\vect{r}^{(k)}.
+\end{equation}
+For a multistep IMEX scheme the \(c_k\) are \(\gamma\) times the
+extrapolation weights and sum to \(\gamma\), so the scaling is \(\Delta t\).
+For a later stage of an IMEXdirk scheme, such as the startup of a multistep
+scheme, they are quadrature weights whose sum is not \(\gamma\); without the
+scaling, \(s\vect{V}\) would not reduce to the velocity, and even a steady
+solution would get a wrong flux.  Accordingly,
+\(s(\vect{P}-\vect{u}_D)\) supplies the discrete negative acceleration in
+\eqref{hopbc:eq:continuous-hop}, while
+\(-s\nu\vect{C}(\vect{V})\) supplies the consistently extrapolated rotational
+viscous term.  Keeping \eqref{hopbc:eq:implemented-hop} in terms of the actual stage
+quantities is important: \(\vect{P}\), \(\vect{R}\), and \(\vect{V}\) are not
+all unscaled instantaneous physical fields.
+
+\section{Geometric setup}
+
+Only pressure regions explicitly opted in via a Neumann boundary condition
+tagged \code{USERDEFINEDTYPE="H"} are selected for higher-order treatment,
+the tag the IncNavierStokesSolver also uses. An ordinary, untagged Neumann
+pressure region keeps its plain session-prescribed value instead. The
+operator is added to the pressure system with
+\code{AddNeumannBCOp(op, "H")}, so the default Neumann operator of the
+system leaves the tagged regions out and their session \code{VALUE} is not
+applied. For every
+selected region, \texttt{SetVelocityContext} matches each element of the
+boundary expansion to the velocity volume element owning it as a trace.
+Global geometry identifiers are used to record
+\begin{equation*}
+  \text{boundary face}
+  \longleftrightarrow
+  (\text{owning volume element }K,\ \text{local face }f).
+\end{equation*}
+A restricted volume expansion list is built from the unique set of elements
+touching such faces.  Consequently, the expensive derivative operation is
+performed only on boundary-adjacent elements.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  >=Latex,
+  volpt/.style={circle,fill=nekblue,inner sep=1.55pt},
+  bndpt/.style={circle,fill=nekred,inner sep=1.85pt},
+  note/.style={font=\small,align=center}
+]
+  \coordinate (a) at (0,0);
+  \coordinate (b) at (5.0,0.35);
+  \coordinate (c) at (4.45,3.7);
+  \coordinate (d) at (0.55,3.15);
+  \fill[neklightblue] (a)--(b)--(c)--(d)--cycle;
+  \draw[very thick,nekblue] (a)--(b)--(c)--(d)--cycle;
+  \draw[line width=3.2pt,nekred] (b)--(c);
+
+  \foreach \x/\y in {1.0/0.85,2.35/0.95,3.65/1.08,
+                       1.1/1.85,2.35/2.05,3.55/2.25,
+                       1.2/2.72,2.35/2.91,3.45/3.05}
+    \node[volpt] at (\x,\y) {};
+  \foreach \x/\y in {4.90/0.78,4.78/1.55,4.66/2.32,4.54/3.08}
+    \node[bndpt] at (\x,\y) {};
+
+  \node[note,nekblue] at (2.25,1.55)
+    {volume quadrature values\\on the owning element $K$};
+  \node[note,nekred,right=5mm] at (5.0,2.1)
+    {pressure boundary\\quadrature points on $f$};
+  \draw[->,thick,nekred] (3.6,1.65) to[bend left=18]
+    node[above,sloped,font=\small] {boundary trace extraction} (4.64,2.30);
+  \draw[->,thick,nekgreen] (5.2,2.85)--++(0.95,0.3)
+    node[right,note,nekgreen] {outward normal\\$\vect n$};
+  \node[below=5mm of a,anchor=west,note]
+    {Only elements adjacent to higher-order pressure faces are gathered.};
+\end{tikzpicture}
+\caption{The curl--curl derivative is evaluated on the volume element.  A
+shared boundary-trace-extraction operator then moves the resulting vector
+quantity to the boundary quadrature grid.}
+\label{hopbc:fig:geometry}
+\end{figure}
+
+\section{Volume-to-boundary evaluation}
+
+\subsection{Gathering boundary-adjacent volume elements}
+
+At each update, the velocity data on the selected elements is copied from the
+full solver field into the restricted field:
+\begin{equation}
+  \vect{V}_{\mathrm{restricted}}|_K
+  \leftarrow \vect{V}_{\mathrm{full}}|_K.
+  \label{hopbc:eq:volume-gather}
+\end{equation}
+This is an indexed copy of every quadrature point and velocity component; it
+does not project or interpolate the values.  The gather understands the
+interleaved element layout used by Serial, AVX, CUDA, and HIP execution.
+
+\subsection{Curl--curl on the restricted volume}
+
+The element operator computes
+\begin{equation}
+  \vect{C}_K
+  =\nabla\times(\nabla\times\vect{V}_K)
+  \label{hopbc:eq:curlcurl}
+\end{equation}
+at volume quadrature points.  This operation must occur before tracing to the
+boundary: its derivatives require the volume polynomial, not merely its face
+values.
+
+\subsection{Trace interpolation and normal contraction}
+\label{hopbc:sec:trace-and-normal}
+
+Each region is traced by its own instance of the library helper
+\texttt{PhysTraceExtractBndCond} in \texttt{MultiRegions::detail}
+(\S\ref{sec:phystraceextractbndcond}), which extracts a
+volume field onto the physical points of a continuous boundary region,
+including regions of mixed shape and order and the Gauss--Lobatto points of
+collapsed directions. Its volume expansion list is the restricted list of
+boundary-adjacent elements, which is built from an expansion-information map
+and has no mesh graph, so the mesh graph of the velocity field is passed to
+it. Writing \(\mathrm{Extract}_f(\cdot)\) for this
+operator's action on face \(f\),
+\begin{equation}
+  v_f(x_a)=\mathrm{Extract}_f\bigl(v_K\bigr)(x_a),
+  \label{hopbc:eq:trace-extract}
+\end{equation}
+where \(a\) indexes the boundary region's own quadrature points.
+
+Because extraction is linear, the base and acceleration contributions are
+combined \emph{before} tracing rather than after: one volume-domain kernel
+first forms the combined flux \(s\,(\vect P-\nu\vect C)\) (or
+\(s\,(\vect R-\nu\vect C)\) for \code{Update}) on the
+boundary-adjacent volume elements, since
+\(\mathrm{Extract}_f(\vect P)-\nu\,\mathrm{Extract}_f(\vect C)
+=\mathrm{Extract}_f(\vect P-\nu\vect C)\). A single
+\code{PhysTraceExtractBndCond::Apply} call per region then traces that
+combined flux to boundary points, and a separate kernel contracts it with the
+outward normal:
+\begin{equation}
+  g^f_a
+  =s\,\vect n^f_a\cdot
+   \mathrm{Extract}_f\bigl(\vect P-\nu\vect C\bigr)(x_a)
+   -s\,\vect n^f_a\cdot\vect u_D(x_a,t).
+  \label{hopbc:eq:pointwise-kernel}
+\end{equation}
+The prescribed velocity \(\vect u_D(t)\) is evaluated directly on the boundary
+expansion (never traced from the volume), and the outward normals are stored
+on the same boundary quadrature grid.
+
+\section{Boundary-to-volume weak assembly}
+
+The scalar array \(g^f_a\) is still a physical-space boundary field.  For
+every boundary expansion of positive dimension, the boundary
+\code{IProductWRTBaseOp} computes
+\begin{equation}
+  b^f_j
+  =\int_{\Gamma_f}\phi^f_j\,g^f\,\mathrm dS
+  \simeq
+   \sum_a w_a J^f_a\,\phi^f_j(x_a)g^f_a.
+  \label{hopbc:eq:boundary-iproduct}
+\end{equation}
+This is an inner product, not a forward transform: \(b^f_j\) is a weak-load
+coefficient.  For a zero-dimensional boundary, such as an endpoint of a
+one-dimensional domain, the physical value is copied directly.
+
+The per-region boundary coefficient arrays are concatenated and rearranged
+into the execution-block layout of the pressure field.  Finally, the
+boundary-to-element maps scatter-add them into the pressure coefficient RHS:
+\begin{equation}
+  \boxed{
+  \vect r_{\mathrm{pressure}}
+  \mathrel{+}=
+  \sum_{f\subset\Gamma_N}
+  E_f^{\mathsf T}B_f^{\mathsf T}W_fJ_f\,\vect g_f.}
+  \label{hopbc:eq:weak-scatter}
+\end{equation}
+Here \(B_f\) is the boundary basis evaluation matrix and \(E_f\) embeds face
+coefficients into the owning volume expansion.  Orientation signs are applied
+where required.  When two boundary pieces target the same volume coefficient,
+for example at a corner shared by two Neumann faces, their contributions are
+grouped, summed, and written once.
+
+Thus, ``back to volume'' does \emph{not} mean constructing another physical
+volume field.  It means embedding the boundary weak load into the coefficient
+right-hand side consumed by the pressure linear system.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  >=Latex,
+  node distance=5mm and 7mm,
+  box/.style={draw=nekblue,very thick,rounded corners=2pt,
+              fill=neklightblue,minimum height=11mm,text width=31mm,
+              align=center,font=\small},
+  redbox/.style={box,draw=nekred,fill=neklightred},
+  greenbox/.style={box,draw=nekgreen,fill=neklightgreen},
+  arrow/.style={->,very thick,nekgray},
+  label/.style={font=\scriptsize,align=center,fill=white,inner sep=1pt}
+]
+  \node[box] (full) {full volume velocity\\$\vect V$};
+  \node[box,right=of full] (gather) {gather selected\\volume elements};
+  \node[box,right=of gather] (curl) {volume operator\\$\nabla\times\nabla\times\vect V$};
+  \node[redbox,below=11mm of curl] (trace) {trace interpolation\\and flux fusion};
+  \node[redbox,left=of trace] (normal) {normal flux at\\boundary points $\vect g_f$};
+  \node[redbox,left=of normal] (iprod) {boundary inner product\\$B_f^{\mathsf T}W_fJ_f\vect g_f$};
+  \node[greenbox,below=11mm of iprod] (compact) {compact and gather\\boundary coefficients};
+  \node[greenbox,right=of compact] (scatter) {signed trace-to-element\\scatter $E_f^{\mathsf T}$};
+  \node[greenbox,right=of scatter] (rhs) {pressure coefficient\\right-hand side};
+
+  \draw[arrow] (full)--(gather);
+  \draw[arrow] (gather)--(curl);
+  \draw[arrow] (curl)--(trace);
+  \draw[arrow] (trace)--(normal);
+  \draw[arrow] (normal)--(iprod);
+  \draw[arrow] (iprod)--(compact);
+  \draw[arrow] (compact)--(scatter);
+  \draw[arrow] (scatter)--(rhs);
+
+  \draw[->,thick,nekred] ($(trace.north)+(0,5mm)$)--(trace.north)
+    node[midway,right,label] {$\vect P$ or $\vect R$ from the owning volume};
+  \draw[->,thick,nekred] ($(normal.north)+(0,5mm)$)--(normal.north)
+    node[midway,right,label] {$\vect n,\ \vect u_D(t)$ on the boundary};
+\end{tikzpicture}
+\caption{Runtime data flow. Blue operations use volume data, red operations
+produce the physical and weak boundary flux, and green operations return the
+load to the pressure coefficient system.}
+\label{hopbc:fig:dataflow}
+\end{figure}
+
+\section{Relation to the pressure Poisson weak form}
+
+The redesign pressure solver uses a positive stiffness operator and applies a
+factor of \(-1\) to the volume inner product.  For the strong equation
+\begin{equation}
+  \nabla^2p=f_p,
+\end{equation}
+integration by parts gives
+\begin{equation}
+  (\nabla p,\nabla v)_\Omega
+  =-(f_p,v)_\Omega
+   +\left\langle\frac{\partial p}{\partial n},v\right\rangle_{\Gamma_N}.
+  \label{hopbc:eq:poisson-weak}
+\end{equation}
+The higher-order operator supplies precisely the positive boundary term in
+\eqref{hopbc:eq:poisson-weak}.  Its \code{Apply} method therefore adds to, rather
+than overwrites, the coefficient RHS assembled from the volume forcing.
+
+\section{Implementation map}
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.37\linewidth}p{0.59\linewidth}@{}}
+\toprule
+\textbf{Implementation routine} & \textbf{Mathematical or data-layout role} \\
+\midrule
+\code{BuildBoundaryData} & Select pressure regions opted in via
+\code{USERDEFINEDTYPE="H"}; construct boundary physical/coefficient fields
+and continuous-Galerkin scatter maps. \\
+\code{v\_SetVelocityContext} & Build the velocity-dependent data below, once,
+before time stepping. \\
+\code{BuildBoundaryElementData} & Match faces to owning elements; create the
+restricted volume list, volume gather maps, the \code{CurlCurlOp}, and one
+\code{PhysTraceExtractBndCond} per region. \\
+\code{BuildBoundaryVelocityData} & Store the outward normals and set up the
+\code{ExpressionOp} of the prescribed boundary velocity for every region;
+on a region with a velocity component that is not Dirichlet, also store the
+normals with the Dirichlet components zeroed. \\
+\code{UpdateFlux} & Called by \code{Update} and
+\code{UpdateWithAcceleration}: gather the velocity,
+apply the curl--curl, and call \code{BuildBoundaryPhys}. \\
+\code{GatherBoundaryElements} & Perform the indexed copy in
+\eqref{hopbc:eq:volume-gather}. \\
+\code{CurlCurlOp::Apply} & Evaluate \eqref{hopbc:eq:curlcurl} on boundary-adjacent
+volume elements. \\
+\code{HOPressureVolumeCombine}\newline\code{Kernel} & Combine the base/predictor
+and curl--curl terms on the restricted volume domain, before extraction (see
+\S\ref{hopbc:sec:trace-and-normal}). \\
+\code{BuildBoundaryPhys} & Combine the flux on the restricted volume, extract
+it onto every region, and contract it with the normal; on a region with a
+velocity component that is not Dirichlet, extract \(\vect P-\vect R\) too and
+subtract its contraction with the normals with the Dirichlet components
+zeroed. \\
+\code{PhysTraceExtractBndCond}\newline\code{::Apply} & Trace the combined flux to boundary
+quadrature points, as in \eqref{hopbc:eq:trace-extract}. \\
+\code{HOPressureBoundaryCombine}\newline\code{Kernel} & Contract the traced
+flux with \(\vect n\), as in \eqref{hopbc:eq:pointwise-kernel}. \\
+\code{SubtractBoundaryVelocity} & Evaluate \(\vect u_D(t)\) on the boundary
+and subtract \(s\vect n\cdot\vect u_D\). \\
+\code{BuildBoundaryCoeffs} & Apply \eqref{hopbc:eq:boundary-iproduct}, concatenate
+regions, and gather into domain-block order. \\
+\code{v\_Apply} & Signed and grouped scatter-add in
+\eqref{hopbc:eq:weak-scatter}, at the interleave width of the forcing. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Execution-space considerations}
+
+The same mathematical sequence is used for Serial, AVX, CUDA, and HIP:
+\begin{itemize}
+  \item setup maps are built once and made available in the selected memory
+        space;
+  \item only boundary-adjacent volume elements are copied for curl--curl;
+  \item the flux is combined in one kernel before extraction, and contracted
+        with the normal in one kernel after it;
+  \item work is batched by compatible source, curl--curl, boundary-region, and
+        boundary-block layouts;
+  \item the restricted fields take the interleave width of the velocity,
+        1 or that of the execution space, so that the curl--curl reads and
+        writes them without reshaping; the gather copies through index maps
+        built on the host for the interleave widths of the source and the
+        restricted block, the first time the pair is seen, and kept, and
+        numbers its threads by restricted point, the element lane varying
+        fastest, so that its writes are coalesced; it
+        runs on the stream of each restricted block, which waits on an event
+        recorded on the stream of its source block, so the host never waits;
+        after that, every block of the restricted volume and of each region
+        runs on its own stream;
+  \item the extraction orders itself after the streams of the restricted
+        blocks it reads, and the streams of the region blocks after itself,
+        with events (see \S\ref{sec:phystraceextractbndcond});
+  \item the boundary coefficients of the regions are copied into one
+        compact array on the streams of the region blocks, and gathered into
+        the layout of each domain block on the stream of that block; the
+        region and domain block streams wait on one another through the
+        operator's own stream before and after the gathers;
+  \item the final scatter separates unique coefficient targets from shared
+        corner targets, avoiding atomics while retaining the correct sum;
+        its target indices are built on the host, for the interleave width
+        of a block of the pressure forcing, 1 or that of the execution
+        space, the first time a block at that width is seen, so the forcing
+        is updated in its own layout, never reshaped.
+\end{itemize}
+No solver-level backend-specific branch changes equations
+\eqref{hopbc:eq:implemented-hop} or \eqref{hopbc:eq:weak-scatter}.
+
+\section{Summary}
+
+The complete discrete operation may be read as
+\begin{equation}
+\boxed{
+\begin{aligned}
+\vect C_K
+  &=\nabla\times(\nabla\times\vect V_K),\\
+g^f_a
+  &=s\,\vect n^f_a\cdot
+    \left[\mathrm{Extract}_f(\vect P_K-\nu\vect C_K)(x_a)-\vect u_D(x_a,t)\right],\\
+\vect b_f
+  &=B_f^{\mathsf T}W_fJ_f\vect g_f,\\
+\vect r_{\mathrm{pressure}}
+  &\mathrel{+}=\sum_f E_f^{\mathsf T}\vect b_f.
+\end{aligned}}
+\end{equation}
+The first line is a volume derivative, the second moves the strong vector flux
+to the boundary and forms its normal component, the third converts the
+physical boundary flux into a weak load, and the fourth moves that load back
+into the volume coefficient system.
+
+\section{Known follow-ups}
+
+The items below do not change \eqref{hopbc:eq:implemented-hop} or which regions
+are selected; they concern performance and state.
+
+\begin{itemize}
+  \item \textbf{Velocity-expression time-dependence.} Every boundary
+  velocity expression is re-evaluated every stage, by
+  \code{SubtractBoundaryVelocity}. The Dirichlet and Neumann operators of the
+  library, \code{DirBndCondOpImpl} and \code{NeuBndCondOpImpl}, skip it
+  for the conditions that are not time-dependent, as recorded by
+  \code{CGBndCondMapBuilder}.
+  \item \textbf{Velocity history at volume size.} On a rank with a region
+  of this condition or of \code{HOutflow}, \code{VelocityCorrectionScheme} keeps
+  a history of the velocity as deep as the implicit solves of the time
+  integration scheme combine explicit contributions, and the field it is
+  extrapolated into,
+  on the whole volume, although the operators read only the elements adjacent
+  to their regions. Keeping it on those elements instead needs each operator
+  to gather the history itself, onto its own restricted elements, and to take
+  the extrapolated velocity in that layout. The same holds for the history
+  of the explicit forcing kept for a region with a velocity component that
+  is not Dirichlet.
+\end{itemize}
+

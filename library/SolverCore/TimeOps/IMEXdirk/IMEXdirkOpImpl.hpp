@@ -95,6 +95,10 @@ public:
                 LibUtilities::Field<TData, FieldState::Phys>(
                     this->m_blockAttr, this->m_components, 1));
         }
+
+        // The implicit solve of stage s combines the explicit contributions
+        // of the first s stages, so the last one combines ImpStage.
+        this->m_explicitContributionHistorySize = ImpStage;
     }
 
     // className - for OperatorFactory

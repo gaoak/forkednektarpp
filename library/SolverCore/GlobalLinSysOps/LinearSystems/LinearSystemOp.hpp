@@ -107,6 +107,25 @@ public:
         m_NeuBCOps.push_back(op);
     }
 
+    /**
+     * @brief Add @p op, which applies the Neumann condition of the boundary
+     * regions with USERDEFINEDTYPE @p userDefinedType in place of the
+     * default Neumann operator, which leaves them out.
+     *
+     * @details
+     * Collective over the row communicator, as
+     * NeuBndCondOp::ExcludeUserDefinedType() is.
+     */
+    void AddNeumannBCOp(
+        const std::shared_ptr<MultiRegions::NeuBndCondOp<TData>> &op,
+        const std::string &userDefinedType)
+    {
+        ASSERTL0(!m_NeuBCOps.empty(),
+                 "This linear system has no default Neumann operator.");
+        m_NeuBCOps[0]->ExcludeUserDefinedType(userDefinedType);
+        m_NeuBCOps.push_back(op);
+    }
+
 protected:
     std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<

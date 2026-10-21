@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX>
+            <V ID="0"> -1.0 -1.0 0.0 </V>
+            <V ID="1">  0.0 -1.0 0.0 </V>
+            <V ID="2">  1.0 -1.0 0.0 </V>
+            <V ID="3"> -1.0  1.0 0.0 </V>
+            <V ID="4">  0.0  1.0 0.0 </V>
+            <V ID="5">  1.0  1.0 0.0 </V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0"> 0 1 </E>
+            <E ID="1"> 1 4 </E>
+            <E ID="2"> 4 3 </E>
+            <E ID="3"> 3 0 </E>
+            <E ID="4"> 1 2 </E>
+            <E ID="5"> 2 5 </E>
+            <E ID="6"> 5 4 </E>
+        </EDGE>
+        <ELEMENT>
+            <Q ID="0"> 0 1 2 3 </Q>
+            <Q ID="1"> 4 5 6 1 </Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> Q[0-1] </C>
+            <C ID="1"> E[0,4] </C>
+            <C ID="2"> E[5] </C>
+            <C ID="3"> E[2,6] </C>
+            <C ID="4"> E[3] </C>
+        </COMPOSITE>
+        <DOMAIN> C[0] </DOMAIN>
+    </GEOMETRY>
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" TYPE="MODIFIED"
+            FIELDS="u,v,p" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="PROJECTION" VALUE="Continuous" />
+        </SOLVERINFO>
+
+        <PARAMETERS>
+            <!-- Marks this session for
+                update_then_apply_neumann_velocity_boundary_flux, so that test
+                case can identify its own fixture and skip on every other
+                HOPressureBndCond unit-test session. -->
+            <P> HOPNeumannVelocityTest = 1 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <!-- Tagged HOP region whose velocity is Dirichlet in u and
+                Neumann in v: v takes no acceleration, and its flux is formed
+                from the explicit RHS. -->
+            <REGION REF="0">
+                <D VAR="u" VALUE="t" />
+                <N VAR="v" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="2*x-2*x*x" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+    </CONDITIONS>
+</NEKTAR>

@@ -61,6 +61,24 @@ void CGBndCondGatherKernel(const size_t nsize, const size_t *idxPtr,
     Nektar::LoopExecutionSetStreamID(0);
 }
 
+// dstPtr[dstIdxPtr[i]] = srcPtr[srcIdxPtr[i]], for i in [0, nsize). Used to
+// copy between two layouts where neither side is traversed contiguously,
+// such as an interleaved block with padding into a block at width 1.
+template <typename ExecSpace, typename TData>
+void CGBndCondGatherScatterKernel(const size_t nsize, const size_t *srcIdxPtr,
+                                  const size_t *dstIdxPtr, const TData *srcPtr,
+                                  TData *dstPtr, const unsigned int streamID)
+{
+    Nektar::LoopExecutionSetStreamID(streamID);
+
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const size_t i) {
+            dstPtr[dstIdxPtr[i]] = srcPtr[srcIdxPtr[i]];
+        });
+
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
 // Scatter-with-absolute-maximum-combine:
 //
 //     dstPtr[idxPtr[i]] = absmax(dstPtr[idxPtr[i]], srcPtr[i])

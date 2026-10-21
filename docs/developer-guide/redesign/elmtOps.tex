@@ -1304,9 +1304,10 @@ All the bookkeeping is done in the constructor:
     was built from an \texttt{ExpansionInfoMap} and has no graph. The
     restricted list must form a single block, and it orders its elements by
     geometry id. Every bucket has its own \texttt{PhysTraceExtractOp} on
-    this list, and its own volume and trace storage at interleave width 1,
-    each a single \texttt{BlockAccessor} belonging to no field; the trace
-    block is padded to the largest vector width, as the input block of
+    this list, and its own volume and trace storage, each a single
+    \texttt{BlockAccessor} belonging to no field, which \texttt{Apply()}
+    sets to the interleave width of the volume block; the trace block is
+    padded to the largest vector width, as the input block of
     \texttt{ExtractTrace()} is.
   \item \textbf{Trace points.} The boundary element carries Gauss--Lobatto
     points in every direction. Where the owner's own trace points differ
@@ -1324,15 +1325,23 @@ All the bookkeeping is done in the constructor:
     rotated by 90 degrees and for a transposed face with a different number
     of points in each direction. An edge is reversed when its
     orientation is \texttt{eBackwards}. Combined with the position of each
-    element in the boundary block, this gives one scatter index per
-    extracted point. Every bucket also has one gather index per point of
-    its restricted list, the position of that point in the volume block, so
-    that neither kernel divides an index. It depends on the interleave width
-    of the volume block, which is known only when \texttt{Apply()} is
-    called, so \texttt{Apply()} builds one on the host for each width the
-    first time it sees it, and keeps it, so that no index a kernel may
-    still read is overwritten. The volume field itself is not reshaped: it is usually far
-    larger than the elements gathered from it.
+    element in the boundary block, this gives the boundary point of every
+    extracted point, kept on the host. The gather and scatter indices
+    depend on the interleave width of the volume block, which the bucket's
+    storage takes and which is known only when \texttt{Apply()} is called,
+    so \texttt{Apply()} builds them on the host for each width the first
+    time it sees it, and keeps them, so that no index a kernel may still
+    read is overwritten. Both run over the element groups of the bucket's
+    storage in its own order, the element lane varying fastest, so that
+    consecutive threads touch consecutive points of the storage and, where
+    the bucket's elements are neighbours in the volume block, of the volume
+    block too. The gather index holds, for every point of the volume
+    storage, its position in the volume block; a padding lane of the last
+    group reads the first element of its group. The scatter indices hold,
+    for every extracted point but those of padding lanes, its position in
+    the trace storage and in the boundary block. No kernel divides an index.
+    The volume field itself is not reshaped: it is usually far larger than
+    the elements gathered from it.
 \end{enumerate}
 
 \subsubsection*{Application}
@@ -1344,10 +1353,12 @@ For every bucket \texttt{Apply()}
     \texttt{CGBndCondGatherKernel};
   \item \textbf{extracts} their trace with the block-level
     \texttt{ExtractTrace(traceId, volume, trace, 0, 0)}, on the restricted
-    list's only block;
+    list's only block, which reshapes only where its own interleave width
+    differs from that of the volume block;
   \item \textbf{scatters} the trace values onto the boundary field through
-    the scatter index, with \texttt{DirBndCondKernel}. Every extracted value
-    has its own destination, so no atomic operation is needed.
+    the scatter indices, with \texttt{CGBndCondGatherScatterKernel}. Every
+    extracted value has its own destination, so no atomic operation is
+    needed.
 \end{enumerate}
 All the work runs on a single stream: the stream of the first block of the
 \texttt{PhysTraceExtractOp} of every bucket. \texttt{Apply()} does not

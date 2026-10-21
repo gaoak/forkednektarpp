@@ -120,6 +120,12 @@ TEST_NEUMANN_UPDATE(neumann3d_hex_allbcs_time_update,
 TEST_NEUMANN(neumann3d_hex_3c, Helmholtz3D_Hex_3C, 1.0E-12)
 
 TEST_NEUMANN(neumann3d_hex_3c_mixedbc, Helmholtz3D_Hex_3C_mixedBC, 1.0E-12)
+
+TEST_NEUMANN(neumann2d_tri_quad_exclude_user_defined_type,
+             Helmholtz2D_Tri_Quad_ExcludeTimeDependent, 1.0E-12)
+
+TEST_NEUMANN(neumann2d_tri_quad_exclude_absent_user_defined_type,
+             Helmholtz2D_Tri_Quad_ExcludeAbsentType, 1.0E-12)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
