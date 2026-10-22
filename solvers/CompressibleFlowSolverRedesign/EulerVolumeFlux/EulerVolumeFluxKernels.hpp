@@ -38,6 +38,7 @@
 
 // header should appear after loop execution.hpp
 #include "EquationOfState/VariableConverters.hpp"
+#include <LibUtilities/BasicUtils/SafeDivide.hpp>
 
 namespace Nektar::detail
 {
@@ -75,8 +76,9 @@ NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             // ---- Load conservative variables U at point i ----
+            // Zero on the zero padding, and with it every flux below.
             const vec_t rho    = invec[0 * inVecStride + i];
-            const vec_t invRho = vec_t(TData(1)) / rho;
+            const vec_t invRho = SafeDivide(vec_t(TData(1)), rho);
 
             vec_t mom[3] = {vec_t(TData(0)), vec_t(TData(0)), vec_t(TData(0))};
             vec_t vel[3] = {vec_t(TData(0)), vec_t(TData(0)), vec_t(TData(0))};

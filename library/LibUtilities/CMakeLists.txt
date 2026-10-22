@@ -32,6 +32,7 @@ SET(BasicUtilsHeaders
     ./BasicUtils/Timer.h
     ./BasicUtils/RawType.hpp
     ./BasicUtils/RealComparison.hpp
+    ./BasicUtils/SafeDivide.hpp
     ./BasicUtils/SessionNode.h
     ./BasicUtils/SessionNodeXml.h
     ./BasicUtils/SessionReader.h
