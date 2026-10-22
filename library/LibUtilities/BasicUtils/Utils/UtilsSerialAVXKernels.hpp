@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/SafeDivide.hpp>
+
 namespace Nektar
 {
 
@@ -157,38 +159,6 @@ NEK_FORCE_INLINE static void MultiplyByJacobian(
     }
 }
 
-// The quotient num / jac, and zero in every lane whose Jacobian is zero. The
-// padding elements of a block carry a zero Jacobian, and dividing by it would
-// fill their values with inf or NaN. The quotient is taken on the whole
-// vector; only a group with a zero Jacobian, the one holding padding, then
-// visits its lanes to zero them.
-template <typename TData>
-NEK_FORCE_INLINE static TData DivideByNonZeroJacobian(const TData &num,
-                                                      const TData &jac)
-{
-    const TData zero(0);
-    if constexpr (std::is_arithmetic_v<TData>)
-    {
-        return (jac == zero) ? zero : num / jac;
-    }
-    else
-    {
-        using scalar_type = typename TData::scalarType;
-        TData out         = num / jac;
-        if (!((abs(jac) > zero) && true))
-        {
-            for (unsigned int l = 0; l < TData::width; ++l)
-            {
-                if (jac[l] == scalar_type(0))
-                {
-                    out[l] = scalar_type(0);
-                }
-            }
-        }
-        return out;
-    }
-}
-
 // Divide by the Jacobian. Elements whose Jacobian is zero, the padding of a
 // block, are set to zero rather than divided by it.
 template <typename ExecSpace, bool DEFORMED, typename TData,
@@ -205,14 +175,14 @@ NEK_FORCE_INLINE static void DivideByJacobian(
     {
         for (size_t i = 0; i < nelmt * nqTot; ++i)
         {
-            outptr[i] = DivideByNonZeroJacobian(inptr[i], jacptr[i]);
+            outptr[i] = SafeDivide(inptr[i], jacptr[i]);
         }
     }
     else
     {
         for (size_t e = 0; e < nelmt; ++e)
         {
-            TData invjac = DivideByNonZeroJacobian(TData(1.0), jacptr[e]);
+            TData invjac = SafeDivide(TData(1.0), jacptr[e]);
             for (unsigned int i = 0; i < nqTot; ++i)
             {
                 outptr[e * nqTot + i] = inptr[e * nqTot + i] * invjac;
