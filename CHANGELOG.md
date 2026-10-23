@@ -129,6 +129,7 @@ v5.11.0
 
 **AcousticSolver**
 - Added new BC: liner / perforated plate (!2678)
+- Fixed error in flux computation for LEE Lax Friedrichs flux solver (!2867)
 
 **CompressibleFlowSolver**
 - Add ShockSensorRatio, to report the modal shock sensor as the Persson-Peraire energy ratio rather than its square root, and ArtificialViscosityBndTrace, to take the interior artificial viscosity on boundary and partition traces rather than half of it (!2735)
