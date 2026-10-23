@@ -1156,6 +1156,11 @@ public:
     {
         return m_dataWarehouse;
     }
+
+    /// Whether this list and @p other share their quadrature and phys block
+    /// layout.
+    MULTI_REGIONS_EXPORT bool SameQuadratureLayout(
+        const ExpListSharedPtr &other);
 #endif
 
     void MultiplyByBlockMatrix(const GlobalMatrixKey &gkey,

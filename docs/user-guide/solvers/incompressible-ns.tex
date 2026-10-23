@@ -130,6 +130,39 @@ from equation Eq.~\eqref{eqn.pressurebcs} to become
 \end{equation}
 Further details for this scheme can be found in the Developer-Guide.
 
+\inltt{IncNavierStokesSolverRedesign} provides the weak pressure formulation
+within its \inltt{VelocityCorrectionScheme}, selected in the
+\inltt{SOLVERINFO} section independently of the semi- or linear-implicit
+\inltt{Formulation}:
+\begin{lstlisting}[style=XMLStyle]
+<I PROPERTY="SolverType"          VALUE="VelocityCorrectionScheme"/>
+<I PROPERTY="PressureFormulation" VALUE="Weak"/>
+\end{lstlisting}
+The default is \inltt{Strong} with \inltt{Formulation}
+\inltt{SemiImplicit} and \inltt{Weak} with \inltt{LinearImplicit}. In the
+weak form a pressure Neumann boundary
+with \inltt{USERDEFINEDTYPE="H"} carries only the boundary acceleration and
+the viscous term of Eq.~\eqref{eqn.pressurebcsWeak}, and a session with such
+a boundary needs a Dirichlet pressure boundary as well.
+\inltt{LinearImplicit} advects with the velocity extrapolated from the
+previous time levels with the explicit coefficients of the \inltt{IMEX}
+scheme. Its first steps take an \inltt{IMEXdirk} start-up scheme, which
+combines stage values instead, so \inltt{LinearImplicit} is at most second
+order in time, also with a third-order \inltt{IMEX} scheme, and the solver
+warns at start-up when the time integration scheme is of third order or
+higher. With \inltt{LinearImplicit} the weak form evaluates the explicit
+terms of the pressure equation, the advection and the viscous term of
+Eq.~\eqref{eqn.pressurebcsWeak}, at the latest time level rather than
+extrapolating them. This keeps large time steps stable, but near boundaries
+with \inltt{USERDEFINEDTYPE="H"} the pressure is then of lower order in
+time, close to first order for a flow whose advection changes in time.
+Where accuracy in time matters more than the time step, set
+\inltt{PressureFormulation} to \inltt{Strong}: the strong form extrapolates
+these terms and keeps the velocity and pressure second order (third order
+for a flow whose advection does not change in time), but its stable time
+step is much smaller, by one to two orders of magnitude in the developer
+guide's test cases.
+
 \subsubsection{Implicit Velocity Correction Scheme}
 \label{VCSImplicitScheme}
 

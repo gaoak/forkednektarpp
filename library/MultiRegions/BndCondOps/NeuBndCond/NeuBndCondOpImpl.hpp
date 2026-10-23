@@ -67,7 +67,6 @@ public:
                      const std::vector<std::string> &components)
         : NeuBndCondOp<TData>(expansionList, components)
     {
-        BuildRegions();
     }
 
     // className - for OperatorFactory
@@ -134,6 +133,11 @@ protected:
     // applies, set by ExcludeUserDefinedType().
     std::vector<std::string> m_excludedUserDefinedTypes;
 
+    // Whether BuildRegions() has run. The regions are built on first use,
+    // not at construction, so that the types ExcludeUserDefinedType() names
+    // before then are left out of the only build.
+    bool m_isBuilt = false;
+
     // Whether this operator applies @p bc: a Neumann condition whose
     // user-defined type is not excluded.
     bool IsApplied(const SpatialDomains::BoundaryConditionShPtr &bc) const
@@ -149,9 +153,16 @@ protected:
     }
 
     // Build the fields, operators and maps of the regions with a Neumann
-    // condition this operator applies (IsApplied()), and evaluate it.
+    // condition this operator applies (IsApplied()), unless they are built
+    // already. Collective over the row communicator.
     void BuildRegions()
     {
+        if (m_isBuilt)
+        {
+            return;
+        }
+        m_isBuilt = true;
+
         auto session       = this->m_expansionList->GetSession();
         auto graph         = this->m_expansionList->GetGraph();
         unsigned int nComp = this->m_components.size();
@@ -236,6 +247,7 @@ protected:
         auto maps = BuildCGBndCondCoeffMaps<ExecSpace, TData>(
             this->m_expansionList, this->m_components, bregions,
             isNeumannByRegion, numBcExpCoeffs, m_numBndCoeffCompSize,
+            CGBndCondCoeffMapSet::UniqueAndGroups,
             [](unsigned int, const MultiRegions::AssemblyMapCGSharedPtr &,
                const auto &, const auto &) {});
 
@@ -307,14 +319,19 @@ protected:
         {
             m_updateStreams.push_back(id);
         }
-
-        this->UpdateBndCoeffs(static_cast<TData>(0.0));
     }
 
-    // Leave the regions with user-defined type @p userDefinedType out,
-    // rebuilding the operator if any rank applies one of them.
+    // Leave the regions with user-defined type @p userDefinedType out. Once
+    // built, the operator is cleared, to be built again on its next use, if
+    // any rank applies one of them.
     void v_ExcludeUserDefinedType(const std::string &userDefinedType) override
     {
+        if (!m_isBuilt)
+        {
+            m_excludedUserDefinedTypes.push_back(userDefinedType);
+            return;
+        }
+
         auto session = this->m_expansionList->GetSession();
         const SpatialDomains::BoundaryConditions bcs(
             session, this->m_expansionList->GetGraph());
@@ -346,12 +363,12 @@ protected:
         }
 
         ClearRegions();
-        BuildRegions();
     }
 
     // Return the operator to its state before BuildRegions().
     void ClearRegions()
     {
+        m_isBuilt                         = false;
         this->m_bndCoeffsInitialised      = false;
         this->m_hasTimeDependentBndCoeffs = false;
 
@@ -386,6 +403,7 @@ protected:
 
     void v_UpdateBndCoeffs(const TData &time) override
     {
+        BuildRegions();
         if (m_numBndCoeffCompSize == 0)
         {
             return;
@@ -517,13 +535,21 @@ protected:
         ReleaseStreams<ExecSpace>(m_opStreamID, m_updateStreams);
     }
 
-    size_t v_GetNumBndDofs() const override
+    size_t v_GetNumBndDofs() override
     {
+        BuildRegions();
         return m_totalBndDofs;
     }
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override
     {
+        // Applied before any UpdateBndCoeffs(), the condition takes its value
+        // at time zero.
+        if (!this->m_bndCoeffsInitialised)
+        {
+            this->UpdateBndCoeffs(static_cast<TData>(0.0));
+        }
+
         // Return if no Neumann boundary condition.
         if (m_numBndCoeffCompSize == 0)
         {

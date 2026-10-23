@@ -200,7 +200,7 @@ public:
 
         auto maps = BuildCGBndCondCoeffMaps<ExecSpace, TData>(
             this->m_expansionList, components, bregions, isDirichletByRegion,
-            numBcExpCoeffs, m_numBndCoeffCompSize,
+            numBcExpCoeffs, m_numBndCoeffCompSize, CGBndCondCoeffMapSet::Full,
             [&](unsigned int nc,
                 const MultiRegions::AssemblyMapCGSharedPtr &assmbMap,
                 const auto &blocks, const auto &blkBound) {

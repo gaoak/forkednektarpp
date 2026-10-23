@@ -76,14 +76,16 @@ void HOPressureVolumeGatherKernel(const size_t nsize, const unsigned int nComp,
 
 /**
  * @brief flux = scale * (flux - kinvis * curlcurl), in place, for the
- * NDIM components of a vector field on the boundary-adjacent elements.
+ * NDIM components of a vector field on the boundary-adjacent elements, or
+ * flux = -scale * kinvis * curlcurl without FORCING.
  *
  * @details
  * Extracting onto the boundary and projecting onto the normal are linear,
  * so combining the two terms here, before extraction, needs one extraction
- * per boundary region instead of two.
+ * per boundary region instead of two. Without FORCING, the flux of the weak
+ * pressure form, flux is only written.
  */
-template <typename ExecSpace, unsigned int NDIM, typename TData>
+template <typename ExecSpace, unsigned int NDIM, bool FORCING, typename TData>
 void HOPressureVolumeCombineKernel(const size_t nsize, const size_t compSize,
                                    const TData kinvis, const TData scale,
                                    const TData *curlcurl, TData *flux,
@@ -94,8 +96,9 @@ void HOPressureVolumeCombineKernel(const size_t nsize, const size_t compSize,
         0u, nsize, NEKTAR_LAMBDA(const size_t i) {
             for (unsigned int d = 0; d < NDIM; ++d)
             {
-                const size_t idx = d * compSize + i;
-                flux[idx]        = scale * (flux[idx] - kinvis * curlcurl[idx]);
+                const size_t idx    = d * compSize + i;
+                const TData forcing = FORCING ? flux[idx] : TData(0.0);
+                flux[idx] = scale * (forcing - kinvis * curlcurl[idx]);
             }
         });
     Nektar::LoopExecutionSetStreamID(0);

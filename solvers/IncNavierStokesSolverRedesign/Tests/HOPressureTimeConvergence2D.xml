@@ -12,7 +12,12 @@
         right edge supplies a time-dependent pressure reference. The Python
         convergence test check_hopbc_time_order.py sets these functions, the
         time-dependent velocity boundary values, the time step and the
-        integration order.
+        integration order. With manufactured advective, it sets instead the
+        unsteady advective flow
+
+        u = cos(t)*(x^2, -2*x*y) + sin(t)*(2*x*y, -y^2),
+
+        driven by f = du/dt + (u.grad)u - Kinvis*laplacian(u) + grad(p).
     -->
     <GEOMETRY DIM="2" SPACE="2">
         <VERTEX>

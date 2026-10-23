@@ -216,9 +216,22 @@ CGBndCondRegions<TData> BuildCGBndCondRegions(
     return result;
 }
 
+// The maps of CGBndCondCoeffMaps that BuildCGBndCondCoeffMaps() uploads:
+// - Full: map, sign, bndCoeff and bndCoeffSrc, which hold every entry, for
+//   a consumer setting the targets (Dirichlet);
+// - UniqueAndGroups: the unique* and group* maps, which partition the same
+//   entries, for a consumer adding into the targets (Neumann).
+// The per-block, per-component offsets and counts are filled for both.
+enum class CGBndCondCoeffMapSet
+{
+    Full,
+    UniqueAndGroups
+};
+
 // Result of BuildCGBndCondCoeffMaps(): everything needed by v_Apply()/
 // v_UpdateBndCoeffs() to scatter a compact per-component boundary coefficient
-// array into the (block-partitioned) domain coefficient array.
+// array into the (block-partitioned) domain coefficient array. Only the maps
+// of the CGBndCondCoeffMapSet requested are filled; the others are empty.
 template <typename TData> struct CGBndCondCoeffMaps
 {
     bool anySignChange = false;
@@ -288,6 +301,8 @@ template <typename TData> struct CGBndCondCoeffMaps
 //   running offset must account for skipped regions too).
 // - numBndCoeffCompSize is the total number of matching boundary coefficients
 //   across all regions, for a single component.
+// - mapSet selects the maps uploaded to the memory space of ExecSpace: those
+//   the caller uses.
 // - perComponent(nc, assmbMap, domainBlocks, blockBound) is invoked once per
 //   field component after the shared per-component map/sign bucketing has
 //   been computed, so that callers needing extra information from the same
@@ -300,7 +315,7 @@ CGBndCondCoeffMaps<TData> BuildCGBndCondCoeffMaps(
     const SpatialDomains::BoundaryRegionCollection &bregions,
     const std::vector<std::vector<bool>> &isTypeByRegion,
     const std::vector<size_t> &numBcExpCoeffs, size_t numBndCoeffCompSize,
-    PerComponentFn &&perComponent)
+    const CGBndCondCoeffMapSet mapSet, PerComponentFn &&perComponent)
 {
     using MemSpace           = typename ExecSpace::memory_space;
     const unsigned int nComp = components.size();
@@ -528,92 +543,98 @@ CGBndCondCoeffMaps<TData> BuildCGBndCondCoeffMaps(
         perComponent(nc, assmbMap, domainBlocks, blockBound);
     }
 
-    result.map.reserve(domainBlocks.size());
-    result.bndCoeff.reserve(domainBlocks.size());
-    result.bndCoeffSrc.reserve(domainBlocks.size());
-    result.uniqueMap.reserve(domainBlocks.size());
-    result.uniqueBndCoeff.reserve(domainBlocks.size());
-    result.uniqueBndCoeffSrc.reserve(domainBlocks.size());
-    result.groupTarget.reserve(domainBlocks.size());
-    result.groupOffset.reserve(domainBlocks.size());
-    result.groupSrc.reserve(domainBlocks.size());
-    result.groupValue.reserve(domainBlocks.size());
-    if (result.anySignChange)
+    const bool isFull = (mapSet == CGBndCondCoeffMapSet::Full);
+    if (isFull)
     {
-        result.sign.reserve(domainBlocks.size());
-        result.uniqueSign.reserve(domainBlocks.size());
-        result.groupSign.reserve(domainBlocks.size());
+        result.map.reserve(domainBlocks.size());
+        result.bndCoeff.reserve(domainBlocks.size());
+        result.bndCoeffSrc.reserve(domainBlocks.size());
+        if (result.anySignChange)
+        {
+            result.sign.reserve(domainBlocks.size());
+        }
+    }
+    else
+    {
+        result.uniqueMap.reserve(domainBlocks.size());
+        result.uniqueBndCoeff.reserve(domainBlocks.size());
+        result.uniqueBndCoeffSrc.reserve(domainBlocks.size());
+        result.groupTarget.reserve(domainBlocks.size());
+        result.groupOffset.reserve(domainBlocks.size());
+        result.groupSrc.reserve(domainBlocks.size());
+        result.groupValue.reserve(domainBlocks.size());
+        if (result.anySignChange)
+        {
+            result.uniqueSign.reserve(domainBlocks.size());
+            result.groupSign.reserve(domainBlocks.size());
+        }
     }
     for (unsigned int blk = 0; blk < domainBlocks.size(); ++blk)
     {
         ASSERTL1(mapBlockByBlk[blk].size() == bndCoeffSrcBlockByBlk[blk].size(),
                  "Mismatch between map and boundary coefficient sizes.");
-        result.map.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                mapBlockByBlk[blk]));
-        // bndCoeff[blk] is populated in full by CGBndCondGatherKernel on
-        // every UpdateBndCoeffs() call, so it does not need a zeroed
-        // starting value here.
-        result.bndCoeff.emplace_back(bndCoeffSrcBlockByBlk[blk].size());
-        result.bndCoeffSrc.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                bndCoeffSrcBlockByBlk[blk]));
-        if (result.anySignChange)
+        if (isFull)
         {
-            result.sign.push_back(
-                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                       TData>(
-                    signBlockByBlk[blk]));
+            result.map.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(mapBlockByBlk[blk]));
+            // bndCoeff[blk] is populated in full by CGBndCondGatherKernel on
+            // every UpdateBndCoeffs() call, so it does not need a zeroed
+            // starting value here.
+            result.bndCoeff.emplace_back(bndCoeffSrcBlockByBlk[blk].size());
+            result.bndCoeffSrc.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(bndCoeffSrcBlockByBlk[blk]));
+            if (result.anySignChange)
+            {
+                result.sign.push_back(
+                    LibUtilities::MemoryRegion<TData>::template FromVector<
+                        MemSpace, TData>(signBlockByBlk[blk]));
+            }
         }
-
-        result.uniqueMap.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                uniqueMapBlockByBlk[blk]));
-        // uniqueBndCoeff[blk] is populated in full by CGBndCondGatherKernel
-        // on every UpdateBndCoeffs() call, same as bndCoeff above.
-        result.uniqueBndCoeff.emplace_back(
-            uniqueBndCoeffSrcBlockByBlk[blk].size());
-        result.uniqueBndCoeffSrc.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                uniqueBndCoeffSrcBlockByBlk[blk]));
-        if (result.anySignChange)
+        else
         {
-            result.uniqueSign.push_back(
-                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                       TData>(
-                    uniqueSignBlockByBlk[blk]));
-        }
+            result.uniqueMap.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(uniqueMapBlockByBlk[blk]));
+            // uniqueBndCoeff[blk] is populated in full by
+            // CGBndCondGatherKernel on every UpdateBndCoeffs() call, same as
+            // bndCoeff above.
+            result.uniqueBndCoeff.emplace_back(
+                uniqueBndCoeffSrcBlockByBlk[blk].size());
+            result.uniqueBndCoeffSrc.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(uniqueBndCoeffSrcBlockByBlk[blk]));
+            if (result.anySignChange)
+            {
+                result.uniqueSign.push_back(
+                    LibUtilities::MemoryRegion<TData>::template FromVector<
+                        MemSpace, TData>(uniqueSignBlockByBlk[blk]));
+            }
 
-        // Close off the group CSR with a trailing sentinel (the total
-        // number of grouped contributions), so group g's slice is always
-        // [groupOffset[g], groupOffset[g + 1]).
-        groupOffsetByBlk[blk].push_back(groupSrcByBlk[blk].size());
+            // Close off the group CSR with a trailing sentinel (the total
+            // number of grouped contributions), so group g's slice is always
+            // [groupOffset[g], groupOffset[g + 1]).
+            groupOffsetByBlk[blk].push_back(groupSrcByBlk[blk].size());
 
-        result.groupTarget.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                groupTargetByBlk[blk]));
-        result.groupOffset.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                groupOffsetByBlk[blk]));
-        result.groupSrc.push_back(
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace,
-                                                                    size_t>(
-                groupSrcByBlk[blk]));
-        // groupValue[blk] is gathered in full by CGBndCondGatherKernel on
-        // every UpdateBndCoeffs() call, same as bndCoeff above.
-        result.groupValue.emplace_back(groupSrcByBlk[blk].size());
-        if (result.anySignChange)
-        {
-            result.groupSign.push_back(
-                LibUtilities::MemoryRegion<TData>::template FromVector<MemSpace,
-                                                                       TData>(
-                    groupSignByBlk[blk]));
+            result.groupTarget.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(groupTargetByBlk[blk]));
+            result.groupOffset.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(groupOffsetByBlk[blk]));
+            result.groupSrc.push_back(
+                LibUtilities::MemoryRegion<size_t>::template FromVector<
+                    MemSpace, size_t>(groupSrcByBlk[blk]));
+            // groupValue[blk] is gathered in full by CGBndCondGatherKernel on
+            // every UpdateBndCoeffs() call, same as bndCoeff above.
+            result.groupValue.emplace_back(groupSrcByBlk[blk].size());
+            if (result.anySignChange)
+            {
+                result.groupSign.push_back(
+                    LibUtilities::MemoryRegion<TData>::template FromVector<
+                        MemSpace, TData>(groupSignByBlk[blk]));
+            }
         }
     }
 

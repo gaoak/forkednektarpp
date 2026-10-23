@@ -1910,6 +1910,72 @@ void ExpList::SetDataWarehouse(void)
 #endif
 }
 
+#if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
+/**
+ * @brief Whether this list and another over the same elements share their
+ * quadrature and their phys block layout.
+ *
+ * True when both lists hold the same elements, grouped into the same
+ * collections in the same order, with the same quadrature points in every
+ * direction of every element. A phys field of one list is then a phys field
+ * of the other, point by point and block by block, whatever the two bases
+ * are. This is the case for a velocity of order P+1 and a pressure of order
+ * P whose quadrature is raised to match, e.g. MODIFIED with NUMMODES=P+1 and
+ * MODIFIEDQUADPLUS1 with NUMMODES=P.
+ *
+ * Both lists are compared on this rank only; boundary and volume
+ * expansion lists are partitioned identically for every variable.
+ *
+ * @param other   Expansion list to compare this list with.
+ *
+ * @return Whether a phys field laid out for this list is laid out for
+ * @p other.
+ */
+bool ExpList::SameQuadratureLayout(const ExpListSharedPtr &other)
+{
+    if (GetExpSize() != other->GetExpSize())
+    {
+        return false;
+    }
+
+    // Collection::GetExpVector() is not const, so the collections are held
+    // as the non-const copies GetCollections() returns. The free
+    // GetCollections() takes the collections of a homogeneous list from its
+    // first plane or line.
+    auto thisCollections  = MultiRegions::GetCollections(GetSharedThisPtr());
+    auto otherCollections = MultiRegions::GetCollections(other);
+    if (thisCollections.size() != otherCollections.size())
+    {
+        return false;
+    }
+
+    for (size_t blk = 0; blk < thisCollections.size(); ++blk)
+    {
+        const auto &thisExpansions  = thisCollections[blk].GetExpVector();
+        const auto &otherExpansions = otherCollections[blk].GetExpVector();
+        if (thisExpansions.size() != otherExpansions.size())
+        {
+            return false;
+        }
+
+        for (size_t e = 0; e < thisExpansions.size(); ++e)
+        {
+            const auto &thisExp  = thisExpansions[e];
+            const auto &otherExp = otherExpansions[e];
+            if (thisExp->GetGeom()->GetGlobalID() !=
+                    otherExp->GetGeom()->GetGlobalID() ||
+                thisExp->DetShapeType() != otherExp->DetShapeType() ||
+                thisExp->GetPointsKeys() != otherExp->GetPointsKeys())
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+#endif
+
 /**
  * Retrieves the block matrix specified by \a bkey, and computes
  * \f$ y=Mx \f$.

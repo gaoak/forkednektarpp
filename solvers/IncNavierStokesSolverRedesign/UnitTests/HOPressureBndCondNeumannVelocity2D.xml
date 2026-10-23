@@ -45,9 +45,10 @@
 
         <PARAMETERS>
             <!-- Marks this session for
-                update_then_apply_neumann_velocity_boundary_flux, so that test
-                case can identify its own fixture and skip on every other
-                HOPressureBndCond unit-test session. -->
+                update_then_apply_neumann_velocity_boundary_flux and
+                update_weak_then_apply_neumann_velocity_boundary_flux, so that
+                those test cases can identify their own fixture and skip on
+                every other HOPressureBndCond unit-test session. -->
             <P> HOPNeumannVelocityTest = 1 </P>
         </PARAMETERS>
 

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="http://www.nektar.info/schema/nektar.xsd">
+
+    <!--
+        Expansions and conditions of KovasznayFlowHOPBC2D.xml at a lower
+        order and a small time step, integrated with the second-order IMEX
+        scheme. The Dirichlet velocity is not representable on the boundary
+        expansion at this order, and the high-order pressure boundary
+        acceleration divides the difference between the predictor trace and
+        the boundary velocity by lambda*dt. That difference vanishes when the
+        boundary velocity is the projected Dirichlet data the velocity solve
+        imposes, and is of the projection error otherwise.
+    -->
+
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="7" FIELDS="u,v,p" TYPE="MODIFIED" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
+            <I PROPERTY="Projection" VALUE="Galerkin" />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <P> TimeStep = 1e-4 </P>
+            <P> NumSteps = 20 </P>
+            <P> IO_InfoSteps = NumSteps </P>
+            <P> Kinvis = 0.025 </P>
+            <P> IterativeSolverTolerance = 1e-10 </P>
+            <P> KovaLam = 0.963740544195769 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <!-- Inflow (left, x=-0.5): Dirichlet velocity, Neumann/HOPBC pressure -->
+            <REGION REF="0">
+                <D VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+                <D VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <!-- Outflow (right, x=1): Dirichlet velocity and pressure -->
+            <REGION REF="1">
+                <D VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+                <D VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+                <D VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+            </REGION>
+            <!-- Top/bottom: Dirichlet velocity, Neumann/HOPBC pressure -->
+            <REGION REF="2">
+                <D VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+                <D VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+            <E VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+            <E VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+        </FUNCTION>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+            <E VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+            <E VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

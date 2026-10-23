@@ -56,6 +56,7 @@ template <typename TData> class AdvectionOp;
 template <typename TData> class AdvectionDealiasOp;
 template <typename TData> class BwdTransOp;
 template <typename TData> class DivergenceOp;
+template <FieldState TFieldOut, typename TData> class IProductWRTDerivBaseOp;
 template <typename TData> class PhysDerivOp;
 } // namespace MultiRegions
 
@@ -99,8 +100,14 @@ protected:
     // dealiasing (local over-integration), false = native-order evaluation
     bool m_specHPDealiasing = false;
 
+    // true = weak pressure form, forced by the inner product of the
+    // pressure RHS vector with the derivative of the basis; false = strong
+    // pressure form, forced by the divergence of that vector
+    bool m_weakPressure = false;
+
     // true = this rank has a region with the higher-order pressure or the
-    // high-order outflow condition, whose velocity history it keeps
+    // high-order outflow condition, whose velocity history it keeps; the
+    // linear-implicit formulation keeps it on every rank
     bool m_hasHighOrderPressureBCs = false;
 
     // true = this rank has a higher-order pressure region with a velocity
@@ -127,6 +134,8 @@ protected:
 
     // Setup workspaces
     LibUtilities::Field<double, FieldState::Phys> m_pressure;
+    // Allocated only with m_implicitAdvection: the advection velocity of the
+    // velocity solve.
     LibUtilities::Field<double, FieldState::Phys> m_advVel;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_fields_rhs;
@@ -138,12 +147,14 @@ protected:
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys_deriv_pressure;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys_1c;
     LibUtilities::Field<double, FieldState::Coeff> m_pressure_coeff;
+    // Allocated only with m_weakPressure.
+    LibUtilities::Field<double, FieldState::Coeff> m_wsp_coeff_1c;
     std::map<unsigned int,
              std::deque<LibUtilities::Field<double, FieldState::Phys>>>
         m_advectionRhsHistories;
     std::map<unsigned int,
              std::deque<LibUtilities::Field<double, FieldState::Phys>>>
-        m_pressureBCVelocityHistories;
+        m_velocityHistories;
     std::map<unsigned int,
              std::deque<LibUtilities::Field<double, FieldState::Phys>>>
         m_pressureBCRhsHistories;
@@ -156,14 +167,23 @@ protected:
     std::shared_ptr<LinearSystemOp<double>> m_fieldsSolveOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverFieldsOp;
     std::shared_ptr<LinearSolverOp<double>> m_linearSolverPressureOp;
+    // Semi-implicit only: a preconditioner of the velocity solve per step
+    // size.
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconFieldsOpMap;
+    // Linear-implicit only: the preconditioner of the velocity solve,
+    // configured again every step.
+    std::shared_ptr<PreconOp<double>> m_preconFieldsOp;
     std::map<double, std::shared_ptr<PreconOp<double>>> m_preconPressureOpMap;
     std::shared_ptr<PoissonSolveOp<double>> m_poissonSolveOp;
     // Built only when a region of any rank has the condition.
     std::shared_ptr<HOPressureBndCondOp<double>> m_hoPressureBCOp;
     std::shared_ptr<HOutflowBndCondOp<double>> m_hOutflowBCOp;
     std::vector<ForcingSharedPtr> m_forcing;
+    // Strong pressure form only: the forcing div(f).
     std::shared_ptr<DivergenceOp<double>> m_divergenceOp;
+    // Weak pressure form only: the forcing (grad(phi), f).
+    std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, double>>
+        m_iprodDerivPressureOp;
 
     // Lazily constructed on first use in v_PrintNorms. Execution-space
     // dispatch (Serial/AVX/Device) is resolved once by
@@ -187,6 +207,11 @@ protected:
         LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
         const double &dt);
 
+    void SetUpWeakPressureForcing(
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &fieldRhs,
+        const double dt_inv_gamma);
+
     void EvaluateAdvectionContribution(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
@@ -194,15 +219,14 @@ protected:
     std::deque<LibUtilities::Field<double, FieldState::Phys>> &
     GetAdvectionRhsHistory(unsigned int historyId, unsigned int historySize);
     void FreeStartupHistories(unsigned int historyId);
-    std::deque<LibUtilities::Field<double, FieldState::Phys>> &
-    GetPressureBCVelocityHistory(unsigned int historyId,
-                                 unsigned int historySize);
+    std::deque<LibUtilities::Field<double, FieldState::Phys>> &GetVelocityHistory(
+        unsigned int historyId, unsigned int historySize);
     std::deque<LibUtilities::Field<double, FieldState::Phys>> &
     GetPressureBCRhsHistory(unsigned int historyId, unsigned int historySize);
 
     void UpdateAdvectionRhsHistory(
         LibUtilities::Field<double, FieldState::Phys> &advRhs);
-    void UpdatePressureBCVelocityHistory(
+    void UpdateVelocityHistory(
         LibUtilities::Field<double, FieldState::Phys> &velocity);
     void UpdatePressureBCRhsHistory(
         LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt);

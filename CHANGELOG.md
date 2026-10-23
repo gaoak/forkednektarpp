@@ -164,6 +164,7 @@ v5.11.0
 - Add high-order pressure boundary conditions using the CurlCurl operator (!2531)
 - Add linear-implicit time-stepping (!2585)
 - Remove deprecated AdvectionForm from session file and add deprecation warning message (!2799)
+- Add weak pressure formulation and fix HOPBC and linear-implicit time accuracy (!2870)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

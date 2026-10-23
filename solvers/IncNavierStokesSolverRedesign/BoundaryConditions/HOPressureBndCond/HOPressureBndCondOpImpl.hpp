@@ -53,7 +53,9 @@
 #include <MultiRegions/BndCondOps/Common/CGBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/Common/CGBndCondMapBuilder.hpp>
 #include <MultiRegions/BndCondOps/Common/PhysTraceExtractBndCond.hpp>
+#include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCOp.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/CurlCurl/CurlCurlOp.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
@@ -72,10 +74,25 @@ namespace Nektar::detail
  * product with the boundary basis. Apply() scatters that into the pressure
  * forcing. Every block of the work runs on its own stream.
  *
+ * UpdateWithAcceleration() subtracts the normal component of the Dirichlet
+ * velocity as the velocity solve imposes it: the session expression projected
+ * onto the boundary expansion of the velocity, at the points of the region.
+ * The predictor carries that velocity on the boundary, so the acceleration
+ * vanishes at a steady state; the expression itself would leave the
+ * projection error, divided by the implicit step size, in the flux. Its
+ * coefficients on that expansion are kept and computed once, unless a
+ * Dirichlet velocity condition of the region is time-dependent; it is
+ * evaluated from them at every update into the work storage of the flux,
+ * which no longer holds the flux by then.
+ *
  * On a region with a velocity component that is not Dirichlet,
  * UpdateWithAcceleration() also extracts predictor - rhs and subtracts its
  * projection onto the normal components of those velocity components, whose
  * flux is thus formed from rhs, without acceleration.
+ *
+ * UpdateWeak() does the same with the predictor left out of the combined
+ * flux, which then holds the viscous term alone before the acceleration and
+ * predictor - rhs are subtracted.
  */
 template <typename ExecSpace, typename TData>
 class HOPressureBndCondOpImpl : public HOPressureBndCondOp<TData>
@@ -104,6 +121,17 @@ public:
     }
 
 protected:
+    // The flux an update computes: that of Update(), from its rhs; that of
+    // UpdateWithAcceleration(), from the predictor less the acceleration to
+    // the boundary velocity; or that of UpdateWeak(), which leaves the
+    // predictor out as well.
+    enum class FluxForm
+    {
+        Plain,
+        Acceleration,
+        Weak
+    };
+
     // An index into a block at interleave width 1 and one into a block at
     // m_interleaveWidth, each built from host data the first time a block at
     // that width is seen, and kept.
@@ -169,12 +197,15 @@ protected:
 
     bool m_isUpdated          = false;
     bool m_velocityContextSet = false;
-    bool m_addAcceleration    = false;
-    unsigned int m_nDim       = 0;
+    // Whether m_bndVelocityCoeffs has been computed, by the first update
+    // with the acceleration.
+    bool m_isBndVelocityEvaluated = false;
+    unsigned int m_nDim           = 0;
     // On the boundary-adjacent elements, the velocity, from which m_curlCurl
     // is computed, and then rhs, or predictor when the acceleration is added,
-    // combined in place with kinvis * m_curlCurl. Both are laid out at the
-    // interleave width of the velocity (SetRestrictedInterleaveWidth()).
+    // combined in place with kinvis * m_curlCurl; in the weak form, rhs for
+    // predictor - rhs, and then -kinvis * m_curlCurl. Both are laid out at
+    // the interleave width of the velocity (SetRestrictedInterleaveWidth()).
     LibUtilities::Field<TData, FieldState::Phys> m_bndElmtWork;
     LibUtilities::Field<TData, FieldState::Phys> m_curlCurl;
     // On the boundary-adjacent elements, predictor - rhs, at the interleave
@@ -185,8 +216,18 @@ protected:
     std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_bndCoeffs;
     // Per region, the flux extracted onto the points of the region, then
     // predictor - rhs where the region has a velocity component that is not
-    // Dirichlet, and then the prescribed boundary velocity there.
+    // Dirichlet, and then the Dirichlet velocity as the velocity solve
+    // imposes it, zero in the velocity components that are not Dirichlet;
+    // see EvaluateBoundaryVelocity().
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_bndWorkPhys;
+    // Per region, the coefficients of that Dirichlet velocity on the
+    // boundary expansion of the velocity (uninstantiated for a point region).
+    std::vector<LibUtilities::Field<TData, FieldState::Coeff>>
+        m_bndVelocityCoeffs;
+    // Per region, whether a Dirichlet velocity condition of the region is
+    // time-dependent, so that m_bndVelocityCoeffs is computed at every
+    // update.
+    std::vector<bool> m_bndVelocityIsTimeDependent;
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_bndNormals;
     // Per region, the normals with the components of the Dirichlet velocity
     // components zeroed, instantiated only for a region with a velocity
@@ -197,8 +238,16 @@ protected:
     std::vector<unsigned int> m_bndRegionIds;
     std::vector<std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>>>
         m_bndIProductOps;
+    // Per region, the operators evaluating the Dirichlet velocity on the
+    // boundary expansion of the velocity: the expression of the Dirichlet
+    // velocity, its projection onto the expansion and the evaluation of that
+    // at its points (nullptr for a point region).
     std::vector<std::shared_ptr<MultiRegions::ExpressionOp<TData>>>
         m_bndVelocityExpressionOps;
+    std::vector<std::shared_ptr<MultiRegions::FwdTransBCOp<TData>>>
+        m_bndVelocityFwdTransOps;
+    std::vector<std::shared_ptr<MultiRegions::BwdTransOp<TData>>>
+        m_bndVelocityBwdTransOps;
     std::vector<bool> m_bndIsPoint;
     MultiRegions::ExpListSharedPtr m_bndElmtExpansionList;
     std::shared_ptr<MultiRegions::CurlCurlOp<TData>> m_curlCurlOp;
@@ -259,11 +308,8 @@ protected:
 
         // The velocity conditions decide whether the boundary-adjacent
         // elements hold predictor - rhs.
-        BuildBoundaryVelocityData(velocityComps);
+        BuildBoundaryVelocityData(velocityExpansionList, velocityComps);
         BuildBoundaryElementData(velocityExpansionList, velocityComps);
-
-        // The maps are uploaded on stream 0 and read on the block streams.
-        nekStreamSynchronize(0);
         m_velocityContextSet = true;
     }
 
@@ -271,9 +317,8 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &rhs,
         LibUtilities::Field<TData, FieldState::Phys> &velocity) override
     {
-        m_addAcceleration = false;
-        UpdateFlux(rhs, velocity, nullptr);
-        FinaliseUpdate();
+        UpdateFlux(FluxForm::Plain, rhs, velocity, nullptr);
+        FinaliseUpdate(FluxForm::Plain);
     }
 
     void v_UpdateWithAcceleration(
@@ -281,12 +326,17 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &velocity,
         LibUtilities::Field<TData, FieldState::Phys> &predictor) override
     {
-        ASSERTL0(!this->m_hasNonDirichletVelocity || rhs,
-                 "HOPressureBndCond requires the explicit contribution rhs on "
-                 "a region with a velocity component that is not Dirichlet.");
-        m_addAcceleration = true;
-        UpdateFlux(predictor, velocity, &rhs);
-        FinaliseUpdate();
+        UpdateFlux(FluxForm::Acceleration, predictor, velocity, &rhs);
+        FinaliseUpdate(FluxForm::Acceleration);
+    }
+
+    void v_UpdateWeak(
+        LibUtilities::Field<TData, FieldState::Phys> &rhs,
+        LibUtilities::Field<TData, FieldState::Phys> &velocity,
+        LibUtilities::Field<TData, FieldState::Phys> &predictor) override
+    {
+        UpdateFlux(FluxForm::Weak, predictor, velocity, &rhs);
+        FinaliseUpdate(FluxForm::Weak);
     }
 
     void v_UpdateBndCoeffs([[maybe_unused]] const TData &time) override
@@ -294,7 +344,7 @@ protected:
         // The flux is set by Update().
     }
 
-    size_t v_GetNumBndDofs() const override
+    size_t v_GetNumBndDofs() override
     {
         return m_numBndCoeffCompSize;
     }
@@ -686,23 +736,43 @@ protected:
 
     // Compute scale * (forcing - kinvis * m_curlCurl) . n on every region,
     // forcing being the rhs of Update() or the predictor of
-    // UpdateWithAcceleration(). With @p rhs, that of
-    // UpdateWithAcceleration(), subtract scale * (predictor - rhs) . n over
-    // the velocity components that are not Dirichlet on a region.
+    // UpdateWithAcceleration(). The weak form of UpdateWeak() leaves forcing
+    // out: its flux is -scale * kinvis * m_curlCurl . n. With @p rhs, that
+    // of UpdateWithAcceleration() and UpdateWeak(), subtract
+    // scale * (predictor - rhs) . n over the velocity components that are
+    // not Dirichlet on a region.
     void BuildBoundaryPhys(
+        const FluxForm form,
         LibUtilities::Field<TData, FieldState::Phys> &forcing,
         LibUtilities::Field<TData, FieldState::Phys> *rhs, const TData kinvis,
         const TData scale)
     {
         // Combine the flux on the boundary-adjacent elements, before
-        // extraction, after forming predictor - rhs from the predictor.
-        GatherBoundaryElements(forcing, m_bndElmtWork);
+        // extraction, after forming predictor - rhs from the predictor. The
+        // weak form needs the predictor only for predictor - rhs, which it
+        // forms in m_bndElmtHistory, using m_bndElmtWork, which the weak
+        // combination overwrites, for rhs.
+        const bool isWeak            = form == FluxForm::Weak;
         const bool isSubtractHistory = rhs && m_bndElmtHistory;
-        if (isSubtractHistory)
+        if (isWeak)
         {
-            GatherBoundaryElements(*rhs, m_bndElmtHistory);
-            Math::sub<ExecSpace>(m_bndElmtWork, m_bndElmtHistory,
-                                 m_bndElmtHistory);
+            if (isSubtractHistory)
+            {
+                GatherBoundaryElements(forcing, m_bndElmtHistory);
+                GatherBoundaryElements(*rhs, m_bndElmtWork);
+                Math::sub<ExecSpace>(m_bndElmtHistory, m_bndElmtWork,
+                                     m_bndElmtHistory);
+            }
+        }
+        else
+        {
+            GatherBoundaryElements(forcing, m_bndElmtWork);
+            if (isSubtractHistory)
+            {
+                GatherBoundaryElements(*rhs, m_bndElmtHistory);
+                Math::sub<ExecSpace>(m_bndElmtWork, m_bndElmtHistory,
+                                     m_bndElmtHistory);
+            }
         }
         for (unsigned int blk = 0; blk < m_bndElmtWork.GetBlocks().size();
              ++blk)
@@ -718,17 +788,35 @@ protected:
             // included, which the combination keeps zero.
             const size_t nPoints =
                 fluxBlk.GetNumElementsWithPadding() * fluxBlk.GetNumData();
-            if (m_nDim == 2)
+            if (isWeak)
             {
-                HOPressureVolumeCombineKernel<ExecSpace, 2>(
-                    nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
-                    fluxPtr, streamID);
+                if (m_nDim == 2)
+                {
+                    HOPressureVolumeCombineKernel<ExecSpace, 2, false>(
+                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
+                        fluxPtr, streamID);
+                }
+                else
+                {
+                    HOPressureVolumeCombineKernel<ExecSpace, 3, false>(
+                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
+                        fluxPtr, streamID);
+                }
             }
             else
             {
-                HOPressureVolumeCombineKernel<ExecSpace, 3>(
-                    nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
-                    fluxPtr, streamID);
+                if (m_nDim == 2)
+                {
+                    HOPressureVolumeCombineKernel<ExecSpace, 2, true>(
+                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
+                        fluxPtr, streamID);
+                }
+                else
+                {
+                    HOPressureVolumeCombineKernel<ExecSpace, 3, true>(
+                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
+                        fluxPtr, streamID);
+                }
             }
         }
 
@@ -809,12 +897,15 @@ protected:
     }
 
     void BuildBoundaryVelocityData(
+        const MultiRegions::ExpListSharedPtr &velocityExpansionList,
         const std::vector<std::string> &velocityComponents)
     {
         const SpatialDomains::BoundaryConditions bcs(
             this->m_expansionList->GetSession(),
             this->m_expansionList->GetGraph());
         const auto &bndConditions = bcs.GetBoundaryConditions();
+        const auto &velocityBndExpansions =
+            velocityExpansionList->GetBndCondExpansions();
 
         ASSERTL1(m_bndExpLists.size() == m_bndRegionIds.size(),
                  "HOPressureBndCond boundary metadata differs.");
@@ -832,6 +923,7 @@ protected:
             // rhs through m_bndNonDirichletNormals.
             std::vector<LibUtilities::EquationSharedPtr> equations;
             std::vector<bool> isDirichlet(m_nDim);
+            bool isTimeDependent = false;
             for (unsigned int d = 0; d < m_nDim; ++d)
             {
                 const auto componentIt =
@@ -842,6 +934,9 @@ protected:
                 isDirichlet[d] =
                     componentIt->second->GetBoundaryConditionType() ==
                     SpatialDomains::eDirichlet;
+                isTimeDependent =
+                    isTimeDependent ||
+                    (isDirichlet[d] && componentIt->second->IsTimeDependent());
                 equations.push_back(
                     isDirichlet[d] ? componentIt->second->GetEquation()
                                    : MemoryManager<LibUtilities::Equation>::
@@ -923,10 +1018,51 @@ protected:
                 }
             }
 
+            // The velocity solve imposes the Dirichlet velocity as its
+            // projection onto the boundary expansion of the velocity, on
+            // which it is therefore evaluated. The flux and the normals are
+            // on the boundary expansion of the pressure, whose blocks must
+            // hold the same elements at the same points.
+            auto velocityBndExp =
+                velocityBndExpansions[m_bndConditionIndices[n]];
+            // The operators built on this list below need a data warehouse,
+            // which it has not got: the equation system sets the warehouse
+            // of a field and of its trace, not of its boundary expansion
+            // lists, and the boundary condition operators of the velocity
+            // solve build lists of their own. Setting it here cannot affect
+            // them, since an operator holds the warehouse it was built with.
+            velocityBndExp->SetDataWarehouse();
+            ASSERTL0(velocityBndExp->SameQuadratureLayout(bndExp),
+                     "HOPressureBndCond requires the velocity and pressure "
+                     "boundary expansions to share their quadrature points.");
+            m_bndVelocityIsTimeDependent.push_back(isTimeDependent);
+
             auto expressionOp = MultiRegions::ExpressionOp<TData>::Create(
-                bndExp, velocityComponents, ExecSpace::name);
+                velocityBndExp, velocityComponents, ExecSpace::name);
             expressionOp->SetExpressions(equations);
             m_bndVelocityExpressionOps.push_back(expressionOp);
+
+            // A point region takes the prescribed velocity itself.
+            m_bndVelocityCoeffs.emplace_back();
+            m_bndVelocityFwdTransOps.push_back(nullptr);
+            m_bndVelocityBwdTransOps.push_back(nullptr);
+            if (m_bndIsPoint[n])
+            {
+                continue;
+            }
+            m_bndVelocityCoeffs.back() =
+                LibUtilities::Field<TData, FieldState::Coeff>(
+                    "HOPressureBndCond boundary velocity coeffs",
+                    MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                        velocityBndExp),
+                    velocityComponents, 1);
+            m_bndVelocityCoeffs.back().template Initialize<MemSpace>(0.0);
+            m_bndVelocityFwdTransOps.back() =
+                MultiRegions::FwdTransBCOp<TData>::Create(
+                    velocityBndExp, velocityComponents, ExecSpace::name);
+            m_bndVelocityBwdTransOps.back() =
+                MultiRegions::BwdTransOp<TData>::Create(
+                    velocityBndExp, velocityComponents, ExecSpace::name);
         }
     }
 
@@ -1026,6 +1162,7 @@ protected:
             MultiRegions::detail::BuildCGBndCondCoeffMaps<ExecSpace, TData>(
                 this->m_expansionList, this->m_components, bregions,
                 isTypeByRegion, numBcExpCoeffs, m_numBndCoeffCompSize,
+                MultiRegions::detail::CGBndCondCoeffMapSet::UniqueAndGroups,
                 [](unsigned int, const auto &, const auto &, const auto &) {});
 
         m_anySignChange = maps.anySignChange;
@@ -1093,14 +1230,14 @@ protected:
         return targets;
     }
 
-    void BuildBoundaryCoeffs()
+    void BuildBoundaryCoeffs(const FluxForm form)
     {
         if (m_numBndCoeffCompSize == 0)
         {
             return;
         }
 
-        if (m_addAcceleration)
+        if (form != FluxForm::Plain)
         {
             SubtractBoundaryVelocity();
         }
@@ -1191,10 +1328,17 @@ protected:
         ReleaseStreams<ExecSpace>(m_opStreamID, m_updateStreams);
     }
 
-    void UpdateFlux(LibUtilities::Field<TData, FieldState::Phys> &forcing,
+    // Compute the flux of @p form from the current fields and its boundary
+    // coefficients; see BuildBoundaryPhys() for @p forcing and @p rhs.
+    void UpdateFlux(const FluxForm form,
+                    LibUtilities::Field<TData, FieldState::Phys> &forcing,
                     LibUtilities::Field<TData, FieldState::Phys> &velocity,
                     LibUtilities::Field<TData, FieldState::Phys> *rhs)
     {
+        ASSERTL0(form == FluxForm::Plain || !this->m_hasNonDirichletVelocity ||
+                     (rhs && *rhs),
+                 "HOPressureBndCond requires the explicit contribution rhs on "
+                 "a region with a velocity component that is not Dirichlet.");
         ASSERTL1(m_velocityContextSet,
                  "SetVelocityContext must be called before Update.");
         ASSERTL1(this->m_isSetKinvis,
@@ -1217,17 +1361,54 @@ protected:
         }
         GatherBoundaryElements(velocity, m_bndElmtWork);
         m_curlCurlOp->Apply(m_bndElmtWork, m_curlCurl);
-        BuildBoundaryPhys(forcing, rhs, this->m_kinvis, this->m_scale);
+        BuildBoundaryPhys(form, forcing, rhs, this->m_kinvis, this->m_scale);
+    }
+
+    // Evaluate on every region, into m_bndWorkPhys, the Dirichlet velocity
+    // as the velocity solve imposes it, at the time set by SetTime(): the
+    // session expression, projected onto the boundary expansion of the
+    // velocity with FwdTransBCOp, as DirBndCondOp sets the Dirichlet
+    // coefficients of the velocity, and evaluated at its points with
+    // BwdTransOp. The coefficients of a region without a time-dependent
+    // Dirichlet velocity condition are computed only once. A point region
+    // takes the expression itself. m_bndWorkPhys is free once
+    // BuildBoundaryPhys() has combined the flux, and is written on the
+    // streams of the boundary blocks, which read it there.
+    void EvaluateBoundaryVelocity()
+    {
+        for (unsigned int n = 0; n < m_bndWorkPhys.size(); ++n)
+        {
+            const bool isCoeffsCurrent =
+                m_isBndVelocityEvaluated && !m_bndVelocityIsTimeDependent[n];
+            if (m_bndIsPoint[n] || !isCoeffsCurrent)
+            {
+                m_bndVelocityExpressionOps[n]->SetTime(this->m_time);
+                m_bndVelocityExpressionOps[n]->Apply(m_bndWorkPhys[n],
+                                                     m_bndWorkPhys[n]);
+            }
+            if (m_bndIsPoint[n])
+            {
+                continue;
+            }
+            if (!isCoeffsCurrent)
+            {
+                // The forward transform assumes a zero output, of which it
+                // sets the vertex modes first.
+                Math::zero<ExecSpace>(m_bndVelocityCoeffs[n]);
+                m_bndVelocityFwdTransOps[n]->Apply(m_bndWorkPhys[n],
+                                                   m_bndVelocityCoeffs[n]);
+            }
+            m_bndVelocityBwdTransOps[n]->Apply(m_bndVelocityCoeffs[n],
+                                               m_bndWorkPhys[n]);
+        }
+        m_isBndVelocityEvaluated = true;
     }
 
     void SubtractBoundaryVelocity()
     {
+        EvaluateBoundaryVelocity();
         for (unsigned int n = 0; n < m_bndPhys.size(); ++n)
         {
-            m_bndVelocityExpressionOps[n]->SetTime(this->m_time);
-            m_bndVelocityExpressionOps[n]->Apply(m_bndWorkPhys[n],
-                                                 m_bndWorkPhys[n]);
-
             for (unsigned int blk = 0;
                  blk < m_bndWorkPhys[n].GetBlocks().size(); ++blk)
             {
@@ -1259,9 +1440,9 @@ protected:
         }
     }
 
-    void FinaliseUpdate()
+    void FinaliseUpdate(const FluxForm form)
     {
-        BuildBoundaryCoeffs();
+        BuildBoundaryCoeffs(form);
         m_isUpdated = true;
     }
 

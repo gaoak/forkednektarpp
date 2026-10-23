@@ -53,6 +53,20 @@
         }                                                                      \
     }
 
+// The same, with the preconditioner configured and applied for another
+// operator before it is configured again for the one compared.
+#define TEST_DIAGPRECON_RECONFIGURED(test_name, test, tol)                     \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase("Diagonal");                                               \
+        m_isReconfigured = true;                                               \
+        RunTestCase("Diagonal");                                               \
+        BOOST_TEST(Compare(tol));                                              \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteDiagPrecon)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -73,6 +87,12 @@ TEST_DIAGPRECON(diagprecon_pyr, Helmholtz3D_Pyr, 1.0E-10)
 TEST_DIAGPRECON(diagprecon_tet, Helmholtz3D_Tet, 2.0E-10)
 
 TEST_DIAGPRECON(diagprecon_hex_3c, Helmholtz3D_Hex_3C, 1.0E-10)
+
+TEST_DIAGPRECON_RECONFIGURED(diagprecon_tri_quad_3c_reconfigured,
+                             Helmholtz2D_3C, 1.0E-12)
+
+TEST_DIAGPRECON_RECONFIGURED(diagprecon_hex_3c_reconfigured, Helmholtz3D_Hex_3C,
+                             1.0E-10)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

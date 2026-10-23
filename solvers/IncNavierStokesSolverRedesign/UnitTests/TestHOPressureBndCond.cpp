@@ -85,19 +85,22 @@ LibUtilities::SessionReaderSharedPtr CreateSession()
     const auto &suite = boost::unit_test::framework::master_test_suite();
     BOOST_REQUIRE_MESSAGE(suite.argc >= 4,
                           "Usage: TestHOPressureBndCond -- <ExecSpace> "
-                          "<Implementation> <Session.xml>");
+                          "<Implementation> <Session.xml> [<Session.xml>...]");
 
     const std::string execStr(suite.argv[1]);
     const std::string implStr(suite.argv[2]);
-    const std::string meshName(suite.argv[3]);
+    const int nSessionFiles = suite.argc - 3;
 
-    int argc    = 4;
+    int argc    = nSessionFiles + 3;
     char **argv = new char *[argc + 1];
     argv[0]     = strdup("TestHOPressureBndCond");
-    argv[1]     = strdup(meshName.c_str());
-    argv[2]     = strdup(("--opExecSpace=" + execStr).c_str());
-    argv[3]     = strdup(("--opImpl=" + implStr).c_str());
-    argv[argc]  = nullptr;
+    for (int i = 0; i < nSessionFiles; ++i)
+    {
+        argv[i + 1] = strdup(suite.argv[i + 3]);
+    }
+    argv[nSessionFiles + 1] = strdup(("--opExecSpace=" + execStr).c_str());
+    argv[nSessionFiles + 2] = strdup(("--opImpl=" + implStr).c_str());
+    argv[argc]              = nullptr;
 
     auto session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     session->InitSession();
@@ -213,6 +216,121 @@ std::vector<double> BuildExpectedBoundaryContribution(
     }
     return expected.ToVector<double>();
 }
+
+// The flux on a region whose velocity is Dirichlet in u and Neumann in v,
+// from UpdateWithAcceleration(), or from UpdateWeak() with isWeak.
+void CheckNeumannVelocityBoundaryFlux(const bool isWeak)
+{
+    auto session = CreateSession();
+    if (!session->DefinesParameter("HOPNeumannVelocityTest"))
+    {
+        return;
+    }
+    auto graph = SpatialDomains::MeshGraphIO::Read(session);
+    auto velocityExpList =
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+            session, graph, "u", true, false, Collections::eNoCollection);
+    auto pressureExpList =
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+            session, graph, "p", true, false, Collections::eNoCollection);
+    velocityExpList->SetDataWarehouse();
+    pressureExpList->SetDataWarehouse();
+
+    const unsigned int nDim       = graph->GetMeshDimension();
+    const auto velocityComponents = GetVelocityComponents(nDim);
+    const std::vector<std::string> pressureComponents = {"p"};
+    const auto velocityPhysBlocks =
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            velocityExpList);
+    LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
+        "Poisson RHS",
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            pressureExpList),
+        pressureComponents, 1);
+    LibUtilities::Field<double, FieldState::Phys> rhs(
+        "explicit contribution", velocityPhysBlocks, velocityComponents, 1);
+    LibUtilities::Field<double, FieldState::Phys> velocity(
+        "velocity", velocityPhysBlocks, velocityComponents, 1);
+    LibUtilities::Field<double, FieldState::Phys> predictor(
+        "implicit predictor", velocityPhysBlocks, velocityComponents, 1);
+
+    poissonRhs.Initialize<NektarSpaces::HostSpace>(0.0);
+    rhs.Initialize<NektarSpaces::HostSpace>(0.0);
+    velocity.Initialize<NektarSpaces::HostSpace>(0.0);
+    predictor.Initialize<NektarSpaces::HostSpace>(0.0);
+    for (unsigned int blk = 0; blk < predictor.GetBlocks().size(); ++blk)
+    {
+        auto &rhsBlock       = rhs.GetBlocks()[blk];
+        auto &predictorBlock = predictor.GetBlocks()[blk];
+        auto rhsPtr =
+            rhsBlock.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        auto predictorPtr =
+            predictorBlock
+                .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int d = 0; d < nDim; ++d)
+        {
+            std::fill(rhsPtr + d * rhsBlock.CompSize(),
+                      rhsPtr + (d + 1) * rhsBlock.CompSize(), 0.03 * (d + 1));
+            std::fill(predictorPtr + d * predictorBlock.CompSize(),
+                      predictorPtr + (d + 1) * predictorBlock.CompSize(),
+                      0.1 * (d + 1));
+        }
+    }
+
+    static constexpr double time  = 0.4;
+    static constexpr double scale = 2.5;
+    auto op = HOPressureBndCondOp<double>::Create(pressureExpList,
+                                                  pressureComponents);
+    op->SetVelocityContext(velocityExpList, velocityComponents);
+    BOOST_TEST(op->HasNonDirichletVelocity());
+    op->SetKinvis(0.0);
+    op->SetTime(time);
+    op->SetScale(scale);
+    // u: scale * (predictor - u_D), with u_D = time; v: scale * rhs. The
+    // weak form leaves out scale * predictor: u: -scale * u_D; v:
+    // -scale * (predictor - rhs).
+    std::array<double, 3> expectedFlux = {scale * (0.1 - time), scale * 0.06,
+                                          0.0};
+    if (isWeak)
+    {
+        op->UpdateWeak(rhs, velocity, predictor);
+        expectedFlux = {-scale * time, -scale * (0.2 - 0.06), 0.0};
+    }
+    else
+    {
+        op->UpdateWithAcceleration(rhs, velocity, predictor);
+    }
+    op->Apply(poissonRhs);
+
+    const auto actualValues   = poissonRhs.ToVector<double>();
+    const auto expectedValues = BuildExpectedBoundaryContribution(
+        pressureExpList, nDim,
+        [&expectedFlux](const double, const double, const double) {
+            return expectedFlux;
+        });
+    BOOST_REQUIRE_EQUAL(actualValues.size(), expectedValues.size());
+    double maxDifference = 0.0;
+    for (std::size_t i = 0; i < actualValues.size(); ++i)
+    {
+        maxDifference = std::max(maxDifference,
+                                 std::abs(actualValues[i] - expectedValues[i]));
+    }
+    BOOST_TEST(maxDifference < 2.5e-11);
+
+    LibUtilities::Field<double, FieldState::Phys> noRhs;
+    if (isWeak)
+    {
+        BOOST_CHECK_THROW(op->UpdateWeak(noRhs, velocity, predictor),
+                          Nektar::ErrorUtil::NekError);
+    }
+    else
+    {
+        BOOST_CHECK_THROW(
+            op->UpdateWithAcceleration(noRhs, velocity, predictor),
+            Nektar::ErrorUtil::NekError);
+    }
+}
+
 } // namespace
 
 BOOST_AUTO_TEST_SUITE(TestHOPressureBndCond)
@@ -806,6 +924,121 @@ BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_boundary_flux)
     BOOST_TEST(maxDifference < 1.0e-6);
 }
 
+// The Kovasznay velocity is not representable on the boundary expansion of
+// KovasznayFlowHOPBC2D_SmallTimeStep.xml. A predictor holding its projection
+// onto the continuous expansion, with the Dirichlet velocity imposed as the
+// velocity solve imposes it, is a steady state of the boundary acceleration:
+// without an explicit contribution or viscosity, the flux vanishes.
+// Subtracting the expression of the Dirichlet velocity instead leaves
+// scale * (u_D - u_D,exact) . n, large at the scale of a small time step.
+BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_discrete_boundary_velocity)
+{
+    auto session = CreateSession();
+    if (!session->DefinesParameter("KovaLam"))
+    {
+        return;
+    }
+
+    auto graph = SpatialDomains::MeshGraphIO::Read(session);
+    const std::vector<std::string> velocityComponents = {"u", "v"};
+    const std::vector<std::string> pressureComponents = {"p"};
+    std::vector<MultiRegions::ContFieldSharedPtr> velocityExpLists;
+    for (const auto &component : velocityComponents)
+    {
+        velocityExpLists.push_back(
+            MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                session, graph, component, true, false,
+                Collections::eNoCollection));
+    }
+    auto pressureExpList =
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+            session, graph, "p", true, false, Collections::eNoCollection);
+    velocityExpLists[0]->SetDataWarehouse();
+    pressureExpList->SetDataWarehouse();
+
+    // The projection of the exact velocity onto the continuous expansion,
+    // whose Dirichlet coefficients are those of the projected Dirichlet
+    // velocity.
+    const double lambda     = session->GetParameter("KovaLam");
+    const double waveNumber = 2.0 * std::acos(-1.0);
+    const size_t nq         = velocityExpLists[0]->GetTotPoints();
+    Array<OneD, double> x(nq), y(nq), z(nq, 0.0);
+    velocityExpLists[0]->GetCoords(x, y, z);
+    std::vector<Array<OneD, double>> discreteVelocity;
+    for (unsigned int d = 0; d < velocityComponents.size(); ++d)
+    {
+        Array<OneD, double> exact(nq);
+        for (size_t p = 0; p < nq; ++p)
+        {
+            const double exponential = std::exp(-lambda * x[p]);
+            exact[p] = d == 0 ? 1.0 - exponential * std::cos(waveNumber * y[p])
+                              : -(lambda / waveNumber) * exponential *
+                                    std::sin(waveNumber * y[p]);
+        }
+        auto &expList = velocityExpLists[d];
+        expList->EvaluateBoundaryConditions(0.0);
+        expList->FwdTrans(exact, expList->UpdateCoeffs());
+        discreteVelocity.emplace_back(nq, 0.0);
+        expList->BwdTrans(expList->GetCoeffs(), discreteVelocity.back());
+    }
+
+    const auto velocityPhysBlocks =
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            velocityExpLists[0]);
+    LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
+        "Poisson RHS",
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            pressureExpList),
+        pressureComponents, 1);
+    LibUtilities::Field<double, FieldState::Phys> velocity(
+        "velocity", velocityPhysBlocks, velocityComponents, 1);
+    LibUtilities::Field<double, FieldState::Phys> predictor(
+        "implicit predictor", velocityPhysBlocks, velocityComponents, 1);
+    poissonRhs.Initialize<NektarSpaces::HostSpace>(0.0);
+    velocity.Initialize<NektarSpaces::HostSpace>(0.0);
+    predictor.Initialize<NektarSpaces::HostSpace>(0.0);
+    for (unsigned int blk = 0; blk < predictor.GetBlocks().size(); ++blk)
+    {
+        auto &predictorBlock = predictor.GetBlocks()[blk];
+        auto predictorPtr =
+            predictorBlock
+                .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        auto collection        = GetCollection(velocityExpLists[0], blk);
+        const auto &expansions = collection.GetExpVector();
+        for (unsigned int e = 0; e < expansions.size(); ++e)
+        {
+            const auto offset =
+                velocityExpLists[0]->GetPhys_Offset(expansions[e]->GetElmtId());
+            for (unsigned int d = 0; d < velocityComponents.size(); ++d)
+            {
+                std::copy_n(discreteVelocity[d].begin() + offset,
+                            predictorBlock.GetNumData(),
+                            predictorPtr + d * predictorBlock.CompSize() +
+                                e * predictorBlock.GetNumData());
+            }
+        }
+    }
+
+    // 1 / (gamma dt) of a second-order step of dt = 1e-4.
+    static constexpr double scale = 1.5e4;
+    auto op = HOPressureBndCondOp<double>::Create(pressureExpList,
+                                                  pressureComponents);
+    op->SetVelocityContext(velocityExpLists[0], velocityComponents);
+    op->SetKinvis(0.0);
+    op->SetScale(scale);
+    // Every velocity component is Dirichlet, so rhs is not read.
+    LibUtilities::Field<double, FieldState::Phys> rhs;
+    op->UpdateWithAcceleration(rhs, velocity, predictor);
+    op->Apply(poissonRhs);
+
+    double maxValue = 0.0;
+    for (const auto value : poissonRhs.ToVector<double>())
+    {
+        maxValue = std::max(maxValue, std::abs(value));
+    }
+    BOOST_TEST(maxValue < 1.0e-8);
+}
+
 BOOST_AUTO_TEST_CASE(update_then_apply_selection_respects_hop_tag)
 {
     auto session = CreateSession();
@@ -921,93 +1154,16 @@ BOOST_AUTO_TEST_CASE(update_then_apply_selection_respects_hop_tag)
 // update is refused.
 BOOST_AUTO_TEST_CASE(update_then_apply_neumann_velocity_boundary_flux)
 {
-    auto session = CreateSession();
-    if (!session->DefinesParameter("HOPNeumannVelocityTest"))
-    {
-        return;
-    }
-    auto graph = SpatialDomains::MeshGraphIO::Read(session);
-    auto velocityExpList =
-        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-            session, graph, "u", true, false, Collections::eNoCollection);
-    auto pressureExpList =
-        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-            session, graph, "p", true, false, Collections::eNoCollection);
-    velocityExpList->SetDataWarehouse();
-    pressureExpList->SetDataWarehouse();
+    CheckNeumannVelocityBoundaryFlux(false);
+}
 
-    const unsigned int nDim       = graph->GetMeshDimension();
-    const auto velocityComponents = GetVelocityComponents(nDim);
-    const std::vector<std::string> pressureComponents = {"p"};
-    const auto velocityPhysBlocks =
-        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
-            velocityExpList);
-    LibUtilities::Field<double, FieldState::Coeff> poissonRhs(
-        "Poisson RHS",
-        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-            pressureExpList),
-        pressureComponents, 1);
-    LibUtilities::Field<double, FieldState::Phys> rhs(
-        "explicit contribution", velocityPhysBlocks, velocityComponents, 1);
-    LibUtilities::Field<double, FieldState::Phys> velocity(
-        "velocity", velocityPhysBlocks, velocityComponents, 1);
-    LibUtilities::Field<double, FieldState::Phys> predictor(
-        "implicit predictor", velocityPhysBlocks, velocityComponents, 1);
-
-    poissonRhs.Initialize<NektarSpaces::HostSpace>(0.0);
-    rhs.Initialize<NektarSpaces::HostSpace>(0.0);
-    velocity.Initialize<NektarSpaces::HostSpace>(0.0);
-    predictor.Initialize<NektarSpaces::HostSpace>(0.0);
-    for (unsigned int blk = 0; blk < predictor.GetBlocks().size(); ++blk)
-    {
-        auto &rhsBlock       = rhs.GetBlocks()[blk];
-        auto &predictorBlock = predictor.GetBlocks()[blk];
-        auto rhsPtr =
-            rhsBlock.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        auto predictorPtr =
-            predictorBlock
-                .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int d = 0; d < nDim; ++d)
-        {
-            std::fill(rhsPtr + d * rhsBlock.CompSize(),
-                      rhsPtr + (d + 1) * rhsBlock.CompSize(), 0.03 * (d + 1));
-            std::fill(predictorPtr + d * predictorBlock.CompSize(),
-                      predictorPtr + (d + 1) * predictorBlock.CompSize(),
-                      0.1 * (d + 1));
-        }
-    }
-
-    static constexpr double time  = 0.4;
-    static constexpr double scale = 2.5;
-    auto op = HOPressureBndCondOp<double>::Create(pressureExpList,
-                                                  pressureComponents);
-    op->SetVelocityContext(velocityExpList, velocityComponents);
-    BOOST_TEST(op->HasNonDirichletVelocity());
-    op->SetKinvis(0.0);
-    op->SetTime(time);
-    op->SetScale(scale);
-    op->UpdateWithAcceleration(rhs, velocity, predictor);
-    op->Apply(poissonRhs);
-
-    // u: scale * (predictor - u_D), with u_D = time; v: scale * rhs.
-    const auto actualValues   = poissonRhs.ToVector<double>();
-    const auto expectedValues = BuildExpectedBoundaryContribution(
-        pressureExpList, nDim, [](const double, const double, const double) {
-            return std::array<double, 3>{scale * (0.1 - time), scale * 0.06,
-                                         0.0};
-        });
-    BOOST_REQUIRE_EQUAL(actualValues.size(), expectedValues.size());
-    double maxDifference = 0.0;
-    for (std::size_t i = 0; i < actualValues.size(); ++i)
-    {
-        maxDifference = std::max(maxDifference,
-                                 std::abs(actualValues[i] - expectedValues[i]));
-    }
-    BOOST_TEST(maxDifference < 2.5e-11);
-
-    LibUtilities::Field<double, FieldState::Phys> noRhs;
-    BOOST_CHECK_THROW(op->UpdateWithAcceleration(noRhs, velocity, predictor),
-                      Nektar::ErrorUtil::NekError);
+// The same region in the weak pressure form, whose flux leaves out
+// scale * predictor: u takes the acceleration alone, and v the velocity
+// predictor - rhs as its boundary velocity. Without rhs, the update is
+// refused.
+BOOST_AUTO_TEST_CASE(update_weak_then_apply_neumann_velocity_boundary_flux)
+{
+    CheckNeumannVelocityBoundaryFlux(true);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

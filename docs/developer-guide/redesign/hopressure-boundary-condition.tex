@@ -75,8 +75,9 @@ s & \code{scale}, set by \code{SetScale} \\
 \vect{V} & \code{velocity}, the extrapolated velocity quantity used by the
 curl--curl operator \\
 \vect{P} & \code{predictor}, the complete implicit-stage right-hand side \\
-\vect{u}_D(t) & prescribed velocity evaluated from the boundary expressions
-at the target time, set by \code{SetTime} \\
+\vect{u}_D(t) & discrete Dirichlet velocity: the boundary expressions at the
+target time, set by \code{SetTime}, projected onto the boundary expansion of
+the velocity, as the velocity solve imposes them \\
 \vect{C}(\vect{V}) & \(\nabla\times(\nabla\times\vect{V})\) \\
 \bottomrule
 \end{tabular}
@@ -99,7 +100,7 @@ adds the acceleration to the flux of \code{Update}:
     &=s\left[\vect{P}-\vect{R}\right].
 \end{align}
 Their explicit contributions cancel exactly, so it takes the predictor
-\(\vect P\) and not \(\vect R\). It then subtracts the prescribed boundary
+\(\vect P\) and not \(\vect R\). It then subtracts the discrete Dirichlet
 velocity, producing
 \begin{equation}
   \boxed{
@@ -107,6 +108,19 @@ velocity, producing
     \left[\vect{P}-\vect{u}_D(t)-\nu\vect{C}(\vect{V})\right].}
   \label{hopbc:eq:implemented-hop}
 \end{equation}
+
+The velocity solve imposes the Dirichlet data of a region as its projection
+\(\vect u_D\) onto the boundary expansion of the velocity, not the expression
+\(\vect u_D^{\mathrm{exact}}\) itself, so the velocity history from which
+\(\vect P\) is formed holds \(\vect u_D\) on the boundary. The part of
+\(s(\vect P-\vect u_D)\) that \(\vect P\) takes from that history is then a
+backward difference of \(\vect u_D\), the discrete
+\(-\partial\vect u_D/\partial t\), which vanishes at a steady state.
+Subtracting \(\vect u_D^{\mathrm{exact}}\) instead would leave
+\(s\,\vect n\cdot(\vect u_D-\vect u_D^{\mathrm{exact}})\) in the flux: the
+projection error divided by the implicit step size, which grows as
+\(\Delta t\) decreases wherever the data is not representable on the
+boundary expansion.
 
 A velocity component \(d\) that is not Dirichlet on a region, such as a
 Neumann component of a slip wall or of an inflow, has no prescribed boundary
@@ -117,6 +131,25 @@ takes \(u_{D,d}=0\) and subtracts \(s\,n_d\left[P_d-R_d\right]\) from
 \(\vect R\). \code{VelocityCorrectionScheme} keeps the history of the
 explicit forcing from which \(\vect R\) is extrapolated only on a rank
 holding such a region, as \code{HasNonDirichletVelocity} reports.
+
+\code{UpdateWeak} evaluates the flux of the weak pressure form
+(\code{PressureFormulation=Weak}, Section~\ref{sec:incns-weak}), which takes
+the predictor, the explicit advection and the forcing into its volume term
+\((\nabla\phi,s\vect P)\). Its flux is that of \code{UpdateWithAcceleration}
+less \(s\,\vect n\cdot\vect P\):
+\begin{equation}
+  g_{\mathrm{weak}}=-s\,\vect{n}\cdot
+    \left[\vect{u}_D(t)+\nu\vect{C}(\vect{V})\right],
+  \label{hopbc:eq:weak-hop}
+\end{equation}
+the boundary acceleration and the viscous term alone. On a velocity component
+\(d\) that is not Dirichlet the boundary velocity is \(P_d-R_d\), the velocity
+the predictor carries, as in \code{UpdateWithAcceleration}, so its term is
+\(-s\,n_d\left[P_d-R_d+\nu C_d(\vect{V})\right]\), and \code{UpdateWeak}
+reads \(\vect R\) and \(\vect P\) only on a rank holding such a region. The
+predictor is not gathered into the restricted volume flux, which the combine
+kernel sets to \(-s\nu\vect C(\vect V)\) alone, and the remaining steps are
+those of \code{UpdateWithAcceleration}.
 
 In the current solver call,
 \begin{equation}
@@ -269,9 +302,18 @@ outward normal:
    -s\,\vect n^f_a\cdot\vect u_D(x_a,t).
   \label{hopbc:eq:pointwise-kernel}
 \end{equation}
-The prescribed velocity \(\vect u_D(t)\) is evaluated directly on the boundary
-expansion (never traced from the volume), and the outward normals are stored
-on the same boundary quadrature grid.
+The discrete Dirichlet velocity \(\vect u_D(t)\) is evaluated on the boundary
+expansion of the velocity, never traced from the volume: \code{ExpressionOp}
+evaluates the expressions at its points, \code{FwdTransBCOp} projects them
+onto it as \code{DirBndCondOp} sets the Dirichlet coefficients of the
+velocity, and \code{BwdTransOp} evaluates the projection at its points. Only
+the coefficients of the projection are kept, and for a region whose Dirichlet
+velocity conditions are not time-dependent they are computed once, at the
+first update. The evaluation at the points is written into the work storage
+of the region that held the traced flux, which is free by then. The velocity
+and pressure
+boundary expansions of a region must share their quadrature points, on which
+the outward normals are stored too.
 
 \section{Boundary-to-volume weak assembly}
 
@@ -387,12 +429,13 @@ before time stepping. \\
 \code{BuildBoundaryElementData} & Match faces to owning elements; create the
 restricted volume list, volume gather maps, the \code{CurlCurlOp}, and one
 \code{PhysTraceExtractBndCond} per region. \\
-\code{BuildBoundaryVelocityData} & Store the outward normals and set up the
-\code{ExpressionOp} of the prescribed boundary velocity for every region;
-on a region with a velocity component that is not Dirichlet, also store the
-normals with the Dirichlet components zeroed. \\
-\code{UpdateFlux} & Called by \code{Update} and
-\code{UpdateWithAcceleration}: gather the velocity,
+\code{BuildBoundaryVelocityData} & Store the outward normals and set up, on
+the boundary expansion of the velocity of every region, the
+\code{ExpressionOp}, \code{FwdTransBCOp} and \code{BwdTransOp} of the
+discrete Dirichlet velocity; on a region with a velocity component that is not
+Dirichlet, also store the normals with the Dirichlet components zeroed. \\
+\code{UpdateFlux} & Called by \code{Update},
+\code{UpdateWithAcceleration} and \code{UpdateWeak}: gather the velocity,
 apply the curl--curl, and call \code{BuildBoundaryPhys}. \\
 \code{GatherBoundaryElements} & Perform the indexed copy in
 \eqref{hopbc:eq:volume-gather}. \\
@@ -410,8 +453,11 @@ zeroed. \\
 quadrature points, as in \eqref{hopbc:eq:trace-extract}. \\
 \code{HOPressureBoundaryCombine}\newline\code{Kernel} & Contract the traced
 flux with \(\vect n\), as in \eqref{hopbc:eq:pointwise-kernel}. \\
-\code{SubtractBoundaryVelocity} & Evaluate \(\vect u_D(t)\) on the boundary
-and subtract \(s\vect n\cdot\vect u_D\). \\
+\code{EvaluateBoundaryVelocity} & Evaluate \(\vect u_D(t)\) on the boundary:
+the expressions, projected onto the boundary expansion of the velocity, the
+projection at the first update only for a region without a time-dependent
+Dirichlet velocity condition. \\
+\code{SubtractBoundaryVelocity} & Subtract \(s\vect n\cdot\vect u_D\). \\
 \code{BuildBoundaryCoeffs} & Apply \eqref{hopbc:eq:boundary-iproduct}, concatenate
 regions, and gather into domain-block order. \\
 \code{v\_Apply} & Signed and grouped scatter-add in
@@ -488,12 +534,6 @@ The items below do not change \eqref{hopbc:eq:implemented-hop} or which regions
 are selected; they concern performance and state.
 
 \begin{itemize}
-  \item \textbf{Velocity-expression time-dependence.} Every boundary
-  velocity expression is re-evaluated every stage, by
-  \code{SubtractBoundaryVelocity}. The Dirichlet and Neumann operators of the
-  library, \code{DirBndCondOpImpl} and \code{NeuBndCondOpImpl}, skip it
-  for the conditions that are not time-dependent, as recorded by
-  \code{CGBndCondMapBuilder}.
   \item \textbf{Velocity history at volume size.} On a rank with a region
   of this condition or of \code{HOutflow}, \code{VelocityCorrectionScheme} keeps
   a history of the velocity as deep as the implicit solves of the time

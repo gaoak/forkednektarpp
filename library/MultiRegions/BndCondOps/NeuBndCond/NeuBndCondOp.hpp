@@ -78,8 +78,10 @@ public:
     // Number of boundary coefficients (summed over all components and
     // execution blocks) with a Neumann condition on this rank, i.e. the
     // number of dofs actually accumulated into by Apply(). Mainly intended
-    // for profiling/introspection.
-    size_t GetNumBndDofs() const
+    // for profiling/introspection. Collective over the row communicator if
+    // the operator has not been used yet: an implementation may build its
+    // regions on first use.
+    size_t GetNumBndDofs()
     {
         return v_GetNumBndDofs();
     }
@@ -92,7 +94,8 @@ public:
      *
      * @details
      * Collective over the row communicator: every rank calls it, with the
-     * same @p userDefinedType.
+     * same @p userDefinedType. Called before the operator is first used, it
+     * only records the type.
      */
     void ExcludeUserDefinedType(const std::string &userDefinedType)
     {
@@ -116,7 +119,7 @@ protected:
 
     virtual void v_UpdateBndCoeffs(const TData &time) = 0;
 
-    virtual size_t v_GetNumBndDofs() const = 0;
+    virtual size_t v_GetNumBndDofs() = 0;
 
     virtual void v_ExcludeUserDefinedType(
         const std::string &userDefinedType) = 0;

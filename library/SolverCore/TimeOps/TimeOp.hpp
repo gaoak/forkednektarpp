@@ -374,6 +374,37 @@ public:
         }
     }
 
+    /// First-order counterpart of ExtrapolateExplicitContribution(): every
+    /// level of @p history is replaced by the latest one, history.front(),
+    /// so that the result is that entry weighted by
+    /// GetExplicitContributionCoefficientSum(), the total weight of the
+    /// extrapolation.
+    void LatestExplicitContribution(
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
+        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
+        const TData scale                  = 1.0)
+    {
+        ASSERTL0(m_useExplicitContributionExtrapolation,
+                 "Explicit contribution extrapolation has not been enabled "
+                 "for this time integration operator.");
+        ASSERTL0(!history.empty(), "Explicit contribution history is empty.");
+
+        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
+            this->m_expansionList->GetSession());
+        Math::MathHelper math(execSpace);
+
+        const TData weight = scale * GetExplicitContributionCoefficientSum();
+        if (mode == TimeOpExtrapolationMode::Assign)
+        {
+            math.mul(weight, history.front(), out);
+        }
+        else
+        {
+            math.daxpy(weight, history.front(), out, out);
+        }
+    }
+
     unsigned int GetExplicitContributionHistoryId() const
     {
         return GetExplicitContributionContext().historyId;

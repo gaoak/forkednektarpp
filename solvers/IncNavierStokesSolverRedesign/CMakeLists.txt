@@ -126,6 +126,16 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                     --run_test=TestHOPressureBndCond/update_then_apply_kovasznay_boundary_flux
                     -- ${execspace} ${implementation}
                     ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D.xml)
+            # The boundary acceleration of a Dirichlet velocity that the
+            # boundary expansion of the small time step case cannot represent.
+            ADD_TEST(
+                NAME Operators${testname}_discrete_boundary_velocity
+                COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOPressureBndCond/update_then_apply_kovasznay_discrete_boundary_velocity
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D.xml
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D_SmallTimeStep.xml)
         ENDFUNCTION()
 
         # A region whose velocity is Dirichlet in one component and Neumann
@@ -138,6 +148,14 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                 COMMAND $<TARGET_FILE:TestHOPressureBndCond>
                     --detect_memory_leaks=0
                     --run_test=TestHOPressureBndCond/update_then_apply_neumann_velocity_boundary_flux
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCondNeumannVelocity2D.xml)
+            # The flux of the weak pressure form on the same region.
+            ADD_TEST(
+                NAME Operators${testname}_neumann_velocity_weak
+                COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOPressureBndCond/update_weak_then_apply_neumann_velocity_boundary_flux
                     -- ${execspace} ${implementation}
                     ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCondNeumannVelocity2D.xml)
         ENDFUNCTION()
@@ -175,6 +193,8 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                 AVX SumFac)
             ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
                 HOPressureBndCond_avx_sumfac AVX SumFac)
+            ADD_HOPRESSURE_KOVASZNAY_UNIT_TEST(
+                HOPressureBndCond_kovasznay_avx_sumfac AVX SumFac)
         ENDIF()
         IF(NEKTAR_ENABLE_DEVICE)
             ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_device_stdmat
@@ -273,6 +293,23 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             # Steady exact flow with non-zero advection and spatially varying
             # higher-order pressure boundary data.
             KovasznayFlowHOPBC2D
+            # Small time step with a Dirichlet velocity that the boundary
+            # expansion cannot represent: the higher-order pressure boundary
+            # acceleration must use the discrete boundary velocity.
+            KovasznayFlowHOPBC2D_SmallTimeStep
+            # The second-order IMEX startup and IMEXdirk stages, whose
+            # explicit coefficients do not sum to the implicit coefficient:
+            # the higher-order pressure boundary velocity and the
+            # linear-implicit advection must carry the weight of the
+            # explicit contribution.
+            KovasznayFlowHOPBC2D_IMEXOrder2
+            KovasznayFlowHOPBC2D_IMEXdirk
+            # The weak pressure form, with the predictor, advection and
+            # forcing kept off the higher-order pressure boundary flux.
+            KovasznayFlowHOPBC2D_WeakPressure
+            ChannelFlowHOPBC2D_WeakPressure
+            KovasznayFlowHOPBC2D_IMEXOrder2_WeakPressure
+            KovasznayFlowHOPBC2D_IMEXdirk_WeakPressure
             KovasznayFlow2D
             UniformFlow3D_Hex
             CouetteFlow3D_Hex
@@ -410,7 +447,8 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
     ENDIF()
 
     # Dong's high-order outflow condition on the Kovasznay mesh: a steady
-    # exact solution, and an outlet with a sign-changing normal velocity.
+    # exact solution, through the second-order IMEX startup and in the weak
+    # pressure form too, and an outlet with a sign-changing normal velocity.
     IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
         SET(HOutflowCases Serial:StdMat)
         IF(NEKTAR_ENABLE_SIMD)
@@ -428,6 +466,18 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                     NAME IncNavierStokesSolverRedesign_HOutflowKovasznay2D_${Formulation}_${ExecSpace}_${Implementation}
                     COMMAND Tester
                         ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowKovasznay2D.tst -v
+                        --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=${Formulation}")
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_HOutflowKovasznay2D_IMEXOrder2_${Formulation}_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowKovasznay2D_IMEXOrder2.tst -v
+                        --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=${Formulation}")
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_HOutflowKovasznay2D_WeakPressure_${Formulation}_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowKovasznay2D_WeakPressure.tst -v
                         --opExecSpace=${ExecSpace} --opImpl=${Implementation}
                         "--solver-options=-I Formulation=${Formulation}")
             ENDFOREACH()
@@ -496,6 +546,106 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             # IncNavierStokesSolverRedesign_TimeIntegrationOrders123_* above.
             SET_TESTS_PROPERTIES(
                 IncNavierStokesSolverRedesign_HOPBC_TimeIntegrationOrders23_Serial_SumFac
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+
+            # The same manufactured flow in the weak pressure form, whose
+            # higher-order pressure flux holds the viscous term and the
+            # boundary acceleration only.
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOPBC_WeakPressure_TimeIntegrationOrders23_Serial_SumFac
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/check_hopbc_time_order.py
+                        --solver $<TARGET_FILE:IncNavierStokesSolverRedesign>
+                        --session ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOPressureTimeConvergence2D.xml
+                        --op-exec-space Serial
+                        --op-impl SumFac
+                        --formulations semiimplicit
+                        --pressure-forms weak)
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_HOPBC_WeakPressure_TimeIntegrationOrders23_Serial_SumFac
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+
+            # The linear-implicit weak form takes the explicit terms of its
+            # pressure step, including the curl-curl velocity of the
+            # higher-order pressure flux, at the latest level, which keeps
+            # large time steps stable but limits that form to second order in
+            # time, so only order 2 is checked.
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOPBC_WeakPressure_LinearImplicit_TimeIntegrationOrder2_Serial_SumFac
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/check_hopbc_time_order.py
+                        --solver $<TARGET_FILE:IncNavierStokesSolverRedesign>
+                        --session ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOPressureTimeConvergence2D.xml
+                        --op-exec-space Serial
+                        --op-impl SumFac
+                        --orders 2
+                        --formulations linearimplicit
+                        --pressure-forms weak)
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_HOPBC_WeakPressure_LinearImplicit_TimeIntegrationOrder2_Serial_SumFac
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+
+            # An unsteady flow whose advection changes in time, in both
+            # pressure forms.
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOPBC_Advective_TimeIntegrationOrders23_Serial_SumFac
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/check_hopbc_time_order.py
+                        --solver $<TARGET_FILE:IncNavierStokesSolverRedesign>
+                        --session ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOPressureTimeConvergence2D.xml
+                        --op-exec-space Serial
+                        --op-impl SumFac
+                        --manufactured advective
+                        --formulations semiimplicit
+                        --pressure-forms strong weak)
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_HOPBC_Advective_TimeIntegrationOrders23_Serial_SumFac
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+
+            # The linear-implicit velocity solve advects with the extrapolated
+            # velocity u*, which the IMEXdirk startup stages combine from
+            # stage values, accurate to first order only, so this
+            # formulation is second order in time on this flow for J = 3 as
+            # well, and is checked against the threshold of order 2.
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOPBC_Advective_LinearImplicit_TimeIntegrationOrders23_Serial_SumFac
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/check_hopbc_time_order.py
+                        --solver $<TARGET_FILE:IncNavierStokesSolverRedesign>
+                        --session ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOPressureTimeConvergence2D.xml
+                        --op-exec-space Serial
+                        --op-impl SumFac
+                        --manufactured advective
+                        --formulations linearimplicit
+                        --pressure-forms strong
+                        --min-rate 1.7)
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_HOPBC_Advective_LinearImplicit_TimeIntegrationOrders23_Serial_SumFac
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+
+            # The linear-implicit weak form takes the advection and the
+            # curl-curl velocity of its pressure step at the latest level,
+            # for stability at large time steps, which leaves an O(dt) error
+            # in the pressure near the higher-order pressure regions: its
+            # velocity is second order and its pressure tends to first order
+            # (rates of 1.6 and 1.5 for J = 2 and 3 at these steps, falling
+            # under refinement), so the pressure is checked only against a
+            # fall to first order.
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOPBC_Advective_WeakPressure_LinearImplicit_TimeIntegrationOrders23_Serial_SumFac
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/check_hopbc_time_order.py
+                        --solver $<TARGET_FILE:IncNavierStokesSolverRedesign>
+                        --session ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOPressureTimeConvergence2D.xml
+                        --op-exec-space Serial
+                        --op-impl SumFac
+                        --manufactured advective
+                        --formulations linearimplicit
+                        --pressure-forms weak
+                        --min-rate 1.7
+                        --min-pressure-rate 1.1)
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_HOPBC_Advective_WeakPressure_LinearImplicit_TimeIntegrationOrders23_Serial_SumFac
                 PROPERTIES TIMEOUT 120 PROCESSORS 4)
         ENDIF()
 

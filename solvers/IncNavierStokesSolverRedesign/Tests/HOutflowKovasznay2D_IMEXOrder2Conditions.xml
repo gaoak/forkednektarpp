@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="http://www.nektar.info/schema/nektar.xsd">
+
+    <!--
+        Conditions of HOutflowKovasznay2DConditions.xml, integrated with the
+        second-order IMEX scheme for two steps: the first step is taken by the
+        IMEXdirk 2_3_2 startup scheme, the second by the multistep scheme. The
+        coefficients of the second startup stage do not sum to its implicit
+        coefficient, so this case checks that the velocity of the outflow
+        condition is an extrapolation with weights summing to one in every
+        implicit solve, and that the linear-implicit advection carries the
+        weight of the explicit contribution it replaces.
+    -->
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
+            <I PROPERTY="Projection" VALUE="Galerkin" />
+            <I PROPERTY="Formulation" VALUE="SemiImplicit" />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 2 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <P> TimeStep = 0.01 </P>
+            <P> NumSteps = 2 </P>
+            <P> IO_InfoSteps = NumSteps </P>
+            <P> Kinvis = 0.025 </P>
+            <P> IterativeSolverTolerance = 1e-12 </P>
+            <P> KovaLam = 0.963740544195769 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+                <D VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+                <D VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+            </REGION>
+            <REGION REF="1">
+                <N VAR="u" USERDEFINEDTYPE="HOutflow" VALUE="-Kinvis*KovaLam*exp(-KovaLam*x)*cos(2*PI*y) + 0.5*(1-exp(-2*KovaLam*x)) + 0.5*((1-exp(-KovaLam*x)*cos(2*PI*y))*(1-exp(-KovaLam*x)*cos(2*PI*y)) + (KovaLam/(2*PI)*exp(-KovaLam*x)*sin(2*PI*y))*(KovaLam/(2*PI)*exp(-KovaLam*x)*sin(2*PI*y)))*(0.5*(1-tanh((1-exp(-KovaLam*x)*cos(2*PI*y))*20)))" />
+                <N VAR="v" USERDEFINEDTYPE="HOutflow" VALUE="-Kinvis*KovaLam*KovaLam/(2*PI)*exp(-KovaLam*x)*sin(2*PI*y)" />
+                <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+                <D VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+                <D VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+            <E VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+            <E VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+        </FUNCTION>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="1-exp(-KovaLam*x)*cos(2*PI*y)" />
+            <E VAR="v" VALUE="(-KovaLam/(2*PI))*exp(-KovaLam*x)*sin(2*PI*y)" />
+            <E VAR="p" VALUE="0.5*(1-exp(-2*KovaLam*x))" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

@@ -16,10 +16,11 @@ DEFAULT_STEPS = [8, 16, 32]
 VARIABLES = ["u", "v", "p"]
 
 
-def manufactured_expressions():
+def curl_curl_expressions():
     # The velocity has a non-zero curl-curl, extrapolated from the velocity
     # history into the higher-order pressure flux, and a time-dependent
-    # boundary value, whose acceleration enters it on the left edge.
+    # boundary value, whose acceleration enters it on the left edge. Its
+    # advection is zero.
     velocity = "y*(1-y)"
     pressure = "(x-0.5)*(y-0.5)"
     velocity_amplitude = "exp(t)"
@@ -38,6 +39,47 @@ def manufactured_expressions():
         "v": grad_p_y,
     }
     return initial, values, force
+
+
+def advective_expressions():
+    # u = cos(t)*(x^2, -2*x*y) + sin(t)*(2*x*y, -y^2), the velocities of the
+    # stream functions x^2*y and x*y^2. Its time derivative is not parallel
+    # to it, so (du/dt . grad) u is non-zero, and not a gradient, which the
+    # pressure could absorb: advecting with the latest velocity u^n rather
+    # than u^{n+1}, or an extrapolation of it to the new time level, leaves
+    # an O(dt) consistency error in the momentum equation. The flow is
+    # quadratic, so the spatial discretisation represents it, and its cubic
+    # advection, exactly.
+    a = "cos(t)"
+    b = "sin(t)"
+    pressure = "(x-0.5)*(y-0.5)"
+    pressure_amplitude = "exp(2*t)"
+    values = {
+        "u": f"{a}*x*x+2*{b}*x*y",
+        "v": f"-2*{a}*x*y-{b}*y*y",
+        "p": f"{pressure_amplitude}*{pressure}",
+    }
+    initial = {"u": "x*x", "v": "-2*x*y", "p": pressure}
+    # du/dt + (u . grad) u - Kinvis * laplacian(u) + grad(p)
+    force = {
+        "u": (
+            f"-{b}*x*x+2*{a}*x*y"
+            f"+2*{a}*{a}*x*x*x+2*{a}*{b}*x*x*y+2*{b}*{b}*x*y*y"
+            f"-2*Kinvis*{a}+{pressure_amplitude}*(y-0.5)"
+        ),
+        "v": (
+            f"2*{b}*x*y-{a}*y*y"
+            f"+2*{a}*{a}*x*x*y+2*{a}*{b}*x*y*y+2*{b}*{b}*y*y*y"
+            f"+2*Kinvis*{b}+{pressure_amplitude}*(x-0.5)"
+        ),
+    }
+    return initial, values, force
+
+
+MANUFACTURED_SOLUTIONS = {
+    "curlcurl": curl_curl_expressions,
+    "advective": advective_expressions,
+}
 
 
 def set_parameter(root, name, value):
@@ -59,10 +101,10 @@ def set_function(root, function_name, values):
             expression.set("VALUE", values[variable])
 
 
-def build_session(args, workdir, formulation, order, nsteps):
+def build_session(args, workdir, formulation, pressure_form, order, nsteps):
     tree = ET.parse(args.session)
     root = tree.getroot()
-    initial, exact, force = manufactured_expressions()
+    initial, exact, force = MANUFACTURED_SOLUTIONS[args.manufactured]()
 
     root.find(".//TIMEINTEGRATIONSCHEME/METHOD").text = " IMEX "
     root.find(".//TIMEINTEGRATIONSCHEME/ORDER").text = f" {order} "
@@ -86,19 +128,27 @@ def build_session(args, workdir, formulation, order, nsteps):
             condition.set("VALUE", exact[variable])
             condition.set("USERDEFINEDTYPE", "TimeDependent")
 
-    path = workdir / f"hopbc_order{order}_{formulation}_{nsteps}.xml"
+    name = (
+        f"hopbc_{args.manufactured}_order{order}_{formulation}_"
+        f"{pressure_form}_{nsteps}.xml"
+    )
+    path = workdir / name
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path
 
 
-def run_case(args, workdir, formulation, order, nsteps):
-    session = build_session(args, workdir, formulation, order, nsteps)
+def run_case(args, workdir, formulation, pressure_form, order, nsteps):
+    session = build_session(
+        args, workdir, formulation, pressure_form, order, nsteps
+    )
     command = [
         str(args.solver),
         f"--opExecSpace={args.op_exec_space}",
         f"--opImpl={args.op_impl}",
         "-I",
         f"Formulation={formulation}",
+        "-I",
+        f"PressureFormulation={pressure_form}",
         str(session),
     ]
     result = subprocess.run(
@@ -113,7 +163,8 @@ def run_case(args, workdir, formulation, order, nsteps):
         print(result.stdout)
         print(result.stderr)
         raise RuntimeError(
-            f"order={order} {formulation} nsteps={nsteps} failed"
+            f"order={order} {formulation} {pressure_form} nsteps={nsteps} "
+            "failed"
         )
 
     errors = {}
@@ -144,11 +195,33 @@ def main():
     parser.add_argument(
         "--formulations", nargs="+", default=["semiimplicit", "linearimplicit"]
     )
+    # The strong pressure form takes the predictor, advection and forcing
+    # into the higher-order pressure flux; the weak form integrates them by
+    # parts onto the volume, and its flux holds the viscous term and the
+    # boundary acceleration only.
+    parser.add_argument(
+        "--pressure-forms",
+        nargs="+",
+        choices=["strong", "weak"],
+        default=["strong"],
+    )
     parser.add_argument("--steps", nargs="+", type=int, default=DEFAULT_STEPS)
     parser.add_argument("--final-time", type=float, default=0.2)
     parser.add_argument("--num-modes", type=int, default=8)
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--pressure-dirichlet", action="store_true")
+    # Thresholds for a formulation below the order of the scheme: the final
+    # rate of every variable must reach --min-rate, and that of the pressure
+    # --min-pressure-rate where given; the defaults are MIN_RATES[order].
+    parser.add_argument("--min-rate", type=float)
+    parser.add_argument("--min-pressure-rate", type=float)
+    # curlcurl: a channel flow with a non-zero curl-curl and no advection;
+    # advective: an unsteady flow whose advection changes in time.
+    parser.add_argument(
+        "--manufactured",
+        choices=sorted(MANUFACTURED_SOLUTIONS),
+        default="curlcurl",
+    )
     args = parser.parse_args()
     args.solver = args.solver.resolve()
     args.session = args.session.resolve()
@@ -156,37 +229,55 @@ def main():
     failed = False
     with tempfile.TemporaryDirectory(prefix="incns_hopbc_time_order_") as tmp:
         workdir = pathlib.Path(tmp)
-        for order in args.orders:
-            for formulation in args.formulations:
-                errors = [
-                    run_case(args, workdir, formulation, order, nsteps)
-                    for nsteps in args.steps
-                ]
-                rates = {
-                    variable: [
-                        convergence_rate(
-                            errors[i - 1][variable],
-                            errors[i][variable],
-                            args.steps[i - 1],
-                            args.steps[i],
-                        )
-                        for i in range(1, len(errors))
-                    ]
-                    for variable in VARIABLES
-                }
-                print(
-                    f"order={order} {formulation}: errors={errors} rates={rates}",
-                    flush=True,
+        cases = [
+            (order, formulation, pressure_form)
+            for order in args.orders
+            for formulation in args.formulations
+            for pressure_form in args.pressure_forms
+        ]
+        for order, formulation, pressure_form in cases:
+            label = f"order={order} {formulation} {pressure_form}"
+            errors = [
+                run_case(
+                    args, workdir, formulation, pressure_form, order, nsteps
                 )
+                for nsteps in args.steps
+            ]
+            rates = {
+                variable: [
+                    convergence_rate(
+                        errors[i - 1][variable],
+                        errors[i][variable],
+                        args.steps[i - 1],
+                        args.steps[i],
+                    )
+                    for i in range(1, len(errors))
+                ]
+                for variable in VARIABLES
+            }
+            print(
+                f"{label}: errors={errors} rates={rates}",
+                flush=True,
+            )
 
-                # Pressure directly exercises the extrapolated higher-order
-                # Neumann data; velocity verifies its coupling through the
-                # projection.
-                observed = min(rates["p"][-1], rates["u"][-1], rates["v"][-1])
-                if observed < MIN_RATES[order]:
+            # Pressure directly exercises the extrapolated higher-order
+            # Neumann data; velocity verifies its coupling through the
+            # projection.
+            min_rate = (
+                MIN_RATES[order] if args.min_rate is None else args.min_rate
+            )
+            min_pressure_rate = (
+                min_rate
+                if args.min_pressure_rate is None
+                else args.min_pressure_rate
+            )
+            for variable in VARIABLES:
+                expected = min_pressure_rate if variable == "p" else min_rate
+                observed = rates[variable][-1]
+                if observed < expected:
                     print(
-                        f"order={order} {formulation}: expected final rate >= "
-                        f"{MIN_RATES[order]}, got {observed}",
+                        f"{label}: expected final rate of {variable} >= "
+                        f"{expected}, got {observed}",
                         flush=True,
                     )
                     failed = True

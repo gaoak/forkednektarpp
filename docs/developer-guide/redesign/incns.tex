@@ -1,0 +1,1047 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Redesign Incompressible Navier--Stokes Solver}
+\label{chap:incns}
+
+% Local notation for this chapter. The names are prefixed with "incns" so
+% that they do not clash with the developer guide preamble.
+\newcommand{\incnsv}[1]{\boldsymbol{#1}}
+\newcommand{\incnsdt}{\Delta t}
+\newcommand{\incnsCC}{\nabla\times\nabla\times}
+
+% Long identifiers in typewriter font cannot be hyphenated; allow looser
+% spacing in this chapter instead of overfull lines. Reset at the end.
+\sloppy
+
+This chapter summarises \code{IncNavierStokesSolverRedesign}, the
+incompressible Navier--Stokes solver built on the redesign operators of
+the \code{MultiRegions} and \code{SolverCore} libraries. It covers the time
+discretisation, the boundary conditions specific to the solver, initial
+conditions and restarts, a known start-up pressure transient, and the
+session parameters. Two further chapters and a standalone implementation
+note in \path{docs/developer-guide/redesign/} give the full detail; the note
+is referred to where useful:
+\begin{itemize}
+  \item Chapter~\ref{chap:hopressure-bndcond}: the higher-order pressure
+  boundary condition (HOPBC);
+  \item Chapter~\ref{chap:houtflow-bndcond}: the Dong outflow condition
+  (HOutflow).
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Overview}
+\label{sec:incns-overview}
+
+The solver implements the velocity-correction scheme (VCS) of Karniadakis,
+Israeli and Orszag~\cite{Karniadakis1991} for continuous Galerkin
+(\code{Projection=Galerkin}) discretisations. Each time step solves a
+pressure Poisson problem followed by one Helmholtz (semi-implicit) or linear
+advection--diffusion--reaction (ADR, linear-implicit) problem per velocity
+component. All element, boundary and linear-system work is done by
+redesign operators, so the same solver code runs on every execution space
+(\code{Serial}, \code{AVX}, \code{Device} for CUDA or HIP) and with every
+element-operator implementation (\code{StdMat}, \code{SumFac}, and
+\code{SumFacTOP} on \code{Device} only). There are no backend-specific
+branches in the solver.
+
+The main pieces are listed below; paths are relative to
+\path{solvers/IncNavierStokesSolverRedesign/} or \path{library/SolverCore/}.
+
+\begin{itemize}
+  \item \path{EquationSystems/VelocityCorrectionScheme.{h,cpp}}: the
+  equation system, registered as \code{VelocityCorrectionScheme}. It derives
+  from \code{SolverCore::UnsteadySystem} and provides the two time-integrator
+  callbacks \code{EvaluateAdvection\_SetPressureBCs} (explicit part) and
+  \code{SolveUnsteadyStokesSystem} (implicit part).
+  \item \path{BoundaryConditions/HOPressureBndCond/}: the
+  \code{HOPressureBndCondOp}, a Neumann boundary-condition operator added to
+  the pressure Poisson solve (Section~\ref{sec:incns-hopbc}).
+  \item \path{BoundaryConditions/HOutflowBndCond/}: the
+  \code{HOutflowBndCondOp}, which holds the boundary data shared by a pressure
+  Dirichlet and a velocity Neumann condition and presents them to the linear
+  systems through two adapters (Section~\ref{sec:incns-houtflow}).
+  \item \path{TimeOps/IMEX} and \path{TimeOps/IMEXdirk} in \code{SolverCore}:
+  the IMEX multistep scheme and the IMEX DIRK scheme used for its start-up.
+  \item \path{GlobalLinSysOps/LinearSystems} in \code{SolverCore}:
+  \code{PoissonSolveOp} (pressure), \code{HelmSolveOp} (semi-implicit
+  velocity), \code{LinearADRSolveOp} (linear-implicit velocity) and
+  \code{FwdTransOp} (projections); \path{GlobalLinSysOps/LinearSolvers}: the
+  iterative solvers (\code{ConjGrad}, \code{GMRES} and others);
+  \path{PreconOps}: the \code{Diagonal} and \code{Null} preconditioners.
+  \item \path{Filters} in \code{SolverCore}: the filter available to the
+  solver is \code{Checkpoint}. Checkpoints are written only by the
+  \code{Checkpoint} filter; \code{IO\_CheckSteps} and \code{IO\_CheckTime}
+  are ignored with a warning.
+\end{itemize}
+
+The variables must be ordered as velocity components, optional passive
+scalars, and pressure last. The pressure has its own \code{ContField}, which
+shares the velocity expansion when the session gives both the same
+expansion. The pressure is excluded from time integration: the time operator
+advances the velocity (and scalar) fields only.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Governing equations and time discretisation}
+\label{sec:incns-time}
+
+The solver integrates
+\begin{equation}
+  \frac{\partial\incnsv u}{\partial t} = \incnsv N(\incnsv u) - \nabla p
+  + \nu\nabla^2\incnsv u,\qquad \nabla\cdot\incnsv u = 0,\qquad
+  \incnsv N(\incnsv u) = -(\incnsv u\cdot\nabla)\incnsv u + \incnsv f,
+  \label{eq:incns-ns}
+\end{equation}
+with kinematic viscosity $\nu$ (\code{Kinvis}) and body forcing $\incnsv f$
+from the session \code{FORCING} block. Only the convective form of the
+advection term is implemented. With \code{SPECTRALHPDEALIASING} (on by
+default) it is evaluated with the 3/2-rule \code{AdvectionDealiasOp},
+otherwise with \code{AdvectionOp}.
+
+\subsection{IMEX scheme and the implicit-stage size}
+
+The IMEX scheme of order $J$ (\code{METHOD=IMEX}, \code{ORDER=}$J$) is the
+stiffly stable scheme of~\cite{Karniadakis1991}. The implementation divides
+it by the coefficient $\gamma_0$ of $\incnsv u^{n+1}$, and the implicit
+callback receives
+\begin{equation}
+  \hat{\incnsv u} = \sum_{q=0}^{J-1}\frac{\alpha_q}{\gamma_0}\incnsv u^{n-q}
+  + \incnsdt\sum_{q=0}^{J-1}\frac{\beta_q}{\gamma_0}\incnsv N^{n-q},
+  \qquad \lambda\incnsdt = \frac{\incnsdt}{\gamma_0},
+  \label{eq:incns-uhat}
+\end{equation}
+where $\lambda=1/\gamma_0$ is \code{m\_gamma} in \code{IMEXOpImpl}. The
+fourth argument of \code{SolveUnsteadyStokesSystem}, \code{dt\_inv\_gamma}, is
+the implicit-stage size $\lambda\incnsdt$. The explicit
+callback stores $\incnsdt\,\incnsv N$: the advection operator is applied
+with scale $-\incnsdt$ and the forcing with scale $\incnsdt$.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+order $J$ & 1 & 2 & 3 & 4 \\
+\midrule
+$\lambda=1/\gamma_0$ & $1$ & $2/3$ & $6/11$ & $12/25$ \\
+weights $c_q=\beta_q/\gamma_0$ & $[1]$ & $[4,\,-2]/3$ &
+$[18,-18,6]/11$ & $[48,-72,48,-12]/25$ \\
+start-up scheme & none & IMEXdirk 2\_3\_2 & IMEXdirk 3\_4\_3 &
+IMEXdirk 3\_4\_3 \\
+\bottomrule
+\end{tabular}
+\caption{IMEX coefficients (\code{GetIMEXCoefficients} in
+\code{IMEXKernelLaunchers.hpp}) and start-up schemes. In every multistep step
+$\sum_q c_q=\lambda$.}
+\label{tab:incns-imex}
+\end{table}
+
+\textbf{Start-up.} A multistep scheme of order $J>1$ has no history at
+the first step. While fewer than $J$ steps have been taken,
+\code{IMEXOpImpl::v\_Apply} advances one step with an \code{IMEXdirk} scheme
+of order $\min(3,J)$ (Table~\ref{tab:incns-imex}), to which it copies its
+callbacks. For $J=2$ this is IMEXdirk 2\_3\_2 with two implicit stages, both
+of size $\lambda_s\incnsdt$ with $\lambda_s=1-1/\sqrt2\approx0.2929$. The
+history is not written to checkpoints, so the start-up step is repeated after
+every restart (Section~\ref{sec:incns-kick}).
+
+\textbf{Explicit-contribution extrapolation.} The VCS needs
+extrapolations of quantities other than the solution, combined with the same
+weights as the explicit term of the active step or stage. The solver calls
+\code{EnableExplicitContributionExtrapolation()} on the time operator. Before
+each implicit solve, the operator publishes the active weights $c_i$: the
+first $J$ IMEX coefficients in a multistep step, or the explicit stage
+coefficients of the current DIRK stage. The solver keeps up to three history
+deques per history id, as deep as the implicit solves of the scheme combine
+explicit contributions (\code{GetExplicitContributionHistorySize}), refreshed
+in \code{EvaluateAdvection\_SetPressureBCs}:
+\begin{itemize}
+  \item the velocity history, $\incnsv u$, for the advection velocity of the
+  linear-implicit formulation and, on a rank with a higher-order pressure or
+  outflow region, for the boundary data;
+  \item the pressure-BC RHS history, the explicit forcing $\incnsv N$, only on
+  a rank with a higher-order pressure region whose velocity is not Dirichlet
+  in every component (Section~\ref{sec:incns-hopbc});
+  \item the advection history, $-\incnsdt(\incnsv u\cdot\nabla)\incnsv u$
+  (linear-implicit formulation only).
+\end{itemize}
+Every start-up scheme has a history id of its own; its histories are freed
+when the main scheme evaluates its explicit term again
+(\code{FreeStartupHistories}).
+\code{TimeOp::ExtrapolateExplicitContribution} forms
+$\incnsv X^*=\sum_i c_i\,\incnsv h_i$ from a history $\incnsv h$. The
+advection history is combined with the weights $c_i$ themselves, so that it
+matches the explicit contribution held in $\hat{\incnsv u}$. For the
+boundary data, the velocity and pressure-BC RHS histories are combined with the weights scaled to sum to $\lambda\incnsdt$,
+the scale being $\lambda\incnsdt/\sum_ic_i$ with $\sum_ic_i$ from
+\code{TimeOp::GetExplicitContributionCoefficientSum}, so that with
+$s=1/(\lambda\incnsdt)$ the velocity history gives
+\begin{equation}
+  \incnsv u^* = s\,\incnsv V,\qquad
+  \incnsv V=\frac{\lambda\incnsdt}{\sum_i c_i}\sum_i c_i\,\incnsv u_i,
+  \qquad
+  \incnsv u^* = \sum_i\frac{c_i}{\sum_j c_j}\incnsv u_i ,
+  \label{eq:incns-ustar}
+\end{equation}
+an extrapolation with weights summing to one. In every multistep step
+$\sum_i c_i=\lambda$ (e.g.\ $\incnsv u^*=2\incnsv u^n-\incnsv u^{n-1}$ for
+$J=2$), as in DIRK stage 1, and the scale is $\incnsdt$; in DIRK stage 2 it
+is not (Section~\ref{sec:incns-kick}).
+
+\subsection{The velocity-correction stage}
+\label{sec:incns-vcs}
+
+Given $\hat{\incnsv u}$ and $\lambda\incnsdt$,
+\code{SolveUnsteadyStokesSystem} performs the following steps.
+
+\begin{enumerate}
+  \item \textbf{Pressure forcing.} $f_p=\nabla\cdot\hat{\incnsv u}/(\lambda
+  \incnsdt)$ with \code{DivergenceOp}. The explicit advection stays in
+  $\hat{\incnsv u}$ for both formulations.
+  \item \textbf{Pressure boundary data.} Extrapolate the pressure-BC
+  histories, set the kinematic viscosity, the time $t^{n+1}$ and the scale
+  $s=1/(\lambda\incnsdt)$ on the boundary operators (\code{SetKinvis},
+  \code{SetTime}, \code{SetScale}), and update the Neumann data of
+  \code{HOPressureBndCondOp} (\code{UpdateWithAcceleration},
+  Section~\ref{sec:incns-hopbc}) and the Dirichlet data of
+  \code{HOutflowBndCondOp} (\code{UpdatePressure},
+  Section~\ref{sec:incns-houtflow}).
+  \item \textbf{Singular pressure system.} If every pressure boundary is
+  Neumann or periodic on all ranks (\code{v\_GetSystemSingularChecks}),
+  \code{MeanRemovalOp} removes the mean of $f_p$, which makes a periodic
+  system compatible. A Neumann boundary with non-zero data, such as a
+  higher-order pressure region, adds a surface integral that the mean
+  removal does not balance.
+  \item \textbf{Pressure solve.} Solve the strong pressure Poisson problem
+  \begin{equation}
+    \nabla^2p^{n+1}=\frac{1}{\lambda\incnsdt}\nabla\cdot\hat{\incnsv u}
+    \ \text{in }\Omega,\qquad
+    \frac{\partial p^{n+1}}{\partial n}=g\ \text{on }\Gamma_H,\qquad
+    p^{n+1}=p_D\ \text{on }\Gamma_D,
+    \label{eq:incns-poisson}
+  \end{equation}
+  with \code{PoissonSolveOp} and a \code{ConjGrad} solver, then
+  \code{BwdTransOp} and \code{PhysDerivOp} for $p^{n+1}$ and $\nabla
+  p^{n+1}$.
+  \item \textbf{Velocity solve.} For the semi-implicit formulation solve, per
+  component,
+  \begin{equation}
+    \nabla^2\incnsv u^{n+1}-\frac{1}{\nu\lambda\incnsdt}\incnsv u^{n+1}
+    = \frac{1}{\nu}\Bigl(\nabla p^{n+1}
+      - \frac{\hat{\incnsv u}}{\lambda\incnsdt}\Bigr)
+    \label{eq:incns-helm}
+  \end{equation}
+  with \code{HelmSolveOp} and \code{ConjGrad}. For the linear-implicit
+  formulation the extrapolated advection is removed from the right-hand
+  side, $\hat{\incnsv u}_L=\hat{\incnsv u}-\sum_ic_i\incnsv h_i^{\mathrm{adv}}$,
+  and the linearised advection moves to the operator:
+  \begin{equation}
+    \nabla^2\incnsv u^{n+1}
+    - \frac{1}{\nu}(\incnsv U\cdot\nabla)\incnsv u^{n+1}
+    - \frac{1}{\nu\lambda\incnsdt}\incnsv u^{n+1}
+    = \frac{1}{\nu}\Bigl(\nabla p^{n+1}
+      - \frac{\hat{\incnsv u}_L}{\lambda\incnsdt}\Bigr),
+    \label{eq:incns-adr}
+  \end{equation}
+  solved with \code{LinearADRSolveOp} and \code{GMRES}. The right-hand side
+  lost the explicit advection $\incnsdt\sum_ic_i(\incnsv u_i\cdot\nabla)
+  \incnsv u_i$, which the operator puts back linearised about the
+  extrapolated velocity $\incnsv u^*$ of \eqref{eq:incns-ustar}, as
+  $\incnsdt\sum_ic_i\,(\incnsv u^*\cdot\nabla)\incnsv u^{n+1}$. It weights
+  the advection by $\lambda\incnsdt$, so its advection velocity is
+  \begin{equation}
+    \incnsv U=\frac{\sum_ic_i}{\lambda}\,\incnsv u^*
+    =\frac{1}{\lambda}\sum_ic_i\,\incnsv u_i ,
+    \label{eq:incns-advvel}
+  \end{equation}
+  formed from the velocity history by
+  \code{TimeOp::ExtrapolateExplicitContribution} with the scale
+  $\incnsdt/(\nu\lambda\incnsdt)$ (\code{m\_advVel} holds
+  $\incnsv U/\nu$); the sum of the weights cancels. In a multistep step
+  $\sum_ic_i=\lambda$ and $\incnsv U=\incnsv u^*$ extrapolates the velocity
+  to $t^{n+1}$ at the order $J$ of the scheme
+  ($2\incnsv u^n-\incnsv u^{n-1}$ for $J=2$). In a DIRK stage the weights
+  have another sum (Section~\ref{sec:incns-kick}) and $\incnsv u^*$ is their
+  weighted mean of the earlier stage values, accurate to first order only:
+  every start-up step has a second-order local error, which limits a
+  multistep scheme to second order (Section~\ref{sec:incns-weak-li}), and an
+  IMEXdirk scheme run on its own advects to first order. Before the solve, \code{SetPressure} hands
+  the solved pressure to \code{HOutflowBndCondOp}, whose velocity Neumann
+  adapter forms the outflow flux from it when the solve applies it.
+\end{enumerate}
+
+The preconditioners of the pressure and semi-implicit velocity systems are
+cached per value of $\lambda\incnsdt$, so the start-up stages and the
+multistep steps each build theirs once. The linear-implicit velocity
+preconditioner is rebuilt every stage, because $\incnsv U$ changes.
+
+\subsection{Weak pressure form}
+\label{sec:incns-weak}
+
+The weak form of the pressure equation is selected with
+\code{SOLVERINFO PressureFormulation=Weak} (case insensitive), independently
+of \code{FORMULATION}. The default is \code{Strong} with semi-implicit and
+\code{Weak} with linear-implicit time-stepping. The redesign
+Poisson operator solves $(\nabla\phi,\nabla p)_\Omega=F+\int_{\Gamma_N}\phi
+g\,\mathrm dS$ for a forcing $F$ and a Neumann datum $g$. The strong form takes
+$F=-(\phi,\nabla\cdot\incnsv f_w)_\Omega$ with
+$\incnsv f_w=\hat{\incnsv u}/(\lambda\incnsdt)$; integrating it by parts,
+\begin{equation*}
+  -(\phi,\nabla\cdot\incnsv f_w)_\Omega=(\nabla\phi,\incnsv f_w)_\Omega
+  -\int_{\partial\Omega}\phi\,\incnsv n\cdot\incnsv f_w\,\mathrm dS ,
+\end{equation*}
+and moving the boundary term into the Neumann datum of the HOPBC
+(\eqref{eq:incns-hopbc-discrete}, whose $s\incnsv P$ is $\incnsv f_w$) gives
+\begin{equation}
+  (\nabla\phi,\nabla p^{n+1})_\Omega = (\nabla\phi,\incnsv f_w)_\Omega
+  - \int_{\Gamma_H}\phi\,\incnsv n\cdot\Bigl(
+    \frac{\incnsv u_D^{n+1}}{\lambda\incnsdt}
+    + \nu\,\incnsCC\incnsv u^*\Bigr)\mathrm dS .
+  \label{eq:incns-weak}
+\end{equation}
+The predictor, explicit advection and forcing enter only through the volume
+term $(\nabla\phi,\incnsv f_w)$, computed with
+\code{MultiRegions::IProductWRTDerivBaseOp<FieldState::Coeff>} and passed to
+\code{PoissonSolveOp::ApplyRhs}, which takes the right-hand side in
+coefficient form, adds the Neumann data and the Dirichlet lift to it and
+solves; the physical-space \code{Apply} forms its right-hand side and then
+solves the same way. Higher-order pressure regions then need only the viscous
+term and the boundary acceleration, which
+\code{HOPressureBndCondOp::UpdateWeak} provides: the flux of
+\code{UpdateWithAcceleration} less $s\,\incnsv n\cdot\incnsv P$, that is
+$g=-s\,\incnsv n\cdot(\incnsv u_D+\nu\incnsCC\incnsv V)$. A velocity
+component that is not Dirichlet on a region takes $\incnsv P-\incnsv R$, the
+velocity the predictor carries, as its boundary velocity, as in the strong
+form, so its flux there is $-s\,n_d(\nu C_d(\incnsv V)+P_d-R_d)$; the
+explicit-forcing history is kept for such regions only, as in the strong
+form. Further choices:
+\begin{itemize}
+  \item semi-implicit: $\incnsv u^*$ is extrapolated as in the strong form;
+  \item linear-implicit: the advection in $\incnsv f_w$ and the velocity in
+  the curl--curl and HOutflow terms are taken at the latest level, weighted by
+  $\sum_ic_i$ (\code{TimeOp::LatestExplicitContribution}), for stability at
+  large time steps; this lowers the time order of the pressure near
+  higher-order pressure regions (Section~\ref{sec:incns-weak-li});
+  \item the HOutflow pressure is a Dirichlet value, on which the test
+  functions vanish, and is the same in both forms;
+  \item a Neumann pressure region without the higher-order tag keeps its
+  session value $g$ as the datum of the weak form, which therefore prescribes
+  $(\nabla p-\incnsv f_w)\cdot\incnsv n=g$ there, not
+  $\partial p/\partial n=g$;
+  \item the volume term is orthogonal to the constants, so a singular
+  pressure system without higher-order pressure regions, such as a periodic
+  one, is compatible as it stands and no mean is removed. With higher-order
+  pressure regions the Neumann flux has a non-zero surface integral, which
+  the weak form has no correction to balance yet, so this case is refused at
+  set-up;
+  \item velocity and pressure must share their elements, blocks and
+  quadrature points, checked at set-up with
+  \code{ExpList::SameQuadratureLayout},
+  since the volume term reads the velocity right-hand side on the pressure
+  expansion.
+\end{itemize}
+
+\subsubsection{Linear-implicit formulation: stability and time order}
+\label{sec:incns-weak-li}
+
+The linear-implicit velocity solve advects with $\incnsv U$ of
+\eqref{eq:incns-advvel}, so its time step may exceed the advective CFL
+limit. In a multistep step $\incnsv U=\incnsv u^*$ differs from
+$\incnsv u^{n+1}$ by $O(\incnsdt^J)$; in the IMEXdirk start-up stages it is
+a mean of stage values, which differs by $O(\incnsdt)$ and limits the
+formulation to second order in time for $J=3$ on a flow whose advection
+changes in time. The pressure step still treats the advection in
+$\incnsv f_w$, the curl--curl term and the HOutflow velocity explicitly.
+Extrapolating them, as the strong and the semi-implicit weak forms do,
+brings back a time-step limit: the extrapolated
+$\incnsv u^*=\sum_ic_i\incnsv u_i/\sum_ic_i$ amplifies the high-frequency
+part of the history (by 3 for $J=2$ and 7 for $J=3$). The weak form takes
+them at the latest level instead; the price is an $O(\incnsdt)$ error in
+the explicit terms of its pressure step, which makes the form second order
+in time for $J=3$ on a flow whose advection does not change in time, and
+leaves its pressure near higher-order pressure regions close to first order
+on a flow whose advection does (below).
+
+On the manufactured flow \path{HOPressureTimeConvergence2D.xml} (8, 16 and
+32 steps, Serial and AVX SumFac; its advection vanishes, so only the
+boundary terms matter) the final rates of
+$u$, $v$, $p$ for $J=3$ are $1.98$, $1.98$, $1.60$ with the latest level and
+$3.22$, $3.23$, $2.92$ with the curl--curl velocity extrapolated; for $J=2$
+they are $2.06$, $2.22$, $1.84$ and $2.17$, $2.22$, $1.94$. The level of the
+advection in $\incnsv f_w$ does not change these rates. The strong form is
+third order for $J=3$ ($3.23$, $3.25$, $2.93$). The largest stable
+time step (400 steps from a perturbed or impulsive start, Serial SumFac) is,
+with the values of the earlier advection velocity $\incnsv U=\incnsv u^n$ in
+parentheses where they differ:
+\begin{center}\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+case, $J$ & strong & weak & weak, curl--curl $\incnsv u^*$\textsuperscript{a} &
+weak, all extrapolated\textsuperscript{a} \\
+\midrule
+\path{KovasznayFlowHOPBC2D}, 2 & $0.01$ & $0.3$ ($0.35$) & $0.35$ & $0.01$ \\
+\path{KovasznayFlowHOPBC2D}, 3 & $0.005$ & $0.2$ ($0.25$) & $0.1$ & $<0.005$ \\
+\path{CylinderFlowHOPBC2D}, 2 & $0.6$\textsuperscript{b} & $\ge3$ & $\ge3$ & $0.5$ \\
+\path{CylinderFlowHOPBC2D}, 3 & $0.25$\textsuperscript{b} & $\ge3$ & $0.75$ & $0.2$ \\
+\path{HOutflowKovasznay2D}, 2 & $0.01$ & $0.8$ ($1$) & $0.02$ & $0.01$ \\
+\path{HOutflowKovasznay2D}, 3 & $<0.005$ & $0.35$ ($0.4$) & & \\
+\path{HOutflowBackflow2D}, 2 & $0.01$ & $0.5$ ($1$) & $0.01$ & $0.01$ \\
+\path{HOutflowBackflow2D}, 3 & $<0.005$ & $0.4$ ($0.8$) & & \\
+\bottomrule
+\end{tabular}
+
+\textsuperscript{a} measured with $\incnsv U=\incnsv u^n$;
+\textsuperscript{b} $0.5$ and $0.2$ on the coarser grid of time steps used
+for $\incnsv U=\incnsv u^n$.
+\end{center}
+In the HOutflow cases the last column also extrapolates the HOutflow
+velocity, which shares the history. Extrapolating the curl--curl velocity
+only would restore third order on the flow above but reduce the stable time
+step by a factor of 2.5 to more than 4 for $J=3$. For $J=2$ it costs no
+stability in the higher-order pressure cases but gains little, so the latest
+level is kept for every order. Advecting with $\incnsv u^*$ instead of
+$\incnsv u^n$ costs little stability with higher-order pressure regions and
+up to a factor of two with HOutflow regions. In \path{HOutflowKovasznay2D}
+the weak form with $\incnsv u^*$ also keeps the error of the steady solution
+only up to a time step of $0.12$ ($J=2$) and $0.15$ ($J=3$), and stays
+bounded but inaccurate above it, where with $\incnsv u^n$ it kept that error
+up to its stability limit. \code{VelocityCorrectionScheme::InitialiseParameters()}
+warns (on the root rank) when \code{FORMULATION=LinearImplicit} is used with
+a time integration scheme of order three or higher, whose order it cannot
+reach: the weak form is the more stable, with a lower-order pressure near
+higher-order pressure regions, and \code{PressureFormulation=Strong} the more
+accurate but much less stable.
+
+\textbf{Advective time order.} The flow above has no advection, so it does
+not see the advection velocity $\incnsv U$ of the velocity solve.
+\path{check_hopbc_time_order.py --manufactured advective} sets the
+unsteady flow
+$\incnsv u=\cos t\,(x^2,-2xy)+\sin t\,(2xy,-y^2)$ on the same session, with
+$(\partial_t\incnsv u\cdot\nabla)\incnsv u$ non-zero and not a gradient; it
+is quadratic, so the spatial error is zero and only the time error remains.
+The final rates of $u$, $v$, $p$ (8, 16 and 32 steps to $t=0.2$, Serial and
+AVX SumFac, \code{NUMMODES} 8) are:
+\begin{center}\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+formulation, pressure form & $J=2$ & $J=3$ \\
+\midrule
+semi-implicit, strong & $2.22$, $2.21$, $1.93$ & $2.89$, $2.79$, $2.95$ \\
+semi-implicit, weak & $2.22$, $2.21$, $1.93$ & $2.89$, $2.78$, $2.98$ \\
+linear-implicit, strong & $2.26$, $2.32$, $1.92$ & $1.98$, $2.18$, $2.02$ \\
+linear-implicit, weak & $2.03$, $1.99$, $1.63$ & $1.98$, $1.95$, $1.48$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+With $\incnsv U=\incnsv u^n$ every linear-implicit rate was between $0.95$
+and $1.04$. The linear-implicit formulation is second order for $J=3$ as
+well, because of the start-up stages. The weak-form pressure falls towards
+first order under refinement: from 32 to 64 and from 64 to 128 steps its
+rates are $1.51$ and $1.37$ for $J=2$, $1.36$ and $1.26$ for $J=3$, while
+the strong form stays at $1.94$ to $2.02$. Extrapolating the advection in
+$\incnsv f_w$ as well raises the weak-form rates from 32 to 64 steps
+(\code{NUMMODES} 6) from $1.30$ and $1.19$ to $1.80$ and $1.31$, and
+extrapolating also the curl--curl velocity gives the rates of the strong
+form, at the cost of the stable time step above. The ctests
+\code{IncNavierStokesSolverRedesign\_HOPBC\_Advective\_TimeIntegrationOrders23}
+(semi-implicit, both forms, at the order of the scheme),
+\code{\_Advective\_LinearImplicit\_TimeIntegrationOrders23} (strong form, every
+rate at least $1.7$ for $J=2$ and $3$) and
+\code{\_Advective\_WeakPressure\_LinearImplicit\_TimeIntegrationOrders23}
+(velocity rates at least $1.7$, pressure at least $1.1$, which rules out
+first order) check these rates. An IMEXdirk scheme run on its own advects
+with stage means in every step, and the linear-implicit velocity is first
+order on this flow with it (\code{IMEXdirk23} and \code{IMEXdirk34}; the
+pressure of every formulation is first order with these schemes too).
+The regression cases are steady or use first-order IMEX, for which
+$\incnsv U=\incnsv u^n$. The manufactured flow of
+\path{check_time_order.py},
+$\incnsv u=(1+0.1\sin t)\,\incnsv u_0(\incnsv x)$, changes its advection by
+$0.1\cos t\,(\incnsv u_0\cdot\nabla)\incnsv u_0$ only, at $\nu=1$ and with 2
+and 4 steps, where the error does not show, and
+\path{check_imexdirk_forced_mms_2d.py} checks that four IMEXdirk steps of
+the same kind of flow run, not a rate.
+
+Legacy \code{VCSImplicit} advects with the extrapolated velocity
+$\incnsv u^*$ by default (\code{SOLVERINFO AdvectionVelocity=Extrapolated};
+\code{Updated} takes a first-order predictor of $\incnsv u^{n+1}$ instead),
+as the redesign does, and takes the advection of its weak pressure forcing
+and the curl--curl velocity of its higher-order pressure flux at the latest
+level, as the redesign's linear-implicit weak form does. On this session it
+is first order in the velocity, with pressure rates of $0.4$ to $0.7$, for
+both flows, including the one without advection, so from its higher-order
+pressure condition; with a Dirichlet pressure on every edge it is second
+order for $J=2$ and $J=3$ in both of its advection velocity choices (its
+semi-implicit scheme is also second order only for $J=3$ there). Its stable
+time steps (legacy \code{VCSImplicit}, \code{Extrapolated}) are $\ge2$ in
+\path{KovasznayFlowHOPBC2D} and \path{CylinderFlowHOPBC2D}, $0.02$ and
+$0.005$ in \path{HOutflowKovasznay2D} for $J=2$ and $3$, and $0.01$ and
+below $0.005$ in \path{HOutflowBackflow2D}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Boundary conditions}
+\label{sec:incns-bc}
+
+Ordinary Dirichlet, Neumann and Robin conditions on velocity and pressure
+are imposed by the generic \code{DirBndCondOp}, \code{NeuBndCondOp} and
+\code{RobBndCondOp} of the linear-system operators: Dirichlet values are set
+in the coefficient solution, Neumann data is added to the right-hand side as
+a boundary inner product, and Robin terms enter the operator of the
+iterative solver. The two solver-specific conditions below are selected with
+\code{USERDEFINEDTYPE} and plug into the same interfaces:
+\code{m\_poissonSolveOp->AddNeumannBCOp},
+\code{m\_poissonSolveOp->AddDirichletBCOp} and
+\code{m\_fieldsSolveOp->AddNeumannBCOp} in
+\code{VelocityCorrectionScheme::v\_InitialiseOperators}. Each operator is
+built only for a session with a region of its type
+(\code{HasUserDefinedType}, reduced over the ranks). A Neumann operator is
+added with \code{LinearSystemOp::AddNeumannBCOp(op, userDefinedType)}, which
+makes the default Neumann operator of the system leave the regions of that
+type out (\code{NeuBndCondOp::ExcludeUserDefinedType}).
+
+\subsection{Higher-order pressure condition (HOPBC)}
+\label{sec:incns-hopbc}
+
+\textbf{Continuous condition.} Writing the viscous term in rotational
+form, $\nabla^2\incnsv u=-\incnsCC\incnsv u$ for $\nabla\cdot\incnsv u=0$, and
+taking the normal component of~\eqref{eq:incns-ns} gives
+\begin{equation}
+  \frac{\partial p}{\partial n}=\incnsv n\cdot\Bigl(\incnsv N
+  - \nu\,\incnsCC\incnsv u - \frac{\partial\incnsv u}{\partial t}\Bigr).
+  \label{eq:incns-hopbc}
+\end{equation}
+
+\textbf{Time-discrete form.}
+\code{HOPressureBndCondOp::UpdateWithAcceleration} receives the extrapolated
+explicit forcing $\incnsv R$, the extrapolated velocity $\incnsv V$ (both
+scaled as in~\eqref{eq:incns-ustar}) and the predictor
+$\incnsv P=\hat{\incnsv u}$; the scale $s=1/(\lambda\incnsdt)$, the
+viscosity and the time are set beforehand with \code{SetScale},
+\code{SetKinvis} and \code{SetTime}. The explicit parts of the base flux
+$s(\incnsv R-\nu\incnsv C)$ and the acceleration flux
+$s(\incnsv P-\incnsv R)$ cancel, so the operator evaluates
+\begin{equation}
+  g = s\,\incnsv n\cdot\bigl[\incnsv P-\incnsv u_D(t^{n+1})
+      -\nu\,\incnsv C(\incnsv V)\bigr],\qquad
+  \incnsv C(\incnsv V)=\incnsCC\incnsv V,
+  \label{eq:incns-hopbc-discrete}
+\end{equation}
+where $\incnsv u_D$ is the discrete Dirichlet velocity: the session
+expressions evaluated on the boundary (\code{ExpressionOp}) and projected
+onto the boundary expansion of the velocity (\code{FwdTransBCOp}, then
+\code{BwdTransOp}), as the velocity solve imposes it. Its coefficients are
+kept and projected once, unless a Dirichlet velocity condition of the region
+is time-dependent; a point region takes the expression itself. A set-up \code{ASSERTL0} checks
+that the velocity and pressure boundary expansions share their points.
+$s(\incnsv P-\incnsv u_D)$ is the negative discrete acceleration plus the
+explicit term, and vanishes at a steady state; $s\incnsv V=\incnsv u^*$
+of~\eqref{eq:incns-ustar}. A velocity component $d$ that is not Dirichlet on
+a region has no prescribed velocity and takes no acceleration: its flux
+there is $s\,n_d[R_d-\nu C_d(\incnsv V)]$, which is why $\incnsv R$ is kept
+for such regions only. \code{Update}, without the predictor, evaluates
+$g=s\,\incnsv n\cdot[\incnsv R-\nu\incnsv C(\incnsv V)]$, and
+\code{UpdateWeak} the flux of the weak form
+(Section~\ref{sec:incns-weak}).
+
+\textbf{Selection.} Only pressure Neumann regions tagged
+\code{USERDEFINEDTYPE="H"} receive the computed flux (\code{IsHOPressure}),
+as in the legacy solver; the default Neumann operator of the pressure system
+leaves them out. An untagged pressure Neumann region keeps its session
+value.
+
+\textbf{Data flow.} Setup (\code{SetVelocityContext}) matches every
+selected boundary face to its owning velocity element by geometry id and
+builds a restricted expansion list of the boundary-adjacent elements. Each
+update then:
+\begin{enumerate}
+  \item gathers $\incnsv V$ onto the restricted elements
+  (\code{GatherBoundaryElements}, an indexed copy) and applies
+  \code{CurlCurlOp} there, since the derivatives need the volume polynomial;
+  \item forms $\incnsv P-\nu\incnsv C$ on the restricted volume
+  (\code{HOPressureVolumeCombineKernel}), using the linearity of the trace;
+  \item traces it to the boundary quadrature points with one
+  \code{PhysTraceExtractBndCond} per region and contracts with the outward
+  normal (\code{HOPressureBoundaryCombineKernel}); on a region with a
+  velocity component that is not Dirichlet it also traces
+  $\incnsv P-\incnsv R$ and subtracts its contraction with the normal
+  components of those velocity components;
+  \item subtracts $s\,\incnsv n\cdot\incnsv u_D$
+  (\code{SubtractBoundaryVelocity});
+  \item forms the boundary inner product
+  $\incnsv b_f=B_f^{\mathsf T}W_fJ_f\incnsv g_f$ with \code{IProductWRTBaseOp}
+  and reorders it to the pressure block layout
+  (\code{BuildBoundaryCoeffs});
+  \item in \code{v\_Apply}, scatter-adds
+  $\incnsv r_p\mathrel{+}=\sum_fE_f^{\mathsf T}\incnsv b_f$ with orientation
+  signs into the Poisson right-hand side. Coefficients shared by several
+  boundary pieces are summed in groups, which avoids atomics.
+\end{enumerate}
+The redesign Poisson operator is positive, so the weak form is
+$(\nabla p,\nabla v)=-(f_p,v)+\langle\partial p/\partial n,v\rangle_{\Gamma_N}$
+and the boundary load is added, not assigned.
+
+\subsection{Dong outflow condition (HOutflow)}
+\label{sec:incns-houtflow}
+
+\textbf{Equations.} On an open boundary $\Gamma_o$ the condition of Dong,
+Karniadakis and Chryssostomidis~\cite{DongKC2014} couples a pressure Dirichlet
+value, evaluated before the pressure solve, with a velocity Neumann value,
+evaluated after it:
+\begin{align}
+  p &= \nu\,\incnsv n\cdot(\nabla\incnsv u^*)\incnsv n
+       - \bigl(\incnsv E(\incnsv n,\incnsv u^*)-\incnsv f_b\bigr)\cdot\incnsv n,
+  \label{eq:incns-hout-p}\\
+  \frac{\partial\incnsv u^{n+1}}{\partial n} &= \frac{1}{\nu}\Bigl\{
+       \bigl[p^{n+1}-\nu\nabla\cdot\incnsv u^*\bigr]\incnsv n
+       + \incnsv E(\incnsv n,\incnsv u^*)-\incnsv f_b\Bigr\},
+  \label{eq:incns-hout-u}
+\end{align}
+with the backflow energy flux and smooth switch
+\begin{equation}
+  \begin{gathered}
+  \incnsv E=\Bigl[\frac{\theta+\alpha_2}{2}|\incnsv u^*|^2\incnsv n
+  + \frac{1-\theta+\alpha_1}{2}u_n\incnsv u^*\Bigr]S_0(u_n),\\
+  S_0(u_n)=\frac12\Bigl[1-\tanh\frac{u_n}{U_0\delta}\Bigr],\qquad
+  u_n=\incnsv n\cdot\incnsv u^*.
+  \end{gathered}
+  \label{eq:incns-hout-e}
+\end{equation}
+$S_0\approx1$ where the flow locally re-enters ($u_n<0$) and $S_0\approx0$
+where it leaves. The vector $\incnsv f_b$ is the velocity \code{VALUE} of the
+region. The divergence term in~\eqref{eq:incns-hout-u} is required.
+
+\textbf{Scaling.} \code{UpdatePressure} receives the extrapolated
+velocity $\incnsv V^*$ of~\eqref{eq:incns-ustar}, with
+$s=1/(\lambda\incnsdt)$ set by \code{SetScale}, and applies $s$ to both the
+traced velocity and its gradient, $\incnsv u^*=s\incnsv V^*$ and
+$\nabla\incnsv u^*=s\nabla\incnsv V^*$, so that $S_0$, $\incnsv E$, the
+normal stress and the divergence use the same field.
+
+\textbf{Stage workflow.}
+\begin{enumerate}
+  \item \code{UpdatePressure} (before the Poisson solve): gather the
+  outlet-adjacent velocity elements, apply \code{PhysDerivOp}, trace
+  $\incnsv u^*$ and $\nabla\incnsv u^*$ with \code{PhysTraceExtractBndCond},
+  and evaluate~\eqref{eq:incns-hout-p} pointwise
+  (\code{HOutflowPressureKernel}). The kernel keeps
+  $\incnsv G=\incnsv E-\incnsv f_b$ and $\nabla\cdot\incnsv u^*$ on the
+  active backend. The pressure values are projected with \code{FwdTransBCOp}
+  and \emph{set} as Dirichlet coefficients by the pressure Dirichlet adapter
+  (\code{GetPressureDirichletOp}), after the default Dirichlet operator has
+  evaluated the placeholder session value.
+  \item After the Poisson solve, \code{SetPressure} hands the operator
+  $p^{n+1}$. When the velocity solve applies the velocity Neumann adapter
+  (\code{GetVelocityNeumannOp}), the adapter traces $p^{n+1}$ to $\Gamma_o$,
+  forms $\incnsv h=[(p-\nu\nabla\cdot\incnsv u^*)\incnsv n+\incnsv G]/\nu$
+  (\code{HOutflowVelocityKernel}), projects it with \code{IProductWRTBaseOp}
+  and scatter-adds it. The adapter is added with
+  \code{AddNeumannBCOp(op, "HOutflow")}, so the default Neumann operator
+  leaves the outlet out and $\incnsv h$ is the whole load; $\incnsv f_b$ enters
+  through $\incnsv G$.
+\end{enumerate}
+
+\textbf{Session.} Every velocity component must carry a Neumann condition
+and the pressure a Dirichlet condition, all tagged
+\code{USERDEFINEDTYPE="HOutflow"}:
+
+\begin{lstlisting}[style=XMLStyle]
+<REGION REF="1">
+  <N VAR="u" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+  <N VAR="v" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+  <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+</REGION>
+\end{lstlisting}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+parameter & symbol & default & role \\
+\midrule
+\code{OutflowBC\_theta}   & $\theta$   & $1$      & weight of the normal kinetic-energy term \\
+\code{OutflowBC\_alpha1}  & $\alpha_1$ & $0$      & weight of the $u_n\incnsv u$ term \\
+\code{OutflowBC\_alpha2}  & $\alpha_2$ & $0$      & added to the normal kinetic-energy term \\
+\code{U0\_HighOrderBC}    & $U_0$      & $1$      & reference velocity of the switch \\
+\code{Delta\_HighOrderBC} & $\delta$   & $1/20$   & width of the switch \\
+\bottomrule
+\end{tabular}
+\caption{HOutflow session parameters (read in the
+\code{HOutflowBndCondOpImpl} constructor). $U_0$ and $\delta$ must be
+positive.}
+\label{tab:incns-houtflow}
+\end{table}
+
+The pairing of tags, the positivity of $U_0$ and $\delta$, and the
+rejection of a tagged pressure Neumann condition are checked with
+\code{ASSERTL0}, so also in release builds.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Initial conditions and restarts}
+\label{sec:incns-ic}
+
+\code{VelocityCorrectionScheme::v\_SetInitialConditions} calls
+\code{UnsteadySystem::v\_SetInitialConditions} for the velocity and scalars
+and then treats the pressure in the same way, on its own expansion list.
+Both go through \code{UnsteadySystem::SetContinuousInitialConditions}, which
+brings either source of an initial condition into the continuous space:
+\begin{enumerate}
+  \item element coefficients: an expression is sampled at the quadrature
+  points and projected element by element; a file (\code{.fld}/\code{.chk},
+  \code{SessionFunction::EvaluateFld}) is used as read;
+  \item every local copy of a global degree of freedom is replaced by the
+  signed average of all copies (\code{AvgAssmbScatrOp});
+  \item the method selected by \code{SOLVERINFO ProjectInitialConditions}:
+  \code{Average} (the default) writes the Dirichlet values at $t_0$ over the
+  boundary degrees of freedom (\code{DirBndCondOp}); \code{Galerkin}
+  projects the field at the quadrature points with the global mass matrix
+  solve of \code{FwdTransOp}, with the Dirichlet values at $t_0$, starting
+  from the averaged coefficients.
+\end{enumerate}
+The start time of a file IC is taken from the file
+(\code{CheckForRestartTime}). As in the legacy solver
+(\code{AvgAssemble}, \code{GlobalToLocal} and the Dirichlet values imposed
+by \code{VelocityCorrectionScheme::v\_DoInitialise}), a file IC that
+violates the velocity boundary conditions, for instance one interpolated
+from a lower order, therefore starts from velocity Dirichlet values that
+match the session; otherwise the first step would correct them and produce
+a pressure of order $|\incnsv u-\incnsv u_D|/\incnsdt$
+(Section~\ref{sec:incns-kick}).
+
+\textbf{Restarts.} The multistep history is not stored in checkpoints, so a
+restart is a cold start from the stored state and repeats the IMEXdirk
+start-up step of Section~\ref{sec:incns-time}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Pressure kick at start-up and restart}
+\label{sec:incns-kick}
+
+With IMEX order 2, the pressure and the pressure forces ring for a few steps
+after every start and restart. On a 2D NACA0012 case ($Re=50\,000$,
+$\alpha=5^\circ$, $P=6$, $\incnsdt=2\times10^{-6}$, semi-implicit, strong
+form) the ringing was, before the remedies below, about three times larger
+than in the legacy solver, which starts IMEX order $J$ with an IMEX order~1
+step ($\lambda=1$) instead of IMEXdirk. Two
+mechanisms were identified; execution space, operator implementation,
+solver tolerances, dealiasing and restart I/O were ruled out.
+
+\textbf{Mechanism 1: weight of the divergence term.} The velocity from
+the Helmholtz solve is not discretely divergence-free (on the NACA mesh
+$\|\nabla\cdot\incnsv u^n\|_{L^2}\approx0.72$ in every step, in both codes).
+Since $\hat{\incnsv u}=\incnsv u^n+O(\incnsdt)$, the pressure contains a
+divergence-cleaning part
+\begin{equation}
+  p_{\mathrm{div}}\approx\frac{1}{\lambda\incnsdt}\,
+  \nabla^{-2}\bigl(\nabla\cdot\incnsv u^n\bigr),
+  \label{eq:incns-pdiv}
+\end{equation}
+whose weight changes with the step type (Table~\ref{tab:incns-kick-weight}).
+The velocity correction removes the divergence whatever $\lambda$ is, but the
+pressure, and with it the wall force, jumps at each start-up and relaxes to
+its multistep level. The measured Poisson forcing ratio between DIRK stages
+and multistep steps is $2.28=(2/3)/0.2929$. This mechanism dominates on
+meshes with thin boundary-layer elements.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+step type & weight $1/(\lambda\incnsdt)$ & change against multistep \\
+\midrule
+IMEX-2 multistep & $1.5/\incnsdt$ & --- \\
+redesign IMEXdirk 2\_3\_2 start-up (both stages) & $3.41/\incnsdt$ & $+128\%$ \\
+legacy IMEX-1 start-up & $1/\incnsdt$ & $-33\%$ \\
+\bottomrule
+\end{tabular}
+\caption{Weight of the divergence part of the pressure.}
+\label{tab:incns-kick-weight}
+\end{table}
+
+\textbf{Mechanism 2: normalisation of the pressure-BC velocity.} By
+\eqref{eq:incns-ustar} the curl--curl velocity of HOPBC and the HOutflow
+$\incnsv u^*$ are proper extrapolations only if $\sum_ic_i=\lambda$. In
+IMEXdirk 2\_3\_2 stage~2 the weights are $[1-\delta,\delta]$ with
+$\sum c=1$, while $\lambda=\gamma\approx0.2929$, so without a normalisation
+these velocities would be $1/\gamma\approx3.41$ times too large; remedy A
+normalises them. The predictor part is consistent. Without the normalisation
+this would also affect IMEXdirk used as the main scheme whenever HOPBC or
+HOutflow boundaries are present. The linear-implicit advection has the same
+root cause: the right-hand side loses the extrapolated advection with weight
+$\sum c\,\incnsdt$, while the advection operator puts it back with weight
+$\lambda\incnsdt$, so without a correction stage~2 would keep only
+$\gamma\approx29\%$ of its advection. On Kovasznay flow with HOPBC (IMEX-2,
+$\incnsdt=0.01$, exact IC), normalising by $\sum c$ reduces the pressure
+$L^2$ error after step~1 from $0.169$ to $2.1\times10^{-5}$.
+
+\textbf{Key evidence.} NACA0012 restart test: an uninterrupted run is
+compared with a run restarted half-way. The steady pressure drag is
+$0.0078$; viscous forces are unaffected.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+variant & $\max|\Delta F_{\mathrm{drag},p}|$ & $\max|\Delta F_{\mathrm{lift},p}|$ \\
+\midrule
+legacy & $0.035$ & $5.6\times10^{-3}$ \\
+redesign without fixes & $0.097$ & $2.0\times10^{-2}$ \\
+fix A only & $0.087$ & $1.6\times10^{-2}$ \\
+divergence re-weighting (B1) only & $0.009$ & $7.6\times10^{-3}$ \\
+fix A + B1 & $5.5\times10^{-5}$ & $9.9\times10^{-4}$ \\
+Euler start-up (B4) & $0.035$ & $5.4\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\caption{Deviation of the pressure forces after a restart, on the
+NACA0012 case above.}
+\label{tab:incns-kick-evidence}
+\end{table}
+
+\textbf{Remedies.}
+\begin{itemize}
+  \item \textbf{A. Normalise the pressure-BC velocity by $\sum c$}
+  (implemented): the pressure-BC histories hold $\incnsv u$ and $\incnsv N$
+  and are combined with the weights scaled to sum to $\lambda\incnsdt$, the
+  scale being $\lambda\incnsdt/\sum c$ with $\sum c$ from
+  \code{TimeOp::GetExplicitContributionCoefficientSum}
+  (eq.~\eqref{eq:incns-ustar}); it is $\incnsdt$ in multistep steps and DIRK
+  stage~1. The linear-implicit advection velocity is scaled by
+  $\sum c\,\incnsdt/(\lambda\incnsdt)$, the ratio of the two advection
+  weights.
+  \item \textbf{B1. Fixed divergence weight during start-up} (not
+  implemented): in start-up stage $s$ a fraction
+  $\beta=1-\lambda_s/\lambda$ of $\nabla\cdot\incnsv u_s$ would be removed from
+  the Poisson forcing ($\beta=0.561,0.201,0.092$ for orders 2, 3, 4), so the
+  divergence-cleaning pressure keeps its multistep weight. Here $\incnsv u_s$ is
+  the solution the stage starts from, not $\incnsv u^n$: re-weighting $\incnsv
+  u^n$ in stage~2 would remove again the part that stage~1 already cleaned.
+  \item \textbf{B2. Checkpoint the multistep history} (not implemented):
+  restarts continue without a start-up step and reproduce an uninterrupted
+  run, but cold starts are unchanged and checkpoints grow.
+  \begin{itemize}
+    \item \textbf{What is written.} Only the $J-1$ previous velocity levels,
+    $\incnsdt$, the order and the step count. The \code{TimeOp} explicit
+    history and the three VCS histories (advection RHS, pressure-BC RHS,
+    pressure-BC velocity) are deterministic functions of those levels and
+    are recomputed on restart. HOPBC and HOutflow keep no step-to-step state.
+    \item \textbf{Estimate.} About 400--600 lines plus restart regression
+    tests, roughly 3--5 days; moderate-to-low risk. The work splits into a
+    generic \code{TimeOp} history export/import (reusing the existing
+    \code{SetSolutions}/\code{SetExplicits}/\code{SetStep}), a VCS hook to
+    rebuild its histories, checkpoint output of extra fields
+    (\code{u\_nm1}, \dots) with metadata, and a restart reader with a
+    fallback to the start-up.
+    \item \textbf{Constraints.} Exact restarts are bit-exact on CPU only
+    (Device reductions are not deterministic). Checkpoints grow by
+    $1+(J-1)d/(d+1)$, e.g.\ $+67\%$ in 2D at order 2.
+  \end{itemize}
+  \item \textbf{B3. Reduce $\nabla\cdot\incnsv u$} (weak pressure form,
+  Taylor--Hood spaces, grad--div penalty, extra projection): addresses the
+  cause in every step, at the price of larger changes to the method.
+  \item \textbf{B4. Legacy-style IMEX-1 start-up} (not implemented):
+  reproduces the legacy force history to 3--4 digits, but only reduces the
+  kick to the legacy level.
+\end{itemize}
+
+\textbf{Steady-state dependence on $\incnsdt$.} A study on Kovasznay flow and
+steady cylinder flow ($Re=20,40$) found:
+\begin{itemize}
+  \item \textbf{Common to both codes.} With HOPBC boundaries, the steady
+  pressure error grows mildly as $\lambda\incnsdt$ decreases. The effect
+  scales with the spatial error, vanishes spectrally with $P$, and is absent
+  with Dirichlet pressure everywhere. $\nabla\cdot\incnsv u$ is a spatial
+  error and is not $O(\incnsdt)$.
+  \item \textbf{Redesign only (fixed).} An additional $1/(\lambda\incnsdt)$
+  error came from subtracting the analytic Dirichlet velocity instead of the
+  projected one in the HOPBC flux. The HOPBC now subtracts the discrete
+  boundary velocity (as legacy \code{AddVelBC} does), and the redesign matches
+  legacy to 3--4 digits.
+\end{itemize}
+B1, B2 and B4 only affect transients, not the fixed point.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Usage and parameters}
+\label{sec:incns-usage}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.34\textwidth}
+                              >{\raggedright\arraybackslash}X@{}}
+\toprule
+entry & meaning \\
+\midrule
+\multicolumn{2}{@{}l}{\textit{SOLVERINFO}} \\
+\code{SolverType} & \code{VelocityCorrectionScheme}; selects the equation
+system (overrides \code{EQTYPE}). \\
+\code{EQTYPE} & required by the driver, e.g.\ \code{UnsteadyNavierStokes};
+otherwise only reported in the summary. \\
+\code{Projection} & must be \code{Galerkin}. \\
+\code{FORMULATION} & \code{SemiImplicit} or \code{LinearImplicit}, case
+insensitive. Required: there is no default. \\
+\code{SPECTRALHPDEALIASING} & \code{True} (default) or \code{False}. \\
+\code{AdvectionForm} & not read; the convective form is always used. \\
+\code{PressureFormulation} & \code{Strong} or \code{Weak}
+(Section~\ref{sec:incns-weak}), case insensitive. Default \code{Strong}
+with \code{SemiImplicit}, \code{Weak} with \code{LinearImplicit}. \\
+\code{ProjectInitialConditions} & \code{Average} (default) or
+\code{Galerkin} (Section~\ref{sec:incns-ic}). \\
+\multicolumn{2}{@{}l}{\textit{TIMEINTEGRATIONSCHEME}} \\
+\code{METHOD}, \code{ORDER} & \code{IMEX} with order 1--4. \code{IMEXdirk}
+(with \code{VARIANT}) is also available. \\
+\multicolumn{2}{@{}l}{\textit{PARAMETERS}} \\
+\code{Kinvis} & $\nu$, default 1. \\
+\code{TimeStep}, \code{NumSteps}, \code{FinTime} & time step (must be
+positive), number of steps, final time. \\
+\code{IO\_InfoSteps}, \code{IO\_CFLSteps}, \code{CFL} & cadence of the
+step and Courant-number reports, CFL safety factor. \\
+\code{D00}, \code{D01}, \dots & anisotropic diffusion tensor, default
+identity. \\
+HOutflow parameters & Table~\ref{tab:incns-houtflow}. \\
+\multicolumn{2}{@{}l}{\textit{GLOBALSYSSOLNINFO (per variable) or PARAMETERS}} \\
+\code{IterativeSolverTolerance} & default $10^{-9}$. \\
+\code{NekLinSysMaxIterations} & default 5000. \\
+\code{AbsoluteTolerance} & \code{True} for an absolute criterion
+(GLOBALSYSSOLNINFO only). \\
+\code{Preconditioner} & \code{Diagonal} (default) or \code{Null}; also
+SOLVERINFO. \\
+\code{LinSysIterSolver} & ignored: the pressure, velocity and
+initial-condition projection solves use \code{ConjGrad}, or \code{GMRES} for
+the linear-implicit velocity. \\
+\multicolumn{2}{@{}l}{\textit{command line}} \\
+\code{--opExecSpace} & \code{Serial}, \code{AVX} or \code{Device}; default
+\code{Device} if a device is present, else \code{AVX} or \code{Serial}, with a
+warning. \\
+\code{--opImpl} & \code{StdMat}, \code{SumFac} (default) or
+\code{SumFacTOP} (\code{Device} only); overrides per-operator choices in
+\code{OPTIMISATION/OPERATORS}. \\
+\code{-I}, \code{-P} & override a SOLVERINFO entry or a parameter, e.g.\
+\code{-I Formulation=semiimplicit}. \\
+\code{-v} & verbose output, including linear-solver iteration counts. \\
+\bottomrule
+\end{tabularx}
+\caption{Session and command-line settings used by the solver.}
+\label{tab:incns-params}
+\end{table}
+
+\textbf{Linear-solver settings.} Each solve reads the GLOBALSYSSOLNINFO
+entry of its first variable, falling back to the parameter of the same name:
+the velocity components are solved together and use the setting of
+\code{u}, the pressure that of \code{p}. With the default relative criterion
+an iteration stops when $\|\incnsv r\|<\epsilon\,\|\incnsv b-A\incnsv x_0\|$,
+with the previous solution as initial guess $\incnsv x_0$. With
+\code{AbsoluteTolerance=True} it stops when $\|\incnsv r\|<\epsilon$. The
+right-hand sides are scaled: the velocity forcing~\eqref{eq:incns-helm}
+contains $\hat{\incnsv u}/(\nu\lambda\incnsdt)$ and the pressure forcing
+$\nabla\cdot\hat{\incnsv u}/(\lambda\incnsdt)$. For small $\nu$ and
+$\incnsdt$ these are many orders of magnitude larger than the velocity, so
+an absolute tolerance on them is far stricter than it looks and can prevent
+convergence.
+
+\textbf{Example.} A minimal conditions block, adapted from
+\path{Tests/KovasznayFlow2D.xml}: the test sets \code{ORDER} to 1 and passes
+the formulation on the command line (\code{-I Formulation=...}).
+
+\begin{lstlisting}[style=XMLStyle]
+<SOLVERINFO>
+  <I PROPERTY="SolverType"  VALUE="VelocityCorrectionScheme" />
+  <I PROPERTY="EQTYPE"      VALUE="UnsteadyNavierStokes" />
+  <I PROPERTY="Projection"  VALUE="Galerkin" />
+  <I PROPERTY="Formulation" VALUE="SemiImplicit" />
+</SOLVERINFO>
+<TIMEINTEGRATIONSCHEME>
+  <METHOD> IMEX </METHOD>
+  <ORDER> 2 </ORDER>
+</TIMEINTEGRATIONSCHEME>
+<PARAMETERS>
+  <P> TimeStep = 0.01 </P>
+  <P> NumSteps = 10 </P>
+  <P> IO_InfoSteps = NumSteps </P>
+  <P> Kinvis = 0.025 </P>
+  <P> IterativeSolverTolerance = 1e-12 </P>
+</PARAMETERS>
+\end{lstlisting}
+
+A wall with a higher-order pressure condition is declared as
+\lstinline[style=XMLStyle]!<N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />!
+next to Dirichlet velocity conditions (see
+\path{Tests/ChannelFlowHOPBC2D.xml}). The solver is run as
+\begin{lstlisting}[style=BashInputStyle]
+IncNavierStokesSolverRedesign --opExecSpace=Serial --opImpl=SumFac \
+    KovasznayFlow2D.xml
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Implementation map}
+\label{sec:incns-map}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.47\textwidth}
+                              >{\raggedright\arraybackslash}X@{}}
+\toprule
+location & role \\
+\midrule
+\multicolumn{2}{@{}l}{\path{solvers/IncNavierStokesSolverRedesign/}} \\
+\path{EquationSystems/VelocityCorrectionScheme.cpp}:
+\code{SolveUnsteadyStokesSystem} & pressure forcing, BC updates, Poisson and
+velocity solves (Section~\ref{sec:incns-vcs}) \\
+\quad\code{EvaluateAdvection\_SetPressureBCs} & explicit advection and
+forcing, refresh of the extrapolation histories \\
+\quad\code{SetUpWeakPressureForcing} & volume term of the weak pressure
+form (Section~\ref{sec:incns-weak}) \\
+\quad\code{InitialiseParameters}, \code{v\_InitialiseOperators} &
+\code{FORMULATION}, \code{PressureFormulation}, dealiasing; operator and
+solver set-up, BC registration \\
+\quad\code{v\_SetInitialConditions} & velocity and pressure ICs
+(Section~\ref{sec:incns-ic}) \\
+\path{BoundaryConditions/HOPressureBndCond/HOPressureBndCondOpImpl.hpp} &
+HOPBC: \code{BuildBoundaryData} (tag selection),
+\code{BuildBoundaryElementData} (restricted list, extract operators),
+\code{BuildBoundaryVelocityData} (normals, discrete Dirichlet velocity),
+\code{GatherBoundaryElements}, \code{BuildBoundaryPhys},
+\code{EvaluateBoundaryVelocity}, \code{SubtractBoundaryVelocity},
+\code{BuildBoundaryCoeffs}, \code{v\_Apply} \\
+\path{BoundaryConditions/HOutflowBndCond/HOutflowBndCondOpImpl.hpp} &
+HOutflow: \code{HOutflowPressureKernel}, \code{HOutflowVelocityKernel},
+\code{ValidateAndBuildVelocityBoundaryData}, \code{EvaluatePressure},
+\code{EvaluateVelocity}, \code{ApplyNeumannMaps}, and the adapters
+\code{HOutflowPressureAdapter} and \code{HOutflowVelocityAdapter} \\
+\code{ADD\_OPERATOR} in \path{CMakeLists.txt} & per execution space
+factory registration \\
+\path{UnitTests/TestHOPressureBndCond.cpp},
+\path{UnitTests/TestHOutflowBndCond.cpp} & operator unit tests \\
+\path{Tests/} & regression sessions, e.g.\ \code{KovasznayFlowHOPBC2D},
+\code{KovasznayFlowHOPBC2D\_SmallTimeStep},
+\code{KovasznayFlowHOPBC2D\_IMEXOrder2}, \code{KovasznayFlowHOPBC2D\_IMEXdirk},
+\code{HOutflowKovasznay2D}, \code{HOutflowBackflow2D}, and the
+\code{\_WeakPressure} variants \\
+\multicolumn{2}{@{}l}{\path{library/SolverCore/}} \\
+\path{TimeOps/IMEX/IMEXOpImpl.hpp} & IMEX multistep scheme and its IMEXdirk
+start-up \\
+\path{TimeOps/IMEXdirk/IMEXdirkOpImpl.hpp} & DIRK stages and their
+explicit-contribution coefficients \\
+\path{TimeOps/TimeOp.hpp} & \code{ExtrapolateExplicitContribution},
+\code{LatestExplicitContribution},
+\code{GetExplicitContributionCoefficientSum} \\
+\path{EquationSystems/UnsteadySystem.cpp} & time-stepping parameters,
+filters, \code{SetContinuousInitialConditions}, restart time \\
+\path{GlobalLinSysOps/LinearSystems/PoissonSolve},
+\path{HelmSolve}, \path{LinearADRSolve} & pressure and velocity systems;
+\code{PoissonSolveOp::ApplyRhs} takes a coefficient-space right-hand side \\
+\path{GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp} & solver selection,
+tolerances \\
+\path{MeanRemoval/MeanRemovalOp.hpp} & zero-mean forcing of a singular
+strong pressure system, and of the reported pressure error \\
+\multicolumn{2}{@{}l}{\path{library/MultiRegions/}} \\
+\path{ElmtOps/CurlCurl}, \path{ElmtOps/IProductWRTDerivBase},
+\path{ElmtOps/PhysTraceExtract}, \path{BndCondOps/} & curl--curl, weak
+pressure volume term, volume-to-boundary extraction, Dirichlet,
+Neumann, Robin and \code{FwdTransBC} operators \\
+\bottomrule
+\end{tabularx}
+\caption{Where the solver's pieces live.}
+\label{tab:incns-map}
+\end{table}
+
+\fussy
