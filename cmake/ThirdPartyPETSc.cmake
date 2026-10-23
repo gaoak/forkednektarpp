@@ -85,6 +85,16 @@ IF (NEKTAR_USE_PETSC)
                     ENDIF()
                 ELSEIF(NEKTAR_USE_MKL)
                     SET(PETSC_MUMPS ${PETSC_MUMPS} --with-blaslapack-dir=${MKLROOT})
+                ELSEIF(NEKTAR_USE_NVPL)
+                    # NVPL BLAS needs its core library alongside it.
+                    SET(PETSC_BLAS_LIBS ${NVPL_BLAS})
+                    IF(NVPL_BLAS_CORE)
+                        SET(PETSC_BLAS_LIBS "[${NVPL_BLAS},${NVPL_BLAS_CORE}]")
+                    ENDIF()
+                    SET(PETSC_MUMPS ${PETSC_MUMPS}
+                        --with-blas-lib=${PETSC_BLAS_LIBS}
+                        --with-lapack-lib=${NVPL_LAPACK})
+                    SET(PETSC_DEPS ${PETSC_DEPS} ${NVPL_THIRDPARTY_TARGETS})
                 ELSE()
                     MESSAGE(STATUS "No suitable blas/lapack found, downloading")
                     SET(PETSC_MUMPS ${PETSC_MUMPS} --download-fblaslapack)
