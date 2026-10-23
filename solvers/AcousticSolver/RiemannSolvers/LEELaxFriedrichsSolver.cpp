@@ -106,14 +106,14 @@ void LEELaxFriedrichsSolver::v_PointSolve(
     NekDouble pFL    = rhouL * c0sqL + u0L * pL;
     NekDouble rhoFL  = rhouL + rhoL * u0L;
     NekDouble rhouFL = pL + rhouL * u0L;
-    NekDouble rhovFL = 0;
-    NekDouble rhowFL = 0;
+    NekDouble rhovFL = rhovL * u0L;
+    NekDouble rhowFL = rhowL * u0L;
 
     NekDouble pFR    = rhouR * c0sqR + u0R * pR;
     NekDouble rhoFR  = rhouR + rhoR * u0R;
     NekDouble rhouFR = pR + rhouR * u0R;
-    NekDouble rhovFR = 0;
-    NekDouble rhowFR = 0;
+    NekDouble rhovFR = rhovR * u0R;
+    NekDouble rhowFR = rhowR * u0R;
 
     // assemble the face-normal fluxes
     pF    = 0.5 * (pFL + pFR - a_1_max * (pR - pL));

@@ -9,15 +9,15 @@
     <metrics>
         <metric type="L2" id="1">
             <value variable="p"   tolerance="1e-4">  6.77196</value>
-            <value variable="rho" tolerance="1e-12"> 1.04459e-06</value>
-            <value variable="rhou"  tolerance="1e-7">0.00191276</value>
-            <value variable="rhov"  tolerance="1e-7">0.00195208</value>
+            <value variable="rho" tolerance="1e-12"> 1.04389e-06</value>
+            <value variable="rhou"  tolerance="1e-7">0.00191274</value>
+            <value variable="rhov"  tolerance="1e-7">0.00193964</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="p"   tolerance="1e-4">  30.1611</value>
-            <value variable="rho" tolerance="1e-12"> 7.98548e-06</value>
-            <value variable="rhou"  tolerance="1e-7">0.00713893</value>
-            <value variable="rhov"  tolerance="1e-7">0.0098122</value>
+            <value variable="p"   tolerance="1e-4">  30.1327</value>
+            <value variable="rho" tolerance="1e-12"> 7.51977e-06</value>
+            <value variable="rhou"  tolerance="1e-7">0.00713458</value>
+            <value variable="rhov"  tolerance="1e-7">0.00724357</value>
         </metric>
     </metrics>
 </test>
