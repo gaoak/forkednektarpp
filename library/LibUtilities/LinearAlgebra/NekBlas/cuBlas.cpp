@@ -40,9 +40,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <stdexcept>
 #include <type_traits>
 
+#include <cublasLt.h>
 #include <cublas_v2.h>
 
 #define CUBLAS_CHECK(condition)                                                \
@@ -76,6 +76,43 @@ cublasHandle_t GetCuBlasHandle(const unsigned int streamID)
     CUBLAS_CHECK(cublasSetStream(handle, CUDAStream::GetInstance(streamID)));
 
     return handle;
+}
+
+cublasLtHandle_t GetCuBlasLtHandle()
+{
+    static cublasLtHandle_t handle = nullptr;
+
+    if (!handle)
+    {
+        CUBLAS_CHECK(cublasLtCreate(&handle));
+    }
+
+    return handle;
+}
+
+// Layout of the stored (pre-op) matrix whose op() is M x N.
+cublasLtMatrixLayout_t CreateCuBlasLtLayout(const cudaDataType_t dataType,
+                                            const cublasOperation_t trans,
+                                            const int M, const int N,
+                                            const int ld, const int stride,
+                                            const int batchSize)
+{
+    const bool transposed = (trans == CUBLAS_OP_T);
+
+    cublasLtMatrixLayout_t layout;
+    CUBLAS_CHECK(cublasLtMatrixLayoutCreate(
+        &layout, dataType, transposed ? N : M, transposed ? M : N, ld));
+
+    const int32_t batchCount  = batchSize;
+    const int64_t batchOffset = stride;
+    CUBLAS_CHECK(cublasLtMatrixLayoutSetAttribute(
+        layout, CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT, &batchCount,
+        sizeof(batchCount)));
+    CUBLAS_CHECK(cublasLtMatrixLayoutSetAttribute(
+        layout, CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET, &batchOffset,
+        sizeof(batchOffset)));
+
+    return layout;
 }
 } // namespace
 
@@ -178,14 +215,59 @@ void GemvStridedBatched(Handle<NektarSpaces::Device> handle,
     }
 }
 
+// cuBLAS has no strided-batched geam; cublasLtMatrixTransform computes
+// C = alpha*op(A) + beta*op(B) with the batching carried by the layouts.
 template <typename TData>
-void GeamStridedBatched(Handle<NektarSpaces::Device>, std::string, std::string,
-                        const int, const int, const TData, const TData *,
-                        const int, const int, const TData, const TData *,
-                        const int, const int, TData *, const int, const int,
-                        const int)
+void GeamStridedBatched(Handle<NektarSpaces::Device> handle,
+                        std::string transposeA, std::string transposeB,
+                        const int M, const int N, const TData alpha,
+                        const TData *a, const int lda, const int strideA,
+                        const TData beta, const TData *b, const int ldb,
+                        const int strideB, TData *c, const int ldc,
+                        const int strideC, const int batchSize)
 {
-    throw std::runtime_error("GeamStridedBatched is not available for cuBLAS");
+    constexpr cudaDataType_t dataType =
+        std::is_same_v<TData, float> ? CUDA_R_32F : CUDA_R_64F;
+
+    auto transA = (transposeA == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    auto transB = (transposeB == "N") ? CUBLAS_OP_N : CUBLAS_OP_T;
+
+    cublasLtMatrixLayout_t layoutA =
+        CreateCuBlasLtLayout(dataType, transA, M, N, lda, strideA, batchSize);
+    cublasLtMatrixLayout_t layoutC = CreateCuBlasLtLayout(
+        dataType, CUBLAS_OP_N, M, N, ldc, strideC, batchSize);
+
+    // A null B (beta == 0) is passed with a null layout.
+    cublasLtMatrixLayout_t layoutB = nullptr;
+    if (b != nullptr)
+    {
+        layoutB = CreateCuBlasLtLayout(dataType, transB, M, N, ldb, strideB,
+                                       batchSize);
+    }
+
+    cublasLtMatrixTransformDesc_t transformDesc;
+    CUBLAS_CHECK(cublasLtMatrixTransformDescCreate(&transformDesc, dataType));
+    CUBLAS_CHECK(cublasLtMatrixTransformDescSetAttribute(
+        transformDesc, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSA, &transA,
+        sizeof(transA)));
+    if (b != nullptr)
+    {
+        CUBLAS_CHECK(cublasLtMatrixTransformDescSetAttribute(
+            transformDesc, CUBLASLT_MATRIX_TRANSFORM_DESC_TRANSB, &transB,
+            sizeof(transB)));
+    }
+
+    CUBLAS_CHECK(cublasLtMatrixTransform(
+        GetCuBlasLtHandle(), transformDesc, &alpha, a, layoutA, &beta, b,
+        layoutB, c, layoutC, CUDAStream::GetInstance(handle.GetStreamID())));
+
+    CUBLAS_CHECK(cublasLtMatrixTransformDescDestroy(transformDesc));
+    if (layoutB != nullptr)
+    {
+        CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layoutB));
+    }
+    CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layoutA));
+    CUBLAS_CHECK(cublasLtMatrixLayoutDestroy(layoutC));
 }
 
 template void Gemm<float>(Handle<NektarSpaces::Device> handle,
