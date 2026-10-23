@@ -62,64 +62,14 @@ inline void parallel_reduce(const size_t begin, const size_t end,
                             const Functor &functor,
                             typename Reduction::value_type *red)
 {
-    using TData = typename Reduction::value_type;
-
     if (init)
     {
-        if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
-        {
-            *red = 0.0;
-        }
-        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
-        {
-            *red = std::numeric_limits<TData>::lowest();
-        }
-        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
-        {
-            *red = std::numeric_limits<TData>::max();
-        }
+        *red = reduce_identity<Reduction>();
     }
 
     for (size_t i = begin; i < end; ++i)
     {
-        if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
-        {
-            *red += functor(i);
-        }
-        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
-        {
-            *red = std::max(*red, functor(i));
-        }
-        else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
-        {
-            *red = std::min(*red, functor(i));
-        }
-    }
-}
-
-// Parallel sum of nsum values: functor(i, sums) adds those of index i to
-// sums[0, nsum). They are written to out[0, nsum) if init, added to it
-// otherwise. At most 4 sums, the partial sums the reduction scratch holds.
-template <typename ExecSpace, bool init, unsigned int nsum, typename TData,
-          typename Functor,
-          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                           bool>
-              Enable = true>
-inline void parallel_reduce_sum(const size_t begin, const size_t end,
-                                const Functor &functor, TData *out)
-{
-    static_assert(nsum <= 4, "parallel_reduce_sum: at most 4 sums.");
-
-    TData sums[nsum] = {};
-    for (size_t i = begin; i < end; ++i)
-    {
-        functor(i, sums);
-    }
-
-    for (unsigned int s = 0; s < nsum; ++s)
-    {
-        out[s] = init ? sums[s] : out[s] + sums[s];
+        *red = reduce_join<Reduction>(*red, functor(i));
     }
 }
 
@@ -134,6 +84,46 @@ inline void parallel_reduce(const size_t begin, const size_t end,
                             typename Reduction::value_type &red)
 {
     parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor, &red);
+}
+
+// Parallel reduction of nred values: functor(i, vals) writes those of index i
+// to vals[0, nred), which Reduction combines into red[0, nred), together with
+// the values already there unless init. At most 4 values, the partial results
+// the reduction scratch holds.
+template <typename ExecSpace, bool init, typename Reduction, unsigned int nred,
+          typename Functor,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                               std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                           bool>
+              Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type *red)
+{
+    using TData = typename Reduction::value_type;
+
+    static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
+
+    TData acc[nred];
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+        acc[s] = reduce_identity<Reduction>();
+    }
+
+    for (size_t i = begin; i < end; ++i)
+    {
+        TData vals[nred];
+        functor(i, vals);
+        for (unsigned int s = 0; s < nred; ++s)
+        {
+            acc[s] = reduce_join<Reduction>(acc[s], vals[s]);
+        }
+    }
+
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+        red[s] = init ? acc[s] : reduce_join<Reduction>(red[s], acc[s]);
+    }
 }
 
 } // namespace Nektar
