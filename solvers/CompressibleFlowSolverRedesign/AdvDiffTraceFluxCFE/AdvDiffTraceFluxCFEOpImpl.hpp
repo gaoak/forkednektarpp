@@ -71,12 +71,6 @@ public:
  * Because the viscous term needs the gradient of the conserved state, this
  * class overrides the three-argument `v_Apply(in, inDeriv, flux)`.
  *
- * ### Rotation matrix caching
- *
- * Identical to AdvTraceFluxCFEOpImpl: #m_intRotMat and #m_dirRotMat hold nine
- * entries per padded trace point in 3D, guarded by #m_updateIntRotMat and
- * #m_updateDirRotMat and invalidated by v_OnTraceNormalsChanged().
- *
  * ### Transport properties
  *
  * Reference viscosity, density and pressure are read from the session, and
@@ -126,62 +120,26 @@ public:
 
         SetUpEquationOfState(expansionList->GetSession(), m_EoS);
 
-        // inviscid initialisation
-        size_t maxNTraceNPts = 0, totNTraceNPts = 0;
+        // The widest trace block of every kind (interior, boundary and
+        // parallel) sizes m_wspDeriv below; m_gloDerivT0/T1 and m_penFactor
+        // would otherwise be allocated too small for a parallel block wider
+        // than any interior or boundary one.
+        size_t maxNTraceNPts = 0;
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
-            totNTraceNPts += this->m_intT0[b].m_nTraceXnPtsPad;
             maxNTraceNPts =
                 std::max(maxNTraceNPts, this->m_intT0[b].m_nTraceXnPtsPad);
         }
-
-        if (m_nDim == 3)
-        {
-            m_intRotMat = LibUtilities::MemoryRegion<TData>(totNTraceNPts * 9);
-        }
-
-        totNTraceNPts = 0;
         for (unsigned b = 0; b < this->m_bndT0.size(); ++b)
         {
-            totNTraceNPts += this->m_bndT0[b].m_nTraceXnPtsPad;
             maxNTraceNPts =
                 std::max(maxNTraceNPts, this->m_bndT0[b].m_nTraceXnPtsPad);
         }
-
-        if (m_nDim == 3)
-        {
-            m_dirRotMat = LibUtilities::MemoryRegion<TData>(totNTraceNPts * 9);
-        }
-
-        // The parallel blocks keep their own rotation slab, and they must be
-        // in maxNTraceNPts before anything below is sized from it: the
-        // rotation scratch and, further down, m_wspDeriv - whose arrays
-        // m_gloDerivT0/T1 and m_penFactor would otherwise be allocated too
-        // small for a parallel block wider than any interior or boundary one.
-        totNTraceNPts = 0;
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
-            totNTraceNPts += this->m_parT0[b].m_nTraceXnPtsPad;
             maxNTraceNPts =
                 std::max(maxNTraceNPts, this->m_parT0[b].m_nTraceXnPtsPad);
         }
-
-        if (m_nDim == 3 && totNTraceNPts > 0)
-        {
-            m_parRotMat = LibUtilities::MemoryRegion<TData>(totNTraceNPts * 9);
-        }
-
-        // Padded so each rotation scratch starts on a vector boundary: the
-        // AVX kernels reinterpret_cast these to tinysimd::simd<TData> and use
-        // aligned moves, which fault on a mid-vector address.
-        const size_t rotStride =
-            this->PadToVectorWidth(maxNTraceNPts * m_nComp);
-        m_rotwsp = LibUtilities::MemoryRegion<TData>(3 * rotStride);
-        m_rotwsp.template Initialize<MemSpace>(0);
-        // set up temporary pointers
-        m_rot1Ptr = m_rotwsp.template GetPtr<MemSpace, WriteOnly>();
-        m_rot2Ptr = m_rot1Ptr + rotStride;
-        m_rot3Ptr = m_rot2Ptr + rotStride;
 
         // viscous initialisation
         double rhoInf, pInf;
@@ -416,21 +374,6 @@ protected:
     /// Equation-of-state parameters.
     EoSParamType m_EoS;
 
-    // inviscid
-    /// Rotation scratch and the cached 3D rotation matrices for the interior
-    /// and Dirichlet boundary blocks respectively.
-    LibUtilities::MemoryRegion<TData> m_rotwsp, m_intRotMat, m_dirRotMat;
-    /// Pointers into #m_rotwsp is unused by the apply paths,
-    /// which declare their own local of the same name.
-    TData *m_rot1Ptr, *m_rot2Ptr, *m_rot3Ptr;
-    /// Set while the interior rotation matrices still need generating.
-    bool m_updateIntRotMat = true;
-    /// Set while the boundary rotation matrices still need generating.
-    bool m_updateDirRotMat = true;
-    /// Cached rotations for the parallel blocks, and their staleness flag.
-    LibUtilities::MemoryRegion<TData> m_parRotMat;
-    bool m_updateParRotMat = true;
-
     // viscosity parameters
     /// True when `ViscosityType` is `Variable`, selecting Sutherland's law.
     bool m_isMuVariable;
@@ -581,19 +524,6 @@ protected:
      */
     TData *m_gloT1Diff;
 
-    /**
-     * @brief Invalidate the cached rotations when the normals change.
-     *
-     * Covers both sources of a change: the mesh-derived normals loaded from
-     * the warehouse, and any supplied through SetTraceNormals().
-     */
-    void v_OnTraceNormalsChanged() override
-    {
-        m_updateIntRotMat = true;
-        m_updateDirRotMat = true;
-        m_updateParRotMat = true;
-    }
-
     // The base declares each hook twice, for the two- and three-field forms;
     // overriding one form alone would hide the other.
     using SolverCore::TraceFluxOp<TData>::v_Apply;
@@ -700,7 +630,6 @@ protected:
      * Riemann problem, negate the result and accumulate the viscous flux on
      * top in one pass, and scatter back to both elements.
      *
-     * Clears #m_updateIntRotMat on return.
      *
      * @tparam TRACEDIM Trace dimension; must equal `m_traceDim`.
      * @param  in       Physical-space conserved variables.
@@ -749,7 +678,6 @@ protected:
             MultiRegions::IPTraceScalarKey<TData>(
                 0, MultiRegions::IPTraceScalarData::IPPenaltyFactor));
 
-        size_t rotMatOffset = 0;
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
             // Step 1: Get global traces associated with block b and put into
@@ -796,36 +724,11 @@ protected:
                 numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
                 this->m_opStreamID);
 
-            // get hold of rotation matrix if TraceDim == 2
-            auto rotMatPtr =
-                (TRACEDIM == 2)
-                    ? (m_updateIntRotMat)
-                          ? m_intRotMat.template GetPtr<MemSpace, WriteOnly>(
-                                this->m_opStreamID) +
-                                rotMatOffset * 9
-                          : m_intRotMat.template GetPtr<MemSpace, ReadOnly>(
-                                this->m_opStreamID) +
-                                rotMatOffset * 9
-                    : this->m_norms;
-
-            // input close packed variables from both traces
-            // (m_gloT0, m_gloT1), apply flux Kernel and return flux
-            if (m_updateIntRotMat)
-            {
-                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
-                                      dim, true>(
-                    m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
-                    m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_opStreamID);
-            }
-            else
-            {
-                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
-                                      dim, false>(
-                    m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
-                    m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_opStreamID);
-            }
+            // Solve the Riemann problem in Cartesian components through the
+            // trace normals.
+            RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace, dim>(
+                m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
+                this->m_flux, this->m_opStreamID);
 
             DiffuseTraceFluxKernel<ExecSpace, true>(
                 m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
@@ -845,9 +748,7 @@ protected:
                 this->template InterpBackInteriorFlux<TRACEDIM, false>(
                     b, numflux, fluxPtr, Width(flux));
             }
-            rotMatOffset += this->m_intT0[b].m_nTraceXnPtsPad;
         }
-        m_updateIntRotMat = false;
     }
 
     /**
@@ -865,8 +766,7 @@ protected:
      *
      * The result is scattered to the local element alone; the neighbour
      * computes the same flux from the same four traces and scatters it to
-     * the other element itself. The 3D rotations are cached in their own
-     * slab, #m_parRotMat, and the per-block penalty scalars are fetched
+     * the other element itself. The per-block penalty scalars are fetched
      * through the parallel scalar offsets - partitioning multiplies trace
      * blocks, which is exactly the case the ASSERTL1 below was written for.
      *
@@ -919,7 +819,6 @@ protected:
             MultiRegions::IPTraceScalarKey<TData>(
                 0, MultiRegions::IPTraceScalarData::IPPenaltyFactor));
 
-        size_t rotMatOffset = 0;
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
             // Step 1: Get global traces associated with block b and put into
@@ -959,36 +858,11 @@ protected:
                 numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
                 this->m_opStreamID);
 
-            // get hold of rotation matrix if TraceDim == 2
-            auto rotMatPtr =
-                (TRACEDIM == 2)
-                    ? (m_updateParRotMat)
-                          ? m_parRotMat.template GetPtr<MemSpace, WriteOnly>(
-                                this->m_opStreamID) +
-                                rotMatOffset * 9
-                          : m_parRotMat.template GetPtr<MemSpace, ReadOnly>(
-                                this->m_opStreamID) +
-                                rotMatOffset * 9
-                    : this->m_norms;
-
-            // input close packed variables from both traces
-            // (m_gloT0, m_gloT1), apply flux Kernel and return flux
-            if (m_updateParRotMat)
-            {
-                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
-                                      dim, true>(
-                    m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
-                    m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_opStreamID);
-            }
-            else
-            {
-                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
-                                      dim, false>(
-                    m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
-                    m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_opStreamID);
-            }
+            // Solve the Riemann problem in Cartesian components through the
+            // trace normals.
+            RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace, dim>(
+                m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
+                this->m_flux, this->m_opStreamID);
 
             DiffuseTraceFluxKernel<ExecSpace, true>(
                 m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
@@ -1009,9 +883,7 @@ protected:
                 this->template InterpBackParallelFlux<TRACEDIM, false>(
                     b, numflux, fluxPtr, Width(flux));
             }
-            rotMatOffset += this->m_parT0[b].m_nTraceXnPtsPad;
         }
-        m_updateParRotMat = false;
     }
 
     /**
@@ -1022,7 +894,6 @@ protected:
      * interior one, since the boundary condition operator holds no gradient
      * data. DiffuseTraceFluxKernel() is instantiated in its boundary form.
      *
-     * Clears #m_updateDirRotMat on return.
      *
      * @tparam TRACEDIM Trace dimension; must equal `m_traceDim`.
      * @param  in       Physical-space conserved variables.
@@ -1074,7 +945,6 @@ protected:
 
         EnsureBndGatherData();
 
-        size_t rotMatOffset = 0;
         for (unsigned b = 0; b < this->m_bndT0.size(); ++b)
         {
             // Step 1: Get global trace 't' and put into m_gloT0 and
@@ -1206,37 +1076,11 @@ protected:
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
 
-            // get hold of rotation matrix
-            auto rotMatPtr =
-                (TRACEDIM == 2)
-                    ? (m_updateDirRotMat)
-                          ? m_dirRotMat.template GetPtr<MemSpace, WriteOnly>(
-                                this->m_opStreamID) +
-                                rotMatOffset * 9
-                          : m_dirRotMat.template GetPtr<MemSpace, ReadOnly>(
-                                this->m_opStreamID) +
-                                rotMatOffset * 9
-                    : this->m_norms;
-
-            // input close packed variables from both traces
-            // (m_gloT0, m_gloT1), apply flux Kernel and
-            // return flux
-            if (m_updateDirRotMat)
-            {
-                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
-                                      dim, true>(
-                    m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
-                    m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_opStreamID);
-            }
-            else
-            {
-                RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace,
-                                      dim, false>(
-                    m_EoS, npTBlock, this->m_norms, rotMatPtr, m_rot1Ptr,
-                    m_rot2Ptr, m_rot3Ptr, this->m_gloT0, this->m_gloT1,
-                    this->m_flux, this->m_opStreamID);
-            }
+            // Solve the Riemann problem in Cartesian components through the
+            // trace normals.
+            RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace, dim>(
+                m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
+                this->m_flux, this->m_opStreamID);
             DiffuseTraceFluxKernel<ExecSpace, false>(
                 m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
                 m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
@@ -1256,9 +1100,7 @@ protected:
                 this->template InterpBackDirichletFlux<TRACEDIM, false>(
                     b, numflux, fluxPtr, Width(flux));
             }
-            rotMatOffset += this->m_bndT0[b].m_nTraceXnPtsPad;
         }
-        m_updateDirRotMat = false;
     }
 };
 

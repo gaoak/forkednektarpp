@@ -154,6 +154,7 @@ v5.11.0
 - Add Navier-Stokes equations with interior-penalty diffusion (!2543)
 - Port the solver to the DG flux framework with run-time selectable Riemann solvers, equations of state and boundary conditions (!2715)
 - Add CFL-based time-step estimate (!2691)
+- Write every Riemann solver in Cartesian components through the trace normal, as the legacy solver now does, and remove the rotation into the normal frame with its cached rotation matrices (!2871)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)

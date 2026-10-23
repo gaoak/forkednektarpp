@@ -70,10 +70,10 @@ struct AUSM1SolverKernel
     NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
                                           const size_t blksize,
                                           const TData *fwd, const TData *bwd,
-                                          TData *flux)
+                                          const TData *normal, TData *flux)
     {
         AUSMSolverKernel<ExecSpace, EqnOfStParams, NDIM, AUSM1Upwinding>()(
-            EoS, blksize, fwd, bwd, flux);
+            EoS, blksize, fwd, bwd, normal, flux);
     }
 };
 

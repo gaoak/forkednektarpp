@@ -129,29 +129,29 @@ NEK_HOSTDEVICE_INLINE TData P5Function(int A, TData alpha, TData M)
     return out;
 }
 
+/**
+ * @brief The AUSM flux through the trace normal, in Cartesian components (as
+ * the legacy AUSM solvers): the interface Mach number and pressure from the
+ * normal Mach numbers by @p AUSMUpwinding, the upwind state advected through
+ * the normal and the pressure acting along it.
+ */
 template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM,
           typename AUSMUpwinding>
 struct AUSMSolverKernel
 {
+    /// @p normal: the unit trace normal, @p NDIM components at the states'
+    /// stride @p blksize.
     template <typename TScalar>
     NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
                                           const size_t blksize,
                                           const TScalar *fwd,
-                                          const TScalar *bwd, TScalar *flux)
+                                          const TScalar *bwd,
+                                          const TScalar *normal, TScalar *flux)
     {
-        // Explicit vectorisation for AVX backend, vec_t =
-        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
-        // using vec_t =
-        //    typename data_type_if<std::is_same_v<ExecSpace,
-        //    NektarSpaces::AVX>,
-        //                          TScalar>::type;
         constexpr unsigned int vec_width =
             (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                 ? tinysimd::simd<TScalar>::width
                 : 1;
-
-        using std::abs;
-        using std::sqrt;
 
         const TScalar oneHalf = 0.5;
 
@@ -159,74 +159,65 @@ struct AUSMSolverKernel
         for (unsigned int k = 0; k < vec_width; k++)
         {
             // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment
-            // exist.
-
-            // Density
+            // exist; the normal [n0 | n1 | n2] alike.
             const TScalar rhoL = fwd[0];
             const TScalar rhoR = bwd[0];
 
-            // Velocities and kinetic energy terms
-            TScalar uL[NDIM];
-            TScalar uR[NDIM];
-            TScalar qL2 = 0.0;
-            TScalar qR2 = 0.0;
+            // Velocities, normal velocities and kinetic energy terms.
+            TScalar n[NDIM], uL[NDIM], uR[NDIM];
+            TScalar unL = 0.0, unR = 0.0, qL2 = 0.0, qR2 = 0.0;
 #pragma unroll
             for (unsigned int d = 0; d < NDIM; ++d)
             {
+                n[d]                = normal[d * blksize];
                 const TScalar rhouL = fwd[(1u + d) * blksize];
                 const TScalar rhouR = bwd[(1u + d) * blksize];
-
-                uL[d] = rhouL / rhoL;
-                uR[d] = rhouR / rhoR;
-
+                uL[d]               = rhouL / rhoL;
+                uR[d]               = rhouR / rhoR;
+                unL += uL[d] * n[d];
+                unR += uR[d] * n[d];
                 qL2 += rhouL * uL[d];
                 qR2 += rhouR * uR[d];
             }
 
-            // Internal energy per unit mass
+            // Internal energy per unit mass, pressure and sound speed.
             const TScalar EL = fwd[(1u + NDIM) * blksize];
             const TScalar ER = bwd[(1u + NDIM) * blksize];
             const TScalar eL = (EL - oneHalf * qL2) / rhoL;
             const TScalar eR = (ER - oneHalf * qR2) / rhoR;
-
-            // Pressure
             const TScalar pL = GetPressure(EoS, rhoL, eL);
             const TScalar pR = GetPressure(EoS, rhoR, eR);
-
-            // Speed of sound
             const TScalar cL = GetSoundSpeed(EoS, rhoL, eL);
             const TScalar cR = GetSoundSpeed(EoS, rhoR, eR);
 
-            // Average speeds of sound
-            TScalar cA = 0.5 * (cL + cR);
+            // Average speed of sound and the normal Mach numbers.
+            const TScalar cA = 0.5 * (cL + cR);
+            const TScalar ML = unL / cA;
+            const TScalar MR = unR / cA;
 
-            // Local Mach numbers
-            TScalar ML = uL[0] / cA;
-            TScalar MR = uR[0] / cA;
-
-            // Parameters for specify the upwinding
+            // Interface Mach number and pressure.
             TScalar pbar, Mbar;
             AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
 
-            // Conditional assignment
+            // The upwind state.
             const bool cond      = Mbar >= 0.0;
             const TScalar &rhoUp = (cond) ? rhoL : rhoR;
             const TScalar &pUp   = (cond) ? pL : pR;
             const TScalar *uUp   = (cond) ? uL : uR;
             const TScalar &EUp   = (cond) ? EL : ER;
 
-            // Compute flux
-            flux[0]            = cA * Mbar * rhoUp;
-            flux[1u * blksize] = cA * Mbar * rhoUp * uUp[0] + pbar;
+            flux[0] = cA * Mbar * rhoUp;
 #pragma unroll
-            for (unsigned int d = 1; d < NDIM; ++d)
+            for (unsigned int d = 0; d < NDIM; ++d)
             {
-                flux[(1u + d) * blksize] = cA * Mbar * rhoUp * uUp[d];
+                flux[(1u + d) * blksize] =
+                    cA * Mbar * rhoUp * uUp[d] + pbar * n[d];
             }
             flux[(1u + NDIM) * blksize] = cA * Mbar * (EUp + pUp);
 
             fwd++;
             bwd++;
+            normal++;
             flux++;
         }
     }
