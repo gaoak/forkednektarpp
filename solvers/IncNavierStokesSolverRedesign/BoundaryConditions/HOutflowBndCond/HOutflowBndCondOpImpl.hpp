@@ -152,7 +152,7 @@ protected:
         // Apply() computes it.
     }
 
-    size_t v_GetNumBndDofs() const override
+    size_t v_GetNumBndDofs() override
     {
         return m_owner->GetNumVelocityBndDofs();
     }
@@ -423,7 +423,6 @@ protected:
             std::make_shared<HOutflowVelocityAdapter<ExecSpace, TData>>(
                 velocityExpansionList, components);
         m_velocityAdapter->SetOwner(this);
-        nekStreamSynchronize(0);
         m_velocityContextSet = true;
     }
 
@@ -617,6 +616,7 @@ protected:
             MultiRegions::detail::BuildCGBndCondCoeffMaps<ExecSpace, TData>(
                 this->m_expansionList, this->m_components, bregions,
                 isTypeByRegion, numBcExpCoeffs, m_pressureNumBndCoeffCompSize,
+                MultiRegions::detail::CGBndCondCoeffMapSet::Full,
                 [](unsigned int, const auto &, const auto &, const auto &) {});
         m_pressureSignChange  = maps.signChange[0];
         m_pressureSign        = std::move(maps.sign);
@@ -821,6 +821,7 @@ protected:
             MultiRegions::detail::BuildCGBndCondCoeffMaps<ExecSpace, TData>(
                 m_velocityExpansionList, components, bregions, isTypeByRegion,
                 numBcExpCoeffs, m_velocityNumBndCoeffCompSize,
+                MultiRegions::detail::CGBndCondCoeffMapSet::UniqueAndGroups,
                 [](unsigned int, const auto &, const auto &, const auto &) {});
         m_velocityAnySignChange    = maps.anySignChange;
         m_velocitySignChange       = std::move(maps.signChange);

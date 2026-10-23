@@ -175,6 +175,26 @@ public:
         auto lhs = std::make_shared<LHSOp<TData>>(m_expList,
                                                   m_session->GetVariables());
         lhs->SetElmtOp(op);
+        if (m_isReconfigured)
+        {
+            // Configure and apply for another operator first, so that the
+            // configuration below refills what this one left.
+            const unsigned int ncomp = m_session->GetVariables().size();
+            Field<TData, FieldState::Coeff> first(
+                "f_first",
+                GetBlockAttributes<TData, FieldState::Coeff>(m_expList), ncomp,
+                1);
+            op->SetLambda(2.0 * m_lambda + 1.0);
+            precon->Configure(lhs);
+            assmb->Apply(m_in, first);
+            if (execStr == "AVX")
+            {
+                first.ReshapeStorage(
+                    NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
+            }
+            precon->Apply(first, first);
+            op->SetLambda(m_lambda);
+        }
         precon->Configure(lhs);
         assmb->Apply(m_in, m_out);
 
@@ -331,6 +351,10 @@ protected:
 
     TData m_lambda;
     std::vector<TData> m_diffCoeff;
+
+    // Whether RunTestCase() configures the preconditioner twice, first for
+    // another lambda.
+    bool m_isReconfigured = false;
 
     void SetSession()
     {

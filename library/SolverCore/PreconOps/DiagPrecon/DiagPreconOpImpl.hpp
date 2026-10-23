@@ -76,7 +76,14 @@ public:
 protected:
     std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrNoSignOp;
 
+    // The inverse diagonal, and the unit vectors and their images under the
+    // operator from which v_Configure() extracts it. Allocated by the first
+    // v_Configure() and refilled in place by every later one, so that
+    // configuring again, as a linear system changing every step needs,
+    // neither allocates nor frees memory.
     LibUtilities::Field<TData, FieldState::Coeff> m_invDiag;
+    LibUtilities::Field<TData, FieldState::Coeff> m_unitVec;
+    LibUtilities::Field<TData, FieldState::Coeff> m_action;
 
     size_t m_nGlobal;
     size_t m_nDir;
@@ -127,24 +134,33 @@ protected:
 
     void v_Configure(const std::shared_ptr<LHSOp<TData>> &op) override
     {
-        // Create block attributes.
-        auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                this->m_expansionList);
+        if (!m_invDiag)
+        {
+            // Create block attributes.
+            auto blockAttr =
+                MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                    this->m_expansionList);
 
-        // Create local diagonal field.
-        m_invDiag = LibUtilities::Field<TData, FieldState::Coeff>(
-            "inverse diagonal", blockAttr, this->m_components, 1);
+            // Create local diagonal field.
+            m_invDiag = LibUtilities::Field<TData, FieldState::Coeff>(
+                "inverse diagonal", blockAttr, this->m_components, 1);
 
-        // Create unit vector field to extract diagonal.
-        LibUtilities::Field<TData, FieldState::Coeff> unit_vec =
-            LibUtilities::Field<TData, FieldState::Coeff>(
+            // Create unit vector field to extract diagonal.
+            m_unitVec = LibUtilities::Field<TData, FieldState::Coeff>(
                 "DiagPrecon unit vec", blockAttr, this->m_components, 1);
 
-        // Create action field to receive column action from unit vector.
-        LibUtilities::Field<TData, FieldState::Coeff> action =
-            LibUtilities::Field<TData, FieldState::Coeff>(
+            // Create action field to receive column action from unit vector.
+            m_action = LibUtilities::Field<TData, FieldState::Coeff>(
                 "DiagPrecon action", blockAttr, this->m_components, 1);
+        }
+
+        // Start from the state of new fields, zero and at interleave width
+        // 1, whatever an earlier v_Configure() or v_Apply() left.
+        m_unitVec.template Initialize<MemSpace>(0);
+        m_action.template Initialize<MemSpace>(0);
+        m_unitVec.SetInterleaveWidth(1);
+        m_action.SetInterleaveWidth(1);
+        m_invDiag.SetInterleaveWidth(1);
 
         // Initialising to 1; every entry, padding included, is then
         // overwritten by the diagonal, whose zero padding stays zero.
@@ -152,9 +168,9 @@ protected:
 
         // Compute maximum block nCoeff.
         unsigned nCoeffMax = 0;
-        for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
+        for (unsigned blk = 0; blk < m_unitVec.GetBlocks().size(); ++blk)
         {
-            auto &unitvecblock = unit_vec.GetBlocks()[blk];
+            auto &unitvecblock = m_unitVec.GetBlocks()[blk];
             const auto nCoeff  = unitvecblock.GetNumData();
 
             nCoeffMax = (nCoeff > nCoeffMax) ? nCoeff : nCoeffMax;
@@ -163,11 +179,11 @@ protected:
         // Compute diagonal.
         for (unsigned mode = 0; mode < nCoeffMax; ++mode)
         {
-            for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
+            for (unsigned blk = 0; blk < m_unitVec.GetBlocks().size(); ++blk)
             {
                 const unsigned int streamID = blk + 1;
 
-                auto &unitblk     = unit_vec.GetBlocks()[blk];
+                auto &unitblk     = m_unitVec.GetBlocks()[blk];
                 const auto nCoeff = unitblk.GetNumData();
 
                 if (mode < nCoeff)
@@ -194,14 +210,14 @@ protected:
             }
 
             // Apply the operator to unit vector and store in the action field.
-            op->ApplyLocal(unit_vec, action);
+            op->ApplyLocal(m_unitVec, m_action);
 
-            for (unsigned blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
+            for (unsigned blk = 0; blk < m_unitVec.GetBlocks().size(); ++blk)
             {
                 const unsigned int streamID = blk + 1;
 
-                auto &unitblk     = unit_vec.GetBlocks()[blk];
-                auto &actionblk   = action.GetBlocks()[blk];
+                auto &unitblk     = m_unitVec.GetBlocks()[blk];
+                auto &actionblk   = m_action.GetBlocks()[blk];
                 auto &diagblk     = m_invDiag.GetBlocks()[blk];
                 const auto nCoeff = unitblk.GetNumData();
 

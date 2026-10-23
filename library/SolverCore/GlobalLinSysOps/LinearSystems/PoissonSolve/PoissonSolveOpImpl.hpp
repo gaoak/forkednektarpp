@@ -86,10 +86,29 @@ protected:
         // IProductWRT of RHS.
         this->m_IProdOp->Apply(in, this->m_rhs);
 
+        v_ApplyRhs(this->m_rhs, out);
+    }
+
+    /**
+     * @brief Solve with the right-hand side given in coefficient form.
+     *
+     * @p rhs holds the element-local inner products that make up the
+     * right-hand side, so that the solve is
+     * \f$ (\nabla \phi, \nabla out) = rhs + \int_{\Gamma_N} \phi g \f$.
+     * The physical-space Apply() forms @p rhs as \f$ -(\phi, in) \f$; a
+     * caller may instead pass a forcing integrated by parts onto the
+     * derivative of the basis, such as \f$ (\nabla \phi, \mathbf{f}) \f$,
+     * which the physical-space path cannot express. The Neumann data are
+     * added to @p rhs, which is overwritten, and the Dirichlet coefficients
+     * of @p out are set here.
+     */
+    void v_ApplyRhs(LibUtilities::Field<TData, FieldState::Coeff> &rhs,
+                    LibUtilities::Field<TData, FieldState::Coeff> &out) override
+    {
         // Handle Neumann BCs on RHS.
         for (auto &neuBCOp : this->m_NeuBCOps)
         {
-            neuBCOp->Apply(this->m_rhs);
+            neuBCOp->Apply(rhs);
         }
 
         // Handle Dirichlet BCs.
@@ -102,8 +121,8 @@ protected:
         this->m_LHSOp->ApplyLocal(out, this->m_tmp);
 
         // Solve linear system.
-        Math::sub<ExecSpace>(this->m_rhs, this->m_tmp, this->m_rhs);
-        this->m_LinSolverOp->Apply(this->m_rhs, this->m_tmp);
+        Math::sub<ExecSpace>(rhs, this->m_tmp, rhs);
+        this->m_LinSolverOp->Apply(rhs, this->m_tmp);
 
         // Add Dirichlet BCs.
         Math::add<ExecSpace>(out, this->m_tmp, out);

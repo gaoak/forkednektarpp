@@ -65,6 +65,14 @@ public:
 
     static inline const std::string name = "PoissonSolve";
 
+    // Solve with the right-hand side @p rhs already in coefficient form.
+    // @p rhs is overwritten.
+    void ApplyRhs(LibUtilities::Field<TData, FieldState::Coeff> &rhs,
+                  LibUtilities::Field<TData, FieldState::Coeff> &out)
+    {
+        v_ApplyRhs(rhs, out);
+    }
+
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
         std::dynamic_pointer_cast<MultiRegions::LaplacianOp<TData>>(
@@ -80,6 +88,10 @@ protected:
     }
 
     ~PoissonSolveOp() override = default;
+
+    virtual void v_ApplyRhs(
+        LibUtilities::Field<TData, FieldState::Coeff> &rhs,
+        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 } // namespace Nektar::SolverCore

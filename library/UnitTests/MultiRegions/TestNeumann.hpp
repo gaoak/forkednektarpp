@@ -77,6 +77,10 @@ public:
                                               this->session->GetVariables());
         if (!excludedUserDefinedType.empty())
         {
+            if (isExcludedAfterUse)
+            {
+                op->UpdateBndCoeffs(time);
+            }
             op->ExcludeUserDefinedType(excludedUserDefinedType);
         }
         op->UpdateBndCoeffs(time);
@@ -134,6 +138,8 @@ public:
 protected:
     // User-defined type of the regions the operator leaves out, if any.
     std::string excludedUserDefinedType = "";
+    // Whether the operator is used before it leaves the type out.
+    bool isExcludedAfterUse = false;
 };
 
 // clang-format off
@@ -227,6 +233,20 @@ public:
     {
         meshName = "run/Helmholtz2D_P7_AllBCs_TimeDependentDirichlet.xml";
         excludedUserDefinedType = "TimeDependent";
+    }
+};
+
+// As above, with the operator used, and its regions built, before it leaves
+// the type out.
+class Helmholtz2D_Tri_Quad_ExcludeTimeDependentAfterUse
+    : public TestNeumann<double>
+{
+public:
+    Helmholtz2D_Tri_Quad_ExcludeTimeDependentAfterUse()
+    {
+        meshName = "run/Helmholtz2D_P7_AllBCs_TimeDependentDirichlet.xml";
+        excludedUserDefinedType = "TimeDependent";
+        isExcludedAfterUse      = true;
     }
 };
 

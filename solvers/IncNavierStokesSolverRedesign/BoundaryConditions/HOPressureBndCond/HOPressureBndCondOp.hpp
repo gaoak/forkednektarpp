@@ -48,12 +48,15 @@ namespace Nektar
  * USERDEFINEDTYPE="H", the pressure flux is the normal component of
  * scale * (rhs - kinvis * CurlCurl(velocity)), less the acceleration needed
  * to reach the prescribed boundary velocity, in the velocity components that
- * are Dirichlet on the region. Update() computes it from the
- * current fields, with the kinematic viscosity set by SetKinvis(), the scale
- * set by SetScale() and at the time set by SetTime(); Apply() adds its inner
- * product to the pressure forcing. It is added to the pressure system with
- * LinearSystemOp::AddNeumannBCOp(op, userDefinedType), so that the default
- * Neumann operator of the system leaves its regions out.
+ * are Dirichlet on the region. The prescribed velocity is taken as the
+ * velocity solve imposes it, projected onto the boundary expansion of the
+ * velocity. Update() computes the flux from the current fields, with the
+ * kinematic viscosity set by SetKinvis(), the scale set by SetScale() and at
+ * the time set by SetTime(); Apply() adds its inner product to the pressure
+ * forcing. UpdateWeak() computes the flux of the weak pressure form, which
+ * leaves the explicit contribution to the volume term. It is added to the
+ * pressure system with LinearSystemOp::AddNeumannBCOp(op, userDefinedType),
+ * so that the default Neumann operator of the system leaves its regions out.
  */
 template <typename TData>
 class HOPressureBndCondOp : public MultiRegions::NeuBndCondOp<TData>
@@ -132,7 +135,11 @@ public:
      * cancels from the flux scale * (rhs - kinvis * CurlCurl(velocity)) . n
      * + scale * (predictor - rhs) . n - scale * u_b(time) . n, which is
      * scale * (predictor - kinvis * CurlCurl(velocity)) . n
-     * - scale * u_b(time) . n, with u_b the prescribed boundary velocity.
+     * - scale * u_b(time) . n, with u_b the prescribed boundary velocity
+     * projected onto the boundary expansion of the velocity, the value the
+     * velocity solve imposes and the predictor carries on the boundary. It
+     * is evaluated at every call where a Dirichlet velocity condition of the
+     * region is time-dependent, and at the first call otherwise.
      *
      * A velocity component that is not Dirichlet on a region has no
      * prescribed boundary velocity and takes no acceleration: its flux there
@@ -149,8 +156,35 @@ public:
     }
 
     /**
+     * @brief Compute the pressure flux of the weak pressure form: the flux of
+     * UpdateWithAcceleration() less scale * predictor . n.
+     *
+     * @details
+     * The weak form takes the predictor, which holds the explicit advection
+     * and forcing, into the volume term of the pressure equation, so the
+     * flux is -scale * kinvis * CurlCurl(velocity) . n
+     * - scale * u_b(time) . n, the viscous term and the acceleration needed
+     * to reach the prescribed boundary velocity u_b of
+     * UpdateWithAcceleration().
+     *
+     * A velocity component that is not Dirichlet on a region takes
+     * predictor - rhs, the velocity the predictor carries, as its boundary
+     * velocity, as UpdateWithAcceleration() does: its flux there is
+     * -scale * (kinvis * CurlCurl(velocity) + predictor - rhs) n_d. @p rhs
+     * and @p predictor are read only when HasNonDirichletVelocity(), and
+     * @p rhs may be uninstantiated otherwise.
+     */
+    void UpdateWeak(LibUtilities::Field<TData, FieldState::Phys> &rhs,
+                    LibUtilities::Field<TData, FieldState::Phys> &velocity,
+                    LibUtilities::Field<TData, FieldState::Phys> &predictor)
+    {
+        v_UpdateWeak(rhs, velocity, predictor);
+    }
+
+    /**
      * @brief Whether a region on this rank has a velocity component that is
-     * not Dirichlet, so that UpdateWithAcceleration() reads rhs.
+     * not Dirichlet, so that UpdateWithAcceleration() and UpdateWeak() read
+     * rhs.
      */
     bool HasNonDirichletVelocity() const
     {
@@ -186,6 +220,11 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &velocity) = 0;
 
     virtual void v_UpdateWithAcceleration(
+        LibUtilities::Field<TData, FieldState::Phys> &rhs,
+        LibUtilities::Field<TData, FieldState::Phys> &velocity,
+        LibUtilities::Field<TData, FieldState::Phys> &predictor) = 0;
+
+    virtual void v_UpdateWeak(
         LibUtilities::Field<TData, FieldState::Phys> &rhs,
         LibUtilities::Field<TData, FieldState::Phys> &velocity,
         LibUtilities::Field<TData, FieldState::Phys> &predictor) = 0;

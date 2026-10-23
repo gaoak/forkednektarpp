@@ -40,6 +40,7 @@
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
@@ -173,6 +174,7 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
     {
         AddSummaryItem(s, "Formulation", "Semi-implicit");
     }
+    AddSummaryItem(s, "Pressure form", m_weakPressure ? "Weak" : "Strong");
 
     std::stringstream ss;
     ss << R"(
@@ -210,6 +212,22 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
  *  Upon output
  *  param in: = u^{n+1}
  *  param out: = param in
+ *
+ *  The pressure solves
+ *      \nabla^2 p^{n+1} = \nabla \cdot \mathbf{f}
+ *  with \partial p / \partial n = \mathbf{n} \cdot (\mathbf{f}
+ *      - \mathbf{w}^{n+1} / (\gamma \Delta t)
+ *      - \nu \nabla \times \nabla \times \mathbf{u}^*)
+ *  in the strong form, with \mathbf{f} = in / (\gamma \Delta t), and
+ *      (\nabla \phi, \nabla p^{n+1}) = (\nabla \phi, \mathbf{f})
+ *          - \int_\Gamma \phi \mathbf{n} \cdot (\mathbf{w}^{n+1} /
+ *              (\gamma \Delta t) + \nu \nabla \times \nabla \times
+ *              \mathbf{u}^*)
+ *  in the weak form, on the higher-order pressure regions, where
+ *  \mathbf{w} is the discrete Dirichlet velocity: the prescribed boundary
+ *  velocity projected onto the boundary expansion, as the velocity solve
+ *  imposes it. The weak form keeps the predictor, explicit advection and
+ *  forcing in \mathbf{f} off the boundary.
  */
 void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     LibUtilities::Field<double, FieldState::Phys> &in,
@@ -231,13 +249,21 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     }
 
     /// Set up forcing term for pressure Poisson equation
-    // Compute divergence of RHS. Keep the explicit advection contribution in
-    // this RHS because the pressure projection requires it.
-    // TODO this should only apply to the velocity components!
-    m_divergenceOp->Apply(in, m_wsp_phys_1c);
+    if (m_weakPressure)
+    {
+        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma);
+    }
+    else
+    {
+        // Compute divergence of RHS. Keep the explicit advection
+        // contribution in this RHS because the pressure projection requires
+        // it.
+        // TODO this should only apply to the velocity components!
+        m_divergenceOp->Apply(in, m_wsp_phys_1c);
 
-    // Scale divergence by 1 / (\gamma \Delta t)
-    m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
+        // Scale divergence by 1 / (\gamma \Delta t)
+        m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
+    }
 
     // The histories hold the velocity and the explicit forcing. They are
     // combined with the coefficients of the explicit contributions, scaled to
@@ -246,16 +272,35 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     // multistep scheme the coefficients extrapolate and sum to gamma; for a
     // later stage of an IMEXdirk scheme, such as the startup of a multistep
     // scheme, they are quadrature weights with another sum.
+    //
+    // The linear-implicit weak form takes the velocity of the curl-curl and
+    // outflow terms at the latest level instead of extrapolating it, as it
+    // takes its advection in SetUpWeakPressureForcing(). Extrapolating these
+    // explicit terms of the pressure step limits the time step that the
+    // implicit advection allows; the latest level keeps large time steps
+    // stable at the cost of an O(dt) error in the pressure step, which
+    // leaves the pressure near higher-order pressure regions close to first
+    // order in time when the advection changes in time. The semi-implicit
+    // weak form extrapolates the velocity as the strong form does.
     if (m_hasHighOrderPressureBCs)
     {
         const double pressureBCScale =
             dt_inv_gamma / m_timeOp->GetExplicitContributionCoefficientSum();
-        auto &pressureBCVelocityHistory = GetPressureBCVelocityHistory(
-            m_timeOp->GetExplicitContributionHistoryId(),
-            m_timeOp->GetExplicitContributionHistorySize());
-        m_timeOp->ExtrapolateExplicitContribution(
-            pressureBCVelocityHistory, m_pressureBCVelocity,
-            SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+        auto &velocityHistory =
+            GetVelocityHistory(m_timeOp->GetExplicitContributionHistoryId(),
+                               m_timeOp->GetExplicitContributionHistorySize());
+        if (m_weakPressure && m_implicitAdvection)
+        {
+            m_timeOp->LatestExplicitContribution(
+                velocityHistory, m_pressureBCVelocity,
+                SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+        }
+        else
+        {
+            m_timeOp->ExtrapolateExplicitContribution(
+                velocityHistory, m_pressureBCVelocity,
+                SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+        }
         // The explicit forcing is extrapolated only for a region with a
         // velocity component that is not Dirichlet, whose flux is formed
         // from it.
@@ -273,9 +318,22 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
             m_hoPressureBCOp->SetKinvis(m_kinvis);
             m_hoPressureBCOp->SetTime(time);
             m_hoPressureBCOp->SetScale(1.0 / dt_inv_gamma);
-            m_hoPressureBCOp->UpdateWithAcceleration(m_pressureBCExplicitRhs,
-                                                     m_pressureBCVelocity, in);
+            // The weak form integrates the predictor, advection and forcing
+            // by parts onto the volume, so the boundary flux holds the
+            // viscous term and the boundary acceleration only.
+            if (m_weakPressure)
+            {
+                m_hoPressureBCOp->UpdateWeak(m_pressureBCExplicitRhs,
+                                             m_pressureBCVelocity, in);
+            }
+            else
+            {
+                m_hoPressureBCOp->UpdateWithAcceleration(
+                    m_pressureBCExplicitRhs, m_pressureBCVelocity, in);
+            }
         }
+        // The outflow pressure is a Dirichlet value, on which the weak
+        // form's test functions vanish, so it is the same in both forms.
         if (m_hOutflowBCOp)
         {
             m_hOutflowBCOp->SetKinvis(m_kinvis);
@@ -287,7 +345,9 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 
     // A singular (periodic) pressure system needs a zero-mean RHS; dealiased
     // advection's interpolate/project round trip can leave a small residual.
-    if (m_checkIfSystemSingular[m_pressureIndex])
+    // The forcing of the weak form is orthogonal to the constants, which
+    // have no gradient, so it needs no mean removal.
+    if (m_checkIfSystemSingular[m_pressureIndex] && !m_weakPressure)
     {
         if (!m_meanRemovalOp)
         {
@@ -316,7 +376,14 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     }
 
     m_poissonSolveOp->UpdateBndCoeffs(time);
-    m_poissonSolveOp->Apply(m_wsp_phys_1c, m_pressure_coeff);
+    if (m_weakPressure)
+    {
+        m_poissonSolveOp->ApplyRhs(m_wsp_coeff_1c, m_pressure_coeff);
+    }
+    else
+    {
+        m_poissonSolveOp->Apply(m_wsp_phys_1c, m_pressure_coeff);
+    }
 
     /// Set up forcing term for Helmholtz problems
     // Evaluate p^{n+1} in physical space
@@ -342,9 +409,31 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         std::dynamic_pointer_cast<LinearADRSolveOp<double>>(m_fieldsSolveOp)
             ->SetLambda(m_lambda);
 
-        // Update advection velocity. The ADR solve is formulated after
-        // dividing the momentum equation by the kinematic viscosity.
-        m_math.mul(1.0 / m_kinvis, m_advVel, m_advVel);
+        // Update the advection velocity. The RHS above lost the explicit
+        // advection dt * sum_i c_i (u_i . grad) u_i, with the coefficients
+        // c_i of the explicit contributions and the velocities u_i of the
+        // history. The solve puts it back linearised about the extrapolated
+        // velocity u* = sum_i c_i u_i / sum_i c_i, as
+        // dt * (sum_i c_i) (u* . grad) u. It is formulated after dividing
+        // the momentum equation by the kinematic viscosity and weights the
+        // advection by the implicit step size gamma * dt, so its advection
+        // velocity is
+        //     dt * (sum_i c_i) u* / (gamma * dt * nu)
+        //         = dt * sum_i c_i u_i / (gamma * dt * nu),
+        // in which the sum of the coefficients cancels. For a multistep
+        // scheme the coefficients sum to gamma and u* extrapolates the
+        // velocity to the new time level at the order of the scheme. For a
+        // stage of an IMEXdirk scheme, such as the startup of a multistep
+        // scheme, they are quadrature weights with another sum, and u* is a
+        // weighted mean of the earlier stage values, accurate to first order
+        // only, which limits a startup step to a second-order local error.
+        auto &velocityHistory =
+            GetVelocityHistory(m_timeOp->GetExplicitContributionHistoryId(),
+                               m_timeOp->GetExplicitContributionHistorySize());
+        m_timeOp->ExtrapolateExplicitContribution(
+            velocityHistory, m_advVel,
+            SolverCore::TimeOpExtrapolationMode::Assign,
+            m_timeOp->GetTimeStep() / dt_inv_gamma / m_kinvis);
         std::dynamic_pointer_cast<LinearADRSolveOp<double>>(m_fieldsSolveOp)
             ->SetAdvVel(m_advVel);
     }
@@ -355,18 +444,21 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     }
 
     // Update or re-use preconditioner
-    if (m_preconFieldsOpMap.find(dt_inv_gamma) == m_preconFieldsOpMap.end() ||
-        m_implicitAdvection)
+    if (m_implicitAdvection)
+    {
+        // The advection velocity changes the operator every step, so the
+        // one preconditioner of the linear-implicit formulation is
+        // configured again, in place, every step.
+        m_fieldsSolveOp->SetPrecon(m_preconFieldsOp);
+        m_fieldsSolveOp->UpdatePrecon();
+    }
+    else if (m_preconFieldsOpMap.find(dt_inv_gamma) ==
+             m_preconFieldsOpMap.end())
     {
         // Create and cache preconditioner
-        // Note linear-implicit formulation always updates preconditioner.
-        // Hence, caching is not useful
         auto preconOp =
             PreconOp<double>::Create(m_expansionLists[0], m_variablesFields);
-        if (!m_implicitAdvection)
-        {
-            m_preconFieldsOpMap.insert({dt_inv_gamma, preconOp});
-        }
+        m_preconFieldsOpMap.insert({dt_inv_gamma, preconOp});
 
         // Configure new preconditioner
         m_fieldsSolveOp->SetPrecon(preconOp);
@@ -397,6 +489,47 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 }
 
 /*
+ *  @brief Set up the forcing of the weak pressure form in m_wsp_coeff_1c.
+ *
+ *  The forcing is (\nabla \phi, \mathbf{f}) with
+ *      \mathbf{f} = \hat{\mathbf{u}} / (\gamma \Delta t)
+ *          - [\mathbf{u} \cdot \nabla \mathbf{u}]^* + \mathbf{f}_b,
+ *  the predictor, explicit advection and body forcing of the velocity
+ *  equation. The semi-implicit formulation takes \mathbf{f} from in, which
+ *  holds the extrapolated advection and forcing. The linear-implicit
+ *  formulation takes its advection at the latest level only, added to
+ *  fieldRhs, the RHS from which the extrapolated advection was removed,
+ *  with the same total weight: extrapolated, this explicit advection would
+ *  limit the time step that the implicit advection of the velocity solve
+ *  allows. The inner product only reads the velocity components.
+ *
+ *  param in: = \hat{\mathbf{u}} + \gamma \Delta t (explicit contribution)
+ *  param fieldRhs: = RHS of the velocity solve
+ *  param dt_inv_gamma: = \gamma \Delta t
+ */
+void VelocityCorrectionScheme::SetUpWeakPressureForcing(
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &fieldRhs,
+    const double dt_inv_gamma)
+{
+    LibUtilities::Field<double, FieldState::Phys> *pressureRhs = &in;
+    if (m_implicitAdvection)
+    {
+        // fieldRhs plus the latest advection, weighted as
+        // TimeOp::LatestExplicitContribution() weights it, in one pass.
+        auto &advectionRhsHistory = GetAdvectionRhsHistory(
+            m_timeOp->GetExplicitContributionHistoryId(),
+            m_timeOp->GetExplicitContributionHistorySize());
+        m_math.daxpy(m_timeOp->GetExplicitContributionCoefficientSum(),
+                     advectionRhsHistory.front(), fieldRhs, m_wsp_phys);
+        pressureRhs = &m_wsp_phys;
+    }
+
+    m_iprodDerivPressureOp->SetScale(1.0 / dt_inv_gamma);
+    m_iprodDerivPressureOp->Apply(*pressureRhs, m_wsp_coeff_1c);
+}
+
+/*
  *  @brief Evaluate explicit advection term, forcing terms
  *  and higher-order pressure boundary conditions.
  *
@@ -415,12 +548,13 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
     const double &dt)
 {
-    // Store u for the higher-order pressure boundary conditions, so that
-    // CurlCurl(u) is combined with the IMEX coefficients of the explicit
+    // Store u for the advection velocity of the linear-implicit formulation
+    // and for the higher-order pressure boundary conditions, so that u and
+    // CurlCurl(u) are combined with the IMEX coefficients of the explicit
     // velocity contribution.
-    if (m_hasHighOrderPressureBCs)
+    if (m_implicitAdvection || m_hasHighOrderPressureBCs)
     {
-        UpdatePressureBCVelocityHistory(in);
+        UpdateVelocityHistory(in);
     }
 
     EvaluateAdvectionContribution(in, out, time, dt);
@@ -456,26 +590,16 @@ void VelocityCorrectionScheme::EvaluateAdvectionContribution(
     [[maybe_unused]] const double &time, const double &dt)
 {
     // The advection operators overwrite out, so it is not zeroed first.
-    // The linear-implicit formulation scales m_advVel in place later, in
-    // SolveUnsteadyStokesSystem(), so it needs its own copy of the velocity;
-    // otherwise the operators read the velocity from in directly.
-    LibUtilities::Field<double, FieldState::Phys> *advVel = &in;
-    if (m_implicitAdvection)
-    {
-        m_math.copy(in, m_advVel);
-        advVel = &m_advVel;
-    }
-
     if (m_specHPDealiasing)
     {
         m_advectionDealiasOp->SetScale(-dt);
-        m_advectionDealiasOp->SetAdvVel(*advVel);
+        m_advectionDealiasOp->SetAdvVel(in);
         m_advectionDealiasOp->Apply(in, out);
     }
     else
     {
         m_advectionOp->SetScale(-dt);
-        m_advectionOp->SetAdvVel(*advVel);
+        m_advectionOp->SetAdvVel(in);
         m_advectionOp->Apply(in, out);
     }
 }
@@ -521,29 +645,29 @@ std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionSch
  * @p historyId, which combines @p historySize explicit contributions in an
  * implicit solve, created on first use.
  *
- * The higher-order boundary conditions read only the velocity, which is
- * the whole solution: they do not support passive scalars.
+ * The linear-implicit advection velocity and the higher-order boundary
+ * conditions read only the velocity, which is the whole solution: they do
+ * not support passive scalars.
  */
 std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
-    GetPressureBCVelocityHistory(unsigned int historyId,
-                                 unsigned int historySize)
+    GetVelocityHistory(unsigned int historyId, unsigned int historySize)
 {
     FreeStartupHistories(historyId);
-    auto [it, inserted] = m_pressureBCVelocityHistories.try_emplace(historyId);
+    auto [it, inserted] = m_velocityHistories.try_emplace(historyId);
     auto &history       = it->second;
     if (inserted)
     {
         ASSERTL0(historySize > 0,
-                 "The higher-order pressure and outflow boundary conditions "
-                 "require a time integration scheme whose implicit solves "
-                 "combine explicit contributions, such as IMEX or IMEXdirk.");
+                 "The linear-implicit formulation and the higher-order "
+                 "pressure and outflow boundary conditions require a time "
+                 "integration scheme whose implicit solves combine explicit "
+                 "contributions, such as IMEX or IMEXdirk.");
         auto bAtrPhys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
                 m_expansionLists[0]);
         for (unsigned int i = 0; i < historySize; ++i)
         {
-            history.emplace_back("pressure BC velocity history " +
-                                     std::to_string(i),
+            history.emplace_back("velocity history " + std::to_string(i),
                                  bAtrPhys, m_variablesVel.size(), m_npointsZ);
             m_math.zero(history.back());
         }
@@ -599,9 +723,8 @@ void VelocityCorrectionScheme::FreeStartupHistories(unsigned int historyId)
     {
         return;
     }
-    for (auto *histories :
-         {&m_advectionRhsHistories, &m_pressureBCVelocityHistories,
-          &m_pressureBCRhsHistories})
+    for (auto *histories : {&m_advectionRhsHistories, &m_velocityHistories,
+                            &m_pressureBCRhsHistories})
     {
         for (auto it = histories->begin(); it != histories->end();)
         {
@@ -636,12 +759,12 @@ void VelocityCorrectionScheme::UpdatePressureBCRhsHistory(
     m_math.mul(1.0 / dt, rhs, history.front());
 }
 
-void VelocityCorrectionScheme::UpdatePressureBCVelocityHistory(
+void VelocityCorrectionScheme::UpdateVelocityHistory(
     LibUtilities::Field<double, FieldState::Phys> &velocity)
 {
-    auto &history = GetPressureBCVelocityHistory(
-        m_timeOp->GetExplicitContributionHistoryId(),
-        m_timeOp->GetExplicitContributionHistorySize());
+    auto &history =
+        GetVelocityHistory(m_timeOp->GetExplicitContributionHistoryId(),
+                           m_timeOp->GetExplicitContributionHistorySize());
 
     auto tmp = std::move(history.back());
     history.pop_back();
@@ -722,8 +845,11 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_advectionOp =
             AdvectionOp<double>::Create(m_expansionLists[0], m_variablesFields);
     }
-    m_divergenceOp =
-        DivergenceOp<double>::Create(m_expansionLists[0], m_variablesFields);
+    if (!m_weakPressure)
+    {
+        m_divergenceOp = DivergenceOp<double>::Create(m_expansionLists[0],
+                                                      m_variablesFields);
+    }
 
     if (m_implicitAdvection)
     {
@@ -734,6 +860,8 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         linearADRSolveOp->SetLinearSolver(m_linearSolverFieldsOp);
         linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
         m_fieldsSolveOp = linearADRSolveOp;
+        m_preconFieldsOp =
+            PreconOp<double>::Create(m_expansionLists[0], m_variablesFields);
     }
     else
     {
@@ -760,6 +888,19 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     m_poissonSolveOp->SetLinearSolver(m_linearSolverPressureOp);
     m_poissonSolveOp->SetDiffCoeff(m_diffCoeff);
 
+    if (m_weakPressure)
+    {
+        // The pressure inner product reads the velocity-equation RHS at the
+        // pressure quadrature points.
+        ASSERTL0(m_expansionLists[0]->SameQuadratureLayout(
+                     m_expansionLists[m_pressureIndex]),
+                 "The weak pressure form requires the velocity and pressure "
+                 "expansions to share their quadrature points.");
+        m_iprodDerivPressureOp =
+            IProductWRTDerivBaseOp<FieldState::Coeff, double>::Create(
+                m_expansionLists[m_pressureIndex], m_variablesPressure);
+    }
+
     // The higher-order pressure and outflow condition operators are built
     // only for a session with a region of their user-defined type. A rank
     // holding none of the regions builds them with the others, since building
@@ -778,6 +919,18 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_poissonSolveOp->AddNeumannBCOp(
             m_hoPressureBCOp, HOPressureBndCondOp<double>::userDefinedType);
     }
+
+    // The forcing of the weak form is orthogonal to the constants, so a
+    // singular pressure system is compatible only if its Neumann flux has a
+    // zero surface integral, which the flux of the higher-order pressure
+    // condition does not have in general. The weak form has no correction
+    // for it.
+    ASSERTL0(!(m_weakPressure && m_checkIfSystemSingular[m_pressureIndex] &&
+               m_hoPressureBCOp),
+             "The weak pressure form does not support a singular pressure "
+             "system with the higher-order pressure boundary condition: give "
+             "the pressure a Dirichlet boundary, or use "
+             "PressureFormulation=Strong.");
 
     // Dong's high-order outflow condition couples a pressure Dirichlet
     // condition with a velocity Neumann condition, which share their
@@ -801,13 +954,14 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
             HOutflowBndCondOp<double>::userDefinedType);
     }
 
-    // The pressure BC velocity history is filled from the solution, which
-    // holds only the velocity while passive scalars are not supported with
-    // these conditions.
-    ASSERTL0(!(m_hoPressureBCOp || m_hOutflowBCOp) ||
+    // The velocity history is filled from the solution, which holds only
+    // the velocity while passive scalars are not supported with the
+    // linear-implicit formulation or these conditions.
+    ASSERTL0(!(m_implicitAdvection || m_hoPressureBCOp || m_hOutflowBCOp) ||
                  m_variablesFields.size() == m_variablesVel.size(),
-             "The higher-order pressure and outflow boundary conditions do "
-             "not support passive scalars.");
+             "The linear-implicit formulation and the higher-order pressure "
+             "and outflow boundary conditions do not support passive "
+             "scalars.");
 
     // The velocity history and its extrapolation are kept only on a rank
     // where either condition has a region.
@@ -869,8 +1023,7 @@ void VelocityCorrectionScheme::v_InitialiseFields()
     if (m_implicitAdvection)
     {
         m_advVel = LibUtilities::Field<double, FieldState::Phys>(
-            "explicit advection velocity", bAtr_phys, m_variablesVel.size(),
-            m_npointsZ);
+            "advection velocity", bAtr_phys, m_variablesVel.size(), m_npointsZ);
         m_wsp_fields_rhs = LibUtilities::Field<double, FieldState::Phys>(
             "wsp_fields_rhs", bAtr_phys, m_variablesFields.size(), m_npointsZ);
         m_wsp_explicit_adv_rhs = LibUtilities::Field<double, FieldState::Phys>(
@@ -897,6 +1050,12 @@ void VelocityCorrectionScheme::v_InitialiseFields()
     m_wsp_phys_1c = LibUtilities::Field<double, FieldState::Phys>(
         "wsp_phys_1c", bAtr_phys_pressure, m_variablesPressure.size(),
         m_npointsZ);
+    if (m_weakPressure)
+    {
+        m_wsp_coeff_1c = LibUtilities::Field<double, FieldState::Coeff>(
+            "wsp_coeff_1c", bAtr_coeff_pressure, m_variablesPressure.size(),
+            m_npointsZ);
+    }
 }
 
 /*
@@ -1024,6 +1183,47 @@ void VelocityCorrectionScheme::InitialiseParameters()
         ss << "Unknown SolverInfo FORMULATION: " << formulation
            << ". Valid entries are 'semiimplicit' and 'linearimplicit'.";
         NEKERROR(ErrorUtil::efatal, ss.str());
+    }
+
+    // Strong or weak form of the pressure Poisson equation. The default is
+    // the weak form with linear-implicit time-stepping, whose advection is
+    // implicit, and the strong form with semi-implicit time-stepping.
+    std::string pressureFormulation;
+    m_session->LoadSolverInfo("PressureFormulation", pressureFormulation,
+                              m_implicitAdvection ? "Weak" : "Strong");
+    StringUtils::ToLower(pressureFormulation);
+    if (pressureFormulation == "weak")
+    {
+        m_weakPressure = true;
+    }
+    else if (pressureFormulation == "strong")
+    {
+        m_weakPressure = false;
+    }
+    else
+    {
+        std::stringstream ss;
+        ss << "Unknown SolverInfo PressureFormulation: " << pressureFormulation
+           << ". Valid entries are 'strong' and 'weak'.";
+        NEKERROR(ErrorUtil::efatal, ss.str());
+    }
+
+    // The linear-implicit formulation advects with a velocity that the
+    // IMEXdirk startup stages combine from stage values, which limits it to
+    // second order in time. Its weak form also takes the explicit terms of
+    // the pressure equation at the latest level, which keeps large time
+    // steps stable but lowers the order of the pressure near higher-order
+    // pressure regions (SolveUnsteadyStokesSystem()).
+    if (m_implicitAdvection && m_session->GetTimeIntScheme().order > 2)
+    {
+        const std::string message =
+            "LinearImplicit is at most second order in time, not order " +
+            std::to_string(m_session->GetTimeIntScheme().order) +
+            ". PressureFormulation=Weak is more stable, with a lower-order "
+            "pressure near higher-order pressure boundaries; "
+            "PressureFormulation=Strong is more accurate but much less "
+            "stable.";
+        ROOTONLY_NEKERROR(ErrorUtil::ewarning, message.c_str());
     }
 
     // 3/2-rule spectral/hp dealiasing (local over-integration) for the
