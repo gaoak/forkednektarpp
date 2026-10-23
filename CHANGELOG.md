@@ -107,6 +107,7 @@ v5.11.0
 - Multiply a Neumann or Robin boundary condition read from FILE by its VALUE expression when both are given, as was already done for Dirichlet conditions (!2862)
 - Introduce SafeDivide helper function (!2868)
 - Generalise multi-variable parallel_reduce (!2869)
+- Give each HIP stream its own hipBLAS handle, so concurrent per-block BLAS calls no longer share a workspace; this fixes the redesign GMRES, FGMRES and GCR solvers stalling on HIP on meshes with several element types (!2873)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
