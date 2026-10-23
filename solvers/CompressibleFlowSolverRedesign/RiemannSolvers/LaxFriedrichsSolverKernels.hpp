@@ -43,14 +43,26 @@
 namespace Nektar::detail
 {
 
+/**
+ * @brief The Lax-Friedrichs flux through the trace normal, in Cartesian
+ * components (as the legacy LaxFriedrichsSolver): the central flux of the two
+ * states through @p normal less the jump scaled by the largest normal wave
+ * speed of the Roe-averaged state.
+ */
 template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
 struct LaxFriedrichsSolverKernel
 {
+    /**
+     * @param blksize  Points in the block; component c of the states, the
+     *                 normal and the flux lies at offset `c * blksize`.
+     * @param normal   The unit trace normal, @p NDIM components.
+     */
     template <typename TScalar>
     NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams EoS,
                                           const size_t blksize,
                                           const TScalar *fwd,
-                                          const TScalar *bwd, TScalar *flux)
+                                          const TScalar *bwd,
+                                          const TScalar *normal, TScalar *flux)
     {
         using std::abs;
         using std::sqrt;
@@ -71,98 +83,70 @@ struct LaxFriedrichsSolverKernel
         const size_t groupsize = blksize / vec_width;
         const auto fwdvec      = reinterpret_cast<const vec_t *>(fwd);
         const auto bwdvec      = reinterpret_cast<const vec_t *>(bwd);
+        const auto nvec        = reinterpret_cast<const vec_t *>(normal);
         auto fluxvec           = reinterpret_cast<vec_t *>(flux);
 
-        // Density
         const vec_t rhoL = fwdvec[0];
         const vec_t rhoR = bwdvec[0];
 
-        // Physical fluxes in normal direction (note: uL[0] is normal
-        // velocity)
-        const vec_t Fn_rho_L = fwdvec[1u * groupsize];
-        const vec_t Fn_rho_R = bwdvec[1u * groupsize];
-
-        // Velocities and kinetic energy terms (in rotated frame: m0 is
-        // normal)
-        vec_t uL[NDIM];
-        vec_t uR[NDIM];
-        uL[0]     = Fn_rho_L / rhoL;
-        uR[0]     = Fn_rho_R / rhoR;
-        vec_t qL2 = Fn_rho_L * uL[0];
-        vec_t qR2 = Fn_rho_R * uR[0];
+        // Velocities, normal velocities and kinetic energy terms.
+        vec_t n[NDIM], mL[NDIM], mR[NDIM], uL[NDIM], uR[NDIM];
+        vec_t unL = 0.0, unR = 0.0, qL2 = 0.0, qR2 = 0.0;
 #pragma unroll
-        for (unsigned int d = 1; d < NDIM; ++d)
+        for (unsigned int d = 0; d < NDIM; ++d)
         {
-            const vec_t rhouL = fwdvec[(1u + d) * groupsize];
-            const vec_t rhouR = bwdvec[(1u + d) * groupsize];
-
-            uL[d] = rhouL / rhoL;
-            uR[d] = rhouR / rhoR;
-
-            qL2 += rhouL * uL[d];
-            qR2 += rhouR * uR[d];
+            n[d]  = nvec[d * groupsize];
+            mL[d] = fwdvec[(1u + d) * groupsize];
+            mR[d] = bwdvec[(1u + d) * groupsize];
+            uL[d] = mL[d] / rhoL;
+            uR[d] = mR[d] / rhoR;
+            unL += uL[d] * n[d];
+            unR += uR[d] * n[d];
+            qL2 += mL[d] * uL[d];
+            qR2 += mR[d] * uR[d];
         }
 
-        // Internal energy per unit mass
+        // Internal energy per unit mass, pressure and enthalpy.
         const vec_t EL = fwdvec[(1u + NDIM) * groupsize];
         const vec_t ER = bwdvec[(1u + NDIM) * groupsize];
         const vec_t eL = (EL - oneHalf * qL2) / rhoL;
         const vec_t eR = (ER - oneHalf * qR2) / rhoR;
-
-        // Pressure
         const vec_t pL = GetPressure(EoS, rhoL, eL);
         const vec_t pR = GetPressure(EoS, rhoR, eR);
-
-        // Enthalpy
         const vec_t hL = (EL + pL) / rhoL;
         const vec_t hR = (ER + pR) / rhoR;
 
-        // Roe averages
+        // Roe averages.
         const vec_t srL  = sqrt(rhoL);
         const vec_t srR  = sqrt(rhoR);
         const vec_t srLR = srL + srR;
-
-        vec_t uRoe[NDIM];
-        vec_t URoe2 = 0;
+        vec_t unRoe = 0.0, URoe2 = 0.0;
 #pragma unroll
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            uRoe[d] = (srL * uL[d] + srR * uR[d]) / srLR;
-            URoe2 += uRoe[d] * uRoe[d];
+            const vec_t uRoe = (srL * uL[d] + srR * uR[d]) / srLR;
+            unRoe += uRoe * n[d];
+            URoe2 += uRoe * uRoe;
         }
-
         const vec_t hRoe = (srL * hL + srR * hR) / srLR;
-
         const vec_t cRoe = GetRoeSoundSpeed(EoS, rhoL, pL, eL, hL, srL, rhoR,
                                             pR, eR, hR, srR, hRoe, URoe2, srLR);
 
-        // Max eigenvalue in normal direction
-        const vec_t a = abs(uRoe[0]) + cRoe;
+        // Largest wave speed through the normal.
+        const vec_t a = abs(unRoe) + cRoe;
 
-        // Mass
-        fluxvec[0] = oneHalf * (Fn_rho_L + Fn_rho_R - a * (rhoR - rhoL));
-
-        // Normal momentum (d=0): p + m0*u0
-        const vec_t Fm0_L = pL + Fn_rho_L * uL[0];
-        const vec_t Fm0_R = pR + Fn_rho_R * uR[0];
-        fluxvec[1u * groupsize] =
-            oneHalf * (Fm0_L + Fm0_R - a * (Fn_rho_R - Fn_rho_L));
-
-        // Tangential momentum(s): m0*u_t
+        // Mass, momentum and energy: the central flux through n less the
+        // dissipation of the jump.
+        fluxvec[0] = oneHalf * (rhoL * unL + rhoR * unR - a * (rhoR - rhoL));
 #pragma unroll
-        for (unsigned int d = 1; d < NDIM; ++d)
+        for (unsigned int d = 0; d < NDIM; ++d)
         {
-            const vec_t Fmd_L = Fn_rho_L * uL[d];
-            const vec_t Fmd_R = Fn_rho_R * uR[d];
             fluxvec[(1u + d) * groupsize] =
-                oneHalf * (Fmd_L + Fmd_R - a * (rhoR * uR[d] - rhoL * uL[d]));
+                oneHalf * (mL[d] * unL + mR[d] * unR + (pL + pR) * n[d] -
+                           a * (mR[d] - mL[d]));
         }
-
-        // Energy: u0*(E+p)
-        const vec_t FE_L = uL[0] * (EL + pL);
-        const vec_t FE_R = uR[0] * (ER + pR);
         fluxvec[(1u + NDIM) * groupsize] =
-            oneHalf * (FE_L + FE_R - a * (ER - EL));
+            oneHalf * (unL * (EL + pL) + unR * (ER + pR) - a * (ER - EL));
     }
 };
 
