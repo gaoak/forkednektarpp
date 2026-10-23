@@ -41,6 +41,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <type_traits>
+#include <unordered_map>
 
 #include <hipblas/hipblas.h>
 
@@ -60,20 +61,32 @@ namespace Nektar::NekBlas
 {
 namespace
 {
+/**
+ * @brief The hipBLAS handle of stream @p streamID, created on first use.
+ *
+ * One handle per stream: the kernels a handle launches share its device
+ * workspace, so one handle moved from stream to stream lets calls in flight
+ * on two streams, such as the per-block products of the MultiField helpers,
+ * use the same workspace concurrently.
+ */
 hipblasHandle_t GetHipBlasHandle(const unsigned int streamID)
 {
-    static hipblasHandle_t handle = nullptr;
+    static std::unordered_map<unsigned int, hipblasHandle_t> handles;
 
-    if (!handle)
+    auto it = handles.find(streamID);
+    if (it == handles.end())
     {
+        hipblasHandle_t handle = nullptr;
         if (hipblasCreate(&handle) != HIPBLAS_STATUS_SUCCESS)
         {
             printf("hipBLAS initialization failed\n");
         }
+        HIPBLAS_CHECK(
+            hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
+        it = handles.emplace(streamID, handle).first;
     }
 
-    HIPBLAS_CHECK(hipblasSetStream(handle, HIPStream::GetInstance(streamID)));
-    return handle;
+    return it->second;
 }
 } // namespace
 
