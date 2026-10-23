@@ -137,6 +137,18 @@ struct Device
     static constexpr unsigned int maximumBlockSize = 1u;
     static constexpr unsigned int warpSize         = 1u;
 #endif
+
+    // Thread blocks of blockSize threads for the first stage of a reduction
+    // over n values: one value per thread, at least one block and at most
+    // maximumBlockSize, the partial sums internalReductionBufferSize holds.
+    static constexpr unsigned int reductionGridSize(
+        const size_t n, const unsigned int blockSize)
+    {
+        const size_t nblocks = (n + blockSize - 1u) / blockSize;
+        return nblocks == 0                 ? 1u
+               : nblocks < maximumBlockSize ? static_cast<unsigned int>(nblocks)
+                                            : maximumBlockSize;
+    }
 };
 
 #if defined(__ADAPTIVECPP__)

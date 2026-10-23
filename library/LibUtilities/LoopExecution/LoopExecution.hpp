@@ -38,6 +38,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 
@@ -89,6 +91,83 @@ template <typename TData> class ReduceMax
 public:
     typedef typename std::remove_cv<TData>::type value_type;
 };
+
+// Identity of a reduction.
+template <typename Reduction>
+NEK_HOSTDEVICE_INLINE constexpr typename Reduction::value_type reduce_identity()
+{
+    using TData = typename Reduction::value_type;
+    if constexpr (std::is_same_v<Reduction, ReduceSum<TData>>)
+    {
+        return 0;
+    }
+    else if constexpr (std::is_same_v<Reduction, ReduceMax<TData>>)
+    {
+        return std::numeric_limits<TData>::lowest();
+    }
+    else if constexpr (std::is_same_v<Reduction, ReduceMin<TData>>)
+    {
+        return std::numeric_limits<TData>::max();
+    }
+    else
+    {
+        static_assert(sizeof(Reduction) == 0, "Unsupported reduction.");
+    }
+}
+
+// Combination of two values by a reduction. Floating-point max and min ignore
+// a NaN argument, as fmax and fmin do.
+template <typename Reduction>
+NEK_HOSTDEVICE_INLINE typename Reduction::value_type reduce_join(
+    const typename Reduction::value_type a,
+    const typename Reduction::value_type b)
+{
+    using TData = typename Reduction::value_type;
+    if constexpr (std::is_same_v<Reduction, ReduceSum<TData>>)
+    {
+        return a + b;
+    }
+    else if constexpr (std::is_same_v<Reduction, ReduceMax<TData>>)
+    {
+        if constexpr (std::is_floating_point_v<TData>)
+        {
+#if defined(NEKTAR_ENABLE_SYCL)
+            return sycl::fmax(a, b);
+#elif (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&           \
+    defined(DEVICE_COMPILE_ONLY)
+            return ::fmax(a, b);
+#else
+            return std::fmax(a, b);
+#endif
+        }
+        else
+        {
+            return std::max(a, b);
+        }
+    }
+    else if constexpr (std::is_same_v<Reduction, ReduceMin<TData>>)
+    {
+        if constexpr (std::is_floating_point_v<TData>)
+        {
+#if defined(NEKTAR_ENABLE_SYCL)
+            return sycl::fmin(a, b);
+#elif (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&           \
+    defined(DEVICE_COMPILE_ONLY)
+            return ::fmin(a, b);
+#else
+            return std::fmin(a, b);
+#endif
+        }
+        else
+        {
+            return std::min(a, b);
+        }
+    }
+    else
+    {
+        static_assert(sizeof(Reduction) == 0, "Unsupported reduction.");
+    }
+}
 
 // Atomics.
 template <typename ExecSpace, typename Scope, typename TData,

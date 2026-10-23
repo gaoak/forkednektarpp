@@ -105,9 +105,10 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
 
         if constexpr (STAGE == 0)
         {
-            Nektar::parallel_reduce_sum<ExecSpace, false, 3>(
+            Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>,
+                                    3>(
                 0, size,
-                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
+                NEKTAR_LAMBDA(const size_t idx, TData *vals) {
                     auto z0 = nptr[idx];
                     auto q0 = mptr[idx];
                     auto s0 = wptr[idx];
@@ -127,17 +128,18 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
                     sptr[idx] = s0;
                     pptr[idx] = p0;
 
-                    sums[0] += u1 * u1;
-                    sums[1] += u1 * r1;
-                    sums[2] += w1 * u1;
+                    vals[0] = u1 * u1;
+                    vals[1] = u1 * r1;
+                    vals[2] = w1 * u1;
                 },
                 dots);
         }
         else
         {
-            Nektar::parallel_reduce_sum<ExecSpace, false, 3>(
+            Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>,
+                                    3>(
                 0, size,
-                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
+                NEKTAR_LAMBDA(const size_t idx, TData *vals) {
                     auto u0 = uptr[idx];
                     auto w0 = wptr[idx];
 
@@ -160,9 +162,9 @@ NEK_FORCE_INLINE static void UpdatePipeConjGradSearchDirection(
                     sptr[idx] = s0;
                     pptr[idx] = p0;
 
-                    sums[0] += u1 * u1;
-                    sums[1] += u1 * r1;
-                    sums[2] += w1 * u1;
+                    vals[0] = u1 * u1;
+                    vals[1] = u1 * r1;
+                    vals[2] = w1 * u1;
                 },
                 dots);
         }

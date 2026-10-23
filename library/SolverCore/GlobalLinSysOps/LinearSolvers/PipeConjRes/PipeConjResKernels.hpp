@@ -98,9 +98,10 @@ NEK_FORCE_INLINE static void UpdatePipeConjResSearchDirection(
 
         if constexpr (STAGE == 0)
         {
-            Nektar::parallel_reduce_sum<ExecSpace, false, 2>(
+            Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>,
+                                    2>(
                 0, size,
-                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
+                NEKTAR_LAMBDA(const size_t idx, TData *vals) {
                     auto z0 = sptr[idx];
                     auto q0 = wkptr[idx];
                     auto p0 = rptr[idx];
@@ -116,16 +117,17 @@ NEK_FORCE_INLINE static void UpdatePipeConjResSearchDirection(
                     qptr[idx] = q0;
                     pptr[idx] = p0;
 
-                    sums[0] += r1 * r1;
-                    sums[1] += r1 * w1;
+                    vals[0] = r1 * r1;
+                    vals[1] = r1 * w1;
                 },
                 dots);
         }
         else
         {
-            Nektar::parallel_reduce_sum<ExecSpace, false, 2>(
+            Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>,
+                                    2>(
                 0, size,
-                NEKTAR_LAMBDA(const size_t idx, TData *sums) {
+                NEKTAR_LAMBDA(const size_t idx, TData *vals) {
                     auto r0 = rptr[idx];
 
                     auto z0 = beta * zptr[idx] + sptr[idx];
@@ -143,8 +145,8 @@ NEK_FORCE_INLINE static void UpdatePipeConjResSearchDirection(
                     qptr[idx] = q0;
                     pptr[idx] = p0;
 
-                    sums[0] += r1 * r1;
-                    sums[1] += r1 * w1;
+                    vals[0] = r1 * r1;
+                    vals[1] = r1 * w1;
                 },
                 dots);
         }

@@ -91,27 +91,60 @@ inline void parallel_for(const size_t begin, const size_t end,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-// Reduction kernels.
-template <bool init, typename TData, typename Functor,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceSumKernel(
-    const size_t begin, const size_t end, TData *buffer, const Functor functor)
+// Atomic combination of val into *dest by a reduction.
+template <typename Reduction>
+NEK_DEVICE_INLINE static void reduce_atomic(
+    typename Reduction::value_type *const dest,
+    const typename Reduction::value_type val)
 {
-    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
+    using TData = typename Reduction::value_type;
+    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+    {
+        atomic_add<NektarSpaces::GlobalScope>(dest, val);
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
+    {
+        atomic_max<NektarSpaces::GlobalScope>(dest, val);
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
+    {
+        atomic_min<NektarSpaces::GlobalScope>(dest, val);
+    }
+}
 
+// Partial results of nred values per thread block: functor(i, vals) writes
+// those of index i to vals[0, nred), which Reduction combines. Result s of
+// block b is in buffer[s * gridDim.x + b], which is set to the identity first
+// if init.
+template <bool init, typename Reduction, unsigned int nred, typename Functor,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceNKernel(
+    const size_t begin, const size_t end,
+    typename Reduction::value_type *buffer, const Functor functor)
+{
+    using TData = typename Reduction::value_type;
+
+    constexpr TData identity        = reduce_identity<Reduction>();
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
+    TData v[nred];
+
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+        v[s] = identity;
+    }
 
     if constexpr (init)
     {
         if (block.thread_rank() == 0)
         {
-            buffer[block.group_index().x] = 0.0;
+            for (unsigned int s = 0; s < nred; ++s)
+            {
+                buffer[s * gridDim.x + block.group_index().x] = identity;
+            }
         }
     }
 
@@ -119,182 +152,32 @@ __global__ __launch_bounds__(blockSize) void reduceSumKernel(
 
     for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
-        v += functor(tid);
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-        atomicAdd(&buffer[block.group_index().x], v);
-    }
-}
-
-template <bool init, typename TData, typename Functor,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceMaxKernel(
-    const size_t begin, const size_t end, TData *buffer, const Functor functor)
-{
-    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData min             = std::numeric_limits<TData>::lowest();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = min;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
+        TData vals[nred];
+        functor(tid, vals);
+        for (unsigned int s = 0; s < nred; ++s)
         {
-            buffer[block.group_index().x] = min;
+            v[s] = reduce_join<Reduction>(v[s], vals[s]);
         }
     }
 
-    block.sync();
-
-    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
-    {
-        v = std::max(v, functor(tid));
-    }
-
     warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::max(v, warp.shfl_down(v, 32)); // |
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
+#pragma unroll
+    for (unsigned int s = 0; s < nred; ++s)
     {
-        atomicMax(&buffer[block.group_index().x], v);
-    }
-}
-
-template <bool init, typename TData, typename Functor,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceMinKernel(
-    const size_t begin, const size_t end, TData *buffer, const Functor functor)
-{
-    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData max             = std::numeric_limits<TData>::max();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = max;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            buffer[block.group_index().x] = max;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
-    {
-        v = std::min(v, functor(tid));
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::min(v, warp.shfl_down(v, 32)); // |
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
-    {
-        atomicMin(&buffer[block.group_index().x], v);
-    }
-}
-
-// Partial sums of nsum values per thread block: functor(i, sums) adds those of
-// index i to sums[0, nsum). Sum s of block b is in buffer[s * gridDim.x + b].
-template <unsigned int nsum, typename TData, typename Functor,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceSumNKernel(
-    const size_t begin, const size_t end, TData *buffer, const Functor functor)
-{
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid     = cg::this_grid();
-    auto block    = cg::this_thread_block();
-    auto warp     = cg::tiled_partition<warpsize>(block);
-    TData v[nsum] = {};
-
-    if (block.thread_rank() == 0)
-    {
-        for (unsigned int s = 0; s < nsum; ++s)
-        {
-            buffer[s * gridDim.x + block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
-    {
-        functor(tid, v);
-    }
-
-    warp.sync();
-    for (unsigned int s = 0; s < nsum; ++s)
-    {
+#pragma unroll
         for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
         {
-            v[s] += warp.shfl_down(v[s], offset);
+            v[s] = reduce_join<Reduction>(v[s], warp.shfl_down(v[s], offset));
         }
     }
 
-    // use atomicAdd to sum over warps
+    // use atomics to combine over warps
     if (warp.thread_rank() == 0)
     {
-        for (unsigned int s = 0; s < nsum; ++s)
+        for (unsigned int s = 0; s < nred; ++s)
         {
-            atomicAdd(&buffer[s * gridDim.x + block.group_index().x], v[s]);
+            reduce_atomic<Reduction>(
+                &buffer[s * gridDim.x + block.group_index().x], v[s]);
         }
     }
 }
@@ -312,7 +195,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -327,82 +211,14 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
-    {
-        reduceSumKernel<true>
-            <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
-        CHECK_LAST_HIPCUDA_ERROR();
-        reduceSumKernel<init><<<1, blockSize, 0, stream>>>(
-            0, gridSize, out,
-            [=] __device__(const size_t i) { return buffer[i]; });
-        CHECK_LAST_HIPCUDA_ERROR();
-    }
-    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
-    {
-        reduceMaxKernel<true>
-            <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
-        CHECK_LAST_HIPCUDA_ERROR();
-        reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(
-            0, gridSize, out,
-            [=] __device__(const size_t i) { return buffer[i]; });
-        CHECK_LAST_HIPCUDA_ERROR();
-    }
-    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
-    {
-        reduceMinKernel<true>
-            <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
-        CHECK_LAST_HIPCUDA_ERROR();
-        reduceMinKernel<init><<<1, blockSize, 0, stream>>>(
-            0, gridSize, out,
-            [=] __device__(const size_t i) { return buffer[i]; });
-        CHECK_LAST_HIPCUDA_ERROR();
-    }
-}
-
-// Parallel sum of nsum values: functor(i, sums) adds those of index i to
-// sums[0, nsum). They are written to out[0, nsum) if init, added to it
-// otherwise. At most 4 sums, the partial sums the reduction scratch holds.
-template <
-    typename ExecSpace, bool init, unsigned int nsum, typename TData,
-    typename Functor,
-    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
-        Enable = true>
-inline void parallel_reduce_sum(const size_t begin, const size_t end,
-                                const Functor &functor, TData *out)
-{
-    static_assert(nsum <= 4, "parallel_reduce_sum: at most 4 sums.");
-
-    const unsigned int streamID  = internalLoopExecutionStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
-
-    ASSERTL0(nsum * gridSize * sizeof(TData) <= internalReductionBufferSize,
-             "Too many sums for the reduction buffer.");
-
-#if defined(NEKTAR_ENABLE_CUDA)
-    auto stream = CUDAStream::GetInstance(streamID);
-#elif defined(NEKTAR_ENABLE_HIP)
-    auto stream = HIPStream::GetInstance(streamID);
-#endif
-
-    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
-    {
-        deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalReductionBufferSize, streamID);
-    }
-
-    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceSumNKernel<nsum>
-        <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
+    reduceNKernel<true, Reduction, 1><<<gridSize, blockSize, 0, stream>>>(
+        begin, end, buffer,
+        [=] __device__(const size_t i, TData *vals) { vals[0] = functor(i); });
     CHECK_LAST_HIPCUDA_ERROR();
-    for (unsigned int s = 0; s < nsum; ++s)
-    {
-        const TData *partial = buffer + s * gridSize;
-        reduceSumKernel<init><<<1, blockSize, 0, stream>>>(
-            0, gridSize, out + s,
-            [=] __device__(const size_t i) { return partial[i]; });
-        CHECK_LAST_HIPCUDA_ERROR();
-    }
+    reduceNKernel<init, Reduction, 1><<<1, blockSize, 0, stream>>>(
+        0, gridSize, out,
+        [=] __device__(const size_t i, TData *vals) { vals[0] = buffer[i]; });
+    CHECK_LAST_HIPCUDA_ERROR();
 }
 
 // Parallel reduction launchers with device-to-host copy.
@@ -430,6 +246,57 @@ inline void parallel_reduce(const size_t begin, const size_t end,
                                sizeof(TData), streamID);
 
     out = *(TData *)internalHostBuffer;
+}
+
+// Parallel reduction of nred values without device-to-host copy:
+// functor(i, vals) writes those of index i to vals[0, nred), which Reduction
+// combines into out[0, nred), together with the values already there unless
+// init. At most 4 values, the partial results the reduction scratch holds.
+template <
+    typename ExecSpace, bool init, typename Reduction, unsigned int nred,
+    typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type *out)
+{
+    using TData = typename Reduction::value_type;
+
+    static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
+
+    const unsigned int streamID  = internalLoopExecutionStreamID;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
+
+    ASSERTL0(nred * gridSize * sizeof(TData) <= internalReductionBufferSize,
+             "Too many values for the reduction buffer.");
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
+    {
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalReductionBufferSize, streamID);
+    }
+
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
+    reduceNKernel<true, Reduction, nred>
+        <<<gridSize, blockSize, 0, stream>>>(begin, end, buffer, functor);
+    CHECK_LAST_HIPCUDA_ERROR();
+    reduceNKernel<init, Reduction, nred><<<1, blockSize, 0, stream>>>(
+        0, gridSize, out, [=] __device__(const size_t i, TData *vals) {
+            for (unsigned int s = 0; s < nred; ++s)
+            {
+                vals[s] = buffer[s * gridSize + i];
+            }
+        });
+    CHECK_LAST_HIPCUDA_ERROR();
 }
 
 } // namespace Nektar

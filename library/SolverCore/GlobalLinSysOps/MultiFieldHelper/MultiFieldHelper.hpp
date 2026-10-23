@@ -118,7 +118,7 @@ const TData *GetColumnsPtr(LibUtilities::MultiField<TData, TState> &X,
  * @brief Assert that the padding of columns [j0, j1) of @p X, and of
  * @p field if given, is zero, as the products assume.
  *
- * Debug builds only, since it reads the data on host.
+ * Full-debug builds only, since it reads the data on host.
  */
 template <typename TData, FieldState TState>
 void AssertZeroPadding(LibUtilities::MultiField<TData, TState> &X,

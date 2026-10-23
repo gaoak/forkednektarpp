@@ -81,9 +81,9 @@ NEK_FORCE_INLINE static void UpdatePipeConjGrad2Solution(
         Nektar::LoopExecutionSetStreamID(streamID);
 
         // The padding is zero, so the whole block is reduced.
-        Nektar::parallel_reduce_sum<ExecSpace, false, 2>(
+        Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 2>(
             0, size,
-            NEKTAR_LAMBDA(const size_t idx, TData *sums) {
+            NEKTAR_LAMBDA(const size_t idx, TData *vals) {
                 const auto r1 = rptr[idx] - alpha * sptr[idx];
                 const auto u1 = uptr[idx] - alpha * qptr[idx];
 
@@ -91,8 +91,8 @@ NEK_FORCE_INLINE static void UpdatePipeConjGrad2Solution(
                 rptr[idx] = r1;
                 uptr[idx] = u1;
 
-                sums[0] += u1 * u1;
-                sums[1] += u1 * r1;
+                vals[0] = u1 * u1;
+                vals[1] = u1 * r1;
             },
             dots);
     }
@@ -133,16 +133,16 @@ NEK_FORCE_INLINE static void UpdatePipeConjGrad2SearchDirection(
         Nektar::LoopExecutionSetStreamID(streamID);
 
         // The padding is zero, so the whole block is reduced.
-        Nektar::parallel_reduce_sum<ExecSpace, false, 1>(
+        Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 1>(
             0, size,
-            NEKTAR_LAMBDA(const size_t idx, TData *sums) {
+            NEKTAR_LAMBDA(const size_t idx, TData *vals) {
                 const auto p1 = beta * pptr[idx] + uptr[idx];
                 const auto s1 = beta * sptr[idx] + wptr[idx];
 
                 pptr[idx] = p1;
                 sptr[idx] = s1;
 
-                sums[0] += p1 * s1;
+                vals[0] = p1 * s1;
             },
             dots);
     }

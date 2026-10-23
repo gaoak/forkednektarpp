@@ -934,6 +934,82 @@ void ddot2Kernel(const unsigned int gridSize, const unsigned int blockSize,
     SYCLQueue::SetEvent(streamID, e);
 }
 
+// Final stage of nsum sums, in one work-group: sum s of the npart partial sums
+// in partial[s * npart, (s + 1) * npart) is written to out[s] if init, added to
+// it otherwise.
+template <bool init, unsigned int nsum, typename TData>
+void reduceSumNKernel(const unsigned int blockSize, const unsigned int streamID,
+                      const unsigned int npart, const TData *partial,
+                      TData *out)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        sycl::local_accessor<TData, 1> scratchpad(
+            sycl::range<1>(nsum * blockSize), cgh);
+        cgh.parallel_for(
+            sycl::nd_range<1>(blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
+                NektarSpaces::Device::warpSize) {
+                auto scratch =
+                    scratchpad
+                        .template get_multi_ptr<sycl::access::decorated::yes>()
+                        .get();
+                const size_t lid = indx.get_local_id(0);
+
+                if (init && lid == 0)
+                {
+                    for (unsigned int s = 0; s < nsum; ++s)
+                    {
+                        out[s] = 0.0;
+                    }
+                }
+
+                indx.barrier(sycl::access::fence_space::local_space);
+
+                TData tmp[nsum] = {};
+                for (size_t i = lid; i < npart; i += blockSize)
+                {
+                    for (unsigned int s = 0; s < nsum; ++s)
+                    {
+                        tmp[s] += partial[s * npart + i];
+                    }
+                }
+                for (unsigned int s = 0; s < nsum; ++s)
+                {
+                    scratch[s * blockSize + lid] = tmp[s];
+                }
+
+                indx.barrier(sycl::access::fence_space::local_space);
+
+                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
+                while (n > 0)
+                {
+                    if (blockSize > n && lid < n && lid + n < blockSize)
+                    {
+                        for (unsigned int s = 0; s < nsum; ++s)
+                        {
+                            scratch[s * blockSize + lid] +=
+                                scratch[s * blockSize + lid + n];
+                        }
+                    }
+                    indx.barrier(sycl::access::fence_space::local_space);
+                    n /= 2;
+                }
+
+                if (lid == 0)
+                {
+                    for (unsigned int s = 0; s < nsum; ++s)
+                    {
+                        atomic_add<NektarSpaces::LocalScope>(
+                            out + s, scratch[s * blockSize]);
+                    }
+                }
+            });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
 template <bool init, typename TData>
 void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const unsigned int streamID, const size_t nsize,
@@ -1444,7 +1520,8 @@ inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1484,7 +1561,8 @@ inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1523,7 +1601,8 @@ inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1566,7 +1645,8 @@ inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1605,7 +1685,8 @@ inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1648,7 +1729,8 @@ inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1688,7 +1770,8 @@ inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1728,7 +1811,8 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1775,7 +1859,8 @@ inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     // Two partial sums per work-group, which internalReductionBufferSize
     // holds.
@@ -1788,9 +1873,7 @@ inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
     ddot2Kernel<true>(gridSize, blockSize, streamID, nsize, mask, x, y, z,
                       buffer);
-    reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer, out);
-    reduceSumKernel<init>(1, gridSize, streamID, gridSize, buffer + gridSize,
-                          out + 1);
+    reduceSumNKernel<init, 2>(blockSize, streamID, gridSize, buffer, out);
 #endif
 }
 
@@ -1819,7 +1902,8 @@ inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1859,7 +1943,8 @@ inline void l1normKernel(const size_t nsize, const uint8_t *mask,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1898,7 +1983,8 @@ inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1938,7 +2024,8 @@ inline void l2normKernel(const size_t nsize, const uint8_t *mask,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -1978,7 +2065,8 @@ inline void lpnormKernel(const size_t nsize, const unsigned int p,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -2019,7 +2107,8 @@ inline void lpnormKernel(const size_t nsize, const unsigned int p,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -2059,7 +2148,8 @@ inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -2102,7 +2192,8 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
     SYCLQueue::SetEvent(streamID, e);
 #else
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {

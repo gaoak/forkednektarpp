@@ -57,252 +57,47 @@ inline void parallel_for(const size_t begin, const size_t end,
     SYCLQueue::SetEvent(streamID, e);
 }
 
-// Reduction kernels.
-template <bool init, typename TData, typename Functor>
-void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const size_t begin, const size_t end, TData *buffer,
-                     const Functor &functor)
+// Atomic combination of val into *dest by a reduction.
+template <typename Reduction>
+NEK_DEVICE_INLINE static void reduce_atomic(
+    typename Reduction::value_type *const dest,
+    const typename Reduction::value_type val)
 {
-    const unsigned int streamID = internalLoopExecutionStreamID;
-    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLDefaultExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
-                                                                cgh);
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
-                NektarSpaces::Device::warpSize) {
-                auto scratch =
-                    scratchpad
-                        .template get_multi_ptr<sycl::access::decorated::yes>()
-                        .get();
-                const size_t lid = indx.get_local_id(0);
-                size_t gid       = begin + indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    buffer[indx.get_group(0)] = 0.0;
-                }
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
-
-                TData tmp = 0.0;
-                while (gid < end)
-                {
-                    tmp += functor(gid);
-                    gid += indx.get_global_range(0);
-                }
-                scratch[lid] = tmp;
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
-
-                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
-                while (n > 0)
-                {
-                    if (blockSize > n && lid < n && lid + n < blockSize)
-                    {
-                        scratch[lid] += scratch[lid + n];
-                    }
-#if defined(__ADAPTIVECPP__)
-                    indx.barrier(sycl::access::fence_space::local_space);
-#else
-                    sycl::group_barrier(indx.get_group(),
-                                        sycl::memory_scope::work_group);
-#endif
-                    n /= 2;
-                }
-
-                if (lid == 0)
-                {
-                    atomic_add<NektarSpaces::LocalScope>(
-                        buffer + indx.get_group(0), scratch[0]);
-                }
-            });
-    });
-    SYCLQueue::SetEvent(streamID, e);
+    using TData = typename Reduction::value_type;
+    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+    {
+        atomic_add<NektarSpaces::LocalScope>(dest, val);
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
+    {
+        atomic_max<NektarSpaces::LocalScope>(dest, val);
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
+    {
+        atomic_min<NektarSpaces::LocalScope>(dest, val);
+    }
 }
 
-template <bool init, typename TData, typename Functor>
-void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const size_t begin, const size_t end, TData *buffer,
-                     const Functor &functor)
+// Partial results of nred values per work-group: functor(i, vals) writes those
+// of index i to vals[0, nred), which Reduction combines. Result s of
+// work-group g is in buffer[s * gridSize + g], which is set to the identity
+// first if init.
+template <bool init, typename Reduction, unsigned int nred, typename Functor>
+void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
+                   const size_t begin, const size_t end,
+                   typename Reduction::value_type *buffer,
+                   const Functor &functor)
 {
-    constexpr TData min = std::numeric_limits<TData>::lowest();
+    using TData = typename Reduction::value_type;
 
-    const unsigned int streamID = internalLoopExecutionStreamID;
-    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLDefaultExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
-                                                                cgh);
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
-                NektarSpaces::Device::warpSize) {
-                auto scratch =
-                    scratchpad
-                        .template get_multi_ptr<sycl::access::decorated::yes>()
-                        .get();
-                const size_t lid = indx.get_local_id(0);
-                size_t gid       = begin + indx.get_global_id(0);
+    constexpr TData identity = reduce_identity<Reduction>();
 
-                if (init && lid == 0)
-                {
-                    buffer[indx.get_group(0)] = min;
-                }
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
-
-                TData tmp = min;
-                while (gid < end)
-                {
-                    tmp = sycl::fmax(tmp, functor(gid));
-                    gid += indx.get_global_range(0);
-                }
-                scratch[lid] = tmp;
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
-
-                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
-                while (n > 0)
-                {
-                    if (blockSize > n && lid < n && lid + n < blockSize)
-                    {
-                        scratch[lid] =
-                            sycl::fmax(scratch[lid], scratch[lid + n]);
-                    }
-#if defined(__ADAPTIVECPP__)
-                    indx.barrier(sycl::access::fence_space::local_space);
-#else
-                    sycl::group_barrier(indx.get_group(),
-                                        sycl::memory_scope::work_group);
-#endif
-                    n /= 2;
-                }
-
-                if (lid == 0)
-                {
-                    atomic_max<NektarSpaces::LocalScope>(
-                        buffer + indx.get_group(0), scratch[0]);
-                }
-            });
-    });
-    SYCLQueue::SetEvent(streamID, e);
-}
-
-template <bool init, typename TData, typename Functor>
-void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
-                     const size_t begin, const size_t end, TData *buffer,
-                     const Functor &functor)
-{
-    constexpr TData max = std::numeric_limits<TData>::max();
-
-    const unsigned int streamID = internalLoopExecutionStreamID;
-    sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
-    sycl::event e               = Q.submit([=](sycl::handler &cgh) {
-        setSYCLDefaultExecutionDependency(streamID, cgh);
-        sycl::local_accessor<TData, 1> scratchpad(sycl::range<1>(blockSize),
-                                                                cgh);
-        cgh.parallel_for(
-            sycl::nd_range<1>(gridSize * blockSize, blockSize),
-            [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
-                NektarSpaces::Device::warpSize) {
-                auto scratch =
-                    scratchpad
-                        .template get_multi_ptr<sycl::access::decorated::yes>()
-                        .get();
-                const size_t lid = indx.get_local_id(0);
-                size_t gid       = begin + indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    buffer[indx.get_group(0)] = max;
-                }
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
-
-                TData tmp = max;
-                while (gid < end)
-                {
-                    tmp = sycl::fmin(tmp, functor(gid));
-                    gid += indx.get_global_range(0);
-                }
-                scratch[lid] = tmp;
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
-
-                unsigned int n = NektarSpaces::Device::maximumBlockSize / 2;
-                while (n > 0)
-                {
-                    if (blockSize > n && lid < n && lid + n < blockSize)
-                    {
-                        scratch[lid] =
-                            sycl::fmin(scratch[lid], scratch[lid + n]);
-                    }
-#if defined(__ADAPTIVECPP__)
-                    indx.barrier(sycl::access::fence_space::local_space);
-#else
-                    sycl::group_barrier(indx.get_group(),
-                                        sycl::memory_scope::work_group);
-#endif
-                    n /= 2;
-                }
-
-                if (lid == 0)
-                {
-                    atomic_min<NektarSpaces::LocalScope>(
-                        buffer + indx.get_group(0), scratch[0]);
-                }
-            });
-    });
-    SYCLQueue::SetEvent(streamID, e);
-}
-
-// Partial sums of nsum values per work-group: functor(i, sums) adds those of
-// index i to sums[0, nsum). Sum s of work-group g is in
-// buffer[s * gridSize + g].
-template <unsigned int nsum, typename TData, typename Functor>
-void reduceSumNKernel(const unsigned int gridSize, const unsigned int blockSize,
-                      const size_t begin, const size_t end, TData *buffer,
-                      const Functor &functor)
-{
     const unsigned int streamID = internalLoopExecutionStreamID;
     sycl::queue &Q              = SYCLQueue::GetInstance(streamID);
     sycl::event e               = Q.submit([=](sycl::handler &cgh) {
         setSYCLDefaultExecutionDependency(streamID, cgh);
         sycl::local_accessor<TData, 1> scratchpad(
-            sycl::range<1>(nsum * blockSize), cgh);
+            sycl::range<1>(nred * blockSize), cgh);
         cgh.parallel_for(
             sycl::nd_range<1>(gridSize * blockSize, blockSize),
             [=](sycl::nd_item<1> indx) SYCL_SUBGROUP_SIZE(
@@ -314,11 +109,11 @@ void reduceSumNKernel(const unsigned int gridSize, const unsigned int blockSize,
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = begin + indx.get_global_id(0);
 
-                if (lid == 0)
+                if (init && lid == 0)
                 {
-                    for (unsigned int s = 0; s < nsum; ++s)
+                    for (unsigned int s = 0; s < nred; ++s)
                     {
-                        buffer[s * gridSize + indx.get_group(0)] = 0.0;
+                        buffer[s * gridSize + indx.get_group(0)] = identity;
                     }
                 }
 
@@ -329,13 +124,22 @@ void reduceSumNKernel(const unsigned int gridSize, const unsigned int blockSize,
                                     sycl::memory_scope::work_group);
 #endif
 
-                TData tmp[nsum] = {};
+                TData tmp[nred];
+                for (unsigned int s = 0; s < nred; ++s)
+                {
+                    tmp[s] = identity;
+                }
                 while (gid < end)
                 {
-                    functor(gid, tmp);
+                    TData vals[nred];
+                    functor(gid, vals);
+                    for (unsigned int s = 0; s < nred; ++s)
+                    {
+                        tmp[s] = reduce_join<Reduction>(tmp[s], vals[s]);
+                    }
                     gid += indx.get_global_range(0);
                 }
-                for (unsigned int s = 0; s < nsum; ++s)
+                for (unsigned int s = 0; s < nred; ++s)
                 {
                     scratch[s * blockSize + lid] = tmp[s];
                 }
@@ -352,10 +156,12 @@ void reduceSumNKernel(const unsigned int gridSize, const unsigned int blockSize,
                 {
                     if (blockSize > n && lid < n && lid + n < blockSize)
                     {
-                        for (unsigned int s = 0; s < nsum; ++s)
+                        for (unsigned int s = 0; s < nred; ++s)
                         {
-                            scratch[s * blockSize + lid] +=
-                                scratch[s * blockSize + lid + n];
+                            scratch[s * blockSize + lid] =
+                                reduce_join<Reduction>(
+                                    scratch[s * blockSize + lid],
+                                    scratch[s * blockSize + lid + n]);
                         }
                     }
 #if defined(__ADAPTIVECPP__)
@@ -369,11 +175,11 @@ void reduceSumNKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 if (lid == 0)
                 {
-                    for (unsigned int s = 0; s < nsum; ++s)
+                    for (unsigned int s = 0; s < nred; ++s)
                     {
-                        atomic_add<NektarSpaces::LocalScope>(
-                            buffer + s * gridSize + indx.get_group(0),
-                            scratch[s * blockSize]);
+                        reduce_atomic<Reduction>(buffer + s * gridSize +
+                                                     indx.get_group(0),
+                                                 scratch[s * blockSize]);
                     }
                 }
             });
@@ -394,56 +200,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
-
-    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
-    {
-        deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalReductionBufferSize, streamID);
-    }
-
-    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
-    {
-        TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-        reduceSumKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
-        reduceSumKernel<init>(1, gridSize, 0, gridSize, out,
-                              [=](const size_t i) { return buffer[i]; });
-    }
-    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
-    {
-        TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-        reduceMaxKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
-        reduceMaxKernel<init>(1, gridSize, 0, gridSize, out,
-                              [=](const size_t i) { return buffer[i]; });
-    }
-    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
-    {
-        TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-        reduceMinKernel<true>(gridSize, blockSize, begin, end, buffer, functor);
-        reduceMinKernel<init>(1, gridSize, 0, gridSize, out,
-                              [=](const size_t i) { return buffer[i]; });
-    }
-}
-
-// Parallel sum of nsum values: functor(i, sums) adds those of index i to
-// sums[0, nsum). They are written to out[0, nsum) if init, added to it
-// otherwise. At most 4 sums, the partial sums the reduction scratch holds.
-template <
-    typename ExecSpace, bool init, unsigned int nsum, typename TData,
-    typename Functor,
-    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
-        Enable = true>
-inline void parallel_reduce_sum(const size_t begin, const size_t end,
-                                const Functor &functor, TData *out)
-{
-    static_assert(nsum <= 4, "parallel_reduce_sum: at most 4 sums.");
-
-    const unsigned int streamID  = internalLoopExecutionStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
-
-    ASSERTL0(nsum * gridSize * sizeof(TData) <= internalReductionBufferSize,
-             "Too many sums for the reduction buffer.");
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -452,13 +210,12 @@ inline void parallel_reduce_sum(const size_t begin, const size_t end,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceSumNKernel<nsum>(gridSize, blockSize, begin, end, buffer, functor);
-    for (unsigned int s = 0; s < nsum; ++s)
-    {
-        const TData *partial = buffer + s * gridSize;
-        reduceSumKernel<init>(1, gridSize, 0, gridSize, out + s,
-                              [=](const size_t i) { return partial[i]; });
-    }
+    reduceNKernel<true, Reduction, 1>(
+        gridSize, blockSize, begin, end, buffer,
+        [=](const size_t i, TData *vals) { vals[0] = functor(i); });
+    reduceNKernel<init, Reduction, 1>(
+        1, gridSize, 0, gridSize, out,
+        [=](const size_t i, TData *vals) { vals[0] = buffer[i]; });
 }
 
 // Parallel reduction launchers with device-to-host copy.
@@ -486,6 +243,49 @@ inline void parallel_reduce(const size_t begin, const size_t end,
                                sizeof(TData), streamID);
 
     out = *(TData *)internalHostBuffer;
+}
+
+// Parallel reduction of nred values without device-to-host copy:
+// functor(i, vals) writes those of index i to vals[0, nred), which Reduction
+// combines into out[0, nred), together with the values already there unless
+// init. At most 4 values, the partial results the reduction scratch holds.
+template <
+    typename ExecSpace, bool init, typename Reduction, unsigned int nred,
+    typename Functor,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void parallel_reduce(const size_t begin, const size_t end,
+                            const Functor &functor,
+                            typename Reduction::value_type *out)
+{
+    using TData = typename Reduction::value_type;
+
+    static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
+
+    const unsigned int streamID  = internalLoopExecutionStreamID;
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
+
+    ASSERTL0(nred * gridSize * sizeof(TData) <= internalReductionBufferSize,
+             "Too many values for the reduction buffer.");
+
+    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
+    {
+        deviceMalloc(&internalMemoryBufferMap[streamID],
+                     internalReductionBufferSize, streamID);
+    }
+
+    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
+    reduceNKernel<true, Reduction, nred>(gridSize, blockSize, begin, end,
+                                         buffer, functor);
+    reduceNKernel<init, Reduction, nred>(
+        1, blockSize, 0, gridSize, out, [=](const size_t i, TData *vals) {
+            for (unsigned int s = 0; s < nred; ++s)
+            {
+                vals[s] = buffer[s * gridSize + i];
+            }
+        });
 }
 
 } // namespace Nektar

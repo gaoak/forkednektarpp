@@ -1068,6 +1068,64 @@ __global__ __launch_bounds__(blockSize) void ddot2Kernel(
     }
 }
 
+// Final stage of nsum sums, launched with one thread block: sum s of the npart
+// partial sums in partial[s * npart, (s + 1) * npart) is written to out[s] if
+// init, added to it otherwise.
+template <bool init, unsigned int nsum, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void reduceSumNKernel(
+    const unsigned int npart, const TData *partial, TData *out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    auto block    = cg::this_thread_block();
+    auto warp     = cg::tiled_partition<warpsize>(block);
+    TData v[nsum] = {};
+
+    if constexpr (init)
+    {
+        if (block.thread_rank() == 0)
+        {
+            for (unsigned int s = 0; s < nsum; ++s)
+            {
+                out[s] = 0.0;
+            }
+        }
+    }
+
+    block.sync();
+
+    for (unsigned int i = block.thread_rank(); i < npart; i += blockDim.x)
+    {
+        for (unsigned int s = 0; s < nsum; ++s)
+        {
+            v[s] += partial[s * npart + i];
+        }
+    }
+
+    warp.sync();
+    for (unsigned int s = 0; s < nsum; ++s)
+    {
+        for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+        {
+            v[s] += warp.shfl_down(v[s], offset);
+        }
+    }
+
+    // use atomicAdd to sum over warps
+    if (warp.thread_rank() == 0)
+    {
+        for (unsigned int s = 0; s < nsum; ++s)
+        {
+#if defined(NEKTAR_ENABLE_CUDA)
+            atomicAdd_block(&out[s], v[s]);
+#elif defined(NEKTAR_ENABLE_HIP)
+            atomicAdd(&out[s], v[s]);
+#endif
+        }
+    }
+}
+
 template <bool init, typename TData,
           unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
 __global__ __launch_bounds__(blockSize) void l1normKernel(const size_t nsize,
@@ -2029,7 +2087,8 @@ inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2059,7 +2118,8 @@ inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
                             const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2089,7 +2149,8 @@ inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2119,7 +2180,8 @@ inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
                             const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2149,7 +2211,8 @@ inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2179,7 +2242,8 @@ inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
                             const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2209,7 +2273,8 @@ inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
                        TData *out, const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2239,7 +2304,8 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                        const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2273,7 +2339,8 @@ inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
                         const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2293,10 +2360,8 @@ inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
     ddot2Kernel<true>
         <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, z, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
-    CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init>
-        <<<1, blockSize, 0, stream>>>(gridSize, buffer + gridSize, out + 1);
+    reduceSumNKernel<init, 2>
+        <<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2308,7 +2373,8 @@ inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
                          const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2338,7 +2404,8 @@ inline void l1normKernel(const size_t nsize, const uint8_t *mask,
                          const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2368,7 +2435,8 @@ inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
                          const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2398,7 +2466,8 @@ inline void l2normKernel(const size_t nsize, const uint8_t *mask,
                          const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2429,7 +2498,8 @@ inline void lpnormKernel(const size_t nsize, const unsigned int p,
                          const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2459,7 +2529,8 @@ inline void lpnormKernel(const size_t nsize, const unsigned int p,
                          const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2489,7 +2560,8 @@ inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2519,7 +2591,8 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
                            const unsigned int streamID = 0)
 {
     const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::Device::maximumBlockSize;
+    const unsigned int gridSize =
+        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);

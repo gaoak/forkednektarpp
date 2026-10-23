@@ -153,13 +153,13 @@ void internalZeroPadding(LibUtilities::Field<TData, TFieldState> &x)
 }
 
 // Assert that the padding of each block of x is zero, as the reductions
-// summing over whole blocks assume. Debug builds only, since it reads x on the
-// host.
+// summing over whole blocks assume. Full-debug builds only, since it reads x on
+// the host.
 template <typename TData, FieldState TFieldState>
 void internalAssertZeroPadding(
     [[maybe_unused]] LibUtilities::Field<TData, TFieldState> &x)
 {
-#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
+#if defined(NEKTAR_FULLDEBUG)
     using NektarSpaces::HostSpace;
 
     for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
@@ -172,7 +172,7 @@ void internalAssertZeroPadding(
             block.GetNumComponents() * block.GetNumHomoModes();
         for (size_t i = 0; i < ncomp * compSize; ++i)
         {
-            ASSERTL1(mask[i % compSize] || ptr[i] == TData(0),
+            ASSERTL2(mask[i % compSize] || ptr[i] == TData(0),
                      "Math - Padding of " + x.GetName() + " is not zero.");
         }
     }

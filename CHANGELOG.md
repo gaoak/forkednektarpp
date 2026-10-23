@@ -105,6 +105,7 @@ v5.11.0
 - Fix hash_combine, whose combine step made related integer keys collide, for example (b, 64) and (b + 1, 1); each step now mixes the combined value, so data-warehouse keys made from a block index and an interleave width no longer return another block's data on a 64-wide back-end (!2857)
 - Fix the redesign IDR(s) solver testing convergence of the residual updated after the minimal-residual step only after the next sweep of intermediate steps; name the stream of the device Math reductions (Math::internalReductionStreamID); use static_assert instead of BOOST_STATIC_ASSERT_MSG in Comm (!2860)
 - Multiply a Neumann or Robin boundary condition read from FILE by its VALUE expression when both are given, as was already done for Dirichlet conditions (!2862)
+- Generalise multi-variable parallel_reduce (!2869)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
