@@ -110,6 +110,7 @@ v5.11.0
 - Give each HIP stream its own hipBLAS handle, so concurrent per-block BLAS calls no longer share a workspace; this fixes the redesign GMRES, FGMRES and GCR solvers stalling on HIP on meshes with several element types (!2873)
 - Add a cuBLASLt-based `GeamStridedBatched` for the CUDA back-end (cuBLAS and MAGMA), use it for the large-`npts` interleave/deinterleave on CUDA as on HIP, and replace the workspace fallback kernels with a tiled batched-transpose kernel used by SYCL (!2874)
 - Replace the per-operation HIP/CUDA and SYCL Math reduction kernels by generic single- and multi-output reduction kernels, and remove the unused Math::lpnorm (!2875)
+- Remove the shared memory bank conflicts of the device interleave/deinterleave by padding the shared memory row stride to an odd length, and implement both through a single batched in-place transpose kernel (!2877)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
