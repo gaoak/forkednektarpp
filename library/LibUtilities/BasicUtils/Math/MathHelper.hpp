@@ -183,14 +183,6 @@ public:
         M &mask, T &, const std::string &execSpace = "");
 
     template <typename T>
-    LIB_MATH_EXPORT typename T::value_type lpnorm(
-        const unsigned int p, T &x, const std::string &execSpace = "");
-
-    template <typename M, typename T>
-    LIB_MATH_EXPORT typename T::value_type lpnorm(
-        const unsigned int p, M &mask, T &x, const std::string &execSpace = "");
-
-    template <typename T>
     LIB_MATH_EXPORT typename T::value_type linfnorm(
         T &x, const std::string &execSpace = "");
 

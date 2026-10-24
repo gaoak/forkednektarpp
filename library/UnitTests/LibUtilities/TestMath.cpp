@@ -523,29 +523,6 @@ BOOST_FIXTURE_TEST_CASE(l2norm, TestMath<double>)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(lpnorm, TestMath<double>)
-{
-    Configure();
-    SetTestCase();
-
-    for (unsigned int p = 1; p < 4; p++)
-    {
-        // std results
-        double out = TestMath<double>::lpnorm(p);
-
-        // Backend results
-        double h_out = m_math.lpnorm(p, *m_in1);
-
-        // Check results
-        BOOST_TEST(fabs(h_out - out) < 5.0E-09);
-        boost::test_tools::output_test_stream output;
-        {
-            std::cout << "Backend = " << std::sqrt(h_out) << " L" << p
-                      << "norm = " << std::sqrt(out) << std::endl;
-        }
-    }
-}
-
 BOOST_FIXTURE_TEST_CASE(linfnorm, TestMath<double>)
 {
     Configure();
