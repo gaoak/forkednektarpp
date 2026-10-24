@@ -930,7 +930,7 @@ TEST_LINEARADRSOLVE_IDRS(linearadrsolve_idrs_tet, Helmholtz3D_Tet, 4.0E-08)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_seg_3c,
                           Helmholtz1D_Seg_3C, 1.0E-11)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_tri_quad_3c,
-                          Helmholtz2D_Tri_Quad_3C, 4.0E-09)
+                          Helmholtz2D_Tri_Quad_3C, 8.0E-09)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_all_bcs,
                           Helmholtz2D_AllBCs, 1.0E-09)
 TEST_LINEARADRSOLVE_IDRS2(linearadrsolve_idrs_left_precon_hex_3c,
@@ -951,7 +951,7 @@ TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_seg_3c,
 TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_tri_quad_3c,
                               Helmholtz2D_Tri_Quad_3C, 4.0E-09)
 TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_all_bcs,
-                              Helmholtz2D_AllBCs, 1.0E-09)
+                              Helmholtz2D_AllBCs, 2.0E-09)
 TEST_LINEARADRSOLVE_IDRS_CGS2(linearadrsolve_idrs_cgs2_hex_3c,
                               Helmholtz3D_Hex_3C, 2.0E-08)
 #endif

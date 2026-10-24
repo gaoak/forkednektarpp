@@ -117,7 +117,7 @@ NEK_DEVICE_INLINE static void reduce_atomic(
 // block b is in buffer[s * gridDim.x + b], which is set to the identity first
 // if init.
 template <bool init, typename Reduction, unsigned int nred, typename Functor,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+          unsigned int blockSize = NektarSpaces::Device::reductionBlockSize()>
 __global__ __launch_bounds__(blockSize) void reduceNKernel(
     const size_t begin, const size_t end,
     typename Reduction::value_type *buffer, const Functor functor)
@@ -194,9 +194,9 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     using TData = typename Reduction::value_type;
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
+        NektarSpaces::Device::reductionGridSize(end - begin);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -266,9 +266,9 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
+        NektarSpaces::Device::reductionGridSize(end - begin);
 
     ASSERTL0(nred * gridSize * sizeof(TData) <= internalReductionBufferSize,
              "Too many values for the reduction buffer.");

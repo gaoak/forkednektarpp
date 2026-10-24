@@ -43,6 +43,34 @@
 namespace Nektar::Math
 {
 
+// The vecSize entries of x from vecSize * tid in one load, for float or
+// double.
+template <typename TData>
+NEK_DEVICE_INLINE static auto vecLoad(const TData *x, const size_t tid)
+{
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        return reinterpret_cast<const float4 *>(x)[tid];
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        return reinterpret_cast<const double2 *>(x)[tid];
+    }
+}
+
+// The vecSize mask entries matching a vecLoad of TData.
+template <typename TData>
+using VecMask =
+    std::conditional_t<std::is_same_v<TData, float>, uchar4, uchar2>;
+
+// The vecSize entries of mask matching vecLoad of TData at tid, in one load.
+template <typename TData>
+NEK_DEVICE_INLINE static VecMask<TData> vecLoadMask(const uint8_t *mask,
+                                                    const size_t tid)
+{
+    return reinterpret_cast<const VecMask<TData> *>(mask)[tid];
+}
+
 __device__ inline float4 &operator+=(float4 &a, const float4 b)
 {
     a.x += b.x;
@@ -410,1322 +438,601 @@ __global__ __launch_bounds__(blockSize) void daxpbypczKernel(
     }
 }
 
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceSumKernel(const size_t nsize,
-                                                             const TData *x,
-                                                             TData *out)
+// Reductions of reduceKernel.
+enum class ReduceOp
 {
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
+    Sum,
+    Max,
+    Min,
+    AbsMax
+};
 
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
+// Identity of a reduction.
+template <ReduceOp op, typename TData>
+NEK_HOSTDEVICE_INLINE constexpr TData reduceIdentity()
+{
+    if constexpr (op == ReduceOp::Sum)
     {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
+        return 0;
     }
+    else if constexpr (op == ReduceOp::Max)
+    {
+        return std::numeric_limits<TData>::lowest();
+    }
+    else if constexpr (op == ReduceOp::Min)
+    {
+        return std::numeric_limits<TData>::max();
+    }
+    else if constexpr (op == ReduceOp::AbsMax)
+    {
+        return 0;
+    }
+}
 
-    block.sync();
+// Atomic combination of val into *dest by a reduction, within a thread block.
+template <ReduceOp op, typename TData>
+NEK_DEVICE_INLINE static void reduceAtomic(TData *const dest, const TData val)
+{
+    if constexpr (op == ReduceOp::Sum)
+    {
+        atomic_add<NektarSpaces::LocalScope>(dest, val);
+    }
+    else if constexpr (op == ReduceOp::Max)
+    {
+        atomic_max<NektarSpaces::LocalScope>(dest, val);
+    }
+    else if constexpr (op == ReduceOp::Min)
+    {
+        atomic_min<NektarSpaces::LocalScope>(dest, val);
+    }
+    else if constexpr (op == ReduceOp::AbsMax)
+    {
+        atomic_max<NektarSpaces::LocalScope>(dest, val);
+    }
+}
 
+// Transforms of the entries reduceKernel reduces.
+template <typename TData> struct IdentityOp
+{
+    NEK_DEVICE_INLINE TData operator()(const TData x)
+    {
+        return x;
+    }
+};
+
+template <typename TData> struct AbsOp
+{
+    NEK_DEVICE_INLINE TData operator()(const TData x)
+    {
+        return std::abs(x);
+    }
+};
+
+template <typename TData> struct SquareOp
+{
+    NEK_DEVICE_INLINE TData operator()(const TData x)
+    {
+        return x * x;
+    }
+};
+
+template <typename TData> struct MultiplyOp
+{
+    NEK_DEVICE_INLINE TData operator()(const TData x, const TData y)
+    {
+        return x * y;
+    }
+};
+
+// Transforms of the entries reduceNKernel reduces, writing value s of an entry
+// to vals[s].
+template <typename TData> struct IdentityEachOp
+{
+    template <typename... TIn>
+    NEK_DEVICE_INLINE void operator()(TData *vals, const TIn... x)
+    {
+        unsigned int s = 0;
+        ((vals[s++] = x), ...);
+    }
+};
+
+template <typename TData> struct MultiplyFirstOp
+{
+    template <typename... TIn>
+    NEK_DEVICE_INLINE void operator()(TData *vals, const TData x,
+                                      const TIn... y)
+    {
+        unsigned int s = 0;
+        ((vals[s++] = x * y), ...);
+    }
+};
+
+// Combination of two values by a reduction.
+template <ReduceOp op, typename TData>
+NEK_DEVICE_INLINE static TData reduceJoin(const TData a, const TData b)
+{
+    if constexpr (op == ReduceOp::Sum)
+    {
+        return a + b;
+    }
+    else if constexpr (op == ReduceOp::Max)
+    {
+        return std::max(a, b);
+    }
+    else if constexpr (op == ReduceOp::Min)
+    {
+        return std::min(a, b);
+    }
+    else if constexpr (op == ReduceOp::AbsMax)
+    {
+        return std::max(std::abs(a), std::abs(b));
+    }
+}
+
+// Combination of v by reduction op with TransformOp<TData>() of each lane of
+// the vecLoad results xv.
+template <ReduceOp op, template <typename> typename TransformOp, typename TData,
+          typename... TVec>
+NEK_DEVICE_INLINE static TData vecReduceJoin(const TData v, const TVec... xv)
+{
     if constexpr (std::is_same_v<TData, float>)
     {
-        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            v4 += reinterpret_cast<const float4 *>(x)[tid];
-        }
-        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
+        return reduceJoin<op>(
+            v, reduceJoin<op>(reduceJoin<op>(TransformOp<TData>()(xv.x...),
+                                             TransformOp<TData>()(xv.y...)),
+                              reduceJoin<op>(TransformOp<TData>()(xv.z...),
+                                             TransformOp<TData>()(xv.w...))));
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            v2 += reinterpret_cast<const double2 *>(x)[tid];
-        }
-        v = v2.x + v2.y; // accumulate thread sums in v
-    }
-    else
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-        {
-            v += x[tid];
-        }
-    }
-
-    // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
-    {
-        size_t tid = nsize - 1u - grid.thread_rank();
-        v += x[tid];
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
+        return reduceJoin<op>(v, reduceJoin<op>(TransformOp<TData>()(xv.x...),
+                                                TransformOp<TData>()(xv.y...)));
     }
 }
 
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceSumKernel(
-    const size_t nsize, const uint8_t *mask, const TData *x, TData *out)
+// Combination of v[0, nred) by reduction op with the values
+// TransformOp<TData>()(vals, x...) writes to vals[0, nred).
+template <ReduceOp op, unsigned int nred,
+          template <typename> typename TransformOp, typename TData,
+          typename... TIn>
+NEK_DEVICE_INLINE static void reduceNJoin(TData *v, const TIn... x)
 {
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
+    TData vals[nred];
+    TransformOp<TData>()(vals, x...);
+    for (unsigned int s = 0; s < nred; ++s)
     {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v += mask[tid] * x[tid];
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
+        v[s] = reduceJoin<op>(v[s], vals[s]);
     }
 }
 
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceMaxKernel(const size_t nsize,
-                                                             const TData *x,
-                                                             TData *out)
+// As reduceNJoin, with each lane of the vecLoad results xv.
+template <ReduceOp op, unsigned int nred,
+          template <typename> typename TransformOp, typename TData,
+          typename... TVec>
+NEK_DEVICE_INLINE static void vecReduceNJoin(TData *v, const TVec... xv)
 {
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData min             = std::numeric_limits<TData>::lowest();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = min;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = min;
-        }
-    }
-
-    block.sync();
-
     if constexpr (std::is_same_v<TData, float>)
     {
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
+        TData a[nred], b[nred], c[nred], d[nred];
+        TransformOp<TData>()(a, xv.x...);
+        TransformOp<TData>()(b, xv.y...);
+        TransformOp<TData>()(c, xv.z...);
+        TransformOp<TData>()(d, xv.w...);
+        for (unsigned int s = 0; s < nred; ++s)
         {
-            const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
-            v               = std::max(v,
-                                       std::max(std::max(v4.x, v4.y), std::max(v4.z, v4.w)));
-        }
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
-            v                = std::max(v, std::max(v2.x, v2.y));
-        }
-    }
-    else
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-        {
-            v = std::max(v, x[tid]);
-        }
-    }
-
-    // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
-    {
-        size_t tid = nsize - 1u - grid.thread_rank();
-        v          = std::max(v, x[tid]);
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::max(v, warp.shfl_down(v, 32)); // |
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicMax_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicMax(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceMaxKernel(
-    const size_t nsize, const uint8_t *mask, const TData *x, TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData min             = std::numeric_limits<TData>::lowest();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = min;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = min;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v = mask[tid] ? std::max(v, x[tid]) : v;
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::max(v, warp.shfl_down(v, 32)); // |
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicMax_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicMax(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceMinKernel(const size_t nsize,
-                                                             const TData *x,
-                                                             TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData max             = std::numeric_limits<TData>::max();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = max;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = max;
-        }
-    }
-
-    block.sync();
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
-            v               = std::min(v,
-                                       std::min(std::min(v4.x, v4.y), std::min(v4.z, v4.w)));
+            v[s] = reduceJoin<op>(v[s],
+                                  reduceJoin<op>(reduceJoin<op>(a[s], b[s]),
+                                                 reduceJoin<op>(c[s], d[s])));
         }
     }
     else if constexpr (std::is_same_v<TData, double>)
     {
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
+        TData a[nred], b[nred];
+        TransformOp<TData>()(a, xv.x...);
+        TransformOp<TData>()(b, xv.y...);
+        for (unsigned int s = 0; s < nred; ++s)
+        {
+            v[s] = reduceJoin<op>(v[s], reduceJoin<op>(a[s], b[s]));
+        }
+    }
+}
+
+// As vecReduceJoin, over the lanes the vecLoadMask result m selects.
+template <ReduceOp op, template <typename> typename TransformOp, typename TData,
+          typename... TVec>
+NEK_DEVICE_INLINE static TData vecReduceJoinMasked(const TData v,
+                                                   const VecMask<TData> m,
+                                                   const TVec... xv)
+{
+    constexpr TData identity = reduceIdentity<op, TData>();
+
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        return reduceJoin<op>(
+            v,
+            reduceJoin<op>(
+                reduceJoin<op>(m.x ? TransformOp<TData>()(xv.x...) : identity,
+                               m.y ? TransformOp<TData>()(xv.y...) : identity),
+                reduceJoin<op>(m.z ? TransformOp<TData>()(xv.z...) : identity,
+                               m.w ? TransformOp<TData>()(xv.w...)
+                                   : identity)));
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        return reduceJoin<op>(
+            v, reduceJoin<op>(m.x ? TransformOp<TData>()(xv.x...) : identity,
+                              m.y ? TransformOp<TData>()(xv.y...) : identity));
+    }
+}
+
+// TransformOp<TData>()(vals, x...) if m, otherwise the identity of op, in
+// vals[0, nred).
+template <ReduceOp op, unsigned int nred,
+          template <typename> typename TransformOp, typename TData,
+          typename... TIn>
+NEK_DEVICE_INLINE static void maskTransformN(TData *vals, const uint8_t m,
+                                             const TIn... x)
+{
+    TransformOp<TData>()(vals, x...);
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+        vals[s] = m ? vals[s] : reduceIdentity<op, TData>();
+    }
+}
+
+// As vecReduceNJoin, over the lanes the vecLoadMask result m selects.
+template <ReduceOp op, unsigned int nred,
+          template <typename> typename TransformOp, typename TData,
+          typename... TVec>
+NEK_DEVICE_INLINE static void vecReduceNJoinMasked(TData *v,
+                                                   const VecMask<TData> m,
+                                                   const TVec... xv)
+{
+    if constexpr (std::is_same_v<TData, float>)
+    {
+        TData a[nred], b[nred], c[nred], d[nred];
+        maskTransformN<op, nred, TransformOp>(a, m.x, xv.x...);
+        maskTransformN<op, nred, TransformOp>(b, m.y, xv.y...);
+        maskTransformN<op, nred, TransformOp>(c, m.z, xv.z...);
+        maskTransformN<op, nred, TransformOp>(d, m.w, xv.w...);
+        for (unsigned int s = 0; s < nred; ++s)
+        {
+            v[s] = reduceJoin<op>(v[s],
+                                  reduceJoin<op>(reduceJoin<op>(a[s], b[s]),
+                                                 reduceJoin<op>(c[s], d[s])));
+        }
+    }
+    else if constexpr (std::is_same_v<TData, double>)
+    {
+        TData a[nred], b[nred];
+        maskTransformN<op, nred, TransformOp>(a, m.x, xv.x...);
+        maskTransformN<op, nred, TransformOp>(b, m.y, xv.y...);
+        for (unsigned int s = 0; s < nred; ++s)
+        {
+            v[s] = reduceJoin<op>(v[s], reduceJoin<op>(a[s], b[s]));
+        }
+    }
+}
+
+// Partial result of reduction op over TransformOp<TData>()(x[i]...) per
+// thread block, in out[b] for block b, which is set to the identity first if
+// init.
+template <bool init, ReduceOp op, template <typename> typename TransformOp,
+          typename TData,
+          unsigned int blockSize = NektarSpaces::Device::reductionBlockSize(),
+          typename... TIn>
+__global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
+                                                          TData *out,
+                                                          const TIn *...x)
+{
+    static_assert((std::is_same_v<TIn, TData> && ...),
+                  "reduceKernel: inputs of the output type.");
+
+    constexpr TData identity        = reduceIdentity<op, TData>();
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr unsigned int vecSize =
+        std::is_same_v<TData, float> || std::is_same_v<TData, double>
+            ? (16u / sizeof(TData))
+            : 1u;
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<warpsize>(block);
+    TData v    = identity;
+
+    if constexpr (init)
+    {
+        if (block.thread_rank() == 0)
+        {
+            out[block.group_index().x] = identity;
+        }
+    }
+
+    block.sync();
+
+    if constexpr (vecSize > 1u)
+    {
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecSize;
              tid += grid.size())
         {
-            const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
-            v                = std::min(v, std::min(v2.x, v2.y));
+            v = vecReduceJoin<op, TransformOp>(v, vecLoad(x, tid)...);
         }
     }
     else
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v = std::min(v, x[tid]);
+            v = reduceJoin<op>(v, TransformOp<TData>()(x[tid]...));
         }
     }
 
     // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
+    if (grid.thread_rank() < nsize % vecSize)
     {
         size_t tid = nsize - 1u - grid.thread_rank();
-        v          = std::min(v, x[tid]);
+        v          = reduceJoin<op>(v, TransformOp<TData>()(x[tid]...));
     }
 
     warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::min(v, warp.shfl_down(v, 32)); // |
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
-#endif
+#pragma unroll
+    for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+    {
+        v = reduceJoin<op>(v, warp.shfl_down(v, offset));
+    }
 
+    // use atomics to combine over warps
     if (warp.thread_rank() == 0)
     {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicMin_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicMin(&out[block.group_index().x], v);
-#endif
+        reduceAtomic<op>(&out[block.group_index().x], v);
     }
 }
 
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceMinKernel(
-    const size_t nsize, const uint8_t *mask, const TData *x, TData *out)
+// As reduceKernel, over the entries mask selects.
+template <bool init, ReduceOp op, template <typename> typename TransformOp,
+          typename TData,
+          unsigned int blockSize = NektarSpaces::Device::reductionBlockSize(),
+          typename... TIn>
+__global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
+                                                          const uint8_t *mask,
+                                                          TData *out,
+                                                          const TIn *...x)
 {
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
+    static_assert((std::is_same_v<TIn, TData> && ...),
+                  "reduceKernel: inputs of the output type.");
 
-    constexpr TData max             = std::numeric_limits<TData>::max();
+    constexpr TData identity        = reduceIdentity<op, TData>();
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr unsigned int vecSize =
+        std::is_same_v<TData, float> || std::is_same_v<TData, double>
+            ? (16u / sizeof(TData))
+            : 1u;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = max;
+    TData v    = identity;
 
     if constexpr (init)
     {
         if (block.thread_rank() == 0)
         {
-            out[block.group_index().x] = max;
+            out[block.group_index().x] = identity;
         }
     }
 
     block.sync();
 
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
+    if constexpr (vecSize > 1u)
     {
-        v = mask[tid] ? std::min(v, x[tid]) : v;
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::min(v, warp.shfl_down(v, 32)); // |
-    v = std::min(v, warp.shfl_down(v, 16)); // |
-    v = std::min(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::min(v, warp.shfl_down(v, 2));  // |
-    v = std::min(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicMin_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicMin(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void ddotKernel(const size_t nsize,
-                                                        const TData *x,
-                                                        const TData *y,
-                                                        TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
+        for (size_t tid = grid.thread_rank(); tid < nsize / vecSize;
              tid += grid.size())
         {
-            const float4 x4 = reinterpret_cast<const float4 *>(x)[tid];
-            const float4 y4 = reinterpret_cast<const float4 *>(y)[tid];
-            v4 += x4 * y4;
+            v = vecReduceJoinMasked<op, TransformOp>(
+                v, vecLoadMask<TData>(mask, tid), vecLoad(x, tid)...);
         }
-        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 x2 = reinterpret_cast<const double2 *>(x)[tid];
-            const double2 y2 = reinterpret_cast<const double2 *>(y)[tid];
-            v2 += x2 * y2;
-        }
-        v = v2.x + v2.y; // accumulate thread sums in v
     }
     else
     {
         for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
         {
-            v += x[tid] * y[tid];
+            v = mask[tid] ? reduceJoin<op>(v, TransformOp<TData>()(x[tid]...))
+                          : v;
         }
     }
 
     // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
+    if (grid.thread_rank() < nsize % vecSize)
     {
         size_t tid = nsize - 1u - grid.thread_rank();
-        v += x[tid] * y[tid];
+        v = mask[tid] ? reduceJoin<op>(v, TransformOp<TData>()(x[tid]...)) : v;
     }
 
     warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
+#pragma unroll
+    for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+    {
+        v = reduceJoin<op>(v, warp.shfl_down(v, offset));
+    }
 
-    // use atomicAdd to sum over warps
+    // use atomics to combine over warps
     if (warp.thread_rank() == 0)
     {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
+        reduceAtomic<op>(&out[block.group_index().x], v);
     }
 }
 
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void ddotKernel(const size_t nsize,
-                                                        const uint8_t *mask,
-                                                        const TData *x,
-                                                        const TData *y,
-                                                        TData *out)
+// Partial results of nred reductions op per thread block, of the values
+// TransformOp<TData>()(vals, x[i]...) writes to vals[0, nred) for each
+// entry i: result s of block b is in out[s * gridDim.x + b], which is set to
+// the identity first if init.
+template <bool init, ReduceOp op, unsigned int nred,
+          template <typename> typename TransformOp, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::reductionBlockSize(),
+          typename... TIn>
+__global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
+                                                           TData *out,
+                                                           const TIn *...x)
 {
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
+    static_assert((std::is_same_v<TIn, TData> && ...),
+                  "reduceNKernel: inputs of the output type.");
 
+    constexpr TData identity        = reduceIdentity<op, TData>();
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    // constexpr unsigned int vecsize  = (16u / sizeof(TData));
+    constexpr unsigned int vecSize =
+        std::is_same_v<TData, float> || std::is_same_v<TData, double>
+            ? (16u / sizeof(TData))
+            : 1u;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
+    TData v[nred];
+
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+        v[s] = identity;
+    }
 
     if constexpr (init)
     {
         if (block.thread_rank() == 0)
         {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v += mask[tid] * x[tid] * y[tid];
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void ddot2Kernel(
-    const size_t nsize, const uint8_t *mask, const TData *x, const TData *y,
-    const TData *z, TData *out)
-{
-    // As ddotKernel, with two sums: (x, y) per block in out[0, gridDim.x) and
-    // (x, z) in out[gridDim.x, 2 gridDim.x).
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData vy   = 0;
-    TData vz   = 0;
-
-    TData *outy = out + block.group_index().x;
-    TData *outz = outy + gridDim.x;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            *outy = 0.0;
-            *outz = 0.0;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        const TData xi = mask ? mask[tid] * x[tid] : x[tid];
-        vy += xi * y[tid];
-        vz += xi * z[tid];
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_HIP)
-    vy += warp.shfl_down(vy, 32); // |
-    vz += warp.shfl_down(vz, 32); // |
-#endif
-    vy += warp.shfl_down(vy, 16); // |
-    vz += warp.shfl_down(vz, 16); // |
-    vy += warp.shfl_down(vy, 8);  // |
-    vz += warp.shfl_down(vz, 8);  // | warp level
-    vy += warp.shfl_down(vy, 4);  // | reduce here
-    vz += warp.shfl_down(vz, 4);  // |
-    vy += warp.shfl_down(vy, 2);  // |
-    vz += warp.shfl_down(vz, 2);  // |
-    vy += warp.shfl_down(vy, 1);  // |
-    vz += warp.shfl_down(vz, 1);  // |
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(outy, vy);
-        atomicAdd_block(outz, vz);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(outy, vy);
-        atomicAdd(outz, vz);
-#endif
-    }
-}
-
-// Final stage of nsum sums, launched with one thread block: sum s of the npart
-// partial sums in partial[s * npart, (s + 1) * npart) is written to out[s] if
-// init, added to it otherwise.
-template <bool init, unsigned int nsum, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void reduceSumNKernel(
-    const unsigned int npart, const TData *partial, TData *out)
-{
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto block    = cg::this_thread_block();
-    auto warp     = cg::tiled_partition<warpsize>(block);
-    TData v[nsum] = {};
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            for (unsigned int s = 0; s < nsum; ++s)
+            for (unsigned int s = 0; s < nred; ++s)
             {
-                out[s] = 0.0;
+                out[s * gridDim.x + block.group_index().x] = identity;
             }
         }
     }
 
     block.sync();
 
-    for (unsigned int i = block.thread_rank(); i < npart; i += blockDim.x)
+    // Vector loads need every input 16-byte aligned, which the final stage's
+    // partial results past the first sum need not be.
+    size_t nvec = 0;
+    if constexpr (vecSize > 1u)
     {
-        for (unsigned int s = 0; s < nsum; ++s)
+        if (((reinterpret_cast<uintptr_t>(x) % 16u == 0u) && ...))
         {
-            v[s] += partial[s * npart + i];
+            nvec = nsize / vecSize;
+        }
+
+        for (size_t tid = grid.thread_rank(); tid < nvec; tid += grid.size())
+        {
+            vecReduceNJoin<op, nred, TransformOp>(v, vecLoad(x, tid)...);
         }
     }
 
-    warp.sync();
-    for (unsigned int s = 0; s < nsum; ++s)
+    // process the remaining entries
+    for (size_t tid = nvec * vecSize + grid.thread_rank(); tid < nsize;
+         tid += grid.size())
     {
+        reduceNJoin<op, nred, TransformOp>(v, x[tid]...);
+    }
+
+    warp.sync();
+#pragma unroll
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+#pragma unroll
         for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
         {
-            v[s] += warp.shfl_down(v[s], offset);
+            v[s] = reduceJoin<op>(v[s], warp.shfl_down(v[s], offset));
         }
     }
 
-    // use atomicAdd to sum over warps
+    // use atomics to combine over warps
     if (warp.thread_rank() == 0)
     {
-        for (unsigned int s = 0; s < nsum; ++s)
+        for (unsigned int s = 0; s < nred; ++s)
         {
-#if defined(NEKTAR_ENABLE_CUDA)
-            atomicAdd_block(&out[s], v[s]);
-#elif defined(NEKTAR_ENABLE_HIP)
-            atomicAdd(&out[s], v[s]);
-#endif
+            reduceAtomic<op>(&out[s * gridDim.x + block.group_index().x], v[s]);
         }
     }
 }
 
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void l1normKernel(const size_t nsize,
-                                                          const TData *x,
-                                                          TData *out)
+// As reduceNKernel, over the entries mask selects.
+template <bool init, ReduceOp op, unsigned int nred,
+          template <typename> typename TransformOp, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::reductionBlockSize(),
+          typename... TIn>
+__global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
+                                                           const uint8_t *mask,
+                                                           TData *out,
+                                                           const TIn *...x)
 {
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
+    static_assert((std::is_same_v<TIn, TData> && ...),
+                  "reduceNKernel: inputs of the output type.");
 
+    constexpr TData identity        = reduceIdentity<op, TData>();
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
+    constexpr unsigned int vecSize =
+        std::is_same_v<TData, float> || std::is_same_v<TData, double>
+            ? (16u / sizeof(TData))
+            : 1u;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
+    TData v[nred];
+
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+        v[s] = identity;
+    }
 
     if constexpr (init)
     {
         if (block.thread_rank() == 0)
         {
-            out[block.group_index().x] = 0.0;
+            for (unsigned int s = 0; s < nred; ++s)
+            {
+                out[s * gridDim.x + block.group_index().x] = identity;
+            }
         }
     }
 
     block.sync();
 
-    if constexpr (std::is_same_v<TData, float>)
+    size_t nvec = 0;
+    if constexpr (vecSize > 1u)
     {
-        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
+        nvec = nsize / vecSize;
+
+        for (size_t tid = grid.thread_rank(); tid < nvec; tid += grid.size())
         {
-            const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
-            v4 += make_float4(std::abs(tmp.x), std::abs(tmp.y), std::abs(tmp.z),
-                              std::abs(tmp.w));
-        }
-        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
-            v2 += make_double2(std::abs(tmp.x), std::abs(tmp.y));
-        }
-        v = v2.x + v2.y; // accumulate thread sums in v
-    }
-    else
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-        {
-            v += std::abs(x[tid]);
+            vecReduceNJoinMasked<op, nred, TransformOp>(
+                v, vecLoadMask<TData>(mask, tid), vecLoad(x, tid)...);
         }
     }
 
-    // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
+    // process the remaining entries
+    for (size_t tid = nvec * vecSize + grid.thread_rank(); tid < nsize;
+         tid += grid.size())
     {
-        size_t tid = nsize - 1u - grid.thread_rank();
-        v += std::abs(x[tid]);
+        if (mask[tid])
+        {
+            reduceNJoin<op, nred, TransformOp>(v, x[tid]...);
+        }
     }
 
     warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
+#pragma unroll
+    for (unsigned int s = 0; s < nred; ++s)
+    {
+#pragma unroll
+        for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+        {
+            v[s] = reduceJoin<op>(v[s], warp.shfl_down(v[s], offset));
+        }
+    }
 
-    // use atomicAdd to sum over warps
+    // use atomics to combine over warps
     if (warp.thread_rank() == 0)
     {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void l1normKernel(const size_t nsize,
-                                                          const uint8_t *mask,
-                                                          const TData *x,
-                                                          TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
+        for (unsigned int s = 0; s < nred; ++s)
         {
-            out[block.group_index().x] = 0.0;
+            reduceAtomic<op>(&out[s * gridDim.x + block.group_index().x], v[s]);
         }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v += mask[tid] * std::abs(x[tid]);
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void l2normKernel(const size_t nsize,
-                                                          const TData *x,
-                                                          TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
-            v4 += tmp * tmp;
-        }
-        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
-            v2 += tmp * tmp;
-        }
-        v = v2.x + v2.y; // accumulate thread sums in v
-    }
-    else
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-        {
-            v += x[tid] * x[tid];
-        }
-    }
-
-    // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
-    {
-        size_t tid = nsize - 1u - grid.thread_rank();
-        v += x[tid] * x[tid];
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void l2normKernel(const size_t nsize,
-                                                          const uint8_t *mask,
-                                                          const TData *x,
-                                                          TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v += mask[tid] * x[tid] * x[tid];
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void lpnormKernel(const size_t nsize,
-                                                          const unsigned int p,
-                                                          const TData *x,
-                                                          TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
-            v4 += make_float4(
-                std::pow(std::abs(tmp.x), p), std::pow(std::abs(tmp.y), p),
-                std::pow(std::abs(tmp.z), p), std::pow(std::abs(tmp.w), p));
-        }
-        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
-            v2 += make_double2(std::pow(std::abs(tmp.x), p),
-                               std::pow(std::abs(tmp.y), p));
-        }
-        v = v2.x + v2.y; // accumulate thread sums in v
-    }
-    else
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-        {
-            v += std::pow(std::abs(x[tid]), p);
-        }
-    }
-
-    // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
-    {
-        size_t tid = nsize - 1u - grid.thread_rank();
-        v += std::pow(std::abs(x[tid]), p);
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void lpnormKernel(const size_t nsize,
-                                                          const unsigned int p,
-                                                          const uint8_t *mask,
-                                                          const TData *x,
-                                                          TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = 0;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = 0.0;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v += mask[tid] * std::pow(std::abs(x[tid]), p);
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v += warp.shfl_down(v, 32); // |
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-#endif
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicAdd_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicAdd(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
-                                                            const TData *x,
-                                                            TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData min             = 0.0;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-    constexpr unsigned int vecsize  = (16u / sizeof(TData));
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = min;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = min;
-        }
-    }
-
-    block.sync();
-
-    if constexpr (std::is_same_v<TData, float>)
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
-            v = std::max(v, std::max(std::max(std::abs(v4.x), std::abs(v4.y)),
-                                     std::max(std::abs(v4.z), std::abs(v4.w))));
-        }
-    }
-    else if constexpr (std::is_same_v<TData, double>)
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
-            v = std::max(v, std::max(std::abs(v2.x), std::abs(v2.y)));
-        }
-    }
-    else
-    {
-        for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-        {
-            v = std::max(v, std::abs(x[tid]));
-        }
-    }
-
-    // process final elements (if there are any)
-    if (grid.thread_rank() < nsize % vecsize)
-    {
-        size_t tid = nsize - 1u - grid.thread_rank();
-        v          = std::max(v, std::abs(x[tid]));
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::max(v, warp.shfl_down(v, 32)); // |
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicMax_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicMax(&out[block.group_index().x], v);
-#endif
-    }
-}
-
-template <bool init, typename TData,
-          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
-__global__ __launch_bounds__(blockSize) void linfnormKernel(const size_t nsize,
-                                                            const uint8_t *mask,
-                                                            const TData *x,
-                                                            TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData min             = 0.0;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
-    TData v    = min;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = min;
-        }
-    }
-
-    block.sync();
-
-    for (size_t tid = grid.thread_rank(); tid < nsize; tid += grid.size())
-    {
-        v = mask[tid] ? std::max(v, std::abs(x[tid])) : v;
-    }
-
-    warp.sync();
-#if defined(NEKTAR_ENABLE_CUDA)
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#elif defined(NEKTAR_ENABLE_HIP)
-    v = std::max(v, warp.shfl_down(v, 32)); // |
-    v = std::max(v, warp.shfl_down(v, 16)); // |
-    v = std::max(v, warp.shfl_down(v, 8));  // | warp level
-    v = std::max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = std::max(v, warp.shfl_down(v, 2));  // |
-    v = std::max(v, warp.shfl_down(v, 1));  // |
-#endif
-
-    if (warp.thread_rank() == 0)
-    {
-#if defined(NEKTAR_ENABLE_CUDA)
-        atomicMax_block(&out[block.group_index().x], v);
-#elif defined(NEKTAR_ENABLE_HIP)
-        atomicMax(&out[block.group_index().x], v);
-#endif
     }
 }
 
@@ -2086,9 +1393,9 @@ template <
 inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2103,9 +1410,11 @@ inline void reduceSumKernel(const size_t nsize, const TData *x, TData *out,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceSumKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
+    reduceKernel<true, ReduceOp::Sum, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2117,9 +1426,9 @@ inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
                             const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2134,10 +1443,11 @@ inline void reduceSumKernel(const size_t nsize, const uint8_t *mask,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceSumKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
+    reduceKernel<true, ReduceOp::Sum, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2148,9 +1458,9 @@ template <
 inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2165,9 +1475,11 @@ inline void reduceMaxKernel(const size_t nsize, const TData *x, TData *out,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceMaxKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
+    reduceKernel<true, ReduceOp::Max, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Max, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2179,9 +1491,9 @@ inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
                             const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2196,10 +1508,11 @@ inline void reduceMaxKernel(const size_t nsize, const uint8_t *mask,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceMaxKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
+    reduceKernel<true, ReduceOp::Max, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Max, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2210,9 +1523,9 @@ template <
 inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2227,9 +1540,11 @@ inline void reduceMinKernel(const size_t nsize, const TData *x, TData *out,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceMinKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
+    reduceKernel<true, ReduceOp::Min, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Min, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2241,9 +1556,9 @@ inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
                             const TData *x, TData *out,
                             const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2258,10 +1573,11 @@ inline void reduceMinKernel(const size_t nsize, const uint8_t *mask,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    reduceMinKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
+    reduceKernel<true, ReduceOp::Min, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMinKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Min, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2272,9 +1588,9 @@ template <
 inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
                        TData *out, const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2289,9 +1605,11 @@ inline void ddotKernel(const size_t nsize, const TData *x, const TData *y,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    ddotKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, y, buffer);
+    reduceKernel<true, ReduceOp::Sum, MultiplyOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2303,9 +1621,9 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
                        const TData *y, TData *out,
                        const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2320,10 +1638,11 @@ inline void ddotKernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    ddotKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, buffer);
+    reduceKernel<true, ReduceOp::Sum, MultiplyOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x, y);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2338,9 +1657,9 @@ inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
                         const TData *y, const TData *z, TData *out,
                         const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2357,11 +1676,19 @@ inline void ddot2Kernel(const size_t nsize, const uint8_t *mask, const TData *x,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    ddot2Kernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, y, z, buffer);
+    if (mask)
+    {
+        reduceNKernel<true, ReduceOp::Sum, 2, MultiplyFirstOp>
+            <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x, y, z);
+    }
+    else
+    {
+        reduceNKernel<true, ReduceOp::Sum, 2, MultiplyFirstOp>
+            <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x, y, z);
+    }
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumNKernel<init, 2>
-        <<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceNKernel<init, ReduceOp::Sum, 2, IdentityEachOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer, buffer + gridSize);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2372,9 +1699,9 @@ template <
 inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
                          const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2389,9 +1716,11 @@ inline void l1normKernel(const size_t nsize, const TData *x, TData *out,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    l1normKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
+    reduceKernel<true, ReduceOp::Sum, AbsOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2403,9 +1732,9 @@ inline void l1normKernel(const size_t nsize, const uint8_t *mask,
                          const TData *x, TData *out,
                          const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2420,10 +1749,11 @@ inline void l1normKernel(const size_t nsize, const uint8_t *mask,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    l1normKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
+    reduceKernel<true, ReduceOp::Sum, AbsOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2434,9 +1764,9 @@ template <
 inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
                          const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2451,9 +1781,11 @@ inline void l2normKernel(const size_t nsize, const TData *x, TData *out,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    l2normKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
+    reduceKernel<true, ReduceOp::Sum, SquareOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2465,9 +1797,9 @@ inline void l2normKernel(const size_t nsize, const uint8_t *mask,
                          const TData *x, TData *out,
                          const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2482,73 +1814,11 @@ inline void l2normKernel(const size_t nsize, const uint8_t *mask,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    l2normKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
+    reduceKernel<true, ReduceOp::Sum, SquareOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <
-    typename ExecSpace, bool init, typename TData,
-    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
-        Enable = true>
-inline void lpnormKernel(const size_t nsize, const unsigned int p,
-                         const TData *x, TData *out,
-                         const unsigned int streamID = 0)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
-
-#if defined(NEKTAR_ENABLE_CUDA)
-    auto stream = CUDAStream::GetInstance(streamID);
-#elif defined(NEKTAR_ENABLE_HIP)
-    auto stream = HIPStream::GetInstance(streamID);
-#endif
-
-    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
-    {
-        deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalReductionBufferSize, streamID);
-    }
-
-    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    lpnormKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, p, x, buffer);
-    CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
-    CHECK_LAST_HIPCUDA_ERROR();
-}
-
-template <
-    typename ExecSpace, bool init, typename TData,
-    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
-        Enable = true>
-inline void lpnormKernel(const size_t nsize, const unsigned int p,
-                         const uint8_t *mask, const TData *x, TData *out,
-                         const unsigned int streamID = 0)
-{
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
-    const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
-
-#if defined(NEKTAR_ENABLE_CUDA)
-    auto stream = CUDAStream::GetInstance(streamID);
-#elif defined(NEKTAR_ENABLE_HIP)
-    auto stream = HIPStream::GetInstance(streamID);
-#endif
-
-    if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
-    {
-        deviceMalloc(&internalMemoryBufferMap[streamID],
-                     internalReductionBufferSize, streamID);
-    }
-
-    TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    lpnormKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, p, mask, x, buffer);
-    CHECK_LAST_HIPCUDA_ERROR();
-    reduceSumKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::Sum, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2559,9 +1829,9 @@ template <
 inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
                            const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2576,9 +1846,11 @@ inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    linfnormKernel<true><<<gridSize, blockSize, 0, stream>>>(nsize, x, buffer);
+    reduceKernel<true, ReduceOp::AbsMax, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::AbsMax, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
@@ -2590,9 +1862,9 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
                            const TData *x, TData *out,
                            const unsigned int streamID = 0)
 {
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(nsize, blockSize);
+        NektarSpaces::Device::reductionGridSize(nsize);
 
 #if defined(NEKTAR_ENABLE_CUDA)
     auto stream = CUDAStream::GetInstance(streamID);
@@ -2607,10 +1879,11 @@ inline void linfnormKernel(const size_t nsize, const uint8_t *mask,
     }
 
     TData *buffer = (TData *)internalMemoryBufferMap[streamID];
-    linfnormKernel<true>
-        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, x, buffer);
+    reduceKernel<true, ReduceOp::AbsMax, IdentityOp>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, mask, buffer, x);
     CHECK_LAST_HIPCUDA_ERROR();
-    reduceMaxKernel<init><<<1, blockSize, 0, stream>>>(gridSize, buffer, out);
+    reduceKernel<init, ReduceOp::AbsMax, IdentityOp>
+        <<<1, blockSize, 0, stream>>>(gridSize, out, buffer);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

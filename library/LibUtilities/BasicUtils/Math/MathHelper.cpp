@@ -864,61 +864,6 @@ template float MathHelper::l2norm<
     LibUtilities::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
 
-// lpnorm template specialization.
-template double MathHelper::lpnorm<LibUtilities::MemoryRegion<double>>(
-    const unsigned int p, LibUtilities::MemoryRegion<double> &x,
-    const std::string &execSpace);
-template float MathHelper::lpnorm<LibUtilities::MemoryRegion<float>>(
-    const unsigned int p, LibUtilities::MemoryRegion<float> &x,
-    const std::string &execSpace);
-template double MathHelper::lpnorm<LibUtilities::MemoryRegion<uint8_t>,
-                                   LibUtilities::MemoryRegion<double>>(
-    const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
-    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
-template float MathHelper::lpnorm<LibUtilities::MemoryRegion<uint8_t>,
-                                  LibUtilities::MemoryRegion<float>>(
-    const unsigned int p, LibUtilities::MemoryRegion<uint8_t> &mask,
-    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
-template double MathHelper::lpnorm<
-    LibUtilities::Field<double, FieldState::Phys>>(
-    const unsigned int p, LibUtilities::Field<double, FieldState::Phys> &x,
-    const std::string &execSpace);
-template float MathHelper::lpnorm<LibUtilities::Field<float, FieldState::Phys>>(
-    const unsigned int p, LibUtilities::Field<float, FieldState::Phys> &x,
-    const std::string &execSpace);
-template double MathHelper::lpnorm<
-    LibUtilities::Field<double, FieldState::Coeff>>(
-    const unsigned int p, LibUtilities::Field<double, FieldState::Coeff> &x,
-    const std::string &execSpace);
-template float MathHelper::lpnorm<
-    LibUtilities::Field<float, FieldState::Coeff>>(
-    const unsigned int p, LibUtilities::Field<float, FieldState::Coeff> &x,
-    const std::string &execSpace);
-template double MathHelper::lpnorm<
-    LibUtilities::Field<uint8_t, FieldState::Phys>,
-    LibUtilities::Field<double, FieldState::Phys>>(
-    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
-    LibUtilities::Field<double, FieldState::Phys> &x,
-    const std::string &execSpace);
-template float MathHelper::lpnorm<
-    LibUtilities::Field<uint8_t, FieldState::Phys>,
-    LibUtilities::Field<float, FieldState::Phys>>(
-    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Phys> &mask,
-    LibUtilities::Field<float, FieldState::Phys> &x,
-    const std::string &execSpace);
-template double MathHelper::lpnorm<
-    LibUtilities::Field<uint8_t, FieldState::Coeff>,
-    LibUtilities::Field<double, FieldState::Coeff>>(
-    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
-    LibUtilities::Field<double, FieldState::Coeff> &x,
-    const std::string &execSpace);
-template float MathHelper::lpnorm<
-    LibUtilities::Field<uint8_t, FieldState::Coeff>,
-    LibUtilities::Field<float, FieldState::Coeff>>(
-    const unsigned int p, LibUtilities::Field<uint8_t, FieldState::Coeff> &mask,
-    LibUtilities::Field<float, FieldState::Coeff> &x,
-    const std::string &execSpace);
-
 // linfnorm template specialization.
 template double MathHelper::linfnorm<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);

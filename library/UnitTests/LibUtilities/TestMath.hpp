@@ -524,29 +524,6 @@ public:
         return out;
     }
 
-    TData lpnorm(const unsigned int p)
-    {
-        TData out = 0;
-        for (unsigned int blk = 0; blk < this->m_in1->GetBlocks().size(); ++blk)
-        {
-            auto x = this->m_in1->GetBlocks()[blk]
-                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto size = this->m_in1->GetBlocks()[blk].GetNumElements() *
-                        this->m_in1->GetBlocks()[blk].GetNumData();
-            auto stride = this->m_in1->GetBlocks()[blk].CompSize();
-
-            for (unsigned int nc = 0; nc < this->m_in1->GetNumComponents();
-                 ++nc, x += stride)
-            {
-                out = std::accumulate(
-                    x, x + size, out, [&](const TData &acc, const TData &val) {
-                        return acc + std::pow(std::abs(val), p);
-                    });
-            }
-        }
-        return out;
-    }
-
     TData linfnorm()
     {
         TData out = 0.0;

@@ -2257,40 +2257,6 @@ inline void l2normKernel(const size_t nsize, const uint8_t *mask,
 template <typename ExecSpace, bool init, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
               Enable = true>
-inline void lpnormKernel(const size_t nsize, const unsigned int p,
-                         const TData *x, TData *out,
-                         [[maybe_unused]] const unsigned int streamID = 0)
-{
-    // TODO: SIMD/AVX
-    TData initializer = init ? 0.0 : *out;
-    *out              = std::accumulate(x, x + nsize, initializer,
-                                        [&](const TData &acc, const TData &val) {
-                               return acc + std::pow(std::abs(val), p);
-                           });
-}
-
-template <typename ExecSpace, bool init, typename TData,
-          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
-              Enable = true>
-inline void lpnormKernel(const size_t nsize, const unsigned int p,
-                         const uint8_t *mask, const TData *x, TData *out,
-                         [[maybe_unused]] const unsigned int streamID = 0)
-{
-    // TODO: SIMD/AVX
-    if (init)
-    {
-        *out = 0.0;
-    }
-
-    for (size_t i = 0; i < nsize; i++)
-    {
-        *out += mask[i] * std::pow(std::abs(x[i]), p);
-    }
-}
-
-template <typename ExecSpace, bool init, typename TData,
-          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
-              Enable = true>
 inline void linfnormKernel(const size_t nsize, const TData *x, TData *out,
                            [[maybe_unused]] const unsigned int streamID = 0)
 {

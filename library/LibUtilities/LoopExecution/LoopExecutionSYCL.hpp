@@ -199,9 +199,9 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     using TData = typename Reduction::value_type;
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
+        NektarSpaces::Device::reductionGridSize(end - begin);
 
     if (internalMemoryBufferMap.find(streamID) == internalMemoryBufferMap.end())
     {
@@ -263,9 +263,9 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
-    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
     const unsigned int gridSize =
-        NektarSpaces::Device::reductionGridSize(end - begin, blockSize);
+        NektarSpaces::Device::reductionGridSize(end - begin);
 
     ASSERTL0(nred * gridSize * sizeof(TData) <= internalReductionBufferSize,
              "Too many values for the reduction buffer.");
