@@ -111,6 +111,7 @@ v5.11.0
 - Add a cuBLASLt-based `GeamStridedBatched` for the CUDA back-end (cuBLAS and MAGMA), use it for the large-`npts` interleave/deinterleave on CUDA as on HIP, and replace the workspace fallback kernels with a tiled batched-transpose kernel used by SYCL (!2874)
 - Replace the per-operation HIP/CUDA and SYCL Math reduction kernels by generic single- and multi-output reduction kernels, and remove the unused Math::lpnorm (!2875)
 - Remove the shared memory bank conflicts of the device interleave/deinterleave by padding the shared memory row stride to an odd length, and implement both through a single batched in-place transpose kernel (!2877)
+- Reduce the shared memory bank conflicts of the SumFacTOP BwdTrans, IProductWRTBase and AdvectionDealias interpolation kernels by ordering each stage's threads and intermediate sums with a quadrature point (BwdTrans) or the direction-0 mode (IProductWRTBase) fastest; the quadrilateral and 3D IProductWRTBase kernels keep each thread's contiguous walk, loaded two values at a time without bank conflicts, when the direction-0 point count is 4n + 2, and the quadrilateral and hexahedral BwdTrans kernels and their AdvectionDealias copies likewise when the direction-0 mode count is 4n + 2 (!2878)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
