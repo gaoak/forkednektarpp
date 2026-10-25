@@ -341,45 +341,95 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPMultiplyKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // direction 0
-    for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
+    // A row of nm0 = 4n + 2 coefficients lets each thread's contiguous walk
+    // load two values per instruction free of bank conflicts; other sizes
+    // run a quadrature point fastest across threads instead.
+    if (nm0 % 4u == 2u)
     {
-        const unsigned int q = idx % nm1;
-        const unsigned int i = idx / nm1;
-        unsigned int cnt_qp  = nm0 * q;
-
-        TData tmp = 0.0;
-#pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+        // direction 0
+        for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
         {
-            tmp += in[cnt_qp] * basis0[p * nq0 + i];
+            const unsigned int q = idx % nm1;
+            const unsigned int i = idx / nm1;
+            unsigned int cnt_qp  = nm0 * q;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+            {
+                tmp += in[cnt_qp] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = tmp;
         }
-        wsp[idx] = tmp;
+
+        localBarrier(threadBlock);
+
+        // direction 1
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            unsigned int cnt_iq  = nm1 * i;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
+            {
+                tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += scale * multiplier[idx] * tmp;
+            }
+            else
+            {
+                out[idx] = scale * multiplier[idx] * tmp;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    // direction 1
-    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    else
     {
-        const unsigned int i = idx % nq0;
-        const unsigned int j = idx / nq0;
-        unsigned int cnt_iq  = nm1 * i;
+        // direction 0
+        for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int q = idx / nq0;
+            unsigned int cnt_qp  = nm0 * q;
 
-        TData tmp = 0.0;
+            TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
-        {
-            tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+            {
+                tmp += in[cnt_qp] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = tmp;
         }
 
-        if constexpr (APPEND)
+        localBarrier(threadBlock);
+
+        // direction 1
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
-            out[idx] += scale * multiplier[idx] * tmp;
-        }
-        else
-        {
-            out[idx] = scale * multiplier[idx] * tmp;
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            unsigned int cnt_qi  = i;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q, cnt_qi += nq0)
+            {
+                tmp += wsp[cnt_qi] * basis1[q * nq1 + j];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += scale * multiplier[idx] * tmp;
+            }
+            else
+            {
+                out[idx] = scale * multiplier[idx] * tmp;
+            }
         }
     }
 
@@ -402,60 +452,125 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPMultiplyKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
+    // A row of nm0 = 4n + 2 coefficients lets each thread's contiguous walk
+    // load two values per instruction free of bank conflicts; other sizes
+    // run a quadrature point fastest across threads instead.
+    if (nm0 % 4u == 2u)
     {
-        const unsigned int q = idx % nm1;
-        const unsigned int r = (idx / nm1) % nm2;
-        const unsigned int i = idx / (nm1 * nm2);
-        unsigned int cnt     = nm1 * nm0 * r + nm0 * q;
-        TData tmp            = 0.0;
-#pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++cnt)
+        for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
         {
-            tmp += in[cnt] * basis0[p * nq0 + i];
+            const unsigned int q = idx % nm1;
+            const unsigned int r = (idx / nm1) % nm2;
+            const unsigned int i = idx / (nm1 * nm2);
+            unsigned int cnt     = nm1 * nm0 * r + nm0 * q;
+            TData tmp            = 0.0;
+#pragma unroll
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt)
+            {
+                tmp += in[cnt] * basis0[p * nq0 + i];
+            }
+            wsp0[idx] = tmp;
         }
-        wsp0[idx] = tmp;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
+        {
+            const unsigned int r = idx % nm2;
+            const unsigned int i = (idx / nm2) % nq0;
+            const unsigned int j = idx / (nm2 * nq0);
+            unsigned int cnt     = nm1 * nm2 * i + nm1 * r;
+            TData tmp            = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt)
+            {
+                tmp += wsp0[cnt] * basis1[q * nq1 + j];
+            }
+            wsp1[idx] = tmp;
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq1 * nq0);
+            unsigned int cnt     = nq0 * nm2 * j + nm2 * i;
+            TData tmp            = 0.0;
+#pragma unroll
+            for (unsigned int r = 0u; r < nm2; ++r, ++cnt)
+            {
+                tmp += wsp1[cnt] * basis2[r * nq2 + k];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += scale * multiplier[idx] * tmp;
+            }
+            else
+            {
+                out[idx] = scale * multiplier[idx] * tmp;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
+    else
     {
-        const unsigned int r = idx % nm2;
-        const unsigned int i = (idx / nm2) % nq0;
-        const unsigned int j = idx / (nm2 * nq0);
-        unsigned int cnt     = nm1 * nm2 * i + nm1 * r;
-        TData tmp            = 0.0;
+        for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int q = (idx / nq0) % nm1;
+            const unsigned int r = idx / (nq0 * nm1);
+            unsigned int cnt     = nm1 * nm0 * r + nm0 * q;
+            TData tmp            = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q, ++cnt)
-        {
-            tmp += wsp0[cnt] * basis1[q * nq1 + j];
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt)
+            {
+                tmp += in[cnt] * basis0[p * nq0 + i];
+            }
+            wsp0[idx] = tmp;
         }
-        wsp1[idx] = tmp;
-    }
 
-    localBarrier(threadBlock);
+        localBarrier(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-    {
-        const unsigned int i = idx % nq0;
-        const unsigned int j = (idx / nq0) % nq1;
-        const unsigned int k = idx / (nq1 * nq0);
-        unsigned int cnt     = nq0 * nm2 * j + nm2 * i;
-        TData tmp            = 0.0;
+        for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int r = idx / (nq0 * nq1);
+            unsigned int cnt     = nm1 * nq0 * r + i;
+            TData tmp            = 0.0;
 #pragma unroll
-        for (unsigned int r = 0u; r < nm2; ++r, ++cnt)
-        {
-            tmp += wsp1[cnt] * basis2[r * nq2 + k];
+            for (unsigned int q = 0u; q < nm1; ++q, cnt += nq0)
+            {
+                tmp += wsp0[cnt] * basis1[q * nq1 + j];
+            }
+            wsp1[idx] = tmp;
         }
 
-        if constexpr (APPEND)
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
-            out[idx] += scale * multiplier[idx] * tmp;
-        }
-        else
-        {
-            out[idx] = scale * multiplier[idx] * tmp;
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq1 * nq0);
+            unsigned int cnt     = nq0 * j + i;
+            TData tmp            = 0.0;
+#pragma unroll
+            for (unsigned int r = 0u; r < nm2; ++r, cnt += nq0 * nq1)
+            {
+                tmp += wsp1[cnt] * basis2[r * nq2 + k];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += scale * multiplier[idx] * tmp;
+            }
+            else
+            {
+                out[idx] = scale * multiplier[idx] * tmp;
+            }
         }
     }
 

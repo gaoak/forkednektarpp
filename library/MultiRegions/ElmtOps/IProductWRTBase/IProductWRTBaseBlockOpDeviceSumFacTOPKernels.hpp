@@ -386,12 +386,16 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
  * separated by a barrier.
  *
  * In the first stage the threads stride over the nm0 * nq1 entries of
- * @p wsp, entry p * nq1 + j being the direction-0 contraction of line j
+ * @p wsp, entry j * nm0 + p being the direction-0 contraction of line j
  * against basis row p; in the second they stride over the nmTot output
  * coefficients, each contracting its column of @p wsp against a
  * direction-1 basis row. Both output indices are decomposed from the flat
  * thread index by division, no mode-index table being needed for a
- * tensor-product shape.
+ * tensor-product shape. The mode p runs fastest across threads in both
+ * stages, so a warp reads @p wsp contiguously, free of bank conflicts. When
+ * nq0 % 4 == 2 the stages instead keep each thread's walk contiguous, @p wsp
+ * ordered (p, j), which the compiler loads two values at a time without bank
+ * conflicts.
  *
  * @tparam SCALE   Multiply the result by @p scale.
  * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
@@ -422,48 +426,101 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
+    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
+    // two values per instruction free of bank conflicts; other sizes run
+    // the mode fastest across threads instead.
+    if (nq0 % 4u == 2u)
     {
-        const unsigned int j = idx % nq1;
-        const unsigned int p = idx / nq1;
-        unsigned int cnt_ji  = nq0 * j;
-
-        TData sum = 0.0;
-#pragma unroll
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
         {
-            sum += in[cnt_ji] * basis0[p * nq0 + i];
+            const unsigned int j = idx % nq1;
+            const unsigned int p = idx / nq1;
+            unsigned int cnt_ji  = nq0 * j;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                sum += in[cnt_ji] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = sum;
         }
-        wsp[idx] = sum;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int q = idx / nm0;
+            unsigned int cnt_pj  = nq1 * p;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
+            {
+                sum += wsp[cnt_pj] * basis1[q * nq1 + j];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum;
+            }
+            else
+            {
+                out[idx] = sum;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    else
     {
-        const unsigned int p = idx % nm0;
-        const unsigned int q = idx / nm0;
-        unsigned int cnt_pj  = nq1 * p;
+        for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = idx / nm0;
+            unsigned int cnt_ji  = nq0 * j;
 
-        TData sum = 0.0;
+            TData sum = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
-        {
-            sum += wsp[cnt_pj] * basis1[q * nq1 + j];
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                sum += in[cnt_ji] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = sum;
         }
 
-        if constexpr (SCALE)
-        {
-            sum *= scale;
-        }
+        localBarrier(threadBlock);
 
-        if constexpr (APPEND)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            out[idx] += sum;
-        }
-        else
-        {
-            out[idx] = sum;
+            const unsigned int p = idx % nm0;
+            const unsigned int q = idx / nm0;
+            unsigned int cnt_jp  = p;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, cnt_jp += nm0)
+            {
+                sum += wsp[cnt_jp] * basis1[q * nq1 + j];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum;
+            }
+            else
+            {
+                out[idx] = sum;
+            }
         }
     }
 
@@ -520,8 +577,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
 
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
-        const unsigned int j = idx % nq1;
-        const unsigned int p = idx / nq1;
+        const unsigned int p = idx % nm0;
+        const unsigned int j = idx / nm0;
         unsigned int cnt_ji  = nq0 * j;
 
         TData sum = 0.0;
@@ -538,13 +595,13 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     for (unsigned int idx = idx0; idx < nmTot; idx += stride)
     {
         const unsigned int p = pindex[idx];
-        unsigned int cnt_pj  = nq1 * p;
+        unsigned int cnt_jp  = p;
 
         TData sum = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
+        for (unsigned int j = 0u; j < nq1; ++j, cnt_jp += nm0)
         {
-            sum += wsp[cnt_pj] * basis1[idx * nq1 + j];
+            sum += wsp[cnt_jp] * basis1[idx * nq1 + j];
         }
 
         if constexpr (SCALE)
@@ -594,9 +651,14 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
  * separated by barriers.
  *
  * The threads stride first over the nm0 * nq1 * nq2 direction-0 sums in
- * @p wsp0, then over the nm0 * nm1 * nq2 direction-1 sums in @p wsp1, then
- * over the nmTot output coefficients, each stage decomposing its flat
- * index into the mode and point indices it needs.
+ * @p wsp0, ordered (k, j, p), then over the nm0 * nm1 * nq2 direction-1
+ * sums in @p wsp1, ordered (k, q, p), then over the nmTot output
+ * coefficients, each stage decomposing its flat index into the mode and
+ * point indices it needs. The mode p runs fastest across threads in every
+ * stage, so a warp reads @p wsp0 and @p wsp1 contiguously, free of bank
+ * conflicts. When nq0 % 4 == 2 the stages instead keep each thread's walk
+ * contiguous, @p wsp0 ordered (p, k, j) and @p wsp1 (p, q, k), which the
+ * compiler loads two values at a time without bank conflicts.
  *
  * @tparam SCALE   Multiply the result by @p scale.
  * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
@@ -627,68 +689,141 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
+    // two values per instruction free of bank conflicts; other sizes run
+    // the mode fastest across threads instead.
+    if (nq0 % 4u == 2u)
     {
-        const unsigned int j = idx % nq1;
-        const unsigned int k = (idx / nq1) % nq2;
-        const unsigned int p = idx / (nq1 * nq2);
-        unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
-
-        TData sum_kj = 0.0;
-#pragma unroll
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
-            sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
+            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+
+            TData sum_kj = 0.0;
+#pragma unroll
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp0[idx] = sum_kj;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+        {
+            const unsigned int k = idx % nq2;
+            const unsigned int q = (idx / nq2) % nm1;
+            const unsigned int p = idx / (nq2 * nm1);
+            unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+            {
+                sum_k += wsp0[cnt_pkj] * basis1[q * nq1 + j];
+            }
+            wsp1[idx] = sum_k;
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int q = (idx / nm0) % nm1;
+            const unsigned int r = idx / (nm0 * nm1);
+            unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
+            {
+                sum += wsp1[cnt_pqk] * basis2[r * nq2 + k];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum;
+            }
+            else
+            {
+                out[idx] = sum;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+    else
     {
-        const unsigned int k = idx % nq2;
-        const unsigned int q = (idx / nq2) % nm1;
-        const unsigned int p = idx / (nq2 * nm1);
-        unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k;
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = (idx / nm0) % nq1;
+            const unsigned int k = idx / (nm0 * nq1);
+            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
 
-        TData sum_k = 0.0;
+            TData sum_kj = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
-        {
-            sum_k += wsp0[cnt_pkj] * basis1[q * nq1 + j];
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp1[idx] = sum_k;
-    }
 
-    localBarrier(threadBlock);
+        localBarrier(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-    {
-        const unsigned int p = idx % nm0;
-        const unsigned int q = (idx / nm0) % nm1;
-        const unsigned int r = idx / (nm0 * nm1);
-        unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+        for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int q = (idx / nm0) % nm1;
+            const unsigned int k = idx / (nm0 * nm1);
+            unsigned int cnt_kjp = nm0 * nq1 * k + p;
 
-        TData sum = 0.0;
+            TData sum_k = 0.0;
 #pragma unroll
-        for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
-        {
-            sum += wsp1[cnt_pqk] * basis2[r * nq2 + k];
+            for (unsigned int j = 0u; j < nq1; ++j, cnt_kjp += nm0)
+            {
+                sum_k += wsp0[cnt_kjp] * basis1[q * nq1 + j];
+            }
+            wsp1[idx] = sum_k;
         }
 
-        if constexpr (SCALE)
-        {
-            sum *= scale;
-        }
+        localBarrier(threadBlock);
 
-        if constexpr (APPEND)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            out[idx] += sum;
-        }
-        else
-        {
-            out[idx] = sum;
+            const unsigned int p = idx % nm0;
+            const unsigned int q = (idx / nm0) % nm1;
+            const unsigned int r = idx / (nm0 * nm1);
+            unsigned int cnt_kqp = nm0 * q + p;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k, cnt_kqp += nm0 * nm1)
+            {
+                sum += wsp1[cnt_kqp] * basis2[r * nq2 + k];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum;
+            }
+            else
+            {
+                out[idx] = sum;
+            }
         }
     }
 
@@ -699,7 +834,12 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
  * @brief Tetrahedral SumFacTOP kernel: the hexahedral structure with the
  * tetrahedral mode ordering, resolved through the mode-index tables.
  *
- * The second stage strides over the nm01 * nq2 entries of @p wsp1,
+ * The first stage stores @p wsp0 ordered (p, j, k) with k fastest, so
+ * that the second, with k fastest across threads, reads it contiguously
+ * and its basis row once per warp; when nq0 % 4 == 2 it is ordered
+ * (p, k, j) instead, keeping each thread's walk contiguous as in the
+ * hexahedron. The second stage strides over the
+ * nm01 * nq2 entries of @p wsp1,
  * nm01 = (2 * nm1 - nm0 + 1) * nm0 / 2 being the number of (p,q) mode
  * pairs, with @p pindex1 giving each pair's p. The third strides over the
  * nmTot coefficients, @p pindex2 and @p qindex2 giving the mode's p and q,
@@ -754,69 +894,145 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
+    // two values per instruction free of bank conflicts; other sizes run
+    // the mode fastest across threads instead.
+    if (nq0 % 4u == 2u)
     {
-        const unsigned int j = idx % nq1;
-        const unsigned int k = (idx / nq1) % nq2;
-        const unsigned int p = idx / (nq1 * nq2);
-        unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
-
-        TData sum_kj = 0.0;
-#pragma unroll
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
-            sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
+            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+
+            TData sum_kj = 0.0;
+#pragma unroll
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp0[idx] = sum_kj;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
+        {
+            const unsigned int mode_pq = idx / nq2;
+            const unsigned int p       = pindex1[mode_pq];
+            const unsigned int k       = idx % nq2;
+            unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+            {
+                sum_k += basis1[mode_pq * nq1 + j] * wsp0[cnt_pkj];
+            }
+            wsp1[idx] = sum_k;
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            const unsigned int p       = pindex2[idx];
+            const unsigned int q       = qindex2[idx];
+            const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
+            const unsigned int mode2 =
+                idx +
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k)
+            {
+                tmp += wsp1[mode_pq * nq2 + k] * basis2[mode2 * nq2 + k];
+            }
+
+            if constexpr (SCALE)
+            {
+                tmp *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += tmp;
+            }
+            else
+            {
+                out[idx] = tmp;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
+    else
     {
-        const unsigned int mode_pq = idx / nq2;
-        const unsigned int p       = pindex1[mode_pq];
-        const unsigned int k       = idx % nq2;
-        unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = (idx / nm0) % nq1;
+            const unsigned int k = idx / (nm0 * nq1);
+            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
 
-        TData sum_k = 0.0;
+            TData sum_kj = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
-        {
-            sum_k += basis1[mode_pq * nq1 + j] * wsp0[cnt_pkj];
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
+            }
+            wsp0[(nq1 * p + j) * nq2 + k] = sum_kj;
         }
-        wsp1[idx] = sum_k;
-    }
 
-    localBarrier(threadBlock);
+        localBarrier(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-    {
-        const unsigned int p       = pindex2[idx];
-        const unsigned int q       = qindex2[idx];
-        const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
-        const unsigned int mode2 =
-            idx + ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+        for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
+        {
+            const unsigned int mode_pq = idx / nq2;
+            const unsigned int p       = pindex1[mode_pq];
+            const unsigned int k       = idx % nq2;
+            unsigned int cnt_pjk       = nq1 * nq2 * p + k;
 
-        TData tmp = 0.0;
+            TData sum_k = 0.0;
 #pragma unroll
-        for (unsigned int k = 0u; k < nq2; ++k)
-        {
-            tmp += wsp1[mode_pq * nq2 + k] * basis2[mode2 * nq2 + k];
+            for (unsigned int j = 0u; j < nq1; ++j, cnt_pjk += nq2)
+            {
+                sum_k += basis1[mode_pq * nq1 + j] * wsp0[cnt_pjk];
+            }
+            wsp1[idx] = sum_k;
         }
 
-        if constexpr (SCALE)
-        {
-            tmp *= scale;
-        }
+        localBarrier(threadBlock);
 
-        if constexpr (APPEND)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            out[idx] += tmp;
-        }
-        else
-        {
-            out[idx] = tmp;
+            const unsigned int p       = pindex2[idx];
+            const unsigned int q       = qindex2[idx];
+            const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
+            const unsigned int mode2 =
+                idx +
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k)
+            {
+                tmp += wsp1[mode_pq * nq2 + k] * basis2[mode2 * nq2 + k];
+            }
+
+            if constexpr (SCALE)
+            {
+                tmp *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += tmp;
+            }
+            else
+            {
+                out[idx] = tmp;
+            }
         }
     }
 
@@ -982,69 +1198,143 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
+    // two values per instruction free of bank conflicts; other sizes run
+    // the mode fastest across threads instead.
+    if (nq0 % 4u == 2u)
     {
-        const unsigned int j = idx % nq1;
-        const unsigned int k = (idx / nq1) % nq2;
-        const unsigned int p = idx / (nq1 * nq2);
-        unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
-
-        TData sum_kj = 0.0;
-#pragma unroll
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
-            sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
+            unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
+
+            TData sum_kj = 0.0;
+#pragma unroll
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp0[idx] = sum_kj;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+        {
+            const unsigned int k = idx % nq2;
+            const unsigned int q = (idx / nq2) % nm1;
+            const unsigned int p = idx / (nq2 * nm1);
+            unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+            {
+                sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
+            }
+            wsp1[idx] = sum_k;
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            const unsigned int p       = pindex[idx];
+            const unsigned int q       = qindex[idx];
+            const unsigned int r       = rindex[idx];
+            const unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u + r;
+            unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
+            {
+                sum_k += basis2[mode_pr * nq2 + k] * wsp1[cnt_pqk];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum_k *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum_k;
+            }
+            else
+            {
+                out[idx] = sum_k;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+    else
     {
-        const unsigned int k = idx % nq2;
-        const unsigned int q = (idx / nq2) % nm1;
-        const unsigned int p = idx / (nq2 * nm1);
-        unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = (idx / nm0) % nq1;
+            const unsigned int k = idx / (nm0 * nq1);
+            unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
 
-        TData sum_k = 0.0;
+            TData sum_kj = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
-        {
-            sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp1[idx] = sum_k;
-    }
 
-    localBarrier(threadBlock);
+        localBarrier(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-    {
-        const unsigned int p       = pindex[idx];
-        const unsigned int q       = qindex[idx];
-        const unsigned int r       = rindex[idx];
-        const unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u + r;
-        unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
+        for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int q = (idx / nm0) % nm1;
+            const unsigned int k = idx / (nm0 * nm1);
+            unsigned int cnt_kjp = nm0 * nq1 * k + p;
 
-        TData sum_k = 0.0;
+            TData sum_k = 0.0;
 #pragma unroll
-        for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
-        {
-            sum_k += basis2[mode_pr * nq2 + k] * wsp1[cnt_pqk];
+            for (unsigned int j = 0u; j < nq1; ++j, cnt_kjp += nm0)
+            {
+                sum_k += basis1[q * nq1 + j] * wsp0[cnt_kjp];
+            }
+            wsp1[idx] = sum_k;
         }
 
-        if constexpr (SCALE)
-        {
-            sum_k *= scale;
-        }
+        localBarrier(threadBlock);
 
-        if constexpr (APPEND)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            out[idx] += sum_k;
-        }
-        else
-        {
-            out[idx] = sum_k;
+            const unsigned int p       = pindex[idx];
+            const unsigned int q       = qindex[idx];
+            const unsigned int r       = rindex[idx];
+            const unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u + r;
+            unsigned int cnt_kqp       = nm0 * q + p;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k, cnt_kqp += nm0 * nm1)
+            {
+                sum_k += basis2[mode_pr * nq2 + k] * wsp1[cnt_kqp];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum_k *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum_k;
+            }
+            else
+            {
+                out[idx] = sum_k;
+            }
         }
     }
 
@@ -1160,68 +1450,143 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
+    // two values per instruction free of bank conflicts; other sizes run
+    // the mode fastest across threads instead.
+    if (nq0 % 4u == 2u)
     {
-        const unsigned int j = idx % nq1;
-        const unsigned int k = (idx / nq1) % nq2;
-        const unsigned int p = idx / (nq1 * nq2);
-        unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
-
-        TData sum_kj = 0.0;
-#pragma unroll
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
-            sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
+            unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
+
+            TData sum_kj = 0.0;
+#pragma unroll
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp0[idx] = sum_kj;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+        {
+            const unsigned int k = idx % nq2;
+            const unsigned int q = (idx / nq2) % nm1;
+            const unsigned int p = idx / (nq2 * nm1);
+            unsigned int cnt_pkj = nq1 * nq2 * p + k * nq1;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
+            {
+                sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
+            }
+            wsp1[idx] = sum_k;
+        }
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            const unsigned int p = pindex[idx];
+            const unsigned int q = qindex[idx];
+            const unsigned int mode2 =
+                idx +
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+            unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
+            {
+                sum_k += basis2[mode2 * nq2 + k] * wsp1[cnt_pqk];
+            }
+            if constexpr (SCALE)
+            {
+                sum_k *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum_k;
+            }
+            else
+            {
+                out[idx] = sum_k;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+    else
     {
-        const unsigned int k = idx % nq2;
-        const unsigned int q = (idx / nq2) % nm1;
-        const unsigned int p = idx / (nq2 * nm1);
-        unsigned int cnt_pkj = nq1 * nq2 * p + k * nq1;
+        for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = (idx / nm0) % nq1;
+            const unsigned int k = idx / (nm0 * nq1);
+            unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
 
-        TData sum_k = 0.0;
+            TData sum_kj = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
-        {
-            sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
+            }
+            wsp0[idx] = sum_kj;
         }
-        wsp1[idx] = sum_k;
-    }
 
-    localBarrier(threadBlock);
+        localBarrier(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-    {
-        const unsigned int p = pindex[idx];
-        const unsigned int q = qindex[idx];
-        const unsigned int mode2 =
-            idx + ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
-        unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+        for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int q = (idx / nm0) % nm1;
+            const unsigned int k = idx / (nm0 * nm1);
+            unsigned int cnt_kjp = nm0 * nq1 * k + p;
 
-        TData sum_k = 0.0;
+            TData sum_k = 0.0;
 #pragma unroll
-        for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
-        {
-            sum_k += basis2[mode2 * nq2 + k] * wsp1[cnt_pqk];
-        }
-        if constexpr (SCALE)
-        {
-            sum_k *= scale;
+            for (unsigned int j = 0u; j < nq1; ++j, cnt_kjp += nm0)
+            {
+                sum_k += basis1[q * nq1 + j] * wsp0[cnt_kjp];
+            }
+            wsp1[idx] = sum_k;
         }
 
-        if constexpr (APPEND)
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            out[idx] += sum_k;
-        }
-        else
-        {
-            out[idx] = sum_k;
+            const unsigned int p = pindex[idx];
+            const unsigned int q = qindex[idx];
+            const unsigned int mode2 =
+                idx +
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+            unsigned int cnt_kqp = nm0 * q + p;
+
+            TData sum_k = 0.0;
+#pragma unroll
+            for (unsigned int k = 0u; k < nq2; ++k, cnt_kqp += nm0 * nm1)
+            {
+                sum_k += basis2[mode2 * nq2 + k] * wsp1[cnt_kqp];
+            }
+            if constexpr (SCALE)
+            {
+                sum_k *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum_k;
+            }
+            else
+            {
+                out[idx] = sum_k;
+            }
         }
     }
 
