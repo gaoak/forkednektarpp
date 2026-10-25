@@ -9,6 +9,7 @@ ENDIF()
 IF( NEKTAR_SOLVER_ADR )
     ADD_SOLVER_EXECUTABLE(ADRSolver SOURCES
         ./ADRSolver.cpp
+        ./EquationSystems/CoupledElectricPotential.cpp
         ./EquationSystems/Helmholtz.cpp
         ./EquationSystems/Laplace.cpp
         ./EquationSystems/LaplacePhi.cpp

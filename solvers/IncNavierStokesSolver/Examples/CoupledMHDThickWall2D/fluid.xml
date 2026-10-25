@@ -1,0 +1,109 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="4" NUMPOINTS="5" FIELDS="u,v,phi,p" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <COUPLING NAME="mhd" TYPE="Cwipi">
+        <I PROPERTY="RemoteName" VALUE="electric" />
+        <I PROPERTY="SendSteps" VALUE="1" />
+        <I PROPERTY="ReceiveSteps" VALUE="1" />
+        <I PROPERTY="Oversample" VALUE="0" />
+        <I PROPERTY="SendVariables" VALUE="u,v,mhd_time,mhd_stop" />
+        <I PROPERTY="ReceiveVariables" VALUE="phi" />
+        <I PROPERTY="ReceiveProjection" VALUE="Local" />
+        <I PROPERTY="NotLocMethod" VALUE="Keep" />
+        <I PROPERTY="FilterWidth" VALUE="0" />
+        <I PROPERTY="GeomTol" VALUE="1e-10" />
+    </COUPLING>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="UnsteadyNavierStokes" />
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="ElectricPotential" VALUE="Coupled" />
+        </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD>IMEX</METHOD>
+            <ORDER>2</ORDER>
+        </TIMEINTEGRATIONSCHEME>
+        <PARAMETERS>
+            <P> Kinvis = 0.1 </P>
+            <P> TimeStep = 0.001 </P>
+            <P> NumSteps = 5 </P>
+            <P> IO_InfoSteps = 5 </P>
+            <P> U0 = 0.1 </P>
+            <P> B0 = 0.1 </P>
+            <P> Voltage = 0.1 </P>
+            <P> WallThickness = 0.25 </P>
+            <P> ElectricConductivity = 1 </P>
+            <P> WallConductivity = 0.1 </P>
+            <P> Resistance = 2*WallThickness/WallConductivity+1/ElectricConductivity </P>
+            <P> JyExact = -(Voltage+2*U0*B0/3)/Resistance </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> phi </V>
+            <V ID="3"> p </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[10] </B>
+            <B ID="1"> C[11] </B>
+            <B ID="2"> C[12] </B>
+            <B ID="3"> C[13] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" VALUE="4*U0*y*(1-y)" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" VALUE="4*U0*y*(1-y)" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="4*U0*y*(1-y)" />
+            <E VAR="v" VALUE="0" />
+            <E VAR="phi" VALUE="-JyExact*((y+WallThickness)/WallConductivity+(1/ElectricConductivity-1/WallConductivity)*y)-U0*B0*(2*y^2-4*y^3/3)" />
+            <E VAR="p" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="4*U0*y*(1-y)" />
+            <E VAR="v" VALUE="0" />
+            <E VAR="phi" VALUE="-JyExact*((y+WallThickness)/WallConductivity+(1/ElectricConductivity-1/WallConductivity)*y)-U0*B0*(2*y^2-4*y^3/3)" />
+            <E VAR="p" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ElectricMagneticFields">
+            <E VAR="Bz" VALUE="B0" />
+        </FUNCTION>
+        <FUNCTION NAME="BodyForce">
+            <E VAR="u" VALUE="8*Kinvis*U0-JyExact*B0" />
+            <E VAR="v" VALUE="0" />
+        </FUNCTION>
+    </CONDITIONS>
+    <FORCING>
+        <FORCE TYPE="Body">
+            <BODYFORCE>BodyForce</BODYFORCE>
+        </FORCE>
+        <FORCE TYPE="ForcingLorentz">
+            <ELECTRICMAGNETICFIELDS>ElectricMagneticFields</ELECTRICMAGNETICFIELDS>
+        </FORCE>
+    </FORCING>
+</NEKTAR>

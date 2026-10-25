@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$case_dir/../../../.." && pwd)"
+build_dir="${NEKTAR_BUILD_DIR:-$repo_dir/build}"
+build_type="$(sed -n 's/^CMAKE_BUILD_TYPE:STRING=//p' "$build_dir/CMakeCache.txt")"
+suffix=""
+if [[ "$build_type" == "Debug" ]]; then
+    suffix="-g"
+fi
+fluid_solver="${INCNS_SOLVER:-$build_dir/solvers/IncNavierStokesSolver/IncNavierStokesSolver$suffix}"
+electric_solver="${ADR_SOLVER:-$build_dir/solvers/ADRSolver/ADRSolver$suffix}"
+run_dir="${1:-$repo_dir/build/coupled-mhd-thick-wall-2d}"
+mkdir -p "$run_dir"
+cp "$case_dir/"*.xml "$run_dir/"
+cd "$run_dir"
+
+# Use one rank per application unless explicitly requested otherwise.
+# A timeout also catches a communication mismatch instead of waiting forever.
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+timeout "${MHD_TIMEOUT:-120}" mpiexec \
+    -np "${FLUID_RANKS:-1}" "$fluid_solver" \
+        --cwipi fluid fluid-mesh.xml fluid.xml \
+    : -np "${ELECTRIC_RANKS:-1}" "$electric_solver" \
+        --cwipi electric electric-mesh.xml electric.xml \
+    > log.coupled-mhd 2>&1
+python3 "$case_dir/check_results.py" log.coupled-mhd

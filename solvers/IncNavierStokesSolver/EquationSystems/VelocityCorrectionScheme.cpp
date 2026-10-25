@@ -34,6 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/EquationSystems/VelocityCorrectionScheme.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LocalRegions/Expansion2D.h>
 #include <LocalRegions/Expansion3D.h>
@@ -96,6 +97,75 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     else
     {
         ASSERTL0(false, "Need to set up pressure field definition");
+    }
+
+    std::string potentialMode;
+    m_session->LoadSolverInfo("ElectricPotential", potentialMode, "Internal");
+    ASSERTL0(StringUtils::IEquals(potentialMode, "Internal") ||
+                 StringUtils::IEquals(potentialMode, "Coupled"),
+             "ElectricPotential must be Internal or Coupled.");
+    m_MHD.externalPotential = StringUtils::IEquals(potentialMode, "Coupled");
+    if (m_MHD.externalPotential)
+    {
+        ASSERTL0(m_MHD.hasLorentzForce,
+                 "Coupled electric potential requires ForcingLorentz.");
+        ASSERTL0(m_HomogeneousType == eNotHomogeneous,
+                 "Coupled electric potential currently requires a full 2D or "
+                 "3D mesh.");
+        ASSERTL0(!m_session->DefinesElement("Nektar/Movement"),
+                 "Coupled electric potential requires a static mesh.");
+        ASSERTL0(
+            m_epotential->GetTotPoints() == m_fields[0]->GetTotPoints(),
+            "Coupled phi and velocity must use the same quadrature points.");
+        ASSERTL0(m_epotential->GetExpSize() == m_fields[0]->GetExpSize(),
+                 "Coupled phi and velocity must contain the same elements.");
+        for (int e = 0; e < m_fields[0]->GetExpSize(); ++e)
+        {
+            auto phi = m_epotential->GetExp(e);
+            auto vel = m_fields[0]->GetExp(e);
+            ASSERTL0(phi->GetGeom()->GetGlobalID() ==
+                             vel->GetGeom()->GetGlobalID() &&
+                         phi->GetPointsKeys() == vel->GetPointsKeys() &&
+                         m_epotential->GetPhys_Offset(e) ==
+                             m_fields[0]->GetPhys_Offset(e),
+                     "Coupled phi and velocity must have identical quadrature "
+                     "layouts.");
+        }
+        auto config = LibUtilities::SessionNodeFromXml(
+            m_session->GetElement("Nektar/Coupling"), "COUPLING");
+        ASSERTL0(StringUtils::IEquals(config.GetAttribute("TYPE"), "Cwipi"),
+                 "Coupled electric potential requires TYPE=\"Cwipi\".");
+        m_MHD.coupling = SolverUtils::GetCouplingFactory().CreateInstance(
+            "Cwipi", m_fields[0]);
+        for (int d = 0; d < m_spacedim; ++d)
+        {
+            m_MHD.sendNames.push_back(m_session->GetVariable(m_velocity[d]));
+        }
+        m_MHD.sendNames.push_back("mhd_time");
+        m_MHD.sendNames.push_back("mhd_stop");
+        m_MHD.recvNames = {m_session->GetVariable(m_nConvectiveFields)};
+        ASSERTL0(m_MHD.coupling->GetSendFieldNames() == m_MHD.sendNames &&
+                     m_MHD.coupling->GetRecvFieldNames() == m_MHD.recvNames,
+                 "Coupled MHD must send velocity components,mhd_time,mhd_stop "
+                 "and receive the electric potential.");
+        auto options = m_MHD.coupling->GetConfig();
+        ASSERTL0(
+            options.at("SENDSTEPS") == "1" &&
+                options.at("RECEIVESTEPS") == "1" &&
+                std::stod(options.at("FILTERWIDTH")) <= 0.0 &&
+                StringUtils::IEquals(options.at("RECEIVEPROJECTION"), "Local"),
+            "Coupled MHD requires SendSteps=ReceiveSteps=1, "
+            "FilterWidth<=0 and ReceiveProjection=Local.");
+        m_MHD.sendFields = Array<OneD, Array<OneD, NekDouble>>(m_spacedim + 2);
+        for (auto &field : m_MHD.sendFields)
+        {
+            field = Array<OneD, NekDouble>(m_fields[0]->GetTotPoints(), 0.0);
+        }
+        Vmath::Fill(m_fields[0]->GetTotPoints(), -1.0,
+                    m_MHD.sendFields[m_spacedim + 1], 1);
+        m_MHD.recvFields = Array<OneD, Array<OneD, NekDouble>>(1);
+        m_MHD.recvFields[0] =
+            Array<OneD, NekDouble>(m_fields[0]->GetTotPoints(), 0.0);
     }
 
     // Determine diffusion coefficients for each field
@@ -1335,24 +1405,45 @@ void VelocityCorrectionScheme::AddMovingFrameDataToParams(
  */
 void VelocityCorrectionScheme::SolveEfield(
     const Array<OneD, Array<OneD, NekDouble>> &movEfield,
-    Array<OneD, Array<OneD, NekDouble>> &totEfield)
+    Array<OneD, Array<OneD, NekDouble>> &totEfield,
+    const Array<OneD, Array<OneD, NekDouble>> &velocity, NekDouble time)
 {
-    SetEPInsulatorBCs(movEfield);
     int physTot = m_fields[0]->GetTotPoints();
-    m_fields[0]->PhysDeriv(MultiRegions::eX, movEfield[0], m_F[0]);
-    for (size_t i = 1; i < m_spacedim; ++i)
+    if (m_MHD.externalPotential)
     {
-        // Use m_F[1] as storage since it is not needed for the m_epotential
-        m_fields[i]->PhysDeriv(MultiRegions::DirCartesianMap[i], movEfield[i],
-                               m_F[1]);
-        Vmath::Vadd(physTot, m_F[1], 1, m_F[0], 1, m_F[0], 1);
+        for (int d = 0; d < m_spacedim; ++d)
+        {
+            Vmath::Vcopy(physTot, velocity[m_velocity[d]], 1,
+                         m_MHD.sendFields[d], 1);
+        }
+        Vmath::Fill(physTot, time, m_MHD.sendFields[m_spacedim], 1);
+        m_MHD.coupling->Send(m_MHD.exchange, time, m_MHD.sendFields,
+                             m_MHD.sendNames);
+        m_MHD.coupling->Receive(m_MHD.exchange++, time, m_MHD.recvFields,
+                                m_MHD.recvNames);
+        // The received potential is a restriction of the ADR solution. A
+        // local transform must not impose the fluid-only electrical BCs.
+        m_epotential->FwdTransLocalElmt(m_MHD.recvFields[0],
+                                        m_epotential->UpdateCoeffs());
     }
-    StdRegions::ConstFactorMap factors;
-    // Setup coefficient for equation
-    factors[StdRegions::eFactorLambda] = 0.0;
+    else
+    {
+        SetEPInsulatorBCs(movEfield);
+        m_fields[0]->PhysDeriv(MultiRegions::eX, movEfield[0], m_F[0]);
+        for (size_t i = 1; i < m_spacedim; ++i)
+        {
+            // Use m_F[1] as storage since it is not needed for the m_epotential
+            m_fields[i]->PhysDeriv(MultiRegions::DirCartesianMap[i],
+                                   movEfield[i], m_F[1]);
+            Vmath::Vadd(physTot, m_F[1], 1, m_F[0], 1, m_F[0], 1);
+        }
+        StdRegions::ConstFactorMap factors;
+        // Setup coefficient for equation
+        factors[StdRegions::eFactorLambda] = 0.0;
 
-    // Solver electric potential Poisson Equation
-    m_epotential->HelmSolve(m_F[0], m_epotential->UpdateCoeffs(), factors);
+        // Solver electric potential Poisson Equation
+        m_epotential->HelmSolve(m_F[0], m_epotential->UpdateCoeffs(), factors);
+    }
     m_epotential->BwdTrans(m_epotential->GetCoeffs(),
                            m_epotential->UpdatePhys());
     if (m_spacedim == 2)
@@ -1368,6 +1459,26 @@ void VelocityCorrectionScheme::SolveEfield(
     {
         Vmath::Vsub(physTot, movEfield[i], 1, m_F[i], 1, totEfield[i], 1);
     }
+}
+
+void VelocityCorrectionScheme::v_Output()
+{
+    if (m_MHD.coupling)
+    {
+        // Use the same request/reply protocol for shutdown, independently of
+        // the number of RHS stages, early convergence or a restarted run.
+        Vmath::Fill(m_fields[0]->GetTotPoints(), m_time,
+                    m_MHD.sendFields[m_spacedim], 1);
+        Vmath::Fill(m_fields[0]->GetTotPoints(), 1.0,
+                    m_MHD.sendFields[m_spacedim + 1], 1);
+        m_MHD.coupling->Send(m_MHD.exchange, m_time, m_MHD.sendFields,
+                             m_MHD.sendNames);
+        m_MHD.coupling->Receive(m_MHD.exchange, m_time, m_MHD.recvFields,
+                                m_MHD.recvNames);
+        m_MHD.coupling->Finalize();
+        m_MHD.coupling.reset();
+    }
+    IncNavierStokes::v_Output();
 }
 
 void VelocityCorrectionScheme::SetEPInsulatorBCs(

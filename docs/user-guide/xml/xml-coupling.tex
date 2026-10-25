@@ -101,6 +101,11 @@ Unlike the File-type coupling, a linear interpolation in time is applied to the 
 \end{lstlisting}
 
 Additional options which define the coupling include \inltt{SendMethod}, the method used to retrieve the physical values at the locations requested by the remote application.
+The optional \inltt{ReceiveProjection} selects \inltt{Continuous} (the default)
+or \inltt{Local}. The latter uses an element-local mass projection and requires
+\inltt{FilterWidth} to be zero or negative. This preserves jumps in auxiliary
+fields, such as velocity extended by zero into a stationary solid, without
+changing the continuous approximation used by the receiving PDE solver.
 Available options are \inltt{NearestNeighbour}, \inltt{Shepard} and the default \inltt{Evaluate}.
 The last option directly evaluates the expansions using a backward transform, giving superior accuracy at acceptable computational cost.
 

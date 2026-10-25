@@ -2556,6 +2556,45 @@ The following extra parameter should be provided.
     \end{tabularx}
 \end{center}
 
+\subsection{Electric potential coupled to conducting solids}
+
+With MPI and CWIPI enabled, setting \inltt{ElectricPotential} to
+\inltt{Coupled} in \inltt{SOLVERINFO} obtains the potential from a separate
+\inltt{ADRSolver} application using \inltt{EQType=CoupledElectricPotential}.
+The default \inltt{Internal} retains the fluid-only Poisson solve.
+The fluid variables retain the ordering \inltt{u,v,phi,p} in 2D, or
+\inltt{u,v,w,phi,p} in 3D. The ADR application declares only \inltt{phi}
+on a conforming fluid/solid mesh; velocities are received into auxiliary arrays.
+
+Material regions are defined at the \inltt{NEKTAR} level in the ADR session:
+\begin{lstlisting}[style=XMLStyle]
+<ELECTRICPOTENTIAL>
+    <FLUID COMPOSITE="C[0]" CONDUCTIVITY="ElectricConductivity" />
+    <SOLID COMPOSITE="C[1]" CONDUCTIVITY="WallConductivity" />
+</ELECTRICPOTENTIAL>
+\end{lstlisting}
+All elements must belong to exactly one material, with a positive constant
+conductivity. The potential satisfies current conservation in weak form with
+piecewise conductivity. Solid velocity is zero; interface potential continuity
+and normal-current balance are enforced by the global CG solve. Exterior
+homogeneous Neumann data specify zero total normal current, and a nonzero
+Neumann value is minus the imposed outward current density.
+
+Both sessions require a \inltt{COUPLING TYPE="Cwipi"} block with
+\inltt{SendSteps=ReceiveSteps=1}, \inltt{ReceiveProjection=Local}, and
+\inltt{FilterWidth=0}. The fluid sends \inltt{u,v,mhd\_time,mhd\_stop}
+(add \inltt{w} after \inltt{v} in 3D) and receives \inltt{phi}; ADR exchanges
+the reverse lists and uses \inltt{NotLocMethod=Keep}. Time and shutdown fields
+are internal protocol data, not solution variables. Every Lorentz-force
+evaluation performs a request/reply exchange with its own sequence number.
+The ADR output additionally contains \inltt{Jx,Jy,Jz,sigma}.
+
+The example \inltt{Examples/CoupledMHDThickWall2D} in the incompressible solver
+contains an eight-element thick-wall channel with an analytical nonzero-current
+solution, input files, a run script and a result checker. This coupled mode
+supports static full 2D/3D meshes and stationary solids; homogeneous Fourier
+meshes are not supported.
+
 \section{Examples}
 \label{s:incns:examples}
 

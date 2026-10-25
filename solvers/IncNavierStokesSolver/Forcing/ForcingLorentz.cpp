@@ -172,7 +172,7 @@ void ForcingLorentz::v_Apply(
     {
         Vmath::Sadd(physTot, m_E0[i], m_Efield[i], 1, m_Efield[i], 1);
     }
-    m_FluidEq->SolveEfield(m_Efield, m_Efield);
+    m_FluidEq->SolveEfield(m_Efield, m_Efield, inarray, time);
     NekDouble SB0[3];
     SB0[0] = m_sigma * m_B0[0];
     SB0[1] = m_sigma * m_B0[1];
