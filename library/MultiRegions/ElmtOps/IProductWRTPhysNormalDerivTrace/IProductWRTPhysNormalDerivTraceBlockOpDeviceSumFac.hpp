@@ -583,7 +583,10 @@ protected:
         const size_t jacCompStride = nelmtPad * numDataJac;
 
         // Set Kernel parameters.
-        const unsigned int shmemsize = 0;
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTPhysNormalDerivTraceSharedMemorySize<SHAPE_TYPE>(
+                sizeParam);
         const unsigned int blocksize =
             GetDeviceBlockSize<MultiRegions::SumFac>(sizeParam.nmMax());
         const unsigned int gridsize = GetDeviceGridSize<MultiRegions::SumFac>(

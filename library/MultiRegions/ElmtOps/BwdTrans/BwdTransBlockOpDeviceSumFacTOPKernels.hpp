@@ -77,13 +77,11 @@
  * including the last one of each shape kernel, so that the staging area
  * is safe to overwrite for the next element the block takes; the barrier
  * that ends the coefficient staging is also what publishes the basis
- * tables. The one-dimensional path stages nothing at all: it reads
- * coefficients and basis straight from global memory.
+ * tables. The one-dimensional path stages only the basis table, once per
+ * block, and reads the coefficients straight from global memory.
  *
  * BwdTransSharedMemorySize gives the amount of dynamic shared memory the
- * block implementation requests. In one dimension it still returns a
- * non-zero figure, for storage the kernels never touch (see its 1D
- * overload).
+ * block implementation requests.
  *
  * ### Conventions
  * The basis tables, mode orderings, isModified corrections and nodal
@@ -170,12 +168,8 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @brief Dynamic shared memory a 1D SumFacTOP backward transform
  * requests, in TData values.
  *
- * Counts the element's nm0 coefficients plus the nm0 x nq0 basis table.
- * The 1D path stages neither of them: the launcher passes the
- * shared-memory pointer on unused and BwdTransSegSumFacTOPKernel reads
- * coefficients and basis straight from global memory, so the memory
- * this reserves is never written. It does, however, enter the occupancy
- * heuristic of GetDeviceGridSize.
+ * The nm0 x nq0 basis table, which the 1D launcher stages once per
+ * thread block.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -197,7 +191,7 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
     const unsigned int nm0 = sizeParam1D.nm0();
     const unsigned int nq0 = sizeParam1D.nq0();
 
-    return nm0 + nm0 * nq0;
+    return nm0 * nq0;
 }
 
 /**
@@ -325,9 +319,9 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  *
  * Each thread takes the points at its local index plus multiples of the
  * block size and contracts the element's nm0 coefficients against the
- * basis table for each of them. Nothing is staged: @p in and @p basis0
- * are read from global memory. The closing barrier brings the block back
- * into step before it takes the next element.
+ * basis table for each of them. @p in is read from global memory and
+ * @p basis0 from wherever the caller staged it. The closing barrier brings the
+ * block back into step before it takes the next element.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
  * @tparam TthreadBlock  Back-end thread-block handle type.
@@ -1223,8 +1217,8 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
  * anything but a 1D size parameter is rejected by the static_assert.
  * FETCH_SHARED_MEMORY binds @p shmemptr to the block's dynamic shared
  * memory on the CUDA/HIP back-ends, and is a no-op where the launcher
- * macro passes the pointer in; nothing is staged in shared memory in one
- * dimension, so it goes unused once unpacked.
+ * macro passes the pointer in. The basis table is copied into it once
+ * before the element loop.
  *
  * The block takes the element at its index in the grid's first dimension
  * and advances by that dimension's block count, so the block's
@@ -1251,8 +1245,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
  * @param   out         Block's physical values for every component.
  * @param   wsp         Global-memory workspace; SumFacTOP keeps no
  *                      intermediates there, so unused.
- * @param   shmemptr    Shared-memory base, appended by the launcher;
- *                      unused in one dimension.
+ * @param   shmemptr    Shared-memory base, appended by the launcher.
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -1270,7 +1263,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                            const TData *NEK_RESTRICT in,
                            TData *NEK_RESTRICT out,
                            [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                           [[maybe_unused]] unsigned char *shmemptr,
+                           unsigned char *shmemptr,
                            const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
@@ -1282,13 +1275,26 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nm0 = sizeParam1D.nm0();
     const unsigned int nq0 = sizeParam1D.nq0();
 
+    TData *s_basis0 = (TData *)shmemptr;
+
+    // Copy to shared memory.
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+    {
+        s_basis0[idx] = basis0[idx];
+    }
+
+    localBarrier(threadBlock);
+
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *inptr = in + nm0 * nelmt * c + nm0 * e;
         TData *outptr      = out + nq0 * nelmt * c + nq0 * e;
-        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, basis0, inptr, outptr,
+        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, s_basis0, inptr, outptr,
                                            threadBlock);
         e += getBlockRange<0>(threadBlock);
     }

@@ -164,7 +164,8 @@ template <typename Implementation, typename TTraceSizeParameter2D,
 inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
     const TTraceSizeParameter2D sizeParam2D, const unsigned int ntrace = 2u)
 {
-    return ntrace * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D);
+    return ntrace * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D) +
+           sizeParam2D.nmTot();
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the face
@@ -180,7 +181,8 @@ inline constexpr unsigned int IProductWRTPhysTraceSharedMemorySize(
     const TTraceSizeParameter3D sizeParam3D)
 {
     return IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D) +
-           IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
+           IProductWRTPhysTraceFaceScratchSize(sizeParam3D) +
+           sizeParam3D.nmTot();
 }
 
 // -----------------------------------------------------------------------------
@@ -1664,11 +1666,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
     TData *s_wsp = (TData *)shmemptr;
+    TData *s_out =
+        s_wsp + 2u * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D);
 
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nmTot = nm0 * nm1;
     const unsigned int tnq00 = sizeParam2D.nq00();
     const unsigned int tnq10 = sizeParam2D.nq10();
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1678,21 +1686,23 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr       = out + numDataOut * (nelmt * c + e);
         const TData *jacptr = tjac + numDataJac * e;
 
-        if (append)
+        // Accumulate the element's volume in shared memory, so that the
+        // traces' strided contributions stay off global memory, and write
+        // it out once, coalesced.
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            IProductWRTPhysTrace2DTOPKernel<SHAPE_TYPE, DEFORMED, true>(
-                nm0, nm1, nbasis0, nbasis1, tnq00, tnq10, tbasis0, tbasis1,
-                tw00, tw10, jacptr, s_wsp, inptr, outptr, isCollocated0,
-                isCollocated1, endPtsCollocated0, endPtsCollocated1,
-                threadBlock);
+            s_out[idx] = append ? outptr[idx] : TData(0);
         }
-        else
+        localBarrier(threadBlock);
+
+        IProductWRTPhysTrace2DTOPKernel<SHAPE_TYPE, DEFORMED, true>(
+            nm0, nm1, nbasis0, nbasis1, tnq00, tnq10, tbasis0, tbasis1, tw00,
+            tw10, jacptr, s_wsp, inptr, s_out, isCollocated0, isCollocated1,
+            endPtsCollocated0, endPtsCollocated1, threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            IProductWRTPhysTrace2DTOPKernel<SHAPE_TYPE, DEFORMED, false>(
-                nm0, nm1, nbasis0, nbasis1, tnq00, tnq10, tbasis0, tbasis1,
-                tw00, tw10, jacptr, s_wsp, inptr, outptr, isCollocated0,
-                isCollocated1, endPtsCollocated0, endPtsCollocated1,
-                threadBlock);
+            outptr[idx] = s_out[idx];
         }
 
         e += getBlockRange(threadBlock);
@@ -1737,11 +1747,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
     TData *s_wsp = (TData *)shmemptr;
+    TData *s_out = s_wsp + IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D);
 
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nmTot = nm0 * nm1;
     const unsigned int tnq00 = sizeParam2D.nq00();
     const unsigned int tnq10 = sizeParam2D.nq10();
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     // Edge -> (normal dir, edge slot) mapping, identical to the
     // per-lane IProductWRTPhysTraceEdgeKernel switch.
@@ -1816,10 +1831,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr       = out + numDataOut * (nelmt * c + e);
         const TData *jacptr = tjac + numDataJac * e;
 
-        if (!append)
+        // Accumulate the element's volume in shared memory, so that the
+        // traces' strided contributions stay off global memory, and write
+        // it out once, coalesced.
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            ZeroModesTOPKernel(nm0 * nm1, outptr, threadBlock);
+            s_out[idx] = append ? outptr[idx] : TData(0);
         }
+        localBarrier(threadBlock);
 
         if (nd == 0)
         {
@@ -1827,13 +1846,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             {
                 IPWRTPhysTraceEdgeN0TOPKernel<true, DEFORMED>(
                     edg, nedg, tstride, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
-                    jacptr, s_wsp, inptr, outptr, isCollocated0, threadBlock);
+                    jacptr, s_wsp, inptr, s_out, isCollocated0, threadBlock);
             }
             else
             {
                 IPWRTPhysTraceEdgeN0TOPKernel<false, DEFORMED>(
                     edg, nedg, tstride, nm0, nm1, nbasis0, tnq00, tbasis0, tw00,
-                    jacptr, s_wsp, inptr, outptr, isCollocated0, threadBlock);
+                    jacptr, s_wsp, inptr, s_out, isCollocated0, threadBlock);
             }
         }
         else
@@ -1842,14 +1861,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             {
                 IPWRTPhysTraceEdgeN1TOPKernel<true, DEFORMED>(
                     edg, nedg, tstride, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
-                    jacptr, s_wsp, inptr, outptr, isCollocated1, threadBlock);
+                    jacptr, s_wsp, inptr, s_out, isCollocated1, threadBlock);
             }
             else
             {
                 IPWRTPhysTraceEdgeN1TOPKernel<false, DEFORMED>(
                     edg, nedg, tstride, nm0, nm1, nbasis1, tnq10, tbasis1, tw10,
-                    jacptr, s_wsp, inptr, outptr, isCollocated1, threadBlock);
+                    jacptr, s_wsp, inptr, s_out, isCollocated1, threadBlock);
             }
+        }
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            outptr[idx] = s_out[idx];
         }
 
         e += getBlockRange(threadBlock);
@@ -1908,16 +1932,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     TData *s_wsp0 = (TData *)shmemptr;
     TData *s_wsp1 = s_wsp0 + IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
+    TData *s_out  = s_wsp1 + IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
-    const unsigned int tnq00 = sizeParam3D.nq00();
-    const unsigned int tnq01 = sizeParam3D.nq01();
-    const unsigned int tnq10 = sizeParam3D.nq10();
-    const unsigned int tnq11 = sizeParam3D.nq11();
-    const unsigned int tnq20 = sizeParam3D.nq20();
-    const unsigned int tnq21 = sizeParam3D.nq21();
+    const unsigned int nmTot = nm0 * nm1 * nm2;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int tnq00  = sizeParam3D.nq00();
+    const unsigned int tnq01  = sizeParam3D.nq01();
+    const unsigned int tnq10  = sizeParam3D.nq10();
+    const unsigned int tnq11  = sizeParam3D.nq11();
+    const unsigned int tnq20  = sizeParam3D.nq20();
+    const unsigned int tnq21  = sizeParam3D.nq21();
 
     size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1927,27 +1956,27 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr       = out + numDataOut * (nelmt * c + e);
         const TData *jacptr = tjac + numDataJac * e;
 
-        if (append)
+        // Accumulate the element's volume in shared memory, so that the
+        // traces' strided contributions stay off global memory, and write
+        // it out once, coalesced.
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            IProductWRTPhysTrace3DFaceTOPKernel<SHAPE_TYPE, DEFORMED, true>(
-                nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00, tnq01, tnq10,
-                tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10, tbasis11,
-                tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20, tw21, jacptr,
-                s_wsp0, s_wsp1, inptr, outptr, isCollocated00, isCollocated01,
-                isCollocated10, isCollocated11, isCollocated20, isCollocated21,
-                endPtsCollocated0, endPtsCollocated1, endPtsCollocated2,
-                threadBlock);
+            s_out[idx] = append ? outptr[idx] : TData(0);
         }
-        else
+        localBarrier(threadBlock);
+
+        IProductWRTPhysTrace3DFaceTOPKernel<SHAPE_TYPE, DEFORMED, true>(
+            nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00, tnq01, tnq10,
+            tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10, tbasis11,
+            tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20, tw21, jacptr,
+            s_wsp0, s_wsp1, inptr, s_out, isCollocated00, isCollocated01,
+            isCollocated10, isCollocated11, isCollocated20, isCollocated21,
+            endPtsCollocated0, endPtsCollocated1, endPtsCollocated2,
+            threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            IProductWRTPhysTrace3DFaceTOPKernel<SHAPE_TYPE, DEFORMED, false>(
-                nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00, tnq01, tnq10,
-                tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10, tbasis11,
-                tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20, tw21, jacptr,
-                s_wsp0, s_wsp1, inptr, outptr, isCollocated00, isCollocated01,
-                isCollocated10, isCollocated11, isCollocated20, isCollocated21,
-                endPtsCollocated0, endPtsCollocated1, endPtsCollocated2,
-                threadBlock);
+            outptr[idx] = s_out[idx];
         }
 
         e += getBlockRange(threadBlock);
@@ -2000,16 +2029,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     TData *s_wsp0 = (TData *)shmemptr;
     TData *s_wsp1 = s_wsp0 + IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
+    TData *s_out  = s_wsp1 + IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
-    const unsigned int tnq00 = sizeParam3D.nq00();
-    const unsigned int tnq01 = sizeParam3D.nq01();
-    const unsigned int tnq10 = sizeParam3D.nq10();
-    const unsigned int tnq11 = sizeParam3D.nq11();
-    const unsigned int tnq20 = sizeParam3D.nq20();
-    const unsigned int tnq21 = sizeParam3D.nq21();
+    const unsigned int nmTot = nm0 * nm1 * nm2;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+    const unsigned int tnq00  = sizeParam3D.nq00();
+    const unsigned int tnq01  = sizeParam3D.nq01();
+    const unsigned int tnq10  = sizeParam3D.nq10();
+    const unsigned int tnq11  = sizeParam3D.nq11();
+    const unsigned int tnq20  = sizeParam3D.nq20();
+    const unsigned int tnq21  = sizeParam3D.nq21();
 
     size_t e             = getBlockIdx(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -2019,14 +2053,28 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr       = out + numDataOut * (nelmt * c + e);
         const TData *jacptr = tjac + numDataJac * e;
 
+        // Accumulate the element's volume in shared memory, so that the
+        // traces' strided contributions stay off global memory, and write
+        // it out once, coalesced.
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            s_out[idx] = append ? outptr[idx] : TData(0);
+        }
+        localBarrier(threadBlock);
+
         IProductWRTPhysTraceFaceTOPKernel<DEFORMED>(
             face, shape, nm0, nm1, nm2, nbasis0, nbasis1, nbasis2, tnq00, tnq01,
             tnq10, tnq11, tnq20, tnq21, tbasis00, tbasis01, tbasis10, tbasis11,
             tbasis20, tbasis21, tw00, tw01, tw10, tw11, tw20, tw21, jacptr,
-            s_wsp0, s_wsp1, inptr, outptr, isCollocated00, isCollocated01,
+            s_wsp0, s_wsp1, inptr, s_out, isCollocated00, isCollocated01,
             isCollocated10, isCollocated11, isCollocated20, isCollocated21,
-            endPtsCollocated0, endPtsCollocated1, endPtsCollocated2, append,
+            endPtsCollocated0, endPtsCollocated1, endPtsCollocated2, true,
             threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            outptr[idx] = s_out[idx];
+        }
 
         e += getBlockRange(threadBlock);
     }

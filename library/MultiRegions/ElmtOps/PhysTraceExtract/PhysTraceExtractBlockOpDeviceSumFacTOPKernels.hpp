@@ -152,9 +152,10 @@ inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: the edge
-/// block the normal stage writes, one PhysTraceExtractBlockSize(). One
-/// element is resident per block at a time, so the per-element bound of
-/// the global workspace is what a block needs.
+/// block the normal stage writes, one PhysTraceExtractBlockSize(),
+/// followed by a copy of the element's volume field. One element is
+/// resident per block at a time, so the per-element bound of the global
+/// workspace is what a block needs.
 template <typename Implementation, typename TTraceSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
@@ -163,13 +164,14 @@ template <typename Implementation, typename TTraceSizeParameter2D,
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
     const TTraceSizeParameter2D sizeParam2D)
 {
-    return PhysTraceExtractBlockSize(sizeParam2D);
+    return PhysTraceExtractBlockSize(sizeParam2D) + sizeParam2D.nmTot();
 }
 
 /// @brief Dynamic shared memory one block needs, in elements: three
 /// PhysTraceExtractBlockSize(), two for the face block the normal stage
 /// writes and one for the tangential scratch, the split the kernels
-/// re-derive from the same helper.
+/// re-derive from the same helper, followed by a copy of the element's
+/// volume field.
 template <typename Implementation, typename TTraceSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
@@ -178,7 +180,7 @@ template <typename Implementation, typename TTraceSizeParameter3D,
 inline constexpr unsigned int PhysTraceExtractSharedMemorySize(
     const TTraceSizeParameter3D sizeParam3D)
 {
-    return 3u * PhysTraceExtractBlockSize(sizeParam3D);
+    return 3u * PhysTraceExtractBlockSize(sizeParam3D) + sizeParam3D.nmTot();
 }
 
 // --- 2D ---
@@ -521,8 +523,8 @@ NEK_DEVICE_INLINE static void PhysInterpFaceTOPKernelTrace(
         for (unsigned int idx = idx0; idx < nface * nqto0 * nqto1;
              idx += stride)
         {
-            const unsigned int j = idx % nqto1;
-            const unsigned int i = (idx / nqto1) % nqto0;
+            const unsigned int i = idx % nqto0;
+            const unsigned int j = (idx / nqto0) % nqto1;
             const unsigned int f = idx / (nqto1 * nqto0);
 
             TData tmp = in[(f * nqfrom1) * nqto0 + i] * tbasis1[j];
@@ -559,8 +561,8 @@ NEK_DEVICE_INLINE static void PhysInterpFaceTOPKernelTrace(
         for (unsigned int idx = idx0; idx < nface * nqto0 * nqto1;
              idx += stride)
         {
-            const unsigned int j = idx % nqto1;
-            const unsigned int i = (idx / nqto1) % nqto0;
+            const unsigned int i = idx % nqto0;
+            const unsigned int j = (idx / nqto0) % nqto1;
             const unsigned int f = idx / (nqto1 * nqto0);
 
             TData tmp = wsp[(f * nqfrom1) * nqto0 + i] * tbasis1[j];
@@ -1420,11 +1422,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
     TData *s_wsp = (TData *)shmemptr;
+    TData *s_in  = s_wsp + PhysTraceExtractBlockSize(sizeParam2D);
 
     const unsigned int nm0 = sizeParam2D.nm0();
     const unsigned int nm1 = sizeParam2D.nm1();
     const unsigned int nq0 = sizeParam2D.nq00();
     const unsigned int nq1 = sizeParam2D.nq10();
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     const unsigned int nqTotOut = sizeParam2D.template nqTotTrace<SHAPE_TYPE>();
 
@@ -1435,9 +1441,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + nqTotOut * (nelmt * c + e);
 
+        // Copy the element's volume to shared memory, so that the strided
+        // reads of the direction-0 traces stay off global memory.
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            s_in[idx] = inptr[idx];
+        }
+        localBarrier(threadBlock);
+
         PhysTraceExtract2DSumFacTOPKernelCore<SHAPE_TYPE>(
-            nm0, nm1, nq0, nq1, ntbasis0, ntbasis1, basis0, basis1, s_wsp,
-            inptr, outptr, isCollocated0, isCollocated1, endPtsCollocated0,
+            nm0, nm1, nq0, nq1, ntbasis0, ntbasis1, basis0, basis1, s_wsp, s_in,
+            outptr, isCollocated0, isCollocated1, endPtsCollocated0,
             endPtsCollocated1, threadBlock);
         e += getBlockRange(threadBlock);
     }
@@ -1479,11 +1493,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
     TData *s_wsp = (TData *)shmemptr;
+    TData *s_in  = s_wsp + PhysTraceExtractBlockSize(sizeParam2D);
 
     const unsigned int nm0  = sizeParam2D.nm0();
     const unsigned int nm1  = sizeParam2D.nm1();
     const unsigned int nq00 = sizeParam2D.nq00();
     const unsigned int nq10 = sizeParam2D.nq10();
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     TraceExtractDispatch dispatch{};
     if (!GetTraceEdgeDispatch<SHAPE_TYPE>(traceid, dispatch))
@@ -1500,9 +1518,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if (dispatch.normalDir == 0u)
         {
+            // Copy the element's volume to shared memory, so that the strided
+            // reads of the direction-0 traces stay off global memory.
+            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+            {
+                s_in[idx] = inptr[idx];
+            }
+            localBarrier(threadBlock);
+
             BwdTransQuadSumFacTOPKernelTrace<SHAPE_TYPE, 0>(
                 nm0, nm1, nq00, nq10, dispatch.fac, dispatch.nfac, nq00,
-                ntbasis0, tbasis00, inptr, outptr, s_wsp, isCollocated00,
+                ntbasis0, tbasis00, s_in, outptr, s_wsp, isCollocated00,
                 endPtsCollocated0, threadBlock);
         }
         else
@@ -1563,6 +1589,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int max_wsp_size = PhysTraceExtractBlockSize(sizeParam3D);
     TData *s_wsp0                   = (TData *)shmemptr;
     TData *s_wsp1                   = s_wsp0 + 2u * max_wsp_size;
+    TData *s_in                     = s_wsp0 + 3u * max_wsp_size;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     const unsigned int nm0  = sizeParam3D.nm0();
     const unsigned int nm1  = sizeParam3D.nm1();
@@ -1583,10 +1613,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr = in + nmTot * (nelmt * c + e);
         TData *outptr      = out + nqTotOut * (nelmt * c + e);
 
+        // Copy the element's volume to shared memory, so that the strided
+        // reads of the direction-0 traces stay off global memory.
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            s_in[idx] = inptr[idx];
+        }
+        localBarrier(threadBlock);
+
         PhysTraceExtract3DSumFacTOPKernelCore<SHAPE_TYPE>(
             nm0, nm1, nm2, nq00, nq01, nq10, nq11, nq20, nq21, ntbasis0,
             ntbasis1, ntbasis2, tbasis00, tbasis01, tbasis10, tbasis11,
-            tbasis20, tbasis21, s_wsp0, s_wsp1, inptr, outptr, isCollocated00,
+            tbasis20, tbasis21, s_wsp0, s_wsp1, s_in, outptr, isCollocated00,
             isCollocated01, isCollocated10, isCollocated11, isCollocated20,
             isCollocated21, endPtsCollocated0, endPtsCollocated1,
             endPtsCollocated2, threadBlock);
@@ -1642,6 +1680,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int max_wsp_size = PhysTraceExtractBlockSize(sizeParam3D);
     TData *s_wsp0                   = (TData *)shmemptr;
     TData *s_wsp1                   = s_wsp0 + 2u * max_wsp_size;
+    TData *s_in                     = s_wsp0 + 3u * max_wsp_size;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
 
     const unsigned int nm0  = sizeParam3D.nm0();
     const unsigned int nm1  = sizeParam3D.nm1();
@@ -1680,10 +1722,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         switch (dispatch.normalDir)
         {
             case 0:
+                // Copy the element's volume to shared memory, so that the
+                // strided reads of the direction-0 traces stay off global
+                // memory.
+                for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+                {
+                    s_in[idx] = inptr[idx];
+                }
+                localBarrier(threadBlock);
+
                 DispatchPhysExtractFaceN0TOPKernelTrace3D(
                     dispatch.fac, dispatch.nfac, tstride0, nm0, nm1, nm2,
                     ntbasis0, nq00, nq01, tbasis00, tbasis01, s_wsp0, s_wsp1,
-                    inptr, outptr, isCollocated00, isCollocated01,
+                    s_in, outptr, isCollocated00, isCollocated01,
                     endPtsCollocated0, threadBlock);
                 break;
             case 1:

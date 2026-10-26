@@ -517,7 +517,7 @@ protected:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         const unsigned int shmemsize =
             sizeof(TData) *
-            FwdTransBCSharedMemorySize(SHAPE_TYPE, nm0, nm1, nq0, nq1);
+            FwdTransBCSharedMemorySize(SHAPE_TYPE, nm0, nm1, nmTot, nq0, nq1);
         const unsigned int blocksize = GetDeviceBlockSize<SumFacTOP>(nqTot);
         const unsigned int gridsize =
             GetDeviceGridSize<SumFacTOP>(nelmt, blocksize, shmemsize);
