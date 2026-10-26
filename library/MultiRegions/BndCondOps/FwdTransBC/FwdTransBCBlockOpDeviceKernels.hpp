@@ -43,16 +43,9 @@ namespace Nektar::MultiRegions::detail
 {
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
-inline unsigned int FwdTransBCSharedMemorySize(
-    [[maybe_unused]] const unsigned int nm0, const unsigned int nq0)
-{
-    return 2 * nq0;
-}
-
-inline unsigned int FwdTransBCSharedMemorySize(
-    const LibUtilities::ShapeType shapeType,
-    [[maybe_unused]] const unsigned int nm0,
-    [[maybe_unused]] const unsigned int nm1, const unsigned int nq0,
+// Workspace of the 2D kernels, which the shared tables follow.
+inline unsigned int FwdTransBCWorkSpaceSize2D(
+    const LibUtilities::ShapeType shapeType, const unsigned int nq0,
     const unsigned int nq1)
 {
     if (shapeType == LibUtilities::Quad)
@@ -63,6 +56,34 @@ inline unsigned int FwdTransBCSharedMemorySize(
     else if (shapeType == LibUtilities::Tri)
     {
         return 3 * nq0 * nq1 + std::max(nq0, nq1);
+    }
+
+    return 0;
+}
+
+// Workspace followed by the basis table.
+inline unsigned int FwdTransBCSharedMemorySize(const unsigned int nm0,
+                                               const unsigned int nq0)
+{
+    return 2 * nq0 + nm0 * nq0;
+}
+
+// Workspace followed by the basis tables and, for triangles, the transposed
+// interpolation from direction 1 to direction 0.
+inline unsigned int FwdTransBCSharedMemorySize(
+    const LibUtilities::ShapeType shapeType, const unsigned int nm0,
+    const unsigned int nm1, const unsigned int nmTot, const unsigned int nq0,
+    const unsigned int nq1)
+{
+    const unsigned int wspsize = FwdTransBCWorkSpaceSize2D(shapeType, nq0, nq1);
+
+    if (shapeType == LibUtilities::Quad)
+    {
+        return wspsize + nm0 * nq0 + nm1 * nq1;
+    }
+    else if (shapeType == LibUtilities::Tri)
+    {
+        return wspsize + nm0 * nq0 + nmTot * nq1 + nq0 * nq1;
     }
     else if (shapeType == LibUtilities::NodalTri)
     {
@@ -128,20 +149,8 @@ NEK_DEVICE_INLINE static void FwdTransBCSegSumFacTOPKernel(
 
     // Step 4: Project edge interior modes onto boundary
     // Matrix vector product with interior mass matrix
-    TData tmp;
-    for (unsigned int i = idx0; i < nmInt; i += stride)
-    {
-        tmp = 0.0;
-        for (unsigned int j = 0; j < nmInt; j++)
-        {
-            tmp = tmp + wsp1[j + offset_seg] * invintmass[i * nmInt + j];
-        }
-
-        out[i + offset_seg] = tmp;
-    }
-
-    // synchronize threads.
-    localBarrier(threadBlock);
+    Nektar::MatVecSumFacTOPKernel<false, false>(
+        nmInt, invintmass, wsp1 + offset_seg, out + offset_seg, threadBlock);
 }
 
 template <bool DEFORMED, typename TthreadBlock, typename TData>
@@ -271,7 +280,7 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const bool isModified,
     const unsigned int *NEK_RESTRICT index0, const TData *NEK_RESTRICT basis0,
     const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT interp1to0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT interp1to0T,
     const unsigned int offset_seg, const TData *NEK_RESTRICT invintmass0,
     const TData *NEK_RESTRICT tJac, const unsigned int *NEK_RESTRICT tMap,
     const int *NEK_RESTRICT tSign, const unsigned int nmTotInt,
@@ -299,8 +308,8 @@ NEK_DEVICE_INLINE static void FwdTransBCTriSumFacTOPKernel(
         tmp = 0.0, tmp2 = 0.0;
         for (unsigned int j = 0u; j < nq1; j++)
         {
-            tmp += in[nq0 - 1 + j * nq0] * interp1to0[i * nq1 + j];
-            tmp2 += in[j * nq0] * interp1to0[i * nq1 + j];
+            tmp += in[nq0 - 1 + j * nq0] * interp1to0T[j * nq0 + i];
+            tmp2 += in[j * nq0] * interp1to0T[j * nq0 + i];
         }
 
         wsp1[i]           = in[i];
@@ -412,6 +421,18 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
 {
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
+    // Copy the basis table to shared memory, past the workspace; the first
+    // barrier of the segment kernel precedes its first use.
+    TData *s_basis0 = (TData *)shmemptr + 2 * nq0;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+    {
+        s_basis0[idx] = basis0[idx];
+    }
+
     // Per Element
     size_t e = getBlockIdx(threadBlock);
 
@@ -426,8 +447,8 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
         TData *s_wsp2 = s_wsp1 + nq0;
 
         FwdTransBCSegSumFacTOPKernel<DEFORMED>(
-            nm0, nq0, basis0, w0, offset_seg, invintmass, jacptr, inptr, outptr,
-            s_wsp1, s_wsp2, threadBlock);
+            nm0, nq0, s_basis0, w0, offset_seg, invintmass, jacptr, inptr,
+            outptr, s_wsp1, s_wsp2, threadBlock);
 
         // Increment to next element
         e += getBlockRange(threadBlock);
@@ -469,6 +490,39 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const int *tsignptr         = tSign;
     const unsigned int *imapptr = iMap;
 
+    // Copy the basis tables and, for triangles, the transposed interpolation
+    // to shared memory, past the workspace.
+    const unsigned int nmode1 =
+        (SHAPE_TYPE == LibUtilities::Quad) ? nm1 : nmTot;
+
+    TData *s_basis0 =
+        (TData *)shmemptr + FwdTransBCWorkSpaceSize2D(SHAPE_TYPE, nq0, nq1);
+    TData *s_basis1     = s_basis0 + nm0 * nq0;
+    TData *s_interp1to0 = s_basis1 + nmode1 * nq1;
+
+    const unsigned int idx0   = getLocalIdx(threadBlock);
+    const unsigned int stride = getLocalRange(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+    {
+        s_basis0[idx] = basis0[idx];
+    }
+
+    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
+    {
+        s_basis1[idx] = basis1[idx];
+    }
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
+        {
+            s_interp1to0[(idx % nq1) * nq0 + idx / nq1] = interp1to0[idx];
+        }
+    }
+
+    localBarrier(threadBlock);
+
     size_t e = getBlockIdx(threadBlock);
     while (e < nelmt)
     {
@@ -488,10 +542,10 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
             TData *s_wsp4 = s_wsp3 + nqTot;
 
             FwdTransBCQuadSumFacTOPKernel<DEFORMED>(
-                nm0, nm1, nmTot, nq0, nq1, basis0, basis1, w0, w1, offset_seg,
-                invintmass0, invintmass1, tjacptr, tmapptr, tsignptr, nmTotInt,
-                imapptr, invintmass, jacptr, inptr, outptr, s_wsp1, s_wsp2,
-                s_wsp3, s_wsp4, threadBlock);
+                nm0, nm1, nmTot, nq0, nq1, s_basis0, s_basis1, w0, w1,
+                offset_seg, invintmass0, invintmass1, tjacptr, tmapptr,
+                tsignptr, nmTotInt, imapptr, invintmass, jacptr, inptr, outptr,
+                s_wsp1, s_wsp2, s_wsp3, s_wsp4, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
@@ -502,10 +556,11 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
             TData *s_wsp4 = s_wsp3 + nqTot;
 
             FwdTransBCTriSumFacTOPKernel<DEFORMED>(
-                nm0, nm1, nmTot, nq0, nq1, isModified, index0, basis0, basis1,
-                w0, w1, interp1to0, offset_seg, invintmass0, tjacptr, tmapptr,
-                tsignptr, nmTotInt, imapptr, massintptr, jacptr, inptr, outptr,
-                s_wsp1, s_wsp2, s_wsp3, s_wsp4, threadBlock);
+                nm0, nm1, nmTot, nq0, nq1, isModified, index0, s_basis0,
+                s_basis1, w0, w1, s_interp1to0, offset_seg, invintmass0,
+                tjacptr, tmapptr, tsignptr, nmTotInt, imapptr, massintptr,
+                jacptr, inptr, outptr, s_wsp1, s_wsp2, s_wsp3, s_wsp4,
+                threadBlock);
         }
 
         // Increment to next element

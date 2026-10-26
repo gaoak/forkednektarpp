@@ -89,29 +89,76 @@ NEK_DEVICE_INLINE static void MatVecSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int i = idx0; i < nmTot; i += stride)
+    // On the SYCL CPU back-ends a sub-group need not be warpSize
+    // consecutive work-items, so the row-per-warp form below is kept to GPUs.
+#if defined(SYCL_ENABLE_CPU) &&                                                \
+    (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU))
+    constexpr bool rowPerThread = true;
+#else
+    constexpr bool rowPerThread = TRANSPOSE;
+#endif
+
+    if constexpr (rowPerThread)
     {
-        TData tmp = 0.0;
-#pragma unroll
-        for (unsigned int j = 0u; j < nmTot; j++)
+        // One output per thread: with TRANSPOSE consecutive threads read
+        // consecutive entries of each matrix row.
+        for (unsigned int i = idx0; i < nmTot; i += stride)
         {
-            if constexpr (TRANSPOSE)
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nmTot; j++)
             {
-                tmp += in[j] * nodToMod[j * nmTot + i];
+                if constexpr (TRANSPOSE)
+                {
+                    tmp += in[j] * nodToMod[j * nmTot + i];
+                }
+                else
+                {
+                    tmp += in[j] * nodToMod[i * nmTot + j];
+                }
+            }
+
+            if constexpr (APPEND)
+            {
+                out[i] += tmp;
             }
             else
             {
-                tmp += in[j] * nodToMod[i * nmTot + j];
+                out[i] = tmp;
             }
         }
+    }
+    else
+    {
+        // One output per warp, so that the lanes read consecutive entries of
+        // its matrix row; the block size is a whole number of warps, so every
+        // lane of a warp takes part in its reduction.
+        constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
-        if constexpr (APPEND)
+        const unsigned int lane  = getLaneIdx(threadBlock);
+        const unsigned int warp  = idx0 / warpsize;
+        const unsigned int nwarp = stride / warpsize;
+
+        for (unsigned int i = warp; i < nmTot; i += nwarp)
         {
-            out[i] += tmp;
-        }
-        else
-        {
-            out[i] = tmp;
+            TData tmp = 0.0;
+            for (unsigned int j = lane; j < nmTot; j += warpsize)
+            {
+                tmp += in[j] * nodToMod[i * nmTot + j];
+            }
+            tmp = warpReduceSum(tmp, threadBlock);
+
+            if (lane == 0u)
+            {
+                if constexpr (APPEND)
+                {
+                    out[i] += tmp;
+                }
+                else
+                {
+                    out[i] = tmp;
+                }
+            }
         }
     }
 

@@ -2379,11 +2379,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * The same shared-memory layout and element loop as the quadrature
  * overload, copying the element's values unchanged.
  *
- * @note The three shape branches do not read those staged values alike:
- * Quad passes the shared copy s_wsp0 to its shape kernel, whereas Tri and
- * NodalTri pass inptr, the element's values in global memory. The copy
- * into s_wsp0 still runs in every case.
- *
  * @param   sizeParam2D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
@@ -2487,13 +2482,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             IProductWRTBaseTriSumFacTOPKernel<SCALE, APPEND>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, inptr, outptr, s_wsp1, scale, threadBlock);
+                s_basis1, s_wsp0, outptr, s_wsp1, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
             IProductWRTBaseTriSumFacTOPKernel<SCALE, false>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, inptr, s_out1ptr, s_wsp1, scale, threadBlock);
+                s_basis1, s_wsp0, s_out1ptr, s_wsp1, scale, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
             MatVecSumFacTOPKernel<APPEND, true>(nmTot, nodToMod, s_out1ptr,
@@ -2762,12 +2757,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * overload, copying the element's values unchanged; the note on @p APPEND
  * for the nodal shapes applies here too.
  *
- * @note As in two dimensions, the shape branches do not read those staged
- * values alike: Hex passes the shared copy s_wsp0 to its shape kernel,
- * whereas Tet, NodalTet, Prism, NodalPrism and Pyr pass inptr, the
- * element's values in global memory. The copy into s_wsp0 still runs in
- * every case.
- *
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
  * @param   isModified  First-direction basis is eModified_A.
@@ -2905,14 +2894,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, inptr, outptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, outptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
             IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, inptr, s_out1ptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, s_out1ptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
@@ -2923,14 +2912,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, inptr, outptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, outptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, inptr, s_out1ptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, s_out1ptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
@@ -2941,7 +2930,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             IProductWRTBasePyrSumFacTOPKernel<SCALE, APPEND>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, s_basis0, s_basis1, s_basis2, inptr, outptr, s_wsp1,
+                index1, s_basis0, s_basis1, s_basis2, s_wsp0, outptr, s_wsp1,
                 s_wsp2, scale, threadBlock);
         }
 
