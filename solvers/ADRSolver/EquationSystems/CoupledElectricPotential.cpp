@@ -146,10 +146,29 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
 
     auto config = LibUtilities::SessionNodeFromXml(
         m_session->GetElement("Nektar/Coupling"), "COUPLING");
-    ASSERTL0(StringUtils::IEquals(config.GetAttribute("TYPE"), "Cwipi"),
-             "CoupledElectricPotential requires TYPE=\"Cwipi\".");
-    m_coupling =
-        SolverUtils::GetCouplingFactory().CreateInstance("Cwipi", m_fields[0]);
+    std::string couplingType = config.GetAttribute("TYPE");
+    ASSERTL0(
+        StringUtils::IEquals(couplingType, "Cwipi") ||
+            StringUtils::IEquals(couplingType, "Coefficients"),
+        "CoupledElectricPotential requires Cwipi or Coefficients coupling.");
+    couplingType = StringUtils::IEquals(couplingType, "Cwipi")
+                       ? "Cwipi"
+                       : "Coefficients";
+    m_coupling = SolverUtils::GetCouplingFactory().CreateInstance(couplingType,
+                                                                  m_fields[0]);
+    if (m_coupling->ExchangesCoefficients())
+    {
+        auto options = m_coupling->GetConfig();
+        ASSERTL0(StringUtils::IEquals(options.at("ROLE"), "Electric"),
+                 "ADR coefficient coupling requires ROLE=Electric.");
+        bool fluidRank =
+            m_comm->GetRank() < std::stoi(options.at("FLUIDRANKS"));
+        for (int q = 0; q < nq; ++q)
+            ASSERTL0(
+                (m_fluid[q] != 0) == fluidRank,
+                "Unified ADR partitions must be fluid-only on ranks 0..M-1 "
+                "and solid-only on ranks M..M+N-1.");
+    }
     m_recvNames = {"u", "v"};
     if (m_dimension == 3)
     {
@@ -163,13 +182,18 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
              "Electrical coupling must receive u,v[,w],mhd_time,mhd_stop and "
              "send phi.");
     auto options = m_coupling->GetConfig();
-    ASSERTL0(
-        options.at("SENDSTEPS") == "1" && options.at("RECEIVESTEPS") == "1" &&
-            std::stod(options.at("FILTERWIDTH")) <= 0.0 &&
-            StringUtils::IEquals(options.at("RECEIVEPROJECTION"), "Local") &&
-            StringUtils::IEquals(options.at("NOTLOCMETHOD"), "Keep"),
-        "Electrical coupling requires SendSteps=ReceiveSteps=1, "
-        "FilterWidth<=0, ReceiveProjection=Local and NotLocMethod=Keep.");
+    if (!m_coupling->ExchangesCoefficients())
+    {
+        ASSERTL0(
+            options.at("SENDSTEPS") == "1" &&
+                options.at("RECEIVESTEPS") == "1" &&
+                std::stod(options.at("FILTERWIDTH")) <= 0.0 &&
+                StringUtils::IEquals(options.at("RECEIVEPROJECTION"),
+                                     "Local") &&
+                StringUtils::IEquals(options.at("NOTLOCMETHOD"), "Keep"),
+            "Electrical coupling requires SendSteps=ReceiveSteps=1, "
+            "FilterWidth<=0, ReceiveProjection=Local and NotLocMethod=Keep.");
+    }
     m_received = Array<OneD, Array<OneD, NekDouble>>(m_recvNames.size());
     for (auto &field : m_received)
     {
@@ -231,7 +255,15 @@ void CoupledElectricPotential::v_DoSolve()
             SolvePotential();
         }
         reply[0] = m_fields[0]->UpdatePhys();
-        m_coupling->Send(exchange++, m_time, reply, m_sendNames);
+        if (m_coupling->ExchangesCoefficients())
+        {
+            m_coupling->SendCoefficients(exchange++, m_time,
+                                         m_fields[0]->GetCoeffs());
+        }
+        else
+        {
+            m_coupling->Send(exchange++, m_time, reply, m_sendNames);
+        }
         if (stop >= 0.5)
         {
             break;

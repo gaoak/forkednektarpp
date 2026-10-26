@@ -72,6 +72,47 @@ The coupling waits for the file given in the receive function to appear.
 \end{center}
 
 
+\subsection{Coefficients (matched MHD partitions)}
+
+This MHD-specific type exchanges element-local expansion coefficients between
+\inltt{IncNavierStokesSolver} and \inltt{ADRSolver} using
+\inltt{CoupledElectricPotential}. It requires MPI and CWIPI support and distinct
+\inltt{--cwipi} application names. CWIPI supplies local application
+communicators; a private MPI intercommunicator carries paired messages without
+geometric point location or interpolation.
+
+Use the \inltt{MHDPartition} utility to generate $M$ fluid partitions reused by
+both applications, plus $N$ solid partitions used only by ADR. IncNS has $M$
+ranks and ADR has $M+N$ ranks; $M,N>0$. The corresponding fluid submeshes must
+retain element and geometry IDs, orientations, bases, orders and quadrature.
+Initialization validates the layouts and caches packing indices sorted by
+global element ID. Fixed geometry, partitions and expansions are required.
+The generated fluid coupling block has the following form:
+\begin{lstlisting}[style=XMLStyle]
+<COUPLING NAME="MHD" TYPE="Coefficients">
+    <I PROPERTY="Role"             VALUE="Fluid" />
+    <I PROPERTY="FluidRanks"       VALUE="2" />
+    <I PROPERTY="SendSteps"        VALUE="1" />
+    <I PROPERTY="ReceiveSteps"     VALUE="1" />
+    <I PROPERTY="SendVariables"    VALUE="u,v,mhd_time,mhd_stop" />
+    <I PROPERTY="ReceiveVariables" VALUE="phi" />
+</COUPLING>
+\end{lstlisting}
+ADR uses \inltt{Role=Electric}, the same \inltt{FluidRanks}, and reversed
+send/receive lists. Insert \inltt{w} after \inltt{v} for full 3D meshes.
+Both exchange frequencies must be one. The time and shutdown marker are
+message metadata rather than expansion fields. The peer is identified by role;
+\inltt{RemoteName} is accepted but unused. Exactly one application of each role
+is supported per MPI job. Point-mode options such as \inltt{ReceiveProjection},
+\inltt{FilterWidth} and \inltt{NotLocMethod} do not apply; preprocessing removes
+them from the generated blocks.
+
+The thick-wall MHD example provides preprocessing and launch commands as well
+as analytical and transfer tests. Solid ranks do not exchange field payloads
+with IncNS, but participate in ADR's global fluid/solid continuous Galerkin
+solve. Velocity requires a local transform from the current RHS-stage arrays;
+the returned potential is received directly as coefficients.
+
 \subsection{Cwipi}
 
 \begin{notebox}

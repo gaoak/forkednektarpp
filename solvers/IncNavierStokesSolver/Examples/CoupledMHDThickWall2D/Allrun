@@ -11,19 +11,38 @@ if [[ "$build_type" == "Debug" ]]; then
 fi
 fluid_solver="${INCNS_SOLVER:-$build_dir/solvers/IncNavierStokesSolver/IncNavierStokesSolver$suffix}"
 electric_solver="${ADR_SOLVER:-$build_dir/solvers/ADRSolver/ADRSolver$suffix}"
+partitioner="${MHD_PARTITIONER:-$build_dir/utilities/Extras/MHDPartition$suffix}"
+transfer="${MHD_TRANSFER:-Coefficients}"
 run_dir="${1:-$repo_dir/build/coupled-mhd-thick-wall-2d}"
 mkdir -p "$run_dir"
 cp "$case_dir/"*.xml "$run_dir/"
 cd "$run_dir"
 
-# Use one rank per application unless explicitly requested otherwise.
-# A timeout also catches a communication mismatch instead of waiting forever.
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
-timeout "${MHD_TIMEOUT:-120}" mpiexec \
-    -np "${FLUID_RANKS:-1}" "$fluid_solver" \
-        --cwipi fluid fluid-mesh.xml fluid.xml \
-    : -np "${ELECTRIC_RANKS:-1}" "$electric_solver" \
-        --cwipi electric electric-mesh.xml electric.xml \
-    > log.coupled-mhd 2>&1
+if [[ "$transfer" == "Coefficients" ]]; then
+    fluid_ranks="${FLUID_RANKS:-2}"
+    solid_ranks="${SOLID_RANKS:-1}"
+    electric_ranks="$((fluid_ranks + solid_ranks))"
+    "$partitioner" "$fluid_ranks" "$solid_ranks" "$PWD/partitions" \
+        fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml > log.partition 2>&1
+    fluid_input=("$PWD/partitions/fluid_xml")
+    electric_input=("$PWD/partitions/electric_xml")
+elif [[ "$transfer" == "Cwipi" ]]; then
+    fluid_ranks="${FLUID_RANKS:-1}"
+    electric_ranks="${ELECTRIC_RANKS:-1}"
+    fluid_input=(fluid-mesh.xml fluid.xml)
+    electric_input=(electric-mesh.xml electric.xml)
+else
+    echo "MHD_TRANSFER must be Coefficients or Cwipi" >&2
+    exit 1
+fi
+# A timeout catches communication mismatches instead of waiting indefinitely.
+if ! timeout "${MHD_TIMEOUT:-120}" mpiexec \
+    -np "$fluid_ranks" "$fluid_solver" --cwipi fluid "${fluid_input[@]}" \
+    : -np "$electric_ranks" "$electric_solver" --cwipi electric "${electric_input[@]}" \
+    > log.coupled-mhd 2>&1; then
+    tail -n 80 log.coupled-mhd >&2
+    exit 1
+fi
 python3 "$case_dir/check_results.py" log.coupled-mhd

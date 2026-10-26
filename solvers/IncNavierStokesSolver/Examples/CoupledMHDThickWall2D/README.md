@@ -1,4 +1,4 @@
-# CWIPI MHD with conducting thick walls
+# MHD with conducting thick walls and unified partitions
 
 This small 2D planar channel couples `IncNavierStokesSolver` on the fluid mesh
 to `ADRSolver` on a conforming fluid/solid mesh. The two executables retain
@@ -15,8 +15,9 @@ From the repository root, with a CWIPI-enabled build in `./build`:
 ```bash
 module load nektar++/latest
 cmake -S . -B build -DNEKTAR_USE_MPI=ON -DNEKTAR_USE_CWIPI=ON \
+    -DNEKTAR_USE_SCOTCH=ON -DNEKTAR_UTILITY_EXTRAS=ON \
     -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
-cmake --build build --target ADRSolver IncNavierStokesSolver -j 4
+cmake --build build --target MHDPartition ADRSolver IncNavierStokesSolver -j 4
 solvers/IncNavierStokesSolver/Examples/CoupledMHDThickWall2D/Allrun
 ```
 
@@ -26,26 +27,104 @@ installed, provide `CWIPI_LIBRARY`, `CWIPI_INCLUDE_DIR`, and set
 `THIRDPARTY_BUILD_CWIPI=OFF` when configuring. PETSc is not required.
 
 `Allrun` selects the build-tree executable names, including the Debug `-g`
-suffix, rather than an older installation in `build/dist` or `/apps`. It uses
-one MPI rank per solver and checks both solutions against the analytical
-fields. An optional first argument selects the result directory. The default
-is `build/coupled-mhd-thick-wall-2d`, containing:
+suffix, rather than an older installation in `build/dist` or `/apps`. By default
+it uses coefficient transfer with **M=2 fluid partitions and N=1 solid partition**:
+IncNS has 2 ranks, ADR has 3 ranks, and the total is 5 ranks. Both solutions
+are checked against the analytical fields. An optional first argument selects
+the result directory. The default is `build/coupled-mhd-thick-wall-2d`, containing:
 
 - `log.coupled-mhd`: solver output and analytical errors;
-- `fluid-mesh.fld`: `u,v,phi,p` on the fluid mesh;
-- `electric-mesh.fld`: `phi,Jx,Jy,Jz,sigma` on the fluid/solid mesh.
+- `log.partition`: preprocessing output;
+- `partitions/partition-map.csv`: element ID, material and owning ranks;
+- `partitions/fluid_xml`, `partitions/electric_xml`: self-contained rank sessions;
+- `partitions/fluid.fld`: `u,v,phi,p` on the fluid mesh;
+- `partitions/electric.fld`: `phi,Jx,Jy,Jz,sigma` on the fluid/solid mesh.
 
-For two ranks per solver:
+For M=2, N=2 (6 total ranks):
 
 ```bash
-FLUID_RANKS=2 ELECTRIC_RANKS=2 \
+FLUID_RANKS=2 SOLID_RANKS=2 \
     solvers/IncNavierStokesSolver/Examples/CoupledMHDThickWall2D/Allrun \
-    build/coupled-mhd-thick-wall-2d-parallel
+    build/coupled-mhd-m2-n2
 ```
 
-The `IncNavierStokesSolver_CoupledMHDThickWall2D` CTest entry covers both rank
-counts. `generate_case.py` reproducibly regenerates the four checked-in XML
+M and N must be positive, with at least one element per partition. Use a new
+result directory when changing the rank counts. To run the original CWIPI
+point-interpolation mode, use `MHD_TRANSFER=Cwipi`; then `FLUID_RANKS` and
+`ELECTRIC_RANKS` independently select the solver sizes (both default to 1),
+and field outputs are `fluid-mesh.fld` and `electric-mesh.fld`.
+
+The `IncNavierStokesSolver_MHDCoefficients` CTest entry checks M/N=1/1, 2/1 and
+2/2, asymmetric polynomial transfers in both directions, reversed application
+launch order, and startup rejection of incompatible geometry. The existing
+`IncNavierStokesSolver_CoupledMHDThickWall2D` entry retains the point-mode tests
+at 1+1 and 2+2 ranks. `generate_case.py` regenerates the four checked-in XML
 files; generation is not required to run the example.
+
+## Unified preprocessing and coefficient transfer
+
+The fluid mesh must be a subset of the electrical mesh, preserving global
+element, edge/face and vertex IDs, element orientations and geometry. The ADR
+`FLUID` composites must contain exactly the fluid mesh domain. Both solvers
+must use the same fluid-element bases, orders and quadrature for velocity and
+potential. Their physical boundary conditions can differ.
+
+The preprocessing command, run with a single process, is:
+
+```bash
+MHDPartition 2 1 partitions fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml
+mpiexec -np 2 IncNavierStokesSolver --cwipi fluid partitions/fluid_xml \
+    : -np 3 ADRSolver --cwipi electric partitions/electric_xml
+```
+
+Use the build-tree executable paths (and `-g` suffix for Debug) if these
+commands are not on `PATH`. `Allrun` does this automatically.
+
+`MHDPartition` uses the existing Scotch partitioner once for the fluid region
+and once for the solid region. The fluid partition sets are reused unchanged
+in both applications. IncNS rank `i` and ADR rank `i`, for `0 <= i < M`, own
+the same fluid elements; ADR ranks `M ... M+N-1` own only solid elements.
+The existing XML partition writer preserves each session's boundary conditions
+and the composite ordering required by the global continuous Galerkin solve.
+ADR still solves one globally assembled fluid/solid electric problem over all
+M+N ranks, including communication across the material interfaces.
+
+The generated coupling blocks use `TYPE="Coefficients"`, `Role="Fluid"` or
+`Role="Electric"`, and `FluidRanks=M`. For example, the fluid block is:
+
+```xml
+<COUPLING NAME="MHD" TYPE="Coefficients">
+    <I PROPERTY="Role" VALUE="Fluid" />
+    <I PROPERTY="FluidRanks" VALUE="2" />
+    <I PROPERTY="SendSteps" VALUE="1" />
+    <I PROPERTY="ReceiveSteps" VALUE="1" />
+    <I PROPERTY="SendVariables" VALUE="u,v,mhd_time,mhd_stop" />
+    <I PROPERTY="ReceiveVariables" VALUE="phi" />
+</COUPLING>
+```
+
+The electric block reverses the field lists and uses `Role="Electric"`.
+The preprocessor converts the source CWIPI blocks automatically. CWIPI still
+creates application-local communicators through distinct `--cwipi` names.
+A private MPI intercommunicator carries direct paired messages, identifying
+the two applications by role; `RemoteName` is accepted but unused in this mode.
+Only one fluid and one electric application are supported per MPI job.
+
+At initialization, each pair checks element IDs, ordered vertices, physical
+quadrature coordinates, basis types and orders. It caches a coefficient
+packing map sorted by global element ID. A mismatch aborts before stepping;
+later exchanges reuse the map without geometric location or interpolation.
+Messages contain element-local expansion coefficients, not globally assembled
+CG degrees of freedom. Solid ranks receive no field payload from IncNS.
+
+Velocity is transformed locally from the current RHS-stage physical arrays
+before sending, because the stored velocity coefficients can belong to another
+integration stage. ADR reconstructs the velocity at its quadrature points for
+the motional source. Solved potential coefficients are copied directly back
+into the fluid potential field. Packing and payload size scale with the local
+coefficient count; initialization also exchanges geometry metadata once.
+This removes point location and interpolation, but is not a measured speedup
+claim. Static partitions and expansion layouts are required throughout a run.
 
 ## Geometry and analytical solution
 
@@ -125,8 +204,10 @@ existing singular-system handling to fix the potential reference.
 Both sessions must use the same constant `ElectricMagneticFields`. In the
 fluid session `ElectricConductivity` must match the ADR fluid material.
 
-Both `COUPLING` blocks use `TYPE="Cwipi"`, the same coupling name, distinct
-`--cwipi` application names, and these options:
+The checked-in source `COUPLING` blocks use `TYPE="Cwipi"`, the same coupling
+name, distinct `--cwipi` application names, and the following point-mode options.
+The default preprocessing replaces these with the coefficient configuration
+described above:
 
 ```xml
 <I PROPERTY="SendSteps" VALUE="1" />
@@ -139,8 +220,8 @@ Both `COUPLING` blocks use `TYPE="Cwipi"`, the same coupling name, distinct
 
 Fluid sends `u,v,mhd_time,mhd_stop` and receives `phi`. ADR does the reverse.
 For full 3D meshes, insert `w` after `v`. Received velocities are auxiliary
-arrays. Solid velocity is explicitly excluded from the motional source;
-unlocated points inside solid elements are expected. The local receive
+arrays. Solid velocity is explicitly excluded from the motional source. In point
+mode, unlocated points inside solid elements are expected. The local receive
 projection prevents material-interface smoothing of these arrays. The PDE
 solution itself still uses a continuous Galerkin space.
 
@@ -152,6 +233,7 @@ is independent of the time-step number, supporting initialization and multiple
 RHS stages. A normal request carries `mhd_stop=-1`; termination uses `+1` and
 receives a final acknowledgement before either side finalizes CWIPI. Both
 control fields are transported internally; they are not solution variables.
+Coefficient mode carries time and the shutdown marker in message metadata.
 
 `mhd_time` and `mhd_stop` must be spatial constants on every received fluid
 element. ADR checks them to detect missing overlap or inadequate receive
@@ -163,6 +245,7 @@ current correspond to the last force evaluation.
 The implementation targets stationary conducting solids, static full 2D/3D
 meshes, and constant imposed electromagnetic fields. The supplied validation
 is 2D. Homogeneous Fourier meshes and moving electrical meshes are not
-supported by this coupled mode. Start with matching fluid submeshes and
-quadrature; interpolation on independent meshes also introduces spatial
-transfer error that requires its own accuracy study.
+supported by this coupled mode. Coefficient mode requires matching fluid
+submeshes and expansion layouts. Point mode also permits independent meshes;
+interpolation then introduces spatial transfer error that requires its own
+accuracy study.

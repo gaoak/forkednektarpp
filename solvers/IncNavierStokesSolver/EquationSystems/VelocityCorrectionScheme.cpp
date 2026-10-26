@@ -133,10 +133,41 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
         }
         auto config = LibUtilities::SessionNodeFromXml(
             m_session->GetElement("Nektar/Coupling"), "COUPLING");
-        ASSERTL0(StringUtils::IEquals(config.GetAttribute("TYPE"), "Cwipi"),
-                 "Coupled electric potential requires TYPE=\"Cwipi\".");
+        std::string couplingType = config.GetAttribute("TYPE");
+        ASSERTL0(StringUtils::IEquals(couplingType, "Cwipi") ||
+                     StringUtils::IEquals(couplingType, "Coefficients"),
+                 "Coupled electric potential requires Cwipi or Coefficients "
+                 "coupling.");
+        couplingType = StringUtils::IEquals(couplingType, "Cwipi")
+                           ? "Cwipi"
+                           : "Coefficients";
         m_MHD.coupling = SolverUtils::GetCouplingFactory().CreateInstance(
-            "Cwipi", m_fields[0]);
+            couplingType, m_fields[0]);
+        if (m_MHD.coupling->ExchangesCoefficients())
+        {
+            ASSERTL0(StringUtils::IEquals(
+                         m_MHD.coupling->GetConfig().at("ROLE"), "Fluid"),
+                     "IncNS coefficient coupling requires ROLE=Fluid.");
+            for (int e = 0; e < m_fields[0]->GetExpSize(); ++e)
+            {
+                auto phi = m_epotential->GetExp(e);
+                for (int d = 0; d < m_spacedim; ++d)
+                {
+                    auto vel = m_fields[m_velocity[d]]->GetExp(e);
+                    ASSERTL0(
+                        phi->GetNcoeffs() == vel->GetNcoeffs() &&
+                            m_epotential->GetCoeff_Offset(e) ==
+                                m_fields[m_velocity[d]]->GetCoeff_Offset(e),
+                        "Coefficient mode requires identical velocity and phi "
+                        "coefficient layouts.");
+                    for (int b = 0; b < phi->GetNumBases(); ++b)
+                        ASSERTL0(phi->GetBasis(b)->GetBasisKey() ==
+                                     vel->GetBasis(b)->GetBasisKey(),
+                                 "Coefficient mode requires identical velocity "
+                                 "and phi bases.");
+                }
+            }
+        }
         for (int d = 0; d < m_spacedim; ++d)
         {
             m_MHD.sendNames.push_back(m_session->GetVariable(m_velocity[d]));
@@ -149,13 +180,16 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
                  "Coupled MHD must send velocity components,mhd_time,mhd_stop "
                  "and receive the electric potential.");
         auto options = m_MHD.coupling->GetConfig();
-        ASSERTL0(
-            options.at("SENDSTEPS") == "1" &&
-                options.at("RECEIVESTEPS") == "1" &&
-                std::stod(options.at("FILTERWIDTH")) <= 0.0 &&
-                StringUtils::IEquals(options.at("RECEIVEPROJECTION"), "Local"),
-            "Coupled MHD requires SendSteps=ReceiveSteps=1, "
-            "FilterWidth<=0 and ReceiveProjection=Local.");
+        if (!m_MHD.coupling->ExchangesCoefficients())
+        {
+            ASSERTL0(options.at("SENDSTEPS") == "1" &&
+                         options.at("RECEIVESTEPS") == "1" &&
+                         std::stod(options.at("FILTERWIDTH")) <= 0.0 &&
+                         StringUtils::IEquals(options.at("RECEIVEPROJECTION"),
+                                              "Local"),
+                     "Coupled MHD requires SendSteps=ReceiveSteps=1, "
+                     "FilterWidth<=0 and ReceiveProjection=Local.");
+        }
         m_MHD.sendFields = Array<OneD, Array<OneD, NekDouble>>(m_spacedim + 2);
         for (auto &field : m_MHD.sendFields)
         {
@@ -1419,12 +1453,20 @@ void VelocityCorrectionScheme::SolveEfield(
         Vmath::Fill(physTot, time, m_MHD.sendFields[m_spacedim], 1);
         m_MHD.coupling->Send(m_MHD.exchange, time, m_MHD.sendFields,
                              m_MHD.sendNames);
-        m_MHD.coupling->Receive(m_MHD.exchange++, time, m_MHD.recvFields,
-                                m_MHD.recvNames);
-        // The received potential is a restriction of the ADR solution. A
-        // local transform must not impose the fluid-only electrical BCs.
-        m_epotential->FwdTransLocalElmt(m_MHD.recvFields[0],
-                                        m_epotential->UpdateCoeffs());
+        if (m_MHD.coupling->ExchangesCoefficients())
+        {
+            m_MHD.coupling->ReceiveCoefficients(m_MHD.exchange++, time,
+                                                m_epotential->UpdateCoeffs());
+        }
+        else
+        {
+            m_MHD.coupling->Receive(m_MHD.exchange++, time, m_MHD.recvFields,
+                                    m_MHD.recvNames);
+            // The received potential is a restriction of the ADR solution. A
+            // local transform must not impose the fluid-only electrical BCs.
+            m_epotential->FwdTransLocalElmt(m_MHD.recvFields[0],
+                                            m_epotential->UpdateCoeffs());
+        }
     }
     else
     {

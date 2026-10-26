@@ -139,6 +139,27 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
         IF (NEKTAR_BUILD_TESTS)
             SET_TESTS_PROPERTIES(IncNavierStokesSolver_CoupledMHDThickWall2D
                 PROPERTIES TIMEOUT 120 PROCESSORS 4)
+            IF (TARGET MHDPartition)
+                FIND_PACKAGE(Python3 QUIET COMPONENTS Interpreter)
+                IF (Python3_Interpreter_FOUND)
+                    ADD_NEKTAR_EXECUTABLE(MHDCoefficientTransferCheck
+                        COMPONENT tests DEPENDS SolverUtils
+                        SOURCES Tests/MHDCoefficientTransferCheck.cpp)
+                    ADD_TEST(NAME IncNavierStokesSolver_MHDCoefficients
+                        COMMAND ${Python3_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_mhd_coefficients.py
+                            --partitioner $<TARGET_FILE:MHDPartition>
+                            --fluid $<TARGET_FILE:IncNavierStokesSolver>
+                            --electric $<TARGET_FILE:ADRSolver>
+                            --transfer $<TARGET_FILE:MHDCoefficientTransferCheck>
+                            --mpiexec ${MPIEXEC}
+                            --case ${CMAKE_CURRENT_SOURCE_DIR}/Examples/CoupledMHDThickWall2D
+                            --work ${CMAKE_BINARY_DIR}/tests/mhd-coefficients)
+                    SET_TESTS_PROPERTIES(IncNavierStokesSolver_MHDCoefficients
+                        PROPERTIES TIMEOUT 120 PROCESSORS 6
+                        ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+                ENDIF()
+            ENDIF()
         ENDIF()
     ENDIF()
     ADD_NEKTAR_TEST(ChanFlow_Accelerate)
