@@ -30,10 +30,44 @@ def run(command, folder, log, failure=False):
     return result.stdout
 
 
-def prepare(folder, m, n):
+def add_fixed_field(folder):
+    # A constant electric field has a nontrivial weak load across conductivity
+    # jumps and insulating side boundaries. Preserve the exact channel flow.
+    for name in ("fluid.xml", "electric.xml"):
+        path = folder / name
+        tree = ET.parse(path)
+        params = tree.find("./CONDITIONS/PARAMETERS")
+        fields = (("ExternalEx", "0.02"), ("ExternalEy", "0.03"))
+        for index, (key, value) in enumerate(fields):
+            param = ET.Element("P")
+            param.text = f" {key} = {value} "
+            params.insert(index, param)
+        for param in params:
+            if param.text.strip().startswith("JyExact ="):
+                param.text = (" JyExact = (ExternalEy*(1+2*WallThickness)"
+                              "-Voltage-2*U0*B0/3)/Resistance ")
+        for function in tree.findall("./CONDITIONS/FUNCTION"):
+            if function.get("NAME") == "ElectricMagneticFields":
+                for axis in ("x", "y"):
+                    ET.SubElement(function, "E", VAR="E"+axis,
+                                  VALUE="ExternalE"+axis)
+            if function.get("NAME") in ("ExactSolution", "InitialConditions"):
+                for expression in function:
+                    if expression.get("VAR") == "phi":
+                        expression.set("VALUE", expression.get("VALUE") +
+                                       "+ExternalEx*x+ExternalEy*(y+WallThickness)")
+        if name == "electric.xml":
+            for boundary in tree.findall("./CONDITIONS/BOUNDARYCONDITIONS/REGION/D"):
+                boundary.set("VALUE", boundary.get("VALUE") + "+ExternalEx*x")
+        tree.write(path, encoding="utf-8", xml_declaration=True)
+
+
+def prepare(folder, m, n, fixed_field=False):
     folder.mkdir(exist_ok=True)
     for name in ("fluid-mesh.xml", "fluid.xml", "electric-mesh.xml", "electric.xml"):
         shutil.copyfile(Path(args.case) / name, folder / name)
+    if fixed_field:
+        add_fixed_field(folder)
     run([args.partitioner, str(m), str(n), "parts", "fluid-mesh.xml", "fluid.xml",
          "electric-mesh.xml", "electric.xml"], folder, "partition.log")
     rows = list(csv.DictReader((folder / "parts/partition-map.csv").open()))
@@ -55,15 +89,30 @@ def command(folder, m, n, transfer=False, reverse=False):
     return [args.mpiexec] + (electric + [":"] + fluid if reverse else fluid + [":"] + electric)
 
 
-for m, n in ((1, 1), (2, 1), (2, 2)):
-    folder = prepare(work / f"m{m}-n{n}", m, n)
-    text = run(command(folder, m, n), folder, "coupled.log")
+def check_solution(text):
     errors = re.findall(r"L 2 error\s*\(variable\s+(\w+)\)\s*:\s*(\S+)", text)
     assert sorted(v for v, _ in errors) == ["p", "phi", "phi", "u", "v"], text
     assert all(math.isfinite(float(e)) and float(e) < 1e-8 for _, e in errors), text
     assert "Electric potential solves: 6" in text
+    return max(float(e) for _, e in errors)
+
+
+for m, n in ((1, 1), (2, 1), (2, 2)):
+    folder = prepare(work / f"m{m}-n{n}", m, n)
+    text = run(command(folder, m, n), folder, "coupled.log")
+    error = check_solution(text)
     assert text.count("layout validated once") == 2
-    print(f"PASS M={m}, N={n}: maximum analytical L2 error {max(float(e) for _, e in errors):.3e}", flush=True)
+    print(f"PASS M={m}, N={n}: maximum analytical L2 error {error:.3e}", flush=True)
+
+folder = prepare(work / "fixed-field", 2, 1, fixed_field=True)
+error = check_solution(run(command(folder, 2, 1), folder, "coupled.log"))
+print(f"PASS cached nonzero fixed field: maximum analytical L2 error {error:.3e}", flush=True)
+# Independently partitioned point-mode meshes exercise mixed fluid/solid ranks.
+point_command = [args.mpiexec, "-np", "2", args.fluid, "--cwipi", "fluid",
+                 "fluid-mesh.xml", "fluid.xml", ":", "-np", "2", args.electric,
+                 "--cwipi", "electric", "electric-mesh.xml", "electric.xml"]
+error = check_solution(run(point_command, folder, "point.log"))
+print(f"PASS nonzero fixed field with point transfer: maximum analytical L2 error {error:.3e}", flush=True)
 
 folder = work / "m2-n1"
 text = run(command(folder, 2, 1, transfer=True, reverse=True), folder, "polynomials.log")

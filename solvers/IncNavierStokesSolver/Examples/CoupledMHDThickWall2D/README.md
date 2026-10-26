@@ -60,6 +60,9 @@ launch order, and startup rejection of incompatible geometry. The existing
 `IncNavierStokesSolver_CoupledMHDThickWall2D` entry retains the point-mode tests
 at 1+1 and 2+2 ranks. `generate_case.py` regenerates the four checked-in XML
 files; generation is not required to run the example.
+The coefficient test also adds nonzero constant `Ex` and `Ey` in a separate
+analytical case, using both coefficient and point transfer to check the cached
+fixed-field load and fluid-only motional source.
 
 ## Unified preprocessing and coefficient transfer
 
@@ -125,6 +128,20 @@ into the fluid potential field. Packing and payload size scale with the local
 coefficient count; initialization also exchanges geometry metadata once.
 This removes point location and interpolation, but is not a measured speedup
 claim. Static partitions and expansion layouts are required throughout a run.
+
+ADR splits its weak-form load into a fixed electric-field part and the
+velocity-dependent motional part. The fixed part is assembled once at
+initialization, including its contributions on solid elements. Every solve
+starts from this cached load and adds the motional part only on fluid elements;
+electrical boundary conditions are still evaluated at the request time. With
+zero imposed electric field, the cached local volume load on solid ranks is
+zero. Pure solid coefficient partitions allocate no velocity/control receive
+buffers or motional-source work arrays and skip the receive call. Their time
+and shutdown state come from reductions within the ADR communicator.
+
+Cross-application field payloads pass only between matching fluid ranks. Solid
+ranks still participate in ADR's global electrical solve, including interface
+and solver communication, and compute their potential and output current.
 
 ## Geometry and analytical solution
 

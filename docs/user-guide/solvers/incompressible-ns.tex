@@ -2604,7 +2604,12 @@ the application-local communicators, without point location in this mode.
 Velocity coefficients are formed from the current RHS-stage physical arrays;
 the solved potential coefficients are copied directly back to IncNS.
 ADR retains its global continuous fluid/solid electrical solve across all
-$M+N$ ranks. See the example README and the XML coupling documentation for
+$M+N$ ranks. The constant imposed-field load is cached at initialization;
+only fluid elements contribute to the velocity-dependent load at each request.
+Pure solid coefficient partitions allocate no velocity receive or motional-load
+work arrays. They still participate in ADR's control reductions and global
+electrical solve. Boundary conditions are evaluated at the request time.
+See the example README and the XML coupling documentation for
 the generated \inltt{Role} and \inltt{FluidRanks} options.
 
 Point mode requires

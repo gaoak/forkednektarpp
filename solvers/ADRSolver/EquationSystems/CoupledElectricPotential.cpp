@@ -109,6 +109,10 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
         ASSERTL0(
             material != materials.end(),
             "Every electrical element must belong to one material region.");
+        if (material->second.second)
+        {
+            m_fluidElements.push_back(e);
+        }
         int offset = m_fields[0]->GetPhys_Offset(e);
         for (int q = 0; q < exp->GetTotPoints(); ++q)
         {
@@ -151,9 +155,8 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
         StringUtils::IEquals(couplingType, "Cwipi") ||
             StringUtils::IEquals(couplingType, "Coefficients"),
         "CoupledElectricPotential requires Cwipi or Coefficients coupling.");
-    couplingType = StringUtils::IEquals(couplingType, "Cwipi")
-                       ? "Cwipi"
-                       : "Coefficients";
+    couplingType =
+        StringUtils::IEquals(couplingType, "Cwipi") ? "Cwipi" : "Coefficients";
     m_coupling = SolverUtils::GetCouplingFactory().CreateInstance(couplingType,
                                                                   m_fields[0]);
     if (m_coupling->ExchangesCoefficients())
@@ -195,9 +198,21 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
             "FilterWidth<=0, ReceiveProjection=Local and NotLocMethod=Keep.");
     }
     m_received = Array<OneD, Array<OneD, NekDouble>>(m_recvNames.size());
+    // Paired coefficient transfer never requests solid velocities. Point mode
+    // still requires full-sized receive buffers, including mixed partitions.
+    const int receivePoints =
+        m_coupling->ExchangesCoefficients() && m_fluidElements.empty() ? 0 : nq;
     for (auto &field : m_received)
     {
-        field = Array<OneD, NekDouble>(nq, 0.0);
+        field = Array<OneD, NekDouble>(receivePoints, 0.0);
+    }
+    BuildFixedRhs();
+    const int nc = m_fields[0]->GetNcoeffs();
+    m_rhs        = Array<OneD, NekDouble>(nc, 0.0);
+    if (!m_fluidElements.empty())
+    {
+        m_flux    = Array<OneD, NekDouble>(nq, 0.0);
+        m_product = Array<OneD, NekDouble>(nc, 0.0);
     }
 }
 
@@ -214,20 +229,25 @@ void CoupledElectricPotential::v_DoSolve()
     Array<OneD, Array<OneD, NekDouble>> reply(1);
     while (true)
     {
-        // Not-located solid points retain zero. The material mask below is
-        // authoritative even if the location tolerance includes nearby solids.
-        for (auto &field : m_received)
+        // Pure solid coefficient partitions have no receive buffers or peer.
+        // Point mode retains full buffers so unlocated points can stay zero.
+        if (m_received[0].size() != 0)
         {
-            Vmath::Zero(field.size(), field, 1);
+            for (auto &field : m_received)
+            {
+                Vmath::Zero(field.size(), field, 1);
+            }
+            m_coupling->Receive(exchange, m_time, m_received, m_recvNames);
         }
-        m_coupling->Receive(exchange, m_time, m_received, m_recvNames);
         NekDouble stop    = -std::numeric_limits<NekDouble>::max();
         NekDouble minStop = std::numeric_limits<NekDouble>::max();
         NekDouble time    = -std::numeric_limits<NekDouble>::max();
         NekDouble minTime = std::numeric_limits<NekDouble>::max();
-        for (int q = 0; q < m_fluid.size(); ++q)
+        for (int e : m_fluidElements)
         {
-            if (m_fluid[q])
+            int offset = m_fields[0]->GetPhys_Offset(e);
+            int end    = offset + m_fields[0]->GetExp(e)->GetTotPoints();
+            for (int q = offset; q < end; ++q)
             {
                 stop    = std::max(stop, m_received[m_dimension + 1][q]);
                 minStop = std::min(minStop, m_received[m_dimension + 1][q]);
@@ -277,33 +297,78 @@ void CoupledElectricPotential::v_DoSolve()
     }
 }
 
-void CoupledElectricPotential::SolvePotential()
+void CoupledElectricPotential::BuildFixedRhs()
 {
     const int nq = m_sigma.size();
     const int nc = m_fields[0]->GetNcoeffs();
-    Array<OneD, NekDouble> rhs(nc, 0.0), product(nc), flux(nq);
+    m_fixedRhs   = Array<OneD, NekDouble>(nc, 0.0);
+    Array<OneD, NekDouble> product, flux;
     for (int d = 0; d < m_dimension; ++d)
     {
-        int j = (d + 1) % 3, k = (d + 2) % 3;
-        for (int q = 0; q < nq; ++q)
+        if (m_electric[d] == 0.0)
         {
-            NekDouble motional = 0.0;
-            if (m_fluid[q])
-            {
-                NekDouble uj = j < m_dimension ? m_received[j][q] : 0.0;
-                NekDouble uk = k < m_dimension ? m_received[k][q] : 0.0;
-                motional     = uj * m_magnetic[k] - uk * m_magnetic[j];
-            }
-            flux[q] = m_sigma[q] * (m_electric[d] + motional);
+            continue;
         }
+        if (flux.size() == 0)
+        {
+            flux    = Array<OneD, NekDouble>(nq);
+            product = Array<OneD, NekDouble>(nc);
+        }
+        Vmath::Smul(nq, m_electric[d], m_sigma, 1, flux, 1);
         m_fields[0]->IProductWRTDerivBase(d, flux, product);
-        // HelmSolve negates a coefficient-space RHS. Its positive stiffness
-        // must receive + integral(sigma (E0 + u x B) . grad(test)).
-        Vmath::Vsub(nc, rhs, 1, product, 1, rhs, 1);
+        // HelmSolve negates a coefficient-space RHS. Cache the fixed
+        // - integral(sigma E0 . grad(test)); boundary data are applied later.
+        Vmath::Vsub(nc, m_fixedRhs, 1, product, 1, m_fixedRhs, 1);
+    }
+}
+
+void CoupledElectricPotential::SolvePotential()
+{
+    const int nc = m_fields[0]->GetNcoeffs();
+    Vmath::Vcopy(nc, m_fixedRhs, 1, m_rhs, 1);
+    const bool allFluid = m_fluidElements.size() ==
+                          static_cast<size_t>(m_fields[0]->GetExpSize());
+    // The motional source is element-local and zero on every solid element.
+    // Pure solid ranks skip this work, but still enter the global HelmSolve.
+    if (!m_fluidElements.empty())
+    {
+        for (int d = 0; d < m_dimension; ++d)
+        {
+            int j = (d + 1) % 3, k = (d + 2) % 3;
+            for (int e : m_fluidElements)
+            {
+                auto exp   = m_fields[0]->GetExp(e);
+                int offset = m_fields[0]->GetPhys_Offset(e);
+                for (int q = offset; q < offset + exp->GetTotPoints(); ++q)
+                {
+                    NekDouble uj = j < m_dimension ? m_received[j][q] : 0.0;
+                    NekDouble uk = k < m_dimension ? m_received[k][q] : 0.0;
+                    m_flux[q] =
+                        m_sigma[q] * (uj * m_magnetic[k] - uk * m_magnetic[j]);
+                }
+                if (!allFluid)
+                {
+                    // Point-mode partitions can mix fluid and solid. Project
+                    // only the fluid elements, preserving local coefficients.
+                    auto flux    = m_flux + offset;
+                    int coff     = m_fields[0]->GetCoeff_Offset(e);
+                    auto product = m_product + coff;
+                    auto rhs     = m_rhs + coff;
+                    exp->IProductWRTDerivBase(d, flux, product);
+                    Vmath::Vsub(exp->GetNcoeffs(), rhs, 1, product, 1, rhs, 1);
+                }
+            }
+            if (allFluid)
+            {
+                // Keep the collection implementation on fluid-only ranks.
+                m_fields[0]->IProductWRTDerivBase(d, m_flux, m_product);
+                Vmath::Vsub(nc, m_rhs, 1, m_product, 1, m_rhs, 1);
+            }
+        }
     }
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 0.0;
-    m_fields[0]->HelmSolve(rhs, m_fields[0]->UpdateCoeffs(), factors,
+    m_fields[0]->HelmSolve(m_rhs, m_fields[0]->UpdateCoeffs(), factors,
                            m_varcoeff, StdRegions::NullVarFactorsMap,
                            NullNekDouble1DArray, false);
     m_fields[0]->BwdTrans(m_fields[0]->GetCoeffs(), m_fields[0]->UpdatePhys());

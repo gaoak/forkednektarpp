@@ -61,6 +61,7 @@ protected:
     Array<OneD, bool> v_GetSystemSingularChecks() override;
 
 private:
+    void BuildFixedRhs();
     void SolvePotential();
     SolverUtils::CouplingSharedPtr m_coupling;
     Array<OneD, Array<OneD, NekDouble>> m_received;
@@ -68,6 +69,9 @@ private:
     Array<OneD, NekDouble> m_sigma;
     Array<OneD, int> m_fluid;
     Array<OneD, NekDouble> m_electric, m_magnetic;
+    // Only ranks containing fluid need motional-source work arrays.
+    std::vector<int> m_fluidElements;
+    Array<OneD, NekDouble> m_fixedRhs, m_rhs, m_flux, m_product;
     StdRegions::VarCoeffMap m_varcoeff;
     int m_dimension;
 };
