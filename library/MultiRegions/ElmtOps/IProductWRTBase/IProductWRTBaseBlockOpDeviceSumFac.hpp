@@ -459,7 +459,8 @@ protected:
      * count, so that one launch covers every component and mode and each
      * kernel recovers its component from its block index. The dynamic
      * shared memory request is IProductWRTBaseSharedMemorySize for the
-     * shape and strategy at hand, in bytes; the global workspace request is
+     * shape and strategy at hand, with padding when the quadrature metric is
+     * applied, in bytes; the global workspace request is
      * IProductWRTBaseWorkSpaceSize scaled by ncomp. Both helpers have one
      * overload per strategy and dimension, documented in the kernel
      * headers.
@@ -529,8 +530,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam);
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                sizeParam, this->m_integration);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =

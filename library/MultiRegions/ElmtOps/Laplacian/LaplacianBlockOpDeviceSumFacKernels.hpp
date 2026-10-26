@@ -197,7 +197,7 @@ inline constexpr size_t LaplacianWorkSpaceSize(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter1D,
+          typename TData, typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
@@ -209,7 +209,7 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter2D,
+          typename TData, typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
@@ -232,7 +232,7 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter3D,
+          typename TData, typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>

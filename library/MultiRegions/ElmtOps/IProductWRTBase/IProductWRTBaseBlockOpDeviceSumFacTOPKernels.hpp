@@ -62,8 +62,10 @@
  * per intermediate stage), then the one-dimensional basis tables, copied
  * in once before the element loop, and finally -- for the nodal shapes --
  * the modal coefficients that precede the nodal mapping.
- * IProductWRTBaseSharedMemorySize computes exactly that total; the
- * global-memory workspace of the SumFac strategy is not needed here, so
+ * IProductWRTBaseSharedMemorySize computes that total, including, when
+ * padded is set, the padded rows of the 2D and 3D forms with the quadrature
+ * metric; the global-memory workspace of the SumFac strategy
+ * is not needed here, so
  * IProductWRTBaseWorkSpaceSize returns zero for every dimension.
  *
  * Unlike the SumFac kernels, the shape kernels below take no weights and
@@ -96,6 +98,8 @@
  */
 
 #pragma once
+
+#include <algorithm>
 
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/Backends/DeviceProperties.hpp>
@@ -171,6 +175,260 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
 }
 
 /**
+ * @brief Row stride of a shared-memory array whose rows of @p n values each
+ * thread walks contiguously.
+ *
+ * Such a walk is loaded v = 16 / sizeof(TData) values per instruction, and
+ * rows of an odd multiple of v values put the rows of consecutive threads in
+ * distinct banks. Rows of a multiple of 2v values are therefore padded by v,
+ * from 4v values on.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseRowStride(
+    const unsigned int n)
+{
+    constexpr unsigned int v = 16u / sizeof(TData);
+    return (n % (2u * v) == 0u && n >= 4u * v) ? n + v : n;
+}
+
+/**
+ * @brief Whether each thread's contiguous walk loads rows of stride @p ld
+ * free of bank conflicts (see IProductWRTBaseRowStride).
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr bool IProductWRTBaseIsConflictFreeRow(
+    const unsigned int ld)
+{
+    constexpr unsigned int v = 16u / sizeof(TData);
+    return ld % (2u * v) == v;
+}
+
+/**
+ * @brief Row stride of an intermediate stage whose rows hold @p n values:
+ * IProductWRTBaseRowStride when the padded rows of @p nq0 values select the
+ * contiguous walk that reads the stage, @p n otherwise.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseStageStride(
+    const unsigned int nq0, const unsigned int n)
+{
+    return IProductWRTBaseIsConflictFreeRow<TData>(
+               IProductWRTBaseRowStride<TData>(nq0))
+               ? IProductWRTBaseRowStride<TData>(n)
+               : n;
+}
+
+/**
+ * @brief Extra shared memory, in TData values, that the 2D and 3D SumFacTOP
+ * launchers with the quadrature metric use to pad the rows of their staged
+ * input and of the intermediate stages to IProductWRTBaseRowStride and
+ * IProductWRTBaseStageStride; zero for every other size parameter and
+ * implementation.
+ *
+ * @tparam SHAPE_TYPE      Shape of the block.
+ * @tparam Implementation  Implementation tag.
+ * @tparam TData           Floating-point type of the field data.
+ * @tparam TSizeParameter  Size parameter of the block.
+ *
+ * @param   sizeParam   Modal and quadrature sizes per direction.
+ *
+ * @return Extra shared-memory size in TData values.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TData, typename TSizeParameter>
+inline constexpr unsigned int IProductWRTBaseSharedMemoryPadding(
+    [[maybe_unused]] const TSizeParameter sizeParam)
+{
+    if constexpr (std::is_same_v<Implementation, SumFacTOP> &&
+                  IsSizeParameter2D_v<TSizeParameter>)
+    {
+        const unsigned int nm0 = sizeParam.nm0();
+        const unsigned int nq0 = sizeParam.nq0();
+        const unsigned int nq1 = sizeParam.nq1();
+
+        return (IProductWRTBaseRowStride<TData>(nq0) - nq0) * nq1 +
+               (IProductWRTBaseStageStride<TData>(nq0, nq1) - nq1) * nm0;
+    }
+    else if constexpr (std::is_same_v<Implementation, SumFacTOP> &&
+                       IsSizeParameter3D_v<TSizeParameter>)
+    {
+        const unsigned int nm0 = sizeParam.nm0();
+        const unsigned int nm1 = sizeParam.nm1();
+        const unsigned int nq0 = sizeParam.nq0();
+        const unsigned int nq1 = sizeParam.nq1();
+        const unsigned int nq2 = sizeParam.nq2();
+
+        const unsigned int nrow1 = (SHAPE_TYPE == LibUtilities::Tet ||
+                                    SHAPE_TYPE == LibUtilities::NodalTet)
+                                       ? (2u * nm1 - nm0 + 1u) * nm0 / 2u
+                                       : nm0 * nm1;
+
+        return (IProductWRTBaseRowStride<TData>(nq0) - nq0) * nq1 * nq2 +
+               (IProductWRTBaseStageStride<TData>(nq0, nq1) - nq1) * nm0 * nq2 +
+               (IProductWRTBaseStageStride<TData>(nq0, nq2) - nq2) * nrow1;
+    }
+    else
+    {
+        return 0u;
+    }
+}
+
+/**
+ * @brief Round a shared-memory region of @p n values up to whole 16-byte
+ * words, so that the region after it starts 16-byte aligned and contiguous
+ * walks over it can be loaded 16 bytes at a time.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseAlignedSize(
+    const unsigned int n)
+{
+    constexpr unsigned int v = 16u / sizeof(TData);
+    return (n + v - 1u) / v * v;
+}
+
+/**
+ * @brief Values a copy of the IProductWRTBase input with rows padded to
+ * IProductWRTBaseRowStride takes, or zero when its rows need no padding.
+ */
+template <typename TData, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBasePaddedInputSize(
+    const TSizeParameter sizeParam)
+{
+    const unsigned int nq0 = sizeParam.nq0();
+    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+
+    if (ldi == nq0)
+    {
+        return 0u;
+    }
+    if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+    {
+        return ldi * sizeParam.nq1() * sizeParam.nq2();
+    }
+    else
+    {
+        return ldi * sizeParam.nq1();
+    }
+}
+
+/**
+ * @brief Extra values each of a fused operator's two intermediate-stage
+ * regions needs for the IProductWRTBase kernels to pad their rows
+ * (PADINPUT): the larger of the two stages' needs, so that either region
+ * may serve either stage.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename TData,
+          typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseWorkSpacePadding(
+    const TSizeParameter sizeParam)
+{
+    const unsigned int nm0 = sizeParam.nm0();
+    const unsigned int nq0 = sizeParam.nq0();
+    const unsigned int nq1 = sizeParam.nq1();
+    const unsigned int pad0 =
+        (IProductWRTBaseStageStride<TData>(nq0, nq1) - nq1) * nm0;
+
+    if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+    {
+        const unsigned int nm1   = sizeParam.nm1();
+        const unsigned int nq2   = sizeParam.nq2();
+        const unsigned int nrow1 = (SHAPE_TYPE == LibUtilities::Tet ||
+                                    SHAPE_TYPE == LibUtilities::NodalTet)
+                                       ? (2u * nm1 - nm0 + 1u) * nm0 / 2u
+                                       : nm0 * nm1;
+        const unsigned int pad1 =
+            (IProductWRTBaseStageStride<TData>(nq0, nq2) - nq2) * nrow1;
+        return pad0 * nq2 > pad1 ? pad0 * nq2 : pad1;
+    }
+    else
+    {
+        return pad0;
+    }
+}
+
+/**
+ * @brief Extra shared memory, in TData values, a fused operator's 2D or 3D
+ * SumFacTOP launcher needs for its IProductWRTBase stage to run with padded
+ * rows; zero for every other size parameter and implementation.
+ *
+ * Covers aligning up to six regions to IProductWRTBaseAlignedSize, the
+ * padding of the two intermediate-stage regions, and whatever part of the
+ * padded input copy does not fit in the region the launcher reuses for it:
+ * @p nslots slots of nqTot values, less the first nmTot when
+ * @p reserveModal (where the nodal shapes put their modal output).
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          typename TData, typename TSizeParameter>
+inline constexpr unsigned int IProductWRTBaseFusedSharedMemoryPadding(
+    [[maybe_unused]] const TSizeParameter sizeParam,
+    [[maybe_unused]] const unsigned int nslots,
+    [[maybe_unused]] const bool reserveModal)
+{
+    if constexpr (std::is_same_v<Implementation, SumFacTOP> &&
+                  (IsSizeParameter2D_v<TSizeParameter> ||
+                   IsSizeParameter3D_v<TSizeParameter>))
+    {
+        constexpr unsigned int v = 16u / sizeof(TData);
+
+        unsigned int nqTot = sizeParam.nq0() * sizeParam.nq1();
+        if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+        {
+            nqTot *= sizeParam.nq2();
+        }
+
+        const unsigned int pin =
+            IProductWRTBasePaddedInputSize<TData>(sizeParam);
+        const unsigned int reserved =
+            reserveModal ? IProductWRTBaseAlignedSize<TData>(sizeParam.nmTot())
+                         : 0u;
+        const unsigned int reusable =
+            std::max(nslots * nqTot, reserved) - reserved;
+
+        return 6u * (v - 1u) +
+               2u * IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(
+                        sizeParam) +
+               (std::max(pin, reusable) - reusable);
+    }
+    else
+    {
+        return 0u;
+    }
+}
+
+/**
+ * @brief Copy the IProductWRTBase input @p in, @p nrow rows of @p nq0
+ * values, into rows padded to IProductWRTBaseRowStride at @p padded when
+ * they need padding, and return the array the IProductWRTBase kernels then
+ * read with PADINPUT set: @p padded, or @p in unchanged. Synchronises the
+ * block after a copy.
+ */
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static const TData *IProductWRTBasePadInput(
+    const unsigned int nq0, const unsigned int nrow,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT padded,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+
+    if (ldi == nq0)
+    {
+        return in;
+    }
+
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nq0 * nrow; idx += stride)
+    {
+        padded[ldi * (idx / nq0) + idx % nq0] = in[idx];
+    }
+
+    localBarrier(threadBlock);
+
+    return padded;
+}
+
+/**
  * @brief Shared memory a 1D SumFacTOP inner product needs, in TData
  * values: nq0, the element's physical values.
  *
@@ -179,20 +437,23 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
  * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TData             Floating-point type of the field data; unused.
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
+ * @param   padded       Unused.
  *
  * @return Shared-memory size in TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter1D,
+          typename TData, typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
-    const TSizeParameter1D sizeParam1D)
+    const TSizeParameter1D sizeParam1D,
+    [[maybe_unused]] const bool padded = false)
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
@@ -212,21 +473,31 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  *
  * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
  * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TData             Floating-point type of the field data; sets the
+ *                           padding.
  * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
+ * @param   padded       Add IProductWRTBaseSharedMemoryPadding, for the
+ *                       launcher with the quadrature metric.
  *
  * @return Shared-memory size in TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter2D,
+          typename TData, typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
-    const TSizeParameter2D sizeParam2D)
+    const TSizeParameter2D sizeParam2D, const bool padded = false)
 {
+    // Rows padded by the launcher with the quadrature metric.
+    const unsigned int pad =
+        padded ? IProductWRTBaseSharedMemoryPadding<SHAPE_TYPE, Implementation,
+                                                    TData>(sizeParam2D)
+               : 0u;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -235,15 +506,15 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return nm0 * nq0 + nm1 * nq1 + nq0 * nq1 + nm0 * nq1;
+        return pad + nm0 * nq0 + nm1 * nq1 + nq0 * nq1 + nm0 * nq1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        return nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1;
+        return pad + nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        return nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1 + nmTot;
+        return pad + nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1 + nmTot;
     }
 }
 
@@ -260,21 +531,31 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
  *
  * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
  * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TData             Floating-point type of the field data; sets the
+ *                           padding.
  * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
+ * @param   padded       Add IProductWRTBaseSharedMemoryPadding, for the
+ *                       launcher with the quadrature metric.
  *
  * @return Shared-memory size in TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter3D,
+          typename TData, typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>
               Enable = true>
 inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
-    const TSizeParameter3D sizeParam3D)
+    const TSizeParameter3D sizeParam3D, const bool padded = false)
 {
+    // Rows padded by the launcher with the quadrature metric.
+    const unsigned int pad =
+        padded ? IProductWRTBaseSharedMemoryPadding<SHAPE_TYPE, Implementation,
+                                                    TData>(sizeParam3D)
+               : 0u;
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -285,7 +566,7 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 * nq1 * nq2 +
+        return pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 * nq1 * nq2 +
                nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
@@ -293,7 +574,7 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+        return pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
                nm0 * nq1 * nq2 + nm01 * nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
@@ -301,26 +582,26 @@ inline constexpr unsigned int IProductWRTBaseSharedMemorySize(
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+        return pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
                nm0 * nq1 * nq2 + nm01 * nq2 + nmTot;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
+        return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
                nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
+        return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
                nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nmTot;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+        return pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
                nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
 }
@@ -393,12 +674,16 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
  * thread index by division, no mode-index table being needed for a
  * tensor-product shape. The mode p runs fastest across threads in both
  * stages, so a warp reads @p wsp contiguously, free of bank conflicts. When
- * nq0 % 4 == 2 the stages instead keep each thread's walk contiguous, @p wsp
- * ordered (p, j), which the compiler loads two values at a time without bank
- * conflicts.
+ * the rows of @p in are conflict-free for a contiguous walk
+ * (IProductWRTBaseIsConflictFreeRow: nq0 % 4 == 2 for doubles, or rows
+ * padded by a @p PADINPUT caller) the stages instead keep each thread's walk
+ * contiguous, @p wsp ordered (p, j), which the compiler loads two values at a
+ * time.
  *
- * @tparam SCALE   Multiply the result by @p scale.
- * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
+ * @tparam SCALE     Multiply the result by @p scale.
+ * @tparam APPEND    Accumulate onto @p out instead of overwriting it.
+ * @tparam PADINPUT  Rows of @p in are padded to IProductWRTBaseRowStride;
+ *                   those of @p wsp to IProductWRTBaseStageStride.
  *
  * @param   nm0,nm1     Modes per direction.
  * @param   nmTot       Coefficients per element.
@@ -414,7 +699,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseSegSumFacTOPKernel(
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, bool PADINPUT = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -426,16 +712,20 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
-    // two values per instruction free of bank conflicts; other sizes run
-    // the mode fastest across threads instead.
-    if (nq0 % 4u == 2u)
+    // Row strides of in and wsp, padded when the caller stages in padded.
+    // Rows that each thread's contiguous walk loads free of bank conflicts
+    // keep that walk; otherwise the mode runs fastest across threads.
+    const unsigned int ldi =
+        PADINPUT ? IProductWRTBaseRowStride<TData>(nq0) : nq0;
+    const unsigned int ld0 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq1) : nq1;
+    if (IProductWRTBaseIsConflictFreeRow<TData>(ldi))
     {
         for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
         {
             const unsigned int j = idx % nq1;
             const unsigned int p = idx / nq1;
-            unsigned int cnt_ji  = nq0 * j;
+            unsigned int cnt_ji  = ldi * j;
 
             TData sum = 0.0;
 #pragma unroll
@@ -443,7 +733,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
             {
                 sum += in[cnt_ji] * basis0[p * nq0 + i];
             }
-            wsp[idx] = sum;
+            wsp[ld0 * p + j] = sum;
         }
 
         localBarrier(threadBlock);
@@ -452,7 +742,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
         {
             const unsigned int p = idx % nm0;
             const unsigned int q = idx / nm0;
-            unsigned int cnt_pj  = nq1 * p;
+            unsigned int cnt_pj  = ld0 * p;
 
             TData sum = 0.0;
 #pragma unroll
@@ -482,7 +772,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
         {
             const unsigned int p = idx % nm0;
             const unsigned int j = idx / nm0;
-            unsigned int cnt_ji  = nq0 * j;
+            unsigned int cnt_ji  = ldi * j;
 
             TData sum = 0.0;
 #pragma unroll
@@ -533,14 +823,19 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
  *
  * The second stage's thread index is the flat triangular mode index, from
  * which @p pindex recovers the p the thread's column of @p wsp belongs to;
- * @p basis1 is indexed by that same flat mode.
+ * @p basis1 is indexed by that same flat mode. As in the quadrilateral,
+ * @p wsp is ordered (j, p) with the mode fastest across threads, or (p, j)
+ * when the rows of @p in are conflict-free for a contiguous walk, to keep
+ * each thread's walk contiguous.
  *
  * With @p isModified set, each thread sums the collapsed-vertex correction
  * over its share of the quadrature points and blockReduceSum accumulates
  * the block's total onto mode 1.
  *
- * @tparam SCALE   Multiply the result by @p scale.
- * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
+ * @tparam SCALE     Multiply the result by @p scale.
+ * @tparam APPEND    Accumulate onto @p out instead of overwriting it.
+ * @tparam PADINPUT  Rows of @p in are padded to IProductWRTBaseRowStride;
+ *                   those of @p wsp to IProductWRTBaseStageStride.
  *
  * @param   nm0,nm1     Modes per direction.
  * @param   nmTot       Coefficients per element (the triangular count, not
@@ -562,7 +857,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseQuadSumFacTOPKernel(
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, bool PADINPUT = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -575,47 +871,103 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
+    // Row strides of in and wsp, padded when the caller stages in padded.
+    // Rows that each thread's contiguous walk loads free of bank conflicts
+    // keep that walk; otherwise the mode runs fastest across threads.
+    const unsigned int ldi =
+        PADINPUT ? IProductWRTBaseRowStride<TData>(nq0) : nq0;
+    const unsigned int ld0 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq1) : nq1;
+    if (IProductWRTBaseIsConflictFreeRow<TData>(ldi))
     {
-        const unsigned int p = idx % nm0;
-        const unsigned int j = idx / nm0;
-        unsigned int cnt_ji  = nq0 * j;
-
-        TData sum = 0.0;
-#pragma unroll
-        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
         {
-            sum += in[cnt_ji] * basis0[p * nq0 + i];
+            const unsigned int j = idx % nq1;
+            const unsigned int p = idx / nq1;
+            unsigned int cnt_ji  = ldi * j;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                sum += in[cnt_ji] * basis0[p * nq0 + i];
+            }
+            wsp[ld0 * p + j] = sum;
         }
-        wsp[idx] = sum;
+
+        localBarrier(threadBlock);
+
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+        {
+            const unsigned int p = pindex[idx];
+            unsigned int cnt_pj  = ld0 * p;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
+            {
+                sum += wsp[cnt_pj] * basis1[idx * nq1 + j];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum;
+            }
+            else
+            {
+                out[idx] = sum;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmTot; idx += stride)
+    else
     {
-        const unsigned int p = pindex[idx];
-        unsigned int cnt_jp  = p;
+        for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = idx / nm0;
+            unsigned int cnt_ji  = ldi * j;
 
-        TData sum = 0.0;
+            TData sum = 0.0;
 #pragma unroll
-        for (unsigned int j = 0u; j < nq1; ++j, cnt_jp += nm0)
-        {
-            sum += wsp[cnt_jp] * basis1[idx * nq1 + j];
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+            {
+                sum += in[cnt_ji] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = sum;
         }
 
-        if constexpr (SCALE)
-        {
-            sum *= scale;
-        }
+        localBarrier(threadBlock);
 
-        if constexpr (APPEND)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            out[idx] += sum;
-        }
-        else
-        {
-            out[idx] = sum;
+            const unsigned int p = pindex[idx];
+            unsigned int cnt_jp  = p;
+
+            TData sum = 0.0;
+#pragma unroll
+            for (unsigned int j = 0u; j < nq1; ++j, cnt_jp += nm0)
+            {
+                sum += wsp[cnt_jp] * basis1[idx * nq1 + j];
+            }
+
+            if constexpr (SCALE)
+            {
+                sum *= scale;
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += sum;
+            }
+            else
+            {
+                out[idx] = sum;
+            }
         }
     }
 
@@ -632,7 +984,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
         {
             const unsigned int i = idx % nq0;
             const unsigned int j = idx / nq0;
-            prod += basis0[nq0 + i] * basis1[nq1 + j] * in[idx];
+            prod += basis0[nq0 + i] * basis1[nq1 + j] * in[ldi * j + i];
         }
 
         if constexpr (SCALE)
@@ -656,12 +1008,17 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
  * coefficients, each stage decomposing its flat index into the mode and
  * point indices it needs. The mode p runs fastest across threads in every
  * stage, so a warp reads @p wsp0 and @p wsp1 contiguously, free of bank
- * conflicts. When nq0 % 4 == 2 the stages instead keep each thread's walk
+ * conflicts. When the rows of @p in are conflict-free for a contiguous walk
+ * (IProductWRTBaseIsConflictFreeRow: nq0 % 4 == 2 for doubles, or rows
+ * padded by a @p PADINPUT caller) the stages instead keep each thread's walk
  * contiguous, @p wsp0 ordered (p, k, j) and @p wsp1 (p, q, k), which the
- * compiler loads two values at a time without bank conflicts.
+ * compiler loads two values at a time.
  *
- * @tparam SCALE   Multiply the result by @p scale.
- * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
+ * @tparam SCALE     Multiply the result by @p scale.
+ * @tparam APPEND    Accumulate onto @p out instead of overwriting it.
+ * @tparam PADINPUT  Rows of @p in are padded to IProductWRTBaseRowStride;
+ *                   those of @p wsp0 and @p wsp1 to
+ *                   IProductWRTBaseStageStride.
  *
  * @param   nm0,nm1,nm2 Modes per direction.
  * @param   nmTot       Coefficients per element.
@@ -675,7 +1032,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, bool PADINPUT = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1,
     [[maybe_unused]] const unsigned int nm2, const unsigned int nmTot,
@@ -689,17 +1047,24 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
-    // two values per instruction free of bank conflicts; other sizes run
-    // the mode fastest across threads instead.
-    if (nq0 % 4u == 2u)
+    // Row strides of in, wsp0 and wsp1, padded when the caller stages in
+    // padded. Rows that each thread's contiguous walk loads free of bank
+    // conflicts keep that walk; otherwise the mode runs fastest across
+    // threads.
+    const unsigned int ldi =
+        PADINPUT ? IProductWRTBaseRowStride<TData>(nq0) : nq0;
+    const unsigned int ld0 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq1) : nq1;
+    const unsigned int ld1 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq2) : nq2;
+    if (IProductWRTBaseIsConflictFreeRow<TData>(ldi))
     {
         for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
             const unsigned int p = idx / (nq1 * nq2);
-            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -707,7 +1072,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
             {
                 sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
             }
-            wsp0[idx] = sum_kj;
+            wsp0[ld0 * (nq2 * p + k) + j] = sum_kj;
         }
 
         localBarrier(threadBlock);
@@ -717,7 +1082,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
             const unsigned int k = idx % nq2;
             const unsigned int q = (idx / nq2) % nm1;
             const unsigned int p = idx / (nq2 * nm1);
-            unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k;
+            unsigned int cnt_pkj = ld0 * (nq2 * p + k);
 
             TData sum_k = 0.0;
 #pragma unroll
@@ -725,7 +1090,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
             {
                 sum_k += wsp0[cnt_pkj] * basis1[q * nq1 + j];
             }
-            wsp1[idx] = sum_k;
+            wsp1[ld1 * (nm1 * p + q) + k] = sum_k;
         }
 
         localBarrier(threadBlock);
@@ -735,7 +1100,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
             const unsigned int p = idx % nm0;
             const unsigned int q = (idx / nm0) % nm1;
             const unsigned int r = idx / (nm0 * nm1);
-            unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+            unsigned int cnt_pqk = ld1 * (nm1 * p + q);
 
             TData sum = 0.0;
 #pragma unroll
@@ -766,7 +1131,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
             const unsigned int p = idx % nm0;
             const unsigned int j = (idx / nm0) % nq1;
             const unsigned int k = idx / (nm0 * nq1);
-            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -836,9 +1201,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
  *
  * The first stage stores @p wsp0 ordered (p, j, k) with k fastest, so
  * that the second, with k fastest across threads, reads it contiguously
- * and its basis row once per warp; when nq0 % 4 == 2 it is ordered
- * (p, k, j) instead, keeping each thread's walk contiguous as in the
- * hexahedron. The second stage strides over the
+ * and its basis row once per warp; when the rows of @p in are
+ * conflict-free for a contiguous walk it is ordered (p, k, j) instead,
+ * keeping each thread's walk contiguous as in the hexahedron. The second
+ * stage strides over the
  * nm01 * nq2 entries of @p wsp1,
  * nm01 = (2 * nm1 - nm0 + 1) * nm0 / 2 being the number of (p,q) mode
  * pairs, with @p pindex1 giving each pair's p. The third strides over the
@@ -854,8 +1220,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
  * during a single sweep of the quadrature points; beyond that the sweep is
  * repeated per singular-edge mode to bound the register use.
  *
- * @tparam SCALE   Multiply the result by @p scale.
- * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
+ * @tparam SCALE     Multiply the result by @p scale.
+ * @tparam APPEND    Accumulate onto @p out instead of overwriting it.
+ * @tparam PADINPUT  Rows of @p in are padded to IProductWRTBaseRowStride;
+ *                   those of @p wsp0 and @p wsp1 to
+ *                   IProductWRTBaseStageStride.
  *
  * @param   nm0,nm1,nm2 Modes per direction.
  * @param   nmTot       Coefficients per element.
@@ -876,7 +1245,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseHexSumFacTOPKernel(
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, bool PADINPUT = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -894,17 +1264,24 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
-    // two values per instruction free of bank conflicts; other sizes run
-    // the mode fastest across threads instead.
-    if (nq0 % 4u == 2u)
+    // Row strides of in, wsp0 and wsp1, padded when the caller stages in
+    // padded. Rows that each thread's contiguous walk loads free of bank
+    // conflicts keep that walk; otherwise the mode runs fastest across
+    // threads.
+    const unsigned int ldi =
+        PADINPUT ? IProductWRTBaseRowStride<TData>(nq0) : nq0;
+    const unsigned int ld0 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq1) : nq1;
+    const unsigned int ld1 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq2) : nq2;
+    if (IProductWRTBaseIsConflictFreeRow<TData>(ldi))
     {
         for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
             const unsigned int p = idx / (nq1 * nq2);
-            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -912,7 +1289,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
             {
                 sum_kj += in[cnt_kji] * basis0[i + nq0 * p];
             }
-            wsp0[idx] = sum_kj;
+            wsp0[ld0 * (nq2 * p + k) + j] = sum_kj;
         }
 
         localBarrier(threadBlock);
@@ -922,7 +1299,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
             const unsigned int mode_pq = idx / nq2;
             const unsigned int p       = pindex1[mode_pq];
             const unsigned int k       = idx % nq2;
-            unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
+            unsigned int cnt_pkj       = ld0 * (nq2 * p + k);
 
             TData sum_k = 0.0;
 #pragma unroll
@@ -930,7 +1307,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
             {
                 sum_k += basis1[mode_pq * nq1 + j] * wsp0[cnt_pkj];
             }
-            wsp1[idx] = sum_k;
+            wsp1[ld1 * mode_pq + k] = sum_k;
         }
 
         localBarrier(threadBlock);
@@ -948,7 +1325,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
 #pragma unroll
             for (unsigned int k = 0u; k < nq2; ++k)
             {
-                tmp += wsp1[mode_pq * nq2 + k] * basis2[mode2 * nq2 + k];
+                tmp += wsp1[mode_pq * ld1 + k] * basis2[mode2 * nq2 + k];
             }
 
             if constexpr (SCALE)
@@ -973,7 +1350,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
             const unsigned int p = idx % nm0;
             const unsigned int j = (idx / nm0) % nq1;
             const unsigned int k = idx / (nm0 * nq1);
-            unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -1055,10 +1432,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
                 prod[nm2 - 1u] +=
                     (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
                      basis0[nq0 + i] * basis1[nq1 + j]) *
-                    basis2[nq2 + k] * in[idx];
+                    basis2[nq2 + k] * in[ldi * (nq1 * k + j) + i];
 
                 // singular edge
-                TData tmp = basis1[nq1 + j] * basis0[nq0 + i] * in[idx];
+                TData tmp = basis1[nq1 + j] * basis0[nq0 + i] *
+                            in[ldi * (nq1 * k + j) + i];
 #pragma unroll
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
@@ -1103,11 +1481,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
                 prod0 +=
                     (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
                      basis0[nq0 + i] * basis1[nq1 + j]) *
-                    basis2[nq2 + k] * in[idx];
+                    basis2[nq2 + k] * in[ldi * (nq1 * k + j) + i];
 
                 // bottom vertex
-                prod1 +=
-                    basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] * in[idx];
+                prod1 += basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] *
+                         in[ldi * (nq1 * k + j) + i];
             }
 
             if constexpr (SCALE)
@@ -1131,7 +1509,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
                     const unsigned int k = idx / (nq0 * nq1);
 
                     prod += basis2[(r + 1u) * nq2 + k] * basis1[nq1 + j] *
-                            basis0[nq0 + i] * in[idx];
+                            basis0[nq0 + i] * in[ldi * (nq1 * k + j) + i];
                 }
 
                 if constexpr (SCALE)
@@ -1161,8 +1539,11 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
  * register array serves while nm1 <= NM1_MAX and the quadrature sweep is
  * repeated per q beyond that.
  *
- * @tparam SCALE   Multiply the result by @p scale.
- * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
+ * @tparam SCALE     Multiply the result by @p scale.
+ * @tparam APPEND    Accumulate onto @p out instead of overwriting it.
+ * @tparam PADINPUT  Rows of @p in are padded to IProductWRTBaseRowStride;
+ *                   those of @p wsp0 and @p wsp1 to
+ *                   IProductWRTBaseStageStride.
  *
  * @param   nm0,nm1,nm2 Modes per direction.
  * @param   nmTot       Coefficients per element.
@@ -1182,7 +1563,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, bool PADINPUT = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1198,17 +1580,24 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
-    // two values per instruction free of bank conflicts; other sizes run
-    // the mode fastest across threads instead.
-    if (nq0 % 4u == 2u)
+    // Row strides of in, wsp0 and wsp1, padded when the caller stages in
+    // padded. Rows that each thread's contiguous walk loads free of bank
+    // conflicts keep that walk; otherwise the mode runs fastest across
+    // threads.
+    const unsigned int ldi =
+        PADINPUT ? IProductWRTBaseRowStride<TData>(nq0) : nq0;
+    const unsigned int ld0 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq1) : nq1;
+    const unsigned int ld1 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq2) : nq2;
+    if (IProductWRTBaseIsConflictFreeRow<TData>(ldi))
     {
         for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
             const unsigned int p = idx / (nq1 * nq2);
-            unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -1216,7 +1605,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
             {
                 sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
             }
-            wsp0[idx] = sum_kj;
+            wsp0[ld0 * (nq2 * p + k) + j] = sum_kj;
         }
 
         localBarrier(threadBlock);
@@ -1226,7 +1615,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
             const unsigned int k = idx % nq2;
             const unsigned int q = (idx / nq2) % nm1;
             const unsigned int p = idx / (nq2 * nm1);
-            unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
+            unsigned int cnt_pkj = ld0 * (nq2 * p + k);
 
             TData sum_k = 0.0;
 #pragma unroll
@@ -1234,7 +1623,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
             {
                 sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
             }
-            wsp1[idx] = sum_k;
+            wsp1[ld1 * (nm1 * p + q) + k] = sum_k;
         }
 
         localBarrier(threadBlock);
@@ -1245,7 +1634,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
             const unsigned int q       = qindex[idx];
             const unsigned int r       = rindex[idx];
             const unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u + r;
-            unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
+            unsigned int cnt_pqk       = ld1 * (nm1 * p + q);
 
             TData sum_k = 0.0;
 #pragma unroll
@@ -1276,7 +1665,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
             const unsigned int p = idx % nm0;
             const unsigned int j = (idx / nm0) % nq1;
             const unsigned int k = idx / (nm0 * nq1);
-            unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -1354,7 +1743,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
                 const unsigned int j = (idx / nq0) % nq1;
                 const unsigned int k = idx / (nq0 * nq1);
 
-                TData tmp = in[idx] * basis2[nq2 + k] * basis0[nq0 + i];
+                TData tmp = in[ldi * (nq1 * k + j) + i] * basis2[nq2 + k] *
+                            basis0[nq0 + i];
 #pragma unroll
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
@@ -1387,8 +1777,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
 
-                    prod += in[idx] * basis2[nq2 + k] * basis1[q * nq1 + j] *
-                            basis0[nq0 + i];
+                    prod += in[ldi * (nq1 * k + j) + i] * basis2[nq2 + k] *
+                            basis1[q * nq1 + j] * basis0[nq0 + i];
                 }
 
                 if constexpr (SCALE)
@@ -1415,8 +1805,11 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
  * With @p isModified set, the collapsed top-vertex correction is summed
  * per thread and reduced onto mode 1.
  *
- * @tparam SCALE   Multiply the result by @p scale.
- * @tparam APPEND  Accumulate onto @p out instead of overwriting it.
+ * @tparam SCALE     Multiply the result by @p scale.
+ * @tparam APPEND    Accumulate onto @p out instead of overwriting it.
+ * @tparam PADINPUT  Rows of @p in are padded to IProductWRTBaseRowStride;
+ *                   those of @p wsp0 and @p wsp1 to
+ *                   IProductWRTBaseStageStride.
  *
  * @param   nm0,nm1,nm2 Modes per direction.
  * @param   nmTot       Coefficients per element.
@@ -1435,7 +1828,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
  * @param   scale       Factor applied when @p SCALE is set.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
+template <bool SCALE, bool APPEND, bool PADINPUT = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1450,17 +1844,24 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nq0 = 4n + 2 values lets each thread's contiguous walk load
-    // two values per instruction free of bank conflicts; other sizes run
-    // the mode fastest across threads instead.
-    if (nq0 % 4u == 2u)
+    // Row strides of in, wsp0 and wsp1, padded when the caller stages in
+    // padded. Rows that each thread's contiguous walk loads free of bank
+    // conflicts keep that walk; otherwise the mode runs fastest across
+    // threads.
+    const unsigned int ldi =
+        PADINPUT ? IProductWRTBaseRowStride<TData>(nq0) : nq0;
+    const unsigned int ld0 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq1) : nq1;
+    const unsigned int ld1 =
+        PADINPUT ? IProductWRTBaseStageStride<TData>(nq0, nq2) : nq2;
+    if (IProductWRTBaseIsConflictFreeRow<TData>(ldi))
     {
         for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
             const unsigned int p = idx / (nq1 * nq2);
-            unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -1468,7 +1869,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             {
                 sum_kj += in[cnt_kji] * basis0[nq0 * p + i];
             }
-            wsp0[idx] = sum_kj;
+            wsp0[ld0 * (nq2 * p + k) + j] = sum_kj;
         }
 
         localBarrier(threadBlock);
@@ -1478,7 +1879,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             const unsigned int k = idx % nq2;
             const unsigned int q = (idx / nq2) % nm1;
             const unsigned int p = idx / (nq2 * nm1);
-            unsigned int cnt_pkj = nq1 * nq2 * p + k * nq1;
+            unsigned int cnt_pkj = ld0 * (nq2 * p + k);
 
             TData sum_k = 0.0;
 #pragma unroll
@@ -1486,7 +1887,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             {
                 sum_k += basis1[q * nq1 + j] * wsp0[cnt_pkj];
             }
-            wsp1[idx] = sum_k;
+            wsp1[ld1 * (nm1 * p + q) + k] = sum_k;
         }
 
         localBarrier(threadBlock);
@@ -1498,7 +1899,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             const unsigned int mode2 =
                 idx +
                 ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
-            unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
+            unsigned int cnt_pqk = ld1 * (nm1 * p + q);
 
             TData sum_k = 0.0;
 #pragma unroll
@@ -1528,7 +1929,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             const unsigned int p = idx % nm0;
             const unsigned int j = (idx / nm0) % nq1;
             const unsigned int k = idx / (nm0 * nq1);
-            unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
+            unsigned int cnt_kji = ldi * (nq1 * k + j);
 
             TData sum_kj = 0.0;
 #pragma unroll
@@ -1606,7 +2007,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             // top vertex
             prod += (basis0[i] * basis1[nq1 + j] + basis0[nq0 + i] * basis1[j] +
                      basis0[nq0 + i] * basis1[nq1 + j]) *
-                    basis2[nq2 + k] * in[idx];
+                    basis2[nq2 + k] * in[ldi * (nq1 * k + j) + i];
         }
 
         if constexpr (SCALE)
@@ -1809,10 +2210,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * selected at compile time. The shared-memory regions follow the order
  * s_wsp0 (the element's nq0 * nq1 values), s_wsp1 (the nm0 * nq1
  * direction-0 sums), s_basis0, s_basis1 and, for NodalTri, s_out1ptr for
- * the modal coefficients MatVecSumFacTOPKernel maps onto @p out. The
- * direction-1 table has one row per mode of the shape's ordering, hence
- * nmTot rows for a triangle. Staging the element's values is where the
- * quadrature metric enters, in * jac * w0 * w1 per point.
+ * the modal coefficients MatVecSumFacTOPKernel maps onto @p out, the rows
+ * of the first two padded to IProductWRTBaseRowStride and
+ * IProductWRTBaseStageStride. The direction-1 table has one row per mode of
+ * the shape's ordering, hence nmTot rows for a triangle. Staging the element's
+ * values is where the quadrature metric enters, in * jac * w0 * w1 per point.
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
  * @tparam Implementation   MultiRegions::SumFacTOP.
@@ -1878,23 +2280,28 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nqTot   = nq0 * nq1;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
+    // Rows of the staged values and of the intermediate stage are padded to
+    // IProductWRTBaseRowStride and IProductWRTBaseStageStride.
+    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+    const unsigned int ld0 = IProductWRTBaseStageStride<TData>(nq0, nq1);
+
     unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = nm0 * nq1;
+        offset = nm0 * ld0;
         nmode0 = nm0;
         nmode1 = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
+        offset = nm0 * ld0;
         nmode0 = nm0;
         nmode1 = nmTot;
     }
 
     TData *s_wsp0    = (TData *)shmemptr;
-    TData *s_wsp1    = s_wsp0 + nqTot;
+    TData *s_wsp1    = s_wsp0 + ldi * nq1;
     TData *s_basis0  = s_wsp1 + offset;
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_out1ptr = s_basis1 + nmode1 * nq1;
@@ -1927,11 +2334,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             const unsigned int j = idx / nq0;
             if constexpr (DEFORMED)
             {
-                s_wsp0[idx] = inptr[idx] * jacptr[idx] * w0[i] * w1[j];
+                s_wsp0[ldi * j + i] = inptr[idx] * jacptr[idx] * w0[i] * w1[j];
             }
             else
             {
-                s_wsp0[idx] = inptr[idx] * jacptr[0] * w0[i] * w1[j];
+                s_wsp0[ldi * j + i] = inptr[idx] * jacptr[0] * w0[i] * w1[j];
             }
         }
 
@@ -1939,19 +2346,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            IProductWRTBaseQuadSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBaseQuadSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, s_wsp0,
                 outptr, s_wsp1, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBaseTriSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
                 s_basis1, s_wsp0, outptr, s_wsp1, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<SCALE, false>(
+            IProductWRTBaseTriSumFacTOPKernel<SCALE, false, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
                 s_basis1, s_wsp0, s_out1ptr, s_wsp1, scale, threadBlock);
 
@@ -2108,9 +2515,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * order s_wsp0 (the element's nq0 * nq1 * nq2 values), s_wsp1 and s_wsp2
  * (the two intermediate stages), the three basis tables and, for the nodal
  * shapes, s_out1ptr for the modal coefficients MatVecSumFacTOPKernel maps
- * onto @p out. Each table's row count follows the shape's mode ordering --
- * the local nmode0, nmode1 and nmode2 -- which is why the collapsed shapes
- * need more rows than nm1 or nm2. Staging the element's values is where
+ * onto @p out, the rows of the first three padded to
+ * IProductWRTBaseRowStride and IProductWRTBaseStageStride. Each table's row
+ * count follows the shape's mode ordering -- the local nmode0, nmode1 and
+ * nmode2 -- which is why the collapsed shapes need more rows than nm1 or
+ * nm2. Staging the element's values is where
  * the quadrature metric enters, in * jac * w0 * w1 * w2 per point.
  *
  * @note For NodalTet and NodalPrism the shape kernel is instantiated with
@@ -2193,11 +2602,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
+    // Rows of the staged values and of the intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride.
+    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+    const unsigned int ld0 = IProductWRTBaseStageStride<TData>(nq0, nq1);
+    const unsigned int ld1 = IProductWRTBaseStageStride<TData>(nq0, nq2);
+
     unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
+        offset0 = nm0 * nq2 * ld0;
+        offset1 = nm0 * nm1 * ld1;
         nmode0  = nm0;
         nmode1  = nm1;
         nmode2  = nm2;
@@ -2205,8 +2620,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        offset0 = nm0 * nq2 * ld0;
+        offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * ld1;
         nmode0  = nm0;
         nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
@@ -2214,23 +2629,23 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
+        offset0 = nm0 * nq2 * ld0;
+        offset1 = nm0 * nm1 * ld1;
         nmode0  = nm0;
         nmode1  = nm1;
         nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
+        offset0 = nm0 * nq2 * ld0;
+        offset1 = nm0 * nm1 * ld1;
         nmode0  = nm0;
         nmode1  = nm1;
         nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     TData *s_wsp0    = (TData *)shmemptr;
-    TData *s_wsp1    = s_wsp0 + nqTot;
+    TData *s_wsp1    = s_wsp0 + ldi * nq1 * nq2;
     TData *s_wsp2    = s_wsp1 + offset0;
     TData *s_basis0  = s_wsp2 + offset1;
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
@@ -2272,11 +2687,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             const unsigned int k = idx / (nq0 * nq1);
             if constexpr (DEFORMED)
             {
-                s_wsp0[idx] = inptr[idx] * jacptr[idx] * w0[i] * w1[j] * w2[k];
+                s_wsp0[ldi * (nq1 * k + j) + i] =
+                    inptr[idx] * jacptr[idx] * w0[i] * w1[j] * w2[k];
             }
             else
             {
-                s_wsp0[idx] = inptr[idx] * jacptr[0] * w0[i] * w1[j] * w2[k];
+                s_wsp0[ldi * (nq1 * k + j) + i] =
+                    inptr[idx] * jacptr[0] * w0[i] * w1[j] * w2[k];
             }
         }
 
@@ -2284,20 +2701,20 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            IProductWRTBaseHexSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBaseHexSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
                 s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, outptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBaseTetSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, s_out1ptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
@@ -2308,14 +2725,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, outptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBasePrismSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, index2, s_basis0, s_basis1, s_basis2, s_wsp0, s_out1ptr,
                 s_wsp1, s_wsp2, scale, threadBlock);
@@ -2326,7 +2743,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            IProductWRTBasePyrSumFacTOPKernel<SCALE, APPEND>(
+            IProductWRTBasePyrSumFacTOPKernel<SCALE, APPEND, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
                 index1, s_basis0, s_basis1, s_basis2, s_wsp0, outptr, s_wsp1,
                 s_wsp2, scale, threadBlock);

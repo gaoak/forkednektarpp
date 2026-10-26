@@ -318,6 +318,7 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg); unused.
  * @tparam Implementation    Implementation tag; this overload is
  *                           constrained to SumFac.
+ * @tparam TData             Floating-point type of the field data; unused.
  * @tparam TSizeParameter1D  1D size parameter, modal or physical-space
  *                           (see ElmtHelper.hpp).
  *
@@ -326,7 +327,7 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
  * @return Zero.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter1D,
+          typename TData, typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                (IsSizeParameter1D_v<TSizeParameter1D> ||
                                 IsPhysSizeParameter1D_v<TSizeParameter1D>),
@@ -349,6 +350,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
  *                           constrained to SumFac.
+ * @tparam TData             Floating-point type of the field data; unused.
  * @tparam TSizeParameter2D  2D size parameter, modal or physical-space
  *                           (see ElmtHelper.hpp).
  *
@@ -357,7 +359,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * @return Shared-memory requirement in elements of TData.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter2D,
+          typename TData, typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                (IsSizeParameter2D_v<TSizeParameter2D> ||
                                 IsPhysSizeParameter2D_v<TSizeParameter2D>),
@@ -392,6 +394,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * @tparam SHAPE_TYPE        Shape of the block's elements.
  * @tparam Implementation    Implementation tag; this overload is
  *                           constrained to SumFac.
+ * @tparam TData             Floating-point type of the field data; unused.
  * @tparam TSizeParameter3D  3D size parameter, modal or physical-space
  *                           (see ElmtHelper.hpp).
  *
@@ -400,7 +403,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * @return Shared-memory requirement in elements of TData.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter3D,
+          typename TData, typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFac> &&
                                (IsSizeParameter3D_v<TSizeParameter3D> ||
                                 IsPhysSizeParameter3D_v<TSizeParameter3D>),
