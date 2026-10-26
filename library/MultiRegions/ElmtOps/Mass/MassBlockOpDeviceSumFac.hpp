@@ -523,7 +523,7 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            MassSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            MassSharedMemorySize<SHAPE_TYPE, Implementation, TData>(sizeParam);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =

@@ -496,14 +496,27 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1 = nmTot;
     }
 
+    // Rows of the inner product's input and intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
+    // 16-byte aligned.
+    // The padded input reuses the derivative slots, past the modal output
+    // of the nodal shapes.
+    const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
+    const unsigned int nderiv =
+        std::max(ncoord * nqTot,
+                 nmTotAl + IProductWRTBasePaddedInputSize<TData>(sizeParam2D));
+    offset += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+
     TData *metric   = (TData *)shmemptr;
-    TData *bwd      = metric + 6;
-    TData *deriv    = bwd + nqTot;
+    TData *bwd      = metric + IProductWRTBaseAlignedSize<TData>(6);
+    TData *deriv    = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
     TData *tmp      = deriv;
     TData *deriv0   = deriv;
     TData *deriv1   = deriv0 + nqTot;
-    TData *s_wsp0   = deriv + ncoord * nqTot;
-    TData *s_basis0 = s_wsp0 + offset;
+    TData *s_ipb    = deriv + nmTotAl;
+    TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nderiv);
+    TData *s_basis0 = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     // Copy to shared memory.
@@ -586,23 +599,25 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         SumDerivTensor2DSumFacTOPKernel<false, true>(
             nq0, nq1, D0, D1, deriv0, deriv1, bwd, (TData)1.0, threadBlock);
+        const TData *ipb =
+            IProductWRTBasePadInput(nq0, nq1, bwd, s_ipb, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            IProductWRTBaseQuadSumFacTOPKernel<false, false>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
+            IProductWRTBaseQuadSumFacTOPKernel<false, false, true>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, ipb,
                 outptr, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<false, false>(
+            IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, bwd, outptr, s_wsp0, (TData)1.0, threadBlock);
+                s_basis1, ipb, outptr, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<false, false>(
+            IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, bwd, tmp, s_wsp0, (TData)1.0, threadBlock);
+                s_basis1, ipb, tmp, s_wsp0, (TData)1.0, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
             MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
@@ -765,16 +780,32 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
+    // Rows of the inner product's input and intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
+    // 16-byte aligned.
+    // The padded input reuses the derivative slots, past the modal output
+    // of the nodal shapes.
+    const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
+    const unsigned int nderiv =
+        std::max(3u * nqTot,
+                 nmTotAl + IProductWRTBasePaddedInputSize<TData>(sizeParam3D));
+    const unsigned int wspPad =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
+    offset0 += wspPad;
+    offset1 += wspPad;
+
     TData *metric   = (TData *)shmemptr;
-    TData *bwd      = metric + 9;
-    TData *deriv    = bwd + nqTot;
+    TData *bwd      = metric + IProductWRTBaseAlignedSize<TData>(9);
+    TData *deriv    = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
     TData *tmp      = deriv;
     TData *deriv0   = deriv;
     TData *deriv1   = deriv0 + nqTot;
     TData *deriv2   = deriv1 + nqTot;
-    TData *s_wsp0   = deriv2 + nqTot;
-    TData *s_wsp1   = s_wsp0 + offset0;
-    TData *s_basis0 = s_wsp1 + offset1;
+    TData *s_ipb    = deriv + nmTotAl;
+    TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nderiv);
+    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset0);
+    TData *s_basis0 = s_wsp1 + IProductWRTBaseAlignedSize<TData>(offset1);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
@@ -877,24 +908,26 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         SumDerivTensor3DSumFacTOPKernel<false, true>(
             nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd, (TData)1.0,
             threadBlock);
+        const TData *ipb =
+            IProductWRTBasePadInput(nq0, nq1 * nq2, bwd, s_ipb, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            IProductWRTBaseHexSumFacTOPKernel<false, false>(
+            IProductWRTBaseHexSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
+                s_basis2, ipb, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<false, false>(
+            IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, outptr,
                 s_wsp1, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<false, false>(
+            IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, tmp, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
@@ -903,16 +936,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<false, false>(
+            IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, outptr,
                 s_wsp1, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<false, false>(
+            IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, tmp, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
@@ -921,9 +954,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            IProductWRTBasePyrSumFacTOPKernel<false, false>(
+            IProductWRTBasePyrSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, s_basis0, s_basis1, s_basis2, bwd, outptr, s_wsp1,
+                index1, s_basis0, s_basis1, s_basis2, ipb, outptr, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
         }
 

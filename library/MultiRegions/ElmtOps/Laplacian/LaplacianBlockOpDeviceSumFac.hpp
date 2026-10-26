@@ -474,7 +474,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            LaplacianSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            LaplacianSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                sizeParam);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =

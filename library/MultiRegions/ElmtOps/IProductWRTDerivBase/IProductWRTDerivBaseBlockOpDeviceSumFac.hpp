@@ -630,8 +630,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam);
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                 TData>(sizeParam);
         unsigned int blocksize;
         if constexpr (TFieldOut == FieldState::Phys)
         {

@@ -238,6 +238,7 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TData             Floating-point type of the field data; unused.
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
@@ -245,7 +246,7 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
  * @return Shared memory per thread block, in TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter1D,
+          typename TData, typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
@@ -267,10 +268,13 @@ inline constexpr unsigned int MassSharedMemorySize(
  * stages share -- max(nq0 * nm1, nm0 * nq1) for the quadrilateral,
  * nm0 * nq1 for the triangles -- and copies of both basis tables, the
  * direction-1 table having nmTot rows for the triangles because its rows
- * are indexed by the combined mode.
+ * are indexed by the combined mode. IProductWRTBaseFusedSharedMemoryPadding
+ * adds the inner product's padded rows and the regions' alignment.
  *
  * @tparam SHAPE_TYPE        Quad, Tri or NodalTri.
  * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TData             Floating-point type of the field data; sets the
+ *                           padding.
  * @tparam TSizeParameter2D  2D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam2D  Modal and quadrature sizes per direction.
@@ -278,7 +282,7 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @return Shared memory per thread block, in TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter2D,
+          typename TData, typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
@@ -286,6 +290,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int MassSharedMemorySize(
     const TSizeParameter2D sizeParam2D)
 {
+    // Padded rows of the inner product's input and intermediate stages.
+    const unsigned int pad =
+        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
+                                                TData>(sizeParam2D, 0u, false);
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -294,13 +303,13 @@ inline constexpr unsigned int MassSharedMemorySize(
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return nm0 * nq0 + nm1 * nq1 + nmTot + nq0 * nq1 +
+        return pad + nm0 * nq0 + nm1 * nq1 + nmTot + nq0 * nq1 +
                std::max(nq0 * nm1, nm0 * nq1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        return nm0 * nq0 + nmTot * nq1 + nmTot + nq0 * nq1 + nm0 * nq1;
+        return pad + nm0 * nq0 + nmTot * nq1 + nmTot + nq0 * nq1 + nm0 * nq1;
     }
 }
 
@@ -321,6 +330,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  *
  * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
  * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam TData             Floating-point type of the field data; sets the
+ *                           padding.
  * @tparam TSizeParameter3D  3D size parameter (see ElmtHelper.hpp).
  *
  * @param   sizeParam3D  Modal and quadrature sizes per direction.
@@ -328,7 +339,7 @@ inline constexpr unsigned int MassSharedMemorySize(
  * @return Shared memory per thread block, in TData values.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter3D,
+          typename TData, typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>
@@ -336,6 +347,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int MassSharedMemorySize(
     const TSizeParameter3D sizeParam3D)
 {
+    // Padded rows of the inner product's input and intermediate stages.
+    const unsigned int pad =
+        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
+                                                TData>(sizeParam3D, 0u, false);
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -346,8 +362,8 @@ inline constexpr unsigned int MassSharedMemorySize(
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nmTot + nq0 * nq1 * nq2 +
-               std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
+        return pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nmTot +
+               nq0 * nq1 * nq2 + std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
                std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
@@ -356,22 +372,22 @@ inline constexpr unsigned int MassSharedMemorySize(
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nmTot + nq0 * nq1 * nq2 +
-               nm0 * nq1 * nq2 + nm01 * nq2;
+        return pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nmTot +
+               nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot + nq0 * nq1 * nq2 +
-               nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot +
+               nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nmTot + nq0 * nq1 * nq2 +
-               nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+        return pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nmTot +
+               nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
 }
 
@@ -488,13 +504,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * time.
  *
  * The shared-memory regions are carved out in the order tmp (the element's
- * coefficients), bwd (its physical values), the shared stage scratch, then
- * the two basis tables, which the thread block copies in once before the
- * element loop. Per element the coefficients are staged -- through the
- * nodal-to-modal matrix for a nodal triangle -- transformed, multiplied by
- * the weights of both directions and the Jacobian, and integrated back;
- * for a nodal triangle the inner product writes into tmp and the
- * transposed nodal mapping produces the output.
+ * coefficients), bwd (its physical values), the inner product's padded
+ * input, the shared stage scratch, then the two basis tables, which the thread
+ * block copies in once before the element loop. Per element the coefficients
+ * are staged -- through the nodal-to-modal matrix for a nodal triangle --
+ * transformed, multiplied by the weights of both directions and the Jacobian,
+ * and integrated back; for a nodal triangle the inner product writes into tmp
+ * and the transposed nodal mapping produces the output.
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
  * @tparam Implementation   MultiRegions::SumFacTOP.
@@ -573,11 +589,26 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1 = nmTot;
     }
 
-    TData *tmp      = (TData *)shmemptr;
-    TData *bwd      = tmp + nmTot;
-    TData *s_wsp0   = bwd + nqTot;
-    TData *s_basis0 = s_wsp0 + offset;
+    // Rows of the inner product's input and intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
+    // 16-byte aligned.
+    // The padded input has its own region.
+    offset += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+
+    TData *tmp   = (TData *)shmemptr;
+    TData *bwd   = tmp + IProductWRTBaseAlignedSize<TData>(nmTot);
+    TData *s_ipb = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *s_wsp0 =
+        s_ipb + IProductWRTBaseAlignedSize<TData>(
+                    IProductWRTBasePaddedInputSize<TData>(sizeParam2D));
+    TData *s_basis0 = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
+
+    // Input of the inner product: the weighted values, in padded rows when
+    // the rows need padding.
+    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+    TData *ipb             = ldi == nq0 ? bwd : s_ipb;
 
     // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -636,11 +667,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             const unsigned int j = idx / nq0;
             if constexpr (DEFORMED)
             {
-                bwd[idx] *= jacptr[idx] * w0[i] * w1[j];
+                ipb[ldi * j + i] = bwd[idx] * (jacptr[idx] * w0[i] * w1[j]);
             }
             else
             {
-                bwd[idx] *= jacptr[0] * w0[i] * w1[j];
+                ipb[ldi * j + i] = bwd[idx] * (jacptr[0] * w0[i] * w1[j]);
             }
         }
 
@@ -648,21 +679,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            IProductWRTBaseQuadSumFacTOPKernel<false, false>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
+            IProductWRTBaseQuadSumFacTOPKernel<false, false, true>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, ipb,
                 outptr, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<false, false>(
+            IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, bwd, outptr, s_wsp0, (TData)1.0, threadBlock);
+                s_basis1, ipb, outptr, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
-            IProductWRTBaseTriSumFacTOPKernel<false, false>(
+            IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, bwd, tmp, s_wsp0, (TData)1.0, threadBlock);
+                s_basis1, ipb, tmp, s_wsp0, (TData)1.0, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
             MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
@@ -790,13 +821,31 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    TData *tmp      = (TData *)shmemptr;
-    TData *bwd      = tmp + nmTot;
-    TData *s_wsp0   = bwd + nqTot;
-    TData *s_wsp1   = s_wsp0 + offset0;
-    TData *s_basis0 = s_wsp1 + offset1;
+    // Rows of the inner product's input and intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
+    // 16-byte aligned.
+    // The padded input has its own region.
+    const unsigned int wspPad =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
+    offset0 += wspPad;
+    offset1 += wspPad;
+
+    TData *tmp   = (TData *)shmemptr;
+    TData *bwd   = tmp + IProductWRTBaseAlignedSize<TData>(nmTot);
+    TData *s_ipb = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *s_wsp0 =
+        s_ipb + IProductWRTBaseAlignedSize<TData>(
+                    IProductWRTBasePaddedInputSize<TData>(sizeParam3D));
+    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset0);
+    TData *s_basis0 = s_wsp1 + IProductWRTBaseAlignedSize<TData>(offset1);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
+
+    // Input of the inner product: the weighted values, in padded rows when
+    // the rows need padding.
+    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+    TData *ipb             = ldi == nq0 ? bwd : s_ipb;
 
     // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -877,11 +926,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             const unsigned int k = idx / (nq0 * nq1);
             if constexpr (DEFORMED)
             {
-                bwd[idx] *= jacptr[idx] * w0[i] * w1[j] * w2[k];
+                ipb[ldi * (nq1 * k + j) + i] =
+                    bwd[idx] * (jacptr[idx] * w0[i] * w1[j] * w2[k]);
             }
             else
             {
-                bwd[idx] *= jacptr[0] * w0[i] * w1[j] * w2[k];
+                ipb[ldi * (nq1 * k + j) + i] =
+                    bwd[idx] * (jacptr[0] * w0[i] * w1[j] * w2[k]);
             }
         }
 
@@ -889,22 +940,22 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            IProductWRTBaseHexSumFacTOPKernel<false, false>(
+            IProductWRTBaseHexSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
+                s_basis2, ipb, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<false, false>(
+            IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, outptr,
                 s_wsp1, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
         {
-            IProductWRTBaseTetSumFacTOPKernel<false, false>(
+            IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, tmp, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
@@ -913,16 +964,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<false, false>(
+            IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, outptr,
                 s_wsp1, s_wsp0, (TData)1.0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
-            IProductWRTBasePrismSumFacTOPKernel<false, false>(
+            IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, tmp, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
 
             // Multiply by transpose notToMod to transform coeffs.
@@ -931,9 +982,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            IProductWRTBasePyrSumFacTOPKernel<false, false>(
+            IProductWRTBasePyrSumFacTOPKernel<false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, s_basis0, s_basis1, s_basis2, bwd, outptr, s_wsp1,
+                index1, s_basis0, s_basis1, s_basis2, ipb, outptr, s_wsp1,
                 s_wsp0, (TData)1.0, threadBlock);
         }
 
