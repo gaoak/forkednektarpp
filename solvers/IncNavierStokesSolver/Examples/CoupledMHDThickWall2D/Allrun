@@ -13,9 +13,17 @@ fluid_solver="${INCNS_SOLVER:-$build_dir/solvers/IncNavierStokesSolver/IncNavier
 electric_solver="${ADR_SOLVER:-$build_dir/solvers/ADRSolver/ADRSolver$suffix}"
 partitioner="${MHD_PARTITIONER:-$build_dir/utilities/Extras/MHDPartition$suffix}"
 transfer="${MHD_TRANSFER:-Coefficients}"
+input_dir="${MHD_CASE_DIR:-$case_dir}"
+check_results="${MHD_CHECK_RESULTS:-1}"
+if [[ "$check_results" != "0" && "$check_results" != "1" ]]; then
+    echo "MHD_CHECK_RESULTS must be 0 or 1" >&2
+    exit 1
+fi
 run_dir="${1:-$repo_dir/build/coupled-mhd-thick-wall-2d}"
 mkdir -p "$run_dir"
-cp "$case_dir/"*.xml "$run_dir/"
+for input in fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml; do
+    cp "$input_dir/$input" "$run_dir/"
+done
 cd "$run_dir"
 
 export OMP_NUM_THREADS=1
@@ -45,4 +53,8 @@ if ! timeout "${MHD_TIMEOUT:-120}" mpiexec \
     tail -n 80 log.coupled-mhd >&2
     exit 1
 fi
-python3 "$case_dir/check_results.py" log.coupled-mhd
+if [[ "$check_results" == "1" ]]; then
+    python3 "$case_dir/check_results.py" log.coupled-mhd
+else
+    echo "Completed; analytical result check disabled (MHD_CHECK_RESULTS=0)."
+fi

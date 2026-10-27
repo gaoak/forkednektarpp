@@ -1,5 +1,9 @@
 # MHD with conducting thick walls and unified partitions
 
+Student guide (Chinese): [厚导电壁面准静态 MHD 使用教程](TUTORIAL_zh.md).
+The primary meshing workflow follows Mesh2D's `square` branch; reference scripts
+cover matching mesh extraction, MPI launch and visualization.
+
 This small 2D planar channel couples `IncNavierStokesSolver` on the fluid mesh
 to `ADRSolver` on a conforming fluid/solid mesh. The two executables retain
 their existing single-mesh field layout. No field-specific domain or boundary
@@ -39,6 +43,11 @@ the result directory. The default is `build/coupled-mhd-thick-wall-2d`, containi
 - `partitions/fluid_xml`, `partitions/electric_xml`: self-contained rank sessions;
 - `partitions/fluid.fld`: `u,v,phi,p` on the fluid mesh;
 - `partitions/electric.fld`: `phi,Jx,Jy,Jz,sigma` on the fluid/solid mesh.
+
+`MHD_CASE_DIR` selects another directory containing the four input XML files;
+use a separate result directory. `MHD_CHECK_RESULTS=0` disables the supplied
+channel-specific analytical checker for other physical problems (default: 1).
+The `scripts` directory contains the student meshing and environment helpers.
 
 For M=2, N=2 (6 total ranks):
 
