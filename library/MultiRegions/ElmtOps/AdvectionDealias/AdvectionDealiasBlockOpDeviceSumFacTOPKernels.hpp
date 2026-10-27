@@ -329,7 +329,8 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPMultiplyKernel(
 // Interpolate a scalar field and fuse the final tensor contraction with the
 // pointwise multiply/accumulate used by dealiased advection. This avoids
 // materialising a second complete field on the fine grid.
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool APPEND, bool SHMEM_IN = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPMultiplyKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
@@ -341,10 +342,11 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPMultiplyKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nm0 = 4n + 2 coefficients lets each thread's contiguous walk
-    // load two values per instruction free of bank conflicts; other sizes
-    // run a quadrature point fastest across threads instead.
-    if (nm0 % 4u == 2u)
+    // A row of nm0 = 4n + 2 coefficients in shared memory lets each thread's
+    // contiguous walk load two values per instruction free of bank conflicts;
+    // other sizes, and an input in global memory, run a quadrature point
+    // fastest across threads instead.
+    if (SHMEM_IN && nm0 % 4u == 2u)
     {
         // direction 0
         for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
@@ -439,7 +441,8 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPMultiplyKernel(
 // Interpolate a scalar field and fuse the final tensor contraction with the
 // pointwise multiply/accumulate used by dealiased advection. This avoids
 // materialising a second complete field on the fine grid.
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool APPEND, bool SHMEM_IN = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPMultiplyKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -452,10 +455,11 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPMultiplyKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nm0 = 4n + 2 coefficients lets each thread's contiguous walk
-    // load two values per instruction free of bank conflicts; other sizes
-    // run a quadrature point fastest across threads instead.
-    if (nm0 % 4u == 2u)
+    // A row of nm0 = 4n + 2 coefficients in shared memory lets each thread's
+    // contiguous walk load two values per instruction free of bank conflicts;
+    // other sizes, and an input in global memory, run a quadrature point
+    // fastest across threads instead.
+    if (SHMEM_IN && nm0 % 4u == 2u)
     {
         for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
         {
@@ -835,7 +839,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     }
                 }
 
-                BwdTransQuadSumFacTOPKernel<APPEND>(
+                BwdTransQuadSumFacTOPKernel<APPEND, true>(
                     nq0Fine, nq1Fine, nq0, nq1, nqTot, Bproject0, Bproject1,
                     combined, outGroup + (c * nhomo + p) * outCompStride, wsp0,
                     threadBlock);
@@ -1021,7 +1025,7 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
                     }
                 }
 
-                BwdTransHexSumFacTOPKernel<APPEND>(
+                BwdTransHexSumFacTOPKernel<APPEND, true>(
                     nq0Fine, nq1Fine, nq2Fine, nq0, nq1, nq2, nqTot, Bproject0,
                     Bproject1, Bproject2, combined,
                     outGroup + (c * nhomo + p) * outCompStride, wsp0, wsp1,

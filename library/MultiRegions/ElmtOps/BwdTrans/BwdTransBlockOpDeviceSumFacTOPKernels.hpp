@@ -383,6 +383,11 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
  * block size covers any element size.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
+ * @tparam SHMEM_IN      @p in is in shared memory: when nm0 % 4 == 2,
+ *                       keep each thread's walk over the modes contiguous,
+ *                       free of bank conflicts. Otherwise the quadrature
+ *                       point runs fastest across threads, which also reads
+ *                       an @p in in global memory coalesced.
  * @tparam TthreadBlock  Back-end thread-block handle type.
  *
  * @param   nm0,nm1     Modes per direction.
@@ -397,7 +402,8 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
  *                      values.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool APPEND, bool SHMEM_IN = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
@@ -408,10 +414,11 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nm0 = 4n + 2 coefficients lets each thread's contiguous walk
-    // load two values per instruction free of bank conflicts; other sizes
-    // run a quadrature point fastest across threads instead.
-    if (nm0 % 4u == 2u)
+    // A row of nm0 = 4n + 2 coefficients in shared memory lets each thread's
+    // contiguous walk load two values per instruction free of bank conflicts;
+    // other sizes, and an input in global memory, run a quadrature point
+    // fastest across threads instead.
+    if (SHMEM_IN && nm0 % 4u == 2u)
     {
         // direction 0
         for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
@@ -616,6 +623,11 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
  * conflicts. Each stage strides its index by the block size.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
+ * @tparam SHMEM_IN      @p in is in shared memory: when nm0 % 4 == 2,
+ *                       keep each thread's walk over the modes contiguous,
+ *                       free of bank conflicts. Otherwise the quadrature
+ *                       point runs fastest across threads, which also reads
+ *                       an @p in in global memory coalesced.
  * @tparam TthreadBlock  Back-end thread-block handle type.
  *
  * @param   nm0,nm1,nm2 Modes per direction.
@@ -632,7 +644,8 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
  *                      values.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool APPEND, bool SHMEM_IN = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -645,10 +658,11 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // A row of nm0 = 4n + 2 coefficients lets each thread's contiguous walk
-    // load two values per instruction free of bank conflicts; other sizes
-    // run a quadrature point fastest across threads instead.
-    if (nm0 % 4u == 2u)
+    // A row of nm0 = 4n + 2 coefficients in shared memory lets each thread's
+    // contiguous walk load two values per instruction free of bank conflicts;
+    // other sizes, and an input in global memory, run a quadrature point
+    // fastest across threads instead.
+    if (SHMEM_IN && nm0 % 4u == 2u)
     {
         // direction 0
         for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
@@ -1420,9 +1434,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransQuadSumFacTOPKernel<APPEND>(nm0, nm1, nq0, nq1, nqTot,
-                                                s_basis0, s_basis1, s_wsp0,
-                                                outptr, s_wsp1, threadBlock);
+            BwdTransQuadSumFacTOPKernel<APPEND, true>(
+                nm0, nm1, nq0, nq1, nqTot, s_basis0, s_basis1, s_wsp0, outptr,
+                s_wsp1, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                            SHAPE_TYPE == LibUtilities::NodalTri)
@@ -1591,7 +1605,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransHexSumFacTOPKernel<APPEND>(
+            BwdTransHexSumFacTOPKernel<APPEND, true>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
                 s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, threadBlock);
         }
