@@ -32,6 +32,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
 #include <iomanip>
 
 #include <SpatialDomains/GeomFactors.h>
@@ -977,7 +978,7 @@ NekDouble GeometryLocator2D::v_FindDistance(
             hessInv[1][1] = det * fx_derxi1xi1;
 
             // Check for convergence
-            if (abs(fx - fx_prev) < 1e-12)
+            if (std::abs(fx - fx_prev) < 1e-12)
             {
                 fx_prev = fx;
                 break;

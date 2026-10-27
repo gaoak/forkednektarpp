@@ -33,12 +33,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "NekMesh/Module/ProcessModules/ProcessVarOpti/ElUtil.h"
+
 #include <NekMesh/MeshElements/Element.h>
 #include <NekMesh/Module/ProcessModules/Adaptation/2D/ProcessHAdaptation.h>
 #include <NekMesh/Module/ProcessModules/Adaptation/2D/ProcessHAdaptationMaps.h>
 #include <NekMesh/Module/ProcessModules/Adaptation/HangingNodes.h>
 #include <NekMesh/Module/ProcessModules/ProcessProjectCAD.h>
 #include <NekMesh/Module/ProcessModules/ProcessVarOpti/ProcessVarOpti.h>
+#include <cmath>
 
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LibUtilities/Foundations/NodalUtil.h>
@@ -1549,8 +1551,8 @@ void ProcessHAdaptation::SwapEdge()
                               vertexIDValence[NodeListQuad[3]->GetGlobalID()];
             if ((edgeLongestLength > edgeLenght13 * 0.8025 &&
                  diffValence > 2) &&
-                ((abs(cosELnew0) < 0.9 && abs(cosELnew1) < 0.9) &&
-                 (abs(cosELnew2) < 0.9 && abs(cosELnew3) < 0.9)))
+                ((std::abs(cosELnew0) < 0.9 && std::abs(cosELnew1) < 0.9) &&
+                 (std::abs(cosELnew2) < 0.9 && std::abs(cosELnew3) < 0.9)))
             {
                 if (elementIDisSwaped[elementAdjacent->GetGlobalID()] ||
                     elementIDisSwaped[element->GetGlobalID()])

@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
 #include <iomanip>
 
 #include <GlobalMapping/Mapping.h>
@@ -269,7 +270,7 @@ void DriverAdaptive::v_Execute(std::ostream &out)
                 Vmath::Vmul(nq, phys, 1, phys, 1, tmpArray, 1);
                 fac = Exp->Integral(tmpArray);
 
-                tmp = abs(tmp / fac);
+                tmp = std::abs(tmp / fac);
 
                 if (tmp != tmp)
                 {

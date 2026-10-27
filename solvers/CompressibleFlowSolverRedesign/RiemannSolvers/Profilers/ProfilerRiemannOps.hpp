@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
@@ -232,11 +233,11 @@ void PrintBlockInfo(
         auto GeomType = Vmath::Vsum(nrank, allRankGeomTypes.data(), 1) / nrank;
 
         std::string Gtype = "Null";
-        if (abs(GeomType - 1.0) < 1e-8)
+        if (std::abs(GeomType - 1.0) < 1e-8)
         {
             Gtype = "Regular";
         }
-        else if (abs(GeomType - 2.0) < 1e-8)
+        else if (std::abs(GeomType - 2.0) < 1e-8)
         {
             Gtype = "Deformed";
         }
@@ -513,7 +514,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
         // Print out first 100 mismatched values.
-        if (abs(tmpArr[i] - fluxArr[i]) >
+        if (std::abs(tmpArr[i] - fluxArr[i]) >
                 1e-4 * std::sqrt(L2 / tmpArr.size()) &&
             cnt < 100)
         {
@@ -521,7 +522,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
                       << " expected result = " << fluxArr[i] << std::endl;
             ++cnt;
         }
-        rankL1Error[0] += abs(tmpArr[i] - fluxArr[i]);
+        rankL1Error[0] += std::abs(tmpArr[i] - fluxArr[i]);
     }
 
     // Print block information and get the total number of dofs.

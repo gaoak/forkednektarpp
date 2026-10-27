@@ -32,6 +32,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <LibUtilities/BasicUtils/Interpolator.h>
 
 #include <LocalRegions/NodalTriExp.h>
@@ -171,7 +173,7 @@ void ProcessCurve::v_GenerateEdgeNodes(SpatialDomains::SegGeom *edge)
         // Calculate correction for next iteration
         for (int k = 0; k < nq - 1; ++k)
         {
-            s_deviation[k] = (s_average - ds[k]) * (dx[k] / abs(dx[k]));
+            s_deviation[k] = (s_average - ds[k]) * (dx[k] / std::abs(dx[k]));
         }
         // Adjust gama to make sure next partition is valid
         // (no reversals in dx)
