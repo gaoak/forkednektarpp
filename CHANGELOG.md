@@ -119,6 +119,9 @@ v5.11.0
 - Fix the shared memory use of the device SumFacTOP IProductWRTPhysTrace and PhysTraceExtract kernels, which now stage each element's volume in shared memory so the strided trace accesses stay off global memory, of the SumFacTOP IProductWRTBase kernel without the quadrature metric, and of the device FwdTransBC kernels, whose shared memory is now sized for their workspace and basis tables (!2881)
 - Coalesce the matrix reads of the device nodal-to-modal MatVec kernel, one output per warp on GPUs (!2881)
 - Fix device compilation bug (!2883)
+- Stage the transposed derivative matrices in shared memory in the device SumFacTOP Helmholtz, Laplacian, LinAdvDiffReaction and IProductWRTDerivBase kernels (!2884)
+- Fuse the derivative and metric stages of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels (!2884)
+- Coalesce the global memory reads of the device SumFacTOP AdvectionDealias and FwdTransBC kernels (!2884)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

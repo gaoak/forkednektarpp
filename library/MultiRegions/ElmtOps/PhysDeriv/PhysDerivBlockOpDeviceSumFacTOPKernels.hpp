@@ -84,7 +84,9 @@
  * The SumDerivTensor kernels in this file are the transposes of the
  * tensorial derivative and belong to the weak-form families
  * (IProductWRTDerivBase, Laplacian, Helmholtz, LinAdvDiffReaction)
- * rather than to PhysDeriv.
+ * rather than to PhysDeriv. They read the transposed differentiation
+ * matrices from shared memory, where their launchers stage them with
+ * StageTransposeSumFacTOP.
  *
  * The whole file is compiled only for the device back-ends
  * (NEKTAR_ENABLE_DEVICE together with DEVICE_COMPILE_ONLY).
@@ -318,12 +320,40 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
 }
 
 /**
+ * @brief Copy the transpose of an `n` by `n` matrix into shared memory,
+ * `DT[q * n + i] = D[i * n + q]`, for the SumDerivTensor kernels.
+ *
+ * Called once per thread block before the element loop; like the basis
+ * copies it leaves the barrier to the first stage of that loop.
+ *
+ * @param   n           Rows and columns of the matrix.
+ * @param   D           Matrix in global memory.
+ * @param   DT          Its transpose in shared memory.
+ * @param   threadBlock Thread-block handle supplying the index and range
+ *                      helpers.
+ */
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void StageTransposeSumFacTOP(
+    const unsigned int n, const TData *NEK_RESTRICT D, TData *NEK_RESTRICT DT,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < n * n; idx += stride)
+    {
+        DT[(idx % n) * n + idx / n] = D[idx];
+    }
+}
+
+/**
  * @brief One element, one dimension: apply the transpose of the 1D
  * differentiation matrix, optionally scaled and accumulated.
  *
- * The counterpart of the forward tensorial derivative, indexing
- * `D0[i * nq0 + q]` instead of `D0[q * nq0 + i]`. Not used by
- * PhysDeriv; it serves the weak-form families.
+ * The counterpart of the forward tensorial derivative, reading the
+ * transpose staged by StageTransposeSumFacTOP so that consecutive
+ * threads read consecutive entries. Not used by PhysDeriv; it serves the
+ * weak-form families.
  *
  * @tparam SCALE        Multiply the result by @p scale.
  * @tparam APPEND       Accumulate onto @p out instead of overwriting.
@@ -331,7 +361,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
  * @tparam TData        Floating-point type of the field data.
  *
  * @param   nq0         Quadrature points of the element.
- * @param   D0          1D differentiation matrix, applied transposed.
+ * @param   D0T         Transposed 1D differentiation matrix, in shared
+ *                      memory.
  * @param   in0         Input values of this element.
  * @param   out         Output values of this element.
  * @param   scale       Factor applied when @p SCALE.
@@ -340,7 +371,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
  */
 template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
-    const unsigned int nq0, const TData *NEK_RESTRICT D0,
+    const unsigned int nq0, const TData *NEK_RESTRICT D0T,
     const TData *NEK_RESTRICT in0, TData *NEK_RESTRICT out, const TData scale,
     const TthreadBlock &threadBlock)
 {
@@ -355,7 +386,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
 #pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
-            d0 += D0[i * nq0 + q] * in0[q];
+            d0 += D0T[q * nq0 + i] * in0[q];
         }
 
         if constexpr (SCALE)
@@ -374,6 +405,73 @@ NEK_DEVICE_INLINE static void SumDerivTensor1DSumFacTOPKernel(
     }
 
     localBarrier(threadBlock);
+}
+
+/**
+ * @brief Cartesian derivatives at one point of a quadrilateral or
+ * triangle: the per-point body of PhysDeriv2DSumFacTOPKernel, shared with
+ * the fused stiffness stages of Helmholtz and Laplacian.
+ *
+ * @tparam SHAPE_TYPE   Quad, Tri or NodalTri.
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TData        Floating-point type of the field data.
+ *
+ * @param   ncoord      Cartesian components to produce; @p deriv[2] is
+ *                      set only when it is 3.
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   i,j         The point's index in each direction.
+ * @param   idx         The point's flat index, `j * nq0 + i`.
+ * @param   D0,D1       1D differentiation matrices, column-major.
+ * @param   f0,f1       Collapsed-coordinate factors (triangles only).
+ * @param   df          Derivative factors of this element.
+ * @param   in          Values of this element.
+ * @param   deriv       The point's Cartesian derivatives.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void PhysDeriv2DPointSumFacTOP(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int i, const unsigned int j,
+    [[maybe_unused]] const unsigned int idx, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData (&deriv)[3])
+{
+    const unsigned int dfsize  = DEFORMED ? nq0 * nq1 : 1u;
+    const unsigned int dfindex = DEFORMED ? idx : 0;
+
+    // Compute tensorial derivative.
+    // Direction 0
+    TData d0 = 0.0;
+#pragma unroll
+    for (unsigned int q = 0u; q < nq0; ++q)
+    {
+        d0 += D0[q * nq0 + i] * in[nq0 * j + q];
+    }
+
+    // Direction 1
+    TData d1 = 0.0;
+#pragma unroll
+    for (unsigned int q = 0u; q < nq1; ++q)
+    {
+        d1 += D1[q * nq1 + j] * in[nq0 * q + i];
+    }
+
+    // Moving from collapsed to standard coordinates.
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                  SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        d0 *= f1[j];
+        d1 += d0 * f0[i];
+    }
+
+    // Multiply by derivative factors.
+    deriv[0] = d0 * df[0u * dfsize + dfindex] + d1 * df[1u * dfsize + dfindex];
+    deriv[1] = d0 * df[2u * dfsize + dfindex] + d1 * df[3u * dfsize + dfindex];
+    if (ncoord == 3u)
+    {
+        deriv[2] =
+            d0 * df[4u * dfsize + dfindex] + d1 * df[5u * dfsize + dfindex];
+    }
 }
 
 /**
@@ -422,52 +520,23 @@ NEK_DEVICE_INLINE static void PhysDeriv2DSumFacTOPKernel(
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot  = nq0 * nq1;
-    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+    const unsigned int nqTot = nq0 * nq1;
 
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        const unsigned int i       = idx % nq0;
-        const unsigned int j       = idx / nq0;
-        const unsigned int dfindex = DEFORMED ? idx : 0;
+        TData deriv[3] = {};
+        PhysDeriv2DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            ncoord, nq0, nq1, idx % nq0, idx / nq0, idx, D0, D1, f0, f1, df, in,
+            deriv);
 
-        // Compute tensorial derivative.
-        // Direction 0
-        TData d0 = 0.0;
-#pragma unroll
-        for (unsigned int q = 0u; q < nq0; ++q)
-        {
-            d0 += D0[q * nq0 + i] * in[nq0 * j + q];
-        }
-
-        // Direction 1
-        TData d1 = 0.0;
-#pragma unroll
-        for (unsigned int q = 0u; q < nq1; ++q)
-        {
-            d1 += D1[q * nq1 + j] * in[nq0 * q + i];
-        }
-
-        // Moving from collapsed to standard coordinates.
-        if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
-                      SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            d0 *= f1[j];
-            d1 += d0 * f0[i];
-        }
-
-        // Multiply by derivative factors.
-        out[idx] =
-            d0 * df[0u * dfsize + dfindex] + d1 * df[1u * dfsize + dfindex];
-        out[outoffset + idx] =
-            d0 * df[2u * dfsize + dfindex] + d1 * df[3u * dfsize + dfindex];
+        out[idx]             = deriv[0];
+        out[outoffset + idx] = deriv[1];
         if (ncoord == 3u)
         {
-            out[2u * outoffset + idx] =
-                d0 * df[4u * dfsize + dfindex] + d1 * df[5u * dfsize + dfindex];
+            out[2u * outoffset + idx] = deriv[2];
         }
     }
 
@@ -612,7 +681,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
  * @tparam TData        Floating-point type of the field data.
  *
  * @param   nq0,nq1     Quadrature points per direction.
- * @param   D0,D1       1D differentiation matrices, applied transposed.
+ * @param   D0T,D1T     Transposed 1D differentiation matrices, in shared
+ *                      memory.
  * @param   in0         Input differentiated along direction 0.
  * @param   in1         Input differentiated along direction 1.
  * @param   out         Output values of this element.
@@ -623,7 +693,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir2DSumFacTOPKernel(
 template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D0T, const TData *NEK_RESTRICT D1T,
     const TData *NEK_RESTRICT in0, const TData *NEK_RESTRICT in1,
     TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
@@ -643,7 +713,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
 #pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
-            d0 += D0[i * nq0 + q] * in0[nq0 * j + q];
+            d0 += D0T[q * nq0 + i] * in0[nq0 * j + q];
         }
 
         // Direction 1
@@ -651,7 +721,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
 #pragma unroll
         for (unsigned int q = 0u; q < nq1; ++q)
         {
-            d1 += D1[j * nq1 + q] * in1[nq0 * q + i];
+            d1 += D1T[q * nq1 + j] * in1[nq0 * q + i];
         }
 
         if constexpr (APPEND)
@@ -679,6 +749,98 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
     }
 
     localBarrier(threadBlock);
+}
+
+/**
+ * @brief Cartesian derivatives at one point of a three-dimensional
+ * element: the per-point body of PhysDeriv3DSumFacTOPKernel, shared with
+ * the fused stiffness stages of Helmholtz and Laplacian.
+ *
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TData        Floating-point type of the field data.
+ *
+ * @param   nq0,nq1,nq2     Quadrature points per direction.
+ * @param   i,j,k           The point's index in each direction.
+ * @param   idx             The point's flat index,
+ *                          `(k * nq1 + j) * nq0 + i`.
+ * @param   D0,D1,D2        1D differentiation matrices, column-major.
+ * @param   f0,f1,f1m,f2    Collapsed-coordinate factors.
+ * @param   df              Derivative factors of this element.
+ * @param   in              Values of this element.
+ * @param   deriv           The point's Cartesian derivatives.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void PhysDeriv3DPointSumFacTOP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int i, const unsigned int j, const unsigned int k,
+    [[maybe_unused]] const unsigned int idx, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1m,
+    [[maybe_unused]] const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData (&deriv)[3])
+{
+    const unsigned int dfsize  = DEFORMED ? nq0 * nq1 * nq2 : 1u;
+    const unsigned int dfindex = DEFORMED ? idx : 0;
+
+    // Compute tensorial derivative.
+    // Direction 0
+    TData d0 = 0.0;
+#pragma unroll
+    for (unsigned int q = 0u; q < nq0; ++q)
+    {
+        d0 += D0[q * nq0 + i] * in[nq0 * nq1 * k + nq0 * j + q];
+    }
+
+    // Direction 1
+    TData d1 = 0.0;
+#pragma unroll
+    for (unsigned int q = 0u; q < nq1; ++q)
+    {
+        d1 += D1[q * nq1 + j] * in[nq0 * nq1 * k + nq0 * q + i];
+    }
+
+    // Direction 2
+    TData d2 = 0.0;
+#pragma unroll
+    for (unsigned int q = 0u; q < nq2; ++q)
+    {
+        d2 += D2[q * nq2 + k] * in[nq0 * nq1 * q + nq0 * j + i];
+    }
+
+    // Moving from collapsed to standard coordinates.
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                  SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        TData tmp0 = f1m[j] * f2[k] * d0;
+        TData tmp1 = f0[i] * tmp0;
+        TData tmp2 = f2[k] * d1;
+        d0         = tmp0;
+        d1         = tmp1 + tmp2;
+        d2 += tmp1 + f1[j] * tmp2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        d0 *= f2[k];
+        d2 += f0[i] * d0;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        d0 *= f2[k];
+        d1 *= f2[k];
+        d2 += f0[i] * d0 + f1[j] * d1;
+    }
+
+    // Multiply by derivative factors.
+    deriv[0] = d0 * df[0u * dfsize + dfindex] + d1 * df[1u * dfsize + dfindex] +
+               d2 * df[2u * dfsize + dfindex];
+    deriv[1] = d0 * df[3u * dfsize + dfindex] + d1 * df[4u * dfsize + dfindex] +
+               d2 * df[5u * dfsize + dfindex];
+    deriv[2] = d0 * df[6u * dfsize + dfindex] + d1 * df[7u * dfsize + dfindex] +
+               d2 * df[8u * dfsize + dfindex];
 }
 
 /**
@@ -730,78 +892,21 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT in,
     TData *NEK_RESTRICT out, const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot  = nq0 * nq1 * nq2;
-    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+    const unsigned int nqTot = nq0 * nq1 * nq2;
 
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        const unsigned int i       = idx % nq0;
-        const unsigned int j       = (idx / nq0) % nq1;
-        const unsigned int k       = idx / (nq0 * nq1);
-        const unsigned int dfindex = DEFORMED ? idx : 0;
+        TData deriv[3];
+        PhysDeriv3DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, nq2, idx % nq0, (idx / nq0) % nq1, idx / (nq0 * nq1), idx,
+            D0, D1, D2, f0, f1, f1m, f2, df, in, deriv);
 
-        // Compute tensorial derivative.
-        // Direction 0
-        TData d0 = 0.0;
-#pragma unroll
-        for (unsigned int q = 0u; q < nq0; ++q)
-        {
-            d0 += D0[q * nq0 + i] * in[nq0 * nq1 * k + nq0 * j + q];
-        }
-
-        // Direction 1
-        TData d1 = 0.0;
-#pragma unroll
-        for (unsigned int q = 0u; q < nq1; ++q)
-        {
-            d1 += D1[q * nq1 + j] * in[nq0 * nq1 * k + nq0 * q + i];
-        }
-
-        // Direction 2
-        TData d2 = 0.0;
-#pragma unroll
-        for (unsigned int q = 0u; q < nq2; ++q)
-        {
-            d2 += D2[q * nq2 + k] * in[nq0 * nq1 * q + nq0 * j + i];
-        }
-
-        // Moving from collapsed to standard coordinates.
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                      SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            TData tmp0 = f1m[j] * f2[k] * d0;
-            TData tmp1 = f0[i] * tmp0;
-            TData tmp2 = f2[k] * d1;
-            d0         = tmp0;
-            d1         = tmp1 + tmp2;
-            d2 += tmp1 + f1[j] * tmp2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            d0 *= f2[k];
-            d2 += f0[i] * d0;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            d0 *= f2[k];
-            d1 *= f2[k];
-            d2 += f0[i] * d0 + f1[j] * d1;
-        }
-
-        // Multiply by derivative factors.
-        out[idx] = d0 * df[0u * dfsize + dfindex] +
-                   d1 * df[1u * dfsize + dfindex] +
-                   d2 * df[2u * dfsize + dfindex];
-        out[outoffset + idx] = d0 * df[3u * dfsize + dfindex] +
-                               d1 * df[4u * dfsize + dfindex] +
-                               d2 * df[5u * dfsize + dfindex];
-        out[2u * outoffset + idx] = d0 * df[6u * dfsize + dfindex] +
-                                    d1 * df[7u * dfsize + dfindex] +
-                                    d2 * df[8u * dfsize + dfindex];
+        out[idx]                  = deriv[0];
+        out[outoffset + idx]      = deriv[1];
+        out[2u * outoffset + idx] = deriv[2];
     }
 
     localBarrier(threadBlock);
@@ -939,8 +1044,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
  * @tparam TData        Floating-point type of the field data.
  *
  * @param   nq0,nq1,nq2     Quadrature points per direction.
- * @param   D0,D1,D2        1D differentiation matrices, applied
- *                          transposed.
+ * @param   D0T,D1T,D2T     Transposed 1D differentiation matrices, in
+ *                          shared memory.
  * @param   in0,in1,in2     Inputs differentiated along directions 0, 1
  *                          and 2.
  * @param   out             Output values of this element.
@@ -951,8 +1056,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
 template <bool SCALE, bool APPEND, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
-    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT in0,
+    const TData *NEK_RESTRICT D0T, const TData *NEK_RESTRICT D1T,
+    const TData *NEK_RESTRICT D2T, const TData *NEK_RESTRICT in0,
     const TData *NEK_RESTRICT in1, const TData *NEK_RESTRICT in2,
     TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
 {
@@ -973,7 +1078,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 #pragma unroll
         for (unsigned int q = 0u; q < nq0; ++q)
         {
-            d0 += D0[i * nq0 + q] * in0[nq0 * nq1 * k + nq0 * j + q];
+            d0 += D0T[q * nq0 + i] * in0[nq0 * nq1 * k + nq0 * j + q];
         }
 
         // Direction 1
@@ -981,7 +1086,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 #pragma unroll
         for (unsigned int q = 0u; q < nq1; ++q)
         {
-            d1 += D1[j * nq1 + q] * in1[nq0 * nq1 * k + nq0 * q + i];
+            d1 += D1T[q * nq1 + j] * in1[nq0 * nq1 * k + nq0 * q + i];
         }
 
         // Direction 2
@@ -989,7 +1094,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor3DSumFacTOPKernel(
 #pragma unroll
         for (unsigned int q = 0u; q < nq2; ++q)
         {
-            d2 += D2[k * nq2 + q] * in2[nq0 * nq1 * q + nq0 * j + i];
+            d2 += D2T[q * nq2 + k] * in2[nq0 * nq1 * q + nq0 * j + i];
         }
 
         if constexpr (APPEND)

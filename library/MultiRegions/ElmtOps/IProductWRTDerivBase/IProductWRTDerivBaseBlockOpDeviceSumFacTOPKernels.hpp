@@ -164,8 +164,9 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
  * in elements of TData, for a one-dimensional shape.
  *
  * The Phys output holds the single direction field, nq0 values; the Coeff
- * output that field plus its transposed derivative, 2 * nq0. The tables
- * the 1D kernels contract against are read straight from global memory.
+ * output that field plus its transposed derivative, 2 * nq0. Both are
+ * followed by the transposed differentiation matrix, nq0 * nq0; the
+ * basis table is read straight from global memory.
  * The output field state is encoded in the size-parameter type: a
  * physical-space size parameter selects the Phys variant, a modal one the
  * Coeff variant.
@@ -195,11 +196,11 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
 
     if constexpr (IsPhysSizeParameter1D_v<TSizeParameter1D>)
     {
-        return nq0;
+        return nq0 + nq0 * nq0;
     }
     else
     {
-        return 2 * nq0;
+        return 2 * nq0 + nq0 * nq0;
     }
 }
 
@@ -209,13 +210,15 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  *
  * The staging area a thread block claims, in the order the launchers
  * carve it up:
- * - Phys: the two direction fields, then the two one-dimensional
- *   derivative matrices, 2 * nq0 * nq1 + nq0 * nq0 + nq1 * nq1.
+ * - Phys: the two direction fields, then the two transposed
+ *   one-dimensional derivative matrices,
+ *   2 * nq0 * nq1 + nq0 * nq0 + nq1 * nq1.
  * - Coeff: the two direction fields and their summed transposed derivative
  *   (3 * nq0 * nq1), the nm0 * nq1 intermediate of the basis contraction,
  *   and the two one-dimensional basis tables -- the second of which is
  *   indexed by the shape's total mode count for the triangles, whose
- *   second direction carries the collapsed mode ordering. The nodal
+ *   second direction carries the collapsed mode ordering, then the two
+ *   transposed derivative matrices, nq0 * nq0 + nq1 * nq1. The nodal
  *   triangle adds its coefficient vector, nmTot.
  *   IProductWRTBaseFusedSharedMemoryPadding adds the inner product's
  *   padded rows and the regions' alignment.
@@ -257,25 +260,30 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
     else
     {
+        // Transposed differentiation matrices for SumDerivTensor.
+        const unsigned int nDT = nq0 * nq0 + nq1 * nq1;
+
         const unsigned int nm0 = sizeParam2D.nm0();
         const unsigned int nm1 = sizeParam2D.nm1();
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            return pad + nm0 * nq0 + nm1 * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
+            return nDT + pad + nm0 * nq0 + nm1 * nq1 + 3 * nq0 * nq1 +
+                   nm0 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             const unsigned int nmTot = sizeParam2D.nmTot();
 
-            return pad + nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1;
+            return nDT + pad + nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 +
+                   nm0 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
         {
             const unsigned int nmTot = sizeParam2D.nmTot();
 
-            return pad + nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 + nm0 * nq1 +
-                   nmTot;
+            return nDT + pad + nm0 * nq0 + nmTot * nq1 + 3 * nq0 * nq1 +
+                   nm0 * nq1 + nmTot;
         }
     }
 }
@@ -285,14 +293,15 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
  * in elements of TData, for a three-dimensional shape.
  *
  * Laid out as in the 2D overload:
- * - Phys: the three direction fields and the three one-dimensional
- *   derivative matrices.
+ * - Phys: the three direction fields and the three transposed
+ *   one-dimensional derivative matrices.
  * - Coeff: four fields of nqTot -- the three direction fields and their
  *   summed transposed derivative -- the nm0 * nq1 * nq2 and second
  *   intermediate of the basis contraction, and the three one-dimensional
  *   basis tables. The mode counts indexing the second and third tables
  *   follow the shape's collapsed mode ordering, which is why they are
- *   computed rather than simply nm1 and nm2; the nodal shapes add their
+ *   computed rather than simply nm1 and nm2. The three transposed
+ *   derivative matrices follow, and the nodal shapes add their
  *   coefficient vector of nmTot values.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements.
@@ -333,13 +342,16 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     }
     else
     {
+        // Transposed differentiation matrices for SumDerivTensor.
+        const unsigned int nDT = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+
         const unsigned int nm0 = sizeParam3D.nm0();
         const unsigned int nm1 = sizeParam3D.nm1();
         const unsigned int nm2 = sizeParam3D.nm2();
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            return pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 +
+            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 +
                    4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
@@ -348,7 +360,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            return pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
+            return nDT + pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
                    4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
@@ -357,20 +369,20 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            return pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
+            return nDT + pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
                    4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nmTot;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
             const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-            return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
+            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
                    4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
         {
             const unsigned int nmTot = sizeParam3D.nmTot();
             const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-            return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
+            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
                    4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 +
                    nmTot;
         }
@@ -379,7 +391,7 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
             const unsigned int nmTot = sizeParam3D.nmTot();
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-            return pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
+            return nDT + pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
                    4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
     }
@@ -735,6 +747,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     TData *deriv0 = (TData *)shmemptr;
     TData *deriv  = deriv0 + nq0;
+    TData *s_D0T  = deriv + nq0;
+
+    // Copy to shared memory.
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -755,7 +771,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
                                                      dfptr, jacptr, inptr,
                                                      deriv0, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<false, false>(nq0, D0, deriv0, deriv,
+        SumDerivTensor1DSumFacTOPKernel<false, false>(nq0, s_D0T, deriv0, deriv,
                                                       scale, threadBlock);
         IProductWRTBaseSegSumFacTOPKernel<true, APPEND>(
             nm0, nq0, basis0, deriv, outptr, scale, threadBlock);
@@ -830,6 +846,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int jacsize = DEFORMED ? nq0 : 1u;
 
     TData *deriv = (TData *)shmemptr;
+    TData *s_D0T = deriv + nq0;
+
+    // Copy to shared memory.
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -850,7 +870,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         StdAlignDerivBase1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, inoffset, w0,
                                                      dfptr, jacptr, inptr,
                                                      deriv, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<true, APPEND>(nq0, D0, deriv, outptr,
+        SumDerivTensor1DSumFacTOPKernel<true, APPEND>(nq0, s_D0T, deriv, outptr,
                                                       scale, threadBlock);
 
         e += getBlockRange<0>(threadBlock);
@@ -863,12 +883,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * The dynamic shared-memory allocation is carved into the two direction
  * fields, their summed transposed derivative, the intermediate of the
- * basis contraction and the two one-dimensional basis tables (plus, for
- * the nodal triangle, its coefficient vector), in that order and with the
+ * basis contraction, the two one-dimensional basis tables and the two
+ * transposed derivative matrices (plus, for the nodal triangle, its
+ * coefficient vector), in that order and with the
  * sizes IProductWRTDerivBaseSharedMemorySize accounts for; the locals
  * nmode0 and nmode1 hold the row counts of the two basis tables, which
  * for the triangles follow the collapsed mode ordering. The block's
- * threads copy the basis tables in, then stride over the elements running
+ * threads copy the basis tables and derivative matrices in, then stride
+ * over the elements running
  * the three stages; the nodal triangle writes its coefficients to shared
  * memory and finishes with MatVecSumFacTOPKernel applying the transposed
  * nodal-to-modal matrix, which is where its append flag takes effect.
@@ -978,7 +1000,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_wsp0    = deriv + IProductWRTBaseAlignedSize<TData>(nqTot);
     TData *s_basis0  = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset);
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
-    TData *s_out1ptr = s_basis1 + nmode1 * nq1;
+    TData *s_D0T     = s_basis1 + nmode1 * nq1;
+    TData *s_D1T     = s_D0T + nq0 * nq0;
+    TData *s_out1ptr = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -993,6 +1017,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         s_basis1[idx] = basis1[idx];
     }
+
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1014,7 +1041,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr, inptr,
             deriv0, deriv1, threadBlock);
         SumDerivTensor2DSumFacTOPKernel<false, false>(
-            nq0, nq1, D0, D1, deriv0, deriv1, deriv, scale, threadBlock);
+            nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, deriv, scale, threadBlock);
         const TData *ipb =
             IProductWRTBasePadInput(nq0, nq1, deriv, s_ipb, threadBlock);
 
@@ -1051,11 +1078,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * points.
  *
  * As the Coeff launcher without the basis contraction: the shared memory
- * holds the two direction fields and the two one-dimensional derivative
- * matrices, which the block's threads stage there because every element
- * reads them, and SumDerivTensor2DSumFacTOPKernel writes the summed
- * transposed derivative straight to the output, applying the scale and
- * the append flag. The basis tables, the mode-index table and the
+ * holds the two direction fields and the transposes of the two
+ * one-dimensional derivative matrices, which the block's threads stage
+ * there because every element reads them, and SumDerivTensor2DSumFacTOPKernel
+ * writes the summed transposed derivative straight to the output, applying the
+ * scale and the append flag. The basis tables, the mode-index table and the
  * nodal-to-modal matrix are absent from this signature: the Phys path
  * stops before the basis contraction.
  *
@@ -1120,22 +1147,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     TData *deriv0 = (TData *)shmemptr;
     TData *deriv1 = deriv0 + nqTot;
-    TData *s_D0   = deriv1 + nqTot;
-    TData *s_D1   = s_D0 + nq0 * nq0;
+    TData *s_D0T  = deriv1 + nqTot;
+    TData *s_D1T  = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
-    {
-        s_D0[idx] = D0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nq1 * nq1; idx += stride)
-    {
-        s_D1[idx] = D1[idx];
-    }
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1157,7 +1174,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             ncoord, nq0, nq1, inoffset, w0, w1, f0, f1, dfptr, jacptr, inptr,
             deriv0, deriv1, threadBlock);
         SumDerivTensor2DSumFacTOPKernel<true, APPEND>(
-            nq0, nq1, s_D0, s_D1, deriv0, deriv1, outptr, scale, threadBlock);
+            nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, outptr, scale, threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1324,7 +1341,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis0  = s_wsp1 + IProductWRTBaseAlignedSize<TData>(offset1);
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_basis2  = s_basis1 + nmode1 * nq1;
-    TData *s_out1ptr = s_basis2 + nmode2 * nq2;
+    TData *s_D0T     = s_basis2 + nmode2 * nq2;
+    TData *s_D1T     = s_D0T + nq0 * nq0;
+    TData *s_D2T     = s_D1T + nq1 * nq1;
+    TData *s_out1ptr = s_D2T + nq2 * nq2;
 
     // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -1345,6 +1365,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         s_basis2[idx] = basis2[idx];
     }
 
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
+    StageTransposeSumFacTOP(nq2, D2, s_D2T, threadBlock);
+
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int m     = getBlockIdx<1>(threadBlock);
     const unsigned int c     = getBlockIdx<2>(threadBlock);
@@ -1364,8 +1388,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         // across the element loop); the op-level append is handled by the
         // IProductWRTBase kernels writing the global output below.
         SumDerivTensor3DSumFacTOPKernel<false, false>(
-            nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, deriv, scale,
-            threadBlock);
+            nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, deriv,
+            scale, threadBlock);
         const TData *ipb =
             IProductWRTBasePadInput(nq0, nq1 * nq2, deriv, s_ipb, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
@@ -1427,10 +1451,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * element sizes and leaves the derivative at the quadrature points.
  *
  * As the Coeff launcher without the basis contraction: the shared memory
- * holds the three direction fields and the three one-dimensional
- * derivative matrices, and SumDerivTensor3DSumFacTOPKernel writes the
- * summed transposed derivative straight to the output, applying the scale
- * and the append flag. The basis tables, the mode-index tables and the
+ * holds the three direction fields and the transposes of the three
+ * one-dimensional derivative matrices, and SumDerivTensor3DSumFacTOPKernel
+ * writes the summed transposed derivative straight to the output, applying the
+ * scale and the append flag. The basis tables, the mode-index tables and the
  * nodal-to-modal matrix are absent from this signature, all of which
  * serve the basis contraction the Phys path does not reach.
  *
@@ -1500,28 +1524,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *deriv0 = (TData *)shmemptr;
     TData *deriv1 = deriv0 + nqTot;
     TData *deriv2 = deriv1 + nqTot;
-    TData *s_D0   = deriv2 + nqTot;
-    TData *s_D1   = s_D0 + nq0 * nq0;
-    TData *s_D2   = s_D1 + nq1 * nq1;
+    TData *s_D0T  = deriv2 + nqTot;
+    TData *s_D1T  = s_D0T + nq0 * nq0;
+    TData *s_D2T  = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
-    {
-        s_D0[idx] = D0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nq1 * nq1; idx += stride)
-    {
-        s_D1[idx] = D1[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nq2 * nq2; idx += stride)
-    {
-        s_D2[idx] = D2[idx];
-    }
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
+    StageTransposeSumFacTOP(nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1539,7 +1549,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             nq0, nq1, nq2, inoffset, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
             inptr, deriv0, deriv1, deriv2, threadBlock);
         SumDerivTensor3DSumFacTOPKernel<true, APPEND>(
-            nq0, nq1, nq2, s_D0, s_D1, s_D2, deriv0, deriv1, deriv2, outptr,
+            nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, outptr,
             scale, threadBlock);
 
         e += getBlockRange<0>(threadBlock);

@@ -55,10 +55,10 @@
  * per-element working set lives in the dynamic shared memory the launch
  * reserves: in two and three dimensions the reference-space diffusion
  * metric first, then the physical values, the derivative components,
- * the shape's sum-factorisation intermediates and the basis tables,
- * which are copied in once at the start because every element of the
- * block shares them. The layout is exactly the one
- * HelmholtzSharedMemorySize accounts for, this family adding no
+ * the shape's sum-factorisation intermediates, the basis tables and the
+ * transposed differentiation matrices, which are copied in once at the
+ * start because every element of the block shares them. The layout is exactly
+ * the one HelmholtzSharedMemorySize accounts for, this family adding no
  * intermediates of its own.
  *
  * A second grid dimension carries the field-component (or
@@ -76,12 +76,13 @@
  * transform, derivatives, advection, diffusion metric with quadrature
  * weighting, summed transposed derivative, inner product -- built from
  * the SumFacTOP kernels of the BwdTrans, PhysDeriv, Helmholtz and
- * IProductWRTBase families with this family's AddAdvection kernels
- * spliced in, and with the reaction term folded into the advection step
- * so that the metric stage runs with a unit coefficient. The PhysDeriv
- * stage already applies the collapsed-coordinate factors and the
- * derivative factors, so the advection kernels see Cartesian
- * derivatives.
+ * IProductWRTBase families with this family's advection kernels spliced
+ * in, and with the reaction term folded into the advection step. In 1D
+ * the advection kernel precedes the metric stage, which then runs with a
+ * unit coefficient; in 2D and 3D, advection and metric are pointwise on
+ * the same derivatives and share one pass. The PhysDeriv stage already
+ * applies the collapsed-coordinate factors and the derivative factors, so
+ * the advection kernels see Cartesian derivatives.
  */
 
 #pragma once
@@ -152,86 +153,135 @@ NEK_DEVICE_INLINE static void AddAdvection1DSumFacTOPKernel(
 }
 
 /**
- * @brief Two-dimensional advection kernel: add the advection term to
- * the scaled physical values of the block's element.
+ * @brief Two-dimensional advection and metric pass: at each point add the
+ * advection term to the scaled field, weight the result by the quadrature
+ * weight and Jacobian, and turn the point's Cartesian derivatives into the
+ * stiffness fluxes.
  *
- * As AddAdvection1DSumFacTOPKernel, over the element's nq0 * nq1
- * points. The third velocity and derivative component is read only for
- * a surface element embedded in three dimensions (@p ncoord == 3).
+ * Every read is of the point's own value and derivatives, written before
+ * PhysDeriv2DSumFacTOPKernel's closing barrier, so the advection term and
+ * the metric share one pass. The fluxes overwrite the derivatives in place.
+ * Ends with a block barrier.
  *
- * @tparam TthreadBlock    Back-end thread-block handle type.
- * @tparam TData           Floating-point type of the field data.
+ * @tparam SHAPE_TYPE   Quad, Tri or NodalTri.
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TthreadBlock Thread-block handle type.
+ * @tparam TData        Floating-point type of the field data.
  *
- * @param   ncoord  Coordinate dimension (2 or 3).
- * @param   nq0,nq1 Quadrature points per direction.
- * @param   advVel0,advVel1,advVel2     Velocity components.
- * @param   deriv0,deriv1,deriv2        Cartesian derivatives of
- *                                      \f$u\f$; unchanged.
- * @param[in,out] out   In: \f$u\f$ at the quadrature points; out: the
- *                      advection-plus-reaction values.
- * @param   scale   Reaction coefficient \f$\lambda\f$.
- * @param   threadBlock Back-end thread-block handle.
+ * @param   ncoord      Cartesian components (coordDim), 2 or 3.
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   w0,w1       Quadrature weights per direction.
+ * @param   f0,f1       Collapsed-coordinate factors (triangles only).
+ * @param   df          Derivative factors of this element.
+ * @param   jac         Jacobian of this element.
+ * @param   diffCoeff   Diffusion tensor, or null for the identity.
+ * @param   advVel0,advVel1,advVel2 Advection velocity components; the
+ *                      third is read only when @p ncoord is 3.
+ * @param   deriv0,deriv1,deriv2    Cartesian derivatives on entry, the
+ *                      fluxes in the first two on exit.
+ * @param   metric      Metric of the element: shared when uniform, a
+ *                      per-thread array when DEFORMED.
+ * @param   bwd         Field values, replaced by the weighted reaction and
+ *                      advection terms.
+ * @param   scale       Factor applied to @p bwd before the advection term.
+ * @param   threadBlock Thread-block handle.
  */
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AddAdvection2DSumFacTOPKernel(
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void AddAdvectionApplyMetric2DSumFacTOPKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
-    const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT deriv0,
-    const TData *NEK_RESTRICT deriv1, const TData *NEK_RESTRICT deriv2,
-    TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT diffCoeff, const TData *NEK_RESTRICT advVel0,
+    const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
+    TData *deriv0, TData *deriv1, const TData *deriv2, TData *metric,
+    TData *NEK_RESTRICT bwd, const TData scale, const TthreadBlock &threadBlock)
 {
+    const unsigned int nqTot = nq0 * nq1;
+
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int i = idx0; i < nq0 * nq1; i += stride)
+    ApplyMetric2DSetupSumFacTOP<DEFORMED>(ncoord, df, diffCoeff, metric,
+                                          threadBlock);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        TData tmp = advVel0[i] * deriv0[i] + advVel1[i] * deriv1[i];
-        if (ncoord == 3)
+        const unsigned int i = idx % nq0;
+        const unsigned int j = idx / nq0;
+
+        const TData deriv[3] = {deriv0[idx], deriv1[idx],
+                                ncoord == 3u ? deriv2[idx] : TData(0)};
+
+        TData adv = advVel0[idx] * deriv[0] + advVel1[idx] * deriv[1];
+        if (ncoord == 3u)
         {
-            tmp += advVel2[i] * deriv2[i];
+            adv += advVel2[idx] * deriv[2];
         }
-        out[i] = scale * out[i] + tmp;
+
+        TData flux[2];
+        const TData tmpQ = ApplyMetric2DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            ncoord, nqTot, i, j, idx, w0, w1, f0, f1, df, jac, diffCoeff,
+            metric, deriv, flux);
+
+        bwd[idx]    = (scale * bwd[idx] + adv) * tmpQ;
+        deriv0[idx] = flux[0];
+        deriv1[idx] = flux[1];
     }
+
     localBarrier(threadBlock);
 }
 
 /**
- * @brief Three-dimensional advection kernel: add the advection term to
- * the scaled physical values of the block's element.
+ * @brief Three-dimensional advection and metric pass; see
+ * AddAdvectionApplyMetric2DSumFacTOPKernel. The fluxes overwrite the three
+ * derivatives in place. Ends with a block barrier.
  *
- * As AddAdvection2DSumFacTOPKernel, over the element's
- * nq0 * nq1 * nq2 points. There is no coordinate-dimension argument: a
- * three-dimensional element has coordinate dimension three, so all
- * three components always contribute.
- *
- * @tparam TthreadBlock    Back-end thread-block handle type.
- * @tparam TData           Floating-point type of the field data.
- *
- * @param   nq0,nq1,nq2     Quadrature points per direction.
- * @param   advVel0,advVel1,advVel2     Velocity components.
- * @param   deriv0,deriv1,deriv2        Cartesian derivatives of
- *                                      \f$u\f$; unchanged.
- * @param[in,out] out   In: \f$u\f$ at the quadrature points; out: the
- *                      advection-plus-reaction values.
- * @param   scale   Reaction coefficient \f$\lambda\f$.
- * @param   threadBlock Back-end thread-block handle.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
  */
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void AddAdvection3DSumFacTOPKernel(
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void AddAdvectionApplyMetric3DSumFacTOPKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT f0,
+    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
+    const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
     const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
-    const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT deriv0,
-    const TData *NEK_RESTRICT deriv1, const TData *NEK_RESTRICT deriv2,
-    TData *NEK_RESTRICT out, const TData scale, const TthreadBlock &threadBlock)
+    const TData *NEK_RESTRICT advVel2, TData *deriv0, TData *deriv1,
+    TData *deriv2, TData *metric, TData *NEK_RESTRICT bwd, const TData scale,
+    const TthreadBlock &threadBlock)
 {
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    for (unsigned int i = idx0; i < nq0 * nq1 * nq2; i += stride)
+    ApplyMetric3DSetupSumFacTOP<DEFORMED>(df, diffCoeff, metric, threadBlock);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        out[i] = scale * out[i] + advVel0[i] * deriv0[i] +
-                 advVel1[i] * deriv1[i] + advVel2[i] * deriv2[i];
+        const unsigned int i = idx % nq0;
+        const unsigned int j = (idx / nq0) % nq1;
+        const unsigned int k = idx / (nq0 * nq1);
+
+        const TData deriv[3] = {deriv0[idx], deriv1[idx], deriv2[idx]};
+
+        TData flux[3];
+        const TData tmpQ = ApplyMetric3DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            nqTot, i, j, k, idx, w0, w1, w2, f0, f1, f1m, f2, df, jac,
+            diffCoeff, metric, deriv, flux);
+
+        bwd[idx] = (scale * bwd[idx] + advVel0[idx] * deriv[0] +
+                    advVel1[idx] * deriv[1] + advVel2[idx] * deriv[2]) *
+                   tmpQ;
+        deriv0[idx] = flux[0];
+        deriv1[idx] = flux[1];
+        deriv2[idx] = flux[2];
     }
+
     localBarrier(threadBlock);
 }
 
@@ -251,8 +301,10 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacTOPKernel(
  * After unpacking @p sizeParam1D, thread blocks stride over the block's
  * elements; for each one the shared memory is used as the physical
  * values followed by @p ncoord derivative components, `nq0` values
- * apiece, which fits within the `4 * nq0` HelmholtzSharedMemorySize
- * reserves for a segment. The element's coefficients and the basis
+ * apiece, within the first `4 * nq0` values HelmholtzSharedMemorySize
+ * reserves for a segment, followed by the transposed differentiation
+ * matrix staged once before the element loop. The element's coefficients
+ * and the basis
  * table are read straight from global memory, and the 1D metric kernel
  * takes no shared metric slot. The stage sequence of the file notes then
  * runs with the block's threads sharing each stage's work items. No
@@ -337,6 +389,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     TData *bwd   = (TData *)shmemptr;
     TData *deriv = bwd + nq0;
+    TData *s_D0T = bwd + 4 * nq0;
+
+    // Copy to shared memory.
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -363,7 +419,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, w0, dfptr,
                                                jacptr, coeff, deriv, deriv, bwd,
                                                (TData)1.0, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<false, true>(nq0, D0, deriv, bwd,
+        SumDerivTensor1DSumFacTOPKernel<false, true>(nq0, s_D0T, deriv, bwd,
                                                      (TData)1.0, threadBlock);
         IProductWRTBaseSegSumFacTOPKernel<false, false>(
             nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
@@ -383,20 +439,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * After unpacking @p sizeParam2D, the shared memory is carved up once,
  * into the six reference-space diffusion-metric entries, the physical
  * values, @p ncoord derivative components of nqTot values each, the
- * shape's sum-factorisation intermediate and the two basis tables; the
- * basis tables are copied in before the element loop, being the same for
- * every element. The element's coefficients are staged over the
- * derivative slots at the start of each iteration -- directly for the
- * modal shapes, through the nodal-to-modal MatVecSumFacTOPKernel for
- * NodalTri -- and the same slots take the result of the inner product
- * back for the transposed conversion. The collapsed-coordinate factor
- * tables are read from global memory, not staged.
+ * shape's sum-factorisation intermediate, the two basis tables and the
+ * two transposed differentiation matrices; the tables are copied in
+ * before the element loop, being the same for every element. The element's
+ * coefficients are staged over the derivative slots at the start of each
+ * iteration -- directly for the modal shapes, through the nodal-to-modal
+ * MatVecSumFacTOPKernel for NodalTri -- and the same slots take the result of
+ * the inner product back for the transposed conversion. The
+ * collapsed-coordinate factor tables are read from global memory, not staged.
  *
  * The metric slots are used only when the geometry is regular, in which
  * case the entries are constant over the element and the block's
  * threads share them; when it is deformed they vary point by point and
  * the driver hands the metric kernel a thread-local array instead, which
- * is what the two branches around ApplyMetric2DSumFacTOPKernel select
+ * is what the two branches around
+ * AddAdvectionApplyMetric2DSumFacTOPKernel select
  * between.
  *
  * The direction-1 basis table is indexed by the combined (p, q) mode for
@@ -518,6 +575,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nderiv);
     TData *s_basis0 = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
+    TData *s_D0T    = s_basis1 + nmode1 * nq1;
+    TData *s_D1T    = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -532,6 +591,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         s_basis1[idx] = basis1[idx];
     }
+
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -559,9 +621,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransQuadSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
-                                               s_basis0, s_basis1, tmp, bwd,
-                                               s_wsp0, threadBlock);
+            BwdTransQuadSumFacTOPKernel<false, true>(nm0, nm1, nq0, nq1, nqTot,
+                                                     s_basis0, s_basis1, tmp,
+                                                     bwd, s_wsp0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                            SHAPE_TYPE == LibUtilities::NodalTri)
@@ -581,24 +643,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *advVel1ptr = advVel1 + advelplane;
         const TData *advVel2ptr =
             (ncoord == 3) ? advVel2 + advelplane : advVel2;
-        AddAdvection2DSumFacTOPKernel(
-            ncoord, nq0, nq1, advVel0ptr, advVel1ptr, advVel2ptr, deriv,
-            deriv + nqTot, deriv + 2 * nqTot, bwd, lambda, threadBlock);
         if constexpr (DEFORMED)
         {
             TData dmetric[6] = {0.0};
-            ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                deriv, deriv0, deriv1, dmetric, bwd, (TData)1.0, threadBlock);
+            AddAdvectionApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, w0, w1, f0, f1, dfptr, jacptr, coeff,
+                advVel0ptr, advVel1ptr, advVel2ptr, deriv0, deriv1,
+                deriv + 2 * nqTot, dmetric, bwd, lambda, threadBlock);
         }
         else
         {
-            ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                deriv, deriv0, deriv1, metric, bwd, (TData)1.0, threadBlock);
+            AddAdvectionApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                ncoord, nq0, nq1, w0, w1, f0, f1, dfptr, jacptr, coeff,
+                advVel0ptr, advVel1ptr, advVel2ptr, deriv0, deriv1,
+                deriv + 2 * nqTot, metric, bwd, lambda, threadBlock);
         }
-        SumDerivTensor2DSumFacTOPKernel<false, true>(
-            nq0, nq1, D0, D1, deriv0, deriv1, bwd, (TData)1.0, threadBlock);
+        SumDerivTensor2DSumFacTOPKernel<false, true>(nq0, nq1, s_D0T, s_D1T,
+                                                     deriv0, deriv1, bwd,
+                                                     (TData)1.0, threadBlock);
         const TData *ipb =
             IProductWRTBasePadInput(nq0, nq1, bwd, s_ipb, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
@@ -639,12 +701,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * coordinate dimension three.
  *
  * As the 2D overload, with nine metric entries instead of six, three
- * derivative components, two sum-factorisation intermediates and three
- * basis tables; the nodal-to-modal conversion applies to NodalTet and
- * NodalPrism. The per-shape sizes computed at the top give the extents
- * of those slots. The direction-0 table always has nm0 rows; a collapsed
- * direction is indexed by a combined mode instead, so the tetrahedron's
- * direction-1 table has the triangular direction-0/1 count
+ * derivative components, two sum-factorisation intermediates, three
+ * basis tables and three transposed differentiation matrices; the
+ * nodal-to-modal conversion applies to NodalTet and NodalPrism. The per-shape
+ * sizes computed at the top give the extents of those slots. The direction-0
+ * table always has nm0 rows; a collapsed direction is indexed by a combined
+ * mode instead, so the tetrahedron's direction-1 table has the triangular
+ * direction-0/1 count
  * `(2 * nm1 - nm0 + 1) * nm0 / 2`, the prism's direction-2 table the
  * corresponding direction-0/2 count, and the tetrahedron's and the
  * pyramid's direction-2 tables `nmTot` rows plus a further
@@ -808,6 +871,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis0 = s_wsp1 + IProductWRTBaseAlignedSize<TData>(offset1);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_D0T    = s_basis2 + nmode2 * nq2;
+    TData *s_D1T    = s_D0T + nq0 * nq0;
+    TData *s_D2T    = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
@@ -827,6 +893,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         s_basis2[idx] = basis2[idx];
     }
+
+    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
+    StageTransposeSumFacTOP(nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -856,7 +926,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransHexSumFacTOPKernel<false>(
+            BwdTransHexSumFacTOPKernel<false, true>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
                 s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
@@ -887,27 +957,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *advVel0ptr = advVel0 + nqTot * e;
         const TData *advVel1ptr = advVel1 + nqTot * e;
         const TData *advVel2ptr = advVel2 + nqTot * e;
-        AddAdvection3DSumFacTOPKernel(nq0, nq1, nq2, advVel0ptr, advVel1ptr,
-                                      advVel2ptr, deriv0, deriv1, deriv2, bwd,
-                                      lambda, threadBlock);
         if constexpr (DEFORMED)
         {
             TData dmetric[9] = {0.0};
-            ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, coeff, deriv, deriv0, deriv1, deriv2, dmetric, bwd,
-                (TData)1.0, threadBlock);
+            AddAdvectionApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
+                coeff, advVel0ptr, advVel1ptr, advVel2ptr, deriv0, deriv1,
+                deriv2, dmetric, bwd, lambda, threadBlock);
         }
         else
         {
-            ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, coeff, deriv, deriv0, deriv1, deriv2, metric, bwd,
-                (TData)1.0, threadBlock);
+            AddAdvectionApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+                nq0, nq1, nq2, w0, w1, w2, f0, f1, f1m, f2, dfptr, jacptr,
+                coeff, advVel0ptr, advVel1ptr, advVel2ptr, deriv0, deriv1,
+                deriv2, metric, bwd, lambda, threadBlock);
         }
         SumDerivTensor3DSumFacTOPKernel<false, true>(
-            nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd, (TData)1.0,
-            threadBlock);
+            nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, bwd,
+            (TData)1.0, threadBlock);
         const TData *ipb =
             IProductWRTBasePadInput(nq0, nq1 * nq2, bwd, s_ipb, threadBlock);
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)

@@ -649,9 +649,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransQuadSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
-                                               s_basis0, s_basis1, tmp, bwd,
-                                               s_wsp0, threadBlock);
+            BwdTransQuadSumFacTOPKernel<false, true>(nm0, nm1, nq0, nq1, nqTot,
+                                                     s_basis0, s_basis1, tmp,
+                                                     bwd, s_wsp0, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                            SHAPE_TYPE == LibUtilities::NodalTri)
@@ -892,7 +892,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransHexSumFacTOPKernel<false>(
+            BwdTransHexSumFacTOPKernel<false, true>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
                 s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
         }
