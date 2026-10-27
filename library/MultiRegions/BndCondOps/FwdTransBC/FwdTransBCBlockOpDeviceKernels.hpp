@@ -44,7 +44,7 @@ namespace Nektar::MultiRegions::detail
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 // Helper function
 // Workspace of the 2D kernels, which the shared tables follow.
-inline unsigned int FwdTransBCWorkSpaceSize2D(
+NEK_HOSTDEVICE_INLINE constexpr unsigned int FwdTransBCWorkSpaceSize2D(
     const LibUtilities::ShapeType shapeType, const unsigned int nq0,
     const unsigned int nq1)
 {
