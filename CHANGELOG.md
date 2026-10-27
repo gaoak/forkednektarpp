@@ -168,6 +168,7 @@ v5.11.0
 - Add Navier-Stokes equations with interior-penalty diffusion (!2543)
 - Port the solver to the DG flux framework with run-time selectable Riemann solvers, equations of state and boundary conditions (!2715)
 - Add CFL-based time-step estimate (!2691)
+- Add the average-of-normal-fluxes viscous trace flux (SOLVERINFO `ViscousTraceFlux`), element-local trace normals in `TraceFluxOp`, the normal component of a trace extraction in `PhysTraceExtractOp`, and `AdvDiffVolumeFluxOp` for the viscous and total volume flux in one pass (!2872)
 - Write every Riemann solver in Cartesian components through the trace normal, as the legacy solver now does, and remove the rotation into the normal frame with its cached rotation matrices (!2871)
 
 **IncNavierStokesSolverRedesign**

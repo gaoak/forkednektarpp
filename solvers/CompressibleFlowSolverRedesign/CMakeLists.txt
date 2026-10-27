@@ -21,6 +21,7 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
     # registers under.
     SET(CFEVolFluxes  EulerVolumeFlux
                       DiffusionCFEVolFlux
+                      AdvDiffCFEVolFlux
                       CFLVelocityCFE
                       BndCondOps/BndCondPressureOutflowCFE
                       BndCondOps/BndCondWallCFE)
@@ -250,6 +251,29 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
         SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8)
         SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8_PerFaceRot)
         SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_8x8x8_Tet_ortho_P0)
+        # The average-of-normal-fluxes viscous trace flux: P3 hexahedra and
+        # tetrahedra on every execution space, the wall sessions for the
+        # gradient trace the boundary still reads, and curved-but-affine
+        # meshes, whose deformed paths must reproduce the affine references.
+        SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8_AvgNormFlux)
+        SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_Tet_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_Tet_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8_Curved_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8_NumPoints9_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_PrismHex_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_PrismHex_Curved_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_Pyr6_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_Pyr6_Curved_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_Tet6_Curved_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_AllElmts_Wall_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_AllElmts_Wall_FluxOfAverages)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign Couette_WeakDG_IP_MODIFIED_Adiabatic_Curved_AvgNormFlux)
+        SET_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign EnforceEntropyPressure_2D_mix_Curved_AvgNormFlux)
+        IF (NEKTAR_USE_MPI)
+            SET_HOST_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGVFlow3D_Hex8_AvgNormFlux_par)
+            SET_HOST_SUMFAC_SOLVER_TEST(CompressibleFlowSolverRedesign TGV_Tet_AvgNormFlux_par)
+        ENDIF()
         SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign Euler1D_DensityPulse)
         SET_ALL_SOLVER_TEST(CompressibleFlowSolverRedesign Euler1D)
     ENDIF()

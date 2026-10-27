@@ -199,6 +199,7 @@
 
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransBlockOpDeviceSumFacKernels.hpp>
 
+#include "LibUtilities/LoopExecution/LoopExecution.hpp"
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
 namespace Nektar::MultiRegions::detail
@@ -2460,5 +2461,37 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 }
 
 #endif
+
+/**
+ * @brief The outward normal component of a vector-valued field on the
+ * element-local traces of one block: `out[f] = sum_d n[d] *
+ * tensor[f * ndim + d]` at every point, one launch with each thread forming
+ * every component of one point. The three arrays share one layout,
+ * component-major with @p npts between components and the elements
+ * interleaved at the same width within a component, so consecutive threads
+ * read consecutive addresses of each (coalesced) at any interleave width.
+ */
+template <typename TData>
+static void ContractTraceNormalKernel(const size_t npts, const unsigned ndim,
+                                      const unsigned nvar, const TData *tensor,
+                                      const TData *normals, TData *out,
+                                      const unsigned int streamID)
+{
+    Nektar::LoopExecutionSetStreamID(streamID);
+    Nektar::parallel_for<NektarSpaces::Device>(
+        0u, npts, NEKTAR_LAMBDA(const size_t i) {
+            for (unsigned f = 0; f < nvar; ++f)
+            {
+                TData sum = 0.0;
+                for (unsigned d = 0; d < ndim; ++d)
+                {
+                    sum += normals[d * npts + i] *
+                           tensor[(f * ndim + d) * npts + i];
+                }
+                out[f * npts + i] = sum;
+            }
+        });
+    Nektar::LoopExecutionSetStreamID(0);
+}
 
 } // namespace Nektar::MultiRegions::detail

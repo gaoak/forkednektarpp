@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp"
 #include "SolverCore/Advection/AdvectionVolumeFluxOp.hpp"
 #include "SolverCore/BndCond/BndCondUpdateOp.hpp"
 #include "SolverCore/Diffusion/DiffusionVolumeFluxOp.hpp"
@@ -73,17 +74,33 @@ public:
     void SetAdvVolFlux(const std::shared_ptr<AdvectionVolumeFluxOp<TData>> &ptr)
     {
         m_advVolFluxOpNegOut = ptr;
+        m_needsConfigure     = true;
     }
 
     void SetDiffVolFlux(
         const std::shared_ptr<DiffusionVolumeFluxOp<TData>> &ptr)
     {
         m_diffVolFluxOpAppend = ptr;
+        m_needsConfigure      = true;
+    }
+
+    /**
+     * @brief Attach the volume flux that forms the viscous and the total
+     * flux together, for an implementation that needs both (see
+     * AdvDiffVolumeFluxOp). Optional: without one, the implementation
+     * composes them from the advection and diffusion volume fluxes.
+     */
+    void SetAdvDiffVolFlux(
+        const std::shared_ptr<AdvDiffVolumeFluxOp<TData>> &ptr)
+    {
+        m_advDiffVolFluxOp = ptr;
+        m_needsConfigure   = true;
     }
 
     void SetAdvDiffTraceFlux(const std::shared_ptr<TraceFluxOp<TData>> &ptr)
     {
         m_advDiffTraceFluxOp = ptr;
+        m_needsConfigure     = true;
     }
 
     /**
@@ -115,8 +132,15 @@ public:
 protected:
     std::shared_ptr<AdvectionVolumeFluxOp<TData>> m_advVolFluxOpNegOut;
     std::shared_ptr<DiffusionVolumeFluxOp<TData>> m_diffVolFluxOpAppend;
+    /// Optional; see SetAdvDiffVolFlux().
+    std::shared_ptr<AdvDiffVolumeFluxOp<TData>> m_advDiffVolFluxOp;
     std::shared_ptr<TraceFluxOp<TData>> m_advDiffTraceFluxOp;
     TData m_scale = 1.0;
+    /// The next Apply() must configure the implementation first: true from
+    /// construction, so the first Apply() always runs the checks that report
+    /// a missing operator, and again whenever an operator is attached, which
+    /// makes what the implementation derived from them stale.
+    bool m_needsConfigure = true;
 
     AdvDiffusionOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)

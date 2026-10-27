@@ -121,24 +121,6 @@ public:
     }
 
 protected:
-    /**
-     * @brief Synchronise every block of @p field after the first.
-     *
-     * Memory is synchronised a block at a time, while the kernels below walk
-     * a field from its first block's pointer; taking that pointer therefore
-     * leaves every later block unsynchronised. Each field is walked to its
-     * own length, since they do not share a block count.
-     */
-    template <typename MemAccess, typename TField>
-    NEK_FORCE_INLINE void SyncTrailingBlocks(TField &field)
-    {
-        for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
-        {
-            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
-                this->m_opStreamID);
-        }
-    }
-
     /// Spatial dimension of the mesh.
     unsigned int m_dim;
     /// Equation-of-state parameters.
@@ -258,13 +240,10 @@ protected:
             this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
-        SyncTrailingBlocks<ReadOnly>(in);
-        SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
+        this->template SyncTrailingBlocks<ReadOnly>(in);
+        this->template SyncTrailingBlocks<WriteOnly>(flux);
 
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
@@ -345,13 +324,10 @@ protected:
             this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
-        SyncTrailingBlocks<ReadOnly>(in);
-        SyncTrailingBlocks<ReadWrite>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
+        this->template SyncTrailingBlocks<ReadOnly>(in);
+        this->template SyncTrailingBlocks<ReadWrite>(flux);
 
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
@@ -422,13 +398,10 @@ protected:
             this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
-        SyncTrailingBlocks<ReadOnly>(in);
-        SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
+        this->template SyncTrailingBlocks<ReadOnly>(in);
+        this->template SyncTrailingBlocks<WriteOnly>(flux);
 
         for (unsigned b = 0; b < this->m_bndT0.size(); ++b)
         {
@@ -476,14 +449,14 @@ protected:
      * blocks, so no gather, interpolation or scatter takes place and the flux
      * returned is the raw Riemann solution at each point.
      *
-     * @param fwd  - Forward-side conserved state.
-     * @param bwd  - Backward-side conserved state.
-     * @param flux - Output flux.
-     *
-     * @note The normals are the operator's trace normals, block for block.
+     * @param normals - Normals, block for block with @p fwd.
+     * @param fwd     - Forward-side conserved state.
+     * @param bwd     - Backward-side conserved state.
+     * @param flux    - Output flux.
      */
     // function to help set up unit test for Riemann solver
     void v_ApplyUnitTest(
+        LibUtilities::Field<TData, FieldState::Phys> &normals,
         LibUtilities::Field<TData, FieldState::Phys> &fwd,
         LibUtilities::Field<TData, FieldState::Phys> &bwd,
         LibUtilities::Field<TData, FieldState::Phys> &flux) override
@@ -503,8 +476,8 @@ protected:
                 bwd.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
             auto fluxPtr =
                 flux.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>();
-            auto normPtr = this->m_traceNormals.GetBlocks()[blk]
-                               .template GetPtr<MemSpace, ReadOnly>();
+            auto normPtr =
+                normals.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
 
             const auto blksize = fwd.GetBlocks()[blk].CompSize();
 

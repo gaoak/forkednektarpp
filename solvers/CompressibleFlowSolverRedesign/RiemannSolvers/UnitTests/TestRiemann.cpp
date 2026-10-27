@@ -348,8 +348,7 @@ static void ApplyRiemannOperator(
     auto vars = session->GetVariables();
 
     auto op = AdvTraceFluxCFEOp<double>::Create(dg, vars, method, execStr);
-    op->SetTraceNormals(normalsField);
-    op->ApplyUnitTest(fwdField, bwdField, flxField);
+    op->ApplyUnitTest(normalsField, fwdField, bwdField, flxField);
 
     UnflattenCompMajor(flxField.ToArray(), flx, nFields, npts);
 }

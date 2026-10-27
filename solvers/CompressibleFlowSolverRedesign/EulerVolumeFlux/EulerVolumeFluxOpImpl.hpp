@@ -107,6 +107,8 @@ protected:
                     inbase, outbase, this->m_scale, streamID);
             }
         }
+        // The kernel is pointwise: the flux has the layout of the state.
+        out.SetInterleaveWidth(in);
     }
 };
 

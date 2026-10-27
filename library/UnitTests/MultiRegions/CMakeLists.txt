@@ -2,6 +2,7 @@ SET(MultiRegionsUnitTestsSources
     main.cpp
     TestBoundaryNormals.cpp
     TestContFieldLocalToGlobalMap.cpp
+    TestGlobalTraceNormals.cpp
     TestFieldFileRoundTrip.cpp
     TestVarcoeffHashing.cpp
 )
