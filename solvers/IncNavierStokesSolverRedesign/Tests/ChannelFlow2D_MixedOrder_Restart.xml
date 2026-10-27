@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Conditions of ChannelFlow2D.xml that start from the field file
+        ChannelFlow2D.fld, written by a run of ChannelFlow2D.xml with
+        ChannelFlow2D_MixedOrder.xml, and take no step, so that the errors
+        are those of the state read back.
+    -->
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
+            <I PROPERTY="Projection" VALUE="Galerkin" />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <P> TimeStep = 0.01 </P>
+            <P> NumSteps = 0 </P>
+            <P> IO_InfoSteps = 1 </P>
+            <P> Kinvis = 1 </P>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[2] </B>
+            <B ID="1"> C[3-5] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="y*(3-y)" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="-2*Kinvis*x" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="y*(3-y)" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="-2*Kinvis*x" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+            <F VAR="u,v,p" FILE="ChannelFlow2D.fld" />
+        </FUNCTION>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="y*(3-y)" />
+            <E VAR="v" VALUE="0" />
+            <E VAR="p" VALUE="-2*Kinvis*x" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

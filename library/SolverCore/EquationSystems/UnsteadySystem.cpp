@@ -41,6 +41,7 @@
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <MultiRegions/AvgAssmbScatr/AvgAssmbScatrOp.hpp>
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
+#include <MultiRegions/Common/Operator.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
@@ -554,7 +555,7 @@ void UnsteadySystem::v_PrintSummaryStatistics(double intTime)
     if (m_session->GetComm()->GetRank() == 0)
     {
         if (StringUtils::IEquals(
-                m_session->GetCmdLineArgument<std::string>("opExecSpace"),
+                MultiRegions::Operator<double>::GetOpExecSpace(m_session),
                 "Device"))
         {
             std::cout << "Time-integration  : " << "NO TIMER IMPLEMENTED"
