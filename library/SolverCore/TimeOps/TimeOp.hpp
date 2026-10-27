@@ -355,23 +355,7 @@ public:
                  "Explicit contribution history is shorter than the current "
                  "coefficient list.");
 
-        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
-            this->m_expansionList->GetSession());
-        Math::MathHelper math(execSpace);
-
-        if (mode == TimeOpExtrapolationMode::Assign)
-        {
-            math.zero(out);
-        }
-
-        for (unsigned int i = 0; i < coeffs.size(); ++i)
-        {
-            const TData coeff = coeffs[i];
-            if (coeff != (TData)0.0)
-            {
-                math.daxpy(scale * coeff, history[i], out, out);
-            }
-        }
+        CombineHistory(history, out, coeffs, mode, scale);
     }
 
     /// First-order counterpart of ExtrapolateExplicitContribution(): every
@@ -390,18 +374,14 @@ public:
                  "for this time integration operator.");
         ASSERTL0(!history.empty(), "Explicit contribution history is empty.");
 
-        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
-            this->m_expansionList->GetSession());
-        Math::MathHelper math(execSpace);
-
         const TData weight = scale * GetExplicitContributionCoefficientSum();
         if (mode == TimeOpExtrapolationMode::Assign)
         {
-            math.mul(weight, history.front(), out);
+            m_math.mul(weight, history.front(), out);
         }
         else
         {
-            math.daxpy(weight, history.front(), out, out);
+            m_math.daxpy(weight, history.front(), out, out);
         }
     }
 
@@ -562,11 +542,16 @@ protected:
     // Most explicit contributions an implicit solve of this scheme combines,
     // set by a scheme that provides them.
     unsigned int m_explicitContributionHistorySize = 0;
+    // Element-wise maths in the operator's execution space.
+    Math::MathHelper m_math;
 
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> components)
         : MultiRegions::Operator<TData>(expansionList, components),
-          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
+          m_explicitContributionHistoryId(
+              ++m_nextExplicitContributionHistoryId),
+          m_math(MultiRegions::Operator<TData>::GetOpExecSpace(
+              expansionList->GetSession()))
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
@@ -644,22 +629,35 @@ protected:
         ASSERTL0(history.size() == coeffs.size(),
                  "History size must match extrapolation coefficient count.");
 
-        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
-            this->m_expansionList->GetSession());
-        Math::MathHelper math(execSpace);
+        CombineHistory(history, out, coeffs, mode, scale);
+    }
 
-        if (mode == TimeOpExtrapolationMode::Assign)
-        {
-            math.zero(out);
-        }
-
-        for (unsigned int i = 0; i < history.size(); ++i)
+    /// out = scale * sum_i coeffs[i] history[i], added to out if @p mode is
+    /// Append, in one pass over out; levels of zero coefficient are skipped.
+    void CombineHistory(
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
+        const std::vector<TData> &coeffs, const TimeOpExtrapolationMode mode,
+        const TData scale)
+    {
+        std::vector<TData> alpha;
+        std::vector<LibUtilities::Field<TData, FieldState::Phys> *> x;
+        for (unsigned int i = 0; i < coeffs.size(); ++i)
         {
             if (coeffs[i] != (TData)0.0)
             {
-                math.daxpy(scale * coeffs[i], history[i], out, out);
+                alpha.push_back(scale * coeffs[i]);
+                x.push_back(&history[i]);
             }
         }
+
+        const bool append = (mode == TimeOpExtrapolationMode::Append);
+        if (append && x.empty())
+        {
+            return;
+        }
+
+        m_math.linearCombination(alpha, x, out, append);
     }
 
     virtual TData v_GetTimeStability(void) const

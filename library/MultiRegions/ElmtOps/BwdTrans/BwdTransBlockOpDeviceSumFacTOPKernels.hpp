@@ -1376,24 +1376,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTot = nq0 * nq1;
 
-    unsigned int offset{0}, nmode0{0}, nmode1{0};
+    unsigned int wsp1Size{0}, nmode0{0}, nmode1{0};
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = nm1 * nq0;
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp1Size = nm1 * nq0;
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp1Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
     TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_basis0 = s_wsp1 + offset;
+    TData *s_basis0 = s_wsp1 + wsp1Size;
     TData *s_basis1 = s_basis0 + nm0 * nq0;
 
     // Copy to shared memory.
@@ -1518,46 +1518,46 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    unsigned int offset0{0}, offset1{0}, nmode0{0}, nmode1{0}, nmode2{0};
+    unsigned int wsp1Size{0}, wsp2Size{0}, nmode0{0}, nmode1{0}, nmode2{0};
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = nq0 * nm1 * nm2;
-        offset1 = nq0 * nq1 * nm2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp1Size = nq0 * nm1 * nm2;
+        wsp2Size = nq0 * nq1 * nm2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        wsp2Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp1Size = nm0 * nm1 * nq2;
+        wsp2Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = nm0 * nm1 * nq2;
+        wsp2Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + offset0;
-    TData *s_basis0 = s_wsp2 + offset1;
+    TData *s_wsp2   = s_wsp1 + wsp1Size;
+    TData *s_basis0 = s_wsp2 + wsp2Size;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 

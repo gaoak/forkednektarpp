@@ -182,7 +182,8 @@ protected:
                 {
                     auto ptr =
                         pblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-                    auto numComp = pblk.GetNumComponents();
+                    auto numComp =
+                        pblk.GetNumComponents() * pblk.GetNumHomoModes();
 
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         inblk.GetInterleaveWidth(), pblk.GetInterleaveWidth(),

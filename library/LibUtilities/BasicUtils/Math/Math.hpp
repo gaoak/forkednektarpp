@@ -1288,6 +1288,83 @@ void daxpbypcz(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
     }
 }
 
+// y = sum_j alpha[j] x[j], added to y if append, in one pass over y. At most
+// linearCombinationMaxTerms terms.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void linearCombination(
+    const std::vector<TData> &alpha,
+    const std::vector<LibUtilities::Field<TData, TFieldState> *> &x,
+    LibUtilities::Field<TData, TFieldState> &y, const bool append)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (alpha.size() != x.size() || x.size() > linearCombinationMaxTerms)
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::linearCombination - One coefficient per Field and "
+               "at most "
+            << linearCombinationMaxTerms << " Fields are required";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (const auto *xj : x)
+    {
+        if (xj->size() != y.size())
+        {
+            std::stringstream msg;
+
+            msg << "MathKernel::linearCombination - Memory size mismatch "
+                   "between Field";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+    }
+
+    for (unsigned int blk = 0; blk < y.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        LinearCombinationTerms<TData> terms{};
+        terms.n = static_cast<unsigned int>(x.size());
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            WARNINGL1(x[j]->GetBlocks()[blk].GetInterleaveWidth() ==
+                          x[0]->GetBlocks()[blk].GetInterleaveWidth(),
+                      "MathKernel::linearCombination - Inconsistent interleave "
+                      "format between input Fields");
+
+            terms.x[j] =
+                x[j]->GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
+                    streamID);
+            terms.alpha[j] = alpha[j];
+        }
+
+        auto size = y.GetBlocks()[blk].CompSize() * y.GetNumComponents() *
+                    y.GetNumHomoModes();
+
+        if (append)
+        {
+            auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
+                streamID);
+            linearCombinationKernel<ExecSpace, true>(size, terms, yptr,
+                                                     streamID);
+        }
+        else
+        {
+            auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(
+                streamID);
+            linearCombinationKernel<ExecSpace, false>(size, terms, yptr,
+                                                      streamID);
+        }
+
+        if (!x.empty())
+        {
+            y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+                x[0]->GetBlocks()[blk].GetInterleaveWidth());
+        }
+    }
+}
+
 template <typename ExecSpace, typename TData>
 void reduceSum(LibUtilities::MemoryRegion<TData> &x, TData *out)
 {

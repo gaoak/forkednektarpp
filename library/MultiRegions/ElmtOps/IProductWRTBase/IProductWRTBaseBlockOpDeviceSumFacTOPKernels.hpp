@@ -396,6 +396,55 @@ inline constexpr unsigned int IProductWRTBaseFusedSharedMemoryPadding(
 }
 
 /**
+ * @brief Offset, in TData values, of the first intermediate-stage region in
+ * the derivative and workspace region of a fused operator's 2D or 3D
+ * SumFacTOP launcher with the quadrature metric: past the first nmTot values
+ * (the nodal shapes' modal input and output) and the padded input copy, both
+ * 16-byte aligned.
+ *
+ * The derivative slots hold the derivatives only between the backward
+ * transform and the inner product, each of which ends on a block barrier,
+ * so the two stages' regions may reuse them.
+ */
+template <typename TData, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseFusedWorkSpaceOffset(
+    const TSizeParameter sizeParam)
+{
+    return IProductWRTBaseAlignedSize<TData>(sizeParam.nmTot()) +
+           IProductWRTBaseAlignedSize<TData>(
+               IProductWRTBasePaddedInputSize<TData>(sizeParam));
+}
+
+/**
+ * @brief Values the derivative and workspace region of a fused operator's 2D
+ * or 3D SumFacTOP launcher with the quadrature metric takes, rounded to
+ * IProductWRTBaseAlignedSize: @p nslots derivative slots of nqTot values, or,
+ * if more,
+ * IProductWRTBaseFusedWorkSpaceOffset and the two intermediate-stage regions
+ * of @p wsp0Size and @p wsp1Size values, padding included, the first 16-byte
+ * aligned.
+ */
+template <typename TData, typename TSizeParameter>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int IProductWRTBaseFusedDerivWorkSpaceSize(
+    const TSizeParameter sizeParam, const unsigned int nslots,
+    const unsigned int wsp0Size, const unsigned int wsp1Size)
+{
+    unsigned int nqTot = sizeParam.nq0() * sizeParam.nq1();
+    if constexpr (IsSizeParameter3D_v<TSizeParameter>)
+    {
+        nqTot *= sizeParam.nq2();
+    }
+
+    const unsigned int derivSize = nslots * nqTot;
+    const unsigned int wspSize =
+        IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam) +
+        IProductWRTBaseAlignedSize<TData>(wsp0Size) + wsp1Size;
+
+    return IProductWRTBaseAlignedSize<TData>(derivSize > wspSize ? derivSize
+                                                                 : wspSize);
+}
+
+/**
  * @brief Copy the IProductWRTBase input @p in, @p nrow rows of @p nq0
  * values, into rows padded to IProductWRTBaseRowStride at @p padded when
  * they need padding, and return the array the IProductWRTBase kernels then
@@ -2285,24 +2334,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
     const unsigned int ld0 = IProductWRTBaseStageStride<TData>(nq0, nq1);
 
-    unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
+    unsigned int wsp1Size = 0, nmode0 = 0, nmode1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = nm0 * ld0;
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp1Size = nm0 * ld0;
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * ld0;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp1Size = nm0 * ld0;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
     TData *s_wsp0    = (TData *)shmemptr;
     TData *s_wsp1    = s_wsp0 + ldi * nq1;
-    TData *s_basis0  = s_wsp1 + offset;
+    TData *s_basis0  = s_wsp1 + wsp1Size;
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_out1ptr = s_basis1 + nmode1 * nq1;
 
@@ -2423,24 +2472,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTot = nq0 * nq1;
 
-    unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
+    unsigned int wsp1Size = 0, nmode0 = 0, nmode1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp1Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp1Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
     TData *s_wsp0    = (TData *)shmemptr;
     TData *s_wsp1    = s_wsp0 + nqTot;
-    TData *s_basis0  = s_wsp1 + offset;
+    TData *s_basis0  = s_wsp1 + wsp1Size;
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_out1ptr = s_basis1 + nmode1 * nq1;
 
@@ -2603,46 +2652,46 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int ld0 = IProductWRTBaseStageStride<TData>(nq0, nq1);
     const unsigned int ld1 = IProductWRTBaseStageStride<TData>(nq0, nq2);
 
-    unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp1Size = 0, wsp2Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = nm0 * nq2 * ld0;
-        offset1 = nm0 * nm1 * ld1;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp1Size = nm0 * nq2 * ld0;
+        wsp2Size = nm0 * nm1 * ld1;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = nm0 * nq2 * ld0;
-        offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * ld1;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = nm0 * nq2 * ld0;
+        wsp2Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * ld1;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nq2 * ld0;
-        offset1 = nm0 * nm1 * ld1;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp1Size = nm0 * nq2 * ld0;
+        wsp2Size = nm0 * nm1 * ld1;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nq2 * ld0;
-        offset1 = nm0 * nm1 * ld1;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = nm0 * nq2 * ld0;
+        wsp2Size = nm0 * nm1 * ld1;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     TData *s_wsp0    = (TData *)shmemptr;
     TData *s_wsp1    = s_wsp0 + ldi * nq1 * nq2;
-    TData *s_wsp2    = s_wsp1 + offset0;
-    TData *s_basis0  = s_wsp2 + offset1;
+    TData *s_wsp2    = s_wsp1 + wsp1Size;
+    TData *s_basis0  = s_wsp2 + wsp2Size;
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_basis2  = s_basis1 + nmode1 * nq1;
     TData *s_out1ptr = s_basis2 + nmode2 * nq2;
@@ -2806,46 +2855,46 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp1Size = 0, wsp2Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp1Size = nm0 * nq1 * nq2;
+        wsp2Size = nm0 * nm1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = nm0 * nq1 * nq2;
+        wsp2Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp1Size = nm0 * nq1 * nq2;
+        wsp2Size = nm0 * nm1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = nm0 * nq1 * nq2;
+        wsp2Size = nm0 * nm1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     TData *s_wsp0    = (TData *)shmemptr;
     TData *s_wsp1    = s_wsp0 + nqTot;
-    TData *s_wsp2    = s_wsp1 + offset0;
-    TData *s_basis0  = s_wsp2 + offset1;
+    TData *s_wsp2    = s_wsp1 + wsp1Size;
+    TData *s_basis0  = s_wsp2 + wsp2Size;
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_basis2  = s_basis1 + nmode1 * nq1;
     TData *s_out1ptr = s_basis2 + nmode2 * nq2;

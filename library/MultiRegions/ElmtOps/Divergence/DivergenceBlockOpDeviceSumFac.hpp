@@ -84,19 +84,18 @@ namespace Nektar::MultiRegions::detail
  * @brief Device sum-factorised block divergence (SumFac or SumFacTOP,
  * selected by the Implementation tag): each component of the vector
  * field is differentiated in the reference directions and contracted
- * with its row of derivative factors, the results accumulating into
+ * with its row of derivative factors, the contributions summed into
  * the single output component.
  *
  * @details
  * The constructor caches the per-direction 1D derivative matrices
  * and, for 2D and 3D blocks, the collapsed-coordinate factor tables --
  * all in device memory -- and fetches the block's derivative factors.
- * The per-component chaining that turns the directional derivatives
- * into the divergence lives inside the kernels: the DIR = 0 call
- * overwrites the output and the DIR = 1, 2 calls accumulate onto it,
- * so the output holds \f$\sum_c \partial u_c/\partial x_c\f$ (see
- * the DivergenceKernelLauncher overloads for SumFac and SumFacTOP). In
- * one dimension the single launch differentiates component 0 alone.
+ * The per-component sum that turns the directional derivatives into
+ * the divergence lives inside the kernels, which store
+ * \f$\sum_c \partial u_c/\partial x_c\f$ once per point (see the
+ * DivergenceKernelLauncher overloads for SumFac and SumFacTOP). In one
+ * dimension the single launch differentiates component 0 alone.
  *
  * The two strategies want different data layouts, captured by
  * #m_implInterleaveWidth: SumFac reads warp-interleaved data (one
@@ -129,7 +128,7 @@ public:
      * and the 1D derivative matrix (eDerivative) evaluated at the
      * direction's quadrature points. For 2D and 3D shapes it also
      * fetches the collapsed-coordinate factor tables consumed by the
-     * PhysDerivDir kernels for the simplex-type shapes: per
+     * divergence kernels for the simplex-type shapes: per
      * direction, eHalfMultOnePlusZero holds \f$(1+z_i)/2\f$ and
      * eTwoOverOneMinusZero holds \f$2/(1-z_i)\f$ at the quadrature
      * points. The tables are fetched for every 2D block (two of them)

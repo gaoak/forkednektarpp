@@ -691,9 +691,12 @@ protected:
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         numDataIn, (TData *)inptr);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, chunkSize,
-                        numDataOut, (TData *)outptr);
+                    if (this->m_append)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, numDataOut, (TData *)outptr);
+                    }
                 }
 
                 const TData *jacptr = m_jacptr + jacoffset;

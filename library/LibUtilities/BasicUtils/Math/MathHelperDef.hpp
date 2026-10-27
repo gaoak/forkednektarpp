@@ -488,6 +488,37 @@ void MathHelper::daxpbypcz(const typename T::value_type alpha, T &x,
 }
 
 template <typename T>
+void MathHelper::linearCombination(
+    const std::vector<typename T::value_type> &alpha, const std::vector<T *> &x,
+    T &y, const bool append, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::linearCombination<NektarSpaces::Serial>(alpha, x, y,
+                                                              append);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::linearCombination<NektarSpaces::AVX>(alpha, x, y, append);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::linearCombination<NektarSpaces::Device>(alpha, x, y,
+                                                              append);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
 typename T::value_type MathHelper::reduceSum(T &x, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;

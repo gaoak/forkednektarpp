@@ -971,19 +971,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
+    unsigned int wsp0Size = 0, nmode0 = 0, nmode1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp0Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp0Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
     // Rows of the inner product's input and intermediate stages are padded
@@ -991,14 +991,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
     // 16-byte aligned.
     // The padded input reuses the direction slots, consumed by then.
-    offset += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+    wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
 
     TData *deriv0    = (TData *)shmemptr;
     TData *deriv1    = deriv0 + nqTot;
     TData *deriv     = deriv1 + nqTot;
     TData *s_ipb     = deriv0;
     TData *s_wsp0    = deriv + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *s_basis0  = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset);
+    TData *s_basis0  = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_D0T     = s_basis1 + nmode1 * nq1;
     TData *s_D1T     = s_D0T + nq0 * nq0;
@@ -1188,7 +1188,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * holds the three direction fields, their summed transposed derivative,
  * the two intermediates of the basis contraction and the three
  * one-dimensional basis tables (plus, for the nodal shapes, their
- * coefficient vector); the locals nmode0 ... nmode2 and offset0 / offset1
+ * coefficient vector); the locals nmode0 ... nmode2 and wsp0Size / wsp1Size
  * hold the table row counts and intermediate sizes of the shape's
  * collapsed mode ordering, matching IProductWRTDerivBaseSharedMemorySize.
  * The block's threads copy the basis tables in, then stride over the
@@ -1285,40 +1285,40 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp0Size = 0, wsp1Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp0Size = nm0 * nq1 * nq2;
+        wsp1Size = nm0 * nm1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp0Size = nm0 * nq1 * nq2;
+        wsp1Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp0Size = nm0 * nq1 * nq2;
+        wsp1Size = nm0 * nm1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nq1 * nq2;
-        offset1 = nm0 * nm1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp0Size = nm0 * nq1 * nq2;
+        wsp1Size = nm0 * nm1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     // Rows of the inner product's input and intermediate stages are padded
@@ -1326,10 +1326,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
     // 16-byte aligned.
     // The padded input reuses the direction slots, consumed by then.
-    const unsigned int wspPad =
+    const unsigned int wspPadSize =
         IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
-    offset0 += wspPad;
-    offset1 += wspPad;
+    wsp0Size += wspPadSize;
+    wsp1Size += wspPadSize;
 
     TData *deriv0    = (TData *)shmemptr;
     TData *deriv1    = deriv0 + nqTot;
@@ -1337,8 +1337,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *deriv     = deriv2 + nqTot;
     TData *s_ipb     = deriv0;
     TData *s_wsp0    = deriv + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *s_wsp1    = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset0);
-    TData *s_basis0  = s_wsp1 + IProductWRTBaseAlignedSize<TData>(offset1);
+    TData *s_wsp1    = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
+    TData *s_basis0  = s_wsp1 + IProductWRTBaseAlignedSize<TData>(wsp1Size);
     TData *s_basis1  = s_basis0 + nmode0 * nq0;
     TData *s_basis2  = s_basis1 + nmode1 * nq1;
     TData *s_D0T     = s_basis2 + nmode2 * nq2;

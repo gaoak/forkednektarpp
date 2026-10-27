@@ -38,6 +38,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 namespace Nektar::Math
 {
@@ -124,6 +125,14 @@ public:
                                    const typename T::value_type beta, T &y,
                                    const typename T::value_type gamma, T &z,
                                    T &w, const std::string &execSpace = "");
+
+    // y = sum_j alpha[j] x[j], added to y if append, in one pass; T is a
+    // Field.
+    template <typename T>
+    LIB_MATH_EXPORT void linearCombination(
+        const std::vector<typename T::value_type> &alpha,
+        const std::vector<T *> &x, T &y, const bool append,
+        const std::string &execSpace = "");
 
     template <typename T>
     LIB_MATH_EXPORT typename T::value_type reduceSum(

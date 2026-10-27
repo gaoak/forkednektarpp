@@ -143,37 +143,38 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int LaplacianSharedMemorySize(
     const TSizeParameter2D sizeParam2D)
 {
-    // Padded rows of the inner product's input and intermediate stages.
-    const unsigned int pad =
-        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
-                                                TData>(sizeParam2D, 3u, true);
+    // Padding of the inner product's intermediate stage.
+    const unsigned int wspPadSize =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
 
-    const unsigned int nm0 = sizeParam2D.nm0();
-    const unsigned int nm1 = sizeParam2D.nm1();
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
+    const unsigned int nm0   = sizeParam2D.nm0();
+    const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = nq0 * nq1;
 
     // Transposed differentiation matrices for SumDerivTensor.
     const unsigned int nDT = nq0 * nq0 + nq1 * nq1;
 
+    // Metric and backward transform, each 16-byte aligned.
+    const unsigned int bwdSize = IProductWRTBaseAlignedSize<TData>(6) +
+                                 IProductWRTBaseAlignedSize<TData>(nqTot);
+
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return nDT + pad + nm0 * nq0 + nm1 * nq1 + 4 * nq0 * nq1 +
-               std::max(nq0 * nm1, nm0 * nq1) + 6;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam2D, 3u, std::max(nq0 * nm1, nm0 * nq1) + wspPadSize,
+                   0u);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
     {
         const unsigned int nmTot = sizeParam2D.nmTot();
 
-        return nDT + pad + nm0 * nq0 + nmTot * nq1 + 4 * nq0 * nq1 + nm0 * nq1 +
-               6;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-    {
-        const unsigned int nmTot = sizeParam2D.nmTot();
-
-        return nDT + pad + nm0 * nq0 + nmTot * nq1 + 4 * nq0 * nq1 + nm0 * nq1 +
-               6 + nmTot;
+        return nDT + bwdSize + nm0 * nq0 + nmTot * nq1 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam2D, 3u, nm0 * nq1 + wspPadSize, 0u);
     }
 }
 
@@ -187,27 +188,32 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int LaplacianSharedMemorySize(
     const TSizeParameter3D sizeParam3D)
 {
-    // Padded rows of the inner product's input and intermediate stages.
-    const unsigned int pad =
-        IProductWRTBaseFusedSharedMemoryPadding<SHAPE_TYPE, Implementation,
-                                                TData>(sizeParam3D, 3u, true);
+    // Padding of the inner product's intermediate stages.
+    const unsigned int wspPadSize =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
 
-    const unsigned int nm0 = sizeParam3D.nm0();
-    const unsigned int nm1 = sizeParam3D.nm1();
-    const unsigned int nm2 = sizeParam3D.nm2();
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    const unsigned int nm0   = sizeParam3D.nm0();
+    const unsigned int nm1   = sizeParam3D.nm1();
+    const unsigned int nm2   = sizeParam3D.nm2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = nq0 * nq1 * nq2;
 
     // Transposed differentiation matrices for SumDerivTensor.
     const unsigned int nDT = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
 
+    // Metric and backward transform, each 16-byte aligned.
+    const unsigned int bwdSize = IProductWRTBaseAlignedSize<TData>(9) +
+                                 IProductWRTBaseAlignedSize<TData>(nqTot);
+
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 +
-               4 * nq0 * nq1 * nq2 +
-               std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
-               std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2) + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u,
+                   std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) + wspPadSize,
+                   std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2) + wspPadSize);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
@@ -217,16 +223,20 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-        return nDT + pad + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
-               4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u, nm01 * nq2 + wspPadSize,
+                   nm0 * nq1 * nq2 + wspPadSize);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
 
-        return nDT + pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
-               4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u, nm0 * nm1 * nq2 + wspPadSize,
+                   nm0 * nq1 * nq2 + wspPadSize);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
@@ -234,8 +244,10 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-        return nDT + pad + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
-               4 * nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u, nm0 * nm1 * nq2 + wspPadSize,
+                   nm0 * nq1 * nq2 + wspPadSize);
     }
 }
 
@@ -962,42 +974,43 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
+    unsigned int wsp0Size = 0, nmode0 = 0, nmode1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = std::max(nm0 * nq1, nm1 * nq0);
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp0Size = std::max(nm0 * nq1, nm1 * nq0);
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp0Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
     // Rows of the inner product's input and intermediate stages are padded
     // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
+    // IProductWRTBaseFusedDerivWorkSpaceSize, and every region starts
     // 16-byte aligned.
-    // The padded input reuses the derivative slots, past the modal output
-    // of the nodal shapes.
+    // The padded input and the intermediate stages reuse the derivative
+    // slots, past the modal values of the nodal shapes.
     const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
-    const unsigned int nderiv =
-        std::max(ncoord * nqTot,
-                 nmTotAl + IProductWRTBasePaddedInputSize<TData>(sizeParam2D));
-    offset += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+    wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+    const unsigned int derivWspSize =
+        IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam2D, ncoord,
+                                                      wsp0Size, 0u);
 
-    TData *metric   = (TData *)shmemptr;
-    TData *bwd      = metric + IProductWRTBaseAlignedSize<TData>(6);
-    TData *deriv    = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *tmp      = deriv;
-    TData *deriv0   = deriv;
-    TData *deriv1   = deriv0 + nqTot;
-    TData *s_ipb    = deriv + nmTotAl;
-    TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nderiv);
-    TData *s_basis0 = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset);
+    TData *metric = (TData *)shmemptr;
+    TData *bwd    = metric + IProductWRTBaseAlignedSize<TData>(6);
+    TData *deriv  = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *tmp    = deriv;
+    TData *deriv0 = deriv;
+    TData *deriv1 = deriv0 + nqTot;
+    TData *s_ipb  = deriv + nmTotAl;
+    TData *s_wsp0 =
+        deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam2D);
+    TData *s_basis0 = deriv + derivWspSize;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_D0T    = s_basis1 + nmode1 * nq1;
     TData *s_D1T    = s_D0T + nq0 * nq0;
@@ -1152,68 +1165,69 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp0Size = 0, wsp1Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
-        offset1 = std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp0Size = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
+        wsp1Size = std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp0Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        wsp1Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp0Size = nm0 * nm1 * nq2;
+        wsp1Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp0Size = nm0 * nm1 * nq2;
+        wsp1Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     // Rows of the inner product's input and intermediate stages are padded
     // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
+    // IProductWRTBaseFusedDerivWorkSpaceSize, and every region starts
     // 16-byte aligned.
-    // The padded input reuses the derivative slots, past the modal output
-    // of the nodal shapes.
+    // The padded input and the intermediate stages reuse the derivative
+    // slots, past the modal values of the nodal shapes.
     const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
-    const unsigned int nderiv =
-        std::max(3u * nqTot,
-                 nmTotAl + IProductWRTBasePaddedInputSize<TData>(sizeParam3D));
-    const unsigned int wspPad =
+    const unsigned int wspPadSize =
         IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
-    offset0 += wspPad;
-    offset1 += wspPad;
+    wsp0Size += wspPadSize;
+    wsp1Size += wspPadSize;
+    const unsigned int derivWspSize =
+        IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam3D, 3u, wsp0Size,
+                                                      wsp1Size);
 
-    TData *metric   = (TData *)shmemptr;
-    TData *bwd      = metric + IProductWRTBaseAlignedSize<TData>(9);
-    TData *deriv    = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *tmp      = deriv;
-    TData *deriv0   = deriv;
-    TData *deriv1   = deriv0 + nqTot;
-    TData *deriv2   = deriv1 + nqTot;
-    TData *s_ipb    = deriv + nmTotAl;
-    TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nderiv);
-    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(offset0);
-    TData *s_basis0 = s_wsp1 + IProductWRTBaseAlignedSize<TData>(offset1);
+    TData *metric = (TData *)shmemptr;
+    TData *bwd    = metric + IProductWRTBaseAlignedSize<TData>(9);
+    TData *deriv  = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *tmp    = deriv;
+    TData *deriv0 = deriv;
+    TData *deriv1 = deriv0 + nqTot;
+    TData *deriv2 = deriv1 + nqTot;
+    TData *s_ipb  = deriv + nmTotAl;
+    TData *s_wsp0 =
+        deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam3D);
+    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
+    TData *s_basis0 = deriv + derivWspSize;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
     TData *s_D0T    = s_basis2 + nmode2 * nq2;

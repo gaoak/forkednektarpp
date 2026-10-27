@@ -596,9 +596,12 @@ protected:
         LibUtilities::ReshapeStorage<ExecSpace>(
             m_implInterleaveWidth, inInterleaveWidth, nelmtPad * ncomp,
             numDataIn, (TData *)inptr, m_streamID);
-        LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, outInterleaveWidth, nelmtPad * ncomp,
-            numDataOut, outptr, m_streamID);
+        if (this->m_append)
+        {
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmtPad * ncomp,
+                numDataOut, outptr, m_streamID);
+        }
 
         // IProductWRTPhysNormalDerivTrace kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(

@@ -40,7 +40,6 @@
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGKernels.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
 
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>

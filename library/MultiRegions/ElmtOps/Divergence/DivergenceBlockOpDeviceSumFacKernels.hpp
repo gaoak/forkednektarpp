@@ -39,20 +39,17 @@
  * helpers.
  *
  * @details
- * The divergence is assembled from the PhysDeriv kernels: for one
- * component of the vector field,
- * PhysDerivDir1DSumFacKernel<APPEND, DEFORMED, DIR> and
- * PhysDerivDir{2,3}DSumFacKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>
- * (PhysDeriv/PhysDerivBlockOpDeviceSumFacKernels.hpp, included here)
- * differentiate that component in every reference direction, apply
- * the collapsed-coordinate correction where the shape requires it,
- * and contract the result with row DIR of the derivative factors,
- * either overwriting or -- with APPEND set -- accumulating onto the
- * output. The DivergenceKernelLauncher overloads of this file, one per
- * dimension, chain those calls per component, DIR following the
- * component index, so that the output ends up holding
- * \f$\sum_c \partial u_c/\partial x_c\f$; DivergenceSharedMemorySize
- * reports how much dynamic shared memory a launch must request.
+ * The DivergenceKernelLauncher overloads of this file, one per
+ * dimension, write \f$\sum_c \partial u_c/\partial x_c\f$ to the
+ * output. In 1D that is PhysDerivDir1DSumFacKernel
+ * (PhysDeriv/PhysDerivBlockOpDeviceSumFacKernels.hpp, included here).
+ * In 2D and 3D, Divergence{2,3}DSumFacKernel differentiate every
+ * component in every reference direction at a point, apply the
+ * collapsed-coordinate correction where the shape requires it, contract
+ * each component with its own row of the derivative factors and store
+ * the sum once, so the output is written once per point.
+ * DivergenceSharedMemorySize reports how much dynamic shared memory a
+ * launch must request.
  *
  * Each thread owns one element: element e is handled by lane
  * `e % warpSize` of warp `e / warpSize`, matching the warp-interleaved
@@ -203,6 +200,217 @@ inline constexpr unsigned int DivergenceSharedMemorySize(
 }
 
 /**
+ * @brief One element, two dimensions: the divergence
+ * \f$\partial u/\partial x + \partial v/\partial y\f$ of the two
+ * components at @p in and @p in + @p inoffset, written once per point.
+ *
+ * Per point each component is differentiated in both reference directions,
+ * the triangle correction is applied where the shape requires it, and its
+ * derivatives are contracted with its own row of the derivative factors; the
+ * sum is kept in a register and stored once.
+ *
+ * @tparam SHAPE_TYPE Quad, Tri or NodalTri.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam TData      Floating-point type of the field data.
+ *
+ * @param   ilane       Lane index within the warp; selects the element.
+ * @param   ncoord      Cartesian components the factor array holds;
+ *                      sets the per-point factor stride
+ *                      `ndf = 2 * ncoord`.
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   inoffset    Stride from one input component to the next.
+ * @param   D0,D1       1D differentiation matrices, column-major.
+ * @param   f0,f1       Collapsed-coordinate factor tables (triangles only).
+ * @param   df          Derivative factors of this lane's warp.
+ * @param   in          First input component, warp interleaved.
+ * @param   out         Divergence, warp interleaved.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void Divergence2DSumFacKernel(
+    const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
+    const unsigned int nq1, const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    const unsigned int ndf = 2 * ncoord;
+
+    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+    {
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            const unsigned int index = warpsize * cnt_ji + ilane;
+            const unsigned int dfindex =
+                DEFORMED ? ndf * warpsize * cnt_ji + ilane : ilane;
+
+            TData div = 0.0;
+#pragma unroll
+            for (unsigned int c = 0u; c < 2u; ++c)
+            {
+                const TData *inc = in + c * inoffset;
+
+                // Compute tensorial derivative.
+                // Direction 0
+                TData d0 = 0.0;
+#pragma unroll
+                for (unsigned int q = 0u; q < nq0; ++q)
+                {
+                    d0 +=
+                        D0[q * nq0 + i] * inc[warpsize * (nq0 * j + q) + ilane];
+                }
+
+                // Direction 1
+                TData d1 = 0.0;
+#pragma unroll
+                for (unsigned int q = 0u; q < nq1; ++q)
+                {
+                    d1 +=
+                        D1[q * nq1 + j] * inc[warpsize * (nq0 * q + i) + ilane];
+                }
+
+                // Moving from collapsed to standard coordinates.
+                if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                              SHAPE_TYPE == LibUtilities::NodalTri)
+                {
+                    d0 *= f1[j];
+                    d1 += d0 * f0[i];
+                }
+
+                // Multiply by derivative factors.
+                div += d0 * df[2u * c * warpsize + dfindex] +
+                       d1 * df[(2u * c + 1u) * warpsize + dfindex];
+            }
+
+            out[index] = div;
+        }
+    }
+}
+
+/**
+ * @brief One element, three dimensions: the divergence
+ * \f$\partial u/\partial x + \partial v/\partial y
+ * + \partial w/\partial z\f$ of the three components at @p in,
+ * @p in + @p inoffset and @p in + 2 @p inoffset, written once per point.
+ *
+ * As Divergence2DSumFacKernel, with the collapsed-coordinate corrections of
+ * the three-dimensional shapes and nine derivative factors per point.
+ *
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam DEFORMED   Derivative factors vary point by point.
+ * @tparam TData      Floating-point type of the field data.
+ *
+ * @param   ilane           Lane index within the warp; selects the
+ *                          element.
+ * @param   nq0,nq1,nq2     Quadrature points per direction.
+ * @param   inoffset        Stride from one input component to the next.
+ * @param   D0,D1,D2        1D differentiation matrices, column-major.
+ * @param   f0,f1,f1m,f2    Collapsed-coordinate factor tables, as in
+ *                          PhysDeriv3DSumFacKernel.
+ * @param   df              Derivative factors of this lane's warp.
+ * @param   in              First input component, warp interleaved.
+ * @param   out             Divergence, warp interleaved.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void Divergence3DSumFacKernel(
+    const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const size_t inoffset, const TData *NEK_RESTRICT D0,
+    const TData *NEK_RESTRICT D1, const TData *NEK_RESTRICT D2,
+    [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1m,
+    [[maybe_unused]] const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    constexpr unsigned int ndf = 9u;
+
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; k++)
+    {
+        for (unsigned int j = 0u; j < nq1; j++)
+        {
+            for (unsigned int i = 0u; i < nq0; i++, cnt_kji++)
+            {
+                const unsigned int index = warpsize * cnt_kji + ilane;
+                const unsigned int dfindex =
+                    DEFORMED ? ndf * warpsize * cnt_kji + ilane : ilane;
+
+                TData div = 0.0;
+#pragma unroll
+                for (unsigned int c = 0u; c < 3u; ++c)
+                {
+                    const TData *inc = in + c * inoffset;
+
+                    // Compute tensorial derivative.
+                    // Direction 0
+                    TData d0 = 0.0;
+#pragma unroll
+                    for (unsigned int q = 0u; q < nq0; ++q)
+                    {
+                        d0 += D0[q * nq0 + i] *
+                              inc[warpsize * (nq0 * nq1 * k + nq0 * j + q) +
+                                  ilane];
+                    }
+
+                    // Direction 1
+                    TData d1 = 0.0;
+#pragma unroll
+                    for (unsigned int q = 0u; q < nq1; ++q)
+                    {
+                        d1 += D1[q * nq1 + j] *
+                              inc[warpsize * (nq0 * nq1 * k + nq0 * q + i) +
+                                  ilane];
+                    }
+
+                    // Direction 2
+                    TData d2 = 0.0;
+#pragma unroll
+                    for (unsigned int q = 0u; q < nq2; ++q)
+                    {
+                        d2 += D2[q * nq2 + k] *
+                              inc[warpsize * (nq0 * nq1 * q + nq0 * j + i) +
+                                  ilane];
+                    }
+
+                    // Moving from collapsed to standard coordinates.
+                    if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                                  SHAPE_TYPE == LibUtilities::NodalTet)
+                    {
+                        TData tmp0 = f1m[j] * f2[k] * d0;
+                        TData tmp1 = f0[i] * tmp0;
+                        TData tmp2 = f2[k] * d1;
+                        d0         = tmp0;
+                        d1         = tmp1 + tmp2;
+                        d2 += tmp1 + f1[j] * tmp2;
+                    }
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                                       SHAPE_TYPE == LibUtilities::NodalPrism)
+                    {
+                        d0 *= f2[k];
+                        d2 += f0[i] * d0;
+                    }
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                    {
+                        d0 *= f2[k];
+                        d1 *= f2[k];
+                        d2 += f0[i] * d0 + f1[j] * d1;
+                    }
+
+                    // Multiply by derivative factors.
+                    div += d0 * df[(3u * c) * warpsize + dfindex] +
+                           d1 * df[(3u * c + 1u) * warpsize + dfindex] +
+                           d2 * df[(3u * c + 2u) * warpsize + dfindex];
+                }
+
+                out[index] = div;
+            }
+        }
+    }
+}
+
+/**
  * @brief Kernel entry point of the 1D SumFac divergence: unpacks the
  * size parameter, then differentiates one component of the block and
  * scales it by the element's derivative factor for direction 0,
@@ -300,10 +508,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  * instantiation leaving the pointers null since its kernels ignore
  * them. Each thread then takes element `e` = global thread index and
  * grid-strides over the block: with the derivative factors, input and
- * output advanced to the thread's warp, PhysDerivDir2DSumFacKernel
- * with DIR = 0 writes \f$\partial u/\partial x\f$ to the output, and
- * the same kernel with DIR = 1 and APPEND adds
- * \f$\partial v/\partial y\f$ from the component at @p inoffset.
+ * output advanced to the thread's warp, Divergence2DSumFacKernel writes
+ * \f$\partial u/\partial x + \partial v/\partial y\f$, the second
+ * component at @p inoffset, to the output once per point.
  *
  * @tparam SHAPE_TYPE           Element shape.
  * @tparam Implementation       Implementation tag; SumFac here.
@@ -398,11 +605,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         const TData *inptr = in + nqTot * (nelmt * p + warpsize * iwarp);
         TData *outptr      = out + nqTot * (nelmt * p + warpsize * iwarp);
 
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-            ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr, inptr, outptr);
-        PhysDerivDir2DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 1>(
-            ilane, ncoord, nq0, nq1, D0, D1, s_f0, s_f1, dfptr,
-            inptr + inoffset, outptr);
+        Divergence2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, ncoord, nq0, nq1, inoffset, D0, D1, s_f0, s_f1, dfptr, inptr,
+            outptr);
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -419,11 +624,10 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
  *
  * The factor tables the shape's collapsed coordinates need are staged
  * in that shared memory (none for hexahedra), then each thread
- * grid-strides over the elements and calls PhysDerivDir3DSumFacKernel
- * three times, DIR = 0 overwriting the output and DIR = 1, 2
- * accumulating onto it from the components at @p inoffset and twice
- * @p inoffset. The element is assumed to have coordinate dimension
- * three, so it carries nine derivative factors.
+ * grid-strides over the elements and calls Divergence3DSumFacKernel,
+ * which reads the components at @p in, @p inoffset and twice
+ * @p inoffset and writes the output once per point. The element is assumed to
+ * have coordinate dimension three, so it carries nine derivative factors.
  *
  * @tparam SHAPE_TYPE           Element shape.
  * @tparam Implementation       Implementation tag; SumFac here.
@@ -573,15 +777,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *inptr = in + nqTot * (nelmt * p + warpsize * iwarp);
         TData *outptr      = out + nqTot * (nelmt * p + warpsize * iwarp);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, false, DEFORMED, 0>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
-            inptr, outptr);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 1>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
-            inptr + inoffset, outptr);
-        PhysDerivDir3DSumFacKernel<SHAPE_TYPE, true, DEFORMED, 2>(
-            ilane, nq0, nq1, nq2, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2, dfptr,
-            inptr + 2 * inoffset, outptr);
+        Divergence3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+            ilane, nq0, nq1, nq2, inoffset, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2,
+            dfptr, inptr, outptr);
         e += getGlobalRange<0>(threadBlock);
     }
 }
