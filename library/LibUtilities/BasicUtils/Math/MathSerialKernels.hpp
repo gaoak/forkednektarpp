@@ -280,6 +280,27 @@ inline void daxpbypczKernel(const size_t nsize, const TData alpha,
     }
 }
 
+// z = sum_j alpha_j x_j over the terms, plus z itself if APPEND, in one pass
+// over z.
+template <
+    typename ExecSpace, bool APPEND, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>
+        Enable = true>
+inline void linearCombinationKernel(
+    const size_t nsize, const LinearCombinationTerms<TData> &terms, TData *z,
+    [[maybe_unused]] const unsigned int streamID = 0)
+{
+    for (size_t i = 0; i < nsize; ++i)
+    {
+        TData acc = APPEND ? z[i] : TData(0);
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            acc += terms.alpha[j] * terms.x[j][i];
+        }
+        z[i] = acc;
+    }
+}
+
 template <
     typename ExecSpace, bool init, typename TData,
     std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial>, bool>

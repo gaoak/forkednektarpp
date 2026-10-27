@@ -478,6 +478,32 @@ template void MathHelper::daxpbypcz<
     LibUtilities::Field<float, FieldState::Coeff> &w,
     const std::string &execSpace);
 
+// linearCombination template specialization.
+template void MathHelper::linearCombination<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    const std::vector<double> &alpha,
+    const std::vector<LibUtilities::Field<double, FieldState::Phys> *> &x,
+    LibUtilities::Field<double, FieldState::Phys> &y, const bool append,
+    const std::string &execSpace);
+template void MathHelper::linearCombination<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    const std::vector<float> &alpha,
+    const std::vector<LibUtilities::Field<float, FieldState::Phys> *> &x,
+    LibUtilities::Field<float, FieldState::Phys> &y, const bool append,
+    const std::string &execSpace);
+template void MathHelper::linearCombination<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    const std::vector<double> &alpha,
+    const std::vector<LibUtilities::Field<double, FieldState::Coeff> *> &x,
+    LibUtilities::Field<double, FieldState::Coeff> &y, const bool append,
+    const std::string &execSpace);
+template void MathHelper::linearCombination<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    const std::vector<float> &alpha,
+    const std::vector<LibUtilities::Field<float, FieldState::Coeff> *> &x,
+    LibUtilities::Field<float, FieldState::Coeff> &y, const bool append,
+    const std::string &execSpace);
+
 // reduceSum template specialization.
 template double MathHelper::reduceSum<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);

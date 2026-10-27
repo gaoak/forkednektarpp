@@ -36,6 +36,23 @@
 
 #include <LibUtilities/Backends/Backends.hpp>
 
+namespace Nektar::Math
+{
+
+/// Most terms linearCombinationKernel combines in one pass.
+inline constexpr unsigned int linearCombinationMaxTerms = 8;
+
+/// The terms of linearCombinationKernel, held by value so that the kernel of
+/// every back-end receives them. Declared ahead of the back-end kernels.
+template <typename TData> struct LinearCombinationTerms
+{
+    const TData *x[linearCombinationMaxTerms];
+    TData alpha[linearCombinationMaxTerms];
+    unsigned int n;
+};
+
+} // namespace Nektar::Math
+
 #include <LibUtilities/BasicUtils/Math/MathAVXKernels.hpp>
 #include <LibUtilities/BasicUtils/Math/MathHIPCUDAKernels.hpp>
 #include <LibUtilities/BasicUtils/Math/MathSYCLKernels.hpp>

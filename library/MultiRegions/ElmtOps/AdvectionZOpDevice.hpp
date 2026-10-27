@@ -67,15 +67,13 @@ namespace Nektar::MultiRegions::detail
 /// like any other -- and replayed from the second on for lower launch
 /// overhead. Everything the capture must not see (block allocation,
 /// host-to-device transfers, workspace growth, plan creation) is resolved
-/// before it opens, and because the shared workspace moves when another
-/// operator outgrows it, a block whose workspace address has changed is
-/// captured afresh instead of replayed. SYCL has no capture, so there
-/// m_graphExec stays empty and every call submits the pipeline directly.
-///
-/// The scale and the advection velocity's device pointer are both baked into
-/// the capture, so a SetScale() or a SetAdvVel() naming a different Field
-/// after the first call is picked up only by rebuilding the operator. Passing
-/// the same Field with new contents is fine: only its address is recorded.
+/// before it opens. A graph keeps the input, output, advection velocity and
+/// workspace addresses and the scale it was built against, so a block is
+/// replayed only while all of them are unchanged and is captured afresh
+/// otherwise: the shared workspace moves when another operator outgrows it,
+/// and a different Field or a SetScale() may arrive on any call. SYCL has no
+/// capture, so there m_graphExec stays empty and every call submits the
+/// pipeline directly.
 template <typename ExecSpace, typename TData>
 class AdvectionZOpImpl<
     ExecSpace, TData,
@@ -133,11 +131,6 @@ public:
         const unsigned int numBlocks =
             static_cast<unsigned int>(in.GetBlocks().size());
 
-        // Every block has to be captured before any of them can be replayed,
-        // and they are all captured on the first call, so a full m_graphExec
-        // is what tells a replay apart from that first pass.
-        const bool replay = (m_graphExec.size() == numBlocks);
-
         // The advection velocity along the homogeneous direction is the last
         // component; the xy backend has already consumed the others.
         const unsigned int wComp = m_advVel->GetNumComponents() - 1;
@@ -176,22 +169,15 @@ public:
 
             // Scratch for the transform, taken from the per-stream workspace
             // the block operators share. That workspace is reallocated
-            // whenever one of them asks for more than it currently holds, and
-            // a captured graph keeps the address it was built against, so a
-            // block is replayed only while its workspace has not moved and is
-            // captured again when it has.
+            // whenever one of them asks for more than it currently holds.
             TData *dzPtr = BlockOperator<TData>::template GetStaticWorkSpace<
                 NektarSpaces::DeviceSpace>(nsize, streamID);
 
-            if (replay && m_wsp[blk] == dzPtr)
-            {
-                LaunchGraph(blk);
-                continue;
-            }
-
-            // Resolved before the capture opens: on a first touch these
-            // allocate the block storage and copy it in, and a transfer
-            // recorded into the graph would replay stale data for ever.
+            // Resolved on every call, ahead of both replay and capture: on a
+            // first touch these allocate the block storage and copy it in, a
+            // transfer recorded into the graph would replay stale data for
+            // ever, and on every call they keep the host and device copies
+            // coherent.
             const TData *inPtr =
                 inblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
@@ -202,6 +188,16 @@ public:
                 velblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
 
+            // A captured graph keeps the addresses and the scale it was built
+            // against, so a block is replayed only while none of them has
+            // changed and is captured again when any has.
+            const GraphKey key{inPtr, outPtr, velPtr, dzPtr, m_scale};
+            if (blk < m_graphExec.size() && m_graphKey[blk] == key)
+            {
+                LaunchGraph(blk);
+                continue;
+            }
+
             // Likewise for the transform plans and their own scratch:
             // creating them allocates and synchronises the stream, neither of
             // which a capture tolerates, so the graph only ever sees the
@@ -209,14 +205,14 @@ public:
             LibUtilities::DerivZPrepare<TData, false>(nhomo, compStride,
                                                       compStride, streamID);
 
-            // Record which workspace this capture is built against.
-            if (m_wsp.size() > blk)
+            // Record what this capture is built against.
+            if (m_graphKey.size() > blk)
             {
-                m_wsp[blk] = dzPtr;
+                m_graphKey[blk] = key;
             }
             else
             {
-                m_wsp.push_back(dzPtr);
+                m_graphKey.push_back(key);
             }
 
             BeginCapture(blk);
@@ -250,6 +246,22 @@ public:
     }
 
 private:
+    /// What a block's graph is built against.
+    struct GraphKey
+    {
+        const TData *in;
+        TData *out;
+        const TData *vel;
+        TData *wsp;
+        TData scale;
+
+        bool operator==(const GraphKey &rhs) const
+        {
+            return in == rhs.in && out == rhs.out && vel == rhs.vel &&
+                   wsp == rhs.wsp && scale == rhs.scale;
+        }
+    };
+
 #if defined(NEKTAR_ENABLE_CUDA)
     std::vector<cudaGraphExec_t> m_graphExec;
 #elif defined(NEKTAR_ENABLE_HIP)
@@ -257,7 +269,7 @@ private:
 #else
     std::vector<void *> m_graphExec;
 #endif
-    std::vector<TData *> m_wsp;
+    std::vector<GraphKey> m_graphKey;
     LibUtilities::Field<TData, FieldState::Phys> *m_advVel = nullptr;
     TData m_beta                                           = 0.0;
     TData m_scale                                          = 1.0;

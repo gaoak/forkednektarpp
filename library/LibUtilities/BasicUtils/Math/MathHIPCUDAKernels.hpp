@@ -438,6 +438,27 @@ __global__ __launch_bounds__(blockSize) void daxpbypczKernel(
     }
 }
 
+// z = sum_j alpha_j x_j over the terms, plus z itself if APPEND, in one pass
+// over z.
+template <bool APPEND, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void linearCombinationKernel(
+    const size_t nsize, const LinearCombinationTerms<TData> terms, TData *z)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        TData acc = APPEND ? z[idx] : TData(0);
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            acc += terms.alpha[j] * terms.x[j][idx];
+        }
+        z[idx] = acc;
+    }
+}
+
 // Reductions of reduceKernel.
 enum class ReduceOp
 {
@@ -1383,6 +1404,28 @@ inline void daxpbypczKernel(const size_t nsize, const TData alpha,
 
     daxpbypczKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, beta,
                                                         y, gamma, z, w);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <
+    typename ExecSpace, bool APPEND, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linearCombinationKernel(const size_t nsize,
+                                    const LinearCombinationTerms<TData> &terms,
+                                    TData *z, const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    linearCombinationKernel<APPEND>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, terms, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

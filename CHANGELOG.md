@@ -124,6 +124,12 @@ v5.11.0
 - Fuse the derivative and metric stages of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels (!2884)
 - Coalesce the global memory reads of the device SumFacTOP AdvectionDealias and FwdTransBC kernels (!2884)
 - Replace boost's aligned_allocator with a local implementation, and qualify unqualified abs calls on floating-point values as std::abs; without the boost header, GeometryLocator's Newton check resolved to the integer abs on aarch64, breaking 3D interface searches (!2861)
+- Fix the device DerivZ and AdvectionZ operators replaying a captured graph against the input, output, advection velocity and scale of their first call; a block is now captured again when any of them changes, and its fields are synchronised on every call (!2886)
+- Fix the redesign diagonal preconditioner reshaping its inverse diagonal through a read-only pointer, and the linear solver mask and IDR(s) shadow space reshaping only the first homogeneous plane (!2886)
+- Reuse the derivative slots for the inner product's intermediate stages in the shared memory of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels, and size it exactly (!2886)
+- Form the divergence of the device SumFac Divergence kernels in registers and write it once per point instead of accumulating each component in global memory (!2886)
+- Extrapolate the time integration history in one pass per block with a new Math::linearCombination kernel instead of a zero and one daxpy per level, and build the time operators' MathHelper once (!2886)
+- Reshape the output of IProductWRTPhysNormalDerivTrace only when appending, and remove the unused AdvectionWeakDG and DiffusionIP kernel headers (!2886)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -176,6 +182,7 @@ v5.11.0
 - Add CFL-based time-step estimate (!2691)
 - Add the average-of-normal-fluxes viscous trace flux (SOLVERINFO `ViscousTraceFlux`), element-local trace normals in `TraceFluxOp`, the normal component of a trace extraction in `PhysTraceExtractOp`, and `AdvDiffVolumeFluxOp` for the viscous and total volume flux in one pass (!2872)
 - Write every Riemann solver in Cartesian components through the trace normal, as the legacy solver now does, and remove the rotation into the normal frame with its cached rotation matrices (!2871)
+- Set the interleave width of the output of the Courant-velocity operator (!2886)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)

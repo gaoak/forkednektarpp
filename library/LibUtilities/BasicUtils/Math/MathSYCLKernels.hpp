@@ -396,6 +396,31 @@ inline void daxpbypczKernel(const size_t nsize, const TData alpha,
     SYCLQueue::SetEvent(streamID, e);
 }
 
+// z = sum_j alpha_j x_j over the terms, plus z itself if APPEND, in one pass
+// over z.
+template <
+    typename ExecSpace, bool APPEND, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linearCombinationKernel(const size_t nsize,
+                                    const LinearCombinationTerms<TData> &terms,
+                                    TData *z, const unsigned int streamID = 0)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance(streamID);
+    sycl::event e  = Q.submit([=](sycl::handler &cgh) {
+        setSYCLDefaultExecutionDependency(streamID, cgh);
+        cgh.parallel_for(sycl::range<1>(nsize), [=](sycl::id<1> indx) {
+            TData acc = APPEND ? z[indx] : TData(0);
+            for (unsigned int j = 0; j < terms.n; ++j)
+            {
+                acc += terms.alpha[j] * terms.x[j][indx];
+            }
+            z[indx] = acc;
+        });
+    });
+    SYCLQueue::SetEvent(streamID, e);
+}
+
 // Reductions of reduceKernel.
 enum class ReduceOp
 {
