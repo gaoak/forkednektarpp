@@ -96,6 +96,7 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOpSerialAVXSumFacKernels.hpp>
@@ -299,6 +300,16 @@ protected:
     /// followed by the scratch of the general face interpolation. The
     /// per-trace route reads the same buffers.
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_wsp;
+    /// The element-local normals at the SIMD width while
+    /// v_ApplyNormalComponent() runs, null otherwise: OperatorND() then
+    /// calls OperatorNDNormalComponent() in place of OperatorNDImpl(). They
+    /// travel this way because v_Apply() reaches OperatorND()
+    /// through the generated size switch, whose entry points take the input
+    /// and output blocks only.
+    const TData *m_normals = nullptr;
+    /// One component's traces on one SIMD group of elements, for the
+    /// contraction.
+    std::vector<simd_t, tinysimd::allocator<simd_t>> m_traceChunk;
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
     // flag to ensure we only get one warning for alignment otherwise CI system
     // is saturated with warnings
@@ -770,6 +781,27 @@ protected:
         }
     }
 
+    /**
+     * @brief The outward normal component, contracted chunk by chunk as it
+     * is extracted (see OperatorNDNormalComponent()): for each SIMD group of
+     * elements the direction traces of a variable go to a chunk workspace and
+     * are accumulated against the element-local normals of the data warehouse,
+     * fetched at the SIMD width, so neither a scratch trace field nor a
+     * second pass over the traces is needed.
+     */
+    void v_ApplyNormalComponent(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        [[maybe_unused]] LibUtilities::BlockAccessor<TData, FieldState::Phys>
+            *scratchblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
+    {
+        m_normals = this->m_dataWarehouse->template GetData<MemSpace>(
+            LocalTraceNormalKey<TData>(this->m_block_idx,
+                                       m_implInterleaveWidth));
+        v_Apply(inblock, outblock);
+        m_normals = nullptr;
+    }
+
     // Shape specific block operator, specialised for each shape in
     // LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in.
     template <LibUtilities::ShapeType SHAPE_TYPE>
@@ -811,6 +843,19 @@ protected:
                 (DIM == 3 && IsTraceSizeParameter3D_v<TTraceSizeParameter>),
             "OperatorND expects a trace size parameter matching the "
             "dimension of the shape.");
+
+        // The normal component while v_ApplyNormalComponent() runs, the
+        // extraction otherwise.
+        if (m_normals)
+        {
+            OperatorNDNormalComponent<SHAPE_TYPE, DEFORMED>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int,
+                                           NumTangentialDir(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+            return;
+        }
 
         OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
             inblock, outblock, sizeParam,
@@ -953,6 +998,144 @@ protected:
                 inptr += numDataIn * simd_t::width;
                 outptr += numDataOut * simd_t::width;
             }
+        }
+
+        // Set output block to input interleave.
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    /**
+     * @brief The outward normal component of a vector-valued field, for
+     * v_ApplyNormalComponent(): what OperatorNDImpl() does for each
+     * component, contracted chunk by chunk with the element-local normals
+     * #m_normals, so that only the output components are written.
+     *
+     * @details
+     * For each element group, the direction traces of each output component
+     * are extracted into #m_traceChunk and accumulated against the normals
+     * (ContractTraceNormalChunk()). The input is reshaped to
+     * #m_implInterleaveWidth at the start of each chunk of `width_ratio`
+     * element groups and back at its end with the output, and the input,
+     * output and normals pointers walk one element group per iteration, as
+     * in OperatorNDImpl(), whose template parameters this takes.
+     */
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              typename TTraceSizeParameter, unsigned int... ind0,
+              unsigned int... ind1, unsigned int... ind2>
+    NEK_FORCE_INLINE void OperatorNDNormalComponent(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
+        TTraceSizeParameter sizeParam,
+        std::integer_sequence<unsigned int, ind0...>,
+        std::integer_sequence<unsigned int, ind1...>,
+        std::integer_sequence<unsigned int, ind2...>)
+    {
+        // Shape size.
+        const auto numDataIn  = sizeParam.nmTot();
+        const auto numDataOut = sizeParam.template nqTotTrace<SHAPE_TYPE>();
+
+        // Initialize pointers.
+        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Get interleave parameter.
+        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto width_ratio     = (interleaveWidth == 1)
+                                         ? 1
+                                         : interleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+
+        // The outward normal component: for each element group, the
+        // direction traces of each output component are extracted into
+        // m_traceChunk and accumulated against the normals, so only the
+        // output components are written.
+        ASSERTL1(inblock.GetNumHomoModes() == 1,
+                 "The normal component is for fields without "
+                 "homogeneous modes.");
+        const unsigned int ncompIn  = inblock.GetNumComponents();
+        const unsigned int ncompOut = outblock.GetNumComponents();
+        const unsigned int ndim     = ncompIn / ncompOut;
+        const size_t inStride       = inblock.CompSize();
+        const size_t outStride      = outblock.CompSize();
+
+        // Normals pointer and trace workspace.
+        auto nptr = m_normals;
+        if (m_traceChunk.size() < numDataOut)
+        {
+            m_traceChunk.resize(numDataOut);
+        }
+        auto traceptr = m_traceChunk.data();
+
+        // Loop over element groups.
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(m_implInterleaveWidth);
+             ++e)
+        {
+            // Reshape, if necessary.
+            if (e % width_ratio == 0)
+            {
+                for (unsigned int n = 0; n < ncompIn; ++n)
+                {
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        numDataIn, (TData *)inptr + n * inStride);
+                }
+            }
+
+            // PhysTraceExtract kernel for each direction, contracted
+            // with the normals.
+            for (unsigned int f = 0; f < ncompOut; ++f)
+            {
+                auto out = reinterpret_cast<simd_t *>(outptr + f * outStride);
+                for (unsigned int d = 0; d < ndim; ++d)
+                {
+                    PhysTraceExtractKernelLauncher<SHAPE_TYPE>(
+                        sizeParam, m_B[ind0]..., m_B[sizeof...(ind0) + ind1]...,
+                        m_wsp[ind2].data()...,
+                        reinterpret_cast<const simd_t *>(
+                            inptr + (f * ndim + d) * inStride),
+                        traceptr, (bool)this->m_isCollocated[ind1]...,
+                        (bool)m_endPtsCollocated[ind0]...);
+
+                    auto normal =
+                        reinterpret_cast<const simd_t *>(nptr + d * outStride);
+                    if (d == 0)
+                    {
+                        ContractTraceNormalChunk<true>(numDataOut, normal,
+                                                       traceptr, out);
+                    }
+                    else
+                    {
+                        ContractTraceNormalChunk<false>(numDataOut, normal,
+                                                        traceptr, out);
+                    }
+                }
+            }
+
+            // Reshape back, if necessary.
+            if (e % width_ratio == width_ratio - 1)
+            {
+                for (unsigned int n = 0; n < ncompIn; ++n)
+                {
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        numDataIn,
+                        (TData *)inptr + n * inStride -
+                            (width_ratio - 1) * numDataIn * simd_t::width);
+                }
+                for (unsigned int f = 0; f < ncompOut; ++f)
+                {
+                    LibUtilities::ReshapeStorage<ExecSpace>(
+                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        numDataOut,
+                        outptr + f * outStride -
+                            (width_ratio - 1) * numDataOut * simd_t::width);
+                }
+            }
+
+            // Increment pointers for the next elmt group.
+            inptr += numDataIn * simd_t::width;
+            outptr += numDataOut * simd_t::width;
+            nptr += numDataOut * simd_t::width;
         }
 
         // Set output block to input interleave.

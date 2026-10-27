@@ -34,6 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
+#include <CompressibleFlowSolverRedesign/AdvDiffCFEVolFlux/AdvDiffCFEVolFluxOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyPressureCFE/BndCondEnforceEntropyPressureCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyTotalEnthalpyCFE/BndCondEnforceEntropyTotalEnthalpyCFEOp.hpp>
 #include <CompressibleFlowSolverRedesign/BndCondOps/BndCondEnforceEntropyVelocityCFE/BndCondEnforceEntropyVelocityCFEOp.hpp>
@@ -162,6 +163,7 @@ void NavierStokesCFE::v_InitialiseOperators()
                                 EqnOfState; // add prefix for local version
     auto advDiffusionTraceFluxOp = SolverCore::TraceFluxOp<double>::Create(
         m_expansionLists[0], m_variables, AdvDiffMethod);
+    advDiffusionTraceFluxOp->SetViscousTraceForm(ReadViscousTraceForm());
     m_advDiffusionOp->SetAdvDiffTraceFlux(advDiffusionTraceFluxOp);
 
     auto eulerVolFluxOp =
@@ -172,7 +174,41 @@ void NavierStokesCFE::v_InitialiseOperators()
         DiffusionCFEVolFluxOp<double>::Create(m_expansionLists[0], m_variables);
     m_advDiffusionOp->SetDiffVolFlux(diffusionVolFluxOp);
 
+    // The average-of-normal-fluxes form needs the viscous flux on its own as
+    // well as the total; the CFE operator forms both in one pass.
+    if (advDiffusionTraceFluxOp->GetViscousTraceForm() ==
+        SolverCore::TraceFluxOp<
+            double>::ViscousTraceForm::AverageOfNormalFluxes)
+    {
+        m_advDiffusionOp->SetAdvDiffVolFlux(AdvDiffCFEVolFluxOp<double>::Create(
+            m_expansionLists[0], m_variables));
+    }
+
     SetUpBoundaryConditions();
+}
+
+/**
+ * @brief The viscous trace form SOLVERINFO ViscousTraceFlux selects.
+ *
+ * FluxOfAverages (default) evaluates the viscous trace flux from the
+ * averaged state and gradient; AverageOfNormalFluxes averages the two
+ * elements' own normal viscous fluxes. Both add the same interior-penalty
+ * term, and boundary traces keep the first form in either case.
+ */
+SolverCore::TraceFluxOp<double>::ViscousTraceForm NavierStokesCFE::
+    ReadViscousTraceForm()
+{
+    using Form = SolverCore::TraceFluxOp<double>::ViscousTraceForm;
+    std::string form;
+    m_session->LoadSolverInfo("ViscousTraceFlux", form, "FluxOfAverages");
+    if (StringUtils::IEquals(form, "AverageOfNormalFluxes"))
+    {
+        return Form::AverageOfNormalFluxes;
+    }
+    ASSERTL0(StringUtils::IEquals(form, "FluxOfAverages"),
+             "Unknown ViscousTraceFlux '" + form +
+                 "'; expected FluxOfAverages or AverageOfNormalFluxes.");
+    return Form::FluxOfAverages;
 }
 
 /**

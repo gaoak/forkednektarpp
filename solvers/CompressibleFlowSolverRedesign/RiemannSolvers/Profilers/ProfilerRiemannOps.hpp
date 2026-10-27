@@ -457,13 +457,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     normalsField.template CopyArray<NektarSpaces::HostSpace>(
         FlattenCompMajor(normals, spaceDim, npts));
 
-    oper->SetTraceNormals(normalsField);
-
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
     for (unsigned int i = 0; i < Ntest / 2; ++i)
     {
-        oper->Apply(fwdField, bwdField, fluxField);
+        oper->ApplyUnitTest(normalsField, fwdField, bwdField, fluxField);
     }
     comm->Block();
 
@@ -478,7 +476,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
 
     for (unsigned int i = 0; i < Ntest; ++i)
     {
-        oper->Apply(fwdField, bwdField, fluxField);
+        oper->ApplyUnitTest(normalsField, fwdField, bwdField, fluxField);
     }
 
     nekDeviceSynchronize();

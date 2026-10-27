@@ -167,6 +167,20 @@ families (\inltt{ForwardEuler}, \inltt{RungeKutta} and its SSP variants,
   or \inltt{False}) matches the legacy solver's behaviour. See the
   description of \inltt{ProjectInitialConditions} in the
   \inltt{SOLVERINFO} section of the conditions chapter.
+\item \inltt{ViscousTraceFlux} (Navier-Stokes only) selects the viscous
+  trace flux of the interior-penalty method:
+  \begin{itemize}
+  \item \inltt{FluxOfAverages} (default) evaluates the viscous flux from the
+    averaged state and gradient on each interface, as the legacy solver
+    does;
+  \item \inltt{AverageOfNormalFluxes} averages the two elements' own
+    outward normal viscous fluxes, with the same interior-penalty term.
+    The interface then exchanges five values per point rather than
+    fifteen and needs no gradient trace on interior or partition
+    interfaces.
+  \end{itemize}
+  The two forms differ at the level of the discretisation error.
+  Boundary traces use the first form in either case.
 \end{itemize}
 
 \subsection*{Equation of state}

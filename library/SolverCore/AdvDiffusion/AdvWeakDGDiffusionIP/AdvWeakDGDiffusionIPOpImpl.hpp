@@ -35,6 +35,7 @@
 #pragma once
 
 #include "LibUtilities/BasicUtils/Math/Math.hpp"
+#include "SolverCore/AdvDiffusion/AdvDiffVolumeFluxOp.hpp"
 #include "SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp"
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
@@ -48,6 +49,16 @@
 namespace Nektar::SolverCore::detail
 {
 
+/**
+ * @brief The weak DG / interior-penalty right-hand side from the separate
+ * element operators: the state's trace and gradient, the volume fluxes and
+ * their derivative inner product, the trace flux and its lifting, then the
+ * projection through coefficient space.
+ *
+ * Under the average-of-normal-fluxes viscous trace form the trace flux takes
+ * each element's outward normal viscous flux on its traces in place of the
+ * gradient trace, which only the boundary traces then read.
+ */
 template <typename ExecSpace, typename TData>
 class AdvWeakDGDiffusionIPOpImpl : public AdvWeakDGDiffusionIPOp<TData>
 {
@@ -162,6 +173,21 @@ protected:
     std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<TData>>
         m_multiplyByElmtInvMassOp;
 
+    /// The viscous flux tensor alone, under the average-of-normal-fluxes
+    /// form, for its normal component on the traces.
+    LibUtilities::Field<TData, FieldState::Phys> m_viscFlux;
+    /// Each element's outward normal viscous flux on its traces, under the
+    /// average-of-normal-fluxes form: the second input of the trace flux.
+    LibUtilities::Field<TData, FieldState::Phys> m_traceNormVisc;
+    /// The viscous and total volume flux together, average-of-normal-fluxes
+    /// form only: the attached one, or the composition of the advection and
+    /// diffusion volume fluxes.
+    std::shared_ptr<AdvDiffVolumeFluxOp<TData>> m_advDiffVolFlux;
+    /// The trace flux takes the average-of-normal-fluxes viscous form.
+    bool m_avgNormalFlux = false;
+    /// This rank holds a boundary trace, which reads the gradient trace.
+    bool m_hasBndTraces = false;
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
@@ -203,16 +229,62 @@ protected:
         }
     }
 
+    /// What follows from the attached operators, built on the first
+    /// Apply() after they change.
+    void Configure()
+    {
+        ASSERTL0(this->m_advVolFluxOpNegOut && this->m_diffVolFluxOpAppend &&
+                     this->m_advDiffTraceFluxOp,
+                 "AdvWeakDGDiffusionIPOp needs an advection volume flux, a "
+                 "diffusion volume flux and a trace flux.");
+        m_avgNormalFlux =
+            this->m_advDiffTraceFluxOp->GetViscousTraceForm() ==
+            TraceFluxOp<TData>::ViscousTraceForm::AverageOfNormalFluxes;
+        m_hasBndTraces = this->m_advDiffTraceFluxOp->HasBoundaryTraces();
+        if (m_avgNormalFlux)
+        {
+            const auto nvar = m_trace.GetNumComponents();
+            const auto ndim =
+                this->m_expansionList->GetExp(0)->GetShapeDimension();
+            if (!m_viscFlux)
+            {
+                m_viscFlux = LibUtilities::Field<TData, FieldState::Phys>(
+                    "Viscous flux",
+                    MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                        this->m_expansionList),
+                    ndim * nvar, 1);
+                m_traceNormVisc = LibUtilities::Field<TData, FieldState::Phys>(
+                    "Trace normal viscous flux",
+                    MultiRegions::GetLocTraceBlockAttributes<TData,
+                                                             FieldState::Phys>(
+                        this->m_expansionList),
+                    nvar, 1);
+                m_traceNormVisc.template Initialize<MemSpace>(0.0);
+            }
+            if (this->m_advDiffVolFluxOp)
+            {
+                m_advDiffVolFlux = this->m_advDiffVolFluxOp;
+            }
+            else
+            {
+                auto composed = std::make_shared<
+                    AdvDiffVolumeFluxComposed<ExecSpace, TData>>(
+                    this->m_expansionList, this->m_components);
+                composed->SetAdvVolFlux(this->m_advVolFluxOpNegOut);
+                composed->SetDiffVolFlux(this->m_diffVolFluxOpAppend);
+                m_advDiffVolFlux = composed;
+            }
+        }
+        this->m_needsConfigure = false;
+    }
+
     void AdvDiffCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
                        LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
-        ASSERTL1(
-            this->m_advVolFluxOpNegOut,
-            "AdvWeakDGDiffusionIPOp requires an advection volume flux op.");
-        ASSERTL1(this->m_diffVolFluxOpAppend,
-                 "AdvWeakDGDiffusionIPOp requires a diffusion volume flux op.");
-        ASSERTL1(this->m_advDiffTraceFluxOp,
-                 "AdvWeakDGDiffusionIPOp requires a trace flux op.");
+        if (this->m_needsConfigure)
+        {
+            Configure();
+        }
 
         ReshapeToWidth(in, m_rhsInterleaveWidth);
 
@@ -230,14 +302,22 @@ protected:
         // numerical-flux construction.
         m_physDerivOp->Apply(in, m_deriv);
 
-        // Step 2: Extract trace from "m_deriv"
-        m_physTraceExtractOp->Apply(m_deriv, m_traceDeriv);
+        // Step 2: Extract trace from "m_deriv". Under the
+        // average-of-normal-fluxes form only the boundary traces read it, and
+        // the normal viscous flux is exchanged in its place (step 3).
+        if (!m_avgNormalFlux || m_hasBndTraces)
+        {
+            m_physTraceExtractOp->Apply(m_deriv, m_traceDeriv);
+        }
 
         // The gradient trace carries nDim times as many components as the
         // state, so this is much the larger of the two messages and has much
         // less local work left to hide behind - which is why it goes as soon
         // as it exists rather than alongside the first.
-        this->m_advDiffTraceFluxOp->BeginParallelExchange(m_traceDeriv, 1);
+        if (!m_avgNormalFlux)
+        {
+            this->m_advDiffTraceFluxOp->BeginParallelExchange(m_traceDeriv, 1);
+        }
 
         // Step 2b: boundary values that are functions of the interior state -
         // a no-slip wall, say - can only be formed now that the trace exists,
@@ -250,20 +330,36 @@ protected:
         // gradient message waits on it.
         this->m_advDiffTraceFluxOp->UpdateBndCond(m_trace);
 
-        // Step 3: assemble the negative of advection - the volume flux carries
-        // its sign from SetAdvVolFlux() - and add the viscous volume flux
-        // Both operators are held through a shared pointer, so another
-        // holder could have changed either setting since it was attached:
-        // the advective term enters with the opposite sign to the diffusive
-        // one, and the diffusive contribution accumulates onto it.
-        this->m_advVolFluxOpNegOut->SetScale(-1.0);
-        this->m_diffVolFluxOpAppend->SetAppend(true);
+        // Step 3: the volume flux, the viscous flux minus the advective one.
+        if (m_avgNormalFlux)
+        {
+            // The viscous flux on its own as well, for each element's
+            // outward normal viscous flux on its traces: the second input
+            // of the trace flux and the one exchanged with the neighbours.
+            // The boundary traces keep the flux-of-averages form and read
+            // the gradient trace.
+            m_advDiffVolFlux->Apply(in, m_deriv, m_viscFlux, m_fluxvector);
+            m_physTraceExtractOp->ApplyNormalComponent(m_viscFlux,
+                                                       m_traceNormVisc);
+            this->m_advDiffTraceFluxOp->BeginParallelExchange(m_traceNormVisc,
+                                                              1);
+            this->m_advDiffTraceFluxOp->SetBoundaryGradientTrace(&m_traceDeriv);
+        }
+        else
+        {
+            // Assemble the negative of advection - the volume flux carries
+            // its sign from SetAdvVolFlux() - and add the viscous volume
+            // flux. Both operators are held through a shared pointer, so
+            // another holder could have changed either setting since it was
+            // attached: the advective term enters with the opposite sign to
+            // the diffusive one, and the diffusive contribution accumulates
+            // onto it.
+            this->m_advVolFluxOpNegOut->SetScale(-1.0);
+            this->m_diffVolFluxOpAppend->SetAppend(true);
 
-        this->m_advVolFluxOpNegOut->Apply(in, m_fluxvector);
-        this->m_diffVolFluxOpAppend->Apply(in, m_deriv, m_fluxvector);
-        // The volume flux kernels are pointwise and leave the width attribute
-        // alone; their output has the layout of their inputs.
-        m_fluxvector.SetInterleaveWidth(in);
+            this->m_advVolFluxOpNegOut->Apply(in, m_fluxvector);
+            this->m_diffVolFluxOpAppend->Apply(in, m_deriv, m_fluxvector);
+        }
         ReshapeToWidth(in, 1u);
 
         // Step 4: integrate the volume flux contribution against derivative
@@ -273,15 +369,16 @@ protected:
         // Step 5: evaluate negative of advection and diffusion trace fluxes
         // on the interior and boundary traces, which need nothing from the
         // exchanges, so this too overlaps the messages.
-        // The trace flux zeroes m_numflux and scatters into it at the width
-        // the field declares, so taking the traces' width needs no reshape.
-        m_numflux.SetInterleaveWidth(m_trace);
-        this->m_advDiffTraceFluxOp->Apply(m_trace, m_traceDeriv, m_numflux);
+        // The trace flux writes m_numflux at the width of the traces. Its
+        // second input is the gradient trace, or under the
+        // average-of-normal-fluxes form the normal viscous flux.
+        auto &traceSecond = m_avgNormalFlux ? m_traceNormVisc : m_traceDeriv;
+        this->m_advDiffTraceFluxOp->Apply(m_trace, traceSecond, m_numflux);
 
         // Both exchanges have to have landed before the parallel traces' flux
         // is evaluated, and not before that.
         this->m_advDiffTraceFluxOp->EndParallelExchange();
-        this->m_advDiffTraceFluxOp->ApplyParallel(m_trace, m_traceDeriv,
+        this->m_advDiffTraceFluxOp->ApplyParallel(m_trace, traceSecond,
                                                   m_numflux);
 
         // Step 6: Integral of numflux, B^T and Multiply by Inv Mass - (could be

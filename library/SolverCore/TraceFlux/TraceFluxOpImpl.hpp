@@ -160,7 +160,7 @@ public:
      *    boundary trace, and is used to build #m_bndT0.
      * 3. Per-block trace sizes are padded up to the SIMD width for the AVX
      *    execution space.
-     * 4. The trace normals are gathered into `TraceFluxOp::m_traceNormals`,
+     * 4. The trace normals are gathered from `TraceFluxOp::m_traceNormals`,
      *    and #m_intGloTraceOffset / #m_bndGloTraceOffset are rewritten from
      *    global trace offsets into block-component ordering to match.
      *
@@ -643,17 +643,10 @@ public:
         auto glo_blocks_trace =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(trace, 1);
 
-        // Create fields.
-        unsigned int numHomoModes = 1;
-        this->m_traceNormals = LibUtilities::Field<TData, FieldState::Phys>(
-            "traceNormals", glo_blocks_trace, coordDim, numHomoModes);
-
-        // Fill them from the mesh. Nothing can have overridden the normals
-        // yet - SetTraceNormals() needs an operator to call it on - so this
-        // always loads here; the guard inside matters only if the default is
-        // ever reloaded later.
-        LoadDefaultTraceNormals(glo_blocks_trace, trace->GetTotPoints(),
-                                coordDim);
+        // The mesh's trace normals, read where the data warehouse holds them.
+        this->m_traceNormals =
+            this->m_dataWarehouse->template GetData<MemSpace>(
+                MultiRegions::GlobalTraceNormalKey<TData>());
 
         // set up compsize for each trace data and adjust m_gloTOffset
         // to be in block-component  order
@@ -986,7 +979,10 @@ public:
     // set up wspaces
     void SetWorkSpace(unsigned const numComp)
     {
-        if (m_numComp != numComp)
+        // Sized for the most components asked for so far, so that callers
+        // alternating between counts (the flux and the local normals) do not
+        // free and reallocate it.
+        if (numComp > m_numComp)
         {
             size_t maxNTraceNPts = 0;
             for (unsigned b = 0; b < m_intT0.size(); ++b)
@@ -1055,6 +1051,24 @@ public:
     }
 
 protected:
+    /**
+     * @brief Synchronise every block of @p field after the first.
+     *
+     * Memory is synchronised a block at a time, while the trace kernels walk
+     * a field from its first block's pointer; taking that pointer therefore
+     * leaves every later block unsynchronised. Each field is walked to its
+     * own length, since they do not share a block count.
+     */
+    template <typename MemAccess, typename TField>
+    NEK_FORCE_INLINE void SyncTrailingBlocks(TField &field)
+    {
+        for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
+        {
+            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
+                this->m_opStreamID);
+        }
+    }
+
     /// Order the trace work after the work already queued on the element
     /// block streams, which produced the trace fields it reads and last
     /// touched the ones it writes.
@@ -1068,67 +1082,6 @@ protected:
     void ReleaseBlockStreams()
     {
         ReleaseStreams<ExecSpace>(this->m_opStreamID, m_blockStreams);
-    }
-
-    /**
-     * @brief Load the mesh's trace normals into TraceFluxOp::m_traceNormals.
-     *
-     * The values come from the data warehouse under
-     * MultiRegions::GlobalTraceNormalKey, one entry per trace block, held
-     * component-major with a stride of the block's padded CompSize().
-     * Field::CopyArray() wants the whole trace component-major and unpadded
-     * instead, so the two layouts are bridged here: for each block, each
-     * component's real points are placed at that block's running offset within
-     * its component.
-     *
-     * Does nothing once SetTraceNormals() has supplied normals from outside;
-     * an override always wins over the mesh.
-     *
-     * @param blocks      - Block attributes of the global trace.
-     * @param traceTotPts - Total real points on the trace.
-     * @param coordDim    - Number of coordinate components.
-     */
-    void LoadDefaultTraceNormals(
-        const std::vector<LibUtilities::BlockAttributes<FieldState::Phys>>
-            &blocks,
-        const size_t traceTotPts, const unsigned int coordDim)
-    {
-        if (this->m_traceNormalsOverridden)
-        {
-            return;
-        }
-
-        Array<OneD, double> normals(coordDim * traceTotPts, 0.0);
-
-        size_t traceOffset = 0;
-        for (unsigned int blk = 0; blk < blocks.size(); ++blk)
-        {
-            const auto *src =
-                this->m_dataWarehouse
-                    ->template GetData<NektarSpaces::HostSpace>(
-                        MultiRegions::GlobalTraceNormalKey<double>(blk));
-
-            const auto compSize = blocks[blk].CompSize();
-            const size_t nRealPts =
-                blocks[blk].GetNumElements() * blocks[blk].GetNumData();
-
-            for (unsigned int d = 0; d < coordDim; ++d)
-            {
-                for (size_t i = 0; i < nRealPts; ++i)
-                {
-                    normals[d * traceTotPts + traceOffset + i] =
-                        src[d * compSize + i];
-                }
-            }
-
-            traceOffset += nRealPts;
-        }
-
-        this->m_traceNormals.template CopyArray<MemSpace>(normals);
-
-        // Harmless from the constructor, where no derived override is
-        // reachable yet and any normals-derived cache still starts stale.
-        this->v_OnTraceNormalsChanged();
     }
 
     /**
@@ -2851,6 +2804,11 @@ protected:
         }
     }
 
+    bool v_HasBoundaryTraces() const override
+    {
+        return !m_bndT0.empty();
+    }
+
     /**
      * @brief Scatter the computed interior flux from #m_flux back to the two
      * element-local trace layouts.
@@ -2953,6 +2911,7 @@ protected:
 
         auto inPtr = trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
             this->m_opStreamID);
+        SyncTrailingBlocks<ReadOnly>(trace);
         PackParallelSendBuffer(chan, inPtr, numComp,
                                trace.GetBlocks()[0].GetInterleaveWidth());
 
@@ -3690,6 +3649,7 @@ protected:
         auto tracePtr =
             trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
+        SyncTrailingBlocks<ReadOnly>(trace);
         const auto width = trace.GetBlocks()[0].GetInterleaveWidth();
 
         UploadBlockPointers(

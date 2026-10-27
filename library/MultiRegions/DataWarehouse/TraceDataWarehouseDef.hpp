@@ -265,7 +265,7 @@ LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
 
 template <typename MemSpace, typename TData>
 LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
-    const GlobalTraceNormalKey<TData> &globalTraceNormalKey)
+    const GlobalTraceNormalKey<TData> &)
 {
     const size_t nTracePts  = m_expansionList->GetTrace()->GetTotPoints();
     const unsigned int nDim = m_expansionList->GetCoordim(0);
@@ -278,24 +278,107 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
 
     auto blocks = GetBlockAttributes<TData, FieldState::Phys>(
         m_expansionList->GetTrace());
-    const auto &block = blocks[globalTraceNormalKey.m_block_idx];
 
-    size_t traceOffset = 0;
-    for (unsigned int blk = 0; blk < globalTraceNormalKey.m_block_idx; ++blk)
+    size_t total = 0;
+    for (const auto &block : blocks)
     {
-        traceOffset += blocks[blk].GetNumElements() * blocks[blk].GetNumData();
+        total += nDim * block.CompSize();
     }
 
-    const size_t nRealPts = block.GetNumElements() * block.GetNumData();
-    auto data    = LibUtilities::MemoryRegion<TData>(nDim * block.CompSize());
+    auto data    = LibUtilities::MemoryRegion<TData>(total);
     auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
-    for (unsigned int d = 0; d < nDim; ++d)
+    size_t traceOffset = 0;
+    for (const auto &block : blocks)
     {
-        for (size_t i = 0; i < block.CompSize(); ++i)
+        const size_t compSize = block.CompSize();
+        const size_t nRealPts = block.GetNumElements() * block.GetNumData();
+
+        for (unsigned int d = 0; d < nDim; ++d)
         {
-            dataptr[d * block.CompSize() + i] =
-                (i < nRealPts) ? normals[d][traceOffset + i] : TData(0.0);
+            for (size_t i = 0; i < compSize; ++i)
+            {
+                dataptr[d * compSize + i] =
+                    (i < nRealPts) ? normals[d][traceOffset + i] : TData(0.0);
+            }
+        }
+
+        traceOffset += nRealPts;
+        dataptr += nDim * compSize;
+    }
+
+    return data;
+}
+
+template <typename MemSpace, typename TData>
+LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
+    const LocalTraceNormalKey<TData> &localTraceNormalKey)
+{
+    const unsigned int blk   = localTraceNormalKey.m_block_idx;
+    const unsigned int width = localTraceNormalKey.m_interleave_width;
+    const unsigned int nDim  = m_expansionList->GetCoordim(0);
+
+    auto blocks = GetLocTraceBlockAttributes<TData, FieldState::Phys>(
+        m_expansionList, width);
+    ASSERTL0(blk < blocks.size(), "LocalTraceNormalKey: no such block.");
+    const size_t compSize = blocks[blk].CompSize();
+    const size_t nTrPts   = blocks[blk].GetNumData();
+
+    // The first element of the block, and the offset of each of its traces
+    // within the element's trace points, traces in ShapeTypeTraceIDInDir
+    // order as the extraction writes them.
+    size_t eid0 = 0;
+    for (unsigned int b = 0; b < blk; ++b)
+    {
+        eid0 += blocks[b].GetNumElements();
+    }
+    auto elmt0                 = m_expansionList->GetExp(eid0);
+    const auto shapetype       = elmt0->DetShapeType();
+    const unsigned int dim     = elmt0->GetShapeDimension();
+    const unsigned int ntraces = elmt0->GetNtraces();
+    std::vector<size_t> traceOffset(ntraces, 0);
+    size_t tptsTot = 0;
+    for (unsigned int d = 0; d < dim; ++d)
+    {
+        for (unsigned int i = 0;
+             i < LibUtilities::ShapeTypeNumTraceInDir[shapetype][d]; ++i)
+        {
+            const auto t = LibUtilities::ShapeTypeTraceIDInDir[shapetype][d][i];
+            traceOffset[t] = tptsTot;
+            size_t npts    = 1;
+            for (unsigned int d1 = 0; d1 + 1 < dim; ++d1)
+            {
+                npts *= elmt0->GetTraceBasisKey(t, d1).GetNumPoints();
+            }
+            tptsTot += npts;
+        }
+    }
+    ASSERTL0(tptsTot == nTrPts,
+             "LocalTraceNormalKey: the element's trace points do not match "
+             "the block's element-local trace layout.");
+
+    auto data    = LibUtilities::MemoryRegion<TData>(nDim * compSize);
+    auto dataptr = data.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    std::fill(dataptr, dataptr + nDim * compSize, TData(0.0));
+
+    for (size_t e = 0; e < blocks[blk].GetNumElements(); ++e)
+    {
+        auto elmt = m_expansionList->GetExp(eid0 + e);
+        // Groups of width elements, point-major, one element per lane.
+        const size_t base = (e - e % width) * nTrPts + e % width;
+        for (unsigned int t = 0; t < ntraces; ++t)
+        {
+            const auto &normal = elmt->GetTraceNormal(t);
+            const size_t npts  = normal[0].size();
+            for (unsigned int d = 0; d < nDim; ++d)
+            {
+                for (size_t i = 0; i < npts; ++i)
+                {
+                    dataptr[d * compSize + base +
+                            (traceOffset[t] + i) * width] =
+                        static_cast<TData>(normal[d][i]);
+                }
+            }
         }
     }
 

@@ -98,6 +98,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp>
 
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOpDeviceSumFacKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOpDeviceSumFacTOPKernels.hpp>
 
@@ -898,6 +899,38 @@ protected:
                 NEKERROR(ErrorUtil::efatal, "shape type not implemented");
                 break;
         }
+    }
+
+    /**
+     * @brief The outward normal component: every component's trace into
+     * @p scratchblock, then one launch contracting it with the element-local
+     * normals of the data warehouse, fetched at the width of the trace, so
+     * that the two are read point for point; all on this block's stream.
+     */
+    void v_ApplyNormalComponent(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> *scratchblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) override
+    {
+        ASSERTL1(scratchblock, "The Device normal component needs the "
+                               "scratch trace block.");
+        v_Apply(inblock, *scratchblock);
+        const unsigned int interleaveWidth = scratchblock->GetInterleaveWidth();
+        const TData *normals =
+            this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalTraceNormalKey<TData>(this->m_block_idx, interleaveWidth));
+        const unsigned int nvar = outblock.GetNumComponents();
+        ContractTraceNormalKernel(
+            scratchblock->CompSize(), scratchblock->GetNumComponents() / nvar,
+            nvar, scratchblock->template GetPtr<MemSpace, ReadOnly>(m_streamID),
+            normals, outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID),
+            m_streamID);
+        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+    }
+
+    bool v_NormalComponentNeedsScratch() const override
+    {
+        return true;
     }
 
     // Shape specific block operator, specialised for each shape in

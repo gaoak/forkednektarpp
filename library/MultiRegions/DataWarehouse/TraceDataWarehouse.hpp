@@ -56,13 +56,19 @@ enum class IPTraceScalarData
 };
 
 /**
- * @brief Outward normals of one global trace block, in trace block layout.
+ * @brief Outward normals of the whole global trace, in trace block layout.
  *
- * Keyed on the trace block index. Each entry holds every coordinate component
- * of the block, laid out component-major with a stride of the block's padded
- * CompSize(): real points first, zero beyond. That is the same layout a
- * Field over the trace uses internally, so an entry can be copied straight
- * into a trace Field block without rearrangement.
+ * One entry spanning every trace block, the blocks one after another. Each
+ * block holds every coordinate component, laid out component-major with a
+ * stride of the block's padded CompSize(): real points first, zero beyond, so
+ * block @c b starts at the sum of @c nDim*CompSize() over the blocks before it.
+ * That is the layout a Field over the trace uses internally, so a block can be
+ * copied straight into a trace Field block without rearrangement.
+ *
+ * A single entry rather than one per block: the normals come from one
+ * ExpList::GetNormals() over the whole trace, and an entry per block repeated
+ * that for every block, which made the set-up quadratic in the number of
+ * traces.
  *
  * This is the trace-layout counterpart of BndCondNormalKey, which holds the
  * same quantity in boundary expansion layout for the boundary condition
@@ -79,14 +85,48 @@ public:
 
     ~GlobalTraceNormalKey() override = default;
 
-    GlobalTraceNormalKey(const unsigned int block_idx) : m_block_idx(block_idx)
+    GlobalTraceNormalKey()
     {
-        hash_combine(m_hash, m_block_idx, typeid(value_type).name(),
-                     "GlobalTraceNormalKey");
+        hash_combine(m_hash, typeid(value_type).name(), "GlobalTraceNormalKey");
+    }
+};
+
+/**
+ * @brief Each element's outward unit normals on its own traces, in the
+ * element-local trace layout of one element block at one interleave width.
+ *
+ * The layout is that of a Field over GetLocTraceBlockAttributes() (the
+ * element's own trace points, not the Gauss-Lobatto ones) at
+ * @c interleave_width: component-major, @c nDim components, each of the
+ * block's padded CompSize(); within a component, groups of
+ * @c interleave_width elements, point-major with one element per lane, the
+ * traces of an element in ShapeTypeTraceIDInDir order, each in the element's
+ * own trace frame (Expansion::GetTraceNormal()). Zero on padding elements.
+ * An operator acting on an element-local trace field at that width reads it
+ * point for point with the field.
+ */
+template <typename TData>
+class LocalTraceNormalKey : public LibUtilities::BaseKey
+{
+    friend class TraceEssentialCreator;
+
+public:
+    using creator = TraceEssentialCreator;
+    typedef TData value_type;
+
+    ~LocalTraceNormalKey() override = default;
+
+    LocalTraceNormalKey(const unsigned int block_idx,
+                        const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "LocalTraceNormalKey");
     }
 
 private:
     unsigned int m_block_idx;
+    unsigned int m_interleave_width;
 };
 
 /**
@@ -763,6 +803,10 @@ public:
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(
         const BndCondNormalKey<TData> &bndCondNormalKey);
+
+    template <typename MemSpace, typename TData>
+    LibUtilities::MemoryRegion<TData> Create(
+        const LocalTraceNormalKey<TData> &localTraceNormalKey);
 
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(

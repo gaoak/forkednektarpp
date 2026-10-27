@@ -388,14 +388,11 @@ protected:
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
 
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
         SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
@@ -516,14 +513,11 @@ protected:
                 this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
         SyncTrailingBlocks<ReadWrite>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
         auto diffCoeff =
             m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
@@ -625,14 +619,11 @@ protected:
                 this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadOnly>(inDeriv);
         SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
 
         auto diffCoeff =
             m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);

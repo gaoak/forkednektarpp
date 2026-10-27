@@ -322,16 +322,13 @@ protected:
             this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
         SyncTrailingBlocks<ReadOnly>(m_gloTraceAdvVel);
 
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
@@ -421,16 +418,13 @@ protected:
             this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<ReadWrite>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
         SyncTrailingBlocks<ReadOnly>(m_gloTraceAdvVel);
 
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
@@ -505,16 +499,13 @@ protected:
             this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
         auto advVelPtr =
             m_gloTraceAdvVel.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
 
         SyncTrailingBlocks<ReadOnly>(in);
         SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
         SyncTrailingBlocks<ReadOnly>(m_gloTraceAdvVel);
 
         for (unsigned b = 0; b < this->m_bndT0.size(); ++b)

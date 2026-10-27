@@ -36,6 +36,7 @@
 
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
 #include "MultiRegions/DataWarehouse/TraceDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/SafeDivide.hpp>
 
 namespace Nektar::detail
 {
@@ -277,6 +278,237 @@ NEK_FORCE_INLINE static void DiffuseTraceFluxKernel(
         });
 
     Nektar::LoopExecutionSetStreamID(0);
+}
+
+/**
+ * @brief The averaged state of one trace point: the conserved variables
+ * averaged, and the energy as the average of the two internal energies plus
+ * the kinetic energy of the averaged momentum, so that the kinetic energy
+ * the averaged momentum implies is consistent with the averaged density.
+ *
+ * @param fwd, bwd  The two states, NDIM+2 entries each.
+ * @param aver      Out: the averaged state.
+ * @return 1/rho of the averaged state.
+ */
+template <unsigned int NDIM, typename vec_t>
+NEK_HOSTDEVICE_INLINE static vec_t AveragedTraceState(const vec_t *fwd,
+                                                      const vec_t *bwd,
+                                                      vec_t *aver)
+{
+    constexpr unsigned int nEngy = NDIM + 1;
+    const vec_t half             = vec_t(0.5);
+    for (unsigned f = 0; f < nEngy; ++f)
+    {
+        aver[f] = half * (fwd[f] + bwd[f]);
+    }
+    vec_t lInternal = vec_t(0.0), rInternal = vec_t(0.0),
+          aInternal = vec_t(0.0);
+    for (unsigned d = 1; d < nEngy; ++d)
+    {
+        lInternal += fwd[d] * fwd[d];
+        rInternal += bwd[d] * bwd[d];
+        aInternal += aver[d] * aver[d];
+    }
+    // Three reciprocals serve every division of the trace flux; zero on the
+    // zero padding of a block.
+    const vec_t invL   = SafeDivide(vec_t(1.0), fwd[0]);
+    const vec_t invR   = SafeDivide(vec_t(1.0), bwd[0]);
+    const vec_t invRho = SafeDivide(vec_t(1.0), aver[0]);
+    lInternal          = fwd[nEngy] - half * lInternal * invL;
+    rInternal          = bwd[nEngy] - half * rInternal * invR;
+    aver[nEngy] =
+        half * lInternal + half * rInternal + half * aInternal * invRho;
+    return invRho;
+}
+
+/**
+ * @brief The viscous trace flux of one interior point in the
+ * average-of-normal-fluxes form, in registers.
+ *
+ * The viscous part is the mean of the two elements' own normal viscous
+ * fluxes, each contracted with that element's outward normal before it
+ * reached the trace, plus the interior-penalty term of
+ * DiffuseTraceFluxKernel() alone: `n . G({u}) : (n (jump) penalty)`, with
+ * the same averaged state and jump. On entry @p flux holds the inviscid
+ * flux, which is negated and the viscous part accumulated on top.
+ *
+ * @param fwd, bwd        The two states, NDIM+2 entries each.
+ * @param nFfwd           The forward element's outward normal viscous flux.
+ * @param nFbwd           The backward element's outward normal viscous flux,
+ *                        taken with that element's outward normal, so its
+ *                        negative is the flux through @p normal.
+ * @param normal          The trace normal (the forward element's outward).
+ * @param penalty         The IP penalty factor of this point.
+ * @param flux            In: inviscid flux. Out: -inviscid + viscous.
+ */
+template <unsigned int NDIM, typename EqnOfSParams, typename vec_t,
+          typename TData>
+NEK_HOSTDEVICE_INLINE static void AvgNormalFluxTracePoint(
+    const EqnOfSParams &EoS, const vec_t *fwd, const vec_t *bwd,
+    const vec_t *nFfwd, const vec_t *nFbwd, const vec_t *normal,
+    const vec_t penalty, const TData prandtl, const TData muRef,
+    const bool isMuVariable, const TData oneOverTStar,
+    const TData tRatioSutherland, vec_t *flux)
+{
+    constexpr unsigned int NVAR  = NDIM + 2;
+    constexpr unsigned int nEngy = NDIM + 1;
+    const vec_t half             = vec_t(0.5);
+    const vec_t gammaOverPr      = vec_t(TData(EoS.gamma() / prandtl));
+
+    vec_t averTmp[NVAR], jumpTmp[NVAR];
+
+    const vec_t invRho = AveragedTraceState<NDIM>(fwd, bwd, averTmp);
+    for (unsigned f = 0; f < NVAR; ++f)
+    {
+        jumpTmp[f] = bwd[f] - fwd[f];
+        flux[f]    = -flux[f] + half * (nFfwd[f] - nFbwd[f]);
+    }
+
+    const vec_t e = GetInternalEnergyFromInvDensity(NDIM, invRho, averTmp + 1,
+                                                    averTmp[NDIM + 1]);
+    const vec_t temperature = GetTemperature(EoS, averTmp[0], e);
+    const vec_t mu =
+        GetDynamicViscosity(temperature, vec_t(muRef), isMuVariable,
+                            vec_t(oneOverTStar), vec_t(tRatioSutherland));
+
+    // The penalty gradient is rank one, n (x) [u] tau, so the viscous
+    // tensor it produces contracts with n in closed form (|n| = 1):
+    //   d_d u_j = n_d tau a_j,   a_j = ([rho u_j] - u_j [rho]) / rho
+    //   d_d e   = n_d tau b,     b   = ([E] - E/rho [rho]) / rho - u . a
+    //   n . tau_j = mu tau (a_j + n_j (n . a) / 3)
+    //   n . (tau u + k grad T) = u . (n . tau) + mu gamma/Pr tau b
+    // which is the viscous flux of GetViscousFluxBilinearFormKernel() on
+    // that gradient, contracted with n, without forming the tensor.
+    const vec_t eTotal = averTmp[nEngy] * invRho;
+    vec_t u[NDIM], a[NDIM];
+    vec_t nDotA = vec_t(0.0), uDotA = vec_t(0.0);
+    for (unsigned j = 0; j < NDIM; ++j)
+    {
+        u[j] = averTmp[j + 1] * invRho;
+        a[j] = (jumpTmp[j + 1] - u[j] * jumpTmp[0]) * invRho;
+        nDotA += normal[j] * a[j];
+        uDotA += u[j] * a[j];
+    }
+    const vec_t b     = (jumpTmp[nEngy] - eTotal * jumpTmp[0]) * invRho - uDotA;
+    const vec_t muTau = mu * penalty;
+    const vec_t thirdNDotA = nDotA * vec_t(TData(1.0) / TData(3.0));
+    vec_t work             = vec_t(0.0);
+    for (unsigned j = 0; j < NDIM; ++j)
+    {
+        const vec_t tj = muTau * (a[j] + normal[j] * thirdNDotA);
+        flux[j + 1] += tj;
+        work += u[j] * tj;
+    }
+    flux[nEngy] += work + muTau * gammaOverPr * b;
+}
+
+/**
+ * @brief AvgNormalFluxTracePoint() over one padded interior trace block,
+ * for a compile-time dimension. The layout is DiffuseTraceFluxKernel()'s,
+ * with the two normal-flux arrays carrying `ndim + 2` components each in
+ * place of the gradients.
+ */
+template <typename ExecSpace, unsigned int NDIM, typename EqnOfSParams,
+          typename TData>
+NEK_FORCE_INLINE static void AvgNormalFluxTraceKernelND(
+    const EqnOfSParams EoS, const unsigned npts, const TData prandtl,
+    const TData muRef, const bool isMuVariable, const TData oneOverTStar,
+    const TData tRatioSutherland, const TData *normbase,
+    const TData *penaltyFactorBase, const TData *fwdbase, const TData *bwdbase,
+    const TData *nFfwdbase, const TData *nFbwdbase, TData *fluxbase,
+    const unsigned int streamID)
+{
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
+    constexpr unsigned int vec_width =
+        (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+            ? tinysimd::simd<TData>::width
+            : 1;
+
+    const size_t groupsize = npts / vec_width;
+    const size_t vecStride = npts / vec_width;
+    const auto normvec     = reinterpret_cast<const vec_t *>(normbase);
+    const auto penaltyvec  = reinterpret_cast<const vec_t *>(penaltyFactorBase);
+    const auto fwdvec      = reinterpret_cast<const vec_t *>(fwdbase);
+    const auto bwdvec      = reinterpret_cast<const vec_t *>(bwdbase);
+    const auto nFfwdvec    = reinterpret_cast<const vec_t *>(nFfwdbase);
+    const auto nFbwdvec    = reinterpret_cast<const vec_t *>(nFbwdbase);
+    auto fluxvec           = reinterpret_cast<vec_t *>(fluxbase);
+
+    Nektar::LoopExecutionSetStreamID(streamID);
+    Nektar::parallel_for<ExecSpace>(
+        0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
+            // Declared here, not in the enclosing function: MSVC does not
+            // take a constant of the enclosing scope as a constant
+            // expression inside the lambda.
+            constexpr unsigned int NVAR = NDIM + 2;
+
+            vec_t fwdTmp[NVAR], bwdTmp[NVAR], fluxTmp[NVAR];
+            vec_t nFfwd[NVAR], nFbwd[NVAR];
+            vec_t normal[NDIM];
+            for (unsigned f = 0; f < NVAR; ++f)
+            {
+                fwdTmp[f]  = fwdvec[f * vecStride + i];
+                bwdTmp[f]  = bwdvec[f * vecStride + i];
+                nFfwd[f]   = nFfwdvec[f * vecStride + i];
+                nFbwd[f]   = nFbwdvec[f * vecStride + i];
+                fluxTmp[f] = fluxvec[f * vecStride + i];
+            }
+            for (unsigned d = 0; d < NDIM; ++d)
+            {
+                normal[d] = normvec[d * vecStride + i];
+            }
+
+            AvgNormalFluxTracePoint<NDIM>(EoS, fwdTmp, bwdTmp, nFfwd, nFbwd,
+                                          normal, penaltyvec[i], prandtl, muRef,
+                                          isMuVariable, oneOverTStar,
+                                          tRatioSutherland, fluxTmp);
+
+            for (unsigned f = 0; f < NVAR; ++f)
+            {
+                fluxvec[f * vecStride + i] = fluxTmp[f];
+            }
+        });
+    Nektar::LoopExecutionSetStreamID(0);
+}
+
+/// AvgNormalFluxTraceKernelND() dispatched on the dimension, @p ndim + 2
+/// variables.
+template <typename ExecSpace, typename EqnOfSParams, typename TData>
+NEK_FORCE_INLINE static void AvgNormalFluxTraceKernel(
+    const EqnOfSParams EoS, const unsigned npts, const unsigned ndim,
+    const TData prandtl, const TData muRef, const bool isMuVariable,
+    const TData oneOverTStar, const TData tRatioSutherland,
+    const TData *normbase, const TData *penaltyFactorBase, const TData *fwdbase,
+    const TData *bwdbase, const TData *nFfwdbase, const TData *nFbwdbase,
+    TData *fluxbase, const unsigned int streamID = 0)
+{
+    switch (ndim)
+    {
+        case 1:
+            AvgNormalFluxTraceKernelND<ExecSpace, 1>(
+                EoS, npts, prandtl, muRef, isMuVariable, oneOverTStar,
+                tRatioSutherland, normbase, penaltyFactorBase, fwdbase, bwdbase,
+                nFfwdbase, nFbwdbase, fluxbase, streamID);
+            break;
+        case 2:
+            AvgNormalFluxTraceKernelND<ExecSpace, 2>(
+                EoS, npts, prandtl, muRef, isMuVariable, oneOverTStar,
+                tRatioSutherland, normbase, penaltyFactorBase, fwdbase, bwdbase,
+                nFfwdbase, nFbwdbase, fluxbase, streamID);
+            break;
+        case 3:
+            AvgNormalFluxTraceKernelND<ExecSpace, 3>(
+                EoS, npts, prandtl, muRef, isMuVariable, oneOverTStar,
+                tRatioSutherland, normbase, penaltyFactorBase, fwdbase, bwdbase,
+                nFfwdbase, nFbwdbase, fluxbase, streamID);
+            break;
+        default:
+            NEKERROR(ErrorUtil::efatal,
+                     "The average-of-normal-fluxes viscous trace flux is for "
+                     "one, two and three dimensions.");
+    }
 }
 
 /**

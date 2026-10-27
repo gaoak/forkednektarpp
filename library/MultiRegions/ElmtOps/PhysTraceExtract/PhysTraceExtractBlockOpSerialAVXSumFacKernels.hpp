@@ -1910,4 +1910,35 @@ NEK_FORCE_INLINE static void PhysTraceExtractKernelLauncher(
     }
 }
 
+/**
+ * @brief Accumulate one direction's share of the outward normal component
+ * on one chunk of element-local traces: `out = normal * trace`, or
+ * `out += normal * trace` with a fused multiply-add after the first
+ * direction, at the @p nq trace points of a SIMD group of elements.
+ *
+ * @tparam ASSIGN  First direction: overwrite @p out.
+ * @param  nq      Trace points per element.
+ * @param  normal  The direction's normal component on the chunk.
+ * @param  trace   The direction's trace on the chunk.
+ * @param  out     The normal component on the chunk.
+ */
+template <bool ASSIGN, typename vec_t>
+NEK_FORCE_INLINE static void ContractTraceNormalChunk(const unsigned int nq,
+                                                      const vec_t *normal,
+                                                      const vec_t *trace,
+                                                      vec_t *out)
+{
+    for (unsigned int q = 0; q < nq; ++q)
+    {
+        if constexpr (ASSIGN)
+        {
+            out[q] = normal[q] * trace[q];
+        }
+        else
+        {
+            out[q].fma(normal[q], trace[q]);
+        }
+    }
+}
+
 } // namespace Nektar::MultiRegions::detail

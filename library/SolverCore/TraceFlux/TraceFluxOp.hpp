@@ -224,34 +224,6 @@ public:
         v_SetTraceAdvVel(AdvVel);
     }
 
-    /**
-     * @brief Supply trace normals from outside, overriding the mesh.
-     *
-     * An operator normally takes its normals from the geometry, through
-     * GlobalTraceNormalKey in the data warehouse. This replaces them and
-     * marks the override, so that any later reload of the mesh-derived
-     * default leaves the supplied values alone. It exists for callers that
-     * have no mesh normals to speak of - the Riemann unit test and profiler
-     * build a normals field directly - and is the only way such a caller can
-     * drive the operator.
-     *
-     * Anything cached from the normals is invalidated through
-     * v_OnTraceNormalsChanged().
-     *
-     * @param traceNormals - New trace normals; moved from.
-     */
-    void SetTraceNormals(
-        LibUtilities::Field<TData, FieldState::Phys> &traceNormals)
-    {
-        v_SetTraceNormals(traceNormals);
-    }
-
-    /// True once SetTraceNormals() has overridden the mesh-derived normals.
-    bool HasTraceNormalsOverride() const
-    {
-        return m_traceNormalsOverridden;
-    }
-
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
         v_SetDiffCoeff(diffCoeff);
@@ -260,6 +232,56 @@ public:
     void SetAppend(const bool &append)
     {
         this->m_append = append;
+    }
+
+    /**
+     * @brief How the viscous part of the numerical flux is formed from the
+     * two sides. FluxOfAverages evaluates the viscous flux at the averaged
+     * state with the averaged gradient, and takes the gradient on the trace
+     * as its second input. AverageOfNormalFluxes averages the two sides'
+     * own normal viscous fluxes, and takes those, each side's flux tensor
+     * contracted with its outward normal, as its second input. The
+     * interior-penalty term is the same in both.
+     */
+    enum class ViscousTraceForm
+    {
+        FluxOfAverages,
+        AverageOfNormalFluxes
+    };
+
+    void SetViscousTraceForm(const ViscousTraceForm form)
+    {
+        m_viscousTraceForm = form;
+    }
+
+    ViscousTraceForm GetViscousTraceForm() const
+    {
+        return m_viscousTraceForm;
+    }
+
+    /**
+     * @brief Under AverageOfNormalFluxes the second input of Apply() is the
+     * normal viscous flux, which the boundary traces cannot use: their
+     * conditions act on the gradient (a Neumann dE/dn, say), so they keep
+     * the flux-of-averages form and read the gradient trace set here. May
+     * be left unset when HasBoundaryTraces() is false.
+     */
+    void SetBoundaryGradientTrace(
+        LibUtilities::Field<TData, FieldState::Phys> *gradTrace)
+    {
+        m_bndGradTrace = gradTrace;
+    }
+
+    LibUtilities::Field<TData, FieldState::Phys> *GetBoundaryGradientTrace()
+        const
+    {
+        return m_bndGradTrace;
+    }
+
+    /// Whether this rank holds any boundary trace block.
+    bool HasBoundaryTraces() const
+    {
+        return v_HasBoundaryTraces();
     }
 
     /**
@@ -407,18 +429,21 @@ protected:
     /// entry point orders it against the element block streams with events.
     unsigned int m_opStreamID = 1;
 
-    LibUtilities::Field<TData, FieldState::Phys> m_traceNormals;
-    /// Set once SetTraceNormals() has supplied normals from outside. The
-    /// mesh-derived default must not overwrite them after that; see
-    /// SetTraceNormals().
-    bool m_traceNormalsOverridden = false;
+    /// The mesh's trace normals: the data warehouse's
+    /// MultiRegions::GlobalTraceNormalKey entry in the operator's memory
+    /// space, every trace block one after another, each component-major with
+    /// a stride of its padded CompSize(), as the trace kernels walk a trace
+    /// field from its first block.
+    const TData *m_traceNormals = nullptr;
     std::shared_ptr<MultiRegions::BndCondPhysOp<TData>> m_BndCondOp;
     std::vector<std::shared_ptr<BndCondUpdateOp<TData>>> m_bndCondUpdateOps;
     /// Block-to-condition lookup, built on first use by GetBndCondUpdateOp()
     /// and dropped whenever a condition is attached.
     mutable std::vector<const BndCondUpdateOp<TData> *>
         m_bndCondUpdateOpByBlock;
-    bool m_append = false;
+    bool m_append                       = false;
+    ViscousTraceForm m_viscousTraceForm = ViscousTraceForm::FluxOfAverages;
+    LibUtilities::Field<TData, FieldState::Phys> *m_bndGradTrace = nullptr;
     /// ValidateBndCondTags() runs once, on the first UpdateBndCond().
     bool m_bndCondUpdatesValidated = false;
 
@@ -674,26 +699,7 @@ protected:
             "SetTrace Advection Velocity is not available in this operator");
     }
 
-    virtual void v_SetTraceNormals(
-        LibUtilities::Field<TData, FieldState::Phys> &traceNormals)
-    {
-        this->m_traceNormals           = std::move(traceNormals);
-        this->m_traceNormalsOverridden = true;
-        v_OnTraceNormalsChanged();
-    }
-
-    /**
-     * @brief Called whenever m_traceNormals has been replaced.
-     *
-     * The single point at which anything derived from the normals goes
-     * stale, whether they came from the warehouse or were supplied through
-     * SetTraceNormals(). An operator caching rotation matrices should
-     * invalidate them here rather than overriding v_SetTraceNormals(), so
-     * that both paths are covered.
-     */
-    virtual void v_OnTraceNormalsChanged()
-    {
-    }
+    virtual bool v_HasBoundaryTraces() const = 0;
 
     virtual void v_SetDiffCoeff([[maybe_unused]] std::vector<TData> &diffCoeff)
     {
