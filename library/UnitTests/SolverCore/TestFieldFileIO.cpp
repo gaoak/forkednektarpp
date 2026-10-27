@@ -169,6 +169,42 @@ std::vector<double> ReadFieldFile(
     return coeffs;
 }
 
+// Writes coefficients, component-major in the element order of the expansion
+// list, to a field file. All variables share the field definitions of the
+// expansion list or, with splitDefinitions, each variable has definitions of
+// its own, as in a file written with a pressure of another order.
+void WriteInputFile(const LibUtilities::SessionReaderSharedPtr &session,
+                    const MultiRegions::ExpListSharedPtr &explist,
+                    const std::vector<std::string> &variables,
+                    const std::vector<double> &coeffs,
+                    const std::string &filename, const bool splitDefinitions)
+{
+    const size_t ncoeffs = explist->GetNcoeffs();
+    std::vector<LibUtilities::FieldDefinitionsSharedPtr> fieldDef;
+    std::vector<std::vector<double>> fieldData;
+    auto varDef = explist->GetFieldDefinitions();
+    std::vector<std::vector<double>> varData(varDef.size());
+    for (size_t comp = 0; comp < variables.size(); ++comp)
+    {
+        Array<OneD, double> component(ncoeffs, coeffs.data() + comp * ncoeffs);
+        for (size_t i = 0; i < varDef.size(); ++i)
+        {
+            varDef[i]->m_fields.push_back(variables[comp]);
+            explist->AppendFieldData(varDef[i], varData[i], component);
+        }
+
+        if (splitDefinitions || comp + 1 == variables.size())
+        {
+            fieldDef.insert(fieldDef.end(), varDef.begin(), varDef.end());
+            fieldData.insert(fieldData.end(), varData.begin(), varData.end());
+            varDef  = explist->GetFieldDefinitions();
+            varData = std::vector<std::vector<double>>(varDef.size());
+        }
+    }
+    LibUtilities::FieldIO::CreateDefault(session)->Write(filename, fieldDef,
+                                                         fieldData);
+}
+
 // Reads the coefficients of a field in the element order of the expansion
 // list, component-major, through a reshape to interleave width 1 rather than
 // through the de-interleaving copy of ToVector(), and leaves the field at the
@@ -207,9 +243,12 @@ void CheckEqual(const std::vector<double> &result,
 // Loads distinct coefficients from a field file into the solver fields, which
 // have the interleave width of the solver, and writes the solver fields to a
 // field file. The loaded field must hold the coefficients of the input file,
-// and the written file those of the solver fields, element by element.
+// and the written file those of the solver fields, element by element. With
+// splitDefinitions, each variable of the input file has field definitions of
+// its own.
 [[maybe_unused]] void RunFieldFileTest(const std::string &xml,
-                                       const std::string &execStr)
+                                       const std::string &execStr,
+                                       const bool splitDefinitions)
 {
     const auto inputFile  = FileName(execStr, "_in.fld");
     const auto outputFile = FileName(execStr, "_out.fld");
@@ -236,20 +275,8 @@ void CheckEqual(const std::vector<double> &result,
         expected[i] = 1.0 + 1.0e-3 * static_cast<double>(i);
     }
 
-    auto fieldDef = explist->GetFieldDefinitions();
-    std::vector<std::vector<double>> fieldData(fieldDef.size());
-    for (size_t comp = 0; comp < variables.size(); ++comp)
-    {
-        Array<OneD, double> component(ncoeffs,
-                                      expected.data() + comp * ncoeffs);
-        for (size_t i = 0; i < fieldDef.size(); ++i)
-        {
-            fieldDef[i]->m_fields.push_back(variables[comp]);
-            explist->AppendFieldData(fieldDef[i], fieldData[i], component);
-        }
-    }
-    LibUtilities::FieldIO::CreateDefault(session)->Write(inputFile, fieldDef,
-                                                         fieldData);
+    WriteInputFile(session, explist, variables, expected, inputFile,
+                   splitDefinitions);
 
     // Load.
     SessionFunction initialConditions(session, explist, "InitialConditions");
@@ -299,7 +326,24 @@ BOOST_AUTO_TEST_CASE(FieldFileIO_LoadAndWrite)
     {
         BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
         {
-            RunFieldFileTest(xml, execStr);
+            RunFieldFileTest(xml, execStr, false);
+        }
+    }
+}
+
+// As FieldFileIO_LoadAndWrite, from an input file in which u and v are stored
+// in separate field definitions, so that each definition lacks one of the
+// variables read.
+BOOST_AUTO_TEST_CASE(FieldFileIO_LoadSplitDefinitions)
+{
+    const std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+    for (const std::string xml :
+         {"run/square_all_elements.xml", "run/cube_all_elements.xml"})
+    {
+        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
+        {
+            RunFieldFileTest(xml, execStr, true);
         }
     }
 }

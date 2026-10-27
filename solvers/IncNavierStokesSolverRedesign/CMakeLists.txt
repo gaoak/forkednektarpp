@@ -377,6 +377,39 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
         ENDIF()
     ENDIF()
 
+    # A pressure one order below the velocity, and a restart from the field
+    # file that run writes, in which the pressure has field definitions of
+    # its own, on every execution space.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            FOREACH(Case MixedOrder MixedOrder_Restart)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlow2D_${Case}_semiimplicit_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_${Case}.tst
+                        -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=semiimplicit")
+            ENDFOREACH()
+        ENDFOREACH()
+    ENDIF()
+
+    # A run with no --opExecSpace or --opImpl, which takes the defaults of the
+    # build. The end-of-run summary reads the execution space and failed
+    # without the argument. Registered for host builds only: a device build
+    # defaults to Device SumFac, where this session does not converge yet.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION AND NOT NEKTAR_ENABLE_DEVICE)
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_semiimplicit_DefaultExecSpace
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D.tst -v
+                "--solver-options=-I Formulation=semiimplicit")
+    ENDIF()
+
     # TGVFlow3D_Hex8 Serial+StdMat is disabled for now: at this element
     # order (NUMMODES=7) it hits a pre-existing slow non-templated-operator
     # fallback in Serial execspace dispatch, unrelated to StdMat evaluation

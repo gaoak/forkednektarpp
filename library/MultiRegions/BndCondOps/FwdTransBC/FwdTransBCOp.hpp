@@ -54,10 +54,9 @@ public:
     {
         auto session = expansionList->GetSession();
 
-        std::string execStr0 =
-            (execStr == "")
-                ? session->GetCmdLineArgument<std::string>("opExecSpace")
-                : execStr;
+        std::string execStr0 = (execStr == "")
+                                   ? Operator<TData>::GetOpExecSpace(session)
+                                   : execStr;
 
         auto op = Operator<TData>::template Create<FwdTransBCOp>(
             expansionList, components, execStr0);

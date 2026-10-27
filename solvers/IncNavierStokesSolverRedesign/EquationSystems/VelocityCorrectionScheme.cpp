@@ -1313,14 +1313,13 @@ std::vector<bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
 void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
 {
     std::vector<std::vector<double>> fieldCoeffs;
-    std::vector<std::string> variables(m_expansionLists.size());
 
     // Get vector with all component data and sort into vectors per component
     std::vector<double> allCoeffs = m_fields_coeff.ToVector<double>();
     auto ncomp                    = m_fields_coeff.GetNumComponents();
     auto ncoeffsTotal = allCoeffs.size(); // use allCoeffs to not have padding
     auto ncoeffsComp  = ncoeffsTotal / ncomp;
-    fieldCoeffs.reserve(ncomp + 1); // Note +1 to add pressure
+    fieldCoeffs.reserve(ncomp);
     for (unsigned int nc = 0; nc < ncomp; ++nc)
     {
         auto first = allCoeffs.begin() + nc * ncoeffsComp;
@@ -1330,19 +1329,11 @@ void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
                                  std::make_move_iterator(last));
     }
 
-    // TODO might have to interpolate pressure to velocity fields for correct
-    // output? Add pressure to fieldCoeffs
-    std::vector<double> pressureCoeffs = m_pressure_coeff.ToVector<double>();
-    auto first                         = pressureCoeffs.begin();
-    auto last                          = pressureCoeffs.end();
-    fieldCoeffs.emplace_back(std::make_move_iterator(first),
-                             std::make_move_iterator(last));
-
     // Note: FieldDef holds nummodes, basis, shapetype, variable strings, ..
     auto fieldDef = m_expansionLists[0]->GetFieldDefinitions();
     std::vector<std::vector<double>> fieldData(fieldDef.size());
 
-    for (unsigned int nc = 0; nc < ncomp + 1; ++nc)
+    for (unsigned int nc = 0; nc < ncomp; ++nc)
     {
         for (size_t i = 0; i < fieldDef.size(); ++i)
         {
@@ -1352,6 +1343,28 @@ void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
             m_expansionLists[0]->AppendFieldData(fieldDef[i], fieldData[i],
                                                  fieldCoeffs[nc]);
         }
+    }
+
+    // The pressure is added to the definitions of the velocity when it has
+    // the same expansion. Otherwise its coefficients do not fit those
+    // definitions, and it is stored in definitions of its own expansion.
+    const auto &pressureExpansion      = m_expansionLists[m_pressureIndex];
+    std::vector<double> pressureCoeffs = m_pressure_coeff.ToVector<double>();
+    size_t pressureDefStart            = 0;
+    if (!m_graph->SameExpansionInfo(m_variablesFields[0],
+                                    m_variablesPressure[0]))
+    {
+        pressureDefStart = fieldDef.size();
+        auto pressureDef = pressureExpansion->GetFieldDefinitions();
+        fieldDef.insert(fieldDef.end(), pressureDef.begin(), pressureDef.end());
+        fieldData.resize(fieldDef.size());
+    }
+
+    for (size_t i = pressureDefStart; i < fieldDef.size(); ++i)
+    {
+        fieldDef[i]->m_fields.push_back(m_variablesPressure[0]);
+        pressureExpansion->AppendFieldData(fieldDef[i], fieldData[i],
+                                           pressureCoeffs);
     }
 
     m_fieldMetaDataMap["Time"] = std::to_string(m_time);

@@ -38,6 +38,7 @@
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 
+#include <algorithm>
 #include <map>
 
 namespace Nektar::SolverCore
@@ -100,14 +101,26 @@ void SessionFunction::EvaluateFld(
 
         std::vector<double> compCoeffs(ncoeffs, 0.0);
         auto &imported = importedFields.at(filename);
-        // Re-order FieldData into expList order
+        // Re-order FieldData into expList order. A file may split its
+        // fields over several definitions, as one written with a pressure of
+        // another order does, so only those holding the variable are read.
+        bool found = false;
         for (std::size_t i = 0; i < imported.fieldDefs.size(); ++i)
         {
+            const auto &defFields = imported.fieldDefs[i]->m_fields;
+            if (std::find(defFields.begin(), defFields.end(), fileVar) ==
+                defFields.end())
+            {
+                continue;
+            }
+            found = true;
             // ExpList handles element-id reordering and modal interpolation.
             m_expList->ExtractDataToCoeffs(imported.fieldDefs[i],
                                            imported.fieldData[i], fileVar,
                                            compCoeffs);
         }
+        ASSERTL0(found,
+                 "Field (" + fileVar + ") not found in file " + filename + ".");
 
         std::copy(compCoeffs.begin(), compCoeffs.end(),
                   allCoeffs.begin() + n * ncoeffs);

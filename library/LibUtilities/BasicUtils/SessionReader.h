@@ -403,7 +403,10 @@ public:
     /// Retrieves a command-line argument value.
     template <typename T> T GetCmdLineArgument(const std::string &pName) const
     {
-        return m_cmdLineOptions.find(pName)->second.as<T>();
+        auto x = m_cmdLineOptions.find(pName);
+        ASSERTL0(x != m_cmdLineOptions.end(),
+                 "Command-line argument '" + pName + "' not defined.");
+        return x->second.as<T>();
     }
     /// Registers a command-line argument with the session reader.
     LIB_UTILITIES_EXPORT inline static std::string RegisterCmdLineArgument(
