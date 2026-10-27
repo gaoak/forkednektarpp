@@ -544,7 +544,7 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
             FwdTransBCQuadSumFacTOPKernel<DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, s_basis0, s_basis1, w0, w1,
                 offset_seg, invintmass0, invintmass1, tjacptr, tmapptr,
-                tsignptr, nmTotInt, imapptr, invintmass, jacptr, inptr, outptr,
+                tsignptr, nmTotInt, imapptr, massintptr, jacptr, inptr, outptr,
                 s_wsp1, s_wsp2, s_wsp3, s_wsp4, threadBlock);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)

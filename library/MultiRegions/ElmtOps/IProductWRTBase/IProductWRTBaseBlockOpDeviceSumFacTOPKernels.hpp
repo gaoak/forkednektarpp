@@ -1041,7 +1041,7 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacTOPKernel(
             prod *= scale;
         }
 
-        blockReduceSum(prod, threadBlock, out + 1);
+        blockReduceSum<NektarSpaces::LocalScope>(prod, threadBlock, out + 1);
     }
 
     localBarrier(threadBlock);
@@ -1507,11 +1507,13 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
 
                 if (r == nm2 - 1u)
                 {
-                    blockReduceSum(prod[r], threadBlock, out + 1);
+                    blockReduceSum<NektarSpaces::LocalScope>(
+                        prod[r], threadBlock, out + 1);
                 }
                 else
                 {
-                    blockReduceSum(prod[r], threadBlock, out + nm2 + r);
+                    blockReduceSum<NektarSpaces::LocalScope>(
+                        prod[r], threadBlock, out + nm2 + r);
                 }
             }
         }
@@ -1543,8 +1545,10 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
                 prod1 *= scale;
             }
 
-            blockReduceSum(prod0, threadBlock, out + 1);
-            blockReduceSum(prod1, threadBlock, out + nm2);
+            blockReduceSum<NektarSpaces::LocalScope>(prod0, threadBlock,
+                                                     out + 1);
+            blockReduceSum<NektarSpaces::LocalScope>(prod1, threadBlock,
+                                                     out + nm2);
 
             // singular edge
             for (unsigned int r = 1u; r < nm2 - 1u; ++r)
@@ -1566,7 +1570,8 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTetSumFacTOPKernel(
                     prod *= scale;
                 }
 
-                blockReduceSum(prod, threadBlock, out + nm2 + r);
+                blockReduceSum<NektarSpaces::LocalScope>(prod, threadBlock,
+                                                         out + nm2 + r);
             }
         }
     }
@@ -1811,7 +1816,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
                     prod[q] *= scale;
                 }
 
-                blockReduceSum(prod[q], threadBlock, out + nm2 * q + 1);
+                blockReduceSum<NektarSpaces::LocalScope>(prod[q], threadBlock,
+                                                         out + nm2 * q + 1);
             }
         }
         else
@@ -1835,7 +1841,8 @@ NEK_DEVICE_INLINE static void IProductWRTBasePrismSumFacTOPKernel(
                     prod *= scale;
                 }
 
-                blockReduceSum(prod, threadBlock, out + nm2 * q + 1);
+                blockReduceSum<NektarSpaces::LocalScope>(prod, threadBlock,
+                                                         out + nm2 * q + 1);
             }
         }
     }
@@ -2064,7 +2071,7 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacTOPKernel(
             prod *= scale;
         }
 
-        blockReduceSum(prod, threadBlock, out + 1);
+        blockReduceSum<NektarSpaces::LocalScope>(prod, threadBlock, out + 1);
     }
 
     localBarrier(threadBlock);

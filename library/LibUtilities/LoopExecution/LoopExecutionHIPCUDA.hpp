@@ -91,14 +91,21 @@ inline void parallel_for(const size_t begin, const size_t end,
     CHECK_LAST_HIPCUDA_ERROR();
 }
 
-// Atomic combination of val into *dest by a reduction.
-template <typename Reduction>
-NEK_DEVICE_INLINE static void reduce_atomic(
+// Sets *dest to val if init, and otherwise combines val into it by Reduction.
+// Set, it has a single writer. Combined into, it may be shared with the
+// reductions of other blocks of a Field on other streams, so takes one
+// global-scope atomic.
+template <bool init, typename Reduction>
+NEK_DEVICE_INLINE static void reduce_store(
     typename Reduction::value_type *const dest,
     const typename Reduction::value_type val)
 {
     using TData = typename Reduction::value_type;
-    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+    if constexpr (init)
+    {
+        *dest = val;
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         atomic_add<NektarSpaces::GlobalScope>(dest, val);
     }
@@ -114,8 +121,8 @@ NEK_DEVICE_INLINE static void reduce_atomic(
 
 // Partial results of nred values per thread block: functor(i, vals) writes
 // those of index i to vals[0, nred), which Reduction combines. Result s of
-// block b is in buffer[s * gridDim.x + b], which is set to the identity first
-// if init.
+// block b is in buffer[s * gridDim.x + b], which it is set to if init and is
+// otherwise combined into.
 template <bool init, typename Reduction, unsigned int nred, typename Functor,
           unsigned int blockSize = NektarSpaces::Device::reductionBlockSize()>
 __global__ __launch_bounds__(blockSize) void reduceNKernel(
@@ -137,19 +144,6 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(
         v[s] = identity;
     }
 
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            for (unsigned int s = 0; s < nred; ++s)
-            {
-                buffer[s * gridDim.x + block.group_index().x] = identity;
-            }
-        }
-    }
-
-    block.sync();
-
     for (size_t tid = begin + grid.thread_rank(); tid < end; tid += grid.size())
     {
         TData vals[nred];
@@ -160,23 +154,23 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(
         }
     }
 
-    warp.sync();
-#pragma unroll
     for (unsigned int s = 0; s < nred; ++s)
     {
+        v[s] = blockReduceWarpPartials(v[s], identity, [&](TData x) {
 #pragma unroll
-        for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
-        {
-            v[s] = reduce_join<Reduction>(v[s], warp.shfl_down(v[s], offset));
-        }
+            for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+            {
+                x = reduce_join<Reduction>(x, warp.shfl_down(x, offset));
+            }
+            return x;
+        });
     }
 
-    // use atomics to combine over warps
-    if (warp.thread_rank() == 0)
+    if (block.thread_rank() == 0)
     {
         for (unsigned int s = 0; s < nred; ++s)
         {
-            reduce_atomic<Reduction>(
+            reduce_store<init, Reduction>(
                 &buffer[s * gridDim.x + block.group_index().x], v[s]);
         }
     }

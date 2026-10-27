@@ -451,25 +451,29 @@ template <ReduceOp op, typename TData> inline constexpr TData reduceIdentity()
     }
 }
 
-// Atomic combination of val into *dest by a reduction, within a work-group.
-template <ReduceOp op, typename TData>
-static inline void reduceAtomic(TData *const dest, const TData val)
+// Sets *dest to val if init, and otherwise combines val into it by reduction
+// op. Set, it has a single writer. Combined into, it may be shared with the
+// reductions of other blocks of a Field on other queues, so takes one
+// device-scope atomic.
+template <bool init, ReduceOp op, typename TData>
+static inline void reduceStore(TData *const dest, const TData val)
 {
-    if constexpr (op == ReduceOp::Sum)
+    if constexpr (init)
     {
-        atomic_add<NektarSpaces::LocalScope>(dest, val);
+        *dest = val;
     }
-    else if constexpr (op == ReduceOp::Max)
+    else if constexpr (op == ReduceOp::Sum)
     {
-        atomic_max<NektarSpaces::LocalScope>(dest, val);
+        atomic_add<NektarSpaces::GlobalScope>(dest, val);
+    }
+    else if constexpr (op == ReduceOp::Max || op == ReduceOp::AbsMax)
+    {
+        // An AbsMax partial result is not negative.
+        atomic_max<NektarSpaces::GlobalScope>(dest, val);
     }
     else if constexpr (op == ReduceOp::Min)
     {
-        atomic_min<NektarSpaces::LocalScope>(dest, val);
-    }
-    else if constexpr (op == ReduceOp::AbsMax)
-    {
-        atomic_max<NektarSpaces::LocalScope>(dest, val);
+        atomic_min<NektarSpaces::GlobalScope>(dest, val);
     }
 }
 
@@ -695,8 +699,8 @@ static inline void vecReduceNJoinMasked(TData *v, const VecMask<TData> m,
 }
 
 // Partial result of reduction op over TransformOp<TData>()(x[i]...) per
-// work-group, in out[g] for work-group g, which is set to the identity first if
-// init.
+// work-group, in out[g] for work-group g, which it is set to if init and is
+// otherwise combined into.
 template <bool init, ReduceOp op, template <typename> typename TransformOp,
           typename TData, typename... TIn>
 void reduceKernel(const unsigned int gridSize, const unsigned int blockSize,
@@ -727,13 +731,6 @@ void reduceKernel(const unsigned int gridSize, const unsigned int blockSize,
                         .get();
                 const size_t lid = indx.get_local_id(0);
                 const size_t gid = indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    out[indx.get_group(0)] = identity;
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
 
                 TData tmp = identity;
                 if constexpr (vecSize > 1u)
@@ -779,7 +776,7 @@ void reduceKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 if (lid == 0)
                 {
-                    reduceAtomic<op>(out + indx.get_group(0), scratch[0]);
+                    reduceStore<init, op>(out + indx.get_group(0), scratch[0]);
                 }
             });
     });
@@ -817,13 +814,6 @@ void reduceKernel(const unsigned int gridSize, const unsigned int blockSize,
                         .get();
                 const size_t lid = indx.get_local_id(0);
                 const size_t gid = indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    out[indx.get_group(0)] = identity;
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
 
                 TData tmp = identity;
                 if constexpr (vecSize > 1u)
@@ -874,7 +864,7 @@ void reduceKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                 if (lid == 0)
                 {
-                    reduceAtomic<op>(out + indx.get_group(0), scratch[0]);
+                    reduceStore<init, op>(out + indx.get_group(0), scratch[0]);
                 }
             });
     });
@@ -883,8 +873,8 @@ void reduceKernel(const unsigned int gridSize, const unsigned int blockSize,
 
 // Partial results of nred reductions op per work-group, of the values
 // TransformOp<TData>()(vals, x[i]...) writes to vals[0, nred) for each
-// entry i: result s of work-group g is in out[s * gridSize + g], which is set
-// to the identity first if init.
+// entry i: result s of work-group g is in out[s * gridSize + g], which it is
+// set to if init and is otherwise combined into.
 template <bool init, ReduceOp op, unsigned int nred,
           template <typename> typename TransformOp, typename TData,
           typename... TIn>
@@ -916,16 +906,6 @@ void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                         .get();
                 const size_t lid = indx.get_local_id(0);
                 const size_t gid = indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    for (unsigned int s = 0; s < nred; ++s)
-                    {
-                        out[s * gridSize + indx.get_group(0)] = identity;
-                    }
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
 
                 TData tmp[nred];
                 for (unsigned int s = 0; s < nred; ++s)
@@ -985,8 +965,9 @@ void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                 {
                     for (unsigned int s = 0; s < nred; ++s)
                     {
-                        reduceAtomic<op>(out + s * gridSize + indx.get_group(0),
-                                          scratch[s * blockSize]);
+                        reduceStore<init, op>(out + s * gridSize +
+                                                   indx.get_group(0),
+                                               scratch[s * blockSize]);
                     }
                 }
             });
@@ -1026,16 +1007,6 @@ void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                         .get();
                 const size_t lid = indx.get_local_id(0);
                 const size_t gid = indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    for (unsigned int s = 0; s < nred; ++s)
-                    {
-                        out[s * gridSize + indx.get_group(0)] = identity;
-                    }
-                }
-
-                indx.barrier(sycl::access::fence_space::local_space);
 
                 TData tmp[nred];
                 for (unsigned int s = 0; s < nred; ++s)
@@ -1093,8 +1064,9 @@ void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                 {
                     for (unsigned int s = 0; s < nred; ++s)
                     {
-                        reduceAtomic<op>(out + s * gridSize + indx.get_group(0),
-                                          scratch[s * blockSize]);
+                        reduceStore<init, op>(out + s * gridSize +
+                                                   indx.get_group(0),
+                                               scratch[s * blockSize]);
                     }
                 }
             });

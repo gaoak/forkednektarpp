@@ -130,6 +130,7 @@ v5.11.0
 - Form the divergence of the device SumFac Divergence kernels in registers and write it once per point instead of accumulating each component in global memory (!2886)
 - Extrapolate the time integration history in one pass per block with a new Math::linearCombination kernel instead of a zero and one daxpy per level, and build the time operators' MathHelper once (!2886)
 - Reshape the output of IProductWRTPhysNormalDerivTrace only when appending, and remove the unused AdvectionWeakDG and DiffusionIP kernel headers (!2886)
+- Fix the device reductions racing when the blocks of a Field, reduced on their own streams, combine into one result: the Math, parallel_reduce and grid-wide block reductions now form each thread block's total first and combine it with one global-scope atomic; add a Scope template parameter to blockReduce{Sum,Max,Min,Or,And}, LocalScope for a result owned by the thread block, as in the SumFacTOP IProductWRTBase kernels; fix the device FwdTransBC kernel applying the first element's inverse interior mass matrix to every deformed element (!2887)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

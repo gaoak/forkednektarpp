@@ -57,31 +57,38 @@ inline void parallel_for(const size_t begin, const size_t end,
     SYCLQueue::SetEvent(streamID, e);
 }
 
-// Atomic combination of val into *dest by a reduction.
-template <typename Reduction>
-NEK_DEVICE_INLINE static void reduce_atomic(
+// Sets *dest to val if init, and otherwise combines val into it by Reduction.
+// Set, it has a single writer. Combined into, it may be shared with the
+// reductions of other blocks of a Field on other queues, so takes one
+// device-scope atomic.
+template <bool init, typename Reduction>
+NEK_DEVICE_INLINE static void reduce_store(
     typename Reduction::value_type *const dest,
     const typename Reduction::value_type val)
 {
     using TData = typename Reduction::value_type;
-    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+    if constexpr (init)
     {
-        atomic_add<NektarSpaces::LocalScope>(dest, val);
+        *dest = val;
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+    {
+        atomic_add<NektarSpaces::GlobalScope>(dest, val);
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-        atomic_max<NektarSpaces::LocalScope>(dest, val);
+        atomic_max<NektarSpaces::GlobalScope>(dest, val);
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-        atomic_min<NektarSpaces::LocalScope>(dest, val);
+        atomic_min<NektarSpaces::GlobalScope>(dest, val);
     }
 }
 
 // Partial results of nred values per work-group: functor(i, vals) writes those
 // of index i to vals[0, nred), which Reduction combines. Result s of
-// work-group g is in buffer[s * gridSize + g], which is set to the identity
-// first if init.
+// work-group g is in buffer[s * gridSize + g], which it is set to if init and
+// is otherwise combined into.
 template <bool init, typename Reduction, unsigned int nred, typename Functor>
 void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                    const size_t begin, const size_t end,
@@ -108,21 +115,6 @@ void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                         .get();
                 const size_t lid = indx.get_local_id(0);
                 size_t gid       = begin + indx.get_global_id(0);
-
-                if (init && lid == 0)
-                {
-                    for (unsigned int s = 0; s < nred; ++s)
-                    {
-                        buffer[s * gridSize + indx.get_group(0)] = identity;
-                    }
-                }
-
-#if defined(__ADAPTIVECPP__)
-                indx.barrier(sycl::access::fence_space::local_space);
-#else
-                sycl::group_barrier(indx.get_group(),
-                                    sycl::memory_scope::work_group);
-#endif
 
                 TData tmp[nred];
                 for (unsigned int s = 0; s < nred; ++s)
@@ -177,9 +169,9 @@ void reduceNKernel(const unsigned int gridSize, const unsigned int blockSize,
                 {
                     for (unsigned int s = 0; s < nred; ++s)
                     {
-                        reduce_atomic<Reduction>(buffer + s * gridSize +
-                                                     indx.get_group(0),
-                                                 scratch[s * blockSize]);
+                        reduce_store<init, Reduction>(buffer + s * gridSize +
+                                                          indx.get_group(0),
+                                                      scratch[s * blockSize]);
                     }
                 }
             });
