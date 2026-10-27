@@ -124,6 +124,7 @@ v5.11.0
 - Fuse the derivative and metric stages of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels (!2884)
 - Coalesce the global memory reads of the device SumFacTOP AdvectionDealias and FwdTransBC kernels (!2884)
 - Replace boost's aligned_allocator with a local implementation, and qualify unqualified abs calls on floating-point values as std::abs; without the boost header, GeometryLocator's Newton check resolved to the integer abs on aarch64, breaking 3D interface searches (!2861)
+- Fix the device reductions racing when the blocks of a Field, reduced on their own streams, combine into one result: the Math, parallel_reduce and grid-wide block reductions now form each thread block's total first and combine it with one global-scope atomic; add a Scope template parameter to blockReduce{Sum,Max,Min,Or,And}, LocalScope for a result owned by the thread block, as in the SumFacTOP IProductWRTBase kernels; fix the device FwdTransBC kernel applying the first element's inverse interior mass matrix to every deformed element (!2887)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

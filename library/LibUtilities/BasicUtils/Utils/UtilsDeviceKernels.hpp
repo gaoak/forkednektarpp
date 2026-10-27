@@ -556,7 +556,7 @@ NEK_FORCE_INLINE static void DivideByJacobian(const size_t nelmt,
 }
 
 // Quadrature approximation of the element volume (integral of 1 over each
-// element): sum of w0[i]*w1[j]*w2[k]*jac, reduced across the thread block.
+// element): sum of w0[i]*w1[j]*w2[k]*jac, summed over the block's elements.
 // DEFORMED selects a per-quadrature-point Jacobian versus a single constant
 // one. Shared by NormL2 (normalisation) and MeanRemoval (mean division). The
 // two families differ only in the thread<->element mapping and Jacobian memory

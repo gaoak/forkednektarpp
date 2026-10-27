@@ -45,6 +45,14 @@ namespace Nektar::Math
 // on: the null stream, ordered against the block streams that reduce into it.
 inline constexpr unsigned int internalReductionStreamID = 0;
 
+// The device reduction kernels, reduce*Kernel<ExecSpace, init>(..., out,
+// streamID) and the like:
+// - init: set *out to the result of this reduction. No other launch in flight
+//   may write *out.
+// - !init: carry on the reduction from the current value of *out, written
+//   before the launch on its stream or on internalReductionStreamID. Launches
+//   on any streams may carry on into the same *out.
+
 template <typename MemSpace> class internalMathKernelMask
 {
 public:
