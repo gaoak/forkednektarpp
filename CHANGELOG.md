@@ -123,6 +123,7 @@ v5.11.0
 - Stage the transposed derivative matrices in shared memory in the device SumFacTOP Helmholtz, Laplacian, LinAdvDiffReaction and IProductWRTDerivBase kernels (!2884)
 - Fuse the derivative and metric stages of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels (!2884)
 - Coalesce the global memory reads of the device SumFacTOP AdvectionDealias and FwdTransBC kernels (!2884)
+- Replace boost's aligned_allocator with a local implementation, and qualify unqualified abs calls on floating-point values as std::abs; without the boost header, GeometryLocator's Newton check resolved to the integer abs on aarch64, breaking 3D interface searches (!2861)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

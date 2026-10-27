@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <CompressibleFlowSolver/EquationSystems/CompressibleFlowSystemImplicit.h>
 #include <SolverUtils/Advection/AdvectionWeakDG.h>
 
@@ -1918,7 +1920,7 @@ void CFSImplicit::PointFluxJacobianPoint(const Array<OneD, NekDouble> &Fwd,
     NekDouble c1, d1, c2, d2, c3, d3, c4, d4, c5, d5;
     NekDouble sml_ssf = 1.0E-12;
 
-    NekDouble fExactorSplt = 2.0 - abs(fsw); // if fsw=+-1 calculate
+    NekDouble fExactorSplt = 2.0 - std::abs(fsw); // if fsw=+-1 calculate
 
     NekDouble rhoL  = Fwd[0];
     NekDouble rhouL = Fwd[1];

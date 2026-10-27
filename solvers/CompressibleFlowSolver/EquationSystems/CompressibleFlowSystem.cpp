@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <CompressibleFlowSolver/EquationSystems/CompressibleFlowSystem.h>
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
@@ -1216,7 +1218,7 @@ void CompressibleFlowSystem::GetExactRinglebFlow(
 
     for (int i = 0; i < nTotQuadPoints; ++i)
     {
-        while ((abs(errV) > toll) || (abs(errTheta) > toll))
+        while ((std::abs(errV) > toll) || (std::abs(errTheta) > toll))
         {
             VV   = V * V;
             sint = sin(theta);
@@ -1256,7 +1258,7 @@ void CompressibleFlowSystem::GetExactRinglebFlow(
                   78125.0 / V * sint / pow(par1, 3.5) * pow((1.0 - ss), 0.5);
 
             // the matrix is singular when theta = pi/2
-            if (abs(y[i]) < toll && abs(cos(theta)) < toll)
+            if (std::abs(y[i]) < toll && std::abs(cos(theta)) < toll)
             {
                 J22 = -39062.5 / pow(par1, 3.5) / V +
                       3125 / pow(par1, 2.5) / (VV * V) +
@@ -1293,8 +1295,8 @@ void CompressibleFlowSystem::GetExactRinglebFlow(
             V     = V + dV;
             theta = theta + dtheta;
 
-            errV     = abs(dV);
-            errTheta = abs(dtheta);
+            errV     = std::abs(dV);
+            errTheta = std::abs(dtheta);
         }
 
         c = sqrt(1.0 - gamma_1_2 * VV);

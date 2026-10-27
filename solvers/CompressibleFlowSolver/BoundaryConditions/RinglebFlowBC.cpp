@@ -33,7 +33,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "RinglebFlowBC.h"
+
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
+#include <cmath>
 
 namespace Nektar
 {
@@ -145,7 +147,7 @@ void RinglebFlowBC::v_Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
         for (int j = 0; j < npoints; j++)
         {
 
-            while ((abs(errV) > toll) || (abs(errTheta) > toll))
+            while ((std::abs(errV) > toll) || (std::abs(errTheta) > toll))
             {
                 VV   = V * V;
                 sint = sin(theta);
@@ -188,7 +190,7 @@ void RinglebFlowBC::v_Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
                     78125.0 / V * sint / pow(par1, 3.5) * pow((1.0 - ss), 0.5);
 
                 // the matrix is singular when theta = pi/2
-                if (abs(x1[j]) < toll && abs(cos(theta)) < toll)
+                if (std::abs(x1[j]) < toll && std::abs(cos(theta)) < toll)
                 {
                     J22 = -39062.5 / pow(par1, 3.5) / V +
                           3125 / pow(par1, 2.5) / (VV * V) +
@@ -226,8 +228,8 @@ void RinglebFlowBC::v_Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
                 V     = V + dV;
                 theta = theta + dtheta;
 
-                errV     = abs(dV);
-                errTheta = abs(dtheta);
+                errV     = std::abs(dV);
+                errTheta = std::abs(dtheta);
             }
 
             c                  = sqrt(1.0 - gamma_1_2 * VV);

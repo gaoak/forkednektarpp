@@ -65,6 +65,7 @@
 #include <MultiRegions/GlobalLinSysKey.h> // for GlobalLinSysKey
 #include <MultiRegions/GlobalMatrix.h>    // for GlobalMatrix, etc
 #include <MultiRegions/GlobalMatrixKey.h> // for GlobalMatrixKey
+#include <cmath>
 #include <iomanip>
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
@@ -3912,7 +3913,7 @@ NekDouble ExpList::Linf(const Array<OneD, const NekDouble> &inarray,
     {
         for (int i = 0; i < m_npoints; ++i)
         {
-            err = max(err, abs(inarray[i] - soln[i]));
+            err = max(err, std::abs(inarray[i] - soln[i]));
         }
     }
 

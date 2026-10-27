@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LibUtilities/LibUtilitiesDeclspec.h>
 #include <LibUtilities/LinearAlgebra/Blas.hpp>
@@ -1014,8 +1016,8 @@ void LocTraceToTraceMap::CalcLocTracePhysToTraceIDMap_2D(
         {
             m_LocTracephysToTraceIDMap[nlr][i] =
                 std::round(loctracePntsLR[nlr][i]);
-            error += abs(loctracePntsLR[nlr][i] -
-                         NekDouble(m_LocTracephysToTraceIDMap[nlr][i]));
+            error += std::abs(loctracePntsLR[nlr][i] -
+                              NekDouble(m_LocTracephysToTraceIDMap[nlr][i]));
         }
     }
     error = error / NekDouble(m_nLocTracePts);
@@ -1100,8 +1102,8 @@ void LocTraceToTraceMap::CalcLocTracePhysToTraceIDMap_3D(
         {
             m_LocTracephysToTraceIDMap[nlr][i] =
                 std::round(loctracePntsLR[nlr][i]);
-            error += abs(loctracePntsLR[nlr][i] -
-                         NekDouble(m_LocTracephysToTraceIDMap[nlr][i]));
+            error += std::abs(loctracePntsLR[nlr][i] -
+                              NekDouble(m_LocTracephysToTraceIDMap[nlr][i]));
         }
     }
     error = error / NekDouble(m_nLocTracePts);
