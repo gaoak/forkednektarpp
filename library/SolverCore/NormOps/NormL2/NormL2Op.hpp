@@ -78,6 +78,8 @@ public:
             op->m_blockOp.push_back(NormL2BlockOp<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
                 execStr0));
+            op->m_blockOp.back()->SetNumElements(
+                blockAttr[block_idx].GetNumElements());
         }
 
         return op;
@@ -97,27 +99,18 @@ public:
 
     std::vector<TData> GetNorms()
     {
-        auto ptr = m_data.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        return std::vector<TData>(ptr, ptr + m_data.size() - 1);
-    }
-
-    TData GetVolume()
-    {
-        auto ptr = m_data.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        return ptr[m_data.size() - 1];
+        return m_data.template ToVector<TData>();
     }
 
     void SetNormalised(bool normalised)
     {
         m_normalised = normalised;
-        for (auto &blockOp : this->m_blockOp)
-        {
-            blockOp->SetNormalised(normalised);
-        }
     }
 
 protected:
-    bool m_normalised = false;
+    bool m_normalised     = false;
+    bool m_volumeComputed = false;
+    TData m_volume        = 1.0;
     LibUtilities::MemoryRegion<TData> m_data;
     std::vector<std::shared_ptr<NormL2BlockOp<TData>>> m_blockOp;
 

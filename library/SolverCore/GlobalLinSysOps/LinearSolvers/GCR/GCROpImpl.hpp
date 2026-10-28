@@ -94,7 +94,19 @@ public:
             std::max(m_LinSysMaxStorage, 2u), eHostPinned);
         m_coeffs =
             LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
-        m_orthCoeffs.resize(m_LinSysMaxStorage * m_LinSysMaxStorage);
+        m_scale =
+            LibUtilities::MemoryRegion<TData>(m_LinSysMaxStorage, eHostPinned);
+        // Every column starts aligned, as the vectorised kernels writing it
+        // require.
+        constexpr unsigned int width =
+            NektarSpaces::max_vector_width<TData>::value;
+        m_orthStride = (m_LinSysMaxStorage + width - 1) / width * width;
+        m_orthCoeffs = LibUtilities::MemoryRegion<TData>(
+            m_LinSysMaxStorage * m_orthStride, eHostPinned);
+        // Allocated here, in MemSpace, since they are only ever updated in
+        // place and read.
+        m_scale.template Initialize<MemSpace>(0);
+        m_orthCoeffs.template Initialize<MemSpace>(0);
         m_alphas.resize(m_LinSysMaxStorage);
         m_Q.ResizeNumField(1);
         m_P.ResizeNumField(1);
@@ -117,27 +129,37 @@ protected:
     LibUtilities::MultiField<TData, FieldState::Coeff> m_Q;
     LibUtilities::MultiField<TData, FieldState::Coeff> m_P;
     LibUtilities::MemoryRegion<TData> m_vExchange;
-    LibUtilities::MemoryRegion<TData> m_coeffs; ///< Orthogonalisation and
-                                                ///< solution update
+    LibUtilities::MemoryRegion<TData> m_coeffs; ///< Solution update
                                                 ///< coefficients.
+    LibUtilities::MemoryRegion<TData> m_scale;  ///< (Q_j, Q_j) of the current
+                                                ///< cycle.
 
     unsigned int m_LinSysMaxStorage;
+    /// Stride between the columns of #m_orthCoeffs, padded to a multiple of
+    /// the vector width.
+    unsigned int m_orthStride;
 
     // The search directions of a restart cycle are P^ = P U, P holding the
     // preconditioned residuals and U being unit upper triangular, column j
-    // being e_j plus the orthogonalisation coefficients c_ji times the
+    // being e_j minus the orthogonalisation coefficients c_ji times the
     // columns i < j. The solution update sum_j alpha_j P^_j is then P y,
-    // y = U alpha, applied once per cycle by UpdateSolution().
-    std::vector<TData> m_orthCoeffs; ///< c_ji at j * m_LinSysMaxStorage + i.
-    std::vector<TData> m_alphas;     ///< alpha_j of the current cycle.
+    // y = U alpha, applied once per cycle by UpdateSolution(). The
+    // coefficients are formed and kept in MemSpace, and read on the host
+    // only there.
+    LibUtilities::MemoryRegion<TData> m_orthCoeffs; ///< c_ji at
+                                                    ///< j * m_orthStride + i.
+    std::vector<TData> m_alphas; ///< alpha_j of the current cycle.
 
     /*
      *  out += P y over the n directions of the current cycle, with
-     *  y_j = alpha_j + sum_{k > j} c_kj y_k.
+     *  y_j = alpha_j - sum_{k > j} c_kj y_k.
      */
     void UpdateSolution(const unsigned int n,
                         LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
+        // Device-to-host copy, once per cycle.
+        auto orthCoeffsHost =
+            m_orthCoeffs.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         auto coeffsHost =
             m_coeffs.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int j = n; j-- > 0;)
@@ -145,8 +167,8 @@ protected:
             coeffsHost[j] = m_alphas[j];
             for (unsigned int k = j + 1; k < n; ++k)
             {
-                coeffsHost[j] +=
-                    m_orthCoeffs[k * m_LinSysMaxStorage + j] * coeffsHost[k];
+                coeffsHost[j] -=
+                    orthCoeffsHost[k * m_orthStride + j] * coeffsHost[k];
             }
         }
 
@@ -172,7 +194,6 @@ protected:
         this->m_niter   = 0;
         unsigned int ii = 0;
         TData rhsMagnitude, eps, alpha;
-        std::vector<TData> scale(m_LinSysMaxStorage);
 
         // Reset the fields to zero.
         out.template Initialize<MemSpace>(0);
@@ -247,8 +268,9 @@ protected:
             this->m_lhs->Apply(m_P[ii], m_Q[ii]);
 
             // Update vector: Q[ii] loses its components along the previous
-            // directions, with coefficients -beta_i / scale_i,
-            // beta_i = (Q[ii], Q[i]), kept for the solution update.
+            // directions, with coefficients c_i = beta_i / scale_i,
+            // beta_i = (Q[ii], Q[i]), formed in MemSpace and kept there for
+            // the solution update.
             if (ii > 0)
             {
                 // Reset device memory.
@@ -259,21 +281,14 @@ protected:
                 this->m_rowComm->template AllReduce<MemSpace>(
                     m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-                // Device-to-host copy.
-                exchangeHost =
-                    m_vExchange
-                        .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-                auto coeffsHost =
-                    m_coeffs
-                        .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-                for (unsigned int i = 0; i < ii; i++)
-                {
-                    coeffsHost[i] = -exchangeHost[i] / scale[i];
-                    m_orthCoeffs[ii * m_LinSysMaxStorage + i] = coeffsHost[i];
-                }
-
-                auto coeffs = m_coeffs.template GetPtr<MemSpace, ReadOnly>();
-                MultiAxpy<ExecSpace>(1.0, m_Q, 0, ii, coeffs, 1.0, m_Q[ii]);
+                auto orthCoeffs =
+                    m_orthCoeffs.template GetPtr<MemSpace, ReadWrite>() +
+                    ii * m_orthStride;
+                Math::divKernel<ExecSpace>(
+                    ii, m_vExchange.template GetPtr<MemSpace, ReadOnly>(),
+                    m_scale.template GetPtr<MemSpace, ReadOnly>(), orthCoeffs);
+                MultiAxpy<ExecSpace>(-1.0, m_Q, 0, ii, orthCoeffs, 1.0,
+                                     m_Q[ii]);
             }
 
             // Reset device memory.
@@ -292,9 +307,14 @@ protected:
                 m_vExchange
                     .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
+            // Keep (Q[ii], Q[ii]) in MemSpace for the coefficients of the
+            // later directions of the cycle.
+            Math::copyKernel<ExecSpace>(
+                1, m_vExchange.template GetPtr<MemSpace, ReadOnly>() + 1,
+                m_scale.template GetPtr<MemSpace, ReadWrite>() + ii);
+
             // Update coefficients.
-            scale[ii]    = exchangeHost[1];
-            alpha        = exchangeHost[0] / scale[ii];
+            alpha        = exchangeHost[0] / exchangeHost[1];
             m_alphas[ii] = alpha;
 
             // Update residual.

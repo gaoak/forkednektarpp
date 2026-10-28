@@ -70,7 +70,21 @@ public:
         this->v_Apply(inblock, data);
     }
 
+    /// Add the volume of the block's elements to data[0].
+    void Volume(LibUtilities::MemoryRegion<TData> &data)
+    {
+        this->v_Volume(data);
+    }
+
+    /// Set the number of elements in the block, without padding.
+    void SetNumElements(const size_t nelmt)
+    {
+        m_nelmt = nelmt;
+    }
+
 protected:
+    size_t m_nelmt = 0;
+
     MeanRemovalBlockOp(const unsigned int block_idx,
                        const LocalRegions::ExpansionSharedPtr &exp,
                        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -81,6 +95,8 @@ protected:
     virtual void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data) = 0;
+
+    virtual void v_Volume(LibUtilities::MemoryRegion<TData> &data) = 0;
 };
 
 } // namespace Nektar::SolverCore

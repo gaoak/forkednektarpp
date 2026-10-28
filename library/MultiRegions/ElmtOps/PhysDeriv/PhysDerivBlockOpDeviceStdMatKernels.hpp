@@ -60,8 +60,7 @@
  *
  * MultiplyByDerivFactorKernel produces all `coordDim` components at once
  * and is used by PhysDeriv itself (and by the AdvectionDealias StdMat
- * implementation); MultiplyByDerivDirFactorKernel produces one chosen
- * component and is used by the Divergence StdMat implementation.
+ * implementation).
  */
 
 #pragma once
@@ -161,90 +160,6 @@ NEK_DEVICE_KERNEL static void MultiplyByDerivFactorKernel(
         for (unsigned int k = 0; k < ncoord; k++)
         {
             outptr[k * outoffset + idx] = tmp[k];
-        }
-
-        idx += getGlobalRange<0>(threadBlock);
-    }
-}
-
-/**
- * @brief Contract the standard-region derivatives of a whole block into
- * the single Cartesian derivative @p dir, overwriting or accumulating.
- *
- * The runtime @p dir argument plays the role that the DIR template
- * parameter plays in the sum-factorised kernels: it selects the
- * derivative-factor rows `dir * dimension + d`. The second grid dimension
- * picks the homogeneous plane, `nqTot * nelmt` values apart in both @p in
- * and @p out; the same geometry serves every plane.
- *
- * @tparam APPEND       Accumulate onto @p out instead of overwriting.
- * @tparam DEFORMED     Derivative factors vary point by point.
- * @tparam TthreadBlock Back-end thread-block handle type.
- * @tparam TData        Floating-point type of the field data.
- *
- * @param   dir         Cartesian component to produce.
- * @param   nqTot       Quadrature points per element.
- * @param   ncoord      Cartesian components the factor array holds
- *                      (coordDim); sets the per-element factor stride.
- * @param   dimension   Standard directions to contract over.
- * @param   nelmt       Elements in the block, including padding.
- * @param   inoffset    Stride between the standard-direction planes of
- *                      @p in.
- * @param   dfptr       Derivative factors of the block, transposed
- *                      layout.
- * @param   in          Standard-direction derivatives, plane @em d at
- *                      `d * inoffset`.
- * @param   out         Single Cartesian derivative plane.
- * @param   threadBlock Thread-block handle supplied by the launcher macro.
- */
-template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
-NEK_DEVICE_KERNEL static void MultiplyByDerivDirFactorKernel(
-    const unsigned dir, const unsigned nqTot, const unsigned ncoord,
-    const unsigned dimension, const size_t nelmt, const size_t inoffset,
-    const TData *dfptr, const TData *in, TData *out,
-    const TthreadBlock &threadBlock)
-{
-    const auto ndf     = ncoord * dimension;
-    const size_t nsize = nqTot * nelmt;
-
-    size_t idx           = getGlobalIdx<0>(threadBlock);
-    const unsigned int p = getBlockIdx<1>(threadBlock);
-    const TData *inptr   = in + nsize * p;
-    TData *outptr        = out + nsize * p;
-    while (idx < nsize)
-    {
-        const size_t e = idx / nqTot;
-
-        TData tmp;
-        if constexpr (DEFORMED)
-        {
-            tmp =
-                dfptr[(ndf - 1) * nqTot * e + nqTot * (dir * dimension) + idx] *
-                inptr[idx];
-            for (unsigned int d = 1; d < dimension; d++)
-            {
-                tmp += dfptr[(ndf - 1) * nqTot * e +
-                             nqTot * (dir * dimension + d) + idx] *
-                       inptr[idx + d * inoffset];
-            }
-        }
-        else
-        {
-            tmp = dfptr[(ndf * e + dir * dimension)] * inptr[idx];
-            for (unsigned int d = 1; d < dimension; d++)
-            {
-                tmp += dfptr[(ndf * e + dir * dimension + d)] *
-                       inptr[idx + d * inoffset];
-            }
-        }
-
-        if constexpr (APPEND)
-        {
-            outptr[idx] += tmp;
-        }
-        else
-        {
-            outptr[idx] = tmp;
         }
 
         idx += getGlobalRange<0>(threadBlock);

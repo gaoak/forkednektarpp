@@ -54,6 +54,13 @@ public:
     {
         m_dimension = expansionList->GetExp(0)->GetShapeDimension();
 
+        // The size contract is fixed here, once: the operator is built for
+        // the conserved variables rho, rho*u_i and E, and Apply() relies on
+        // it without re-checking.
+        ASSERTL0(components.size() == m_dimension + 2,
+                 "EulerVolumeFlux is built for the density, one momentum "
+                 "component per dimension and the energy.");
+
         SetUpEquationOfState(expansionList->GetSession(), m_EoS);
     }
 
@@ -92,19 +99,17 @@ protected:
             const auto inStride  = inblock.CompSize();
             const auto outStride = outblock.CompSize();
 
-            const auto nvarComps = inblock.GetNumComponents();
-
             if (this->m_append)
             {
                 EulerVolumeFluxKernel<true, ExecSpace, EqnOfSParams>(
-                    m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
-                    inbase, outbase, this->m_scale, streamID);
+                    m_EoS, npts, m_dimension, inStride, outStride, inbase,
+                    outbase, this->m_scale, streamID);
             }
             else
             {
                 EulerVolumeFluxKernel<false, ExecSpace, EqnOfSParams>(
-                    m_EoS, npts, m_dimension, nvarComps, inStride, outStride,
-                    inbase, outbase, this->m_scale, streamID);
+                    m_EoS, npts, m_dimension, inStride, outStride, inbase,
+                    outbase, this->m_scale, streamID);
             }
         }
         // The kernel is pointwise: the flux has the layout of the state.
