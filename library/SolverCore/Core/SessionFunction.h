@@ -43,6 +43,9 @@
 
 #include <SolverCore/SolverCoreDeclspec.h>
 
+#include <map>
+#include <memory>
+
 namespace Nektar::SolverCore
 {
 
@@ -60,6 +63,10 @@ public:
         LibUtilities::SessionReaderSharedPtr session,
         MultiRegions::ExpListSharedPtr expList, std::string functionName);
 
+    /// The same function on another expansion list, sharing the files read.
+    SOLVER_CORE_EXPORT SessionFunction(const SessionFunction &function,
+                                       MultiRegions::ExpListSharedPtr expList);
+
     SOLVER_CORE_EXPORT void EvaluateFld(
         const std::vector<std::string> &variables,
         LibUtilities::Field<double, FieldState::Coeff> &coeffs,
@@ -76,6 +83,17 @@ private:
     LibUtilities::SessionReaderSharedPtr m_session;
     MultiRegions::ExpListSharedPtr m_expList;
     std::string m_name;
+    /// Field files read so far, by file name; shared by the copies of this
+    /// function made for other expansion lists.
+    std::shared_ptr<std::map<std::string, ImportedField>> m_importedFields;
+    /// Expansion list a file is read through before it is projected onto
+    /// #m_expList; null to read it into #m_expList.
+    MultiRegions::ExpListSharedPtr m_fileExpList;
+
+    /// Read file coefficients in the element order of @p expList.
+    std::vector<double> ReadFldCoeffs(
+        const MultiRegions::ExpListSharedPtr &expList,
+        const std::vector<std::string> &variables, unsigned int domain) const;
 };
 
 using SessionFunctionSharedPtr = std::shared_ptr<SessionFunction>;

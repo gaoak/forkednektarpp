@@ -1066,7 +1066,9 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
 {
     /// Do initial conditions for velocity and additional scalar fields
     // Set initial conditions in m_fields using m_variables
-    UnsteadySystem::v_SetInitialConditions(initialTime);
+    SessionFunction initialConditions(m_session, m_expansionLists[0],
+                                      "InitialConditions");
+    SetInitialConditionsFrom(initialConditions, initialTime);
 
     /// Do initial conditions for auxiliary pressure field
     // Set time to initial time
@@ -1078,10 +1080,16 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
 
     // The pressure is projected as the other fields are, its Dirichlet
     // values included; its mass matrix projection is built only for
-    // Galerkin.
+    // Galerkin. The pressure function shares the files read for the
+    // velocity, so a file holding both is read once. A lower-order pressure
+    // is read from a file through the velocity expansion and projected
+    // element by element onto its own; see SessionFunction::EvaluateFld().
+    SessionFunction pressureConditions(initialConditions,
+                                       m_expansionLists[m_pressureIndex]);
     SetContinuousInitialConditions(
-        m_expansionLists[m_pressureIndex], m_variablesPressure, m_pressure,
-        m_pressure_coeff, m_bwdTransPressureOp, nullptr);
+        pressureConditions, m_expansionLists[m_pressureIndex],
+        m_variablesPressure, m_pressure, m_pressure_coeff, m_bwdTransPressureOp,
+        nullptr);
     PrintInitialConditions(m_expansionLists[m_pressureIndex],
                            m_variablesPressure);
 }

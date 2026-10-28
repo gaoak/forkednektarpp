@@ -374,6 +374,26 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             SET_TESTS_PROPERTIES(
                 IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_MPI
                 PROPERTIES PROCESSORS 2 TIMEOUT 120)
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelFile_MPI
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition_ParallelFile_MPI.tst
+                    -v --opExecSpace=Serial --opImpl=SumFac
+                    "--solver-options=-I Formulation=semiimplicit")
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelFile_MPI
+                PROPERTIES PROCESSORS 3 TIMEOUT 120)
+            IF(NEKTAR_USE_HDF5)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelHdf5_MPI
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition_ParallelHdf5_MPI.tst
+                        -v --opExecSpace=Serial --opImpl=SumFac
+                        "--solver-options=-I Formulation=semiimplicit")
+                SET_TESTS_PROPERTIES(
+                    IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelHdf5_MPI
+                    PROPERTIES PROCESSORS 3 TIMEOUT 120)
+            ENDIF()
         ENDIF()
     ENDIF()
 
@@ -407,6 +427,32 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_semiimplicit_DefaultExecSpace
             COMMAND Tester
                 ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D.tst -v
+                "--solver-options=-I Formulation=semiimplicit")
+    ENDIF()
+
+    # A P=2 velocity and a P=1 pressure started from a P=5 field file: the
+    # pressure is read through the velocity expansion and projected element
+    # by element, not truncated. At t=0 on every execution space, and with
+    # the Galerkin projection.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_MixedOrder_FileIC_semiimplicit_${ExecSpace}_${Implementation}
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D_MixedOrder_FileIC.tst
+                    -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                    "--solver-options=-I Formulation=semiimplicit")
+        ENDFOREACH()
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_MixedOrder_FileIC_Galerkin
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D_MixedOrder_FileIC_Galerkin.tst
+                -v --opExecSpace=Serial --opImpl=SumFac
                 "--solver-options=-I Formulation=semiimplicit")
     ENDIF()
 

@@ -679,14 +679,22 @@ rejection of a tagged pressure Neumann condition are checked with
 \label{sec:incns-ic}
 
 \code{VelocityCorrectionScheme::v\_SetInitialConditions} calls
-\code{UnsteadySystem::v\_SetInitialConditions} for the velocity and scalars
-and then treats the pressure in the same way, on its own expansion list.
+\code{UnsteadySystem::SetInitialConditionsFrom} for the velocity and scalars
+and then treats the pressure in the same way, on its own expansion list. The
+pressure evaluates a copy of the velocity's \code{SessionFunction}, which
+shares the files read for the velocity, so a file holding both is read once.
+A file written in parallel is read only in the parts that hold the elements
+of the process.
 Both go through \code{UnsteadySystem::SetContinuousInitialConditions}, which
 brings either source of an initial condition into the continuous space:
 \begin{enumerate}
   \item element coefficients: an expression is sampled at the quadrature
   points and projected element by element; a file (\code{.fld}/\code{.chk},
-  \code{SessionFunction::EvaluateFld}) is used as read;
+  \code{SessionFunction::EvaluateFld}) is used as read. A lower-order
+  pressure on the velocity's quadrature points is read from a file through
+  the velocity expansion and projected element by element onto its own, as
+  in the legacy solver, not truncated mode by mode to its order (with a
+  modified basis, the truncation to order~1 keeps the vertex values only);
   \item every local copy of a global degree of freedom is replaced by the
   signed average of all copies (\code{AvgAssmbScatrOp});
   \item the method selected by \code{SOLVERINFO ProjectInitialConditions}:
@@ -884,7 +892,8 @@ insensitive. Required: there is no default. \\
 (Section~\ref{sec:incns-weak}), case insensitive. Default \code{Strong}
 with \code{SemiImplicit}, \code{Weak} with \code{LinearImplicit}. \\
 \code{ProjectInitialConditions} & \code{Average} (default) or
-\code{Galerkin} (Section~\ref{sec:incns-ic}). \\
+\code{Galerkin} (Section~\ref{sec:incns-ic}). A lower-order pressure is
+projected from a file element by element in both. \\
 \multicolumn{2}{@{}l}{\textit{TIMEINTEGRATIONSCHEME}} \\
 \code{METHOD}, \code{ORDER} & \code{IMEX} with order 1--4. \code{IMEXdirk}
 (with \code{VARIANT}) is also available. \\
