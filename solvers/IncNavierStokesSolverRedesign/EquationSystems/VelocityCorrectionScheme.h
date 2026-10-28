@@ -149,6 +149,9 @@ protected:
     LibUtilities::Field<double, FieldState::Coeff> m_pressure_coeff;
     // Allocated only with m_weakPressure.
     LibUtilities::Field<double, FieldState::Coeff> m_wsp_coeff_1c;
+    // Weak pressure form of a singular system only: the integrals (phi, 1)
+    // of the pressure basis.
+    LibUtilities::Field<double, FieldState::Coeff> m_pressureBasisIntegrals;
     std::map<unsigned int,
              std::deque<LibUtilities::Field<double, FieldState::Phys>>>
         m_advectionRhsHistories;
@@ -185,10 +188,9 @@ protected:
     std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, double>>
         m_iprodDerivPressureOp;
 
-    // Lazily constructed on first use in v_PrintNorms. Execution-space
-    // dispatch (Serial/AVX/Device) is resolved once by
-    // MeanRemovalOp::Create(), so this is used identically regardless of
-    // opExecSpace.
+    // Singular pressure system only: balances the pressure forcing against
+    // the Neumann values of the system and removes the mean of the reported
+    // pressure error.
     std::shared_ptr<MeanRemovalOp<double>> m_meanRemovalOp;
 
     VelocityCorrectionScheme(

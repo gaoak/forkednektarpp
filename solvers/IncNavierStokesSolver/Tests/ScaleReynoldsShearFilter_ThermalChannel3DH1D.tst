@@ -17,38 +17,38 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="1e-12">1.83126</value>
-            <value variable="v" tolerance="1e-12">0.0581544</value>
+            <value variable="u" tolerance="1e-12">1.83108</value>
+            <value variable="v" tolerance="1e-12">0.0137982</value>
             <value variable="w" tolerance="1e-12">0</value>
-            <value variable="theta" tolerance="1e-12">1.43323</value>
-            <value variable="p" tolerance="1e-12">283.566</value>
-            <value variable="uu" tolerance="1e-12">2.27537</value>
-            <value variable="uv" tolerance="1e-12">0.0127426</value>
+            <value variable="theta" tolerance="1e-12">1.43044</value>
+            <value variable="p" tolerance="1e-12">285.26</value>
+            <value variable="uu" tolerance="1e-12">2.28719</value>
+            <value variable="uv" tolerance="1e-12">0.0127671</value>
             <value variable="uw" tolerance="1e-12">0</value>
-            <value variable="utheta" tolerance="1e-12">0.00254648</value>
-            <value variable="vv" tolerance="1e-9">3.3398</value>
+            <value variable="utheta" tolerance="1e-12">0.00243827</value>
+            <value variable="vv" tolerance="1e-9">3.35665</value>
             <value variable="vw" tolerance="1e-12">0</value>
-            <value variable="vtheta" tolerance="1e-9">0.226775</value>
+            <value variable="vtheta" tolerance="1e-9">0.227887</value>
             <value variable="ww" tolerance="1e-12">0</value>
             <value variable="wtheta" tolerance="1e-12">0</value>
-            <value variable="thetatheta" tolerance="1e-9">0.0155594</value>
+            <value variable="thetatheta" tolerance="1e-9">0.0156323</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="1e-12">1.01319</value>
-            <value variable="v" tolerance="1e-12">0.0585532</value>
+            <value variable="u" tolerance="1e-12">1.00174</value>
+            <value variable="v" tolerance="1e-12">0.0139092</value>
             <value variable="w" tolerance="1e-12">0</value>
             <value variable="theta" tolerance="1e-12">1</value>
-            <value variable="p" tolerance="1e-12">1.6809</value>
-            <value variable="uu" tolerance="1e-12">1.46165</value>
-            <value variable="uv" tolerance="1e-12">0.0129115</value>
+            <value variable="p" tolerance="1e-12">-8.22399e-14</value>
+            <value variable="uu" tolerance="1e-12">1.46423</value>
+            <value variable="uv" tolerance="1e-12">0.0132339</value>
             <value variable="uw" tolerance="1e-12">0</value>
-            <value variable="utheta" tolerance="1e-12">0.00229161</value>
-            <value variable="vv" tolerance="1e-9">2.43021</value>
+            <value variable="utheta" tolerance="1e-12">0.00201541</value>
+            <value variable="vv" tolerance="1e-9">2.43928</value>
             <value variable="vw" tolerance="1e-12">0</value>
-            <value variable="vtheta" tolerance="1e-9">0.158068</value>
+            <value variable="vtheta" tolerance="1e-9">0.158707</value>
             <value variable="ww" tolerance="1e-12">0</value>
             <value variable="wtheta" tolerance="1e-12">0</value>
-            <value variable="thetatheta" tolerance="1e-9">0.0103278</value>
+            <value variable="thetatheta" tolerance="1e-9">0.0103396</value>
         </metric>
     </metrics>
 </test>

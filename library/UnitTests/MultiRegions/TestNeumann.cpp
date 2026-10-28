@@ -51,6 +51,7 @@
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
+            BOOST_TEST(CompareSurfaceIntegral(tol));                           \
         }                                                                      \
     }
 
@@ -65,6 +66,7 @@
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(tol));                                          \
+            BOOST_TEST(CompareSurfaceIntegral(tol));                           \
         }                                                                      \
     }
 

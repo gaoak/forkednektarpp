@@ -40,6 +40,7 @@
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasOp.hpp>
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
@@ -248,23 +249,6 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         m_math.daxpy(-1.0, m_wsp_explicit_adv_rhs, in, fieldRhs);
     }
 
-    /// Set up forcing term for pressure Poisson equation
-    if (m_weakPressure)
-    {
-        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma);
-    }
-    else
-    {
-        // Compute divergence of RHS. Keep the explicit advection
-        // contribution in this RHS because the pressure projection requires
-        // it.
-        // TODO this should only apply to the velocity components!
-        m_divergenceOp->Apply(in, m_wsp_phys_1c);
-
-        // Scale divergence by 1 / (\gamma \Delta t)
-        m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
-    }
-
     // The histories hold the velocity and the explicit forcing. They are
     // combined with the coefficients of the explicit contributions, scaled to
     // sum to the implicit step size gamma * dt, by which the boundary
@@ -343,18 +327,39 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         }
     }
 
-    // A singular (periodic) pressure system needs a zero-mean RHS; dealiased
-    // advection's interpolate/project round trip can leave a small residual.
-    // The forcing of the weak form is orthogonal to the constants, which
-    // have no gradient, so it needs no mean removal.
-    if (m_checkIfSystemSingular[m_pressureIndex] && !m_weakPressure)
+    // The forcing of a singular (all-Neumann or periodic) pressure system is
+    // balanced against the surface integral of its Neumann values, which
+    // are those of this step: the higher-order pressure flux just updated,
+    // and the default Neumann values updated here.
+    m_poissonSolveOp->UpdateBndCoeffs(time);
+
+    /// Set up forcing term for pressure Poisson equation
+    if (m_weakPressure)
     {
-        if (!m_meanRemovalOp)
+        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma);
+    }
+    else
+    {
+        // Compute divergence of RHS. Keep the explicit advection
+        // contribution in this RHS because the pressure projection requires
+        // it.
+        // TODO this should only apply to the velocity components!
+        m_divergenceOp->Apply(in, m_wsp_phys_1c);
+
+        // Scale divergence by 1 / (\gamma \Delta t)
+        m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
+
+        // A singular pressure system is solvable only when the domain
+        // integral of its forcing matches the surface integral of its
+        // Neumann values, which is not zero in general for a non-zero
+        // Neumann condition, such as the higher-order pressure condition.
+        // Driving the integral to it also removes the residual that
+        // dealiased advection's interpolate/project round trip can leave.
+        if (m_checkIfSystemSingular[m_pressureIndex])
         {
-            m_meanRemovalOp = SolverCore::MeanRemovalOp<double>::Create(
-                m_expansionLists[m_pressureIndex], m_variablesPressure);
+            m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
+            m_meanRemovalOp->Apply(m_wsp_phys_1c);
         }
-        m_meanRemovalOp->Apply(m_wsp_phys_1c);
     }
 
     /// Solve Pressure System
@@ -375,7 +380,6 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         m_poissonSolveOp->SetPrecon(m_preconPressureOpMap[dt_inv_gamma]);
     }
 
-    m_poissonSolveOp->UpdateBndCoeffs(time);
     if (m_weakPressure)
     {
         m_poissonSolveOp->ApplyRhs(m_wsp_coeff_1c, m_pressure_coeff);
@@ -503,6 +507,13 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
  *  limit the time step that the implicit advection of the velocity solve
  *  allows. The inner product only reads the velocity components.
  *
+ *  For a singular pressure system the volume term is orthogonal to the
+ *  constants, so the solvability condition requires the forcing to cancel
+ *  the surface integral of the Neumann pressure values. The constant c whose
+ *  domain integral is that surface integral enters as the forcing
+ *  -(\phi, c) = -c (\phi, 1), from the integrals (\phi, 1) of the pressure
+ *  basis computed at set-up.
+ *
  *  param in: = \hat{\mathbf{u}} + \gamma \Delta t (explicit contribution)
  *  param fieldRhs: = RHS of the velocity solve
  *  param dt_inv_gamma: = \gamma \Delta t
@@ -527,6 +538,17 @@ void VelocityCorrectionScheme::SetUpWeakPressureForcing(
 
     m_iprodDerivPressureOp->SetScale(1.0 / dt_inv_gamma);
     m_iprodDerivPressureOp->Apply(*pressureRhs, m_wsp_coeff_1c);
+
+    if (m_checkIfSystemSingular[m_pressureIndex])
+    {
+        // The constant whose domain integral is the surface integral of the
+        // Neumann values.
+        m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
+        const double balancedMean = m_meanRemovalOp->GetBalancedMean()[0];
+
+        m_math.daxpy(-balancedMean, m_pressureBasisIntegrals, m_wsp_coeff_1c,
+                     m_wsp_coeff_1c);
+    }
 }
 
 /*
@@ -888,6 +910,14 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     m_poissonSolveOp->SetLinearSolver(m_linearSolverPressureOp);
     m_poissonSolveOp->SetDiffCoeff(m_diffCoeff);
 
+    // A singular pressure system balances its forcing against its Neumann
+    // values, and its reported error has zero mean.
+    if (m_checkIfSystemSingular[m_pressureIndex])
+    {
+        m_meanRemovalOp = SolverCore::MeanRemovalOp<double>::Create(
+            m_expansionLists[m_pressureIndex], m_variablesPressure);
+    }
+
     if (m_weakPressure)
     {
         // The pressure inner product reads the velocity-equation RHS at the
@@ -899,6 +929,15 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_iprodDerivPressureOp =
             IProductWRTDerivBaseOp<FieldState::Coeff, double>::Create(
                 m_expansionLists[m_pressureIndex], m_variablesPressure);
+        // The integrals (phi, 1) of the pressure basis, from which the
+        // constant forcing that balances a singular system is formed.
+        if (m_checkIfSystemSingular[m_pressureIndex])
+        {
+            m_math.fill(1.0, m_wsp_phys_1c);
+            IProductWRTBaseOp<double>::Create(m_expansionLists[m_pressureIndex],
+                                              m_variablesPressure)
+                ->Apply(m_wsp_phys_1c, m_pressureBasisIntegrals);
+        }
     }
 
     // The higher-order pressure and outflow condition operators are built
@@ -919,18 +958,6 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_poissonSolveOp->AddNeumannBCOp(
             m_hoPressureBCOp, HOPressureBndCondOp<double>::userDefinedType);
     }
-
-    // The forcing of the weak form is orthogonal to the constants, so a
-    // singular pressure system is compatible only if its Neumann flux has a
-    // zero surface integral, which the flux of the higher-order pressure
-    // condition does not have in general. The weak form has no correction
-    // for it.
-    ASSERTL0(!(m_weakPressure && m_checkIfSystemSingular[m_pressureIndex] &&
-               m_hoPressureBCOp),
-             "The weak pressure form does not support a singular pressure "
-             "system with the higher-order pressure boundary condition: give "
-             "the pressure a Dirichlet boundary, or use "
-             "PressureFormulation=Strong.");
 
     // Dong's high-order outflow condition couples a pressure Dirichlet
     // condition with a velocity Neumann condition, which share their
@@ -1056,6 +1083,13 @@ void VelocityCorrectionScheme::v_InitialiseFields()
             "wsp_coeff_1c", bAtr_coeff_pressure, m_variablesPressure.size(),
             m_npointsZ);
     }
+    if (m_weakPressure && m_checkIfSystemSingular[m_pressureIndex])
+    {
+        m_pressureBasisIntegrals =
+            LibUtilities::Field<double, FieldState::Coeff>(
+                "pressure basis integrals", bAtr_coeff_pressure,
+                m_variablesPressure.size(), m_npointsZ);
+    }
 }
 
 /*
@@ -1130,14 +1164,9 @@ void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
     // discretisation error.
     if (m_checkIfSystemSingular[m_pressureIndex])
     {
-        // Execution-space dispatch (Serial/AVX/Device) is resolved entirely
-        // inside MeanRemovalOp::Create() via the OperatorFactory, so no
-        // opExecSpace check is needed here.
-        if (!m_meanRemovalOp)
-        {
-            m_meanRemovalOp = SolverCore::MeanRemovalOp<double>::Create(
-                m_expansionLists[m_pressureIndex], m_variablesPressure);
-        }
+        // The pressure solve leaves its Neumann balance set on the shared
+        // operator; the error is reduced to zero mean.
+        m_meanRemovalOp->SetNeumannBalance(nullptr);
         m_meanRemovalOp->Apply(wsp_phys);
     }
 

@@ -52,6 +52,7 @@
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <MultiRegions/BndCondOps/Common/CGBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/Common/CGBndCondMapBuilder.hpp>
+#include <MultiRegions/BndCondOps/Common/CGBndCondSurfaceIntegral.hpp>
 #include <MultiRegions/BndCondOps/Common/PhysTraceExtractBndCond.hpp>
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCOp.hpp>
@@ -155,6 +156,12 @@ protected:
     size_t v_GetNumBndDofs() override
     {
         return m_owner->GetNumVelocityBndDofs();
+    }
+
+    void v_AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
+                                     const size_t offset) override
+    {
+        m_owner->AddVelocitySurfaceIntegral(data, offset);
     }
 
     void v_ExcludeUserDefinedType(
@@ -327,6 +334,9 @@ protected:
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_velocityBndPhys;
     std::vector<LibUtilities::Field<TData, FieldState::Coeff>>
         m_velocityBndCoeffs;
+    // The sum of the surface integrals of m_velocityBndCoeffs.
+    MultiRegions::detail::CGBndCondSurfaceIntegral<ExecSpace, TData>
+        m_velocitySurfaceIntegral;
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_fbPhys;
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_normals;
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_energyMinusFb;
@@ -405,6 +415,14 @@ protected:
     size_t GetNumVelocityBndDofs() const
     {
         return m_velocityNumBndCoeffCompSize * m_nDim;
+    }
+
+    // Add the surface integral of the velocity flux of the last
+    // ApplyVelocity(), per velocity component, to data[offset + c].
+    void AddVelocitySurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
+                                    const size_t offset)
+    {
+        m_velocitySurfaceIntegral.Add(m_velocityBndCoeffs, data, offset);
     }
 
     void v_SetVelocityContext(
@@ -657,6 +675,9 @@ protected:
                                         m_pressureConditionIndices.end());
         std::vector<std::vector<bool>> isTypeByRegion(m_regionIds.size());
         std::vector<size_t> numBcExpCoeffs(m_regionIds.size());
+        // Per selected region, the velocity components of its surface
+        // integral, every one.
+        std::vector<std::vector<bool>> velocityIsComp;
 
         for (unsigned int n = 0; n < m_regionIds.size(); ++n)
         {
@@ -738,6 +759,7 @@ protected:
                 }
             }
             m_velocityBndExpLists.push_back(bndExp);
+            velocityIsComp.push_back(componentMatches);
             m_velocityCoeffOffsets.push_back(m_velocityNumBndCoeffCompSize);
             m_velocityNumBndCoeffCompSize += bndExp->GetNcoeffs();
 
@@ -805,6 +827,9 @@ protected:
 
         ASSERTL1(m_velocityBndExpLists.size() == m_pressureBndExpLists.size(),
                  "HOutflow pressure and velocity region sets differ.");
+        m_velocitySurfaceIntegral =
+            MultiRegions::detail::CGBndCondSurfaceIntegral<ExecSpace, TData>(
+                m_velocityBndExpLists, velocityIsComp);
         // The assembly map of a velocity component other than the one of
         // m_velocityExpansionList is built from a ContField, collectively: all
         // ranks enter BuildCGBndCondCoeffMaps() when any rank has an HOutflow

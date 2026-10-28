@@ -41,6 +41,8 @@
 namespace Nektar::SolverCore
 {
 
+template <typename TData> class LinearSystemOp;
+
 // Subtracts the volume-averaged mean of a physical-space field from itself,
 // in place. A PDE variable governed by a singular system (e.g. pressure
 // under Neumann/periodic-only boundaries) is only determined up to an
@@ -109,11 +111,57 @@ public:
         v_Apply(inout);
     }
 
+    /**
+     * @brief Drive the domain integral of each component to the surface
+     * integral of the Neumann boundary values of @p system, instead of to
+     * zero.
+     *
+     * @details
+     * A singular pressure system is solvable only when the domain integral
+     * of its forcing equals the surface integral of its Neumann boundary
+     * values. Apply() then subtracts (integral_c - surface_c) / volume from
+     * component c, where surface_c is summed by
+     * LinearSystemOp::AddNeumannSurfaceIntegral() into the reduction of the
+     * domain integrals, so that the two are reduced across ranks and read
+     * back to the host together. A nullptr @p system, the default, removes
+     * the mean.
+     *
+     * The operator keeps a non-owning pointer to @p system, which must
+     * outlive its use here.
+     *
+     * @param system The system with one Neumann value per component, or
+     * nullptr.
+     */
+    void SetNeumannBalance(LinearSystemOp<TData> *system)
+    {
+        m_neumannSystem = system;
+    }
+
+    /**
+     * @brief The mean that Apply() drives each component to: the surface
+     * integral of the Neumann boundary values of the system set by
+     * SetNeumannBalance(), surface_c, divided by the volume of the domain,
+     * or zero without a system.
+     *
+     * @details
+     * The constant forcing with this value has the domain integral that
+     * the system needs, without a field to balance. Collective over the
+     * row communicator: surface_c is reduced across ranks and read back to
+     * the host once.
+     */
+    std::vector<TData> GetBalancedMean()
+    {
+        return v_GetBalancedMean();
+    }
+
 protected:
+    // Volume of the domain, computed on the first Apply() or
+    // GetBalancedMean() and kept.
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
     LibUtilities::MemoryRegion<TData> m_data;
     std::vector<std::shared_ptr<MeanRemovalBlockOp<TData>>> m_blockOp;
+    LinearSystemOp<TData> *m_neumannSystem = nullptr;
 
     MeanRemovalOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
@@ -125,5 +173,7 @@ protected:
 
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;
+
+    virtual std::vector<TData> v_GetBalancedMean() = 0;
 };
 } // namespace Nektar::SolverCore

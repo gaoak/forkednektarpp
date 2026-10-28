@@ -206,10 +206,12 @@ Given $\hat{\incnsv u}$ and $\lambda\incnsdt$,
   Section~\ref{sec:incns-houtflow}).
   \item \textbf{Singular pressure system.} If every pressure boundary is
   Neumann or periodic on all ranks (\code{v\_GetSystemSingularChecks}),
-  \code{MeanRemovalOp} removes the mean of $f_p$, which makes a periodic
-  system compatible. A Neumann boundary with non-zero data, such as a
-  higher-order pressure region, adds a surface integral that the mean
-  removal does not balance.
+  \code{MeanRemovalOp} drives the domain integral of $f_p$ to the surface
+  integral of the Neumann pressure data
+  (\code{MeanRemovalOp::SetNeumannBalance}), which makes the system
+  compatible also when that data is not zero, such as on a higher-order
+  pressure region (Section~\ref{hopbc:sec:neumann-balance}). For a periodic
+  system the integral is zero and the mean is removed.
   \item \textbf{Pressure solve.} Solve the strong pressure Poisson problem
   \begin{equation}
     \nabla^2p^{n+1}=\frac{1}{\lambda\incnsdt}\nabla\cdot\hat{\incnsv u}
@@ -327,11 +329,12 @@ form. Further choices:
   $(\nabla p-\incnsv f_w)\cdot\incnsv n=g$ there, not
   $\partial p/\partial n=g$;
   \item the volume term is orthogonal to the constants, so a singular
-  pressure system without higher-order pressure regions, such as a periodic
-  one, is compatible as it stands and no mean is removed. With higher-order
-  pressure regions the Neumann flux has a non-zero surface integral, which
-  the weak form has no correction to balance yet, so this case is refused at
-  set-up;
+  pressure system is compatible only if its Neumann data has a zero surface
+  integral, as a periodic one has. Otherwise, such as with higher-order
+  pressure regions, a constant forcing $c$ whose domain integral is that
+  surface integral enters as $-(c,\phi)=-c\,(1,\phi)$, from the integrals
+  $(1,\phi)$ of the pressure basis computed at set-up
+  (Section~\ref{hopbc:sec:neumann-balance});
   \item velocity and pressure must share their elements, blocks and
   quadrature points, checked at set-up with
   \code{ExpList::SameQuadratureLayout},
@@ -1040,8 +1043,9 @@ filters, \code{SetContinuousInitialConditions}, restart time \\
 \code{PoissonSolveOp::ApplyRhs} takes a coefficient-space right-hand side \\
 \path{GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp} & solver selection,
 tolerances \\
-\path{MeanRemoval/MeanRemovalOp.hpp} & zero-mean forcing of a singular
-strong pressure system, and of the reported pressure error \\
+\path{MeanRemoval/MeanRemovalOp.hpp} & forcing of a singular pressure
+system balanced against its Neumann data, and the zero-mean reported
+pressure error \\
 \multicolumn{2}{@{}l}{\path{library/MultiRegions/}} \\
 \path{ElmtOps/CurlCurl}, \path{ElmtOps/IProductWRTDerivBase},
 \path{ElmtOps/PhysTraceExtract}, \path{BndCondOps/} & curl--curl, weak

@@ -134,6 +134,7 @@ v5.11.0
 - Fix the host homogeneous z-derivative operators on interleaved blocks with padded elements (!2891)
 - Compute the mesh volume once in MeanRemoval and NormL2, keep the GCR coefficients on the device, and fuse the device StdMat Divergence contraction (!2891)
 - Fix the device reductions racing when the blocks of a Field, reduced on their own streams, combine into one result: the Math, parallel_reduce and grid-wide block reductions now form each thread block's total first and combine it with one global-scope atomic; add a Scope template parameter to blockReduce{Sum,Max,Min,Or,And}, LocalScope for a result owned by the thread block, as in the SumFacTOP IProductWRTBase kernels; fix the device FwdTransBC kernel applying the first element's inverse interior mass matrix to every deformed element (!2887)
+- Balance the forcing of a singular Helmholtz/Poisson solve against its Neumann boundary integral in `ContField::HelmSolve` (!2876, from !1800)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -195,6 +196,7 @@ v5.11.0
 - Add linear-implicit time-stepping (!2585)
 - Remove deprecated AdvectionForm from session file and add deprecation warning message (!2799)
 - Add weak pressure formulation and fix HOPBC and linear-implicit time accuracy (!2870)
+- Balance singular pressure systems against their Neumann flux, also in the weak pressure form (!2876)
 - Project a file pressure initial condition of lower order than the velocity element by element, as the legacy solver does, instead of truncating it (!2885)
 
 **Miscellaneous**

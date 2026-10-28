@@ -85,6 +85,19 @@ public:
         }
         op->UpdateBndCoeffs(time);
         op->Apply(*this->fixt_out);
+
+        // The surface integral is summed after a leading entry, which it
+        // leaves as it is, in the memory space of the execution space, and
+        // read back here.
+        const size_t nComp = this->session->GetVariables().size();
+        LibUtilities::MemoryRegion<TData> data("Neumann surface integral",
+                                               nComp + 1, eHostPinned);
+        data.template Initialize<NektarSpaces::HostSpace>(TData{0});
+        op->AddNeumannSurfaceIntegral(data, 1);
+        auto dataPtr =
+            data.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        BOOST_CHECK(dataPtr[0] == TData{0});
+        surfaceIntegral.assign(dataPtr + 1, dataPtr + 1 + nComp);
     }
 
     void ExpectedSolution(const double time = 0.0)
@@ -106,6 +119,7 @@ public:
 
         // Impose Neumann BCs for each component
         Array<OneD, double> tmp;
+        expectedSurfaceIntegral.assign(ncomp, 0.0);
         for (unsigned int nc = 0; nc < ncomp; ++nc)
         {
             // Setup dedicated explist for each variable to evaluate correct BCs
@@ -128,6 +142,24 @@ public:
                     Vmath::Zero(bndExpansions[n]->GetNcoeffs(),
                                 bndExpansions[n]->UpdateCoeffs(), 1);
                 }
+                else if (bndConditions[n]->GetBoundaryConditionType() ==
+                         SpatialDomains::eNeumann)
+                {
+                    // The value of a point region is held in its
+                    // coefficients, that of any other region at its points.
+                    if (bndExpansions[n]->GetShapeDimension() == 0)
+                    {
+                        expectedSurfaceIntegral[nc] +=
+                            Vmath::Vsum(bndExpansions[n]->GetNcoeffs(),
+                                        bndExpansions[n]->GetCoeffs(), 1);
+                    }
+                    else
+                    {
+                        expectedSurfaceIntegral[nc] +=
+                            bndExpansions[n]->Integral(
+                                bndExpansions[n]->GetPhys());
+                    }
+                }
             }
             bcfield.ImposeNeumannConditions(tmp = outcoeffs + nc * ncoeffs);
         }
@@ -135,7 +167,37 @@ public:
             outcoeffs);
     }
 
+    // Whether the surface integral of the operator's Neumann values matches
+    // that of the boundary values, to a tolerance relative to its size.
+    bool CompareSurfaceIntegral(const double tol)
+    {
+        if (surfaceIntegral.size() != expectedSurfaceIntegral.size())
+        {
+            std::cout << "Mismatch of number of components." << std::endl;
+            return false;
+        }
+
+        bool match = true;
+        for (size_t nc = 0; nc < surfaceIntegral.size(); ++nc)
+        {
+            const double expected = expectedSurfaceIntegral[nc];
+            const double error    = std::abs(surfaceIntegral[nc] - expected);
+            if (error > tol * std::max(1.0, std::abs(expected)))
+            {
+                std::cout << "Surface integral of component " << nc << ": "
+                          << surfaceIntegral[nc] << ", expected " << expected
+                          << std::endl;
+                match = false;
+            }
+        }
+        return match;
+    }
+
 protected:
+    // Surface integral of the Neumann values, per component, from the
+    // operator and from the boundary values.
+    std::vector<TData> surfaceIntegral;
+    std::vector<double> expectedSurfaceIntegral;
     // User-defined type of the regions the operator leaves out, if any.
     std::string excludedUserDefinedType = "";
     // Whether the operator is used before it leaves the type out.
