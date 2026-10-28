@@ -777,9 +777,9 @@ public:
 
         if constexpr (std::is_same_v<TDataOut, TData>)
         {
-            return std::vector<TDataOut, Alloc>(
-                m_size,
-                this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
+            auto ptr =
+                this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            return std::vector<TDataOut, Alloc>(ptr, ptr + m_size);
         }
         else
         {

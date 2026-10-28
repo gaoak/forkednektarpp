@@ -154,13 +154,44 @@ protected:
         }
     }
 
+    void v_Volume(LibUtilities::MemoryRegion<TData> &data) override
+    {
+        switch (m_dimension)
+        {
+            case 1:
+            {
+                VolumeND<1>(data);
+                break;
+            }
+            case 2:
+            {
+                VolumeND<2>(data);
+                break;
+            }
+            case 3:
+            {
+                VolumeND<3>(data);
+                break;
+            }
+            default:
+                ASSERTL0(false, "NormL2 SerialAVX only implemented for "
+                                "dimension 1, 2 or 3.");
+        }
+    }
+
     template <unsigned int NDIM>
     void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        OperatorNDImpl(inblock, data,
-                       std::make_integer_sequence<unsigned int, NDIM>());
+        OperatorNDImpl<>(inblock, data,
+                         std::make_integer_sequence<unsigned int, NDIM>());
+    }
+
+    template <unsigned int NDIM>
+    void VolumeND(LibUtilities::MemoryRegion<TData> &data)
+    {
+        VolumeNDImpl<>(data, std::make_integer_sequence<unsigned int, NDIM>());
     }
 
     template <unsigned int... ind>
@@ -188,40 +219,6 @@ protected:
 
         const unsigned int nComp = inblock.GetNumComponents();
         const unsigned int nHomo = inblock.GetNumHomoModes();
-
-        // Compute mesh volume.
-        if (this->m_normalised)
-        {
-            simd_t vol  = 0.0;
-            auto jacptr = m_jacptr;
-
-            // Loop over element groups.
-            for (size_t e = 0;
-                 e < inblock.GetNumElmtGroups(m_implInterleaveWidth); ++e)
-            {
-                if (m_isDeformed)
-                {
-                    vol += VolumeKernel<true>(
-                        m_nq[ind]..., m_W[ind]...,
-                        reinterpret_cast<const simd_t *>(jacptr));
-                }
-                else
-                {
-                    vol += VolumeKernel<false>(
-                        m_nq[ind]..., m_W[ind]...,
-                        reinterpret_cast<const simd_t *>(jacptr));
-                }
-
-                // Increment pointers for the next elmt group.
-                jacptr += jacSize * simd_t::width;
-            }
-
-            // Accumulate over vector width.
-            for (unsigned int i = 0; i < simd_t::width; i++)
-            {
-                dataptr[nComp] += vol[i];
-            }
-        }
 
         // Compute norm
         // Loop over components.
@@ -291,6 +288,55 @@ protected:
             {
                 dataptr[nc] += acc[i];
             }
+        }
+    }
+
+    template <unsigned int... ind>
+    void VolumeNDImpl(LibUtilities::MemoryRegion<TData> &data,
+                      std::integer_sequence<unsigned int, ind...>)
+    {
+        unsigned int jacSize = 1;
+        if (m_isDeformed)
+        {
+            jacSize *= m_nqTot;
+        }
+
+        // Number of elements in the block, with and without padding.
+        const size_t nelmt      = this->m_nelmt;
+        constexpr auto vecWidth = NektarSpaces::max_vector_width<TData>::value;
+        const size_t nelmtPad = ((nelmt + vecWidth - 1) / vecWidth) * vecWidth;
+
+        // Initialize pointers.
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>();
+
+        // Volume of the block's elements.
+        simd_t vol  = 0.0;
+        auto jacptr = m_jacptr;
+
+        // Loop over element groups.
+        for (size_t e = 0; e < nelmtPad / m_implInterleaveWidth; ++e)
+        {
+            if (m_isDeformed)
+            {
+                vol += VolumeKernel<true>(
+                    m_nq[ind]..., m_W[ind]...,
+                    reinterpret_cast<const simd_t *>(jacptr));
+            }
+            else
+            {
+                vol += VolumeKernel<false>(
+                    m_nq[ind]..., m_W[ind]...,
+                    reinterpret_cast<const simd_t *>(jacptr));
+            }
+
+            // Increment pointers for the next elmt group.
+            jacptr += jacSize * simd_t::width;
+        }
+
+        // Accumulate over vector width.
+        for (unsigned int i = 0; i < simd_t::width; i++)
+        {
+            dataptr[0] += vol[i];
         }
     }
 };

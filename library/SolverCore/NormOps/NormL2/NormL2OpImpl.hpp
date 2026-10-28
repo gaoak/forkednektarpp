@@ -69,11 +69,14 @@ protected:
         ASSERTL1(in.GetNumHomoModes() == 1,
                  "The NormL2 is not implemented for homogeneous expansions.");
 
+        ComputeVolume();
+
         const auto numComp = in.GetNumComponents();
-        if (this->m_data.size() != numComp + 1)
+
+        if (this->m_data.size() != numComp)
         {
-            this->m_data = LibUtilities::MemoryRegion<TData>(
-                "NormL2", numComp + 1, eHostPinned);
+            this->m_data = LibUtilities::MemoryRegion<TData>("NormL2", numComp,
+                                                             eHostPinned);
         }
         this->m_data.template Initialize<MemSpace>(TData{0});
 
@@ -90,19 +93,37 @@ protected:
         auto dataPtr =
             this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        if (this->m_normalised)
-        {
-            ASSERTL1(dataPtr[numComp] > 0.0,
-                     "NormL2Op encountered a non-positive volume.");
-        }
-        else
-        {
-            dataPtr[numComp] = 1.0;
-        }
-
+        auto volume = this->m_normalised ? this->m_volume : TData{1};
         for (unsigned int nc = 0; nc < numComp; ++nc)
         {
-            dataPtr[nc] = std::sqrt(dataPtr[nc] / dataPtr[numComp]);
+            dataPtr[nc] = std::sqrt(dataPtr[nc] / volume);
+        }
+    }
+
+    /// The volume of the mesh, summed over the blocks and across the ranks.
+    void ComputeVolume()
+    {
+        if (this->m_normalised && !this->m_volumeComputed)
+        {
+            LibUtilities::MemoryRegion<TData> volume("NormL2 volume", 1,
+                                                     eHostPinned);
+            volume.template Initialize<MemSpace>(TData{0});
+
+            for (auto &blockOp : this->m_blockOp)
+            {
+                blockOp->Volume(volume);
+            }
+
+            auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+            rowComm->template AllReduce<MemSpace>(volume,
+                                                  LibUtilities::ReduceSum);
+
+            this->m_volume =
+                volume.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0];
+
+            ASSERTL1(this->m_volume > 0.0,
+                     "NormL2Op encountered a non-positive volume.");
+            this->m_volumeComputed = true;
         }
     }
 };

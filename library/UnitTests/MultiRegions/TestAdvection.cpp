@@ -121,6 +121,11 @@ TEST_ADVECTION3DH1(advection_tri_3dh1, TriFFT, 1.0E-10)
 
 TEST_ADVECTION3DH1(advection_square_all_elements_3dh1, SquareAllElementsFFT,
                    1.0E-10)
+
+TEST_ADVECTION3DH1(advection_quad_3dh1_interleaved, QuadFFTInterleaved, 1.0E-10)
+
+TEST_ADVECTION3DH1(advection_square_all_elements_3dh1_interleaved,
+                   SquareAllElementsFFTInterleaved, 1.0E-10)
 #endif // NEKTAR_ENABLE_DOUBLE_PRECISION
 
 BOOST_AUTO_TEST_SUITE_END()

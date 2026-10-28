@@ -90,6 +90,8 @@ public:
             op->m_blockOp.push_back(MeanRemovalBlockOp<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
                 execStr0));
+            op->m_blockOp.back()->SetNumElements(
+                blockAttr[block_idx].GetNumElements());
         }
 
         return op;
@@ -108,6 +110,8 @@ public:
     }
 
 protected:
+    bool m_volumeComputed = false;
+    TData m_volume        = 1.0;
     LibUtilities::MemoryRegion<TData> m_data;
     std::vector<std::shared_ptr<MeanRemovalBlockOp<TData>>> m_blockOp;
 

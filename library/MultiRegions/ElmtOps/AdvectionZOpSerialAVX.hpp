@@ -42,13 +42,12 @@ namespace Nektar::MultiRegions::detail
 
 /// \brief Host FFTW backend for the homogeneous part of the advection term.
 ///
-/// Launch() gathers each component's unpadded per-plane data from all blocks
-/// into one contiguous array, applies the forward transform, wavenumber
-/// multiply and inverse transform over the full field, then adds
-/// scale * w * dphi/dz to the matching output component. The gather is needed
-/// because Homogeneous1DTrans' transposition object is built for the
-/// full-field point count (nhomo x planePts) and cannot operate on per-block
-/// subsets.
+/// Launch() gathers each component's unpadded per-plane data from all blocks,
+/// at their interleave widths, into one contiguous array, applies the forward
+/// transform, wavenumber multiply and inverse transform over the full field,
+/// then adds scale * w * dphi/dz to the matching output component. The gather
+/// is needed because Homogeneous1DTrans takes the planes of the whole field
+/// one after another, unpadded.
 ///
 /// The xy backend leaves scale * (u dphi/dx + v dphi/dy) in the output,
 /// having honoured its own append flag, so this pass always accumulates.
@@ -127,16 +126,30 @@ public:
         // Unpadded points per plane, summed over the blocks of `in`, and the
         // total across all planes.
         size_t planePts = 0;
-        for (auto &inblock : in.GetBlocks())
+        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            planePts += inblock.GetNumElements() * inblock.GetNumData();
+            ASSERTL1(in.GetBlocks()[blk].GetInterleaveWidth() ==
+                         out.GetBlocks()[blk].GetInterleaveWidth(),
+                     "Input and output blocks are at different interleave "
+                     "widths");
+            planePts += in.GetBlocks()[blk].GetNumElements() *
+                        in.GetBlocks()[blk].GetNumData();
         }
         const size_t nTotal = planePts * nhomo;
 
-        Array<OneD, double> gathered(nTotal);
-        Array<OneD, double> coef(nTotal, 0.0);
-        Array<OneD, double> waveCoef(nTotal, 0.0);
-        Array<OneD, double> dzFlat(nTotal);
+        // Transform workspace, allocated on first use and when the field size
+        // changes.
+        if (m_gathered.size() != nTotal)
+        {
+            m_gathered = Array<OneD, double>(nTotal);
+            m_coef     = Array<OneD, double>(nTotal, 0.0);
+            m_waveCoef = Array<OneD, double>(nTotal, 0.0);
+            m_dzFlat   = Array<OneD, double>(nTotal);
+        }
+        auto &gathered = m_gathered;
+        auto &coef     = m_coef;
+        auto &waveCoef = m_waveCoef;
+        auto &dzFlat   = m_dzFlat;
 
         // z-derivative per input component.
         for (unsigned int n = 0; n < nComp; ++n)
@@ -144,13 +157,21 @@ public:
             // Gather: collect unpadded per-plane data from all blocks into
             // gathered[], laid out as [plane0_all_pts, plane1_all_pts, ...].
             // Block b contributes realPts = GetNumElements * GetNumData points
-            // per plane, placed at gathered[p*planePts + spatialOffset].
+            // per plane, placed at gathered[p*planePts + spatialOffset]. At
+            // interleave width W the real points are the leading full element
+            // groups, one contiguous span, then the first nelmt % W lanes of
+            // each point of the last group; the transform acts on every point
+            // of a plane alone, so their order within the plane is free.
             size_t spatialOffset = 0;
             for (auto &inblock : in.GetBlocks())
             {
                 const size_t realPts =
                     inblock.GetNumElements() * inblock.GetNumData();
-                const size_t compStride = inblock.CompSize();
+                const size_t compStride  = inblock.CompSize();
+                const unsigned int width = inblock.GetInterleaveWidth();
+                const unsigned int ndata = inblock.GetNumData();
+                const unsigned int nlast = inblock.GetNumElements() % width;
+                const size_t fullPts     = realPts - size_t(nlast) * ndata;
                 const TData *phiPtr =
                     inblock
                         .template GetPtr<NektarSpaces::HostSpace, ReadOnly>() +
@@ -159,8 +180,15 @@ public:
                 for (unsigned int p = 0; p < nhomo; ++p)
                 {
                     const TData *src = phiPtr + p * compStride;
-                    std::copy(src, src + realPts,
-                              gathered.data() + p * planePts + spatialOffset);
+                    double *dst =
+                        gathered.data() + p * planePts + spatialOffset;
+                    std::copy(src, src + fullPts, dst);
+                    for (unsigned int q = 0; q < ndata; ++q)
+                    {
+                        std::copy(src + fullPts + q * width,
+                                  src + fullPts + q * width + nlast,
+                                  dst + fullPts + q * nlast);
+                    }
                 }
 
                 spatialOffset += realPts;
@@ -204,8 +232,12 @@ public:
 
                 const size_t realPts =
                     outblock.GetNumElements() * outblock.GetNumData();
-                const size_t compStride = outblock.CompSize();
-                const size_t velStride  = velblock.CompSize();
+                const size_t compStride  = outblock.CompSize();
+                const size_t velStride   = velblock.CompSize();
+                const unsigned int width = outblock.GetInterleaveWidth();
+                const unsigned int ndata = outblock.GetNumData();
+                const unsigned int nlast = outblock.GetNumElements() % width;
+                const size_t fullPts     = realPts - size_t(nlast) * ndata;
 
                 TData *advPtr =
                     outblock
@@ -222,9 +254,13 @@ public:
                         dzFlat.data() + p * planePts + spatialOffset;
                     TData *dst     = advPtr + p * compStride;
                     const TData *w = wPtr + p * velStride;
-                    for (size_t j = 0; j < realPts; ++j)
+                    // The real points, in the order the gather took them.
+                    AddScaled(fullPts, src, w, dst);
+                    for (unsigned int q = 0; q < ndata; ++q)
                     {
-                        dst[j] += m_scale * w[j] * src[j];
+                        AddScaled(nlast, src + fullPts + q * nlast,
+                                  w + fullPts + q * width,
+                                  dst + fullPts + q * width);
                     }
                 }
 
@@ -235,9 +271,24 @@ public:
 
 private:
     std::shared_ptr<MultiRegions::ExpListHomogeneous1D> m_homoExpList;
+    /// Transform workspace, over the unpadded points of every plane.
+    Array<OneD, double> m_gathered;
+    Array<OneD, double> m_coef;
+    Array<OneD, double> m_waveCoef;
+    Array<OneD, double> m_dzFlat;
     LibUtilities::Field<TData, FieldState::Phys> *m_advVel = nullptr;
     double m_beta                                          = 0.0;
     TData m_scale                                          = 1.0;
+
+    /// Add scale * w * dphi/dz over @p n points to @p dst.
+    void AddScaled(const size_t n, const double *dz, const TData *w,
+                   TData *dst) const
+    {
+        for (size_t j = 0; j < n; ++j)
+        {
+            dst[j] += m_scale * w[j] * dz[j];
+        }
+    }
 };
 
 } // namespace Nektar::MultiRegions::detail

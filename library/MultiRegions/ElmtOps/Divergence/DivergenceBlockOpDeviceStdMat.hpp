@@ -63,7 +63,7 @@
 #include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
 #include <MultiRegions/ElmtOps/Divergence/DivergenceBlockOp.hpp>
 
-#include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOpDeviceStdMatKernels.hpp>
+#include <MultiRegions/ElmtOps/Divergence/DivergenceBlockOpDeviceStdMatKernels.hpp>
 
 namespace Nektar::MultiRegions::detail
 {
@@ -97,14 +97,12 @@ namespace Nektar::MultiRegions::detail
  * \f$\partial u_c/\partial\xi_d\f$ for every component c, one
  * component run after another, and the static per-stream workspace is
  * sized for `dimension * dimension` such runs.
- * MultiplyByDerivDirFactorKernel (with the APPEND and DEFORMED flags)
- * is then launched once per component c: starting from that
- * component's run in slice 0 and stepping between the direction slices
- * with a stride of `dimension` runs, it contracts
- * \f$\partial u_c/\partial\xi_d\f$ over d with row c of the
- * derivative factors, overwriting the output for c = 0 and
- * accumulating (APPEND) for the remaining components, so the block's
- * single output component ends up holding
+ * DivergenceDerivFactorKernel (with the DEFORMED flag) is then launched
+ * once: at every point it contracts \f$\partial u_c/\partial\xi_d\f$,
+ * component c's run stepping between the direction slices with a stride
+ * of `dimension` runs, over d with row c of the derivative factors, sums
+ * over c in a register and writes the block's single output component
+ * once, so that it holds
  * \f[ \sum_c \sum_d \frac{\partial\xi_d}{\partial x_c}
  *     \frac{\partial u_c}{\partial\xi_d}. \f]
  *
@@ -253,10 +251,10 @@ protected:
      * Reshapes the input components to interleave width 1 in a
      * single call, issues the strided-batched GEMM into the static
      * per-stream workspace, contracts the workspace with the
-     * derivative factors component by component, every plane in one
-     * launch (deformed and regular geometries use separate kernel
-     * instantiations, and the first component overwrites where the
-     * others append), then reshapes inputs and output back and sets
+     * derivative factors and sums over the components in one launch,
+     * every plane included (deformed and regular geometries use
+     * separate kernel instantiations), then reshapes inputs and output
+     * back and sets
      * the output block's interleave width to the input's. All work is
      * issued on this block operator's stream.
      *
@@ -320,50 +318,23 @@ protected:
                                     m_nqTot, 0, (TData)0.0, derivptr, m_nqTot,
                                     m_dimension * derivoffset, m_dimension);
 
-        // Multiply by derivative factor. Each component contributes one
-        // direction of the divergence, so they are accumulated one at a time,
-        // every plane within the one launch.
-        for (unsigned int c = 0; c < m_dimension; c++)
+        // Multiply by derivative factor and sum over the components, every
+        // plane within the one launch.
+        if (m_isDeformed)
         {
-            if (m_isDeformed)
-            {
-                if (c == 0)
-                {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (MultiplyByDerivDirFactorKernel<false, true>), gridSize,
-                        nhomo, blockSize, 1, m_streamID, c, m_nqTot, m_coordDim,
-                        m_dimension, nelmt, m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr);
-                }
-                else
-                {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (MultiplyByDerivDirFactorKernel<true, true>), gridSize,
-                        nhomo, blockSize, 1, m_streamID, c, m_nqTot, m_coordDim,
-                        m_dimension, nelmt, m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr);
-                }
-            }
-            else
-            {
-                if (c == 0)
-                {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (MultiplyByDerivDirFactorKernel<false, false>),
-                        gridSize, nhomo, blockSize, 1, m_streamID, c, m_nqTot,
-                        m_coordDim, m_dimension, nelmt,
-                        m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr);
-                }
-                else
-                {
-                    DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (MultiplyByDerivDirFactorKernel<true, false>), gridSize,
-                        nhomo, blockSize, 1, m_streamID, c, m_nqTot, m_coordDim,
-                        m_dimension, nelmt, m_dimension * derivoffset, m_dfptr,
-                        derivptr + c * derivoffset, outptr);
-                }
-            }
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (DivergenceDerivFactorKernel<true>), gridSize, nhomo, blockSize,
+                1, m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
+                derivoffset, m_dimension * derivoffset, m_dfptr, derivptr,
+                outptr);
+        }
+        else
+        {
+            DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (DivergenceDerivFactorKernel<false>), gridSize, nhomo,
+                blockSize, 1, m_streamID, m_nqTot, m_coordDim, m_dimension,
+                nelmt, derivoffset, m_dimension * derivoffset, m_dfptr,
+                derivptr, outptr);
         }
 
         // Reshape back, if necessary.

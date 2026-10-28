@@ -71,13 +71,15 @@ protected:
         ASSERTL1(inout.GetNumHomoModes() == 1,
                  "MeanRemoval is not implemented for homogeneous expansions.");
 
+        ComputeVolume();
+
         const auto nComp = inout.GetNumComponents();
 
-        // m_data layout: [ integral_c0, ..., integral_c{n-1}, volume ].
-        if (this->m_data.size() != nComp + 1)
+        // m_data layout: [ integral_c0, ..., integral_c{n-1} ].
+        if (this->m_data.size() != nComp)
         {
             this->m_data = LibUtilities::MemoryRegion<TData>(
-                "MeanRemoval", nComp + 1, eHostPinned);
+                "MeanRemoval", nComp, eHostPinned);
         }
         this->m_data.template Initialize<MemSpace>(TData{0});
 
@@ -94,17 +96,41 @@ protected:
         auto dataPtr =
             this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        ASSERTL0(dataPtr[nComp] > 0.0,
-                 "MeanRemovalOp encountered a non-positive volume.");
-
         // Negated per-component volume-averaged mean, ready for addScalar.
         std::vector<TData> negMean(nComp);
         for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            negMean[nc] = -(dataPtr[nc] / dataPtr[nComp]);
+            negMean[nc] = -(dataPtr[nc] / this->m_volume);
         }
 
         Math::addScalar<ExecSpace>(negMean, inout, inout);
+    }
+
+    /// The volume of the mesh, summed over the blocks and across the ranks.
+    void ComputeVolume()
+    {
+        if (!this->m_volumeComputed)
+        {
+            LibUtilities::MemoryRegion<TData> volume("MeanRemoval volume", 1,
+                                                     eHostPinned);
+            volume.template Initialize<MemSpace>(TData{0});
+
+            for (auto &blockOp : this->m_blockOp)
+            {
+                blockOp->Volume(volume);
+            }
+
+            auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+            rowComm->template AllReduce<MemSpace>(volume,
+                                                  LibUtilities::ReduceSum);
+
+            this->m_volume =
+                volume.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0];
+
+            ASSERTL0(this->m_volume > 0.0,
+                     "MeanRemovalOp encountered a non-positive volume.");
+            this->m_volumeComputed = true;
+        }
     }
 };
 

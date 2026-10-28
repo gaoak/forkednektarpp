@@ -131,6 +131,8 @@ v5.11.0
 - Form the divergence of the device SumFac Divergence kernels in registers and write it once per point instead of accumulating each component in global memory (!2886)
 - Extrapolate the time integration history in one pass per block with a new Math::linearCombination kernel instead of a zero and one daxpy per level, and build the time operators' MathHelper once (!2886)
 - Reshape the output of IProductWRTPhysNormalDerivTrace only when appending, and remove the unused AdvectionWeakDG and DiffusionIP kernel headers (!2886)
+- Fix the host homogeneous z-derivative operators on interleaved blocks with padded elements (!2891)
+- Compute the mesh volume once in MeanRemoval and NormL2, keep the GCR coefficients on the device, and fuse the device StdMat Divergence contraction (!2891)
 - Fix the device reductions racing when the blocks of a Field, reduced on their own streams, combine into one result: the Math, parallel_reduce and grid-wide block reductions now form each thread block's total first and combine it with one global-scope atomic; add a Scope template parameter to blockReduce{Sum,Max,Min,Or,And}, LocalScope for a result owned by the thread block, as in the SumFacTOP IProductWRTBase kernels; fix the device FwdTransBC kernel applying the first element's inverse interior mass matrix to every deformed element (!2887)
 
 **NekMesh**
@@ -185,6 +187,7 @@ v5.11.0
 - Add the average-of-normal-fluxes viscous trace flux (SOLVERINFO `ViscousTraceFlux`), element-local trace normals in `TraceFluxOp`, the normal component of a trace extraction in `PhysTraceExtractOp`, and `AdvDiffVolumeFluxOp` for the viscous and total volume flux in one pass (!2872)
 - Write every Riemann solver in Cartesian components through the trace normal, as the legacy solver now does, and remove the rotation into the normal frame with its cached rotation matrices (!2871)
 - Set the interleave width of the output of the Courant-velocity operator (!2886)
+- Fix NaN fluxes on padded elements in the Euler volume flux (!2891)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)
