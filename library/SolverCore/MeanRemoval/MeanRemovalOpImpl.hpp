@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "SolverCore/MeanRemoval/MeanRemovalOp.hpp"
 
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
@@ -74,19 +75,18 @@ protected:
         ComputeVolume();
 
         const auto nComp = inout.GetNumComponents();
-
-        // m_data layout: [ integral_c0, ..., integral_c{n-1} ].
-        if (this->m_data.size() != nComp)
-        {
-            this->m_data = LibUtilities::MemoryRegion<TData>(
-                "MeanRemoval", nComp, eHostPinned);
-        }
-        this->m_data.template Initialize<MemSpace>(TData{0});
+        ResetData(nComp);
 
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             auto &inblock = inout.GetBlocks()[blk];
             this->m_blockOp[blk]->Apply(inblock, this->m_data);
+        }
+
+        if (this->m_neumannSystem)
+        {
+            this->m_neumannSystem->AddNeumannSurfaceIntegral(this->m_data,
+                                                             nComp);
         }
 
         auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
@@ -96,14 +96,60 @@ protected:
         auto dataPtr =
             this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        // Negated per-component volume-averaged mean, ready for addScalar.
+        // Negated per-component volume-averaged mean, less the surface
+        // integral, ready for addScalar.
         std::vector<TData> negMean(nComp);
         for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            negMean[nc] = -(dataPtr[nc] / this->m_volume);
+            negMean[nc] =
+                -((dataPtr[nc] - dataPtr[nComp + nc]) / this->m_volume);
         }
 
         Math::addScalar<ExecSpace>(negMean, inout, inout);
+    }
+
+    std::vector<TData> v_GetBalancedMean() override
+    {
+        ComputeVolume();
+
+        const auto nComp = this->m_components.size();
+        ResetData(nComp);
+
+        if (this->m_neumannSystem)
+        {
+            this->m_neumannSystem->AddNeumannSurfaceIntegral(this->m_data,
+                                                             nComp);
+        }
+
+        auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+        rowComm->template AllReduce<MemSpace>(this->m_data,
+                                              LibUtilities::ReduceSum);
+
+        auto dataPtr =
+            this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+        std::vector<TData> mean(nComp);
+        for (unsigned int nc = 0; nc < nComp; ++nc)
+        {
+            mean[nc] = dataPtr[nComp + nc] / this->m_volume;
+        }
+        return mean;
+    }
+
+private:
+    // Zero m_data, sized for nComp components, laid out as
+    // [ integral_c0, ..., integral_c{n-1}, surface_c0, ..., surface_c{n-1} ]:
+    // the surface integrals of the Neumann values of the system set by
+    // SetNeumannBalance(), zero without one, so that one reduction and one
+    // read back cover all.
+    void ResetData(const size_t nComp)
+    {
+        if (this->m_data.size() != 2 * nComp)
+        {
+            this->m_data = LibUtilities::MemoryRegion<TData>(
+                "MeanRemoval", 2 * nComp, eHostPinned);
+        }
+        this->m_data.template Initialize<MemSpace>(TData{0});
     }
 
     /// The volume of the mesh, summed over the blocks and across the ranks.

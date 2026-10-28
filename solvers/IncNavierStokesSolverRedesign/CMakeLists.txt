@@ -310,6 +310,12 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             ChannelFlowHOPBC2D_WeakPressure
             KovasznayFlowHOPBC2D_IMEXOrder2_WeakPressure
             KovasznayFlowHOPBC2D_IMEXdirk_WeakPressure
+            # A singular pressure system, with the higher-order pressure
+            # boundary condition on every boundary, in the strong and the
+            # weak pressure form: the forcing is balanced against the
+            # surface integral of the Neumann flux.
+            KovasznayFlowHOPBC2D_Singular
+            KovasznayFlowHOPBC2D_Singular_WeakPressure
             KovasznayFlow2D
             UniformFlow3D_Hex
             CouetteFlow3D_Hex

@@ -87,6 +87,26 @@ public:
     }
 
     /**
+     * @brief Add the surface integral of the Neumann boundary values on
+     * this rank, per component, as of their last update, to
+     * data[offset + c] for component c, in the memory space of the
+     * operator's execution space.
+     *
+     * @details
+     * A singular (all-Neumann or periodic) system is solvable only when the
+     * domain integral of its forcing matches this surface integral. The sum
+     * is local to the rank and is not read back to the host, so that a
+     * caller reduces it across ranks and reads it back with the values it
+     * is added to. Each block of boundary values is summed on the stream
+     * that wrote it.
+     */
+    void AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
+                                   const size_t offset)
+    {
+        v_AddNeumannSurfaceIntegral(data, offset);
+    }
+
+    /**
      * @brief Leave the boundary regions whose Neumann condition has
      * USERDEFINEDTYPE @p userDefinedType, compared without regard to case,
      * to another operator, which supplies their Neumann value: this
@@ -120,6 +140,9 @@ protected:
     virtual void v_UpdateBndCoeffs(const TData &time) = 0;
 
     virtual size_t v_GetNumBndDofs() = 0;
+
+    virtual void v_AddNeumannSurfaceIntegral(
+        LibUtilities::MemoryRegion<TData> &data, const size_t offset) = 0;
 
     virtual void v_ExcludeUserDefinedType(
         const std::string &userDefinedType) = 0;

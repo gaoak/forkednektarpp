@@ -10,12 +10,12 @@
         <metric type="L2" id="1">
             <value variable="u" tolerance="5e-4">1.0496052e-01</value>
             <value variable="v" tolerance="5e-4">1.0544453e-01</value>
-            <value variable="p" tolerance="5e-2">7.5141928e+00</value>
+            <value variable="p" tolerance="5e-2">6.8025092e-01</value>
         </metric>
         <metric type="Linf" id="2">
             <value variable="u" tolerance="5e-4">1.9880973e+00</value>
             <value variable="v" tolerance="5e-4">2.5251975e+00</value>
-            <value variable="p" tolerance="5e-2">7.8161777e+00</value>
+            <value variable="p" tolerance="5e-2">8.0498078e+00</value>
         </metric>
     </metrics>
 </test>

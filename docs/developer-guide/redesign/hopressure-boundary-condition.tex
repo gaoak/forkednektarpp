@@ -413,6 +413,104 @@ The higher-order operator supplies precisely the positive boundary term in
 \eqref{hopbc:eq:poisson-weak}.  Its \code{Apply} method therefore adds to, rather
 than overwrites, the coefficient RHS assembled from the volume forcing.
 
+\section{Solvability of a singular pressure system}
+\label{hopbc:sec:neumann-balance}
+
+When every pressure boundary is Neumann or periodic, the pressure is
+determined only up to a constant: the constant lies in the null space of the
+stiffness operator, and the system is solvable only when its right-hand side
+is orthogonal to it. Taking \(v=1\) in \eqref{hopbc:eq:poisson-weak} gives
+the compatibility condition
+\begin{equation}
+  \boxed{
+  \int_\Omega f_p\,\mathrm d\Omega
+  =\oint_{\Gamma_N}\frac{\partial p}{\partial n}\,\mathrm dS.}
+  \label{hopbc:eq:compatibility}
+\end{equation}
+With \(\partial p/\partial n=0\) the right-hand side vanishes, and removing
+the mean of the forcing suffices. With the higher-order flux it does not: the
+discrete forcing and the discrete boundary flux are evaluated separately, and
+their integrals agree only up to the discretisation and extrapolation error.
+The residual is then the component of the right-hand side along the null
+space, which the linear solver cannot reduce.
+
+\code{VelocityCorrectionScheme} flags the pressure system as singular when
+no rank has a pressure boundary that is neither Neumann nor periodic. Before
+each pressure solve, after the flux of this condition and the session
+Neumann values of the pressure system (\code{UpdateBndCoeffs(time)}) are
+updated for the stage, it enforces \eqref{hopbc:eq:compatibility} on the
+forcing of the strong form:
+\begin{lstlisting}[style=C++Style]
+m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
+m_meanRemovalOp->Apply(m_wsp_phys_1c);
+\end{lstlisting}
+The volume term \((\nabla v,\vect f_w)\) of the weak form vanishes for
+\(v=1\), so the weak form balances the surface integral with a constant
+forcing \(c\) of that domain integral instead, which enters as
+\(-(c,v)_\Omega=-c\,(1,v)_\Omega\) after the volume term. The integrals
+\((1,\phi_j)_\Omega\) of the pressure basis are computed once at set-up, so
+that each solve adds them with one \code{daxpy}:
+\begin{lstlisting}[style=C++Style]
+m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
+const double balancedMean = m_meanRemovalOp->GetBalancedMean()[0];
+m_math.daxpy(-balancedMean, m_pressureBasisIntegrals, m_wsp_coeff_1c,
+             m_wsp_coeff_1c);
+\end{lstlisting}
+
+The pieces are:
+\begin{description}
+  \item[\code{NeuBndCondOp::AddNeumannSurfaceIntegral(data, offset)}] adds,
+    per component and on this rank, the surface integral of the Neumann
+    values an operator sets to \code{data}, in the memory space of the
+    execution space, without reading it back. It is summed from the boundary
+    inner products \(b_j=\int_{\Gamma_f}\phi_j\,g\,\mathrm dS\) the operator
+    already holds, by \code{CGBndCondSurfaceIntegral}, defined in
+    \path{CGBndCondSurfaceIntegral.hpp} under
+    \path{library/MultiRegions/BndCondOps/Common}. A set
+    of basis functions summing to one gives
+    \(\sum_j b_j=\int_{\Gamma_f}g\,\mathrm dS\): the vertex modes of a
+    \code{Modified\_A} basis, or every mode of a Lagrange basis. Each block
+    is summed on the stream that wrote it: a Lagrange or point block whole,
+    its padding being zero, with \code{Math::reduceSumKernel}, and a
+    \code{Modified\_A} block with the masked \code{Math::reduceSumKernel},
+    over a \code{uint8\_t} mask laid out as one component of the block at
+    its interleave width, one at the vertex modes of every element and zero
+    elsewhere, the padding included. The sum then reads the coefficients
+    contiguously, at any interleave width, with no index arithmetic in the
+    kernel. The mask of a block is built on the host, from the positions of
+    its vertex modes within an element, and uploaded on the block's stream:
+    at interleave width 1, the width of the boundary fields, when the
+    surface integral is built, and at any other width the first time a field
+    is read at it, and kept.
+    The operator builds it where it builds its boundary fields.
+    \code{NeuBndCondOpImpl} sums the
+    coefficients of the session values of the regions and components it
+    applies, and \code{HOPressureBndCondOpImpl} those of the flux
+    \eqref{hopbc:eq:implemented-hop} computed by the last update. The
+    velocity Neumann adapter of the outflow condition
+    (chapter~\ref{chap:houtflow-bndcond}) adds the integral of the
+    velocity flux of its last \code{Apply()}, for the velocity system.
+  \item[\code{LinearSystemOp::AddNeumannSurfaceIntegral(data, offset)}] adds
+    the integrals of the Neumann operators of the system, the default one and
+    those added with \code{AddNeumannBCOp()}, which apply the regions the
+    default one leaves out.
+  \item[\code{MeanRemovalOp::SetNeumannBalance(system)}] keeps a pointer to
+    the system whose surface integral each component's domain integral is
+    driven to. \code{Apply()} adds the surface integrals to the reduction of
+    the domain integrals and the volume, so that one reduction across the
+    ranks of the row communicator and one read back to the host serve all
+    three, and then subtracts
+    \((\int_\Omega f\,\mathrm d\Omega-c)/\lvert\Omega\rvert\) from
+    component \(f\), with \(c\) its surface integral, so that the integral of
+    the result is \(c\) instead of zero. Without a system, the default, it
+    removes the mean. \code{GetBalancedMean()} returns
+    \(c/\lvert\Omega\rvert\), the mean \code{Apply()} drives each component
+    to, with one reduction and one read back of the surface integrals
+    alone; the volume is computed on its first call and kept. The operator
+    is shared with the reported pressure error, which clears the balance
+    before its own mean removal.
+\end{description}
+
 \section{Implementation map}
 
 \begin{center}
@@ -462,6 +560,9 @@ Dirichlet velocity condition. \\
 regions, and gather into domain-block order. \\
 \code{v\_Apply} & Signed and grouped scatter-add in
 \eqref{hopbc:eq:weak-scatter}, at the interleave width of the forcing. \\
+\code{v\_AddNeumannSurfaceIntegral} & Sum the boundary coefficients into
+the surface integral of the flux, as in
+\S\ref{hopbc:sec:neumann-balance}. \\
 \bottomrule
 \end{tabular}
 \end{center}

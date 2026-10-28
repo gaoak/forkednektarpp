@@ -37,12 +37,15 @@
 
 #define BOOST_TEST_MODULE TestMeanRemoval
 
+#include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
+#include <SpatialDomains/Conditions.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
+#include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
 #include <SolverCore/MeanRemoval/MeanRemovalOp.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
@@ -206,6 +209,90 @@ static void RunMeanRemovalTest(const std::string &xml,
     }
 }
 
+// As RunMeanRemovalTest, on a session with Neumann conditions, with the
+// Neumann balance set to a PoissonSolveOp of the session: the expected field
+// is orig[i] - (integral - surface) / vol, whose domain integral is the
+// surface integral of the Neumann values, which is summed here from the
+// boundary values the ExpList evaluates, and the balanced mean is
+// surface / vol.
+[[maybe_unused]] static void RunMeanRemovalNeumannBalanceTest(
+    const std::string &xml, const std::string &execStr)
+{
+    auto session    = SetSession(xml, execStr);
+    auto graph      = SpatialDomains::MeshGraphIO::Read(session);
+    const auto vars = session->GetVariables();
+    BOOST_REQUIRE(vars.size() == 1);
+    auto explist = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+        session, graph, vars[0], true, false, Collections::eNoCollection);
+    explist->SetDataWarehouse();
+
+    const size_t npts = explist->GetTotPoints();
+
+    Array<OneD, double> ones(npts, 1.0);
+    const double vol = explist->Integral(ones);
+    BOOST_REQUIRE(vol > 0.0);
+
+    explist->EvaluateBoundaryConditions(0.0, vars[0]);
+    double surface            = 0.0;
+    const auto &bndConditions = explist->GetBndConditions();
+    const auto &bndExpansions = explist->GetBndCondExpansions();
+    for (unsigned int n = 0; n < bndExpansions.size(); ++n)
+    {
+        if (bndConditions[n]->GetBoundaryConditionType() !=
+            SpatialDomains::eNeumann)
+        {
+            continue;
+        }
+        surface += bndExpansions[n]->Integral(bndExpansions[n]->GetPhys());
+    }
+    BOOST_REQUIRE(std::abs(surface) > 1.0e-3);
+
+    Array<OneD, double> orig(npts, 0.0);
+    FillField(explist, 1, npts, orig);
+    const double integral = explist->Integral(orig);
+
+    auto blockAttr =
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
+    auto poisson = PoissonSolveOp<double>::Create(explist, vars, execStr);
+    auto op      = MeanRemovalOp<double>::Create(explist, vars, execStr);
+
+    const double tol = 1.0e-10;
+
+    // The balanced mean, before any Apply(), is the surface integral over the
+    // volume.
+    op->SetNeumannBalance(poisson.get());
+    BOOST_CHECK_SMALL(op->GetBalancedMean()[0] - surface / vol, tol);
+
+    // With the balance, the domain integral of the result is the surface
+    // integral.
+    {
+        LibUtilities::Field<double, FieldState::Phys> f("u", blockAttr, 1, 1);
+        f.template CopyArray<NektarSpaces::HostSpace>(orig);
+        op->SetNeumannBalance(poisson.get());
+        op->Apply(f);
+
+        auto res = f.template ToArray<double>();
+        for (size_t i = 0; i < npts; ++i)
+        {
+            BOOST_CHECK_SMALL(res[i] - (orig[i] - (integral - surface) / vol),
+                              tol);
+        }
+        BOOST_CHECK_SMALL(explist->Integral(res) - surface, tol);
+    }
+
+    // Without it, the mean is removed.
+    {
+        LibUtilities::Field<double, FieldState::Phys> f("u", blockAttr, 1, 1);
+        f.template CopyArray<NektarSpaces::HostSpace>(orig);
+        op->SetNeumannBalance(nullptr);
+        op->Apply(f);
+
+        auto res = f.template ToArray<double>();
+        BOOST_CHECK_SMALL(explist->Integral(res), tol);
+        BOOST_CHECK_SMALL(op->GetBalancedMean()[0], tol);
+    }
+}
+
 struct Case
 {
     std::string xml;
@@ -240,6 +327,27 @@ BOOST_AUTO_TEST_CASE(MeanRemoval_MeanSubtraction)
     };
 
     RunCases(execStr, cases);
+}
+
+BOOST_AUTO_TEST_CASE(MeanRemoval_NeumannBalance)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    const std::vector<Case> cases = {
+        // Segments of triangles and quadrilaterals, and quadrilateral faces,
+        // as Neumann regions.
+        {"run/Helmholtz2D_P7_AllBCs.xml"},
+        {"run/Helmholtz3D_Hex_AllBCs_P6.xml"},
+    };
+
+    for (const auto &tc : cases)
+    {
+        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << tc.xml)
+        {
+            RunMeanRemovalNeumannBalanceTest(tc.xml, execStr);
+        }
+    }
 }
 #endif
 

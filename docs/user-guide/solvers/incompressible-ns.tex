@@ -142,8 +142,7 @@ The default is \inltt{Strong} with \inltt{Formulation}
 \inltt{SemiImplicit} and \inltt{Weak} with \inltt{LinearImplicit}. In the
 weak form a pressure Neumann boundary
 with \inltt{USERDEFINEDTYPE="H"} carries only the boundary acceleration and
-the viscous term of Eq.~\eqref{eqn.pressurebcsWeak}, and a session with such
-a boundary needs a Dirichlet pressure boundary as well.
+the viscous term of Eq.~\eqref{eqn.pressurebcsWeak}.
 \inltt{LinearImplicit} advects with the velocity extrapolated from the
 previous time levels with the explicit coefficients of the \inltt{IMEX}
 scheme. Its first steps take an \inltt{IMEXdirk} start-up scheme, which

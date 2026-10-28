@@ -44,6 +44,7 @@
 
 #include <MultiRegions/BndCondOps/Common/CGBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/Common/CGBndCondMapBuilder.hpp>
+#include <MultiRegions/BndCondOps/Common/CGBndCondSurfaceIntegral.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondOp.hpp>
 
@@ -100,6 +101,9 @@ protected:
     std::vector<size_t> m_neuCoeffOffsets;
     std::vector<size_t> m_neuNumCoeffs;
     std::vector<bool> m_neuIsPoint;
+    // The sum of the surface integrals of m_wsp_coeffs, for
+    // v_AddNeumannSurfaceIntegral().
+    CGBndCondSurfaceIntegral<ExecSpace, TData> m_surfaceIntegral;
 
     std::vector<LibUtilities::MemoryRegion<size_t>> m_map;
     std::vector<LibUtilities::MemoryRegion<TData>> m_sign;
@@ -181,6 +185,7 @@ protected:
         // that is genuinely Neumann-specific -- the IProductWRTBaseOp (or, for
         // 0D point regions, a plain copy) that turns the evaluated boundary
         // values into boundary coefficients.
+        std::vector<MultiRegions::ExpListSharedPtr> neuBndExpLists;
         auto regions = BuildCGBndCondRegions<ExecSpace, TData>(
             this->m_expansionList, this->m_components, bregions, bconditions,
             "Neumann BC", this->m_wsp_phys, this->m_wsp_coeffs,
@@ -189,6 +194,7 @@ protected:
                 return IsApplied(bc);
             },
             [&](const MultiRegions::ExpListSharedPtr &bcExpList) {
+                neuBndExpLists.push_back(bcExpList);
                 m_neuNumCoeffs.push_back(bcExpList->GetNcoeffs());
                 m_neuIsPoint.push_back(bcExpList->GetShapeDimension() == 0);
 
@@ -207,6 +213,21 @@ protected:
 
         std::vector<std::vector<bool>> &isNeumannByRegion =
             regions.isTypeByRegion;
+
+        // A component without a Neumann condition this operator applies in a
+        // region is left out of its surface integral.
+        std::vector<std::vector<bool>> neuIsAppliedComp;
+        for (const auto &isNeumannComp : isNeumannByRegion)
+        {
+            if (std::find(isNeumannComp.begin(), isNeumannComp.end(), true) !=
+                isNeumannComp.end())
+            {
+                neuIsAppliedComp.push_back(isNeumannComp);
+            }
+        }
+        m_surfaceIntegral = CGBndCondSurfaceIntegral<ExecSpace, TData>(
+            neuBndExpLists, neuIsAppliedComp);
+
         std::vector<size_t> &numBcExpCoeffs = regions.numBcExpCoeffs;
         m_numBndCoeffCompSize               = regions.numBndCoeffCompSize;
 
@@ -385,6 +406,7 @@ protected:
         m_neuCoeffOffsets.clear();
         m_neuNumCoeffs.clear();
         m_neuIsPoint.clear();
+        m_surfaceIntegral = CGBndCondSurfaceIntegral<ExecSpace, TData>();
         m_map.clear();
         m_sign.clear();
         m_bndCoeff.clear();
@@ -541,14 +563,16 @@ protected:
         return m_totalBndDofs;
     }
 
+    void v_AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
+                                     const size_t offset) override
+    {
+        InitialiseBndCoeffs();
+        m_surfaceIntegral.Add(m_wsp_coeffs, data, offset);
+    }
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override
     {
-        // Applied before any UpdateBndCoeffs(), the condition takes its value
-        // at time zero.
-        if (!this->m_bndCoeffsInitialised)
-        {
-            this->UpdateBndCoeffs(static_cast<TData>(0.0));
-        }
+        InitialiseBndCoeffs();
 
         // Return if no Neumann boundary condition.
         if (m_numBndCoeffCompSize == 0)
@@ -674,6 +698,17 @@ protected:
                 inoutWidth, 1u,
                 inoutBlk.GetNumElementsWithPadding() * inout.GetNumComponents(),
                 inoutBlk.GetNumData(), inoutPtr, streamID);
+        }
+    }
+
+private:
+    // Used before any UpdateBndCoeffs(), the condition takes its value at
+    // time zero.
+    void InitialiseBndCoeffs()
+    {
+        if (!this->m_bndCoeffsInitialised)
+        {
+            this->UpdateBndCoeffs(static_cast<TData>(0.0));
         }
     }
 };

@@ -250,6 +250,10 @@ IF( NEKTAR_SOLVER_ADR )
     ADD_NEKTAR_TEST(SVV_Tet)
     ADD_NEKTAR_TEST(LaplacePhi)
 
+    # Singular Poisson equation tests
+    ADD_NEKTAR_TEST(Poisson3D_singular_hex)
+    ADD_NEKTAR_TEST(Poisson_singular_3DHomo1D)
+
     # Movement tests
     ADD_NEKTAR_TEST(Movement_fixed_interfaces232_dirichlet)
     ADD_NEKTAR_TEST(Movement_fixed_interfaces232_periodic)
@@ -287,6 +291,8 @@ IF( NEKTAR_SOLVER_ADR )
         ADD_NEKTAR_TEST(Helmholtz3D_CubeDirichlet_par)
         ADD_NEKTAR_TEST(Helmholtz3D_LowEnergyBlock_ReorderedHex_par)
         ADD_NEKTAR_TEST(Helmholtz3D_CubePeriodic_RotateFace_par)
+        ADD_NEKTAR_TEST(Poisson3D_singular_hex_par)
+        ADD_NEKTAR_TEST(Poisson_singular_3DHomo1D_par)
         ADD_NEKTAR_TEST(Advection2D_m12_DG_quad_VarP_par)
         ADD_NEKTAR_TEST(Advection2D_m12_DG_tri_VarP_par)
         ADD_NEKTAR_TEST(Advection2D_dirichlet_regular_GAUSS_LAGRANGE_10x10_MF_par)
