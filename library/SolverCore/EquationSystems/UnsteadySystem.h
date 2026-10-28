@@ -139,6 +139,10 @@ protected:
     SOLVER_CORE_EXPORT virtual void v_SetInitialConditions(
         double initialTime = 0.0);
 
+    /// Set the initial conditions of the solution from a given function.
+    SOLVER_CORE_EXPORT void SetInitialConditionsFrom(
+        const SessionFunction &initialConditions, double initialTime);
+
     /// Solves an unsteady problem.
     SOLVER_CORE_EXPORT void v_DoSolve() override;
 
@@ -170,6 +174,7 @@ protected:
     /// Evaluate the initial condition of continuous fields and bring it
     /// into the continuous space.
     SOLVER_CORE_EXPORT void SetContinuousInitialConditions(
+        const SessionFunction &initialConditions,
         const MultiRegions::ExpListSharedPtr &expList,
         const std::vector<std::string> &variables,
         LibUtilities::Field<double, FieldState::Phys> &phys,

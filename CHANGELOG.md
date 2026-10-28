@@ -124,6 +124,7 @@ v5.11.0
 - Fuse the derivative and metric stages of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels (!2884)
 - Coalesce the global memory reads of the device SumFacTOP AdvectionDealias and FwdTransBC kernels (!2884)
 - Replace boost's aligned_allocator with a local implementation, and qualify unqualified abs calls on floating-point values as std::abs; without the boost header, GeometryLocator's Newton check resolved to the integer abs on aarch64, breaking 3D interface searches (!2861)
+- Read a redesign file initial condition once for all fields, and only the parts of a parallel field file that hold the elements of the process (!2885)
 - Fix the device DerivZ and AdvectionZ operators replaying a captured graph against the input, output, advection velocity and scale of their first call; a block is now captured again when any of them changes, and its fields are synchronised on every call (!2886)
 - Fix the redesign diagonal preconditioner reshaping its inverse diagonal through a read-only pointer, and the linear solver mask and IDR(s) shadow space reshaping only the first homogeneous plane (!2886)
 - Reuse the derivative slots for the inner product's intermediate stages in the shared memory of the device SumFacTOP Helmholtz, Laplacian and LinAdvDiffReaction kernels, and size it exactly (!2886)
@@ -191,6 +192,7 @@ v5.11.0
 - Add linear-implicit time-stepping (!2585)
 - Remove deprecated AdvectionForm from session file and add deprecation warning message (!2799)
 - Add weak pressure formulation and fix HOPBC and linear-implicit time accuracy (!2870)
+- Project a file pressure initial condition of lower order than the velocity element by element, as the legacy solver does, instead of truncating it (!2885)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

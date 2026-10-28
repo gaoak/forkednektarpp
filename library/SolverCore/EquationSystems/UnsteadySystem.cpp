@@ -140,6 +140,22 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
  */
 void UnsteadySystem::v_SetInitialConditions(double initialTime)
 {
+    SessionFunction initialConditions(m_session, m_expansionLists[0],
+                                      "InitialConditions");
+    SetInitialConditionsFrom(initialConditions, initialTime);
+}
+
+/**
+ * @brief Set the initial conditions of #m_fields and #m_fields_coeff from
+ * @p initialConditions.
+ *
+ * @param   initialConditions   The InitialConditions function on
+ *                              #m_expansionLists[0].
+ * @param   initialTime         Time to evaluate it at.
+ */
+void UnsteadySystem::SetInitialConditionsFrom(
+    const SessionFunction &initialConditions, double initialTime)
+{
     m_time = initialTime;
 
     // Print to log/console
@@ -155,17 +171,15 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
 
     if (m_projectionType == MultiRegions::eGalerkin)
     {
-        SetContinuousInitialConditions(m_expansionLists[0], m_variables,
-                                       m_fields, m_fields_coeff, m_bwdTransOp,
-                                       m_fwdTransOp);
+        SetContinuousInitialConditions(initialConditions, m_expansionLists[0],
+                                       m_variables, m_fields, m_fields_coeff,
+                                       m_bwdTransOp, m_fwdTransOp);
         PrintInitialConditions(m_expansionLists[0], m_variables);
         return;
     }
 
     // Discontinuous fields from here on.
     auto vType = GetInitialConditionType(m_variables);
-    SessionFunction initialConditions(m_session, m_expansionLists[0],
-                                      "InitialConditions");
     if (vType == LibUtilities::eFunctionTypeExpression)
     {
         initialConditions.EvaluateExpression(m_variables, m_fields, m_time);
@@ -240,7 +254,8 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
  * brought into the continuous space in three steps:
  *
  * 1. Element coefficients: an expression is projected element by element,
- *    \f$M_e^{-1} B_e^{T} W_e\f$, and a file is used as read.
+ *    \f$M_e^{-1} B_e^{T} W_e\f$, and a file is used as read (see
+ *    SessionFunction::EvaluateFld()).
  * 2. Every local copy of each global degree of freedom is replaced by the
  *    signed average of all copies, by an AvgAssmbScatrOp, which makes the
  *    coefficients continuous.
@@ -254,21 +269,28 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
  *      at #m_time. The averaged coefficients are the start of that solve: a
  *      continuous start is required, since the solve adds a continuous
  *      correction to it, and a close one saves iterations. A file that is
- *      already continuous comes back to round-off.
+ *      already continuous comes back to round-off. A file that
+ *      @p initialConditions reads through another expansion and projects
+ *      element by element gives the Galerkin projection of the file at that
+ *      expansion: the continuous space lies in the element-wise one, so the
+ *      element-wise projection first changes nothing.
  *
  * Without an initial condition the fields are left as they are. The
  * operators used only here are built here and discarded. Every rank must
  * call this, since the averaging and the projection communicate.
  *
- * @param   expList      Continuous expansion list of the fields.
- * @param   variables    Names of the field components.
- * @param   phys         Physical values, set on return.
- * @param   coeffs       Coefficients, set on return.
- * @param   bwdTransOp   Backward transform of the fields.
- * @param   fwdTransOp   Continuous projection of the fields; built here,
- *                       for the Galerkin method only, if null.
+ * @param   initialConditions   The InitialConditions function on
+ *                              @p expList.
+ * @param   expList             Continuous expansion list of the fields.
+ * @param   variables           Names of the field components.
+ * @param   phys                Physical values, set on return.
+ * @param   coeffs              Coefficients, set on return.
+ * @param   bwdTransOp          Backward transform of the fields.
+ * @param   fwdTransOp          Continuous projection of the fields; built
+ *                              here, for the Galerkin method only, if null.
  */
 void UnsteadySystem::SetContinuousInitialConditions(
+    const SessionFunction &initialConditions,
     const MultiRegions::ExpListSharedPtr &expList,
     const std::vector<std::string> &variables,
     LibUtilities::Field<double, FieldState::Phys> &phys,
@@ -282,7 +304,6 @@ void UnsteadySystem::SetContinuousInitialConditions(
     // Element coefficients, and for Galerkin the field at the quadrature
     // points that it projects.
     auto vType = GetInitialConditionType(variables);
-    SessionFunction initialConditions(m_session, expList, "InitialConditions");
     if (vType == LibUtilities::eFunctionTypeExpression)
     {
         initialConditions.EvaluateExpression(variables, phys, m_time);

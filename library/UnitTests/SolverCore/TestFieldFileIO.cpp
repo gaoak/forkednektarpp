@@ -287,6 +287,16 @@ void CheckEqual(const std::vector<double> &result,
         CheckEqual(FieldCoeffs(coeffs, interleaveWidth, execStr), expected);
     }
 
+    // A copy of the function for another expansion list shares what was
+    // read, so it loads the same coefficients with the file gone.
+    fs::remove(inputFile);
+    SessionFunction sharedConditions(initialConditions, explist);
+    sharedConditions.EvaluateFld(variables, coeffs, 0.0);
+    BOOST_TEST_CONTEXT("load shared")
+    {
+        CheckEqual(FieldCoeffs(coeffs, interleaveWidth, execStr), expected);
+    }
+
     // ToVector() de-interleaves the field without changing it.
     BOOST_TEST_CONTEXT("ToVector")
     {

@@ -37,6 +37,10 @@
 
 #include <LibUtilities/BasicUtils/FieldIO.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
+#include <MultiRegions/Common/Operator.hpp>
+#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 
 #include <algorithm>
 #include <map>
@@ -48,24 +52,79 @@ SessionFunction::SessionFunction(LibUtilities::SessionReaderSharedPtr session,
                                  MultiRegions::ExpListSharedPtr expList,
                                  std::string functionName)
     : m_session(std::move(session)), m_expList(std::move(expList)),
-      m_name(std::move(functionName))
+      m_name(std::move(functionName)),
+      m_importedFields(std::make_shared<std::map<std::string, ImportedField>>())
 {
     ASSERTL0(m_session->DefinesFunction(m_name),
              "Function '" + m_name + "' does not exist.");
 }
 
-void SessionFunction::EvaluateFld(
-    const std::vector<std::string> &variables,
-    LibUtilities::Field<double, FieldState::Coeff> &coeffs,
-    [[maybe_unused]] double time, [[maybe_unused]] unsigned int domain) const
+/**
+ * @brief Construct the function of @p function on another expansion list.
+ *
+ * The two share the field files read so far and those either reads later,
+ * so a file read through one is not read again through the other. What is
+ * read is kept until the last of them is destroyed. Since a file is read for
+ * the elements of the list that reads it, @p expList must hold the elements
+ * of the expansion list of @p function, in the same order.
+ *
+ * Where @p expList has other bases on the same quadrature points, as a
+ * lower-order pressure has, a file is read through the expansion list of
+ * @p function and projected element by element onto @p expList (see
+ * EvaluateFld()). Otherwise it is read into @p expList.
+ *
+ * @param   function    Function to evaluate on @p expList.
+ * @param   expList     Expansion list to evaluate it on.
+ */
+SessionFunction::SessionFunction(const SessionFunction &function,
+                                 MultiRegions::ExpListSharedPtr expList)
+    : m_session(function.m_session), m_expList(std::move(expList)),
+      m_name(function.m_name), m_importedFields(function.m_importedFields)
 {
-    ASSERTL0(coeffs.GetNumComponents() == variables.size(),
-             "SessionFunction::EvaluateFld mismatch in supplied number of "
-             "variables and number of components for Field.");
+    bool sameElements =
+        m_expList->GetExpSize() == function.m_expList->GetExpSize();
+    bool samePoints = true;
+    bool otherBases = false;
+    for (int i = 0; sameElements && i < m_expList->GetExpSize(); ++i)
+    {
+        const auto &exp     = m_expList->GetExp(i);
+        const auto &fileExp = function.m_expList->GetExp(i);
+        sameElements =
+            exp->GetGeom()->GetGlobalID() == fileExp->GetGeom()->GetGlobalID();
+        samePoints =
+            samePoints && exp->GetPointsKeys() == fileExp->GetPointsKeys();
+        for (int d = 0; d < exp->GetNumBases(); ++d)
+        {
+            otherBases = otherBases || exp->GetBasis(d)->GetBasisKey() !=
+                                           fileExp->GetBasis(d)->GetBasisKey();
+        }
+    }
+    ASSERTL0(sameElements, "SessionFunction can only be shared between "
+                           "expansion lists of the same elements.");
 
-    const std::size_t ncoeffs = m_expList->GetNcoeffs();
+    if (otherBases && samePoints)
+    {
+        m_fileExpList = function.m_expList;
+    }
+}
+
+/**
+ * @brief Read the coefficients of @p variables from the file function into
+ * the element-wise coefficient order of @p expList, which holds the elements
+ * of #m_expList.
+ *
+ * Each element's modes are copied from the file, truncated or padded to the
+ * expansion's order. The result holds all components one after the other.
+ * A file is read once and kept for later calls, here and on the copies of
+ * this function made for other expansion lists.
+ */
+std::vector<double> SessionFunction::ReadFldCoeffs(
+    const MultiRegions::ExpListSharedPtr &expList,
+    const std::vector<std::string> &variables, unsigned int domain) const
+{
+    const std::size_t ncoeffs = expList->GetNcoeffs();
     std::vector<double> allCoeffs(ncoeffs * variables.size(), 0.0);
-    std::map<std::string, ImportedField> importedFields;
+    auto &importedFields = *m_importedFields;
 
     // Loop all variables.
     for (std::size_t n = 0; n < variables.size(); ++n)
@@ -82,13 +141,27 @@ void SessionFunction::EvaluateFld(
                  "SolverCore SessionFunction only supports .fld initial "
                  "conditions; .pts/.csv interpolation is not implemented.");
 
-        // Check if field was already imported, and import if not
+        // Check if field was already imported, and import if not. Only the
+        // parts of a file written in parallel that hold elements of this
+        // process are read.
         if (importedFields.find(filename) == importedFields.end())
         {
+            // An empty array would compare equal to NullInt1DArray and read
+            // every part, so a process without elements asks for an id that
+            // no element has. It still takes part in the import, which is
+            // collective for HDF5 files.
+            const int nElmts = expList->GetExpSize();
+            Array<OneD, int> elementIDs(std::max(nElmts, 1), -1);
+            for (int i = 0; i < nElmts; ++i)
+            {
+                elementIDs[i] = expList->GetExp(i)->GetGeom()->GetGlobalID();
+            }
+
             ImportedField imported;
             auto fldIO =
                 LibUtilities::FieldIO::CreateForFile(m_session, filename);
-            fldIO->Import(filename, imported.fieldDefs, imported.fieldData);
+            fldIO->Import(filename, imported.fieldDefs, imported.fieldData,
+                          LibUtilities::NullFieldMetaDataMap, elementIDs);
             importedFields.emplace(filename, std::move(imported));
         }
 
@@ -115,18 +188,86 @@ void SessionFunction::EvaluateFld(
             }
             found = true;
             // ExpList handles element-id reordering and modal interpolation.
-            m_expList->ExtractDataToCoeffs(imported.fieldDefs[i],
-                                           imported.fieldData[i], fileVar,
-                                           compCoeffs);
+            expList->ExtractDataToCoeffs(imported.fieldDefs[i],
+                                         imported.fieldData[i], fileVar,
+                                         compCoeffs);
         }
-        ASSERTL0(found,
+        // A process without elements reads no part of the file.
+        ASSERTL0(found || expList->GetExpSize() == 0,
                  "Field (" + fileVar + ") not found in file " + filename + ".");
 
         std::copy(compCoeffs.begin(), compCoeffs.end(),
                   allCoeffs.begin() + n * ncoeffs);
     }
 
-    coeffs.CopyVector<NektarSpaces::HostSpace>(allCoeffs);
+    return allCoeffs;
+}
+
+/**
+ * @brief Read the file function of @p variables into @p coeffs.
+ *
+ * The file is read into #m_expList, each element's modes truncated or
+ * padded to the expansion's order. A copy of the function made for an
+ * expansion list with other bases on the same quadrature points instead
+ * reads it into the expansion list of the function copied, evaluates it at
+ * the quadrature points (BwdTransOp) and projects it element by element
+ * onto #m_expList (IProductWRTBaseOp, then MultiplyByElmtInvMassOp). For a
+ * lower order, that differs from the truncation: with a modified basis,
+ * truncation to linear order keeps the vertex values only.
+ */
+void SessionFunction::EvaluateFld(
+    const std::vector<std::string> &variables,
+    LibUtilities::Field<double, FieldState::Coeff> &coeffs,
+    [[maybe_unused]] double time, unsigned int domain) const
+{
+    ASSERTL0(coeffs.GetNumComponents() == variables.size(),
+             "SessionFunction::EvaluateFld mismatch in supplied number of "
+             "variables and number of components for Field.");
+
+    if (!m_fileExpList)
+    {
+        coeffs.CopyVector<NektarSpaces::HostSpace>(
+            ReadFldCoeffs(m_expList, variables, domain));
+        return;
+    }
+
+    // Both lists hold the same elements in the same order, on the same
+    // quadrature points, so the values read are moved from one list's
+    // storage to the other's through their element-wise order.
+    const auto interleaveWidth =
+        MultiRegions::Operator<double>::GetDefaultInterleaveWidth(m_session);
+    const auto ncomps = coeffs.GetNumComponents();
+    const auto nhomo  = coeffs.GetNumHomoModes();
+    auto fileCoeffs   = LibUtilities::Field<double, FieldState::Coeff>(
+        "file coefficients",
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_fileExpList, interleaveWidth),
+        ncomps, nhomo);
+    auto filePhys = LibUtilities::Field<double, FieldState::Phys>(
+        "file values",
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            m_fileExpList, interleaveWidth),
+        ncomps, nhomo);
+    auto phys = LibUtilities::Field<double, FieldState::Phys>(
+        "file values projected",
+        MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+            m_expList, interleaveWidth),
+        ncomps, nhomo);
+    auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
+        "file inner product",
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_expList, interleaveWidth),
+        ncomps, nhomo);
+
+    fileCoeffs.CopyVector<NektarSpaces::HostSpace>(
+        ReadFldCoeffs(m_fileExpList, variables, domain));
+    MultiRegions::BwdTransOp<double>::Create(m_fileExpList, variables)
+        ->Apply(fileCoeffs, filePhys);
+    phys.CopyVector<NektarSpaces::HostSpace>(filePhys.ToVector<double>());
+    MultiRegions::IProductWRTBaseOp<double>::Create(m_expList, variables)
+        ->Apply(phys, iprod);
+    MultiRegions::MultiplyByElmtInvMassOp<double>::Create(m_expList, variables)
+        ->Apply(iprod, coeffs);
 }
 
 void SessionFunction::EvaluateExpression(
