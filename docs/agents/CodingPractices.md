@@ -26,8 +26,12 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 ## Layout and vectorisation
 
 4. **Never assert a storage layout.** Fields are created at interleave width
-   1; an implementation reshapes to its own width (`ReshapeStorage`, per
-   component, restored afterwards) or supports both layouts.
+   1; an implementation works on the layout it is given or brings it to its
+   own width and back. Serial/AVX does so chunk by chunk inside the kernel's
+   group loop, never for the whole block before the kernel; Device reshapes
+   the whole block, once, rather than in many small launches. Reshapes are
+   explicit `ReshapeStorage` calls where the layout changes, with no
+   width-conversion helper.
 5. **Serial/AVX code works in the vector type.** One simd lane per element
    via `simd_type_if`; kernels in `*SerialAVXKernels.hpp` take
    `const simd_type *`; no integer `/` or `%` per element; padding zeroed
@@ -73,7 +77,8 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     into its section, not between public members. Within a section, member
     variables are declared before member functions. For
     ElmtOps, follow the pattern, names and types of `BwdTrans`, `Helmholtz`,
-    `IProductWRTBase`, `LinAdvDiffReaction` and `PhysDeriv`.
+    `IProductWRTBase`, `LinAdvDiffReaction` and `PhysDeriv`, and declare
+    only the type aliases they declare.
 13. **Comments say what the code does.** No provenance ("as legacy does"), no
     references to earlier merge requests; that belongs in commit messages and
     MR descriptions.
@@ -109,7 +114,9 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     written at each use rather than implied by an enclosing namespace.
 18. **`MultiRegions` does not depend on `SolverCore`.** An operator under
     `library/MultiRegions` that needs an include from `SolverCore` is in the
-    wrong library: move it rather than add the include.
+    wrong library: move it rather than add the include. A property of an
+    expansion, such as whether its standard mass matrix is diagonal, belongs
+    in LocalRegions or StdRegions, not in an operator's header.
 19. **A solver includes `...Op.hpp`, never `...OpImpl.hpp`.** The
     implementation is reached through the factory, and the registrations
     arrive at link time from the generated sources.
@@ -238,9 +245,10 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     evaluating a function of the coordinates, must leave the padding zero.
     Prefer doing so in place, in the kernel computing the result: skip padded
     elements and write zero for them, as the Expression kernels do, or return
-    zero where the result is undefined, as `Math::div` does for a zero
-    divisor. Otherwise, call `Math::internalZeroPadding` on the output
-    afterwards, at the cost of a second pass over the padded element groups.
+    zero where the result is undefined, as `Math::div` and `SafeDivide` do
+    for a zero divisor, rather than through a padding flag. Otherwise, call
+    `Math::internalZeroPadding` on the output afterwards, at the cost of a
+    second pass over the padded element groups.
     Assign zero rather than multiplying by the padding mask, so that a NaN
     does not survive.
 
@@ -280,3 +288,49 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     helper. The header is in `Nektar::StringUtils`, not
     `Nektar::LibUtilities`. A function it lacks is added there, with a unit
     test, rather than written beside its caller.
+
+## Performance-critical implementations
+
+43. **Serial/AVX and Device get separate implementations** for any operator
+    that is not point-wise. `parallel_for` is for point-wise vector work,
+    such as the time-integration and linear-solver vector updates.
+44. **Device global memory is accessed coalesced.** Stage through shared
+    memory where the natural access is strided; never stride global memory
+    by the vector or interleave width. Shared memory is scarce: size it for
+    3D expansions of up to 7-8 modes.
+45. **Device shared memory is free of bank conflicts**, by index order first;
+    padding is a further optimisation where it stays simple.
+46. **Device work is fused into few launches**: one launch over a block, not
+    one per trace, component or stage.
+47. **Mesh and basis data come from the data warehouse and are used as
+    fetched.** No per-operator copy, gather, repack or reshape of warehouse
+    data: it duplicates what the warehouse exists to share, and device
+    memory is several times smaller than host memory.
+48. **An interleave width is not a runtime stride.** A kernel on interleaved
+    data takes the width at compile time or has a separate interleaved path;
+    only point-wise operations may take it at run time. Passing the interleave
+    width as a kernel argument is in most cases not a proper solution.
+49. **`Array` is for legacy interfaces and the data warehouse.** Redesign code
+    uses `Field`, `MemoryRegion` and `std::vector`.
+50. **Atomics are a last resort.** Prefer one owner per output.
+51. **Names are longer than one character**, except loop indices, and follow
+    the sibling operators': `sizeParam`, not `sp`;
+52. **A new element operator follows the existing pattern exactly.** It uses
+    the generated factory. SumFac/SumFacTOP implementation uses the `ShapeBlock` 
+    templates as they are: no operator-specific `.cpp.in` and no CMake change. 
+    Its block operators take one input block and one output block; an operator 
+    with a second input keeps it as an argument of its own `Apply()` and hands 
+    it to the block operators internally.
+53. **One kernels file per implementation**, such as
+    `...SerialAVXStdMatKernels.hpp`, `...DeviceSumFacKernels.hpp` and
+    `...DeviceSumFacTOPKernels.hpp`; never two implementations in one file.
+    Launches are written inline in the `...Device<Impl>.hpp` that makes them,
+    sized by `GetDeviceBlockSize()` and `GetDeviceGridSize()`, not wrapped in
+    launcher helpers.
+54. **Small dense products go through `LibxsmmDispatchWrapper`**, dispatched
+    once before the element loop, as `BwdTransBlockOpSerialAVXStdMat` does.
+    NekBlas is for large products, and a SumFac implementation does not use
+    it.
+55. **An implementation never creates another implementation of its own
+    operator.** It handles every form itself, sharing kernels through a
+    common header where two implementations need the same one.
