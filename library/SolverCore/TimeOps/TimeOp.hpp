@@ -41,6 +41,7 @@
 #include <deque>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <vector>
 
 namespace Nektar::SolverCore
@@ -420,6 +421,31 @@ public:
         return std::accumulate(coeffs.begin(), coeffs.end(), TData(0));
     }
 
+    /// Implicit stage of the start-up step of a multistep scheme.
+    struct StartupStage
+    {
+        /// Coefficient lambda_s of the implicit step lambda_s*dt of the stage
+        TData stageImplicitCoefficient;
+        /// Implicit coefficient of the multistep scheme being started up
+        TData targetImplicitCoefficient;
+        /// Solution the stage starts from: the solution at the start of the
+        /// step in the first stage, and the solution of the previous stage
+        /// in a later one. It is the field the implicit solve writes its
+        /// result to, so it holds that solution until the solve writes it.
+        LibUtilities::Field<TData, FieldState::Phys> *initialSolution;
+    };
+
+    /// Start-up stage the active implicit solve belongs to. It is empty in a
+    /// step of the multistep scheme itself and under a one-step scheme.
+    /// Requires EnableExplicitContributionExtrapolation().
+    std::optional<StartupStage> GetStartupStage() const
+    {
+        ASSERTL0(m_useExplicitContributionExtrapolation,
+                 "Explicit contribution extrapolation has not been enabled "
+                 "for this time integration operator.");
+        return GetExplicitContributionContext().startupStage;
+    }
+
     // Move‐out
     std::deque<LibUtilities::Field<TData, FieldState::Phys>> TakeSolutions()
     {
@@ -531,6 +557,8 @@ protected:
         std::vector<TData> coefficients;
         unsigned int historyId   = 0;
         unsigned int historySize = 0;
+        // Start-up stage the solve belongs to; empty outside a start-up step
+        std::optional<StartupStage> startupStage;
     };
 
     mutable ExplicitContributionContext m_explicitContributionContextStorage;
@@ -584,7 +612,11 @@ protected:
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;
 
-    void SetExplicitContributionCoefficients(std::vector<TData> coeffs)
+    // startupStage is the start-up stage the implicit solve belongs to,
+    // which a one-step scheme provides for the start-up of a multistep scheme.
+    void SetExplicitContributionCoefficients(
+        std::vector<TData> coeffs,
+        const std::optional<StartupStage> &startupStage = std::nullopt)
     {
         if (!m_useExplicitContributionExtrapolation)
         {
@@ -593,6 +625,7 @@ protected:
         auto &context        = GetExplicitContributionContext();
         context.historyId    = m_explicitContributionHistoryId;
         context.coefficients = std::move(coeffs);
+        context.startupStage = startupStage;
     }
 
     void ClearExplicitContributionCoefficients()
@@ -601,7 +634,9 @@ protected:
         {
             return;
         }
-        GetExplicitContributionContext().coefficients.clear();
+        auto &context = GetExplicitContributionContext();
+        context.coefficients.clear();
+        context.startupStage.reset();
     }
 
     ExplicitContributionContext &GetExplicitContributionContext() const

@@ -53,6 +53,7 @@
 #include <SolverCore/NormOps/NormL2/NormL2Op.hpp>
 #include <SolverCore/NormOps/NormLinf/NormLinfOp.hpp>
 #include <SolverCore/PreconOps/PreconOp.hpp>
+#include <SolverCore/TimeOps/IMEX/IMEXOp.hpp>
 #include <SpatialDomains/Conditions.h>
 
 #include <algorithm>
@@ -154,8 +155,10 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
         &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
     // The linear-implicit advection and the higher-order pressure boundary
     // data are combined with the same coefficients as the explicit velocity
-    // contribution, for every IMEX step and startup stage.
-    if (m_implicitAdvection || m_hasHighOrderPressureBCs)
+    // contribution, for every IMEX step and start-up stage. The start-up
+    // divergence weight reads the start-up stage of the same context.
+    if (m_implicitAdvection || m_hasHighOrderPressureBCs ||
+        m_hasMultistepStartup)
     {
         m_timeOp->EnableExplicitContributionExtrapolation();
     }
@@ -334,17 +337,31 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     m_poissonSolveOp->UpdateBndCoeffs(time);
 
     /// Set up forcing term for pressure Poisson equation
+    const auto startupStage =
+        m_hasMultistepStartup ? m_timeOp->GetStartupStage()
+                              : std::optional<TimeOp<double>::StartupStage>();
+    const double startupDivergenceWeight =
+        GetStartupDivergenceWeight(startupStage);
     if (m_weakPressure)
     {
-        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma);
+        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma, startupStage,
+                                 startupDivergenceWeight);
     }
     else
     {
         // Compute divergence of RHS. Keep the explicit advection
         // contribution in this RHS because the pressure projection requires
-        // it.
+        // it. In a start-up stage the stage's initial velocity is removed
+        // with weight beta first; see GetStartupDivergenceWeight().
         // TODO this should only apply to the velocity components!
-        m_divergenceOp->Apply(in, m_wsp_phys_1c);
+        LibUtilities::Field<double, FieldState::Phys> *divergenceRhs = &in;
+        if (startupDivergenceWeight != 0.0)
+        {
+            m_math.daxpy(-startupDivergenceWeight,
+                         *startupStage->initialSolution, in, m_wsp_phys);
+            divergenceRhs = &m_wsp_phys;
+        }
+        m_divergenceOp->Apply(*divergenceRhs, m_wsp_phys_1c);
 
         // Scale divergence by 1 / (\gamma \Delta t)
         m_math.mul(1.0 / dt_inv_gamma, m_wsp_phys_1c, m_wsp_phys_1c);
@@ -493,6 +510,60 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 }
 
 /*
+ *  @brief Weight \beta of the stage's initial velocity in the pressure
+ *  forcing of a start-up stage, or zero.
+ *
+ *  The velocity of the Helmholtz solve is not discretely divergence-free.
+ *  An implicit stage of size \lambda_s \Delta t is forced by
+ *  \nabla \cdot \hat{\mathbf{u}} / (\lambda_s \Delta t), so its pressure
+ *  holds the divergence-cleaning part
+ *      p_{div} = \nabla^{-2} (\nabla \cdot \mathbf{u}_s) /
+ *          (\lambda_s \Delta t)
+ *  of the solution \mathbf{u}_s the stage starts from: \mathbf{u}^n in the
+ *  first stage of the step, the solution of the previous stage in a later
+ *  one. A multistep scheme with implicit coefficient \lambda weights it by
+ *  1 / (\lambda \Delta t). The one-step scheme that starts it up has a
+ *  different \lambda_s, so p_{div}, and with it the wall pressure, jumps at
+ *  every start and restart and rings while it relaxes.
+ *
+ *  A start-up stage removes
+ *      (1 / (\lambda_s \Delta t) - 1 / (\lambda \Delta t))
+ *          \nabla \cdot \mathbf{u}_s
+ *          = \beta \nabla \cdot \mathbf{u}_s / (\lambda_s \Delta t),
+ *      \beta = 1 - \lambda_s / \lambda,
+ *  from the volume forcing, so p_{div} keeps the multistep weight. The
+ *  stage's projection then removes only the fraction \lambda_s / \lambda of
+ *  the divergence of \mathbf{u}_s, and the later stages and steps remove
+ *  the rest. The term vanishes for a divergence-free \mathbf{u}_s. The
+ *  boundary conditions keep the complete predictor: \mathbf{u}_s satisfies
+ *  the Dirichlet velocity, so p_{div} has no boundary flux of its own.
+ *
+ *  Where the Helmholtz solve regenerates the divergence in every solve, as
+ *  in a developed flow, \mathbf{u}^n and every stage solution have the same
+ *  divergence. Where an earlier stage has removed part of the divergence of
+ *  \mathbf{u}^n, as at a start from a field that is not divergence-free,
+ *  the stage cleans what is left in \mathbf{u}_s: re-weighting the
+ *  divergence of \mathbf{u}^n instead would remove divergence the earlier
+ *  stage has already removed, and drive the stage pressure the other way.
+ *
+ *  \beta is zero outside the start-up stages of a multistep scheme, so the
+ *  weight has no effect under a one-step scheme or on a steady state.
+ *
+ *  param startupStage: = start-up stage of the active implicit solve, empty
+ *  in a step of the multistep scheme
+ */
+double VelocityCorrectionScheme::GetStartupDivergenceWeight(
+    const std::optional<TimeOp<double>::StartupStage> &startupStage) const
+{
+    if (!startupStage)
+    {
+        return 0.0;
+    }
+    return 1.0 - startupStage->stageImplicitCoefficient /
+                     startupStage->targetImplicitCoefficient;
+}
+
+/*
  *  @brief Set up the forcing of the weak pressure form in m_wsp_coeff_1c.
  *
  *  The forcing is (\nabla \phi, \mathbf{f}) with
@@ -507,21 +578,38 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
  *  limit the time step that the implicit advection of the velocity solve
  *  allows. The inner product only reads the velocity components.
  *
+ *  A physical-space forcing F of the strong form, \nabla^2 p = F, enters
+ *  as -(\phi, F), ahead of the volume term. In a start-up stage F is
+ *  -\beta \nabla \cdot \mathbf{u}_s / (\lambda_s \Delta t), the term the
+ *  strong form removes from its divergence forcing; see
+ *  GetStartupDivergenceWeight(). It is not
+ *  -\beta (\nabla \phi, \mathbf{u}_s) / (\lambda_s \Delta t): that
+ *  would also remove the boundary flux of \mathbf{u}_s, which the boundary
+ *  acceleration term balances, and so drive a flux through the Neumann
+ *  pressure boundaries.
+ *
  *  For a singular pressure system the volume term is orthogonal to the
  *  constants, so the solvability condition requires the forcing to cancel
- *  the surface integral of the Neumann pressure values. The constant c whose
- *  domain integral is that surface integral enters as the forcing
- *  -(\phi, c) = -c (\phi, 1), from the integrals (\phi, 1) of the pressure
- *  basis computed at set-up.
+ *  the surface integral of the Neumann pressure values. Outside a start-up
+ *  stage, the constant c whose domain integral is that surface integral
+ *  enters as the forcing -(\phi, c) = -c (\phi, 1), from the integrals
+ *  (\phi, 1) of the pressure basis computed at set-up. In a start-up stage
+ *  F is shifted by the constant that makes its domain integral that
+ *  surface integral.
  *
  *  param in: = \hat{\mathbf{u}} + \gamma \Delta t (explicit contribution)
  *  param fieldRhs: = RHS of the velocity solve
  *  param dt_inv_gamma: = \gamma \Delta t
+ *  param startupStage: = start-up stage of the active implicit solve, empty
+ *  in a step of the multistep scheme
+ *  param startupDivergenceWeight: = \beta, zero outside a start-up stage
  */
 void VelocityCorrectionScheme::SetUpWeakPressureForcing(
     LibUtilities::Field<double, FieldState::Phys> &in,
     LibUtilities::Field<double, FieldState::Phys> &fieldRhs,
-    const double dt_inv_gamma)
+    const double dt_inv_gamma,
+    const std::optional<TimeOp<double>::StartupStage> &startupStage,
+    const double startupDivergenceWeight)
 {
     LibUtilities::Field<double, FieldState::Phys> *pressureRhs = &in;
     if (m_implicitAdvection)
@@ -536,10 +624,29 @@ void VelocityCorrectionScheme::SetUpWeakPressureForcing(
         pressureRhs = &m_wsp_phys;
     }
 
+    const bool singular = m_checkIfSystemSingular[m_pressureIndex];
+    const bool startup  = startupDivergenceWeight != 0.0;
+    if (startup)
+    {
+        m_divergenceOp->Apply(*startupStage->initialSolution, m_wsp_phys_1c);
+        m_math.mul(-startupDivergenceWeight / dt_inv_gamma, m_wsp_phys_1c,
+                   m_wsp_phys_1c);
+        if (singular)
+        {
+            // Shift F by the constant that makes its domain integral the
+            // surface integral of the Neumann values.
+            m_meanRemovalOp->SetNeumannBalance(m_poissonSolveOp.get());
+            m_meanRemovalOp->Apply(m_wsp_phys_1c);
+        }
+        m_iprodPressureOp->SetScale(-1.0);
+        m_iprodPressureOp->Apply(m_wsp_phys_1c, m_wsp_coeff_1c);
+    }
+
+    m_iprodDerivPressureOp->SetAppend(startup);
     m_iprodDerivPressureOp->SetScale(1.0 / dt_inv_gamma);
     m_iprodDerivPressureOp->Apply(*pressureRhs, m_wsp_coeff_1c);
 
-    if (m_checkIfSystemSingular[m_pressureIndex])
+    if (singular && !startup)
     {
         // The constant whose domain integral is the surface integral of the
         // Neumann values.
@@ -867,7 +974,8 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_advectionOp =
             AdvectionOp<double>::Create(m_expansionLists[0], m_variablesFields);
     }
-    if (!m_weakPressure)
+    // The weak form takes a divergence only in a start-up stage.
+    if (!m_weakPressure || m_hasMultistepStartup)
     {
         m_divergenceOp = DivergenceOp<double>::Create(m_expansionLists[0],
                                                       m_variablesFields);
@@ -929,14 +1037,18 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_iprodDerivPressureOp =
             IProductWRTDerivBaseOp<FieldState::Coeff, double>::Create(
                 m_expansionLists[m_pressureIndex], m_variablesPressure);
+        if (m_checkIfSystemSingular[m_pressureIndex] || m_hasMultistepStartup)
+        {
+            m_iprodPressureOp = IProductWRTBaseOp<double>::Create(
+                m_expansionLists[m_pressureIndex], m_variablesPressure);
+        }
         // The integrals (phi, 1) of the pressure basis, from which the
         // constant forcing that balances a singular system is formed.
         if (m_checkIfSystemSingular[m_pressureIndex])
         {
             m_math.fill(1.0, m_wsp_phys_1c);
-            IProductWRTBaseOp<double>::Create(m_expansionLists[m_pressureIndex],
-                                              m_variablesPressure)
-                ->Apply(m_wsp_phys_1c, m_pressureBasisIntegrals);
+            m_iprodPressureOp->SetScale(1.0);
+            m_iprodPressureOp->Apply(m_wsp_phys_1c, m_pressureBasisIntegrals);
         }
     }
 
@@ -1262,6 +1374,14 @@ void VelocityCorrectionScheme::InitialiseParameters()
             "stable.";
         ROOTONLY_NEKERROR(ErrorUtil::ewarning, message.c_str());
     }
+
+    // A multistep IMEX scheme of order two or more starts with IMEXdirk
+    // steps, whose stages keep the multistep weight of the divergence of
+    // their initial velocity in the pressure forcing; see
+    // GetStartupDivergenceWeight().
+    const auto &timeIntScheme = m_session->GetTimeIntScheme();
+    m_hasMultistepStartup     = timeIntScheme.method == IMEXOp<double>::name &&
+                            timeIntScheme.order >= 2;
 
     // 3/2-rule spectral/hp dealiasing (local over-integration) for the
     // explicit nonlinear advection term. Mirrors legacy

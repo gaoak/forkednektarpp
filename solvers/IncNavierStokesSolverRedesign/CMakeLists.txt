@@ -316,6 +316,11 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             # surface integral of the Neumann flux.
             KovasznayFlowHOPBC2D_Singular
             KovasznayFlowHOPBC2D_Singular_WeakPressure
+            # Multistep weight of the divergence-cleaning pressure in the
+            # IMEX start-up stages, from a perturbation that is not
+            # divergence-free, in the strong and the weak pressure form.
+            KovasznayFlowHOPBC2D_StartupDivergence
+            KovasznayFlowHOPBC2D_StartupDivergence_WeakPressure
             KovasznayFlow2D
             UniformFlow3D_Hex
             CouetteFlow3D_Hex
