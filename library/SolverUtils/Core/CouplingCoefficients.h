@@ -61,6 +61,8 @@ private:
     std::vector<int> m_indices;
     std::vector<NekDouble> m_packet;
     Array<OneD, NekDouble> m_coeffs;
+    /// Fully developed 3DH1D flow exchanges only its real zero Fourier mode.
+    MultiRegions::ExpListSharedPtr m_homogeneousField;
 };
 
 } // namespace Nektar::SolverUtils

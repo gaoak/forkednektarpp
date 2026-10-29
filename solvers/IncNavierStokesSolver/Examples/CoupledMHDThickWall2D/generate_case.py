@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate matching fluid/electrical quad meshes and an analytical MHD case."""
+"""Generate matching fluid/electrical quad meshes and a fully developed Hunt MHD case."""
 
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -59,17 +59,19 @@ def mesh(name, fluid_only):
 def session(name, electric):
     root = ET.Element("NEKTAR")
     exps = ET.SubElement(root, "EXPANSIONS")
-    ET.SubElement(exps, "E", COMPOSITE="C[0,1]" if electric else "C[0]", NUMMODES="4", NUMPOINTS="5", FIELDS="phi" if electric else "u,v,phi,p", TYPE="MODIFIED")
-    coupling = ET.SubElement(root, "COUPLING", NAME="mhd", TYPE="Cwipi")
-    options = {
-        "RemoteName": "fluid" if electric else "electric",
-        "SendSteps": "1", "ReceiveSteps": "1", "Oversample": "0",
-        "SendVariables": "phi" if electric else "u,v,mhd_time,mhd_stop",
-        "ReceiveVariables": "u,v,mhd_time,mhd_stop" if electric else "phi",
-        "ReceiveProjection": "Local", "NotLocMethod": "Keep",
-        "FilterWidth": "0", "GeomTol": "1e-10",
-    }
-    for key, value in options.items():
+    ET.SubElement(exps, "E", COMPOSITE="C[0,1]" if electric else "C[0]",
+                  NUMMODES="5", NUMPOINTS="7", TYPE="MODIFIED",
+                  FIELDS="phi" if electric else "u,v,w,phi")
+    if not electric:
+        ET.SubElement(exps, "E", COMPOSITE="C[0]", NUMMODES="4",
+                      NUMPOINTS="7", TYPE="MODIFIED", FIELDS="p")
+    coupling = ET.SubElement(root, "COUPLING", NAME="mhd", TYPE="Coefficients")
+    for key, value in {
+        "Role": "Electric" if electric else "Fluid", "FluidRanks": "2",
+        "SendSteps": "1", "ReceiveSteps": "1",
+        "SendVariables": "phi" if electric else "u,v,w,mhd_time,mhd_stop",
+        "ReceiveVariables": "u,v,w,mhd_time,mhd_stop" if electric else "phi",
+    }.items():
         ET.SubElement(coupling, "I", PROPERTY=key, VALUE=value)
     if electric:
         materials = ET.SubElement(root, "ELECTRICPOTENTIAL")
@@ -79,60 +81,50 @@ def session(name, electric):
     info = ET.SubElement(cond, "SOLVERINFO")
     solver = {"EQType": "CoupledElectricPotential", "Projection": "Continuous"} if electric else {
         "EQType": "UnsteadyNavierStokes", "SolverType": "VelocityCorrectionScheme",
-        "Projection": "Continuous", "ElectricPotential": "Coupled",
+        "Projection": "Continuous", "Homogeneous": "1D", "ElectricPotential": "Coupled",
     }
     for key, value in solver.items():
         ET.SubElement(info, "I", PROPERTY=key, VALUE=value)
     if not electric:
         scheme = ET.SubElement(cond, "TIMEINTEGRATIONSCHEME")
         ET.SubElement(scheme, "METHOD").text = "IMEX"
-        ET.SubElement(scheme, "ORDER").text = "2"
+        ET.SubElement(scheme, "ORDER").text = "1"
     params = ET.SubElement(cond, "PARAMETERS")
-    values = {
-        "Kinvis": "0.1", "TimeStep": "0.001", "NumSteps": "5", "IO_InfoSteps": "5",
-        "U0": "0.1", "B0": "0.1", "Voltage": "0.1", "WallThickness": "0.25",
-        "ElectricConductivity": "1", "WallConductivity": "0.1",
-        "Resistance": "2*WallThickness/WallConductivity+1/ElectricConductivity",
-        "JyExact": "-(Voltage+2*U0*B0/3)/Resistance",
-    }
-    for key, value in values.items():
+    for key, value in {
+        "Kinvis": "0.1", "TimeStep": "0.02", "NumSteps": "500", "IO_InfoSteps": "100",
+        "HomModesZ": "2", "LZ": "1", "Flowrate": "0.1", "IO_FlowSteps": "100",
+        "IO_FlowStepsPrecision": "12", "Ha": "1", "HalfWidth": "0.5",
+        "ElectricConductivity": "1", "WallConductivity": "10", "WallThickness": "0.25",
+        "MagneticFieldStrength": "Ha/HalfWidth*sqrt(Kinvis/ElectricConductivity)",
+    }.items():
         ET.SubElement(params, "P").text = f" {key} = {value} "
     variables = ET.SubElement(cond, "VARIABLES")
-    for idx, var in enumerate(["phi"] if electric else ["u", "v", "phi", "p"]):
+    names = ["phi"] if electric else ["u", "v", "w", "phi", "p"]
+    for idx, var in enumerate(names):
         ET.SubElement(variables, "V", ID=str(idx)).text = f" {var} "
     regions, bcs = [ET.SubElement(cond, tag) for tag in ("BOUNDARYREGIONS", "BOUNDARYCONDITIONS")]
     for idx in range(4):
         ET.SubElement(regions, "B", ID=str(idx)).text = f" C[{10+idx}] "
         region = ET.SubElement(bcs, "REGION", REF=str(idx))
         if electric:
-            ET.SubElement(region, "D" if idx < 2 else "N", VAR="phi", VALUE="Voltage" if idx == 1 else "0")
-        else:
-            ET.SubElement(region, "D", VAR="u", VALUE="0" if idx < 2 else "4*U0*y*(1-y)")
-            ET.SubElement(region, "D", VAR="v", VALUE="0")
+            # All outer surfaces are electrically insulated; no electrodes.
             ET.SubElement(region, "N", VAR="phi", VALUE="0")
-            p = ET.SubElement(region, "D" if idx == 3 else "N", VAR="p", VALUE="0")
-            if idx != 3:
-                p.set("USERDEFINEDTYPE", "H")
-    clipped = "(0.5*(1+abs(y)-abs(y-1)))"
-    def phi(t):
-        resistance = f"((y+WallThickness)/WallConductivity+(1/ElectricConductivity-1/WallConductivity)*{t})"
-        return f"-JyExact*{resistance}-U0*B0*(2*{t}^2-4*{t}^3/3)"
-    exact = {"phi": phi(clipped)} if electric else {"u": "4*U0*y*(1-y)", "v": "0", "phi": phi("y"), "p": "0"}
-    for fname in (["ExactSolution"] if electric else ["InitialConditions", "ExactSolution"]):
-        fn = ET.SubElement(cond, "FUNCTION", NAME=fname)
-        for var, value in exact.items():
-            ET.SubElement(fn, "E", VAR=var, VALUE=value)
-    em = ET.SubElement(cond, "FUNCTION", NAME="ElectricMagneticFields")
-    ET.SubElement(em, "E", VAR="Bz", VALUE="B0")
+        else:
+            for var in ("u", "v", "w"):
+                ET.SubElement(region, "D", VAR=var, VALUE="0")
+            ET.SubElement(region, "N", VAR="phi", VALUE="0")
+            ET.SubElement(region, "N", VAR="p", VALUE="0", USERDEFINEDTYPE="H")
     if not electric:
-        fn = ET.SubElement(cond, "FUNCTION", NAME="BodyForce")
-        ET.SubElement(fn, "E", VAR="u", VALUE="8*Kinvis*U0-JyExact*B0")
-        ET.SubElement(fn, "E", VAR="v", VALUE="0")
+        initial = ET.SubElement(cond, "FUNCTION", NAME="InitialConditions")
+        for var in names:
+            ET.SubElement(initial, "E", VAR=var, VALUE="0")
+    em = ET.SubElement(cond, "FUNCTION", NAME="ElectricMagneticFields")
+    ET.SubElement(em, "E", VAR="By", VALUE="MagneticFieldStrength")
+    if not electric:
         forcing = ET.SubElement(root, "FORCING")
-        body = ET.SubElement(forcing, "FORCE", TYPE="Body")
-        ET.SubElement(body, "BODYFORCE").text = "BodyForce"
         lorentz = ET.SubElement(forcing, "FORCE", TYPE="ForcingLorentz")
         ET.SubElement(lorentz, "ELECTRICMAGNETICFIELDS").text = "ElectricMagneticFields"
+        ET.SubElement(lorentz, "IMPLICITDAMPING").text = "True"
     write_xml(name, root)
 
 

@@ -153,7 +153,7 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
                             --electric $<TARGET_FILE:ADRSolver>
                             --transfer $<TARGET_FILE:MHDCoefficientTransferCheck>
                             --mpiexec ${MPIEXEC}
-                            --case ${CMAKE_CURRENT_SOURCE_DIR}/Examples/CoupledMHDThickWall2D
+                            --case ${CMAKE_CURRENT_SOURCE_DIR}/Tests/CoupledMHDChannel
                             --work ${CMAKE_BINARY_DIR}/tests/mhd-coefficients)
                     SET_TESTS_PROPERTIES(IncNavierStokesSolver_MHDCoefficients
                         PROPERTIES TIMEOUT 120 PROCESSORS 6

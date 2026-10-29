@@ -172,8 +172,13 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
                 "Unified ADR partitions must be fluid-only on ranks 0..M-1 "
                 "and solid-only on ranks M..M+N-1.");
     }
+    m_velocityDimension = m_coupling->GetRecvFieldNames().size() - 2;
+    ASSERTL0(m_velocityDimension == m_dimension ||
+                 (m_dimension == 2 && m_velocityDimension == 3),
+             "Electric coupling requires matching velocity dimension, or "
+             "three-component fully developed flow on a 2D section.");
     m_recvNames = {"u", "v"};
-    if (m_dimension == 3)
+    if (m_velocityDimension == 3)
     {
         m_recvNames.push_back("w");
     }
@@ -249,10 +254,10 @@ void CoupledElectricPotential::v_DoSolve()
             int end    = offset + m_fields[0]->GetExp(e)->GetTotPoints();
             for (int q = offset; q < end; ++q)
             {
-                stop    = std::max(stop, m_received[m_dimension + 1][q]);
-                minStop = std::min(minStop, m_received[m_dimension + 1][q]);
-                time    = std::max(time, m_received[m_dimension][q]);
-                minTime = std::min(minTime, m_received[m_dimension][q]);
+                stop    = std::max(stop, m_received[m_velocityDimension + 1][q]);
+                minStop = std::min(minStop, m_received[m_velocityDimension + 1][q]);
+                time    = std::max(time, m_received[m_velocityDimension][q]);
+                minTime = std::min(minTime, m_received[m_velocityDimension][q]);
             }
         }
         m_comm->AllReduce(stop, LibUtilities::ReduceMax);
@@ -341,8 +346,8 @@ void CoupledElectricPotential::SolvePotential()
                 int offset = m_fields[0]->GetPhys_Offset(e);
                 for (int q = offset; q < offset + exp->GetTotPoints(); ++q)
                 {
-                    NekDouble uj = j < m_dimension ? m_received[j][q] : 0.0;
-                    NekDouble uk = k < m_dimension ? m_received[k][q] : 0.0;
+                    NekDouble uj = j < m_velocityDimension ? m_received[j][q] : 0.0;
+                    NekDouble uk = k < m_velocityDimension ? m_received[k][q] : 0.0;
                     m_flux[q] =
                         m_sigma[q] * (uj * m_magnetic[k] - uk * m_magnetic[j]);
                 }
@@ -400,9 +405,9 @@ void CoupledElectricPotential::v_ExtraFldOutput(
         for (int q = 0; q < nq; ++q)
         {
             NekDouble uj =
-                m_fluid[q] && j < m_dimension ? m_received[j][q] : 0.0;
+                m_fluid[q] && j < m_velocityDimension ? m_received[j][q] : 0.0;
             NekDouble uk =
-                m_fluid[q] && k < m_dimension ? m_received[k][q] : 0.0;
+                m_fluid[q] && k < m_velocityDimension ? m_received[k][q] : 0.0;
             current[q] = m_sigma[q] * (m_electric[d] + uj * m_magnetic[k] -
                                        uk * m_magnetic[j] - derivative[q]);
         }

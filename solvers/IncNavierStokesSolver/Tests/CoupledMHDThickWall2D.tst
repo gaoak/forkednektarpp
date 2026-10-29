@@ -13,10 +13,10 @@
             <processes>1</processes>
         </segment>
         <files>
-            <file description="fluid-mesh.xml">../Examples/CoupledMHDThickWall2D/fluid-mesh.xml</file>
-            <file description="fluid.xml">../Examples/CoupledMHDThickWall2D/fluid.xml</file>
-            <file description="electric-mesh.xml">../Examples/CoupledMHDThickWall2D/electric-mesh.xml</file>
-            <file description="electric.xml">../Examples/CoupledMHDThickWall2D/electric.xml</file>
+            <file description="fluid-mesh.xml">CoupledMHDChannel/fluid-mesh.xml</file>
+            <file description="fluid.xml">CoupledMHDChannel/fluid.xml</file>
+            <file description="electric-mesh.xml">CoupledMHDChannel/electric-mesh.xml</file>
+            <file description="electric.xml">CoupledMHDChannel/electric.xml</file>
         </files>
         <metrics>
             <metric type="regex" id="0">
@@ -62,10 +62,10 @@
             <processes>2</processes>
         </segment>
         <files>
-            <file description="fluid-mesh.xml">../Examples/CoupledMHDThickWall2D/fluid-mesh.xml</file>
-            <file description="fluid.xml">../Examples/CoupledMHDThickWall2D/fluid.xml</file>
-            <file description="electric-mesh.xml">../Examples/CoupledMHDThickWall2D/electric-mesh.xml</file>
-            <file description="electric.xml">../Examples/CoupledMHDThickWall2D/electric.xml</file>
+            <file description="fluid-mesh.xml">CoupledMHDChannel/fluid-mesh.xml</file>
+            <file description="fluid.xml">CoupledMHDChannel/fluid.xml</file>
+            <file description="electric-mesh.xml">CoupledMHDChannel/electric-mesh.xml</file>
+            <file description="electric.xml">CoupledMHDChannel/electric.xml</file>
         </files>
         <metrics>
             <metric type="regex" id="0">

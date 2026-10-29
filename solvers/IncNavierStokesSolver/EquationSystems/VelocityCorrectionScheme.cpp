@@ -109,9 +109,10 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     {
         ASSERTL0(m_MHD.hasLorentzForce,
                  "Coupled electric potential requires ForcingLorentz.");
-        ASSERTL0(m_HomogeneousType == eNotHomogeneous,
-                 "Coupled electric potential currently requires a full 2D or "
-                 "3D mesh.");
+        ASSERTL0(m_HomogeneousType == eNotHomogeneous ||
+                     m_HomogeneousType == eHomogeneous1D,
+                 "Coupled electric potential supports full meshes or the "
+                 "fully developed 3DH1D zero mode.");
         ASSERTL0(!m_session->DefinesElement("Nektar/Movement"),
                  "Coupled electric potential requires a static mesh.");
         ASSERTL0(
@@ -141,6 +142,9 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
         couplingType = StringUtils::IEquals(couplingType, "Cwipi")
                            ? "Cwipi"
                            : "Coefficients";
+        ASSERTL0(m_HomogeneousType == eNotHomogeneous ||
+                     couplingType == "Coefficients",
+                 "Fully developed 3DH1D MHD requires Coefficients coupling.");
         m_MHD.coupling = SolverUtils::GetCouplingFactory().CreateInstance(
             couplingType, m_fields[0]);
         if (m_MHD.coupling->ExchangesCoefficients())

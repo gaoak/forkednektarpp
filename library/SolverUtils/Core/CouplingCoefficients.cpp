@@ -9,6 +9,7 @@
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <LibUtilities/Communication/CommCwipi.h>
+#include <MultiRegions/ExpListHomogeneous1D.h>
 #include <SolverUtils/Core/CouplingCoefficients.h>
 #include <algorithm>
 #include <climits>
@@ -26,6 +27,22 @@ std::string CouplingCoefficients::className =
 CouplingCoefficients::CouplingCoefficients(MultiRegions::ExpListSharedPtr field)
     : Coupling(field)
 {
+    auto homogeneous =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(field);
+    if (homogeneous)
+    {
+        ASSERTL0(
+            homogeneous->GetHomogeneousBasis()->GetBasisType() ==
+                    LibUtilities::eFourier &&
+                homogeneous->GetHomogeneousBasis()->GetNumModes() == 2 &&
+                field->GetZIDs().size() == 2 && field->GetZIDs()[0] == 0 &&
+                field->GetComm()->GetColumnComm()->GetSize() == 1,
+            "Coefficient MHD currently supports only the fully developed "
+            "HomModesZ=2 zero mode, with no homogeneous-direction MPI split.");
+        m_homogeneousField = field;
+        m_evalField        = homogeneous->GetPlane(0);
+    }
+
     m_config["ROLE"]       = "";
     m_config["FLUIDRANKS"] = "0";
     m_config["REMOTENAME"] = "";
@@ -118,7 +135,11 @@ void CouplingCoefficients::v_Init()
         "Coefficient exchange requires rank-matched pre-partitioned meshes.");
     ASSERTL0(m_sendSteps == 1 && m_recvSteps == 1,
              "Coefficient exchange requires SendSteps=ReceiveSteps=1.");
-    m_dimension = m_evalField->GetGraph()->GetMeshDimension();
+    // Spatial dimension of the electric mesh and number of velocity components
+    // differ for a 3DH1D zero-mode flow coupled to a 2D electric section.
+    m_dimension = (m_fluid ? m_sendFieldNames : m_recvFieldNames).size() - 2;
+    ASSERTL0(m_dimension == 2 || m_dimension == 3,
+             "Coefficient MHD requires two or three velocity components.");
     std::vector<std::string> velocity{"u", "v"};
     if (m_dimension == 3)
         velocity.push_back("w");
@@ -230,15 +251,40 @@ void CouplingCoefficients::v_Send(
     }
     const int nc = m_indices.size();
     std::vector<NekDouble> values(static_cast<size_t>(m_dimension) * nc);
+    m_stop = fields[map[m_dimension + 1]][0] > 0.0 ? 1 : -1;
+    if (m_stop > 0)
+    {
+        // Shutdown carries no new velocity state. In particular the saved
+        // stage arrays can still be in wave space after output changes flags.
+        SendPacket(step, time, m_stop, values);
+        return;
+    }
     for (int d = 0; d < m_dimension; ++d)
     {
+        if (m_homogeneousField)
+        {
+            int nq = m_evalField->GetTotPoints();
+            ASSERTL0(fields[map[d]].size() == 2 * nq,
+                     "Invalid fully developed velocity layout.");
+            NekDouble error = 0.0, scale = 1.0;
+            for (int q = 0; q < nq; ++q)
+            {
+                NekDouble expected = m_homogeneousField->GetWaveSpace()
+                                         ? 0.0
+                                         : fields[map[d]][q];
+                error = std::max(error,
+                                 std::abs(fields[map[d]][nq + q] - expected));
+                scale = std::max(scale, std::abs(fields[map[d]][q]));
+            }
+            ASSERTL0(error <= 1e-10 * scale,
+                     "Coupled cross-section MHD requires z-independent flow.");
+        }
         // RHS stage velocities are physical arrays; coefficients stored in
         // the flow fields may belong to a different time-integration stage.
         m_evalField->FwdTransLocalElmt(fields[map[d]], m_coeffs);
         for (int c = 0; c < nc; ++c)
             values[d * nc + c] = m_coeffs[m_indices[c]];
     }
-    m_stop = fields[map[m_dimension + 1]][0] > 0.0 ? 1 : -1;
     SendPacket(step, time, m_stop, values);
 }
 
@@ -291,11 +337,19 @@ void CouplingCoefficients::ReceiveCoefficients(int step, NekDouble time,
 {
     ASSERTL0(m_fluid && m_paired,
              "Only Fluid receives potential coefficients.");
-    ASSERTL0(coeffs.size() == m_evalField->GetNcoeffs(),
+    ASSERTL0(coeffs.size() == m_evalField->GetNcoeffs() ||
+                 (m_homogeneousField &&
+                  coeffs.size() == m_homogeneousField->GetNcoeffs()),
              "Potential coefficient size mismatch.");
     ReceivePacket(step, m_indices.size());
     ASSERTL0(std::abs(time - m_time) < 1e-10 * std::max(1.0, std::abs(time)),
              "Potential reply time differs from the velocity request.");
+    // The second Fourier plane is the identically zero imaginary mean mode.
+    // The first plane's local coefficients are already the real mean mode.
+    if (m_homogeneousField)
+    {
+        Vmath::Zero(coeffs.size(), coeffs, 1);
+    }
     for (int c = 0; c < m_indices.size(); ++c)
         coeffs[m_indices[c]] = m_packet[c];
 }

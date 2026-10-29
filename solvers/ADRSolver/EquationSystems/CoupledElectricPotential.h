@@ -73,7 +73,7 @@ private:
     std::vector<int> m_fluidElements;
     Array<OneD, NekDouble> m_fixedRhs, m_rhs, m_flux, m_product;
     StdRegions::VarCoeffMap m_varcoeff;
-    int m_dimension;
+    int m_dimension, m_velocityDimension;
 };
 
 } // namespace Nektar
