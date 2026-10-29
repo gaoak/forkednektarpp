@@ -406,15 +406,18 @@ void Basis::GenBasis()
 
             \f$\tilde \psi_{pqr}^c = \left ( {1 - \eta_3} \over
             2\right)^{pq} P_r^{2pq+2, 0}(\eta_3)\f$ \f$ \mbox{where
-            }pq = max(p+q,0) \f$
+            }pq = max(p,q) \f$, for \f$0 \le r \le P - max(p,q)\f$.
 
-            This orthogonal expansion has modes that are
-            always in the Cartesian space, however the
-            equivalent ModifiedPyr_C has vertex modes that do
-            not lie in this space. If one chooses \f$pq =
-            max(p+q-1,0)\f$ then the expansion will space the
-            same space as the vertices but the order of the
-            expanion in 'r' is reduced by one.
+            With the exponent matched to the range of r every mode has
+            degree at most P in \f$\eta_3\f$, so the default rule of
+            P+1 points in each direction integrates the mass matrix
+            exactly and it is diagonal, as for the tetrahedron and
+            prism; the exponent p+q exceeded degree P by up to
+            min(p,q). The expansion spans the rational pyramid space of
+            Bergot, Cohen and Durufle (2010): it contains every
+            polynomial of total degree P, its traces on the triangular
+            faces are polynomials of degree P and on the quadrilateral
+            face the full tensor-product space of degree P.
 
             1) Eta_z values are the changing the fastest, then
                r, q, and finally p.  2) r index increases by the
@@ -432,14 +435,10 @@ void Basis::GenBasis()
                     for (size_t r = 0; r <= R - std::max(p, q);
                          ++r, mode += numPoints)
                     {
-                        // this offset allows for orthogonal
-                        // expansion to span linear FE space
-                        // of modified basis but means that
-                        // the cartesian polynomial space
-                        // spanned by the expansion is one
-                        // order lower.
-                        // size_t pq = max(p + q -1,0);
-                        size_t pq = std::max(p + q, size_t(0));
+                        // The exponent follows the range of r, so
+                        // the mode has degree max(p, q) + r <= P in
+                        // eta_3 (see above).
+                        size_t pq = std::max(p, q);
 
                         Polylib::jacobfd(numPoints, z.data(), mode, nullptr, r,
                                          2 * pq + 2.0, 0.0);
