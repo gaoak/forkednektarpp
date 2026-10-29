@@ -45,6 +45,7 @@
 #include <iosfwd>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -56,6 +57,7 @@ template <typename TData> class AdvectionOp;
 template <typename TData> class AdvectionDealiasOp;
 template <typename TData> class BwdTransOp;
 template <typename TData> class DivergenceOp;
+template <typename TData> class IProductWRTBaseOp;
 template <FieldState TFieldOut, typename TData> class IProductWRTDerivBaseOp;
 template <typename TData> class PhysDerivOp;
 } // namespace MultiRegions
@@ -114,6 +116,12 @@ protected:
     // component that is not Dirichlet, whose explicit forcing history it
     // keeps
     bool m_hasPressureBCExplicitRhs = false;
+
+    // true = the time integration scheme has start-up stages, whose
+    // pressure forcing keeps the multistep weight of the divergence of the
+    // stage's initial velocity, so that the weight and its operators are set
+    // up
+    bool m_hasMultistepStartup = false;
 
     // Kinematic viscosity
     double m_kinvis;
@@ -182,11 +190,16 @@ protected:
     std::shared_ptr<HOPressureBndCondOp<double>> m_hoPressureBCOp;
     std::shared_ptr<HOutflowBndCondOp<double>> m_hOutflowBCOp;
     std::vector<ForcingSharedPtr> m_forcing;
-    // Strong pressure form only: the forcing div(f).
+    // The forcing div(f) of the strong pressure form, and the divergence of
+    // the stage's initial velocity in a start-up stage of the weak form.
     std::shared_ptr<DivergenceOp<double>> m_divergenceOp;
     // Weak pressure form only: the forcing (grad(phi), f).
     std::shared_ptr<IProductWRTDerivBaseOp<FieldState::Coeff, double>>
         m_iprodDerivPressureOp;
+    // Weak pressure form of a singular system or with the multistep start-up
+    // divergence weight only: the forcing (phi, F) of a physical-space
+    // forcing F.
+    std::shared_ptr<IProductWRTBaseOp<double>> m_iprodPressureOp;
 
     // Singular pressure system only: balances the pressure forcing against
     // the Neumann values of the system and removes the mean of the reported
@@ -209,10 +222,15 @@ protected:
         LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
         const double &dt);
 
+    double GetStartupDivergenceWeight(
+        const std::optional<TimeOp<double>::StartupStage> &startupStage) const;
+
     void SetUpWeakPressureForcing(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &fieldRhs,
-        const double dt_inv_gamma);
+        const double dt_inv_gamma,
+        const std::optional<TimeOp<double>::StartupStage> &startupStage,
+        const double startupDivergenceWeight);
 
     void EvaluateAdvectionContribution(
         LibUtilities::Field<double, FieldState::Phys> &in,

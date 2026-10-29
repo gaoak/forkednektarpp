@@ -17,9 +17,8 @@ incompressible Navier--Stokes solver built on the redesign operators of
 the \code{MultiRegions} and \code{SolverCore} libraries. It covers the time
 discretisation, the boundary conditions specific to the solver, initial
 conditions and restarts, a known start-up pressure transient, and the
-session parameters. Two further chapters and a standalone implementation
-note in \path{docs/developer-guide/redesign/} give the full detail; the note
-is referred to where useful:
+session parameters. Two further chapters give the full detail and are
+referred to where useful:
 \begin{itemize}
   \item Chapter~\ref{chap:hopressure-bndcond}: the higher-order pressure
   boundary condition (HOPBC);
@@ -149,10 +148,14 @@ weights as the explicit term of the active step or stage. The solver calls
 \code{EnableExplicitContributionExtrapolation()} on the time operator. Before
 each implicit solve, the operator publishes the active weights $c_i$: the
 first $J$ IMEX coefficients in a multistep step, or the explicit stage
-coefficients of the current DIRK stage. The solver keeps up to three history
-deques per history id, as deep as the implicit solves of the scheme combine
-explicit contributions (\code{GetExplicitContributionHistorySize}), refreshed
-in \code{EvaluateAdvection\_SetPressureBCs}:
+coefficients of the current DIRK stage. In a start-up stage it also
+publishes the implicit coefficients of the stage and of the multistep scheme
+and the solution the stage starts from (\code{GetStartupStage}), which
+remedy B1 reads (Section~\ref{sec:incns-kick}). The solver keeps up to
+three history deques per history id, as deep as the implicit solves of the
+scheme combine explicit contributions
+(\code{GetExplicitContributionHistorySize}), refreshed in
+\code{EvaluateAdvection\_SetPressureBCs}:
 \begin{itemize}
   \item the velocity history, $\incnsv u$, for the advection velocity of the
   linear-implicit formulation and, on a rank with a higher-order pressure or
@@ -335,6 +338,14 @@ form. Further choices:
   surface integral enters as $-(c,\phi)=-c\,(1,\phi)$, from the integrals
   $(1,\phi)$ of the pressure basis computed at set-up
   (Section~\ref{hopbc:sec:neumann-balance});
+  \item in a start-up stage, remedy B1 (Section~\ref{sec:incns-kick})
+  enters as the physical-space forcing
+  $F=-\beta\,\nabla\cdot\incnsv u_s/(\lambda_s\incnsdt)$ of the strong form,
+  added as $-(F,\phi)$ (\code{IProductWRTBaseOp}), and not as
+  $-\beta(\nabla\phi,\incnsv u_s)/(\lambda_s\incnsdt)$, which would also
+  remove the flux of $\incnsv u_s$ through the Neumann pressure boundaries.
+  For a singular system $F$ is shifted by \code{MeanRemovalOp} with the
+  Neumann balance, in place of the constant $c$;
   \item velocity and pressure must share their elements, blocks and
   quadrature points, checked at set-up with
   \code{ExpList::SameQuadratureLayout},
@@ -730,9 +741,9 @@ after every start and restart. On a 2D NACA0012 case ($Re=50\,000$,
 $\alpha=5^\circ$, $P=6$, $\incnsdt=2\times10^{-6}$, semi-implicit, strong
 form) the ringing was, before the remedies below, about three times larger
 than in the legacy solver, which starts IMEX order $J$ with an IMEX order~1
-step ($\lambda=1$) instead of IMEXdirk. Two
-mechanisms were identified; execution space, operator implementation,
-solver tolerances, dealiasing and restart I/O were ruled out.
+step ($\lambda=1$) instead of IMEXdirk. Two mechanisms were identified;
+execution space, operator implementation, solver tolerances, dealiasing and
+restart I/O were ruled out.
 
 \textbf{Mechanism 1: weight of the divergence term.} The velocity from
 the Helmholtz solve is not discretely divergence-free (on the NACA mesh
@@ -744,12 +755,13 @@ divergence-cleaning part
   \nabla^{-2}\bigl(\nabla\cdot\incnsv u^n\bigr),
   \label{eq:incns-pdiv}
 \end{equation}
-whose weight changes with the step type (Table~\ref{tab:incns-kick-weight}).
-The velocity correction removes the divergence whatever $\lambda$ is, but the
-pressure, and with it the wall force, jumps at each start-up and relaxes to
-its multistep level. The measured Poisson forcing ratio between DIRK stages
-and multistep steps is $2.28=(2/3)/0.2929$. This mechanism dominates on
-meshes with thin boundary-layer elements.
+whose weight changed with the step type
+(Table~\ref{tab:incns-kick-weight}). The velocity correction removes the
+divergence whatever $\lambda$ is, but the pressure, and with it the wall
+force, jumped at each start-up and relaxed to its multistep level. The
+measured Poisson forcing ratio between DIRK stages and multistep steps was
+$2.28=(2/3)/0.2929$. This mechanism dominates on meshes with thin
+boundary-layer elements. Remedy B1 below removes it.
 
 \begin{table}[htbp]
 \centering
@@ -763,7 +775,7 @@ redesign IMEXdirk 2\_3\_2 start-up (both stages) & $3.41/\incnsdt$ & $+128\%$ \\
 legacy IMEX-1 start-up & $1/\incnsdt$ & $-33\%$ \\
 \bottomrule
 \end{tabular}
-\caption{Weight of the divergence part of the pressure.}
+\caption{Weight of the divergence part of the pressure without remedy B1.}
 \label{tab:incns-kick-weight}
 \end{table}
 
@@ -818,13 +830,58 @@ NACA0012 case above.}
   stage~1. The linear-implicit advection velocity is scaled by
   $\sum c\,\incnsdt/(\lambda\incnsdt)$, the ratio of the two advection
   weights.
-  \item \textbf{B1. Fixed divergence weight during start-up} (not
-  implemented): in start-up stage $s$ a fraction
-  $\beta=1-\lambda_s/\lambda$ of $\nabla\cdot\incnsv u_s$ would be removed from
-  the Poisson forcing ($\beta=0.561,0.201,0.092$ for orders 2, 3, 4), so the
-  divergence-cleaning pressure keeps its multistep weight. Here $\incnsv u_s$ is
-  the solution the stage starts from, not $\incnsv u^n$: re-weighting $\incnsv
-  u^n$ in stage~2 would remove again the part that stage~1 already cleaned.
+  \item \textbf{B1. Fixed divergence weight during start-up} (implemented,
+  always on for IMEX of order two or more): in start-up stage $s$ a fraction
+  $\beta=1-\lambda_s/\lambda$ of $\nabla\cdot\incnsv u_s$ is removed from
+  the Poisson forcing ($\beta=0.561,0.201,0.092$ for orders 2, 3, 4;
+  \code{GetStartupDivergenceWeight}), so the divergence-cleaning pressure
+  keeps its multistep weight. Here $\incnsv u_s$ is the solution the stage
+  starts from, not $\incnsv u^n$: $\incnsv u^n$ in stage~1, the stage-1
+  result in stage~2. Re-weighting $\incnsv u^n$ in stage~2 would remove again
+  the part that stage~1 already cleaned.
+  \begin{itemize}
+    \item \textbf{Forms.} The strong form takes the divergence of
+    $\hat{\incnsv u}-\beta\incnsv u_s$ in place of $\hat{\incnsv u}$. The
+    weak form adds the physical-space forcing
+    $F=-\beta\,\nabla\cdot\incnsv u_s/(\lambda_s\incnsdt)$ as $-(F,\phi)$,
+    so
+    the boundary flux of $\incnsv u_s$ is untouched
+    (Section~\ref{sec:incns-weak}).
+    \item \textbf{Singular systems.} In the strong form the start-up term is
+    part of the forcing that is balanced against the Neumann data. In the
+    weak form $F$ is shifted by \code{MeanRemovalOp} with
+    \code{SetNeumannBalance}, so that its domain integral is the surface
+    integral of the Neumann data, in place of the constant forcing of the
+    other steps.
+    \item \textbf{Scope.} $\beta$ is zero in the multistep steps. The weight,
+    the explicit-contribution context it reads and the weak-form operators it
+    needs are set up only for \code{IMEX} of order two or more, the schemes
+    with start-up stages; a one-step scheme and \code{IMEX} order~1 are
+    unaffected.
+    \item \textbf{Cost.} The start-up projection removes only the fraction
+    $\lambda_s/\lambda$ ($\approx44\%$ for IMEXdirk 2\_3\_2) of the
+    divergence of $\incnsv u_s$; later steps remove the rest. Nothing changes
+    for a divergence-free $\incnsv u_s$.
+    \item \textbf{Time operator.} The IMEX scheme marks its IMEXdirk start-up
+    operator with \code{IMEXdirkOp::SetStartupTargetImplicitCoefficient}.
+    In each implicit stage of that operator, \code{TimeOp::GetStartupStage}
+    returns a \code{StartupStage} with the stage and multistep
+    coefficients (\code{stageImplicitCoefficient},
+    \code{targetImplicitCoefficient}) and the stage's initial solution
+    (\code{initialSolution}); it is empty in every other solve.
+    \item \textbf{Results.} The NACA restart kick drops from $0.087$ to
+    $6.2\times10^{-5}$ (pressure drag) and from $0.016$ to
+    $1.1\times10^{-3}$ (lift). The first-step pressure drag from a smooth
+    state is $0.00768$, against a steady $0.00777$. The cold-start step-1
+    lift drops from $1378$ to $370$; legacy gives $-284$, the sign differing
+    because of the IMEXdirk stage coupling, which only an IMEX-1 start-up
+    (B4) would reproduce. Steady states and global time orders are
+    unchanged.
+    \item \textbf{Tests.} \code{KovasznayFlowHOPBC2D\_StartupDivergence}
+    and its \code{\_WeakPressure} variant take one IMEX-2 step from a
+    perturbation that is not divergence-free; \code{TestIMEX} checks the
+    start-up stage of every implicit solve.
+  \end{itemize}
   \item \textbf{B2. Checkpoint the multistep history} (not implemented):
   restarts continue without a start-up step and reproduce an uninterrupted
   run, but cold starts are unchanged and checkpoints grow.
@@ -1002,9 +1059,11 @@ velocity solves (Section~\ref{sec:incns-vcs}) \\
 forcing, refresh of the extrapolation histories \\
 \quad\code{SetUpWeakPressureForcing} & volume term of the weak pressure
 form (Section~\ref{sec:incns-weak}) \\
+\quad\code{GetStartupDivergenceWeight} & $\beta$ of remedy B1
+(Section~\ref{sec:incns-kick}) \\
 \quad\code{InitialiseParameters}, \code{v\_InitialiseOperators} &
-\code{FORMULATION}, \code{PressureFormulation}, dealiasing; operator and
-solver set-up, BC registration \\
+\code{FORMULATION}, \code{PressureFormulation}, start-up stages,
+dealiasing; operator and solver set-up, BC registration \\
 \quad\code{v\_SetInitialConditions} & velocity and pressure ICs
 (Section~\ref{sec:incns-ic}) \\
 \path{BoundaryConditions/HOPressureBndCond/HOPressureBndCondOpImpl.hpp} &
@@ -1032,10 +1091,13 @@ factory registration \\
 \path{TimeOps/IMEX/IMEXOpImpl.hpp} & IMEX multistep scheme and its IMEXdirk
 start-up \\
 \path{TimeOps/IMEXdirk/IMEXdirkOpImpl.hpp} & DIRK stages and their
-explicit-contribution coefficients \\
+explicit-contribution coefficients;
+\code{SetStartupTargetImplicitCoefficient} of \code{IMEXdirkOp} marks a
+start-up operator \\
 \path{TimeOps/TimeOp.hpp} & \code{ExtrapolateExplicitContribution},
 \code{LatestExplicitContribution},
-\code{GetExplicitContributionCoefficientSum} \\
+\code{GetExplicitContributionCoefficientSum}, and for the start-up stages
+\code{GetStartupStage} \\
 \path{EquationSystems/UnsteadySystem.cpp} & time-stepping parameters,
 filters, \code{SetContinuousInitialConditions}, restart time \\
 \path{GlobalLinSysOps/LinearSystems/PoissonSolve},

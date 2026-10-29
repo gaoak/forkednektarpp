@@ -216,7 +216,7 @@ protected:
             // Update solution.
             if (this->m_useExplicitContributionExtrapolation)
             {
-                SetStageExplicitContributionCoefficients<Stage>();
+                SetStageExplicitContributionCoefficients<Stage>(lambda1, inout);
             }
             this->DoImplicit(this->m_implicits[Stage - 1], inout,
                              this->m_time + coeff1 * this->m_timestep,
@@ -244,7 +244,9 @@ protected:
     }
 
     template <unsigned int Stage>
-    void SetStageExplicitContributionCoefficients()
+    void SetStageExplicitContributionCoefficients(
+        const TData stageImplicitCoefficient,
+        LibUtilities::Field<TData, FieldState::Phys> &stageInitialSolution)
     {
         constexpr auto coeff =
             GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder, TData>();
@@ -259,7 +261,17 @@ protected:
             outCoeff[i] = coeff[explicitStart + Stage - 1 - i];
         }
 
-        this->SetExplicitContributionCoefficients(std::move(outCoeff));
+        std::optional<typename TimeOp<TData>::StartupStage> startupStage;
+        if (this->m_startupTargetImplicitCoefficient)
+        {
+            startupStage = typename TimeOp<TData>::StartupStage{
+                stageImplicitCoefficient,
+                *this->m_startupTargetImplicitCoefficient,
+                &stageInitialSolution};
+        }
+
+        this->SetExplicitContributionCoefficients(std::move(outCoeff),
+                                                  startupStage);
     }
 
     template <unsigned int... ind0, unsigned int... ind1>

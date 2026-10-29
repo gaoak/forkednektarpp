@@ -198,6 +198,7 @@ v5.11.0
 - Add weak pressure formulation and fix HOPBC and linear-implicit time accuracy (!2870)
 - Balance singular pressure systems against their Neumann flux, also in the weak pressure form (!2876)
 - Project a file pressure initial condition of lower order than the velocity element by element, as the legacy solver does, instead of truncating it (!2885)
+- Keep the multistep divergence weight of the pressure in IMEX start-up stages (!2892)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
