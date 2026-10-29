@@ -19,7 +19,6 @@ v5.11.0
 - Fix Hdf5 output with very large hash value (!2654)
 - Fix MPIRequest free in destructor and MeshParitioning deadlock on non-shared filesystem (!2686)
 - Fix GetBoundaryNormals() leading to intermittent bugs in WSS processing (!2688)
-- Give the orthogonal pyramid expansion the collapsed exponent max(p,q) in place of p+q, so that its mass matrix is diagonal on the default quadrature and its triangular-face traces conform with tetrahedra (!2880)
 - Remove the periodic-map copy made on every IsLeftAdjacentTrace call, which dominated DG setup on large periodic meshes (!2699)
 - Set up physical normals once per field in DG boundary-condition setup and reuse normals across fields sharing expansions (!2699)
 - Fail with a clear error, at session-read and lookup time, when a boundary region is missing a condition for a variable (!2699)
