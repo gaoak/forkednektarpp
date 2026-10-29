@@ -2624,12 +2624,17 @@ The ADR output additionally contains \inltt{Jx,Jy,Jz,sigma}.
 Both modes require \inltt{SendSteps=ReceiveSteps=1} and the field lists above.
 Coefficient mode carries time and shutdown control in message metadata.
 The example \inltt{Examples/CoupledMHDThickWall2D} in the incompressible solver
-contains an eight-element thick-wall channel with an analytical nonzero-current
-solution, input files, a run script and a result checker. The script defaults
-to coefficient transfer with $M=2$, $N=1$; \inltt{MHD\_TRANSFER=Cwipi} selects
-point mode. This coupled mode
-supports static full 2D/3D meshes and stationary solids; homogeneous Fourier
-meshes are not supported.
+contains an eight-element, finite-conductivity thick-wall Hunt configuration at
+$Ha=1$. Velocity is along $z$ and the imposed field along $y$. IncNS uses
+\inltt{Homogeneous=1D}, \inltt{HomModesZ=2}, \inltt{LZ=1}; ADR solves the 2D
+cross-sectional potential with all three received velocity components.
+Coefficient coupling validates and transfers the real zero-mode plane and
+clears the imaginary mean mode. Only fully developed, $z$-independent flow is
+supported, with no homogeneous-direction MPI split. Higher Fourier layouts are
+rejected. Full static 2D/3D meshes retain their existing coupling support.
+The script defaults to $M=2$, $N=1$ and checks flow rate and Lorentz/Joule energy
+balance rather than an exact Hunt profile. The previous planar analytical
+channel remains in the regression fixtures under \inltt{Tests/CoupledMHDChannel}.
 
 \section{Examples}
 \label{s:incns:examples}

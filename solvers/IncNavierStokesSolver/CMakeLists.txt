@@ -158,6 +158,16 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
                     SET_TESTS_PROPERTIES(IncNavierStokesSolver_MHDCoefficients
                         PROPERTIES TIMEOUT 120 PROCESSORS 6
                         ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+                    IF (TARGET FieldConvert)
+                        ADD_TEST(NAME IncNavierStokesSolver_CoupledHunt
+                            COMMAND ${Python3_EXECUTABLE}
+                                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_coupled_hunt.py
+                                --case ${CMAKE_CURRENT_SOURCE_DIR}/Examples/CoupledMHDThickWall2D
+                                --build ${CMAKE_BINARY_DIR}
+                                --work ${CMAKE_BINARY_DIR}/tests/coupled-hunt)
+                        SET_TESTS_PROPERTIES(IncNavierStokesSolver_CoupledHunt
+                            PROPERTIES TIMEOUT 120 PROCESSORS 6)
+                    ENDIF()
                 ENDIF()
             ENDIF()
         ENDIF()

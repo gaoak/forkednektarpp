@@ -12,6 +12,7 @@ fi
 fluid_solver="${INCNS_SOLVER:-$build_dir/solvers/IncNavierStokesSolver/IncNavierStokesSolver$suffix}"
 electric_solver="${ADR_SOLVER:-$build_dir/solvers/ADRSolver/ADRSolver$suffix}"
 partitioner="${MHD_PARTITIONER:-$build_dir/utilities/Extras/MHDPartition$suffix}"
+fieldconvert="${FIELD_CONVERT:-$build_dir/utilities/FieldConvert/FieldConvert$suffix}"
 transfer="${MHD_TRANSFER:-Coefficients}"
 input_dir="${MHD_CASE_DIR:-$case_dir}"
 check_results="${MHD_CHECK_RESULTS:-1}"
@@ -37,6 +38,10 @@ if [[ "$transfer" == "Coefficients" ]]; then
     fluid_input=("$PWD/partitions/fluid_xml")
     electric_input=("$PWD/partitions/electric_xml")
 elif [[ "$transfer" == "Cwipi" ]]; then
+    if grep -q 'PROPERTY="Homogeneous"' fluid.xml; then
+        echo "The fully developed Hunt example requires MHD_TRANSFER=Coefficients." >&2
+        exit 1
+    fi
     fluid_ranks="${FLUID_RANKS:-1}"
     electric_ranks="${ELECTRIC_RANKS:-1}"
     fluid_input=(fluid-mesh.xml fluid.xml)
@@ -54,6 +59,10 @@ if ! timeout "${MHD_TIMEOUT:-120}" mpiexec \
     exit 1
 fi
 if [[ "$check_results" == "1" ]]; then
+    "$fieldconvert" -f -m homplane:planeid=0 fluid-mesh.xml fluid.xml \
+        partitions/fluid.fld fluid.csv > log.convert-fluid 2>&1
+    "$fieldconvert" -f electric-mesh.xml electric.xml \
+        partitions/electric.fld electric.csv > log.convert-electric 2>&1
     python3 "$case_dir/check_results.py" log.coupled-mhd
 else
     echo "Completed; analytical result check disabled (MHD_CHECK_RESULTS=0)."

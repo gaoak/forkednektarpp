@@ -254,8 +254,9 @@ void CoupledElectricPotential::v_DoSolve()
             int end    = offset + m_fields[0]->GetExp(e)->GetTotPoints();
             for (int q = offset; q < end; ++q)
             {
-                stop    = std::max(stop, m_received[m_velocityDimension + 1][q]);
-                minStop = std::min(minStop, m_received[m_velocityDimension + 1][q]);
+                stop = std::max(stop, m_received[m_velocityDimension + 1][q]);
+                minStop =
+                    std::min(minStop, m_received[m_velocityDimension + 1][q]);
                 time    = std::max(time, m_received[m_velocityDimension][q]);
                 minTime = std::min(minTime, m_received[m_velocityDimension][q]);
             }
@@ -346,8 +347,10 @@ void CoupledElectricPotential::SolvePotential()
                 int offset = m_fields[0]->GetPhys_Offset(e);
                 for (int q = offset; q < offset + exp->GetTotPoints(); ++q)
                 {
-                    NekDouble uj = j < m_velocityDimension ? m_received[j][q] : 0.0;
-                    NekDouble uk = k < m_velocityDimension ? m_received[k][q] : 0.0;
+                    NekDouble uj =
+                        j < m_velocityDimension ? m_received[j][q] : 0.0;
+                    NekDouble uk =
+                        k < m_velocityDimension ? m_received[k][q] : 0.0;
                     m_flux[q] =
                         m_sigma[q] * (uj * m_magnetic[k] - uk * m_magnetic[j]);
                 }

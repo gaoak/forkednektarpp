@@ -56,7 +56,7 @@ private:
     void ReceivePacket(int step, int nvalues);
     MPI_Comm m_local = MPI_COMM_NULL, m_bridge = MPI_COMM_NULL;
     bool m_fluid = false, m_paired = false;
-    int m_rank = 0, m_dimension = 0, m_stop = -1;
+    int m_rank = 0, m_velocityDimension = 0, m_stop = -1;
     NekDouble m_time = 0.0;
     std::vector<int> m_indices;
     std::vector<NekDouble> m_packet;

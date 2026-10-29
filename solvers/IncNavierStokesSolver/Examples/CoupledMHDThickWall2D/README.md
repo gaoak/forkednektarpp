@@ -1,277 +1,180 @@
-# MHD with conducting thick walls and unified partitions
+# Coupled Hunt flow with finite conducting Hartmann walls (Ha=1)
 
-Student guide (Chinese): [厚导电壁面准静态 MHD 使用教程](TUTORIAL_zh.md).
-The primary meshing workflow follows Mesh2D's `square` branch; reference scripts
-cover matching mesh extraction, MPI launch and visualization.
+[中文学生教程](TUTORIAL_zh.md) covers Mesh2D `square` meshing, configuration,
+partitioning, MPI launch and postprocessing.
 
-This small 2D planar channel couples `IncNavierStokesSolver` on the fluid mesh
-to `ADRSolver` on a conforming fluid/solid mesh. The two executables retain
-their existing single-mesh field layout. No field-specific domain or boundary
-framework is needed.
+This example uses the **unchanged** four-fluid-quad/four-solid-quad mesh as a
+square duct cross-section. Velocity is along **z** (`w`), the magnetic field
+is along **y**, and the top/bottom Hartmann walls conduct electricity. The
+left/right side walls are insulating. All outer electrical surfaces are
+insulated; there is no imposed electrode voltage. Conductivity-weighted CG
+assembly couples fluid and solid potential/current across the internal interfaces.
 
-There are **4 fluid quads and 4 solid quads**, four modes and five quadrature
-points per direction. The default run takes only **5 time steps**.
+The geometry is `0<=x,y<=1` in the fluid, with solid slabs at `-0.25<=y<=0`
+and `1<=y<=1.25`. This is a **finite-conductivity, thick-wall Hunt configuration**,
+not the ideal perfectly conducting-wall limit. Conducting Hartmann walls and
+insulating side walls follow the generalized Hunt configuration discussed in
+[Bluck et al., JFM 771 (2015)](https://www.cambridge.org/core/journals/journal-of-fluid-mechanics/article/an-analytical-solution-to-electromagnetically-coupled-duct-flow-in-mhd/902FADFCFAB35273CA5E4D25BCDE4920).
+
+## Equations and quasi-3D setting
+
+The fluid session follows the 3DH1D arrangement in
+`/StorageLBM/yujiez/Shercliff_Ha1000/N5/Duct.xml`:
+
+- `Homogeneous=1D`, `HomModesZ=2`, `LZ=1`;
+- variables `u,v,w,phi,p`, with flow-rate forcing along z;
+- no-slip velocity and high-order pressure conditions on all four x/y walls;
+- `By=MagneticFieldStrength`, with implicit Lorentz damping enabled.
+
+Only the fully developed **real zero Fourier mode** is retained. The second
+Fourier plane is the null imaginary mean mode; this is not a simulation of
+z-dependent disturbances. Homogeneous-direction MPI decomposition is unsupported
+for this coupling: keep `--npz=1` (the default). Partition the x/y elements only.
+
+IncNS evolves the quasi-3D velocity. ADR solves the **2D cross-sectional**
+conductivity-weighted electric problem, since `d(phi)/dz=0`. It receives all
+three velocity components, so the source includes `w` through
+`u x B = (-w*By,0,u*By)`. The pairing validates the x/y layout once, transfers
+the mean-plane local coefficients, and inserts the returned potential into the
+real zero mode while clearing its imaginary mean mode. No spatial interpolation
+is used. Higher Fourier-mode configurations are rejected instead of silently
+being reduced to a cross-sectional solve.
+
+The flow has five modes/seven quadrature points per x/y direction for velocity
+and phi; pressure has four modes with the same quadrature. Unlike the supplied
+reference's lower-order phi, this direct-transfer example keeps the velocity and
+potential bases identical on paired fluid elements.
+
+## Parameters
+
+The density-normalized definition is
+
+```text
+Ha = B*a*sqrt(sigma_fluid/Kinvis)
+a  = HalfWidth = 0.5
+B  = Ha/a*sqrt(Kinvis/sigma_fluid)
+```
+
+Defaults: `Ha=1`, `Kinvis=0.1`, `sigma_fluid=1`, `sigma_wall=10`, wall thickness
+`0.25`, `Flowrate=0.1`, `TimeStep=0.02`, `NumSteps=500`. Thus `By≈0.632455532`
+and the wall conductance ratio `sigma_wall*h/(sigma_fluid*a)=5`.
+`Flowrate` sets mean axial velocity (section area is one here). The default
+run reaches time 10 and performs 501 electric solves. It is a small teaching
+and coupling check, not a spatially converged high-Ha benchmark.
+
+The electric boundary problem is pure Neumann. Nektar++ fixes the additive
+potential reference; absolute phi depends on the gauge. Currents and gradients
+are physical quantities. Boundary conditions in IncNS are not reapplied to the
+potential returned by ADR.
 
 ## Build and run
 
-From the repository root, with a CWIPI-enabled build in `./build`:
+From the repository root:
 
 ```bash
 module load nektar++/latest
 cmake -S . -B build -DNEKTAR_USE_MPI=ON -DNEKTAR_USE_CWIPI=ON \
     -DNEKTAR_USE_SCOTCH=ON -DNEKTAR_UTILITY_EXTRAS=ON \
-    -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
-cmake --build build --target MHDPartition ADRSolver IncNavierStokesSolver -j 4
+    -DNEKTAR_UTILITY_FIELDCONVERT=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
+cmake --build build --target MHDPartition ADRSolver IncNavierStokesSolver FieldConvert -j4
 solvers/IncNavierStokesSolver/Examples/CoupledMHDThickWall2D/Allrun
 ```
 
-CWIPI 0.11.1 can be built using the existing ThirdParty configuration. It must
-be built against the same OpenMPI installation as Nektar++. If it is already
-installed, provide `CWIPI_LIBRARY`, `CWIPI_INCLUDE_DIR`, and set
-`THIRDPARTY_BUILD_CWIPI=OFF` when configuring. PETSc is not required.
+CWIPI and Nektar++ must use the same MPI installation. Existing builds can
+usually use just the build command. The script selects current build-tree
+executables, including the Debug `-g` suffix.
 
-`Allrun` selects the build-tree executable names, including the Debug `-g`
-suffix, rather than an older installation in `build/dist` or `/apps`. By default
-it uses coefficient transfer with **M=2 fluid partitions and N=1 solid partition**:
-IncNS has 2 ranks, ADR has 3 ranks, and the total is 5 ranks. Both solutions
-are checked against the analytical fields. An optional first argument selects
-the result directory. The default is `build/coupled-mhd-thick-wall-2d`, containing:
+Default M=2, N=1 means **2 IncNS ranks + 3 ADR ranks = 5 total ranks**. An
+optional first script argument selects the result directory; the default remains
+`build/coupled-mhd-thick-wall-2d`. `FLUID_RANKS=M SOLID_RANKS=N` selects other
+positive counts; use a new output directory when changing the counts.
 
-- `log.coupled-mhd`: solver output and analytical errors;
-- `log.partition`: preprocessing output;
-- `partitions/partition-map.csv`: element ID, material and owning ranks;
-- `partitions/fluid_xml`, `partitions/electric_xml`: self-contained rank sessions;
-- `partitions/fluid.fld`: `u,v,phi,p` on the fluid mesh;
-- `partitions/electric.fld`: `phi,Jx,Jy,Jz,sigma` on the fluid/solid mesh.
+`MHD_CASE_DIR` selects a directory containing the four input XML files.
+`MHD_CHECK_RESULTS=0` skips the default Hunt physical checker for customized or
+short transient runs. `MHD_TIMEOUT` defaults to 120 seconds. `FIELD_CONVERT`
+can override the postprocessing binary. This quasi-3D example requires
+`MHD_TRANSFER=Coefficients`; the old point-transfer path is tested separately.
 
-`MHD_CASE_DIR` selects another directory containing the four input XML files;
-use a separate result directory. `MHD_CHECK_RESULTS=0` disables the supplied
-channel-specific analytical checker for other physical problems (default: 1).
-The `scripts` directory contains the student meshing and environment helpers.
+## Manual partitioning and launch
 
-For M=2, N=2 (6 total ranks):
+After loading the module, source `scripts/env.sh` from the example directory
+(or its full path) to set the `$mhd_*` executable paths. In a separate work
+directory containing the four input files:
 
 ```bash
-FLUID_RANKS=2 SOLID_RANKS=2 \
-    solvers/IncNavierStokesSolver/Examples/CoupledMHDThickWall2D/Allrun \
-    build/coupled-mhd-m2-n2
+"$mhd_partitioner" 2 1 partitions \
+    fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml
+mpiexec -np 2 "$mhd_fluid_solver" --cwipi fluid "$PWD/partitions/fluid_xml" \
+    : -np 3 "$mhd_electric_solver" --cwipi electric "$PWD/partitions/electric_xml"
 ```
 
-M and N must be positive, with at least one element per partition. Use a new
-result directory when changing the rank counts. To run the original CWIPI
-point-interpolation mode, use `MHD_TRANSFER=Cwipi`; then `FLUID_RANKS` and
-`ELECTRIC_RANKS` independently select the solver sizes (both default to 1),
-and field outputs are `fluid-mesh.fld` and `electric-mesh.fld`.
+Scotch partitions fluid elements once and reuses those partitions in both
+applications. It partitions the extra solid elements separately. IncNS rank i
+pairs with ADR rank i for `0<=i<M`; ADR ranks `M..M+N-1` contain only solid.
+Total MPI ranks are `2M+N`. The CSV manifest lists every element's owner.
 
-The `IncNavierStokesSolver_MHDCoefficients` CTest entry checks M/N=1/1, 2/1 and
-2/2, asymmetric polynomial transfers in both directions, reversed application
-launch order, and startup rejection of incompatible geometry. The existing
-`IncNavierStokesSolver_CoupledMHDThickWall2D` entry retains the point-mode tests
-at 1+1 and 2+2 ranks. `generate_case.py` regenerates the four checked-in XML
-files; generation is not required to run the example.
-The coefficient test also adds nonzero constant `Ex` and `Ey` in a separate
-analytical case, using both coefficient and point transfer to check the cached
-fixed-field load and fluid-only motional source.
+The generated coupling blocks use `TYPE=Coefficients`, `Role=Fluid/Electric`
+and `FluidRanks=M`. Fluid sends `u,v,w,mhd_time,mhd_stop`, receives `phi`; ADR
+reverses the lists. Time/stop values are protocol data, not solution variables.
+CWIPI creates the application-local communicators; private MPI messages carry
+the paired coefficient payloads. Exactly two applications are supported.
 
-## Unified preprocessing and coefficient transfer
+ADR caches the imposed fixed-field load at initialization and updates the
+motional load only on fluid elements. Pure solid ranks allocate no velocity
+receive or motional-load work arrays. They still participate in ADR's control
+reductions and global electrical solve. Current output retains the velocity
+from the final force evaluation, including after the shutdown handshake.
 
-The fluid mesh must be a subset of the electrical mesh, preserving global
-element, edge/face and vertex IDs, element orientations and geometry. The ADR
-`FLUID` composites must contain exactly the fluid mesh domain. Both solvers
-must use the same fluid-element bases, orders and quadrature for velocity and
-potential. Their physical boundary conditions can differ.
+## Output and checks
 
-The preprocessing command, run with a single process, is:
+The result directory contains:
+
+- `log.partition`, `log.coupled-mhd`;
+- `partitions/partition-map.csv`, `fluid_xml/`, `electric_xml/`;
+- `partitions/fluid.fld/`: `u,v,w,phi,p` in 3DH1D;
+- `partitions/electric.fld/`: `phi,Jx,Jy,Jz,sigma` in the 2D section;
+- `partitions/fluid.prs`: the axial flow-rate controller's driving gradient;
+- `fluid.csv`, `electric.csv`, and `log.convert-*`, generated by the checker.
+
+With no exact Hunt solution supplied, the solver's `L 2 error` lines compare
+the solution to zero; they are **not discretization errors**. Allrun instead
+checks the axial flow rate, no-slip and zero transverse velocity, agreement of
+returned potential, nonzero wall currents, late-time driving-gradient stability,
+and the dissipative identity
+
+```text
+integral_fluid w*(J x B)_z + integral_fluid+solid |J|^2/sigma = 0.
+```
+
+Typical default results: mean w≈0.1, max sampled w≈0.206953, driving gradient
+≈0.309465712516. CSV rounding limits the energy check (threshold `1e-4` relative).
+These consistency checks do not establish an exact-profile or grid-convergence
+error. The eight-quad grid should not be used to resolve Ha=1000 wall layers.
+
+For a 2D mean-section visualization, use:
 
 ```bash
-MHDPartition 2 1 partitions fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml
-mpiexec -np 2 IncNavierStokesSolver --cwipi fluid partitions/fluid_xml \
-    : -np 3 ADRSolver --cwipi electric partitions/electric_xml
+"$mhd_fieldconvert" -f -m homplane:planeid=0 \
+    fluid-mesh.xml fluid.xml partitions/fluid.fld fluid-mean.vtu
+"$mhd_fieldconvert" -f electric-mesh.xml electric.xml \
+    partitions/electric.fld electric.vtu
 ```
 
-Use the build-tree executable paths (and `-g` suffix for Debug) if these
-commands are not on `PATH`. `Allrun` does this automatically.
+Use `homplane:planeid=0:wavespace` to inspect the real Fourier coefficient, or
+planeid=1:wavespace to inspect the null imaginary mean. Raw CSV export of the
+unextracted 3DH1D field is not used by this example.
 
-`MHDPartition` uses the existing Scotch partitioner once for the fluid region
-and once for the solid region. The fluid partition sets are reused unchanged
-in both applications. IncNS rank `i` and ADR rank `i`, for `0 <= i < M`, own
-the same fluid elements; ADR ranks `M ... M+N-1` own only solid elements.
-The existing XML partition writer preserves each session's boundary conditions
-and the composite ordering required by the global continuous Galerkin solve.
-ADR still solves one globally assembled fluid/solid electric problem over all
-M+N ranks, including communication across the material interfaces.
+## Mesh generation and regression coverage
 
-The generated coupling blocks use `TYPE="Coefficients"`, `Role="Fluid"` or
-`Role="Electric"`, and `FluidRanks=M`. For example, the fluid block is:
+`generate_case.py` regenerates the same geometry and the current Hunt sessions.
+The `scripts` helpers follow Mesh2D's `square` workflow; see the Chinese tutorial.
+`MHDPartition` preserves each solver's boundary definitions and the composite
+ordering needed for parallel CG assembly.
 
-```xml
-<COUPLING NAME="MHD" TYPE="Coefficients">
-    <I PROPERTY="Role" VALUE="Fluid" />
-    <I PROPERTY="FluidRanks" VALUE="2" />
-    <I PROPERTY="SendSteps" VALUE="1" />
-    <I PROPERTY="ReceiveSteps" VALUE="1" />
-    <I PROPERTY="SendVariables" VALUE="u,v,mhd_time,mhd_stop" />
-    <I PROPERTY="ReceiveVariables" VALUE="phi" />
-</COUPLING>
-```
-
-The electric block reverses the field lists and uses `Role="Electric"`.
-The preprocessor converts the source CWIPI blocks automatically. CWIPI still
-creates application-local communicators through distinct `--cwipi` names.
-A private MPI intercommunicator carries direct paired messages, identifying
-the two applications by role; `RemoteName` is accepted but unused in this mode.
-Only one fluid and one electric application are supported per MPI job.
-
-At initialization, each pair checks element IDs, ordered vertices, physical
-quadrature coordinates, basis types and orders. It caches a coefficient
-packing map sorted by global element ID. A mismatch aborts before stepping;
-later exchanges reuse the map without geometric location or interpolation.
-Messages contain element-local expansion coefficients, not globally assembled
-CG degrees of freedom. Solid ranks receive no field payload from IncNS.
-
-Velocity is transformed locally from the current RHS-stage physical arrays
-before sending, because the stored velocity coefficients can belong to another
-integration stage. ADR reconstructs the velocity at its quadrature points for
-the motional source. Solved potential coefficients are copied directly back
-into the fluid potential field. Packing and payload size scale with the local
-coefficient count; initialization also exchanges geometry metadata once.
-This removes point location and interpolation, but is not a measured speedup
-claim. Static partitions and expansion layouts are required throughout a run.
-
-ADR splits its weak-form load into a fixed electric-field part and the
-velocity-dependent motional part. The fixed part is assembled once at
-initialization, including its contributions on solid elements. Every solve
-starts from this cached load and adds the motional part only on fluid elements;
-electrical boundary conditions are still evaluated at the request time. With
-zero imposed electric field, the cached local volume load on solid ranks is
-zero. Pure solid coefficient partitions allocate no velocity/control receive
-buffers or motional-source work arrays and skip the receive call. Their time
-and shutdown state come from reductions within the ADR communicator.
-
-Cross-application field payloads pass only between matching fluid ranks. Solid
-ranks still participate in ADR's global electrical solve, including interface
-and solver communication, and compute their potential and output current.
-
-## Geometry and analytical solution
-
-Fluid occupies `0 <= x <= 1`, `0 <= y <= 1`. The lower wall occupies
-`-0.25 <= y <= 0`; the upper wall occupies `1 <= y <= 1.25`. The fluid
-conductivity is 1 and the wall conductivity is 0.1. Coordinates, conductivity,
-and force follow the existing IncNS normalization, with density normalized
-to one.
-
-The outer wall surfaces are electrodes with potentials 0 and `Voltage=0.1`.
-The left and right electrical boundaries are insulating. These electrode
-conditions give a nonzero, analytically known current through both walls.
-Fluid velocity at the inlet/outlet is `u=4*U0*y*(1-y)`, `v=0`; the fluid/wall
-interfaces are no-slip. `U0=0.1`, `Bz=B0=0.1`, and `Kinvis=0.1`.
-
-For wall thickness `h`, define:
-
-```text
-R  = 2*h/sigma_wall + 1/sigma_fluid
-Jy = -(Voltage + 2*U0*B0/3)/R = -0.0177777777777778
-```
-
-Let `s=clamp(y,0,1)`. The potential throughout fluid and walls is:
-
-```text
-phi(y) = -Jy*((y+h)/sigma_wall + (1/sigma_fluid-1/sigma_wall)*s)
-         -U0*B0*(2*s^2 - 4*s^3/3)
-```
-
-The fluid body force `8*Kinvis*U0 - Jy*B0` balances viscous diffusion and the
-Lorentz force. The parabolic initial flow is therefore an exact steady
-solution of the coupled equations. The test checks both returned fluid
-potential and full fluid/solid potential, as well as velocity and pressure.
-The solution is polynomial on each element, so this coarse mesh is sufficient
-to verify the coupling without a resolution study.
-
-## Input configuration
-
-In the fluid session, retain `phi` immediately before pressure and select:
-
-```xml
-<I PROPERTY="ElectricPotential" VALUE="Coupled" />
-```
-
-The default is `Internal`, preserving existing MHD cases. `ForcingLorentz`
-and its `ElectricMagneticFields` function remain required. The coupled path
-receives `phi`, computes its gradient on the fluid mesh, and uses the existing
-Lorentz-force calculation. Its local electrical boundary conditions are not
-applied to the received potential.
-
-The ADR session declares **only `phi`** as a solution variable:
-
-```xml
-<I PROPERTY="EQType" VALUE="CoupledElectricPotential" />
-<I PROPERTY="Projection" VALUE="Continuous" />
-```
-
-At the `NEKTAR` level, define material volume composites:
-
-```xml
-<ELECTRICPOTENTIAL>
-    <FLUID COMPOSITE="C[0]" CONDUCTIVITY="ElectricConductivity" />
-    <SOLID COMPOSITE="C[1]" CONDUCTIVITY="WallConductivity" />
-</ELECTRICPOTENTIAL>
-```
-
-`CONDUCTIVITY` is a constant expression using session parameters. Regions must
-not overlap and must cover every electrical element; conductivities must be
-positive. Additional `SOLID` entries can specify other materials. Interface
-vertices/edges/faces must be shared by the conforming electrical mesh.
-Electrical boundary conditions apply to the exterior only. With the weak
-current-conservation formulation, homogeneous Neumann means zero **total
-normal current**. A nonzero Neumann value is minus the outward current density,
-not simply the normal potential derivative. Pure-Neumann problems use the
-existing singular-system handling to fix the potential reference.
-
-Both sessions must use the same constant `ElectricMagneticFields`. In the
-fluid session `ElectricConductivity` must match the ADR fluid material.
-
-The checked-in source `COUPLING` blocks use `TYPE="Cwipi"`, the same coupling
-name, distinct `--cwipi` application names, and the following point-mode options.
-The default preprocessing replaces these with the coefficient configuration
-described above:
-
-```xml
-<I PROPERTY="SendSteps" VALUE="1" />
-<I PROPERTY="ReceiveSteps" VALUE="1" />
-<I PROPERTY="ReceiveProjection" VALUE="Local" />
-<I PROPERTY="FilterWidth" VALUE="0" />
-<I PROPERTY="NotLocMethod" VALUE="Keep" />
-<I PROPERTY="GeomTol" VALUE="1e-10" />
-```
-
-Fluid sends `u,v,mhd_time,mhd_stop` and receives `phi`. ADR does the reverse.
-For full 3D meshes, insert `w` after `v`. Received velocities are auxiliary
-arrays. Solid velocity is explicitly excluded from the motional source. In point
-mode, unlocated points inside solid elements are expected. The local receive
-projection prevents material-interface smoothing of these arrays. The PDE
-solution itself still uses a continuous Galerkin space.
-
-## Exchange protocol and scope
-
-Each Lorentz-force evaluation sends that evaluation's velocity and time,
-waits for the ADR solution, and then computes the force. The exchange counter
-is independent of the time-step number, supporting initialization and multiple
-RHS stages. A normal request carries `mhd_stop=-1`; termination uses `+1` and
-receives a final acknowledgement before either side finalizes CWIPI. Both
-control fields are transported internally; they are not solution variables.
-Coefficient mode carries time and the shutdown marker in message metadata.
-
-`mhd_time` and `mhd_stop` must be spatial constants on every received fluid
-element. ADR checks them to detect missing overlap or inadequate receive
-resolution. The fluid mesh must lie within the electrical fluid region.
-There is no electrical time integration; ADR solves the instantaneous
-conductivity-weighted Poisson problem for each request. Output potential and
-current correspond to the last force evaluation.
-
-The implementation targets stationary conducting solids, static full 2D/3D
-meshes, and constant imposed electromagnetic fields. The supplied validation
-is 2D. Homogeneous Fourier meshes and moving electrical meshes are not
-supported by this coupled mode. Coefficient mode requires matching fluid
-submeshes and expansion layouts. Point mode also permits independent meshes;
-interpolation then introduces spatial transfer error that requires its own
-accuracy study.
+The old planar, electrode-driven analytical case is retained under
+`../../Tests/CoupledMHDChannel/`. CTests `CoupledMHDThickWall2D` and
+`MHDCoefficients` use these fixtures to retain point/coefficients, fixed-field
+and geometry-mismatch regression coverage. `IncNavierStokesSolver_CoupledHunt`
+checks the new Hunt example with M/N=1/1, 2/1 and 2/2, partition-independent axial
+velocity, and rejection of unsupported Fourier layouts. Reconfigure CMake after
+updating the source to register the new test.

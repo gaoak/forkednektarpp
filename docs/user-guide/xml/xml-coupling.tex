@@ -99,7 +99,12 @@ The generated fluid coupling block has the following form:
 </COUPLING>
 \end{lstlisting}
 ADR uses \inltt{Role=Electric}, the same \inltt{FluidRanks}, and reversed
-send/receive lists. Insert \inltt{w} after \inltt{v} for full 3D meshes.
+send/receive lists. Insert \inltt{w} after \inltt{v} for full 3D meshes or
+fully developed 3DH1D flow coupled to a 2D electric section. In the latter case,
+only \inltt{HomModesZ=2} with a standard Fourier basis and no homogeneous MPI
+split is supported. The real zero mode is paired with the 2D electric field;
+the returned potential has a zero imaginary mean mode. This is not a general
+coupling for $z$-dependent Fourier disturbances.
 Both exchange frequencies must be one. The time and shutdown marker are
 message metadata rather than expansion fields. The peer is identified by role;
 \inltt{RemoteName} is accepted but unused. Exactly one application of each role

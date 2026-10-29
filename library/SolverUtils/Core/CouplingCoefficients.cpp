@@ -62,7 +62,7 @@ std::vector<NekDouble> CouplingCoefficients::BuildLayout()
     std::vector<NekDouble> layout{
         static_cast<NekDouble>(elements.size()),
         static_cast<NekDouble>(m_evalField->GetNcoeffs()),
-        static_cast<NekDouble>(m_dimension)};
+        static_cast<NekDouble>(m_velocityDimension)};
     for (int e : elements)
     {
         auto exp  = m_evalField->GetExp(e);
@@ -137,11 +137,12 @@ void CouplingCoefficients::v_Init()
              "Coefficient exchange requires SendSteps=ReceiveSteps=1.");
     // Spatial dimension of the electric mesh and number of velocity components
     // differ for a 3DH1D zero-mode flow coupled to a 2D electric section.
-    m_dimension = (m_fluid ? m_sendFieldNames : m_recvFieldNames).size() - 2;
-    ASSERTL0(m_dimension == 2 || m_dimension == 3,
+    m_velocityDimension =
+        (m_fluid ? m_sendFieldNames : m_recvFieldNames).size() - 2;
+    ASSERTL0(m_velocityDimension == 2 || m_velocityDimension == 3,
              "Coefficient MHD requires two or three velocity components.");
     std::vector<std::string> velocity{"u", "v"};
-    if (m_dimension == 3)
+    if (m_velocityDimension == 3)
         velocity.push_back("w");
     velocity.push_back("mhd_time");
     velocity.push_back("mhd_stop");
@@ -250,18 +251,12 @@ void CouplingCoefficients::v_Send(
         return;
     }
     const int nc = m_indices.size();
-    std::vector<NekDouble> values(static_cast<size_t>(m_dimension) * nc);
-    m_stop = fields[map[m_dimension + 1]][0] > 0.0 ? 1 : -1;
-    if (m_stop > 0)
+    std::vector<NekDouble> values(static_cast<size_t>(m_velocityDimension) *
+                                  nc);
+    m_stop = fields[map[m_velocityDimension + 1]][0] > 0.0 ? 1 : -1;
+    for (int d = 0; d < m_velocityDimension; ++d)
     {
-        // Shutdown carries no new velocity state. In particular the saved
-        // stage arrays can still be in wave space after output changes flags.
-        SendPacket(step, time, m_stop, values);
-        return;
-    }
-    for (int d = 0; d < m_dimension; ++d)
-    {
-        if (m_homogeneousField)
+        if (m_homogeneousField && m_stop < 0)
         {
             int nq = m_evalField->GetTotPoints();
             ASSERTL0(fields[map[d]].size() == 2 * nq,
@@ -272,13 +267,15 @@ void CouplingCoefficients::v_Send(
                 NekDouble expected = m_homogeneousField->GetWaveSpace()
                                          ? 0.0
                                          : fields[map[d]][q];
-                error = std::max(error,
-                                 std::abs(fields[map[d]][nq + q] - expected));
+                error              = std::max(error,
+                                              std::abs(fields[map[d]][nq + q] - expected));
                 scale = std::max(scale, std::abs(fields[map[d]][q]));
             }
             ASSERTL0(error <= 1e-10 * scale,
                      "Coupled cross-section MHD requires z-independent flow.");
         }
+        // Shutdown reuses the last stage arrays (the first zero-mode plane
+        // stays valid even if output has changed the field's wave-space flag).
         // RHS stage velocities are physical arrays; coefficients stored in
         // the flow fields may belong to a different time-integration stage.
         m_evalField->FwdTransLocalElmt(fields[map[d]], m_coeffs);
@@ -304,18 +301,18 @@ void CouplingCoefficients::v_Receive(
         return;
     }
     const int nc = m_indices.size();
-    ReceivePacket(step, m_dimension * nc);
-    for (int d = 0; d < m_dimension; ++d)
+    ReceivePacket(step, m_velocityDimension * nc);
+    for (int d = 0; d < m_velocityDimension; ++d)
     {
         for (int c = 0; c < nc; ++c)
             m_coeffs[m_indices[c]] = m_packet[d * nc + c];
         m_evalField->BwdTrans(m_coeffs, fields[map[d]]);
     }
-    Vmath::Fill(fields[map[m_dimension]].size(), m_time,
-                fields[map[m_dimension]], 1);
-    Vmath::Fill(fields[map[m_dimension + 1]].size(),
-                static_cast<NekDouble>(m_stop), fields[map[m_dimension + 1]],
-                1);
+    Vmath::Fill(fields[map[m_velocityDimension]].size(), m_time,
+                fields[map[m_velocityDimension]], 1);
+    Vmath::Fill(fields[map[m_velocityDimension + 1]].size(),
+                static_cast<NekDouble>(m_stop),
+                fields[map[m_velocityDimension + 1]], 1);
 }
 
 void CouplingCoefficients::SendCoefficients(
