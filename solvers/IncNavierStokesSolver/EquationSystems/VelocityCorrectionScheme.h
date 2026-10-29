@@ -36,6 +36,7 @@
 #define NEKTAR_SOLVERS_VELOCITYCORRECTIONSCHEME_H
 
 #include <IncNavierStokesSolver/EquationSystems/IncNavierStokes.h>
+#include <SolverUtils/Core/Coupling.h>
 
 namespace Nektar
 {
@@ -107,7 +108,9 @@ public:
     }
 
     void SolveEfield(const Array<OneD, Array<OneD, NekDouble>> &movEfield,
-                     Array<OneD, Array<OneD, NekDouble>> &totEfield);
+                     Array<OneD, Array<OneD, NekDouble>> &totEfield,
+                     const Array<OneD, Array<OneD, NekDouble>> &velocity,
+                     NekDouble time);
 
     void SetImplicitLorentzDamping(NekDouble damping)
     {
@@ -182,6 +185,13 @@ protected:
         bool hasLorentzForce = false;
         /// Coefficient sigma |B|^2 treated in the velocity Helmholtz solve.
         NekDouble implicitLorentzDamping = 0.0;
+        bool externalPotential           = false;
+        SolverUtils::CouplingSharedPtr coupling;
+        int exchange = 0;
+        Array<OneD, Array<OneD, NekDouble>> sendFields;
+        Array<OneD, Array<OneD, NekDouble>> recvFields;
+        std::vector<std::string> sendNames;
+        std::vector<std::string> recvNames;
     } m_MHD;
 
     Array<OneD, Array<OneD, NekDouble>> m_F;
@@ -210,6 +220,7 @@ protected:
     void v_TransPhysToCoeff(void) override;
 
     void v_DoInitialise(bool dumpInitialConditions = true) override;
+    void v_Output() override;
 
     Array<OneD, bool> v_GetSystemSingularChecks() override;
 

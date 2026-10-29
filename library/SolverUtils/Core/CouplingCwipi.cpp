@@ -119,6 +119,7 @@ CouplingCwipi::CouplingCwipi(MultiRegions::ExpListSharedPtr field)
     m_config["DUMPRAW"]      = "0";
     m_config["SENDMETHOD"]   = "EVALUATE";
     m_config["NOTLOCMETHOD"] = "KEEP";
+    m_config["RECEIVEPROJECTION"] = "CONTINUOUS";
 }
 
 void CouplingCwipi::v_Init()
@@ -229,6 +230,13 @@ void CouplingCwipi::ReadConfig(LibUtilities::SessionReaderSharedPtr session)
     m_config["LOCALNAME"] = session->GetCmdLineArgument<std::string>("cwipi");
 
     m_filtWidth = std::stod(m_config["FILTERWIDTH"]);
+    ASSERTL0(
+        StringUtils::IEquals(m_config["RECEIVEPROJECTION"], "Continuous") ||
+            StringUtils::IEquals(m_config["RECEIVEPROJECTION"], "Local"),
+        "ReceiveProjection must be Continuous or Local.");
+    ASSERTL0(!StringUtils::IEquals(m_config["RECEIVEPROJECTION"], "Local") ||
+                 m_filtWidth <= 0.0,
+             "Local ReceiveProjection requires FilterWidth <= 0.");
 }
 
 void CouplingCwipi::SetupReceive()
@@ -907,7 +915,18 @@ void CouplingCwipi::ReceiveCwipi(const int step, const NekDouble time,
         {
             for (int i = 0; i < m_nRecvVars; ++i)
             {
-                m_recvField->FwdTrans(rVals[i], tmpC);
+                if (StringUtils::IEquals(m_config["RECEIVEPROJECTION"],
+                                         "Local"))
+                {
+                    // Auxiliary fields may be discontinuous across material
+                    // interfaces, e.g. fluid velocity extended by zero into a
+                    // stationary solid. Do not couple their mass projection.
+                    m_recvField->FwdTransLocalElmt(rVals[i], tmpC);
+                }
+                else
+                {
+                    m_recvField->FwdTrans(rVals[i], tmpC);
+                }
                 m_evalField->BwdTrans(tmpC, field[i]);
             }
         }

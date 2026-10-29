@@ -2556,6 +2556,86 @@ The following extra parameter should be provided.
     \end{tabularx}
 \end{center}
 
+\subsection{Electric potential coupled to conducting solids}
+
+With MPI and CWIPI enabled, setting \inltt{ElectricPotential} to
+\inltt{Coupled} in \inltt{SOLVERINFO} obtains the potential from a separate
+\inltt{ADRSolver} application using \inltt{EQType=CoupledElectricPotential}.
+The default \inltt{Internal} retains the fluid-only Poisson solve.
+The fluid variables retain the ordering \inltt{u,v,phi,p} in 2D, or
+\inltt{u,v,w,phi,p} in 3D. The ADR application declares only \inltt{phi}
+on a conforming fluid/solid mesh; velocities are received into auxiliary arrays.
+
+Material regions are defined at the \inltt{NEKTAR} level in the ADR session:
+\begin{lstlisting}[style=XMLStyle]
+<ELECTRICPOTENTIAL>
+    <FLUID COMPOSITE="C[0]" CONDUCTIVITY="ElectricConductivity" />
+    <SOLID COMPOSITE="C[1]" CONDUCTIVITY="WallConductivity" />
+</ELECTRICPOTENTIAL>
+\end{lstlisting}
+All elements must belong to exactly one material, with a positive constant
+conductivity. The potential satisfies current conservation in weak form with
+piecewise conductivity. Solid velocity is zero; interface potential continuity
+and normal-current balance are enforced by the global CG solve. Exterior
+homogeneous Neumann data specify zero total normal current, and a nonzero
+Neumann value is minus the imposed outward current density.
+
+Both sessions use either \inltt{COUPLING TYPE="Coefficients"} on unified
+partitions or \inltt{COUPLING TYPE="Cwipi"} for point interpolation.
+Coefficient mode uses Scotch to partition the fluid region into $M$ parts
+once, reuses those parts on ranks $0,\ldots,M-1$ of both solvers, and partitions
+the additional solid region into $N$ parts on ADR ranks $M,\ldots,M+N-1$.
+IncNS uses $M$ ranks and ADR uses $M+N$ ranks. The \inltt{MHDPartition}
+utility, built with \inltt{NEKTAR\_UTILITY\_EXTRAS=ON} and Scotch enabled,
+generates both sets of pre-partitioned XML sessions:
+\begin{lstlisting}[style=BashInputStyle]
+MHDPartition M N parts fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml
+mpiexec -np M IncNavierStokesSolver --cwipi fluid parts/fluid_xml \
+    : -np M_PLUS_N ADRSolver --cwipi electric parts/electric_xml
+\end{lstlisting}
+Replace the symbolic rank counts with integers. Both $M$ and $N$ must be
+positive. The input fluid submeshes must preserve geometry IDs and orientation;
+paired velocity and potential expansions must have identical bases, orders
+and quadrature. Boundary conditions remain specific to each solver.
+At initialization the pairs validate these layouts and cache a coefficient
+packing map by global element ID. Subsequent messages transfer element-local
+coefficients directly over a private MPI intercommunicator. CWIPI provides
+the application-local communicators, without point location in this mode.
+Velocity coefficients are formed from the current RHS-stage physical arrays;
+the solved potential coefficients are copied directly back to IncNS.
+ADR retains its global continuous fluid/solid electrical solve across all
+$M+N$ ranks. The constant imposed-field load is cached at initialization;
+only fluid elements contribute to the velocity-dependent load at each request.
+Pure solid coefficient partitions allocate no velocity receive or motional-load
+work arrays. They still participate in ADR's control reductions and global
+electrical solve. Boundary conditions are evaluated at the request time.
+See the example README and the XML coupling documentation for
+the generated \inltt{Role} and \inltt{FluidRanks} options.
+
+Point mode requires
+\inltt{SendSteps=ReceiveSteps=1}, \inltt{ReceiveProjection=Local}, and
+\inltt{FilterWidth=0}. The fluid sends \inltt{u,v,mhd\_time,mhd\_stop}
+(add \inltt{w} after \inltt{v} in 3D) and receives \inltt{phi}; ADR exchanges
+the reverse lists and uses \inltt{NotLocMethod=Keep}. Time and shutdown fields
+are internal protocol data, not solution variables. Every Lorentz-force
+evaluation performs a request/reply exchange with its own sequence number.
+The ADR output additionally contains \inltt{Jx,Jy,Jz,sigma}.
+
+Both modes require \inltt{SendSteps=ReceiveSteps=1} and the field lists above.
+Coefficient mode carries time and shutdown control in message metadata.
+The example \inltt{Examples/CoupledMHDThickWall2D} in the incompressible solver
+contains an eight-element, finite-conductivity thick-wall Hunt configuration at
+$Ha=1$. Velocity is along $z$ and the imposed field along $y$. IncNS uses
+\inltt{Homogeneous=1D}, \inltt{HomModesZ=2}, \inltt{LZ=1}; ADR solves the 2D
+cross-sectional potential with all three received velocity components.
+Coefficient coupling validates and transfers the real zero-mode plane and
+clears the imaginary mean mode. Only fully developed, $z$-independent flow is
+supported, with no homogeneous-direction MPI split. Higher Fourier layouts are
+rejected. Full static 2D/3D meshes retain their existing coupling support.
+The script defaults to $M=2$, $N=1$ and checks flow rate and Lorentz/Joule energy
+balance rather than an exact Hunt profile. The previous planar analytical
+channel remains in the regression fixtures under \inltt{Tests/CoupledMHDChannel}.
+
 \section{Examples}
 \label{s:incns:examples}
 

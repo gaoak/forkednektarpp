@@ -134,6 +134,44 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(ChanFlow_m8)
     ADD_NEKTAR_TEST(HartmannFlow)
     ADD_NEKTAR_TEST(MHDDuctFlow)
+    IF (NEKTAR_USE_MPI AND NEKTAR_USE_CWIPI AND NEKTAR_SOLVER_ADR)
+        ADD_NEKTAR_TEST(CoupledMHDThickWall2D)
+        IF (NEKTAR_BUILD_TESTS)
+            SET_TESTS_PROPERTIES(IncNavierStokesSolver_CoupledMHDThickWall2D
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+            IF (TARGET MHDPartition)
+                FIND_PACKAGE(Python3 QUIET COMPONENTS Interpreter)
+                IF (Python3_Interpreter_FOUND)
+                    ADD_NEKTAR_EXECUTABLE(MHDCoefficientTransferCheck
+                        COMPONENT tests DEPENDS SolverUtils
+                        SOURCES Tests/MHDCoefficientTransferCheck.cpp)
+                    ADD_TEST(NAME IncNavierStokesSolver_MHDCoefficients
+                        COMMAND ${Python3_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_mhd_coefficients.py
+                            --partitioner $<TARGET_FILE:MHDPartition>
+                            --fluid $<TARGET_FILE:IncNavierStokesSolver>
+                            --electric $<TARGET_FILE:ADRSolver>
+                            --transfer $<TARGET_FILE:MHDCoefficientTransferCheck>
+                            --mpiexec ${MPIEXEC}
+                            --case ${CMAKE_CURRENT_SOURCE_DIR}/Tests/CoupledMHDChannel
+                            --work ${CMAKE_BINARY_DIR}/tests/mhd-coefficients)
+                    SET_TESTS_PROPERTIES(IncNavierStokesSolver_MHDCoefficients
+                        PROPERTIES TIMEOUT 120 PROCESSORS 6
+                        ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+                    IF (TARGET FieldConvert)
+                        ADD_TEST(NAME IncNavierStokesSolver_CoupledHunt
+                            COMMAND ${Python3_EXECUTABLE}
+                                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_coupled_hunt.py
+                                --case ${CMAKE_CURRENT_SOURCE_DIR}/Examples/CoupledMHDThickWall2D
+                                --build ${CMAKE_BINARY_DIR}
+                                --work ${CMAKE_BINARY_DIR}/tests/coupled-hunt)
+                        SET_TESTS_PROPERTIES(IncNavierStokesSolver_CoupledHunt
+                            PROPERTIES TIMEOUT 120 PROCESSORS 6)
+                    ENDIF()
+                ENDIF()
+            ENDIF()
+        ENDIF()
+    ENDIF()
     ADD_NEKTAR_TEST(ChanFlow_Accelerate)
     ADD_NEKTAR_TEST(ChanFlow_m8_BodyForce)
     ADD_NEKTAR_TEST(ChanFlow_m8_singular)

@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0,1]" NUMMODES="4" NUMPOINTS="5" FIELDS="phi" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <COUPLING NAME="mhd" TYPE="Cwipi">
+        <I PROPERTY="RemoteName" VALUE="fluid" />
+        <I PROPERTY="SendSteps" VALUE="1" />
+        <I PROPERTY="ReceiveSteps" VALUE="1" />
+        <I PROPERTY="Oversample" VALUE="0" />
+        <I PROPERTY="SendVariables" VALUE="phi" />
+        <I PROPERTY="ReceiveVariables" VALUE="u,v,mhd_time,mhd_stop" />
+        <I PROPERTY="ReceiveProjection" VALUE="Local" />
+        <I PROPERTY="NotLocMethod" VALUE="Keep" />
+        <I PROPERTY="FilterWidth" VALUE="0" />
+        <I PROPERTY="GeomTol" VALUE="1e-10" />
+    </COUPLING>
+    <ELECTRICPOTENTIAL>
+        <FLUID COMPOSITE="C[0]" CONDUCTIVITY="ElectricConductivity" />
+        <SOLID COMPOSITE="C[1]" CONDUCTIVITY="WallConductivity" />
+    </ELECTRICPOTENTIAL>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="CoupledElectricPotential" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> Kinvis = 0.1 </P>
+            <P> TimeStep = 0.001 </P>
+            <P> NumSteps = 5 </P>
+            <P> IO_InfoSteps = 5 </P>
+            <P> U0 = 0.1 </P>
+            <P> B0 = 0.1 </P>
+            <P> Voltage = 0.1 </P>
+            <P> WallThickness = 0.25 </P>
+            <P> ElectricConductivity = 1 </P>
+            <P> WallConductivity = 0.1 </P>
+            <P> Resistance = 2*WallThickness/WallConductivity+1/ElectricConductivity </P>
+            <P> JyExact = -(Voltage+2*U0*B0/3)/Resistance </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0"> phi </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[10] </B>
+            <B ID="1"> C[11] </B>
+            <B ID="2"> C[12] </B>
+            <B ID="3"> C[13] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="phi" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="phi" VALUE="Voltage" />
+            </REGION>
+            <REGION REF="2">
+                <N VAR="phi" VALUE="0" />
+            </REGION>
+            <REGION REF="3">
+                <N VAR="phi" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="phi" VALUE="-JyExact*((y+WallThickness)/WallConductivity+(1/ElectricConductivity-1/WallConductivity)*(0.5*(1+abs(y)-abs(y-1))))-U0*B0*(2*(0.5*(1+abs(y)-abs(y-1)))^2-4*(0.5*(1+abs(y)-abs(y-1)))^3/3)" />
+        </FUNCTION>
+        <FUNCTION NAME="ElectricMagneticFields">
+            <E VAR="Bz" VALUE="B0" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

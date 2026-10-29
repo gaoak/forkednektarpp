@@ -99,6 +99,24 @@ public:
         v_Receive(step, time, field, varNames);
     }
 
+    /// Optional direct single-field coefficient path, used for MHD potential.
+    SOLVER_UTILS_EXPORT virtual bool ExchangesCoefficients() const
+    {
+        return false;
+    }
+
+    SOLVER_UTILS_EXPORT virtual void SendCoefficients(
+        int, NekDouble, const Array<OneD, const NekDouble> &)
+    {
+        ASSERTL0(false, "This coupling does not exchange coefficients.");
+    }
+
+    SOLVER_UTILS_EXPORT virtual void ReceiveCoefficients(
+        int, NekDouble, Array<OneD, NekDouble> &)
+    {
+        ASSERTL0(false, "This coupling does not exchange coefficients.");
+    }
+
 protected:
     std::string m_couplingName;
 

@@ -1,5 +1,9 @@
 ADD_UTILITIES_EXECUTABLE(CheckXmlFile COMPONENT utilities-extra SOURCES CheckXmlFile.cpp)
 
+IF (NEKTAR_USE_SCOTCH)
+    ADD_UTILITIES_EXECUTABLE(MHDPartition COMPONENT utilities-extra SOURCES MHDPartition.cpp)
+ENDIF()
+
 IF (NEKTAR_USE_VTK)
     ADD_UTILITIES_EXECUTABLE(VtkToFld COMPONENT utilities-extra SOURCES VtkToFld.cpp)
     ADD_UTILITIES_EXECUTABLE(VtkStripsToPolys COMPONENT utilities-extra SOURCES VtkStripsToPolys.cpp)

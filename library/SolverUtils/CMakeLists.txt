@@ -123,9 +123,9 @@ ENDIF (NEKTAR_USE_ARPACK)
 
 IF (NEKTAR_USE_CWIPI)
   SET(SOLVER_UTILS_SOURCES ${SOLVER_UTILS_SOURCES}
-    Core/CouplingCwipi.cpp)
+    Core/CouplingCwipi.cpp Core/CouplingCoefficients.cpp)
   SET(SOLVER_UTILS_HEADERS ${SOLVER_UTILS_HEADERS}
-    Core/CouplingCwipi.h)
+    Core/CouplingCwipi.h Core/CouplingCoefficients.h)
 ENDIF (NEKTAR_USE_CWIPI)
 
 ADD_DEFINITIONS(-DSOLVER_UTILS_EXPORTS)

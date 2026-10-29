@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$case_dir/../../../.." && pwd)"
+build_dir="${NEKTAR_BUILD_DIR:-$repo_dir/build}"
+build_type="$(sed -n 's/^CMAKE_BUILD_TYPE:STRING=//p' "$build_dir/CMakeCache.txt")"
+suffix=""
+if [[ "$build_type" == "Debug" ]]; then
+    suffix="-g"
+fi
+fluid_solver="${INCNS_SOLVER:-$build_dir/solvers/IncNavierStokesSolver/IncNavierStokesSolver$suffix}"
+electric_solver="${ADR_SOLVER:-$build_dir/solvers/ADRSolver/ADRSolver$suffix}"
+partitioner="${MHD_PARTITIONER:-$build_dir/utilities/Extras/MHDPartition$suffix}"
+fieldconvert="${FIELD_CONVERT:-$build_dir/utilities/FieldConvert/FieldConvert$suffix}"
+transfer="${MHD_TRANSFER:-Coefficients}"
+input_dir="${MHD_CASE_DIR:-$case_dir}"
+check_results="${MHD_CHECK_RESULTS:-1}"
+if [[ "$check_results" != "0" && "$check_results" != "1" ]]; then
+    echo "MHD_CHECK_RESULTS must be 0 or 1" >&2
+    exit 1
+fi
+run_dir="${1:-$repo_dir/build/coupled-mhd-thick-wall-2d}"
+mkdir -p "$run_dir"
+for input in fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml; do
+    cp "$input_dir/$input" "$run_dir/"
+done
+cd "$run_dir"
+
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+if [[ "$transfer" == "Coefficients" ]]; then
+    fluid_ranks="${FLUID_RANKS:-2}"
+    solid_ranks="${SOLID_RANKS:-1}"
+    electric_ranks="$((fluid_ranks + solid_ranks))"
+    "$partitioner" "$fluid_ranks" "$solid_ranks" "$PWD/partitions" \
+        fluid-mesh.xml fluid.xml electric-mesh.xml electric.xml > log.partition 2>&1
+    fluid_input=("$PWD/partitions/fluid_xml")
+    electric_input=("$PWD/partitions/electric_xml")
+elif [[ "$transfer" == "Cwipi" ]]; then
+    if grep -q 'PROPERTY="Homogeneous"' fluid.xml; then
+        echo "The fully developed Hunt example requires MHD_TRANSFER=Coefficients." >&2
+        exit 1
+    fi
+    fluid_ranks="${FLUID_RANKS:-1}"
+    electric_ranks="${ELECTRIC_RANKS:-1}"
+    fluid_input=(fluid-mesh.xml fluid.xml)
+    electric_input=(electric-mesh.xml electric.xml)
+else
+    echo "MHD_TRANSFER must be Coefficients or Cwipi" >&2
+    exit 1
+fi
+# A timeout catches communication mismatches instead of waiting indefinitely.
+if ! timeout "${MHD_TIMEOUT:-120}" mpiexec \
+    -np "$fluid_ranks" "$fluid_solver" --cwipi fluid "${fluid_input[@]}" \
+    : -np "$electric_ranks" "$electric_solver" --cwipi electric "${electric_input[@]}" \
+    > log.coupled-mhd 2>&1; then
+    tail -n 80 log.coupled-mhd >&2
+    exit 1
+fi
+if [[ "$check_results" == "1" ]]; then
+    "$fieldconvert" -f -m homplane:planeid=0 fluid-mesh.xml fluid.xml \
+        partitions/fluid.fld fluid.csv > log.convert-fluid 2>&1
+    "$fieldconvert" -f electric-mesh.xml electric.xml \
+        partitions/electric.fld electric.csv > log.convert-electric 2>&1
+    python3 "$case_dir/check_results.py" log.coupled-mhd
+else
+    echo "Completed; analytical result check disabled (MHD_CHECK_RESULTS=0)."
+fi

@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" NUMPOINTS="7" TYPE="MODIFIED" FIELDS="u,v,w,phi" />
+        <E COMPOSITE="C[0]" NUMMODES="4" NUMPOINTS="7" TYPE="MODIFIED" FIELDS="p" />
+    </EXPANSIONS>
+    <COUPLING NAME="mhd" TYPE="Coefficients">
+        <I PROPERTY="Role" VALUE="Fluid" />
+        <I PROPERTY="FluidRanks" VALUE="2" />
+        <I PROPERTY="SendSteps" VALUE="1" />
+        <I PROPERTY="ReceiveSteps" VALUE="1" />
+        <I PROPERTY="SendVariables" VALUE="u,v,w,mhd_time,mhd_stop" />
+        <I PROPERTY="ReceiveVariables" VALUE="phi" />
+    </COUPLING>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="UnsteadyNavierStokes" />
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="Homogeneous" VALUE="1D" />
+            <I PROPERTY="ElectricPotential" VALUE="Coupled" />
+        </SOLVERINFO>
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD>IMEX</METHOD>
+            <ORDER>1</ORDER>
+        </TIMEINTEGRATIONSCHEME>
+        <PARAMETERS>
+            <P> Kinvis = 0.1 </P>
+            <P> TimeStep = 0.02 </P>
+            <P> NumSteps = 500 </P>
+            <P> IO_InfoSteps = 100 </P>
+            <P> HomModesZ = 2 </P>
+            <P> LZ = 1 </P>
+            <P> Flowrate = 0.1 </P>
+            <P> IO_FlowSteps = 100 </P>
+            <P> IO_FlowStepsPrecision = 12 </P>
+            <P> Ha = 1 </P>
+            <P> HalfWidth = 0.5 </P>
+            <P> ElectricConductivity = 1 </P>
+            <P> WallConductivity = 10 </P>
+            <P> WallThickness = 0.25 </P>
+            <P> MagneticFieldStrength = Ha/HalfWidth*sqrt(Kinvis/ElectricConductivity) </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+            <V ID="3"> phi </V>
+            <V ID="4"> p </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[10] </B>
+            <B ID="1"> C[11] </B>
+            <B ID="2"> C[12] </B>
+            <B ID="3"> C[13] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="w" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="w" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="w" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="w" VALUE="0" />
+                <N VAR="phi" VALUE="0" />
+                <N VAR="p" VALUE="0" USERDEFINEDTYPE="H" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="0" />
+            <E VAR="v" VALUE="0" />
+            <E VAR="w" VALUE="0" />
+            <E VAR="phi" VALUE="0" />
+            <E VAR="p" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ElectricMagneticFields">
+            <E VAR="By" VALUE="MagneticFieldStrength" />
+        </FUNCTION>
+    </CONDITIONS>
+    <FORCING>
+        <FORCE TYPE="ForcingLorentz">
+            <ELECTRICMAGNETICFIELDS>ElectricMagneticFields</ELECTRICMAGNETICFIELDS>
+            <IMPLICITDAMPING>True</IMPLICITDAMPING>
+        </FORCE>
+    </FORCING>
+</NEKTAR>
