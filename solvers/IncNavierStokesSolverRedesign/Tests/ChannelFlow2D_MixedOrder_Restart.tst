@@ -2,12 +2,12 @@
 <test>
     <description>
         The first segment is ChannelFlow2D_MixedOrder. It writes its state at
-        a P=3 velocity and a P=2 pressure to ChannelFlow2D.fld, where the
-        pressure is stored in field definitions of its own. The second
+        a P=3 velocity and a P=2 pressure to ChannelFlow2D.fld, the pressure
+        through the velocity expansion with its P=3 modes zero. The second
         segment restarts from that file at the same orders and takes no step,
-        so the metrics are the errors of the state read back. A pressure
-        written under the velocity's definitions reads back with an L2 error
-        of 4.6.
+        so the metrics are the errors of the state read back. Writing the P=2
+        coefficients under the velocity's definitions without converting
+        them reads back with an L2 error of 4.6.
     </description>
     <segment type="sequential">
         <executable>IncNavierStokesSolverRedesign</executable>

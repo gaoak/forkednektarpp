@@ -2,9 +2,9 @@
 <NEKTAR>
     <!--
         Conditions of ChannelFlow2D.xml that start from the field file
-        ChannelFlow2D.fld, written by a run of ChannelFlow2D.xml with
-        ChannelFlow2D_MixedOrder.xml, and take no step, so that the errors
-        are those of the state read back.
+        ChannelFlow2D.fld, written by a run of ChannelFlow2D.xml with the
+        expansions of the restart, and take no step, so that the errors are
+        those of the state read back.
     -->
     <CONDITIONS>
         <SOLVERINFO>

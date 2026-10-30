@@ -78,6 +78,19 @@ shares the velocity expansion when the session gives both the same
 expansion. The pressure is excluded from time integration: the time operator
 advances the velocity (and scalar) fields only.
 
+The velocity and pressure may differ in order but must share their
+quadrature points, element by element, and therefore their phys block
+layout: velocity and pressure fields are combined point by point (the
+divergence forcing, the pressure correction, the weak-form inner product and
+the higher-order pressure and outflow conditions). A lower-order pressure is
+declared with a raised quadrature, for instance \code{MODIFIED} with
+\code{NUMMODES=}$P+1$ for the velocity and \code{MODIFIEDQUADPLUS1} with
+\code{NUMMODES=}$P$ for the pressure, which give the same points in every
+direction. \code{ExpList::SameQuadratureLayout} checks this at set-up in
+either pressure form: for the volume expansions in
+\code{VelocityCorrectionScheme::v\_InitialiseOperators}, and for each
+boundary region in the HOPBC and HOutflow operators.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Governing equations and time discretisation}
 \label{sec:incns-time}
@@ -346,11 +359,9 @@ form. Further choices:
   remove the flux of $\incnsv u_s$ through the Neumann pressure boundaries.
   For a singular system $F$ is shifted by \code{MeanRemovalOp} with the
   Neumann balance, in place of the constant $c$;
-  \item velocity and pressure must share their elements, blocks and
-  quadrature points, checked at set-up with
-  \code{ExpList::SameQuadratureLayout},
-  since the volume term reads the velocity right-hand side on the pressure
-  expansion.
+  \item the volume term reads the velocity right-hand side at the pressure
+  quadrature points, which the velocity and pressure share whatever their
+  orders (Section~\ref{sec:incns-overview}).
 \end{itemize}
 
 \subsubsection{Linear-implicit formulation: stability and time order}
@@ -544,7 +555,11 @@ onto the boundary expansion of the velocity (\code{FwdTransBCOp}, then
 \code{BwdTransOp}), as the velocity solve imposes it. Its coefficients are
 kept and projected once, unless a Dirichlet velocity condition of the region
 is time-dependent; a point region takes the expression itself. A set-up \code{ASSERTL0} checks
-that the velocity and pressure boundary expansions share their points.
+that the velocity and pressure boundary expansions share their points. With a
+pressure of lower order than the velocity, the projection onto the pressure
+boundary expansion would differ from this one and leave
+$s\,\incnsv n\cdot(\incnsv u_D^{\mathrm{vel}}-\incnsv u_D^{\mathrm{pres}})$
+in the flux, which grows as $\incnsdt$ decreases.
 $s(\incnsv P-\incnsv u_D)$ is the negative discrete acceleration plus the
 explicit term, and vanishes at a steady state; $s\incnsv V=\incnsv u^*$
 of~\eqref{eq:incns-ustar}. A velocity component $d$ that is not Dirichlet on
@@ -1086,7 +1101,7 @@ factory registration \\
 \code{KovasznayFlowHOPBC2D\_SmallTimeStep},
 \code{KovasznayFlowHOPBC2D\_IMEXOrder2}, \code{KovasznayFlowHOPBC2D\_IMEXdirk},
 \code{HOutflowKovasznay2D}, \code{HOutflowBackflow2D}, and the
-\code{\_WeakPressure} variants \\
+\code{\_WeakPressure} and \code{\_MixedOrder} variants \\
 \multicolumn{2}{@{}l}{\path{library/SolverCore/}} \\
 \path{TimeOps/IMEX/IMEXOpImpl.hpp} & IMEX multistep scheme and its IMEXdirk
 start-up \\

@@ -199,6 +199,7 @@ v5.11.0
 - Balance singular pressure systems against their Neumann flux, also in the weak pressure form (!2876)
 - Project a file pressure initial condition of lower order than the velocity element by element, as the legacy solver does, instead of truncating it (!2885)
 - Keep the multistep divergence weight of the pressure in IMEX start-up stages (!2892)
+- Check that the velocity and pressure share their quadrature points in either pressure form and on HOutflow regions, write a lower-order pressure through the velocity expansion so that FieldConvert and the legacy solver read it, and test a pressure one order below the velocity with the HOPBC and HOutflow (!2896)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
