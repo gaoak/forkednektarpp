@@ -64,7 +64,7 @@ public:
     {
         std::string execStr = Operator<TData>::GetOpExecSpace(this->session);
 
-        if (execStr == "AVX")
+        if (execStr == "AVX" || execStr == "Device")
         {
             for (auto &block : this->fixt_out->GetBlocks())
             {

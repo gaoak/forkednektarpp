@@ -358,6 +358,17 @@ protected:
     }
 
     /**
+     * @brief Every expression is available: the host interpreter
+     * evaluates them.
+     */
+    bool v_IsAvailable(
+        [[maybe_unused]] const std::vector<LibUtilities::EquationSharedPtr>
+            &exprs) const override
+    {
+        return true;
+    }
+
+    /**
      * @brief Store the expressions; no further preparation is needed,
      * since they are interpreted afresh at every v_Apply().
      *

@@ -135,6 +135,8 @@ v5.11.0
 - Compute the mesh volume once in MeanRemoval and NormL2, keep the GCR coefficients on the device, and fuse the device StdMat Divergence contraction (!2891)
 - Fix the device reductions racing when the blocks of a Field, reduced on their own streams, combine into one result: the Math, parallel_reduce and grid-wide block reductions now form each thread block's total first and combine it with one global-scope atomic; add a Scope template parameter to blockReduce{Sum,Max,Min,Or,And}, LocalScope for a result owned by the thread block, as in the SumFacTOP IProductWRTBase kernels; fix the device FwdTransBC kernel applying the first element's inverse interior mass matrix to every deformed element (!2887)
 - Balance the forcing of a singular Helmholtz/Poisson solve against its Neumann boundary integral in `ContField::HelmSolve` (!2876, from !1800)
+- Evaluate the boundary conditions of BndCondPhysOp in its own execution space, avoiding a host round trip on each update; add `sign`, `rad` and `ang` to the device Expression operator, which falls back to the host, with a warning, for expressions the device cannot compile (!2895)
+- Fix the interpreter failing to parse the `bessel` function, and reading an unset value for the constant argument of a two-argument function such as `atan2(1, x)` (!2895)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

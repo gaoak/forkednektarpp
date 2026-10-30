@@ -216,6 +216,12 @@ TEST(QuadTri_2C_Evars, "run/quadtri_multicomponent_evars.xml")
 
 TEST(Hex_3C_Evars, "run/hex_multicomponent_evars.xml")
 
+TEST(Helmholtz2D_RadAngSign, "run/Helmholtz2D_P7_RadAngSign.xml")
+
+TEST(Helmholtz2D_HostFallback, "run/Helmholtz2D_P7_HostFallback.xml")
+
+TEST(Helmholtz2D_Bessel, "run/Helmholtz2D_P7_Bessel.xml")
+
 template <typename TData> class TestExpressionFFT : public TestExpression<TData>
 {
 public:

@@ -49,7 +49,9 @@
 #pragma once
 
 #include <array>
+#include <cctype>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -360,6 +362,62 @@ inline std::string GetExpressionKernelArguments(
 }
 
 /**
+ * @brief Whether the expression kernel can be compiled for @p expr.
+ *
+ * The expression is pasted into the kernel source, so a function only the
+ * host interpreter defines, or a coordinate beyond the @p coordDim the kernel
+ * declares, would fail to compile. Numbers are skipped, so that an exponent is
+ * not read as a name.
+ */
+inline bool IsDeviceExpression(const std::string &expr,
+                               const unsigned int coordDim)
+{
+    static const std::set<std::string> hostOnly = {"awgn", "bessel"};
+
+    const auto isName = [](const char c) {
+        return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+    };
+
+    for (size_t i = 0; i < expr.size();)
+    {
+        const char c = expr[i];
+        if (std::isdigit(static_cast<unsigned char>(c)) || c == '.')
+        {
+            for (++i; i < expr.size(); ++i)
+            {
+                const bool sign = (expr[i] == '+' || expr[i] == '-') &&
+                                  (expr[i - 1] == 'e' || expr[i - 1] == 'E');
+                if (!isName(expr[i]) && expr[i] != '.' && !sign)
+                {
+                    break;
+                }
+            }
+        }
+        else if (std::isalpha(static_cast<unsigned char>(c)) || c == '_')
+        {
+            size_t j = i + 1;
+            while (j < expr.size() && isName(expr[j]))
+            {
+                ++j;
+            }
+
+            const std::string name = expr.substr(i, j - i);
+            if (hostOnly.count(name) || (name == "y" && coordDim < 2) ||
+                (name == "z" && coordDim < 3))
+            {
+                return false;
+            }
+            i = j;
+        }
+        else
+        {
+            ++i;
+        }
+    }
+    return true;
+}
+
+/**
  * @brief Emit the body of an expression kernel, without the enclosing
  * braces.
  *
@@ -370,7 +428,8 @@ inline std::string GetExpressionKernelArguments(
  * instantiated on and the EVAR values, then assigns or appends
  * `scale * (expression)` to each enabled output. `#define`s make the
  * common maths functions take TData arguments, so integer literals do
- * not make calls like `sqrt(61)` ambiguous, and caret powers are
+ * not make calls like `sqrt(61)` ambiguous, local lambdas define the
+ * interpreter's `sign`, `rad` and `ang`, and caret powers are
  * rewritten by convertPow().
  *
  * One kernel covers every homogeneous mode of the block: the modes of a
@@ -504,6 +563,25 @@ inline std::string GetExpressionKernelBody(
         "#define log10(x) " + mathPrefix + "log10(static_cast<TData>(x))\n";
     kernel_src += "#define pow(x,y) " + mathPrefix +
                   "pow(static_cast<TData>(x), static_cast<TData>(y))\n";
+
+    // Functions of the host interpreter with no maths library counterpart,
+    // defined as it defines them.
+    kernel_src += "    const auto sign = [](const TData v) -> TData\n";
+    kernel_src += "    {\n";
+    kernel_src += "        return TData(v > TData(0)) - TData(v < TData(0));\n";
+    kernel_src += "    };\n";
+    kernel_src +=
+        "    const auto rad = [](const TData a, const TData b) -> TData\n";
+    kernel_src += "    {\n";
+    kernel_src += "        return (a != TData(0) || b != TData(0))\n";
+    kernel_src += "            ? sqrt(a * a + b * b) : TData(0);\n";
+    kernel_src += "    };\n";
+    kernel_src +=
+        "    const auto ang = [](const TData a, const TData b) -> TData\n";
+    kernel_src += "    {\n";
+    kernel_src += "        return (a != TData(0) || b != TData(0))\n";
+    kernel_src += "            ? " + mathPrefix + "atan2(b, a) : TData(0);\n";
+    kernel_src += "    };\n";
 
     // Define expression.
     for (unsigned int nc = 0; nc < exprs.size(); nc++)
