@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Expansions of ChannelFlowHOPBC3D_TetPrism.xml with a pressure one
+        order below the velocity: P=2 velocity (MODIFIED, NUMMODES=3) and P=1
+        pressure (MODIFIEDQUADPLUS1, NUMMODES=2), which share their
+        quadrature points. The quadratic velocity on the high-order pressure
+        boundary is exact in the velocity boundary space but not in the
+        pressure boundary space.
+    -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[2,3]" NUMMODES="3" TYPE="MODIFIED" FIELDS="u,v,w" />
+        <E COMPOSITE="C[2,3]" NUMMODES="2" TYPE="MODIFIEDQUADPLUS1" FIELDS="p" />
+    </EXPANSIONS>
+</NEKTAR>

@@ -123,6 +123,10 @@ protected:
     // up
     bool m_hasMultistepStartup = false;
 
+    // true = the pressure is expanded differently from the velocity but
+    // embeds losslessly in its expansion, through which it is written
+    bool m_writePressureThroughVelocity = false;
+
     // Kinematic viscosity
     double m_kinvis;
 

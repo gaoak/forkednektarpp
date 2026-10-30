@@ -67,6 +67,7 @@
 #include <MultiRegions/GlobalMatrixKey.h> // for GlobalMatrixKey
 #include <cmath>
 #include <iomanip>
+#include <unordered_map>
 
 #if defined(NEKTAR_ENABLE_DEVICE_SUPPORT)
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
@@ -1976,6 +1977,71 @@ bool ExpList::SameQuadratureLayout(const ExpListSharedPtr &other)
     return true;
 }
 #endif
+
+/**
+ * @brief Whether the coefficients of this list can be written through
+ * another without loss.
+ *
+ * True when both lists hold the same elements, without homogeneous
+ * directions, with the same shapes and basis types, and no direction of an
+ * element of this list has more modes than in @p other. This is the case for
+ * a pressure of order P below a velocity of order P+1, e.g. MODIFIEDQUADPLUS1
+ * with NUMMODES=P and MODIFIED with NUMMODES=P+1. ExtractCoeffsToCoeffs()
+ * then copies the coefficients of this list into @p other, the modes it does
+ * not hold zero, and copying them back recovers them.
+ *
+ * Elements are matched by their global id. Both lists are compared on this
+ * rank only; expansion lists are partitioned identically for every variable.
+ *
+ * @param other   Expansion list to write the coefficients of this list
+ *                through.
+ *
+ * @return Whether every element of this list embeds in its element of
+ * @p other.
+ */
+bool ExpList::EmbedsLosslessly(const ExpListSharedPtr &other)
+{
+    const auto expType = GetExpType();
+    if (expType != other->GetExpType() ||
+        (expType != e1D && expType != e2D && expType != e3D) ||
+        GetExpSize() != other->GetExpSize())
+    {
+        return false;
+    }
+
+    std::unordered_map<int, int> otherElmt;
+    for (int i = 0; i < other->GetExpSize(); ++i)
+    {
+        otherElmt[other->GetExp(i)->GetGeom()->GetGlobalID()] = i;
+    }
+
+    for (int i = 0; i < GetExpSize(); ++i)
+    {
+        const auto &thisExp = GetExp(i);
+        const auto otherIt  = otherElmt.find(thisExp->GetGeom()->GetGlobalID());
+        if (otherIt == otherElmt.end())
+        {
+            return false;
+        }
+
+        const auto &otherExp = other->GetExp(otherIt->second);
+        if (thisExp->DetShapeType() != otherExp->DetShapeType() ||
+            thisExp->GetNumBases() != otherExp->GetNumBases())
+        {
+            return false;
+        }
+
+        for (int j = 0; j < thisExp->GetNumBases(); ++j)
+        {
+            if (thisExp->GetBasisType(j) != otherExp->GetBasisType(j) ||
+                thisExp->GetBasisNumModes(j) > otherExp->GetBasisNumModes(j))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 /**
  * Retrieves the block matrix specified by \a bkey, and computes

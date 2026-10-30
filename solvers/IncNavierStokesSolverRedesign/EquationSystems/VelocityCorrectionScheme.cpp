@@ -1004,6 +1004,24 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
         m_fieldsSolveOp = helmSolveOp;
     }
 
+    // The velocity and pressure are combined point by point: the velocity
+    // divergence forces the pressure, the pressure gradient corrects the
+    // velocity, and the weak pressure form takes the inner product of the
+    // velocity-equation RHS with the pressure basis. Their expansions may
+    // differ in order, but must share their quadrature and phys layout.
+    ASSERTL0(m_expansionLists[0]->SameQuadratureLayout(
+                 m_expansionLists[m_pressureIndex]),
+             "The velocity and pressure expansions must share their quadrature "
+             "points.");
+
+    // A pressure expanded differently from the velocity is written through
+    // the velocity expansion when it embeds there without loss.
+    m_writePressureThroughVelocity =
+        !m_graph->SameExpansionInfo(m_variablesFields[0],
+                                    m_variablesPressure[0]) &&
+        m_expansionLists[m_pressureIndex]->EmbedsLosslessly(
+            m_expansionLists[0]);
+
     // Create pressure operators
     m_bwdTransPressureOp = BwdTransOp<double>::Create(
         m_expansionLists[m_pressureIndex], m_variablesPressure);
@@ -1028,12 +1046,6 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
 
     if (m_weakPressure)
     {
-        // The pressure inner product reads the velocity-equation RHS at the
-        // pressure quadrature points.
-        ASSERTL0(m_expansionLists[0]->SameQuadratureLayout(
-                     m_expansionLists[m_pressureIndex]),
-                 "The weak pressure form requires the velocity and pressure "
-                 "expansions to share their quadrature points.");
         m_iprodDerivPressureOp =
             IProductWRTDerivBaseOp<FieldState::Coeff, double>::Create(
                 m_expansionLists[m_pressureIndex], m_variablesPressure);
@@ -1503,13 +1515,34 @@ void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
     }
 
     // The pressure is added to the definitions of the velocity when it has
-    // the same expansion. Otherwise its coefficients do not fit those
-    // definitions, and it is stored in definitions of its own expansion.
+    // the same expansion, or when its expansion embeds losslessly in the
+    // velocity's (ExpList::EmbedsLosslessly()), such as one order below the
+    // velocity. It is then written through the velocity expansion, its
+    // missing modes zero, so that every variable shares one set of
+    // definitions, which every Nektar++ reader accepts. Any other pressure
+    // is stored in definitions of its own expansion.
+    const auto &velocityExpansion      = m_expansionLists[0];
     const auto &pressureExpansion      = m_expansionLists[m_pressureIndex];
     std::vector<double> pressureCoeffs = m_pressure_coeff.ToVector<double>();
+    ExpListSharedPtr writeExpansion    = pressureExpansion;
     size_t pressureDefStart            = 0;
-    if (!m_graph->SameExpansionInfo(m_variablesFields[0],
-                                    m_variablesPressure[0]))
+    if (m_writePressureThroughVelocity)
+    {
+        // TODO replace with a redesign operator, together with the rest of
+        // the field-file input and output, which goes through the legacy
+        // ExpList interface. The Arrays only wrap the vectors for it.
+        std::vector<double> embedded(velocityExpansion->GetNcoeffs(), 0.0);
+        Array<OneD, double> pressureArray(pressureCoeffs.size(),
+                                          pressureCoeffs.data(), eArrayWrapper);
+        Array<OneD, double> embeddedArray(embedded.size(), embedded.data(),
+                                          eArrayWrapper);
+        velocityExpansion->ExtractCoeffsToCoeffs(pressureExpansion,
+                                                 pressureArray, embeddedArray);
+        pressureCoeffs = std::move(embedded);
+        writeExpansion = velocityExpansion;
+    }
+    else if (!m_graph->SameExpansionInfo(m_variablesFields[0],
+                                         m_variablesPressure[0]))
     {
         pressureDefStart = fieldDef.size();
         auto pressureDef = pressureExpansion->GetFieldDefinitions();
@@ -1520,8 +1553,8 @@ void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
     for (size_t i = pressureDefStart; i < fieldDef.size(); ++i)
     {
         fieldDef[i]->m_fields.push_back(m_variablesPressure[0]);
-        pressureExpansion->AppendFieldData(fieldDef[i], fieldData[i],
-                                           pressureCoeffs);
+        writeExpansion->AppendFieldData(fieldDef[i], fieldData[i],
+                                        pressureCoeffs);
     }
 
     m_fieldMetaDataMap["Time"] = std::to_string(m_time);

@@ -43,6 +43,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -930,7 +931,10 @@ BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_boundary_flux)
 // velocity solve imposes it, is a steady state of the boundary acceleration:
 // without an explicit contribution or viscosity, the flux vanishes.
 // Subtracting the expression of the Dirichlet velocity instead leaves
-// scale * (u_D - u_D,exact) . n, large at the scale of a small time step.
+// scale * (u_D - u_D,exact) . n, large at the scale of a small time step. With
+// KovasznayFlowHOPBC2D_MixedOrder.xml the pressure is one order below the
+// velocity, and the projection onto the pressure boundary expansion would
+// leave the difference of the two projections instead.
 BOOST_AUTO_TEST_CASE(update_then_apply_kovasznay_discrete_boundary_velocity)
 {
     auto session = CreateSession();
@@ -1164,6 +1168,42 @@ BOOST_AUTO_TEST_CASE(update_then_apply_neumann_velocity_boundary_flux)
 BOOST_AUTO_TEST_CASE(update_weak_then_apply_neumann_velocity_boundary_flux)
 {
     CheckNeumannVelocityBoundaryFlux(true);
+}
+
+// A velocity and a pressure one order apart with the same quadrature type
+// do not share their quadrature points, and must be rejected rather than
+// combined point by point.
+BOOST_AUTO_TEST_CASE(set_velocity_context_throws_for_different_quadrature)
+{
+    auto session = CreateSession();
+    if (!session->DefinesParameter("HOPQuadratureThrowsTest"))
+    {
+        return;
+    }
+    auto graph = SpatialDomains::MeshGraphIO::Read(session);
+    auto velocityExpList =
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+            session, graph, "u", true, false, Collections::eNoCollection);
+    auto pressureExpList =
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+            session, graph, "p", true, false, Collections::eNoCollection);
+    velocityExpList->SetDataWarehouse();
+    pressureExpList->SetDataWarehouse();
+
+    const auto velocityComponents =
+        GetVelocityComponents(graph->GetMeshDimension());
+    const std::vector<std::string> pressureComponents = {"p"};
+
+    auto op = HOPressureBndCondOp<double>::Create(pressureExpList,
+                                                  pressureComponents);
+    BOOST_CHECK_EXCEPTION(
+        op->SetVelocityContext(velocityExpList, velocityComponents),
+        Nektar::ErrorUtil::NekError,
+        [](const Nektar::ErrorUtil::NekError &error) {
+            return std::string(error.what())
+                       .find("share their quadrature points") !=
+                   std::string::npos;
+        });
 }
 
 BOOST_AUTO_TEST_SUITE_END()

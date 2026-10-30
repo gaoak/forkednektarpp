@@ -723,41 +723,14 @@ protected:
             const unsigned int selectedId = m_velocityBndExpLists.size();
             auto bndExp                   = velocityExp[n];
             bndExp->SetDataWarehouse();
-            auto pressureBndExp = m_pressureBndExpLists[selectedId];
-            ASSERTL1(bndExp->GetTotPoints() == pressureBndExp->GetTotPoints(),
-                     "HOutflow pressure and velocity boundary quadrature "
-                     "must agree.");
-            const auto pressurePhysBlocks =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    pressureBndExp);
-            const auto velocityPhysBlocks =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bndExp);
-            ASSERTL1(pressurePhysBlocks.size() == velocityPhysBlocks.size(),
-                     "HOutflow pressure and velocity boundary block layouts "
-                     "must agree.");
-            for (unsigned int blk = 0; blk < pressurePhysBlocks.size(); ++blk)
-            {
-                ASSERTL1(pressurePhysBlocks[blk].GetNumData() ==
-                                 velocityPhysBlocks[blk].GetNumData() &&
-                             pressurePhysBlocks[blk].GetNumElements() ==
-                                 velocityPhysBlocks[blk].GetNumElements(),
-                         "HOutflow pressure and velocity boundary block "
-                         "shapes must agree.");
-                const auto pressureExpansions =
-                    MultiRegions::GetCollection(pressureBndExp, blk)
-                        .GetExpVector();
-                const auto velocityExpansions =
-                    MultiRegions::GetCollection(bndExp, blk).GetExpVector();
-                for (unsigned int e = 0; e < pressureExpansions.size(); ++e)
-                {
-                    ASSERTL1(
-                        pressureExpansions[e]->GetGeom()->GetGlobalID() ==
-                            velocityExpansions[e]->GetGeom()->GetGlobalID(),
-                        "HOutflow pressure and velocity boundary element "
-                        "ordering must agree.");
-                }
-            }
+            // The pressure and velocity boundary values are computed from
+            // one another point by point. The two boundary expansions may
+            // differ in order, but must share their quadrature and phys
+            // block layout.
+            const auto &pressureBndExp = m_pressureBndExpLists[selectedId];
+            ASSERTL0(bndExp->SameQuadratureLayout(pressureBndExp),
+                     "HOutflow requires the velocity and pressure boundary "
+                     "expansions to share their quadrature points.");
             m_velocityBndExpLists.push_back(bndExp);
             velocityIsComp.push_back(componentMatches);
             m_velocityCoeffOffsets.push_back(m_velocityNumBndCoeffCompSize);
