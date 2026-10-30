@@ -64,6 +64,8 @@ ADD_NEKTAR_EXECUTABLE(TestDirichlet
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestDirichlet.cpp)
 ADD_NEKTAR_EXECUTABLE(TestNeumann
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestNeumann.cpp)
+ADD_NEKTAR_EXECUTABLE(TestBndCondPhys
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestBndCondPhys.cpp)
 #ADD_NEKTAR_EXECUTABLE(TestRobin
 #    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestRobin.cpp)
 ADD_NEKTAR_EXECUTABLE(TestMultiplyByElmtInvMass
@@ -117,6 +119,7 @@ SET_UNIT_TEST(AssmbScatr_serial TestAssmbScatr Serial none FALSE)
 SET_UNIT_TEST(AvgAssmbScatr_serial TestAvgAssmbScatr Serial none FALSE)
 SET_UNIT_TEST(Dirichlet_serial TestDirichlet Serial none FALSE)
 SET_UNIT_TEST(Neumann_serial TestNeumann Serial SumFac FALSE)
+SET_UNIT_TEST(BndCondPhys_serial TestBndCondPhys Serial none FALSE)
 #SET_UNIT_TEST(Robin_serial TestRobin Serial none FALSE)
 IF (NEKTAR_USE_MPI)
     SET_UNIT_TEST(AssmbScatr_serial TestAssmbScatr Serial none TRUE)
@@ -174,6 +177,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(AvgAssmbScatr_avx TestAvgAssmbScatr AVX none FALSE)
     SET_UNIT_TEST(Dirichlet_avx  TestDirichlet AVX none FALSE)
     SET_UNIT_TEST(Neumann_avx TestNeumann AVX SumFac FALSE)
+    SET_UNIT_TEST(BndCondPhys_avx TestBndCondPhys AVX none FALSE)
     IF (NEKTAR_USE_MPI)
         # SET_UNIT_TEST(AssmbScatr_avx TestAssmbScatr AVX none TRUE)
         # SET_UNIT_TEST(AvgAssmbScatr_avx TestAvgAssmbScatr AVX none TRUE)
@@ -237,6 +241,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(AvgAssmbScatr_device TestAvgAssmbScatr Device none FALSE)
     SET_UNIT_TEST(Dirichlet_device TestDirichlet Device none FALSE)
     SET_UNIT_TEST(Neumann_device TestNeumann Device SumFac FALSE)
+    SET_UNIT_TEST(BndCondPhys_device TestBndCondPhys Device none FALSE)
     IF (NEKTAR_USE_MPI)
         # Disabled: intermittently hangs in mesh partitioning (MeshPartition::
         # PartitionGraph) under CI, unrelated to the Device execution space --

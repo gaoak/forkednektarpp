@@ -143,6 +143,16 @@ public:
         v_SetExpressions(exprs);
     }
 
+    /**
+     * @brief Whether this back-end can evaluate @p exprs under the current
+     * component mask.
+     */
+    bool IsAvailable(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs) const
+    {
+        return v_IsAvailable(exprs);
+    }
+
     /// @brief Set the value substituted for the built-in variable `t`.
     void SetTime(const TData &time)
     {
@@ -232,6 +242,14 @@ protected:
      */
     virtual void v_SetExpressions(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs) = 0;
+
+    /**
+     * @brief Implementation hook for IsAvailable().
+     *
+     * @param   exprs   Parsed expressions, one per component.
+     */
+    virtual bool v_IsAvailable(
+        const std::vector<LibUtilities::EquationSharedPtr> &exprs) const = 0;
 };
 
 } // namespace Nektar::MultiRegions

@@ -153,25 +153,13 @@ public:
                 ExpressionOp, ExpressionBlockOp>(expansionList, components,
                                                  execStr, implStr);
 
-        // Default component mask, true for all components
-        std::vector<bool> cmask;
-        for (unsigned int i = 0; i < components.size(); ++i)
-        {
-            cmask.push_back(true);
-        }
-
-        // Loop over the blocks.
-        for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
-        {
-            // Default component mask
-            op->m_blockOp[blk]->SetComponentMask(cmask);
-
-            // Default time set to 0.0
-            op->m_blockOp[blk]->SetTime(0.0);
-
-            // Default scale set to 1.0
-            op->m_blockOp[blk]->SetScale(1.0);
-        }
+        // Default component mask, true for all components, time 0 and scale
+        // 1.
+        op->m_blockHostOp.resize(op->m_blockOp.size(), nullptr);
+        op->m_useHostOp.resize(op->m_blockOp.size(), false);
+        op->SetComponentMask(std::vector<bool>(components.size(), true));
+        op->SetTime(0.0);
+        op->SetScale(1.0);
         return op;
     }
 
@@ -202,11 +190,37 @@ public:
             numEvars.push_back(this->GetNumberEvars(exprs[ne]));
         }
 
-        // Loop over the blocks.
+        // A block whose back-end cannot evaluate the expressions, a device
+        // without some function of the host interpreter, evaluates them on
+        // the host instead. Its host block operator is created the first
+        // time, and kept for when the expressions are set again.
+        m_warnOnceHostOp = false;
         for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
         {
-            this->m_blockOp[blk]->SetExpressions(exprs);
-            this->m_blockOp[blk]->SetNumEvars(numEvars);
+            m_useHostOp[blk] = !m_blockOp[blk]->IsAvailable(exprs);
+            if (m_useHostOp[blk])
+            {
+                if (!m_blockHostOp[blk])
+                {
+                    m_blockHostOp[blk] = ExpressionBlockOp<TData>::Create(
+                        blk,
+                        MultiRegions::GetCollection(this->m_expansionList, blk)
+                            .GetExpVector()[0],
+                        this->m_expansionList->GetDataWarehouseSharedPtr(),
+                        "Serial", "Generic");
+                    m_blockHostOp[blk]->SetComponentMask(m_cmask);
+                    m_blockHostOp[blk]->SetTime(m_time);
+                    m_blockHostOp[blk]->SetScale(m_scale);
+                    m_blockHostOp[blk]->SetAppend(m_append);
+                }
+                m_blockHostOp[blk]->SetExpressions(exprs);
+                m_blockHostOp[blk]->SetNumEvars(numEvars);
+            }
+            else
+            {
+                this->m_blockOp[blk]->SetExpressions(exprs);
+                this->m_blockOp[blk]->SetNumEvars(numEvars);
+            }
         }
 
         m_isExpressionsDefined = true;
@@ -218,10 +232,16 @@ public:
      */
     void SetTime(const TData &time)
     {
+        m_time = time;
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetTime(time);
+            if (m_blockHostOp[blk])
+            {
+                m_blockHostOp[blk]->SetTime(time);
+            }
         }
     }
 
@@ -231,10 +251,16 @@ public:
      */
     void SetScale(const TData &scale)
     {
+        m_scale = scale;
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetScale(scale);
+            if (m_blockHostOp[blk])
+            {
+                m_blockHostOp[blk]->SetScale(scale);
+            }
         }
     }
 
@@ -245,10 +271,16 @@ public:
      */
     void SetAppend(const bool &append)
     {
+        m_append = append;
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetAppend(append);
+            if (m_blockHostOp[blk])
+            {
+                m_blockHostOp[blk]->SetAppend(append);
+            }
         }
     }
 
@@ -268,10 +300,16 @@ public:
      */
     void SetComponentMask(const std::vector<bool> &cmask)
     {
+        m_cmask = cmask;
+
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetComponentMask(cmask);
+            if (m_blockHostOp[blk])
+            {
+                m_blockHostOp[blk]->SetComponentMask(cmask);
+            }
         }
     }
 
@@ -306,6 +344,22 @@ protected:
     bool m_isExpressionsDefined = false;
     /// One block operator per element block, filled by ElmtOp::Create.
     std::vector<std::shared_ptr<ExpressionBlockOp<TData>>> m_blockOp;
+    /// Host block operator of each block whose own could not evaluate some
+    /// expressions set, otherwise null. Created by SetExpressions().
+    std::vector<std::shared_ptr<ExpressionBlockOp<TData>>> m_blockHostOp;
+    /// Whether each block evaluates the current expressions with its host
+    /// block operator.
+    std::vector<bool> m_useHostOp;
+    /// Set once the use of a host block operator has been warned about, for
+    /// the current expressions.
+    bool m_warnOnceHostOp = false;
+
+    /// Settings forwarded to the block operators, kept for those of
+    /// #m_blockHostOp, created after them.
+    std::vector<bool> m_cmask;
+    TData m_time  = 0.0;
+    TData m_scale = 1.0;
+    bool m_append = false;
 
     /**
      * @brief Construct the interface part of a concrete implementation;
@@ -356,7 +410,18 @@ protected:
             auto &inblock  = in.GetBlocks()[blk];
             auto &outblock = out.GetBlocks()[blk];
 
-            this->m_blockOp[blk]->Apply(inblock, outblock);
+            if (m_useHostOp[blk])
+            {
+                WARNINGL0(m_warnOnceHostOp,
+                          "Expression evaluated on the host: the execution "
+                          "space cannot evaluate it.");
+                m_warnOnceHostOp = true;
+                this->m_blockHostOp[blk]->Apply(inblock, outblock);
+            }
+            else
+            {
+                this->m_blockOp[blk]->Apply(inblock, outblock);
+            }
         }
     }
 };

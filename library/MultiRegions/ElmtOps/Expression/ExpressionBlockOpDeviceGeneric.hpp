@@ -346,6 +346,24 @@ protected:
     }
 
     /**
+     * @brief Whether every unmasked expression of @p exprs compiles into
+     * the kernel (see IsDeviceExpression()).
+     */
+    bool v_IsAvailable(const std::vector<LibUtilities::EquationSharedPtr>
+                           &exprs) const override
+    {
+        for (unsigned int nc = 0; nc < exprs.size(); ++nc)
+        {
+            if ((nc >= this->m_cmask.size() || this->m_cmask[nc]) &&
+                !IsDeviceExpression(exprs[nc]->GetExpression(), m_coordDim))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @brief Store the expressions and compile the expression kernels
      * for them.
      *
