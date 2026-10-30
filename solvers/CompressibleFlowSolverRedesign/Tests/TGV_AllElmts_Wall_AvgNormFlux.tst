@@ -9,18 +9,18 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="rho" tolerance="1e-12">0.00600194</value>
-            <value variable="rhou" tolerance="1e-12">0.0473505</value>
-            <value variable="rhov" tolerance="1e-12">0.0383158</value>
-            <value variable="rhow" tolerance="1e-12">0.00483418</value>
-            <value variable="E" tolerance="1e-12">1.50251</value>
+            <value variable="rho" tolerance="1e-12">0.0060019</value>
+            <value variable="rhou" tolerance="1e-12">0.047351</value>
+            <value variable="rhov" tolerance="1e-12">0.0383171</value>
+            <value variable="rhow" tolerance="1e-12">0.00484017</value>
+            <value variable="E" tolerance="1e-12">1.5025</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="rho" tolerance="1e-12">0.0352912</value>
-            <value variable="rhou" tolerance="1e-12">0.357719</value>
-            <value variable="rhov" tolerance="1e-12">0.227276</value>
-            <value variable="rhow" tolerance="1e-12">0.030316</value>
-            <value variable="E" tolerance="1e-12">8.86502</value>
+            <value variable="rho" tolerance="1e-12">0.0352903</value>
+            <value variable="rhou" tolerance="1e-12">0.357721</value>
+            <value variable="rhov" tolerance="1e-12">0.227277</value>
+            <value variable="rhow" tolerance="1e-12">0.0304507</value>
+            <value variable="E" tolerance="1e-12">8.86479</value>
         </metric>
     </metrics>
 </test>
