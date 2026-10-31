@@ -164,6 +164,29 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
     }
 }
 
+FieldRegistry VelocityCorrectionScheme::v_GetFieldRegistry()
+{
+    PhysicalFieldView solution{m_fields, m_expansionLists[0], m_coordim,
+                               MakeFieldComponents(m_variablesFields)};
+    PhysicalFieldView velocity{
+        m_fields, m_expansionLists[0], m_coordim,
+        MakeFieldComponents(m_variablesFields, 0, m_coordim)};
+    PhysicalFieldView pressure{m_pressure, m_expansionLists[m_pressureIndex],
+                               m_coordim,
+                               MakeFieldComponents(m_variablesPressure)};
+
+    FieldRegistry registry;
+    registry.SetRole(std::string(FieldRoles::Solution), solution);
+    registry.SetRole(std::string(FieldRoles::Velocity), velocity);
+    registry.SetRole(std::string(FieldRoles::Pressure), pressure);
+    // These groups deliberately retain passive scalars while remaining
+    // non-overlapping for point output.
+    registry.SetPhysicalGroups({solution, pressure});
+    registry.SetCoefficientProvider(
+        [this]() { return v_GetOutputFieldViews(); });
+    return registry;
+}
+
 void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
 {
     UnsteadySystem::v_GenerateSummary(s);
@@ -1014,14 +1037,6 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
              "The velocity and pressure expansions must share their quadrature "
              "points.");
 
-    // A pressure expanded differently from the velocity is written through
-    // the velocity expansion when it embeds there without loss.
-    m_writePressureThroughVelocity =
-        !m_graph->SameExpansionInfo(m_variablesFields[0],
-                                    m_variablesPressure[0]) &&
-        m_expansionLists[m_pressureIndex]->EmbedsLosslessly(
-            m_expansionLists[0]);
-
     // Create pressure operators
     m_bwdTransPressureOp = BwdTransOp<double>::Create(
         m_expansionLists[m_pressureIndex], m_variablesPressure);
@@ -1479,88 +1494,12 @@ std::vector<bool> VelocityCorrectionScheme::v_GetSystemSingularChecks()
     return checks;
 }
 
-void VelocityCorrectionScheme::v_WriteFld(const std::string &outname)
+CoefficientFieldViews VelocityCorrectionScheme::v_GetOutputFieldViews()
 {
-    std::vector<std::vector<double>> fieldCoeffs;
-
-    // Get vector with all component data and sort into vectors per component
-    std::vector<double> allCoeffs = m_fields_coeff.ToVector<double>();
-    auto ncomp                    = m_fields_coeff.GetNumComponents();
-    auto ncoeffsTotal = allCoeffs.size(); // use allCoeffs to not have padding
-    auto ncoeffsComp  = ncoeffsTotal / ncomp;
-    fieldCoeffs.reserve(ncomp);
-    for (unsigned int nc = 0; nc < ncomp; ++nc)
-    {
-        auto first = allCoeffs.begin() + nc * ncoeffsComp;
-        auto last  = allCoeffs.begin() + (nc + 1) * ncoeffsComp;
-
-        fieldCoeffs.emplace_back(std::make_move_iterator(first),
-                                 std::make_move_iterator(last));
-    }
-
-    // Note: FieldDef holds nummodes, basis, shapetype, variable strings, ..
-    auto fieldDef = m_expansionLists[0]->GetFieldDefinitions();
-    std::vector<std::vector<double>> fieldData(fieldDef.size());
-
-    for (unsigned int nc = 0; nc < ncomp; ++nc)
-    {
-        for (size_t i = 0; i < fieldDef.size(); ++i)
-        {
-            // Note Legacy transforms NodalToModal, if necessary, this code does
-            // not
-            fieldDef[i]->m_fields.push_back(m_variablesTotal[nc]);
-            m_expansionLists[0]->AppendFieldData(fieldDef[i], fieldData[i],
-                                                 fieldCoeffs[nc]);
-        }
-    }
-
-    // The pressure is added to the definitions of the velocity when it has
-    // the same expansion, or when its expansion embeds losslessly in the
-    // velocity's (ExpList::EmbedsLosslessly()), such as one order below the
-    // velocity. It is then written through the velocity expansion, its
-    // missing modes zero, so that every variable shares one set of
-    // definitions, which every Nektar++ reader accepts. Any other pressure
-    // is stored in definitions of its own expansion.
-    const auto &velocityExpansion      = m_expansionLists[0];
-    const auto &pressureExpansion      = m_expansionLists[m_pressureIndex];
-    std::vector<double> pressureCoeffs = m_pressure_coeff.ToVector<double>();
-    ExpListSharedPtr writeExpansion    = pressureExpansion;
-    size_t pressureDefStart            = 0;
-    if (m_writePressureThroughVelocity)
-    {
-        // TODO replace with a redesign operator, together with the rest of
-        // the field-file input and output, which goes through the legacy
-        // ExpList interface. The Arrays only wrap the vectors for it.
-        std::vector<double> embedded(velocityExpansion->GetNcoeffs(), 0.0);
-        Array<OneD, double> pressureArray(pressureCoeffs.size(),
-                                          pressureCoeffs.data(), eArrayWrapper);
-        Array<OneD, double> embeddedArray(embedded.size(), embedded.data(),
-                                          eArrayWrapper);
-        velocityExpansion->ExtractCoeffsToCoeffs(pressureExpansion,
-                                                 pressureArray, embeddedArray);
-        pressureCoeffs = std::move(embedded);
-        writeExpansion = velocityExpansion;
-    }
-    else if (!m_graph->SameExpansionInfo(m_variablesFields[0],
-                                         m_variablesPressure[0]))
-    {
-        pressureDefStart = fieldDef.size();
-        auto pressureDef = pressureExpansion->GetFieldDefinitions();
-        fieldDef.insert(fieldDef.end(), pressureDef.begin(), pressureDef.end());
-        fieldData.resize(fieldDef.size());
-    }
-
-    for (size_t i = pressureDefStart; i < fieldDef.size(); ++i)
-    {
-        fieldDef[i]->m_fields.push_back(m_variablesPressure[0]);
-        writeExpansion->AppendFieldData(fieldDef[i], fieldData[i],
-                                        pressureCoeffs);
-    }
-
-    m_fieldMetaDataMap["Time"] = std::to_string(m_time);
-
-    m_fieldIo->Write(outname, fieldDef, fieldData, m_fieldMetaDataMap,
-                     m_session->GetBackups());
+    return {{m_fields_coeff, m_expansionLists[0], m_coordim,
+             MakeFieldComponents(m_variablesFields)},
+            {m_pressure_coeff, m_expansionLists[m_pressureIndex], m_coordim,
+             MakeFieldComponents(m_variablesPressure)}};
 }
 
 /**

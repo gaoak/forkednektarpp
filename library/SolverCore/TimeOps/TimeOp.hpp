@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <MultiRegions/Common/Operator.hpp>
 
 #include <deque>
@@ -89,8 +89,6 @@ template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory();
 template <typename TData> class TimeOp : public MultiRegions::Operator<TData>
 {
 public:
-    ~TimeOp() override = default;
-
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -608,6 +606,13 @@ protected:
         : TimeOp(expansionList, components)
     {
     }
+
+    ~TimeOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<TimeOp>;
 
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;

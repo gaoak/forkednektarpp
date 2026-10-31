@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 #include <SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp>
 
@@ -105,6 +107,9 @@ protected:
     unsigned int m_coordDim  = 0;
     std::vector<unsigned int> m_nq;
     std::vector<const TData *> m_W;
+    /// Jacobians for non-interleaved data (first) and for interleaved data
+    /// (second); null until first read at that layout.
+    std::array<const TData *, 2> m_jacptr{};
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
@@ -206,10 +211,17 @@ protected:
                 : MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
                       nelmtPad, blocksize, shmemsize);
 
+        // The Jacobian is fetched from the data warehouse with the layout of
+        // the first input read in it, and kept.
+        const TData *&jacptr = m_jacptr[interleaveWidth == 1 ? 0 : 1];
+        if (jacptr == nullptr)
+        {
+            jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::JacobianKey<TData>(this->m_block_idx,
+                                                 interleaveWidth));
+        }
+
         // Compute the weighted volume integral of every component.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::JacobianKey<TData>(this->m_block_idx,
-                                             interleaveWidth));
         if (m_isDeformed)
         {
             if (interleaveWidth == 1)
@@ -277,10 +289,15 @@ protected:
             MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
                 nelmtPad, blocksize, shmemsize);
 
-        // Volume of the block's elements.
-        auto jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::JacobianKey<TData>(this->m_block_idx,
-                                             interleaveWidth));
+        // Volume of the block's elements. The interleaved Jacobian is fetched
+        // from the data warehouse on first use, and kept.
+        const TData *&jacptr = m_jacptr[1];
+        if (jacptr == nullptr)
+        {
+            jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::JacobianKey<TData>(this->m_block_idx,
+                                                 interleaveWidth));
+        }
         if (m_isDeformed)
         {
             DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(

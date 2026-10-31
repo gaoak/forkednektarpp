@@ -88,8 +88,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 
 // Parallel reduction of nred values: functor(i, vals) writes those of index i
 // to vals[0, nred), which Reduction combines into red[0, nred), together with
-// the values already there unless init. At most 4 values, the partial results
-// the reduction scratch holds.
+// the values already there unless init. At most internalReductionMaxValues
+// values, the partial results the reduction scratch holds.
 template <typename ExecSpace, bool init, typename Reduction, unsigned int nred,
           typename Functor,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
@@ -102,7 +102,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 {
     using TData = typename Reduction::value_type;
 
-    static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
+    static_assert(nred <= internalReductionMaxValues,
+                  "parallel_reduce: too many values.");
 
     TData acc[nred];
     for (unsigned int s = 0; s < nred; ++s)

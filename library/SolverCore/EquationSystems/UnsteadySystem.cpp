@@ -128,10 +128,9 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
     // Setup all filters defined in session file
     for (const auto &filter : m_session->GetFilters())
     {
-        m_filters.emplace_back(
-            filter.name,
-            GetFilterFactory().CreateInstance(
-                filter.name, m_session, shared_from_this(), filter.params));
+        m_filters.emplace_back(filter.name,
+                               GetFilterFactory().CreateInstance(
+                                   filter.name, m_session, filter.params));
     }
 }
 
@@ -422,11 +421,8 @@ void UnsteadySystem::v_DoSolve()
         // Perform any solver-specific post-integration steps.
         const bool stopIntegration = v_PostIntegrate();
 
-        // Evaluate all filters
-        for (auto &filter : m_filters)
-        {
-            filter.second->Apply(m_time);
-        }
+        // Evaluate all filters.
+        RunFilters(FilterPhase::Step, m_time, m_timeOp->GetStep());
 
         // Test for the abort conditions (NaN, or an abort file).
         if (stopIntegration ||
@@ -446,10 +442,7 @@ void UnsteadySystem::v_DoSolve()
 
     // Finalise all filters
     // TODO move this into UnsteadySystem~ destructor?
-    for (auto &filter : m_filters)
-    {
-        filter.second->Finalise(m_time);
-    }
+    RunFilters(FilterPhase::Final, m_time, m_timeOp->GetStep());
 }
 
 /**
@@ -609,10 +602,74 @@ void UnsteadySystem::v_DoInitialise(bool dumpInitialConditions)
         WriteInitialConditions();
     }
 
-    // Initialise all filters
+    // Initialise all filters with an explicit initial phase. Filters whose
+    // schedule includes step zero sample from v_Initialise.
+    RunFilters(FilterPhase::Initial, m_time, 0);
+}
+
+/**
+ * @brief Build the four callbacks a FilterContext gives the filters to write
+ * and annotate output; they are the same in every phase.
+ */
+FilterOutputServices UnsteadySystem::BuildFilterOutputServices()
+{
+    return FilterOutputServices{
+        [this](const std::string &path) { v_WriteFld(path); },
+        [this](const std::string &path, const CoefficientFieldViews &fields,
+               const LibUtilities::FieldMetaDataMap &metadata,
+               const double scale) {
+            WriteOutputFields(path, fields, metadata, scale);
+        },
+        [this]() -> const LibUtilities::FieldMetaDataMap & {
+            return m_fieldMetaDataMap;
+        },
+        [this](const std::string &key, const std::string &value) {
+            m_fieldMetaDataMap[key] = value;
+        }};
+}
+
+/**
+ * @brief Run every configured filter through one phase (Initial/Step/Final).
+ *
+ * Builds the FieldRegistry and FilterContext of the phase, marks the derived
+ * data of the previous phase out of date, and calls the matching Filter
+ * method of each filter. A filter whose schedule is not due returns at once,
+ * but the context is built before that check, so nothing is built when no
+ * filters are configured.
+ */
+void UnsteadySystem::RunFilters(FilterPhase phase, double time,
+                                unsigned int step)
+{
+    if (m_filters.empty())
+    {
+        return;
+    }
+
+    auto registry = v_GetFieldRegistry();
+    m_filterDerivedData.Invalidate();
+    FilterOutputServices output = BuildFilterOutputServices();
+    FilterContext context{time,
+                          step,
+                          phase == FilterPhase::Initial,
+                          phase == FilterPhase::Final,
+                          output,
+                          registry,
+                          m_filterDerivedData};
+
     for (auto &filter : m_filters)
     {
-        filter.second->Initialise(m_time);
+        switch (phase)
+        {
+            case FilterPhase::Initial:
+                filter.second->Initialise(context);
+                break;
+            case FilterPhase::Step:
+                filter.second->Apply(context);
+                break;
+            case FilterPhase::Final:
+                filter.second->Finalise(context);
+                break;
+        }
     }
 }
 

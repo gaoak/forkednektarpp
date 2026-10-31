@@ -52,85 +52,50 @@ std::string FilterCheckpoint::className =
                                                FilterCheckpoint::create);
 
 FilterCheckpoint::FilterCheckpoint(
-    const LibUtilities::SessionReaderSharedPtr &session,
-    const EquationSystemSharedPtr &equation, const ParamMap &params)
-    : Filter(session, equation)
+    const LibUtilities::SessionReaderSharedPtr &session, const ParamMap &params)
+    : Filter(session)
 {
     m_outputFile = Filter::SetupOutput(".chk", params);
-
-    auto it = params.find("OutputFrequency");
-    ASSERTL0(it != params.end(), "Missing parameter 'OutputFrequency'.");
-    LibUtilities::Equation frequency(m_session->GetInterpreter(), it->second);
-    m_outputFrequency =
-        static_cast<unsigned int>(std::round(frequency.Evaluate()));
-    ASSERTL0(m_outputFrequency > 0,
-             "FilterCheckpoint requires OutputFrequency > 0.");
-
-    it = params.find("OutputStartTime");
-    if (it != params.end())
-    {
-        LibUtilities::Equation startTime(m_session->GetInterpreter(),
-                                         it->second);
-        m_outputStartTime = startTime.Evaluate();
-    }
+    FilterParameters parameters(session, params, "FilterCheckpoint");
+    parameters.Consume("OutputFile");
+    m_outputFrequency = parameters.PositiveFrequency("OutputFrequency", 0);
+    m_schedule = StepSchedule(m_outputFrequency, true, parameters.StartTime());
+    parameters.ValidateAllConsumed();
+    m_series = std::make_unique<OutputSeries>(m_outputFile);
 }
 
-void FilterCheckpoint::v_Initialise(const double time)
+void FilterCheckpoint::v_Initialise(FilterContext &context)
 {
-    m_index       = 0;
-    m_outputIndex = 0;
-
-    auto eqsys = m_equ.lock();
-    ASSERTL0(eqsys, "FilterCheckpoint has no EquationSystem.");
-
-    if (eqsys->HasFieldMetaData("FilterFileNum"))
+    const auto &metadata = context.output.getMetadata();
+    if (metadata.count("FilterFileNum") != 0)
     {
-        m_outputIndex = std::stoul(eqsys->GetFieldMetaData("FilterFileNum"));
+        m_series->SetIndex(std::stoul(metadata.at("FilterFileNum")));
     }
 
     // Note command line overwrites EquationSystem::m_fieldMetaDataMap
     if (m_session->DefinesCmdLineArgument("set-filter-checkpoint-start-number"))
     {
-        m_outputIndex = std::stoul(m_session->GetCmdLineArgument<std::string>(
-            "set-filter-checkpoint-start-number"));
+        m_series->SetIndex(
+            std::stoul(m_session->GetCmdLineArgument<std::string>(
+                "set-filter-checkpoint-start-number")));
     }
-
-    // Evaluate filter for initialisation conditions
-    if (m_applyOnInitialise)
-    {
-        v_Apply(time);
-    }
+    v_Apply(context);
 }
 
-void FilterCheckpoint::v_Apply(const double time)
+void FilterCheckpoint::v_Apply(FilterContext &context)
 {
-    if (m_index++ % m_outputFrequency > 0 ||
-        (time - m_outputStartTime) < -NekConstants::kNekMachineEpsilon)
+    if (!m_schedule.Due(context))
     {
         return;
     }
-
-    auto equation = m_equ.lock();
-    ASSERTL0(equation, "FilterCheckpoint has no EquationSystem.");
-
-    const std::string ext = fs::path(m_outputFile).extension().string();
-
-    std::stringstream filename;
-    filename << fs::path(m_outputFile).replace_extension("").string() << "_"
-             << m_outputIndex << ".chk";
-
-    equation->SetFieldMetaData("FilterFileNum", std::to_string(m_outputIndex));
-    equation->WriteFld(SetupOutput(ext, filename.str()));
-    ++m_outputIndex;
+    const auto index = m_series->GetIndex();
+    context.output.setMetadata("FilterFileNum", std::to_string(index));
+    const auto path = m_series->Next();
+    context.output.writeFields(SetupOutput(".chk", path));
 }
 
-void FilterCheckpoint::v_Finalise([[maybe_unused]] const double time)
+void FilterCheckpoint::v_Finalise([[maybe_unused]] FilterContext &context)
 {
-}
-
-bool FilterCheckpoint::v_IsTimeDependent()
-{
-    return true;
 }
 
 } // namespace Nektar::SolverCore

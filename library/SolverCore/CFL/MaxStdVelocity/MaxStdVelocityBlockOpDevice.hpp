@@ -34,13 +34,15 @@
 
 #pragma once
 
-#include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp"
+#include <array>
+
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp>
 
-#include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOpDeviceKernels.hpp"
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOpDeviceKernels.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 
 namespace Nektar::SolverCore::detail
 {
@@ -64,15 +66,6 @@ public:
         m_nqTot     = exp->GetTotPoints();
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
-
-        // Fetch derivative factors. The SumFacTOP kernel reads the TOP
-        // (interleave width 1) array component-major, so it is fetched
-        // transposed - as PhysDeriv does for its own SumFacTOP kernel.
-        m_dfptr1 = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::DerivFactorKey<TData>(block_idx, 1, true));
-        m_dfptr2 = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::DerivFactorKey<TData>(
-                block_idx, NektarSpaces::Device::warpSize, false));
     }
 
     // className - for BlockOperatorFactory
@@ -94,8 +87,10 @@ protected:
     unsigned int m_nqTot;
     unsigned int m_dimension;
     unsigned int m_coordDim;
-    const TData *m_dfptr1;
-    const TData *m_dfptr2;
+    /// Derivative factors for non-interleaved data (first), transposed, and
+    /// for interleaved data (second); null until an input is first read at
+    /// that layout.
+    std::array<const TData *, 2> m_dfptr{};
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
@@ -107,6 +102,21 @@ protected:
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
+
+        // The derivative factors are fetched from the data warehouse with the
+        // layout of the first input read in it, and kept. Non-interleaved data
+        // reads them component-major, so they are fetched transposed.
+        const TData *&dfptr = m_dfptr[interleaveWidth == 1 ? 0 : 1];
+        if (dfptr == nullptr)
+        {
+            dfptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                interleaveWidth == 1
+                    ? LocalRegions::DerivFactorKey<TData>(this->m_block_idx, 1,
+                                                          true)
+                    : LocalRegions::DerivFactorKey<TData>(
+                          this->m_block_idx, NektarSpaces::Device::warpSize,
+                          false));
+        }
 
         // Initialize pointers.
         auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
@@ -135,16 +145,16 @@ protected:
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFacTOP,
                                                   true>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
-                    m_dfptr1, inptr, dataptr + this->m_block_idx);
+                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
+                    inptr, dataptr + this->m_block_idx);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFac, true>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
-                    m_dfptr2, inptr, dataptr + this->m_block_idx);
+                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
+                    inptr, dataptr + this->m_block_idx);
             }
         }
         else
@@ -155,16 +165,16 @@ protected:
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFacTOP,
                                                   false>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
-                    m_dfptr1, inptr, dataptr + this->m_block_idx);
+                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
+                    inptr, dataptr + this->m_block_idx);
             }
             else
             {
                 DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (MaxStdVelocityKernelLauncher<MultiRegions::SumFac, false>),
                     gridsize, blocksize, m_streamID, nelmt, compSize,
-                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor,
-                    m_dfptr2, inptr, dataptr + this->m_block_idx);
+                    m_dimension, m_coordDim, m_nqTot, soundSpeedFactor, dfptr,
+                    inptr, dataptr + this->m_block_idx);
             }
         }
     }

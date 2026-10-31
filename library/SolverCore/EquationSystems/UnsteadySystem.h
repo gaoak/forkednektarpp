@@ -122,6 +122,23 @@ protected:
     /// Weight on the wave-speed component of the field above.
     SOLVER_CORE_EXPORT virtual double v_GetSoundSpeedFactor();
     std::vector<std::pair<std::string, FilterSharedPtr>> m_filters;
+    /// Data derived from the solution that the filters of a phase share.
+    DerivedDataCache m_filterDerivedData;
+
+    /// The point in a solve at which RunFilters() is called.
+    enum class FilterPhase
+    {
+        Initial,
+        Step,
+        Final
+    };
+
+    /// Build the output callbacks a FilterContext gives the filters.
+    SOLVER_CORE_EXPORT FilterOutputServices BuildFilterOutputServices();
+
+    /// Run every configured filter through one phase.
+    SOLVER_CORE_EXPORT void RunFilters(FilterPhase phase, double time,
+                                       unsigned int step);
 
     /// Initialises UnsteadySystem class members.
     SOLVER_CORE_EXPORT UnsteadySystem(

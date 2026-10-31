@@ -222,6 +222,66 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
 
 template <typename MemSpace, typename TData>
 LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
+    const QuadratureMetricKey<TData> &quadratureMetricKey)
+{
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
+
+    // Fetch data from key.
+    const auto block_idx        = quadratureMetricKey.m_block_idx;
+    const auto interleave_width = quadratureMetricKey.m_interleave_width;
+
+    // Fetch expansion.
+    auto coll               = m_collections[block_idx].GetExpVector();
+    const auto num_elements = coll.size();
+    const auto num_points   = coll[0]->GetTotPoints();
+    const auto num_elmt_groups =
+        ((num_elements + vector_width - 1) / vector_width) * vector_width /
+        interleave_width;
+
+    // Allocate memory and get pointer.
+    auto metric = LibUtilities::MemoryRegion<TData>(
+        num_elmt_groups * interleave_width * num_points);
+    auto metricptr =
+        metric.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    // The metric of each element is its quadrature metric applied to one.
+    Array<OneD, NekDouble> one(num_points, 1.0);
+    Array<OneD, NekDouble> elementMetric(num_points, 0.0);
+
+    // Loop over chunks.
+    for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
+    {
+        // Loop over interleave width
+        for (unsigned int i = 0; i < interleave_width; ++i, ++el)
+        {
+            // Check for padding
+            if (el < num_elements)
+            {
+                coll[el]->MultiplyByQuadratureMetric(one, elementMetric);
+            }
+            else
+            {
+                for (unsigned int pt = 0; pt < num_points; ++pt)
+                {
+                    elementMetric[pt] = 0.0;
+                }
+            }
+
+            // Save interleaved data.
+            for (unsigned int pt = 0; pt < num_points; ++pt)
+            {
+                metricptr[(chunk * num_points + pt) * interleave_width + i] =
+                    elementMetric[pt];
+            }
+        }
+    }
+
+    return metric;
+}
+
+template <typename MemSpace, typename TData>
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     const DerivFactorKey<TData> &derivFactorKey)
 {
     // Use maximum vector width for back-ends interoperability.

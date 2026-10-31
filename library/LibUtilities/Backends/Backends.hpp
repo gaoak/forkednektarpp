@@ -53,23 +53,27 @@
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
-#include "LibUtilities/Backends/CUDA_Host_API.hpp"
+#include <LibUtilities/Backends/CUDA_Host_API.hpp>
 #elif defined(NEKTAR_ENABLE_HIP)
-#include "LibUtilities/Backends/HIP_Host_API.hpp"
+#include <LibUtilities/Backends/HIP_Host_API.hpp>
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "LibUtilities/Backends/SYCL_Host_API.hpp"
+#include <LibUtilities/Backends/SYCL_Host_API.hpp>
 #endif
 
 namespace Nektar
 {
+
+// Largest number of values one parallel_reduce of several values combines.
+constexpr unsigned int internalReductionMaxValues = 12;
 
 #if defined(NEKTAR_ENABLE_DEVICE)
 extern std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
 extern void *internalDeviceBuffer;
 extern void *internalHostBuffer;
 extern unsigned int internalMaxDataSizeByte;
-// Bytes of each stream's reduction scratch in internalMemoryBufferMap: four
-// partial sums of double per thread block of the largest reduction grid.
+// Bytes of each stream's reduction scratch in internalMemoryBufferMap:
+// internalReductionMaxValues partial results of double per thread block of the
+// largest reduction grid.
 extern unsigned int internalReductionBufferSize;
 #endif
 
@@ -244,6 +248,8 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #define NEK_RESTRICT __restrict__
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEK_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#define NEK_RESTRICT __restrict
 #else
 #define NEK_RESTRICT __restrict__
 #endif

@@ -132,5 +132,31 @@
             <PARAM NAME="OutputFile">checkpoint</PARAM>
             <PARAM NAME="OutputFrequency">20</PARAM>
         </FILTER>
+        <FILTER TYPE="Energy">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_energy</PARAM>
+            <PARAM NAME="OutputFrequency">5</PARAM>
+        </FILTER>
+        <FILTER TYPE="Mean">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_mean</PARAM>
+            <PARAM NAME="OutputFrequency">5</PARAM>
+        </FILTER>
+        <FILTER TYPE="HistoryPoints">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_history</PARAM>
+            <PARAM NAME="OutputFrequency">5</PARAM>
+            <PARAM NAME="Points">
+                0.5 0.5 0.5
+                1.0 2.0 3.0
+            </PARAM>
+        </FILTER>
+        <FILTER TYPE="HistoryPoints">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_history_plane</PARAM>
+            <PARAM NAME="OutputFrequency">10</PARAM>
+            <PARAM NAME="plane">2,2,0.5,0.5,0.5,1.0,0.5,0.5,1.0,1.0,0.5,0.5,1.0,0.5</PARAM>
+        </FILTER>
+        <FILTER TYPE="HistoryPoints">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_history_box</PARAM>
+            <PARAM NAME="OutputFrequency">10</PARAM>
+            <PARAM NAME="box">2,2,2,0.5,1.0,0.5,1.0,0.5,1.0</PARAM>
+        </FILTER>
     </FILTERS>
 </NEKTAR>

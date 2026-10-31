@@ -59,6 +59,7 @@ NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
 #include <UnitTests/TestBoostTeardown.hpp>
 
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 // Session + volume ExpList setup (same pattern as TestRiemann.cpp).
 static LibUtilities::SessionReaderSharedPtr SetSession(
     const std::string &xml, const std::string &exec = "Serial")
@@ -309,6 +310,7 @@ struct Case
         }
     }
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE(TestSuiteMeanRemoval)
 

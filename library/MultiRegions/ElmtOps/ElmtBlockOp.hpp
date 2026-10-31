@@ -75,7 +75,7 @@
 
 #include <algorithm>
 
-#include "LibUtilities/Backends/DeviceProperties.hpp"
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <MultiRegions/Common/BlockOperator.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
@@ -203,8 +203,6 @@ public:
     /// Accessor type of this operator's output block; see #InBlock.
     using OutBlock = LibUtilities::BlockAccessor<TData, TFieldOut>;
 
-    ~ElmtBlockOp() override = default;
-
     /**
      * @brief Create one block operator through the block-operator
      * factory.
@@ -321,6 +319,13 @@ protected:
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
+
+    ~ElmtBlockOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<ElmtBlockOp>;
 
     /**
      * @brief Implementation hook for Apply().
