@@ -125,4 +125,30 @@ private:
     std::ofstream m_stream;
 };
 
+/**
+ * @brief Reshape every block of @p field whose interleave width differs from
+ * that of the same block of @p reference to the width of @p reference, on the
+ * block's stream, keeping its content.
+ *
+ * An entry-by-entry operation on two fields, such as Math::daxpy, needs both
+ * at the same width in every block.
+ */
+template <FieldState State>
+void MatchInterleaveWidths(LibUtilities::Field<double, State> &field,
+                           LibUtilities::Field<double, State> &reference,
+                           const std::string &executionSpace)
+{
+    for (unsigned int blk = 0; blk < field.GetBlocks().size(); ++blk)
+    {
+        auto &block = field.GetBlocks()[blk];
+        const unsigned int interleaveWidth =
+            reference.GetBlocks()[blk].GetInterleaveWidth();
+        if (block.GetInterleaveWidth() != interleaveWidth)
+        {
+            const unsigned int streamID = blk + 1;
+            block.ReshapeStorage(interleaveWidth, executionSpace, streamID);
+        }
+    }
+}
+
 } // namespace Nektar::SolverCore

@@ -47,6 +47,10 @@ ADD_NEKTAR_EXECUTABLE(TestAeroForces
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestAeroForces.cpp)
 ADD_NEKTAR_EXECUTABLE(TestHistoryPoints
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestHistoryPoints.cpp)
+ADD_NEKTAR_EXECUTABLE(TestReynoldsStress
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestReynoldsStress.cpp)
+ADD_NEKTAR_EXECUTABLE(TestStatisticsFilters
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestStatisticsFilters.cpp)
 ADD_NEKTAR_EXECUTABLE(TestFieldFileIO
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestFieldFileIO.cpp)
 ADD_NEKTAR_EXECUTABLE(TestRootTableWriter
@@ -126,6 +130,8 @@ SET_SOLVERCORE_UNIT_TEST(MeanSerial TestMean Serial)
 SET_SOLVERCORE_UNIT_TEST(EnergySerial TestEnergy Serial)
 SET_SOLVERCORE_UNIT_TEST(AeroForcesSerial TestAeroForces Serial)
 SET_SOLVERCORE_UNIT_TEST(HistoryPointsSerial TestHistoryPoints Serial)
+SET_SOLVERCORE_UNIT_TEST(ReynoldsStressSerial TestReynoldsStress Serial)
+SET_SOLVERCORE_UNIT_TEST(StatisticsFiltersSerial TestStatisticsFilters Serial)
 SET_SOLVERCORE_UNIT_TEST(FieldFileIOSerial TestFieldFileIO Serial)
 SET_SOLVERCORE_UNIT_TEST(MultiFieldSerial TestMultiField Serial)
 # The table writer does not depend on the execution space, so it is run once.
@@ -167,6 +173,8 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_SOLVERCORE_UNIT_TEST(EnergyAVX TestEnergy AVX)
     SET_SOLVERCORE_UNIT_TEST(AeroForcesAVX TestAeroForces AVX)
     SET_SOLVERCORE_UNIT_TEST(HistoryPointsAVX TestHistoryPoints AVX)
+    SET_SOLVERCORE_UNIT_TEST(ReynoldsStressAVX TestReynoldsStress AVX)
+    SET_SOLVERCORE_UNIT_TEST(StatisticsFiltersAVX TestStatisticsFilters AVX)
     SET_SOLVERCORE_UNIT_TEST(FieldFileIOAVX TestFieldFileIO AVX)
     SET_SOLVERCORE_UNIT_TEST(MultiFieldAVX TestMultiField AVX)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_avx_stdmat TestNullPrecon AVX StdMat)
@@ -202,6 +210,8 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_SOLVERCORE_UNIT_TEST(EnergyDevice TestEnergy Device)
     SET_SOLVERCORE_UNIT_TEST(AeroForcesDevice TestAeroForces Device)
     SET_SOLVERCORE_UNIT_TEST(HistoryPointsDevice TestHistoryPoints Device)
+    SET_SOLVERCORE_UNIT_TEST(ReynoldsStressDevice TestReynoldsStress Device)
+    SET_SOLVERCORE_UNIT_TEST(StatisticsFiltersDevice TestStatisticsFilters Device)
     SET_SOLVERCORE_UNIT_TEST(FieldFileIODevice TestFieldFileIO Device)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_device_stdmat TestNullPrecon Device StdMat)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_device_sumfac TestNullPrecon Device SumFac)
