@@ -140,6 +140,7 @@ v5.11.0
 - Balance the forcing of a singular Helmholtz/Poisson solve against its Neumann boundary integral in `ContField::HelmSolve` (!2876, from !1800)
 - Evaluate the boundary conditions of BndCondPhysOp in its own execution space, avoiding a host round trip on each update; add `sign`, `rad` and `ang` to the device Expression operator, which falls back to the host, with a warning, for expressions the device cannot compile (!2895)
 - Fix the interpreter failing to parse the `bessel` function, and reading an unset value for the constant argument of a two-argument function such as `atan2(1, x)` (!2895)
+- Add `ExpressionBlockOp::GetExpressionVariables()` and `GetExpressionFunctions()`, the names an expression uses and the functions it calls, and use them to decide whether the device Expression operator compiles an expression (!2902)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -194,6 +195,7 @@ v5.11.0
 - Write every Riemann solver in Cartesian components through the trace normal, as the legacy solver now does, and remove the rotation into the normal frame with its cached rotation matrices (!2871)
 - Set the interleave width of the output of the Courant-velocity operator (!2886)
 - Fix NaN fluxes on padded elements in the Euler volume flux (!2891)
+- Update `TimeDependent` boundary conditions at every right-hand-side evaluation, which were left at their initial value, and add a test ported from the legacy solver (!2902)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)
@@ -206,6 +208,7 @@ v5.11.0
 - Project a file pressure initial condition of lower order than the velocity element by element, as the legacy solver does, instead of truncating it (!2885)
 - Keep the multistep divergence weight of the pressure in IMEX start-up stages (!2892)
 - Check that the velocity and pressure share their quadrature points in either pressure form and on HOutflow regions, write a lower-order pressure through the velocity expansion so that FieldConvert and the legacy solver read it, and test a pressure one order below the velocity with the HOPBC and HOutflow (!2896)
+- Evaluate the Neumann value of the HOutflow velocity conditions once, and again at every step only on the regions whose expression uses `t` (!2902)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

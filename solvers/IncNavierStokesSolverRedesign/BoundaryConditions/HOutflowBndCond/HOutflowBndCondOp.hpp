@@ -105,7 +105,8 @@ public:
 
     /**
      * @brief Set the time at which UpdatePressure() evaluates the Neumann
-     * value f_b of the velocity conditions (default 0).
+     * value f_b of the velocity conditions (default 0). A region whose f_b
+     * does not use t is evaluated only by the first UpdatePressure().
      */
     void SetTime(const TData &time)
     {
