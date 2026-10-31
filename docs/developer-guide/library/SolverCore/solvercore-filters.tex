@@ -4,18 +4,18 @@
 SolverCore filters observe a running equation system and produce diagnostics or
 field output without participating in the time integration itself. Examples
 include kinetic-energy histories, aerodynamic forces, point histories, domain
-averages and checkpoints. The redesigned interface makes the data
-available to a filter explicit: filters no longer retain a pointer to the whole
-equation system, but instead receive a short-lived context for each phase of the
-solve.
+averages, time-averaged fields and checkpoints. The redesigned interface makes
+the data available to a filter explicit: filters no longer retain a pointer to
+the whole equation system, but instead receive a short-lived context for each
+phase of the solve.
 
 Figure~\ref{fig:solvercore-filters-dataflow} shows the main data flow:
 equation-system fields and expansions are published through a
 \texttt{FieldRegistry}, which a \texttt{FilterContext} carries with the time,
 the step, the phase, the output services and the derived data to the filters.
 Energy, AeroForces, HistoryPoints and Mean evaluate the fields at one instant
-in an operator and write one table row per due step on rank zero; Checkpoint
-writes field files.
+in an operator and write one table row per due step on rank zero; Checkpoint,
+AverageFields and ReynoldsStresses write field files.
 
 \begin{figure}[htbp]
 \centering
@@ -90,7 +90,13 @@ writes field files.
 \node[item=4.0cm, below=9mm of ops.south -| eny.west, anchor=north west]
     (chk)
     {\textbf{Checkpoint}\\ \texttt{writeFields} $\rightarrow$ \texttt{.chk}};
-\node[group, fit=(chk)] (fld) {};
+\node[item=4.0cm, below=2mm of chk] (afl)
+    {\textbf{AverageFields}\\ \texttt{writeOutputFields} $\rightarrow$
+     \texttt{\_avg.fld}};
+\node[item=4.0cm, below=2mm of afl] (rey)
+    {\textbf{ReynoldsStresses}\\ \texttt{ReynoldsStressOp},
+     \texttt{writeOutputFields} $\rightarrow$ \texttt{\_stress.fld}};
+\node[group, fit=(chk)(afl)(rey)] (fld) {};
 \node[title] at (fld.north west) {Field output (\texttt{.fld})};
 
 % Publishing
@@ -206,8 +212,8 @@ separate pressure field.
 \texttt{GetCoefficientGroups()} returns canonical, non-overlapping coefficient
 views for field output. These views are supplied by a callback and are obtained
 lazily, since a continuous Galerkin equation system may need to perform a
-forward transform before coefficients are current. Filters that write fields
-of their own consume these groups.
+forward transform before coefficients are current. AverageFields and
+ReynoldsStresses consume these groups.
 
 The incompressible velocity-correction scheme publishes the registry as
 follows:
@@ -288,8 +294,8 @@ system:
 \item \texttt{setMetadata(key, value)} updates a metadata entry.
 \end{itemize}
 
-Checkpoint uses \texttt{writeFields}; \texttt{writeOutputFields} serves a
-filter that writes fields of its own, such as accumulated averages. The
+Checkpoint uses \texttt{writeFields}, while AverageFields and ReynoldsStresses
+use \texttt{writeOutputFields} for their own accumulator fields. The
 equation system remains responsible for converting views into field
 definitions. In particular, each coefficient view uses its own expansion when
 field definitions are produced, so pressure and velocity fields may have
@@ -350,7 +356,8 @@ interval.
 \texttt{StepSchedule} is stateless. An event is due when its start-time rule is
 satisfied and the actual integration step is divisible by its frequency. A
 schedule also states whether the initial phase is included. Energy, Mean,
-AeroForces, HistoryPoints and Checkpoint include step zero.
+AeroForces, HistoryPoints and Checkpoint include step zero; AverageFields and
+ReynoldsStresses begin sampling after the first completed step.
 Figure~\ref{fig:solvercore-filters-schedule} shows the phases and three
 schedules.
 
@@ -542,6 +549,101 @@ interleaved into one point-major table, whose schema is
 Single-file histories and zero-based numbered snapshots use the same scheduling
 and output-series utilities.
 
+\subsubsection{AverageFields}
+
+AverageFields obtains coefficient groups and allocates a matching accumulator
+for each group, with the source block attributes and interleave width.
+Accumulation is performed by the backend-selected mathematical operator, which
+adds the two fields entry by entry, so an accumulator block at another
+interleave width than its source is first reshaped to the source's.
+Coefficients remain unscaled while samples are collected; scaling is applied
+only when a file is written.
+
+The filter takes the parameters \texttt{OutputFile} (default: the session
+name), \texttt{OutputFrequency} (default: \texttt{NumSteps}),
+\texttt{SampleFrequency} (default: one), \texttt{StartTime},
+\texttt{RestartFile}, and \texttt{PhaseAverage} with
+\texttt{PhaseAveragePeriod} and \texttt{PhaseAveragePhase}; the command-line
+argument \texttt{--set-filter-averagefield-start-number} sets the first file
+number. Sampling and periodic output use separate schedules, both based on the
+actual global step, both excluding the initial phase and both starting at
+\texttt{StartTime}. This means a sample frequency of two selects steps 2, 4, 6
+and so on. Phase averaging adds a time-phase condition to the sampling
+schedule: a step due for sampling adds a sample only when its time lies within
+half a sampling interval of the requested phase.
+
+A numbered file \texttt{<OutputFile>\_<k>\_avg.fld}, from a zero-based series
+$k = 0, 1, \ldots$, is written on a step that is due for both sampling and
+output, once at least one sample has been taken; with phase averaging such a
+step need not itself add a sample. Finalisation always writes the unnumbered
+\texttt{\_avg.fld} file. If no samples were collected, a zero-valued final
+field is written with a warning.
+
+When an earlier average is loaded, AverageFields validates sample and file
+number metadata, finite time metadata, required variables, element identifiers,
+bases, modes and expansion layouts. The stored average is multiplied by its
+previous sample count to reconstruct the unscaled accumulated sum before new
+samples are added.
+
+\subsubsection{ReynoldsStresses}
+
+ReynoldsStresses obtains the coefficient groups and the velocity role. Like
+AverageFields, it keeps an unscaled coefficient accumulator for every group,
+so the averages of all solver variables, pressure included, are written.
+The velocity must occupy the same component indices in one coefficient group
+on the velocity expansion. In addition the filter keeps one physical-space
+field $S_{ab}$ with a component for every pair $a \le b$ of velocity
+components, $d(d+1)/2$ in $d$ dimensions, to which each sample adds the
+pointwise products $u_a u_b$ at the quadrature points. The products are
+formed by \texttt{ReynoldsStressOp}, which is created on the velocity
+expansion and configured with the velocity component indices. It adds
+$s\,u_a u_b$ for a scale $s$ set with \texttt{SetScale} immediately before
+each application, reads only the selected velocity components of a field that
+may also hold passive scalars, and runs block $b$ on stream $b+1$. The product
+field has the block attributes of the velocity, and a product block at another
+interleave width than the velocity's is first reshaped to it on the block's
+stream, keeping its content, so one storage index addresses the same point in
+both. Each block is one \texttt{parallel\_for} over its storage, neighbouring
+threads reading and writing neighbouring entries with no index arithmetic, and
+the same kernel serves the Serial, AVX and device execution spaces at any
+interleave width. The padding of the velocity is zero, so that of the
+products stays zero.
+
+When a file is written, the summed velocity coefficients are transformed back
+to $U_a = \sum_n u_a$ at the quadrature points, and the operator is applied to
+them with $s = -1/N$ on a copy of $S$, giving $S_{ab} - U_a U_b/N$. This is
+projected element by element onto the velocity expansion with
+\texttt{IProductWRTBaseOp} followed by \texttt{MultiplyByElmtInvMassOp}.
+\texttt{FwdTransOp} is not used: its continuous path imposes the Dirichlet
+and Robin conditions of the solver variables, which do not exist for the
+product variables, and it would perform a global rather than an elementwise
+projection. All written fields share the scale $1/N$, so the file holds the
+averages followed by the covariances
+\[
+\overline{u_a' u_b'} = \frac{1}{N}\left(S_{ab} - \frac{U_a U_b}{N}\right),
+\]
+named \texttt{uu, uv, uw, vv, vw, ww} (\texttt{uu, uv, vv} in two dimensions).
+The two-moment form needs no mean in physical space during sampling. Its
+rounding error is of order $\epsilon\,\overline{u_a u_b}$ in absolute terms,
+which for wall-bounded turbulence, where $\overline{u}^2$ exceeds
+$\overline{u'^2}$ by at most a few hundred, is far below the sampling error.
+
+Sampling excludes the initial phase and follows \texttt{SampleFrequency}. A
+numbered file \texttt{<OutputFile>\_<k>\_stress.fld}, from the shared
+zero-based series $k = 0, 1, \ldots$, is written on sampled steps that are
+also multiples of \texttt{OutputFrequency}, and finalisation always writes
+\texttt{<OutputFile>\_stress.fld}. The metadata records
+\texttt{InitialTime}, \texttt{FinalTime}, \texttt{Time},
+\texttt{NumberOfFieldDumps} and, once a numbered file has been written,
+\texttt{FilterFileNum}. Moving averages, phase averaging, scaled expansions,
+FieldConvert modules and restarting from an earlier file are rejected with an
+explicit error, as are homogeneous and embedded-manifold expansions. Besides
+the coefficient accumulators and the $d(d+1)/2$ physical-space products, the
+filter holds an output workspace: the summed velocity at the quadrature
+points, a copy of the products and two coefficient fields of $d(d+1)/2$
+components. It is allocated at initialisation and refilled at each output, so
+that writing a file neither allocates nor frees memory.
+
 \subsubsection{Checkpoint}
 
 Checkpoint does not need to inspect a field view. When its schedule is due, it
@@ -577,7 +679,7 @@ The default \texttt{EquationSystem::v\_GetFieldRegistry()} publishes
 \texttt{m\_fields} as the solution role and as one non-overlapping physical
 group, and installs \texttt{v\_GetOutputFieldViews()} as the lazy coefficient
 provider. Consequently, unsteady ADR and compressible equation systems inherit
-the data contract required by Checkpoint and HistoryPoints.
+the data contract required by Checkpoint, AverageFields and HistoryPoints.
 Their history files contain the solver's canonical variables: transported
 variables for ADR and conservative variables for compressible flow.
 
@@ -585,8 +687,8 @@ The equation system's output path must be retained when overriding this
 provider. Continuous fields use the global forward transform, whereas
 discontinuous fields use \texttt{ProjectPhysToCoeffs()}, the element-local
 $L^2$ projection that makes DG restarts exact. Returning stale
-\texttt{m\_fields\_coeff} storage would make checkpoints incorrect even though
-the files themselves are structurally valid.
+\texttt{m\_fields\_coeff} storage would make both checkpoints and averages
+incorrect even though the files themselves are structurally valid.
 
 \paragraph{Incompressible flow.}
 VelocityCorrectionScheme overrides the registry because pressure has separate
@@ -599,8 +701,8 @@ group. This is the complete contract for the filters described here.
 The ADR solution represents transported quantities, not fluid momentum. Its
 prescribed advection field is an operator coefficient and must not
 automatically be advertised as the velocity whose kinetic energy is measured.
-Checkpoint and HistoryPoints are therefore meaningful through the default
-registry. Energy and AeroForces should report a missing-role
+Checkpoint, AverageFields and HistoryPoints are therefore meaningful through
+the default registry. Energy and AeroForces should report a missing-role
 diagnostic. If a future coupled ADR system has genuine fluid state, that
 equation system can explicitly publish velocity, pressure and stress roles;
 the generic scalar ADR solver should not invent them.
@@ -657,9 +759,9 @@ mode; AeroForces requires pressure plus velocity/stress capabilities. Missing
 capabilities are configuration errors with the equation-system and filter
 names in the diagnostic.
 
-The cross-solver regression matrix should exercise Checkpoint and
-HistoryPoints for unsteady ADR, incompressible flow and compressible flow,
-including numerical restart contents for both CG and DG layouts.
+The cross-solver regression matrix should exercise Checkpoint, AverageFields
+and HistoryPoints for unsteady ADR, incompressible flow and compressible flow,
+including numerical restart and average contents for both CG and DG layouts.
 Compressible Energy tests need analytic variable-density fields, and
 compressible AeroForces tests need inviscid and viscous cases using the same
 equation-of-state and transport models as the solver. Negative tests should

@@ -140,6 +140,16 @@
             <PARAM NAME="OutputFile">TGVFlow3D_Hex8_mean</PARAM>
             <PARAM NAME="OutputFrequency">5</PARAM>
         </FILTER>
+        <FILTER TYPE="AverageFields">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_average</PARAM>
+            <PARAM NAME="OutputFrequency">10</PARAM>
+            <PARAM NAME="SampleFrequency">1</PARAM>
+        </FILTER>
+        <FILTER TYPE="ReynoldsStresses">
+            <PARAM NAME="OutputFile">TGVFlow3D_Hex8_reystress</PARAM>
+            <PARAM NAME="OutputFrequency">5</PARAM>
+            <PARAM NAME="SampleFrequency">1</PARAM>
+        </FILTER>
         <FILTER TYPE="HistoryPoints">
             <PARAM NAME="OutputFile">TGVFlow3D_Hex8_history</PARAM>
             <PARAM NAME="OutputFrequency">5</PARAM>
