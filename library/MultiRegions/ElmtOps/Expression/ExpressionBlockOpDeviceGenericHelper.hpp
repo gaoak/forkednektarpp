@@ -49,7 +49,6 @@
 #pragma once
 
 #include <array>
-#include <cctype>
 #include <map>
 #include <set>
 #include <string>
@@ -362,59 +361,30 @@ inline std::string GetExpressionKernelArguments(
 }
 
 /**
- * @brief Whether the expression kernel can be compiled for @p expr.
+ * @brief Whether the expression kernel can be compiled for an expression
+ * using @p variables and calling @p functions (see
+ * ExpressionBlockOp::GetExpressionVariables() and
+ * ExpressionBlockOp::GetExpressionFunctions()).
  *
  * The expression is pasted into the kernel source, so a function only the
  * host interpreter defines, or a coordinate beyond the @p coordDim the kernel
- * declares, would fail to compile. Numbers are skipped, so that an exponent is
- * not read as a name.
+ * declares, would fail to compile.
  */
-inline bool IsDeviceExpression(const std::string &expr,
+inline bool IsDeviceExpression(const std::set<std::string> &variables,
+                               const std::set<std::string> &functions,
                                const unsigned int coordDim)
 {
     static const std::set<std::string> hostOnly = {"awgn", "bessel"};
 
-    const auto isName = [](const char c) {
-        return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
-    };
-
-    for (size_t i = 0; i < expr.size();)
+    for (const auto &function : functions)
     {
-        const char c = expr[i];
-        if (std::isdigit(static_cast<unsigned char>(c)) || c == '.')
+        if (hostOnly.count(function))
         {
-            for (++i; i < expr.size(); ++i)
-            {
-                const bool sign = (expr[i] == '+' || expr[i] == '-') &&
-                                  (expr[i - 1] == 'e' || expr[i - 1] == 'E');
-                if (!isName(expr[i]) && expr[i] != '.' && !sign)
-                {
-                    break;
-                }
-            }
-        }
-        else if (std::isalpha(static_cast<unsigned char>(c)) || c == '_')
-        {
-            size_t j = i + 1;
-            while (j < expr.size() && isName(expr[j]))
-            {
-                ++j;
-            }
-
-            const std::string name = expr.substr(i, j - i);
-            if (hostOnly.count(name) || (name == "y" && coordDim < 2) ||
-                (name == "z" && coordDim < 3))
-            {
-                return false;
-            }
-            i = j;
-        }
-        else
-        {
-            ++i;
+            return false;
         }
     }
-    return true;
+    return !(variables.count("y") && coordDim < 2) &&
+           !(variables.count("z") && coordDim < 3);
 }
 
 /**

@@ -132,10 +132,11 @@ void NavierStokesCFE::v_GenerateSummary(SummaryList &s)
  */
 void NavierStokesCFE::DoOdeRhs(
     LibUtilities::Field<double, FieldState::Phys> &in,
-    LibUtilities::Field<double, FieldState::Phys> &out,
-    [[maybe_unused]] const double &time, const double &dt)
+    LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
+    const double &dt)
 {
     // out = dt * (-advection + diffusion)
+    m_advDiffusionOp->UpdateBndPhys(time);
     m_advDiffusionOp->SetScale(dt);
     m_advDiffusionOp->Apply(in, out);
 }

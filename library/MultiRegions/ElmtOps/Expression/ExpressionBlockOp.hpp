@@ -46,6 +46,11 @@
 
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
+#include <cctype>
+#include <set>
+#include <string>
+#include <vector>
+
 #include "LibUtilities/BasicUtils/Equation.h"
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 
@@ -131,6 +136,32 @@ public:
         StringUtils::Split(vnames, expression->GetVlist(),
                            StringUtils::IsAnyOf(", "));
         return vnames;
+    }
+
+    /**
+     * @brief The variables an expression uses: every name in @p expr that
+     * is not called as a function, so also its parameters and constants.
+     *
+     * @param   expr    Expression to scan.
+     *
+     * @return The distinct variable names in @p expr.
+     */
+    static std::set<std::string> GetExpressionVariables(const std::string &expr)
+    {
+        return GetExpressionNames(expr, NameKind::Variable);
+    }
+
+    /**
+     * @brief The functions an expression calls: every name in @p expr
+     * followed by an opening parenthesis.
+     *
+     * @param   expr    Expression to scan.
+     *
+     * @return The distinct function names in @p expr.
+     */
+    static std::set<std::string> GetExpressionFunctions(const std::string &expr)
+    {
+        return GetExpressionNames(expr, NameKind::Function);
     }
 
     /**
@@ -250,6 +281,73 @@ protected:
      */
     virtual bool v_IsAvailable(
         const std::vector<LibUtilities::EquationSharedPtr> &exprs) const = 0;
+
+private:
+    /// Kind of name GetExpressionNames() collects.
+    enum class NameKind
+    {
+        Variable, ///< A name not called as a function.
+        Function  ///< A name followed by an opening parenthesis.
+    };
+
+    /**
+     * @brief The names of kind @p kind in @p expr.
+     *
+     * Numbers are skipped, so that an exponent is not read as a name.
+     */
+    static std::set<std::string> GetExpressionNames(const std::string &expr,
+                                                    const NameKind kind)
+    {
+        const auto isName = [](const char c) {
+            return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+        };
+
+        std::set<std::string> names;
+        for (size_t i = 0; i < expr.size();)
+        {
+            const char c = expr[i];
+            if (std::isdigit(static_cast<unsigned char>(c)) || c == '.')
+            {
+                for (++i; i < expr.size(); ++i)
+                {
+                    const bool sign =
+                        (expr[i] == '+' || expr[i] == '-') &&
+                        (expr[i - 1] == 'e' || expr[i - 1] == 'E');
+                    if (!isName(expr[i]) && expr[i] != '.' && !sign)
+                    {
+                        break;
+                    }
+                }
+            }
+            else if (std::isalpha(static_cast<unsigned char>(c)) || c == '_')
+            {
+                size_t j = i + 1;
+                while (j < expr.size() && isName(expr[j]))
+                {
+                    ++j;
+                }
+                size_t k = j;
+                while (k < expr.size() &&
+                       std::isspace(static_cast<unsigned char>(expr[k])))
+                {
+                    ++k;
+                }
+                const NameKind found = k < expr.size() && expr[k] == '('
+                                           ? NameKind::Function
+                                           : NameKind::Variable;
+                if (found == kind)
+                {
+                    names.insert(expr.substr(i, j - i));
+                }
+                i = j;
+            }
+            else
+            {
+                ++i;
+            }
+        }
+        return names;
+    }
 };
 
 } // namespace Nektar::MultiRegions

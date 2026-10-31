@@ -130,10 +130,10 @@ void EulerCFE::v_GenerateSummary(SummaryList &s)
  */
 void EulerCFE::DoAdvection(LibUtilities::Field<double, FieldState::Phys> &in,
                            LibUtilities::Field<double, FieldState::Phys> &out,
-                           [[maybe_unused]] const double &time,
-                           const double &dt)
+                           const double &time, const double &dt)
 {
     // Solve advection problem
+    m_advectionWeakDGOp->UpdateBndPhys(time);
     m_advectionWeakDGOp->SetScale(-dt);
     m_advectionWeakDGOp->Apply(in, out);
 }

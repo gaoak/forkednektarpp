@@ -57,6 +57,7 @@
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCOp.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp>
+#include <MultiRegions/ElmtOps/Expression/ExpressionBlockOp.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
@@ -308,6 +309,8 @@ protected:
           m_delta             = TData(1.0 / 20.0);
     bool m_velocityContextSet = false;
     bool m_pressureUpdated    = false;
+    // Whether m_fbPhys has been evaluated, by the first UpdatePressure().
+    bool m_isFbEvaluated = false;
 
     MultiRegions::ExpListSharedPtr m_velocityExpansionList;
     MultiRegions::ExpListSharedPtr m_restrictedVelocityExpansionList;
@@ -347,6 +350,9 @@ protected:
         m_velocityIProductOps;
     std::vector<std::shared_ptr<MultiRegions::ExpressionOp<TData>>>
         m_fbExpressionOps;
+    // Per region, whether an expression of f_b depends on time, so that
+    // m_fbPhys is evaluated at every update.
+    std::vector<bool> m_fbIsTimeDependent;
     std::vector<VolumeGather> m_volumeGathers;
 
     // Per region, extracts the velocity onto the points of the region from
@@ -686,6 +692,7 @@ protected:
                      "Unable to locate HOutflow boundary region.");
             bool anyVelocityTag      = false;
             bool allVelocityHOutflow = true;
+            bool isTimeDependent     = false;
             std::vector<LibUtilities::EquationSharedPtr> equations;
             std::vector<bool> componentMatches(m_nDim, false);
             for (unsigned int d = 0; d < m_nDim; ++d)
@@ -702,6 +709,9 @@ protected:
                 allVelocityHOutflow = allVelocityHOutflow && valid;
                 componentMatches[d] = valid;
                 equations.push_back(componentIt->second->GetEquation());
+                const auto variables = MultiRegions::ExpressionBlockOp<TData>::
+                    GetExpressionVariables(equations.back()->GetExpression());
+                isTimeDependent = isTimeDependent || variables.count("t") != 0;
             }
 
             const bool pressureSelected = selected.count(n) != 0;
@@ -765,6 +775,7 @@ protected:
                 bndExp, components, ExecSpace::name);
             expression->SetExpressions(equations);
             m_fbExpressionOps.push_back(expression);
+            m_fbIsTimeDependent.push_back(isTimeDependent);
             m_velocityIProductOps.push_back(
                 MultiRegions::IProductWRTBaseOp<TData>::Create(
                     bndExp, components, ExecSpace::name));
@@ -1276,13 +1287,19 @@ protected:
         }
     }
 
+    // Evaluate f_b on every region at time @p time. A region whose
+    // expressions do not use t is evaluated only once.
     void EvaluateFb(const TData time)
     {
         for (unsigned int n = 0; n < m_fbPhys.size(); ++n)
         {
-            m_fbExpressionOps[n]->SetTime(time);
-            m_fbExpressionOps[n]->Apply(m_fbPhys[n], m_fbPhys[n]);
+            if (!m_isFbEvaluated || m_fbIsTimeDependent[n])
+            {
+                m_fbExpressionOps[n]->SetTime(time);
+                m_fbExpressionOps[n]->Apply(m_fbPhys[n], m_fbPhys[n]);
+            }
         }
+        m_isFbEvaluated = true;
     }
 
     // Evaluate the pressure condition on every region from the velocity

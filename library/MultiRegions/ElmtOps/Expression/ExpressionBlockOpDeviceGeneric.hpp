@@ -354,8 +354,11 @@ protected:
     {
         for (unsigned int nc = 0; nc < exprs.size(); ++nc)
         {
+            const std::string expr = exprs[nc]->GetExpression();
             if ((nc >= this->m_cmask.size() || this->m_cmask[nc]) &&
-                !IsDeviceExpression(exprs[nc]->GetExpression(), m_coordDim))
+                !IsDeviceExpression(this->GetExpressionVariables(expr),
+                                    this->GetExpressionFunctions(expr),
+                                    m_coordDim))
             {
                 return false;
             }
