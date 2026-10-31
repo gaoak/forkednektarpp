@@ -39,8 +39,18 @@ ADD_NEKTAR_EXECUTABLE(TestMaxStdVelocity
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestMaxStdVelocity.cpp)
 ADD_NEKTAR_EXECUTABLE(TestMeanRemoval
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestMeanRemoval.cpp)
+ADD_NEKTAR_EXECUTABLE(TestMean
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestMean.cpp)
+ADD_NEKTAR_EXECUTABLE(TestEnergy
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestEnergy.cpp)
+ADD_NEKTAR_EXECUTABLE(TestAeroForces
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestAeroForces.cpp)
+ADD_NEKTAR_EXECUTABLE(TestHistoryPoints
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestHistoryPoints.cpp)
 ADD_NEKTAR_EXECUTABLE(TestFieldFileIO
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestFieldFileIO.cpp)
+ADD_NEKTAR_EXECUTABLE(TestRootTableWriter
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestRootTableWriter.cpp)
 ADD_NEKTAR_EXECUTABLE(TestNullPrecon
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestNullPrecon.cpp)
 ADD_NEKTAR_EXECUTABLE(TestDiagPrecon
@@ -112,8 +122,14 @@ SET_SOLVERCORE_UNIT_TEST(IMEXGEMSerial TestIMEXGEM Serial)
 SET_SOLVERCORE_UNIT_TEST(NormSerial TestNorm Serial)
 SET_SOLVERCORE_UNIT_TEST(MaxStdVelocitySerial TestMaxStdVelocity Serial)
 SET_SOLVERCORE_UNIT_TEST(MeanRemovalSerial TestMeanRemoval Serial)
+SET_SOLVERCORE_UNIT_TEST(MeanSerial TestMean Serial)
+SET_SOLVERCORE_UNIT_TEST(EnergySerial TestEnergy Serial)
+SET_SOLVERCORE_UNIT_TEST(AeroForcesSerial TestAeroForces Serial)
+SET_SOLVERCORE_UNIT_TEST(HistoryPointsSerial TestHistoryPoints Serial)
 SET_SOLVERCORE_UNIT_TEST(FieldFileIOSerial TestFieldFileIO Serial)
 SET_SOLVERCORE_UNIT_TEST(MultiFieldSerial TestMultiField Serial)
+# The table writer does not depend on the execution space, so it is run once.
+SET_SOLVERCORE_UNIT_TEST(RootTableWriterSerial TestRootTableWriter Serial)
 SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_serial_stdmat TestNullPrecon Serial StdMat)
 SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_serial_sumfac TestNullPrecon Serial SumFac)
 SET_SOLVERCORE_UNIT_TEST_IMPL(DiagPrecon_serial_stdmat TestDiagPrecon Serial StdMat)
@@ -147,6 +163,10 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_SOLVERCORE_UNIT_TEST(NormAVX TestNorm AVX)
     SET_SOLVERCORE_UNIT_TEST(MaxStdVelocityAVX TestMaxStdVelocity AVX)
     SET_SOLVERCORE_UNIT_TEST(MeanRemovalAVX TestMeanRemoval AVX)
+    SET_SOLVERCORE_UNIT_TEST(MeanAVX TestMean AVX)
+    SET_SOLVERCORE_UNIT_TEST(EnergyAVX TestEnergy AVX)
+    SET_SOLVERCORE_UNIT_TEST(AeroForcesAVX TestAeroForces AVX)
+    SET_SOLVERCORE_UNIT_TEST(HistoryPointsAVX TestHistoryPoints AVX)
     SET_SOLVERCORE_UNIT_TEST(FieldFileIOAVX TestFieldFileIO AVX)
     SET_SOLVERCORE_UNIT_TEST(MultiFieldAVX TestMultiField AVX)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_avx_stdmat TestNullPrecon AVX StdMat)
@@ -178,6 +198,10 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_SOLVERCORE_UNIT_TEST(NormDevice TestNorm Device)
     SET_SOLVERCORE_UNIT_TEST(MaxStdVelocityDevice TestMaxStdVelocity Device)
     SET_SOLVERCORE_UNIT_TEST(MeanRemovalDevice TestMeanRemoval Device)
+    SET_SOLVERCORE_UNIT_TEST(MeanDevice TestMean Device)
+    SET_SOLVERCORE_UNIT_TEST(EnergyDevice TestEnergy Device)
+    SET_SOLVERCORE_UNIT_TEST(AeroForcesDevice TestAeroForces Device)
+    SET_SOLVERCORE_UNIT_TEST(HistoryPointsDevice TestHistoryPoints Device)
     SET_SOLVERCORE_UNIT_TEST(FieldFileIODevice TestFieldFileIO Device)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_device_stdmat TestNullPrecon Device StdMat)
     SET_SOLVERCORE_UNIT_TEST_IMPL(NullPrecon_device_sumfac TestNullPrecon Device SumFac)

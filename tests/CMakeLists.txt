@@ -14,6 +14,7 @@ SET(TESTER_SOURCES
   MetricPrecon.cpp
   MetricPyUnitTest.cpp
   MetricRegex.cpp
+  MetricWhitespaceTable.cpp
   MetricNoWarning.cpp
   TestData.cpp
   TestFile.cpp
@@ -33,6 +34,7 @@ SET(TESTER_HEADERS
   MetricPrecon.h
   MetricPyUnitTest.h
   MetricRegex.h
+  MetricWhitespaceTable.h
   MetricNoWarning.h
   TestData.h
   TestFile.h

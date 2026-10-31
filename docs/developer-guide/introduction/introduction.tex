@@ -170,6 +170,8 @@ factors such as BLAS implementation and the geometry of interest.
 
 \noindent{\textbf{SolverUtils:}} This library contains data structures and algorithms which form the basis of solvers, or provide auxiliary functionality.
 
+\noindent{\textbf{SolverCore:}} This library connects equation systems, time integration and solver-independent runtime services. It defines the common filter lifecycle, field registry and output services used by solver diagnostics and field-output filters.
+
 \noindent{\textbf{UnitTests:}} This part of the library contains unit tests that allow us to verify the correctness of the core functionality within {\nek}.  These are useful for verifying
 that new additions or modifications to the lower-levels of the code do not compromise existing functionality or correctness.
 
@@ -322,7 +324,6 @@ How you engage with this material is based upon your goals.  If your goal is to:
 \begin{itemize}
 \item Introduce a new solver, then you would want to jump to Part \ref{part:solvers} and see how other solvers have been built.  Then, depending on what library functions are needed, you may need to step back into the library parts of this manual to understand how to use some of our basic library functionality.
 \end{itemize} 
-
 
 
 

@@ -90,6 +90,34 @@ private:
     unsigned int m_interleave_width;
 };
 
+/// Quadrature metric of every quadrature point of a block: the quadrature
+/// weight times the Jacobian, as Expansion::MultiplyByQuadratureMetric
+/// applies it, laid out as a phys block at the given interleave width, with
+/// zero on the padded elements.
+template <typename TData>
+class QuadratureMetricKey : public LibUtilities::BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~QuadratureMetricKey() override = default;
+
+    QuadratureMetricKey(const unsigned int block_idx,
+                        const unsigned int interleave_width)
+        : m_block_idx(block_idx), m_interleave_width(interleave_width)
+    {
+        hash_combine(m_hash, m_block_idx, m_interleave_width,
+                     typeid(value_type).name(), "QuadratureMetricKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+    unsigned int m_interleave_width;
+};
+
 template <typename TData> class DerivFactorKey : public LibUtilities::BaseKey
 {
     friend class GeometricDataCreator;
@@ -362,6 +390,10 @@ public:
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(
         const JacobianKey<TData> &jacobianKey);
+
+    template <typename MemSpace, typename TData>
+    LibUtilities::MemoryRegion<TData> Create(
+        const QuadratureMetricKey<TData> &quadratureMetricKey);
 
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(

@@ -42,13 +42,15 @@
 #include <MultiRegions/ExpList.h>
 #include <SolverCore/Core/Misc.h>
 #include <SolverCore/Core/SessionFunction.h>
+#include <SolverCore/Filters/FilterContext.h>
 #include <SpatialDomains/Conditions.h>
 #include <iosfwd>
+#include <vector>
 
-#include "SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -202,6 +204,18 @@ protected:
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out,
         [[maybe_unused]] const double time);
+
+    /// Publish the fields of the system to the filters.
+    SOLVER_CORE_EXPORT virtual FieldRegistry v_GetFieldRegistry();
+
+    /// Bring the output coefficients up to date and return views of them.
+    SOLVER_CORE_EXPORT virtual CoefficientFieldViews v_GetOutputFieldViews();
+
+    /// Write coefficient fields, scaled by @p scale, to a field file.
+    SOLVER_CORE_EXPORT void WriteOutputFields(
+        const std::string &outname, const CoefficientFieldViews &fields,
+        const LibUtilities::FieldMetaDataMap &metadata,
+        const double scale = 1.0);
 
     SOLVER_CORE_EXPORT virtual void v_WriteFld(const std::string &outname);
 

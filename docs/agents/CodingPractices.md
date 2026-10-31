@@ -276,8 +276,7 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     reshaping the whole field: index it at its own width.
 41. **Look for an existing kernel before writing one.** Indexed copies
     (`CGBndCondGatherKernel`, `DirBndCondKernel`), interleaving
-    (`ReshapeStorage`) and the `Math` kernels already exist; a second copy
-    of one under a new name is review noise and a second place to fix.
+    (`ReshapeStorage`) and the `Math` kernels already exist.
 
 ## Strings
 
@@ -334,3 +333,11 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 55. **An implementation never creates another implementation of its own
     operator.** It handles every form itself, sharing kernels through a
     common header where two implementations need the same one.
+
+## Includes
+
+56. **Includes use angle brackets.** A Nektar++ header is included by its
+    path from the library or solver root, `#include
+    <sublibrary/subdirectory/header.h>`, never `#include "..."`, and a
+    header in the same directory is no exception
+    (`<UnitTests/LibUtilities/TestParallelReduce.hpp>`). No file mixes the two forms.

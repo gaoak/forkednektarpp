@@ -36,7 +36,7 @@
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <SolverCore/EquationSystems/EquationSystem.h>
+#include <SolverCore/Filters/FilterContext.h>
 #include <SolverCore/SolverCoreDeclspec.h>
 
 namespace Nektar::SolverCore
@@ -49,7 +49,6 @@ using FilterSharedPtr = std::shared_ptr<Filter>;
 using FilterFactory =
     LibUtilities::NekFactory<std::string, Filter,
                              const LibUtilities::SessionReaderSharedPtr &,
-                             const EquationSystemSharedPtr &,
                              const std::map<std::string, std::string> &>;
 
 SOLVER_CORE_EXPORT FilterFactory &GetFilterFactory();
@@ -59,50 +58,37 @@ class Filter
 public:
     using ParamMap = std::map<std::string, std::string>;
 
-    SOLVER_CORE_EXPORT Filter(
-        const LibUtilities::SessionReaderSharedPtr &session,
-        const EquationSystemSharedPtr &equation);
     SOLVER_CORE_EXPORT virtual ~Filter() = default;
 
-    void Initialise(const double time)
+    void Initialise(FilterContext &context)
     {
-        v_Initialise(time);
+        v_Initialise(context);
     }
 
-    void Apply(const double time)
+    void Apply(FilterContext &context)
     {
-        v_Apply(time);
+        v_Apply(context);
     }
 
-    void Finalise(const double time)
+    void Finalise(FilterContext &context)
     {
-        v_Finalise(time);
-    }
-
-    bool IsTimeDependent()
-    {
-        return v_IsTimeDependent();
-    }
-
-    void SetApplyOnInitialise(const bool flag)
-    {
-        m_applyOnInitialise = flag;
+        v_Finalise(context);
     }
 
 protected:
+    LibUtilities::SessionReaderSharedPtr m_session;
+
+    SOLVER_CORE_EXPORT explicit Filter(
+        const LibUtilities::SessionReaderSharedPtr &session);
+
     SOLVER_CORE_EXPORT std::string SetupOutput(const std::string &ext,
                                                const ParamMap &params);
     SOLVER_CORE_EXPORT std::string SetupOutput(const std::string &ext,
                                                const std::string &inname);
 
-    LibUtilities::SessionReaderSharedPtr m_session;
-    std::weak_ptr<EquationSystem> m_equ;
-    bool m_applyOnInitialise = true;
-
-    virtual void v_Initialise(const double time) = 0;
-    virtual void v_Apply(const double time)      = 0;
-    virtual void v_Finalise(const double time)   = 0;
-    virtual bool v_IsTimeDependent()             = 0;
+    virtual void v_Initialise(FilterContext &context) = 0;
+    virtual void v_Apply(FilterContext &context)      = 0;
+    virtual void v_Finalise(FilterContext &context)   = 0;
 };
 
 } // namespace Nektar::SolverCore

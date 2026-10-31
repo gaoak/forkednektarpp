@@ -35,6 +35,7 @@
 #pragma once
 
 #include <SolverCore/Filters/Filter.h>
+#include <SolverCore/Filters/FilterUtils.h>
 
 namespace Nektar::SolverCore
 {
@@ -42,35 +43,34 @@ namespace Nektar::SolverCore
 class FilterCheckpoint : public Filter
 {
 public:
+    friend class MemoryManager<FilterCheckpoint>;
+
     static FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &session,
-        const EquationSystemSharedPtr &equation, const ParamMap &params)
+        const ParamMap &params)
     {
-        return MemoryManager<FilterCheckpoint>::AllocateSharedPtr(
-            session, equation, params);
+        return MemoryManager<FilterCheckpoint>::AllocateSharedPtr(session,
+                                                                  params);
     }
 
     static std::string cmdSetStartFilterFileNum;
     static std::string className;
 
+protected:
     SOLVER_CORE_EXPORT FilterCheckpoint(
         const LibUtilities::SessionReaderSharedPtr &session,
-        const EquationSystemSharedPtr &equation, const ParamMap &params);
+        const ParamMap &params);
     SOLVER_CORE_EXPORT ~FilterCheckpoint() override = default;
 
-protected:
-    SOLVER_CORE_EXPORT void v_Initialise(const double time) override;
-    SOLVER_CORE_EXPORT void v_Apply(const double time) override;
-    SOLVER_CORE_EXPORT void v_Finalise(const double time) override;
-    SOLVER_CORE_EXPORT bool v_IsTimeDependent() override;
+    SOLVER_CORE_EXPORT void v_Initialise(FilterContext &context) override;
+    SOLVER_CORE_EXPORT void v_Apply(FilterContext &context) override;
+    SOLVER_CORE_EXPORT void v_Finalise(FilterContext &context) override;
 
 private:
-    unsigned int m_index           = 0;
-    unsigned int m_outputIndex     = 0;
     unsigned int m_outputFrequency = 0;
     std::string m_outputFile;
-    // Time after which checkpoint files should be written.
-    double m_outputStartTime = 0.0;
+    StepSchedule m_schedule;
+    std::unique_ptr<OutputSeries> m_series;
 };
 
 } // namespace Nektar::SolverCore

@@ -245,7 +245,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 // Parallel reduction of nred values without device-to-host copy:
 // functor(i, vals) writes those of index i to vals[0, nred), which Reduction
 // combines into out[0, nred), together with the values already there unless
-// init. At most 4 values, the partial results the reduction scratch holds.
+// init. At most internalReductionMaxValues values, the partial results the
+// reduction scratch holds.
 template <
     typename ExecSpace, bool init, typename Reduction, unsigned int nred,
     typename Functor,
@@ -257,7 +258,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
 {
     using TData = typename Reduction::value_type;
 
-    static_assert(nred <= 4, "parallel_reduce: at most 4 values.");
+    static_assert(nred <= internalReductionMaxValues,
+                  "parallel_reduce: too many values.");
 
     const unsigned int streamID  = internalLoopExecutionStreamID;
     const unsigned int blockSize = NektarSpaces::Device::reductionBlockSize();
