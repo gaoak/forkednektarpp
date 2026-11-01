@@ -100,6 +100,7 @@
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
 #include <MultiRegions/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceBlockOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceBlockOpSerialAVXSumFacKernels.hpp>
+#include <MultiRegions/ElmtOps/TraceTables.hpp>
 
 // Selects the switch construction used by the generated ShapeBlock
 // definitions (see LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in).
@@ -181,7 +182,9 @@ public:
      * SIMD-vector form.
      *
      * @details
-     * The first loop walks the normal directions. For direction @em dir
+     * The tables come from FetchTraceTables(), shared with the
+     * lift-and-project operator, which walks two loops. The first walks the
+     * normal directions. For direction @em dir
      * it records GetNumPoints in #m_nm and fetches the eInterp table
      * taking that direction's volume rule to the positions of its
      * traces: the two Gauss-Lobatto points \f$\xi = \pm 1\f$ where the
@@ -237,76 +240,16 @@ public:
             exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
         m_dimension = exp->GetShapeDimension();
 
-        // set up end points interplation expansion in normal direction
-        for (unsigned int dir = 0; dir < m_dimension; ++dir)
-        {
-            auto bkey = exp->GetBasis(dir)->GetBasisKey();
-            m_nm.push_back(exp->GetNumPoints(dir));
-
-            // set up end point interpolation depending on number of faces
-            unsigned int ntrace =
-                LibUtilities::ShapeTypeNumTraceInDir[m_shapeType][dir];
-
-            // used GLwithM nodes to get z=-1 as zero if ntrace = 1 otherwise
-            // GLL
-            LibUtilities::PointsType endPtsType =
-                (ntrace == 1) ? LibUtilities::eGaussLegendreWithM
-                              : LibUtilities::eGaussLobattoLegendre;
-
-            // Fetch basis data.
-            m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<simd_t>(bkey, LibUtilities::eInterp,
-                                                   ntrace, endPtsType)));
-
-            if (LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()])
-            {
-                m_endPtsCollocated.push_back(true);
-                ASSERTL1(
-                    LibUtilities::PointsTypeNumEndPts[bkey.GetPointsType()] ==
-                        ntrace,
-                    "Trace and number of end points in PointsType differ");
-            }
-            else
-            {
-                m_endPtsCollocated.push_back(false);
-            }
-        }
-
-        // set trace interpolation bases
-        auto expPtsKeys = exp->GetPointsKeys();
-        for (unsigned int dim = 0; dim < m_dimension; ++dim)
-        {
-            auto tr = m_dimension - 1 - dim;
-            // trace directions
-            for (unsigned int d = 0; d < m_dimension - 1; ++d)
-            {
-                auto dir      = exp->GetGeom()->GetDir(tr, d);
-                auto trBKey   = exp->GetTraceBasisKey(tr, d);
-                auto trPtsKey = trBKey.GetPointsKey();
-                auto nq       = trPtsKey.GetNumPoints();
-
-                if (expPtsKeys[dir] == trPtsKey)
-                {
-                    this->m_isCollocated.push_back(true);
-                }
-                else
-                {
-                    this->m_isCollocated.push_back(false);
-                }
-                m_nq.push_back(nq);
-
-                // Fetch basis data.
-                m_B.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                    LibUtilities::BasisDataKey<simd_t>(
-                        exp->GetBasis(dir)->GetBasisKey(),
-                        LibUtilities::eInterp, nq, trPtsKey.GetPointsType())));
-
-                // Fetch associated Weights
-                m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                    LibUtilities::BasisDataKey<simd_t>(
-                        trBKey, LibUtilities::eWeights)));
-            }
-        }
+        // The interpolation tables, trace weights and collocation flags,
+        // in the order the kernels index them.
+        auto tables =
+            FetchTraceTables<simd_t, MemSpace>(exp, this->m_dataWarehouse);
+        m_nm                 = std::move(tables.nm);
+        m_B                  = std::move(tables.B);
+        m_W                  = std::move(tables.W);
+        m_nq                 = std::move(tables.nq);
+        m_endPtsCollocated   = std::move(tables.endPtsCollocated);
+        this->m_isCollocated = std::move(tables.isCollocated);
 
         // Workspaces, sized for the largest intermediate any shape of
         // this dimension can need. A segment's traces are points and

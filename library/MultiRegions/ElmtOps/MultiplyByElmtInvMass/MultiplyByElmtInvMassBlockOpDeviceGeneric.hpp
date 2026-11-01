@@ -42,7 +42,8 @@
  * batched over the components against the shared standard-region inverse and
  * followed by one device launch dividing by the element Jacobians for a
  * regular block, batched over the elements against their own inverse mass
- * matrices for a deformed one.
+ * matrices for a deformed one. Every regular block goes through the dense
+ * batched product, whether or not its standard inverse mass is diagonal.
  *
  * This header provides the definition of
  * detail::MultiplyByElmtInvMassBlockOpImpl for the Device execution space;

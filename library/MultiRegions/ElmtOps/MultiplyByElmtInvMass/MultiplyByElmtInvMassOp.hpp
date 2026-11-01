@@ -48,14 +48,11 @@
  * the output of IProductWRTBaseOp it gives the element-local
  * (discontinuous Galerkin) forward transform, which is how
  * SolverCore::EquationSystem::ProjectPhysToCoeffs uses it. The weak-DG
- * advection and diffusion operators
- * (SolverCore::detail::AdvectionWeakDGOpImpl,
- * SolverCore::detail::DiffusionIPOpImpl and
- * SolverCore::detail::AdvWeakDGDiffusionIPOpImpl) apply it to their
- * assembled residual -- the volume inner product with respect to the
- * derivative of the basis plus the trace integral, and for interior-penalty
- * diffusion the symmetric penalty term -- to invert the element mass matrix
- * of the semi-discrete system.
+ * advection and diffusion operators invert the element mass matrix of the
+ * semi-discrete system through PhysLiftProjectOp instead, which applies the
+ * same inverse mass (or, where B is square, its pointwise equivalent) to
+ * their assembled residual together with the trace lift and the backward
+ * transform.
  *
  * Unlike the transform-type families there is no StdMat/SumFac split: a
  * single implementation is registered per execution space under the
@@ -167,36 +164,13 @@ public:
             expansionList, components, execStr, implStr);
 
         // Loop over the blocks.
-        auto blockAttr =
+        const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                 expansionList);
-
         for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
         {
-            std::vector<TData> dmat;
-            const auto coll =
-                MultiRegions::GetCollection(expansionList, blk).GetExpVector();
-            const auto exp   = coll[0];
-            const auto nmTot = exp->GetNcoeffs();
-            const auto deformed =
-                exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
-            const auto nelmt    = blockAttr[blk].GetNumElements();
-            const auto nelmtPad = blockAttr[blk].GetNumElementsWithPadding();
-
-            if (deformed)
-            {
-                dmat.resize(nelmtPad * nmTot * nmTot);
-                auto dmatptr = dmat.data();
-                for (size_t e = 0; e < nelmt; ++e)
-                {
-                    const auto exp = coll[e];
-                    const auto &InvMass =
-                        exp->GetLocMatrix(StdRegions::eInvMass);
-                    std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);
-                    dmatptr += nmTot * nmTot;
-                }
-            }
-
+            std::vector<TData> dmat =
+                ElmtInvMassMatrices(expansionList, blk, blockAttr[blk]);
             op->m_blockOp[blk]->SetInvMassMatrix(dmat);
         }
 
@@ -206,6 +180,42 @@ public:
     /// Operator base name; Create() appends the execution space to it to
     /// form the operator-factory key.
     static inline const std::string name = "MultiplyByElmtInvMass";
+
+    /**
+     * @brief The per-element inverse mass matrices of block @p blk of
+     * @p expansionList where its geometry is deformed: element after element,
+     * each nmTot x nmTot and column-major, the padding elements zero. Empty for
+     * a regular block, whose elements share the standard inverse mass.
+     * Create() hands them to the block operators, and PhysLiftProjectOp's
+     * Create() to the MultiplyByElmtInvMass of its deformed blocks; each
+     * computes the block attributes of the list once and passes block
+     * @p blk's as @p blockAttr.
+     */
+    static std::vector<TData> ElmtInvMassMatrices(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const unsigned int blk,
+        const LibUtilities::BlockAttributes<FieldState::Coeff> &blockAttr)
+    {
+        std::vector<TData> dmat;
+        const auto coll =
+            MultiRegions::GetCollection(expansionList, blk).GetExpVector();
+        if (coll[0]->GetGeomFactors()->GetGtype() != SpatialDomains::eDeformed)
+        {
+            return dmat;
+        }
+        const auto nmTot    = coll[0]->GetNcoeffs();
+        const auto nelmt    = blockAttr.GetNumElements();
+        const auto nelmtPad = blockAttr.GetNumElementsWithPadding();
+        dmat.resize(nelmtPad * nmTot * nmTot);
+        auto dmatptr = dmat.data();
+        for (size_t e = 0; e < nelmt; ++e)
+        {
+            const auto &InvMass = coll[e]->GetLocMatrix(StdRegions::eInvMass);
+            std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);
+            dmatptr += nmTot * nmTot;
+        }
+        return dmat;
+    }
 
 protected:
     /// One block operator per element block, filled by Create().
