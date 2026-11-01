@@ -33,7 +33,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/Foundations/ManagerAccess.h> // for BasisManager, etc
+#include <LibUtilities/Foundations/PointsType.h>
 #include <StdRegions/StdExpansion.h>
 
 namespace Nektar::StdRegions
@@ -1386,6 +1388,98 @@ bool StdExpansion::v_IsBoundaryInteriorExpansion() const
 bool StdExpansion::v_IsNodalNonTensorialExp()
 {
     return false;
+}
+
+namespace
+{
+/**
+ * @brief The orthogonal basis of direction @p dir of @p shape, as
+ * SpatialDomains::MeshGraph::DefineBasisKeyFromExpansionType gives the
+ * orthogonal expansion: Ortho_A in an uncollapsed direction, Ortho_B in a
+ * direction collapsed once, and in the twice-collapsed direction Ortho_C,
+ * or OrthoPyr_C for the pyramid.
+ */
+constexpr LibUtilities::BasisType OrthogonalBasisType(
+    const LibUtilities::ShapeType shape, const unsigned int dir)
+{
+    switch (LibUtilities::ShapeTypeCollapseExponent(shape, dir))
+    {
+        case 0:
+            return LibUtilities::eOrtho_A;
+        case 1:
+            return LibUtilities::eOrtho_B;
+        default:
+            if (shape == LibUtilities::ePyramid)
+            {
+                return LibUtilities::eOrthoPyr_C;
+            }
+            return LibUtilities::eOrtho_C;
+    }
+}
+} // namespace
+
+/**
+ * @brief Whether the standard inverse mass matrix of the expansion is diagonal,
+ * so that on an affine element the inverse mass is its diagonal over the
+ * Jacobian: nmTot multiplies per element in place of the nmTot x nmTot
+ * product.
+ *
+ * It is diagonal when the basis is collocated with its quadrature, or is
+ * the shape's orthogonal one (OrthogonalBasisType()) and each direction's rule
+ * integrates the product of two different modes exactly. In direction @c d the
+ * modes have degree at most \f$D_d\f$, so two of them multiply to degree \f$2
+ * D_d - 1\f$ at most where they differ, plus the collapse exponent; the rule's
+ * Jacobi weight absorbs alpha of those factors. \f$D_d = P\f$ in every
+ * direction of every shape, the orthogonal pyramid included: its
+ * collapsed-direction modes carry \f$((1 - z)/2)^{\max(p, q)}\f$ with \f$r \le
+ * P - \max(p, q)\f$. Nodal non-tensorial expansions, points types other than
+ * Legendre and Jacobi(alpha, 0), and variable order across directions take the
+ * dense path.
+ */
+bool StdExpansion::StdInvMassIsDiagonal()
+{
+    if (IsNodalNonTensorialExp())
+    {
+        return false;
+    }
+    const int dim = GetShapeDimension();
+    // A collocated Lagrange basis is the identity at the quadrature
+    // points, so its mass matrix is diag(w) whatever the rule's
+    // exactness.
+    bool collocated = true;
+    for (int dir = 0; dir < dim; ++dir)
+    {
+        collocated = collocated && GetBasis(dir)->Collocation();
+    }
+    if (collocated)
+    {
+        return true;
+    }
+    const auto shape = DetShapeType();
+    const int P      = EvalBasisNumModesMax() - 1;
+    for (int dir = 0; dir < dim; ++dir)
+    {
+        const auto &key = GetBasis(dir)->GetBasisKey();
+        const int collapse =
+            LibUtilities::ShapeTypeCollapseExponent(shape, dir);
+        const int alpha =
+            LibUtilities::PointsTypeJacobiAlpha(key.GetPointsType());
+        const int degree = 2 * P - 1 + collapse;
+        if (key.GetNumModes() != P + 1 ||
+            key.GetBasisType() != OrthogonalBasisType(shape, dir) ||
+            alpha < 0 || alpha > collapse ||
+            LibUtilities::PointsKey::GetDegreeOfExactness(
+                key.GetPointsType(), key.GetNumPoints()) < degree - alpha)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool StdExpansion::v_InvMassIsDiagonal()
+{
+    return StdInvMassIsDiagonal();
 }
 
 void StdExpansion::v_IProductWRTDerivBase(

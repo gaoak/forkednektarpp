@@ -37,6 +37,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 # PhysTraceExtract                Nodepend - Seg, Quad, etc
 # IProductWRTPhysTrace            Nodepend - Seg, Quad, etc
 # IProductWRTPhysNormalDerivTrace Nodepend - Seg, Quad, etc
+# PhysLiftProject                 Nodepend - Seg, Quad, etc
 # Expression                      Nodepend - Helmholtz1D_Seg, etc.
 
 # Dirichlet                       only output - Nodepend - Helmholtz1D_Seg, etc.
@@ -106,6 +107,8 @@ ADD_NEKTAR_EXECUTABLE(TestIProductWRTPhysTrace
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestIProductWRTPhysTrace.cpp)
 ADD_NEKTAR_EXECUTABLE(TestIProductWRTPhysNormalDerivTrace
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestIProductWRTPhysNormalDerivTrace.cpp)
+ADD_NEKTAR_EXECUTABLE(TestPhysLiftProject
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestPhysLiftProject.cpp)
 ADD_NEKTAR_EXECUTABLE(TestPhysTraceExtract
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES TestPhysTraceExtract.cpp)
 ADD_NEKTAR_EXECUTABLE(TestPhysTraceExtractBndCond
@@ -134,6 +137,7 @@ SET_UNIT_TEST(Expression_serial_generic TestExpression Serial Generic FALSE)
 
 # Serial StdMat
 SET_UNIT_TEST(IProductWRTPhysTrace_serial_stdmat TestIProductWRTPhysTrace Serial StdMat FALSE)
+SET_UNIT_TEST(PhysLiftProject_serial_stdmat TestPhysLiftProject Serial StdMat FALSE)
 SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_serial_stdmat TestIProductWRTPhysNormalDerivTrace Serial StdMat FALSE)
 SET_UNIT_TEST(PhysTraceExtract_serial_stdmat TestPhysTraceExtract Serial StdMat FALSE)
 SET_UNIT_TEST(BwdTrans_serial_stdmat TestBwdTrans Serial StdMat FALSE)
@@ -153,6 +157,7 @@ SET_UNIT_TEST(AdvectionDealias_serial_stdmat TestAdvectionDealias Serial StdMat 
 
 # Serial SumFac
 SET_UNIT_TEST(IProductWRTPhysTrace_serial_sumfac TestIProductWRTPhysTrace Serial SumFac FALSE)
+SET_UNIT_TEST(PhysLiftProject_serial_sumfac TestPhysLiftProject Serial SumFac FALSE)
 SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_serial_sumfac TestIProductWRTPhysNormalDerivTrace Serial SumFac FALSE)
 SET_UNIT_TEST(PhysTraceExtract_serial_sumfac TestPhysTraceExtract Serial SumFac FALSE)
 SET_UNIT_TEST(PhysTraceExtractBndCond_serial_sumfac TestPhysTraceExtractBndCond Serial SumFac FALSE)
@@ -187,13 +192,14 @@ ENDIF()
 # AVX generic
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(MultiplyByElmtInvMass_avx_generic TestMultiplyByElmtInvMass AVX Generic FALSE)
-    SET_UNIT_TEST(FwdTransBC_avx_generic TestFwdTransBC AVX Generic FALSE)
+        SET_UNIT_TEST(FwdTransBC_avx_generic TestFwdTransBC AVX Generic FALSE)
     SET_UNIT_TEST(Expression_avx_generic TestExpression AVX Generic FALSE)
 ENDIF()
 
 # AVX StdMat
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(IProductWRTPhysTrace_avx_stdmat TestIProductWRTPhysTrace AVX StdMat FALSE)
+    SET_UNIT_TEST(PhysLiftProject_avx_stdmat TestPhysLiftProject AVX StdMat FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_avx_stdmat TestIProductWRTPhysNormalDerivTrace AVX StdMat FALSE)
     SET_UNIT_TEST(PhysTraceExtract_avx_stdmat TestPhysTraceExtract AVX StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_avx_stdmat TestBwdTrans AVX StdMat FALSE)
@@ -215,6 +221,7 @@ ENDIF()
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD)
     SET_UNIT_TEST(IProductWRTPhysTrace_avx_sumfac TestIProductWRTPhysTrace AVX SumFac FALSE)
+    SET_UNIT_TEST(PhysLiftProject_avx_sumfac TestPhysLiftProject AVX SumFac FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_avx_sumfac TestIProductWRTPhysNormalDerivTrace AVX SumFac FALSE)
     SET_UNIT_TEST(PhysTraceExtract_avx_sumfac TestPhysTraceExtract AVX SumFac FALSE)
     SET_UNIT_TEST(PhysTraceExtractBndCond_avx_sumfac TestPhysTraceExtractBndCond AVX SumFac FALSE)
@@ -256,13 +263,14 @@ ENDIF()
 # Device generic
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_device_generic TestMultiplyByElmtInvMass Device Generic FALSE)
-    SET_UNIT_TEST(FwdTransBC_device_generic TestFwdTransBC Device Generic FALSE)
+        SET_UNIT_TEST(FwdTransBC_device_generic TestFwdTransBC Device Generic FALSE)
     SET_UNIT_TEST(Expression_device_generic TestExpression Device Generic FALSE)
 ENDIF()
 
 # Device StdMat
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(IProductWRTPhysTrace_device_stdmat TestIProductWRTPhysTrace Device StdMat FALSE)
+    SET_UNIT_TEST(PhysLiftProject_device_stdmat TestPhysLiftProject Device StdMat FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_device_stdmat TestIProductWRTPhysNormalDerivTrace Device StdMat FALSE)
     SET_UNIT_TEST(PhysTraceExtract_device_stdmat TestPhysTraceExtract Device StdMat FALSE)
     SET_UNIT_TEST(BwdTrans_device_stdmat TestBwdTrans Device StdMat FALSE)
@@ -284,6 +292,7 @@ ENDIF()
 # Device SumFac
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(IProductWRTPhysTrace_device_sumfac TestIProductWRTPhysTrace Device SumFac FALSE)
+    SET_UNIT_TEST(PhysLiftProject_device_sumfac TestPhysLiftProject Device SumFac FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_device_sumfac TestIProductWRTPhysNormalDerivTrace Device SumFac FALSE)
     SET_UNIT_TEST(PhysTraceExtract_device_sumfac TestPhysTraceExtract Device SumFac FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfac TestBwdTrans Device SumFac FALSE)
@@ -305,6 +314,7 @@ ENDIF()
 # Device SumFacTOP
 IF(NEKTAR_ENABLE_DEVICE)
     SET_UNIT_TEST(IProductWRTPhysTrace_device_sumfactop TestIProductWRTPhysTrace Device SumFacTOP FALSE)
+    SET_UNIT_TEST(PhysLiftProject_device_sumfactop TestPhysLiftProject Device SumFacTOP FALSE)
     SET_UNIT_TEST(IProductWRTPhysNormalDerivTrace_device_sumfactop TestIProductWRTPhysNormalDerivTrace Device SumFacTOP FALSE)
     SET_UNIT_TEST(PhysTraceExtract_device_sumfactop TestPhysTraceExtract Device SumFacTOP FALSE)
     SET_UNIT_TEST(BwdTrans_device_sumfactop TestBwdTrans Device SumFacTOP FALSE)

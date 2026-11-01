@@ -195,10 +195,12 @@ class ElmtBlockOp : public BlockOperator<TData>
 public:
     /// @brief Accessor type of this operator's input block.
     ///
-    /// Derived classes and the generated ShapeBlock definitions use
-    /// #InBlock and #OutBlock rather than restating the field states, so
-    /// each operator states them in exactly one place: its ElmtBlockOp
-    /// base clause in the family's BlockOp header.
+    /// #InBlock and #OutBlock are for the ShapeBlock declarations and
+    /// their generated definitions only. The shared ShapeBlock template
+    /// that generates the switch cannot restate each operator's field
+    /// states, so it takes them from these aliases, set once in the
+    /// operator's ElmtBlockOp base clause. Other code should name the
+    /// BlockAccessor type directly.
     using InBlock = LibUtilities::BlockAccessor<TData, TFieldIn>;
     /// Accessor type of this operator's output block; see #InBlock.
     using OutBlock = LibUtilities::BlockAccessor<TData, TFieldOut>;

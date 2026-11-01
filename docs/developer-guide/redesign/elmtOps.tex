@@ -42,6 +42,10 @@ Forward transform BC & \texttt{FwdTransBC} & Evaluates Dirichlet forcing on boun
 Interpolate $u$ onto the trace & \texttt{PhysTraceExtract} & $u(\boldsymbol\xi^{tr}) = \sum_{\boldsymbol p} u_{\boldsymbol p} h_{\boldsymbol p}(\boldsymbol\xi^{tr})$, see section \ref{sec:phystraceextract} \\
 quadrature points of every element & & \\
       \hline
+Lift the trace values $g$ onto the & \texttt{PhysLiftProject} & $u = s\, B M^{-1} B^{\top} (f + L g)$, with $f$ physical-space inner \\
+physical-space inner products $f$ and & & products and $L$ the trace lift of \texttt{IProductWRTPhysTrace}; \\
+project onto the expansion & & pointwise $s\,(f + L g)/(wJ)$ where $B$ is square \\
+      \hline
     \end{tabular}
     }
     \end{center}

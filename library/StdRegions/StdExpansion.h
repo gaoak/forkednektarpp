@@ -448,6 +448,16 @@ public:
         return v_IsNodalNonTensorialExp();
     }
 
+    /// Whether the standard inverse mass matrix is diagonal.
+    STD_REGIONS_EXPORT bool StdInvMassIsDiagonal();
+
+    /// Whether the inverse mass matrix is diagonal: the standard one here,
+    /// and on a local expansion the standard one over the Jacobian.
+    bool InvMassIsDiagonal()
+    {
+        return v_InvMassIsDiagonal();
+    }
+
     void NodalToModal(const Array<OneD, const NekDouble> &inarray,
                       Array<OneD, NekDouble> &outarray)
     {
@@ -1620,6 +1630,8 @@ protected:
     STD_REGIONS_EXPORT virtual bool v_IsBoundaryInteriorExpansion() const;
 
     STD_REGIONS_EXPORT virtual bool v_IsNodalNonTensorialExp();
+
+    STD_REGIONS_EXPORT virtual bool v_InvMassIsDiagonal();
 
     STD_REGIONS_EXPORT virtual void v_NodalToModal(
         [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,

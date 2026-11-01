@@ -55,6 +55,45 @@ typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *BlockAccess
     return m_memory_region.template GetPtr<MemSpace, MemAccess>(streamID);
 }
 
+template <typename TData, FieldState TState>
+template <typename MemSpace>
+void BlockAccessor<TData, TState>::Copy(BlockAccessor &rhs,
+                                        const unsigned int streamID)
+{
+    // Allocate the storage of the Field each block belongs to, if any, so
+    // that the block is not given storage of its own.
+    if (m_field)
+    {
+        Field<TData, TState>::template AllocateFieldStorage<MemSpace>(m_field);
+    }
+    if (rhs.m_field)
+    {
+        Field<TData, TState>::template AllocateFieldStorage<MemSpace>(
+            rhs.m_field);
+    }
+    m_memory_region.template Copy<MemSpace>(rhs.m_memory_region, streamID);
+    this->template SetInterleaveWidth<TData>(rhs.GetInterleaveWidth());
+}
+
+template void BlockAccessor<float, FieldState::Phys>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Coeff>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Phys>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Coeff>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template void BlockAccessor<float, FieldState::Phys>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Coeff>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Phys>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Coeff>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+#endif
+
 template const uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
     NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
 template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<

@@ -34,15 +34,10 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "SolverCore/Diffusion/DiffusionIP/DiffusionIPOp.hpp"
-#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
-
-#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
-#include <MultiRegions/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp>
+#include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 namespace Nektar::SolverCore::detail
@@ -57,16 +52,6 @@ public:
     DiffusionIPOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                       const std::vector<std::string> &components)
         : DiffusionIPOp<TData>(std::move(expansionList), components),
-          m_coeff(LibUtilities::Field<TData, FieldState::Coeff>(
-              "Diffusion coeff",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components.size(), 1)),
-          m_coefftmp(LibUtilities::Field<TData, FieldState::Coeff>(
-              "Diffusion tmp",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components.size(), 1)),
           m_deriv(LibUtilities::Field<TData, FieldState::Phys>(
               "Diffusion deriv",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
@@ -102,12 +87,6 @@ public:
 
         m_physDerivOp = MultiRegions::PhysDerivOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_bwdTransOp = MultiRegions::BwdTransOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
-
-        m_multiplyByElmtInvMassOp =
-            MultiRegions::MultiplyByElmtInvMassOp<TData>::Create(
-                expansionList, components, ExecSpace::name);
 
         // Core operator building blocks used by the DG/IP diffusion path.
         m_physTraceExtractOp = MultiRegions::PhysTraceExtractOp<TData>::Create(
@@ -118,14 +97,8 @@ public:
                                              ExecSpace::name);
         m_iProductWRTDerivPhysOpNegOut->SetScale(-1.0);
 
-        m_iProductWRTPhysTraceOpAppend =
-            MultiRegions::IProductWRTPhysTraceOp<TData>::Create(
-                expansionList, components, ExecSpace::name);
-        m_iProductWRTPhysTraceOpAppend->SetAppend(true);
-
-        m_BTransposeOp = MultiRegions::IProductWRTBaseOp<TData>::Create(
+        m_liftProjectOp = MultiRegions::PhysLiftProjectOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_BTransposeOp->SetIntegration(false);
 
         m_numflux.template Initialize<MemSpace>(TData(0.0));
     }
@@ -142,45 +115,41 @@ public:
     }
 
 protected:
-    LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_coefftmp;
     LibUtilities::Field<TData, FieldState::Phys> m_deriv, m_fluxvector,
         m_numflux, m_trace, m_traceDeriv, m_phystmp;
 
     std::shared_ptr<MultiRegions::PhysTraceExtractOp<TData>>
         m_physTraceExtractOp;
-    std::shared_ptr<MultiRegions::IProductWRTPhysTraceOp<TData>>
-        m_iProductWRTPhysTraceOpAppend;
     std::shared_ptr<
         MultiRegions::IProductWRTDerivBaseOp<FieldState::Phys, TData>>
         m_iProductWRTDerivPhysOpNegOut;
-    std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>> m_BTransposeOp;
     std::shared_ptr<MultiRegions::PhysDerivOp<TData>> m_physDerivOp;
-    std::shared_ptr<MultiRegions::BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<TData>>
-        m_multiplyByElmtInvMassOp;
+    /// The numerical flux lifted onto the volume inner products and the sum
+    /// projected: `out (+)= scale * B M^{-1} B^T (phystmp + L numflux)`.
+    std::shared_ptr<MultiRegions::PhysLiftProjectOp<TData>> m_liftProjectOp;
+    /// The caller's append setting, applied by the projection.
+    bool m_append = false;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
-        // High-level operator flow:
-        // build the weak DG diffusion action in coefficient space, then map
-        // that coefficient result back to physical space for the caller.
-        DiffuseCoeffs(in, m_coeff);
-
-        // The internal operator assembly lives in coefficient space, while the
-        // public DiffusionOp interface returns a physical-space field. Append
-        // is applied only at this final output stage so all internal workspaces
-        // remain overwrite-style temporaries.
-        m_bwdTransOp->Apply(m_coeff, out);
+        // High-level operator flow: the volume and trace terms as
+        // physical-space inner products, then their projection onto the
+        // polynomial space, in physical space for the caller. Append is
+        // applied only by the projection, so all internal workspaces remain
+        // overwrite-style temporaries.
+        DiffuseInnerProducts(in);
+        LiftAndProject(out);
     }
 
     void v_SetAppend(const bool &append) override
     {
-        m_bwdTransOp->SetAppend(append);
+        m_append = append;
     }
 
-    void DiffuseCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
-                       LibUtilities::Field<TData, FieldState::Coeff> &out)
+    /// The volume inner products in #m_phystmp and the numerical flux on
+    /// the element-local traces in #m_numflux.
+    void DiffuseInnerProducts(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         ASSERTL1(this->m_volumeFluxOp,
                  "DiffusionIPOp requires a volume flux op.");
@@ -225,16 +194,17 @@ protected:
         // is evaluated, and not before that.
         this->m_traceFluxOp->EndParallelExchange();
         this->m_traceFluxOp->ApplyParallel(m_trace, m_traceDeriv, m_numflux);
+    }
 
-        // Step 6: Integral of numflux, B^T and Multiply by Inv Mass - could be
-        // fused: zero<ExecSpace>(m_phystmp);
-        m_iProductWRTPhysTraceOpAppend->Apply(m_numflux, m_phystmp);
-        m_BTransposeOp->Apply(m_phystmp, m_coefftmp);
-        m_multiplyByElmtInvMassOp->Apply(m_coefftmp, out);
-        if (this->m_scale != 1.0)
-        {
-            Math::mul<ExecSpace>(this->m_scale, out, out);
-        }
+    /// Step 6: the numerical flux lifted onto the volume inner products and
+    /// the sum projected, `out (+)= scale * B M^{-1} B^T (phystmp + L
+    /// numflux)`. The scale and append settings are set here, where they
+    /// are used, since the caller may change them between applications.
+    void LiftAndProject(LibUtilities::Field<TData, FieldState::Phys> &out)
+    {
+        m_liftProjectOp->SetScale(this->m_scale);
+        m_liftProjectOp->SetAppend(m_append);
+        m_liftProjectOp->Apply(m_phystmp, m_numflux, out);
     }
 };
 

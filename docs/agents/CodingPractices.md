@@ -47,6 +47,9 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
 
 8. **Virtual hooks are protected or private accessors** returning the object;
    public access, when needed, is a non-virtual method on the base class.
+   Every virtual member function is named with the `v_` prefix and the name
+   of the public method that forwards to it (`v_ApplyLift()` behind
+   `ApplyLift()`), the convention of the developer guide (`prelims.tex`).
    "Not available" is the returned object's own uninstantiated state, tested
    with `explicit operator bool()` (`if (field)`), not a bool with output
    parameters or a named query such as `IsInstantiated()`. A hook whose
@@ -341,3 +344,9 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     <sublibrary/subdirectory/header.h>`, never `#include "..."`, and a
     header in the same directory is no exception
     (`<UnitTests/LibUtilities/TestParallelReduce.hpp>`). No file mixes the two forms.
+
+## Interleave widths
+
+57. **An interleave width is named `interleaveWidth`**, prefixed with the
+    block it belongs to (`inInterleaveWidth`, `traceInterleaveWidth`,
+    `outInterleaveWidth`), never `width`, which means the SIMD vector width.
