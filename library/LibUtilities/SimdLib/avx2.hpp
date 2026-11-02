@@ -1191,12 +1191,36 @@ inline avx2Mask4 operator>(avx2Double4 lhs, avx2Double4 rhs)
         _mm256_cmp_pd(lhs._data, rhs._data, _CMP_GT_OQ));
 }
 
+inline avx2Mask4 operator>=(avx2Double4 lhs, avx2Double4 rhs)
+{
+    return reinterpret_cast<__m256i>(
+        _mm256_cmp_pd(lhs._data, rhs._data, _CMP_GE_OQ));
+}
+
+inline avx2Mask4 operator<(avx2Double4 lhs, avx2Double4 rhs)
+{
+    return reinterpret_cast<__m256i>(
+        _mm256_cmp_pd(lhs._data, rhs._data, _CMP_LT_OQ));
+}
+
+inline avx2Mask4 operator<=(avx2Double4 lhs, avx2Double4 rhs)
+{
+    return reinterpret_cast<__m256i>(
+        _mm256_cmp_pd(lhs._data, rhs._data, _CMP_LE_OQ));
+}
+
 inline bool operator&&(avx2Mask4 lhs, bool rhs)
 {
     bool tmp =
         _mm256_testc_si256(lhs._data, _mm256_set1_epi64x(avx2Mask4::true_v));
 
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline avx2Double4 select(avx2Mask4 m, avx2Double4 a, avx2Double4 b)
+{
+    return _mm256_blendv_pd(b._data, a._data, _mm256_castsi256_pd(m._data));
 }
 
 struct avx2Mask8 : avx2Int8<std::uint32_t>
@@ -1213,6 +1237,24 @@ inline avx2Mask8 operator>(avx2Float8 lhs, avx2Float8 rhs)
     return reinterpret_cast<__m256i>(_mm256_cmp_ps(rhs._data, lhs._data, 1));
 }
 
+inline avx2Mask8 operator>=(avx2Float8 lhs, avx2Float8 rhs)
+{
+    return reinterpret_cast<__m256i>(
+        _mm256_cmp_ps(lhs._data, rhs._data, _CMP_GE_OQ));
+}
+
+inline avx2Mask8 operator<(avx2Float8 lhs, avx2Float8 rhs)
+{
+    return reinterpret_cast<__m256i>(
+        _mm256_cmp_ps(lhs._data, rhs._data, _CMP_LT_OQ));
+}
+
+inline avx2Mask8 operator<=(avx2Float8 lhs, avx2Float8 rhs)
+{
+    return reinterpret_cast<__m256i>(
+        _mm256_cmp_ps(lhs._data, rhs._data, _CMP_LE_OQ));
+}
+
 inline bool operator&&(avx2Mask8 lhs, bool rhs)
 {
     // true only if every lane is true; the true value is set per 32-bit lane
@@ -1220,6 +1262,12 @@ inline bool operator&&(avx2Mask8 lhs, bool rhs)
         _mm256_testc_si256(lhs._data, _mm256_set1_epi32(avx2Mask8::true_v));
 
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline avx2Float8 select(avx2Mask8 m, avx2Float8 a, avx2Float8 b)
+{
+    return _mm256_blendv_ps(b._data, a._data, _mm256_castsi256_ps(m._data));
 }
 
 } // namespace tinysimd

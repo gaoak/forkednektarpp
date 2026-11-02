@@ -35,6 +35,7 @@
 #pragma once
 
 #include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/Backends/Backends.hpp>
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
@@ -45,17 +46,23 @@
 namespace Nektar::detail
 {
 
+// The split Mach and pressure functions of the AUSM family, for A = 0 the
+// part carried from the left and for A = 1 that from the right. TData is a
+// scalar or a SIMD vector: a vector takes the branch on |M| lane by lane, with
+// every lane forming both sides and keeping the one its |M| selects.
 template <typename TData> NEK_HOSTDEVICE_INLINE TData M1Function(int A, TData M)
 {
+    using std::abs;
+
     TData out;
 
     if (A == 0)
     {
-        out = 0.5 * (M + fabs(M));
+        out = TData(0.5) * (M + abs(M));
     }
     else
     {
-        out = 0.5 * (M - fabs(M));
+        out = TData(0.5) * (M - abs(M));
     }
 
     return out;
@@ -67,11 +74,11 @@ template <typename TData> NEK_HOSTDEVICE_INLINE TData M2Function(int A, TData M)
 
     if (A == 0)
     {
-        out = 0.25 * (M + 1.0) * (M + 1.0);
+        out = TData(0.25) * (M + TData(1.0)) * (M + TData(1.0));
     }
     else
     {
-        out = -0.25 * (M - 1.0) * (M - 1.0);
+        out = TData(-0.25) * (M - TData(1.0)) * (M - TData(1.0));
     }
 
     return out;
@@ -80,24 +87,44 @@ template <typename TData> NEK_HOSTDEVICE_INLINE TData M2Function(int A, TData M)
 template <typename TData>
 NEK_HOSTDEVICE_INLINE TData M4Function(int A, TData beta, TData M)
 {
+    using std::abs;
+
     TData out;
 
-    if (fabs(M) >= 1.0)
+    if constexpr (std::is_arithmetic_v<TData>)
     {
-        out = M1Function(A, M);
-    }
-    else
-    {
-        out = M2Function(A, M);
-
-        if (A == 0)
+        if (abs(M) >= TData(1.0))
         {
-            out *= 1.0 - 16.0 * beta * M2Function(1, M);
+            out = M1Function(A, M);
         }
         else
         {
-            out *= 1.0 + 16.0 * beta * M2Function(0, M);
+            out = M2Function(A, M);
+
+            if (A == 0)
+            {
+                out *= TData(1.0) - TData(16.0) * beta * M2Function(1, M);
+            }
+            else
+            {
+                out *= TData(1.0) + TData(16.0) * beta * M2Function(0, M);
+            }
         }
+    }
+    else
+    {
+        TData sub = M2Function(A, M);
+
+        if (A == 0)
+        {
+            sub = sub * (TData(1.0) - TData(16.0) * beta * M2Function(1, M));
+        }
+        else
+        {
+            sub = sub * (TData(1.0) + TData(16.0) * beta * M2Function(0, M));
+        }
+
+        out = select(abs(M) >= TData(1.0), M1Function(A, M), sub);
     }
 
     return out;
@@ -106,24 +133,51 @@ NEK_HOSTDEVICE_INLINE TData M4Function(int A, TData beta, TData M)
 template <typename TData>
 NEK_HOSTDEVICE_INLINE TData P5Function(int A, TData alpha, TData M)
 {
+    using std::abs;
+
     TData out;
 
-    if (fabs(M) >= 1.0)
+    if constexpr (std::is_arithmetic_v<TData>)
     {
-        out = (1.0 / M) * M1Function(A, M);
-    }
-    else
-    {
-        out = M2Function(A, M);
-
-        if (A == 0)
+        if (abs(M) >= TData(1.0))
         {
-            out *= (2.0 - M) - 16.0 * alpha * M * M2Function(1, M);
+            out = (TData(1.0) / M) * M1Function(A, M);
         }
         else
         {
-            out *= (-2.0 - M) + 16.0 * alpha * M * M2Function(0, M);
+            out = M2Function(A, M);
+
+            if (A == 0)
+            {
+                out *= (TData(2.0) - M) -
+                       TData(16.0) * alpha * M * M2Function(1, M);
+            }
+            else
+            {
+                out *= (TData(-2.0) - M) +
+                       TData(16.0) * alpha * M * M2Function(0, M);
+            }
         }
+    }
+    else
+    {
+        // The supersonic side divides by M, which may be zero in a lane
+        // that takes the subsonic one.
+        TData sub = M2Function(A, M);
+
+        if (A == 0)
+        {
+            sub = sub * ((TData(2.0) - M) -
+                         TData(16.0) * alpha * M * M2Function(1, M));
+        }
+        else
+        {
+            sub = sub * ((TData(-2.0) - M) +
+                         TData(16.0) * alpha * M * M2Function(0, M));
+        }
+
+        out = select(abs(M) >= TData(1.0), (TData(1.0) / M) * M1Function(A, M),
+                     sub);
     }
 
     return out;
@@ -148,78 +202,80 @@ struct AUSMSolverKernel
                                           const TScalar *bwd,
                                           const TScalar *normal, TScalar *flux)
     {
+        // Explicit vectorisation for AVX backend, vec_t =
+        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
+        using vec_t =
+            typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                                  TScalar>::type;
         constexpr unsigned int vec_width =
             (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                 ? tinysimd::simd<TScalar>::width
                 : 1;
 
-        const TScalar oneHalf = 0.5;
+        const vec_t half = vec_t(0.5);
 
-        // Currently not directly vectorisable due to branching
-        for (unsigned int k = 0; k < vec_width; k++)
+        // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
+        const size_t gs = blksize / vec_width;
+        const auto l    = reinterpret_cast<const vec_t *>(fwd);
+        const auto r    = reinterpret_cast<const vec_t *>(bwd);
+        const auto nvec = reinterpret_cast<const vec_t *>(normal);
+        auto f          = reinterpret_cast<vec_t *>(flux);
+
+        // Velocities, normal velocities and kinetic energy terms, with one
+        // reciprocal per density in place of a division at every use.
+        const vec_t rhoL = l[0], rhoR = r[0];
+        const vec_t invRhoL = vec_t(1.0) / rhoL;
+        const vec_t invRhoR = vec_t(1.0) / rhoR;
+        vec_t n[NDIM], uL[NDIM], uR[NDIM];
+        vec_t unL = vec_t(0.0), unR = vec_t(0.0);
+        vec_t qL2 = vec_t(0.0), qR2 = vec_t(0.0);
+        for (unsigned int d = 0; d < NDIM; ++d)
         {
-            // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment
-            // exist; the normal [n0 | n1 | n2] alike.
-            const TScalar rhoL = fwd[0];
-            const TScalar rhoR = bwd[0];
-
-            // Velocities, normal velocities and kinetic energy terms.
-            TScalar n[NDIM], uL[NDIM], uR[NDIM];
-            TScalar unL = 0.0, unR = 0.0, qL2 = 0.0, qR2 = 0.0;
-#pragma unroll
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                n[d]                = normal[d * blksize];
-                const TScalar rhouL = fwd[(1u + d) * blksize];
-                const TScalar rhouR = bwd[(1u + d) * blksize];
-                uL[d]               = rhouL / rhoL;
-                uR[d]               = rhouR / rhoR;
-                unL += uL[d] * n[d];
-                unR += uR[d] * n[d];
-                qL2 += rhouL * uL[d];
-                qR2 += rhouR * uR[d];
-            }
-
-            // Internal energy per unit mass, pressure and sound speed.
-            const TScalar EL = fwd[(1u + NDIM) * blksize];
-            const TScalar ER = bwd[(1u + NDIM) * blksize];
-            const TScalar eL = (EL - oneHalf * qL2) / rhoL;
-            const TScalar eR = (ER - oneHalf * qR2) / rhoR;
-            const TScalar pL = GetPressure(EoS, rhoL, eL);
-            const TScalar pR = GetPressure(EoS, rhoR, eR);
-            const TScalar cL = GetSoundSpeed(EoS, rhoL, eL);
-            const TScalar cR = GetSoundSpeed(EoS, rhoR, eR);
-
-            // Average speed of sound and the normal Mach numbers.
-            const TScalar cA = 0.5 * (cL + cR);
-            const TScalar ML = unL / cA;
-            const TScalar MR = unR / cA;
-
-            // Interface Mach number and pressure.
-            TScalar pbar, Mbar;
-            AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
-
-            // The upwind state.
-            const bool cond      = Mbar >= 0.0;
-            const TScalar &rhoUp = (cond) ? rhoL : rhoR;
-            const TScalar &pUp   = (cond) ? pL : pR;
-            const TScalar *uUp   = (cond) ? uL : uR;
-            const TScalar &EUp   = (cond) ? EL : ER;
-
-            flux[0] = cA * Mbar * rhoUp;
-#pragma unroll
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                flux[(1u + d) * blksize] =
-                    cA * Mbar * rhoUp * uUp[d] + pbar * n[d];
-            }
-            flux[(1u + NDIM) * blksize] = cA * Mbar * (EUp + pUp);
-
-            fwd++;
-            bwd++;
-            normal++;
-            flux++;
+            n[d]              = nvec[d * gs];
+            const vec_t rhouL = l[(1u + d) * gs];
+            const vec_t rhouR = r[(1u + d) * gs];
+            uL[d]             = rhouL * invRhoL;
+            uR[d]             = rhouR * invRhoR;
+            unL += n[d] * uL[d];
+            unR += n[d] * uR[d];
+            qL2 += rhouL * uL[d];
+            qR2 += rhouR * uR[d];
         }
+
+        // Internal energy per unit mass, pressure and sound speed.
+        const vec_t EL = l[(1u + NDIM) * gs];
+        const vec_t ER = r[(1u + NDIM) * gs];
+        const vec_t eL = (EL - half * qL2) * invRhoL;
+        const vec_t eR = (ER - half * qR2) * invRhoR;
+        const vec_t pL = GetPressure(EoS, rhoL, eL);
+        const vec_t pR = GetPressure(EoS, rhoR, eR);
+        const vec_t cL = GetSoundSpeed(EoS, rhoL, eL);
+        const vec_t cR = GetSoundSpeed(EoS, rhoR, eR);
+
+        // Average speed of sound and the normal Mach numbers.
+        const vec_t cA   = half * (cL + cR);
+        const vec_t invC = vec_t(1.0) / cA;
+        const vec_t ML   = unL * invC;
+        const vec_t MR   = unR * invC;
+
+        // Interface Mach number and pressure, and the mass flux they carry.
+        vec_t pbar, Mbar;
+        AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
+        const vec_t mn = cA * Mbar;
+
+        // The upwind state, lane by lane for a vector.
+        const auto cond   = Mbar >= vec_t(0.0);
+        const vec_t rhoUp = Select(cond, rhoL, rhoR);
+        const vec_t pUp   = Select(cond, pL, pR);
+        const vec_t EUp   = Select(cond, EL, ER);
+
+        f[0] = mn * rhoUp;
+        for (unsigned int d = 0; d < NDIM; ++d)
+        {
+            f[(1u + d) * gs] =
+                mn * rhoUp * Select(cond, uL[d], uR[d]) + pbar * n[d];
+        }
+        f[(1u + NDIM) * gs] = mn * (EUp + pUp);
     }
 };
 

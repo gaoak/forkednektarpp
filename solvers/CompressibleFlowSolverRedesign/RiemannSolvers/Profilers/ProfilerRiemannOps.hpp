@@ -50,7 +50,9 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include "CompressibleSolver/CompressibleSolverOp.hpp"
+#include "CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp"
+
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 // Add likwid support
 #ifdef LIKWID_PERFMON
@@ -375,9 +377,10 @@ void PrintProfileResult(
     comm->Block();
 }
 
-// Different operator may have different input/output attributes (FieldState,
-// or number of components). We must provided all these information.
-template <class Op, FieldState state, typename TData>
+// The Riemann solver @p method is reached through the advective trace flux
+// operator, which applies it to trace states given directly. The trace
+// states and fluxes are in physical space.
+template <typename TData>
 void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
                     const unsigned int Ntest, const std::string &method = "",
                     const unsigned int nHomo = 1)
@@ -394,18 +397,28 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     const size_t npts           = expList->GetTrace()->GetTotPoints();
     const unsigned int nFields  = (spaceDim + 2) * nHomo;
 
-    std::vector<std::string> nVariabels;
-    for (unsigned int i = 0; i < nFields; ++i)
-    {
-        nVariabels.push_back("DefaultVar" + std::to_string(i));
-    }
+    // The operator builds the boundary values of the session's variables,
+    // so they must be the conserved ones, with their boundary conditions.
+    const auto &variables = session->GetVariables();
+    ASSERTL0(variables.size() == nFields,
+             "The session must define the " + std::to_string(nFields) +
+                 " conserved variables, and their boundary conditions.");
 
-    // Create operator.
+    // Create operator: the Riemann solver for the session's equation of
+    // state, as the solver itself picks it, or the ideal gas's if the session
+    // names none.
+    std::string eos =
+        StringUtils::ToUpperCopy(session->GetEquationOfState().type);
+    if (eos.empty())
+    {
+        eos = "IDEALGAS";
+    }
     auto oper =
-        CompressibleSolverOp<TData>::Create(expList, nVariabels, method, "");
+        AdvTraceFluxCFEOp<TData>::Create(expList, variables, method + eos);
 
     // Set operator name tag.
-    std::string execName = Op::GetOpExecSpace(session);
+    std::string execName =
+        MultiRegions::Operator<TData>::GetOpExecSpace(session);
     std::string opName   = method;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
     auto tag             = opName + execName + dataType;
@@ -436,19 +449,20 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     GetExpectedResults(spaceDim, npts, normals, fwd, bwd, flxRef);
 
     // Create block attributes.
-    auto traceblockAttr = GetBlockAttributes<TData, state>(expList->GetTrace());
+    auto traceblockAttr =
+        GetBlockAttributes<TData, FieldState::Phys>(expList->GetTrace());
 
     // Create fields.
-    auto fwdField = LibUtilities::Field<TData, state>("f_fwd", traceblockAttr,
-                                                      nFields, nHomo);
+    auto fwdField = LibUtilities::Field<TData, FieldState::Phys>(
+        "f_fwd", traceblockAttr, nFields, nHomo);
 
-    auto bwdField = LibUtilities::Field<TData, state>("f_bwd", traceblockAttr,
-                                                      nFields, nHomo);
+    auto bwdField = LibUtilities::Field<TData, FieldState::Phys>(
+        "f_bwd", traceblockAttr, nFields, nHomo);
 
-    auto fluxField = LibUtilities::Field<TData, state>("f_flux", traceblockAttr,
-                                                       nFields, nHomo);
+    auto fluxField = LibUtilities::Field<TData, FieldState::Phys>(
+        "f_flux", traceblockAttr, nFields, nHomo);
 
-    auto normalsField = LibUtilities::Field<TData, state>(
+    auto normalsField = LibUtilities::Field<TData, FieldState::Phys>(
         "traceNormals", traceblockAttr, spaceDim, nHomo);
 
     fwdField.template CopyArray<NektarSpaces::HostSpace>(

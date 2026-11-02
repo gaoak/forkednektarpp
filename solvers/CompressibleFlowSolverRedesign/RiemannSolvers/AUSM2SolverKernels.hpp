@@ -54,24 +54,30 @@ struct AUSM2Upwinding
                                           const TData &MR, TData &pbar,
                                           TData &Mbar)
     {
+        using std::max;
+
+        using scalar_t = tinysimd::scalar_type_t<TData>;
+
         // Parameters for specify the upwinding
-        constexpr TData beta  = 0.125;
-        constexpr TData alpha = 0.1875;
-        constexpr TData sigma = 1.0;
-        constexpr TData Kp    = 0.25;
-        constexpr TData Ku    = 0.75;
-        TData Mtilde          = 0.5 * (ML * ML + MR * MR);
-        TData rhoA            = 0.5 * (rhoL + rhoR);
-        TData Mp              = -Kp * ((pR - pL) / (rhoA * cA * cA)) *
-                   std::max(1.0 - sigma * Mtilde, 0.0);
+        constexpr scalar_t beta  = 0.125;
+        constexpr scalar_t alpha = 0.1875;
+        constexpr scalar_t sigma = 1.0;
+        constexpr scalar_t Kp    = 0.25;
+        constexpr scalar_t Ku    = 0.75;
+        const TData Mtilde       = TData(0.5) * (ML * ML + MR * MR);
+        const TData rhoA         = TData(0.5) * (rhoL + rhoR);
+        const TData Mp           = TData(-Kp) * ((pR - pL) / (rhoA * cA * cA)) *
+                         max(TData(1.0) - TData(sigma) * Mtilde, TData(0.0));
 
-        Mbar = M4Function(0, beta, ML) + M4Function(1, beta, MR) + Mp;
+        Mbar = M4Function(0, TData(beta), ML) + M4Function(1, TData(beta), MR) +
+               Mp;
 
-        TData pu = -2.0 * Ku * rhoA * cA * cA * (MR - ML) *
-                   P5Function(0, alpha, ML) * P5Function(1, alpha, MR);
+        const TData pu = TData(-2.0 * Ku) * rhoA * cA * cA * (MR - ML) *
+                         P5Function(0, TData(alpha), ML) *
+                         P5Function(1, TData(alpha), MR);
 
-        pbar =
-            pL * P5Function(0, alpha, ML) + pR * P5Function(1, alpha, MR) + pu;
+        pbar = pL * P5Function(0, TData(alpha), ML) +
+               pR * P5Function(1, TData(alpha), MR) + pu;
     }
 };
 

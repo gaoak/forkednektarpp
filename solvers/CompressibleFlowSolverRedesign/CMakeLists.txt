@@ -220,8 +220,9 @@ IF(NEKTAR_SOLVER_COMPRESSIBLE_FLOW_DEVICE_SUPPORT)
     ENDFOREACH()
 
     ADD_SUBDIRECTORY(RiemannSolvers/UnitTests)
-    # The Riemann profiler predates the flux framework and is not built.
-    # ADD_SUBDIRECTORY(RiemannSolvers/Profilers)
+    IF (NEKTAR_BUILD_DEMOS)
+        ADD_SUBDIRECTORY(RiemannSolvers/Profilers)
+    ENDIF()
 
     ADD_SOLVER_EXECUTABLE(CompressibleFlowSolverRedesign
         DEPENDS SolverCore
