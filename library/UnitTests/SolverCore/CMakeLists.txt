@@ -65,6 +65,8 @@ ADD_NEKTAR_EXECUTABLE(TestLinearADRSolve
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestLinearADRSolve.cpp)
 ADD_NEKTAR_EXECUTABLE(TestMultiField
     COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestMultiField.cpp)
+ADD_NEKTAR_EXECUTABLE(TestForcingNoise
+    COMPONENT unit-test DEPENDS ${SOLVERCORE_UNIT_TEST_DEPENDS} SOURCES TestForcingNoise.cpp)
 
 # Registers one test per execution space. Named rather than overriding the
 # SET_UNIT_TEST of cmake/NektarCommon.cmake, which the sibling Operators unit
@@ -122,6 +124,7 @@ SET_SOLVERCORE_UNIT_TEST(IMEXGEMSerial TestIMEXGEM Serial)
 SET_SOLVERCORE_UNIT_TEST(NormSerial TestNorm Serial)
 SET_SOLVERCORE_UNIT_TEST(MaxStdVelocitySerial TestMaxStdVelocity Serial)
 SET_SOLVERCORE_UNIT_TEST(MeanRemovalSerial TestMeanRemoval Serial)
+SET_SOLVERCORE_UNIT_TEST(ForcingNoiseSerial TestForcingNoise Serial)
 SET_SOLVERCORE_UNIT_TEST(MeanSerial TestMean Serial)
 SET_SOLVERCORE_UNIT_TEST(EnergySerial TestEnergy Serial)
 SET_SOLVERCORE_UNIT_TEST(AeroForcesSerial TestAeroForces Serial)
@@ -163,6 +166,7 @@ IF (NEKTAR_ENABLE_SIMD)
     SET_SOLVERCORE_UNIT_TEST(NormAVX TestNorm AVX)
     SET_SOLVERCORE_UNIT_TEST(MaxStdVelocityAVX TestMaxStdVelocity AVX)
     SET_SOLVERCORE_UNIT_TEST(MeanRemovalAVX TestMeanRemoval AVX)
+    SET_SOLVERCORE_UNIT_TEST(ForcingNoiseAVX TestForcingNoise AVX)
     SET_SOLVERCORE_UNIT_TEST(MeanAVX TestMean AVX)
     SET_SOLVERCORE_UNIT_TEST(EnergyAVX TestEnergy AVX)
     SET_SOLVERCORE_UNIT_TEST(AeroForcesAVX TestAeroForces AVX)
@@ -198,6 +202,7 @@ IF(NEKTAR_ENABLE_DEVICE)
     SET_SOLVERCORE_UNIT_TEST(NormDevice TestNorm Device)
     SET_SOLVERCORE_UNIT_TEST(MaxStdVelocityDevice TestMaxStdVelocity Device)
     SET_SOLVERCORE_UNIT_TEST(MeanRemovalDevice TestMeanRemoval Device)
+    SET_SOLVERCORE_UNIT_TEST(ForcingNoiseDevice TestForcingNoise Device)
     SET_SOLVERCORE_UNIT_TEST(MeanDevice TestMean Device)
     SET_SOLVERCORE_UNIT_TEST(EnergyDevice TestEnergy Device)
     SET_SOLVERCORE_UNIT_TEST(AeroForcesDevice TestAeroForces Device)

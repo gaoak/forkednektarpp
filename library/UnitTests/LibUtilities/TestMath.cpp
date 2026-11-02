@@ -36,6 +36,8 @@
 
 #include "TestMath.hpp"
 
+#include <LibUtilities/BasicUtils/Math/RandomGenerator.hpp>
+
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <limits>
@@ -541,6 +543,144 @@ BOOST_FIXTURE_TEST_CASE(linfnorm, TestMath<double>)
         std::cout << "Backend = " << std::sqrt(h_out)
                   << " Linfnorm = " << std::sqrt(out) << std::endl;
     }
+}
+
+// The entries of x outside the padding, after checking that the padding is
+// zero.
+static std::vector<double> RandomFillValues(Field<double, FieldState::Phys> &x)
+{
+    std::vector<double> values;
+    for (auto &block : x.GetBlocks())
+    {
+        auto ptr = block.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        const size_t realSize = block.GetNumElements() * block.GetNumData();
+        for (unsigned int c = 0; c < x.GetNumComponents(); ++c)
+        {
+            for (size_t i = 0; i < block.CompSize(); ++i)
+            {
+                if (i < realSize)
+                {
+                    values.push_back(ptr[c * block.CompSize() + i]);
+                }
+                else
+                {
+                    BOOST_TEST(ptr[c * block.CompSize() + i] == 0.0);
+                }
+            }
+        }
+    }
+    return values;
+}
+
+// Blocks with padding, the first of an odd size, which the device libraries
+// generate normal numbers for only in pairs.
+static Field<double, FieldState::Phys> RandomFillField(const std::string &name)
+{
+    const std::vector<BlockAttributes<FieldState::Phys>> blockAttr = {
+        {997, 1001, 3, 1}, {500, 504, 2, 1}};
+    Field<double, FieldState::Phys> x(name, blockAttr, {"u"}, 1);
+    x.template Initialize<NektarSpaces::HostSpace>(100.0);
+    return x;
+}
+
+static Math::MathHelper RandomFillMathHelper()
+{
+    return Math::MathHelper(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+}
+
+BOOST_AUTO_TEST_CASE(fill_uniform_padded)
+{
+    auto math = RandomFillMathHelper();
+    auto x    = RandomFillField("x");
+
+    Math::RandomGenerator gen(1234);
+    math.fillUniform(gen, -2.0, 3.0, x);
+
+    auto values = RandomFillValues(x);
+    double mean = 0.0;
+    for (auto value : values)
+    {
+        BOOST_TEST((value >= -2.0 && value <= 3.0));
+        mean += value;
+    }
+    mean /= values.size();
+
+    // Six standard errors of the mean of U(-2, 3).
+    const double sigma = 5.0 / std::sqrt(12.0);
+    BOOST_TEST(std::abs(mean - 0.5) < 6.0 * sigma / std::sqrt(values.size()));
+}
+
+BOOST_AUTO_TEST_CASE(fill_normal_padded)
+{
+    auto math = RandomFillMathHelper();
+    auto x    = RandomFillField("x");
+
+    Math::RandomGenerator gen(1234);
+    math.fillNormal(gen, 1.5, 2.0, x);
+
+    auto values    = RandomFillValues(x);
+    const double n = values.size();
+    double mean    = 0.0;
+    for (auto value : values)
+    {
+        mean += value;
+    }
+    mean /= n;
+    double variance = 0.0;
+    for (auto value : values)
+    {
+        variance += (value - mean) * (value - mean);
+    }
+    variance /= n - 1.0;
+
+    // Six standard errors of the sample mean and variance of N(1.5, 2^2).
+    BOOST_TEST(std::abs(mean - 1.5) < 6.0 * 2.0 / std::sqrt(n));
+    BOOST_TEST(std::abs(variance - 4.0) < 6.0 * 4.0 * std::sqrt(2.0 / n));
+}
+
+BOOST_AUTO_TEST_CASE(fill_normal_memoryregion_odd)
+{
+    auto math = RandomFillMathHelper();
+    MemoryRegion<double> x(10001);
+
+    Math::RandomGenerator gen(99);
+    math.fillNormal(gen, -1.0, 0.5, x);
+
+    auto ptr    = x.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    double mean = 0.0;
+    for (size_t i = 0; i < x.size(); ++i)
+    {
+        BOOST_TEST(std::isfinite(ptr[i]));
+        mean += ptr[i];
+    }
+    mean /= x.size();
+
+    BOOST_TEST(std::abs(mean + 1.0) < 6.0 * 0.5 / std::sqrt(x.size()));
+}
+
+BOOST_AUTO_TEST_CASE(fill_uniform_reproducible)
+{
+    auto math = RandomFillMathHelper();
+    auto x    = RandomFillField("x");
+    auto y    = RandomFillField("y");
+    auto z    = RandomFillField("z");
+
+    // The same seed reproduces the numbers; another seed, or the next call
+    // on the same generator, does not.
+    Math::RandomGenerator gen1(7), gen2(7), gen3(8);
+    math.fillUniform(gen1, 0.0, 1.0, x);
+    math.fillUniform(gen2, 0.0, 1.0, y);
+    math.fillUniform(gen3, 0.0, 1.0, z);
+
+    auto xValues = RandomFillValues(x);
+    auto yValues = RandomFillValues(y);
+    auto zValues = RandomFillValues(z);
+    BOOST_TEST(xValues == yValues);
+    BOOST_TEST((xValues != zValues));
+
+    math.fillUniform(gen1, 0.0, 1.0, x);
+    BOOST_TEST((RandomFillValues(x) != yValues));
 }
 #endif
 

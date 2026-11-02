@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <FORCING>
+        <FORCE TYPE="Noise">
+            <WHITENOISE>0.5</WHITENOISE>
+            <UPDATEFREQ>2</UPDATEFREQ>
+            <NSTEPS>5</NSTEPS>
+        </FORCE>
+    </FORCING>
+</NEKTAR>

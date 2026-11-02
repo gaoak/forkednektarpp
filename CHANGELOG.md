@@ -140,6 +140,8 @@ v5.11.0
 - Balance the forcing of a singular Helmholtz/Poisson solve against its Neumann boundary integral in `ContField::HelmSolve` (!2876, from !1800)
 - Evaluate the boundary conditions of BndCondPhysOp in its own execution space, avoiding a host round trip on each update; add `sign`, `rad` and `ang` to the device Expression operator, which falls back to the host, with a warning, for expressions the device cannot compile (!2895)
 - Fix the interpreter failing to parse the `bessel` function, and reading an unset value for the constant argument of a two-argument function such as `atan2(1, x)` (!2895)
+- Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
+- Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

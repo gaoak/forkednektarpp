@@ -82,6 +82,62 @@ template void MathHelper::fill<float,
     const float &val, LibUtilities::Field<float, FieldState::Coeff> &x,
     const std::string &execSpace);
 
+// fillUniform template specialization.
+template void MathHelper::fillUniform<LibUtilities::MemoryRegion<double>>(
+    RandomGenerator &gen, const double a, const double b,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template void MathHelper::fillUniform<LibUtilities::MemoryRegion<float>>(
+    RandomGenerator &gen, const float a, const float b,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template void MathHelper::fillUniform<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    RandomGenerator &gen, const double a, const double b,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::fillUniform<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    RandomGenerator &gen, const float a, const float b,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::fillUniform<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    RandomGenerator &gen, const double a, const double b,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void MathHelper::fillUniform<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    RandomGenerator &gen, const float a, const float b,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+
+// fillNormal template specialization.
+template void MathHelper::fillNormal<LibUtilities::MemoryRegion<double>>(
+    RandomGenerator &gen, const double mean, const double sigma,
+    LibUtilities::MemoryRegion<double> &x, const std::string &execSpace);
+template void MathHelper::fillNormal<LibUtilities::MemoryRegion<float>>(
+    RandomGenerator &gen, const float mean, const float sigma,
+    LibUtilities::MemoryRegion<float> &x, const std::string &execSpace);
+template void MathHelper::fillNormal<
+    LibUtilities::Field<double, FieldState::Phys>>(
+    RandomGenerator &gen, const double mean, const double sigma,
+    LibUtilities::Field<double, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::fillNormal<
+    LibUtilities::Field<float, FieldState::Phys>>(
+    RandomGenerator &gen, const float mean, const float sigma,
+    LibUtilities::Field<float, FieldState::Phys> &x,
+    const std::string &execSpace);
+template void MathHelper::fillNormal<
+    LibUtilities::Field<double, FieldState::Coeff>>(
+    RandomGenerator &gen, const double mean, const double sigma,
+    LibUtilities::Field<double, FieldState::Coeff> &x,
+    const std::string &execSpace);
+template void MathHelper::fillNormal<
+    LibUtilities::Field<float, FieldState::Coeff>>(
+    RandomGenerator &gen, const float mean, const float sigma,
+    LibUtilities::Field<float, FieldState::Coeff> &x,
+    const std::string &execSpace);
+
 // copy template specialization.
 template void MathHelper::copy<LibUtilities::MemoryRegion<double>>(
     LibUtilities::MemoryRegion<double> &x,

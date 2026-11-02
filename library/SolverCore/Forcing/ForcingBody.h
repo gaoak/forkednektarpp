@@ -59,7 +59,8 @@ public:
     SOLVER_CORE_EXPORT static ForcingSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &session,
         const MultiRegions::ExpListSharedPtr &expList,
-        const std::vector<std::string> &variables, const TiXmlElement *force)
+        const std::vector<std::string> &variables,
+        const LibUtilities::SessionNode &force)
     {
         auto forcing = MemoryManager<ForcingBody>::AllocateSharedPtr(
             session, expList, variables);
@@ -71,7 +72,8 @@ public:
     static std::string className;
 
 protected:
-    SOLVER_CORE_EXPORT void v_InitObject(const TiXmlElement *force) override;
+    SOLVER_CORE_EXPORT void v_InitObject(
+        const LibUtilities::SessionNode &force) override;
 
     SOLVER_CORE_EXPORT void v_Apply(
         LibUtilities::Field<double, FieldState::Phys> &in,

@@ -43,6 +43,8 @@
 namespace Nektar::Math
 {
 
+class RandomGenerator;
+
 // Generic MathHelper class definition.
 class MathHelper
 {
@@ -69,6 +71,18 @@ public:
     template <typename TData, typename T>
     LIB_MATH_EXPORT void fill(const TData &val, T &x,
                               const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void fillUniform(RandomGenerator &gen,
+                                     const typename T::value_type a,
+                                     const typename T::value_type b, T &x,
+                                     const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void fillNormal(RandomGenerator &gen,
+                                    const typename T::value_type mean,
+                                    const typename T::value_type sigma, T &x,
+                                    const std::string &execSpace = "");
 
     template <typename T>
     LIB_MATH_EXPORT void copy(T &x, T &y, const std::string &execSpace = "");
