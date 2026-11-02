@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
+#include <MultiRegions/Common/Operator.hpp>
 #include <SolverCore/Forcing/Forcing.h>
 
 namespace Nektar::SolverCore
@@ -46,7 +48,8 @@ ForcingFactory &GetForcingFactory()
 Forcing::Forcing(const LibUtilities::SessionReaderSharedPtr &session,
                  const MultiRegions::ExpListSharedPtr &expList,
                  std::vector<std::string> variables)
-    : m_session(session), m_expList(expList), m_variables(std::move(variables))
+    : m_session(session), m_expList(expList), m_variables(std::move(variables)),
+      m_math(MultiRegions::Operator<double>::GetOpExecSpace(session))
 {
 }
 
@@ -62,23 +65,27 @@ std::vector<ForcingSharedPtr> Forcing::Load(
         return forcings;
     }
 
-    TiXmlElement *forcingElement = session->GetElement("Nektar/Forcing");
-    ASSERTL0(forcingElement, "Invalid Forcing element in session file.");
+    // Convert the FORCING section into a format-neutral tree, so that the
+    // individual forcings below never see the session's XML document.
+    LibUtilities::SessionNode forcingNode = LibUtilities::SessionNodeFromXml(
+        session->GetElement("Nektar/Forcing"), "FORCING");
 
-    TiXmlElement *force = forcingElement->FirstChildElement("FORCE");
-    while (force)
+    for (const LibUtilities::SessionNode *force :
+         forcingNode.GetChildren("FORCE"))
     {
-        const char *typeAttr = force->Attribute("TYPE");
-        ASSERTL0(typeAttr, "Forcing FORCE block requires a TYPE attribute.");
+        const std::string type = force->GetAttribute("TYPE");
 
-        TiXmlElement *forceParam = force;
-        LibUtilities::SessionReader::GetXMLElementTimeLevel(
-            forceParam, session->GetTimeLevel(), false);
+        // A forcing may specify its settings per time level, in which case it
+        // does not apply at the time levels it does not mention.
+        const LibUtilities::SessionNode *forceParam =
+            force->GetTimeLevel(session->GetTimeLevel(), false);
+        if (!forceParam)
+        {
+            continue;
+        }
 
         forcings.push_back(GetForcingFactory().CreateInstance(
-            typeAttr, session, expList, variables, forceParam));
-
-        force = force->NextSiblingElement("FORCE");
+            type, session, expList, variables, *forceParam));
     }
 
     return forcings;

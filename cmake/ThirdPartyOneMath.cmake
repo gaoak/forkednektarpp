@@ -168,7 +168,7 @@ ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQU
                         -DENABLE_CUSPARSE_BACKEND=OFF
                         -DENABLE_ROCBLAS_BACKEND=ON
                         -DENABLE_ROCFFT_BACKEND=ON
-                        -DENABLE_ROCRAND_BACKEND=OFF
+                        -DENABLE_ROCRAND_BACKEND=ON
                         -DENABLE_ROCSOLVER_BACKEND=OFF
                         -DENABLE_ROCSPARSE_BACKEND=OFF
                         -DBUILD_FUNCTIONAL_TESTS=OFF

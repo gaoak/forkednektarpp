@@ -144,6 +144,8 @@ v5.11.0
 - Fix the interpreter failing to parse the `bessel` function, and reading an unset value for the constant argument of a two-argument function such as `atan2(1, x)` (!2895)
 - Add `ExpressionBlockOp::GetExpressionVariables()` and `GetExpressionFunctions()`, the names an expression uses and the functions it calls, and use them to decide whether the device Expression operator compiles an expression (!2902)
 - Add the comparisons `>=`, `<`, `<=` and a lane-wise `select` to every tinysimd back-end, the `scalar_type_t` trait, and `Select()`, which chooses between two scalars or two SIMD vectors alike (!2904)
+- Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
+- Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -50,32 +50,6 @@ using namespace oneapi::mkl;
 
 namespace Nektar::NekBlas
 {
-[[maybe_unused]] static std::vector<
-    sycl::event> inline setOneMathExecutionDependency(const unsigned int
-                                                          streamID)
-{
-    // Set SYCL dependencies to reproduce CUDA/HIP default stream behavior.
-    std::vector<sycl::event> dependencies;
-    if (streamID == 0)
-    {
-        // Tasks in the "default" queue depend on all "non-default" queue.
-        for (auto &item : SYCLQueue::GetAllEvents())
-        {
-            if (item.first != 0)
-            {
-                dependencies.push_back(item.second);
-            }
-        }
-    }
-    else
-    {
-        // Tasks in "non-default" queue depend on the "default" queue.
-        dependencies.push_back(SYCLQueue::GetEvent(0));
-    }
-
-    return dependencies;
-}
-
 template <typename TData>
 void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
           std::string transposeB, const int M, const int N, const int K,
@@ -88,7 +62,7 @@ void Gemm(Handle<NektarSpaces::Device> handle, std::string transposeA,
     auto transB   = (transposeB == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemm(
         Q, transA, transB, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc,
-        setOneMathExecutionDependency(handle.GetStreamID()));
+        getSYCLDefaultExecutionDependencies(handle.GetStreamID()));
 #else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
@@ -125,7 +99,7 @@ void GemmStridedBatched(Handle<NektarSpaces::Device> handle,
     sycl::event e = blas::column_major::gemm_batch(
         Q, transA, transB, M, N, K, alpha, a, lda, strideA, b, ldb, strideB,
         beta, c, ldc, strideC, batchSize,
-        setOneMathExecutionDependency(handle.GetStreamID()));
+        getSYCLDefaultExecutionDependencies(handle.GetStreamID()));
 #else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
@@ -158,7 +132,7 @@ void Gemv(Handle<NektarSpaces::Device> handle, std::string transpose,
     auto trans    = (transpose == "N") ? transpose::N : transpose::T;
     sycl::event e = blas::column_major::gemv(
         Q, trans, M, N, alpha, a, lda, x, incx, beta, y, incy,
-        setOneMathExecutionDependency(handle.GetStreamID()));
+        getSYCLDefaultExecutionDependencies(handle.GetStreamID()));
 #else // SYCL-CPU
     // clang-format off
     sycl::event e = Q.submit([=](sycl::handler &cgh) {
@@ -195,7 +169,7 @@ void GemvStridedBatched(Handle<NektarSpaces::Device> handle,
     sycl::event e = blas::column_major::gemv_batch(
         Q, trans, M, N, alpha, a, lda, strideA, x, incx, strideX, beta, y, incy,
         strideY, batchSize,
-        setOneMathExecutionDependency(handle.GetStreamID()));
+        getSYCLDefaultExecutionDependencies(handle.GetStreamID()));
     SYCLQueue::SetEvent(handle.GetStreamID(), e);
 #else // SYCL-CPU
     // clang-format off

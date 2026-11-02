@@ -371,6 +371,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         ./BasicUtils/Math/Math.hpp
         ./BasicUtils/Math/MathDeclspec.h
         ./BasicUtils/Math/MathHelperDef.hpp
+        ./BasicUtils/Math/RandomGenerator.hpp
         ./BasicUtils/DataWarehouse/BasisDataWarehouse.hpp
         ./BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp
         ./LoopExecution/LoopExecution.hpp
@@ -388,11 +389,13 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(DeviceSupportHeaders
             ${DeviceSupportHeaders} 
             ./Backends/CUDAStream.hpp
+            ./BasicUtils/Math/DeviceRandomGenerator.hpp
         )
         SET(DeviceSupportSources 
             ${DeviceSupportSources} 
             ./Backends/CUDAStream.cpp
             ./BasicUtils/Field/BlockHelper.cu
+            ./BasicUtils/Math/DeviceRandomGenerator.cu
             ./BasicUtils/Math/MathHelper.cu
             ./Memory/MemoryAlloc.cu
         )
@@ -400,11 +403,13 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(DeviceSupportHeaders 
             ${DeviceSupportHeaders} 
             ./Backends/HIPStream.hpp
+            ./BasicUtils/Math/DeviceRandomGenerator.hpp
         )
         SET(DeviceSupportSources 
             ${DeviceSupportSources} 
             ./Backends/HIPStream.cpp
             ./BasicUtils/Field/BlockHelper.hip
+            ./BasicUtils/Math/DeviceRandomGenerator.hip
             ./BasicUtils/Math/MathHelper.hip
             ./Memory/MemoryAlloc.hip
         )
@@ -412,11 +417,13 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(DeviceSupportHeaders 
             ${DeviceSupportHeaders} 
             ./Backends/SYCLQueue.hpp
+            ./BasicUtils/Math/DeviceRandomGenerator.hpp
         )
         SET(DeviceSupportSources 
             ${DeviceSupportSources} 
             ./Backends/SYCLQueue.cpp
             ./BasicUtils/Field/BlockHelper.cpp
+            ./BasicUtils/Math/DeviceRandomGenerator.cpp
             ./BasicUtils/Math/MathHelper.cpp
         )
     ELSE()
@@ -748,14 +755,22 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         # translation units under FFT/, and the headers that reach them are not
         # included outside LibUtilities.
         TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${CUFFT_LIBRARY})
+        # Private: only Math/DeviceRandomGenerator.cu includes cuRAND.
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${CURAND_LIBRARY})
     # HIPFFT
     ELSEIF (NEKTAR_ENABLE_DEVICE STREQUAL "HIP")
         TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${HIPFFT_LIBRARY})
-    # ONEMATH / ONEMKL DFT
+        # Private: only Math/DeviceRandomGenerator.hip includes hipRAND.
+        TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${HIPRAND_LIBRARY})
+    # ONEMATH / ONEMKL DFT and RNG
     ELSEIF (NEKTAR_ENABLE_DEVICE MATCHES "SYCL*")
         TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${ONEMATH_LIBRARY})
         IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-CUDA" OR NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
             ADD_DEPENDENCIES(LibUtilities onemath-v0.9)
+        ENDIF()
+        IF(NEKTAR_ENABLE_DEVICE STREQUAL "SYCL-HIP")
+            # Private: only Math/DeviceRandomGenerator.cpp includes rocRAND.
+            TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${ROCRAND_LIBRARY})
         ENDIF()
     ENDIF()
 
