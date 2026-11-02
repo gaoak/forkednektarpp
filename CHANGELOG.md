@@ -143,6 +143,7 @@ v5.11.0
 - Evaluate the boundary conditions of BndCondPhysOp in its own execution space, avoiding a host round trip on each update; add `sign`, `rad` and `ang` to the device Expression operator, which falls back to the host, with a warning, for expressions the device cannot compile (!2895)
 - Fix the interpreter failing to parse the `bessel` function, and reading an unset value for the constant argument of a two-argument function such as `atan2(1, x)` (!2895)
 - Add `ExpressionBlockOp::GetExpressionVariables()` and `GetExpressionFunctions()`, the names an expression uses and the functions it calls, and use them to decide whether the device Expression operator compiles an expression (!2902)
+- Add the comparisons `>=`, `<`, `<=` and a lane-wise `select` to every tinysimd back-end, the `scalar_type_t` trait, and `Select()`, which chooses between two scalars or two SIMD vectors alike (!2904)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -198,6 +199,7 @@ v5.11.0
 - Set the interleave width of the output of the Courant-velocity operator (!2886)
 - Fix NaN fluxes on padded elements in the Euler volume flux (!2891)
 - Update `TimeDependent` boundary conditions at every right-hand-side evaluation, which were left at their initial value, and add a test ported from the legacy solver (!2902)
+- Vectorise the HLL, HLLC and AUSM Riemann solvers on AVX, branch-free through clamped wave speeds and `Select()`, and build the Riemann profiler again (!2904)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)

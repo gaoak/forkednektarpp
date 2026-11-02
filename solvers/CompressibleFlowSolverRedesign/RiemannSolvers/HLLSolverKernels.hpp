@@ -34,6 +34,10 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/SafeDivide.hpp>
+
+#include "RiemannSolvers/RoeSolverKernels.hpp"
+
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
@@ -59,124 +63,73 @@ struct HLLSolverKernel
                                           const TScalar *bwd,
                                           const TScalar *normal, TScalar *flux)
     {
+        using std::max;
+        using std::min;
+
+        // Explicit vectorisation for AVX backend, vec_t =
+        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
+        using vec_t =
+            typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                                  TScalar>::type;
         constexpr unsigned int vec_width =
             (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
                 ? tinysimd::simd<TScalar>::width
                 : 1;
 
-        using std::sqrt;
+        // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
+        const size_t gs = blksize / vec_width;
+        const auto l    = reinterpret_cast<const vec_t *>(fwd);
+        const auto r    = reinterpret_cast<const vec_t *>(bwd);
+        const auto nvec = reinterpret_cast<const vec_t *>(normal);
+        auto f          = reinterpret_cast<vec_t *>(flux);
 
-        const TScalar oneHalf = 0.5;
+        // The two sides' primitive quantities and the Roe averages.
+        RoeAverageState<NDIM, vec_t> s;
+        RoeAverages<NDIM>(EoS, l, r, gs, s);
+        const vec_t rhoL = l[0], rhoR = r[0];
+        const vec_t EL = s.EL, ER = s.ER, pL = s.pL, pR = s.pR;
+        const auto &uL = s.uL, &uR = s.uR, &uRoe = s.uRoe;
+        const vec_t cRoe = s.cRoe;
+        const vec_t cL   = GetSoundSpeed(EoS, rhoL, s.eL);
+        const vec_t cR   = GetSoundSpeed(EoS, rhoR, s.eR);
 
-        // Currently not directly vectorisable due to branching
-        for (unsigned int k = 0; k < vec_width; k++)
+        vec_t n[NDIM];
+        vec_t unL = vec_t(0.0), unR = vec_t(0.0), unRoe = vec_t(0.0);
+        for (unsigned int d = 0; d < NDIM; ++d)
         {
-            // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment
-            // exist; the normal [n0 | n1 | n2] alike.
-            const TScalar rhoL = fwd[0];
-            const TScalar rhoR = bwd[0];
-
-            // Velocities, normal velocities and kinetic energy terms.
-            TScalar n[NDIM], mL[NDIM], mR[NDIM], uL[NDIM], uR[NDIM];
-            TScalar unL = 0.0, unR = 0.0, qL2 = 0.0, qR2 = 0.0;
-#pragma unroll
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                n[d]  = normal[d * blksize];
-                mL[d] = fwd[(1u + d) * blksize];
-                mR[d] = bwd[(1u + d) * blksize];
-                uL[d] = mL[d] / rhoL;
-                uR[d] = mR[d] / rhoR;
-                unL += uL[d] * n[d];
-                unR += uR[d] * n[d];
-                qL2 += mL[d] * uL[d];
-                qR2 += mR[d] * uR[d];
-            }
-
-            // Internal energy per unit mass, pressure, sound speed, enthalpy.
-            const TScalar EL = fwd[(1u + NDIM) * blksize];
-            const TScalar ER = bwd[(1u + NDIM) * blksize];
-            const TScalar eL = (EL - oneHalf * qL2) / rhoL;
-            const TScalar eR = (ER - oneHalf * qR2) / rhoR;
-            const TScalar pL = GetPressure(EoS, rhoL, eL);
-            const TScalar pR = GetPressure(EoS, rhoR, eR);
-            const TScalar cL = GetSoundSpeed(EoS, rhoL, eL);
-            const TScalar cR = GetSoundSpeed(EoS, rhoR, eR);
-            const TScalar hL = (EL + pL) / rhoL;
-            const TScalar hR = (ER + pR) / rhoR;
-
-            // Roe averages.
-            const TScalar srL  = sqrt(rhoL);
-            const TScalar srR  = sqrt(rhoR);
-            const TScalar srLR = srL + srR;
-            TScalar unRoe = 0.0, URoe2 = 0.0;
-#pragma unroll
-            for (unsigned int d = 0; d < NDIM; ++d)
-            {
-                const TScalar uRoe = (srL * uL[d] + srR * uR[d]) / srLR;
-                unRoe += uRoe * n[d];
-                URoe2 += uRoe * uRoe;
-            }
-            const TScalar hRoe = (srL * hL + srR * hR) / srLR;
-            const TScalar cRoe =
-                GetRoeSoundSpeed(EoS, rhoL, pL, eL, hL, srL, rhoR, pR, eR, hR,
-                                 srR, hRoe, URoe2, srLR);
-
-            // Mass flux through the normal from each side, and the largest
-            // wave speeds.
-            const TScalar mnL = rhoL * unL;
-            const TScalar mnR = rhoR * unR;
-            const TScalar SL  = std::min(unL - cL, unRoe - cRoe);
-            const TScalar SR  = std::max(unR + cR, unRoe + cRoe);
-
-            if (SL >= 0)
-            {
-                // The left state's flux through n.
-                flux[0] = mnL;
-#pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    flux[(1u + d) * blksize] = mnL * uL[d] + pL * n[d];
-                }
-                flux[(1u + NDIM) * blksize] = unL * (EL + pL);
-            }
-            else if (SR <= 0)
-            {
-                // The right state's flux through n.
-                flux[0] = mnR;
-#pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    flux[(1u + d) * blksize] = mnR * uR[d] + pR * n[d];
-                }
-                flux[(1u + NDIM) * blksize] = unR * (ER + pR);
-            }
-            else
-            {
-                // HLL: the average of the two fluxes weighted by the wave
-                // speeds, plus the jump.
-                const TScalar tmp1 = 1.0 / (SR - SL);
-                const TScalar tmp2 = SR * SL;
-                flux[0] = (SR * mnL - SL * mnR + tmp2 * (rhoR - rhoL)) * tmp1;
-#pragma unroll
-                for (unsigned int d = 0; d < NDIM; ++d)
-                {
-                    flux[(1u + d) * blksize] = (SR * (mnL * uL[d] + pL * n[d]) -
-                                                SL * (mnR * uR[d] + pR * n[d]) +
-                                                tmp2 * (mR[d] - mL[d])) *
-                                               tmp1;
-                }
-                flux[(1u + NDIM) * blksize] =
-                    (SR * unL * (EL + pL) - SL * unR * (ER + pR) +
-                     tmp2 * (ER - EL)) *
-                    tmp1;
-            }
-
-            fwd++;
-            bwd++;
-            normal++;
-            flux++;
+            n[d] = nvec[d * gs];
+            unL += n[d] * uL[d];
+            unR += n[d] * uR[d];
+            unRoe += n[d] * uRoe[d];
         }
+
+        // The largest wave speeds, clamped at zero: SL- = min(SL, 0) and
+        // SR+ = max(SR, 0). With them the three cases of HLL - the left
+        // state's flux where SL >= 0, the right's where SR <= 0, and the HLL
+        // flux between - are the one expression
+        //   F = (SR+ FL - SL- FR + SR+ SL- (UR - UL)) / (SR+ - SL-),
+        // so every lane takes it without a branch. SR+ - SL- is zero only
+        // when both speeds are, where the flux is taken as zero.
+        const vec_t SLm  = min(min(unL - cL, unRoe - cRoe), vec_t(0.0));
+        const vec_t SRp  = max(max(unR + cR, unRoe + cRoe), vec_t(0.0));
+        const vec_t invS = SafeDivide(vec_t(1.0), SRp - SLm);
+        const vec_t SLR  = SRp * SLm;
+
+        // Jumps: density and momentum.
+        const vec_t dRho = rhoR - rhoL;
+
+        f[0] = (SRp * rhoL * unL - SLm * rhoR * unR + SLR * dRho) * invS;
+        for (unsigned int d = 0; d < NDIM; ++d)
+        {
+            const vec_t rhouL = l[(1u + d) * gs], rhouR = r[(1u + d) * gs];
+            const vec_t dm   = rhouR - rhouL;
+            f[(1u + d) * gs] = (SRp * (rhouL * unL + pL * n[d]) -
+                                SLm * (rhouR * unR + pR * n[d]) + SLR * dm) *
+                               invS;
+        }
+        f[(1u + NDIM) * gs] =
+            (SRp * unL * (EL + pL) - SLm * unR * (ER + pR) + SLR * (ER - EL)) *
+            invS;
     }
 };
 

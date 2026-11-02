@@ -60,7 +60,9 @@
  *
  *  2.  Prepare a mesh file for the profiling, e.g. mesh.xml. Make sure it has
  *      enough elements to get meaningful profiling results. Make sure the file
- *      contains correct EXPANSIONS definitions.
+ *      contains correct EXPANSIONS definitions, and defines the conserved
+ *      variables (rho, rhou, ..., E) with their boundary conditions, as
+ *      RiemannSolvers/UnitTests/run/square_Euler.xml does.
  *
  *  3.  Run the profiler executable with the mesh file and other parameters.
  *      --opExecSpace=Serial
@@ -172,8 +174,7 @@ int main(int argc, char *argv[])
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
     for (const auto &m : method0)
     {
-        LaunchProfiler<CompressibleSolverOp<double>, FieldState::Phys, double>(
-            explist, Ntest, m);
+        LaunchProfiler<double>(explist, Ntest, m);
     }
 #endif
 
@@ -182,8 +183,7 @@ int main(int argc, char *argv[])
     // Benchmark-float
     for (const auto &m : method0)
     {
-        LaunchProfiler<CompressibleSolverOp<float>, FieldState::Phys, float>(
-            explist, Ntest, m);
+        LaunchProfiler<float>(explist, Ntest, m);
     }
 
 #endif

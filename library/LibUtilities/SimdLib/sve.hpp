@@ -1240,6 +1240,33 @@ inline sveMask64 operator>(sveFloat64 lhs, sveFloat64 rhs)
     return svand_u64_z(mask, sveTrue_v, sveTrue_v);
 }
 
+inline sveMask64 operator>=(sveFloat64 lhs, sveFloat64 rhs)
+{
+    // set mask
+    svbool_vlst_t mask = svcmpge(svptrue_b64(), lhs._data, rhs._data);
+    // abuse set inactive to zero to convert
+    sveMask64::vectorType sveTrue_v = svdup_u64(sveMask64::true_v);
+    return svand_u64_z(mask, sveTrue_v, sveTrue_v);
+}
+
+inline sveMask64 operator<(sveFloat64 lhs, sveFloat64 rhs)
+{
+    // set mask
+    svbool_vlst_t mask = svcmplt(svptrue_b64(), lhs._data, rhs._data);
+    // abuse set inactive to zero to convert
+    sveMask64::vectorType sveTrue_v = svdup_u64(sveMask64::true_v);
+    return svand_u64_z(mask, sveTrue_v, sveTrue_v);
+}
+
+inline sveMask64 operator<=(sveFloat64 lhs, sveFloat64 rhs)
+{
+    // set mask
+    svbool_vlst_t mask = svcmple(svptrue_b64(), lhs._data, rhs._data);
+    // abuse set inactive to zero to convert
+    sveMask64::vectorType sveTrue_v = svdup_u64(sveMask64::true_v);
+    return svand_u64_z(mask, sveTrue_v, sveTrue_v);
+}
+
 // logical and
 inline bool operator&&(sveMask64 lhs, bool rhs)
 {
@@ -1249,6 +1276,14 @@ inline bool operator&&(sveMask64 lhs, bool rhs)
     // true only if no lane is false, as on the other back-ends
     bool tmp = !svptest_any(svptrue_b64(), mask);
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline sveFloat64 select(sveMask64 m, sveFloat64 a, sveFloat64 b)
+{
+    sveMask64::vectorType sveFalse_v = svdup_u64(sveMask64::false_v);
+    svbool_vlst_t mask = svcmpne_u64(svptrue_b64(), m._data, sveFalse_v);
+    return svsel(mask, a._data, b._data);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1271,6 +1306,33 @@ inline sveMask32 operator>(sveFloat32 lhs, sveFloat32 rhs)
     return svand_u32_z(mask, sveTrue_v, sveTrue_v);
 }
 
+inline sveMask32 operator>=(sveFloat32 lhs, sveFloat32 rhs)
+{
+    // set mask
+    svbool_vlst_t mask = svcmpge(svptrue_b32(), lhs._data, rhs._data);
+    // abuse set inactive to zero to convert
+    sveMask32::vectorType sveTrue_v = svdup_u32(sveMask32::true_v);
+    return svand_u32_z(mask, sveTrue_v, sveTrue_v);
+}
+
+inline sveMask32 operator<(sveFloat32 lhs, sveFloat32 rhs)
+{
+    // set mask
+    svbool_vlst_t mask = svcmplt(svptrue_b32(), lhs._data, rhs._data);
+    // abuse set inactive to zero to convert
+    sveMask32::vectorType sveTrue_v = svdup_u32(sveMask32::true_v);
+    return svand_u32_z(mask, sveTrue_v, sveTrue_v);
+}
+
+inline sveMask32 operator<=(sveFloat32 lhs, sveFloat32 rhs)
+{
+    // set mask
+    svbool_vlst_t mask = svcmple(svptrue_b32(), lhs._data, rhs._data);
+    // abuse set inactive to zero to convert
+    sveMask32::vectorType sveTrue_v = svdup_u32(sveMask32::true_v);
+    return svand_u32_z(mask, sveTrue_v, sveTrue_v);
+}
+
 // logical and
 inline bool operator&&(sveMask32 lhs, bool rhs)
 {
@@ -1280,6 +1342,14 @@ inline bool operator&&(sveMask32 lhs, bool rhs)
     // true only if no lane is false, as on the other back-ends
     bool tmp = !svptest_any(svptrue_b32(), mask);
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline sveFloat32 select(sveMask32 m, sveFloat32 a, sveFloat32 b)
+{
+    sveMask32::vectorType sveFalse_v = svdup_u32(sveMask32::false_v);
+    svbool_vlst_t mask = svcmpne_u32(svptrue_b32(), m._data, sveFalse_v);
+    return svsel(mask, a._data, b._data);
 }
 
 } // namespace tinysimd

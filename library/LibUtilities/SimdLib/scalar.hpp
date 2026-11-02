@@ -418,14 +418,57 @@ inline scalarMask operator>(scalarT<double> lhs, scalarT<double> rhs)
     return lhs._data > rhs._data;
 }
 
+inline scalarMask operator>=(scalarT<double> lhs, scalarT<double> rhs)
+{
+    return lhs._data >= rhs._data;
+}
+
+inline scalarMask operator<(scalarT<double> lhs, scalarT<double> rhs)
+{
+    return lhs._data < rhs._data;
+}
+
+inline scalarMask operator<=(scalarT<double> lhs, scalarT<double> rhs)
+{
+    return lhs._data <= rhs._data;
+}
+
 inline scalarMask operator>(scalarT<float> lhs, scalarT<float> rhs)
 {
     return lhs._data > rhs._data;
 }
 
+inline scalarMask operator>=(scalarT<float> lhs, scalarT<float> rhs)
+{
+    return lhs._data >= rhs._data;
+}
+
+inline scalarMask operator<(scalarT<float> lhs, scalarT<float> rhs)
+{
+    return lhs._data < rhs._data;
+}
+
+inline scalarMask operator<=(scalarT<float> lhs, scalarT<float> rhs)
+{
+    return lhs._data <= rhs._data;
+}
+
 inline bool operator&&(scalarMask lhs, bool rhs)
 {
     return lhs._data && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline scalarT<double> select(scalarMask m, scalarT<double> a,
+                              scalarT<double> b)
+{
+    return m._data ? a._data : b._data;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline scalarT<float> select(scalarMask m, scalarT<float> a, scalarT<float> b)
+{
+    return m._data ? a._data : b._data;
 }
 
 } // namespace tinysimd

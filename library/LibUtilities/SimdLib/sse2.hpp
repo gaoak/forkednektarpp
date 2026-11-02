@@ -1162,11 +1162,35 @@ inline sse2Mask2 operator>(sse2Double2 lhs, sse2Double2 rhs)
         _mm_cmp_pd(lhs._data, rhs._data, _CMP_GT_OQ));
 }
 
+inline sse2Mask2 operator>=(sse2Double2 lhs, sse2Double2 rhs)
+{
+    return reinterpret_cast<__m128i>(
+        _mm_cmp_pd(lhs._data, rhs._data, _CMP_GE_OQ));
+}
+
+inline sse2Mask2 operator<(sse2Double2 lhs, sse2Double2 rhs)
+{
+    return reinterpret_cast<__m128i>(
+        _mm_cmp_pd(lhs._data, rhs._data, _CMP_LT_OQ));
+}
+
+inline sse2Mask2 operator<=(sse2Double2 lhs, sse2Double2 rhs)
+{
+    return reinterpret_cast<__m128i>(
+        _mm_cmp_pd(lhs._data, rhs._data, _CMP_LE_OQ));
+}
+
 inline bool operator&&(sse2Mask2 lhs, bool rhs)
 {
     bool tmp = _mm_testc_si128(lhs._data, _mm_set1_epi64x(sse2Mask2::true_v));
 
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline sse2Double2 select(sse2Mask2 m, sse2Double2 a, sse2Double2 b)
+{
+    return _mm_blendv_pd(b._data, a._data, _mm_castsi128_pd(m._data));
 }
 
 struct sse2Mask4 : sse2Int4<std::uint32_t>
@@ -1183,12 +1207,36 @@ inline sse2Mask4 operator>(sse2Float4 lhs, sse2Float4 rhs)
     return reinterpret_cast<__m128i>(_mm_cmp_ps(rhs._data, lhs._data, 1));
 }
 
+inline sse2Mask4 operator>=(sse2Float4 lhs, sse2Float4 rhs)
+{
+    return reinterpret_cast<__m128i>(
+        _mm_cmp_ps(lhs._data, rhs._data, _CMP_GE_OQ));
+}
+
+inline sse2Mask4 operator<(sse2Float4 lhs, sse2Float4 rhs)
+{
+    return reinterpret_cast<__m128i>(
+        _mm_cmp_ps(lhs._data, rhs._data, _CMP_LT_OQ));
+}
+
+inline sse2Mask4 operator<=(sse2Float4 lhs, sse2Float4 rhs)
+{
+    return reinterpret_cast<__m128i>(
+        _mm_cmp_ps(lhs._data, rhs._data, _CMP_LE_OQ));
+}
+
 inline bool operator&&(sse2Mask4 lhs, bool rhs)
 {
     // true only if every lane is true; the true value is set per 32-bit lane
     bool tmp = _mm_testc_si128(lhs._data, _mm_set1_epi32(sse2Mask4::true_v));
 
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline sse2Float4 select(sse2Mask4 m, sse2Float4 a, sse2Float4 b)
+{
+    return _mm_blendv_ps(b._data, a._data, _mm_castsi128_ps(m._data));
 }
 
 } // namespace tinysimd

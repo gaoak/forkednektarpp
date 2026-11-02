@@ -1252,6 +1252,24 @@ inline avx512Mask8 operator>(avx512Double8 lhs, avx512Double8 rhs)
     return _mm512_maskz_set1_epi64(mask, avx512Mask8::true_v);
 }
 
+inline avx512Mask8 operator>=(avx512Double8 lhs, avx512Double8 rhs)
+{
+    __mmask8 mask = _mm512_cmp_pd_mask(lhs._data, rhs._data, _CMP_GE_OQ);
+    return _mm512_maskz_set1_epi64(mask, avx512Mask8::true_v);
+}
+
+inline avx512Mask8 operator<(avx512Double8 lhs, avx512Double8 rhs)
+{
+    __mmask8 mask = _mm512_cmp_pd_mask(lhs._data, rhs._data, _CMP_LT_OQ);
+    return _mm512_maskz_set1_epi64(mask, avx512Mask8::true_v);
+}
+
+inline avx512Mask8 operator<=(avx512Double8 lhs, avx512Double8 rhs)
+{
+    __mmask8 mask = _mm512_cmp_pd_mask(lhs._data, rhs._data, _CMP_LE_OQ);
+    return _mm512_maskz_set1_epi64(mask, avx512Mask8::true_v);
+}
+
 inline bool operator&&(avx512Mask8 lhs, bool rhs)
 {
     // true only if every lane is true, as on the other back-ends
@@ -1259,6 +1277,13 @@ inline bool operator&&(avx512Mask8 lhs, bool rhs)
     __mmask8 mask    = _mm512_test_epi64_mask(lhs._data, val_true);
     bool tmp         = _cvtmask16_u32(mask) == 0xFFu;
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline avx512Double8 select(avx512Mask8 m, avx512Double8 a, avx512Double8 b)
+{
+    __mmask8 mask = _mm512_test_epi64_mask(m._data, m._data);
+    return _mm512_mask_blend_pd(mask, b._data, a._data);
 }
 
 struct avx512Mask16 : avx512Int16<std::uint32_t>
@@ -1276,6 +1301,24 @@ inline avx512Mask16 operator>(avx512Float16 lhs, avx512Float16 rhs)
     return _mm512_maskz_set1_epi32(mask, avx512Mask16::true_v);
 }
 
+inline avx512Mask16 operator>=(avx512Float16 lhs, avx512Float16 rhs)
+{
+    __mmask16 mask = _mm512_cmp_ps_mask(lhs._data, rhs._data, _CMP_GE_OQ);
+    return _mm512_maskz_set1_epi32(mask, avx512Mask16::true_v);
+}
+
+inline avx512Mask16 operator<(avx512Float16 lhs, avx512Float16 rhs)
+{
+    __mmask16 mask = _mm512_cmp_ps_mask(lhs._data, rhs._data, _CMP_LT_OQ);
+    return _mm512_maskz_set1_epi32(mask, avx512Mask16::true_v);
+}
+
+inline avx512Mask16 operator<=(avx512Float16 lhs, avx512Float16 rhs)
+{
+    __mmask16 mask = _mm512_cmp_ps_mask(lhs._data, rhs._data, _CMP_LE_OQ);
+    return _mm512_maskz_set1_epi32(mask, avx512Mask16::true_v);
+}
+
 inline bool operator&&(avx512Mask16 lhs, bool rhs)
 {
     // true only if every lane is true, as on the other back-ends
@@ -1283,6 +1326,13 @@ inline bool operator&&(avx512Mask16 lhs, bool rhs)
     __mmask16 mask   = _mm512_test_epi32_mask(lhs._data, val_true);
     bool tmp         = _cvtmask16_u32(mask) == 0xFFFFu;
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline avx512Float16 select(avx512Mask16 m, avx512Float16 a, avx512Float16 b)
+{
+    __mmask16 mask = _mm512_test_epi32_mask(m._data, m._data);
+    return _mm512_mask_blend_ps(mask, b._data, a._data);
 }
 
 } // namespace tinysimd
