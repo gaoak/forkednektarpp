@@ -50,13 +50,14 @@
 
 #include <array>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
 #include <boost/lexical_cast.hpp>
 
-#include "LibUtilities/Backends/Backends.hpp"
-#include "LibUtilities/BasicUtils/Equation.h"
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Equation.h>
 
 namespace Nektar::MultiRegions::detail
 {
@@ -360,6 +361,33 @@ inline std::string GetExpressionKernelArguments(
 }
 
 /**
+ * @brief Whether the expression kernel can be compiled for an expression
+ * using @p variables and calling @p functions (see
+ * ExpressionBlockOp::GetExpressionVariables() and
+ * ExpressionBlockOp::GetExpressionFunctions()).
+ *
+ * The expression is pasted into the kernel source, so a function only the
+ * host interpreter defines, or a coordinate beyond the @p coordDim the kernel
+ * declares, would fail to compile.
+ */
+inline bool IsDeviceExpression(const std::set<std::string> &variables,
+                               const std::set<std::string> &functions,
+                               const unsigned int coordDim)
+{
+    static const std::set<std::string> hostOnly = {"awgn", "bessel"};
+
+    for (const auto &function : functions)
+    {
+        if (hostOnly.count(function))
+        {
+            return false;
+        }
+    }
+    return !(variables.count("y") && coordDim < 2) &&
+           !(variables.count("z") && coordDim < 3);
+}
+
+/**
  * @brief Emit the body of an expression kernel, without the enclosing
  * braces.
  *
@@ -370,7 +398,8 @@ inline std::string GetExpressionKernelArguments(
  * instantiated on and the EVAR values, then assigns or appends
  * `scale * (expression)` to each enabled output. `#define`s make the
  * common maths functions take TData arguments, so integer literals do
- * not make calls like `sqrt(61)` ambiguous, and caret powers are
+ * not make calls like `sqrt(61)` ambiguous, local lambdas define the
+ * interpreter's `sign`, `rad` and `ang`, and caret powers are
  * rewritten by convertPow().
  *
  * One kernel covers every homogeneous mode of the block: the modes of a
@@ -504,6 +533,25 @@ inline std::string GetExpressionKernelBody(
         "#define log10(x) " + mathPrefix + "log10(static_cast<TData>(x))\n";
     kernel_src += "#define pow(x,y) " + mathPrefix +
                   "pow(static_cast<TData>(x), static_cast<TData>(y))\n";
+
+    // Functions of the host interpreter with no maths library counterpart,
+    // defined as it defines them.
+    kernel_src += "    const auto sign = [](const TData v) -> TData\n";
+    kernel_src += "    {\n";
+    kernel_src += "        return TData(v > TData(0)) - TData(v < TData(0));\n";
+    kernel_src += "    };\n";
+    kernel_src +=
+        "    const auto rad = [](const TData a, const TData b) -> TData\n";
+    kernel_src += "    {\n";
+    kernel_src += "        return (a != TData(0) || b != TData(0))\n";
+    kernel_src += "            ? sqrt(a * a + b * b) : TData(0);\n";
+    kernel_src += "    };\n";
+    kernel_src +=
+        "    const auto ang = [](const TData a, const TData b) -> TData\n";
+    kernel_src += "    {\n";
+    kernel_src += "        return (a != TData(0) || b != TData(0))\n";
+    kernel_src += "            ? " + mathPrefix + "atan2(b, a) : TData(0);\n";
+    kernel_src += "    };\n";
 
     // Define expression.
     for (unsigned int nc = 0; nc < exprs.size(); nc++)

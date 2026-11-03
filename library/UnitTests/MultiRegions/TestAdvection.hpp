@@ -368,3 +368,56 @@ public:
 TEST_FFT(QuadFFT, "run/square.xml")
 TEST_FFT(TriFFT, "run/tri.xml")
 TEST_FFT(SquareAllElementsFFT, "run/square_all_elements.xml")
+
+/// As TestAdvectionFFT, applied to the input interleaved at the vector width of
+/// the execution space, its blocks padded to that width.
+template <typename TData>
+class TestAdvectionFFTInterleaved : public TestAdvectionFFT<TData>
+{
+public:
+    TestAdvectionFFTInterleaved() = default;
+
+    void RunTestCase()
+    {
+        const std::string execStr(GlobalConfiguration::ExecStr());
+        this->fixt_in->ReshapeStorage(
+            NektarSpaces::GetVectorWidth<TData>(execStr), execStr);
+        TestAdvectionFFT<TData>::RunTestCase();
+    }
+};
+
+// clang-format off
+#if defined(NEKTAR_ENABLE_SINGLE_PRECISION)
+#define TEST_FFT_INTERLEAVEDFLOAT(type, filename)                              \
+    class type##float : public TestAdvectionFFTInterleaved<float>              \
+    {                                                                          \
+    public:                                                                    \
+        type##float()                                                          \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFT_INTERLEAVEDFLOAT(type, filename)
+#endif
+#if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
+#define TEST_FFT_INTERLEAVEDDOUBLE(type, filename)                             \
+    class type : public TestAdvectionFFTInterleaved<double>                    \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
+#else
+#define TEST_FFT_INTERLEAVEDDOUBLE(type, filename)
+#endif
+#define TEST_FFT_INTERLEAVED(type, filename)                                   \
+    TEST_FFT_INTERLEAVEDFLOAT(type, filename)                                  \
+    TEST_FFT_INTERLEAVEDDOUBLE(type, filename)
+// clang-format on
+
+TEST_FFT_INTERLEAVED(QuadFFTInterleaved, "run/square.xml")
+TEST_FFT_INTERLEAVED(SquareAllElementsFFTInterleaved,
+                     "run/square_all_elements.xml")

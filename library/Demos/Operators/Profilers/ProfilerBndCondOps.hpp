@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
@@ -132,11 +133,11 @@ void PrintBlockInfo(const MultiRegions::ContFieldSharedPtr &expList,
         auto GeomType = Vmath::Vsum(nrank, allRankGeomTypes.data(), 1) / nrank;
 
         std::string Gtype = "Null";
-        if (abs(GeomType - 1.0) < 1e-8)
+        if (std::abs(GeomType - 1.0) < 1e-8)
         {
             Gtype = "Regular";
         }
-        else if (abs(GeomType - 2.0) < 1e-8)
+        else if (std::abs(GeomType - 2.0) < 1e-8)
         {
             Gtype = "Deformed";
         }

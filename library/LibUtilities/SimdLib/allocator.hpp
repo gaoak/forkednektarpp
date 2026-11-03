@@ -29,7 +29,7 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Vector type custom allocator. It is needed to allocate vectors
-// to the required alignement. It is a light wrapper around boost allocator.
+// to the required alignment.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -37,15 +37,108 @@
 #define NEKTAR_LIB_LIBUTILITES_SIMDLIB_ALLOCATOR_H
 
 #include "traits.hpp"
-#include <boost/align/aligned_allocator.hpp>
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <new>
 #include <type_traits>
+#include <utility>
 
 namespace tinysimd
 {
 
+template <typename T, std::size_t Alignment> class aligned_allocator
+{
+public:
+    using value_type      = T;
+    using pointer         = T *;
+    using const_pointer   = const T *;
+    using reference       = T &;
+    using const_reference = const T &;
+    using size_type       = std::size_t;
+    using difference_type = std::ptrdiff_t;
+
+    using propagate_on_container_move_assignment = std::true_type;
+    using is_always_equal                        = std::true_type;
+
+    static constexpr std::size_t alignment = std::max(Alignment, alignof(T));
+    static_assert((alignment & (alignment - 1)) == 0,
+                  "Alignment must be a power of two.");
+
+    // Needed by std::allocator_traits as Alignment is a non-type parameter.
+    template <typename U> struct rebind
+    {
+        using other = aligned_allocator<U, Alignment>;
+    };
+
+    aligned_allocator() noexcept = default;
+
+    template <typename U>
+    aligned_allocator(const aligned_allocator<U, Alignment> &) noexcept
+    {
+    }
+
+    T *allocate(size_type n)
+    {
+        if (n > max_size())
+        {
+            throw std::bad_array_new_length();
+        }
+        return static_cast<T *>(
+            ::operator new(n * sizeof(T), std::align_val_t{alignment}));
+    }
+
+    void deallocate(T *p, size_type) noexcept
+    {
+        if (p != nullptr)
+        {
+            ::operator delete(p, std::align_val_t{alignment});
+        }
+    }
+
+    constexpr size_type max_size() const noexcept
+    {
+        return std::numeric_limits<size_type>::max() / sizeof(T);
+    }
+
+// Disable array-bounds and stringop-overflow warnings as GCC incorrectly
+// triggers them on the zero-length path of std::vector value-initialisation.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+    template <typename U, typename... Args> void construct(U *p, Args &&...args)
+    {
+        ::new (static_cast<void *>(p)) U(std::forward<Args>(args)...);
+    }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+    template <typename U> void destroy(U *p)
+    {
+        p->~U();
+    }
+};
+
+template <typename T, typename U, std::size_t Alignment>
+bool operator==(const aligned_allocator<T, Alignment> &,
+                const aligned_allocator<U, Alignment> &) noexcept
+{
+    return true;
+}
+
+template <typename T, typename U, std::size_t Alignment>
+bool operator!=(const aligned_allocator<T, Alignment> &,
+                const aligned_allocator<U, Alignment> &) noexcept
+{
+    return false;
+}
+
 // should be enabled only for vector types
 template <typename T, std::enable_if_t<is_vector_v<T>, bool> Enable = true>
-using allocator = boost::alignment::aligned_allocator<T, T::alignment>;
+using allocator = aligned_allocator<T, T::alignment>;
 
 } // namespace tinysimd
 

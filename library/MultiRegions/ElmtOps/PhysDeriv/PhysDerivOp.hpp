@@ -85,9 +85,9 @@
  * produce a single Cartesian derivative component and can accumulate
  * onto it. PhysDeriv itself never calls them: the sum-factorised ones
  * are the building blocks of the Divergence kernels (and, in one
- * dimension, of the CurlCurl kernels), the StdMat one,
- * MultiplyByDerivDirFactorKernel, of the Divergence StdMat
- * implementations. Conversely the all-component kernels PhysDeriv uses
+ * dimension, of the CurlCurl kernels), the host StdMat one,
+ * MultiplyByDerivDirFactorKernel, of the Serial/AVX Divergence StdMat
+ * implementation. Conversely the all-component kernels PhysDeriv uses
  * are shared with other families: MultiplyByDerivFactorKernel with the
  * AdvectionDealias StdMat implementations, and the device
  * PhysDeriv{1,2,3}DSumFacKernel / PhysDeriv{1,2,3}DSumFacTOPKernel with

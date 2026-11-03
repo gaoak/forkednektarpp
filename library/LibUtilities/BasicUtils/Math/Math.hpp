@@ -37,6 +37,7 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Field/MemoryRegion.hpp>
 #include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
+#include <LibUtilities/BasicUtils/Math/RandomGenerator.hpp>
 
 namespace Nektar::Math
 {
@@ -44,6 +45,14 @@ namespace Nektar::Math
 // Stream a reduction initialises its output on and the host reads it back
 // on: the null stream, ordered against the block streams that reduce into it.
 inline constexpr unsigned int internalReductionStreamID = 0;
+
+// The device reduction kernels, reduce*Kernel<ExecSpace, init>(..., out,
+// streamID) and the like:
+// - init: set *out to the result of this reduction. No other launch in flight
+//   may write *out.
+// - !init: carry on the reduction from the current value of *out, written
+//   before the launch on its stream or on internalReductionStreamID. Launches
+//   on any streams may carry on into the same *out.
 
 template <typename MemSpace> class internalMathKernelMask
 {
@@ -238,6 +247,82 @@ void fill(const TData &val, LibUtilities::Field<TData, TFieldState> &x)
                     x.GetNumHomoModes();
 
         fillKernel<ExecSpace>(size, val, xptr, streamID);
+    }
+
+    internalZeroPadding<ExecSpace>(x);
+}
+
+// Fill x with numbers drawn from gen, uniform between a and b (a < b).
+template <typename ExecSpace, typename TData>
+void fillUniform(RandomGenerator &gen, const TData a, const TData b,
+                 LibUtilities::MemoryRegion<TData> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    gen.template Uniform<MemSpace>(a, b, nsize, xptr);
+}
+
+// Fill x with numbers drawn from gen, uniform between a and b (a < b), on the
+// stream of each block, and zero the padding. The numbers each block receives
+// on the device depend on its stream, so on the partition into blocks.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void fillUniform(RandomGenerator &gen, const TData a, const TData b,
+                 LibUtilities::Field<TData, TFieldState> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        gen.template Uniform<MemSpace>(a, b, size, xptr, streamID);
+    }
+
+    internalZeroPadding<ExecSpace>(x);
+}
+
+// Fill x with numbers drawn from gen, normal with the given mean and standard
+// deviation (sigma > 0).
+template <typename ExecSpace, typename TData>
+void fillNormal(RandomGenerator &gen, const TData mean, const TData sigma,
+                LibUtilities::MemoryRegion<TData> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto xptr  = x.template GetPtr<MemSpace, WriteOnly>();
+    auto nsize = x.size();
+
+    gen.template Normal<MemSpace>(mean, sigma, nsize, xptr);
+}
+
+// Fill x with numbers drawn from gen, normal with the given mean and standard
+// deviation (sigma > 0), on the stream of each block, and zero the padding.
+// The numbers each block receives on the device depend on its stream, so on
+// the partition into blocks.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void fillNormal(RandomGenerator &gen, const TData mean, const TData sigma,
+                LibUtilities::Field<TData, TFieldState> &x)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    for (unsigned int blk = 0; blk < x.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        auto xptr =
+            x.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(streamID);
+        auto size = x.GetBlocks()[blk].CompSize() * x.GetNumComponents() *
+                    x.GetNumHomoModes();
+
+        gen.template Normal<MemSpace>(mean, sigma, size, xptr, streamID);
     }
 
     internalZeroPadding<ExecSpace>(x);
@@ -1285,6 +1370,83 @@ void daxpbypcz(const TData alpha, LibUtilities::Field<TData, TFieldState> &x,
 
         w.GetBlocks()[blk].template SetInterleaveWidth<TData>(
             x.GetBlocks()[blk].GetInterleaveWidth());
+    }
+}
+
+// y = sum_j alpha[j] x[j], added to y if append, in one pass over y. At most
+// linearCombinationMaxTerms terms.
+template <typename ExecSpace, typename TData, FieldState TFieldState>
+void linearCombination(
+    const std::vector<TData> &alpha,
+    const std::vector<LibUtilities::Field<TData, TFieldState> *> &x,
+    LibUtilities::Field<TData, TFieldState> &y, const bool append)
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+    if (alpha.size() != x.size() || x.size() > linearCombinationMaxTerms)
+    {
+        std::stringstream msg;
+
+        msg << "MathKernel::linearCombination - One coefficient per Field and "
+               "at most "
+            << linearCombinationMaxTerms << " Fields are required";
+        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+    }
+
+    for (const auto *xj : x)
+    {
+        if (xj->size() != y.size())
+        {
+            std::stringstream msg;
+
+            msg << "MathKernel::linearCombination - Memory size mismatch "
+                   "between Field";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+    }
+
+    for (unsigned int blk = 0; blk < y.GetBlocks().size(); ++blk)
+    {
+        const unsigned int streamID = blk + 1;
+
+        LinearCombinationTerms<TData> terms{};
+        terms.n = static_cast<unsigned int>(x.size());
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            WARNINGL1(x[j]->GetBlocks()[blk].GetInterleaveWidth() ==
+                          x[0]->GetBlocks()[blk].GetInterleaveWidth(),
+                      "MathKernel::linearCombination - Inconsistent interleave "
+                      "format between input Fields");
+
+            terms.x[j] =
+                x[j]->GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(
+                    streamID);
+            terms.alpha[j] = alpha[j];
+        }
+
+        auto size = y.GetBlocks()[blk].CompSize() * y.GetNumComponents() *
+                    y.GetNumHomoModes();
+
+        if (append)
+        {
+            auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>(
+                streamID);
+            linearCombinationKernel<ExecSpace, true>(size, terms, yptr,
+                                                     streamID);
+        }
+        else
+        {
+            auto yptr = y.GetBlocks()[blk].template GetPtr<MemSpace, WriteOnly>(
+                streamID);
+            linearCombinationKernel<ExecSpace, false>(size, terms, yptr,
+                                                      streamID);
+        }
+
+        if (!x.empty())
+        {
+            y.GetBlocks()[blk].template SetInterleaveWidth<TData>(
+                x[0]->GetBlocks()[blk].GetInterleaveWidth());
+        }
     }
 }
 

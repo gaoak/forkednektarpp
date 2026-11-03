@@ -198,6 +198,34 @@ public:
     }
 
     /**
+     * @brief The outward normal component of a vector-valued field on the
+     * element-local traces.
+     *
+     * @p inblock holds `nvar * ndim` components, ordered variable-outer and
+     * direction-inner. The result, `out[f] = sum_d n[d] * trace(in[f * ndim
+     * + d])` with @c n each element's outward unit normal on its own traces
+     * (MultiRegions::LocalTraceNormalKey), has `nvar` components and leaves
+     * at the width @p inblock arrived at. The implementation reads the
+     * normals from the data warehouse at the width it works at. One that
+     * extracts every component's trace first (NormalComponentNeedsScratch())
+     * is given @p scratchblock, with the `nvar * ndim` trace components;
+     * the others are given null.
+     */
+    void ApplyNormalComponent(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> *scratchblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock)
+    {
+        v_ApplyNormalComponent(inblock, scratchblock, outblock);
+    }
+
+    /// Whether ApplyNormalComponent() needs a scratch trace block.
+    bool NormalComponentNeedsScratch() const
+    {
+        return v_NormalComponentNeedsScratch();
+    }
+
+    /**
      * @brief Choose which trace quadrature this block interpolates onto.
      *
      * @details
@@ -267,6 +295,17 @@ protected:
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock,
         const unsigned outOffset) = 0;
+
+    /// Implementation hook for ApplyNormalComponent().
+    virtual void v_ApplyNormalComponent(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> *scratchblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &outblock) = 0;
+
+    virtual bool v_NormalComponentNeedsScratch() const
+    {
+        return false;
+    }
 };
 
 } // namespace Nektar::MultiRegions

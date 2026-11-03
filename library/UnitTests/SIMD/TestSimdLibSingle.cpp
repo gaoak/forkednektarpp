@@ -40,6 +40,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <limits>
 
 // define types in use and number of lanes
 #define NUM_LANES_32BITS 1
@@ -144,6 +145,9 @@ BOOST_AUTO_TEST_CASE(SimdLibFloat_type_traits)
 
     BOOST_CHECK_EQUAL(is_vector_v<float>, false);
     BOOST_CHECK_EQUAL(is_vector_v<vec_t>, true);
+
+    BOOST_CHECK((std::is_same_v<scalar_type_t<float>, float>));
+    BOOST_CHECK((std::is_same_v<scalar_type_t<vec_t>, float>));
 
     BOOST_CHECK_EQUAL(is_vector_floating_point_v<float>, false);
     BOOST_CHECK_EQUAL(is_vector_floating_point_v<simd<int>>, false);
@@ -718,6 +722,42 @@ BOOST_AUTO_TEST_CASE(SimdLibFloat_greater)
             BOOST_CHECK_EQUAL(static_cast<bool>(amask[i]),
                               dval > ascalararr2[i]);
         }
+    }
+}
+
+BOOST_AUTO_TEST_CASE(SimdLibFloat_compare_select)
+{
+    using mask_t = simd<bool, vec_t::width>;
+
+    // Lanes below, equal to and above the reference, and a NaN, for which
+    // every comparison is false.
+    alignas(vec_t::alignment) std::array<float, vec_t::width> aarr{{}},
+        barr{{}}, selarr{{}};
+    for (size_t i = 0; i < vec_t::width; ++i)
+    {
+        aarr[i] = static_cast<float>(i % 3);
+        barr[i] = float(1.0);
+    }
+    if (vec_t::width > 3)
+    {
+        aarr[3] = std::numeric_limits<float>::quiet_NaN();
+    }
+
+    vec_t avec, bvec;
+    avec.load(aarr.data());
+    bvec.load(barr.data());
+
+    const mask_t ge = avec >= bvec;
+    const mask_t lt = avec < bvec;
+    const mask_t le = avec <= bvec;
+    select(ge, avec, bvec).store(selarr.data());
+
+    for (size_t i = 0; i < vec_t::width; ++i)
+    {
+        BOOST_CHECK_EQUAL(static_cast<bool>(ge[i]), aarr[i] >= barr[i]);
+        BOOST_CHECK_EQUAL(static_cast<bool>(lt[i]), aarr[i] < barr[i]);
+        BOOST_CHECK_EQUAL(static_cast<bool>(le[i]), aarr[i] <= barr[i]);
+        BOOST_CHECK_EQUAL(selarr[i], aarr[i] >= barr[i] ? aarr[i] : barr[i]);
     }
 }
 

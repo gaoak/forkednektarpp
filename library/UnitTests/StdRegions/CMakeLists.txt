@@ -6,6 +6,7 @@ SET(StdRegionsUnitTestsSources
     TestInvBwdTrans.cpp
     TestReduceOrderCoeffs.cpp
     TestSVVLaplacianFilter.cpp
+    TestPyrExactMass.cpp
     TestTetExactMass.cpp
 )
 

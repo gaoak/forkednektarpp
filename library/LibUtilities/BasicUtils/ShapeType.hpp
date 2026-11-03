@@ -134,6 +134,27 @@ constexpr unsigned int ShapeTypeNumTraceInDir[SIZE_ShapeType][3] = {
     {2, 2, 1}  // eNodalPrism
 };
 
+/// Exponent of (1 - eta)/2 in the collapsed-coordinate Jacobian along
+/// direction @p dir of @p shape, the factor StdExpansion::CreateStdFac
+/// multiplies into the weights.
+constexpr int ShapeTypeCollapseExponent(const ShapeType shape,
+                                        const unsigned int dir)
+{
+    switch (shape)
+    {
+        case eTriangle:
+            return dir == 1 ? 1 : 0;
+        case eTetrahedron:
+            return static_cast<int>(dir);
+        case ePrism:
+            return dir == 2 ? 1 : 0;
+        case ePyramid:
+            return dir == 2 ? 2 : 0;
+        default:
+            return 0;
+    }
+}
+
 // Hold the traceid in given dim
 constexpr unsigned int ShapeTypeTraceIDInDir[SIZE_ShapeType][3][2] = {
     {{0, 0}, {0, 0}, {0, 0}}, // Unknown

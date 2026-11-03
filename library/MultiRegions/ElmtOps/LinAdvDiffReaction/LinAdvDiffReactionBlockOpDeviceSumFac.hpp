@@ -77,7 +77,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOpDeviceSumFacKernels.hpp>
@@ -626,7 +626,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation>(sizeParam);
+            HelmholtzSharedMemorySize<SHAPE_TYPE, Implementation, TData>(
+                sizeParam);
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(sizeParam.nmTot());
         const unsigned int gridsize =

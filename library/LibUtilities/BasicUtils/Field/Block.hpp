@@ -268,12 +268,21 @@ public:
      * @param count - number of values
      */
     template <typename MemSpace>
-    void Initialize(const TData val, const size_t count = 0,
-                    const size_t offset = 0, const unsigned int streamID = 0)
-    {
-        m_memory_region.template Initialize<MemSpace>(val, count, offset,
-                                                      streamID);
-    }
+    LIB_UTILITIES_EXPORT void Initialize(const TData val,
+                                         const size_t count          = 0,
+                                         const size_t offset         = 0,
+                                         const unsigned int streamID = 0);
+
+    /**
+     * @brief Templated copy method. This method copies the data of a
+     *        BlockAccessor of the same size and takes its interleave width.
+     *
+     * @param rhs      - BlockAccessor to copy from
+     * @param streamID - stream the copy is enqueued on
+     */
+    template <typename MemSpace>
+    LIB_UTILITIES_EXPORT void Copy(BlockAccessor &rhs,
+                                   const unsigned int streamID = 0);
 
 private:
     // Note: m_field is a pointer to a Field object from which the current

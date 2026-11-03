@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Expansions of ChannelFlow2D.xml with a pressure one order above the
+        velocity: P=2 velocity (MODIFIEDQUADPLUS1, NUMMODES=3) and P=3
+        pressure (MODIFIED, NUMMODES=4), which share their quadrature points
+        on the triangles and the quadrilaterals. The pressure does not embed
+        in the velocity expansion, so the solver writes it in field
+        definitions of its own.
+    -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[0-1]" NUMMODES="3" FIELDS="u,v" TYPE="MODIFIEDQUADPLUS1" />
+        <E COMPOSITE="C[0-1]" NUMMODES="4" FIELDS="p" TYPE="MODIFIED" />
+    </EXPANSIONS>
+</NEKTAR>

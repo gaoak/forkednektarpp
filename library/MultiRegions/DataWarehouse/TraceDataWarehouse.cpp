@@ -53,6 +53,21 @@ template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
 
 template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, double>(
+    const LocalTraceNormalKey<double> &localTraceNormalKey);
+template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const LocalTraceNormalKey<float> &localTraceNormalKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const LocalTraceNormalKey<double> &localTraceNormalKey);
+template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const LocalTraceNormalKey<float> &localTraceNormalKey);
+#endif
+
+template LibUtilities::MemoryRegion<double> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, double>(
     const BndCondNormalKey<double> &bndCondNormalKey);
 template LibUtilities::MemoryRegion<float> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, float>(

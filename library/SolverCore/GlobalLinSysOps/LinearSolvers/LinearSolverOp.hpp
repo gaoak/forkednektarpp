@@ -332,7 +332,8 @@ protected:
             {
                 auto maskPtr =
                     maskblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-                auto numComp = maskblk.GetNumComponents();
+                auto numComp =
+                    maskblk.GetNumComponents() * maskblk.GetNumHomoModes();
 
                 LibUtilities::ReshapeStorage<ExecSpace>(
                     fieldblk.GetInterleaveWidth(), maskblk.GetInterleaveWidth(),

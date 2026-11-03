@@ -126,6 +126,28 @@ public:
         m_NeuBCOps.push_back(op);
     }
 
+    /**
+     * @brief Add the surface integral of the Neumann boundary values on this
+     * rank, per component, summed over the Neumann operators of the system,
+     * the default one and those added with AddNeumannBCOp(), to
+     * data[offset + c] for component c, in the memory space of the
+     * execution space.
+     *
+     * @details
+     * For a singular system this is the value the domain integral of the
+     * forcing must match; see MeanRemovalOp::SetNeumannBalance(), which
+     * reduces it across ranks with the domain integral. Nothing is read back
+     * to the host.
+     */
+    void AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
+                                   const size_t offset)
+    {
+        for (auto &op : m_NeuBCOps)
+        {
+            op->AddNeumannSurfaceIntegral(data, offset);
+        }
+    }
+
 protected:
     std::shared_ptr<LinearSolverOp<TData>> m_LinSolverOp;
     std::shared_ptr<

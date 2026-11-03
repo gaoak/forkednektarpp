@@ -603,58 +603,129 @@ NEK_DEVICE_INLINE static TData warpReduceAnd(
                                    sycl::bit_and<>());
 }
 
-template <int ndim, typename TData>
+// blockReduce{Sum,Max,Min,Or,And}: combine val over the thread block into
+// *red. Every thread of the block must call them.
+// - Scope = GlobalScope (default): *red may be shared with other thread
+//   blocks. The block's total is formed first (reduce_over_group on the
+//   work-group) and its first thread issues one global-scope atomic.
+// - Scope = LocalScope: *red is owned by this thread block. Each sub-group
+//   combines its partial into it with a block-scope atomic, with no block
+//   barrier.
+template <typename Scope = NektarSpaces::GlobalScope, int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
     const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceSum(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_add<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceSum(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0)
+        {
+            atomic_add<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const auto group = threadBlock.get_group();
+        const TData tmp  = sycl::reduce_over_group(group, val, sycl::plus<>());
+        if (group.leader())
+        {
+            atomic_add<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
     const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceMax(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_max<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceMax(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0)
+        {
+            atomic_max<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const auto group = threadBlock.get_group();
+        const TData tmp =
+            sycl::reduce_over_group(group, val, sycl::maximum<>());
+        if (group.leader())
+        {
+            atomic_max<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
     const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceMin(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_min<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceMin(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0)
+        {
+            atomic_min<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const auto group = threadBlock.get_group();
+        const TData tmp =
+            sycl::reduce_over_group(group, val, sycl::minimum<>());
+        if (group.leader())
+        {
+            atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceOr(
     const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceOr(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_or<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceOr(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0)
+        {
+            atomic_or<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const auto group = threadBlock.get_group();
+        const TData tmp = sycl::reduce_over_group(group, val, sycl::bit_or<>());
+        if (group.leader())
+        {
+            atomic_or<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, int ndim, typename TData>
 NEK_DEVICE_INLINE static void blockReduceAnd(
     const TData val, const sycl::nd_item<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceAnd(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_and<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceAnd(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0)
+        {
+            atomic_and<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const auto group = threadBlock.get_group();
+        const TData tmp =
+            sycl::reduce_over_group(group, val, sycl::bit_and<>());
+        if (group.leader())
+        {
+            atomic_and<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 

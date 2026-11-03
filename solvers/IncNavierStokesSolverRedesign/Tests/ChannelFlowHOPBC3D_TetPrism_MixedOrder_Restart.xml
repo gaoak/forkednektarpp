@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Appended to ChannelFlowHOPBC3D_TetPrism_FileIC.xml: restart, at a
+        P=2 velocity and a P=1 pressure, from the field file that session
+        writes at those orders, in which the pressure is stored through the
+        velocity expansion, and take one step.
+    -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[2,3]" NUMMODES="3" TYPE="MODIFIED" FIELDS="u,v,w" />
+        <E COMPOSITE="C[2,3]" NUMMODES="2" TYPE="MODIFIEDQUADPLUS1" FIELDS="p" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType" VALUE="VelocityCorrectionScheme" />
+            <I PROPERTY="EQTYPE" VALUE="UnsteadyNavierStokes" />
+            <I PROPERTY="Projection" VALUE="Galerkin" />
+        </SOLVERINFO>
+
+        <TIMEINTEGRATIONSCHEME>
+            <METHOD> IMEX </METHOD>
+            <ORDER> 1 </ORDER>
+        </TIMEINTEGRATIONSCHEME>
+
+        <PARAMETERS>
+            <P> TimeStep = 0.001 </P>
+            <P> NumSteps = 1 </P>
+            <P> IO_InfoSteps = 1 </P>
+            <P> Kinvis = 1 </P>
+            <P> IterativeSolverTolerance = 1e-10 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+            <V ID="3"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[4] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="1-y*y" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="w" VALUE="1-y*y" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <N VAR="u" VALUE="0" />
+                <N VAR="v" VALUE="0" />
+                <N VAR="w" VALUE="0" />
+                <D VAR="p" VALUE="-2*Kinvis*(x+z)" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="u" VALUE="1-y*y+0.2*x*y*z" />
+            <E VAR="v" VALUE="0.1*x*x*z" />
+            <E VAR="w" VALUE="1-y*y-0.15*y*z*z" />
+            <E VAR="p" VALUE="-2*Kinvis*(x+z)+(1-x)*(0.5+y*y+0.7*x*z-0.4*y*z+0.3*z*z)" />
+        </FUNCTION>
+        <FUNCTION NAME="InitialConditions">
+            <F VAR="u,v,w,p" FILE="ChannelFlowHOPBC3D_TetPrism_FileIC.fld" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

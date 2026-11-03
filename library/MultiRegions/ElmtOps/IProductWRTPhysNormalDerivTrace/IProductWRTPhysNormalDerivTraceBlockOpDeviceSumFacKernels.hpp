@@ -59,8 +59,8 @@
 
 #pragma once
 
-#include "LibUtilities/Backends/Backends_Device_API.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
@@ -117,6 +117,70 @@ inline constexpr size_t IProductWRTPhysNormalDerivTraceWorkSpaceSize(
             IProductWRTPhysTraceFaceScratchSize(sizeParam3D) +
             sizeParam3D.nmTot()) *
            nelmt;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: none, a
+/// segment having no collapsed direction.
+template <
+    LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter1D,
+    std::enable_if_t<IsTraceSizeParameter1D_v<TTraceSizeParameter1D>, bool>
+        Enable = true>
+inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter1D sizeParam1D)
+{
+    return 0;
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: the
+/// \f$2/(1 - \eta_1)\f$ table of a collapsed shape, staged once per block.
+template <
+    LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter2D,
+    std::enable_if_t<IsTraceSizeParameter2D_v<TTraceSizeParameter2D>, bool>
+        Enable = true>
+inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
+    [[maybe_unused]] const TTraceSizeParameter2D sizeParam2D)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        return 0;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        const unsigned int nm1 = sizeParam2D.nm1();
+
+        return nm1;
+    }
+}
+
+/// @brief Dynamic shared memory one block needs, in elements: the
+/// \f$2/(1 - \eta)\f$ tables of the shape's collapsed directions, staged
+/// once per block.
+template <
+    LibUtilities::ShapeType SHAPE_TYPE, typename TTraceSizeParameter3D,
+    std::enable_if_t<IsTraceSizeParameter3D_v<TTraceSizeParameter3D>, bool>
+        Enable = true>
+inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
+    const TTraceSizeParameter3D sizeParam3D)
+{
+    const unsigned int nm1 = sizeParam3D.nm1();
+    const unsigned int nm2 = sizeParam3D.nm2();
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        return 0;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        return nm1 + nm2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism ||
+                       SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        return nm2;
+    }
 }
 
 /**
@@ -280,7 +344,7 @@ NEK_DEVICE_INLINE void ScaleAddCollapsedFacKernel(
  *                          points.
  * @param   endPtsColl0,endPtsColl1     Volume rule of direction 0 and
  *                          direction 1 contains the domain endpoints.
- * @param   shmemptr        Dynamic shared memory; unused.
+ * @param   shmemptr        Dynamic shared memory for the factor tables.
  * @param   threadBlock     Thread-block handle supplied by the launch
  *                          macro.
  */
@@ -296,17 +360,20 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const TData *NEK_RESTRICT dtbasis0, const TData *NEK_RESTRICT dtbasis1,
     const TData *NEK_RESTRICT tw0, const TData *NEK_RESTRICT tw1,
     [[maybe_unused]] const TData *NEK_RESTRICT twoOver0,
-    const TData *NEK_RESTRICT twoOver1, const TData *NEK_RESTRICT jac,
-    TData *NEK_RESTRICT wsp, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT out, const unsigned int traceDir0,
-    const unsigned int traceDir1, const bool append, const bool isColl0,
-    const bool isColl1, const bool endPtsColl0, const bool endPtsColl1,
-    [[maybe_unused]] unsigned char *shmemptr, const TthreadBlock &threadBlock)
+    [[maybe_unused]] const TData *NEK_RESTRICT twoOver1,
+    const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT wsp,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    const unsigned int traceDir0, const unsigned int traceDir1,
+    const bool append, const bool isColl0, const bool isColl1,
+    const bool endPtsColl0, const bool endPtsColl1, unsigned char *shmemptr,
+    const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter2D_v<TTraceSizeParameter2D>,
                   "Template argument must be either of type "
                   "NonTemplatedTraceSizeParameter2D or "
                   "TemplatedTraceSizeParameter2D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
 
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
@@ -319,6 +386,20 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
 
     const size_t edgeSize =
         2u * IProductWRTPhysTraceEdgeModeBlockSize(sizeParam2D);
+
+    TData *s_twoOver1 = nullptr;
+
+    // Pre-compute factor.
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                  SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        s_twoOver1 = (TData *)shmemptr;
+
+        // Copy to shared memory.
+        StageToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
+
+        localBarrier(threadBlock);
+    }
 
     size_t e             = getGlobalIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -394,7 +475,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
                 if (useD1)
                 {
                     ScaleAddCollapsedFacKernel(ilane, nm0, nm1, 1u, true, false,
-                                               twoOver1, twoOver1, volptr,
+                                               s_twoOver1, s_twoOver1, volptr,
                                                outptr);
                 }
             }
@@ -483,7 +564,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
  *                          directions coincide with the volume points.
  * @param   endPtsColl0,endPtsColl1,endPtsColl2    Volume rule of each
  *                          direction contains the domain endpoints.
- * @param   shmemptr        Dynamic shared memory; unused.
+ * @param   shmemptr        Dynamic shared memory for the factor tables.
  * @param   threadBlock     Thread-block handle supplied by the launch
  *                          macro.
  */
@@ -506,7 +587,8 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const TData *NEK_RESTRICT tw10, const TData *NEK_RESTRICT tw11,
     const TData *NEK_RESTRICT tw20, const TData *NEK_RESTRICT tw21,
     [[maybe_unused]] const TData *NEK_RESTRICT twoOver0,
-    const TData *NEK_RESTRICT twoOver1, const TData *NEK_RESTRICT twoOver2,
+    [[maybe_unused]] const TData *NEK_RESTRICT twoOver1,
+    [[maybe_unused]] const TData *NEK_RESTRICT twoOver2,
     const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT wsp,
     const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
     const unsigned int traceDir00, const unsigned int traceDir01,
@@ -515,13 +597,15 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     const bool append, const bool isColl00, const bool isColl01,
     const bool isColl10, const bool isColl11, const bool isColl20,
     const bool isColl21, const bool endPtsColl0, const bool endPtsColl1,
-    const bool endPtsColl2, [[maybe_unused]] unsigned char *shmemptr,
+    const bool endPtsColl2, unsigned char *shmemptr,
     const TthreadBlock &threadBlock)
 {
     static_assert(IsTraceSizeParameter3D_v<TTraceSizeParameter3D>,
                   "Template argument must be either of type "
                   "NonTemplatedTraceSizeParameter3D or "
                   "TemplatedTraceSizeParameter3D.");
+
+    FETCH_SHARED_MEMORY(shmemptr);
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -547,6 +631,34 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
         2u * IProductWRTPhysTraceFaceModeBlockSize(sizeParam3D);
     const unsigned int wsp1Size =
         IProductWRTPhysTraceFaceScratchSize(sizeParam3D);
+
+    TData *s_twoOver1 = nullptr;
+    TData *s_twoOver2 = nullptr;
+
+    // Pre-compute factor.
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                  SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        s_twoOver1 = (TData *)shmemptr;
+        s_twoOver2 = s_twoOver1 + nm1;
+
+        // Copy to shared memory.
+        StageToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
+        StageToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
+
+        localBarrier(threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism ||
+                       SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        s_twoOver2 = (TData *)shmemptr;
+
+        // Copy to shared memory.
+        StageToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
+
+        localBarrier(threadBlock);
+    }
 
     size_t e             = getGlobalIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -641,7 +753,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
                 if (scale)
                 {
                     ScaleAddCollapsedFacKernel(ilane, nm0, nm1, nm2, c1, c2,
-                                               twoOver1, twoOver2, volptr,
+                                               s_twoOver1, s_twoOver2, volptr,
                                                outptr);
                 }
             }
@@ -677,7 +789,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
                 if (scale)
                 {
                     ScaleAddCollapsedFacKernel(ilane, nm0, nm1, nm2, false, c2,
-                                               twoOver1, twoOver2, volptr,
+                                               s_twoOver1, s_twoOver2, volptr,
                                                outptr);
                 }
             }
@@ -713,7 +825,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
                 if (scale)
                 {
                     ScaleAddCollapsedFacKernel(ilane, nm0, nm1, nm2, c1, false,
-                                               twoOver1, twoOver2, volptr,
+                                               s_twoOver1, s_twoOver2, volptr,
                                                outptr);
                 }
             }

@@ -38,9 +38,12 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 namespace Nektar::Math
 {
+
+class RandomGenerator;
 
 // Generic MathHelper class definition.
 class MathHelper
@@ -68,6 +71,18 @@ public:
     template <typename TData, typename T>
     LIB_MATH_EXPORT void fill(const TData &val, T &x,
                               const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void fillUniform(RandomGenerator &gen,
+                                     const typename T::value_type a,
+                                     const typename T::value_type b, T &x,
+                                     const std::string &execSpace = "");
+
+    template <typename T>
+    LIB_MATH_EXPORT void fillNormal(RandomGenerator &gen,
+                                    const typename T::value_type mean,
+                                    const typename T::value_type sigma, T &x,
+                                    const std::string &execSpace = "");
 
     template <typename T>
     LIB_MATH_EXPORT void copy(T &x, T &y, const std::string &execSpace = "");
@@ -124,6 +139,14 @@ public:
                                    const typename T::value_type beta, T &y,
                                    const typename T::value_type gamma, T &z,
                                    T &w, const std::string &execSpace = "");
+
+    // y = sum_j alpha[j] x[j], added to y if append, in one pass; T is a
+    // Field.
+    template <typename T>
+    LIB_MATH_EXPORT void linearCombination(
+        const std::vector<typename T::value_type> &alpha,
+        const std::vector<T *> &x, T &y, const bool append,
+        const std::string &execSpace = "");
 
     template <typename T>
     LIB_MATH_EXPORT typename T::value_type reduceSum(

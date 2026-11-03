@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Expansions and conditions for HOPressureBndCond2D.xml with a pressure
+        one order below the velocity and the same quadrature type, so the two
+        do not share their quadrature points: P=4 velocity (MODIFIED,
+        NUMMODES=5, 6 points) and P=3 pressure (MODIFIED, NUMMODES=4, 5
+        points). HOPressureBndCond must reject them.
+    -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" TYPE="MODIFIED" FIELDS="u,v" />
+        <E COMPOSITE="C[0]" NUMMODES="4" TYPE="MODIFIED" FIELDS="p" />
+    </EXPANSIONS>
+
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="PROJECTION" VALUE="Continuous" />
+        </SOLVERINFO>
+
+        <PARAMETERS>
+            <!-- Marks this session for
+                set_velocity_context_throws_for_different_quadrature, so that
+                test case can identify its own fixture and skip on every
+                other HOPressureBndCond unit-test session. -->
+            <P> HOPQuadratureThrowsTest = 1 </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[1] </B>
+            <B ID="1"> C[2] </B>
+            <B ID="2"> C[3] </B>
+            <B ID="3"> C[4] </B>
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="p" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+    </CONDITIONS>
+</NEKTAR>

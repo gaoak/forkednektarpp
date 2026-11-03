@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <array>
+
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 #include <SolverCore/NormOps/NormL2/NormL2BlockOp.hpp>
 
@@ -80,13 +82,6 @@ public:
                 LibUtilities::BasisDataKey<TData>(basisKeys[d],
                                                   LibUtilities::eWeights)));
         }
-
-        // Fetch Jacobian.
-        m_jacptr1 = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::JacobianKey<TData>(block_idx, 1));
-        m_jacptr2 = this->m_dataWarehouse->template GetData<MemSpace>(
-            LocalRegions::JacobianKey<TData>(block_idx,
-                                             NektarSpaces::Device::warpSize));
     }
 
     // className - for BlockOperatorFactory
@@ -109,11 +104,12 @@ protected:
     unsigned int m_nqTot     = 0;
     unsigned int m_dimension = 0;
     unsigned int m_coordDim  = 0;
-    const TData *m_jacptr1   = nullptr;
-    const TData *m_jacptr2   = nullptr;
     std::vector<unsigned int> m_nq;
     std::vector<unsigned int> m_nm;
     std::vector<const TData *> m_W;
+    /// Jacobians for non-interleaved data (first) and for interleaved data
+    /// (second); null until first read at that layout.
+    std::array<const TData *, 2> m_jacptr{};
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
@@ -142,13 +138,45 @@ protected:
         }
     }
 
+    void v_Volume(LibUtilities::MemoryRegion<TData> &data) override
+    {
+        switch (m_dimension)
+        {
+            case 1:
+            {
+                VolumeND<1>(data);
+                break;
+            }
+            case 2:
+            {
+                VolumeND<2>(data);
+                break;
+            }
+            case 3:
+            {
+                VolumeND<3>(data);
+                break;
+            }
+            default:
+                ASSERTL0(
+                    false,
+                    "NormL2 Device only implemented for dimension 1, 2 or 3.");
+        }
+    }
+
     template <unsigned int NDIM>
     void OperatorND(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data)
     {
-        OperatorNDImpl(inblock, data,
-                       std::make_integer_sequence<unsigned int, NDIM>());
+        OperatorNDImpl<>(inblock, data,
+                         std::make_integer_sequence<unsigned int, NDIM>());
+    }
+
+    template <unsigned int NDIM>
+    void VolumeND(LibUtilities::MemoryRegion<TData> &data)
+    {
+        VolumeNDImpl<>(data, std::make_integer_sequence<unsigned int, NDIM>());
     }
 
     template <unsigned int... ind>
@@ -185,45 +213,14 @@ protected:
                 : MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
                       nelmtPad, blocksize, shmemsize);
 
-        // Compute volume.
-        if (this->m_normalised)
+        // The Jacobian is fetched from the data warehouse with the layout of
+        // the first input read in it, and kept.
+        const TData *&jacptr = m_jacptr[interleaveWidth == 1 ? 0 : 1];
+        if (jacptr == nullptr)
         {
-            if (m_isDeformed)
-            {
-                if (interleaveWidth == 1)
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<1u, true>), gridsize, blocksize,
-                        m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1,
-                        dataptr + nComp);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<NektarSpaces::Device::warpSize,
-                                              true>),
-                        gridsize, blocksize, m_streamID, m_nq[ind]..., nelmt,
-                        m_W[ind]..., m_jacptr2, dataptr + nComp);
-                }
-            }
-            else
-            {
-                if (interleaveWidth == 1)
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<1u, false>), gridsize, blocksize,
-                        m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., m_jacptr1,
-                        dataptr + nComp);
-                }
-                else
-                {
-                    DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                        (VolumeKernelLauncher<NektarSpaces::Device::warpSize,
-                                              false>),
-                        gridsize, blocksize, m_streamID, m_nq[ind]..., nelmt,
-                        m_W[ind]..., m_jacptr2, dataptr + nComp);
-                }
-            }
+            jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::JacobianKey<TData>(this->m_block_idx,
+                                                 interleaveWidth));
         }
 
         // Compute norm.
@@ -234,8 +231,8 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (IntegralKernelLauncher<IntegralOp::Square, 1u, true>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr1,
-                    inptr, dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
+                    dataptr);
             }
             else
             {
@@ -244,8 +241,8 @@ protected:
                                             NektarSpaces::Device::warpSize,
                                             true>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr2,
-                    inptr, dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
+                    dataptr);
             }
         }
         else
@@ -255,8 +252,8 @@ protected:
                 DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
                     (IntegralKernelLauncher<IntegralOp::Square, 1u, false>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr1,
-                    inptr, dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
+                    dataptr);
             }
             else
             {
@@ -265,9 +262,57 @@ protected:
                                             NektarSpaces::Device::warpSize,
                                             false>),
                     gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., m_jacptr2,
-                    inptr, dataptr);
+                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
+                    dataptr);
             }
+        }
+    }
+
+    template <unsigned int... ind>
+    void VolumeNDImpl(LibUtilities::MemoryRegion<TData> &data,
+                      std::integer_sequence<unsigned int, ind...>)
+    {
+        // Number of elements in the block, with and without padding.
+        const size_t nelmt      = this->m_nelmt;
+        constexpr auto vecWidth = NektarSpaces::max_vector_width<TData>::value;
+        const size_t nelmtPad = ((nelmt + vecWidth - 1) / vecWidth) * vecWidth;
+
+        // Initialize pointers.
+        auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
+
+        // Use the device's default interleave width.
+        constexpr auto interleaveWidth = NektarSpaces::Device::warpSize;
+
+        // Set Kernel parameters.
+        const unsigned int shmemsize = 0;
+        const unsigned int blocksize =
+            MultiRegions::GetDeviceBlockSize<MultiRegions::SumFac>(m_nqTot);
+        const unsigned int gridsize =
+            MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
+                nelmtPad, blocksize, shmemsize);
+
+        // Volume of the block's elements. The interleaved Jacobian is fetched
+        // from the data warehouse on first use, and kept.
+        const TData *&jacptr = m_jacptr[1];
+        if (jacptr == nullptr)
+        {
+            jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::JacobianKey<TData>(this->m_block_idx,
+                                                 interleaveWidth));
+        }
+        if (m_isDeformed)
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (VolumeKernelLauncher<interleaveWidth, true>), gridsize,
+                blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., jacptr,
+                dataptr);
+        }
+        else
+        {
+            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
+                (VolumeKernelLauncher<interleaveWidth, false>), gridsize,
+                blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., jacptr,
+                dataptr);
         }
     }
 };

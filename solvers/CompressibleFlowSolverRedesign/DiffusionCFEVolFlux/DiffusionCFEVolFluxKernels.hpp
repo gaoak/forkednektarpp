@@ -38,6 +38,7 @@
 
 // header should appear after loop execution.hpp
 #include "EquationOfState/VariableConverters.hpp"
+#include <LibUtilities/BasicUtils/SafeDivide.hpp>
 
 namespace Nektar::detail
 {
@@ -138,18 +139,36 @@ NEK_HOSTDEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
     }
 }
 
-template <bool APPEND, typename ExecSpace, typename EqnOfSParams,
-          typename TData>
-NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
-    const EqnOfSParams EoS, const size_t npts, const unsigned int nDim,
-    const unsigned int nvarComps, const size_t inStride,
+/**
+ * @brief The viscous volume flux tensor of the compressible Navier-Stokes
+ * equations, pointwise from the conservative state and its gradient, for a
+ * compile-time dimension @p NDIM and so @p NDIM + 2 variables.
+ *
+ * With @p TOTAL the same pass also writes @p totbase, the viscous flux plus
+ * @p advScale times the Euler flux, formed from the state already loaded and
+ * the internal energy already computed: with `advScale = -1` this is the
+ * total volume flux `F_v - F_a` that an advection-diffusion right-hand side
+ * integrates, while @p outbase keeps the viscous flux on its own. The Euler
+ * flux is evaluated as EulerVolumeFluxKernel() evaluates it, so the total
+ * is bitwise the viscous flux with the Euler kernel appended onto a copy.
+ *
+ * @tparam NDIM    Spatial dimension.
+ * @tparam APPEND  Accumulate the viscous flux onto @p outbase; not with
+ *                 @p TOTAL.
+ * @tparam TOTAL   Write the total flux into @p totbase as well.
+ */
+template <unsigned int NDIM, bool APPEND, bool TOTAL, typename ExecSpace,
+          typename EqnOfSParams, typename TData>
+NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernelND(
+    const EqnOfSParams EoS, const size_t npts, const size_t inStride,
     const size_t derivStride, const size_t outStride, const TData prandtl,
     const TData muRef, const bool isMuVariable, const TData oneOverTStar,
     const TData tRatioSutherland, const TData *inbase, const TData *qbase,
-    TData *outbase, const unsigned int streamID)
+    TData *outbase, TData *totbase, const TData advScale,
+    const unsigned int streamID)
 {
-    ASSERTL0(nvarComps == nDim + 2,
-             "number of componeents is not equal to the dimension plus two")
+    static_assert(!(APPEND && TOTAL),
+                  "The total flux is written alongside a fresh viscous flux");
 
     // Assemble the volume viscous flux tensor pointwise from the conservative
     // state and its physical derivatives.
@@ -165,6 +184,7 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
     const auto invec            = reinterpret_cast<const vec_t *>(inbase);
     const auto qvec             = reinterpret_cast<const vec_t *>(qbase);
     auto outvec                 = reinterpret_cast<vec_t *>(outbase);
+    auto totvec                 = reinterpret_cast<vec_t *>(totbase);
     const size_t inVecStride    = inStride / vec_width;
     const size_t derivVecStride = derivStride / vec_width;
     const size_t outVecStride   = outStride / vec_width;
@@ -173,27 +193,44 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
 
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            vec_t inTmp[5]  = {vec_t(0.0), vec_t(0.0), vec_t(0.0), vec_t(0.0),
-                               vec_t(0.0)};
-            vec_t qTmp[5]   = {vec_t(0.0), vec_t(0.0), vec_t(0.0), vec_t(0.0),
-                               vec_t(0.0)};
-            vec_t outTmp[5] = {vec_t(0.0), vec_t(0.0), vec_t(0.0), vec_t(0.0),
-                               vec_t(0.0)};
+            // Declared here, not in the enclosing function: MSVC does not
+            // take a constant of the enclosing scope as a constant
+            // expression inside the lambda.
+            constexpr unsigned int NVAR = NDIM + 2;
 
-            for (unsigned int f = 0; f < nvarComps; ++f)
+            vec_t inTmp[NVAR], qTmp[NVAR], outTmp[NVAR];
+
+            for (unsigned int f = 0; f < NVAR; ++f)
             {
                 inTmp[f] = invec[f * inVecStride + i];
             }
 
             const vec_t e =
-                GetInternalEnergy(nDim, inTmp[0], inTmp + 1, inTmp[nDim + 1]);
+                GetInternalEnergy(NDIM, inTmp[0], inTmp + 1, inTmp[NDIM + 1]);
             const vec_t temperature = GetTemperature(EoS, inTmp[0], e);
 
             const vec_t mu = GetDynamicViscosity(
                 temperature, vec_t(muRef), isMuVariable, vec_t(oneOverTStar),
                 vec_t(tRatioSutherland));
 
-            for (unsigned int fluxDir = 0; fluxDir < nDim; ++fluxDir)
+            // The Euler flux's velocity and pressure, for the total flux.
+            vec_t vel[NDIM];
+            vec_t pressure    = vec_t(0.0);
+            vec_t ePlusP      = vec_t(0.0);
+            const vec_t scale = vec_t(advScale);
+            // Plain if, not if constexpr, as for APPEND below.
+            if (TOTAL)
+            {
+                const vec_t invRho = SafeDivide(vec_t(TData(1)), inTmp[0]);
+                for (unsigned int d = 0; d < NDIM; ++d)
+                {
+                    vel[d] = inTmp[1 + d] * invRho;
+                }
+                pressure = GetPressure(EoS, inTmp[0], e);
+                ePlusP   = inTmp[NDIM + 1] + pressure;
+            }
+
+            for (unsigned int fluxDir = 0; fluxDir < NDIM; ++fluxDir)
             {
                 // Plain if, not if constexpr: nvcc refuses an extended lambda
                 // whose first capture of a variable (outvec here) sits inside
@@ -201,35 +238,101 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
                 // either way, so the dead branch still folds.
                 if (!APPEND)
                 {
-                    for (unsigned int f = 0; f < nvarComps; ++f)
+                    for (unsigned int f = 0; f < NVAR; ++f)
                     {
-                        outvec[(f * nDim + fluxDir) * outVecStride + i] =
+                        outvec[(f * NDIM + fluxDir) * outVecStride + i] =
                             vec_t(0.0);
                     }
                 }
 
-                for (unsigned int derivDir = 0; derivDir < nDim; ++derivDir)
+                for (unsigned int derivDir = 0; derivDir < NDIM; ++derivDir)
                 {
-                    for (unsigned int f = 0; f < nvarComps; ++f)
+                    for (unsigned int f = 0; f < NVAR; ++f)
                     {
                         qTmp[f] =
-                            qvec[(f * nDim + derivDir) * derivVecStride + i];
+                            qvec[(f * NDIM + derivDir) * derivVecStride + i];
                     }
 
                     GetViscousFluxBilinearFormKernel(
-                        nDim, fluxDir, derivDir, inTmp, qTmp, mu,
+                        NDIM, fluxDir, derivDir, inTmp, qTmp, mu,
                         vec_t(EoS.gamma()), vec_t(prandtl), outTmp);
 
-                    for (unsigned int f = 0; f < nvarComps; ++f)
+                    for (unsigned int f = 0; f < NVAR; ++f)
                     {
-                        outvec[(f * nDim + fluxDir) * outVecStride + i] +=
+                        outvec[(f * NDIM + fluxDir) * outVecStride + i] +=
                             outTmp[f];
                     }
+                }
+
+                if (TOTAL)
+                {
+                    // F_rho = rho u, F_mom_a = rho u_a u + p e_a,
+                    // F_E = (E + p) u, in this flux direction.
+                    const size_t rhoIdx = fluxDir * outVecStride + i;
+                    totvec[rhoIdx] =
+                        outvec[rhoIdx] + inTmp[1 + fluxDir] * scale;
+                    for (unsigned int a = 0; a < NDIM; ++a)
+                    {
+                        vec_t momFlux = inTmp[1 + a] * vel[fluxDir];
+                        if (a == fluxDir)
+                        {
+                            momFlux += pressure;
+                        }
+                        const size_t momIdx =
+                            ((1 + a) * NDIM + fluxDir) * outVecStride + i;
+                        totvec[momIdx] = outvec[momIdx] + momFlux * scale;
+                    }
+                    const size_t energyIdx =
+                        ((NDIM + 1) * NDIM + fluxDir) * outVecStride + i;
+                    totvec[energyIdx] =
+                        outvec[energyIdx] + ePlusP * vel[fluxDir] * scale;
                 }
             }
         });
 
     Nektar::LoopExecutionSetStreamID(0);
+}
+
+/// DiffusionCFEVolFluxKernelND() dispatched on the dimension, @p nDim + 2
+/// variables.
+template <bool APPEND, bool TOTAL, typename ExecSpace, typename EqnOfSParams,
+          typename TData>
+NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
+    const EqnOfSParams EoS, const size_t npts, const unsigned int nDim,
+    const unsigned int nvarComps, const size_t inStride,
+    const size_t derivStride, const size_t outStride, const TData prandtl,
+    const TData muRef, const bool isMuVariable, const TData oneOverTStar,
+    const TData tRatioSutherland, const TData *inbase, const TData *qbase,
+    TData *outbase, TData *totbase, const TData advScale,
+    const unsigned int streamID)
+{
+    ASSERTL0(nvarComps == nDim + 2,
+             "The viscous volume flux needs the dimension plus two variables.");
+    switch (nDim)
+    {
+        case 1:
+            DiffusionCFEVolFluxKernelND<1, APPEND, TOTAL, ExecSpace>(
+                EoS, npts, inStride, derivStride, outStride, prandtl, muRef,
+                isMuVariable, oneOverTStar, tRatioSutherland, inbase, qbase,
+                outbase, totbase, advScale, streamID);
+            break;
+        case 2:
+            DiffusionCFEVolFluxKernelND<2, APPEND, TOTAL, ExecSpace>(
+                EoS, npts, inStride, derivStride, outStride, prandtl, muRef,
+                isMuVariable, oneOverTStar, tRatioSutherland, inbase, qbase,
+                outbase, totbase, advScale, streamID);
+            break;
+        case 3:
+            DiffusionCFEVolFluxKernelND<3, APPEND, TOTAL, ExecSpace>(
+                EoS, npts, inStride, derivStride, outStride, prandtl, muRef,
+                isMuVariable, oneOverTStar, tRatioSutherland, inbase, qbase,
+                outbase, totbase, advScale, streamID);
+            break;
+        default:
+            NEKERROR(ErrorUtil::efatal,
+                     "The viscous volume flux is for one, two and three "
+                     "dimensions.");
+    }
 }
 
 } // namespace Nektar::detail

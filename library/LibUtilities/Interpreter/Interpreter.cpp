@@ -85,6 +85,16 @@ static NekDouble ang(NekDouble x, NekDouble y)
     return (x != 0.0 || y != 0.0) ? atan2(y, x) : 0.0;
 }
 
+// Bessel function of the first kind of order nu.
+static NekDouble bessel(NekDouble nu, NekDouble x)
+{
+#if defined(__APPLE__)
+    return boost::math::cyl_bessel_j(nu, x);
+#else
+    return std::cyl_bessel_j(nu, x);
+#endif
+}
+
 // =========================================================================
 //             AnalyticExpression definitions for Spirit Parser
 // =========================================================================
@@ -126,6 +136,7 @@ static struct functions : bsp::symbols<func>
             ("atan", +[](double x) -> double { return std::atan(x); })   // arctan
             ("atan2", +[](double x, double y) -> double { return std::atan2(x, y); }) // arctan2
             ("ang", ang)     // angle calculation
+            ("bessel", bessel) // Bessel function of the first kind
             ("ceil", +[](double x) -> double { return std::ceil(x); })   // ceiling
             ("cos", +[](double x) -> double { return std::cos(x); })     // cosine
             ("cosh", +[](double x) -> double { return std::cosh(x); })   // hyperbolic cosine
@@ -264,11 +275,7 @@ public:
         m_function2[E_ATAN2]  = [](double x, double y) -> double { return std::atan2(x, y); };
         m_function2[E_ANG]    = ang;
         m_function2[E_RAD]    = rad;
-#if defined(__APPLE__)
-        m_function2[E_BESSEL] = boost::math::cyl_bessel_j;
-#else
-        m_function2[E_BESSEL] = [](double x, double y) -> double { return std::cyl_bessel_j(x, y); };
-#endif
+        m_function2[E_BESSEL] = bessel;
         m_function2[E_FMOD]   = [](double x, double y) -> double { return std::fmod(x, y); };
         // clang-format on
 
@@ -848,6 +855,27 @@ public:
                 {
                     return std::make_pair(
                         true, m_function2[it->second](v1.second, v2.second));
+                }
+
+                // either argument is not fully evaluated: store the one that
+                // is, as the operators do
+                if (true == v1.first)
+                {
+                    int const_index =
+                        AddConstant(std::string("SUB_EXPR_") +
+                                        std::to_string(m_constant.size()),
+                                    v1.second);
+                    stack.push_back(
+                        makeStep<StoreConst>(stateIndex, const_index));
+                }
+                if (true == v2.first)
+                {
+                    int const_index =
+                        AddConstant(std::string("SUB_EXPR_") +
+                                        std::to_string(m_constant.size()),
+                                    v2.second);
+                    stack.push_back(
+                        makeStep<StoreConst>(stateIndex + 1, const_index));
                 }
             }
 

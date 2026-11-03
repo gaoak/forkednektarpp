@@ -914,13 +914,98 @@ GlobalLinSysKey ContField::v_HelmSolve(
     Array<OneD, NekDouble> wsp(m_ncoeffs);
     if (PhysSpaceForcing)
     {
-        IProductWRTBase(inarray, wsp);
+        // A singular system has a solution only if the integral of the
+        // forcing over the domain equals the integral of the Neumann
+        // conditions over its boundary: subtract the difference, divided
+        // by the volume, from the forcing.
+        if (m_locToGloMap->GetSingularSystem())
+        {
+            if (!m_volume)
+            {
+                m_volume = Integral(Array<OneD, NekDouble>(m_npoints, 1.0));
+            }
+
+            Array<OneD, NekDouble> tmp(m_npoints);
+            NekDouble force = Integral(inarray);
+            NekDouble surf  = 0.0;
+
+            for (i = 0; i < m_bndCondExpansions.size(); ++i)
+            {
+                if (m_bndConditions[i]->GetBoundaryConditionType() !=
+                    SpatialDomains::eNeumann)
+                {
+                    continue;
+                }
+
+                // The boundary coefficients are the inner products of the
+                // Neumann condition with the basis. Their sum, weighted by
+                // the coefficients of one in that basis, is the surface
+                // integral: these are one at the vertex modes of a
+                // Modified_A basis and at every mode of a nodal basis or
+                // a point.
+                const Array<OneD, const NekDouble> bndCoeffs =
+                    m_bndCondExpansions[i]->GetCoeffs();
+
+                for (j = 0; j < m_bndCondExpansions[i]->GetExpSize(); ++j)
+                {
+                    LocalRegions::ExpansionSharedPtr bndExp =
+                        m_bndCondExpansions[i]->GetExp(j);
+                    int offset = m_bndCondExpansions[i]->GetCoeff_Offset(j);
+
+                    if (bndExp->GetNumBases() > 0 &&
+                        bndExp->GetBasisType(0) == LibUtilities::eModified_A)
+                    {
+                        for (int k = 0; k < bndExp->GetNverts(); ++k)
+                        {
+                            surf += bndCoeffs[offset + bndExp->GetVertexMap(k)];
+                        }
+                    }
+                    else
+                    {
+                        surf += Vmath::Vsum(bndExp->GetNcoeffs(),
+                                            bndCoeffs + offset, 1);
+                    }
+                }
+            }
+
+            // Integral() sums over the row communicator, and so must surf.
+            m_comm->GetRowComm()->AllReduce(surf, LibUtilities::ReduceSum);
+
+            Vmath::Sadd(m_npoints, -(force - surf) / *m_volume, inarray, 1, tmp,
+                        1);
+            IProductWRTBase(tmp, wsp);
+
+            if (m_warnUnbalancedForcing &&
+                fabs(force - surf) > NekConstants::kNekZeroTol)
+            {
+                std::stringstream msg;
+                msg << "Integral of forcing (" << force
+                    << ") not balanced with surface integral of Neumann BCs ("
+                    << surf << ") so have subtracted difference off forcing "
+                    << "term.";
+                ROOTONLY_NEKERROR(ErrorUtil::ewarning, msg.str().c_str());
+                m_warnUnbalancedForcing = false;
+            }
+        }
+        else
+        {
+            IProductWRTBase(inarray, wsp);
+        }
+
         // Note -1.0 term necessary to invert forcing function to
         // be consistent with matrix definition
         Vmath::Neg(m_ncoeffs, wsp, 1);
     }
     else
     {
+        if (m_warnCoeffSpaceForcing && m_locToGloMap->GetSingularSystem())
+        {
+            ROOTONLY_NEKERROR(ErrorUtil::ewarning,
+                              "Mean forcing may not be zero leading to a "
+                              "singular solution around one vertex");
+            m_warnCoeffSpaceForcing = false;
+        }
+
         Vmath::Smul(m_ncoeffs, -1.0, inarray, 1, wsp, 1);
     }
 
@@ -1315,6 +1400,17 @@ GlobalLinSysKey ContField::v_LinearAdvectionReactionSolve(
 void ContField::v_ClearGlobalLinSysManager(void)
 {
     m_globalLinSysManager.ClearManager("GlobalLinSys");
+}
+
+/**
+ * Reset the geometry information, as DisContField does, and clear the cached
+ * volume of the domain, which HelmSolve then computes again from the new
+ * geometry the next time it solves a singular system.
+ */
+void ContField::v_Reset()
+{
+    DisContField::v_Reset();
+    m_volume.reset();
 }
 
 /**

@@ -66,9 +66,10 @@ NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::Exec);
  * @class TestNormOps
  *
  * A test fixture that fills a physical-space field with an analytic
- * expression and checks NormL2Op and NormLinfOp against the norms the
- * expansion list computes itself, both for the non-interleaved storage and
- * for the interleaved storage the vectorised and device paths use.
+ * expression and checks NormL2Op (plain and normalised by the mesh volume)
+ * and NormLinfOp against the norms the expansion list computes itself, both
+ * for the non-interleaved storage and for the interleaved storage the
+ * vectorised and device paths use.
  *
  * The fixture constructor (destructor) is called before (after) each call to
  * the BOOST_FIXTURE_TEST_CASE(<test name>, <fixture>) macro.
@@ -153,19 +154,25 @@ public:
     }
 
     /**
-     * @brief Apply both norm operators, once on the non-interleaved storage
+     * @brief Apply the norm operators, once on the non-interleaved storage
      * and once on the interleaved storage.
      */
     void RunTestCase()
     {
         auto l2Op =
             NormL2Op<TData>::Create(m_expList, m_session->GetVariables());
+        auto l2NormalisedOp =
+            NormL2Op<TData>::Create(m_expList, m_session->GetVariables());
+        l2NormalisedOp->SetNormalised(true);
         auto linfOp =
             NormLinfOp<TData>::Create(m_expList, m_session->GetVariables());
 
         // Non-interleaved case.
         l2Op->Apply(m_in);
         m_l2Test = l2Op->GetNorms();
+
+        l2NormalisedOp->Apply(m_in);
+        m_l2NormalisedTest = l2NormalisedOp->GetNorms();
 
         linfOp->Apply(m_in);
         m_linfTest = linfOp->GetNorms();
@@ -178,6 +185,9 @@ public:
 
         l2Op->Apply(m_in);
         m_l2Test2 = l2Op->GetNorms();
+
+        l2NormalisedOp->Apply(m_in);
+        m_l2NormalisedTest2 = l2NormalisedOp->GetNorms();
 
         linfOp->Apply(m_in);
         m_linfTest2 = linfOp->GetNorms();
@@ -195,6 +205,7 @@ public:
             m_in.GetNumComponents() * m_in.GetNumHomoModes();
 
         if (m_l2Test.size() != m_l2Expected.size() ||
+            m_l2NormalisedTest.size() != m_l2NormalisedExpected.size() ||
             m_linfTest.size() != m_linfExpected.size())
         {
             std::cout << "Mismatch of norm vector sizes." << std::endl;
@@ -206,6 +217,8 @@ public:
         for (unsigned int comp = 0; comp < numComp; ++comp)
         {
             const auto l2Diff = std::abs(m_l2Test[comp] - m_l2Expected[comp]);
+            const auto l2NormalisedDiff = std::abs(
+                m_l2NormalisedTest[comp] - m_l2NormalisedExpected[comp]);
             const auto linfDiff =
                 std::abs(m_linfTest[comp] - m_linfExpected[comp]);
 
@@ -215,6 +228,15 @@ public:
                           << " mismatch: " << "L2(actual=" << m_l2Test[comp]
                           << ", expected=" << m_l2Expected[comp]
                           << ", diff=" << l2Diff << ")" << std::endl;
+                match = false;
+            }
+
+            if (l2NormalisedDiff > tol)
+            {
+                std::cout << "Component " << comp << " mismatch: "
+                          << "L2 normalised(actual=" << m_l2NormalisedTest[comp]
+                          << ", expected=" << m_l2NormalisedExpected[comp]
+                          << ", diff=" << l2NormalisedDiff << ")" << std::endl;
                 match = false;
             }
 
@@ -232,6 +254,8 @@ public:
         for (unsigned int comp = 0; comp < numComp; ++comp)
         {
             const auto l2Diff = std::abs(m_l2Test2[comp] - m_l2Expected[comp]);
+            const auto l2NormalisedDiff = std::abs(
+                m_l2NormalisedTest2[comp] - m_l2NormalisedExpected[comp]);
             const auto linfDiff =
                 std::abs(m_linfTest2[comp] - m_linfExpected[comp]);
 
@@ -241,6 +265,16 @@ public:
                           << " mismatch: " << "L2(actual=" << m_l2Test2[comp]
                           << ", expected=" << m_l2Expected[comp]
                           << ", diff=" << l2Diff << ")" << std::endl;
+                match = false;
+            }
+
+            if (l2NormalisedDiff > tol)
+            {
+                std::cout << "Component " << comp
+                          << " mismatch: " << "L2 normalised(actual="
+                          << m_l2NormalisedTest2[comp]
+                          << ", expected=" << m_l2NormalisedExpected[comp]
+                          << ", diff=" << l2NormalisedDiff << ")" << std::endl;
                 match = false;
             }
 
@@ -267,7 +301,10 @@ protected:
     std::vector<TData> m_linfTest;
     std::vector<TData> m_l2Test2;
     std::vector<TData> m_linfTest2;
+    std::vector<TData> m_l2NormalisedTest;
+    std::vector<TData> m_l2NormalisedTest2;
     std::vector<TData> m_l2Expected;
+    std::vector<TData> m_l2NormalisedExpected;
     std::vector<TData> m_linfExpected;
 
     void SetSession()
@@ -322,12 +359,19 @@ protected:
 
         Array<OneD, TData> lhs = m_in.template ToArray<TData>();
 
+        // Mesh volume, for the normalised L2 norm.
+        const auto volume =
+            m_expList->Integral(Array<OneD, NekDouble>(nphys, 1.0));
+
         m_l2Expected.resize(numComp);
+        m_l2NormalisedExpected.resize(numComp);
         m_linfExpected.resize(numComp);
 
         for (unsigned int comp = 0; comp < numComp; ++comp)
         {
-            m_l2Expected[comp]   = m_expList->L2(lhs + comp * nphys);
+            m_l2Expected[comp] = m_expList->L2(lhs + comp * nphys);
+            m_l2NormalisedExpected[comp] =
+                m_l2Expected[comp] / std::sqrt(volume);
             m_linfExpected[comp] = m_expList->Linf(lhs + comp * nphys);
         }
     }

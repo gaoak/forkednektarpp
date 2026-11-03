@@ -97,6 +97,66 @@ void MathHelper::fill(const TData &val, T &x, const std::string &execSpace)
 }
 
 template <typename T>
+void MathHelper::fillUniform(RandomGenerator &gen,
+                             const typename T::value_type a,
+                             const typename T::value_type b, T &x,
+                             const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::fillUniform<NektarSpaces::Serial>(gen, a, b, x);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::fillUniform<NektarSpaces::AVX>(gen, a, b, x);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::fillUniform<NektarSpaces::Device>(gen, a, b, x);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
+void MathHelper::fillNormal(RandomGenerator &gen,
+                            const typename T::value_type mean,
+                            const typename T::value_type sigma, T &x,
+                            const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::fillNormal<NektarSpaces::Serial>(gen, mean, sigma, x);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::fillNormal<NektarSpaces::AVX>(gen, mean, sigma, x);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::fillNormal<NektarSpaces::Device>(gen, mean, sigma, x);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
 void MathHelper::copy(T &x, T &y, const std::string &execSpace)
 {
     auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
@@ -479,6 +539,37 @@ void MathHelper::daxpbypcz(const typename T::value_type alpha, T &x,
     {
         Nektar::Math::daxpbypcz<NektarSpaces::Device>(alpha, x, beta, y, gamma,
                                                       z, w);
+    }
+#endif
+    else
+    {
+        ASSERTL0(false, "Unknown Execution space: " + execSpace)
+    }
+}
+
+template <typename T>
+void MathHelper::linearCombination(
+    const std::vector<typename T::value_type> &alpha, const std::vector<T *> &x,
+    T &y, const bool append, const std::string &execSpace)
+{
+    auto execSpace0 = execSpace == "" ? m_defaultExecSpace : execSpace;
+
+    if (execSpace0 == "Serial")
+    {
+        Nektar::Math::linearCombination<NektarSpaces::Serial>(alpha, x, y,
+                                                              append);
+    }
+#if defined(NEKTAR_ENABLE_SIMD)
+    else if (execSpace0 == "AVX")
+    {
+        Nektar::Math::linearCombination<NektarSpaces::AVX>(alpha, x, y, append);
+    }
+#endif
+#if defined(NEKTAR_ENABLE_DEVICE)
+    else if (execSpace0 == "Device")
+    {
+        Nektar::Math::linearCombination<NektarSpaces::Device>(alpha, x, y,
+                                                              append);
     }
 #endif
     else

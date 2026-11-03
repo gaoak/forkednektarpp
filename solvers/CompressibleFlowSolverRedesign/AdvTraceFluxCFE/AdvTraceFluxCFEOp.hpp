@@ -76,22 +76,25 @@ public:
      * @brief Apply the Riemann solve to trace states given directly; for the
      * unit tests.
      *
-     * Runs the Riemann solve, and the rotation into and out of the trace
-     * normal frame around it, on @p fwd and @p bwd as supplied, writing
-     * @p flux. Unlike Apply() it neither gathers the states off the field nor
-     * scatters the result back, which is what the Riemann unit tests need:
-     * a flux for a pair of states they chose. The name says who it is for;
-     * a solver applies the operator through Apply().
+     * Runs the Riemann solve through the normals @p normals on @p fwd and
+     * @p bwd as supplied, writing @p flux. Unlike Apply() it neither gathers
+     * the states off the field nor scatters the result back, and it takes
+     * the normals it is given rather than the mesh's, which is what the
+     * Riemann unit tests need: a flux for a pair of states and a normal they
+     * chose. The name says who it is for; a solver applies the operator
+     * through Apply().
      *
+     * @param   normals Normals on the trace, one component per coordinate.
      * @param   fwd     Forward-side conserved states on the trace.
      * @param   bwd     Backward-side conserved states on the trace.
      * @param   flux    Flux on the trace, in Cartesian components.
      */
-    void ApplyUnitTest(LibUtilities::Field<TData, FieldState::Phys> &fwd,
+    void ApplyUnitTest(LibUtilities::Field<TData, FieldState::Phys> &normals,
+                       LibUtilities::Field<TData, FieldState::Phys> &fwd,
                        LibUtilities::Field<TData, FieldState::Phys> &bwd,
                        LibUtilities::Field<TData, FieldState::Phys> &flux)
     {
-        v_ApplyUnitTest(fwd, bwd, flux);
+        v_ApplyUnitTest(normals, fwd, bwd, flux);
     }
 
     static inline const std::string name = "AdvTraceFluxCFE";
@@ -106,6 +109,7 @@ protected:
     ~AdvTraceFluxCFEOp() override = default;
 
     virtual void v_ApplyUnitTest(
+        LibUtilities::Field<TData, FieldState::Phys> &normals,
         LibUtilities::Field<TData, FieldState::Phys> &fwd,
         LibUtilities::Field<TData, FieldState::Phys> &bwd,
         LibUtilities::Field<TData, FieldState::Phys> &flux) = 0;

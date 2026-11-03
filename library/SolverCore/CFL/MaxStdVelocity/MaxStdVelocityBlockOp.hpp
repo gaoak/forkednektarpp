@@ -68,8 +68,6 @@ template <typename TData>
 class MaxStdVelocityBlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
-    ~MaxStdVelocityBlockOp() override = default;
-
     static std::shared_ptr<MaxStdVelocityBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -120,6 +118,13 @@ protected:
         : MultiRegions::BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
+
+    ~MaxStdVelocityBlockOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<MaxStdVelocityBlockOp>;
 
     virtual void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,

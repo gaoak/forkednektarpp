@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Expansions for HOutflowBackflow2D with a pressure one order below the
+        velocity: P=4 velocity (MODIFIED, NUMMODES=5) and P=3 pressure
+        (MODIFIEDQUADPLUS1, NUMMODES=4), which share their quadrature points.
+        The linear shear flow and the zero pressure are exact in both spaces.
+    -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u,v" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="p" TYPE="MODIFIEDQUADPLUS1" />
+    </EXPANSIONS>
+</NEKTAR>

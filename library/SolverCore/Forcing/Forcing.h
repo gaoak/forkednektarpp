@@ -42,6 +42,7 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/SessionNode.h>
 #include <MultiRegions/ExpList.h>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/SolverCoreDeclspec.h>
@@ -56,7 +57,7 @@ using ForcingSharedPtr = std::shared_ptr<Forcing>;
 typedef LibUtilities::NekFactory<
     std::string, Forcing, const LibUtilities::SessionReaderSharedPtr &,
     const MultiRegions::ExpListSharedPtr &, const std::vector<std::string> &,
-    const TiXmlElement *>
+    const LibUtilities::SessionNode &>
     ForcingFactory;
 
 /// Declaration of the forcing factory singleton.
@@ -72,7 +73,7 @@ class Forcing
 public:
     SOLVER_CORE_EXPORT virtual ~Forcing() = default;
 
-    SOLVER_CORE_EXPORT void InitObject(const TiXmlElement *force)
+    SOLVER_CORE_EXPORT void InitObject(const LibUtilities::SessionNode &force)
     {
         v_InitObject(force);
     }
@@ -101,7 +102,8 @@ protected:
         const MultiRegions::ExpListSharedPtr &expList,
         std::vector<std::string> variables);
 
-    SOLVER_CORE_EXPORT virtual void v_InitObject(const TiXmlElement *force) = 0;
+    SOLVER_CORE_EXPORT virtual void v_InitObject(
+        const LibUtilities::SessionNode &force) = 0;
 
     SOLVER_CORE_EXPORT virtual void v_Apply(
         LibUtilities::Field<double, FieldState::Phys> &in,

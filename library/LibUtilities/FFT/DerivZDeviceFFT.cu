@@ -308,11 +308,50 @@ __global__ void AccumulateKernel(const TData *src, TData *dst, size_t nsize)
 
 // ---------------------------------------------------------------------
 // Fused cuFFTDx pipeline: D2Z + wavenumber multiply + Z2D in a single
-// kernel, one thread block per xy pencil, reading and writing the block
-// device memory in place.
+// kernel, one thread block per group of neighbouring xy pencils, reading and
+// writing the block device memory in place.
 // ---------------------------------------------------------------------
 
 constexpr int kTarget = CUFFTDX_TARGET_SM;
+
+// Block FFT of N_PLANES points over FPB pencils.
+template <typename TReal, int N_PLANES, int EPT, int FPB,
+          cufftdx::fft_direction DIR>
+using DxDesc =
+    decltype(cufftdx::Block() + cufftdx::Size<N_PLANES>() +
+             cufftdx::Type<cufftdx::fft_type::c2c>() +
+             cufftdx::Direction<DIR>() + cufftdx::Precision<TReal>() +
+             cufftdx::ElementsPerThread<EPT>() + cufftdx::FFTsPerBlock<FPB>() +
+             cufftdx::SM<kTarget>());
+
+// Dynamic shared memory of a block: the transforms' own, which the tile the
+// pencils are staged through reuses. The tile rows are padded to FPB + 1.
+template <typename TReal, int N_PLANES, int EPT, int FPB>
+constexpr unsigned int DxSharedSize()
+{
+    constexpr unsigned int fftSize =
+        DxDesc<TReal, N_PLANES, EPT, FPB,
+               cufftdx::fft_direction::forward>::shared_memory_size;
+    constexpr unsigned int tileSize = sizeof(TReal) * N_PLANES * (FPB + 1);
+    return fftSize > tileSize ? fftSize : tileSize;
+}
+
+// Neighbouring pencils per block: from FPB (a 128-byte line along j), halved
+// while the block's shared memory exceeds 48 KB, down to a 32-byte sector.
+template <typename TReal, int N_PLANES, int EPT, int FPB>
+constexpr int PencilsPerBlock()
+{
+    constexpr int sector = 32 / static_cast<int>(sizeof(TReal));
+    if constexpr (FPB > sector &&
+                  DxSharedSize<TReal, N_PLANES, EPT, FPB>() > 48u * 1024u)
+    {
+        return PencilsPerBlock<TReal, N_PLANES, EPT, FPB / 2>();
+    }
+    else
+    {
+        return FPB;
+    }
+}
 
 template <typename TReal, int N_PLANES> struct DxFFT
 {
@@ -331,25 +370,34 @@ public:
     // one register array in the kernel below.
     static constexpr int kEPT = static_cast<int>(Probe::elements_per_thread);
 
-    using FFT = decltype(cufftdx::Block() + cufftdx::Size<N_PLANES>() +
-                         cufftdx::Type<cufftdx::fft_type::c2c>() +
-                         cufftdx::Direction<cufftdx::fft_direction::forward>() +
-                         cufftdx::Precision<TReal>() +
-                         cufftdx::ElementsPerThread<kEPT>() +
-                         cufftdx::FFTsPerBlock<1>() + cufftdx::SM<kTarget>());
+    static constexpr int kFPB =
+        PencilsPerBlock<TReal, N_PLANES, kEPT,
+                        128 / static_cast<int>(sizeof(TReal))>();
 
+    // Row stride of the N_PLANES x kFPB tile the pencils are staged through;
+    // the padding spreads its column accesses over the banks.
+    static constexpr int kTileLd = kFPB + 1;
+
+    using FFT =
+        DxDesc<TReal, N_PLANES, kEPT, kFPB, cufftdx::fft_direction::forward>;
     using IFFT =
-        decltype(cufftdx::Block() + cufftdx::Size<N_PLANES>() +
-                 cufftdx::Type<cufftdx::fft_type::c2c>() +
-                 cufftdx::Direction<cufftdx::fft_direction::inverse>() +
-                 cufftdx::Precision<TReal>() +
-                 cufftdx::ElementsPerThread<kEPT>() +
-                 cufftdx::FFTsPerBlock<1>() + cufftdx::SM<kTarget>());
+        DxDesc<TReal, N_PLANES, kEPT, kFPB, cufftdx::fft_direction::inverse>;
+
+    static constexpr unsigned int kSharedSize =
+        DxSharedSize<TReal, N_PLANES, kEPT, kFPB>();
+
+    // PencilsPerBlock bounds the shared memory only, not the thread count.
+    static_assert(FFT::block_dim.x * FFT::block_dim.y * FFT::block_dim.z <=
+                      1024u,
+                  "DxFFT: more than 1024 threads per block; reduce the "
+                  "pencils per block for this size and precision.");
 };
 
 // Reads from block device memory with stride compStride instead of NXY,
-// writing directly to the z-slot in the output block. One block per xy
-// pencil (blockIdx.x == j). Avoids separate gather/scatter copies.
+// writing directly to the z-slot in the output block. Each block transforms
+// kFPB neighbouring xy pencils, one per threadIdx.y, staged through a
+// shared-memory tile so that global loads and stores run along j. Avoids
+// separate gather/scatter copies.
 template <typename TReal, int N_PLANES, DerivZOrder DERIVORDER, bool APPEND>
 __global__ void DerivZDxDirectKernel(const TReal *__restrict__ d_in,
                                      TReal *__restrict__ d_out, int NXY,
@@ -361,20 +409,40 @@ __global__ void DerivZDxDirectKernel(const TReal *__restrict__ d_in,
     using complex_type = typename FFT_t::value_type;
 
     constexpr int kEPT   = Traits::kEPT;
+    constexpr int kFPB   = Traits::kFPB;
+    constexpr int ld     = Traits::kTileLd;
     constexpr int half_n = N_PLANES / 2;
 
-    const int j = static_cast<int>(blockIdx.x);
+    const int j0  = static_cast<int>(blockIdx.x) * kFPB;
+    const int p   = static_cast<int>(threadIdx.y);
+    const int tid = static_cast<int>(threadIdx.x + threadIdx.y * blockDim.x);
+    const int nthreads = static_cast<int>(blockDim.x * blockDim.y);
 
-    extern __shared__ char shmem_raw[];
+    extern __shared__ __align__(16) char shmem_raw[];
     complex_type *smem = reinterpret_cast<complex_type *>(shmem_raw);
+    TReal *tile        = reinterpret_cast<TReal *>(shmem_raw);
+
+    // Coalesced load along j; a pencil past the end is zero but still joins
+    // the block-wide transforms.
+    for (int idx = tid; idx < N_PLANES * kFPB; idx += nthreads)
+    {
+        const int k = idx / kFPB;
+        const int c = idx % kFPB;
+        tile[k * ld + c] =
+            (j0 + c < NXY) ? d_in[k * compStride + j0 + c] : TReal(0);
+    }
+
+    __syncthreads();
 
     complex_type thread_data[kEPT];
 
     for (int i = 0; i < kEPT; ++i)
     {
         const int k    = static_cast<int>(threadIdx.x) + i * FFT_t::stride;
-        thread_data[i] = complex_type{d_in[k * compStride + j], TReal(0)};
+        thread_data[i] = complex_type{tile[k * ld + p], TReal(0)};
     }
+
+    __syncthreads();
 
     FFT_t().execute(thread_data, smem);
 
@@ -410,19 +478,34 @@ __global__ void DerivZDxDirectKernel(const TReal *__restrict__ d_in,
 
     IFFT_t().execute(thread_data, smem);
 
-    // Nothing else writes the result, so an accumulating call costs only
-    // the read-modify-write here: no staging buffer and no second pass.
+    __syncthreads();
+
     const TReal inv_n = TReal(1) / static_cast<TReal>(N_PLANES);
     for (int i = 0; i < kEPT; ++i)
     {
-        const int k = static_cast<int>(threadIdx.x) + i * FFT_t::stride;
-        if constexpr (APPEND)
+        const int k      = static_cast<int>(threadIdx.x) + i * FFT_t::stride;
+        tile[k * ld + p] = thread_data[i].x * inv_n;
+    }
+
+    __syncthreads();
+
+    // Coalesced store along j. Nothing else writes the result, so an
+    // accumulating call costs only the read-modify-write here: no staging
+    // buffer and no second pass.
+    for (int idx = tid; idx < N_PLANES * kFPB; idx += nthreads)
+    {
+        const int k = idx / kFPB;
+        const int c = idx % kFPB;
+        if (j0 + c < NXY)
         {
-            d_out[k * compStride + j] += thread_data[i].x * inv_n;
-        }
-        else
-        {
-            d_out[k * compStride + j] = thread_data[i].x * inv_n;
+            if constexpr (APPEND)
+            {
+                d_out[k * compStride + j0 + c] += tile[k * ld + c];
+            }
+            else
+            {
+                d_out[k * compStride + j0 + c] = tile[k * ld + c];
+            }
         }
     }
 }
@@ -438,14 +521,15 @@ void LaunchDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
     using Traits = DxFFT<TReal, N_PLANES>;
     using FFT_t  = typename Traits::FFT;
 
-    constexpr unsigned int shmem_size = FFT_t::shared_memory_size;
+    constexpr unsigned int shmem_size = Traits::kSharedSize;
+    constexpr int fpb                 = Traits::kFPB;
 
     static bool attr_set = false;
     if (!attr_set)
     {
-        cudaFuncSetAttribute(
+        CHECK_HIPCUDA_ERROR(cudaFuncSetAttribute(
             DerivZDxDirectKernel<TReal, N_PLANES, DERIVORDER, APPEND>,
-            cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size);
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shmem_size));
         attr_set = true;
     }
 
@@ -457,8 +541,8 @@ void LaunchDerivZDxDirect(const TReal *d_in, TReal *d_out, int NXY,
     // z-pipeline. When the stream is being captured by that outer graph the
     // kernel launch is recorded into it automatically.
     DerivZDxDirectKernel<TReal, N_PLANES, DERIVORDER, APPEND>
-        <<<NXY, FFT_t::block_dim, shmem_size, stream>>>(d_in, d_out, NXY,
-                                                        compStride, beta);
+        <<<(NXY + fpb - 1) / fpb, FFT_t::block_dim, shmem_size, stream>>>(
+            d_in, d_out, NXY, compStride, beta);
 }
 
 // Switches on the plane count to pick the compile-time FFT size. Takes the

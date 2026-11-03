@@ -342,24 +342,6 @@ public:
     }
 
 protected:
-    /**
-     * @brief Synchronise every block of @p field after the first.
-     *
-     * Memory is synchronised a block at a time, while the kernels below walk
-     * a field from its first block's pointer; taking that pointer therefore
-     * leaves every later block unsynchronised. Each field is walked to its
-     * own length, since they do not share a block count.
-     */
-    template <typename MemAccess, typename TField>
-    NEK_FORCE_INLINE void SyncTrailingBlocks(TField &field)
-    {
-        for (unsigned blk = 1; blk < field.GetBlocks().size(); ++blk)
-        {
-            field.GetBlocks()[blk].template GetPtr<MemSpace, MemAccess>(
-                this->m_opStreamID);
-        }
-    }
-
     /// Interleave width of an element-local field, which the gathers and
     /// scatters read and write it at; Field reshapes all its blocks together.
     template <typename TField> NEK_FORCE_INLINE static unsigned Width(TField &f)
@@ -524,6 +506,33 @@ protected:
      */
     TData *m_gloT1Diff;
 
+    /// Whether the viscous trace flux takes the average-of-normal-fluxes
+    /// form, in which the second input of Apply() is each element's outward
+    /// normal viscous flux on its traces rather than the gradient.
+    bool UseAvgNormalFlux() const
+    {
+        return this->GetViscousTraceForm() ==
+               SolverCore::TraceFluxOp<
+                   TData>::ViscousTraceForm::AverageOfNormalFluxes;
+    }
+
+    /// The gradient trace the boundary traces read: the second input under
+    /// the flux-of-averages form, the field set through
+    /// SetBoundaryGradientTrace() otherwise.
+    LibUtilities::Field<TData, FieldState::Phys> &BoundaryGradientTrace(
+        LibUtilities::Field<TData, FieldState::Phys> &inDeriv)
+    {
+        if (!UseAvgNormalFlux())
+        {
+            return inDeriv;
+        }
+        auto *grad = this->GetBoundaryGradientTrace();
+        ASSERTL0(grad || !this->HasBoundaryTraces(),
+                 "The average-of-normal-fluxes form needs the gradient trace "
+                 "for the boundary traces; see SetBoundaryGradientTrace().");
+        return grad ? *grad : inDeriv;
+    }
+
     // The base declares each hook twice, for the two- and three-field forms;
     // overriding one form alone would hide the other.
     using SolverCore::TraceFluxOp<TData>::v_Apply;
@@ -540,7 +549,9 @@ protected:
      *
      * @param in      - Physical-space conserved variables.
      * @param inDeriv - Physical-space gradient of @p in, `nDim` components per
-     *                  conserved variable.
+     *                  conserved variable; under the average-of-normal-fluxes
+     *                  form each element's outward normal viscous flux, one
+     *                  component per conserved variable.
      * @param flux    - Trace-space output.
      */
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
@@ -548,6 +559,10 @@ protected:
                  LibUtilities::Field<TData, FieldState::Phys> &flux) override
     {
         this->JoinBlockStreams();
+
+        // The flux is written at the width of the state traces; it is zeroed
+        // below, so taking that width needs no reshape.
+        flux.SetInterleaveWidth(in);
 
         // primarily here to ensure all blocks are intialised since
         // the GetPtr() below will only intiialise first block. On the trace
@@ -557,21 +572,23 @@ protected:
         // The boundary pass calls the conditions' diffusion hook.
         this->SetBndCondStreams();
 
+        auto &bndDeriv = BoundaryGradientTrace(inDeriv);
+
         // loop over interior and boundary traces and evaluate flux
         // using InteriorOp and BoundaryOp defined below
         switch (this->m_traceDim)
         {
             case 0:
                 this->template InteriorOp<0>(in, inDeriv, flux);
-                this->template BoundaryOp<0>(in, inDeriv, flux);
+                this->template BoundaryOp<0>(in, bndDeriv, flux);
                 break;
             case 1:
                 this->template InteriorOp<1>(in, inDeriv, flux);
-                this->template BoundaryOp<1>(in, inDeriv, flux);
+                this->template BoundaryOp<1>(in, bndDeriv, flux);
                 break;
             case 2:
                 this->template InteriorOp<2>(in, inDeriv, flux);
-                this->template BoundaryOp<2>(in, inDeriv, flux);
+                this->template BoundaryOp<2>(in, bndDeriv, flux);
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal, "Uknown value of m_traceDim");
@@ -642,10 +659,16 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &inDeriv,
         LibUtilities::Field<TData, FieldState::Phys> &flux)
     {
-        auto numflux       = flux.GetNumComponents();
-        const unsigned dim = TRACEDIM + 1;
+        auto numflux             = flux.GetNumComponents();
+        const unsigned dim       = TRACEDIM + 1;
+        const bool avgNormalFlux = UseAvgNormalFlux();
+        // Components of the second input: the gradient, or under the
+        // average-of-normal-fluxes form the normal viscous flux.
+        const unsigned numSecond = avgNormalFlux ? numflux : numflux * m_nDim;
 
-        this->SetWorkSpace(numflux);
+        // The gather scratch is sliced per (trace, component), so it is
+        // sized for the larger of the two gathers.
+        this->SetWorkSpace(numSecond);
 
         ASSERTL1(in.GetNumComponents() == numflux,
                  "Assumption that input components are the "
@@ -659,14 +682,11 @@ protected:
                 this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
-        SyncTrailingBlocks<ReadOnly>(in);
-        SyncTrailingBlocks<ReadOnly>(inDeriv);
-        SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
+        this->template SyncTrailingBlocks<ReadOnly>(in);
+        this->template SyncTrailingBlocks<ReadOnly>(inDeriv);
+        this->template SyncTrailingBlocks<WriteOnly>(flux);
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
@@ -686,7 +706,7 @@ protected:
             this->template GetInteriorTraces<TRACEDIM>(
                 b, numflux, inPtr, this->m_gloT0, this->m_gloT1, Width(in));
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numflux * m_nDim, inDerivPtr, m_gloDerivT0, m_gloDerivT1,
+                b, numSecond, inDerivPtr, m_gloDerivT0, m_gloDerivT1,
                 Width(inDeriv));
 
             // Step 2: Solve Riemann proble on close packed variables
@@ -730,12 +750,25 @@ protected:
                 m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
                 this->m_flux, this->m_opStreamID);
 
-            DiffuseTraceFluxKernel<ExecSpace, true>(
-                m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
-                m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
-                this->m_norms, m_penFactor, m_bndEnergyWeight, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
-                this->m_opStreamID);
+            if (avgNormalFlux)
+            {
+                // The second input holds each side's outward normal viscous
+                // flux; the kernel averages them and adds the penalty.
+                AvgNormalFluxTraceKernel<ExecSpace>(
+                    m_EoS, npTBlock, m_nDim, m_Prandtl, m_muRef, m_isMuVariable,
+                    m_oneOverTstar, m_TRatioSutherland, this->m_norms,
+                    m_penFactor, this->m_gloT0, this->m_gloT1, m_gloDerivT0,
+                    m_gloDerivT1, this->m_flux, this->m_opStreamID);
+            }
+            else
+            {
+                DiffuseTraceFluxKernel<ExecSpace, true>(
+                    m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
+                    m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
+                    this->m_norms, m_penFactor, m_bndEnergyWeight,
+                    this->m_gloT0, this->m_gloT1, m_gloDerivT0, m_gloDerivT1,
+                    this->m_flux, this->m_opStreamID);
+            }
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
             if (this->m_append)
@@ -789,10 +822,16 @@ protected:
             return;
         }
 
-        auto numflux       = flux.GetNumComponents();
-        const unsigned dim = TRACEDIM + 1;
+        auto numflux             = flux.GetNumComponents();
+        const unsigned dim       = TRACEDIM + 1;
+        const bool avgNormalFlux = UseAvgNormalFlux();
+        // Components of the second input: the gradient, or under the
+        // average-of-normal-fluxes form the normal viscous flux.
+        const unsigned numSecond = avgNormalFlux ? numflux : numflux * m_nDim;
 
-        this->SetWorkSpace(numflux);
+        // The gather scratch is sliced per (trace, component), so it is
+        // sized for the larger of the two gathers.
+        this->SetWorkSpace(numSecond);
 
         ASSERTL1(in.GetNumComponents() == numflux,
                  "Assumption that input components are the "
@@ -806,14 +845,11 @@ protected:
                 this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, ReadWrite>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
-        SyncTrailingBlocks<ReadOnly>(in);
-        SyncTrailingBlocks<ReadOnly>(inDeriv);
-        SyncTrailingBlocks<ReadWrite>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
+        this->template SyncTrailingBlocks<ReadOnly>(in);
+        this->template SyncTrailingBlocks<ReadOnly>(inDeriv);
+        this->template SyncTrailingBlocks<ReadWrite>(flux);
 
         auto penFactorPtr = this->m_dataWarehouse->template GetData<MemSpace>(
             MultiRegions::IPTraceScalarKey<TData>(
@@ -828,7 +864,7 @@ protected:
             this->template GetParallelTraces<TRACEDIM>(
                 b, numflux, inPtr, this->m_gloT0, this->m_gloT1, 0, Width(in));
             this->template GetParallelTraces<TRACEDIM>(
-                b, numflux * m_nDim, inDerivPtr, m_gloDerivT0, m_gloDerivT1, 1,
+                b, numSecond, inDerivPtr, m_gloDerivT0, m_gloDerivT1, 1,
                 Width(inDeriv));
 
             // Step 2: gather the normals and penalty factor for these traces
@@ -864,12 +900,25 @@ protected:
                 m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
                 this->m_flux, this->m_opStreamID);
 
-            DiffuseTraceFluxKernel<ExecSpace, true>(
-                m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
-                m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
-                this->m_norms, m_penFactor, m_bndEnergyWeight, this->m_gloT0,
-                this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
-                this->m_opStreamID);
+            if (avgNormalFlux)
+            {
+                // The second input holds each side's outward normal viscous
+                // flux; the kernel averages them and adds the penalty.
+                AvgNormalFluxTraceKernel<ExecSpace>(
+                    m_EoS, npTBlock, m_nDim, m_Prandtl, m_muRef, m_isMuVariable,
+                    m_oneOverTstar, m_TRatioSutherland, this->m_norms,
+                    m_penFactor, this->m_gloT0, this->m_gloT1, m_gloDerivT0,
+                    m_gloDerivT1, this->m_flux, this->m_opStreamID);
+            }
+            else
+            {
+                DiffuseTraceFluxKernel<ExecSpace, true>(
+                    m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
+                    m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
+                    this->m_norms, m_penFactor, m_bndEnergyWeight,
+                    this->m_gloT0, this->m_gloT1, m_gloDerivT0, m_gloDerivT1,
+                    this->m_flux, this->m_opStreamID);
+            }
 
             // Step 3: Replace flux values into the local flux storage, this
             // side only.
@@ -906,11 +955,20 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &inDeriv,
         LibUtilities::Field<TData, FieldState::Phys> &flux)
     {
+        // Nothing to read or write without a boundary block; the gradient
+        // trace in particular may never have been formed on this rank.
+        if (this->m_bndT0.empty())
+        {
+            return;
+        }
 
         auto numflux       = flux.GetNumComponents();
         const unsigned dim = TRACEDIM + 1;
 
-        this->SetWorkSpace(numflux);
+        // The gather scratch is sliced per (trace, component), so it is
+        // sized for the gradient gather, the boundary traces reading the
+        // gradient under either viscous trace form.
+        this->SetWorkSpace(numflux * m_nDim);
 
         ASSERTL1(in.GetNumComponents() == numflux,
                  "Assumption that input components are the "
@@ -924,14 +982,11 @@ protected:
                 this->m_opStreamID);
         auto fluxPtr = flux.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>(
             this->m_opStreamID);
-        auto normPtr =
-            this->m_traceNormals.GetBlocks()[0]
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        auto normPtr = this->m_traceNormals;
 
-        SyncTrailingBlocks<ReadOnly>(in);
-        SyncTrailingBlocks<ReadOnly>(inDeriv);
-        SyncTrailingBlocks<WriteOnly>(flux);
-        SyncTrailingBlocks<ReadOnly>(this->m_traceNormals);
+        this->template SyncTrailingBlocks<ReadOnly>(in);
+        this->template SyncTrailingBlocks<ReadOnly>(inDeriv);
+        this->template SyncTrailingBlocks<WriteOnly>(flux);
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.

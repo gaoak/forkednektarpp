@@ -68,6 +68,8 @@ ignore_sources = [
     "library/LibUtilities/FFT/DerivZDeviceFFT.cu",
     "library/LibUtilities/FFT/DerivZDeviceFFT.hip",
     "library/UnitTests/LibUtilities/TestDeviceFFT.cpp",
+    # Device random numbers, the .cpp built only for SYCL
+    "library/LibUtilities/BasicUtils/Math/DeviceRandomGenerator.cpp",
     # Profiler
     # NekBlas
     "library/LibUtilities/LinearAlgebra/NekBlas/magma.cpp",

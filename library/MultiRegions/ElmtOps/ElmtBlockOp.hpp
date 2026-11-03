@@ -75,7 +75,7 @@
 
 #include <algorithm>
 
-#include "LibUtilities/Backends/DeviceProperties.hpp"
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <MultiRegions/Common/BlockOperator.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
@@ -195,15 +195,15 @@ class ElmtBlockOp : public BlockOperator<TData>
 public:
     /// @brief Accessor type of this operator's input block.
     ///
-    /// Derived classes and the generated ShapeBlock definitions use
-    /// #InBlock and #OutBlock rather than restating the field states, so
-    /// each operator states them in exactly one place: its ElmtBlockOp
-    /// base clause in the family's BlockOp header.
+    /// #InBlock and #OutBlock are for the ShapeBlock declarations and
+    /// their generated definitions only. The shared ShapeBlock template
+    /// that generates the switch cannot restate each operator's field
+    /// states, so it takes them from these aliases, set once in the
+    /// operator's ElmtBlockOp base clause. Other code should name the
+    /// BlockAccessor type directly.
     using InBlock = LibUtilities::BlockAccessor<TData, TFieldIn>;
     /// Accessor type of this operator's output block; see #InBlock.
     using OutBlock = LibUtilities::BlockAccessor<TData, TFieldOut>;
-
-    ~ElmtBlockOp() override = default;
 
     /**
      * @brief Create one block operator through the block-operator
@@ -321,6 +321,13 @@ protected:
         : BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
+
+    ~ElmtBlockOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<ElmtBlockOp>;
 
     /**
      * @brief Implementation hook for Apply().

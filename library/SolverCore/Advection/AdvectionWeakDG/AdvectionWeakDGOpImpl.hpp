@@ -34,17 +34,12 @@
 
 #pragma once
 
-#include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
 #include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGKernels.hpp"
 #include "SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp"
 
-#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
-#include <MultiRegions/ElmtOps/IProductWRTPhysTrace/IProductWRTPhysTraceOp.hpp>
+#include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
 namespace Nektar::SolverCore::detail
@@ -59,16 +54,6 @@ public:
     AdvectionWeakDGOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                           const std::vector<std::string> &components)
         : AdvectionWeakDGOp<TData>(std::move(expansionList), components),
-          m_coeff(LibUtilities::Field<TData, FieldState::Coeff>(
-              "Advect coeff",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components.size(), 1)),
-          m_coefftmp(LibUtilities::Field<TData, FieldState::Coeff>(
-              "Advect coeff tmp",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components.size(), 1)),
           m_fluxvector(LibUtilities::Field<TData, FieldState::Phys>(
               "Flux vector",
               MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
@@ -91,25 +76,14 @@ public:
                   expansionList),
               components.size(), 1))
     {
-        m_bwdTransOp = MultiRegions::BwdTransOp<TData>::Create(
-            expansionList, components, ExecSpace::name);
         m_physTraceExtractOp = MultiRegions::PhysTraceExtractOp<TData>::Create(
             expansionList, components, ExecSpace::name);
         m_iProductWRTDerivBaseOpNegOut = MultiRegions::IProductWRTDerivBaseOp<
             FieldState::Phys, TData>::Create(expansionList, components,
                                              ExecSpace::name);
         m_iProductWRTDerivBaseOpNegOut->SetScale(-1.0);
-        m_iProductWRTPhysTraceOpAppend =
-            MultiRegions::IProductWRTPhysTraceOp<TData>::Create(
-                expansionList, components, ExecSpace::name);
-        m_iProductWRTPhysTraceOpAppend->SetAppend(true);
-
-        m_BTransposeOp = MultiRegions::IProductWRTBaseOp<TData>::Create(
+        m_liftProjectOp = MultiRegions::PhysLiftProjectOp<TData>::Create(
             expansionList, components, ExecSpace::name);
-        m_BTransposeOp->SetIntegration(false);
-        m_multiplyByElmtInvMassOp =
-            MultiRegions::MultiplyByElmtInvMassOp<TData>::Create(
-                expansionList, components, ExecSpace::name);
     }
 
     // className - for OperatorFactory
@@ -125,20 +99,16 @@ public:
     }
 
 protected:
-    LibUtilities::Field<TData, FieldState::Coeff> m_coeff, m_coefftmp;
     LibUtilities::Field<TData, FieldState::Phys> m_fluxvector, m_numflux,
         m_trace, m_phystmp;
     std::shared_ptr<MultiRegions::PhysTraceExtractOp<TData>>
         m_physTraceExtractOp;
-    std::shared_ptr<MultiRegions::IProductWRTPhysTraceOp<TData>>
-        m_iProductWRTPhysTraceOpAppend;
     std::shared_ptr<
         MultiRegions::IProductWRTDerivBaseOp<FieldState::Phys, TData>>
         m_iProductWRTDerivBaseOpNegOut;
-    std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>> m_BTransposeOp;
-    std::shared_ptr<MultiRegions::BwdTransOp<TData>> m_bwdTransOp;
-    std::shared_ptr<MultiRegions::MultiplyByElmtInvMassOp<TData>>
-        m_multiplyByElmtInvMassOp;
+    /// The numerical flux lifted onto the volume inner products and the sum
+    /// projected: `out (+)= scale * B M^{-1} B^T (phystmp + L numflux)`.
+    std::shared_ptr<MultiRegions::PhysLiftProjectOp<TData>> m_liftProjectOp;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
@@ -149,19 +119,20 @@ protected:
     void v_SetAppend(const bool &append) override
     {
         this->m_append = append;
-        m_bwdTransOp->SetAppend(this->m_append);
     }
 
+    /// The volume and trace terms as physical-space inner products, then
+    /// their projection onto the polynomial space.
     void Advect(LibUtilities::Field<TData, FieldState::Phys> &in,
                 LibUtilities::Field<TData, FieldState::Phys> &out)
     {
-        AdvectCoeffs(in, m_coeff);
-
-        m_bwdTransOp->Apply(m_coeff, out);
+        AdvectInnerProducts(in);
+        LiftAndProject(out);
     }
 
-    void AdvectCoeffs(LibUtilities::Field<TData, FieldState::Phys> &in,
-                      LibUtilities::Field<TData, FieldState::Coeff> &out)
+    /// The volume inner products in #m_phystmp and the numerical flux on
+    /// the element-local traces in #m_numflux.
+    void AdvectInnerProducts(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         //  Extract trace from "in"
         m_physTraceExtractOp->Apply(in, m_trace);
@@ -195,17 +166,17 @@ protected:
         // before that.
         this->m_traceFluxOp->EndParallelExchange();
         this->m_traceFluxOp->ApplyParallel(m_trace, m_numflux);
+    }
 
-        // Integral of numflux, B^T and Multiply by Inv Mass - could be fused:
-        // zero<ExecSpace>(m_phystmp);
-        m_iProductWRTPhysTraceOpAppend->Apply(m_numflux, m_phystmp);
-        m_BTransposeOp->Apply(m_phystmp, m_coefftmp);
-        m_multiplyByElmtInvMassOp->Apply(m_coefftmp, out);
-
-        if (this->m_scale != 1.0)
-        {
-            Math::mul<ExecSpace>(this->m_scale, out, out);
-        }
+    /// The numerical flux lifted onto the volume inner products and the sum
+    /// projected, `out (+)= scale * B M^{-1} B^T (phystmp + L numflux)`. The
+    /// scale and append settings are set here, where they are used, since
+    /// the caller may change them between applications.
+    void LiftAndProject(LibUtilities::Field<TData, FieldState::Phys> &out)
+    {
+        m_liftProjectOp->SetScale(this->m_scale);
+        m_liftProjectOp->SetAppend(this->m_append);
+        m_liftProjectOp->Apply(m_phystmp, m_numflux, out);
     }
 };
 

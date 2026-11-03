@@ -762,6 +762,51 @@ LibUtilities::MemoryRegion<TData> StdMatDataCreator::Create(
             return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
         }
         break;
+        case eInvMassStdMatDiagonal:
+        {
+            StdMatrixKey mkey(eInvMass, stdExp->DetShapeType(), *stdExp);
+            const auto &invMass = stdExp->GetStdMatrix(mkey);
+            Array<OneD, double> diag(nmTot);
+            for (unsigned int i = 0; i < nmTot; ++i)
+            {
+                diag[i] = invMass->GetValue(i, i);
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(diag);
+        }
+        break;
+        case ePhysProjectStdMat:
+        {
+            // Column j is B M^{-1} applied to row j of B: the backward
+            // transform of the inverse mass times the modes' values at
+            // point j. Stored column-major; the matrix is symmetric.
+            StdMatrixKey mkey(eInvMass, stdExp->DetShapeType(), *stdExp);
+            const auto &invMass = stdExp->GetStdMatrix(mkey);
+            Array<OneD, double> tmp(nmTot), bmat(nmTot * nqTot), t;
+            for (unsigned int i = 0; i < nmTot; ++i)
+            {
+                Vmath::Zero(nmTot, tmp, 1);
+                tmp[i] = 1.0;
+                stdExp->BwdTrans(tmp, t = bmat + i * nqTot);
+            }
+            Array<OneD, double> coef(nmTot), mat(nqTot * nqTot);
+            for (unsigned int j = 0; j < nqTot; ++j)
+            {
+                for (unsigned int r = 0; r < nmTot; ++r)
+                {
+                    double sum = 0.0;
+                    for (unsigned int c = 0; c < nmTot; ++c)
+                    {
+                        sum += invMass->GetValue(r, c) * bmat[c * nqTot + j];
+                    }
+                    coef[r] = sum;
+                }
+                stdExp->BwdTrans(coef, t = mat + j * nqTot);
+            }
+
+            return MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+        }
+        break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid StdMat requested.");
             return MemoryRegion<TData>(0);

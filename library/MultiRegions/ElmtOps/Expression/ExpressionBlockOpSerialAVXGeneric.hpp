@@ -63,7 +63,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionBlockOp.hpp>
 
 namespace Nektar::MultiRegions::detail
@@ -355,6 +355,17 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
+    }
+
+    /**
+     * @brief Every expression is available: the host interpreter
+     * evaluates them.
+     */
+    bool v_IsAvailable(
+        [[maybe_unused]] const std::vector<LibUtilities::EquationSharedPtr>
+            &exprs) const override
+    {
+        return true;
     }
 
     /**

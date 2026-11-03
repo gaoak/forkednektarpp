@@ -48,15 +48,11 @@ ForcingBody::ForcingBody(const LibUtilities::SessionReaderSharedPtr &session,
 {
 }
 
-void ForcingBody::v_InitObject(const TiXmlElement *force)
+void ForcingBody::v_InitObject(const LibUtilities::SessionNode &force)
 {
-    ASSERTL0(force, "ForcingBody requires a valid FORCE XML element.");
-
-    // Read function name from BODYFORCE. Both tags map to the
-    // same minimal implementation, preserving the legacy session-file syntax.
-    const TiXmlElement *funcNameElmt = force->FirstChildElement("BODYFORCE");
-
-    m_funcName = funcNameElmt->GetText() ? funcNameElmt->GetText() : "";
+    // Read the function name from BODYFORCE, preserving the legacy
+    // session-file syntax.
+    m_funcName = force.GetValue("BODYFORCE");
     ASSERTL0(!m_funcName.empty(), "BODYFORCE must specify a function name.");
     ASSERTL0(m_session->DefinesFunction(m_funcName),
              "Function '" + m_funcName + "' not defined.");

@@ -46,16 +46,10 @@ template <bool APPEND, typename ExecSpace, typename EqnOfSParams,
           typename TData>
 NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
     const EqnOfSParams EoS, const unsigned int npts, const unsigned int ndim,
-    const unsigned int nvarComps, const unsigned int inStride,
-    const unsigned int outStride, const TData *inbase, TData *outbase,
-    const TData scale, const unsigned int streamID)
+    const unsigned int inStride, const unsigned int outStride,
+    const TData *inbase, TData *outbase, const TData scale,
+    const unsigned int streamID)
 {
-    // Check that we have the right number of variables for Euler
-    if (nvarComps != ndim + 2)
-    {
-        return;
-    }
-
     using vec_t =
         typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -92,7 +86,10 @@ NEK_FORCE_INLINE static void EulerVolumeFluxKernel(
             const vec_t E = invec[(ndim + 1u) * inVecStride + i];
 
             // ---- Pressure via EoS, explicitly vectorized over lanes ----
-            const vec_t e      = GetInternalEnergy(ndim, rho, mom, E);
+            // From the same inverse density, so that e, and with it p, is
+            // zero on the padding too.
+            const vec_t e =
+                GetInternalEnergyFromInvDensity(ndim, invRho, mom, E);
             const vec_t p      = GetPressure(EoS, rho, e);
             const vec_t ePlusP = E + p;
 

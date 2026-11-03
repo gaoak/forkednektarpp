@@ -1276,12 +1276,33 @@ inline neonMask2 operator>(neonDouble2 lhs, neonDouble2 rhs)
     return vreinterpretq_s64_u64(vcgtq_f64(lhs._data, rhs._data));
 }
 
+inline neonMask2 operator>=(neonDouble2 lhs, neonDouble2 rhs)
+{
+    return vreinterpretq_s64_u64(vcgeq_f64(lhs._data, rhs._data));
+}
+
+inline neonMask2 operator<(neonDouble2 lhs, neonDouble2 rhs)
+{
+    return vreinterpretq_s64_u64(vcltq_f64(lhs._data, rhs._data));
+}
+
+inline neonMask2 operator<=(neonDouble2 lhs, neonDouble2 rhs)
+{
+    return vreinterpretq_s64_u64(vcleq_f64(lhs._data, rhs._data));
+}
+
 inline bool operator&&(neonMask2 lhs, bool rhs)
 {
     // all lanes are true iff every bit of the mask is set
     bool tmp = vminvq_u32(vreinterpretq_u32_s64(lhs._data)) == 0xFFFFFFFFu;
 
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline neonDouble2 select(neonMask2 m, neonDouble2 a, neonDouble2 b)
+{
+    return vbslq_f64(vreinterpretq_u64_s64(m._data), a._data, b._data);
 }
 
 struct neonMask4 : neonInt4<std::uint32_t>
@@ -1298,12 +1319,33 @@ inline neonMask4 operator>(neonFloat4 lhs, neonFloat4 rhs)
     return vreinterpretq_s32_u32(vcgtq_f32(lhs._data, rhs._data));
 }
 
+inline neonMask4 operator>=(neonFloat4 lhs, neonFloat4 rhs)
+{
+    return vreinterpretq_s32_u32(vcgeq_f32(lhs._data, rhs._data));
+}
+
+inline neonMask4 operator<(neonFloat4 lhs, neonFloat4 rhs)
+{
+    return vreinterpretq_s32_u32(vcltq_f32(lhs._data, rhs._data));
+}
+
+inline neonMask4 operator<=(neonFloat4 lhs, neonFloat4 rhs)
+{
+    return vreinterpretq_s32_u32(vcleq_f32(lhs._data, rhs._data));
+}
+
 inline bool operator&&(neonMask4 lhs, bool rhs)
 {
     // all lanes are true iff every bit of the mask is set
     bool tmp = vminvq_u32(vreinterpretq_u32_s32(lhs._data)) == 0xFFFFFFFFu;
 
     return tmp && rhs;
+}
+
+// Lanes of a where m is true, of b elsewhere.
+inline neonFloat4 select(neonMask4 m, neonFloat4 a, neonFloat4 b)
+{
+    return vbslq_f32(vreinterpretq_u32_s32(m._data), a._data, b._data);
 }
 
 } // namespace tinysimd

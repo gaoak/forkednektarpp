@@ -105,6 +105,8 @@ protected:
                 m_EoS, npts, m_dimension, inStride, outStride, inbase, outbase,
                 streamID);
         }
+        // The kernel is pointwise: the output has the layout of the state.
+        out.SetInterleaveWidth(in);
     }
 };
 

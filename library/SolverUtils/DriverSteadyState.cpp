@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <SolverUtils/AdvectionSystem.h>
 #include <SolverUtils/DriverSteadyState.h>
 
@@ -425,7 +427,7 @@ void DriverSteadyState::GradientDescentMethod(
         EvalEV_ScalarSFD(X_input, Delta_input + dx, alpha, F0y);
         dirx         = (F0 - F0x);
         diry         = (F0 - F0y);
-        s            = abs(0.000001 / dirx);
+        s            = std::abs(0.000001 / dirx);
         X_output     = X_input + s * dirx;
         Delta_output = Delta_input + s * diry;
         F1           = F0;
@@ -461,7 +463,7 @@ void DriverSteadyState::GradientDescentMethod(
             stepCounter++;
         }
 
-        if (abs(F0 - F1) < dx)
+        if (std::abs(F0 - F1) < dx)
         {
             std::cout << "\tThe Gradient Descent Method has converged!"
                       << std::endl;
@@ -510,8 +512,8 @@ void DriverSteadyState::EvalEV_ScalarSFD(const NekDouble &X_input,
     std::complex<NekDouble> lambda_1 = 0.5 * (a + d + delt);
     std::complex<NekDouble> lambda_2 = 0.5 * (a + d - delt);
 
-    NekDouble NORM_1 = abs(lambda_1);
-    NekDouble NORM_2 = abs(lambda_2);
+    NekDouble NORM_1 = std::abs(lambda_1);
+    NekDouble NORM_2 = std::abs(lambda_2);
 
     MaxEV = std::max(NORM_1, NORM_2);
 }

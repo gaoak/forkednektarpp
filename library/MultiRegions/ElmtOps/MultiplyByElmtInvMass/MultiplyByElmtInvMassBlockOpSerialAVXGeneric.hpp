@@ -70,10 +70,11 @@
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <LocalRegions/Expansion.h>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp>
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassBlockOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassBlockOpSerialAVXGenericKernels.hpp>
 
 namespace Nektar::MultiRegions::detail
 {
@@ -89,7 +90,10 @@ namespace Nektar::MultiRegions::detail
  * the expansion list:
  * - #m_invmassptr, the StdMatKey with eInvMassStdMatTranspose: the
  *   transposed standard-region inverse mass matrix (nmTot x nmTot,
- *   column-major), the layout the libxsmm kernel below expects;
+ *   column-major), the layout the libxsmm kernel below expects; or, where
+ *   the standard inverse mass is diagonal
+ * (StdRegions::StdExpansion::InvMassIsDiagonal()), the StdMatKey with
+ * eInvMassStdMatDiagonal, its nmTot diagonal values;
  * - #m_jacptr, the block's Jacobians (JacobianKey at
  *   #m_implInterleaveWidth), one constant per element for a regular block,
  *   interleaved like the field data.
@@ -106,7 +110,10 @@ namespace Nektar::MultiRegions::detail
  *   where lane j of a panel column holds element j's value of that mode,
  *   so the vectorisation is across the elements of the group;
  *   DivideByJacobian then divides each lane by its element's Jacobian,
- *   completing \f$(M^e)^{-1} = (M^{\mathrm{std}})^{-1} / J^e\f$;
+ *   completing \f$(M^e)^{-1} = (M^{\mathrm{std}})^{-1} / J^e\f$; where
+ *   the standard inverse mass is diagonal
+ * (StdRegions::StdExpansion::InvMassIsDiagonal()) its diagonal scales each
+ * mode in place of the GEMM;
  * - deformed block: one NekBlas::GemvStridedBatched per group performs
  *   simd_t::width matrix-vector products, lane j using element j's own
  *   inverse mass matrix from #m_dinvmass (batch stride nmTot x nmTot); the
@@ -177,10 +184,19 @@ public:
                 ? exp->GetNodalPointsKey().GetPointsType()
                 : LibUtilities::eNoPointsType;
 
-        m_invmassptr = dataWarehouse->template GetData<MemSpace>(
-            StdRegions::StdMatKey<TData>(basisKeys, m_shapeType,
-                                         StdRegions::eInvMassStdMatTranspose,
-                                         nodalType));
+        // A diagonal standard mass matrix on an affine element makes the
+        // inverse mass the diagonal of the standard inverse divided by the
+        // Jacobian: nmTot multiplies per element in place of the nmTot x
+        // nmTot product, and only the diagonal is fetched.
+        // InvMassIsDiagonal() decides from the geometry, the basis, the
+        // order, the quadrature and the shape.
+        m_invmassIsDiagonal = exp->InvMassIsDiagonal();
+        m_invmassptr        = dataWarehouse->template GetData<MemSpace>(
+            StdRegions::StdMatKey<TData>(
+                basisKeys, m_shapeType,
+                m_invmassIsDiagonal ? StdRegions::eInvMassStdMatDiagonal
+                                           : StdRegions::eInvMassStdMatTranspose,
+                nodalType));
 
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
@@ -221,8 +237,8 @@ protected:
     /// which acts in coefficient space.
     unsigned int m_nqTot;
     /// Transposed standard-region inverse mass matrix (nmTot x nmTot,
-    /// column-major), cached in the data warehouse; used by the regular
-    /// path only.
+    /// column-major), or its nmTot diagonal values where it is diagonal,
+    /// cached in the data warehouse; used by the regular path only.
     const TData *m_invmassptr;
     /// Jacobians of the block, one per element, interleaved at
     /// #m_implInterleaveWidth and cached in the data warehouse; used by
@@ -231,6 +247,9 @@ protected:
     /// Per-element inverse mass matrices of a deformed block, as set
     /// through v_SetInvMassMatrix(); empty for a regular block.
     LibUtilities::MemoryRegion<TData> m_dinvmass;
+    /// The standard inverse mass is diagonal (see the constructor), so a
+    /// regular block scales by its diagonal in place of the product.
+    bool m_invmassIsDiagonal = false;
 
     /**
      * @brief Apply the inverse mass matrices to every element of the
@@ -357,8 +376,19 @@ protected:
                             m_implInterleaveWidth, interleaveWidth, chunkSize,
                             m_nmTot, (TData *)inptr);
                     }
-                    // Perform matrix-matrix multiply.
-                    invmass_kernel(inptr, m_invmassptr, outptr);
+                    // Perform matrix-matrix multiply, or the diagonal scale
+                    // when the standard inverse mass is diagonal.
+                    if (m_invmassIsDiagonal)
+                    {
+                        StdInvMassDiagonalScaleKernel(
+                            m_nmTot, m_invmassptr, simd_t(1.0),
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(outptr));
+                    }
+                    else
+                    {
+                        invmass_kernel(inptr, m_invmassptr, outptr);
+                    }
 
                     // Divide by Jacobian.
                     DivideByJacobian<ExecSpace, false>(

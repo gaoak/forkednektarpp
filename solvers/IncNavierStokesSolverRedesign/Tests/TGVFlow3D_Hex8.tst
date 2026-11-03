@@ -25,5 +25,13 @@
             <value variable="w" tolerance="3e-05">0.00023500</value>
             <value variable="p" tolerance="4e-04">0.00307430</value>
         </metric>
+        <metric type="TABLE" id="3">
+            <file filename="TGVFlow3D_Hex8_energy.eny" tolerance="1e-7">
+                <columns>Time KineticEnergy Enstrophy</columns>
+                <row>0.0000000000000000e+00 1.2499999931535860e-01 3.7500014550027772e-01</row>
+                <row>5.0000000000000001e-04 1.2499624974328795e-01 3.7498890645660754e-01</row>
+                <row>1.0000000000000002e-03 1.2499250027698855e-01 3.7497768728886627e-01</row>
+            </file>
+        </metric>
     </metrics>
 </test>

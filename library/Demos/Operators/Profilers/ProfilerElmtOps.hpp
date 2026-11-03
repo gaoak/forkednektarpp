@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
@@ -335,11 +336,11 @@ void PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
         auto GeomType = Vmath::Vsum(nrank, allRankGeomTypes.data(), 1) / nrank;
 
         std::string Gtype = "Null";
-        if (abs(GeomType - 1.0) < 1e-8)
+        if (std::abs(GeomType - 1.0) < 1e-8)
         {
             Gtype = "Regular";
         }
-        else if (abs(GeomType - 2.0) < 1e-8)
+        else if (std::abs(GeomType - 2.0) < 1e-8)
         {
             Gtype = "Deformed";
         }
@@ -668,14 +669,15 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList,
         }
 
         // Print out first 100 mismatched values.
-        if (abs(tmpArr[i] - outArr[i]) > 1e-4 * std::sqrt(L2 / tmpArr.size()) &&
+        if (std::abs(tmpArr[i] - outArr[i]) >
+                1e-4 * std::sqrt(L2 / tmpArr.size()) &&
             cnt < 100)
         {
             std::cout << "i=" << i << " computed result = " << tmpArr[i]
                       << " expected result = " << outArr[i] << std::endl;
             ++cnt;
         }
-        rankL1Error[0] += abs(tmpArr[i] - outArr[i]);
+        rankL1Error[0] += std::abs(tmpArr[i] - outArr[i]);
     }
 
     // Print block information and get the total number of dofs.

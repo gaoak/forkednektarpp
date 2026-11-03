@@ -39,14 +39,16 @@ namespace Nektar::detail
 
 /**
  * @brief Compute the specific internal energy
- *        \f$ e = (E - rho*V^2/2)/rho \f$.
+ *        \f$ e = (E - rho*V^2/2)/rho \f$ from the inverse density
+ *        @p invRho, for a kernel that has it already.
  */
 template <typename TData>
-NEK_HOSTDEVICE_INLINE TData GetInternalEnergy(unsigned ndim, const TData &rho,
-                                              const TData *m, const TData &E)
+NEK_HOSTDEVICE_INLINE TData GetInternalEnergyFromInvDensity(unsigned ndim,
+                                                            const TData &invRho,
+                                                            const TData *m,
+                                                            const TData &E)
 {
-    TData sum    = TData(0);
-    TData invrho = TData(1) / rho;
+    TData sum = TData(0);
 
     // tmp = (rho * u_i)^2
     for (unsigned i = 0; i < ndim; ++i)
@@ -55,10 +57,21 @@ NEK_HOSTDEVICE_INLINE TData GetInternalEnergy(unsigned ndim, const TData &rho,
     }
 
     /// rho*V^2
-    sum *= invrho;
+    sum *= invRho;
 
     // Calculate  = (E - rho*V^2/2)/rho
-    return (E - TData(0.5) * sum) * invrho;
+    return (E - TData(0.5) * sum) * invRho;
+}
+
+/**
+ * @brief Compute the specific internal energy
+ *        \f$ e = (E - rho*V^2/2)/rho \f$.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE TData GetInternalEnergy(unsigned ndim, const TData &rho,
+                                              const TData *m, const TData &E)
+{
+    return GetInternalEnergyFromInvDensity(ndim, TData(1) / rho, m, E);
 }
 
 // Constant-viscosity or Sutherland-law viscosity model.

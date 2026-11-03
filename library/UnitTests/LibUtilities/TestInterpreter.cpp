@@ -37,7 +37,11 @@
 #include <boost/test/tools/floating_point_comparison.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include <cmath>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace Nektar::InterpreterUnitTests
 {
@@ -83,6 +87,41 @@ BOOST_AUTO_TEST_CASE(TestFmodOperator)
     BOOST_CHECK_CLOSE(out[0], 2.0, epsilon);
     interp.Evaluate(func2, {in}, out);
     BOOST_CHECK_CLOSE(out[0], 2.0, epsilon);
+}
+
+BOOST_AUTO_TEST_CASE(TestBesselFunction)
+{
+    LibUtilities::Interpreter interp;
+    int func1 = interp.DefineFunction("x", "bessel(1, x)");
+    int func2 = interp.DefineFunction("x", "bessel(0, 0)");
+    Array<OneD, NekDouble> in(1, 2.0), out(1);
+
+    // J_1(2) and J_0(0).
+    interp.Evaluate(func1, {in}, out);
+    BOOST_CHECK_CLOSE(out[0], 0.57672480775687338720, 1.0e-12);
+    interp.Evaluate(func2, {in}, out);
+    BOOST_CHECK_CLOSE(out[0], 1.0, 1.0e-12);
+}
+
+BOOST_AUTO_TEST_CASE(TestTwoArgumentFunctionOneConstant)
+{
+    // A fresh interpreter per expression, so that no earlier evaluation has
+    // left the constant argument in its state.
+    const std::vector<std::pair<std::string, NekDouble>> cases = {
+        {"atan2(1, x)", std::atan2(1.0, 2.0)},
+        {"atan2(x, 1)", std::atan2(2.0, 1.0)},
+        {"fmod(7.5, x)", 1.5},
+        {"fmod(x, 1.5)", 0.5},
+        {"bessel(1, x)", 0.57672480775687338720}};
+    Array<OneD, NekDouble> in(1, 2.0), out(1);
+
+    for (auto &c : cases)
+    {
+        LibUtilities::Interpreter interp;
+        int func = interp.DefineFunction("x", c.first);
+        interp.Evaluate(func, {in}, out);
+        BOOST_CHECK_CLOSE(out[0], c.second, 1.0e-12);
+    }
 }
 
 } // namespace Nektar::InterpreterUnitTests

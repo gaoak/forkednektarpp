@@ -73,8 +73,6 @@ namespace Nektar::MultiRegions
 template <typename TData> class AvgAssmbScatrOp : public Operator<TData>
 {
 public:
-    ~AvgAssmbScatrOp() override = default;
-
     /**
      * @brief Create an averaging assemble-scatter operator through the
      * operator factory.
@@ -155,6 +153,8 @@ protected:
         : Operator<TData>(expansionList, components)
     {
     }
+
+    ~AvgAssmbScatrOp() override = default;
 
     /// @brief Implementation hook for the in-place Apply().
     virtual void v_Apply(

@@ -52,6 +52,7 @@
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <MultiRegions/BndCondOps/Common/CGBndCondKernels.hpp>
 #include <MultiRegions/BndCondOps/Common/CGBndCondMapBuilder.hpp>
+#include <MultiRegions/BndCondOps/Common/CGBndCondSurfaceIntegral.hpp>
 #include <MultiRegions/BndCondOps/Common/PhysTraceExtractBndCond.hpp>
 #include <MultiRegions/BndCondOps/FwdTransBC/FwdTransBCOp.hpp>
 #include <MultiRegions/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp>
@@ -235,6 +236,9 @@ protected:
     std::vector<LibUtilities::Field<TData, FieldState::Phys>>
         m_bndNonDirichletNormals;
     std::vector<MultiRegions::ExpListSharedPtr> m_bndExpLists;
+    // The sum of the surface integrals of m_bndCoeffs.
+    MultiRegions::detail::CGBndCondSurfaceIntegral<ExecSpace, TData>
+        m_surfaceIntegral;
     std::vector<unsigned int> m_bndRegionIds;
     std::vector<std::shared_ptr<MultiRegions::IProductWRTBaseOp<TData>>>
         m_bndIProductOps;
@@ -347,6 +351,12 @@ protected:
     size_t v_GetNumBndDofs() override
     {
         return m_numBndCoeffCompSize;
+    }
+
+    void v_AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
+                                     const size_t offset) override
+    {
+        m_surfaceIntegral.Add(m_bndCoeffs, data, offset);
     }
 
     void v_ExcludeUserDefinedType(
@@ -1149,6 +1159,13 @@ protected:
                         : MultiRegions::IProductWRTBaseOp<TData>::Create(
                               bndExp, this->m_components, ExecSpace::name));
         }
+
+        // The pressure, the one component, of every region.
+        m_surfaceIntegral =
+            MultiRegions::detail::CGBndCondSurfaceIntegral<ExecSpace, TData>(
+                m_bndExpLists,
+                std::vector<std::vector<bool>>(m_bndExpLists.size(),
+                                               std::vector<bool>{true}));
 
         // No higher-order pressure region on this rank. The check is local:
         // BuildCGBndCondCoeffMaps() below uses the assembly map of the

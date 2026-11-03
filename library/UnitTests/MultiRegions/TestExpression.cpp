@@ -91,6 +91,12 @@ TEST_EXPRESSION(expression_quad_tri_evars, QuadTri_2C_Evars, 1.0E-12)
 
 TEST_EXPRESSION(expression_hex_evars, Hex_3C_Evars, 1.0E-12)
 
+TEST_EXPRESSION(expression2d_rad_ang_sign, Helmholtz2D_RadAngSign, 1.0E-12)
+
+TEST_EXPRESSION(expression2d_host_fallback, Helmholtz2D_HostFallback, 1.0E-12)
+
+TEST_EXPRESSION(expression2d_bessel, Helmholtz2D_Bessel, 1.0E-12)
+
 TEST_EXPRESSION3DH1(expression_helmholtz2d_3dh1, Helmholtz2DFFT, 1.0E-12)
 
 TEST_EXPRESSION3DH1(expression_quad_tri_evars_3dh1, QuadTri2CEvarsFFT, 1.0E-12)

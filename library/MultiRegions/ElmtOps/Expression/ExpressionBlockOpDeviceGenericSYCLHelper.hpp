@@ -59,9 +59,9 @@
 // block's queue, through an operation the host runs in queue order, which
 // AdaptiveCpp and DPC++ spell differently.
 #if defined(SYCL_ENABLE_CUDA)
-#include "LibUtilities/Backends/CUDA_Host_API.hpp"
+#include <LibUtilities/Backends/CUDA_Host_API.hpp>
 #elif defined(SYCL_ENABLE_HIP)
-#include "LibUtilities/Backends/HIP_Host_API.hpp"
+#include <LibUtilities/Backends/HIP_Host_API.hpp>
 #endif
 
 #include <MultiRegions/ElmtOps/Expression/ExpressionBlockOpDeviceGenericHIPCUDAHelper.hpp>

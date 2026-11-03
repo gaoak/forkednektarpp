@@ -83,8 +83,8 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOpSerialAVXSumFacKernels.hpp>
 
@@ -691,9 +691,12 @@ protected:
                     LibUtilities::ReshapeStorage<ExecSpace>(
                         m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         numDataIn, (TData *)inptr);
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, outInterleaveWidth, chunkSize,
-                        numDataOut, (TData *)outptr);
+                    if (this->m_append)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, numDataOut, (TData *)outptr);
+                    }
                 }
 
                 const TData *jacptr = m_jacptr + jacoffset;

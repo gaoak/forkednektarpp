@@ -76,6 +76,12 @@ extern LIB_UTILITIES_EXPORT unsigned int internalLoopExecutionStreamID;
 #endif
 
 // Reduction
+// The device parallel_reduce<ExecSpace, init, Reduction>(..., out):
+// - init: set *out to the result of this reduction. No other launch in flight
+//   may write *out.
+// - !init: carry on the reduction from the current value of *out, written
+//   before the launch on internalLoopExecutionStreamID or on the null stream.
+//   Launches on any streams may carry on into the same *out.
 template <typename TData> class ReduceSum
 {
 public:

@@ -184,6 +184,19 @@ SpatialDomains::Geometry *Expansion::GetGeom() const
     return m_geom;
 }
 
+/**
+ * @brief Whether the inverse mass matrix of the element is diagonal: its
+ * geometry is regular, so that the inverse mass is the standard one over the
+ * Jacobian, and the standard inverse mass is diagonal
+ * (StdRegions::StdExpansion::StdInvMassIsDiagonal()). The inverse mass then
+ * takes nmTot multiplies per element in place of the nmTot x nmTot product.
+ */
+bool Expansion::v_InvMassIsDiagonal()
+{
+    return GetGeomFactors()->GetGtype() != SpatialDomains::eDeformed &&
+           StdInvMassIsDiagonal();
+}
+
 void Expansion::Reset()
 {
     // Clear metrics

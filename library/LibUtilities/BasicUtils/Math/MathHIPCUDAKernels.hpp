@@ -438,6 +438,27 @@ __global__ __launch_bounds__(blockSize) void daxpbypczKernel(
     }
 }
 
+// z = sum_j alpha_j x_j over the terms, plus z itself if APPEND, in one pass
+// over z.
+template <bool APPEND, typename TData,
+          unsigned int blockSize = NektarSpaces::Device::defaultBlockSize>
+__global__ __launch_bounds__(blockSize) void linearCombinationKernel(
+    const size_t nsize, const LinearCombinationTerms<TData> terms, TData *z)
+{
+    const size_t idx0   = blockDim.x * blockIdx.x + threadIdx.x;
+    const size_t stride = blockDim.x * gridDim.x;
+
+    for (size_t idx = idx0; idx < nsize; idx += stride)
+    {
+        TData acc = APPEND ? z[idx] : TData(0);
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            acc += terms.alpha[j] * terms.x[j][idx];
+        }
+        z[idx] = acc;
+    }
+}
+
 // Reductions of reduceKernel.
 enum class ReduceOp
 {
@@ -466,28 +487,6 @@ NEK_HOSTDEVICE_INLINE constexpr TData reduceIdentity()
     else if constexpr (op == ReduceOp::AbsMax)
     {
         return 0;
-    }
-}
-
-// Atomic combination of val into *dest by a reduction, within a thread block.
-template <ReduceOp op, typename TData>
-NEK_DEVICE_INLINE static void reduceAtomic(TData *const dest, const TData val)
-{
-    if constexpr (op == ReduceOp::Sum)
-    {
-        atomic_add<NektarSpaces::LocalScope>(dest, val);
-    }
-    else if constexpr (op == ReduceOp::Max)
-    {
-        atomic_max<NektarSpaces::LocalScope>(dest, val);
-    }
-    else if constexpr (op == ReduceOp::Min)
-    {
-        atomic_min<NektarSpaces::LocalScope>(dest, val);
-    }
-    else if constexpr (op == ReduceOp::AbsMax)
-    {
-        atomic_max<NektarSpaces::LocalScope>(dest, val);
     }
 }
 
@@ -566,6 +565,51 @@ NEK_DEVICE_INLINE static TData reduceJoin(const TData a, const TData b)
     else if constexpr (op == ReduceOp::AbsMax)
     {
         return std::max(std::abs(a), std::abs(b));
+    }
+}
+
+// Combination by reduction op of v over the thread block, valid on the block's
+// first thread.
+template <ReduceOp op, typename TData>
+NEK_DEVICE_INLINE static TData blockReduceJoin(const TData v)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+
+    auto warp = cg::tiled_partition<warpsize>(cg::this_thread_block());
+    return blockReduceWarpPartials(
+        v, reduceIdentity<op, TData>(), [&](TData x) {
+#pragma unroll
+            for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+            {
+                x = reduceJoin<op>(x, warp.shfl_down(x, offset));
+            }
+            return x;
+        });
+}
+
+// Sets *dest to val if init, and otherwise combines val into it by reduction
+// op. Set, it has a single writer. Combined into, it may be shared with the
+// reductions of other blocks of a Field on other streams, so takes one
+// global-scope atomic.
+template <bool init, ReduceOp op, typename TData>
+NEK_DEVICE_INLINE static void reduceStore(TData *const dest, const TData val)
+{
+    if constexpr (init)
+    {
+        *dest = val;
+    }
+    else if constexpr (op == ReduceOp::Sum)
+    {
+        atomic_add<NektarSpaces::GlobalScope>(dest, val);
+    }
+    else if constexpr (op == ReduceOp::Max || op == ReduceOp::AbsMax)
+    {
+        // An AbsMax partial result is not negative.
+        atomic_max<NektarSpaces::GlobalScope>(dest, val);
+    }
+    else if constexpr (op == ReduceOp::Min)
+    {
+        atomic_min<NektarSpaces::GlobalScope>(dest, val);
     }
 }
 
@@ -715,8 +759,8 @@ NEK_DEVICE_INLINE static void vecReduceNJoinMasked(TData *v,
 }
 
 // Partial result of reduction op over TransformOp<TData>()(x[i]...) per
-// thread block, in out[b] for block b, which is set to the identity first if
-// init.
+// thread block, in out[b] for block b, which it is set to if init and is
+// otherwise combined into.
 template <bool init, ReduceOp op, template <typename> typename TransformOp,
           typename TData,
           unsigned int blockSize = NektarSpaces::Device::reductionBlockSize(),
@@ -728,8 +772,7 @@ __global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
     static_assert((std::is_same_v<TIn, TData> && ...),
                   "reduceKernel: inputs of the output type.");
 
-    constexpr TData identity        = reduceIdentity<op, TData>();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr TData identity = reduceIdentity<op, TData>();
     constexpr unsigned int vecSize =
         std::is_same_v<TData, float> || std::is_same_v<TData, double>
             ? (16u / sizeof(TData))
@@ -737,18 +780,7 @@ __global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = identity;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = identity;
-        }
-    }
-
-    block.sync();
 
     if constexpr (vecSize > 1u)
     {
@@ -773,17 +805,10 @@ __global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
         v          = reduceJoin<op>(v, TransformOp<TData>()(x[tid]...));
     }
 
-    warp.sync();
-#pragma unroll
-    for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+    v = blockReduceJoin<op>(v);
+    if (block.thread_rank() == 0)
     {
-        v = reduceJoin<op>(v, warp.shfl_down(v, offset));
-    }
-
-    // use atomics to combine over warps
-    if (warp.thread_rank() == 0)
-    {
-        reduceAtomic<op>(&out[block.group_index().x], v);
+        reduceStore<init, op>(&out[block.group_index().x], v);
     }
 }
 
@@ -800,8 +825,7 @@ __global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
     static_assert((std::is_same_v<TIn, TData> && ...),
                   "reduceKernel: inputs of the output type.");
 
-    constexpr TData identity        = reduceIdentity<op, TData>();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr TData identity = reduceIdentity<op, TData>();
     constexpr unsigned int vecSize =
         std::is_same_v<TData, float> || std::is_same_v<TData, double>
             ? (16u / sizeof(TData))
@@ -809,18 +833,7 @@ __global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = identity;
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            out[block.group_index().x] = identity;
-        }
-    }
-
-    block.sync();
 
     if constexpr (vecSize > 1u)
     {
@@ -847,24 +860,17 @@ __global__ __launch_bounds__(blockSize) void reduceKernel(const size_t nsize,
         v = mask[tid] ? reduceJoin<op>(v, TransformOp<TData>()(x[tid]...)) : v;
     }
 
-    warp.sync();
-#pragma unroll
-    for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
+    v = blockReduceJoin<op>(v);
+    if (block.thread_rank() == 0)
     {
-        v = reduceJoin<op>(v, warp.shfl_down(v, offset));
-    }
-
-    // use atomics to combine over warps
-    if (warp.thread_rank() == 0)
-    {
-        reduceAtomic<op>(&out[block.group_index().x], v);
+        reduceStore<init, op>(&out[block.group_index().x], v);
     }
 }
 
 // Partial results of nred reductions op per thread block, of the values
 // TransformOp<TData>()(vals, x[i]...) writes to vals[0, nred) for each
-// entry i: result s of block b is in out[s * gridDim.x + b], which is set to
-// the identity first if init.
+// entry i: result s of block b is in out[s * gridDim.x + b], which it is set
+// to if init and is otherwise combined into.
 template <bool init, ReduceOp op, unsigned int nred,
           template <typename> typename TransformOp, typename TData,
           unsigned int blockSize = NektarSpaces::Device::reductionBlockSize(),
@@ -876,8 +882,7 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
     static_assert((std::is_same_v<TIn, TData> && ...),
                   "reduceNKernel: inputs of the output type.");
 
-    constexpr TData identity        = reduceIdentity<op, TData>();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr TData identity = reduceIdentity<op, TData>();
     constexpr unsigned int vecSize =
         std::is_same_v<TData, float> || std::is_same_v<TData, double>
             ? (16u / sizeof(TData))
@@ -885,26 +890,12 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v[nred];
 
     for (unsigned int s = 0; s < nred; ++s)
     {
         v[s] = identity;
     }
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            for (unsigned int s = 0; s < nred; ++s)
-            {
-                out[s * gridDim.x + block.group_index().x] = identity;
-            }
-        }
-    }
-
-    block.sync();
 
     // Vector loads need every input 16-byte aligned, which the final stage's
     // partial results past the first sum need not be.
@@ -929,23 +920,17 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
         reduceNJoin<op, nred, TransformOp>(v, x[tid]...);
     }
 
-    warp.sync();
-#pragma unroll
     for (unsigned int s = 0; s < nred; ++s)
     {
-#pragma unroll
-        for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
-        {
-            v[s] = reduceJoin<op>(v[s], warp.shfl_down(v[s], offset));
-        }
+        v[s] = blockReduceJoin<op>(v[s]);
     }
 
-    // use atomics to combine over warps
-    if (warp.thread_rank() == 0)
+    if (block.thread_rank() == 0)
     {
         for (unsigned int s = 0; s < nred; ++s)
         {
-            reduceAtomic<op>(&out[s * gridDim.x + block.group_index().x], v[s]);
+            reduceStore<init, op>(&out[s * gridDim.x + block.group_index().x],
+                                  v[s]);
         }
     }
 }
@@ -963,8 +948,7 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
     static_assert((std::is_same_v<TIn, TData> && ...),
                   "reduceNKernel: inputs of the output type.");
 
-    constexpr TData identity        = reduceIdentity<op, TData>();
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr TData identity = reduceIdentity<op, TData>();
     constexpr unsigned int vecSize =
         std::is_same_v<TData, float> || std::is_same_v<TData, double>
             ? (16u / sizeof(TData))
@@ -972,26 +956,12 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v[nred];
 
     for (unsigned int s = 0; s < nred; ++s)
     {
         v[s] = identity;
     }
-
-    if constexpr (init)
-    {
-        if (block.thread_rank() == 0)
-        {
-            for (unsigned int s = 0; s < nred; ++s)
-            {
-                out[s * gridDim.x + block.group_index().x] = identity;
-            }
-        }
-    }
-
-    block.sync();
 
     size_t nvec = 0;
     if constexpr (vecSize > 1u)
@@ -1015,23 +985,17 @@ __global__ __launch_bounds__(blockSize) void reduceNKernel(const size_t nsize,
         }
     }
 
-    warp.sync();
-#pragma unroll
     for (unsigned int s = 0; s < nred; ++s)
     {
-#pragma unroll
-        for (unsigned int offset = warpsize / 2; offset > 0; offset /= 2)
-        {
-            v[s] = reduceJoin<op>(v[s], warp.shfl_down(v[s], offset));
-        }
+        v[s] = blockReduceJoin<op>(v[s]);
     }
 
-    // use atomics to combine over warps
-    if (warp.thread_rank() == 0)
+    if (block.thread_rank() == 0)
     {
         for (unsigned int s = 0; s < nred; ++s)
         {
-            reduceAtomic<op>(&out[s * gridDim.x + block.group_index().x], v[s]);
+            reduceStore<init, op>(&out[s * gridDim.x + block.group_index().x],
+                                  v[s]);
         }
     }
 }
@@ -1383,6 +1347,28 @@ inline void daxpbypczKernel(const size_t nsize, const TData alpha,
 
     daxpbypczKernel<<<gridSize, blockSize, 0, stream>>>(nsize, alpha, x, beta,
                                                         y, gamma, z, w);
+    CHECK_LAST_HIPCUDA_ERROR();
+}
+
+template <
+    typename ExecSpace, bool APPEND, typename TData,
+    std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::Device>, bool>
+        Enable = true>
+inline void linearCombinationKernel(const size_t nsize,
+                                    const LinearCombinationTerms<TData> &terms,
+                                    TData *z, const unsigned int streamID = 0)
+{
+    const unsigned int blockSize = NektarSpaces::Device::defaultBlockSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    auto stream = CUDAStream::GetInstance(streamID);
+#elif defined(NEKTAR_ENABLE_HIP)
+    auto stream = HIPStream::GetInstance(streamID);
+#endif
+
+    linearCombinationKernel<APPEND>
+        <<<gridSize, blockSize, 0, stream>>>(nsize, terms, z);
     CHECK_LAST_HIPCUDA_ERROR();
 }
 

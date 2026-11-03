@@ -232,3 +232,14 @@ algorithms -- expressed as either object methods or functions -- employed over t
 \import{library/SolverUtils/}{solverutils-algorithms.tex}
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Inside the Library: SolverCore}
+\label{chap:solvercore}
+
+The SolverCore library connects equation systems, time integration and
+solver-independent runtime services. This chapter describes the filter
+interface used by the heterogeneous solver redesign, with particular emphasis
+on field ownership, per-step data sharing and backend-independent output.
+
+\import{library/SolverCore/}{solvercore-filters.tex}
+

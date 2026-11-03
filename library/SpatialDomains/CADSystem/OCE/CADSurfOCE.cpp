@@ -32,6 +32,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <BRep_Tool.hxx>
 #include <Geom2d_Curve.hxx>
 #include <GeomAPI_ProjectPointOnSurf.hxx>
@@ -240,8 +242,8 @@ NekDouble CADSurfOCE::Curvature(std::array<NekDouble, 2> uv)
         return -1.0;
     }
 
-    NekDouble d1 = abs(d.MaxCurvature());
-    NekDouble d2 = abs(d.MinCurvature());
+    NekDouble d1 = std::abs(d.MaxCurvature());
+    NekDouble d2 = std::abs(d.MinCurvature());
 
     return CADUnits::CurvatureFromCAD(d1 > d2 ? d1 : d2);
 }
@@ -266,8 +268,8 @@ NekDouble CADSurfOCE::CurvatureAndPosition(std::array<NekDouble, 2> uv,
         return -1.0;
     }
 
-    NekDouble d1 = abs(d.MaxCurvature());
-    NekDouble d2 = abs(d.MinCurvature());
+    NekDouble d1 = std::abs(d.MaxCurvature());
+    NekDouble d2 = std::abs(d.MinCurvature());
 
     return CADUnits::CurvatureFromCAD(d1 > d2 ? d1 : d2);
 }

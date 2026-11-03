@@ -47,6 +47,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace Nektar::MultiRegions
@@ -180,6 +181,19 @@ protected:
     /// Data for Gradient Jump Penalisation (GJP) stabilisaiton
     GJPStabilisationSharedPtr m_GJPData;
 
+    /// Whether HelmSolve still has to warn that the physical-space forcing
+    /// of a singular system is not balanced with its Neumann conditions.
+    bool m_warnUnbalancedForcing = true;
+
+    /// Whether HelmSolve still has to warn that the coefficient-space
+    /// forcing of a singular system is not balanced.
+    bool m_warnCoeffSpaceForcing = true;
+
+    /// The volume of the domain, summed over the row communicator, by which
+    /// HelmSolve divides the imbalance of a singular system; computed on its
+    /// first use and cleared when the geometry is reset.
+    std::optional<NekDouble> m_volume;
+
     /// Adds this field's map to #m_locToGloMaps as the map of \a variable.
     void ShareLocalToGlobalMap(const std::string &variable);
 
@@ -295,6 +309,9 @@ protected:
         OneD, const SpatialDomains ::BoundaryConditionShPtr> &
     v_GetBndConditions() override;
     MULTI_REGIONS_EXPORT void v_ClearGlobalLinSysManager(void) override;
+
+    /// Resets the geometry and the cached volume.
+    MULTI_REGIONS_EXPORT void v_Reset() override;
 
     // Get manager pool count; intended for unit tests
     MULTI_REGIONS_EXPORT int v_GetPoolCount(std::string) override;

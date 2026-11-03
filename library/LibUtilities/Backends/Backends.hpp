@@ -53,23 +53,27 @@
 #endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
-#include "LibUtilities/Backends/CUDA_Host_API.hpp"
+#include <LibUtilities/Backends/CUDA_Host_API.hpp>
 #elif defined(NEKTAR_ENABLE_HIP)
-#include "LibUtilities/Backends/HIP_Host_API.hpp"
+#include <LibUtilities/Backends/HIP_Host_API.hpp>
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "LibUtilities/Backends/SYCL_Host_API.hpp"
+#include <LibUtilities/Backends/SYCL_Host_API.hpp>
 #endif
 
 namespace Nektar
 {
+
+// Largest number of values one parallel_reduce of several values combines.
+constexpr unsigned int internalReductionMaxValues = 12;
 
 #if defined(NEKTAR_ENABLE_DEVICE)
 extern std::unordered_map<unsigned int, void *> internalMemoryBufferMap;
 extern void *internalDeviceBuffer;
 extern void *internalHostBuffer;
 extern unsigned int internalMaxDataSizeByte;
-// Bytes of each stream's reduction scratch in internalMemoryBufferMap: four
-// partial sums of double per thread block of the largest reduction grid.
+// Bytes of each stream's reduction scratch in internalMemoryBufferMap:
+// internalReductionMaxValues partial results of double per thread block of the
+// largest reduction grid.
 extern unsigned int internalReductionBufferSize;
 #endif
 
@@ -244,6 +248,8 @@ static unsigned int GetVectorWidth(const std::string &execName)
 #define NEK_RESTRICT __restrict__
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEK_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#define NEK_RESTRICT __restrict
 #else
 #define NEK_RESTRICT __restrict__
 #endif
@@ -334,6 +340,28 @@ template <typename TData> struct simd_type_if<true, TData>
 {
     typedef tinysimd::simd<TData> type;
 };
+
+/**
+ * @brief @p a where @p m holds, and @p b elsewhere.
+ *
+ * For a scalar type @p m is the bool of a comparison and this is the ternary;
+ * for a SIMD type it is the mask of a comparison, and each lane is chosen on
+ * its own (tinysimd::select). Both @p a and @p b are evaluated either way, so
+ * code that needs only one on a scalar type branches instead.
+ */
+template <typename TMask, typename TData>
+NEK_HOSTDEVICE_INLINE TData Select(const TMask &m, const TData &a,
+                                   const TData &b)
+{
+    if constexpr (std::is_arithmetic_v<TData>)
+    {
+        return m ? a : b;
+    }
+    else
+    {
+        return select(m, a, b);
+    }
+}
 
 [[maybe_unused]] static inline void nekSetDevice(
     [[maybe_unused]] unsigned int device_rank)

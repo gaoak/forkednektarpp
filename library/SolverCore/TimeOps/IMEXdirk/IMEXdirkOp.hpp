@@ -36,6 +36,8 @@
 
 #include "SolverCore/TimeOps/TimeOp.hpp"
 
+#include <optional>
+
 namespace Nektar::SolverCore
 {
 
@@ -57,7 +59,19 @@ public:
 
     static inline const std::string name = "IMEXdirk";
 
+    /// Mark this operator as the start-up of a multistep scheme whose
+    /// implicit step is implicitCoefficient*dt. Its implicit solves then
+    /// report their TimeOp::StartupStage.
+    void SetStartupTargetImplicitCoefficient(const TData implicitCoefficient)
+    {
+        m_startupTargetImplicitCoefficient = implicitCoefficient;
+    }
+
 protected:
+    /// Implicit coefficient of the multistep scheme this operator starts up;
+    /// empty unless it is a start-up operator
+    std::optional<TData> m_startupTargetImplicitCoefficient;
+
     IMEXdirkOp(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
         : TimeOp<TData>(expansionList, components)

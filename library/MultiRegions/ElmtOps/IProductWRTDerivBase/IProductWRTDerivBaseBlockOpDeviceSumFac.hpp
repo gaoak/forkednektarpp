@@ -76,7 +76,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOpDeviceSumFacKernels.hpp>
@@ -630,8 +630,8 @@ protected:
         // Set Kernel parameters.
         const unsigned int shmemsize =
             sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
-                sizeParam);
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation,
+                                                 TData>(sizeParam);
         unsigned int blocksize;
         if constexpr (TFieldOut == FieldState::Phys)
         {

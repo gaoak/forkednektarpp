@@ -116,6 +116,11 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                 ${implementation} HOPressureBndCond3D_Tet.xml)
             ADD_HOPRESSURE_UNIT_TEST(${testprefix}_prism ${execspace}
                 ${implementation} HOPressureBndCond3D_Prism.xml)
+            # A pressure one order below the velocity, on quadrilateral and
+            # triangular boundary faces.
+            ADD_HOPRESSURE_UNIT_TEST(${testprefix}_prism_mixed_order
+                ${execspace} ${implementation}
+                HOPressureBndCond3D_PrismMixedOrder.xml)
         ENDFUNCTION()
 
         FUNCTION(ADD_HOPRESSURE_KOVASZNAY_UNIT_TEST testname execspace implementation)
@@ -136,6 +141,18 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                     -- ${execspace} ${implementation}
                     ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D.xml
                     ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D_SmallTimeStep.xml)
+            # The same with a pressure one order below the velocity: the
+            # boundary velocity is projected onto the velocity boundary
+            # expansion, not the pressure one.
+            ADD_TEST(
+                NAME Operators${testname}_discrete_boundary_velocity_mixed_order
+                COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                    --detect_memory_leaks=0
+                    --run_test=TestHOPressureBndCond/update_then_apply_kovasznay_discrete_boundary_velocity
+                    -- ${execspace} ${implementation}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D.xml
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D_SmallTimeStep.xml
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlowHOPBC2D_MixedOrder.xml)
         ENDFUNCTION()
 
         # A region whose velocity is Dirichlet in one component and Neumann
@@ -184,6 +201,15 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                 --run_test=TestHOPressureBndCond/update_then_apply_selection_respects_hop_tag
                 -- Serial StdMat
                 ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCondSelection2D.xml)
+        # A pressure whose quadrature points differ from the velocity's.
+        ADD_TEST(
+            NAME OperatorsHOPressureBndCond_quadrature_throws_serial_stdmat
+            COMMAND $<TARGET_FILE:TestHOPressureBndCond>
+                --detect_memory_leaks=0
+                --run_test=TestHOPressureBndCond/set_velocity_context_throws_for_different_quadrature
+                -- Serial StdMat
+                ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCond2D.xml
+                ${CMAKE_CURRENT_SOURCE_DIR}/UnitTests/HOPressureBndCondQuadratureThrows2D.xml)
         IF(NEKTAR_ENABLE_SIMD)
             ADD_HOPRESSURE_UNIT_TEST(HOPressureBndCond_avx_stdmat
                 AVX StdMat)
@@ -297,6 +323,8 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             # expansion cannot represent: the higher-order pressure boundary
             # acceleration must use the discrete boundary velocity.
             KovasznayFlowHOPBC2D_SmallTimeStep
+            # The same with a pressure one order below the velocity.
+            KovasznayFlowHOPBC2D_SmallTimeStep_MixedOrder
             # The second-order IMEX startup and IMEXdirk stages, whose
             # explicit coefficients do not sum to the implicit coefficient:
             # the higher-order pressure boundary velocity and the
@@ -310,6 +338,21 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             ChannelFlowHOPBC2D_WeakPressure
             KovasznayFlowHOPBC2D_IMEXOrder2_WeakPressure
             KovasznayFlowHOPBC2D_IMEXdirk_WeakPressure
+            # A singular pressure system, with the higher-order pressure
+            # boundary condition on every boundary, in the strong and the
+            # weak pressure form: the forcing is balanced against the
+            # surface integral of the Neumann flux.
+            KovasznayFlowHOPBC2D_Singular
+            KovasznayFlowHOPBC2D_Singular_WeakPressure
+            # Multistep weight of the divergence-cleaning pressure in the
+            # IMEX start-up stages, from a perturbation that is not
+            # divergence-free, in the strong and the weak pressure form.
+            KovasznayFlowHOPBC2D_StartupDivergence
+            KovasznayFlowHOPBC2D_StartupDivergence_WeakPressure
+            # A pressure one order below the velocity, sharing its
+            # quadrature points, in the strong and the weak pressure form.
+            ChannelFlowHOPBC2D_MixedOrder
+            ChannelFlowHOPBC2D_MixedOrder_WeakPressure
             KovasznayFlow2D
             UniformFlow3D_Hex
             CouetteFlow3D_Hex
@@ -337,6 +380,20 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
         SET_TESTS_PROPERTIES(
             IncNavierStokesSolverRedesign_ChannelFlow2D_OutletPressure_MPI
             PROPERTIES PROCESSORS 2 TIMEOUT 120)
+    ENDIF()
+
+    # FieldConvert reads the lower-order pressure from the field file the
+    # solver writes. Tester would pass its solver options to FieldConvert
+    # too, so the test file gives them to the solver segment; writing the
+    # file does not depend on the execution space or the formulation. The
+    # relative FieldConvert path does not resolve on Windows.
+    IF(NOT WIN32 AND NEKTAR_UTILITY_FIELDCONVERT AND
+            NEKTAR_ENABLE_DOUBLE_PRECISION)
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_ChannelFlowHOPBC2D_MixedOrder_FieldConvert
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlowHOPBC2D_MixedOrder_FieldConvert.tst
+                -v)
     ENDIF()
 
     # A file initial condition that is discontinuous and off the Dirichlet
@@ -374,7 +431,89 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             SET_TESTS_PROPERTIES(
                 IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_MPI
                 PROPERTIES PROCESSORS 2 TIMEOUT 120)
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelFile_MPI
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition_ParallelFile_MPI.tst
+                    -v --opExecSpace=Serial --opImpl=SumFac
+                    "--solver-options=-I Formulation=semiimplicit")
+            SET_TESTS_PROPERTIES(
+                IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelFile_MPI
+                PROPERTIES PROCESSORS 3 TIMEOUT 120)
+            IF(NEKTAR_USE_HDF5)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelHdf5_MPI
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_FileInitialCondition_ParallelHdf5_MPI.tst
+                        -v --opExecSpace=Serial --opImpl=SumFac
+                        "--solver-options=-I Formulation=semiimplicit")
+                SET_TESTS_PROPERTIES(
+                    IncNavierStokesSolverRedesign_ChannelFlow2D_FileInitialCondition_ParallelHdf5_MPI
+                    PROPERTIES PROCESSORS 3 TIMEOUT 120)
+            ENDIF()
         ENDIF()
+    ENDIF()
+
+    # A pressure one order below the velocity, and a restart from the field
+    # file that run writes, in which the pressure is written through the
+    # velocity expansion; and a restart with a pressure one order above the
+    # velocity, which has field definitions of its own; on every execution
+    # space.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            FOREACH(Case MixedOrder MixedOrder_Restart
+                         HigherOrderPressure_Restart)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlow2D_${Case}_semiimplicit_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlow2D_${Case}.tst
+                        -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=semiimplicit")
+            ENDFOREACH()
+        ENDFOREACH()
+    ENDIF()
+
+    # A run with no --opExecSpace or --opImpl, which takes the defaults of the
+    # build. The end-of-run summary reads the execution space and failed
+    # without the argument. Registered for host builds only: a device build
+    # defaults to Device SumFac, where this session does not converge yet.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION AND NOT NEKTAR_ENABLE_DEVICE)
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_semiimplicit_DefaultExecSpace
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D.tst -v
+                "--solver-options=-I Formulation=semiimplicit")
+    ENDIF()
+
+    # A P=2 velocity and a P=1 pressure started from a P=5 field file: the
+    # pressure is read through the velocity expansion and projected element
+    # by element, not truncated. At t=0 on every execution space, and with
+    # the Galerkin projection.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_MixedOrder_FileIC_semiimplicit_${ExecSpace}_${Implementation}
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D_MixedOrder_FileIC.tst
+                    -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                    "--solver-options=-I Formulation=semiimplicit")
+        ENDFOREACH()
+        ADD_TEST(
+            NAME IncNavierStokesSolverRedesign_KovasznayFlow2D_MixedOrder_FileIC_Galerkin
+            COMMAND Tester
+                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/KovasznayFlow2D_MixedOrder_FileIC_Galerkin.tst
+                -v --opExecSpace=Serial --opImpl=SumFac
+                "--solver-options=-I Formulation=semiimplicit")
     ENDIF()
 
     # TGVFlow3D_Hex8 Serial+StdMat is disabled for now: at this element
@@ -446,6 +585,51 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
         ENDFOREACH()
     ENDIF()
 
+    # The mixed tetrahedron/prism HOPBC channel with a pressure one order
+    # below the velocity, in both formulations at the SumFac-family
+    # implementation of every execution space.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            FOREACH(Formulation IN LISTS Formulations)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlowHOPBC3D_TetPrism_MixedOrder_${Formulation}_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlowHOPBC3D_TetPrism_MixedOrder.tst
+                        -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=${Formulation}")
+            ENDFOREACH()
+        ENDFOREACH()
+    ENDIF()
+
+    # The same channel started from a P=3 field file, averaged and given the
+    # Dirichlet values (the default ProjectInitialConditions), at equal order
+    # and with the pressure one order below the velocity; and a restart from
+    # the mixed-order file the solver writes. No step is taken before the
+    # initial condition is measured, and the restart takes one semi-implicit
+    # step.
+    IF(NEKTAR_ENABLE_DOUBLE_PRECISION)
+        FOREACH(ExecSpace IN LISTS ExecSpaces)
+            IF("${ExecSpace}" STREQUAL "Device")
+                SET(Implementation SumFacTOP)
+            ELSE()
+                SET(Implementation SumFac)
+            ENDIF()
+            FOREACH(Case FileIC MixedOrder_FileIC MixedOrder_Restart)
+                ADD_TEST(
+                    NAME IncNavierStokesSolverRedesign_ChannelFlowHOPBC3D_TetPrism_${Case}_semiimplicit_${ExecSpace}_${Implementation}
+                    COMMAND Tester
+                        ${CMAKE_CURRENT_SOURCE_DIR}/Tests/ChannelFlowHOPBC3D_TetPrism_${Case}.tst
+                        -v --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                        "--solver-options=-I Formulation=semiimplicit")
+            ENDFOREACH()
+        ENDFOREACH()
+    ENDIF()
+
     # Dong's high-order outflow condition on the Kovasznay mesh: a steady
     # exact solution, through the second-order IMEX startup and in the weak
     # pressure form too, and an outlet with a sign-changing normal velocity.
@@ -485,6 +669,13 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
                 NAME IncNavierStokesSolverRedesign_HOutflowBackflow2D_semiimplicit_${ExecSpace}_${Implementation}
                 COMMAND Tester
                     ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowBackflow2D.tst -v
+                    --opExecSpace=${ExecSpace} --opImpl=${Implementation}
+                    "--solver-options=-I Formulation=semiimplicit")
+            # The same with a pressure one order below the velocity.
+            ADD_TEST(
+                NAME IncNavierStokesSolverRedesign_HOutflowBackflow2D_MixedOrder_semiimplicit_${ExecSpace}_${Implementation}
+                COMMAND Tester
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/HOutflowBackflow2D_MixedOrder.tst -v
                     --opExecSpace=${ExecSpace} --opImpl=${Implementation}
                     "--solver-options=-I Formulation=semiimplicit")
         ENDFOREACH()

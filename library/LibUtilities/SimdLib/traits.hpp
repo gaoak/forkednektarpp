@@ -153,6 +153,21 @@ struct is_vector
 // Helper c++17 style
 template <class T> inline constexpr bool is_vector_v = is_vector<T>::value;
 
+// The scalar type of a vector type, and the type itself otherwise, so that
+// code templated on either can declare its constants constexpr.
+template <class T, class = void> struct scalar_type
+{
+    using type = T;
+};
+
+template <class T> struct scalar_type<T, std::enable_if_t<is_vector_v<T>>>
+{
+    using type = typename T::scalarType;
+};
+
+// Helper c++17 style
+template <class T> using scalar_type_t = typename scalar_type<T>::type;
+
 // Generic template handles cases that are not vector type
 template <class T, class = void>
 struct is_vector_floating_point : std::false_type

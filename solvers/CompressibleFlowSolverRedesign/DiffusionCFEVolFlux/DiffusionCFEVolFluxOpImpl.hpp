@@ -34,6 +34,7 @@
 #pragma once
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
+#include "DiffusionCFEVolFlux/CFEViscosityParams.hpp"
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
 #include "DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp"
 
@@ -58,45 +59,7 @@ public:
 
         SetUpEquationOfState(session, m_EoS);
 
-        TData rhoInf, pInf;
-
-        // reference values could probably be in seperate session section
-        session->LoadReferenceValue("viscosity", m_muRef, 1.78e-05);
-        session->LoadReferenceValue("density", rhoInf, 1.225);
-        session->LoadReferenceValue("pressure", pInf, 101325);
-
-        m_oneOverTstar = (rhoInf * m_EoS.gasConst()) / pInf;
-
-        std::string viscosityType;
-        session->LoadSolverInfo("ViscosityType", viscosityType, "Constant");
-        if (StringUtils::IEquals(viscosityType, "Variable"))
-        {
-            m_isMuVariable = true;
-            TData Tref, Tsuth;
-            session->LoadReferenceValue("Temperature", Tref, 288.15);
-            session->LoadReferenceValue("Tsutherland", Tsuth, 110.0);
-            m_TRatioSutherland = Tsuth / Tref;
-        }
-        else
-        {
-            m_isMuVariable = false;
-        }
-
-        TData Cp = m_EoS.gamma() / (m_EoS.gamma() - 1.0) * m_EoS.gasConst();
-
-        if (session->DefinesReferenceValue("thermalConductivity"))
-        {
-            ASSERTL0(!session->DefinesReferenceValue("Prandtl"),
-                     "Cannot define both Prandtl and thermalConductivity.");
-            TData thermalConductivityRef;
-            session->LoadReferenceValue("thermalConductivity",
-                                        thermalConductivityRef, 1.0);
-            m_Prandtl = Cp * m_muRef / thermalConductivityRef;
-        }
-        else
-        {
-            session->LoadReferenceValue("Prandtl", m_Prandtl, 0.72);
-        }
+        m_visc = CFEViscosityParams<TData>::Read(session, m_EoS);
     }
 
     // className - for OperatorFactory
@@ -115,13 +78,8 @@ public:
 protected:
     unsigned int m_dimension;
     EqnOfSParams m_EoS;
-    // viscosity parameters
-    bool m_isMuVariable;
-    TData m_muRef;
-    TData m_Prandtl;
-    // Sutherland's law parameters
-    TData m_TRatioSutherland;
-    TData m_oneOverTstar;
+    /// The viscosity law and the Prandtl number.
+    CFEViscosityParams<TData> m_visc;
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &deriv,
@@ -149,21 +107,25 @@ protected:
 
             if (this->m_append)
             {
-                DiffusionCFEVolFluxKernel<true, ExecSpace, EqnOfSParams>(
+                DiffusionCFEVolFluxKernel<true, false, ExecSpace>(
                     m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
-                    outStride, this->m_Prandtl, this->m_muRef,
-                    this->m_isMuVariable, this->m_oneOverTstar,
-                    this->m_TRatioSutherland, inbase, qbase, outbase, streamID);
+                    outStride, m_visc.prandtl, m_visc.muRef,
+                    m_visc.isMuVariable, m_visc.oneOverTstar,
+                    m_visc.tRatioSutherland, inbase, qbase, outbase,
+                    static_cast<TData *>(nullptr), TData(0.0), streamID);
             }
             else
             {
-                DiffusionCFEVolFluxKernel<false, ExecSpace, EqnOfSParams>(
+                DiffusionCFEVolFluxKernel<false, false, ExecSpace>(
                     m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
-                    outStride, this->m_Prandtl, this->m_muRef,
-                    this->m_isMuVariable, this->m_oneOverTstar,
-                    this->m_TRatioSutherland, inbase, qbase, outbase, streamID);
+                    outStride, m_visc.prandtl, m_visc.muRef,
+                    m_visc.isMuVariable, m_visc.oneOverTstar,
+                    m_visc.tRatioSutherland, inbase, qbase, outbase,
+                    static_cast<TData *>(nullptr), TData(0.0), streamID);
             }
         }
+        // The kernel is pointwise: the flux has the layout of the state.
+        out.SetInterleaveWidth(in);
     }
 };
 

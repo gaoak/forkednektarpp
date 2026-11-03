@@ -1569,10 +1569,10 @@ std::complex<Nektar::NekDouble> ImagBesselComp(
 
     zarg = -0.25 * y * y;
 
-    while (abs(z) > tol && i <= maxit)
+    while (std::abs(z) > tol && i <= maxit)
     {
         z = z * (1.0 / i / (i + n) * zarg);
-        if (abs(z) <= tol)
+        if (std::abs(z) <= tol)
         {
             break;
         }

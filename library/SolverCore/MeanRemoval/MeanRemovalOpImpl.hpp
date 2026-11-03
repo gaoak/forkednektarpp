@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
 #include "SolverCore/MeanRemoval/MeanRemovalOp.hpp"
 
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
@@ -71,20 +72,21 @@ protected:
         ASSERTL1(inout.GetNumHomoModes() == 1,
                  "MeanRemoval is not implemented for homogeneous expansions.");
 
-        const auto nComp = inout.GetNumComponents();
+        ComputeVolume();
 
-        // m_data layout: [ integral_c0, ..., integral_c{n-1}, volume ].
-        if (this->m_data.size() != nComp + 1)
-        {
-            this->m_data = LibUtilities::MemoryRegion<TData>(
-                "MeanRemoval", nComp + 1, eHostPinned);
-        }
-        this->m_data.template Initialize<MemSpace>(TData{0});
+        const auto nComp = inout.GetNumComponents();
+        ResetData(nComp);
 
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             auto &inblock = inout.GetBlocks()[blk];
             this->m_blockOp[blk]->Apply(inblock, this->m_data);
+        }
+
+        if (this->m_neumannSystem)
+        {
+            this->m_neumannSystem->AddNeumannSurfaceIntegral(this->m_data,
+                                                             nComp);
         }
 
         auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
@@ -94,17 +96,87 @@ protected:
         auto dataPtr =
             this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
-        ASSERTL0(dataPtr[nComp] > 0.0,
-                 "MeanRemovalOp encountered a non-positive volume.");
-
-        // Negated per-component volume-averaged mean, ready for addScalar.
+        // Negated per-component volume-averaged mean, less the surface
+        // integral, ready for addScalar.
         std::vector<TData> negMean(nComp);
         for (unsigned int nc = 0; nc < nComp; ++nc)
         {
-            negMean[nc] = -(dataPtr[nc] / dataPtr[nComp]);
+            negMean[nc] =
+                -((dataPtr[nc] - dataPtr[nComp + nc]) / this->m_volume);
         }
 
         Math::addScalar<ExecSpace>(negMean, inout, inout);
+    }
+
+    std::vector<TData> v_GetBalancedMean() override
+    {
+        ComputeVolume();
+
+        const auto nComp = this->m_components.size();
+        ResetData(nComp);
+
+        if (this->m_neumannSystem)
+        {
+            this->m_neumannSystem->AddNeumannSurfaceIntegral(this->m_data,
+                                                             nComp);
+        }
+
+        auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+        rowComm->template AllReduce<MemSpace>(this->m_data,
+                                              LibUtilities::ReduceSum);
+
+        auto dataPtr =
+            this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+        std::vector<TData> mean(nComp);
+        for (unsigned int nc = 0; nc < nComp; ++nc)
+        {
+            mean[nc] = dataPtr[nComp + nc] / this->m_volume;
+        }
+        return mean;
+    }
+
+private:
+    // Zero m_data, sized for nComp components, laid out as
+    // [ integral_c0, ..., integral_c{n-1}, surface_c0, ..., surface_c{n-1} ]:
+    // the surface integrals of the Neumann values of the system set by
+    // SetNeumannBalance(), zero without one, so that one reduction and one
+    // read back cover all.
+    void ResetData(const size_t nComp)
+    {
+        if (this->m_data.size() != 2 * nComp)
+        {
+            this->m_data = LibUtilities::MemoryRegion<TData>(
+                "MeanRemoval", 2 * nComp, eHostPinned);
+        }
+        this->m_data.template Initialize<MemSpace>(TData{0});
+    }
+
+    /// The volume of the mesh, summed over the blocks and across the ranks.
+    void ComputeVolume()
+    {
+        if (!this->m_volumeComputed)
+        {
+            LibUtilities::MemoryRegion<TData> volume("MeanRemoval volume", 1,
+                                                     eHostPinned);
+            volume.template Initialize<MemSpace>(TData{0});
+
+            for (auto &blockOp : this->m_blockOp)
+            {
+                blockOp->Volume(volume);
+            }
+
+            auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
+            rowComm->template AllReduce<MemSpace>(volume,
+                                                  LibUtilities::ReduceSum);
+
+            this->m_volume =
+                volume.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0];
+
+            ASSERTL0(this->m_volume > 0.0,
+                     "MeanRemovalOp encountered a non-positive volume.");
+            this->m_volumeComputed = true;
+        }
     }
 };
 

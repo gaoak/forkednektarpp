@@ -43,8 +43,6 @@ template <typename TData>
 class MeanRemovalBlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
-    ~MeanRemovalBlockOp() override = default;
-
     static std::shared_ptr<MeanRemovalBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -70,7 +68,21 @@ public:
         this->v_Apply(inblock, data);
     }
 
+    /// Add the volume of the block's elements to data[0].
+    void Volume(LibUtilities::MemoryRegion<TData> &data)
+    {
+        this->v_Volume(data);
+    }
+
+    /// Set the number of elements in the block, without padding.
+    void SetNumElements(const size_t nelmt)
+    {
+        m_nelmt = nelmt;
+    }
+
 protected:
+    size_t m_nelmt = 0;
+
     MeanRemovalBlockOp(const unsigned int block_idx,
                        const LocalRegions::ExpansionSharedPtr &exp,
                        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
@@ -78,9 +90,18 @@ protected:
     {
     }
 
+    ~MeanRemovalBlockOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<MeanRemovalBlockOp>;
+
     virtual void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data) = 0;
+
+    virtual void v_Volume(LibUtilities::MemoryRegion<TData> &data) = 0;
 };
 
 } // namespace Nektar::SolverCore

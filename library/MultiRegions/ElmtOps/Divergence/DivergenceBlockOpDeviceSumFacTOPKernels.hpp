@@ -359,11 +359,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         TData *outptr      = out + nqTot * nelmt * p + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
@@ -371,11 +367,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
             threadBlock);
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[inoffset + idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr + inoffset, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
@@ -485,11 +477,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         TData *outptr      = out + nqTot * nelmt * p + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, false, DEFORMED, 0>(
@@ -497,11 +485,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
             threadBlock);
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[inoffset + idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr + inoffset, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 1>(
@@ -509,11 +493,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
             threadBlock);
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[2 * inoffset + idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr + 2 * inoffset, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, true, DEFORMED, 2>(

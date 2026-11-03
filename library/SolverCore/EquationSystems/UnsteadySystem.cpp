@@ -41,6 +41,7 @@
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <MultiRegions/AvgAssmbScatr/AvgAssmbScatrOp.hpp>
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
+#include <MultiRegions/Common/Operator.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
@@ -127,10 +128,9 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
     // Setup all filters defined in session file
     for (const auto &filter : m_session->GetFilters())
     {
-        m_filters.emplace_back(
-            filter.name,
-            GetFilterFactory().CreateInstance(
-                filter.name, m_session, shared_from_this(), filter.params));
+        m_filters.emplace_back(filter.name,
+                               GetFilterFactory().CreateInstance(
+                                   filter.name, m_session, filter.params));
     }
 }
 
@@ -138,6 +138,22 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
  * Set initial conditions in m_fields and m_fields_coeff using m_variables.
  */
 void UnsteadySystem::v_SetInitialConditions(double initialTime)
+{
+    SessionFunction initialConditions(m_session, m_expansionLists[0],
+                                      "InitialConditions");
+    SetInitialConditionsFrom(initialConditions, initialTime);
+}
+
+/**
+ * @brief Set the initial conditions of #m_fields and #m_fields_coeff from
+ * @p initialConditions.
+ *
+ * @param   initialConditions   The InitialConditions function on
+ *                              #m_expansionLists[0].
+ * @param   initialTime         Time to evaluate it at.
+ */
+void UnsteadySystem::SetInitialConditionsFrom(
+    const SessionFunction &initialConditions, double initialTime)
 {
     m_time = initialTime;
 
@@ -154,17 +170,15 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
 
     if (m_projectionType == MultiRegions::eGalerkin)
     {
-        SetContinuousInitialConditions(m_expansionLists[0], m_variables,
-                                       m_fields, m_fields_coeff, m_bwdTransOp,
-                                       m_fwdTransOp);
+        SetContinuousInitialConditions(initialConditions, m_expansionLists[0],
+                                       m_variables, m_fields, m_fields_coeff,
+                                       m_bwdTransOp, m_fwdTransOp);
         PrintInitialConditions(m_expansionLists[0], m_variables);
         return;
     }
 
     // Discontinuous fields from here on.
     auto vType = GetInitialConditionType(m_variables);
-    SessionFunction initialConditions(m_session, m_expansionLists[0],
-                                      "InitialConditions");
     if (vType == LibUtilities::eFunctionTypeExpression)
     {
         initialConditions.EvaluateExpression(m_variables, m_fields, m_time);
@@ -239,7 +253,8 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
  * brought into the continuous space in three steps:
  *
  * 1. Element coefficients: an expression is projected element by element,
- *    \f$M_e^{-1} B_e^{T} W_e\f$, and a file is used as read.
+ *    \f$M_e^{-1} B_e^{T} W_e\f$, and a file is used as read (see
+ *    SessionFunction::EvaluateFld()).
  * 2. Every local copy of each global degree of freedom is replaced by the
  *    signed average of all copies, by an AvgAssmbScatrOp, which makes the
  *    coefficients continuous.
@@ -253,21 +268,28 @@ void UnsteadySystem::v_SetInitialConditions(double initialTime)
  *      at #m_time. The averaged coefficients are the start of that solve: a
  *      continuous start is required, since the solve adds a continuous
  *      correction to it, and a close one saves iterations. A file that is
- *      already continuous comes back to round-off.
+ *      already continuous comes back to round-off. A file that
+ *      @p initialConditions reads through another expansion and projects
+ *      element by element gives the Galerkin projection of the file at that
+ *      expansion: the continuous space lies in the element-wise one, so the
+ *      element-wise projection first changes nothing.
  *
  * Without an initial condition the fields are left as they are. The
  * operators used only here are built here and discarded. Every rank must
  * call this, since the averaging and the projection communicate.
  *
- * @param   expList      Continuous expansion list of the fields.
- * @param   variables    Names of the field components.
- * @param   phys         Physical values, set on return.
- * @param   coeffs       Coefficients, set on return.
- * @param   bwdTransOp   Backward transform of the fields.
- * @param   fwdTransOp   Continuous projection of the fields; built here,
- *                       for the Galerkin method only, if null.
+ * @param   initialConditions   The InitialConditions function on
+ *                              @p expList.
+ * @param   expList             Continuous expansion list of the fields.
+ * @param   variables           Names of the field components.
+ * @param   phys                Physical values, set on return.
+ * @param   coeffs              Coefficients, set on return.
+ * @param   bwdTransOp          Backward transform of the fields.
+ * @param   fwdTransOp          Continuous projection of the fields; built
+ *                              here, for the Galerkin method only, if null.
  */
 void UnsteadySystem::SetContinuousInitialConditions(
+    const SessionFunction &initialConditions,
     const MultiRegions::ExpListSharedPtr &expList,
     const std::vector<std::string> &variables,
     LibUtilities::Field<double, FieldState::Phys> &phys,
@@ -281,7 +303,6 @@ void UnsteadySystem::SetContinuousInitialConditions(
     // Element coefficients, and for Galerkin the field at the quadrature
     // points that it projects.
     auto vType = GetInitialConditionType(variables);
-    SessionFunction initialConditions(m_session, expList, "InitialConditions");
     if (vType == LibUtilities::eFunctionTypeExpression)
     {
         initialConditions.EvaluateExpression(variables, phys, m_time);
@@ -400,11 +421,8 @@ void UnsteadySystem::v_DoSolve()
         // Perform any solver-specific post-integration steps.
         const bool stopIntegration = v_PostIntegrate();
 
-        // Evaluate all filters
-        for (auto &filter : m_filters)
-        {
-            filter.second->Apply(m_time);
-        }
+        // Evaluate all filters.
+        RunFilters(FilterPhase::Step, m_time, m_timeOp->GetStep());
 
         // Test for the abort conditions (NaN, or an abort file).
         if (stopIntegration ||
@@ -424,10 +442,7 @@ void UnsteadySystem::v_DoSolve()
 
     // Finalise all filters
     // TODO move this into UnsteadySystem~ destructor?
-    for (auto &filter : m_filters)
-    {
-        filter.second->Finalise(m_time);
-    }
+    RunFilters(FilterPhase::Final, m_time, m_timeOp->GetStep());
 }
 
 /**
@@ -554,7 +569,7 @@ void UnsteadySystem::v_PrintSummaryStatistics(double intTime)
     if (m_session->GetComm()->GetRank() == 0)
     {
         if (StringUtils::IEquals(
-                m_session->GetCmdLineArgument<std::string>("opExecSpace"),
+                MultiRegions::Operator<double>::GetOpExecSpace(m_session),
                 "Device"))
         {
             std::cout << "Time-integration  : " << "NO TIMER IMPLEMENTED"
@@ -587,10 +602,74 @@ void UnsteadySystem::v_DoInitialise(bool dumpInitialConditions)
         WriteInitialConditions();
     }
 
-    // Initialise all filters
+    // Initialise all filters with an explicit initial phase. Filters whose
+    // schedule includes step zero sample from v_Initialise.
+    RunFilters(FilterPhase::Initial, m_time, 0);
+}
+
+/**
+ * @brief Build the four callbacks a FilterContext gives the filters to write
+ * and annotate output; they are the same in every phase.
+ */
+FilterOutputServices UnsteadySystem::BuildFilterOutputServices()
+{
+    return FilterOutputServices{
+        [this](const std::string &path) { v_WriteFld(path); },
+        [this](const std::string &path, const CoefficientFieldViews &fields,
+               const LibUtilities::FieldMetaDataMap &metadata,
+               const double scale) {
+            WriteOutputFields(path, fields, metadata, scale);
+        },
+        [this]() -> const LibUtilities::FieldMetaDataMap & {
+            return m_fieldMetaDataMap;
+        },
+        [this](const std::string &key, const std::string &value) {
+            m_fieldMetaDataMap[key] = value;
+        }};
+}
+
+/**
+ * @brief Run every configured filter through one phase (Initial/Step/Final).
+ *
+ * Builds the FieldRegistry and FilterContext of the phase, marks the derived
+ * data of the previous phase out of date, and calls the matching Filter
+ * method of each filter. A filter whose schedule is not due returns at once,
+ * but the context is built before that check, so nothing is built when no
+ * filters are configured.
+ */
+void UnsteadySystem::RunFilters(FilterPhase phase, double time,
+                                unsigned int step)
+{
+    if (m_filters.empty())
+    {
+        return;
+    }
+
+    auto registry = v_GetFieldRegistry();
+    m_filterDerivedData.Invalidate();
+    FilterOutputServices output = BuildFilterOutputServices();
+    FilterContext context{time,
+                          step,
+                          phase == FilterPhase::Initial,
+                          phase == FilterPhase::Final,
+                          output,
+                          registry,
+                          m_filterDerivedData};
+
     for (auto &filter : m_filters)
     {
-        filter.second->Initialise(m_time);
+        switch (phase)
+        {
+            case FilterPhase::Initial:
+                filter.second->Initialise(context);
+                break;
+            case FilterPhase::Step:
+                filter.second->Apply(context);
+                break;
+            case FilterPhase::Final:
+                filter.second->Finalise(context);
+                break;
+        }
     }
 }
 

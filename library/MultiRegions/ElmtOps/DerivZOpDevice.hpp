@@ -55,7 +55,9 @@ namespace Nektar::MultiRegions::detail
 /// after it is instantiated, so that call behaves like any other -- and
 /// replayed from the second on for lower launch overhead. Everything the
 /// capture must not see (block allocation, host-to-device transfers, plan
-/// creation) is resolved before it opens. SYCL has no capture, so there
+/// creation) is resolved before it opens. A graph keeps the input and output
+/// addresses it was built against, so a block is replayed only while both are
+/// unchanged and is captured afresh otherwise. SYCL has no capture, so there
 /// m_graphExec stays empty and every call submits the pipeline directly.
 ///
 /// DerivZOpImpl.hpp says what LAYOUT, DERIVORDER and APPEND select. Both
@@ -144,11 +146,6 @@ public:
         const unsigned int numBlocks =
             static_cast<unsigned int>(in.GetBlocks().size());
 
-        // Every block has to be captured before any of them can be replayed,
-        // and they are all captured on the first call, so a full m_graphExec
-        // is what tells a replay apart from that first pass.
-        const bool replay = (m_graphExec.size() == numBlocks);
-
         for (unsigned int blk = 0; blk < numBlocks; ++blk)
         {
             const unsigned int streamID = blk + 1;
@@ -158,15 +155,11 @@ public:
             const size_t compStride = inblock.CompSize();
             const size_t nsize      = compStride * nhomo;
 
-            if (replay)
-            {
-                LaunchGraph(blk);
-                continue;
-            }
-
-            // Resolved before the capture opens: on a first touch these
-            // allocate the block storage and copy it in, and a transfer
-            // recorded into the graph would replay stale data for ever.
+            // Resolved on every call, ahead of both replay and capture: on a
+            // first touch these allocate the block storage and copy it in, a
+            // transfer recorded into the graph would replay stale data for
+            // ever, and on every call they keep the host and device copies
+            // coherent.
             const TData *inPtr =
                 inblock.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(
                     streamID);
@@ -174,11 +167,33 @@ public:
                 NektarSpaces::DeviceSpace,
                 std::conditional_t<APPEND, ReadWrite, WriteOnly>>(streamID);
 
+            // A captured graph keeps the addresses it was built against, so a
+            // block is replayed only while its input and output have not
+            // moved and is captured again when either has.
+            if (blk < m_graphExec.size() && m_graphIn[blk] == inPtr &&
+                m_graphOut[blk] == outPtr)
+            {
+                LaunchGraph(blk);
+                continue;
+            }
+
             // Likewise for the transform plans and their scratch: creating
             // them allocates and synchronises the stream, neither of which a
             // capture tolerates, so the graph only ever sees the transforms.
             LibUtilities::DerivZPrepare<TData, APPEND>(nhomo, compStride,
                                                        compStride, streamID);
+
+            // Record which input and output this capture is built against.
+            if (m_graphIn.size() > blk)
+            {
+                m_graphIn[blk]  = inPtr;
+                m_graphOut[blk] = outPtr;
+            }
+            else
+            {
+                m_graphIn.push_back(inPtr);
+                m_graphOut.push_back(outPtr);
+            }
 
             BeginCapture(blk);
 
@@ -248,6 +263,8 @@ private:
 #else
     std::vector<void *> m_graphExec;
 #endif
+    std::vector<const TData *> m_graphIn;
+    std::vector<TData *> m_graphOut;
     TData m_beta = 0.0;
 
     void LaunchGraph(const unsigned int blk)

@@ -184,6 +184,9 @@ protected:
             // Copy functors from outer/higher-order IMEX scheme.
             startup->CopyFunctorsFrom(*this);
 
+            // Mark its implicit solves as start-up stages of this scheme.
+            startup->SetStartupTargetImplicitCoefficient(m_gamma);
+
             // Advance in time with startup.
             startup->SetTime(this->m_time);
             startup->SetStep(this->m_step);

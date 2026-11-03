@@ -32,6 +32,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <NekMesh/Octree/Octree.h>
 #include <NekMesh/SurfaceMeshing/CurveMesh.h>
 
@@ -181,7 +183,7 @@ void CurveMesh::Mesh(bool forceThree)
                 NekDouble rhs = EvaluateDS(ski) / Ae * (EvaluatePS(ski) - k);
                 lastSki       = ski;
                 ski           = ski - rhs;
-                if (abs(lastSki - ski) < 1E-8)
+                if (std::abs(lastSki - ski) < 1E-8)
                 {
                     iterate = false;
                 }

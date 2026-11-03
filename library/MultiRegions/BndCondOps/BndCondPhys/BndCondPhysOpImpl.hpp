@@ -40,6 +40,8 @@
 
 #include <LibUtilities/Interpreter/Interpreter.h>
 
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+
 #include <MultiRegions/DisContField.h>
 
 #include "MultiRegions/DataWarehouse/TraceDataWarehouse.hpp"
@@ -195,25 +197,6 @@ public:
                 m_traceIdToOffset[tid] = bcExpList->GetPhys_Offset(e);
             }
 
-            // Create fields for evaluating BCs into
-            auto blocks_phys =
-                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                    bcExpList);
-            this->m_wsp_phys.push_back(
-                LibUtilities::Field<TData, FieldState::Phys>(
-                    "Boundary condition phys", blocks_phys, nComp, nhomo));
-
-            // Initialize memory regions
-            m_wsp_phys.back().template Initialize<MemSpace>(0.0);
-
-            // Create operators for this boundary condition. Every component of
-            // a kept region is evaluated: each has a condition of some type,
-            // and each type supplies an equation through GetEquation().
-            this->m_expressionOps.push_back(
-                ExpressionOp<TData>::Create(bcExpList, components, "Serial"));
-            this->m_expressionOps.back()->SetComponentMask(
-                std::vector<bool>(nComp, true));
-
             // Gather equations for each field/component
             std::vector<LibUtilities::EquationSharedPtr> listOfEquations;
             for (unsigned int nc = 0; nc < nComp; nc++)
@@ -225,6 +208,32 @@ public:
                 bc = (*cndMapIter).second;
                 listOfEquations.push_back(bc->GetEquation());
             }
+
+            // Create fields for evaluating BCs into
+            auto blocks_phys =
+                MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
+                    bcExpList);
+            this->m_wsp_phys.push_back(
+                LibUtilities::Field<TData, FieldState::Phys>(
+                    "Boundary condition phys", blocks_phys, nComp, nhomo));
+
+            // Initialize memory regions
+            m_wsp_phys.back().template Initialize<MemSpace>(0.0);
+
+            // The Expression launches on the stream of each block.
+            m_regionStreams.emplace_back();
+            for (unsigned int blk = 0; blk < blocks_phys.size(); ++blk)
+            {
+                m_regionStreams.back().push_back(blk + 1);
+            }
+
+            // Create operators for this boundary condition. Every component of
+            // a kept region is evaluated: each has a condition of some type,
+            // and each type supplies an equation through GetEquation().
+            this->m_expressionOps.push_back(ExpressionOp<TData>::Create(
+                bcExpList, components, ExecSpace::name));
+            this->m_expressionOps.back()->SetComponentMask(
+                std::vector<bool>(nComp, true));
 
             // Set boundary conditions for each component in this boundary
             // region
@@ -253,17 +262,50 @@ public:
      */
     void EvaluateRegion(const unsigned int reg)
     {
-        m_expressionOps[reg]->Apply(m_wsp_phys[reg], m_wsp_phys[reg]);
+        auto &wsp = m_wsp_phys[reg];
 
-        // ToVector() strips the block padding, leaving the boundary
+        // Gather the blocks without their padding, into the boundary
         // expansion's own component-major phys layout - which is the layout
         // the offsets in m_traceIdToOffset index into.
-        std::vector<TData> vals = m_wsp_phys[reg].template ToVector<TData>();
+        const unsigned int nCompHomo =
+            wsp.GetNumComponents() * wsp.GetNumHomoModes();
+        const size_t numPhys = m_regionNumPhys[reg];
 
-        ASSERTL1(vals.size() == m_numComp * m_regionNumPhys[reg],
-                 "Unexpected boundary phys vector size.");
+        ASSERTL1(nCompHomo * numPhys == m_bndPhys[reg].size(),
+                 "Unexpected boundary phys size.");
 
-        m_bndPhys[reg].template CopyVector<MemSpace>(vals, this->m_opStreamID);
+        auto dst = m_bndPhys[reg].template GetPtr<MemSpace, WriteOnly>(
+            this->m_opStreamID);
+
+        // The block streams overwrite what the operator stream reads.
+        ReleaseStreams<ExecSpace>(this->m_opStreamID, m_regionStreams[reg]);
+
+        m_expressionOps[reg]->Apply(wsp, wsp);
+
+        size_t offset = 0;
+        for (unsigned int blk = 0; blk < wsp.GetBlocks().size(); ++blk)
+        {
+            const unsigned int streamID = blk + 1;
+
+            auto &block = wsp.GetBlocks()[blk];
+            ASSERTL1(block.GetInterleaveWidth() == 1,
+                     "Boundary condition phys is not interleaved.");
+
+            auto src = block.template GetPtr<MemSpace, ReadOnly>(streamID);
+            const size_t nSize = block.GetNumElements() * block.GetNumData();
+            for (unsigned int n = 0; n < nCompHomo; ++n)
+            {
+                Math::copyKernel<ExecSpace>(nSize, src + n * block.CompSize(),
+                                            dst + n * numPhys + offset,
+                                            streamID);
+            }
+            offset += nSize;
+        }
+
+        ASSERTL1(offset == numPhys, "Unexpected boundary phys size.");
+
+        // The values are read on the operator stream.
+        JoinStreams<ExecSpace>(this->m_opStreamID, m_regionStreams[reg]);
     }
 
     // className - for OperatorFactory
@@ -315,6 +357,8 @@ protected:
     /// Whether any component of a region depends on time, so UpdateBndPhys()
     /// re-evaluates only the regions that can actually have changed.
     std::vector<bool> m_regionTimeDependent;
+    /// Streams the Expression of each region launches on.
+    std::vector<std::vector<unsigned int>> m_regionStreams;
 
     // given trace elmtid (tid) return which region it is in
     std::map<size_t, unsigned> m_traceIdToBlk;

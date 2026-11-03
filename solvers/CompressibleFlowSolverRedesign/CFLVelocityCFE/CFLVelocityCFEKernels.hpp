@@ -35,10 +35,11 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/BasicUtils/SafeDivide.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 // header should appear after loop execution.hpp
-#include "EquationOfState/VariableConverters.hpp"
+#include <EquationOfState/VariableConverters.hpp>
 
 namespace Nektar::detail
 {
@@ -77,7 +78,7 @@ NEK_FORCE_INLINE static void CFLVelocityCFEKernel(
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             const vec_t rho    = invec[0 * inVecStride + i];
-            const vec_t invRho = vec_t(TData(1)) / rho;
+            const vec_t invRho = SafeDivide(vec_t(TData(1)), rho);
 
             vec_t mom[3] = {vec_t(TData(0)), vec_t(TData(0)), vec_t(TData(0))};
 

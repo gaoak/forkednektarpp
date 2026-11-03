@@ -146,6 +146,27 @@ constexpr unsigned PointsTypeNumEndPts[SIZE_PointsType] = {
     0  // eGaussGaussAlpha1Beta0,
 };
 
+/// Exponent alpha of the (1 - x)^alpha weight a Gauss-type rule integrates
+/// against, or -1 for any other rule.
+constexpr int PointsTypeJacobiAlpha(const PointsType pointsType)
+{
+    switch (pointsType)
+    {
+        case eGaussGaussLegendre:
+        case eGaussRadauMLegendre:
+        case eGaussRadauPLegendre:
+        case eGaussLobattoLegendre:
+            return 0;
+        case eGaussRadauMAlpha1Beta0:
+        case eGaussGaussAlpha1Beta0:
+            return 1;
+        case eGaussRadauMAlpha2Beta0:
+            return 2;
+        default:
+            return -1;
+    }
+}
+
 static std::vector<LibUtilities::PointsType> NullPointsTypeVector;
 } // namespace Nektar::LibUtilities
 

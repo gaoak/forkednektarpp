@@ -35,8 +35,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasBlockOpDeviceStdMatKernels.hpp>

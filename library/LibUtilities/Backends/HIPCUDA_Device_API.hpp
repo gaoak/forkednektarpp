@@ -43,6 +43,8 @@
 #include <hip/hip_cooperative_groups.h>
 #endif
 
+#include <limits>
+
 namespace Nektar
 {
 
@@ -931,63 +933,182 @@ NEK_DEVICE_INLINE static TData warpReduceAnd(
 #endif
 }
 
-template <unsigned int ndim, typename TData>
+// Linear index of the calling thread within its thread block, x fastest.
+NEK_DEVICE_INLINE static unsigned int getBlockThreadRank()
+{
+    return threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
+}
+
+// Total over a thread block of the per-thread values val, valid on the
+// block's first thread (getBlockThreadRank() == 0). warpReduceOp(x) reduces x
+// over a warp into its first lane. Each warp's partial goes through shared
+// memory and is reduced again by every warp, padded with identity. Every
+// thread of the block must call it, with the block's thread count a multiple
+// of the warp size and at most maximumBlockSize.
+template <typename TData, typename TWarpReduceOp>
+NEK_DEVICE_INLINE static TData blockReduceWarpPartials(
+    const TData val, const TData identity, const TWarpReduceOp &warpReduceOp)
+{
+    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    constexpr unsigned int maxWarps =
+        NektarSpaces::Device::maximumBlockSize / warpsize;
+    __shared__ TData s_partial[maxWarps];
+
+    const unsigned int nwarp = blockDim.x * blockDim.y * blockDim.z / warpsize;
+    TData tmp                = warpReduceOp(val);
+    if (nwarp == 1u)
+    {
+        return tmp;
+    }
+
+    const unsigned int rank  = getBlockThreadRank();
+    const unsigned int ilane = rank % warpsize;
+    const unsigned int iwarp = rank / warpsize;
+    if (ilane == 0u)
+    {
+        s_partial[iwarp] = tmp;
+    }
+    __syncthreads();
+
+    tmp = warpReduceOp(ilane < nwarp ? s_partial[ilane] : identity);
+
+    // Every warp has read s_partial before a following call overwrites it.
+    __syncthreads();
+    return tmp;
+}
+
+// blockReduce{Sum,Max,Min,Or,And}: combine val over the thread block into
+// *red. Every thread of the block must call them.
+// - Scope = GlobalScope (default): *red may be shared with other thread
+//   blocks. The block's total is formed first (blockReduceWarpPartials) and
+//   its first thread issues one global-scope atomic.
+// - Scope = LocalScope: *red is owned by this thread block. Each warp
+//   combines its partial into it with a block-scope atomic, with no block
+//   barrier.
+template <typename Scope = NektarSpaces::GlobalScope, unsigned int ndim,
+          typename TData>
 NEK_DEVICE_INLINE static void blockReduceSum(
-    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
-    TData *red)
+    const TData val, const hipcudaBlock<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceSum(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_add<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceSum(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0u)
+        {
+            atomic_add<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const TData tmp =
+            blockReduceWarpPartials(val, TData(0), [&](const TData x) {
+                return warpReduceSum(x, threadBlock);
+            });
+        if (getBlockThreadRank() == 0u)
+        {
+            atomic_add<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <unsigned int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, unsigned int ndim,
+          typename TData>
 NEK_DEVICE_INLINE static void blockReduceMax(
-    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
-    TData *red)
+    const TData val, const hipcudaBlock<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceMax(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_max<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceMax(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0u)
+        {
+            atomic_max<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const TData tmp = blockReduceWarpPartials(
+            val, std::numeric_limits<TData>::lowest(),
+            [&](const TData x) { return warpReduceMax(x, threadBlock); });
+        if (getBlockThreadRank() == 0u)
+        {
+            atomic_max<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <unsigned int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, unsigned int ndim,
+          typename TData>
 NEK_DEVICE_INLINE static void blockReduceMin(
-    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
-    TData *red)
+    const TData val, const hipcudaBlock<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceMin(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_min<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceMin(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0u)
+        {
+            atomic_min<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const TData tmp = blockReduceWarpPartials(
+            val, std::numeric_limits<TData>::max(),
+            [&](const TData x) { return warpReduceMin(x, threadBlock); });
+        if (getBlockThreadRank() == 0u)
+        {
+            atomic_min<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <unsigned int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, unsigned int ndim,
+          typename TData>
 NEK_DEVICE_INLINE static void blockReduceOr(
-    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
-    TData *red)
+    const TData val, const hipcudaBlock<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceOr(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_or<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceOr(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0u)
+        {
+            atomic_or<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const TData tmp =
+            blockReduceWarpPartials(val, TData(0), [&](const TData x) {
+                return warpReduceOr(x, threadBlock);
+            });
+        if (getBlockThreadRank() == 0u)
+        {
+            atomic_or<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 
-template <unsigned int ndim, typename TData>
+template <typename Scope = NektarSpaces::GlobalScope, unsigned int ndim,
+          typename TData>
 NEK_DEVICE_INLINE static void blockReduceAnd(
-    const TData val, [[maybe_unused]] const hipcudaBlock<ndim> &threadBlock,
-    TData *red)
+    const TData val, const hipcudaBlock<ndim> &threadBlock, TData *red)
 {
-    auto tmp = warpReduceAnd(val, threadBlock);
-    if (getLaneIdx(threadBlock) == 0)
+    if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
     {
-        atomic_and<NektarSpaces::LocalScope>(red, tmp);
+        const TData tmp = warpReduceAnd(val, threadBlock);
+        if (getLaneIdx(threadBlock) == 0u)
+        {
+            atomic_and<NektarSpaces::LocalScope>(red, tmp);
+        }
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        const TData tmp = blockReduceWarpPartials(
+            val, static_cast<TData>(~TData(0)),
+            [&](const TData x) { return warpReduceAnd(x, threadBlock); });
+        if (getBlockThreadRank() == 0u)
+        {
+            atomic_and<NektarSpaces::GlobalScope>(red, tmp);
+        }
     }
 }
 

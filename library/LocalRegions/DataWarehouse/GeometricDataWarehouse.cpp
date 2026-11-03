@@ -61,6 +61,21 @@ template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
 
 template LibUtilities::MemoryRegion<double> GeometricDataCreator::Create<
     NektarSpaces::HostSpace, double>(
+    const QuadratureMetricKey<double> &quadratureMetricKey);
+template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const QuadratureMetricKey<float> &quadratureMetricKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template LibUtilities::MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const QuadratureMetricKey<double> &quadratureMetricKey);
+template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const QuadratureMetricKey<float> &quadratureMetricKey);
+#endif
+
+template LibUtilities::MemoryRegion<double> GeometricDataCreator::Create<
+    NektarSpaces::HostSpace, double>(
     const DerivFactorKey<double> &derivFactorKey);
 template LibUtilities::MemoryRegion<float> GeometricDataCreator::Create<
     NektarSpaces::HostSpace, float>(

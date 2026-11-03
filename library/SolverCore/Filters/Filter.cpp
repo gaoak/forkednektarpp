@@ -34,6 +34,7 @@
 
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <SolverCore/Filters/Filter.h>
+#include <SolverCore/Filters/FilterUtils.h>
 
 #include <iostream>
 #include <system_error>
@@ -47,57 +48,20 @@ FilterFactory &GetFilterFactory()
     return instance;
 }
 
-Filter::Filter(const LibUtilities::SessionReaderSharedPtr &session,
-               const EquationSystemSharedPtr &equation)
-    : m_session(session), m_equ(equation)
+Filter::Filter(const LibUtilities::SessionReaderSharedPtr &session)
+    : m_session(session)
 {
 }
 
 std::string Filter::SetupOutput(const std::string &ext, const ParamMap &params)
 {
-    std::string outname = m_session->GetSessionName();
-
-    const auto it = params.find("OutputFile");
-    if (it != params.end())
-    {
-        ASSERTL0(!it->second.empty(), "Missing parameter 'OutputFile'.");
-        outname = it->second;
-    }
-
-    return SetupOutput(ext, outname);
+    return SetupFilterOutput(m_session, ext, params);
 }
 
 std::string Filter::SetupOutput(const std::string &ext,
                                 const std::string &inname)
 {
-    fs::path specPath = fs::path(inname).replace_extension(ext);
-
-    if (m_session->GetBackups() && m_session->GetComm()->TreatAsRankZero() &&
-        fs::exists(specPath))
-    {
-        fs::path bakPath = specPath;
-        int count        = 0;
-        while (fs::exists(bakPath))
-        {
-            bakPath = specPath.parent_path();
-            bakPath += specPath.stem();
-            bakPath += fs::path(".bak" + std::to_string(count++));
-            bakPath += specPath.extension();
-        }
-
-        std::cout << "renaming " << specPath << " -> " << bakPath << std::endl;
-        try
-        {
-            fs::rename(specPath, bakPath);
-        }
-        catch (fs::filesystem_error &e)
-        {
-            ASSERTL0(e.code() == std::errc::no_such_file_or_directory,
-                     "Filesystem error: " + std::string(e.what()));
-        }
-    }
-
-    return LibUtilities::PortablePath(specPath);
+    return SetupFilterOutput(m_session, ext, inname);
 }
 
 } // namespace Nektar::SolverCore

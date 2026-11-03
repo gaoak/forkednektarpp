@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <Metadata>
+        <Provenance>
+            <GitBranch></GitBranch>
+            <GitSHA1></GitSHA1>
+            <Hostname>londonbridge</Hostname>
+            <NektarVersion>5.10.0</NektarVersion>
+            <Timestamp>26-Oct-2026 16:52:47</Timestamp>
+        </Provenance>
+        <ChkFileNum>1</ChkFileNum>
+        <Kinvis>1</Kinvis>
+        <SessionName0>gen.xml</SessionName0>
+        <Time>0</Time>
+        <TimeStep>0.01</TimeStep>
+    </Metadata>
+    <Partition FileName="P0000000.fld">0-2,4,7</Partition>
+    <Partition FileName="P0000001.fld">3,5-6,8-9</Partition>
+</NEKTAR>

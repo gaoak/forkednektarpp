@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
@@ -49,7 +50,9 @@
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
-#include "CompressibleSolver/CompressibleSolverOp.hpp"
+#include "CompressibleFlowSolverRedesign/AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp"
+
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 
 // Add likwid support
 #ifdef LIKWID_PERFMON
@@ -232,11 +235,11 @@ void PrintBlockInfo(
         auto GeomType = Vmath::Vsum(nrank, allRankGeomTypes.data(), 1) / nrank;
 
         std::string Gtype = "Null";
-        if (abs(GeomType - 1.0) < 1e-8)
+        if (std::abs(GeomType - 1.0) < 1e-8)
         {
             Gtype = "Regular";
         }
-        else if (abs(GeomType - 2.0) < 1e-8)
+        else if (std::abs(GeomType - 2.0) < 1e-8)
         {
             Gtype = "Deformed";
         }
@@ -374,9 +377,10 @@ void PrintProfileResult(
     comm->Block();
 }
 
-// Different operator may have different input/output attributes (FieldState,
-// or number of components). We must provided all these information.
-template <class Op, FieldState state, typename TData>
+// The Riemann solver @p method is reached through the advective trace flux
+// operator, which applies it to trace states given directly. The trace
+// states and fluxes are in physical space.
+template <typename TData>
 void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
                     const unsigned int Ntest, const std::string &method = "",
                     const unsigned int nHomo = 1)
@@ -393,18 +397,28 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     const size_t npts           = expList->GetTrace()->GetTotPoints();
     const unsigned int nFields  = (spaceDim + 2) * nHomo;
 
-    std::vector<std::string> nVariabels;
-    for (unsigned int i = 0; i < nFields; ++i)
-    {
-        nVariabels.push_back("DefaultVar" + std::to_string(i));
-    }
+    // The operator builds the boundary values of the session's variables,
+    // so they must be the conserved ones, with their boundary conditions.
+    const auto &variables = session->GetVariables();
+    ASSERTL0(variables.size() == nFields,
+             "The session must define the " + std::to_string(nFields) +
+                 " conserved variables, and their boundary conditions.");
 
-    // Create operator.
+    // Create operator: the Riemann solver for the session's equation of
+    // state, as the solver itself picks it, or the ideal gas's if the session
+    // names none.
+    std::string eos =
+        StringUtils::ToUpperCopy(session->GetEquationOfState().type);
+    if (eos.empty())
+    {
+        eos = "IDEALGAS";
+    }
     auto oper =
-        CompressibleSolverOp<TData>::Create(expList, nVariabels, method, "");
+        AdvTraceFluxCFEOp<TData>::Create(expList, variables, method + eos);
 
     // Set operator name tag.
-    std::string execName = Op::GetOpExecSpace(session);
+    std::string execName =
+        MultiRegions::Operator<TData>::GetOpExecSpace(session);
     std::string opName   = method;
     std::string dataType = (std::is_same_v<TData, double>) ? "Double" : "Float";
     auto tag             = opName + execName + dataType;
@@ -435,19 +449,20 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     GetExpectedResults(spaceDim, npts, normals, fwd, bwd, flxRef);
 
     // Create block attributes.
-    auto traceblockAttr = GetBlockAttributes<TData, state>(expList->GetTrace());
+    auto traceblockAttr =
+        GetBlockAttributes<TData, FieldState::Phys>(expList->GetTrace());
 
     // Create fields.
-    auto fwdField = LibUtilities::Field<TData, state>("f_fwd", traceblockAttr,
-                                                      nFields, nHomo);
+    auto fwdField = LibUtilities::Field<TData, FieldState::Phys>(
+        "f_fwd", traceblockAttr, nFields, nHomo);
 
-    auto bwdField = LibUtilities::Field<TData, state>("f_bwd", traceblockAttr,
-                                                      nFields, nHomo);
+    auto bwdField = LibUtilities::Field<TData, FieldState::Phys>(
+        "f_bwd", traceblockAttr, nFields, nHomo);
 
-    auto fluxField = LibUtilities::Field<TData, state>("f_flux", traceblockAttr,
-                                                       nFields, nHomo);
+    auto fluxField = LibUtilities::Field<TData, FieldState::Phys>(
+        "f_flux", traceblockAttr, nFields, nHomo);
 
-    auto normalsField = LibUtilities::Field<TData, state>(
+    auto normalsField = LibUtilities::Field<TData, FieldState::Phys>(
         "traceNormals", traceblockAttr, spaceDim, nHomo);
 
     fwdField.template CopyArray<NektarSpaces::HostSpace>(
@@ -457,13 +472,11 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     normalsField.template CopyArray<NektarSpaces::HostSpace>(
         FlattenCompMajor(normals, spaceDim, npts));
 
-    oper->SetTraceNormals(normalsField);
-
     // Warm-up : fill the cache and memory, and let core temperature/freq
     // stabilized.
     for (unsigned int i = 0; i < Ntest / 2; ++i)
     {
-        oper->Apply(fwdField, bwdField, fluxField);
+        oper->ApplyUnitTest(normalsField, fwdField, bwdField, fluxField);
     }
     comm->Block();
 
@@ -478,7 +491,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
 
     for (unsigned int i = 0; i < Ntest; ++i)
     {
-        oper->Apply(fwdField, bwdField, fluxField);
+        oper->ApplyUnitTest(normalsField, fwdField, bwdField, fluxField);
     }
 
     nekDeviceSynchronize();
@@ -513,7 +526,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
     for (size_t i = 0, cnt = 0; i < tmpArr.size(); ++i)
     {
         // Print out first 100 mismatched values.
-        if (abs(tmpArr[i] - fluxArr[i]) >
+        if (std::abs(tmpArr[i] - fluxArr[i]) >
                 1e-4 * std::sqrt(L2 / tmpArr.size()) &&
             cnt < 100)
         {
@@ -521,7 +534,7 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr const &expList,
                       << " expected result = " << fluxArr[i] << std::endl;
             ++cnt;
         }
-        rankL1Error[0] += abs(tmpArr[i] - fluxArr[i]);
+        rankL1Error[0] += std::abs(tmpArr[i] - fluxArr[i]);
     }
 
     // Print block information and get the total number of dofs.

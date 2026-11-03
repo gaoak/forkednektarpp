@@ -105,19 +105,28 @@ protected:
             auto inPtr = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outPtr =
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
-            auto diagPtr =
-                diagblock.template GetPtr<MemSpace, ReadOnly>(streamID);
 
-            // Reshape, if necessary.
+            // Reshape the diagonal to the input's interleave format, if
+            // necessary, which writes it as well as reading it.
             auto in_width = inblock.GetInterleaveWidth();
             const unsigned int nComp =
                 inblock.GetNumComponents() * inblock.GetNumHomoModes();
+            const TData *diagPtr = nullptr;
             if (in_width != diagblock.GetInterleaveWidth())
             {
+                auto diagRWPtr =
+                    diagblock.template GetPtr<MemSpace, ReadWrite>(streamID);
                 LibUtilities::ReshapeStorage<ExecSpace>(
                     in_width, diagblock.GetInterleaveWidth(),
                     diagblock.GetNumElementsWithPadding() * nComp,
-                    diagblock.GetNumData(), (TData *)diagPtr, streamID);
+                    diagblock.GetNumData(), diagRWPtr, streamID);
+                diagblock.template SetInterleaveWidth<TData>(in_width);
+                diagPtr = diagRWPtr;
+            }
+            else
+            {
+                diagPtr =
+                    diagblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             }
 
             // Apply diagonal preconditioner.
@@ -128,7 +137,6 @@ protected:
 
             // Set output block to input interleave.
             outblock.template SetInterleaveWidth<TData>(in_width);
-            diagblock.template SetInterleaveWidth<TData>(in_width);
         }
     }
 

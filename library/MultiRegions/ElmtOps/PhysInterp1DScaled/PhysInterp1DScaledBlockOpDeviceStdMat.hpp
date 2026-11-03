@@ -53,8 +53,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp>
 
 namespace Nektar::MultiRegions::detail

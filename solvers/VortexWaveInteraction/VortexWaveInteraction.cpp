@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <IncNavierStokesSolver/EquationSystems/IncNavierStokes.h>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <MultiRegions/ExpList.h>
@@ -1766,15 +1768,15 @@ bool VortexWaveInteraction::CheckIfAtNeutralPoint(void)
     {
         if (m_sessionVWI->GetSolverInfo("INTERFACE") == "phase")
         {
-            if (abs(m_leading_real_evl[0]) < 1e-4)
+            if (std::abs(m_leading_real_evl[0]) < 1e-4)
             {
                 returnval = true;
             }
         }
         else
         {
-            if (abs(m_leading_real_evl[0]) < 1e-4 &&
-                abs(m_leading_imag_evl[0]) < 2e-6)
+            if (std::abs(m_leading_real_evl[0]) < 1e-4 &&
+                std::abs(m_leading_imag_evl[0]) < 2e-6)
             {
                 returnval = true;
             }

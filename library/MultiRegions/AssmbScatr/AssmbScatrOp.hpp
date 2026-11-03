@@ -106,8 +106,6 @@ namespace Nektar::MultiRegions
 template <typename TData> class AssmbScatrOp : public Operator<TData>
 {
 public:
-    ~AssmbScatrOp() override = default;
-
     /**
      * @brief Create an assemble-scatter operator through the operator
      * factory.
@@ -209,6 +207,8 @@ protected:
         : Operator<TData>(expansionList, components)
     {
     }
+
+    ~AssmbScatrOp() override = default;
 
     /**
      * @brief Implementation hook for the in-place Apply().

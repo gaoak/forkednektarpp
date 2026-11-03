@@ -427,6 +427,10 @@ protected:
     LOCAL_REGIONS_EXPORT virtual StdRegions::StdExpansionSharedPtr v_GetLinStdExp(
         void) const;
 
+    /// Whether the element's inverse mass is the diagonal of the standard
+    /// one over the Jacobian.
+    LOCAL_REGIONS_EXPORT bool v_InvMassIsDiagonal() override;
+
     int v_GetCoordim() const override
     {
         return m_geom->GetCoordim();

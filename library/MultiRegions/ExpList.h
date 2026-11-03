@@ -1163,6 +1163,10 @@ public:
         const ExpListSharedPtr &other);
 #endif
 
+    /// Whether the coefficients of this list can be written through
+    /// @p other without loss.
+    MULTI_REGIONS_EXPORT bool EmbedsLosslessly(const ExpListSharedPtr &other);
+
     void MultiplyByBlockMatrix(const GlobalMatrixKey &gkey,
                                const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &outarray,

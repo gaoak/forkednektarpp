@@ -33,6 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <LibUtilities/LinearAlgebra/NekLinSysIterGMRESLoc.h>
 
 using namespace std;
@@ -584,7 +586,7 @@ void NekLinSysIterGMRESLoc::DoGivensRotation(const int starttem,
         c[idtem] = 1.0;
         s[idtem] = 0.0;
     }
-    else if (abs(hh) > abs(dd))
+    else if (std::abs(hh) > std::abs(dd))
     {
         dbl      = -dd / hh;
         s[idtem] = 1.0 / sqrt(1.0 + dbl * dbl);

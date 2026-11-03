@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiffusionIPKernels.hpp
+// File: PhysLiftProjectBlockOpSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,39 +28,44 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Serial/AVX kernels of the lift-and-project element operator, one
+// element group per call.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * @file PhysLiftProjectBlockOpSerialAVXSumFacKernels.hpp
+ * @brief Serial/AVX kernels of the lift-and-project operator's own steps:
+ * one SIMD vector of elements per call.
+ *
+ * @details
+ * The lift, the basis transpose and the backward transform are the
+ * launchers of IProductWRTPhysTrace, IProductWRTBase and BwdTrans, which the
+ * block operator (PhysLiftProjectBlockOpSerialAVXSumFac.hpp) calls on each
+ * element group; the inverse mass where it is diagonal is
+ * MultiplyByElmtInvMass's StdInvMassDiagonalScaleKernel(), and the
+ * Pointwise form's kernels are shared with the StdMat implementation
+ * (PhysLiftProjectBlockOpSerialAVXKernels.hpp). The kernel here is the scale
+ * after the dense standard inverse mass.
+ */
+
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::MultiRegions::detail
 {
 
-template <typename ExecSpace, typename TData>
-NEK_FORCE_INLINE static void CopyBwdDerivTraceFromFwdOnBndKernel(
-    const size_t nBndPts, const unsigned int nComps,
-    const unsigned int compStride, const size_t *bndTraceOffset,
-    const TData *fwdbase, TData *bwdbase, const unsigned streamID)
+/// `inout[m] *= coefScale` over the @p nmTot coefficients of one element
+/// group: the scale over the Jacobian after the dense standard inverse mass.
+template <typename simd_type>
+NEK_FORCE_INLINE static void PhysLiftProjectCoefScaleKernel(
+    const unsigned int nmTot, const simd_type coefScale, simd_type *inout)
 {
-    // Derivative traces do not have physical boundary data of their own. On
-    // physical boundaries legacy DiffusionIP uses dq^- = dq^+ before the IP
-    Nektar::LoopExecutionSetStreamID(streamID);
-
-    // penalty term is added, while periodic traces are handled separately.
-    Nektar::parallel_for<ExecSpace>(
-        0u, nBndPts, NEKTAR_LAMBDA(const size_t i) {
-            const size_t offset = bndTraceOffset[i];
-            for (unsigned int c = 0; c < nComps; ++c)
-            {
-                bwdbase[c * compStride + offset] =
-                    fwdbase[c * compStride + offset];
-            }
-        });
-
-    Nektar::LoopExecutionSetStreamID(0);
+    for (unsigned int m = 0; m < nmTot; ++m)
+    {
+        inout[m] = inout[m] * coefScale;
+    }
 }
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::MultiRegions::detail

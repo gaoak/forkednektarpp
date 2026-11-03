@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NEKTAR>
+    <!--
+        Expansions of KovasznayFlowHOPBC2D_SmallTimeStep.xml with a pressure
+        one order below the velocity: P=3 velocity (MODIFIED, NUMMODES=4) and
+        P=2 pressure (MODIFIEDQUADPLUS1, NUMMODES=3), which share their
+        quadrature points. The Dirichlet velocity is representable in neither
+        boundary space, and its projections onto the two differ. On a straight
+        edge the difference of the projections of order P and P-1 is
+        orthogonal to every polynomial of order P-1 once P is 4 or more, and
+        would then not reach the pressure through its boundary inner
+        product; at this order it does.
+    -->
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="u,v" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="3" FIELDS="p" TYPE="MODIFIEDQUADPLUS1" />
+    </EXPANSIONS>
+</NEKTAR>

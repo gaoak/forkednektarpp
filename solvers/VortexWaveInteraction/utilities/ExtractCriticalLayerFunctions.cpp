@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
 #include <cstdio>
 
 #include <MultiRegions/ExpList.h>
@@ -88,7 +89,7 @@ void Computestreakpositions(MultiRegions::ExpListSharedPtr &streak,
 
         F   = 1000;
         cnt = 0;
-        while ((abs(F) > ConvTol) && (cnt < maxiter))
+        while ((std::abs(F) > ConvTol) && (cnt < maxiter))
         {
             elmtid = streak->GetExpIndex(coord, CoordTol);
             offset = streak->GetPhys_Offset(elmtid);

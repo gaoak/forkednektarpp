@@ -77,13 +77,11 @@
  * including the last one of each shape kernel, so that the staging area
  * is safe to overwrite for the next element the block takes; the barrier
  * that ends the coefficient staging is also what publishes the basis
- * tables. The one-dimensional path stages nothing at all: it reads
- * coefficients and basis straight from global memory.
+ * tables. The one-dimensional path stages only the basis table, once per
+ * block, and reads the coefficients straight from global memory.
  *
  * BwdTransSharedMemorySize gives the amount of dynamic shared memory the
- * block implementation requests. In one dimension it still returns a
- * non-zero figure, for storage the kernels never touch (see its 1D
- * overload).
+ * block implementation requests.
  *
  * ### Conventions
  * The basis tables, mode orderings, isModified corrections and nodal
@@ -97,6 +95,7 @@
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
@@ -170,12 +169,8 @@ inline constexpr size_t BwdTransWorkSpaceSize(
  * @brief Dynamic shared memory a 1D SumFacTOP backward transform
  * requests, in TData values.
  *
- * Counts the element's nm0 coefficients plus the nm0 x nq0 basis table.
- * The 1D path stages neither of them: the launcher passes the
- * shared-memory pointer on unused and BwdTransSegSumFacTOPKernel reads
- * coefficients and basis straight from global memory, so the memory
- * this reserves is never written. It does, however, enter the occupancy
- * heuristic of GetDeviceGridSize.
+ * The nm0 x nq0 basis table, which the 1D launcher stages once per
+ * thread block.
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
  * @tparam Implementation    MultiRegions::SumFacTOP.
@@ -197,7 +192,7 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
     const unsigned int nm0 = sizeParam1D.nm0();
     const unsigned int nq0 = sizeParam1D.nq0();
 
-    return nm0 + nm0 * nq0;
+    return nm0 * nq0;
 }
 
 /**
@@ -325,9 +320,9 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  *
  * Each thread takes the points at its local index plus multiples of the
  * block size and contracts the element's nm0 coefficients against the
- * basis table for each of them. Nothing is staged: @p in and @p basis0
- * are read from global memory. The closing barrier brings the block back
- * into step before it takes the next element.
+ * basis table for each of them. @p in is read from global memory and
+ * @p basis0 from wherever the caller staged it. The closing barrier brings the
+ * block back into step before it takes the next element.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
  * @tparam TthreadBlock  Back-end thread-block handle type.
@@ -376,15 +371,24 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
  * one element in two barrier-separated stages.
  *
  * Stage one shares out the nq0 * nm1 direction-0 sums: thread index
- * `idx` takes direction-1 mode `idx % nm1` at direction-0 point
- * `idx / nm1`, contracts the nm0 coefficients `in[q * nm0 + p]` against
- * @p basis0 and writes `wsp[idx]`. Stage two shares out the nqTot
- * output points: `idx` takes the point (`idx % nq0`, `idx / nq0`) and
- * contracts the nm1 values `wsp[i * nm1 + q]` against @p basis1. Both
- * loops stride by the block size, so any block size covers any element
- * size.
+ * `idx` takes direction-0 point `idx % nq0` at direction-1 mode
+ * `idx / nq0`, contracts the nm0 coefficients `in[q * nm0 + p]` against
+ * @p basis0 and writes `wsp[idx]`. Stage two shares out the nqTot output
+ * points: `idx` takes the point (`idx % nq0`, `idx / nq0`) and
+ * contracts the nm1 values `wsp[q * nq0 + i]` against @p basis1. The
+ * direction-0 point runs fastest across threads, so a warp's shared
+ * memory reads are common or contiguous and free of bank conflicts. When
+ * nm0 % 4 == 2 the stages instead keep each thread's walk over the modes
+ * contiguous, @p wsp ordered (i, q), which the compiler loads two values at
+ * a time without bank conflicts. Both loops stride by the block size, so any
+ * block size covers any element size.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
+ * @tparam SHMEM_IN      @p in is in shared memory: when nm0 % 4 == 2,
+ *                       keep each thread's walk over the modes contiguous,
+ *                       free of bank conflicts. Otherwise the quadrature
+ *                       point runs fastest across threads, which also reads
+ *                       an @p in in global memory coalesced.
  * @tparam TthreadBlock  Back-end thread-block handle type.
  *
  * @param   nm0,nm1     Modes per direction.
@@ -395,11 +399,12 @@ NEK_DEVICE_INLINE static void BwdTransSegSumFacTOPKernel(
  * @param   in          This element's staged coefficients.
  * @param   out         This element's nqTot physical values,
  *                      direction-0 point running fastest.
- * @param   wsp         Staging area for the first stage, nq0 * nm1
+ * @param   wsp         Staging area for the first stage, nm1 * nq0
  *                      values.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool APPEND, bool SHMEM_IN = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nqTot,
@@ -410,45 +415,96 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // direction 0
-    for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
+    // A row of nm0 = 4n + 2 coefficients in shared memory lets each thread's
+    // contiguous walk load two values per instruction free of bank conflicts;
+    // other sizes, and an input in global memory, run a quadrature point
+    // fastest across threads instead.
+    if (SHMEM_IN && nm0 % 4u == 2u)
     {
-        const unsigned int q = idx % nm1;
-        const unsigned int i = idx / nm1;
-        unsigned int cnt_qp  = nm0 * q;
-
-        TData tmp = 0.0;
-#pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+        // direction 0
+        for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
         {
-            tmp += in[cnt_qp] * basis0[p * nq0 + i];
+            const unsigned int q = idx % nm1;
+            const unsigned int i = idx / nm1;
+            unsigned int cnt_qp  = nm0 * q;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+            {
+                tmp += in[cnt_qp] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = tmp;
         }
-        wsp[idx] = tmp;
+
+        localBarrier(threadBlock);
+
+        // direction 1
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            unsigned int cnt_iq  = nm1 * i;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
+            {
+                tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += tmp;
+            }
+            else
+            {
+                out[idx] = tmp;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    // direction 1
-    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    else
     {
-        const unsigned int i = idx % nq0;
-        const unsigned int j = idx / nq0;
-        unsigned int cnt_iq  = nm1 * i;
+        // direction 0
+        for (unsigned int idx = idx0; idx < nq0 * nm1; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int q = idx / nq0;
+            unsigned int cnt_qp  = nm0 * q;
 
-        TData tmp = 0.0;
+            TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
-        {
-            tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+            {
+                tmp += in[cnt_qp] * basis0[p * nq0 + i];
+            }
+            wsp[idx] = tmp;
         }
 
-        if constexpr (APPEND)
+        localBarrier(threadBlock);
+
+        // direction 1
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
-            out[idx] += tmp;
-        }
-        else
-        {
-            out[idx] = tmp;
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            unsigned int cnt_qi  = i;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q, cnt_qi += nq0)
+            {
+                tmp += wsp[cnt_qi] * basis1[q * nq1 + j];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += tmp;
+            }
+            else
+            {
+                out[idx] = tmp;
+            }
         }
     }
 
@@ -461,13 +517,15 @@ NEK_DEVICE_INLINE static void BwdTransQuadSumFacTOPKernel(
  *
  * The collapsed direction goes first. Stage one shares out the
  * nm0 * nq1 pairs (p, direction-1 point j): thread `idx` takes
- * `p = idx % nm0`, `j = idx / nm0`, starts at the first mode of p in
+ * `j = idx % nq1`, `p = idx / nq1`, starts at the first mode of p in
  * the triangular ordering, `(2 * nm1 - p + 1) * p / 2`, and contracts
  * its nm1 - p modes against @p basis1, whose rows carry the same
  * combined index. Stage two shares out the nqTot output points and
- * contracts the nm0 values `wsp[j * nm0 + p]` against @p basis0, adding
+ * contracts the nm0 values `wsp[p * nq1 + j]` against @p basis0, adding
  * the @p isModified term `in[1] * basis0[nq0 + i] * basis1[nq1 + j]`
- * when asked.
+ * when asked. A quadrature point runs fastest across threads, so a
+ * warp's shared memory reads are common or contiguous and free of bank
+ * conflicts.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
  * @tparam TthreadBlock  Back-end thread-block handle type.
@@ -500,8 +558,8 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1; idx += stride)
     {
-        const unsigned int p = idx % nm0;
-        const unsigned int j = idx / nm0;
+        const unsigned int j = idx % nq1;
+        const unsigned int p = idx / nq1;
         unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
 
         TData tmp = 0.0;
@@ -520,7 +578,7 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
     {
         const unsigned int i = idx % nq0;
         const unsigned int j = idx / nq0;
-        unsigned int cnt_jp  = nm0 * j;
+        unsigned int cnt_pj  = j;
 
         TData tmp = 0.0;
 
@@ -530,9 +588,9 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
         }
 
 #pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
+        for (unsigned int p = 0u; p < nm0; ++p, cnt_pj += nq1)
         {
-            tmp += wsp[cnt_jp] * basis0[p * nq0 + i];
+            tmp += wsp[cnt_pj] * basis0[p * nq0 + i];
         }
 
         if constexpr (APPEND)
@@ -548,19 +606,53 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void BwdTrans2DSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nqTot, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, const TthreadBlock &threadBlock)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadSumFacTOPKernel<APPEND, true>(nm0, nm1, nq0, nq1, nqTot,
+                                                  basis0, basis1, in, out, wsp0,
+                                                  threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        BwdTransTriSumFacTOPKernel<APPEND>(nm0, nm1, nq0, nq1, nqTot,
+                                           isModified, basis0, basis1, in, out,
+                                           wsp0, threadBlock);
+    }
+}
+
 /**
  * @brief Hexahedral SumFacTOP kernel: three-direction tensor-product
  * evaluation of one element in three barrier-separated stages.
  *
  * Stage one shares out the nq0 * nm1 * nm2 direction-0 sums, thread
- * `idx` taking mode pair (`idx % nm1`, `(idx / nm1) % nm2`) at point
- * `idx / (nm1 * nm2)` and writing `wsp0[idx]`, so that @p wsp0 is
- * ordered (i, r, q) with q fastest. Stage two contracts direction 1 into
- * @p wsp1 over the nq0 * nq1 * nm2 triples (r, i, j), r fastest, and
- * stage three contracts direction 2 into the nqTot output points. Each
- * stage strides its index by the block size.
+ * `idx` taking point `idx % nq0` at mode pair (`(idx / nq0) % nm1`,
+ * `idx / (nq0 * nm1)`) and writing `wsp0[idx]`, so that @p wsp0 is
+ * ordered (r, q, i) with i fastest. Stage two contracts direction 1 into
+ * @p wsp1 over the nq0 * nq1 * nm2 triples (i, j, r), i fastest, and
+ * stage three contracts direction 2 into the nqTot output points. The
+ * direction-0 point runs fastest across threads in every stage, so a
+ * warp's shared memory reads are common or contiguous and free of bank
+ * conflicts. When nm0 % 4 == 2 the stages instead keep each thread's walk
+ * over the modes contiguous, @p wsp0 ordered (i, r, q) and @p wsp1
+ * (j, i, r), which the compiler loads two values at a time without bank
+ * conflicts. Each stage strides its index by the block size.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
+ * @tparam SHMEM_IN      @p in is in shared memory: when nm0 % 4 == 2,
+ *                       keep each thread's walk over the modes contiguous,
+ *                       free of bank conflicts. Otherwise the quadrature
+ *                       point runs fastest across threads, which also reads
+ *                       an @p in in global memory coalesced.
  * @tparam TthreadBlock  Back-end thread-block handle type.
  *
  * @param   nm0,nm1,nm2 Modes per direction.
@@ -571,13 +663,14 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacTOPKernel(
  *                      `in[(r * nm1 + q) * nm0 + p]`.
  * @param   out         This element's nqTot physical values,
  *                      direction-0 point running fastest.
- * @param   wsp0        Staging area for stage one, nq0 * nm1 * nm2
+ * @param   wsp0        Staging area for stage one, nm2 * nm1 * nq0
  *                      values.
- * @param   wsp1        Staging area for stage two, nq0 * nq1 * nm2
+ * @param   wsp1        Staging area for stage two, nm2 * nq1 * nq0
  *                      values.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
-template <bool APPEND, typename TthreadBlock, typename TData>
+template <bool APPEND, bool SHMEM_IN = false, typename TthreadBlock,
+          typename TData>
 NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -590,66 +683,138 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
     const unsigned int idx0   = getLocalIdx<0>(threadBlock);
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
-    // direction 0
-    for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
+    // A row of nm0 = 4n + 2 coefficients in shared memory lets each thread's
+    // contiguous walk load two values per instruction free of bank conflicts;
+    // other sizes, and an input in global memory, run a quadrature point
+    // fastest across threads instead.
+    if (SHMEM_IN && nm0 % 4u == 2u)
     {
-        const unsigned int q = idx % nm1;
-        const unsigned int r = (idx / nm1) % nm2;
-        const unsigned int i = idx / (nm1 * nm2);
-        unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
-
-        TData tmp = 0.0;
-#pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
+        // direction 0
+        for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
         {
-            tmp += in[cnt_rqp] * basis0[p * nq0 + i];
+            const unsigned int q = idx % nm1;
+            const unsigned int r = (idx / nm1) % nm2;
+            const unsigned int i = idx / (nm1 * nm2);
+            unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
+            {
+                tmp += in[cnt_rqp] * basis0[p * nq0 + i];
+            }
+            wsp0[idx] = tmp;
         }
-        wsp0[idx] = tmp;
+
+        localBarrier(threadBlock);
+
+        // direction 1
+        for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
+        {
+            const unsigned int r = idx % nm2;
+            const unsigned int i = (idx / nm2) % nq0;
+            const unsigned int j = idx / (nm2 * nq0);
+            unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
+            {
+                tmp += wsp0[cnt_irq] * basis1[q * nq1 + j];
+            }
+            wsp1[idx] = tmp;
+        }
+
+        localBarrier(threadBlock);
+
+        // direction 2
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq1 * nq0);
+            unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
+            {
+                tmp += wsp1[cnt_jir] * basis2[r * nq2 + k];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += tmp;
+            }
+            else
+            {
+                out[idx] = tmp;
+            }
+        }
     }
-
-    localBarrier(threadBlock);
-
-    // direction 1
-    for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
+    else
     {
-        const unsigned int r = idx % nm2;
-        const unsigned int i = (idx / nm2) % nq0;
-        const unsigned int j = idx / (nm2 * nq0);
-        unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r;
+        // direction 0
+        for (unsigned int idx = idx0; idx < nq0 * nm1 * nm2; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int q = (idx / nq0) % nm1;
+            const unsigned int r = idx / (nq0 * nm1);
+            unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
 
-        TData tmp = 0.0;
+            TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
-        {
-            tmp += wsp0[cnt_irq] * basis1[q * nq1 + j];
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
+            {
+                tmp += in[cnt_rqp] * basis0[p * nq0 + i];
+            }
+            wsp0[idx] = tmp;
         }
-        wsp1[idx] = tmp;
-    }
 
-    localBarrier(threadBlock);
+        localBarrier(threadBlock);
 
-    // direction 2
-    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-    {
-        const unsigned int i = idx % nq0;
-        const unsigned int j = (idx / nq0) % nq1;
-        const unsigned int k = idx / (nq1 * nq0);
-        unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i;
+        // direction 1
+        for (unsigned int idx = idx0; idx < nq0 * nq1 * nm2; idx += stride)
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int r = idx / (nq0 * nq1);
+            unsigned int cnt_rqi = nm1 * nq0 * r + i;
 
-        TData tmp = 0.0;
+            TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
-        {
-            tmp += wsp1[cnt_jir] * basis2[r * nq2 + k];
+            for (unsigned int q = 0u; q < nm1; ++q, cnt_rqi += nq0)
+            {
+                tmp += wsp0[cnt_rqi] * basis1[q * nq1 + j];
+            }
+            wsp1[idx] = tmp;
         }
 
-        if constexpr (APPEND)
+        localBarrier(threadBlock);
+
+        // direction 2
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
-            out[idx] += tmp;
-        }
-        else
-        {
-            out[idx] = tmp;
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq1 * nq0);
+            unsigned int cnt_rji = nq0 * j + i;
+
+            TData tmp = 0.0;
+#pragma unroll
+            for (unsigned int r = 0u; r < nm2; ++r, cnt_rji += nq0 * nq1)
+            {
+                tmp += wsp1[cnt_rji] * basis2[r * nq2 + k];
+            }
+
+            if constexpr (APPEND)
+            {
+                out[idx] += tmp;
+            }
+            else
+            {
+                out[idx] = tmp;
+            }
         }
     }
 
@@ -669,14 +834,17 @@ NEK_DEVICE_INLINE static void BwdTransHexSumFacTOPKernel(
  * (`mode_pqr`). The two differ when nm2 > nm1, the basis table also
  * enumerating pairs the coefficients do not carry -- as in the SumFac
  * kernel, where the same offset is accumulated by walking the modes.
- * @p wsp0 comes out ordered (k, pair) with the pair index fastest.
+ * @p wsp0 comes out ordered (pair, k) with k fastest.
  *
- * Stage two shares out the nm0 * nq1 * nq2 triples (p, j, k), reading
+ * Stage two shares out the nm0 * nq1 * nq2 triples (k, j, p), reading
  * the nm1 - p pairs of p from @p wsp0 against @p basis1 into @p wsp1,
- * ordered (k, j, p) with p fastest. Stage three shares out the nqTot
+ * ordered (p, j, k) with k fastest. Stage three shares out the nqTot
  * output points, contracts @p wsp1 against @p basis0 and, with
  * @p isModified set, adds the top-vertex, bottom-vertex and
- * singular-edge terms marked in the code.
+ * singular-edge terms marked in the code. A quadrature point runs
+ * fastest across threads in every stage, so a warp's shared memory
+ * reads are common or contiguous and free of bank conflicts, and the
+ * threads of a warp share their mode-dependent loop lengths.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
  * @tparam TthreadBlock  Back-end thread-block handle type.
@@ -720,9 +888,9 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
     // direction 2
     for (unsigned int idx = idx0; idx < nm01 * nq2; idx += stride)
     {
-        const unsigned int k = idx / nm01;
-        const unsigned int p = pindex[idx % nm01];
-        const unsigned int q = qindex[idx % nm01];
+        const unsigned int k = idx % nq2;
+        const unsigned int p = pindex[idx / nq2];
+        const unsigned int q = qindex[idx / nq2];
         unsigned int mode2   = (2u * (nm2 - p) - q + 1u) * q;
         mode2 += nm2 * (nm2 + 1u) * p;
         mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
@@ -746,17 +914,17 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
-        const unsigned int p = idx % nm0;
-        const unsigned int j = (idx / nm0) % nq1;
-        const unsigned int k = idx / (nm0 * nq1);
+        const unsigned int k = idx % nq2;
+        const unsigned int j = (idx / nq2) % nq1;
+        const unsigned int p = idx / (nq2 * nq1);
         unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
-        unsigned int cnt_kpq = nm01 * k + mode_pq;
+        unsigned int cnt_pqk = nq2 * mode_pq + k;
 
         TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1 - p; ++q, ++cnt_kpq, ++mode_pq)
+        for (unsigned int q = 0u; q < nm1 - p; ++q, cnt_pqk += nq2, ++mode_pq)
         {
-            tmp += wsp0[cnt_kpq] * basis1[mode_pq * nq1 + j];
+            tmp += wsp0[cnt_pqk] * basis1[mode_pq * nq1 + j];
         }
         wsp1[idx] = tmp;
     }
@@ -766,10 +934,10 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        const unsigned int i  = idx % nq0;
-        const unsigned int j  = (idx / nq0) % nq1;
-        const unsigned int k  = idx / (nq0 * nq1);
-        unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+        const unsigned int i = idx % nq0;
+        const unsigned int j = (idx / nq0) % nq1;
+        const unsigned int k = idx / (nq0 * nq1);
+        unsigned int cnt_pjk = nq2 * j + k;
 
         TData tmp = 0.0;
 
@@ -794,9 +962,9 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
         }
 
 #pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+        for (unsigned int p = 0u; p < nm0; ++p, cnt_pjk += nq1 * nq2)
         {
-            tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
+            tmp += wsp1[cnt_pjk] * basis0[p * nq0 + i];
         }
 
         if constexpr (APPEND)
@@ -819,14 +987,17 @@ NEK_DEVICE_INLINE static void BwdTransTetSumFacTOPKernel(
  * Only direction 2 is collapsed: for each p the coefficients carry
  * nm2 - p modes r for every one of the nm1 modes q, and @p basis2 holds
  * one row per combined (p,r) mode. Stage one shares out the
- * nm0 * nm1 * nq2 triples (q, p, k), each thread computing the start of
+ * nm0 * nm1 * nq2 triples (k, q, p), each thread computing the start of
  * its p block in the basis table, `(2 * nm2 - p + 1) * p / 2`, and of
- * its (p,q) run of coefficients, and writing @p wsp0 ordered (k, p, q)
- * with q fastest. Stage two contracts direction 1 into @p wsp1 over the
- * nm0 * nq1 * nq2 triples (p, j, k), p fastest, and stage three
+ * its (p,q) run of coefficients, and writing @p wsp0 ordered (p, q, k)
+ * with k fastest. Stage two contracts direction 1 into @p wsp1 over the
+ * nm0 * nq1 * nq2 triples (k, j, p), k fastest, and stage three
  * contracts direction 0 into the nqTot output points, adding with
  * @p isModified set the collapsed-vertex term summed over q in the
- * code.
+ * code. A quadrature point runs fastest across threads in every stage,
+ * so a warp's shared memory reads are common or contiguous and free of
+ * bank conflicts, and the threads of a warp share their mode-dependent
+ * loop lengths.
  *
  * @tparam APPEND        Accumulate onto @p out instead of overwriting.
  * @tparam TthreadBlock  Back-end thread-block handle type.
@@ -864,9 +1035,9 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
     // direction 2
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
-        const unsigned int q  = idx % nm1;
-        const unsigned int p  = (idx / nm1) % nm0;
-        const unsigned int k  = idx / (nm1 * nm0);
+        const unsigned int k  = idx % nq2;
+        const unsigned int q  = (idx / nq2) % nm1;
+        const unsigned int p  = idx / (nq2 * nm1);
         unsigned int mode_pr  = (2u * nm2 - p + 1u) * p / 2u;
         unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q;
 
@@ -884,16 +1055,16 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
-        const unsigned int p  = idx % nm0;
-        const unsigned int j  = (idx / nm0) % nq1;
-        const unsigned int k  = idx / (nm0 * nq1);
-        unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
+        const unsigned int k = idx % nq2;
+        const unsigned int j = (idx / nq2) % nq1;
+        const unsigned int p = idx / (nq2 * nq1);
+        unsigned int cnt_pqk = nm1 * nq2 * p + k;
 
         TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
+        for (unsigned int q = 0u; q < nm1; ++q, cnt_pqk += nq2)
         {
-            tmp += wsp0[mode_kpq] * basis1[q * nq1 + j];
+            tmp += wsp0[cnt_pqk] * basis1[q * nq1 + j];
         }
         wsp1[idx] = tmp;
     }
@@ -903,10 +1074,10 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        const unsigned int i  = idx % nq0;
-        const unsigned int j  = (idx / nq0) % nq1;
-        const unsigned int k  = idx / (nq0 * nq1);
-        unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+        const unsigned int i = idx % nq0;
+        const unsigned int j = (idx / nq0) % nq1;
+        const unsigned int k = idx / (nq0 * nq1);
+        unsigned int cnt_pjk = nq2 * j + k;
 
         TData tmp = 0.0;
 
@@ -921,9 +1092,9 @@ NEK_DEVICE_INLINE static void BwdTransPrismSumFacTOPKernel(
         }
 
 #pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+        for (unsigned int p = 0u; p < nm0; ++p, cnt_pjk += nq1 * nq2)
         {
-            tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
+            tmp += wsp1[cnt_pjk] * basis0[p * nq0 + i];
         }
 
         if constexpr (APPEND)
@@ -988,9 +1159,9 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     // direction 2
     for (unsigned int idx = idx0; idx < nm0 * nm1 * nq2; idx += stride)
     {
-        const unsigned int q = idx % nm1;
-        const unsigned int p = (idx / nm1) % nm0;
-        const unsigned int k = idx / (nm1 * nm0);
+        const unsigned int k = idx % nq2;
+        const unsigned int q = (idx / nq2) % nm1;
+        const unsigned int p = idx / (nq2 * nm1);
         unsigned int mode2 =
             (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u;
         unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
@@ -1018,16 +1189,16 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     // direction 1
     for (unsigned int idx = idx0; idx < nm0 * nq1 * nq2; idx += stride)
     {
-        const unsigned int p  = idx % nm0;
-        const unsigned int j  = (idx / nm0) % nq1;
-        const unsigned int k  = idx / (nm0 * nq1);
-        unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
+        const unsigned int k = idx % nq2;
+        const unsigned int j = (idx / nq2) % nq1;
+        const unsigned int p = idx / (nq2 * nq1);
+        unsigned int cnt_pqk = nm1 * nq2 * p + k;
 
         TData tmp = 0.0;
 #pragma unroll
-        for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
+        for (unsigned int q = 0u; q < nm1; ++q, cnt_pqk += nq2)
         {
-            tmp += wsp0[mode_kpq] * basis1[q * nq1 + j];
+            tmp += wsp0[cnt_pqk] * basis1[q * nq1 + j];
         }
         wsp1[idx] = tmp;
     }
@@ -1037,10 +1208,10 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     // direction 0
     for (unsigned int idx = idx0; idx < nqTot; idx += stride)
     {
-        const unsigned int i  = idx % nq0;
-        const unsigned int j  = (idx / nq0) % nq1;
-        const unsigned int k  = idx / (nq0 * nq1);
-        unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+        const unsigned int i = idx % nq0;
+        const unsigned int j = (idx / nq0) % nq1;
+        const unsigned int k = idx / (nq0 * nq1);
+        unsigned int cnt_pjk = nq2 * j + k;
 
         TData tmp = 0.0;
 
@@ -1054,9 +1225,9 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
         }
 
 #pragma unroll
-        for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+        for (unsigned int p = 0u; p < nm0; ++p, cnt_pjk += nq1 * nq2)
         {
-            tmp += wsp1[mode_kjp] * basis0[p * nq0 + i];
+            tmp += wsp1[cnt_pjk] * basis0[p * nq0 + i];
         }
 
         if constexpr (APPEND)
@@ -1072,6 +1243,47 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
     localBarrier(threadBlock);
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nqTot, const bool isModified,
+    const unsigned int *NEK_RESTRICT index0,
+    const unsigned int *NEK_RESTRICT index1, const TData *NEK_RESTRICT basis0,
+    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
+    const TthreadBlock &threadBlock)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexSumFacTOPKernel<APPEND, true>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, basis0, basis1, basis2, in,
+            out, wsp0, wsp1, threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        BwdTransTetSumFacTOPKernel<APPEND>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index1,
+            basis0, basis1, basis2, in, out, wsp0, wsp1, threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        BwdTransPrismSumFacTOPKernel<APPEND>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, basis0, basis1,
+            basis2, in, out, wsp0, wsp1, threadBlock);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrSumFacTOPKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                           isModified, basis0, basis1, basis2,
+                                           in, out, wsp0, wsp1, threadBlock);
+    }
+}
+
 /**
  * @brief Device entry point of the 1D backward transform under
  * SumFacTOP: unpack the size parameter, then walk the block's elements,
@@ -1085,8 +1297,8 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
  * anything but a 1D size parameter is rejected by the static_assert.
  * FETCH_SHARED_MEMORY binds @p shmemptr to the block's dynamic shared
  * memory on the CUDA/HIP back-ends, and is a no-op where the launcher
- * macro passes the pointer in; nothing is staged in shared memory in one
- * dimension, so it goes unused once unpacked.
+ * macro passes the pointer in. The basis table is copied into it once
+ * before the element loop.
  *
  * The block takes the element at its index in the grid's first dimension
  * and advances by that dimension's block count, so the block's
@@ -1113,8 +1325,7 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacTOPKernel(
  * @param   out         Block's physical values for every component.
  * @param   wsp         Global-memory workspace; SumFacTOP keeps no
  *                      intermediates there, so unused.
- * @param   shmemptr    Shared-memory base, appended by the launcher;
- *                      unused in one dimension.
+ * @param   shmemptr    Shared-memory base, appended by the launcher.
  * @param   threadBlock Thread-block handle, appended by the launcher.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
@@ -1132,7 +1343,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                            const TData *NEK_RESTRICT in,
                            TData *NEK_RESTRICT out,
                            [[maybe_unused]] TData *NEK_RESTRICT wsp,
-                           [[maybe_unused]] unsigned char *shmemptr,
+                           unsigned char *shmemptr,
                            const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
@@ -1144,13 +1355,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nm0 = sizeParam1D.nm0();
     const unsigned int nq0 = sizeParam1D.nq0();
 
+    TData *s_basis0 = (TData *)shmemptr;
+
+    // Copy to shared memory.
+    StageToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
+    localBarrier(threadBlock);
+
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const TData *inptr = in + nm0 * nelmt * c + nm0 * e;
         TData *outptr      = out + nq0 * nelmt * c + nq0 * e;
-        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, basis0, inptr, outptr,
+        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, s_basis0, inptr, outptr,
                                            threadBlock);
         e += getBlockRange<0>(threadBlock);
     }
@@ -1210,6 +1427,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -1218,39 +1437,29 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTot = nq0 * nq1;
 
-    unsigned int offset{0}, nmode0{0}, nmode1{0};
+    unsigned int wsp1Size{0}, nmode0{0}, nmode1{0};
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = nm1 * nq0;
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp1Size = nm1 * nq0;
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp1Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
     TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_basis0 = s_wsp1 + offset;
+    TData *s_basis0 = s_wsp1 + wsp1Size;
     TData *s_basis1 = s_basis0 + nm0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1259,34 +1468,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr = in + nmTot * nelmt * c + nmTot * e;
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+        if constexpr (isNodal)
         {
-            // Nodal to Modal in shared memory
+            // Nodal to Modal in shared memory.
             MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_wsp0, threadBlock);
         }
         else
         {
             // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-            {
-                s_wsp0[idx] = inptr[idx];
-            }
+            StageToSharedMemory(nmTot, inptr, s_wsp0, threadBlock);
             localBarrier(threadBlock);
         }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            BwdTransQuadSumFacTOPKernel<APPEND>(nm0, nm1, nq0, nq1, nqTot,
-                                                s_basis0, s_basis1, s_wsp0,
-                                                outptr, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
-                           SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            BwdTransTriSumFacTOPKernel<APPEND>(
-                nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1,
-                s_wsp0, outptr, s_wsp1, threadBlock);
-        }
+        BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+            nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1, s_wsp0,
+            outptr, s_wsp1, threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1350,6 +1546,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism;
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -1360,67 +1559,53 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    unsigned int offset0{0}, offset1{0}, nmode0{0}, nmode1{0}, nmode2{0};
+    unsigned int wsp1Size{0}, wsp2Size{0}, nmode0{0}, nmode1{0}, nmode2{0};
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = nq0 * nm1 * nm2;
-        offset1 = nq0 * nq1 * nm2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp1Size = nq0 * nm1 * nm2;
+        wsp2Size = nq0 * nq1 * nm2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        wsp2Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp1Size = nm0 * nm1 * nq2;
+        wsp2Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp1Size = nm0 * nm1 * nq2;
+        wsp2Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
     TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + offset0;
-    TData *s_basis0 = s_wsp2 + offset1;
+    TData *s_wsp2   = s_wsp1 + wsp1Size;
+    TData *s_basis0 = s_wsp2 + wsp2Size;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-    {
-        s_basis2[idx] = basis2[idx];
-    }
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1429,51 +1614,22 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr = in + nmTot * nelmt * c + nmTot * e;
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism ||
-                      SHAPE_TYPE == LibUtilities::NodalTet)
+        if constexpr (isNodal)
         {
-            // Nodal to Modal in shared memory
+            // Nodal to Modal in shared memory.
             MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_wsp0, threadBlock);
         }
         else
         {
             // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-            {
-                s_wsp0[idx] = inptr[idx];
-            }
+            StageToSharedMemory(nmTot, inptr, s_wsp0, threadBlock);
             localBarrier(threadBlock);
         }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            BwdTransHexSumFacTOPKernel<APPEND>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                           SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            BwdTransTetSumFacTOPKernel<APPEND>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index1,
-                s_basis0, s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
-                threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            BwdTransPrismSumFacTOPKernel<APPEND>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
-                threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            BwdTransPyrSumFacTOPKernel<APPEND>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
-                threadBlock);
-        }
+        BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index1,
+            s_basis0, s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2,
+            threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }

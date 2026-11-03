@@ -341,6 +341,51 @@ public:
     }
 
     /**
+     * @brief The outward normal component of a vector-valued field on the
+     * element-local traces; see PhysTraceExtractBlockOp::
+     * ApplyNormalComponent(). @p in has `nvar * ndim` components, ndim
+     * being the coordinate dimension, and @p out has `nvar`. The normals
+     * are each element's own (MultiRegions::LocalTraceNormalKey), on the
+     * element's trace points, so the Gauss-Lobatto trace points are not
+     * supported. A scratch trace field is built on first use, for the
+     * block implementations that extract every component first.
+     */
+    void ApplyNormalComponent(LibUtilities::Field<TData, FieldState::Phys> &in,
+                              LibUtilities::Field<TData, FieldState::Phys> &out)
+    {
+        ASSERTL0(!m_useGLLTracePoints,
+                 "The normal component is formed on the elements' own trace "
+                 "points, not the Gauss-Lobatto ones.");
+        ASSERTL1(in.GetNumComponents() ==
+                     out.GetNumComponents() *
+                         this->m_expansionList->GetCoordim(0),
+                 "The input needs one component per output component and "
+                 "coordinate direction");
+        bool needsScratch = false;
+        for (const auto &blockOp : this->m_blockOp)
+        {
+            needsScratch |= blockOp->NormalComponentNeedsScratch();
+        }
+        if (needsScratch &&
+            (!m_normalScratch ||
+             m_normalScratch.GetNumComponents() != in.GetNumComponents()))
+        {
+            m_normalScratch = LibUtilities::Field<TData, FieldState::Phys>(
+                "PhysTraceExtract normal component",
+                GetLocTraceBlockAttributes<TData, FieldState::Phys>(
+                    this->m_expansionList, 1, m_useGLLTracePoints),
+                in.GetNumComponents(), 1);
+        }
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->ApplyNormalComponent(
+                in.GetBlocks()[blk],
+                needsScratch ? &m_normalScratch.GetBlocks()[blk] : nullptr,
+                out.GetBlocks()[blk]);
+        }
+    }
+
+    /**
      * @brief Extract onto the Gauss-Lobatto trace points rather than the
      * element's own.
      *
@@ -369,6 +414,7 @@ public:
      */
     void SetUseGLLTracePoints(const bool useGLLTracePoints)
     {
+        m_useGLLTracePoints = useGLLTracePoints;
         // Loop over the blocks.
         for (unsigned blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
@@ -380,6 +426,12 @@ protected:
     /// One block operator per element block of the expansion list;
     /// populated by ElmtOp::Create().
     std::vector<std::shared_ptr<PhysTraceExtractBlockOp<TData>>> m_blockOp;
+    /// The trace quadrature the blocks interpolate onto; see
+    /// SetUseGLLTracePoints().
+    bool m_useGLLTracePoints = false;
+    /// Every component's trace for ApplyNormalComponent(), for the block
+    /// implementations that extract them before contracting.
+    LibUtilities::Field<TData, FieldState::Phys> m_normalScratch;
 
     /**
      * @brief Construct the interface part of a concrete implementation;

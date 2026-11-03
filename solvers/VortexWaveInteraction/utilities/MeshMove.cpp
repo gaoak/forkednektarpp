@@ -33,6 +33,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -770,7 +771,7 @@ int main(int argc, char *argv[])
             int qp_closer  = 0;
             for (int k = 0; k < nvertl; k++)
             {
-                if (abs(x - xold_up[k]) < diff)
+                if (std::abs(x - xold_up[k]) < diff)
                 {
                     diff      = abs(x - xold_up[k]);
                     qp_closer = k;
@@ -966,7 +967,7 @@ int main(int argc, char *argv[])
                 incratio = (ycedgeQ[u + 1] - ycedgeQ[u]) /
                            (xcedgeQ[u + 1] - xcedgeQ[u]);
                 cout << "incratio=" << incratio << endl;
-                if (abs(incratio) > 4.0 && evaluatetan == false)
+                if (std::abs(incratio) > 4.0 && evaluatetan == false)
                 {
                     cout << "wrong=" << wrong << endl;
                     evaluatetan = true;
@@ -1262,7 +1263,7 @@ int main(int argc, char *argv[])
                     +a],4,Pxinterp,Pyinterp  );
                     */
                     // nx=-(1-ny*ny){1/2} the normal is DOWNWARDS!!!
-                    nxPhys[k * npedge + a] = -sqrt(abs(
+                    nxPhys[k * npedge + a] = -sqrt(std::abs(
                         1 - nyPhys[k * npedge + a] * nyPhys[k * npedge + a]));
                     /*
                     //(put the middle points as quad points)
@@ -1641,7 +1642,7 @@ int main(int argc, char *argv[])
                     nyinterp = LagrangeInterpolant(xctmp, 4, closex, closeny);
 
                     // calc nxinterp
-                    nxinterp = sqrt(abs(1 - nyinterp * nyinterp));
+                    nxinterp = sqrt(std::abs(1 - nyinterp * nyinterp));
 
                     // generata neighbour arrays (yc)
                     GenerateNeighbourArrays(index, 4, x_tmp, y_tmp, closex,
@@ -2148,7 +2149,7 @@ void Computestreakpositions(int npoints, MultiRegions::ExpListSharedPtr streak,
         attempt = 0;
         ytmp    = coord[1];
         // cout<<"start guess:  x="<<xc[e]<<"    y="<<yc[e]<<endl;
-        while (abs(F) > 0.000000001)
+        while (std::abs(F) > 0.000000001)
         {
 
             elmtid = streak->GetExpIndex(coord, 0.00001);
@@ -2158,14 +2159,14 @@ void Computestreakpositions(int npoints, MultiRegions::ExpListSharedPtr streak,
             // cout<<"elmtid="<<elmtid<<"  x="<<coord[0]<<"   y="<<coord[1]<<"
             // stvalue="<<U<<"   dU="<<dU<<endl;
 
-            if ((abs(coord[1]) > 1 || elmtid == -1) && attempt == 0 &&
+            if ((std::abs(coord[1]) > 1 || elmtid == -1) && attempt == 0 &&
                 verts == true)
             {
                 // try the old crit lay position:
                 coord[1] = yold_c[e];
                 attempt++;
             }
-            else if ((abs(coord[1]) > 1 || elmtid == -1))
+            else if ((std::abs(coord[1]) > 1 || elmtid == -1))
             {
                 coord[1]       = ytmp + 0.01;
                 elmtid         = streak->GetExpIndex(coord, 0.001);
@@ -2175,7 +2176,8 @@ void Computestreakpositions(int npoints, MultiRegions::ExpListSharedPtr streak,
                 NekDouble dUtmp = streak->GetExp(elmtid)->PhysEvaluate(
                     coord, derstreak + offset);
                 coord[1] = coord[1] - (Utmp - cr) / dUtmp;
-                if ((abs(Utmp - cr) > abs(F)) || (abs(coord[1]) > 1))
+                if ((std::abs(Utmp - cr) > std::abs(F)) ||
+                    (std::abs(coord[1]) > 1))
                 {
                     coord[1] = ytmp - 0.01;
                 }
@@ -2184,7 +2186,7 @@ void Computestreakpositions(int npoints, MultiRegions::ExpListSharedPtr streak,
             }
             else
             {
-                ASSERTL0(abs(coord[1]) <= 1, " y value out of bound +/-1");
+                ASSERTL0(std::abs(coord[1]) <= 1, " y value out of bound +/-1");
             }
             offset = streak->GetPhys_Offset(elmtid);
             U = streak->GetExp(elmtid)->PhysEvaluate(coord, streak->GetPhys() +
@@ -2240,7 +2242,7 @@ void GenerateAddPointsNewtonIt(NekDouble xi, NekDouble yi, NekDouble &xout,
     int attempt    = 0;
     int its        = 0;
     NekDouble ytmp = coords[1];
-    while (abs(F) > 0.00000001)
+    while (std::abs(F) > 0.00000001)
     {
 
         // cout<<"generate newton it xi="<<xi<<"  yi="<<yi<<endl;
@@ -2249,7 +2251,7 @@ void GenerateAddPointsNewtonIt(NekDouble xi, NekDouble yi, NekDouble &xout,
         cout << "gen newton xi=" << xi << "  yi=" << coords[1]
              << "  elmtid=" << elmtid << "  F=" << F << endl;
 
-        if ((abs(coords[1]) > 1 || elmtid == -1))
+        if ((std::abs(coords[1]) > 1 || elmtid == -1))
         {
 
             coords[1]      = ytmp + 0.01;
@@ -2261,21 +2263,22 @@ void GenerateAddPointsNewtonIt(NekDouble xi, NekDouble yi, NekDouble &xout,
                 coords, derfunction + offset);
             coords[1] = coords[1] - (Utmp - cr) / dUtmp;
             cout << "attempt:" << coords[1] << endl;
-            if ((abs(Utmp - cr) > abs(F)) || (abs(coords[1]) > 1.01))
+            if ((std::abs(Utmp - cr) > std::abs(F)) ||
+                (std::abs(coords[1]) > 1.01))
             {
                 coords[1] = ytmp - 0.01;
             }
 
             attempt++;
         }
-        else if (abs(coords[1]) < 1.01 && attempt == 0)
+        else if (std::abs(coords[1]) < 1.01 && attempt == 0)
         {
             coords[1] = 1.0;
             attempt++;
         }
         else
         {
-            ASSERTL0(abs(coords[1]) <= 1.00, " y value out of bound +/-1");
+            ASSERTL0(std::abs(coords[1]) <= 1.00, " y value out of bound +/-1");
         }
         offset = function->GetPhys_Offset(elmtid);
         U = function->GetExp(elmtid)->PhysEvaluate(coords, function->GetPhys() +
@@ -2596,9 +2599,9 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                                      (normtmp * normbef)) -
                                     1)
                              << endl;
-                        if (abs((xtmp * xbef + ytmp * ybef) /
-                                    (normtmp * normbef) -
-                                1) < diff &&
+                        if (std::abs((xtmp * xbef + ytmp * ybef) /
+                                         (normtmp * normbef) -
+                                     1) < diff &&
                             y2 <= yoldup[g + 1] && y2 >= yolddown[g + 1] &&
                             y1 <= yoldup[g] && y1 >= yolddown[g])
                         {
@@ -2636,9 +2639,9 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                                      (normtmp * normbef)) -
                                     1)
                              << endl;
-                        if (abs((xtmp * xbef + ytmp * ybef) /
-                                    (normtmp * normbef) -
-                                1) < diff &&
+                        if (std::abs((xtmp * xbef + ytmp * ybef) /
+                                         (normtmp * normbef) -
+                                     1) < diff &&
                             y2 <= yoldup[g] && y2 >= yolddown[g] &&
                             y1 <= yoldup[g + 1] && y1 >= yolddown[g + 1])
                         {
@@ -3387,7 +3390,7 @@ void MoveOutsidePointsfixedxpos(
 
         for (int k = 0; k < nvertl; k++)
         {
-            if (abs(x - xcold[k]) < tmp)
+            if (std::abs(x - xcold[k]) < tmp)
             {
                 tmp       = abs(x - xcold[k]);
                 qp_closer = k;
@@ -3502,12 +3505,12 @@ void MoveOutsidePointsNnormpos(
 
         for (int k = 0; k < nvertl; k++)
         {
-            if (abs(x - xolddown[k]) < diffdown)
+            if (std::abs(x - xolddown[k]) < diffdown)
             {
                 diffdown         = abs(x - xolddown[k]);
                 qp_closerolddown = k;
             }
-            if (abs(x - xoldup[k]) < diffup)
+            if (std::abs(x - xoldup[k]) < diffup)
             {
                 diffup         = abs(x - xoldup[k]);
                 qp_closeroldup = k;
@@ -3522,12 +3525,12 @@ void MoveOutsidePointsNnormpos(
 
         for (int f = 0; f < nvertl; f++)
         {
-            if (abs(x - xnew_down[f]) < diffdown)
+            if (std::abs(x - xnew_down[f]) < diffdown)
             {
                 diffdown      = abs(x - xnew_down[f]);
                 qp_closerdown = f;
             }
-            if (abs(x - xnew_up[f]) < diffup)
+            if (std::abs(x - xnew_up[f]) < diffup)
             {
                 diffup      = abs(x - xnew_up[f]);
                 qp_closerup = f;
@@ -3777,7 +3780,7 @@ void CheckSingularQuads(MultiRegions::ExpListSharedPtr Exp, Array<OneD, int> V1,
                         xnew[V1[idnext]] = xnew[V1[idnext]] - 0.01;
                         slopenew = (yV2 - yV1) / (xV2 - xnew[V1[idnext]]);
 
-                        if (abs(slopebef - slopenew) <
+                        if (std::abs(slopebef - slopenew) <
                             abs(slopebef - slopenext))
                         {
                             xnew[V1[idnext]] = xnew[V1[idnext]] + 0.02;
@@ -3808,7 +3811,7 @@ void CheckSingularQuads(MultiRegions::ExpListSharedPtr Exp, Array<OneD, int> V1,
                         xnew[V2[idnext]] = xnew[V2[idnext]] - 0.01;
                         slopenew = (yV2 - yV1) / (xV2 - xnew[V2[idnext]]);
 
-                        if (abs(slopebef - slopenew) <
+                        if (std::abs(slopebef - slopenew) <
                             abs(slopebef - slopenext))
                         {
                             xnew[V2[idnext]] = xnew[V2[idnext]] + 0.02;
@@ -3839,7 +3842,7 @@ void CheckSingularQuads(MultiRegions::ExpListSharedPtr Exp, Array<OneD, int> V1,
                         xnew[V2[idnext]] = xnew[V2[idnext]] - 0.01;
                         slopenew = (yV2 - yV1) / (xV2 - xnew[V2[idnext]]);
 
-                        if (abs(slopebef - slopenew) <
+                        if (std::abs(slopebef - slopenew) <
                             abs(slopebef - slopenext))
                         {
                             xnew[V2[idnext]] = xnew[V2[idnext]] + 0.02;
@@ -3870,7 +3873,7 @@ void CheckSingularQuads(MultiRegions::ExpListSharedPtr Exp, Array<OneD, int> V1,
                         xnew[V1[idnext]] = xnew[V1[idnext]] - 0.01;
                         slopenew = (yV2 - yV1) / (xV2 - xnew[V1[idnext]]);
 
-                        if (abs(slopebef - slopenew) <
+                        if (std::abs(slopebef - slopenew) <
                             abs(slopebef - slopenext))
                         {
                             xnew[V1[idnext]] = xnew[V1[idnext]] + 0.02;

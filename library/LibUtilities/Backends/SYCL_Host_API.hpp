@@ -37,6 +37,8 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 #include "LibUtilities/Backends/SYCLQueue.hpp"
 
+#include <vector>
+
 namespace Nektar
 {
 
@@ -70,6 +72,30 @@ static void inline setSYCLDefaultExecutionDependency(
         // Tasks in "non-default" queue depend on the "default" queue.
         cgh.depends_on(SYCLQueue::GetEvent(0));
     }
+}
+
+// The dependencies of setSYCLDefaultExecutionDependency, as the list of events
+// a oneMath or oneMKL call takes.
+static inline std::vector<sycl::event> getSYCLDefaultExecutionDependencies(
+    const unsigned int streamID)
+{
+    std::vector<sycl::event> dependencies;
+    if (streamID == 0)
+    {
+        for (auto &item : SYCLQueue::GetAllEvents())
+        {
+            if (item.first != 0)
+            {
+                dependencies.push_back(item.second);
+            }
+        }
+    }
+    else
+    {
+        dependencies.push_back(SYCLQueue::GetEvent(0));
+    }
+
+    return dependencies;
 }
 
 // Kernel launcher on a one-dimensional GPU grid with shared memory provision.

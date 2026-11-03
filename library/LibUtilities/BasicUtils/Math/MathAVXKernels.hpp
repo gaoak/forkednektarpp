@@ -1464,6 +1464,51 @@ inline void daxpbypczKernel(const size_t nsize, const TData alpha,
     }
 }
 
+// z = sum_j alpha_j x_j over the terms, plus z itself if APPEND, in one pass
+// over z.
+template <typename ExecSpace, bool APPEND, typename TData,
+          std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
+              Enable = true>
+inline void linearCombinationKernel(
+    const size_t nsize, const LinearCombinationTerms<TData> &terms, TData *z,
+    [[maybe_unused]] const unsigned int streamID = 0)
+{
+    using namespace tinysimd;
+    using simd_t = simd<TData>;
+
+    size_t i = 0;
+
+    // Vectorized loop
+    for (; i + simd_t::width <= nsize; i += simd_t::width)
+    {
+        simd_t acc = TData(0);
+        if constexpr (APPEND)
+        {
+            acc.load(z + i, is_aligned);
+        }
+
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            simd_t xChunk;
+            xChunk.load(terms.x[j] + i, is_aligned);
+            acc.fma(xChunk, terms.alpha[j]);
+        }
+
+        acc.store(z + i, is_aligned);
+    }
+
+    // spillover loop
+    for (; i < nsize; ++i)
+    {
+        TData acc = APPEND ? z[i] : TData(0);
+        for (unsigned int j = 0; j < terms.n; ++j)
+        {
+            acc += terms.alpha[j] * terms.x[j][i];
+        }
+        z[i] = acc;
+    }
+}
+
 template <typename ExecSpace, bool init, typename TData,
           std::enable_if_t<std::is_same_v<ExecSpace, NektarSpaces::AVX>, bool>
               Enable = true>

@@ -33,6 +33,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <cmath>
+
 #include <LibUtilities/BasicUtils/Likwid.hpp>
 #include <LibUtilities/LinearAlgebra/NekLinSysIterGMRES.h>
 
@@ -637,7 +639,7 @@ void NekLinSysIterGMRES::DoGivensRotation(const int starttem, const int endtem,
         c[idtem] = 1.0;
         s[idtem] = 0.0;
     }
-    else if (abs(hh) > abs(dd))
+    else if (std::abs(hh) > std::abs(dd))
     {
         dbl      = -dd / hh;
         s[idtem] = 1.0 / sqrt(1.0 + dbl * dbl);

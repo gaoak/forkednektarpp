@@ -158,5 +158,16 @@
             <PARAM NAME="OutputFile">checkpoint</PARAM>
             <PARAM NAME="OutputFrequency">2</PARAM>
         </FILTER>
+        <FILTER TYPE="HistoryPoints">
+            <PARAM NAME="OutputFile">KovasznayFlow2D_history</PARAM>
+            <PARAM NAME="OutputFrequency">5</PARAM>
+            <PARAM NAME="OutputOneFile">false</PARAM>
+            <PARAM NAME="line">2,0.0,0.0,0.75,1.0</PARAM>
+        </FILTER>
+        <FILTER TYPE="AeroForces">
+            <PARAM NAME="Boundary">B[1]</PARAM>
+            <PARAM NAME="OutputFile">KovasznayFlow2D_forces</PARAM>
+            <PARAM NAME="OutputFrequency">1</PARAM>
+        </FILTER>
     </FILTERS>
 </NEKTAR>

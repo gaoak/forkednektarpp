@@ -66,7 +66,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionBlockOp.hpp>
 
 #if defined(SYCL_ENABLE_CPU)
@@ -343,6 +343,27 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
+    }
+
+    /**
+     * @brief Whether every unmasked expression of @p exprs compiles into
+     * the kernel (see IsDeviceExpression()).
+     */
+    bool v_IsAvailable(const std::vector<LibUtilities::EquationSharedPtr>
+                           &exprs) const override
+    {
+        for (unsigned int nc = 0; nc < exprs.size(); ++nc)
+        {
+            const std::string expr = exprs[nc]->GetExpression();
+            if ((nc >= this->m_cmask.size() || this->m_cmask[nc]) &&
+                !IsDeviceExpression(this->GetExpressionVariables(expr),
+                                    this->GetExpressionFunctions(expr),
+                                    m_coordDim))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

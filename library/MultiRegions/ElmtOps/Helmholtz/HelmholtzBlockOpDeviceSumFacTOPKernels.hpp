@@ -112,7 +112,7 @@ inline constexpr size_t HelmholtzWorkSpaceSize(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter1D,
+          typename TData, typename TSizeParameter1D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
@@ -122,11 +122,14 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
 {
     const unsigned int nq0 = sizeParam1D.nq0();
 
-    return 4 * nq0;
+    // Transposed differentiation matrices for SumDerivTensor.
+    const unsigned int nDT = nq0 * nq0;
+
+    return nDT + 4 * nq0;
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter2D,
+          typename TData, typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
@@ -134,32 +137,43 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     const TSizeParameter2D sizeParam2D)
 {
-    const unsigned int nm0 = sizeParam2D.nm0();
-    const unsigned int nm1 = sizeParam2D.nm1();
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
+    // Padding of the inner product's intermediate stage.
+    const unsigned int wspPadSize =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+
+    const unsigned int nm0   = sizeParam2D.nm0();
+    const unsigned int nm1   = sizeParam2D.nm1();
+    const unsigned int nq0   = sizeParam2D.nq0();
+    const unsigned int nq1   = sizeParam2D.nq1();
+    const unsigned int nqTot = nq0 * nq1;
+
+    // Transposed differentiation matrices for SumDerivTensor.
+    const unsigned int nDT = nq0 * nq0 + nq1 * nq1;
+
+    // Metric and backward transform, each 16-byte aligned.
+    const unsigned int bwdSize = IProductWRTBaseAlignedSize<TData>(6) +
+                                 IProductWRTBaseAlignedSize<TData>(nqTot);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return nm0 * nq0 + nm1 * nq1 + 4 * nq0 * nq1 +
-               std::max(nq0 * nm1, nm0 * nq1) + 6;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam2D, 3u, std::max(nq0 * nm1, nm0 * nq1) + wspPadSize,
+                   0u);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
     {
         const unsigned int nmTot = sizeParam2D.nmTot();
 
-        return nm0 * nq0 + nmTot * nq1 + 4 * nq0 * nq1 + nm0 * nq1 + 6;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-    {
-        const unsigned int nmTot = sizeParam2D.nmTot();
-
-        return nm0 * nq0 + nmTot * nq1 + 4 * nq0 * nq1 + nm0 * nq1 + 6 + nmTot;
+        return nDT + bwdSize + nm0 * nq0 + nmTot * nq1 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam2D, 3u, nm0 * nq1 + wspPadSize, 0u);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          typename TSizeParameter3D,
+          typename TData, typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>
@@ -167,18 +181,32 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
 inline constexpr unsigned int HelmholtzSharedMemorySize(
     const TSizeParameter3D sizeParam3D)
 {
-    const unsigned int nm0 = sizeParam3D.nm0();
-    const unsigned int nm1 = sizeParam3D.nm1();
-    const unsigned int nm2 = sizeParam3D.nm2();
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
+    // Padding of the inner product's intermediate stages.
+    const unsigned int wspPadSize =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
+
+    const unsigned int nm0   = sizeParam3D.nm0();
+    const unsigned int nm1   = sizeParam3D.nm1();
+    const unsigned int nm2   = sizeParam3D.nm2();
+    const unsigned int nq0   = sizeParam3D.nq0();
+    const unsigned int nq1   = sizeParam3D.nq1();
+    const unsigned int nq2   = sizeParam3D.nq2();
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+
+    // Transposed differentiation matrices for SumDerivTensor.
+    const unsigned int nDT = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+
+    // Metric and backward transform, each 16-byte aligned.
+    const unsigned int bwdSize = IProductWRTBaseAlignedSize<TData>(9) +
+                                 IProductWRTBaseAlignedSize<TData>(nqTot);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + 4 * nq0 * nq1 * nq2 +
-               std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) +
-               std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2) + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 + nm2 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u,
+                   std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2) + wspPadSize,
+                   std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2) + wspPadSize);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
@@ -188,16 +216,20 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-        return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +
-               nm0 * nq1 * nq2 + nm01 * nq2 + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u, nm01 * nq2 + wspPadSize,
+                   nm0 * nq1 * nq2 + wspPadSize);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
 
-        return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + 4 * nq0 * nq1 * nq2 +
-               nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u, nm0 * nm1 * nq2 + wspPadSize,
+                   nm0 * nq1 * nq2 + wspPadSize);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
@@ -205,8 +237,10 @@ inline constexpr unsigned int HelmholtzSharedMemorySize(
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-        return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + 4 * nq0 * nq1 * nq2 +
-               nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 9;
+        return nDT + bwdSize + nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 +
+               IProductWRTBaseFusedDerivWorkSpaceSize<TData>(
+                   sizeParam3D, 3u, nm0 * nm1 * nq2 + wspPadSize,
+                   nm0 * nq1 * nq2 + wspPadSize);
     }
 }
 
@@ -317,27 +351,70 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacTOPKernel(
 }
 
 /**
- * @brief 2D TOP metric kernel applying diffusion tensor, metric terms and
- * lambda-weighted mass scaling.
+ * @brief Quadrature weight times Jacobian at one point of a
+ * two-dimensional element.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
-    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int inoffset, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT f0,
-    const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
-    const TData *NEK_RESTRICT in, TData *out0, TData *out1, TData *metric,
-    TData *NEK_RESTRICT bwd, const TData lambda,
-    const TthreadBlock &threadBlock)
+template <bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static TData QuadratureFactor2DSumFacTOP(
+    const unsigned int i, const unsigned int j,
+    [[maybe_unused]] const unsigned int idx, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac)
 {
-    const unsigned int nqTot  = nq0 * nq1;
-    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
+    TData tmpQ = w0[i] * w1[j];
+    if constexpr (DEFORMED)
+    {
+        tmpQ *= jac[idx];
+    }
+    else
+    {
+        tmpQ *= jac[0];
+    }
+    return tmpQ;
+}
 
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+/**
+ * @brief Quadrature weight times Jacobian at one point of a
+ * three-dimensional element.
+ */
+template <bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static TData QuadratureFactor3DSumFacTOP(
+    const unsigned int i, const unsigned int j, const unsigned int k,
+    [[maybe_unused]] const unsigned int idx, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac)
+{
+    TData tmpQ = w0[i] * w1[j] * w2[k];
+    if constexpr (DEFORMED)
+    {
+        tmpQ *= jac[idx];
+    }
+    else
+    {
+        tmpQ *= jac[0];
+    }
+    return tmpQ;
+}
 
+/**
+ * @brief Element-wide part of the stiffness metric, two dimensions: with
+ * derivative factors uniform over the element and a diffusion tensor,
+ * form the metric once in the shared @p metric and synchronise the block;
+ * otherwise the metric is formed per point by ApplyMetric2DPointSumFacTOP.
+ *
+ * @param   ncoord      Cartesian components (coordDim), 2 or 3.
+ * @param   df          Derivative factors of this element.
+ * @param   diffCoeff   Diffusion tensor, or null for the identity.
+ * @param   metric      Metric of the element.
+ * @param   threadBlock Thread-block handle supplying the barrier.
+ */
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void ApplyMetric2DSetupSumFacTOP(
+    [[maybe_unused]] const unsigned int ncoord,
+    [[maybe_unused]] const TData *NEK_RESTRICT df,
+    [[maybe_unused]] const TData *NEK_RESTRICT diffCoeff,
+    [[maybe_unused]] TData *metric,
+    [[maybe_unused]] const TthreadBlock &threadBlock)
+{
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
@@ -368,137 +445,19 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacTOPKernel(
             localBarrier(threadBlock);
         }
     }
-
-    for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
-    {
-        const unsigned int i       = idx % nq0;
-        const unsigned int j       = idx / nq0;
-        const unsigned int dfindex = DEFORMED ? idx : 0;
-
-        if constexpr (DEFORMED)
-        {
-            if (diffCoeff)
-            {
-                if (ncoord == 2)
-                {
-                    metric[0] = diffCoeff[0] * df[dfindex] +
-                                diffCoeff[1] * df[2 * dfsize + dfindex];
-                    metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
-                                diffCoeff[1] * df[3 * dfsize + dfindex];
-                    metric[2] = diffCoeff[1] * df[dfindex] +
-                                diffCoeff[2] * df[2 * dfsize + dfindex];
-                    metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
-                                diffCoeff[2] * df[3 * dfsize + dfindex];
-                }
-                else if (ncoord == 3)
-                {
-                    metric[0] = diffCoeff[0] * df[dfindex] +
-                                diffCoeff[1] * df[2 * dfsize + dfindex] +
-                                diffCoeff[3] * df[4 * dfsize + dfindex];
-                    metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
-                                diffCoeff[1] * df[3 * dfsize + dfindex] +
-                                diffCoeff[3] * df[5 * dfsize + dfindex];
-                    metric[2] = diffCoeff[1] * df[dfindex] +
-                                diffCoeff[2] * df[2 * dfsize + dfindex] +
-                                diffCoeff[4] * df[4 * dfsize + dfindex];
-                    metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
-                                diffCoeff[2] * df[3 * dfsize + dfindex] +
-                                diffCoeff[4] * df[5 * dfsize + dfindex];
-                    metric[4] = diffCoeff[3] * df[dfindex] +
-                                diffCoeff[4] * df[2 * dfsize + dfindex] +
-                                diffCoeff[5] * df[4 * dfsize + dfindex];
-                    metric[5] = diffCoeff[3] * df[1 * dfsize + dfindex] +
-                                diffCoeff[4] * df[3 * dfsize + dfindex] +
-                                diffCoeff[5] * df[5 * dfsize + dfindex];
-                }
-            }
-        }
-
-        TData sum1 = 0.0, sum2 = 0.0;
-        if (diffCoeff)
-        {
-            TData tmp = in[idx];
-            sum1 += metric[0u] * tmp;
-            sum2 += metric[1u] * tmp;
-            tmp = in[inoffset + idx];
-            sum1 += metric[2u] * tmp;
-            sum2 += metric[3u] * tmp;
-            if (ncoord == 3u)
-            {
-                tmp = in[2u * inoffset + idx];
-                sum1 += metric[4u] * tmp;
-                sum2 += metric[5u] * tmp;
-            }
-        }
-        else
-        {
-            TData tmp = in[idx];
-            sum1 += df[0u * dfsize + dfindex] * tmp;
-            sum2 += df[1u * dfsize + dfindex] * tmp;
-            tmp = in[inoffset + idx];
-            sum1 += df[2u * dfsize + dfindex] * tmp;
-            sum2 += df[3u * dfsize + dfindex] * tmp;
-            if (ncoord == 3u)
-            {
-                tmp = in[2u * inoffset + idx];
-                sum1 += df[4u * dfsize + dfindex] * tmp;
-                sum2 += df[5u * dfsize + dfindex] * tmp;
-            }
-        }
-
-        TData tmpQ = w0[i] * w1[j];
-        if constexpr (DEFORMED)
-        {
-            tmpQ *= jac[idx];
-        }
-        else
-        {
-            tmpQ *= jac[0];
-        }
-
-        bwd[idx] *= lambda * tmpQ;
-
-        // Moving from standard to collapsed coordinates.
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            out0[idx] = sum1 * tmpQ;
-            out1[idx] = sum2 * tmpQ;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
-                           SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            out0[idx] = (sum1 + sum2 * f0[i]) * f1[j] * tmpQ;
-            out1[idx] = sum2 * tmpQ;
-        }
-    }
-
-    localBarrier(threadBlock);
 }
 
 /**
- * @brief 3D TOP metric kernel applying diffusion tensor, metric terms and
- * lambda-weighted mass scaling.
+ * @brief Element-wide part of the stiffness metric, three dimensions; see
+ * ApplyMetric2DSetupSumFacTOP.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int inoffset, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
-    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
-    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT diffCoeff, const TData *NEK_RESTRICT in,
-    TData *out0, TData *out1, TData *out2, TData *metric,
-    TData *NEK_RESTRICT bwd, const TData lambda,
-    const TthreadBlock &threadBlock)
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void ApplyMetric3DSetupSumFacTOP(
+    [[maybe_unused]] const TData *NEK_RESTRICT df,
+    [[maybe_unused]] const TData *NEK_RESTRICT diffCoeff,
+    [[maybe_unused]] TData *metric,
+    [[maybe_unused]] const TthreadBlock &threadBlock)
 {
-    const unsigned int nqTot  = nq0 * nq1 * nq2;
-    const unsigned int dfsize = DEFORMED ? nqTot : 1u;
-
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
     if constexpr (!DEFORMED)
     {
         if (diffCoeff)
@@ -525,123 +484,432 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacTOPKernel(
             localBarrier(threadBlock);
         }
     }
+}
 
-    for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
+/**
+ * @brief Stiffness flux at one point, two dimensions: turn the point's
+ * Cartesian derivatives into the fluxes SumDerivTensor2DSumFacTOPKernel
+ * contracts, through the diffusion tensor and derivative factors, the
+ * quadrature weight and Jacobian, and the collapsed-coordinate factors of
+ * a triangle.
+ *
+ * @tparam SHAPE_TYPE   Quad, Tri or NodalTri.
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TData        Floating-point type of the field data.
+ *
+ * @param   ncoord      Cartesian components (coordDim), 2 or 3.
+ * @param   nqTot       Quadrature points of the element.
+ * @param   i,j         The point's index in each direction.
+ * @param   idx         The point's flat index.
+ * @param   w0,w1       Quadrature weights per direction.
+ * @param   f0,f1       Collapsed-coordinate factors (triangles only).
+ * @param   df          Derivative factors of this element.
+ * @param   jac         Jacobian of this element.
+ * @param   diffCoeff   Diffusion tensor, or null for the identity.
+ * @param   metric      Metric of the element, formed here per point when
+ *                      DEFORMED.
+ * @param   deriv       The point's Cartesian derivatives.
+ * @param   flux        The point's fluxes.
+ *
+ * @return The point's quadrature weight times Jacobian.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static TData ApplyMetric2DPointSumFacTOP(
+    const unsigned int ncoord, const unsigned int nqTot, const unsigned int i,
+    const unsigned int j, const unsigned int idx, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
+    TData *metric, const TData (&deriv)[3], TData (&flux)[2])
+{
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int dfindex = DEFORMED ? idx : 0;
+
+    if constexpr (DEFORMED)
     {
-        const unsigned int i       = idx % nq0;
-        const unsigned int j       = (idx / nq0) % nq1;
-        const unsigned int k       = idx / (nq0 * nq1);
-        const unsigned int dfindex = DEFORMED ? idx : 0;
-
-        if constexpr (DEFORMED)
-        {
-            if (diffCoeff)
-            {
-                metric[0] = diffCoeff[0] * df[dfindex] +
-                            diffCoeff[1] * df[3 * dfsize + dfindex] +
-                            diffCoeff[3] * df[6 * dfsize + dfindex];
-                metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
-                            diffCoeff[1] * df[4 * dfsize + dfindex] +
-                            diffCoeff[3] * df[7 * dfsize + dfindex];
-                metric[2] = diffCoeff[0] * df[2 * dfsize + dfindex] +
-                            diffCoeff[1] * df[5 * dfsize + dfindex] +
-                            diffCoeff[3] * df[8 * dfsize + dfindex];
-                metric[3] = diffCoeff[1] * df[dfindex] +
-                            diffCoeff[2] * df[3 * dfsize + dfindex] +
-                            diffCoeff[4] * df[6 * dfsize + dfindex];
-                metric[4] = diffCoeff[1] * df[1 * dfsize + dfindex] +
-                            diffCoeff[2] * df[4 * dfsize + dfindex] +
-                            diffCoeff[4] * df[7 * dfsize + dfindex];
-                metric[5] = diffCoeff[1] * df[2 * dfsize + dfindex] +
-                            diffCoeff[2] * df[5 * dfsize + dfindex] +
-                            diffCoeff[4] * df[8 * dfsize + dfindex];
-                metric[6] = diffCoeff[3] * df[dfindex] +
-                            diffCoeff[4] * df[3 * dfsize + dfindex] +
-                            diffCoeff[5] * df[6 * dfsize + dfindex];
-                metric[7] = diffCoeff[3] * df[1 * dfsize + dfindex] +
-                            diffCoeff[4] * df[4 * dfsize + dfindex] +
-                            diffCoeff[5] * df[7 * dfsize + dfindex];
-                metric[8] = diffCoeff[3] * df[2 * dfsize + dfindex] +
-                            diffCoeff[4] * df[5 * dfsize + dfindex] +
-                            diffCoeff[5] * df[8 * dfsize + dfindex];
-            }
-        }
-
-        TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
         if (diffCoeff)
         {
-            TData tmp = in[idx];
-            sum1 += metric[0u] * tmp;
-            sum2 += metric[1u] * tmp;
-            sum3 += metric[2u] * tmp;
-            tmp = in[inoffset + idx];
-            sum1 += metric[3u] * tmp;
-            sum2 += metric[4u] * tmp;
-            sum3 += metric[5u] * tmp;
-            tmp = in[2u * inoffset + idx];
-            sum1 += metric[6u] * tmp;
-            sum2 += metric[7u] * tmp;
-            sum3 += metric[8u] * tmp;
-        }
-        else
-        {
-            TData tmp = in[idx];
-            sum1 += df[0u * dfsize + dfindex] * tmp;
-            sum2 += df[1u * dfsize + dfindex] * tmp;
-            sum3 += df[2u * dfsize + dfindex] * tmp;
-            tmp = in[inoffset + idx];
-            sum1 += df[3u * dfsize + dfindex] * tmp;
-            sum2 += df[4u * dfsize + dfindex] * tmp;
-            sum3 += df[5u * dfsize + dfindex] * tmp;
-            tmp = in[2u * inoffset + idx];
-            sum1 += df[6u * dfsize + dfindex] * tmp;
-            sum2 += df[7u * dfsize + dfindex] * tmp;
-            sum3 += df[8u * dfsize + dfindex] * tmp;
-        }
-
-        TData tmpQ = w0[i] * w1[j] * w2[k];
-        if constexpr (DEFORMED)
-        {
-            tmpQ *= jac[idx];
-        }
-        else
-        {
-            tmpQ *= jac[0];
-        }
-
-        bwd[idx] *= lambda * tmpQ;
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            out0[idx] = sum1 * tmpQ;
-            out1[idx] = sum2 * tmpQ;
-            out2[idx] = sum3 * tmpQ;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                           SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            TData tmp = f2[k] * tmpQ;
-            out0[idx] = (sum1 + (sum2 + sum3) * f0[i]) * f1m[j] * tmp;
-            out1[idx] = (sum2 + sum3 * f1[j]) * tmp;
-            out2[idx] = sum3 * tmpQ;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            out0[idx] = (sum1 + sum3 * f0[i]) * f2[k] * tmpQ;
-            out1[idx] = sum2 * tmpQ;
-            out2[idx] = sum3 * tmpQ;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            TData tmp = f2[k] * tmpQ;
-            out0[idx] = (sum1 + sum3 * f0[i]) * tmp;
-            out1[idx] = (sum2 + sum3 * f1[j]) * tmp;
-            out2[idx] = sum3 * tmpQ;
+            if (ncoord == 2)
+            {
+                metric[0] = diffCoeff[0] * df[dfindex] +
+                            diffCoeff[1] * df[2 * dfsize + dfindex];
+                metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
+                            diffCoeff[1] * df[3 * dfsize + dfindex];
+                metric[2] = diffCoeff[1] * df[dfindex] +
+                            diffCoeff[2] * df[2 * dfsize + dfindex];
+                metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                            diffCoeff[2] * df[3 * dfsize + dfindex];
+            }
+            else if (ncoord == 3)
+            {
+                metric[0] = diffCoeff[0] * df[dfindex] +
+                            diffCoeff[1] * df[2 * dfsize + dfindex] +
+                            diffCoeff[3] * df[4 * dfsize + dfindex];
+                metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
+                            diffCoeff[1] * df[3 * dfsize + dfindex] +
+                            diffCoeff[3] * df[5 * dfsize + dfindex];
+                metric[2] = diffCoeff[1] * df[dfindex] +
+                            diffCoeff[2] * df[2 * dfsize + dfindex] +
+                            diffCoeff[4] * df[4 * dfsize + dfindex];
+                metric[3] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                            diffCoeff[2] * df[3 * dfsize + dfindex] +
+                            diffCoeff[4] * df[5 * dfsize + dfindex];
+                metric[4] = diffCoeff[3] * df[dfindex] +
+                            diffCoeff[4] * df[2 * dfsize + dfindex] +
+                            diffCoeff[5] * df[4 * dfsize + dfindex];
+                metric[5] = diffCoeff[3] * df[1 * dfsize + dfindex] +
+                            diffCoeff[4] * df[3 * dfsize + dfindex] +
+                            diffCoeff[5] * df[5 * dfsize + dfindex];
+            }
         }
     }
 
+    TData sum1 = 0.0, sum2 = 0.0;
+    if (diffCoeff)
+    {
+        TData tmp = deriv[0];
+        sum1 += metric[0u] * tmp;
+        sum2 += metric[1u] * tmp;
+        tmp = deriv[1];
+        sum1 += metric[2u] * tmp;
+        sum2 += metric[3u] * tmp;
+        if (ncoord == 3u)
+        {
+            tmp = deriv[2];
+            sum1 += metric[4u] * tmp;
+            sum2 += metric[5u] * tmp;
+        }
+    }
+    else
+    {
+        TData tmp = deriv[0];
+        sum1 += df[0u * dfsize + dfindex] * tmp;
+        sum2 += df[1u * dfsize + dfindex] * tmp;
+        tmp = deriv[1];
+        sum1 += df[2u * dfsize + dfindex] * tmp;
+        sum2 += df[3u * dfsize + dfindex] * tmp;
+        if (ncoord == 3u)
+        {
+            tmp = deriv[2];
+            sum1 += df[4u * dfsize + dfindex] * tmp;
+            sum2 += df[5u * dfsize + dfindex] * tmp;
+        }
+    }
+
+    const TData tmpQ =
+        QuadratureFactor2DSumFacTOP<DEFORMED>(i, j, idx, w0, w1, jac);
+
+    // Moving from standard to collapsed coordinates.
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        flux[0] = sum1 * tmpQ;
+        flux[1] = sum2 * tmpQ;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        flux[0] = (sum1 + sum2 * f0[i]) * f1[j] * tmpQ;
+        flux[1] = sum2 * tmpQ;
+    }
+
+    return tmpQ;
+}
+
+/**
+ * @brief Stiffness flux at one point, three dimensions; see
+ * ApplyMetric2DPointSumFacTOP.
+ *
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ *
+ * @return The point's quadrature weight times Jacobian.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static TData ApplyMetric3DPointSumFacTOP(
+    const unsigned int nqTot, const unsigned int i, const unsigned int j,
+    const unsigned int k, const unsigned int idx, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    [[maybe_unused]] const TData *NEK_RESTRICT f0,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1,
+    [[maybe_unused]] const TData *NEK_RESTRICT f1m,
+    [[maybe_unused]] const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
+    TData *metric, const TData (&deriv)[3], TData (&flux)[3])
+{
+    const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
+    const unsigned int dfindex = DEFORMED ? idx : 0;
+
+    if constexpr (DEFORMED)
+    {
+        if (diffCoeff)
+        {
+            metric[0] = diffCoeff[0] * df[dfindex] +
+                        diffCoeff[1] * df[3 * dfsize + dfindex] +
+                        diffCoeff[3] * df[6 * dfsize + dfindex];
+            metric[1] = diffCoeff[0] * df[1 * dfsize + dfindex] +
+                        diffCoeff[1] * df[4 * dfsize + dfindex] +
+                        diffCoeff[3] * df[7 * dfsize + dfindex];
+            metric[2] = diffCoeff[0] * df[2 * dfsize + dfindex] +
+                        diffCoeff[1] * df[5 * dfsize + dfindex] +
+                        diffCoeff[3] * df[8 * dfsize + dfindex];
+            metric[3] = diffCoeff[1] * df[dfindex] +
+                        diffCoeff[2] * df[3 * dfsize + dfindex] +
+                        diffCoeff[4] * df[6 * dfsize + dfindex];
+            metric[4] = diffCoeff[1] * df[1 * dfsize + dfindex] +
+                        diffCoeff[2] * df[4 * dfsize + dfindex] +
+                        diffCoeff[4] * df[7 * dfsize + dfindex];
+            metric[5] = diffCoeff[1] * df[2 * dfsize + dfindex] +
+                        diffCoeff[2] * df[5 * dfsize + dfindex] +
+                        diffCoeff[4] * df[8 * dfsize + dfindex];
+            metric[6] = diffCoeff[3] * df[dfindex] +
+                        diffCoeff[4] * df[3 * dfsize + dfindex] +
+                        diffCoeff[5] * df[6 * dfsize + dfindex];
+            metric[7] = diffCoeff[3] * df[1 * dfsize + dfindex] +
+                        diffCoeff[4] * df[4 * dfsize + dfindex] +
+                        diffCoeff[5] * df[7 * dfsize + dfindex];
+            metric[8] = diffCoeff[3] * df[2 * dfsize + dfindex] +
+                        diffCoeff[4] * df[5 * dfsize + dfindex] +
+                        diffCoeff[5] * df[8 * dfsize + dfindex];
+        }
+    }
+
+    TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
+    if (diffCoeff)
+    {
+        TData tmp = deriv[0];
+        sum1 += metric[0u] * tmp;
+        sum2 += metric[1u] * tmp;
+        sum3 += metric[2u] * tmp;
+        tmp = deriv[1];
+        sum1 += metric[3u] * tmp;
+        sum2 += metric[4u] * tmp;
+        sum3 += metric[5u] * tmp;
+        tmp = deriv[2];
+        sum1 += metric[6u] * tmp;
+        sum2 += metric[7u] * tmp;
+        sum3 += metric[8u] * tmp;
+    }
+    else
+    {
+        TData tmp = deriv[0];
+        sum1 += df[0u * dfsize + dfindex] * tmp;
+        sum2 += df[1u * dfsize + dfindex] * tmp;
+        sum3 += df[2u * dfsize + dfindex] * tmp;
+        tmp = deriv[1];
+        sum1 += df[3u * dfsize + dfindex] * tmp;
+        sum2 += df[4u * dfsize + dfindex] * tmp;
+        sum3 += df[5u * dfsize + dfindex] * tmp;
+        tmp = deriv[2];
+        sum1 += df[6u * dfsize + dfindex] * tmp;
+        sum2 += df[7u * dfsize + dfindex] * tmp;
+        sum3 += df[8u * dfsize + dfindex] * tmp;
+    }
+
+    const TData tmpQ =
+        QuadratureFactor3DSumFacTOP<DEFORMED>(i, j, k, idx, w0, w1, w2, jac);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        flux[0] = sum1 * tmpQ;
+        flux[1] = sum2 * tmpQ;
+        flux[2] = sum3 * tmpQ;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        TData tmp = f2[k] * tmpQ;
+        flux[0]   = (sum1 + (sum2 + sum3) * f0[i]) * f1m[j] * tmp;
+        flux[1]   = (sum2 + sum3 * f1[j]) * tmp;
+        flux[2]   = sum3 * tmpQ;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        flux[0] = (sum1 + sum3 * f0[i]) * f2[k] * tmpQ;
+        flux[1] = sum2 * tmpQ;
+        flux[2] = sum3 * tmpQ;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        TData tmp = f2[k] * tmpQ;
+        flux[0]   = (sum1 + sum3 * f0[i]) * tmp;
+        flux[1]   = (sum2 + sum3 * f1[j]) * tmp;
+        flux[2]   = sum3 * tmpQ;
+    }
+
+    return tmpQ;
+}
+
+/**
+ * @brief Fused stiffness stage, two dimensions: at each point the
+ * Cartesian derivatives of @p in stay in registers and become the fluxes
+ * @p out0 and @p out1 that SumDerivTensor2DSumFacTOPKernel contracts.
+ *
+ * Replaces PhysDeriv2DSumFacTOPKernel followed by a separate metric stage,
+ * which staged the derivatives through shared memory and synchronised in
+ * between. Ends with a block barrier.
+ *
+ * @tparam SHAPE_TYPE   Quad, Tri or NodalTri.
+ * @tparam DEFORMED     Derivative factors vary point by point.
+ * @tparam TthreadBlock Thread-block handle type.
+ * @tparam TData        Floating-point type of the field data.
+ *
+ * @param   ncoord      Cartesian components (coordDim), 2 or 3.
+ * @param   nq0,nq1     Quadrature points per direction.
+ * @param   D0,D1       1D differentiation matrices, column-major.
+ * @param   w0,w1       Quadrature weights per direction.
+ * @param   f0,f1       Collapsed-coordinate factors (triangles only).
+ * @param   df          Derivative factors of this element.
+ * @param   jac         Jacobian of this element.
+ * @param   diffCoeff   Diffusion tensor, or null for the identity.
+ * @param   in          Values of this element in shared memory.
+ * @param   out0,out1   Fluxes in shared memory.
+ * @param   metric      Metric of the element: shared when uniform, a
+ *                      per-thread array when DEFORMED.
+ * @param   threadBlock Thread-block handle.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivApplyMetric2DSumFacTOPKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT diffCoeff, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out0, TData *NEK_RESTRICT out1, TData *metric,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int nqTot = nq0 * nq1;
+
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    ApplyMetric2DSetupSumFacTOP<DEFORMED>(ncoord, df, diffCoeff, metric,
+                                          threadBlock);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    {
+        const unsigned int i = idx % nq0;
+        const unsigned int j = idx / nq0;
+
+        TData deriv[3] = {};
+        PhysDeriv2DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            ncoord, nq0, nq1, i, j, idx, D0, D1, f0, f1, df, in, deriv);
+
+        TData flux[2];
+        ApplyMetric2DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            ncoord, nqTot, i, j, idx, w0, w1, f0, f1, df, jac, diffCoeff,
+            metric, deriv, flux);
+
+        out0[idx] = flux[0];
+        out1[idx] = flux[1];
+    }
+
     localBarrier(threadBlock);
+}
+
+/**
+ * @brief Fused stiffness stage, three dimensions: at each point the
+ * Cartesian derivatives of @p in stay in registers and become the fluxes
+ * @p out0, @p out1 and @p out2 that SumDerivTensor3DSumFacTOPKernel
+ * contracts; see PhysDerivApplyMetric2DSumFacTOPKernel. Ends with a block
+ * barrier.
+ *
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ */
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+          typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void PhysDerivApplyMetric3DSumFacTOPKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const TData *NEK_RESTRICT D0, const TData *NEK_RESTRICT D1,
+    const TData *NEK_RESTRICT D2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
+    const TData *NEK_RESTRICT f1m, const TData *NEK_RESTRICT f2,
+    const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
+    const TData *NEK_RESTRICT diffCoeff, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out0, TData *NEK_RESTRICT out1,
+    TData *NEK_RESTRICT out2, TData *metric, const TthreadBlock &threadBlock)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    ApplyMetric3DSetupSumFacTOP<DEFORMED>(df, diffCoeff, metric, threadBlock);
+
+    for (unsigned int idx = idx0; idx < nqTot; idx += stride)
+    {
+        const unsigned int i = idx % nq0;
+        const unsigned int j = (idx / nq0) % nq1;
+        const unsigned int k = idx / (nq0 * nq1);
+
+        TData deriv[3];
+        PhysDeriv3DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(nq0, nq1, nq2, i, j, k,
+                                                        idx, D0, D1, D2, f0, f1,
+                                                        f1m, f2, df, in, deriv);
+
+        TData flux[3];
+        ApplyMetric3DPointSumFacTOP<SHAPE_TYPE, DEFORMED>(
+            nqTot, i, j, k, idx, w0, w1, w2, f0, f1, f1m, f2, df, jac,
+            diffCoeff, metric, deriv, flux);
+
+        out0[idx] = flux[0];
+        out1[idx] = flux[1];
+        out2[idx] = flux[2];
+    }
+
+    localBarrier(threadBlock);
+}
+
+/**
+ * @brief Mass term of the fused Helmholtz stage, two dimensions: scale
+ * @p bwd at each point by @p lambda times the point's quadrature weight and
+ * Jacobian.
+ *
+ * Runs after PhysDerivApplyMetric2DSumFacTOPKernel, whose closing barrier
+ * ends every read of @p bwd for the derivatives. Closes without a barrier:
+ * SumDerivTensor2DSumFacTOPKernel, which follows, updates each point of
+ * @p bwd from the thread that scaled it.
+ */
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void ScaleMass2DSumFacTOPKernel(
+    const unsigned int nq0, const unsigned int nq1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT jac, const TData lambda, TData *NEK_RESTRICT bwd,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nq0 * nq1; idx += stride)
+    {
+        bwd[idx] *= lambda * QuadratureFactor2DSumFacTOP<DEFORMED>(
+                                 idx % nq0, idx / nq0, idx, w0, w1, jac);
+    }
+}
+
+/**
+ * @brief Mass term of the fused Helmholtz stage, three dimensions; see
+ * ScaleMass2DSumFacTOPKernel.
+ */
+template <bool DEFORMED, typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void ScaleMass3DSumFacTOPKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT w2, const TData *NEK_RESTRICT jac,
+    const TData lambda, TData *NEK_RESTRICT bwd,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < nq0 * nq1 * nq2; idx += stride)
+    {
+        bwd[idx] *= lambda * QuadratureFactor3DSumFacTOP<DEFORMED>(
+                                 idx % nq0, (idx / nq0) % nq1,
+                                 idx / (nq0 * nq1), idx, w0, w1, w2, jac);
+    }
 }
 
 /**
@@ -681,6 +949,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     TData *bwd   = (TData *)shmemptr;
     TData *deriv = bwd + nq0;
+    TData *s_D0T = bwd + 4 * nq0;
+
+    // Copy to shared memory.
+    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -698,7 +970,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         ApplyMetric1DSumFacTOPKernel<DEFORMED>(ncoord, nq0, nq0, w0, dfptr,
                                                jacptr, coeff, deriv, deriv, bwd,
                                                lambda, threadBlock);
-        SumDerivTensor1DSumFacTOPKernel<false, true>(nq0, D0, deriv, bwd,
+        SumDerivTensor1DSumFacTOPKernel<false, true>(nq0, s_D0T, deriv, bwd,
                                                      (TData)1.0, threadBlock);
         IProductWRTBaseSegSumFacTOPKernel<false, false>(
             nm0, nq0, basis0, bwd, outptr, (TData)1.0, threadBlock);
@@ -737,6 +1009,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -748,44 +1022,52 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int offset = 0, nmode0 = 0, nmode1 = 0;
+    unsigned int wsp0Size = 0, nmode0 = 0, nmode1 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        offset = std::max(nm0 * nq1, nm1 * nq0);
-        nmode0 = nm0;
-        nmode1 = nm1;
+        wsp0Size = std::max(nm0 * nq1, nm1 * nq0);
+        nmode0   = nm0;
+        nmode1   = nm1;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                        SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        offset = nm0 * nq1;
-        nmode0 = nm0;
-        nmode1 = nmTot;
+        wsp0Size = nm0 * nq1;
+        nmode0   = nm0;
+        nmode1   = nmTot;
     }
 
-    TData *metric   = (TData *)shmemptr;
-    TData *bwd      = metric + 6;
-    TData *deriv    = bwd + nqTot;
-    TData *tmp      = deriv;
-    TData *deriv0   = deriv;
-    TData *deriv1   = deriv0 + nqTot;
-    TData *s_wsp0   = deriv + ncoord * nqTot;
-    TData *s_basis0 = s_wsp0 + offset;
+    // Rows of the inner product's input and intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // IProductWRTBaseFusedDerivWorkSpaceSize, and every region starts
+    // 16-byte aligned.
+    // The padded input and the intermediate stages reuse the derivative
+    // slots, past the modal values of the nodal shapes.
+    const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
+    wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+    const unsigned int derivWspSize =
+        IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam2D, ncoord,
+                                                      wsp0Size, 0u);
+
+    TData *metric  = (TData *)shmemptr;
+    TData *bwd     = metric + IProductWRTBaseAlignedSize<TData>(6);
+    TData *deriv   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *s_modal = deriv;
+    TData *deriv0  = deriv;
+    TData *deriv1  = deriv0 + nqTot;
+    TData *s_ipb   = deriv + nmTotAl;
+    TData *s_wsp0 =
+        deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam2D);
+    TData *s_basis0 = deriv + derivWspSize;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
+    TData *s_D0T    = s_basis1 + nmode1 * nq1;
+    TData *s_D1T    = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -796,73 +1078,43 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
         TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+        if constexpr (isNodal)
         {
-            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, tmp, threadBlock);
+            // Nodal to Modal in shared memory.
+            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_modal, threadBlock);
         }
         else
         {
             // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-            {
-                tmp[idx] = inptr[idx];
-            }
-
+            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
             localBarrier(threadBlock);
         }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            BwdTransQuadSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
-                                               s_basis0, s_basis1, tmp, bwd,
-                                               s_wsp0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
-                           SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            BwdTransTriSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
-                                              isModified, s_basis0, s_basis1,
-                                              tmp, bwd, s_wsp0, threadBlock);
-        }
+        BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, false>(
+            nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1, s_modal,
+            bwd, s_wsp0, threadBlock);
 
-        PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            ncoord, nq0, nq1, nqTot, D0, D1, f0, f1, dfptr, bwd, deriv,
+        TData dmetric[DEFORMED ? 6 : 1] = {0.0};
+        PhysDerivApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            ncoord, nq0, nq1, D0, D1, w0, w1, f0, f1, dfptr, jacptr, coeff, bwd,
+            deriv0, deriv1, DEFORMED ? dmetric : metric, threadBlock);
+        ScaleMass2DSumFacTOPKernel<DEFORMED>(nq0, nq1, w0, w1, jacptr, lambda,
+                                             bwd, threadBlock);
+        SumDerivTensor2DSumFacTOPKernel<false, true>(nq0, nq1, s_D0T, s_D1T,
+                                                     deriv0, deriv1, bwd,
+                                                     (TData)1.0, threadBlock);
+        const TData *ipb =
+            IProductWRTBasePadInput(nq0, nq1, bwd, s_ipb, threadBlock);
+
+        IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+            nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+            s_basis1, ipb, isNodal ? s_modal : outptr, s_wsp0, (TData)1.0,
             threadBlock);
-        if constexpr (DEFORMED)
-        {
-            TData dmetric[6] = {0.0};
-            ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                deriv, deriv0, deriv1, dmetric, bwd, lambda, threadBlock);
-        }
-        else
-        {
-            ApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                ncoord, nq0, nq1, nqTot, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                deriv, deriv0, deriv1, metric, bwd, lambda, threadBlock);
-        }
-        SumDerivTensor2DSumFacTOPKernel<false, true>(
-            nq0, nq1, D0, D1, deriv0, deriv1, bwd, (TData)1.0, threadBlock);
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            IProductWRTBaseQuadSumFacTOPKernel<false, false>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, bwd,
-                outptr, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            IProductWRTBaseTriSumFacTOPKernel<false, false>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, bwd, outptr, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            IProductWRTBaseTriSumFacTOPKernel<false, false>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, bwd, tmp, s_wsp0, (TData)1.0, threadBlock);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
+        if constexpr (isNodal)
+        {
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, s_modal, outptr,
                                                threadBlock);
         }
 
@@ -906,6 +1158,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism;
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -919,73 +1174,82 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
     const unsigned int jacsize = DEFORMED ? nqTot : 1u;
 
-    unsigned int offset0 = 0, offset1 = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
+    unsigned int wsp0Size = 0, wsp1Size = 0, nmode0 = 0, nmode1 = 0, nmode2 = 0;
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        offset0 = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
-        offset1 = std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nm2;
+        wsp0Size = std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
+        wsp1Size = std::max(nq0 * nq1 * nm2, nm0 * nm1 * nq2);
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nm2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                        SHAPE_TYPE == LibUtilities::NodalTet)
     {
-        offset0 = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp0Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2;
+        wsp1Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+        wsp0Size = nm0 * nm1 * nq2;
+        wsp1Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        offset0 = nm0 * nm1 * nq2;
-        offset1 = nm0 * nq1 * nq2;
-        nmode0  = nm0;
-        nmode1  = nm1;
-        nmode2  = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        wsp0Size = nm0 * nm1 * nq2;
+        wsp1Size = nm0 * nq1 * nq2;
+        nmode0   = nm0;
+        nmode1   = nm1;
+        nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    TData *metric   = (TData *)shmemptr;
-    TData *bwd      = metric + 9;
-    TData *deriv    = bwd + nqTot;
-    TData *tmp      = deriv;
-    TData *deriv0   = deriv;
-    TData *deriv1   = deriv0 + nqTot;
-    TData *deriv2   = deriv1 + nqTot;
-    TData *s_wsp0   = deriv2 + nqTot;
-    TData *s_wsp1   = s_wsp0 + offset0;
-    TData *s_basis0 = s_wsp1 + offset1;
+    // Rows of the inner product's input and intermediate stages are padded
+    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // IProductWRTBaseFusedDerivWorkSpaceSize, and every region starts
+    // 16-byte aligned.
+    // The padded input and the intermediate stages reuse the derivative
+    // slots, past the modal values of the nodal shapes.
+    const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
+    const unsigned int wspPadSize =
+        IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
+    wsp0Size += wspPadSize;
+    wsp1Size += wspPadSize;
+    const unsigned int derivWspSize =
+        IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam3D, 3u, wsp0Size,
+                                                      wsp1Size);
+
+    TData *metric  = (TData *)shmemptr;
+    TData *bwd     = metric + IProductWRTBaseAlignedSize<TData>(9);
+    TData *deriv   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *s_modal = deriv;
+    TData *deriv0  = deriv;
+    TData *deriv1  = deriv0 + nqTot;
+    TData *deriv2  = deriv1 + nqTot;
+    TData *s_ipb   = deriv + nmTotAl;
+    TData *s_wsp0 =
+        deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam3D);
+    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
+    TData *s_basis0 = deriv + derivWspSize;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
+    TData *s_D0T    = s_basis2 + nmode2 * nq2;
+    TData *s_D1T    = s_D0T + nq0 * nq0;
+    TData *s_D2T    = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-    {
-        s_basis2[idx] = basis2[idx];
-    }
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    StageTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -996,119 +1260,48 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
         TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
-        // Copy to shared memory.
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalTet ||
-                      SHAPE_TYPE == LibUtilities::NodalPrism)
+        if constexpr (isNodal)
         {
-            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, tmp, threadBlock);
+            // Nodal to Modal in shared memory.
+            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_modal, threadBlock);
         }
         else
         {
             // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-            {
-                tmp[idx] = inptr[idx];
-            }
+            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
+            localBarrier(threadBlock);
         }
 
-        localBarrier(threadBlock);
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            BwdTransHexSumFacTOPKernel<false>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                           SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            BwdTransTetSumFacTOPKernel<false>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                              nqTot, isModified, index0, index3,
-                                              s_basis0, s_basis1, s_basis2, tmp,
-                                              bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            BwdTransPrismSumFacTOPKernel<false>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            BwdTransPyrSumFacTOPKernel<false>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, nqTot, D0, D1, D2, f0, f1, f1m, f2, dfptr, bwd,
-            deriv, threadBlock);
-        if constexpr (DEFORMED)
-        {
-            TData dmetric[9] = {0.0};
-            ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, coeff, deriv, deriv0, deriv1, deriv2, dmetric, bwd,
-                lambda, threadBlock);
-        }
-        else
-        {
-            ApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, nqTot, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, coeff, deriv, deriv0, deriv1, deriv2, metric, bwd,
-                lambda, threadBlock);
-        }
-        SumDerivTensor3DSumFacTOPKernel<false, true>(
-            nq0, nq1, nq2, D0, D1, D2, deriv0, deriv1, deriv2, bwd, (TData)1.0,
+        BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, false>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
+            s_basis0, s_basis1, s_basis2, s_modal, bwd, s_wsp0, s_wsp1,
             threadBlock);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            IProductWRTBaseHexSumFacTOPKernel<false, false>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, bwd, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            IProductWRTBaseTetSumFacTOPKernel<false, false>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
-                s_wsp1, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            IProductWRTBaseTetSumFacTOPKernel<false, false>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
-                s_wsp0, (TData)1.0, threadBlock);
+        TData dmetric[DEFORMED ? 9 : 1] = {0.0};
+        PhysDerivApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, nq2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, dfptr,
+            jacptr, coeff, bwd, deriv0, deriv1, deriv2,
+            DEFORMED ? dmetric : metric, threadBlock);
+        ScaleMass3DSumFacTOPKernel<DEFORMED>(nq0, nq1, nq2, w0, w1, w2, jacptr,
+                                             lambda, bwd, threadBlock);
+        SumDerivTensor3DSumFacTOPKernel<false, true>(
+            nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, bwd,
+            (TData)1.0, threadBlock);
+        const TData *ipb =
+            IProductWRTBasePadInput(nq0, nq1 * nq2, bwd, s_ipb, threadBlock);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
-                                               threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            IProductWRTBasePrismSumFacTOPKernel<false, false>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, outptr,
-                s_wsp1, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            IProductWRTBasePrismSumFacTOPKernel<false, false>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, bwd, tmp, s_wsp1,
-                s_wsp0, (TData)1.0, threadBlock);
+        // The collapsed shapes take the two scratches the other way round.
+        constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
+        IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+            index1, index2, s_basis0, s_basis1, s_basis2, ipb,
+            isNodal ? s_modal : outptr, hex ? s_wsp0 : s_wsp1,
+            hex ? s_wsp1 : s_wsp0, (TData)1.0, threadBlock);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
-                                               threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        if constexpr (isNodal)
         {
-            IProductWRTBasePyrSumFacTOPKernel<false, false>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, s_basis0, s_basis1, s_basis2, bwd, outptr, s_wsp1,
-                s_wsp0, (TData)1.0, threadBlock);
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, s_modal, outptr,
+                                               threadBlock);
         }
 
         e += getBlockRange<0>(threadBlock);

@@ -34,6 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <SolverUtils/Forcing/ForcingSyntheticEddy.h>
+#include <cmath>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -581,7 +582,7 @@ NekDouble ForcingSyntheticEddy::ComputeGaussian(NekDouble coord,
                                                 NekDouble constC)
 {
     NekDouble epsilon = 1e-6;
-    if (abs(coord) <= (xiMaxVal + epsilon))
+    if (std::abs(coord) <= (xiMaxVal + epsilon))
     {
         return ((1.0 / (m_sigma * sqrt(2.0 * M_PI * constC))) *
                 exp(-0.5 * (coord / m_sigma) * (coord / m_sigma)));

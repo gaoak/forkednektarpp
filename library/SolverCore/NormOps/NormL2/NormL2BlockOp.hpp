@@ -43,8 +43,6 @@ template <typename TData>
 class NormL2BlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
-    ~NormL2BlockOp() override = default;
-
     static std::shared_ptr<NormL2BlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
@@ -70,13 +68,20 @@ public:
         this->v_Apply(inblock, data);
     }
 
-    void SetNormalised(bool normalised)
+    /// Add the volume of the block's elements to data[0].
+    void Volume(LibUtilities::MemoryRegion<TData> &data)
     {
-        m_normalised = normalised;
+        this->v_Volume(data);
+    }
+
+    /// Set the number of elements in the block, without padding.
+    void SetNumElements(const size_t nelmt)
+    {
+        m_nelmt = nelmt;
     }
 
 protected:
-    bool m_normalised = false;
+    size_t m_nelmt = 0;
 
     NormL2BlockOp(const unsigned int block_idx,
                   const LocalRegions::ExpansionSharedPtr &exp,
@@ -85,9 +90,18 @@ protected:
     {
     }
 
+    ~NormL2BlockOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<NormL2BlockOp>;
+
     virtual void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
         LibUtilities::MemoryRegion<TData> &data) = 0;
+
+    virtual void v_Volume(LibUtilities::MemoryRegion<TData> &data) = 0;
 };
 
 } // namespace Nektar::SolverCore

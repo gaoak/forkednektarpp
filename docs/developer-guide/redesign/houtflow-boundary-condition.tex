@@ -291,7 +291,8 @@ builds reusable geometry and mapping data.  No XML extensions are introduced.
 \end{tikzpicture}
 \caption{Setup and validation.  A tag on only one side of the coupled
 condition is rejected, as is a tagged pressure Neumann condition.  Pressure
-and velocity boundary block shapes and element ordering must agree.}
+and velocity boundary expansions may differ in order but must share their
+quadrature points and block layout.}
 \label{houtflow:fig:setup}
 \end{figure}
 
@@ -305,9 +306,10 @@ The cached objects include:
         (\S\ref{sec:phystraceextractbndcond}). The restricted list is built
         from an expansion-information map and has no mesh graph, so the
         gradient extraction is given the mesh graph of the velocity field.
-        The pressure and velocity boundary expansions are checked to have the
-        same points and block layout, so the extracted fields pair with the
-        normals and $\vect f_b$ point by point;
+        The pressure and velocity boundary expansions are checked with
+        \code{ExpList::SameQuadratureLayout} to have the same points and
+        block layout, whatever their orders, so the extracted fields pair
+        with the normals and $\vect f_b$ point by point;
   \item outward normals on each selected boundary region;
   \item \code{PhysDerivOp}, pressure \code{FwdTransBCOp}, and velocity
         \code{IProductWRTBaseOp} instances;

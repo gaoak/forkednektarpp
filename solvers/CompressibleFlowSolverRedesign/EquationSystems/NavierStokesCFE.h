@@ -40,6 +40,7 @@
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <SolverCore/AdvDiffusion/AdvWeakDGDiffusionIP/AdvWeakDGDiffusionIPOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
 
 namespace Nektar
 {
@@ -85,6 +86,9 @@ protected:
 
     /// Attach the boundary conditions this system supports.
     void SetUpBoundaryConditions();
+
+    /// The viscous trace form SOLVERINFO ViscousTraceFlux selects.
+    SolverCore::TraceFluxOp<double>::ViscousTraceForm ReadViscousTraceForm();
 
     void v_GenerateSummary(SummaryList &s) override;
 

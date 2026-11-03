@@ -34,13 +34,14 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <MultiRegions/Common/Operator.hpp>
 
 #include <deque>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <vector>
 
 namespace Nektar::SolverCore
@@ -88,8 +89,6 @@ template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory();
 template <typename TData> class TimeOp : public MultiRegions::Operator<TData>
 {
 public:
-    ~TimeOp() override = default;
-
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -355,23 +354,7 @@ public:
                  "Explicit contribution history is shorter than the current "
                  "coefficient list.");
 
-        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
-            this->m_expansionList->GetSession());
-        Math::MathHelper math(execSpace);
-
-        if (mode == TimeOpExtrapolationMode::Assign)
-        {
-            math.zero(out);
-        }
-
-        for (unsigned int i = 0; i < coeffs.size(); ++i)
-        {
-            const TData coeff = coeffs[i];
-            if (coeff != (TData)0.0)
-            {
-                math.daxpy(scale * coeff, history[i], out, out);
-            }
-        }
+        CombineHistory(history, out, coeffs, mode, scale);
     }
 
     /// First-order counterpart of ExtrapolateExplicitContribution(): every
@@ -390,18 +373,14 @@ public:
                  "for this time integration operator.");
         ASSERTL0(!history.empty(), "Explicit contribution history is empty.");
 
-        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
-            this->m_expansionList->GetSession());
-        Math::MathHelper math(execSpace);
-
         const TData weight = scale * GetExplicitContributionCoefficientSum();
         if (mode == TimeOpExtrapolationMode::Assign)
         {
-            math.mul(weight, history.front(), out);
+            m_math.mul(weight, history.front(), out);
         }
         else
         {
-            math.daxpy(weight, history.front(), out, out);
+            m_math.daxpy(weight, history.front(), out, out);
         }
     }
 
@@ -438,6 +417,31 @@ public:
                  "No explicit contribution coefficients are available for "
                  "this implicit solve.");
         return std::accumulate(coeffs.begin(), coeffs.end(), TData(0));
+    }
+
+    /// Implicit stage of the start-up step of a multistep scheme.
+    struct StartupStage
+    {
+        /// Coefficient lambda_s of the implicit step lambda_s*dt of the stage
+        TData stageImplicitCoefficient;
+        /// Implicit coefficient of the multistep scheme being started up
+        TData targetImplicitCoefficient;
+        /// Solution the stage starts from: the solution at the start of the
+        /// step in the first stage, and the solution of the previous stage
+        /// in a later one. It is the field the implicit solve writes its
+        /// result to, so it holds that solution until the solve writes it.
+        LibUtilities::Field<TData, FieldState::Phys> *initialSolution;
+    };
+
+    /// Start-up stage the active implicit solve belongs to. It is empty in a
+    /// step of the multistep scheme itself and under a one-step scheme.
+    /// Requires EnableExplicitContributionExtrapolation().
+    std::optional<StartupStage> GetStartupStage() const
+    {
+        ASSERTL0(m_useExplicitContributionExtrapolation,
+                 "Explicit contribution extrapolation has not been enabled "
+                 "for this time integration operator.");
+        return GetExplicitContributionContext().startupStage;
     }
 
     // Move‐out
@@ -551,6 +555,8 @@ protected:
         std::vector<TData> coefficients;
         unsigned int historyId   = 0;
         unsigned int historySize = 0;
+        // Start-up stage the solve belongs to; empty outside a start-up step
+        std::optional<StartupStage> startupStage;
     };
 
     mutable ExplicitContributionContext m_explicitContributionContextStorage;
@@ -562,11 +568,16 @@ protected:
     // Most explicit contributions an implicit solve of this scheme combines,
     // set by a scheme that provides them.
     unsigned int m_explicitContributionHistorySize = 0;
+    // Element-wise maths in the operator's execution space.
+    Math::MathHelper m_math;
 
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> components)
         : MultiRegions::Operator<TData>(expansionList, components),
-          m_explicitContributionHistoryId(++m_nextExplicitContributionHistoryId)
+          m_explicitContributionHistoryId(
+              ++m_nextExplicitContributionHistoryId),
+          m_math(MultiRegions::Operator<TData>::GetOpExecSpace(
+              expansionList->GetSession()))
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
@@ -596,10 +607,21 @@ protected:
     {
     }
 
+    ~TimeOp() override = default;
+
+    /// The creators return a std::unique_ptr to this class, which the
+    /// factory converts to the shared_ptr it hands out; their deleter
+    /// destroys the operator through this destructor.
+    friend struct std::default_delete<TimeOp>;
+
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;
 
-    void SetExplicitContributionCoefficients(std::vector<TData> coeffs)
+    // startupStage is the start-up stage the implicit solve belongs to,
+    // which a one-step scheme provides for the start-up of a multistep scheme.
+    void SetExplicitContributionCoefficients(
+        std::vector<TData> coeffs,
+        const std::optional<StartupStage> &startupStage = std::nullopt)
     {
         if (!m_useExplicitContributionExtrapolation)
         {
@@ -608,6 +630,7 @@ protected:
         auto &context        = GetExplicitContributionContext();
         context.historyId    = m_explicitContributionHistoryId;
         context.coefficients = std::move(coeffs);
+        context.startupStage = startupStage;
     }
 
     void ClearExplicitContributionCoefficients()
@@ -616,7 +639,9 @@ protected:
         {
             return;
         }
-        GetExplicitContributionContext().coefficients.clear();
+        auto &context = GetExplicitContributionContext();
+        context.coefficients.clear();
+        context.startupStage.reset();
     }
 
     ExplicitContributionContext &GetExplicitContributionContext() const
@@ -644,22 +669,35 @@ protected:
         ASSERTL0(history.size() == coeffs.size(),
                  "History size must match extrapolation coefficient count.");
 
-        const auto execSpace = MultiRegions::Operator<TData>::GetOpExecSpace(
-            this->m_expansionList->GetSession());
-        Math::MathHelper math(execSpace);
+        CombineHistory(history, out, coeffs, mode, scale);
+    }
 
-        if (mode == TimeOpExtrapolationMode::Assign)
-        {
-            math.zero(out);
-        }
-
-        for (unsigned int i = 0; i < history.size(); ++i)
+    /// out = scale * sum_i coeffs[i] history[i], added to out if @p mode is
+    /// Append, in one pass over out; levels of zero coefficient are skipped.
+    void CombineHistory(
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
+        LibUtilities::Field<TData, FieldState::Phys> &out,
+        const std::vector<TData> &coeffs, const TimeOpExtrapolationMode mode,
+        const TData scale)
+    {
+        std::vector<TData> alpha;
+        std::vector<LibUtilities::Field<TData, FieldState::Phys> *> x;
+        for (unsigned int i = 0; i < coeffs.size(); ++i)
         {
             if (coeffs[i] != (TData)0.0)
             {
-                math.daxpy(scale * coeffs[i], history[i], out, out);
+                alpha.push_back(scale * coeffs[i]);
+                x.push_back(&history[i]);
             }
         }
+
+        const bool append = (mode == TimeOpExtrapolationMode::Append);
+        if (append && x.empty())
+        {
+            return;
+        }
+
+        m_math.linearCombination(alpha, x, out, append);
     }
 
     virtual TData v_GetTimeStability(void) const
