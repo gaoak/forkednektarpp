@@ -1358,7 +1358,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis0 = (TData *)shmemptr;
 
     // Copy to shared memory.
-    StageToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
     localBarrier(threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
@@ -1458,8 +1458,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis1 = s_basis0 + nm0 * nq0;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1476,7 +1476,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         else
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_wsp0, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_wsp0, threadBlock);
             localBarrier(threadBlock);
         }
 
@@ -1603,9 +1603,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1622,7 +1622,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         else
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_wsp0, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_wsp0, threadBlock);
             localBarrier(threadBlock);
         }
 

@@ -426,7 +426,7 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
     TData *s_basis0 = (TData *)shmemptr + 2 * nq0;
 
     // Copy to shared memory.
-    StageToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
 
     // Per Element
     size_t e = getBlockIdx(threadBlock);
@@ -499,8 +499,8 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const unsigned int stride = getLocalRange(threadBlock);
 
     // Copy to shared memory.
-    StageToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {

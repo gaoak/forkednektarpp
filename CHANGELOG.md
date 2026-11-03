@@ -149,6 +149,7 @@ v5.11.0
 - Tidy the device SumFac and SumFacTOP element operators: share 2D/3D shape-dispatch helpers for BwdTrans and IProductWRTBase, stage shared-memory data with `StageToSharedMemory`/`StageTransposeToSharedMemory`, and drop a redundant barrier after the nodal-to-modal mapping (!2905)
 - Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
 - Agree across ranks on the field definitions a variable is written with (!2907)
+- Tidy and simplify the padding of shared memory in the device SumFacTOP element operators: move the stride and alignment helpers to UtilsDeviceKernels as `SharedMemoryRowStride`, `IsConflictFreeSharedMemoryRowStride` and `SharedMemoryAlignedSize`, load padded rows with `LoadWithPaddingToSharedMemory`, and rename the `Stage*ToSharedMemory` helpers to `Load*ToSharedMemory` (!2908)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

@@ -750,7 +750,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D0T  = deriv + nq0;
 
     // Copy to shared memory.
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -849,7 +849,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D0T = deriv + nq0;
 
     // Copy to shared memory.
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -988,29 +988,30 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nmTot;
     }
 
-    // Rows of the inner product's input and intermediate stages are padded
-    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
-    // 16-byte aligned.
-    // The padded input reuses the direction slots, consumed by then.
     wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
+
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, its input is loaded into the direction slots, consumed
+    // by then.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
 
     TData *deriv0   = (TData *)shmemptr;
     TData *deriv1   = deriv0 + nqTot;
     TData *deriv    = deriv1 + nqTot;
-    TData *s_ipb    = deriv0;
-    TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *s_basis0 = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
+    TData *ipb      = (isPadded) ? deriv0 : deriv;
+    TData *s_wsp0   = deriv + SharedMemoryAlignedSize<TData>(nqTot);
+    TData *s_basis0 = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_D0T    = s_basis1 + nmode1 * nq1;
     TData *s_D1T    = s_D0T + nq0 * nq0;
     TData *s_modal  = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
-    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1033,8 +1034,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             deriv0, deriv1, threadBlock);
         SumDerivTensor2DSumFacTOPKernel<false, false>(
             nq0, nq1, s_D0T, s_D1T, deriv0, deriv1, deriv, scale, threadBlock);
-        const TData *ipb =
-            IProductWRTBasePadInput(nq0, nq1, deriv, s_ipb, threadBlock);
+        if (isPadded)
+        {
+            LoadWithPaddingToSharedMemory(nq0, nq1, ldi, deriv, ipb,
+                                          threadBlock);
+            localBarrier(threadBlock);
+        }
 
         IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, true, APPEND && !isNodal,
                                          true>(
@@ -1132,8 +1137,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D1T  = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
-    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
     size_t e                 = getBlockIdx<0>(threadBlock);
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1305,24 +1310,25 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    // Rows of the inner product's input and intermediate stages are padded
-    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
-    // 16-byte aligned.
-    // The padded input reuses the direction slots, consumed by then.
     const unsigned int wspPadSize =
         IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
     wsp0Size += wspPadSize;
     wsp1Size += wspPadSize;
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, its input is loaded into the direction slots, consumed
+    // by then.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *deriv0   = (TData *)shmemptr;
     TData *deriv1   = deriv0 + nqTot;
     TData *deriv2   = deriv1 + nqTot;
     TData *deriv    = deriv2 + nqTot;
-    TData *s_ipb    = deriv0;
-    TData *s_wsp0   = deriv + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
-    TData *s_wsp2   = s_wsp1 + IProductWRTBaseAlignedSize<TData>(wsp1Size);
+    TData *ipb      = (isPadded) ? deriv0 : deriv;
+    TData *s_wsp0   = deriv + SharedMemoryAlignedSize<TData>(nqTot);
+    TData *s_wsp1   = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
+    TData *s_wsp2   = s_wsp1 + SharedMemoryAlignedSize<TData>(wsp1Size);
     TData *s_basis0 = s_wsp2 + (isNodal ? nmTot : 0u);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
@@ -1331,12 +1337,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D2T    = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
-    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
-    StageTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    LoadTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1359,8 +1365,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         SumDerivTensor3DSumFacTOPKernel<false, false>(
             nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, deriv,
             scale, threadBlock);
-        const TData *ipb =
-            IProductWRTBasePadInput(nq0, nq1 * nq2, deriv, s_ipb, threadBlock);
+        if (isPadded)
+        {
+            LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, deriv, ipb,
+                                          threadBlock);
+            localBarrier(threadBlock);
+        }
 
         IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, true, APPEND && !isNodal,
                                          true>(
@@ -1461,9 +1471,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D2T  = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
-    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
-    StageTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    LoadTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int m     = getBlockIdx<1>(threadBlock);

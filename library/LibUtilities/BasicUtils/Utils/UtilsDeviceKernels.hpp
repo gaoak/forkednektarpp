@@ -44,27 +44,108 @@ namespace Nektar
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void StageToSharedMemory(
+NEK_DEVICE_INLINE static void LoadToSharedMemory(
     const unsigned int size, const TData *NEK_RESTRICT src,
     TData *NEK_RESTRICT dst, const TthreadBlock &threadBlock)
 {
-    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < size;
-         idx += getLocalRange<0>(threadBlock))
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < size; idx += stride)
     {
         dst[idx] = src[idx];
     }
 }
 
+// Padded shared memory: rows of ncol values, each read contiguously by one
+// thread, are free of bank conflicts at a stride of SharedMemoryRowStride.
+//
+// 1. Specify the stride:
+//        const unsigned int ldi = SharedMemoryRowStride<TData>(ncol);
+//        const bool isPadded    = (ldi != ncol);
+// 2. Round each shared-memory region up with SharedMemoryAlignedSize so the
+//    next one starts 16-byte aligned; a padded region holds ldi * nrow
+//    values.
+// 3. Choose the array to read once, outside the element loop:
+//        TData *wsp = (isPadded) ? s_padded : s_src;
+// 4. Load only when padded, then synchronise:
+//        if (isPadded)
+//        {
+//            LoadWithPaddingToSharedMemory(ncol, nrow, ldi, s_src, wsp,
+//                                          threadBlock);
+//            localBarrier(threadBlock);
+//        }
+// 5. Read wsp with row stride ldi.
+
+/**
+ * @brief Round a shared-memory region of @p n values up to whole 16-byte
+ * words, so that the region after it starts 16-byte aligned and contiguous
+ * walks over it can be loaded 16 bytes at a time.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int SharedMemoryAlignedSize(
+    const unsigned int n)
+{
+    constexpr unsigned int v = 16u / sizeof(TData);
+    return (n + v - 1u) / v * v;
+}
+
+/**
+ * @brief Row stride for a shared-memory array with rows of @p n values,
+ * where each thread reads its row contiguously in 16-byte vector loads.
+ *
+ * With v = 16 / sizeof(TData), a stride that is an odd multiple of v puts
+ * the rows of consecutive threads in distinct banks. Rows of a multiple of
+ * 2v values, from 4v on, are padded by v; other rows are left unpadded.
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr unsigned int SharedMemoryRowStride(
+    const unsigned int n)
+{
+    constexpr unsigned int v = 16u / sizeof(TData);
+    return (n % (2u * v) == 0u && n >= 4u * v) ? n + v : n;
+}
+
+/**
+ * @brief Whether rows of stride @p ld, each read contiguously by one thread
+ * in 16-byte vector loads, are free of bank conflicts: @p ld is an odd
+ * multiple of 16 / sizeof(TData).
+ */
+template <typename TData>
+NEK_HOSTDEVICE_INLINE constexpr bool IsConflictFreeSharedMemoryRowStride(
+    const unsigned int ld)
+{
+    constexpr unsigned int v = 16u / sizeof(TData);
+    return ld % (2u * v) == v;
+}
+
 template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void StageTransposeToSharedMemory(
-    const unsigned int nrows, const unsigned int ncols,
+NEK_DEVICE_INLINE static void LoadWithPaddingToSharedMemory(
+    const unsigned int ncol, const unsigned int nrow, const unsigned int ldi,
     const TData *NEK_RESTRICT src, TData *NEK_RESTRICT dst,
     const TthreadBlock &threadBlock)
 {
-    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < nrows * ncols;
-         idx += getLocalRange<0>(threadBlock))
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < ncol * nrow; idx += stride)
     {
-        dst[(idx % ncols) * nrows + idx / ncols] = src[idx];
+        dst[ldi * (idx / ncol) + idx % ncol] = src[idx];
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void LoadTransposeToSharedMemory(
+    const unsigned int ncol, const unsigned int nrow,
+    const TData *NEK_RESTRICT src, TData *NEK_RESTRICT dst,
+    const TthreadBlock &threadBlock)
+{
+    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
+    const unsigned int stride = getLocalRange<0>(threadBlock);
+
+    for (unsigned int idx = idx0; idx < ncol * nrow; idx += stride)
+    {
+        dst[(idx % ncol) * nrow + idx / ncol] = src[idx];
     }
 }
 
