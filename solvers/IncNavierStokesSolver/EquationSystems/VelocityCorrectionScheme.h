@@ -287,8 +287,9 @@ protected:
         const Array<OneD, NekDouble> &movingFrameData,
         std::map<std::string, NekDouble> &params);
 
-    void SetEPInsulatorBCs(
-        const Array<OneD, Array<OneD, NekDouble>> &movEfield);
+    void SetEPWeakBCs(
+        const Array<OneD, Array<OneD, NekDouble>> &movEfield,
+        Array<OneD, Array<OneD, NekDouble>> &savedBoundaryCoeffs);
 
 private:
 };

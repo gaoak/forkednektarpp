@@ -2556,6 +2556,33 @@ The following extra parameter should be provided.
     \end{tabularx}
 \end{center}
 
+\subsection{Internal electric potential: weak divergence source}
+
+The default \inltt{ElectricPotential=Internal} solves the fluid-only problem
+without ADRSolver or inter-application coupling. For constant conductivity,
+let $\mathbf{F}=\mathbf{E}_0+\mathbf{u}\times\mathbf{B}$. The source is assembled
+as $-\int_\Omega\mathbf{F}\cdot\nabla v\,d\Omega$ using the electric potential
+basis and passed to \inltt{HelmSolve} in coefficient space. No pointwise
+divergence of $\mathbf{F}$ is taken. Conductivity cancels from this internal
+Poisson equation, but remains in the Lorentz force.
+
+The resulting natural boundary term is
+$\partial_n\phi-\mathbf{F}\cdot\mathbf{n}=-j_n/\sigma$.
+An electrical Neumann condition with \inltt{USERDEFINEDTYPE="Insulator"}
+sets this total-current flux to zero. Ordinary Neumann and Robin conditions
+keep their previous meaning as prescribed potential derivative/Robin data:
+the solver temporarily subtracts $\mathbf{F}\cdot\mathbf{n}$ from their
+boundary loads and restores the prescribed data after each solve. Dirichlet
+and periodic conditions retain their existing meaning. In particular, an
+ordinary zero Neumann condition is not equivalent to \inltt{Insulator} when
+$\mathbf{F}\cdot\mathbf{n}\ne0$.
+
+The small \inltt{MHDInternalWeakNeumann} and \inltt{MHDInternalWeakRobin}
+regression cases check $\phi=x+y$ with nonzero external electric field,
+insulating walls, mixed electrical boundary conditions and a lower-order
+potential expansion than the velocity expansion. The existing Hartmann and
+homogeneous MHD duct tests exercise the flow-coupled paths.
+
 \subsection{Electric potential coupled to conducting solids}
 
 With MPI and CWIPI enabled, setting \inltt{ElectricPotential} to

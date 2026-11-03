@@ -1474,21 +1474,37 @@ void VelocityCorrectionScheme::SolveEfield(
     }
     else
     {
-        SetEPInsulatorBCs(movEfield);
-        m_fields[0]->PhysDeriv(MultiRegions::eX, movEfield[0], m_F[0]);
-        for (size_t i = 1; i < m_spacedim; ++i)
+        // Assemble -<E0 + u x B, grad(test)> directly in phi's coefficient
+        // space. HelmSolve negates this RHS to match its positive stiffness
+        // matrix. Use phi's basis, which need not have the velocity order.
+        const int ncoeffs = m_epotential->GetNcoeffs();
+        Array<OneD, NekDouble> rhs(ncoeffs, 0.0), product(ncoeffs);
+        for (int d = 0; d < m_spacedim; ++d)
         {
-            // Use m_F[1] as storage since it is not needed for the m_epotential
-            m_fields[i]->PhysDeriv(MultiRegions::DirCartesianMap[i],
-                                   movEfield[i], m_F[1]);
-            Vmath::Vadd(physTot, m_F[1], 1, m_F[0], 1, m_F[0], 1);
+            m_epotential->IProductWRTDerivBase(d, movEfield[d], product);
+            Vmath::Vsub(ncoeffs, rhs, 1, product, 1, rhs, 1);
         }
-        StdRegions::ConstFactorMap factors;
-        // Setup coefficient for equation
-        factors[StdRegions::eFactorLambda] = 0.0;
 
-        // Solver electric potential Poisson Equation
-        m_epotential->HelmSolve(m_F[0], m_epotential->UpdateCoeffs(), factors);
+        Array<OneD, Array<OneD, NekDouble>> savedBoundaryCoeffs;
+        SetEPWeakBCs(movEfield, savedBoundaryCoeffs);
+        StdRegions::ConstFactorMap factors;
+        factors[StdRegions::eFactorLambda] = 0.0;
+        m_epotential->HelmSolve(rhs, m_epotential->UpdateCoeffs(), factors,
+                               StdRegions::NullVarCoeffMap,
+                               StdRegions::NullVarFactorsMap,
+                               NullNekDouble1DArray, false);
+
+        // Preserve prescribed derivative/Robin data for subsequent stages.
+        auto bndExp = m_epotential->GetBndCondExpansions();
+        for (int n = 0; n < savedBoundaryCoeffs.size(); ++n)
+        {
+            if (savedBoundaryCoeffs[n].size() != 0)
+            {
+                Vmath::Vcopy(savedBoundaryCoeffs[n].size(),
+                             savedBoundaryCoeffs[n], 1,
+                             bndExp[n]->UpdateCoeffs(), 1);
+            }
+        }
     }
     m_epotential->BwdTrans(m_epotential->GetCoeffs(),
                            m_epotential->UpdatePhys());
@@ -1527,30 +1543,48 @@ void VelocityCorrectionScheme::v_Output()
     IncNavierStokes::v_Output();
 }
 
-void VelocityCorrectionScheme::SetEPInsulatorBCs(
-    const Array<OneD, Array<OneD, NekDouble>> &movEfield)
+/**
+ * Convert derivative boundary data to the natural flux of the weak electric
+ * equation. With F = E0 + u x B, this is dphi/dn - F.n (plus the existing
+ * Robin term). Insulator prescribes this flux to be zero. Ordinary N/R data
+ * retain their original derivative meaning through the subtraction of F.n.
+ */
+void VelocityCorrectionScheme::SetEPWeakBCs(
+    const Array<OneD, Array<OneD, NekDouble>> &movEfield,
+    Array<OneD, Array<OneD, NekDouble>> &savedBoundaryCoeffs)
 {
-    std::string insulatorBCName = "Insulator";
-    Array<OneD, const SpatialDomains::BoundaryConditionShPtr> BndConds =
-        m_epotential->GetBndConditions();
-    Array<OneD, MultiRegions::ExpListSharedPtr> BndExp =
-        m_epotential->GetBndCondExpansions();
-    // calculate electric potential flux
-    for (int n = 0; n < BndConds.size(); ++n)
+    auto bndConds = m_epotential->GetBndConditions();
+    auto bndExp   = m_epotential->GetBndCondExpansions();
+    savedBoundaryCoeffs =
+        Array<OneD, Array<OneD, NekDouble>>(bndConds.size());
+    for (int n = 0; n < bndConds.size(); ++n)
     {
-        if (StringUtils::IEquals(BndConds[n]->GetUserDefined(),
-                                 insulatorBCName))
+        auto type = bndConds[n]->GetBoundaryConditionType();
+        if (type != SpatialDomains::eNeumann && type != SpatialDomains::eRobin)
         {
-            int npts = BndExp[n]->GetTotPoints();
-            // allocate boundary condition storage
-            Array<OneD, Array<OneD, NekDouble>> bcs(m_spacedim);
-            for (int i = 0; i < m_spacedim; ++i)
+            continue;
+        }
+        const int nc = bndExp[n]->GetNcoeffs();
+        savedBoundaryCoeffs[n] = Array<OneD, NekDouble>(nc);
+        Vmath::Vcopy(nc, bndExp[n]->GetCoeffs(), 1,
+                     savedBoundaryCoeffs[n], 1);
+        if (StringUtils::IEquals(bndConds[n]->GetUserDefined(), "Insulator"))
+        {
+            Vmath::Zero(nc, bndExp[n]->UpdateCoeffs(), 1);
+        }
+        else
+        {
+            const int nq = bndExp[n]->GetTotPoints();
+            Array<OneD, Array<OneD, NekDouble>> trace(m_spacedim);
+            for (int d = 0; d < m_spacedim; ++d)
             {
-                bcs[i] = Array<OneD, NekDouble>(npts, 0.);
-                m_epotential->ExtractPhysToBnd(n, movEfield[i], bcs[i]);
+                trace[d] = Array<OneD, NekDouble>(nq);
+                m_epotential->ExtractPhysToBnd(n, movEfield[d], trace[d]);
             }
-            BndExp[n]->NormVectorIProductWRTBase(bcs,
-                                                 BndExp[n]->UpdateCoeffs());
+            Array<OneD, NekDouble> flux(nc);
+            bndExp[n]->NormVectorIProductWRTBase(trace, flux);
+            Vmath::Vsub(nc, savedBoundaryCoeffs[n], 1, flux, 1,
+                         bndExp[n]->UpdateCoeffs(), 1);
         }
     }
 }
