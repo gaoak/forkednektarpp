@@ -66,7 +66,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Expression/ExpressionBlockOp.hpp>
 
 #if defined(SYCL_ENABLE_CPU)

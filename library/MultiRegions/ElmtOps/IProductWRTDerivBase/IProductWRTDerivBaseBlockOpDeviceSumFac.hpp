@@ -76,7 +76,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseBlockOpDeviceSumFacKernels.hpp>

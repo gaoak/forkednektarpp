@@ -104,7 +104,8 @@ public:
         : BlockOpBase(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
-        m_form     = PhysLiftProjectFormOf(exp);
+
+        m_form = PhysLiftProjectFormOf(exp);
         if (m_form == PhysLiftProjectForm::ElmtInvMass)
         {
             this->CreateChain(ExecSpace::name, SumFac::name);
@@ -246,11 +247,7 @@ protected:
     {
         DivideByJacobian<ExecSpace, false>(nelmt, m_nqTot, ncomp, m_jacptr,
                                            volPtr, volPtr, m_streamID);
-        TData beta = 0.0;
-        if (this->m_append)
-        {
-            beta = 1.0;
-        }
+        TData beta  = (this->m_append) ? 1.0 : 0.0;
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
         NekBlas::GemmStridedBatched(handle, "N", "N", m_nqTot, nelmt, m_nqTot,
                                     this->m_scale, m_projptr, m_nqTot, 0,
@@ -312,23 +309,20 @@ protected:
             const size_t nelmt = inblock.GetNumElementsWithPadding();
             TData *volPtr =
                 m_vol->template GetPtr<MemSpace, ReadWrite>(m_streamID);
+            auto outPtr =
+                (this->m_append)
+                    ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                    : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+
             LibUtilities::ReshapeStorage<ExecSpace>(
                 m_implInterleaveWidth, m_vol->GetInterleaveWidth(),
                 nelmt * ncomp, m_nqTot, volPtr, m_streamID);
             m_vol->template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-            TData *outPtr = nullptr;
             if (this->m_append)
             {
-                outPtr =
-                    outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID);
                 LibUtilities::ReshapeStorage<ExecSpace>(
                     m_implInterleaveWidth, outblock.GetInterleaveWidth(),
                     nelmt * ncomp, m_nqTot, outPtr, m_streamID);
-            }
-            else
-            {
-                outPtr =
-                    outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
             }
 
             if (m_form == PhysLiftProjectForm::Pointwise)

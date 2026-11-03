@@ -56,8 +56,8 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "LibUtilities/Backends/Backends.hpp"
-#include "LibUtilities/BasicUtils/Equation.h"
+#include <LibUtilities/Backends/Backends.hpp>
+#include <LibUtilities/BasicUtils/Equation.h>
 
 namespace Nektar::MultiRegions::detail
 {

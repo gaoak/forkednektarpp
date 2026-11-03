@@ -67,7 +67,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Divergence/DivergenceBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/Divergence/DivergenceBlockOpDeviceSumFacKernels.hpp>

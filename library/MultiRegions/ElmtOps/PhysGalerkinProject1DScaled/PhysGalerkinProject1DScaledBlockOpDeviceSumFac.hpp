@@ -54,7 +54,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransBlockOpDeviceSumFacKernels.hpp>

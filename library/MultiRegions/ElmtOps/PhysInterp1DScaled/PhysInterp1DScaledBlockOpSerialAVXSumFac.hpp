@@ -123,7 +123,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp>
 
 // interpolation is just a bwd trans from a nodal basis so using these kernels

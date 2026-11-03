@@ -245,7 +245,7 @@ protected:
             // Initialize pointers.
             TData *volPtr = m_vol->template GetPtr<MemSpace, ReadWrite>();
             TData *outPtr =
-                this->m_append
+                (this->m_append)
                     ? outblock.template GetPtr<MemSpace, ReadWrite>()
                     : outblock.template GetPtr<MemSpace, WriteOnly>();
             const auto jac     = reinterpret_cast<const simd_t *>(m_jacptr);

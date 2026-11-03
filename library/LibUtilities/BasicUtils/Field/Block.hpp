@@ -268,12 +268,10 @@ public:
      * @param count - number of values
      */
     template <typename MemSpace>
-    void Initialize(const TData val, const size_t count = 0,
-                    const size_t offset = 0, const unsigned int streamID = 0)
-    {
-        m_memory_region.template Initialize<MemSpace>(val, count, offset,
-                                                      streamID);
-    }
+    LIB_UTILITIES_EXPORT void Initialize(const TData val,
+                                         const size_t count          = 0,
+                                         const size_t offset         = 0,
+                                         const unsigned int streamID = 0);
 
     /**
      * @brief Templated copy method. This method copies the data of a

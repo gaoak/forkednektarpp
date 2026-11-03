@@ -78,7 +78,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOpSerialAVXSumFacKernels.hpp>

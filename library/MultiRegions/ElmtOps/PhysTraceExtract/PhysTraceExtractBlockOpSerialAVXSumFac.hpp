@@ -95,7 +95,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp>
 

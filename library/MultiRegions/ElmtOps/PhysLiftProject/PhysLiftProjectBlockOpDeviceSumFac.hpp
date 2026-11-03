@@ -131,7 +131,8 @@ public:
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : BlockOpBase(block_idx, exp, dataWarehouse)
     {
-        m_streamID  = block_idx + 1;
+        m_streamID = block_idx + 1;
+
         m_shapeType = exp->DetShapeType();
         m_dimension = exp->GetShapeDimension();
         m_isDeformed =
@@ -491,15 +492,11 @@ protected:
         const size_t nelmt = outblock.GetNumElementsWithPadding();
         const TData *volPtr =
             m_vol->template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        TData *outPtr = nullptr;
-        if constexpr (APPEND)
-        {
-            outPtr = outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        }
-        else
-        {
-            outPtr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-        }
+        auto outPtr =
+            (APPEND)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+
         const unsigned int blocksize =
             GetDeviceBlockSize<Implementation>(m_nqTot);
         const unsigned int gridsize =
@@ -993,15 +990,10 @@ protected:
         }
 
         const unsigned int outInterleaveWidth = outblock.GetInterleaveWidth();
-        TData *outptr                         = nullptr;
-        if (this->m_append)
-        {
-            outptr = outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        }
-        else
-        {
-            outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-        }
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
         bool outDirect = inInterleaveWidth == m_implInterleaveWidth;
         if (this->m_append)
         {

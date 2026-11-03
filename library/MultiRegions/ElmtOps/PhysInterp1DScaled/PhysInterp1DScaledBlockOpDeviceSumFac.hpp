@@ -83,7 +83,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysInterp1DScaled/PhysInterp1DScaledBlockOpDeviceSumFacKernels.hpp>

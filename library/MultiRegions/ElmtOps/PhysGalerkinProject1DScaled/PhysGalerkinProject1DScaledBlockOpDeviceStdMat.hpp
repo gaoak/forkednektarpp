@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/PhysGalerkinProject1DScaled/PhysGalerkinProject1DScaledBlockOp.hpp>
 
 namespace Nektar::MultiRegions::detail

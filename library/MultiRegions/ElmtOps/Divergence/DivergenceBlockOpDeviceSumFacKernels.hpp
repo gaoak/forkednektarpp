@@ -486,6 +486,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         TData *outptr      = out + nq0 * (nelmt * p + warpsize * iwarp);
         PhysDerivDir1DSumFacKernel<false, DEFORMED, 0>(ilane, ncoord, nq0, D0,
                                                        dfptr, inptr, outptr);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -573,8 +574,6 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     TData *s_f1 = nullptr;
 
     // Precompute geometric factors.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                   SHAPE_TYPE == LibUtilities::NodalTri)
@@ -582,15 +581,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;
 
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_f0[idx] = f0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_f1[idx] = f1[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
+        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -608,6 +601,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         Divergence2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, inoffset, D0, D1, s_f0, s_f1, dfptr, inptr,
             outptr);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -697,8 +691,6 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
     TData *s_f2  = nullptr;
 
     // Precompute geometric factors.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
@@ -708,21 +700,11 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         s_f1m = s_f1 + nq1;
         s_f2  = s_f1m + nq1;
 
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_f0[idx] = f0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_f1[idx]  = f1[idx];
-            s_f1m[idx] = f1m[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_f2[idx] = f2[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
+        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
+        StageToSharedMemory(nq1, f1m, s_f1m, threadBlock);
+        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -732,15 +714,9 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         s_f0 = (TData *)shmemptr;
         s_f2 = s_f0 + nq0;
 
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_f0[idx] = f0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_f2[idx] = f2[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
+        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -750,20 +726,10 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         s_f1 = s_f0 + nq0;
         s_f2 = s_f1 + nq1;
 
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_f0[idx] = f0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_f1[idx] = f1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_f2[idx] = f2[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
+        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
+        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -780,6 +746,7 @@ NEK_DEVICE_KERNEL void DivergenceKernelLauncher(
         Divergence3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, inoffset, D0, D1, D2, s_f0, s_f1, s_f1m, s_f2,
             dfptr, inptr, outptr);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }

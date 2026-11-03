@@ -71,7 +71,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/libXSMMDispatchWrapper.hpp>
 #include <MultiRegions/ElmtOps/CurlCurl/CurlCurlBlockOp.hpp>
 

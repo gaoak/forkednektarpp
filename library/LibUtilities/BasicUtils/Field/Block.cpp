@@ -57,6 +57,16 @@ typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *BlockAccess
 
 template <typename TData, FieldState TState>
 template <typename MemSpace>
+void BlockAccessor<TData, TState>::Initialize(const TData val,
+                                              const size_t count,
+                                              const size_t offset,
+                                              const unsigned int streamID)
+{
+    m_memory_region.template Initialize<MemSpace>(val, count, offset, streamID);
+}
+
+template <typename TData, FieldState TState>
+template <typename MemSpace>
 void BlockAccessor<TData, TState>::Copy(BlockAccessor &rhs,
                                         const unsigned int streamID)
 {
@@ -75,98 +85,129 @@ void BlockAccessor<TData, TState>::Copy(BlockAccessor &rhs,
     this->template SetInterleaveWidth<TData>(rhs.GetInterleaveWidth());
 }
 
-template void BlockAccessor<float, FieldState::Phys>::Copy<
-    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
-template void BlockAccessor<float, FieldState::Coeff>::Copy<
-    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
-template void BlockAccessor<double, FieldState::Phys>::Copy<
-    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
-template void BlockAccessor<double, FieldState::Coeff>::Copy<
-    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template const uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
+template const uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
+template const float *BlockAccessor<float, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
+template const float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
+template const double *BlockAccessor<double, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
+    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
+template const double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
+    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
 #if defined(NEKTAR_ENABLE_DEVICE)
-template void BlockAccessor<float, FieldState::Phys>::Copy<
-    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
-template void BlockAccessor<float, FieldState::Coeff>::Copy<
-    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
-template void BlockAccessor<double, FieldState::Phys>::Copy<
-    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
-template void BlockAccessor<double, FieldState::Coeff>::Copy<
-    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template const uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
+template const uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
+template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
+template const float *BlockAccessor<float, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
+template const float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
+template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
+template const double *BlockAccessor<double, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
+template const double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
+template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
+    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
 #endif
 
-template const uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
-template const uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
-template const float *BlockAccessor<float, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
-template const float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
-template const double *BlockAccessor<double, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
-    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
-template const double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, ReadOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, WriteOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
-    NektarSpaces::HostSpace, ReadWrite>(const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Phys>::Initialize<
+    NektarSpaces::HostSpace>(const float val, const size_t count,
+                             const size_t offset, const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Coeff>::Initialize<
+    NektarSpaces::HostSpace>(const float val, const size_t count,
+                             const size_t offset, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Phys>::Initialize<
+    NektarSpaces::HostSpace>(const double val, const size_t count,
+                             const size_t offset, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Coeff>::Initialize<
+    NektarSpaces::HostSpace>(const double val, const size_t count,
+                             const size_t offset, const unsigned int streamID);
 #if defined(NEKTAR_ENABLE_DEVICE)
-template const uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
-template const uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
-template uint8_t *BlockAccessor<uint8_t, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
-template const float *BlockAccessor<float, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
-template const float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
-template float *BlockAccessor<float, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
-template const double *BlockAccessor<double, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Phys>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
-template const double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, WriteOnly>(const unsigned int streamID);
-template double *BlockAccessor<double, FieldState::Coeff>::GetPtr<
-    NektarSpaces::DeviceSpace, ReadWrite>(const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Phys>::Initialize<
+    NektarSpaces::DeviceSpace>(const float val, const size_t count,
+                               const size_t offset,
+                               const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Coeff>::Initialize<
+    NektarSpaces::DeviceSpace>(const float val, const size_t count,
+                               const size_t offset,
+                               const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Phys>::Initialize<
+    NektarSpaces::DeviceSpace>(const double val, const size_t count,
+                               const size_t offset,
+                               const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Coeff>::Initialize<
+    NektarSpaces::DeviceSpace>(const double val, const size_t count,
+                               const size_t offset,
+                               const unsigned int streamID);
+#endif
+
+template void BlockAccessor<float, FieldState::Phys>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Coeff>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Phys>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Coeff>::Copy<
+    NektarSpaces::HostSpace>(BlockAccessor &rhs, const unsigned int streamID);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template void BlockAccessor<float, FieldState::Phys>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<float, FieldState::Coeff>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Phys>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
+template void BlockAccessor<double, FieldState::Coeff>::Copy<
+    NektarSpaces::DeviceSpace>(BlockAccessor &rhs, const unsigned int streamID);
 #endif
 
 } // namespace Nektar::LibUtilities

@@ -86,7 +86,7 @@
  * (IProductWRTDerivBase, Laplacian, Helmholtz, LinAdvDiffReaction)
  * rather than to PhysDeriv. They read the transposed differentiation
  * matrices from shared memory, where their launchers stage them with
- * StageTransposeSumFacTOP.
+ * StageTransposeToSharedMemory.
  *
  * The whole file is compiled only for the device back-ends
  * (NEKTAR_ENABLE_DEVICE together with DEVICE_COMPILE_ONLY).
@@ -97,6 +97,7 @@
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
@@ -320,38 +321,11 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
 }
 
 /**
- * @brief Copy the transpose of an `n` by `n` matrix into shared memory,
- * `DT[q * n + i] = D[i * n + q]`, for the SumDerivTensor kernels.
- *
- * Called once per thread block before the element loop; like the basis
- * copies it leaves the barrier to the first stage of that loop.
- *
- * @param   n           Rows and columns of the matrix.
- * @param   D           Matrix in global memory.
- * @param   DT          Its transpose in shared memory.
- * @param   threadBlock Thread-block handle supplying the index and range
- *                      helpers.
- */
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void StageTransposeSumFacTOP(
-    const unsigned int n, const TData *NEK_RESTRICT D, TData *NEK_RESTRICT DT,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < n * n; idx += stride)
-    {
-        DT[(idx % n) * n + idx / n] = D[idx];
-    }
-}
-
-/**
  * @brief One element, one dimension: apply the transpose of the 1D
  * differentiation matrix, optionally scaled and accumulated.
  *
  * The counterpart of the forward tensorial derivative, reading the
- * transpose staged by StageTransposeSumFacTOP so that consecutive
+ * transpose staged by StageTransposeToSharedMemory so that consecutive
  * threads read consecutive entries. Not used by PhysDeriv; it serves the
  * weak-form families.
  *
@@ -1358,9 +1332,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr;
 
     size_t e                  = getBlockIdx<0>(threadBlock);
     const unsigned int m      = getBlockIdx<1>(threadBlock);
@@ -1375,11 +1347,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
             out + nqTot * nelmt * (outDim * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -1457,9 +1425,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr;
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1470,11 +1436,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
@@ -1552,9 +1514,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr;
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int m     = getBlockIdx<1>(threadBlock);
@@ -1567,11 +1527,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
         TData *outptr = out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -1645,9 +1601,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr;
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1658,11 +1612,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(

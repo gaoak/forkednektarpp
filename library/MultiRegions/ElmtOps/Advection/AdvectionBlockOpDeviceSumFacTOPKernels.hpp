@@ -79,6 +79,7 @@
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
@@ -611,9 +612,11 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
         const TData *inptr     = in + nq0 * nelmt * c + nq0 * e;
         TData *outptr          = out + nq0 * nelmt * c + nq0 * e;
         const TData *advVelPtr = advVel + nq0 * nelmt * (c % nhomo) + nq0 * e;
+
         Advection1DSumFacTOPKernel<APPEND, DEFORMED>(
             ncoord, nq0, D0, dfptr, advVelPtr, advVelOffset, inptr, outptr,
             scale, threadBlock);
+
         e += getBlockRange<0>(threadBlock);
     }
 }
@@ -686,9 +689,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int nqTot  = nq0 * nq1;
     const unsigned int dfsize = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr;
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -701,11 +702,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
             advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         Advection2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -785,9 +782,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
     const unsigned int nqTot   = nq0 * nq1 * nq2;
     const unsigned int dfsize  = DEFORMED ? nqTot : 1u;
 
-    TData *s_wsp0             = (TData *)shmemptr;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
+    TData *s_wsp0 = (TData *)shmemptr;
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -799,11 +794,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
         const TData *advVelPtr = advVel + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
+        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         Advection3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(

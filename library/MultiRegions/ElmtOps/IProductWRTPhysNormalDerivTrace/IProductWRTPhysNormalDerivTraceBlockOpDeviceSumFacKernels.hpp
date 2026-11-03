@@ -59,8 +59,8 @@
 
 #pragma once
 
-#include "LibUtilities/Backends/Backends_Device_API.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
@@ -395,13 +395,8 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     {
         s_twoOver1 = (TData *)shmemptr;
 
-        const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-        const unsigned int stride = getLocalRange<0>(threadBlock);
-
-        for (unsigned int idx = idx0; idx < nm1; idx += stride)
-        {
-            s_twoOver1[idx] = twoOver1[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -641,23 +636,15 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     TData *s_twoOver2 = nullptr;
 
     // Pre-compute factor.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
     if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                   SHAPE_TYPE == LibUtilities::NodalTet)
     {
         s_twoOver1 = (TData *)shmemptr;
         s_twoOver2 = s_twoOver1 + nm1;
 
-        for (unsigned int idx = idx0; idx < nm1; idx += stride)
-        {
-            s_twoOver1[idx] = twoOver1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm2; idx += stride)
-        {
-            s_twoOver2[idx] = twoOver2[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
+        StageToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -667,10 +654,8 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
     {
         s_twoOver2 = (TData *)shmemptr;
 
-        for (unsigned int idx = idx0; idx < nm2; idx += stride)
-        {
-            s_twoOver2[idx] = twoOver2[idx];
-        }
+        // Copy to shared memory.
+        StageToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
 
         localBarrier(threadBlock);
     }

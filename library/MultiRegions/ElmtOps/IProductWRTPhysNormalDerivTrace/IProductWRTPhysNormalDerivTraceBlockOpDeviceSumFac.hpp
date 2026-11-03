@@ -85,8 +85,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceBlockOpDeviceSumFacKernels.hpp>
 

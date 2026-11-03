@@ -77,7 +77,7 @@
 
 #pragma once
 
-#include "StdRegions/Operators/PhysDerivSumFacStdKernels.hpp"
+#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 

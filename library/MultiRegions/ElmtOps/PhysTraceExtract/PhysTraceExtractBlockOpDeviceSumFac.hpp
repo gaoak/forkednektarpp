@@ -95,7 +95,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractBlockOp.hpp>
 
 #include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>

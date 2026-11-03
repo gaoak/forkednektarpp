@@ -99,7 +99,7 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStage0Size(
         {
             return std::max(nq1, sizeParam.nm1());
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             return std::max(nq1, sizeParam.nm0());
         }
@@ -117,7 +117,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStage0Size(
         {
             return std::max(nq12, (2u * nm1 - nm0 + 1u) * nm0 / 2u);
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::Pyr)
         {
             return std::max(nq12, nm0 * nm1);
         }
@@ -147,7 +148,9 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStage1Size(
         {
             return std::max(nq2, sizeParam.nm2());
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                           SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::Pyr)
         {
             return std::max(nq2, sizeParam.nm0());
         }
@@ -398,10 +401,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
+        const TData *inptr = in + nq0 * slot;
+        TData *outptr      = out + nq0 * slot;
+        TData *volptr      = vol + nq0 * slot;
 
-        TData *volptr = vol + nq0 * slot;
-        TData *outptr = out + nq0 * slot;
-        PhysLiftProjectCopyInKernel(ilane, nq0, in + nq0 * slot, volptr);
+        PhysLiftProjectCopyInKernel(ilane, nq0, inptr, volptr);
         if (lift)
         {
             PhysLiftProjectSegLiftKernel(ilane, nq0, nbasis0, endPtsCollocated0,
@@ -495,10 +499,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
+        const TData *inptr = in + nqTot * slot;
+        TData *outptr      = out + nqTot * slot;
+        TData *volptr      = vol + nqTot * slot;
 
-        TData *volptr = vol + nqTot * slot;
-        TData *outptr = out + nqTot * slot;
-        PhysLiftProjectCopyInKernel(ilane, nqTot, in + nqTot * slot, volptr);
+        PhysLiftProjectCopyInKernel(ilane, nqTot, inptr, volptr);
         if (lift)
         {
             IProductWRTPhysTrace2DKernel<SHAPE_TYPE, DEFORMED, true>(
@@ -518,113 +523,20 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             TData *coefptr = coef + nmTot * slot;
             TData *wsp0ptr = wsp0 + wsp0Size * slot;
-            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-            {
-                IProductWRTBaseQuadSumFacKernel<false, false>(
-                    ilane, nm0, nm1, nq0, nq1, basis0, basis1, volptr, coefptr,
-                    wsp0ptr, TData(1.0));
-            }
-            else
-            {
-                IProductWRTBaseTriSumFacKernel<false, false>(
-                    ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
-                    volptr, coefptr, wsp0ptr, TData(1.0));
-            }
+            IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false>(
+                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, volptr,
+                coefptr, wsp0ptr, TData(1.0));
             const TData factor = SafeDivide(scale, jac[e]);
             for (unsigned int m = 0; m < nmTot; ++m)
             {
                 coefptr[warpsize * m + ilane] *= factor * diag[m];
             }
-            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-            {
-                BwdTransQuadSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1,
-                                                 basis0, basis1, coefptr,
-                                                 outptr, wsp0ptr);
-            }
-            else
-            {
-                BwdTransTriSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1,
-                                                isModified, basis0, basis1,
-                                                coefptr, outptr, wsp0ptr);
-            }
+            BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(
+                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, coefptr,
+                outptr, wsp0ptr);
         }
 
         e += getGlobalRange<0>(threadBlock);
-    }
-}
-
-/// The basis transpose of a three-dimensional element of lane @p ilane,
-/// from @p vol into @p coef, without the metric.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectBasisTranspose3DKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const bool isModified,
-    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT vol,
-    TData *NEK_RESTRICT coef, TData *NEK_RESTRICT wsp0,
-    TData *NEK_RESTRICT wsp1)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        IProductWRTBaseHexSumFacKernel<false, false>(
-            ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2, vol,
-            coef, wsp0, wsp1, TData(1.0));
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        IProductWRTBaseTetSumFacKernel<false, false>(
-            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-            basis2, vol, coef, wsp0, wsp1, TData(1.0));
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        IProductWRTBasePrismSumFacKernel<false, false>(
-            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-            basis2, vol, coef, wsp0, wsp1, TData(1.0));
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        IProductWRTBasePyrSumFacKernel<false, false>(
-            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-            basis2, vol, coef, wsp0, wsp1, TData(1.0));
-    }
-}
-
-/// The backward transform of a three-dimensional element of lane
-/// @p ilane, from @p coef into @p out, appending when @p APPEND.
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectBwdTrans3DKernel(
-    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const bool isModified,
-    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT coef,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        BwdTransHexSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                        basis0, basis1, basis2, coef, out, wsp0,
-                                        wsp1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        BwdTransTetSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                        isModified, basis0, basis1, basis2,
-                                        coef, out, wsp0, wsp1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        BwdTransPrismSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                          isModified, basis0, basis1, basis2,
-                                          coef, out, wsp0, wsp1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        BwdTransPyrSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                        isModified, basis0, basis1, basis2,
-                                        coef, out, wsp0, wsp1);
     }
 }
 
@@ -729,10 +641,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
+        const TData *inptr = in + nqTot * slot;
+        TData *outptr      = out + nqTot * slot;
+        TData *volptr      = vol + nqTot * slot;
 
-        TData *volptr = vol + nqTot * slot;
-        TData *outptr = out + nqTot * slot;
-        PhysLiftProjectCopyInKernel(ilane, nqTot, in + nqTot * slot, volptr);
+        PhysLiftProjectCopyInKernel(ilane, nqTot, inptr, volptr);
         if (lift)
         {
             IProductWRTPhysTrace3DFaceKernel<SHAPE_TYPE, DEFORMED, true>(
@@ -757,15 +670,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             TData *coefptr = coef + nmTot * slot;
             TData *wsp0ptr = wsp0 + wsp0Size * slot;
             TData *wsp1ptr = wsp1 + wsp1Size * slot;
-            PhysLiftProjectBasisTranspose3DKernel<SHAPE_TYPE>(
+            IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, volptr, coefptr, wsp0ptr, wsp1ptr);
+                basis2, volptr, coefptr, wsp0ptr, wsp1ptr, TData(1.0));
             const TData factor = SafeDivide(scale, jac[e]);
             for (unsigned int m = 0; m < nmTot; ++m)
             {
                 coefptr[warpsize * m + ilane] *= factor * diag[m];
             }
-            PhysLiftProjectBwdTrans3DKernel<SHAPE_TYPE, APPEND>(
+            BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
                 ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
                 basis2, coefptr, outptr, wsp0ptr, wsp1ptr);
         }
@@ -810,16 +723,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
+        const TData *inptr = in + nq0 * slot;
+        TData *coefptr     = coef + nm0 * slot;
 
         TData *volptr = vol + nq0 * slot;
-        PhysLiftProjectCopyInKernel(ilane, nq0, in + nq0 * slot, volptr);
+        PhysLiftProjectCopyInKernel(ilane, nq0, inptr, volptr);
         if (lift)
         {
             PhysLiftProjectSegLiftKernel(ilane, nq0, nbasis0, endPtsCollocated0,
                                          trace + 2 * slot, volptr);
         }
         IProductWRTBaseSegSumFacKernel<false, false>(
-            ilane, nm0, nq0, basis0, volptr, coef + nm0 * slot, TData(1.0));
+            ilane, nm0, nq0, basis0, volptr, coefptr, TData(1.0));
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -881,9 +796,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
+        const TData *inptr = in + nqTot * slot;
+        TData *coefptr     = coef + nmTot * slot;
 
         TData *volptr = vol + nqTot * slot;
-        PhysLiftProjectCopyInKernel(ilane, nqTot, in + nqTot * slot, volptr);
+        PhysLiftProjectCopyInKernel(ilane, nqTot, inptr, volptr);
         if (lift)
         {
             IProductWRTPhysTrace2DKernel<SHAPE_TYPE, false, true>(
@@ -893,18 +810,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 isCollocated0, isCollocated1, endPtsCollocated0,
                 endPtsCollocated1);
         }
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            IProductWRTBaseQuadSumFacKernel<false, false>(
-                ilane, nm0, nm1, nq0, nq1, basis0, basis1, volptr,
-                coef + nmTot * slot, wsp0 + wsp0Size * slot, TData(1.0));
-        }
-        else
-        {
-            IProductWRTBaseTriSumFacKernel<false, false>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, volptr,
-                coef + nmTot * slot, wsp0 + wsp0Size * slot, TData(1.0));
-        }
+        IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, volptr,
+            coefptr, wsp0 + wsp0Size * slot, TData(1.0));
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -990,9 +898,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
+        const TData *inptr = in + nqTot * slot;
+        TData *coefptr     = coef + nmTot * slot;
 
         TData *volptr = vol + nqTot * slot;
-        PhysLiftProjectCopyInKernel(ilane, nqTot, in + nqTot * slot, volptr);
+        PhysLiftProjectCopyInKernel(ilane, nqTot, inptr, volptr);
         if (lift)
         {
             IProductWRTPhysTrace3DFaceKernel<SHAPE_TYPE, false, true>(
@@ -1006,10 +916,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 isCollocated21, endPtsCollocated0, endPtsCollocated1,
                 endPtsCollocated2);
         }
-        PhysLiftProjectBasisTranspose3DKernel<SHAPE_TYPE>(
+        IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false>(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-            basis2, volptr, coef + nmTot * slot, wsp0 + wsp0Size * slot,
-            wsp1 + wsp1Size * slot);
+            basis2, volptr, coefptr, wsp0 + wsp0Size * slot,
+            wsp1 + wsp1Size * slot, TData(1.0));
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -1050,15 +960,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
-
         TData *coefptr     = coef + nm0 * slot;
+        TData *outptr      = out + nq0 * slot;
+
         const TData factor = SafeDivide(scale, jac[e]);
         for (unsigned int m = 0; m < nm0; ++m)
         {
             coefptr[warpsize * m + ilane] *= factor;
         }
         BwdTransSegSumFacKernel<APPEND>(ilane, nm0, nq0, basis0, coefptr,
-                                        out + nq0 * slot);
+                                        outptr);
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -1103,25 +1014,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
-
         TData *coefptr     = coef + nmTot * slot;
+        TData *outptr      = out + nqTot * slot;
+
         const TData factor = SafeDivide(scale, jac[e]);
         for (unsigned int m = 0; m < nmTot; ++m)
         {
             coefptr[warpsize * m + ilane] *= factor;
         }
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            BwdTransQuadSumFacKernel<APPEND>(
-                ilane, nm0, nm1, nq0, nq1, basis0, basis1, coefptr,
-                out + nqTot * slot, wsp0 + wsp0Size * slot);
-        }
-        else
-        {
-            BwdTransTriSumFacKernel<APPEND>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, coefptr,
-                out + nqTot * slot, wsp0 + wsp0Size * slot);
-        }
+        BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, coefptr,
+            outptr, wsp0 + wsp0Size * slot);
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -1179,16 +1082,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
         const size_t slot  = nelmt * c + warpsize * iwarp;
-
         TData *coefptr     = coef + nmTot * slot;
+        TData *outptr      = out + nqTot * slot;
+
         const TData factor = SafeDivide(scale, jac[e]);
         for (unsigned int m = 0; m < nmTot; ++m)
         {
             coefptr[warpsize * m + ilane] *= factor;
         }
-        PhysLiftProjectBwdTrans3DKernel<SHAPE_TYPE, APPEND>(
+        BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-            basis2, coefptr, out + nqTot * slot, wsp0 + wsp0Size * slot,
+            basis2, coefptr, outptr, wsp0 + wsp0Size * slot,
             wsp1 + wsp1Size * slot);
 
         e += getGlobalRange<0>(threadBlock);

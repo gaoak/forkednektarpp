@@ -39,8 +39,8 @@
 
 #include <type_traits>
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-#include "LibUtilities/BasicUtils/NekInline.hpp"
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 
 namespace Nektar::MultiRegions::detail
 {

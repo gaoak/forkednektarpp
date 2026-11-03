@@ -53,8 +53,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOpDeviceStdMatKernels.hpp>

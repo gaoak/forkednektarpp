@@ -425,13 +425,8 @@ NEK_DEVICE_INLINE static void FwdTransBC1DKernel(
     // barrier of the segment kernel precedes its first use.
     TData *s_basis0 = (TData *)shmemptr + 2 * nq0;
 
-    const unsigned int idx0   = getLocalIdx(threadBlock);
-    const unsigned int stride = getLocalRange(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
+    // Copy to shared memory.
+    StageToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
 
     // Per Element
     size_t e = getBlockIdx(threadBlock);
@@ -503,15 +498,9 @@ NEK_DEVICE_INLINE static void FwdTransBC2DKernel(
     const unsigned int idx0   = getLocalIdx(threadBlock);
     const unsigned int stride = getLocalRange(threadBlock);
 
-    for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
+    // Copy to shared memory.
+    StageToSharedMemory(nm0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {

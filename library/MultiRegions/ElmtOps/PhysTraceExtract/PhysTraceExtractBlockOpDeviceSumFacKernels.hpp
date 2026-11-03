@@ -199,7 +199,7 @@
 
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransBlockOpDeviceSumFacKernels.hpp>
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
 namespace Nektar::MultiRegions::detail
@@ -679,6 +679,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         // parameter [[maybe_unused]] and the constructor recorded false.
         BwdTransSegSumFacKernelTrace(ilane, nm0, ntbasis0, inptr, outptr, false,
                                      endPtsCollocated0);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -767,6 +768,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             }
             outptr[ilane] = tmp;
         }
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -1162,6 +1164,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             ilane, nm0, nm1, nq0, nq1, ntbasis0, ntbasis1, basis0, basis1,
             wspptr, inptr, outptr, isCollocated0, isCollocated1,
             endPtsCollocated0, endPtsCollocated1);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -1324,6 +1327,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             ilane, traceid, nm0, nm1, nq00, nq10, ntbasis0, ntbasis1, tbasis00,
             tbasis10, wspptr, inptr, outptr, isCollocated00, isCollocated10,
             endPtsCollocated0, endPtsCollocated1);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -2228,6 +2232,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             isCollocated01, isCollocated10, isCollocated11, isCollocated20,
             isCollocated21, endPtsCollocated0, endPtsCollocated1,
             endPtsCollocated2);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
