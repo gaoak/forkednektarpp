@@ -1238,8 +1238,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
         s_f1 = s_f0 + nq0;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1346,8 +1346,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
         s_f1 = s_f0 + nq0;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1463,10 +1463,10 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
         s_f2  = s_f1m + nq1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
-        StageToSharedMemory(nq1, f1m, s_f1m, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq1, f1m, s_f1m, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1477,8 +1477,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
         s_f2 = s_f0 + nq0;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1489,9 +1489,9 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
         s_f2 = s_f1 + nq1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1599,10 +1599,10 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
         s_f2  = s_f1m + nq1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
-        StageToSharedMemory(nq1, f1m, s_f1m, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq1, f1m, s_f1m, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1613,8 +1613,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
         s_f2 = s_f0 + nq0;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1625,9 +1625,9 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
         s_f2 = s_f1 + nq1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }

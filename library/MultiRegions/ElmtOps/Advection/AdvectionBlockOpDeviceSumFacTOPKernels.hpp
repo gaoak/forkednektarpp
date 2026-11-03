@@ -702,7 +702,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
             advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         Advection2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -794,7 +794,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
         const TData *advVelPtr = advVel + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         Advection3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
