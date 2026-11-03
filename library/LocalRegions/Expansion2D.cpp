@@ -2199,7 +2199,7 @@ void Expansion2D::v_DGDeriv(int dir,
 
 void Expansion2D::v_AddRobinMassMatrix(
     const int edge, const Array<OneD, const NekDouble> &primCoeffs,
-    DNekMatSharedPtr &inoutmat)
+    DNekMatSharedPtr &inoutmat, const bool tangential)
 {
     ASSERTL1(IsBoundaryInteriorExpansion(),
              "Not set up for non boundary-interior expansions");
@@ -2214,11 +2214,15 @@ void Expansion2D::v_AddRobinMassMatrix(
     Array<OneD, int> sign;
 
     StdRegions::VarCoeffMap varcoeffs;
-    varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    if (!tangential)
+    {
+        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    }
 
-    LocalRegions::MatrixKey mkey(StdRegions::eMass, LibUtilities::eSegment,
-                                 *edgeExp, StdRegions::NullConstFactorMap,
-                                 varcoeffs);
+    LocalRegions::MatrixKey mkey(tangential ? StdRegions::eLaplacian
+                                            : StdRegions::eMass,
+                                 LibUtilities::eSegment, *edgeExp,
+                                 StdRegions::NullConstFactorMap, varcoeffs);
     DNekScalMat &edgemat = *edgeExp->GetLocMatrix(mkey);
 
     // Now need to identify a map which takes the local edge
@@ -2314,7 +2318,8 @@ void Expansion2D::v_AddRobinMassMatrix(
         for (j = 0; j < order_e; ++j)
         {
             id2 = map[j];
-            (*inoutmat)(id1, id2) += edgemat(i, j) * sign[i] * sign[j];
+            (*inoutmat)(id1, id2) += edgemat(i, j) * sign[i] * sign[j] *
+                                     (tangential ? primCoeffs[0] : 1.0);
         }
     }
 }
@@ -2329,7 +2334,8 @@ void Expansion2D::v_AddRobinMassMatrix(
  */
 void Expansion2D::v_AddRobinTraceContribution(
     const int edgeid, const Array<OneD, const NekDouble> &primCoeffs,
-    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs)
+    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+    const bool tangential)
 {
     ASSERTL1(IsBoundaryInteriorExpansion(),
              "Not set up for non boundary-interior expansions");
@@ -2341,11 +2347,15 @@ void Expansion2D::v_AddRobinTraceContribution(
     Array<OneD, int> sign;
 
     StdRegions::VarCoeffMap varcoeffs;
-    varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    if (!tangential)
+    {
+        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    }
 
-    LocalRegions::MatrixKey mkey(StdRegions::eMass, LibUtilities::eSegment,
-                                 *edgeExp, StdRegions::NullConstFactorMap,
-                                 varcoeffs);
+    LocalRegions::MatrixKey mkey(tangential ? StdRegions::eLaplacian
+                                            : StdRegions::eMass,
+                                 LibUtilities::eSegment, *edgeExp,
+                                 StdRegions::NullConstFactorMap, varcoeffs);
     DNekScalMat &edgemat = *edgeExp->GetLocMatrix(mkey);
 
     NekVector<NekDouble> vEdgeCoeffs(order_e);
@@ -2358,6 +2368,10 @@ void Expansion2D::v_AddRobinTraceContribution(
     }
 
     vEdgeCoeffs = edgemat * vEdgeCoeffs;
+    if (tangential)
+    {
+        vEdgeCoeffs *= primCoeffs[0];
+    }
 
     for (i = 0; i < order_e; ++i)
     {

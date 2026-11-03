@@ -362,7 +362,8 @@ DNekScalMatSharedPtr GlobalLinSys::v_GetBlock(unsigned int n)
         for (rBC = m_robinBCInfo.find(n)->second; rBC; rBC = rBC->next)
         {
             vExp->AddRobinMassMatrix(rBC->m_robinID,
-                                     rBC->m_robinPrimitiveCoeffs, new_mat);
+                                     rBC->m_robinPrimitiveCoeffs, new_mat,
+                                     rBC->m_tangential);
         }
 
         // redeclare loc_mat to point to new_mat plus the scalar.
@@ -408,7 +409,8 @@ DNekScalBlkMatSharedPtr GlobalLinSys::v_GetStaticCondBlock(unsigned int n)
         for (rBC = m_robinBCInfo.find(n)->second; rBC; rBC = rBC->next)
         {
             vExp->AddRobinMassMatrix(rBC->m_robinID,
-                                     rBC->m_robinPrimitiveCoeffs, new_mat);
+                                     rBC->m_robinPrimitiveCoeffs, new_mat,
+                                     rBC->m_tangential);
         }
 
         // redeclare loc_mat to point to new_mat plus the scalar.

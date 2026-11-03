@@ -137,7 +137,8 @@ void GlobalLinSysDirectFull::v_Solve(
                 {
                     vExp->AddRobinTraceContribution(
                         rBC->m_robinID, rBC->m_robinPrimitiveCoeffs,
-                        pLocOutput + offset, rhsloc = rhs + offset);
+                        pLocOutput + offset, rhsloc = rhs + offset,
+                        rBC->m_tangential);
                 }
             }
             Vmath::Vsub(nLocDofs, pLocInput, 1, rhs, 1, rhs, 1);

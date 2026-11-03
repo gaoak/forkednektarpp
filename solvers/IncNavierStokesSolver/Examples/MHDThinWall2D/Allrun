@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$case_dir/../../../.." && pwd)"
+source "$case_dir/../CoupledMHDThickWall2D/scripts/env.sh"
+run_dir="${1:-$repo_dir/build/mhd-thin-wall-2d}"
+mkdir -p "$run_dir"
+cp "$case_dir/mesh.xml" "$case_dir/session.xml" "$run_dir/"
+cd "$run_dir"
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+mpiexec -np "${FLUID_RANKS:-1}" "$mhd_fluid_solver" mesh.xml session.xml > log.solver 2>&1
+"$mhd_fieldconvert" -f -m homplane:planeid=0 mesh.xml session.xml mesh.fld result.plt:plt:double > log.tecplot 2>&1

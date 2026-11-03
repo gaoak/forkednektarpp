@@ -164,7 +164,8 @@ protected:
 
     void v_AddRobinMassMatrix(const int face,
                               const Array<OneD, const NekDouble> &primCoeffs,
-                              DNekMatSharedPtr &inoutmat) override;
+                              DNekMatSharedPtr &inoutmat,
+                              const bool tangential) override;
 
     StdRegions::Orientation v_GetTraceOrient(int face) override;
 

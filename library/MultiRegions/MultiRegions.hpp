@@ -130,6 +130,7 @@ struct RobinBCInfo
 
     int m_robinID; /// id of which edge/face is robin condition
     Array<OneD, const NekDouble> m_robinPrimitiveCoeffs;
+    bool m_tangential = false; ///< Surface stiffness instead of Robin mass.
     std::shared_ptr<RobinBCInfo> next;
 };
 

@@ -249,6 +249,8 @@ IF( NEKTAR_SOLVER_ADR )
     ADD_NEKTAR_TEST(SVV_Tri)
     ADD_NEKTAR_TEST(SVV_Prism)
     ADD_NEKTAR_TEST(SVV_Tet)
+    ADD_NEKTAR_TEST(ThinWallLaplace)
+    ADD_NEKTAR_TEST(ThinWallLaplaceFull)
     ADD_NEKTAR_TEST(LaplacePhi)
 
     # Movement tests

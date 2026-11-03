@@ -112,6 +112,15 @@ void ForcingLorentz::v_InitObject(
             m_B0[i] = fieldEquation->Evaluate(0., 0., 0., 0.);
         }
     }
+    for (auto &bc : pFields[pFields.size() - 2]->GetBndConditions())
+    {
+        if (StringUtils::IEquals(bc->GetUserDefined(), "ThinConductingWall"))
+        {
+            ASSERTL0(m_E0[0] == 0.0 && m_E0[1] == 0.0 && m_E0[2] == 0.0,
+                     "ThinConductingWall currently requires zero external "
+                     "electric field.");
+        }
+    }
     m_damping =
         m_sigma * (m_B0[0] * m_B0[0] + m_B0[1] * m_B0[1] + m_B0[2] * m_B0[2]);
 

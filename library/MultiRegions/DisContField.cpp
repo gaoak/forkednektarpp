@@ -4675,6 +4675,27 @@ map<int, RobinBCInfoSharedPtr> DisContField::v_GetRobinBCInfo(void)
                         TraceID[cnt + e],
                         Array_tmp = coeffphys + locExpList->GetPhys_Offset(e));
 
+                rInfo->m_tangential = StringUtils::IEquals(
+                    m_bndConditions[i]->GetUserDefined(), "ThinConductingWall");
+                if (rInfo->m_tangential)
+                {
+                    ASSERTL0(GetExp(ElmtID[cnt + e])->GetShapeDimension() == 2,
+                             "ThinConductingWall requires 2D elements.");
+                    const int offset      = locExpList->GetPhys_Offset(e);
+                    const NekDouble value = coeffphys[offset];
+                    ASSERTL0(
+                        std::isfinite(value) && value >= 0.0,
+                        "Thin wall PRIMCOEFF must be finite and nonnegative.");
+                    for (int q = 0; q < locExpList->GetExp(e)->GetTotPoints();
+                         ++q)
+                    {
+                        ASSERTL0(std::abs(coeffphys[offset + q] - value) <
+                                     1e-12 * std::max(1.0, value),
+                                 "Thin wall PRIMCOEFF must be constant on each "
+                                 "edge.");
+                    }
+                }
+
                 elmtid = ElmtID[cnt + e];
                 // make link list if necessary
                 if (returnval.count(elmtid) != 0)

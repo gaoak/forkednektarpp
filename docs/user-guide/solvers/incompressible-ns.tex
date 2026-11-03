@@ -2583,6 +2583,40 @@ insulating walls, mixed electrical boundary conditions and a lower-order
 potential expansion than the velocity expansion. The existing Hartmann and
 homogeneous MHD duct tests exercise the flow-coupled paths.
 
+\subsection{Thin conducting walls with internal potential}
+
+A stationary thin wall can be represented without solid elements using
+\begin{lstlisting}[style=XMLStyle]
+<R VAR="phi" USERDEFINEDTYPE="ThinConductingWall"
+   VALUE="0" PRIMCOEFF="WallLength" />
+\end{lstlisting}
+Here \inltt{WallLength} is $\sigma_w t_w/\sigma_f=c a$, where $a$ is the
+reference half-width and $c$ the wall conductance ratio. The coefficient must
+be finite, nonnegative and constant on each boundary element. It has the same
+length units as the mesh coordinates. The \inltt{R} tag selects the existing
+Robin assembly infrastructure; this user-defined condition substitutes a
+surface stiffness matrix for the ordinary Robin mass matrix.
+
+With $\mathbf{n}$ pointing from fluid to wall, the sheet current is
+$\mathbf{K}=-\sigma_w t_w\nabla_s\phi$ and
+$\mathbf{j}_f\cdot\mathbf{n}=\nabla_s\cdot\mathbf{K}$. The internal electric
+bilinear form gains
+$\int_{\Gamma_w}\mathrm{WallLength}\,\nabla_s\phi\cdot\nabla_s v\,ds$.
+The exterior of the wall is insulated (\inltt{VALUE=0}); exposed wall ends
+also have zero sheet-current flux as a natural condition. Internal wall-mesh
+vertices use ordinary CG continuity and current balance. The additive
+constant of potential is still undetermined and the usual singular-system
+reference treatment is retained.
+
+This initial implementation supports two-dimensional elements, including a
+fully developed \inltt{Homogeneous=1D}, \inltt{HomModesZ=2} calculation. It
+assumes stationary no-slip walls, no imposed electric field, and no Mapping
+or mesh movement. General three-dimensional wall surfaces, nonzero streamwise
+Fourier modes, edge electrodes and contact resistances are outside this
+implementation. The thin-wall approximation requires wall thickness to be
+small relative to the tangential variation scale of potential. The example
+\inltt{MHDThinWall2D} includes input files, MPI launch and Tecplot export.
+
 \subsection{Electric potential coupled to conducting solids}
 
 With MPI and CWIPI enabled, setting \inltt{ElectricPotential} to

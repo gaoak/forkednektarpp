@@ -105,6 +105,35 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
                  StringUtils::IEquals(potentialMode, "Coupled"),
              "ElectricPotential must be Internal or Coupled.");
     m_MHD.externalPotential = StringUtils::IEquals(potentialMode, "Coupled");
+    if (m_MHD.hasLorentzForce)
+    {
+        for (auto &bc : m_epotential->GetBndConditions())
+        {
+            if (!StringUtils::IEquals(bc->GetUserDefined(),
+                                      "ThinConductingWall"))
+            {
+                continue;
+            }
+            ASSERTL0(!m_MHD.externalPotential &&
+                         bc->GetBoundaryConditionType() ==
+                             SpatialDomains::eRobin,
+                     "ThinConductingWall requires Internal potential and an R "
+                     "boundary.");
+            ASSERTL0(m_graph->GetMeshDimension() == 2 &&
+                         (m_HomogeneousType == eNotHomogeneous ||
+                          (m_HomogeneousType == eHomogeneous1D &&
+                           m_session->GetParameter("HomModesZ") == 2 &&
+                           m_fields[0]->GetHomogeneousBasis()->GetBasisType() ==
+                               LibUtilities::eFourier)),
+                     "ThinConductingWall supports 2D or fully developed "
+                     "HomModesZ=2 flow.");
+            ASSERTL0(!m_session->DefinesElement("Nektar/Movement") &&
+                         !m_session->DefinesElement("Nektar/Mapping"),
+                     "ThinConductingWall currently requires a static unmapped "
+                     "mesh.");
+        }
+    }
+
     if (m_MHD.externalPotential)
     {
         ASSERTL0(m_MHD.hasLorentzForce,
@@ -1568,7 +1597,19 @@ void VelocityCorrectionScheme::SetEPWeakBCs(
         savedBoundaryCoeffs[n] = Array<OneD, NekDouble>(nc);
         Vmath::Vcopy(nc, bndExp[n]->GetCoeffs(), 1,
                      savedBoundaryCoeffs[n], 1);
-        if (StringUtils::IEquals(bndConds[n]->GetUserDefined(), "Insulator"))
+        const bool thinWall = StringUtils::IEquals(
+            bndConds[n]->GetUserDefined(), "ThinConductingWall");
+        if (thinWall)
+        {
+            for (int c = 0; c < nc; ++c)
+            {
+                ASSERTL0(std::abs(savedBoundaryCoeffs[n][c]) < 1e-12,
+                         "ThinConductingWall requires VALUE=0 (insulated "
+                         "exterior).");
+            }
+        }
+        if (thinWall ||
+            StringUtils::IEquals(bndConds[n]->GetUserDefined(), "Insulator"))
         {
             Vmath::Zero(nc, bndExp[n]->UpdateCoeffs(), 1);
         }

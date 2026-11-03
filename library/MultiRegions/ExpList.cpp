@@ -3088,8 +3088,9 @@ DNekMatSharedPtr ExpList::GenGlobalMatrixFull(
             // add local matrix contribution
             for (rBC = RobinBCInfo.find(n)->second; rBC; rBC = rBC->next)
             {
-                (*m_exp)[n]->AddRobinMassMatrix(
-                    rBC->m_robinID, rBC->m_robinPrimitiveCoeffs, new_mat);
+                (*m_exp)[n]->AddRobinMassMatrix(rBC->m_robinID,
+                                                rBC->m_robinPrimitiveCoeffs,
+                                                new_mat, rBC->m_tangential);
             }
 
             NekDouble one = 1.0;

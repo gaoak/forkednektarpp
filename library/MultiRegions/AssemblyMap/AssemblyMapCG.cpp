@@ -34,6 +34,7 @@
 
 #include <LibUtilities/BasicUtils/HashUtils.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LocalRegions/Expansion.h>
 #include <LocalRegions/Expansion2D.h>
 #include <LocalRegions/Expansion3D.h>
@@ -118,8 +119,13 @@ int AssemblyMapCG::CreateGraph(
             {
                 cnt++;
             }
+            // Surface stiffness leaves the constant-potential nullspace.
             if (bndConditions[k][i]->GetBoundaryConditionType() !=
-                SpatialDomains::eNeumann)
+                    SpatialDomains::eNeumann &&
+                !(bndConditions[k][i]->GetBoundaryConditionType() ==
+                      SpatialDomains::eRobin &&
+                  StringUtils::IEquals(bndConditions[k][i]->GetUserDefined(),
+                                       "ThinConductingWall")))
             {
                 m_systemSingular = false;
             }

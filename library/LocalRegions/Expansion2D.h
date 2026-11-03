@@ -160,12 +160,13 @@ protected:
 
     void v_AddRobinMassMatrix(const int edgeid,
                               const Array<OneD, const NekDouble> &primCoeffs,
-                              DNekMatSharedPtr &inoutmat) override;
+                              DNekMatSharedPtr &inoutmat,
+                              const bool tangential) override;
 
     void v_AddRobinTraceContribution(
         const int traceid, const Array<OneD, const NekDouble> &primCoeffs,
-        const Array<OneD, NekDouble> &incoeffs,
-        Array<OneD, NekDouble> &coeffs) override;
+        const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+        const bool tangential) override;
 
     DNekMatSharedPtr v_BuildVertexMatrix(
         const DNekScalMatSharedPtr &r_bnd) override;
