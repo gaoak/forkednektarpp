@@ -93,7 +93,9 @@ protected:
 
             auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outbase =
-                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
+                this->m_append
+                    ? outblock.template GetPtr<MemSpace, ReadWrite>(streamID)
+                    : outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
             const auto npts      = outblock.CompSize();
             const auto inStride  = inblock.CompSize();

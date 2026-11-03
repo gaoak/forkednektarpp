@@ -172,6 +172,10 @@ public:
 
         for (unsigned int n = 0; n < coeffs.size(); ++n)
         {
+            ASSERTL0(coeffs[n].GetNumHomoModes() == 1,
+                     "The surface integral holds one value per component, "
+                     "not one per homogeneous mode.");
+
             for (unsigned int blk = 0; blk < coeffs[n].GetBlocks().size();
                  ++blk)
             {

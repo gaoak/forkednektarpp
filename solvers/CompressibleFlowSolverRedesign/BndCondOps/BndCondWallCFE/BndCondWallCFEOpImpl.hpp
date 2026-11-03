@@ -181,6 +181,14 @@ protected:
         {
             this->m_bndCondPhysOp->GetBndUserDefinedParam(blk, 0, "twall",
                                                           m_Twall[blk]);
+
+            // The isothermal energy is the last component, so extra
+            // transported components are not supported.
+            ASSERTL0(!IsIsothermalWallTag(
+                         this->m_bndCondPhysOp->GetBndUserDefined(blk, 0)) ||
+                         m_numComp == m_coordDim + 2,
+                     "An isothermal wall needs exactly density, one momentum "
+                     "component per direction and energy.");
         }
     }
 
@@ -222,13 +230,6 @@ protected:
 
         if (!IsIsothermalWallTag(
                 this->m_bndCondPhysOp->GetBndUserDefined(blk, 0)))
-        {
-            return;
-        }
-
-        // Density, one momentum component per direction and energy. A session
-        // carrying extra transported components leaves them alone.
-        if (m_numComp != m_coordDim + 2)
         {
             return;
         }

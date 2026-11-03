@@ -52,6 +52,14 @@ public:
                       const std::vector<std::string> &components)
         : MeanRemovalOp<TData>(expansionList, components)
     {
+        // The block operators and the surface integral both hold one value
+        // per component, so a homogeneous expansion, with a component per
+        // plane, is rejected here rather than when it overruns them.
+        const auto expType = expansionList->GetExpType();
+        ASSERTL0(expType != MultiRegions::e2DH1D &&
+                     expType != MultiRegions::e3DH1D &&
+                     expType != MultiRegions::e3DH2D,
+                 "MeanRemoval is not implemented for homogeneous expansions.");
     }
 
     // className - for OperatorFactory
@@ -69,9 +77,6 @@ public:
 protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
-        ASSERTL1(inout.GetNumHomoModes() == 1,
-                 "MeanRemoval is not implemented for homogeneous expansions.");
-
         ComputeVolume();
 
         const auto nComp = inout.GetNumComponents();

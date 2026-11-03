@@ -147,6 +147,8 @@ v5.11.0
 - Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
 - Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
 - Tidy the device SumFac and SumFacTOP element operators: share 2D/3D shape-dispatch helpers for BwdTrans and IProductWRTBase, stage shared-memory data with `StageToSharedMemory`/`StageTransposeToSharedMemory`, and drop a redundant barrier after the nodal-to-modal mapping (!2905)
+- Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
+- Agree across ranks on the field definitions a variable is written with (!2907)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -203,6 +205,7 @@ v5.11.0
 - Fix NaN fluxes on padded elements in the Euler volume flux (!2891)
 - Update `TimeDependent` boundary conditions at every right-hand-side evaluation, which were left at their initial value, and add a test ported from the legacy solver (!2902)
 - Vectorise the HLL, HLLC and AUSM Riemann solvers on AVX, branch-free through clamped wave speeds and `Select()`, and build the Riemann profiler again (!2904)
+- Fail, rather than silently skip the wall temperature, on an isothermal wall with extra components (!2907)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)

@@ -406,8 +406,8 @@ protected:
                 outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
-            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
-            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -474,8 +474,8 @@ protected:
                 outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
-            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
-            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.
@@ -559,8 +559,8 @@ protected:
                 outblock.GetNumData(), outptr, m_streamID);
 
             // Increment pointers.
-            inptr += inblock.CompSize() * inblock.GetNumHomoModes();
-            outptr += outblock.CompSize() * outblock.GetNumHomoModes();
+            inptr += inblock.CompSize();
+            outptr += outblock.CompSize();
         }
 
         // Set output block to input interleave.

@@ -593,7 +593,8 @@ protected:
         // copy loop below writes every position for every component
         // (regardless of whether that component actually has a Dirichlet
         // condition there -- non-matching components get zero from
-        // ExpressionOp's masked-out, zeroed wsp_phys, not a skipped write),
+        // the masked-out components of wsp_phys, zeroed at construction and
+        // never written by ExpressionOp, not a skipped write),
         // so every element gets overwritten unconditionally on every call.
         auto compactPtr =
             m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>(
@@ -603,15 +604,14 @@ protected:
         {
             const size_t bndOffset = m_dirCoeffOffsets[iDir];
 
-            // Zero wsp_phys and wsp_coeff
-            Math::zero<ExecSpace>(m_wsp_phys[iDir]);
-            Math::zero<ExecSpace>(m_wsp_coeffs[iDir]);
-
             // Update time
             m_expressionOps[iDir]->SetTime(time);
 
-            // Evaluate Dirichlet expression and project onto boundary
+            // Evaluate Dirichlet expression and project onto boundary. The
+            // projection back-transforms its output before filling the
+            // interior modes, so it needs them zero.
             m_expressionOps[iDir]->Apply(m_wsp_phys[iDir], m_wsp_phys[iDir]);
+            Math::zero<ExecSpace>(m_wsp_coeffs[iDir]);
             m_fwdTransBCOps[iDir]->Apply(m_wsp_phys[iDir], m_wsp_coeffs[iDir]);
 
             // Copy m_wsp_coeffs[iDir] into the compact array, component by

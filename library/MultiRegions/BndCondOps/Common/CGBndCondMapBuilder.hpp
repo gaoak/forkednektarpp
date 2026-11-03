@@ -194,8 +194,8 @@ CGBndCondRegions<TData> BuildCGBndCondRegions(
         wspCoeffs.back().template Initialize<MemSpace>(0.0);
 
         // Create operators for this boundary condition
-        expressionOps.push_back(
-            ExpressionOp<TData>::Create(bcExpList, components));
+        expressionOps.push_back(ExpressionOp<TData>::Create(
+            bcExpList, components, ExecSpace::name));
         expressionOps.back()->SetComponentMask(isMatchComp);
 
         // Gather equations for each field/component
