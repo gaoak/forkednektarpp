@@ -249,6 +249,8 @@ IF( NEKTAR_SOLVER_ADR )
     ADD_NEKTAR_TEST(SVV_Prism)
     ADD_NEKTAR_TEST(SVV_Tet)
     ADD_NEKTAR_TEST(LaplacePhi)
+    ADD_NEKTAR_TEST(LaplacePhiMovingwall)
+    ADD_NEKTAR_TEST(LaplacePhiMovingwallLinear)
 
     # Singular Poisson equation tests
     ADD_NEKTAR_TEST(Poisson3D_singular_hex)

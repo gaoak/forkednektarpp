@@ -36,6 +36,8 @@
 #define NEKTAR_SOLVERS_ADRSOLVER_EQUATIONSYSTEMS_LAPLACEPHI_H
 
 #include <SolverUtils/EquationSystem.h>
+#include <array>
+#include <vector>
 
 using namespace Nektar::SolverUtils;
 
@@ -78,6 +80,10 @@ private:
     Array<OneD, bool> v_GetSystemSingularChecks() override;
     void setUserDefinedBC(int n);
     void calculateAddedMass();
+    void loadMovingWall();
+    void setMovingWallBC(const MultiRegions::ExpListSharedPtr &boundary);
+    std::vector<std::array<NekDouble, 6>> m_wallPoints;
+    bool m_hasMovingWall = false;
     Array<OneD, Array<OneD, NekDouble>> m_boundValues;
     Array<OneD, NekDouble> m_pivot;
 };

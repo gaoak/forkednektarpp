@@ -37,6 +37,9 @@
 #include <ADRSolver/EquationSystems/LaplacePhi.h>
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
+#include <cmath>
+#include <fstream>
+#include <sstream>
 namespace Nektar
 {
 std::string LaplacePhi::className =
@@ -61,13 +64,14 @@ void LaplacePhi::v_InitObject(bool DeclareFields)
     for (const auto &it : m_session->GetVariables())
     {
         if (it.size() != 4 || it[0] != 'p' || it[1] != 'h' || it[2] != 'i' ||
-            it[3] < '0' || it[4] >= bndsize + '0')
+            it[3] < '0' || it[3] >= bndsize + '0')
         {
             NEKERROR(ErrorUtil::efatal,
                      "Error: incorrect variable name '" + it +
                          "', should be phi[0-3] or phi[0-6].");
         }
     }
+    loadMovingWall();
     // number of physics points for each field
     int numpts = 0;
     Array<OneD, const SpatialDomains::BoundaryConditionShPtr> m_BndConds =
@@ -174,7 +178,10 @@ void LaplacePhi::v_DoSolve()
                               m_fields[i]->UpdatePhys());
         m_fields[i]->SetPhysState(true);
     }
-    calculateAddedMass();
+    if (!m_hasMovingWall)
+    {
+        calculateAddedMass();
+    }
 }
 
 Array<OneD, bool> LaplacePhi::v_GetSystemSingularChecks()
@@ -198,7 +205,132 @@ void LaplacePhi::setUserDefinedBC(int n)
                                          m_BndExp[i]->UpdateCoeffs());
             offset += m_BndExp[i]->GetTotPoints();
         }
+        else if (StringUtils::IEquals(m_BndConds[i]->GetUserDefined(),
+                                      "Movingwall"))
+        {
+            setMovingWallBC(m_BndExp[i]);
+        }
     }
+}
+
+// Read endpoint velocities once. Coordinates are matched independently of file
+// ordering, using an absolute tolerance of 1e-8 in mesh coordinate units.
+void LaplacePhi::loadMovingWall()
+{
+    int hasMovingWall = 0;
+    for (const auto &field : m_fields)
+    {
+        for (const auto &bc : field->GetBndConditions())
+        {
+            if (StringUtils::IEquals(bc->GetUserDefined(), "Movingwall"))
+            {
+                ASSERTL0(
+                    bc->GetBoundaryConditionType() == SpatialDomains::eNeumann,
+                    "Movingwall must be a Neumann (N) boundary condition.");
+                hasMovingWall = 1;
+            }
+        }
+    }
+    m_session->GetComm()->AllReduce(hasMovingWall, LibUtilities::ReduceMax);
+    m_hasMovingWall = hasMovingWall != 0;
+    if (!m_hasMovingWall)
+    {
+        return;
+    }
+    ASSERTL0(m_graph->GetMeshDimension() == 2 && m_spacedim == 2,
+             "Movingwall currently supports two-dimensional meshes with edge "
+             "boundaries.");
+    std::string filename;
+    m_session->LoadSolverInfo("MovingWallFile", filename, "Movingwall.dat");
+    std::ifstream input(filename);
+    ASSERTL0(input.is_open(),
+             "Cannot open Movingwall velocity file: " + filename);
+    std::string line;
+    int lineNumber = 0;
+    while (std::getline(input, line))
+    {
+        ++lineNumber;
+        line = line.substr(0, line.find('#'));
+        std::istringstream row(line);
+        row >> std::ws;
+        if (row.eof())
+        {
+            continue;
+        }
+        std::array<NekDouble, 6> point;
+        for (auto &value : point)
+        {
+            ASSERTL0(static_cast<bool>(row >> value) && std::isfinite(value),
+                     filename + ": invalid x y z u v w at line " +
+                         std::to_string(lineNumber));
+        }
+        std::string extra;
+        ASSERTL0(!(row >> extra),
+                 filename + ": expected exactly six columns at line " +
+                     std::to_string(lineNumber));
+        m_wallPoints.push_back(point);
+    }
+    ASSERTL0(!m_wallPoints.empty(),
+             "Movingwall velocity file is empty: " + filename);
+}
+
+void LaplacePhi::setMovingWallBC(const MultiRegions::ExpListSharedPtr &boundary)
+{
+    int npts = boundary->GetTotPoints();
+    Array<OneD, Array<OneD, NekDouble>> normals(3);
+    for (int d = 0; d < 3; ++d)
+    {
+        normals[d] = Array<OneD, NekDouble>(npts, 0.0);
+    }
+    boundary->GetNormals(normals);
+    Array<OneD, NekDouble> flux(npts, 0.0);
+    for (int e = 0; e < boundary->GetExpSize(); ++e)
+    {
+        auto edge = boundary->GetExp(e);
+        std::array<NekDouble, 3> velocity[2];
+        for (int v = 0; v < 2; ++v)
+        {
+            NekDouble x, y, z;
+            edge->GetGeom()->GetVertex(v)->GetCoords(x, y, z);
+            int match = -1;
+            for (int p = 0; p < static_cast<int>(m_wallPoints.size()); ++p)
+            {
+                const auto &point = m_wallPoints[p];
+                if (std::abs(point[0] - x) <= 1e-8 &&
+                    std::abs(point[1] - y) <= 1e-8 &&
+                    std::abs(point[2] - z) <= 1e-8)
+                {
+                    ASSERTL0(match == -1, "Movingwall: ambiguous duplicate "
+                                          "endpoint coordinates.");
+                    match = p;
+                }
+            }
+            ASSERTL0(match >= 0,
+                     "Movingwall: missing velocity for edge " +
+                         std::to_string(edge->GetGeom()->GetGlobalID()) +
+                         ", endpoint " + std::to_string(v) + " (" +
+                         std::to_string(x) + ", " + std::to_string(y) + ", " +
+                         std::to_string(z) + ").");
+            for (int d = 0; d < 3; ++d)
+            {
+                velocity[v][d] = m_wallPoints[match][d + 3];
+            }
+        }
+        // Reference coordinate interpolation also applies to curved edges.
+        const auto &xi = edge->GetBasis(0)->GetZ();
+        int offset     = boundary->GetPhys_Offset(e);
+        for (int q = 0; q < edge->GetTotPoints(); ++q)
+        {
+            NekDouble t = 0.5 * (1.0 + xi[q]);
+            for (int d = 0; d < m_spacedim; ++d)
+            {
+                flux[offset + q] +=
+                    normals[d][offset + q] *
+                    ((1.0 - t) * velocity[0][d] + t * velocity[1][d]);
+            }
+        }
+    }
+    boundary->IProductWRTBase(flux, boundary->UpdateCoeffs());
 }
 
 void LaplacePhi::calculateAddedMass()
