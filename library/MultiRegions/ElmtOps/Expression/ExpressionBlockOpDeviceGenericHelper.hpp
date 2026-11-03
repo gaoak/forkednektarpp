@@ -103,6 +103,9 @@ template <typename TData> struct ExpressionKernelArgs
     std::vector<const TData *> evarptr;
     /// One output pointer per unmasked component, at its first mode.
     std::vector<TData *> outptr;
+    /// Addresses of the arguments above, as a CUDA/HIP launch takes them,
+    /// kept so that their storage is reused from one launch to the next.
+    mutable std::vector<void *> launchArgs;
 };
 
 /**

@@ -439,7 +439,8 @@ protected:
         // copy loop below writes every position for every component
         // (regardless of whether that component actually has a Neumann
         // condition there -- non-matching components get zero from
-        // ExpressionOp's masked-out, zeroed wsp_phys, not a skipped write),
+        // the masked-out components of wsp_phys, zeroed at construction and
+        // never written by ExpressionOp, not a skipped write),
         // so every element gets overwritten unconditionally on every call.
         auto compactPtr =
             m_compactBndCoeff.template GetPtr<MemSpace, WriteOnly>(
@@ -449,10 +450,6 @@ protected:
         {
             const size_t nBndExpCoeff = m_neuNumCoeffs[iNeu];
             const size_t bndOffset    = m_neuCoeffOffsets[iNeu];
-
-            // Zero wsp_phys and wsp_coeff
-            Math::zero<ExecSpace>(m_wsp_phys[iNeu]);
-            Math::zero<ExecSpace>(m_wsp_coeffs[iNeu]);
 
             // Update time
             m_expressionOps[iNeu]->SetTime(time);

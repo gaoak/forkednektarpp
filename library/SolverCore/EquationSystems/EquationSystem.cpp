@@ -491,9 +491,15 @@ void EquationSystem::WriteOutputFields(
                  "Output field has inconsistent component storage.");
         const auto ncoeffsComp = allCoeffs.size() / ncomp;
 
+        // Whether the view embeds is decided on the local elements, so the
+        // ranks agree on it before writing: otherwise one file would hold the
+        // view in the first view's definitions on some ranks and in its own
+        // on others.
         const auto &firstExpansion = fields.front().expansion;
-        const bool embed           = view.expansion != firstExpansion &&
-                           view.expansion->EmbedsLosslessly(firstExpansion);
+        int embedOnAllRanks        = view.expansion != firstExpansion &&
+                              view.expansion->EmbedsLosslessly(firstExpansion);
+        m_comm->AllReduce(embedOnAllRanks, LibUtilities::ReduceMin);
+        const bool embed      = embedOnAllRanks == 1;
         const auto &expansion = embed ? firstExpansion : view.expansion;
 
         auto viewFieldDef = expansion->GetFieldDefinitions();

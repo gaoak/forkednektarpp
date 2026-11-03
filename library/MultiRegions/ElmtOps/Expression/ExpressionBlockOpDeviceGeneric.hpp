@@ -210,6 +210,9 @@ protected:
     unsigned int m_nqTot;
     /// Compiled kernel variants, in ExpressionKernelIndex order.
     ExpressionKernels m_kernels;
+    /// Launch arguments, refilled on every Apply() in storage reused from
+    /// one call to the next.
+    ExpressionKernelArgs<TData> m_kernelArgs;
 
     /**
      * @brief Launch the pre-compiled expression kernel over every
@@ -311,34 +314,35 @@ protected:
         }
 
         // Set input parameters.
-        ExpressionKernelArgs<TData> kernelArgs;
-        kernelArgs.nsize    = nsize;
-        kernelArgs.compSize = compSize;
-        kernelArgs.nelmt    = inblock.GetNumElements();
-        kernelArgs.ndata    = inblock.GetNumData();
-        kernelArgs.scale    = this->m_scale;
-        kernelArgs.coordptr = coordptr;
-        kernelArgs.time     = this->m_time;
+        m_kernelArgs.nsize    = nsize;
+        m_kernelArgs.compSize = compSize;
+        m_kernelArgs.nelmt    = inblock.GetNumElements();
+        m_kernelArgs.ndata    = inblock.GetNumData();
+        m_kernelArgs.scale    = this->m_scale;
+        m_kernelArgs.coordptr = coordptr;
+        m_kernelArgs.time     = this->m_time;
 
         // Set input pointers, at the first mode of the component.
         const unsigned int numEvar = this->m_numEvars[0];
+        m_kernelArgs.evarptr.resize(numEvar - 4);
         for (unsigned int i = 0; i < numEvar - 4; i++)
         {
-            kernelArgs.evarptr.push_back(inptr + i * nhomo * compSize);
+            m_kernelArgs.evarptr[i] = inptr + i * nhomo * compSize;
         }
 
         // Set output pointers, at the first mode of the component.
+        m_kernelArgs.outptr.clear();
         for (unsigned int nc = 0; nc < noutcomp; ++nc)
         {
             // Check component mask.
             if (this->m_cmask[nc])
             {
-                kernelArgs.outptr.push_back(outptr + nc * nhomo * compSize);
+                m_kernelArgs.outptr.push_back(outptr + nc * nhomo * compSize);
             }
         }
 
         // Launch kernel.
-        LaunchExpressionKernel(m_kernels, index, kernelArgs, gridSize,
+        LaunchExpressionKernel(m_kernels, index, m_kernelArgs, gridSize,
                                blockSize, m_streamID);
 
         // Set output block to input interleave.
