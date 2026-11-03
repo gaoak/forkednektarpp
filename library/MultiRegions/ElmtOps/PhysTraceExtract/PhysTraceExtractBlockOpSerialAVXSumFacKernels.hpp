@@ -173,7 +173,7 @@
 
 // For NEK_FORCE_INLINE, previously picked up by whichever header
 // happened to include this one first.
-#include "LibUtilities/BasicUtils/NekInline.hpp"
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>

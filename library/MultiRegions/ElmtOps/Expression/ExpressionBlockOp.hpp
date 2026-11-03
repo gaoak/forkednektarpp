@@ -51,7 +51,7 @@
 #include <string>
 #include <vector>
 
-#include "LibUtilities/BasicUtils/Equation.h"
+#include <LibUtilities/BasicUtils/Equation.h>
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 
 namespace Nektar::MultiRegions

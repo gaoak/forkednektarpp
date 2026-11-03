@@ -906,7 +906,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D0T = bwd + 4 * nq0;
 
     // Copy to shared memory.
-    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
+    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -963,6 +963,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -1001,13 +1003,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam2D, ncoord,
                                                       wsp0Size, 0u);
 
-    TData *metric = (TData *)shmemptr;
-    TData *bwd    = metric + IProductWRTBaseAlignedSize<TData>(6);
-    TData *deriv  = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *tmp    = deriv;
-    TData *deriv0 = deriv;
-    TData *deriv1 = deriv0 + nqTot;
-    TData *s_ipb  = deriv + nmTotAl;
+    TData *metric  = (TData *)shmemptr;
+    TData *bwd     = metric + IProductWRTBaseAlignedSize<TData>(6);
+    TData *deriv   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *s_modal = deriv;
+    TData *deriv0  = deriv;
+    TData *deriv1  = deriv0 + nqTot;
+    TData *s_ipb   = deriv + nmTotAl;
     TData *s_wsp0 =
         deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam2D);
     TData *s_basis0 = deriv + derivWspSize;
@@ -1016,21 +1018,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D1T    = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
-
-    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
-    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1041,75 +1032,41 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
         TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
+        if constexpr (isNodal)
         {
-            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, tmp, threadBlock);
+            // Nodal to Modal in shared memory.
+            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_modal, threadBlock);
         }
         else
         {
             // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-            {
-                tmp[idx] = inptr[idx];
-            }
-
+            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
             localBarrier(threadBlock);
         }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            BwdTransQuadSumFacTOPKernel<false, true>(nm0, nm1, nq0, nq1, nqTot,
-                                                     s_basis0, s_basis1, tmp,
-                                                     bwd, s_wsp0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
-                           SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            BwdTransTriSumFacTOPKernel<false>(nm0, nm1, nq0, nq1, nqTot,
-                                              isModified, s_basis0, s_basis1,
-                                              tmp, bwd, s_wsp0, threadBlock);
-        }
+        BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, false>(
+            nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1, s_modal,
+            bwd, s_wsp0, threadBlock);
 
-        if constexpr (DEFORMED)
-        {
-            TData dmetric[6] = {0.0};
-            LaplacianPhysDerivApplyMetric2DSumFacTOPKernel<SHAPE_TYPE,
-                                                           DEFORMED>(
-                ncoord, nq0, nq1, D0, D1, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                bwd, deriv0, deriv1, dmetric, threadBlock);
-        }
-        else
-        {
-            LaplacianPhysDerivApplyMetric2DSumFacTOPKernel<SHAPE_TYPE,
-                                                           DEFORMED>(
-                ncoord, nq0, nq1, D0, D1, w0, w1, f0, f1, dfptr, jacptr, coeff,
-                bwd, deriv0, deriv1, metric, threadBlock);
-        }
+        TData dmetric[DEFORMED ? 6 : 1] = {0.0};
+        LaplacianPhysDerivApplyMetric2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            ncoord, nq0, nq1, D0, D1, w0, w1, f0, f1, dfptr, jacptr, coeff, bwd,
+            deriv0, deriv1, DEFORMED ? dmetric : metric, threadBlock);
         SumDerivTensor2DSumFacTOPKernel<false, false>(nq0, nq1, s_D0T, s_D1T,
                                                       deriv0, deriv1, bwd,
                                                       (TData)1.0, threadBlock);
         const TData *ipb =
             IProductWRTBasePadInput(nq0, nq1, bwd, s_ipb, threadBlock);
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            IProductWRTBaseQuadSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1, ipb,
-                outptr, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, ipb, outptr, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
-                s_basis1, ipb, tmp, s_wsp0, (TData)1.0, threadBlock);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
+        IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+            nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+            s_basis1, ipb, isNodal ? s_modal : outptr, s_wsp0, (TData)1.0,
+            threadBlock);
+
+        if constexpr (isNodal)
+        {
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, s_modal, outptr,
                                                threadBlock);
         }
 
@@ -1151,6 +1108,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
+
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1216,14 +1176,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam3D, 3u, wsp0Size,
                                                       wsp1Size);
 
-    TData *metric = (TData *)shmemptr;
-    TData *bwd    = metric + IProductWRTBaseAlignedSize<TData>(9);
-    TData *deriv  = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
-    TData *tmp    = deriv;
-    TData *deriv0 = deriv;
-    TData *deriv1 = deriv0 + nqTot;
-    TData *deriv2 = deriv1 + nqTot;
-    TData *s_ipb  = deriv + nmTotAl;
+    TData *metric  = (TData *)shmemptr;
+    TData *bwd     = metric + IProductWRTBaseAlignedSize<TData>(9);
+    TData *deriv   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *s_modal = deriv;
+    TData *deriv0  = deriv;
+    TData *deriv1  = deriv0 + nqTot;
+    TData *deriv2  = deriv1 + nqTot;
+    TData *s_ipb   = deriv + nmTotAl;
     TData *s_wsp0 =
         deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam3D);
     TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
@@ -1235,27 +1195,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D2T    = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-
-    for (unsigned int idx = idx0; idx < nmode0 * nq0; idx += stride)
-    {
-        s_basis0[idx] = basis0[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode1 * nq1; idx += stride)
-    {
-        s_basis1[idx] = basis1[idx];
-    }
-
-    for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-    {
-        s_basis2[idx] = basis2[idx];
-    }
-
-    StageTransposeSumFacTOP(nq0, D0, s_D0T, threadBlock);
-    StageTransposeSumFacTOP(nq1, D1, s_D1T, threadBlock);
-    StageTransposeSumFacTOP(nq2, D2, s_D2T, threadBlock);
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    StageTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1266,120 +1211,46 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr  = in + nmTot * nelmt * c + nmTot * e;
         TData *outptr       = out + nmTot * nelmt * c + nmTot * e;
 
-        // Copy to shared memory.
-        if constexpr (SHAPE_TYPE == LibUtilities::NodalTet ||
-                      SHAPE_TYPE == LibUtilities::NodalPrism)
+        if constexpr (isNodal)
         {
-            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, tmp, threadBlock);
+            // Nodal to Modal in shared memory.
+            MatVecSumFacTOPKernel(nmTot, nodToMod, inptr, s_modal, threadBlock);
         }
         else
         {
             // Copy to shared memory.
-            for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-            {
-                tmp[idx] = inptr[idx];
-            }
+            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
+            localBarrier(threadBlock);
         }
 
-        localBarrier(threadBlock);
-
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            BwdTransHexSumFacTOPKernel<false, true>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
-                           SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            BwdTransTetSumFacTOPKernel<false>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                              nqTot, isModified, index0, index3,
-                                              s_basis0, s_basis1, s_basis2, tmp,
-                                              bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            BwdTransPrismSumFacTOPKernel<false>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            BwdTransPyrSumFacTOPKernel<false>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                s_basis1, s_basis2, tmp, bwd, s_wsp0, s_wsp1, threadBlock);
-        }
-        if constexpr (DEFORMED)
-        {
-            TData dmetric[9] = {0.0};
-            LaplacianPhysDerivApplyMetric3DSumFacTOPKernel<SHAPE_TYPE,
-                                                           DEFORMED>(
-                nq0, nq1, nq2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, coeff, bwd, deriv0, deriv1, deriv2, dmetric,
-                threadBlock);
-        }
-        else
-        {
-            LaplacianPhysDerivApplyMetric3DSumFacTOPKernel<SHAPE_TYPE,
-                                                           DEFORMED>(
-                nq0, nq1, nq2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, dfptr,
-                jacptr, coeff, bwd, deriv0, deriv1, deriv2, metric,
-                threadBlock);
-        }
+        BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, false>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
+            s_basis0, s_basis1, s_basis2, s_modal, bwd, s_wsp0, s_wsp1,
+            threadBlock);
+        TData dmetric[DEFORMED ? 9 : 1] = {0.0};
+        LaplacianPhysDerivApplyMetric3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, nq2, D0, D1, D2, w0, w1, w2, f0, f1, f1m, f2, dfptr,
+            jacptr, coeff, bwd, deriv0, deriv1, deriv2,
+            DEFORMED ? dmetric : metric, threadBlock);
         SumDerivTensor3DSumFacTOPKernel<false, false>(
             nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, bwd,
             (TData)1.0, threadBlock);
         const TData *ipb =
             IProductWRTBasePadInput(nq0, nq1 * nq2, bwd, s_ipb, threadBlock);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            IProductWRTBaseHexSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0, s_basis1,
-                s_basis2, ipb, outptr, s_wsp0, s_wsp1, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, ipb, outptr,
-                s_wsp1, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, ipb, tmp, s_wsp1,
-                s_wsp0, (TData)1.0, threadBlock);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
-                                               threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, ipb, outptr,
-                s_wsp1, s_wsp0, (TData)1.0, threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, index2, s_basis0, s_basis1, s_basis2, ipb, tmp, s_wsp1,
-                s_wsp0, (TData)1.0, threadBlock);
+        // The collapsed shapes take the two scratches the other way round.
+        constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
+        IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+            index1, index2, s_basis0, s_basis1, s_basis2, ipb,
+            isNodal ? s_modal : outptr, hex ? s_wsp0 : s_wsp1,
+            hex ? s_wsp1 : s_wsp0, (TData)1.0, threadBlock);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, tmp, outptr,
-                                               threadBlock);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        if constexpr (isNodal)
         {
-            IProductWRTBasePyrSumFacTOPKernel<false, false, true>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-                index1, s_basis0, s_basis1, s_basis2, ipb, outptr, s_wsp1,
-                s_wsp0, (TData)1.0, threadBlock);
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecSumFacTOPKernel<false, true>(nmTot, nodToMod, s_modal, outptr,
+                                               threadBlock);
         }
 
         e += getBlockRange<0>(threadBlock);

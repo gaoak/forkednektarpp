@@ -125,7 +125,7 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectBasisRows(
         {
             return (dir == 1) ? nm1 : (2u * nm2 - nm0 + 1u) * nm0 / 2u;
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
             return (dir == 1)
                        ? nm1
@@ -146,7 +146,7 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectBasisRows(
  * BwdTrans SumFacTOP kernels it runs ask of it, the last two as the Mass
  * kernels size them, the basis transpose's with its padded rows. The
  * collapsed shapes' basis transpose takes the two scratches the other way
- * round (PhysLiftProjectBasisTranspose3DTOPKernel()), so that each stage
+ * round (the IProductWRTBase3DSumFacTOPKernel() calls), so that each stage
  * holds the same intermediate for both transforms.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool LIFT, bool TRANSPOSE,
@@ -211,7 +211,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStageSize(
             transpose = (stage == 0) ? nm01 * nq2 : nm0 * nq1 * nq2;
             bwd       = transpose;
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                           SHAPE_TYPE == LibUtilities::Pyr)
         {
             transpose = (stage == 0) ? nm0 * nm1 * nq2 : nm0 * nq1 * nq2;
             bwd       = transpose;
@@ -348,39 +349,10 @@ inline constexpr unsigned int PhysLiftProjectSharedMemorySize(
         .Total();
 }
 
-/// Copy the basis tables the IProductWRTBase and BwdTrans SumFacTOP
-/// kernels read into shared memory, back to back from @p s_basis; the
-/// caller's next barrier publishes them.
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectStageBasisKernel(
-    const unsigned int size, const TData *NEK_RESTRICT basis,
-    TData *NEK_RESTRICT s_basis, const TthreadBlock &threadBlock)
-{
-    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < size;
-         idx += getLocalRange<0>(threadBlock))
-    {
-        s_basis[idx] = basis[idx];
-    }
-}
-
-/// The element's inner products from global memory into @p s_vol.
-template <typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectLoadKernel(
-    const unsigned int size, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT s_vol, const TthreadBlock &threadBlock)
-{
-    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < size;
-         idx += getLocalRange<0>(threadBlock))
-    {
-        s_vol[idx] = in[idx];
-    }
-    localBarrier(threadBlock);
-}
-
 /// The Pointwise form from @p s_vol: `out (+)= scale / (w_q J) * s_vol`
 /// at every point of element @p e. No barrier follows: each thread reads
 /// here only the points of @p s_vol it alone writes in the next element's
-/// PhysLiftProjectLoadKernel(), which strides them the same way.
+/// StageToSharedMemory(), which strides them the same way.
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysLiftProjectPointScaleTOPKernel(
     const size_t e, const unsigned int nqTot, const TData scale,
@@ -496,145 +468,6 @@ NEK_DEVICE_INLINE static const TData *PhysLiftProjectPadKernel(
     return s_ipb;
 }
 
-/// The basis transpose of a two-dimensional element from the padded
-/// @p ipb into @p out, without the metric, as Mass calls it.
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectBasisTranspose2DTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const bool isModified,
-    const unsigned int *NEK_RESTRICT index0, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT ipb,
-    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0,
-    const TthreadBlock &threadBlock)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        IProductWRTBaseQuadSumFacTOPKernel<false, false, true>(
-            nm0, nm1, nmTot, nq0, nq1, nq0 * nq1, basis0, basis1, ipb, out,
-            wsp0, TData(1.0), threadBlock);
-    }
-    else
-    {
-        IProductWRTBaseTriSumFacTOPKernel<false, false, true>(
-            nm0, nm1, nmTot, nq0, nq1, nq0 * nq1, isModified, index0, basis0,
-            basis1, ipb, out, wsp0, TData(1.0), threadBlock);
-    }
-}
-
-/// The backward transform of a two-dimensional element from @p s_coef
-/// into @p out, appending when @p APPEND.
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectBwdTrans2DTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const bool isModified,
-    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-    const TData *NEK_RESTRICT s_coef, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp0, const TthreadBlock &threadBlock)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        BwdTransQuadSumFacTOPKernel<APPEND, true>(nm0, nm1, nq0, nq1, nq0 * nq1,
-                                                  basis0, basis1, s_coef, out,
-                                                  wsp0, threadBlock);
-    }
-    else
-    {
-        BwdTransTriSumFacTOPKernel<APPEND>(nm0, nm1, nq0, nq1, nq0 * nq1,
-                                           isModified, basis0, basis1, s_coef,
-                                           out, wsp0, threadBlock);
-    }
-}
-
-/// The basis transpose of a three-dimensional element from the padded
-/// @p ipb into @p out, without the metric, as Mass calls it (the collapsed
-/// shapes taking the two scratches the other way round).
-template <LibUtilities::ShapeType SHAPE_TYPE, typename TthreadBlock,
-          typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectBasisTranspose3DTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const bool isModified,
-    const unsigned int *NEK_RESTRICT index0,
-    const unsigned int *NEK_RESTRICT index1,
-    const unsigned int *NEK_RESTRICT index2, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
-    const TData *NEK_RESTRICT ipb, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        IProductWRTBaseHexSumFacTOPKernel<false, false, true>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, basis0, basis1, basis2,
-            ipb, out, wsp0, wsp1, TData(1.0), threadBlock);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        IProductWRTBaseTetSumFacTOPKernel<false, false, true>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-            index1, index2, basis0, basis1, basis2, ipb, out, wsp1, wsp0,
-            TData(1.0), threadBlock);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        IProductWRTBasePrismSumFacTOPKernel<false, false, true>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-            index1, index2, basis0, basis1, basis2, ipb, out, wsp1, wsp0,
-            TData(1.0), threadBlock);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        IProductWRTBasePyrSumFacTOPKernel<false, false, true>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
-            index1, basis0, basis1, basis2, ipb, out, wsp1, wsp0, TData(1.0),
-            threadBlock);
-    }
-}
-
-/// The backward transform of a three-dimensional element from @p s_coef
-/// into @p out, appending when @p APPEND, as Mass calls it.
-template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND,
-          typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static void PhysLiftProjectBwdTrans3DTOPKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isModified, const unsigned int *NEK_RESTRICT index0,
-    const unsigned int *NEK_RESTRICT index3, const TData *NEK_RESTRICT basis0,
-    const TData *NEK_RESTRICT basis1, const TData *NEK_RESTRICT basis2,
-    const TData *NEK_RESTRICT s_coef, TData *NEK_RESTRICT out,
-    TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        BwdTransHexSumFacTOPKernel<APPEND, true>(
-            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, basis0, basis1, basis2, s_coef,
-            out, wsp0, wsp1, threadBlock);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        BwdTransTetSumFacTOPKernel<APPEND>(
-            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
-            basis0, basis1, basis2, s_coef, out, wsp0, wsp1, threadBlock);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        BwdTransPrismSumFacTOPKernel<APPEND>(
-            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, basis0, basis1,
-            basis2, s_coef, out, wsp0, wsp1, threadBlock);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        BwdTransPyrSumFacTOPKernel<APPEND>(
-            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, basis0, basis1,
-            basis2, s_coef, out, wsp0, wsp1, threadBlock);
-    }
-}
-
 /**
  * @brief The inverse mass of an affine element with the scale at width one:
  * `out[m] = scale / J * diag[m] * in[m]`, @p diag left out unless @p DIAG,
@@ -704,23 +537,28 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "NonTemplatedSizeParameter1D or TemplatedSizeParameter1D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
+
+    const unsigned int nm0 = sizeParam1D.nm0();
+    const unsigned int nq0 = sizeParam1D.nq0();
+
     const auto size =
         PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
                                     FORM, TData>(sizeParam1D, traceSizeParam1D);
     TData *s_coef = (TData *)shmemptr;
     TData *s_vol  = s_coef + size.coef;
 
-    const unsigned int nm0 = sizeParam1D.nm0();
-    const unsigned int nq0 = sizeParam1D.nq0();
-
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t slot = nelmt * c + e;
-        TData *outptr     = out + nq0 * slot;
+        const size_t slot  = nelmt * c + e;
+        const TData *inptr = in + nq0 * slot;
+        TData *outptr      = out + nq0 * slot;
 
-        PhysLiftProjectLoadKernel(nq0, in + nq0 * slot, s_vol, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nq0, inptr, s_vol, threadBlock);
+        localBarrier(threadBlock);
+
         if (lift)
         {
             PhysLiftProjectSegLiftTOPKernel(nq0, nbasis0, endPtsCollocated0,
@@ -785,14 +623,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "NonTemplatedSizeParameter2D or TemplatedSizeParameter2D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
-    const auto size =
-        PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
-                                    FORM, TData>(sizeParam2D, traceSizeParam2D);
-    TData *s_coef   = (TData *)shmemptr;
-    TData *s_vol    = s_coef + size.coef;
-    TData *s_ipb    = s_vol + size.vol;
-    TData *s_wsp0   = s_ipb + size.ipb;
-    TData *s_basis0 = s_wsp0 + size.wsp0;
 
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
@@ -805,30 +635,45 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int tnq10 = traceSizeParam2D.nq10();
     const unsigned int nqTotTrace =
         traceSizeParam2D.template nqTotTrace<SHAPE_TYPE>();
-    const unsigned int numDataJac =
-        DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    const auto size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
+                                    FORM, TData>(sizeParam2D, traceSizeParam2D);
 
     const unsigned int nmode0 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 0);
     const unsigned int nmode1 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 1);
+
+    const unsigned int numDataJac =
+        DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    TData *s_coef   = (TData *)shmemptr;
+    TData *s_vol    = s_coef + size.coef;
+    TData *s_ipb    = s_vol + size.vol;
+    TData *s_wsp0   = s_ipb + size.ipb;
+    TData *s_basis0 = s_wsp0 + size.wsp0;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
+
     if constexpr (FORM != PhysLiftProjectForm::Pointwise)
     {
-        PhysLiftProjectStageBasisKernel(nmode0 * nq0, basis0, s_basis0,
-                                        threadBlock);
-        PhysLiftProjectStageBasisKernel(nmode1 * nq1, basis1, s_basis1,
-                                        threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+        StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
     }
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t slot = nelmt * c + e;
-        TData *outptr     = out + nqTot * slot;
+        const size_t slot  = nelmt * c + e;
+        const TData *inptr = in + nqTot * slot;
+        TData *outptr      = out + nqTot * slot;
 
-        PhysLiftProjectLoadKernel(nqTot, in + nqTot * slot, s_vol, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        localBarrier(threadBlock);
+
         if (lift)
         {
             IProductWRTPhysTrace2DTOPKernel<SHAPE_TYPE, DEFORMED, true>(
@@ -847,14 +692,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             const TData *ipb = PhysLiftProjectPadKernel(sizeParam2D, s_vol,
                                                         s_ipb, threadBlock);
-            PhysLiftProjectBasisTranspose2DTOPKernel<SHAPE_TYPE>(
-                nm0, nm1, nmTot, nq0, nq1, isModified, index0, s_basis0,
-                s_basis1, ipb, s_coef, s_wsp0, threadBlock);
+            IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+                nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+                s_basis1, ipb, s_coef, s_wsp0, (TData)1.0, threadBlock);
             PhysLiftProjectCoefScaleTOPKernel<true>(
                 nmTot, SafeDivide(scale, jac[e]), diag, s_coef, threadBlock);
-            PhysLiftProjectBwdTrans2DTOPKernel<SHAPE_TYPE, APPEND>(
-                nm0, nm1, nq0, nq1, isModified, s_basis0, s_basis1, s_coef,
-                outptr, s_wsp0, threadBlock);
+            BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+                nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1,
+                s_coef, outptr, s_wsp0, threadBlock);
         }
 
         e += getBlockRange<0>(threadBlock);
@@ -925,15 +770,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                   "NonTemplatedSizeParameter3D or TemplatedSizeParameter3D.");
 
     FETCH_SHARED_MEMORY(shmemptr);
-    const auto size =
-        PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
-                                    FORM, TData>(sizeParam3D, traceSizeParam3D);
-    TData *s_coef   = (TData *)shmemptr;
-    TData *s_vol    = s_coef + size.coef;
-    TData *s_ipb    = s_vol + size.vol;
-    TData *s_wsp0   = s_ipb + size.ipb;
-    TData *s_wsp1   = s_wsp0 + size.wsp0;
-    TData *s_basis0 = s_wsp1 + size.wsp1;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -952,8 +788,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int tnq21 = traceSizeParam3D.nq21();
     const unsigned int nqTotTrace =
         traceSizeParam3D.template nqTotTrace<SHAPE_TYPE>();
-    const unsigned int numDataJac =
-        DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    const auto size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE, PhysLiftProjectKernel::Fused,
+                                    FORM, TData>(sizeParam3D, traceSizeParam3D);
 
     const unsigned int nmode0 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 0);
@@ -961,26 +799,39 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 1);
     const unsigned int nmode2 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 2);
+
+    const unsigned int numDataJac =
+        DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    TData *s_coef   = (TData *)shmemptr;
+    TData *s_vol    = s_coef + size.coef;
+    TData *s_ipb    = s_vol + size.vol;
+    TData *s_wsp0   = s_ipb + size.ipb;
+    TData *s_wsp1   = s_wsp0 + size.wsp0;
+    TData *s_basis0 = s_wsp1 + size.wsp1;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
+
     if constexpr (FORM != PhysLiftProjectForm::Pointwise)
     {
-        PhysLiftProjectStageBasisKernel(nmode0 * nq0, basis0, s_basis0,
-                                        threadBlock);
-        PhysLiftProjectStageBasisKernel(nmode1 * nq1, basis1, s_basis1,
-                                        threadBlock);
-        PhysLiftProjectStageBasisKernel(nmode2 * nq2, basis2, s_basis2,
-                                        threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+        StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+        StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
     }
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t slot = nelmt * c + e;
-        TData *outptr     = out + nqTot * slot;
+        const size_t slot  = nelmt * c + e;
+        const TData *inptr = in + nqTot * slot;
+        TData *outptr      = out + nqTot * slot;
 
-        PhysLiftProjectLoadKernel(nqTot, in + nqTot * slot, s_vol, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        localBarrier(threadBlock);
+
         if (lift)
         {
             IProductWRTPhysTrace3DFaceTOPKernel<SHAPE_TYPE, DEFORMED, true>(
@@ -1001,16 +852,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else
         {
-            const TData *ipb = PhysLiftProjectPadKernel(sizeParam3D, s_vol,
-                                                        s_ipb, threadBlock);
-            PhysLiftProjectBasisTranspose3DTOPKernel<SHAPE_TYPE>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, isModified, index0, index1,
-                index2, s_basis0, s_basis1, s_basis2, ipb, s_coef, s_wsp0,
-                s_wsp1, threadBlock);
+            const TData *ipb   = PhysLiftProjectPadKernel(sizeParam3D, s_vol,
+                                                          s_ipb, threadBlock);
+            constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
+            IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+                index1, index2, s_basis0, s_basis1, s_basis2, ipb, s_coef,
+                hex ? s_wsp0 : s_wsp1, hex ? s_wsp1 : s_wsp0, (TData)1.0,
+                threadBlock);
             PhysLiftProjectCoefScaleTOPKernel<true>(
                 nmTot, SafeDivide(scale, jac[e]), diag, s_coef, threadBlock);
-            PhysLiftProjectBwdTrans3DTOPKernel<SHAPE_TYPE, APPEND>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, index0, index3,
+            BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
                 s_basis0, s_basis1, s_basis2, s_coef, outptr, s_wsp0, s_wsp1,
                 threadBlock);
         }
@@ -1043,18 +896,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
-    TData *s_vol = (TData *)shmemptr;
 
     const unsigned int nm0 = sizeParam1D.nm0();
     const unsigned int nq0 = sizeParam1D.nq0();
+
+    TData *s_vol = (TData *)shmemptr;
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t slot = nelmt * c + e;
+        const size_t slot  = nelmt * c + e;
+        const TData *inptr = in + nq0 * slot;
+        TData *coefptr     = coef + nm0 * slot;
 
-        PhysLiftProjectLoadKernel(nq0, in + nq0 * slot, s_vol, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nq0, inptr, s_vol, threadBlock);
+        localBarrier(threadBlock);
+
         if (lift)
         {
             PhysLiftProjectSegLiftTOPKernel(nq0, nbasis0, endPtsCollocated0,
@@ -1062,8 +921,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                                             threadBlock);
         }
         IProductWRTBaseSegSumFacTOPKernel<false, false>(
-            nm0, nq0, basis0, s_vol, coef + nm0 * slot, TData(1.0),
-            threadBlock);
+            nm0, nq0, basis0, s_vol, coefptr, TData(1.0), threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1098,15 +956,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
-    const auto size =
-        PhysLiftProjectSharedLayout<SHAPE_TYPE,
-                                    PhysLiftProjectKernel::LiftBasisTranspose,
-                                    PhysLiftProjectForm::StdInvMass, TData>(
-            sizeParam2D, traceSizeParam2D);
-    TData *s_vol    = (TData *)shmemptr;
-    TData *s_ipb    = s_vol + size.vol;
-    TData *s_wsp0   = s_ipb + size.ipb;
-    TData *s_basis0 = s_wsp0 + size.wsp0;
 
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
@@ -1119,26 +968,43 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int tnq10 = traceSizeParam2D.nq10();
     const unsigned int nqTotTrace =
         traceSizeParam2D.template nqTotTrace<SHAPE_TYPE>();
-    const unsigned int numDataJac =
-        LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    const auto size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE,
+                                    PhysLiftProjectKernel::LiftBasisTranspose,
+                                    PhysLiftProjectForm::StdInvMass, TData>(
+            sizeParam2D, traceSizeParam2D);
 
     const unsigned int nmode0 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 0);
     const unsigned int nmode1 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 1);
+
+    const unsigned int numDataJac =
+        LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    TData *s_vol    = (TData *)shmemptr;
+    TData *s_ipb    = s_vol + size.vol;
+    TData *s_wsp0   = s_ipb + size.ipb;
+    TData *s_basis0 = s_wsp0 + size.wsp0;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    PhysLiftProjectStageBasisKernel(nmode0 * nq0, basis0, s_basis0,
-                                    threadBlock);
-    PhysLiftProjectStageBasisKernel(nmode1 * nq1, basis1, s_basis1,
-                                    threadBlock);
+
+    // Copy to shared memory.
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t slot = nelmt * c + e;
+        const size_t slot  = nelmt * c + e;
+        const TData *inptr = in + nqTot * slot;
+        TData *coefptr     = coef + nmTot * slot;
 
-        PhysLiftProjectLoadKernel(nqTot, in + nqTot * slot, s_vol, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        localBarrier(threadBlock);
+
         if (lift)
         {
             IProductWRTPhysTrace2DTOPKernel<SHAPE_TYPE, false, true>(
@@ -1149,9 +1015,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         const TData *ipb =
             PhysLiftProjectPadKernel(sizeParam2D, s_vol, s_ipb, threadBlock);
-        PhysLiftProjectBasisTranspose2DTOPKernel<SHAPE_TYPE>(
-            nm0, nm1, nmTot, nq0, nq1, isModified, index0, s_basis0, s_basis1,
-            ipb, coef + nmTot * slot, s_wsp0, threadBlock);
+        IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+            nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
+            s_basis1, ipb, coefptr, s_wsp0, (TData)1.0, threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1203,16 +1069,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
-    const auto size =
-        PhysLiftProjectSharedLayout<SHAPE_TYPE,
-                                    PhysLiftProjectKernel::LiftBasisTranspose,
-                                    PhysLiftProjectForm::StdInvMass, TData>(
-            sizeParam3D, traceSizeParam3D);
-    TData *s_vol    = (TData *)shmemptr;
-    TData *s_ipb    = s_vol + size.vol;
-    TData *s_wsp0   = s_ipb + size.ipb;
-    TData *s_wsp1   = s_wsp0 + size.wsp0;
-    TData *s_basis0 = s_wsp1 + size.wsp1;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1231,8 +1087,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int tnq21 = traceSizeParam3D.nq21();
     const unsigned int nqTotTrace =
         traceSizeParam3D.template nqTotTrace<SHAPE_TYPE>();
-    const unsigned int numDataJac =
-        LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    const auto size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE,
+                                    PhysLiftProjectKernel::LiftBasisTranspose,
+                                    PhysLiftProjectForm::StdInvMass, TData>(
+            sizeParam3D, traceSizeParam3D);
 
     const unsigned int nmode0 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 0);
@@ -1240,22 +1100,35 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 1);
     const unsigned int nmode2 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 2);
+
+    const unsigned int numDataJac =
+        LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
+
+    TData *s_vol    = (TData *)shmemptr;
+    TData *s_ipb    = s_vol + size.vol;
+    TData *s_wsp0   = s_ipb + size.ipb;
+    TData *s_wsp1   = s_wsp0 + size.wsp0;
+    TData *s_basis0 = s_wsp1 + size.wsp1;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
-    PhysLiftProjectStageBasisKernel(nmode0 * nq0, basis0, s_basis0,
-                                    threadBlock);
-    PhysLiftProjectStageBasisKernel(nmode1 * nq1, basis1, s_basis1,
-                                    threadBlock);
-    PhysLiftProjectStageBasisKernel(nmode2 * nq2, basis2, s_basis2,
-                                    threadBlock);
+
+    // Copy to shared memory.
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
-        const size_t slot = nelmt * c + e;
+        const size_t slot  = nelmt * c + e;
+        const TData *inptr = in + nqTot * slot;
+        TData *coefptr     = coef + nmTot * slot;
 
-        PhysLiftProjectLoadKernel(nqTot, in + nqTot * slot, s_vol, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        localBarrier(threadBlock);
+
         if (lift)
         {
             IProductWRTPhysTrace3DFaceTOPKernel<SHAPE_TYPE, false, true>(
@@ -1270,10 +1143,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         const TData *ipb =
             PhysLiftProjectPadKernel(sizeParam3D, s_vol, s_ipb, threadBlock);
-        PhysLiftProjectBasisTranspose3DTOPKernel<SHAPE_TYPE>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, isModified, index0, index1,
-            index2, s_basis0, s_basis1, s_basis2, ipb, coef + nmTot * slot,
-            s_wsp0, s_wsp1, threadBlock);
+        constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
+        IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
+            index1, index2, s_basis0, s_basis1, s_basis2, ipb, coefptr,
+            hex ? s_wsp0 : s_wsp1, hex ? s_wsp1 : s_wsp0, (TData)1.0,
+            threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1300,6 +1175,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
+
     TData *s_coef = (TData *)shmemptr;
 
     const unsigned int nm0 = sizeParam1D.nm0();
@@ -1310,13 +1186,18 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     while (e < nelmt)
     {
         const size_t slot = nelmt * c + e;
+        TData *coefptr    = coef + nm0 * slot;
+        TData *outptr     = out + nq0 * slot;
 
-        PhysLiftProjectLoadKernel(nm0, coef + nm0 * slot, s_coef, threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nm0, coefptr, s_coef, threadBlock);
+        localBarrier(threadBlock);
+
         PhysLiftProjectCoefScaleTOPKernel<false>(nm0, SafeDivide(scale, jac[e]),
                                                  (const TData *)nullptr, s_coef,
                                                  threadBlock);
-        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, basis0, s_coef,
-                                           out + nq0 * slot, threadBlock);
+        BwdTransSegSumFacTOPKernel<APPEND>(nm0, nq0, basis0, s_coef, outptr,
+                                           threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1344,14 +1225,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
-    const auto size =
-        PhysLiftProjectSharedLayout<SHAPE_TYPE,
-                                    PhysLiftProjectKernel::ScaleBwdTrans,
-                                    PhysLiftProjectForm::StdInvMass, TData>(
-            sizeParam2D, traceSizeParam2D);
-    TData *s_coef   = (TData *)shmemptr;
-    TData *s_wsp0   = s_coef + size.coef;
-    TData *s_basis0 = s_wsp0 + size.wsp0;
 
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
@@ -1360,30 +1233,44 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq1   = sizeParam2D.nq1();
     const unsigned int nqTot = nq0 * nq1;
 
+    const auto size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE,
+                                    PhysLiftProjectKernel::ScaleBwdTrans,
+                                    PhysLiftProjectForm::StdInvMass, TData>(
+            sizeParam2D, traceSizeParam2D);
+
     const unsigned int nmode0 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 0);
     const unsigned int nmode1 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam2D, 1);
+
+    TData *s_coef   = (TData *)shmemptr;
+    TData *s_wsp0   = s_coef + size.coef;
+    TData *s_basis0 = s_wsp0 + size.wsp0;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
-    PhysLiftProjectStageBasisKernel(nmode0 * nq0, basis0, s_basis0,
-                                    threadBlock);
-    PhysLiftProjectStageBasisKernel(nmode1 * nq1, basis1, s_basis1,
-                                    threadBlock);
+
+    // Copy to shared memory.
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t slot = nelmt * c + e;
+        TData *coefptr    = coef + nmTot * slot;
+        TData *outptr     = out + nqTot * slot;
 
-        PhysLiftProjectLoadKernel(nmTot, coef + nmTot * slot, s_coef,
-                                  threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nmTot, coefptr, s_coef, threadBlock);
+        localBarrier(threadBlock);
+
         PhysLiftProjectCoefScaleTOPKernel<false>(
             nmTot, SafeDivide(scale, jac[e]), (const TData *)nullptr, s_coef,
             threadBlock);
-        PhysLiftProjectBwdTrans2DTOPKernel<SHAPE_TYPE, APPEND>(
-            nm0, nm1, nq0, nq1, isModified, s_basis0, s_basis1, s_coef,
-            out + nqTot * slot, s_wsp0, threadBlock);
+        BwdTrans2DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+            nm0, nm1, nq0, nq1, nqTot, isModified, s_basis0, s_basis1, s_coef,
+            outptr, s_wsp0, threadBlock);
 
         e += getBlockRange<0>(threadBlock);
     }
@@ -1423,15 +1310,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TthreadBlock &threadBlock)
 {
     FETCH_SHARED_MEMORY(shmemptr);
-    const auto size =
-        PhysLiftProjectSharedLayout<SHAPE_TYPE,
-                                    PhysLiftProjectKernel::ScaleBwdTrans,
-                                    PhysLiftProjectForm::StdInvMass, TData>(
-            sizeParam3D, traceSizeParam3D);
-    TData *s_coef   = (TData *)shmemptr;
-    TData *s_wsp0   = s_coef + size.coef;
-    TData *s_wsp1   = s_wsp0 + size.wsp0;
-    TData *s_basis0 = s_wsp1 + size.wsp1;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1442,35 +1320,49 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq2   = sizeParam3D.nq2();
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
+    const auto size =
+        PhysLiftProjectSharedLayout<SHAPE_TYPE,
+                                    PhysLiftProjectKernel::ScaleBwdTrans,
+                                    PhysLiftProjectForm::StdInvMass, TData>(
+            sizeParam3D, traceSizeParam3D);
+
     const unsigned int nmode0 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 0);
     const unsigned int nmode1 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 1);
     const unsigned int nmode2 =
         PhysLiftProjectBasisRows<SHAPE_TYPE>(sizeParam3D, 2);
+
+    TData *s_coef   = (TData *)shmemptr;
+    TData *s_wsp0   = s_coef + size.coef;
+    TData *s_wsp1   = s_wsp0 + size.wsp0;
+    TData *s_basis0 = s_wsp1 + size.wsp1;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
-    PhysLiftProjectStageBasisKernel(nmode0 * nq0, basis0, s_basis0,
-                                    threadBlock);
-    PhysLiftProjectStageBasisKernel(nmode1 * nq1, basis1, s_basis1,
-                                    threadBlock);
-    PhysLiftProjectStageBasisKernel(nmode2 * nq2, basis2, s_basis2,
-                                    threadBlock);
+
+    // Copy to shared memory.
+    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
     while (e < nelmt)
     {
         const size_t slot = nelmt * c + e;
+        TData *coefptr    = coef + nmTot * slot;
+        TData *outptr     = out + nqTot * slot;
 
-        PhysLiftProjectLoadKernel(nmTot, coef + nmTot * slot, s_coef,
-                                  threadBlock);
+        // Copy to shared memory.
+        StageToSharedMemory(nmTot, coefptr, s_coef, threadBlock);
+        localBarrier(threadBlock);
+
         PhysLiftProjectCoefScaleTOPKernel<false>(
             nmTot, SafeDivide(scale, jac[e]), (const TData *)nullptr, s_coef,
             threadBlock);
-        PhysLiftProjectBwdTrans3DTOPKernel<SHAPE_TYPE, APPEND>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, index0, index3, s_basis0,
-            s_basis1, s_basis2, s_coef, out + nqTot * slot, s_wsp0, s_wsp1,
+        BwdTrans3DSumFacTOPKernel<SHAPE_TYPE, APPEND>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, index0, index3,
+            s_basis0, s_basis1, s_basis2, s_coef, outptr, s_wsp0, s_wsp1,
             threadBlock);
 
         e += getBlockRange<0>(threadBlock);

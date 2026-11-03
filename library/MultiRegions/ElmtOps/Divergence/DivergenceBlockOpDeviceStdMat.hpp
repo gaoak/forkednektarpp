@@ -59,8 +59,8 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 #include <MultiRegions/ElmtOps/Divergence/DivergenceBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/Divergence/DivergenceBlockOpDeviceStdMatKernels.hpp>

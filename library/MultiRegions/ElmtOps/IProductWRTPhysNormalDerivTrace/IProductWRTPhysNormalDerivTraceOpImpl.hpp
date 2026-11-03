@@ -71,7 +71,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
 
 #include <MultiRegions/ElmtOps/IProductWRTPhysNormalDerivTrace/IProductWRTPhysNormalDerivTraceOp.hpp>
 

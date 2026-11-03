@@ -43,6 +43,31 @@ namespace Nektar
 {
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void StageToSharedMemory(
+    const unsigned int size, const TData *NEK_RESTRICT src,
+    TData *NEK_RESTRICT dst, const TthreadBlock &threadBlock)
+{
+    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < size;
+         idx += getLocalRange<0>(threadBlock))
+    {
+        dst[idx] = src[idx];
+    }
+}
+
+template <typename TthreadBlock, typename TData>
+NEK_DEVICE_INLINE static void StageTransposeToSharedMemory(
+    const unsigned int nrows, const unsigned int ncols,
+    const TData *NEK_RESTRICT src, TData *NEK_RESTRICT dst,
+    const TthreadBlock &threadBlock)
+{
+    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < nrows * ncols;
+         idx += getLocalRange<0>(threadBlock))
+    {
+        dst[(idx % ncols) * nrows + idx / ncols] = src[idx];
+    }
+}
+
 template <bool APPEND = false, bool TRANSPOSE = false, typename TData>
 NEK_DEVICE_INLINE static void MatVecKernel(const unsigned int ilane,
                                            const unsigned int nmTot,

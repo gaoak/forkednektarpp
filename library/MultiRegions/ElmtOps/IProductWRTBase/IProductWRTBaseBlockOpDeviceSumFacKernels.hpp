@@ -811,6 +811,54 @@ NEK_DEVICE_INLINE static void IProductWRTBaseTriSumFacKernel(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData scale)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nm1, nq0, nq1, basis0, basis1, w0, w1, jac, in, out,
+            wsp, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        IProductWRTBaseTriSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1, jac,
+            in, out, wsp, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBase2DSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp, const TData scale)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadSumFacKernel<SCALE, APPEND>(
+            ilane, nm0, nm1, nq0, nq1, basis0, basis1, in, out, wsp, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        IProductWRTBaseTriSumFacKernel<SCALE, APPEND>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, in, out, wsp,
+            scale);
+    }
+}
+
 /**
  * @brief Hexahedral SumFac kernel: three-stage tensor-product inner
  * product of one element, quadrature metric included.
@@ -2089,6 +2137,86 @@ NEK_DEVICE_INLINE static void IProductWRTBasePyrSumFacKernel(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT w0,
+    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
+    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
+    const TData scale)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2, w0, w1,
+            w2, jac, in, out, wsp0, wsp1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, w0, w1, w2, jac, in, out, wsp0, wsp1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, w0, w1, w2, jac, in, out, wsp0, wsp1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, w0, w1, w2, jac, in, out, wsp0, wsp1, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          typename TData>
+NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1,
+    const TData scale)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexSumFacKernel<SCALE, APPEND>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2, in,
+            out, wsp0, wsp1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        IProductWRTBaseTetSumFacKernel<SCALE, APPEND>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, in, out, wsp0, wsp1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        IProductWRTBasePrismSumFacKernel<SCALE, APPEND>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, in, out, wsp0, wsp1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrSumFacKernel<SCALE, APPEND>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, in, out, wsp0, wsp1, scale);
+    }
+}
+
 /**
  * @brief Device entry point of the 1D SumFac inner product, quadrature
  * metric included.
@@ -2171,6 +2299,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nm0 * (nelmt * c + warpsize * iwarp);
         IProductWRTBaseSegSumFacKernel<SCALE, APPEND, DEFORMED>(
             ilane, nm0, nq0, basis0, w0, jacptr, inptr, outptr, scale);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -2235,6 +2364,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         IProductWRTBaseSegSumFacKernel<SCALE, APPEND>(ilane, nm0, nq0, basis0,
                                                       inptr, outptr, scale);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -2307,6 +2437,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -2329,33 +2461,22 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
         const TData *inptr = in + nqTot * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nmTot * (nelmt * c + warpsize * iwarp);
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            TData *wspptr = wsp + nq1 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseQuadSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nq0, nq1, basis0, basis1, w0, w1, jacptr,
-                inptr, outptr, wspptr, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            TData *wspptr = wsp + nq1 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseTriSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
-                jacptr, inptr, outptr, wspptr, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            TData *out1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wspptr  = wsp + nmTot * nelmt * ncomp +
-                            nq1 * (nelmt * c + warpsize * iwarp);
 
-            IProductWRTBaseTriSumFacKernel<SCALE, false, DEFORMED>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
-                jacptr, inptr, out1ptr, wspptr, scale);
+        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
+                      nq1 * (nelmt * c + warpsize * iwarp);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+        IProductWRTBase2DSumFacKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal,
+                                      DEFORMED>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
+            jacptr, inptr, isNodal ? modal : outptr, wsp0, scale);
+
+        if constexpr (isNodal)
+        {
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, modal, outptr);
         }
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -2406,6 +2527,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -2424,33 +2547,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t iwarp = e / warpsize;
         const TData *inptr = in + nqTot * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nmTot * (nelmt * c + warpsize * iwarp);
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            TData *wspptr = wsp + nq1 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseQuadSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nq0, nq1, basis0, basis1, inptr, outptr,
-                wspptr, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            TData *wspptr = wsp + nq1 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseTriSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, inptr,
-                outptr, wspptr, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            TData *out1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wspptr  = wsp + nmTot * nelmt * ncomp +
-                            nq1 * (nelmt * c + warpsize * iwarp);
 
-            IProductWRTBaseTriSumFacKernel<SCALE, false>(
-                ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, inptr,
-                out1ptr, wspptr, scale);
+        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
+                      nq1 * (nelmt * c + warpsize * iwarp);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
+        IProductWRTBase2DSumFacKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, inptr,
+            isNodal ? modal : outptr, wsp0, scale);
+
+        if constexpr (isNodal)
+        {
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, modal, outptr);
         }
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -2466,14 +2577,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * region for the two intermediate stages and, for the nodal shapes, an
  * nmTot region ahead of them for the modal result that MatVecKernel then
  * maps onto @p out with the transpose of @p nodToMod.
- *
- * @note For NodalTet and NodalPrism the shape kernel is instantiated with
- * this launcher's @p APPEND, whereas the 2D launcher instantiates the
- * NodalTri kernel with APPEND false and lets the flag govern the nodal
- * mapping alone. The modal slice is carved from the workspace and is not
- * zeroed, so under APPEND the shape kernel accumulates onto whatever the
- * slice holds before MatVecKernel accumulates the mapped result onto
- * @p out. IProductWRTBase itself launches with APPEND false only.
+ * The nodal shapes run the shape kernel with APPEND false and let the
+ * flag govern the nodal mapping alone.
  *
  * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
  * @tparam Implementation   MultiRegions::SumFac.
@@ -2530,6 +2635,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism;
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -2554,71 +2662,26 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
         const TData *inptr = in + nqTot * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nmTot * (nelmt * c + warpsize * iwarp);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseHexSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2, w0,
-                w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-        {
 
-            TData *out1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wsp0    = wsp + nmTot * nelmt * ncomp +
-                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nmTot + nq1 * nq2) * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseTetSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, out1ptr, wsp0, wsp1, scale);
+        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
+                      nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+        TData *wsp1 = wsp +
+                      ((isNodal ? nmTot : 0u) + nq1 * nq2) * nelmt * ncomp +
+                      nq2 * (nelmt * c + warpsize * iwarp);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            TData *out1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wsp0    = wsp + nmTot * nelmt * ncomp +
-                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nmTot + nq1 * nq2) * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBasePrismSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, out1ptr, wsp0, wsp1, scale);
+        IProductWRTBase3DSumFacKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal,
+                                      DEFORMED>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, w0, w1, w2, jacptr, inptr, isNodal ? modal : outptr, wsp0,
+            wsp1, scale);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        if constexpr (isNodal)
         {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBasePyrSumFacKernel<SCALE, APPEND, DEFORMED>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, inptr, outptr, wsp0, wsp1, scale);
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, modal, outptr);
         }
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -2629,8 +2692,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * arguments.
  *
  * The same grid-stride loop and workspace slicing as the quadrature
- * overload, calling the unweighted shape kernels; the note on @p APPEND
- * for the nodal shapes applies here too.
+ * overload, calling the unweighted shape kernels.
  *
  * @param   sizeParam3D Element sizes.
  * @param   nelmt       Elements in the block, padding included.
@@ -2673,6 +2735,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism;
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -2694,71 +2759,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t iwarp = e / warpsize;
         const TData *inptr = in + nqTot * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nmTot * (nelmt * c + warpsize * iwarp);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseHexSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
-                inptr, outptr, wsp0, wsp1, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseTetSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, inptr, outptr, wsp0, wsp1, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-        {
 
-            TData *out1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wsp0    = wsp + nmTot * nelmt * ncomp +
-                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nmTot + nq1 * nq2) * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBaseTetSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, inptr, out1ptr, wsp0, wsp1, scale);
+        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
+                      nq1 * nq2 * (nelmt * c + warpsize * iwarp);
+        TData *wsp1 = wsp +
+                      ((isNodal ? nmTot : 0u) + nq1 * nq2) * nelmt * ncomp +
+                      nq2 * (nelmt * c + warpsize * iwarp);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBasePrismSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, inptr, outptr, wsp0, wsp1, scale);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            TData *out1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wsp0    = wsp + nmTot * nelmt * ncomp +
-                          nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nmTot + nq1 * nq2) * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBasePrismSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, inptr, out1ptr, wsp0, wsp1, scale);
+        IProductWRTBase3DSumFacKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, inptr, isNodal ? modal : outptr, wsp0, wsp1, scale);
 
-            // Multiply by transpose notToMod to transform coeffs.
-            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, out1ptr, outptr);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        if constexpr (isNodal)
         {
-            TData *wsp0 = wsp + nq1 * nq2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nq1 * nq2 * nelmt * ncomp +
-                          nq2 * (nelmt * c + warpsize * iwarp);
-            IProductWRTBasePyrSumFacKernel<SCALE, APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, inptr, outptr, wsp0, wsp1, scale);
+            // Multiply by transpose nodToMod to transform coeffs.
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, modal, outptr);
         }
+
         e += getGlobalRange<0>(threadBlock);
     }
 }

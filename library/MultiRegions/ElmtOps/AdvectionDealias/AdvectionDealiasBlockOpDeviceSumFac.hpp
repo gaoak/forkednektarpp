@@ -37,7 +37,7 @@
 
 #include <utility>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasBlockOp.hpp>
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasBlockOpDeviceSumFacKernels.hpp>
 #include <MultiRegions/ElmtOps/AdvectionDealias/AdvectionDealiasBlockOpDeviceSumFacTOPKernels.hpp>

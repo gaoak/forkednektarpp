@@ -709,10 +709,10 @@ protected:
             tracePtr = const_cast<TData *>(
                 this->m_trace->template GetPtr<MemSpace, ReadOnly>());
         }
-        TData *outPtr = this->m_append
-                            ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                            : outblock.template GetPtr<MemSpace, WriteOnly>();
-        simd_t *vol   = m_vol.data();
+        auto outPtr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+        simd_t *vol = m_vol.data();
 
         // One Jacobian per element and one per trace when affine, one per
         // point when deformed.

@@ -65,7 +65,7 @@
 
 #pragma once
 
-#include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
+#include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 

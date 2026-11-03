@@ -79,7 +79,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Advection/AdvectionBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/Advection/AdvectionBlockOpDeviceSumFacKernels.hpp>

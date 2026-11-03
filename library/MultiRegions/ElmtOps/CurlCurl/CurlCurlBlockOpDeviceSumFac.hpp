@@ -80,7 +80,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/CurlCurl/CurlCurlBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/CurlCurl/CurlCurlBlockOpDeviceSumFacKernels.hpp>

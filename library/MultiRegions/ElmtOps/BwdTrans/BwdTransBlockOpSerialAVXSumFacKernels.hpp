@@ -58,7 +58,7 @@
 
 #pragma once
 
-#include "StdRegions/Operators/BwdTransSumFacStdKernels.hpp"
+#include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 

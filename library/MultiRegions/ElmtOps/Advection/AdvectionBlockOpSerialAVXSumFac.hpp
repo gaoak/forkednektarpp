@@ -77,7 +77,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Advection/AdvectionBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/Advection/AdvectionBlockOpSerialAVXSumFacKernels.hpp>

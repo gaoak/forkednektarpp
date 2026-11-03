@@ -149,8 +149,8 @@
 
 #pragma once
 
-#include "LibUtilities/Backends/Backends_Device_API.hpp"
-#include "LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp"
+#include <LibUtilities/Backends/Backends_Device_API.hpp>
+#include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernels.hpp>
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 

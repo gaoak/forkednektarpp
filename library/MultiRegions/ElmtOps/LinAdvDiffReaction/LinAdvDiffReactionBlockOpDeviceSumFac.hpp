@@ -77,7 +77,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/LinAdvDiffReaction/LinAdvDiffReactionBlockOpDeviceSumFacKernels.hpp>

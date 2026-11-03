@@ -533,6 +533,27 @@ NEK_DEVICE_INLINE static void BwdTransTriSumFacKernel(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename TData>
+NEK_DEVICE_INLINE static void BwdTrans2DSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+    TData *NEK_RESTRICT wsp)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1, basis0,
+                                         basis1, in, out, wsp);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        BwdTransTriSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1, isModified,
+                                        basis0, basis1, in, out, wsp);
+    }
+}
+
 /**
  * @brief Hexahedral SumFac kernel: three-direction tensor-product
  * evaluation of one element, one direction-0 point at a time.
@@ -1006,6 +1027,43 @@ NEK_DEVICE_INLINE static void BwdTransPyrSumFacKernel(
     }
 }
 
+template <LibUtilities::ShapeType SHAPE_TYPE, bool APPEND, typename TData>
+NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
+    const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
+    const TData *NEK_RESTRICT basis2, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp0, TData *NEK_RESTRICT wsp1)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        basis0, basis1, basis2, in, out, wsp0,
+                                        wsp1);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        BwdTransTetSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, basis0, basis1, basis2, in,
+                                        out, wsp0, wsp1);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism)
+    {
+        BwdTransPrismSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                          isModified, basis0, basis1, basis2,
+                                          in, out, wsp0, wsp1);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, basis0, basis1, basis2, in,
+                                        out, wsp0, wsp1);
+    }
+}
+
 /**
  * @brief Device entry point of the 1D backward transform under SumFac:
  * unpack the size parameter, then walk the block's elements, one per
@@ -1092,6 +1150,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *inptr = in + nm0 * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nq0 * (nelmt * c + warpsize * iwarp);
         BwdTransSegSumFacKernel<APPEND>(ilane, nm0, nq0, basis0, inptr, outptr);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -1157,6 +1216,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTri;
+
     const unsigned int nm0   = sizeParam2D.nm0();
     const unsigned int nm1   = sizeParam2D.nm1();
     const unsigned int nmTot = sizeParam2D.nmTot();
@@ -1164,6 +1225,17 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq1   = sizeParam2D.nq1();
 
     const unsigned int nqTot = nq0 * nq1;
+
+    unsigned int wsp0Size = 0;
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        wsp0Size = nm1;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
+                       SHAPE_TYPE == LibUtilities::NodalTri)
+    {
+        wsp0Size = nm0;
+    }
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -1176,29 +1248,20 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t iwarp = e / warpsize;
         const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+
+        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
+                      wsp0Size * (nelmt * c + warpsize * iwarp);
+
+        if constexpr (isNodal)
         {
-            TData *wspptr = wsp + nm1 * (nelmt * c + warpsize * iwarp);
-            BwdTransQuadSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1, basis0,
-                                             basis1, inptr, outptr, wspptr);
+            MatVecKernel(ilane, nmTot, nodToMod, inptr, modal);
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            TData *wspptr = wsp + nm0 * (nelmt * c + warpsize * iwarp);
-            BwdTransTriSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1,
-                                            isModified, basis0, basis1, inptr,
-                                            outptr, wspptr);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-        {
-            TData *in1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wspptr = wsp + nmTot * nelmt * ncomp +
-                            nm0 * (nelmt * c + warpsize * iwarp);
-            MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
-            BwdTransTriSumFacKernel<APPEND>(ilane, nm0, nm1, nq0, nq1,
-                                            isModified, basis0, basis1, in1ptr,
-                                            outptr, wspptr);
-        }
+
+        BwdTrans2DSumFacKernel<SHAPE_TYPE, APPEND>(
+            ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
+            isNodal ? modal : inptr, outptr, wsp0);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }
@@ -1264,6 +1327,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
     FETCH_SHARED_MEMORY(shmemptr);
 
+    constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
+                             SHAPE_TYPE == LibUtilities::NodalPrism;
+
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
     const unsigned int nm2   = sizeParam3D.nm2();
@@ -1273,6 +1339,26 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int nq2   = sizeParam3D.nq2();
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+
+    unsigned int wsp0Size = 0, wsp1Size = 0;
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        wsp0Size = nm1 * nm2;
+        wsp1Size = nm2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                       SHAPE_TYPE == LibUtilities::NodalTet)
+    {
+        wsp0Size = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        wsp1Size = nm0;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
+                       SHAPE_TYPE == LibUtilities::NodalPrism ||
+                       SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        wsp0Size = nm0 * nm1;
+        wsp1Size = nm0;
+    }
 
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
@@ -1285,70 +1371,23 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const size_t iwarp = e / warpsize;
         const TData *inptr = in + nmTot * (nelmt * c + warpsize * iwarp);
         TData *outptr      = out + nqTot * (nelmt * c + warpsize * iwarp);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            TData *wsp0 = wsp + nm1 * nm2 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nm1 * nm2) * nelmt * ncomp +
-                          nm2 * (nelmt * c + warpsize * iwarp);
-            BwdTransHexSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                            basis0, basis1, basis2, inptr,
-                                            outptr, wsp0, wsp1);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-            TData *wsp0 = wsp + nm01 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nm01 * nelmt * ncomp +
-                          nm0 * (nelmt * c + warpsize * iwarp);
-            BwdTransTetSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                            isModified, basis0, basis1, basis2,
-                                            inptr, outptr, wsp0, wsp1);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-        {
-            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+        TData *modal = wsp + nmTot * (nelmt * c + warpsize * iwarp);
+        TData *wsp0  = wsp + (isNodal ? nmTot : 0u) * nelmt * ncomp +
+                      wsp0Size * (nelmt * c + warpsize * iwarp);
+        TData *wsp1 = wsp +
+                      ((isNodal ? nmTot : 0u) + wsp0Size) * nelmt * ncomp +
+                      wsp1Size * (nelmt * c + warpsize * iwarp);
 
-            TData *in1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wsp0   = wsp + nmTot * nelmt * ncomp +
-                          nm01 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nm01 + nmTot) * nelmt * ncomp +
-                          nm0 * (nelmt * c + warpsize * iwarp);
-            MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
-            BwdTransTetSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                            isModified, basis0, basis1, basis2,
-                                            in1ptr, outptr, wsp0, wsp1);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        if constexpr (isNodal)
         {
-            TData *wsp0 = wsp + nm0 * nm1 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nm0 * nm1 * nelmt * ncomp +
-                          nm0 * (nelmt * c + warpsize * iwarp);
-            BwdTransPrismSumFacKernel<APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, inptr, outptr, wsp0, wsp1);
+            MatVecKernel(ilane, nmTot, nodToMod, inptr, modal);
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-        {
-            TData *in1ptr = wsp + nmTot * (nelmt * c + warpsize * iwarp);
-            TData *wsp0   = wsp + nmTot * nelmt * ncomp +
-                          nm0 * nm1 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + (nm0 * nm1 + nmTot) * nelmt * ncomp +
-                          nm0 * (nelmt * c + warpsize * iwarp);
-            MatVecKernel(ilane, nmTot, nodToMod, inptr, in1ptr);
-            BwdTransPrismSumFacKernel<APPEND>(
-                ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
-                basis2, in1ptr, outptr, wsp0, wsp1);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            TData *wsp0 = wsp + nm0 * nm1 * (nelmt * c + warpsize * iwarp);
-            TData *wsp1 = wsp + nm0 * nm1 * nelmt * ncomp +
-                          nm0 * (nelmt * c + warpsize * iwarp);
-            BwdTransPyrSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
-                                            isModified, basis0, basis1, basis2,
-                                            inptr, outptr, wsp0, wsp1);
-        }
+
+        BwdTrans3DSumFacKernel<SHAPE_TYPE, APPEND>(
+            ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
+            basis2, isNodal ? modal : inptr, outptr, wsp0, wsp1);
+
         e += getGlobalRange<0>(threadBlock);
     }
 }

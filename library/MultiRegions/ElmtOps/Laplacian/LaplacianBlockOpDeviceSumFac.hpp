@@ -61,7 +61,7 @@
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/ElmtOps/Laplacian/LaplacianBlockOp.hpp>
 
 #include <MultiRegions/ElmtOps/Laplacian/LaplacianBlockOpDeviceSumFacKernels.hpp>
