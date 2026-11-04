@@ -1272,10 +1272,19 @@ protected:
                 indices.srcIndex.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto dstIdx =
                 indices.dstIndex.template GetPtr<MemSpace, ReadOnly>(streamID);
-            HOutflowVolumeGatherKernel<ExecSpace>(
-                gather.srcElmt.size() * gather.nData, m_nDim,
-                srcBlock.CompSize(), dstBlock.CompSize(), srcIdx, dstIdx, src,
-                dst, streamID);
+            const size_t nsize = gather.srcElmt.size() * gather.nData;
+            if (m_nDim == 2)
+            {
+                HOutflowVolumeGatherKernel<ExecSpace, 2>(
+                    nsize, srcBlock.CompSize(), dstBlock.CompSize(), srcIdx,
+                    dstIdx, src, dst, streamID);
+            }
+            else if (m_nDim == 3)
+            {
+                HOutflowVolumeGatherKernel<ExecSpace, 3>(
+                    nsize, srcBlock.CompSize(), dstBlock.CompSize(), srcIdx,
+                    dstIdx, src, dst, streamID);
+            }
             RecordStreamEvent<ExecSpace>(streamID);
         }
 
@@ -1328,7 +1337,8 @@ protected:
                 auto &energyBlock   = m_energyMinusFb[n].GetBlocks()[blk];
                 auto &divBlock      = m_divergence[n].GetBlocks()[blk];
                 const size_t nPoints =
-                    pressureBlock.GetNumElements() * pressureBlock.GetNumData();
+                    pressureBlock.GetNumElementsWithPadding() *
+                    pressureBlock.GetNumData();
                 const size_t compSize = velocityBlock.CompSize();
                 auto velocityPtr =
                     velocityBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
@@ -1352,7 +1362,7 @@ protected:
                         fbPtr, kinvis, scale, m_theta, m_alpha1, m_alpha2, m_U0,
                         m_delta, pressurePtr, energyPtr, divPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOutflowPressureKernel<ExecSpace, 3>(
                         nPoints, compSize, velocityPtr, gradientPtr, normalPtr,
@@ -1392,13 +1402,13 @@ protected:
                 // The extraction, m_normals, m_energyMinusFb and m_divergence
                 // are ordered before the stream of the block.
                 const unsigned int streamID = blk + 1;
-                auto &pressureBlock = m_pressureBndPhys[n].GetBlocks()[blk];
-                auto &normalBlock   = m_normals[n].GetBlocks()[blk];
-                auto &energyBlock   = m_energyMinusFb[n].GetBlocks()[blk];
-                auto &divBlock      = m_divergence[n].GetBlocks()[blk];
-                auto &outBlock      = m_velocityBndPhys[n].GetBlocks()[blk];
-                const size_t nPoints =
-                    outBlock.GetNumElements() * outBlock.GetNumData();
+                auto &pressureBlock  = m_pressureBndPhys[n].GetBlocks()[blk];
+                auto &normalBlock    = m_normals[n].GetBlocks()[blk];
+                auto &energyBlock    = m_energyMinusFb[n].GetBlocks()[blk];
+                auto &divBlock       = m_divergence[n].GetBlocks()[blk];
+                auto &outBlock       = m_velocityBndPhys[n].GetBlocks()[blk];
+                const size_t nPoints = outBlock.GetNumElementsWithPadding() *
+                                       outBlock.GetNumData();
                 const size_t compSize = outBlock.CompSize();
                 auto pressurePtr =
                     pressureBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
@@ -1416,7 +1426,7 @@ protected:
                         nPoints, compSize, pressurePtr, normalPtr, energyPtr,
                         divPtr, kinvis, outPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOutflowVelocityKernel<ExecSpace, 3>(
                         nPoints, compSize, pressurePtr, normalPtr, energyPtr,
