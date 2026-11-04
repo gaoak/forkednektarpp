@@ -71,6 +71,8 @@ protected:
     std::shared_ptr<AdvDiffusionOp<double>> m_advDiffusionOp;
     std::shared_ptr<ExpressionOp<double>> m_initialOp;
     std::shared_ptr<ExpressionOp<double>> m_velOp;
+    std::shared_ptr<CFLVelocityCFEOp<double>> m_cflVelocityOp;
+    LibUtilities::Field<double, FieldState::Phys> m_cflVelocity;
 
     NavierStokesCFE(const LibUtilities::SessionReaderSharedPtr &pSession,
                     const SpatialDomains::MeshGraphSharedPtr &pGraph);
@@ -100,11 +102,6 @@ protected:
         override;
 
     double v_GetSoundSpeedFactor() override;
-
-    /// Velocity components followed by the speed of sound, filled from the
-    /// conserved variables only when a Courant estimate is asked for.
-    std::shared_ptr<CFLVelocityCFEOp<double>> m_cflVelocityOp;
-    LibUtilities::Field<double, FieldState::Phys> m_cflVelocity;
 };
 
 } // namespace Nektar

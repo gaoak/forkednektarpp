@@ -207,6 +207,7 @@ v5.11.0
 - Update `TimeDependent` boundary conditions at every right-hand-side evaluation, which were left at their initial value, and add a test ported from the legacy solver (!2902)
 - Vectorise the HLL, HLLC and AUSM Riemann solvers on AVX, branch-free through clamped wave speeds and `Select()`, and build the Riemann profiler again (!2904)
 - Fail, rather than silently skip the wall temperature, on an isothermal wall with extra components (!2907)
+- Move the Roe average into `RoeAverage.hpp`, so that the HLL and HLLC solvers no longer include the Roe solver (!2909)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)
@@ -220,6 +221,7 @@ v5.11.0
 - Keep the multistep divergence weight of the pressure in IMEX start-up stages (!2892)
 - Check that the velocity and pressure share their quadrature points in either pressure form and on HOutflow regions, write a lower-order pressure through the velocity expansion so that FieldConvert and the legacy solver read it, and test a pressure one order below the velocity with the HOPBC and HOutflow (!2896)
 - Evaluate the Neumann value of the HOutflow velocity conditions once, and again at every step only on the regions whose expression uses `t` (!2902)
+- Vectorise the pointwise kernels of the HOPBC and HOutflow conditions on AVX, give their volume gathers the dimension as a template parameter, and form predictor - rhs of the HOPBC in place of a copy of the boundary-adjacent elements (!2909)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
