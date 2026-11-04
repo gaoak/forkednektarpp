@@ -138,6 +138,29 @@ During the execution a file named \inltt{DragLift.fce} will be created and the
 value of the aerodynamic forces on boundaries 1 and 2, defined in the
 \inltt{GEOMETRY} section, will be output every 10 time steps.
 
+For an unmapped \inltt{3DH1D} calculation, the legacy IncNavierStokesSolver filter
+outputs three force directions, including \inltt{F3-press}, \inltt{F3-visc}
+and \inltt{F3-total}. With the default directions, direction 3 is the
+homogeneous $z$ direction. The moment output retains its existing $M_z$
+layout. The forces are per unit homogeneous length: the average row is the
+spanwise mean, not the integral over \inltt{LZ}. Multiply by \inltt{LZ} to
+obtain the force over the full periodic span.
+
+Set \inltt{OutputAllPlanes} to \inltt{True} to output each physical Fourier
+plane and an average row; the default is \inltt{False}. For an unmapped
+extrusion the wall normal has $n_z=0$, so the Cartesian pressure force in $z$
+is zero. The axial viscous traction includes both the transverse derivatives
+of $w$ and the homogeneous derivatives of $u,v$:
+\[
+ t_z^{(v)}=-\mu\left[
+  (\partial_xw+\partial_zu)n_x+
+  (\partial_yw+\partial_zv)n_y\right].
+\]
+These are boundary pressure/viscous forces; the filter does not integrate the
+MHD Lorentz body force over the fluid volume. Existing scripts that read the
+3DH1D moment columns by position must account for the three added force
+columns before the moments.
+
 \subsubsection{Extension for the SPM formulation}\label{filters:sub:ForcesSPM}
 
 \begin{notebox}

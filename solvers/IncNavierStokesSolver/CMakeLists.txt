@@ -132,6 +132,20 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(ChanFlow_m3_ConOBC_VCSImplicit)
     ADD_NEKTAR_TEST(ChanFlow_m3_SKS)
     ADD_NEKTAR_TEST(ChanFlow_m8)
+    IF (NEKTAR_BUILD_TESTS AND NEKTAR_USE_MPI)
+        FIND_PACKAGE(Python3 QUIET COMPONENTS Interpreter)
+        IF (Python3_Interpreter_FOUND)
+            ADD_TEST(NAME IncNavierStokesSolver_AeroForcesH1D
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_aeroforces_h1d.py
+                    --solver $<TARGET_FILE:IncNavierStokesSolver>
+                    --case ${CMAKE_CURRENT_SOURCE_DIR}/Tests/AeroForcesH1D.xml
+                    --work ${CMAKE_BINARY_DIR}/tests/aeroforces-h1d
+                    --mpiexec ${MPIEXEC})
+            SET_TESTS_PROPERTIES(IncNavierStokesSolver_AeroForcesH1D
+                PROPERTIES TIMEOUT 180 PROCESSORS 2)
+        ENDIF()
+    ENDIF()
     ADD_NEKTAR_TEST(HartmannFlow)
     ADD_NEKTAR_TEST(MHDDuctFlow)
     ADD_NEKTAR_TEST(MHDInternalWeakNeumann)
