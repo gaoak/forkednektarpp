@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCOp.hpp"
+#include <SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCOp.hpp>
 
-#include "SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCKernelLaunchers.hpp>
 
 using namespace Nektar;
 

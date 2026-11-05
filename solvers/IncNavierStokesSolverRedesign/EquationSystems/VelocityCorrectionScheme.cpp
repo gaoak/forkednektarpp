@@ -59,6 +59,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iterator>
+#include <numeric>
 #include <sstream>
 #include <utility>
 
@@ -149,18 +150,41 @@ void VelocityCorrectionScheme::v_InitObject(bool declareExpansionLists)
     // Configure Time-integration
     // Note we exclude pressure from time integration
     InitialiseTimeOp();
-    m_timeOp->DefineImplicit(
-        &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
-    m_timeOp->DefineExplicitRhs(
-        &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
     // The linear-implicit advection and the higher-order pressure boundary
-    // data are combined with the same coefficients as the explicit velocity
-    // contribution, for every IMEX step and start-up stage. The start-up
-    // divergence weight reads the start-up stage of the same context.
-    if (m_implicitAdvection || m_hasHighOrderPressureBCs ||
-        m_hasMultistepStartup)
+    // data keep histories that are combined with the coefficients of the
+    // explicit contributions of every implicit solve.
+    if (m_implicitAdvection || m_hasHighOrderPressureBCs)
     {
-        m_timeOp->EnableExplicitContributionExtrapolation();
+        auto timeOp = std::dynamic_pointer_cast<IMEXBaseOp<double>>(m_timeOp);
+        ASSERTL0(timeOp,
+                 "The linear-implicit formulation and the higher-order "
+                 "pressure and outflow boundary conditions require a time "
+                 "integration scheme whose implicit solves combine explicit "
+                 "contributions, such as IMEX or IMEXdirk.");
+        timeOp->DefineImplicitWithWeights(
+            &VelocityCorrectionScheme::SolveUnsteadyStokesSystem, this);
+        timeOp->DefineExplicitRhsWithWeights(
+            &VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs, this);
+    }
+    else
+    {
+        m_timeOp->DefineImplicit(
+            &VelocityCorrectionScheme::SolveUnsteadyStokesSystemWithoutHistory,
+            this);
+        m_timeOp->DefineExplicitRhs(
+            &VelocityCorrectionScheme::
+                EvaluateAdvection_SetPressureBCsWithoutHistory,
+            this);
+    }
+    // The implicit coefficient of a multistep IMEX scheme is the sum of its
+    // explicit contribution coefficients.
+    if (m_hasMultistepStartup)
+    {
+        const auto coeffs =
+            std::dynamic_pointer_cast<IMEXBaseOp<double>>(m_timeOp)
+                ->GetExplicitCoefficients();
+        m_startupImplicitCoefficient =
+            std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
     }
 }
 
@@ -259,7 +283,8 @@ void VelocityCorrectionScheme::v_GenerateSummary(SummaryList &s)
 void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     LibUtilities::Field<double, FieldState::Phys> &in,
     [[maybe_unused]] LibUtilities::Field<double, FieldState::Phys> &out,
-    const double &time, const double &dt_inv_gamma)
+    const double &time, const double &dt_inv_gamma,
+    const ExplicitWeights &weights)
 {
     // Choose RHS for either semiimplicit or linearimplicit formulation
     LibUtilities::Field<double, FieldState::Phys> &fieldRhs =
@@ -267,11 +292,9 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
 
     if (m_implicitAdvection)
     {
-        auto &advectionRhsHistory = GetAdvectionRhsHistory(
-            m_timeOp->GetExplicitContributionHistoryId(),
-            m_timeOp->GetExplicitContributionHistorySize());
-        m_timeOp->ExtrapolateExplicitContribution(advectionRhsHistory,
-                                                  m_wsp_explicit_adv_rhs);
+        auto &advectionRhsHistory = GetAdvectionRhsHistory(weights);
+        CombineExplicitContributions(weights, advectionRhsHistory,
+                                     m_wsp_explicit_adv_rhs);
         m_math.daxpy(-1.0, m_wsp_explicit_adv_rhs, in, fieldRhs);
     }
 
@@ -295,33 +318,28 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     if (m_hasHighOrderPressureBCs)
     {
         const double pressureBCScale =
-            dt_inv_gamma / m_timeOp->GetExplicitContributionCoefficientSum();
-        auto &velocityHistory =
-            GetVelocityHistory(m_timeOp->GetExplicitContributionHistoryId(),
-                               m_timeOp->GetExplicitContributionHistorySize());
+            dt_inv_gamma / GetCoefficientSum(weights);
+        auto &velocityHistory = GetVelocityHistory(weights);
         if (m_weakPressure && m_implicitAdvection)
         {
-            m_timeOp->LatestExplicitContribution(
-                velocityHistory, m_pressureBCVelocity,
-                SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+            // The latest level with the total weight of the extrapolation.
+            m_math.mul(dt_inv_gamma, velocityHistory.front(),
+                       m_pressureBCVelocity);
         }
         else
         {
-            m_timeOp->ExtrapolateExplicitContribution(
-                velocityHistory, m_pressureBCVelocity,
-                SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+            CombineExplicitContributions(weights, velocityHistory,
+                                         m_pressureBCVelocity, pressureBCScale);
         }
         // The explicit forcing is extrapolated only for a region with a
         // velocity component that is not Dirichlet, whose flux is formed
         // from it.
         if (m_hasPressureBCExplicitRhs)
         {
-            auto &pressureBCRhsHistory = GetPressureBCRhsHistory(
-                m_timeOp->GetExplicitContributionHistoryId(),
-                m_timeOp->GetExplicitContributionHistorySize());
-            m_timeOp->ExtrapolateExplicitContribution(
-                pressureBCRhsHistory, m_pressureBCExplicitRhs,
-                SolverCore::TimeOpExtrapolationMode::Assign, pressureBCScale);
+            auto &pressureBCRhsHistory = GetPressureBCRhsHistory(weights);
+            CombineExplicitContributions(weights, pressureBCRhsHistory,
+                                         m_pressureBCExplicitRhs,
+                                         pressureBCScale);
         }
         if (m_hoPressureBCOp)
         {
@@ -360,15 +378,12 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     m_poissonSolveOp->UpdateBndCoeffs(time);
 
     /// Set up forcing term for pressure Poisson equation
-    const auto startupStage =
-        m_hasMultistepStartup ? m_timeOp->GetStartupStage()
-                              : std::optional<TimeOp<double>::StartupStage>();
     const double startupDivergenceWeight =
-        GetStartupDivergenceWeight(startupStage);
+        GetStartupDivergenceWeight(dt_inv_gamma);
     if (m_weakPressure)
     {
-        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma, startupStage,
-                                 startupDivergenceWeight);
+        SetUpWeakPressureForcing(in, fieldRhs, dt_inv_gamma,
+                                 startupDivergenceWeight, weights);
     }
     else
     {
@@ -380,8 +395,8 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         LibUtilities::Field<double, FieldState::Phys> *divergenceRhs = &in;
         if (startupDivergenceWeight != 0.0)
         {
-            m_math.daxpy(-startupDivergenceWeight,
-                         *startupStage->initialSolution, in, m_wsp_phys);
+            m_math.daxpy(-startupDivergenceWeight, m_startupInitialSolution, in,
+                         m_wsp_phys);
             divergenceRhs = &m_wsp_phys;
         }
         m_divergenceOp->Apply(*divergenceRhs, m_wsp_phys_1c);
@@ -471,13 +486,10 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
         // scheme, they are quadrature weights with another sum, and u* is a
         // weighted mean of the earlier stage values, accurate to first order
         // only, which limits a startup step to a second-order local error.
-        auto &velocityHistory =
-            GetVelocityHistory(m_timeOp->GetExplicitContributionHistoryId(),
-                               m_timeOp->GetExplicitContributionHistorySize());
-        m_timeOp->ExtrapolateExplicitContribution(
-            velocityHistory, m_advVel,
-            SolverCore::TimeOpExtrapolationMode::Assign,
-            m_timeOp->GetTimeStep() / dt_inv_gamma / m_kinvis);
+        auto &velocityHistory = GetVelocityHistory(weights);
+        CombineExplicitContributions(weights, velocityHistory, m_advVel,
+                                     m_timeOp->GetTimeStep() / dt_inv_gamma /
+                                         m_kinvis);
         std::dynamic_pointer_cast<LinearADRSolveOp<double>>(m_fieldsSolveOp)
             ->SetAdvVel(m_advVel);
     }
@@ -532,6 +544,17 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
     m_bwdTransOp->Apply(m_fields_coeff, out);
 }
 
+/**
+ * @brief SolveUnsteadyStokesSystem() for a solver that keeps no histories.
+ */
+void VelocityCorrectionScheme::SolveUnsteadyStokesSystemWithoutHistory(
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
+    const double &lambda)
+{
+    SolveUnsteadyStokesSystem(in, out, time, lambda, {});
+}
+
 /*
  *  @brief Weight \beta of the stage's initial velocity in the pressure
  *  forcing of a start-up stage, or zero.
@@ -572,18 +595,26 @@ void VelocityCorrectionScheme::SolveUnsteadyStokesSystem(
  *  \beta is zero outside the start-up stages of a multistep scheme, so the
  *  weight has no effect under a one-step scheme or on a steady state.
  *
- *  param startupStage: = start-up stage of the active implicit solve, empty
- *  in a step of the multistep scheme
+ *  param dt_inv_gamma: = \lambda_s \Delta t of the active implicit solve
  */
 double VelocityCorrectionScheme::GetStartupDivergenceWeight(
-    const std::optional<TimeOp<double>::StartupStage> &startupStage) const
+    const double dt_inv_gamma) const
 {
-    if (!startupStage)
+    if (!IsStartupStep())
     {
         return 0.0;
     }
-    return 1.0 - startupStage->stageImplicitCoefficient /
-                     startupStage->targetImplicitCoefficient;
+    return 1.0 - dt_inv_gamma /
+                     (m_startupImplicitCoefficient * m_timeOp->GetTimeStep());
+}
+
+/**
+ * @brief Whether the multistep scheme is taking one of its start-up steps,
+ * whose implicit solves are start-up stages.
+ */
+bool VelocityCorrectionScheme::IsStartupStep() const
+{
+    return m_timeOp->GetStep() < m_startupSteps;
 }
 
 /*
@@ -623,27 +654,22 @@ double VelocityCorrectionScheme::GetStartupDivergenceWeight(
  *  param in: = \hat{\mathbf{u}} + \gamma \Delta t (explicit contribution)
  *  param fieldRhs: = RHS of the velocity solve
  *  param dt_inv_gamma: = \gamma \Delta t
- *  param startupStage: = start-up stage of the active implicit solve, empty
- *  in a step of the multistep scheme
  *  param startupDivergenceWeight: = \beta, zero outside a start-up stage
  */
 void VelocityCorrectionScheme::SetUpWeakPressureForcing(
     LibUtilities::Field<double, FieldState::Phys> &in,
     LibUtilities::Field<double, FieldState::Phys> &fieldRhs,
-    const double dt_inv_gamma,
-    const std::optional<TimeOp<double>::StartupStage> &startupStage,
-    const double startupDivergenceWeight)
+    const double dt_inv_gamma, const double startupDivergenceWeight,
+    const ExplicitWeights &weights)
 {
     LibUtilities::Field<double, FieldState::Phys> *pressureRhs = &in;
     if (m_implicitAdvection)
     {
-        // fieldRhs plus the latest advection, weighted as
-        // TimeOp::LatestExplicitContribution() weights it, in one pass.
-        auto &advectionRhsHistory = GetAdvectionRhsHistory(
-            m_timeOp->GetExplicitContributionHistoryId(),
-            m_timeOp->GetExplicitContributionHistorySize());
-        m_math.daxpy(m_timeOp->GetExplicitContributionCoefficientSum(),
-                     advectionRhsHistory.front(), fieldRhs, m_wsp_phys);
+        // fieldRhs plus the latest advection, with the total weight of the
+        // extrapolation, in one pass.
+        auto &advectionRhsHistory = GetAdvectionRhsHistory(weights);
+        m_math.daxpy(GetCoefficientSum(weights), advectionRhsHistory.front(),
+                     fieldRhs, m_wsp_phys);
         pressureRhs = &m_wsp_phys;
     }
 
@@ -651,7 +677,7 @@ void VelocityCorrectionScheme::SetUpWeakPressureForcing(
     const bool startup  = startupDivergenceWeight != 0.0;
     if (startup)
     {
-        m_divergenceOp->Apply(*startupStage->initialSolution, m_wsp_phys_1c);
+        m_divergenceOp->Apply(m_startupInitialSolution, m_wsp_phys_1c);
         m_math.mul(-startupDivergenceWeight / dt_inv_gamma, m_wsp_phys_1c,
                    m_wsp_phys_1c);
         if (singular)
@@ -698,15 +724,22 @@ void VelocityCorrectionScheme::SetUpWeakPressureForcing(
 void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     LibUtilities::Field<double, FieldState::Phys> &in,
     LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
-    const double &dt)
+    const double &dt, const ExplicitWeights &weights)
 {
+    // A start-up stage evaluates its explicit RHS at the solution it starts
+    // from, just before its implicit solve.
+    if (IsStartupStep())
+    {
+        m_math.copy(in, m_startupInitialSolution);
+    }
+
     // Store u for the advection velocity of the linear-implicit formulation
     // and for the higher-order pressure boundary conditions, so that u and
     // CurlCurl(u) are combined with the IMEX coefficients of the explicit
     // velocity contribution.
     if (m_implicitAdvection || m_hasHighOrderPressureBCs)
     {
-        UpdateVelocityHistory(in);
+        UpdateVelocityHistory(in, weights);
     }
 
     EvaluateAdvectionContribution(in, out, time, dt);
@@ -716,7 +749,7 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
         // The linear-implicit solve moves advection to its left-hand side and
         // subtracts this extrapolated contribution from the IMEX RHS. Store
         // it before the body forcing is added, which stays on the RHS.
-        UpdateAdvectionRhsHistory(out);
+        UpdateAdvectionRhsHistory(out, weights);
     }
 
     // Evaluate and add forcing terms. Advection has already written to out, so
@@ -732,8 +765,20 @@ void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCs(
     // Dirichlet.
     if (m_hasPressureBCExplicitRhs)
     {
-        UpdatePressureBCRhsHistory(out, dt);
+        UpdatePressureBCRhsHistory(out, dt, weights);
     }
+}
+
+/**
+ * @brief EvaluateAdvection_SetPressureBCs() for a solver that keeps no
+ * histories.
+ */
+void VelocityCorrectionScheme::EvaluateAdvection_SetPressureBCsWithoutHistory(
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
+    const double &dt)
+{
+    EvaluateAdvection_SetPressureBCs(in, out, time, dt, {});
 }
 
 void VelocityCorrectionScheme::EvaluateAdvectionContribution(
@@ -758,29 +803,29 @@ void VelocityCorrectionScheme::EvaluateAdvectionContribution(
 
 /**
  * @brief The history of the explicit advection contribution of the scheme
- * with history id @p historyId, which combines @p historySize explicit
- * contributions in an implicit solve, created on first use.
+ * that @p weights belong to, created on first use.
  */
 std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
-    GetAdvectionRhsHistory(unsigned int historyId, unsigned int historySize)
+    GetAdvectionRhsHistory(const ExplicitWeights &weights)
 {
     ASSERTL0(m_implicitAdvection,
              "Advection RHS history is only used by the linear-implicit "
              "formulation.");
 
-    FreeStartupHistories(historyId);
-    auto [it, inserted] = m_advectionRhsHistories.try_emplace(historyId);
-    auto &history       = it->second;
+    FreeStartupHistories(weights.historyId);
+    auto [it, inserted] =
+        m_advectionRhsHistories.try_emplace(weights.historyId);
+    auto &history = it->second;
     if (inserted)
     {
-        ASSERTL0(historySize > 0,
+        ASSERTL0(weights.historySize > 0,
                  "The linear-implicit formulation requires a time integration "
                  "scheme whose implicit solves combine explicit "
                  "contributions, such as IMEX or IMEXdirk.");
         auto bAtrPhys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
                 m_expansionLists[0]);
-        for (unsigned int i = 0; i < historySize; ++i)
+        for (unsigned int i = 0; i < weights.historySize; ++i)
         {
             history.emplace_back("advection rhs history " + std::to_string(i),
                                  bAtrPhys, m_variablesFields.size(),
@@ -793,23 +838,22 @@ std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionSch
 }
 
 /**
- * @brief The history of the velocity of the scheme with history id
- * @p historyId, which combines @p historySize explicit contributions in an
- * implicit solve, created on first use.
+ * @brief The history of the velocity of the scheme that @p weights
+ * belongs to, created on first use.
  *
  * The linear-implicit advection velocity and the higher-order boundary
  * conditions read only the velocity, which is the whole solution: they do
  * not support passive scalars.
  */
 std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
-    GetVelocityHistory(unsigned int historyId, unsigned int historySize)
+    GetVelocityHistory(const ExplicitWeights &weights)
 {
-    FreeStartupHistories(historyId);
-    auto [it, inserted] = m_velocityHistories.try_emplace(historyId);
+    FreeStartupHistories(weights.historyId);
+    auto [it, inserted] = m_velocityHistories.try_emplace(weights.historyId);
     auto &history       = it->second;
     if (inserted)
     {
-        ASSERTL0(historySize > 0,
+        ASSERTL0(weights.historySize > 0,
                  "The linear-implicit formulation and the higher-order "
                  "pressure and outflow boundary conditions require a time "
                  "integration scheme whose implicit solves combine explicit "
@@ -817,7 +861,7 @@ std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionSch
         auto bAtrPhys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
                 m_expansionLists[0]);
-        for (unsigned int i = 0; i < historySize; ++i)
+        for (unsigned int i = 0; i < weights.historySize; ++i)
         {
             history.emplace_back("velocity history " + std::to_string(i),
                                  bAtrPhys, m_variablesVel.size(), m_npointsZ);
@@ -829,26 +873,26 @@ std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionSch
 }
 
 /**
- * @brief The history of the explicit forcing of the scheme with history id
- * @p historyId, which combines @p historySize explicit contributions in an
- * implicit solve, created on first use.
+ * @brief The history of the explicit forcing of the scheme that
+ * @p weights belong to, created on first use.
  */
 std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionScheme::
-    GetPressureBCRhsHistory(unsigned int historyId, unsigned int historySize)
+    GetPressureBCRhsHistory(const ExplicitWeights &weights)
 {
-    FreeStartupHistories(historyId);
-    auto [it, inserted] = m_pressureBCRhsHistories.try_emplace(historyId);
-    auto &history       = it->second;
+    FreeStartupHistories(weights.historyId);
+    auto [it, inserted] =
+        m_pressureBCRhsHistories.try_emplace(weights.historyId);
+    auto &history = it->second;
     if (inserted)
     {
-        ASSERTL0(historySize > 0,
+        ASSERTL0(weights.historySize > 0,
                  "The higher-order pressure boundary condition requires a "
                  "time integration scheme whose implicit solves combine "
                  "explicit contributions, such as IMEX or IMEXdirk.");
         auto bAtrPhys =
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
                 m_expansionLists[0]);
-        for (unsigned int i = 0; i < historySize; ++i)
+        for (unsigned int i = 0; i < weights.historySize; ++i)
         {
             history.emplace_back("pressure BC rhs history " + std::to_string(i),
                                  bAtrPhys, m_variablesVel.size(), m_npointsZ);
@@ -865,13 +909,13 @@ std::deque<LibUtilities::Field<double, FieldState::Phys>> &VelocityCorrectionSch
  *
  * @details
  * Every startup step runs a scheme of its own, with a history id of its
- * own, which is dead once that step returns. The main scheme evaluates its
- * explicit RHS at the start of every step, so when @p historyId is the main
- * scheme's, every other history belongs to a finished startup step.
+ * own, which is dead once that step returns. Outside the startup steps
+ * only the main scheme evaluates, so @p historyId is the main scheme's and
+ * every other history belongs to a finished startup step.
  */
 void VelocityCorrectionScheme::FreeStartupHistories(unsigned int historyId)
 {
-    if (historyId != m_timeOp->GetOwnExplicitContributionHistoryId())
+    if (IsStartupStep())
     {
         return;
     }
@@ -886,11 +930,10 @@ void VelocityCorrectionScheme::FreeStartupHistories(unsigned int historyId)
 }
 
 void VelocityCorrectionScheme::UpdateAdvectionRhsHistory(
-    LibUtilities::Field<double, FieldState::Phys> &advRhs)
+    LibUtilities::Field<double, FieldState::Phys> &advRhs,
+    const ExplicitWeights &weights)
 {
-    auto &history =
-        GetAdvectionRhsHistory(m_timeOp->GetExplicitContributionHistoryId(),
-                               m_timeOp->GetExplicitContributionHistorySize());
+    auto &history = GetAdvectionRhsHistory(weights);
 
     auto tmp = std::move(history.back());
     history.pop_back();
@@ -899,11 +942,10 @@ void VelocityCorrectionScheme::UpdateAdvectionRhsHistory(
 }
 
 void VelocityCorrectionScheme::UpdatePressureBCRhsHistory(
-    LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt)
+    LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt,
+    const ExplicitWeights &weights)
 {
-    auto &history =
-        GetPressureBCRhsHistory(m_timeOp->GetExplicitContributionHistoryId(),
-                                m_timeOp->GetExplicitContributionHistorySize());
+    auto &history = GetPressureBCRhsHistory(weights);
 
     auto tmp = std::move(history.back());
     history.pop_back();
@@ -912,16 +954,62 @@ void VelocityCorrectionScheme::UpdatePressureBCRhsHistory(
 }
 
 void VelocityCorrectionScheme::UpdateVelocityHistory(
-    LibUtilities::Field<double, FieldState::Phys> &velocity)
+    LibUtilities::Field<double, FieldState::Phys> &velocity,
+    const ExplicitWeights &weights)
 {
-    auto &history =
-        GetVelocityHistory(m_timeOp->GetExplicitContributionHistoryId(),
-                           m_timeOp->GetExplicitContributionHistorySize());
+    auto &history = GetVelocityHistory(weights);
 
     auto tmp = std::move(history.back());
     history.pop_back();
     history.push_front(std::move(tmp));
     m_math.copy(velocity, history.front());
+}
+
+/**
+ * @brief out = scale * sum_i c_i history[i], with the coefficients c_i of the
+ * explicit contributions of the implicit solve, in one pass over out; levels
+ * of zero coefficient are skipped.
+ */
+void VelocityCorrectionScheme::CombineExplicitContributions(
+    const ExplicitWeights &weights,
+    std::deque<LibUtilities::Field<double, FieldState::Phys>> &history,
+    LibUtilities::Field<double, FieldState::Phys> &out, const double scale)
+{
+    const auto &coeffs = weights.coefficients;
+    ASSERTL0(!coeffs.empty(),
+             "No explicit contribution coefficients are available for this "
+             "implicit solve.");
+    ASSERTL0(history.size() >= coeffs.size(),
+             "Explicit contribution history is shorter than the current "
+             "coefficient list.");
+
+    std::vector<double> alpha;
+    std::vector<LibUtilities::Field<double, FieldState::Phys> *> x;
+    for (unsigned int i = 0; i < coeffs.size(); ++i)
+    {
+        if (coeffs[i] != 0.0)
+        {
+            alpha.push_back(scale * coeffs[i]);
+            x.push_back(&history[i]);
+        }
+    }
+    m_math.linearCombination(alpha, x, out, false);
+}
+
+/**
+ * @brief Sum of the coefficients with which the implicit solve combines the
+ * explicit contributions. It is the implicit coefficient gamma of a multistep
+ * IMEX scheme but, in general, not that of an IMEXdirk stage, whose
+ * coefficients are quadrature weights.
+ */
+double VelocityCorrectionScheme::GetCoefficientSum(
+    const ExplicitWeights &weights)
+{
+    const auto &coeffs = weights.coefficients;
+    ASSERTL0(!coeffs.empty(),
+             "No explicit contribution coefficients are available for this "
+             "implicit solve.");
+    return std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
 }
 
 /**
@@ -1196,6 +1284,13 @@ void VelocityCorrectionScheme::v_InitialiseFields()
             "wsp_explicit_adv_rhs", bAtr_phys, m_variablesFields.size(),
             m_npointsZ);
     }
+    if (m_hasMultistepStartup)
+    {
+        m_startupInitialSolution =
+            LibUtilities::Field<double, FieldState::Phys>(
+                "startup initial solution", bAtr_phys, m_variablesFields.size(),
+                m_npointsZ);
+    }
 
     /// Create fields for pressure.
     // Get block attributes
@@ -1409,6 +1504,10 @@ void VelocityCorrectionScheme::InitialiseParameters()
     const auto &timeIntScheme = m_session->GetTimeIntScheme();
     m_hasMultistepStartup     = timeIntScheme.method == IMEXOp<double>::name &&
                             timeIntScheme.order >= 2;
+    if (m_hasMultistepStartup)
+    {
+        m_startupSteps = timeIntScheme.order - 1;
+    }
 
     // 3/2-rule spectral/hp dealiasing (local over-integration) for the
     // explicit nonlinear advection term. Mirrors legacy

@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/DIRK/DIRKOp.hpp"
+#include <SolverCore/TimeOps/DIRK/DIRKOp.hpp>
 
-#include "SolverCore/TimeOps/DIRK/DIRKKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/DIRK/DIRKKernelLaunchers.hpp>
 
 using namespace Nektar;
 

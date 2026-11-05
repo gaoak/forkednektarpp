@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/TimeOpKernelHelper.hpp"
+#include <SolverCore/TimeOps/TimeOpKernelHelper.hpp>
 
 namespace Nektar::SolverCore::detail
 {
@@ -86,4 +86,4 @@ NEK_DEVICE_INLINE static void UpdateSolutionKernelImpl(
 
 } // namespace Nektar::SolverCore::detail
 
-#include "SolverCore/TimeOps/TimeOpHelper.hpp"
+#include <SolverCore/TimeOps/TimeOpHelper.hpp>

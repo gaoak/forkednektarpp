@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/BDF/BDFOp.hpp"
-#include "SolverCore/TimeOps/DIRK/DIRKOp.hpp"
+#include <SolverCore/TimeOps/BDF/BDFOp.hpp>
+#include <SolverCore/TimeOps/DIRK/DIRKOp.hpp>
 
-#include "SolverCore/TimeOps/BDF/BDFKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/BDF/BDFKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -104,7 +104,7 @@ protected:
                                       maxOrder, "", ExecSpace::name);
 
             // Copy functors from outer/higher-order BDF scheme.
-            startup->CopyFunctorsFrom(*this);
+            startup->CopyFunctors(*this);
 
             // Advance in time with startup.
             startup->SetTime(this->m_time);

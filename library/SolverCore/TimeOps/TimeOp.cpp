@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SolverCore/TimeOps/TimeOp.hpp"
+#include <SolverCore/TimeOps/TimeOp.hpp>
 
 using namespace Nektar::LibUtilities;
 

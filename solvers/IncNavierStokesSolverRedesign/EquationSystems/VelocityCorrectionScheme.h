@@ -40,12 +40,12 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 #include <SolverCore/Forcing/Forcing.h>
+#include <SolverCore/TimeOps/IMEXBaseOp.hpp>
 
 #include <deque>
 #include <iosfwd>
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -95,6 +95,8 @@ public:
     static std::string className;
 
 protected:
+    using ExplicitWeights = IMEXBaseOp<double>::ExplicitWeights;
+
     // true = linear-implicit, false = semi-implicit scheme
     bool m_implicitAdvection = false;
 
@@ -123,6 +125,12 @@ protected:
     // up
     bool m_hasMultistepStartup = false;
 
+    // Number of start-up steps of the multistep scheme, and its implicit
+    // coefficient, which the start-up stages are weighted against; set only
+    // with m_hasMultistepStartup
+    unsigned int m_startupSteps         = 0;
+    double m_startupImplicitCoefficient = 0.0;
+
     // Kinematic viscosity
     double m_kinvis;
 
@@ -148,6 +156,9 @@ protected:
     LibUtilities::Field<double, FieldState::Phys> m_wsp_phys;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_fields_rhs;
     LibUtilities::Field<double, FieldState::Phys> m_wsp_explicit_adv_rhs;
+    // Allocated only with m_hasMultistepStartup: the solution the active
+    // start-up stage starts from.
+    LibUtilities::Field<double, FieldState::Phys> m_startupInitialSolution;
     // Allocated only with m_hasHighOrderPressureBCs.
     LibUtilities::Field<double, FieldState::Phys> m_pressureBCVelocity;
     // Allocated only with m_hasPressureBCExplicitRhs.
@@ -215,41 +226,60 @@ protected:
     void SolveUnsteadyStokesSystem(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out,
-        [[maybe_unused]] const double &time, const double &lambda);
+        [[maybe_unused]] const double &time, const double &lambda,
+        const ExplicitWeights &weights);
+    void SolveUnsteadyStokesSystemWithoutHistory(
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
+        const double &lambda);
 
     void EvaluateAdvection_SetPressureBCs(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
+        const double &dt, const ExplicitWeights &weights);
+    void EvaluateAdvection_SetPressureBCsWithoutHistory(
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
         const double &dt);
 
-    double GetStartupDivergenceWeight(
-        const std::optional<TimeOp<double>::StartupStage> &startupStage) const;
+    bool IsStartupStep() const;
+
+    double GetStartupDivergenceWeight(const double dt_inv_gamma) const;
 
     void SetUpWeakPressureForcing(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &fieldRhs,
-        const double dt_inv_gamma,
-        const std::optional<TimeOp<double>::StartupStage> &startupStage,
-        const double startupDivergenceWeight);
+        const double dt_inv_gamma, const double startupDivergenceWeight,
+        const ExplicitWeights &weights);
 
     void EvaluateAdvectionContribution(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double &time,
         const double &dt);
     std::deque<LibUtilities::Field<double, FieldState::Phys>> &
-    GetAdvectionRhsHistory(unsigned int historyId, unsigned int historySize);
+    GetAdvectionRhsHistory(const ExplicitWeights &weights);
     void FreeStartupHistories(unsigned int historyId);
     std::deque<LibUtilities::Field<double, FieldState::Phys>> &GetVelocityHistory(
-        unsigned int historyId, unsigned int historySize);
+        const ExplicitWeights &weights);
     std::deque<LibUtilities::Field<double, FieldState::Phys>> &
-    GetPressureBCRhsHistory(unsigned int historyId, unsigned int historySize);
+    GetPressureBCRhsHistory(const ExplicitWeights &weights);
 
     void UpdateAdvectionRhsHistory(
-        LibUtilities::Field<double, FieldState::Phys> &advRhs);
+        LibUtilities::Field<double, FieldState::Phys> &advRhs,
+        const ExplicitWeights &weights);
     void UpdateVelocityHistory(
-        LibUtilities::Field<double, FieldState::Phys> &velocity);
+        LibUtilities::Field<double, FieldState::Phys> &velocity,
+        const ExplicitWeights &weights);
     void UpdatePressureBCRhsHistory(
-        LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt);
+        LibUtilities::Field<double, FieldState::Phys> &rhs, const double dt,
+        const ExplicitWeights &weights);
+
+    void CombineExplicitContributions(
+        const ExplicitWeights &weights,
+        std::deque<LibUtilities::Field<double, FieldState::Phys>> &history,
+        LibUtilities::Field<double, FieldState::Phys> &out,
+        const double scale = 1.0);
+    static double GetCoefficientSum(const ExplicitWeights &weights);
 
     void v_InitObject(bool declareExpansionLists = true) override;
 

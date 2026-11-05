@@ -151,26 +151,6 @@ public:
     }
 
     /**
-     * @brief Set the Dirichlet pressure coefficients of the regions in
-     * @p out, from the pressure boundary values of the last
-     * UpdatePressure().
-     */
-    void ApplyPressure(LibUtilities::Field<TData, FieldState::Coeff> &out)
-    {
-        v_ApplyPressure(out);
-    }
-
-    /**
-     * @brief Compute the velocity flux of the regions from the solved
-     * pressure set by SetPressure(), and add its inner product with the
-     * boundary basis to the velocity forcing @p inout.
-     */
-    void ApplyVelocity(LibUtilities::Field<TData, FieldState::Coeff> &inout)
-    {
-        v_ApplyVelocity(inout);
-    }
-
-    /**
      * @brief The Dirichlet condition of the pressure system, whose Apply()
      * is ApplyPressure().
      *
@@ -182,7 +162,7 @@ public:
      */
     std::shared_ptr<MultiRegions::DirBndCondOp<TData>> GetPressureDirichletOp()
     {
-        return v_GetPressureDirichletOp();
+        return m_pressureAdapter;
     }
 
     /**
@@ -197,10 +177,17 @@ public:
      */
     std::shared_ptr<MultiRegions::NeuBndCondOp<TData>> GetVelocityNeumannOp()
     {
-        return v_GetVelocityNeumannOp();
+        ASSERTL1(m_velocityAdapter,
+                 "SetVelocityContext must be called before requesting the "
+                 "HOutflow velocity adapter.");
+        return m_velocityAdapter;
     }
 
 protected:
+    std::shared_ptr<MultiRegions::DirBndCondOp<TData>> m_pressureAdapter =
+        nullptr;
+    std::shared_ptr<MultiRegions::NeuBndCondOp<TData>> m_velocityAdapter =
+        nullptr;
     /// Kinematic viscosity, set by SetKinvis().
     TData m_kinvis = 0.0;
     /// Time of the Neumann value f_b, set by SetTime().
@@ -226,18 +213,6 @@ protected:
 
     virtual void v_UpdatePressure(
         LibUtilities::Field<TData, FieldState::Phys> &velocity) = 0;
-
-    virtual void v_ApplyPressure(
-        LibUtilities::Field<TData, FieldState::Coeff> &out) = 0;
-
-    virtual void v_ApplyVelocity(
-        LibUtilities::Field<TData, FieldState::Coeff> &inout) = 0;
-
-    virtual std::shared_ptr<MultiRegions::DirBndCondOp<TData>>
-    v_GetPressureDirichletOp() = 0;
-
-    virtual std::shared_ptr<MultiRegions::NeuBndCondOp<TData>>
-    v_GetVelocityNeumannOp() = 0;
 };
 
 } // namespace Nektar

@@ -448,7 +448,7 @@ BOOST_AUTO_TEST_CASE(build_boundary_element_data_manufactured_multi_element)
         velocity.ReshapeStorage(velocityWidth, execSpace);
         op->UpdatePressure(velocity);
         pressureCoeffs.Initialize<NektarSpaces::HostSpace>(0.0);
-        op->ApplyPressure(pressureCoeffs);
+        op->GetPressureDirichletOp()->Apply(pressureCoeffs);
 
         const auto actualValues = pressureCoeffs.ToVector<double>();
         BOOST_REQUIRE_EQUAL(actualValues.size(), expectedValues.size());

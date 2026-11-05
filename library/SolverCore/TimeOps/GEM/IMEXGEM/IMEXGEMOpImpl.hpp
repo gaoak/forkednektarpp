@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/GEM/IMEXGEM/IMEXGEMOp.hpp"
+#include <SolverCore/TimeOps/GEM/IMEXGEM/IMEXGEMOp.hpp>
 
 using namespace Nektar;
 
@@ -93,7 +93,7 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Copy functors to IMEXdirk scheme.
-        this->m_stepper->CopyFunctorsFrom(*this);
+        this->m_stepper->CopyFunctors(*this);
 
         // Compute approximation.
         const unsigned int npts =

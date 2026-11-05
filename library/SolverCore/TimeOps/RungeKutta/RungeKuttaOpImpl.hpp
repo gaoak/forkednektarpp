@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/RungeKutta/RungeKuttaOp.hpp"
+#include <SolverCore/TimeOps/RungeKutta/RungeKuttaOp.hpp>
 
-#include "SolverCore/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/RungeKutta/RungeKuttaKernelLaunchers.hpp>
 
 using namespace Nektar;
 

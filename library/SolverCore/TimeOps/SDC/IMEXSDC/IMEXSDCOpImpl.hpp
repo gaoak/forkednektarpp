@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/SDC/IMEXSDC/IMEXSDCOp.hpp"
+#include <SolverCore/TimeOps/SDC/IMEXSDC/IMEXSDCOp.hpp>
 
-#include "SolverCore/TimeOps/SDC/IMEXSDC/IMEXSDCKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/SDC/IMEXSDC/IMEXSDCKernelLaunchers.hpp>
 
 using namespace Nektar;
 

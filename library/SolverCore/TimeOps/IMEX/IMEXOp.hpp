@@ -34,14 +34,14 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/TimeOp.hpp"
+#include <SolverCore/TimeOps/IMEXBaseOp.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // IMEX base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class IMEXOp : public TimeOp<TData>
+template <typename TData> class IMEXOp : public IMEXBaseOp<TData>
 {
 public:
     static std::shared_ptr<IMEXOp<TData>> Create(
@@ -66,7 +66,7 @@ protected:
 
     IMEXOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> &components)
-        : TimeOp<TData>(expansionList, components)
+        : IMEXBaseOp<TData>(expansionList, components)
     {
     }
 

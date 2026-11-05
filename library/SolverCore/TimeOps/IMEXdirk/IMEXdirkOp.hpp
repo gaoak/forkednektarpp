@@ -34,16 +34,14 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/TimeOp.hpp"
-
-#include <optional>
+#include <SolverCore/TimeOps/IMEXBaseOp.hpp>
 
 namespace Nektar::SolverCore
 {
 
 // IMEXdirk base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class IMEXdirkOp : public TimeOp<TData>
+template <typename TData> class IMEXdirkOp : public IMEXBaseOp<TData>
 {
 public:
     static std::shared_ptr<IMEXdirkOp<TData>> Create(
@@ -59,22 +57,10 @@ public:
 
     static inline const std::string name = "IMEXdirk";
 
-    /// Mark this operator as the start-up of a multistep scheme whose
-    /// implicit step is implicitCoefficient*dt. Its implicit solves then
-    /// report their TimeOp::StartupStage.
-    void SetStartupTargetImplicitCoefficient(const TData implicitCoefficient)
-    {
-        m_startupTargetImplicitCoefficient = implicitCoefficient;
-    }
-
 protected:
-    /// Implicit coefficient of the multistep scheme this operator starts up;
-    /// empty unless it is a start-up operator
-    std::optional<TData> m_startupTargetImplicitCoefficient;
-
     IMEXdirkOp(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
-        : TimeOp<TData>(expansionList, components)
+        : IMEXBaseOp<TData>(expansionList, components)
     {
     }
 

@@ -157,17 +157,16 @@ every restart (Section~\ref{sec:incns-kick}).
 
 \textbf{Explicit-contribution extrapolation.} The VCS needs
 extrapolations of quantities other than the solution, combined with the same
-weights as the explicit term of the active step or stage. The solver calls
-\code{EnableExplicitContributionExtrapolation()} on the time operator. Before
-each implicit solve, the operator publishes the active weights $c_i$: the
-first $J$ IMEX coefficients in a multistep step, or the explicit stage
-coefficients of the current DIRK stage. In a start-up stage it also
-publishes the implicit coefficients of the stage and of the multistep scheme
-and the solution the stage starts from (\code{GetStartupStage}), which
-remedy B1 reads (Section~\ref{sec:incns-kick}). The solver keeps up to
-three history deques per history id, as deep as the implicit solves of the
-scheme combine explicit contributions
-(\code{GetExplicitContributionHistorySize}), refreshed in
+weights as the explicit term of the active step or stage. IMEX and IMEXdirk
+derive from \code{IMEXBaseOp}, with which the solver registers
+callbacks that take an \code{ExplicitWeights} as their last argument
+when it needs these extrapolations. The time operator fills it in: the
+history id of the scheme and the number of explicit contributions its
+implicit solves combine in both callbacks, and, in an implicit solve, the
+active weights $c_i$: the first $J$ IMEX coefficients in a multistep step, or
+the explicit stage coefficients of the current DIRK stage. The solver keeps
+up to three history deques per history id, as deep as that number, refreshed
+in
 \code{EvaluateAdvection\_SetPressureBCs}:
 \begin{itemize}
   \item the velocity history, $\incnsv u$, for the advection velocity of the
@@ -180,15 +179,14 @@ scheme combine explicit contributions
   (linear-implicit formulation only).
 \end{itemize}
 Every start-up scheme has a history id of its own; its histories are freed
-when the main scheme evaluates its explicit term again
-(\code{FreeStartupHistories}).
-\code{TimeOp::ExtrapolateExplicitContribution} forms
+in the first step after the start-up steps (\code{FreeStartupHistories}).
+\code{CombineExplicitContributions} forms
 $\incnsv X^*=\sum_i c_i\,\incnsv h_i$ from a history $\incnsv h$. The
 advection history is combined with the weights $c_i$ themselves, so that it
 matches the explicit contribution held in $\hat{\incnsv u}$. For the
 boundary data, the velocity and pressure-BC RHS histories are combined with the weights scaled to sum to $\lambda\incnsdt$,
 the scale being $\lambda\incnsdt/\sum_ic_i$ with $\sum_ic_i$ from
-\code{TimeOp::GetExplicitContributionCoefficientSum}, so that with
+\code{GetCoefficientSum}, so that with
 $s=1/(\lambda\incnsdt)$ the velocity history gives
 \begin{equation}
   \incnsv u^* = s\,\incnsv V,\qquad
@@ -271,7 +269,7 @@ Given $\hat{\incnsv u}$ and $\lambda\incnsdt$,
     \label{eq:incns-advvel}
   \end{equation}
   formed from the velocity history by
-  \code{TimeOp::ExtrapolateExplicitContribution} with the scale
+  \code{CombineExplicitContributions} with the scale
   $\incnsdt/(\nu\lambda\incnsdt)$ (\code{m\_advVel} holds
   $\incnsv U/\nu$); the sum of the weights cancels. In a multistep step
   $\sum_ic_i=\lambda$ and $\incnsv U=\incnsv u^*$ extrapolates the velocity
@@ -335,7 +333,7 @@ form. Further choices:
   \item semi-implicit: $\incnsv u^*$ is extrapolated as in the strong form;
   \item linear-implicit: the advection in $\incnsv f_w$ and the velocity in
   the curl--curl and HOutflow terms are taken at the latest level, weighted by
-  $\sum_ic_i$ (\code{TimeOp::LatestExplicitContribution}), for stability at
+  $\sum_ic_i$, for stability at
   large time steps; this lowers the time order of the pressure near
   higher-order pressure regions (Section~\ref{sec:incns-weak-li});
   \item the HOutflow pressure is a Dirichlet value, on which the test
@@ -840,7 +838,7 @@ NACA0012 case above.}
   (implemented): the pressure-BC histories hold $\incnsv u$ and $\incnsv N$
   and are combined with the weights scaled to sum to $\lambda\incnsdt$, the
   scale being $\lambda\incnsdt/\sum c$ with $\sum c$ from
-  \code{TimeOp::GetExplicitContributionCoefficientSum}
+  \code{GetCoefficientSum}
   (eq.~\eqref{eq:incns-ustar}); it is $\incnsdt$ in multistep steps and DIRK
   stage~1. The linear-implicit advection velocity is scaled by
   $\sum c\,\incnsdt/(\lambda\incnsdt)$, the ratio of the two advection
@@ -868,22 +866,21 @@ NACA0012 case above.}
     \code{SetNeumannBalance}, so that its domain integral is the surface
     integral of the Neumann data, in place of the constant forcing of the
     other steps.
-    \item \textbf{Scope.} $\beta$ is zero in the multistep steps. The weight,
-    the explicit-contribution context it reads and the weak-form operators it
-    needs are set up only for \code{IMEX} of order two or more, the schemes
-    with start-up stages; a one-step scheme and \code{IMEX} order~1 are
-    unaffected.
+    \item \textbf{Scope.} $\beta$ is zero in the multistep steps. The weight
+    and the weak-form operators it needs are set up only for \code{IMEX} of
+    order two or more, the schemes with start-up stages; a one-step scheme
+    and \code{IMEX} order~1 are unaffected.
     \item \textbf{Cost.} The start-up projection removes only the fraction
     $\lambda_s/\lambda$ ($\approx44\%$ for IMEXdirk 2\_3\_2) of the
     divergence of $\incnsv u_s$; later steps remove the rest. Nothing changes
     for a divergence-free $\incnsv u_s$.
-    \item \textbf{Time operator.} The IMEX scheme marks its IMEXdirk start-up
-    operator with \code{IMEXdirkOp::SetStartupTargetImplicitCoefficient}.
-    In each implicit stage of that operator, \code{TimeOp::GetStartupStage}
-    returns a \code{StartupStage} with the stage and multistep
-    coefficients (\code{stageImplicitCoefficient},
-    \code{targetImplicitCoefficient}) and the stage's initial solution
-    (\code{initialSolution}); it is empty in every other solve.
+    \item \textbf{Solver.} The time operator is unaware of the weight. A
+    step is a start-up step while \code{TimeOp::GetStep} is below the IMEX
+    order minus one. $\lambda$ is the sum of the IMEX explicit-contribution
+    coefficients, and $\lambda_s\Delta t$ is the step size the implicit
+    solve receives. The stage's initial solution is copied in
+    \code{EvaluateAdvection\_SetPressureBCs}, which each stage calls on it
+    just before its implicit solve.
     \item \textbf{Results.} The NACA restart kick drops from $0.087$ to
     $6.2\times10^{-5}$ (pressure drag) and from $0.016$ to
     $1.1\times10^{-3}$ (lift). The first-step pressure drag from a smooth
@@ -1106,13 +1103,9 @@ factory registration \\
 \path{TimeOps/IMEX/IMEXOpImpl.hpp} & IMEX multistep scheme and its IMEXdirk
 start-up \\
 \path{TimeOps/IMEXdirk/IMEXdirkOpImpl.hpp} & DIRK stages and their
-explicit-contribution coefficients;
-\code{SetStartupTargetImplicitCoefficient} of \code{IMEXdirkOp} marks a
-start-up operator \\
-\path{TimeOps/TimeOp.hpp} & \code{ExtrapolateExplicitContribution},
-\code{LatestExplicitContribution},
-\code{GetExplicitContributionCoefficientSum}, and for the start-up stages
-\code{GetStartupStage} \\
+explicit-contribution coefficients \\
+\path{TimeOps/IMEXBaseOp.hpp} & \code{ExplicitWeights}
+passed to the solver callbacks \\
 \path{EquationSystems/UnsteadySystem.cpp} & time-stepping parameters,
 filters, \code{SetContinuousInitialConditions}, restart time \\
 \path{GlobalLinSysOps/LinearSystems/PoissonSolve},
