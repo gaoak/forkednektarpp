@@ -150,6 +150,7 @@ v5.11.0
 - Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
 - Agree across ranks on the field definitions a variable is written with (!2907)
 - Tidy and simplify the padding of shared memory in the device SumFacTOP element operators: move the stride and alignment helpers to UtilsDeviceKernels as `SharedMemoryRowStride`, `IsConflictFreeSharedMemoryRowStride` and `SharedMemoryAlignedSize`, load padded rows with `LoadWithPaddingToSharedMemory`, and rename the `Stage*ToSharedMemory` helpers to `Load*ToSharedMemory` (!2908)
+- Fix the NVPL CMake detection: only offer NVPL on Arm (aarch64) Linux, stop with an error when NEKTAR_USE_NVPL is requested on another platform, and compare the ThirdParty path literally so that paths containing regex characters (e.g. nektar++) are recognised (!2899)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
