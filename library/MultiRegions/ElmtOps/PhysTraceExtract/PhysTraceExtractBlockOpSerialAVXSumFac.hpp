@@ -618,6 +618,7 @@ protected:
                     }
                     // Pyr
                     case LibUtilities::Pyr:
+                    case LibUtilities::NodalPyr:
                     {
                         PhysTraceFaceExtractKernel<LibUtilities::Pyr>(
                             traceid, m_nm[0], m_nm[1], m_nm[2], m_nq[0],
@@ -714,71 +715,10 @@ protected:
         m_warnOnce = true;
 #endif
 
-        switch (m_shapeType)
-        {
-            // Segment
-            case LibUtilities::Seg:
-            {
-                ShapeBlock<LibUtilities::Seg>(inblock, outblock);
-                break;
-            }
-            // Quadrilateral
-            case LibUtilities::Quad:
-            {
-                ShapeBlock<LibUtilities::Quad>(inblock, outblock);
-                break;
-            }
-            // Triangle
-            case LibUtilities::Tri:
-            {
-                ShapeBlock<LibUtilities::Tri>(inblock, outblock);
-                break;
-            }
-            // Nodal triangle
-            case LibUtilities::NodalTri:
-            {
-                ShapeBlock<LibUtilities::NodalTri>(inblock, outblock);
-                break;
-            }
-            // Hexahedron
-            case LibUtilities::Hex:
-            {
-                ShapeBlock<LibUtilities::Hex>(inblock, outblock);
-                break;
-            }
-            // Tetrahedron
-            case LibUtilities::Tet:
-            {
-                ShapeBlock<LibUtilities::Tet>(inblock, outblock);
-                break;
-            }
-            // Nodal tetrahedron
-            case LibUtilities::NodalTet:
-            {
-                ShapeBlock<LibUtilities::NodalTet>(inblock, outblock);
-                break;
-            }
-            // Pyramid
-            case LibUtilities::Pyr:
-            {
-                ShapeBlock<LibUtilities::Pyr>(inblock, outblock);
-                break;
-            }
-            // Prism
-            case LibUtilities::Prism:
-            {
-                ShapeBlock<LibUtilities::Prism>(inblock, outblock);
-                break;
-            }
-            // Nodal prism
-            case LibUtilities::NodalPrism:
-            {
-                ShapeBlock<LibUtilities::NodalPrism>(inblock, outblock);
-                break;
-            }
-            default:
-                NEKERROR(ErrorUtil::efatal, "shape type not implemented");
-        }
+        this->ShapeSwitch(m_shapeType, [&](auto shape) {
+            this->template ShapeBlock<decltype(shape)::value>(inblock,
+                                                              outblock);
+        });
     }
 
     /**

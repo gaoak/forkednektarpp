@@ -299,6 +299,12 @@ inline constexpr size_t IProductWRTDerivBaseWorkSpaceSize(
         {
             wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
         }
+        else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+        {
+            const unsigned int nmTot = sizeParam3D.nmTot();
+
+            wspsize = (4 * nq0 * nq1 * nq2 + nq1 * nq2 + nq2 + nmTot) * nelmt;
+        }
     }
 
     return wspsize;
@@ -430,7 +436,8 @@ inline unsigned int IProductWRTDerivBaseSharedMemorySize(
     {
         return nq0 + nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nq0 + nq1 + nq2;
     }
@@ -682,7 +689,8 @@ NEK_DEVICE_INLINE static void StdAlignDerivBase3DSumFacKernel(
                     out1[index] = sum2 * tmpQ;
                     out2[index] = sum3 * tmpQ;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     TData tmp   = f2[k] * tmpQ;
                     out0[index] = (sum1 + sum3 * f0[i]) * tmp;
@@ -1286,7 +1294,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1337,7 +1346,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;
@@ -1519,7 +1529,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;

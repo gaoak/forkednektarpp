@@ -1153,7 +1153,7 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2TOPKernelTrace3D(
  * group is dispatched as one window, so within a pair both faces come
  * out of a single pass of the normal stage.
  *
- * @tparam SHAPE_TYPE    Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE    Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet.
  * @tparam TthreadBlock  Thread-block handle of the backend.
  * @tparam TData         Floating-point type of the field data.
  *

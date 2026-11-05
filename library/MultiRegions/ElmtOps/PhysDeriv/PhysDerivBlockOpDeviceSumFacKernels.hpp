@@ -175,8 +175,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
  * entries, direction 1 contributing both \f$\tfrac{1}{2}(1+\eta_1)\f$
  * and \f$2/(1-\eta_1)\f$), a (nodal) prism two and a pyramid three.
  *
- * @tparam SHAPE_TYPE            Hex, Tet, NodalTet, Prism, NodalPrism
- *                               or Pyr.
+ * @tparam SHAPE_TYPE            Hex, Tet, NodalTet, Prism, NodalPrism,
+ *                               Pyr or NodalPyr.
  * @tparam Implementation        Constrained to MultiRegions::SumFac.
  * @tparam TPhysSizeParameter3D  3D physical-space size parameter (see
  *                               ElmtHelper.hpp).
@@ -212,7 +212,8 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(
     {
         return nq0 + nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nq0 + nq1 + nq2;
     }
@@ -649,7 +650,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DKernel(
  * hexahedron needs none -- and each output component is
  * `sum_d d_d * df[3k+d]` over the nine derivative factors.
  *
- * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED   Derivative factors vary point by point.
  * @tparam TData      Floating-point type of the field data.
  *
@@ -743,7 +744,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
                     d0 *= f2[k];
                     d2 += f0[i] * d0;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     d0 *= f2[k];
                     d1 *= f2[k];
@@ -774,7 +776,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacKernel(
  * `<SHAPE_TYPE, APPEND, DEFORMED, DIR, TData>`. This is the entry point
  * the Divergence device SumFac kernels call into.
  *
- * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam APPEND     Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED   Derivative factors vary point by point.
  * @tparam DIR        Cartesian component to produce.
@@ -861,7 +863,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacKernel(
                     d0 *= f2[k];
                     d2 += f0[i] * d0;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     d0 *= f2[k];
                     d1 *= f2[k];
@@ -1391,8 +1394,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * because a three-dimensional element always yields three Cartesian
  * derivatives regardless of homogeneity.
  *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism or
- *                              Pyr.
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
  * @tparam Implementation       Constrained to MultiRegions::SumFac.
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam TPhysSizeParameter3D 3D physical size-parameter type.
@@ -1482,7 +1485,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;
@@ -1531,8 +1535,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * anywhere, the Divergence family launching its own kernels and
  * calling the per-element PhysDeriv kernels from inside them.
  *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism or
- *                              Pyr.
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
  * @tparam Implementation       Constrained to MultiRegions::SumFac.
  * @tparam APPEND               Accumulate onto @p out.
  * @tparam DEFORMED             Derivative factors vary point by point.
@@ -1618,7 +1622,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;

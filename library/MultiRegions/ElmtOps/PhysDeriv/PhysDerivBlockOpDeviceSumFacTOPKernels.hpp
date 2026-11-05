@@ -730,7 +730,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
  * element: the per-point body of PhysDeriv3DSumFacTOPKernel, shared with
  * the fused stiffness stages of Helmholtz and Laplacian.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED     Derivative factors vary point by point.
  * @tparam TData        Floating-point type of the field data.
  *
@@ -801,7 +801,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DPointSumFacTOP(
         d0 *= f2[k];
         d2 += f0[i] * d0;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         d0 *= f2[k];
         d1 *= f2[k];
@@ -829,7 +830,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DPointSumFacTOP(
  * and writes `sum_d d_d * df[3k+d]` per component. Ends with a block
  * barrier.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED     Derivative factors vary point by point.
  * @tparam TthreadBlock Thread-block handle type.
  * @tparam TData        Floating-point type of the field data.
@@ -895,7 +896,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
  * `<SHAPE_TYPE, APPEND, DEFORMED, DIR, TthreadBlock, TData>`. This is
  * the entry point the Divergence device SumFacTOP kernels call into.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam APPEND       Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED     Derivative factors vary point by point.
  * @tparam DIR          Cartesian component to produce.
@@ -979,7 +980,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
             d0 *= f2[k];
             d2 += f0[i] * d0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             d0 *= f2[k];
             d1 *= f2[k];
@@ -1461,8 +1463,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * rather than `outDim` because a three-dimensional element always
  * yields three Cartesian derivatives regardless of homogeneity.
  *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism or
- *                              Pyr.
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam TPhysSizeParameter3D 3D physical size-parameter type.
@@ -1551,8 +1553,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * anywhere, the Divergence family launching its own kernels and
  * calling the per-element PhysDeriv kernels from inside them.
  *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism or
- *                              Pyr.
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam APPEND               Accumulate onto @p out.
  * @tparam DEFORMED             Derivative factors vary point by point.

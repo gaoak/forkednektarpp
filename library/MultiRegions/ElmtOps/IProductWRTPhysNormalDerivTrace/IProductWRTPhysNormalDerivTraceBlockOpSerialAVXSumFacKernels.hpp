@@ -781,7 +781,7 @@ NEK_FORCE_INLINE static void IProductWRTPhysNormalDerivTraceKernelLauncher(
  * @brief All faces of one three-dimensional element group: the three
  * terms of the operator, one per element direction, accumulated in turn.
  *
- * @tparam SHAPE_TYPE  Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE  Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet.
  * @tparam DEFORMED    Factors vary point by point along the traces.
  *
  * @param   append          Accumulate onto @p out instead of zeroing it

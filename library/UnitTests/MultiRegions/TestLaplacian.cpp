@@ -111,6 +111,8 @@ TEST_LAPLACIAN(laplacian_pyr, Pyr, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_pyr_varp, PyrVarP, 1.0E-12)
 
+TEST_LAPLACIAN(laplacian_pyr_nodal, PyrNodal, 1.0E-12)
+
 TEST_LAPLACIAN(laplacian_tet, Tet, 1.0E-12)
 
 TEST_LAPLACIAN(laplacian_tet_varp, TetVarP, 1.0E-12)

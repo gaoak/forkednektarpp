@@ -150,6 +150,8 @@ v5.11.0
 - Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
 - Agree across ranks on the field definitions a variable is written with (!2907)
 - Tidy and simplify the padding of shared memory in the device SumFacTOP element operators: move the stride and alignment helpers to UtilsDeviceKernels as `SharedMemoryRowStride`, `IsConflictFreeSharedMemoryRowStride` and `SharedMemoryAlignedSize`, load padded rows with `LoadWithPaddingToSharedMemory`, and rename the `Stage*ToSharedMemory` helpers to `Load*ToSharedMemory` (!2908)
+- Add `ElmtBlockOp::ShapeSwitch`, which replaces the runtime shape switch duplicated in every SumFac and SumFacTOP block operator's `v_Apply()`; an unsupported shape is now a fatal error (!2910)
+- Add nodal pyramid support to the SumFac and SumFacTOP element and trace operators for Serial, AVX and Device back-ends, and build `NodalPyrExp` from a `GLL_LAGRANGE` pyramid expansion (!2910)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

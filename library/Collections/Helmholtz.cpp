@@ -45,6 +45,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -182,6 +183,9 @@ OperatorKey Helmholtz_NoCollection::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, eHelmholtz, eNoCollection, true),
         Helmholtz_NoCollection::create, "Helmholtz_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eHelmholtz, eNoCollection, true),
+        Helmholtz_NoCollection::create, "Helmholtz_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eHelmholtz, eNoCollection, false),
         Helmholtz_NoCollection::create, "Helmholtz_NoCollection_Hex")};
@@ -576,6 +580,9 @@ OperatorKey Helmholtz_IterPerExp::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, eHelmholtz, eIterPerExp, true),
         Helmholtz_IterPerExp::create, "Helmholtz_IterPerExp_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eHelmholtz, eIterPerExp, true),
+        Helmholtz_IterPerExp::create, "Helmholtz_IterPerExp_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eHelmholtz, eIterPerExp, false),
         Helmholtz_IterPerExp::create, "Helmholtz_IterPerExp_Hex")};

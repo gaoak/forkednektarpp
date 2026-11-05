@@ -339,7 +339,7 @@ NEK_FORCE_INLINE static void AddAdvection2DKernel(
  * element, when the geometry is regular), with the entry for coordinate
  * \f$k\f$ and reference direction \f$d\f$ at `3 * k + d`.
  *
- * @tparam SHAPE_TYPE  Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE  Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED    Geometry is deformed.
  * @tparam simd_type   SIMD vector type of the interleaved group.
  *
@@ -396,7 +396,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
 
         for (unsigned int q = 0; q < nq1; ++q)
         {
-            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                          SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 h1 = hfac1[q];
             }
@@ -443,7 +444,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
                     d0 *= h3;
                     d2.fma(h0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     h0 = hfac0[p];
                     d0 *= h3;
@@ -703,8 +705,8 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
  * coordinate dimension is accepted but not used -- a three-dimensional
  * element has coordinate dimension three.
  *
- * @tparam SHAPE_TYPE          Hex, Tet, NodalTet, Prism, NodalPrism or
- *                             Pyr.
+ * @tparam SHAPE_TYPE          Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                             NodalPyr.
  * @tparam DEFORMED            Jacobian and derivative factors vary point
  *                             by point.
  * @tparam TSizeParameter3D    3D size parameter (see ElmtHelper.hpp).

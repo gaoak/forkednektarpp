@@ -1862,7 +1862,8 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
             varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
             h0, h3, deriv0, deriv1, deriv2);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         DiffusionCoeffwithWJPyrKernel<SCALE, DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,

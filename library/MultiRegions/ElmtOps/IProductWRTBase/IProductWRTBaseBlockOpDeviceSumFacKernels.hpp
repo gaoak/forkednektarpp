@@ -267,6 +267,12 @@ inline constexpr size_t IProductWRTBaseWorkSpaceSize(
     {
         wspsize = (nq1 * nq2 + nq2) * nelmt;
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
+        wspsize = (nq1 * nq2 + nq2 + nmTot) * nelmt;
+    }
 
     return wspsize;
 }
@@ -2170,7 +2176,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacKernel(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
             basis2, w0, w1, w2, jac, in, out, wsp0, wsp1, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         IProductWRTBasePyrSumFacKernel<SCALE, APPEND, DEFORMED>(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
@@ -2209,7 +2216,8 @@ NEK_DEVICE_INLINE static void IProductWRTBase3DSumFacKernel(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
             basis2, in, out, wsp0, wsp1, scale);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         IProductWRTBasePyrSumFacKernel<SCALE, APPEND>(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
@@ -2580,7 +2588,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * The nodal shapes run the shape kernel with APPEND false and let the
  * flag govern the nodal mapping alone.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam Implementation   MultiRegions::SumFac.
  * @tparam SCALE,APPEND,DEFORMED    Passed through to the shape kernel.
  * @tparam TSizeParameter3D Size-parameter type carrying the mode and point
@@ -2636,7 +2645,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -2736,7 +2746,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();

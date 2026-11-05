@@ -151,14 +151,13 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
     const unsigned int nq2, unsigned int &wsp0Size, unsigned int &wsp1Size,
     unsigned int &wsp2Size)
 {
-    if (SHAPE_TYPE == LibUtilities::NodalTet)
+    if (SHAPE_TYPE == LibUtilities::NodalTet ||
+        SHAPE_TYPE == LibUtilities::NodalPrism ||
+        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
-        wsp0Size =
-            std::max(wsp0Size, nq1 * nq2 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
-    }
-    else if (SHAPE_TYPE == LibUtilities::NodalPrism)
-    {
-        wsp0Size = std::max(wsp0Size, nq1 * nq2 + nm0 * nm0 * (nm0 + 1) / 2);
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        wsp0Size = std::max(wsp0Size, nq1 * nq2 + nmTot);
     }
     else
     {
@@ -400,7 +399,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
  * accumulates into the pre-nodal workspace slice and MatVecKernel stores
  * to @p out unconditionally. The other shapes apply the flag to @p out.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam SCALE            Multiply the result by @p scale.
  * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one vector per quadrature point.
@@ -491,6 +491,15 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, out, scale);
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        simd_type *outtmp = wsp0 + nq1 * nq2;
+
+        IProductPyrKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
+            w2, jac, wsp0, wsp1, outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+    }
 }
 
 /**
@@ -573,6 +582,15 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
         IProductPyrKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, in, B0, B1, B2, wsp0, wsp1,
                                          out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        simd_type *outtmp = wsp0 + nq1 * nq2;
+
+        IProductPyrKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, in, B0, B1, B2, wsp0, wsp1,
+                                         outtmp, scale);
+        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
     }
 }
 

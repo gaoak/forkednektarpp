@@ -157,8 +157,8 @@ public:
         auto exp = this->fixt_explist->GetExp(0);
         switch (exp->DetShapeType())
         {
-            case LibUtilities::NodalTri:
             case LibUtilities::Tri:
+            case LibUtilities::NodalTri:
             {
                 op->ExtractTrace(2, *this->fixt_in, *this->fixt_out, 0);
                 auto pts = exp->GetTraceBasisKey(2).GetNumPoints();
@@ -178,8 +178,8 @@ public:
                 op->ExtractTrace(2, *this->fixt_in, *this->fixt_out, pts);
             }
             break;
-            case LibUtilities::NodalTet:
             case LibUtilities::Tet:
+            case LibUtilities::NodalTet:
             {
                 op->ExtractTrace(3, *this->fixt_in, *this->fixt_out, 0);
                 auto pts = exp->GetTraceBasisKey(3, 0).GetNumPoints() *
@@ -193,9 +193,10 @@ public:
                 op->ExtractTrace(0, *this->fixt_in, *this->fixt_out, pts);
             }
             break;
-            case LibUtilities::NodalPrism:
             case LibUtilities::Prism:
+            case LibUtilities::NodalPrism:
             case LibUtilities::Pyr:
+            case LibUtilities::NodalPyr:
             {
                 op->ExtractTrace(4, *this->fixt_in, *this->fixt_out, 0);
                 auto pts = exp->GetTraceBasisKey(4, 0).GetNumPoints() *
@@ -382,8 +383,8 @@ public:
                             ntrace += npts;
                         }
                         break;
-                        case LibUtilities::NodalTri:
                         case LibUtilities::Tri:
+                        case LibUtilities::NodalTri:
                         {
                             // edge 2
                             auto npts = TraceExp[2]->GetTotPoints();
@@ -415,9 +416,10 @@ public:
                         }
                         break;
                         case LibUtilities::Hex:
-                        case LibUtilities::NodalPrism:
                         case LibUtilities::Prism:
+                        case LibUtilities::NodalPrism:
                         case LibUtilities::Pyr:
+                        case LibUtilities::NodalPyr:
                         {
                             auto npts = TraceExp[2]->GetTotPoints();
                             // face 4
@@ -480,8 +482,8 @@ public:
                             }
                         }
                         break;
-                        case LibUtilities::NodalTet:
                         case LibUtilities::Tet:
+                        case LibUtilities::NodalTet:
                         {
                             auto npts = TraceExp[2]->GetTotPoints();
                             // face 3
@@ -612,6 +614,8 @@ TEST(PrismVarP, "run/prism_varp.xml")
 TEST(Pyr, "run/pyr.xml")
 
 TEST(PyrVarP, "run/pyr_varp.xml")
+
+TEST(PyrNodal, "run/pyr_nodal.xml")
 
 TEST(Tet, "run/tet.xml")
 

@@ -197,6 +197,7 @@ MemoryRegion<ModeIndexCreator::value_type> ModeIndexCreator::Create(
         }
         break;
         case Pyr:
+        case NodalPyr:
         {
             const auto mode = modeIndexKey.m_mode;
             const auto nm0  = modeIndexKey.m_nm0;

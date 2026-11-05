@@ -238,7 +238,8 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
                    sizeParam3D, 3u, nm0 * nm1 * nq2 + wspPadSize,
                    nm0 * nq1 * nq2 + wspPadSize);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         const unsigned int nmTot = sizeParam3D.nmTot();
         const unsigned int nmode2 =
@@ -623,7 +624,7 @@ NEK_DEVICE_INLINE static TData LaplacianApplyMetric2DPointSumFacTOP(
  * @brief Stiffness flux at one point, three dimensions; see
  * LaplacianApplyMetric2DPointSumFacTOP.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  *
  * @return The point's quadrature weight times Jacobian.
  */
@@ -732,7 +733,8 @@ NEK_DEVICE_INLINE static TData LaplacianApplyMetric3DPointSumFacTOP(
         flux[1] = sum2 * tmpQ;
         flux[2] = sum3 * tmpQ;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         TData tmp = f2[k] * tmpQ;
         flux[0]   = (sum1 + sum3 * f0[i]) * tmp;
@@ -819,7 +821,7 @@ NEK_DEVICE_INLINE static void LaplacianPhysDerivApplyMetric2DSumFacTOPKernel(
  * contracts; see LaplacianPhysDerivApplyMetric2DSumFacTOPKernel. Ends with a
  * block barrier.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
@@ -1114,7 +1116,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1156,7 +1159,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nm1;
         nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nm1 * nq2;
         wsp1Size = nm0 * nq1 * nq2;

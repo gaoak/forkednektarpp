@@ -238,7 +238,7 @@ NEK_DEVICE_INLINE static void AddAdvectionApplyMetric2DSumFacTOPKernel(
  * AddAdvectionApplyMetric2DSumFacTOPKernel. The fluxes overwrite the three
  * derivatives in place. Ends with a block barrier.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
@@ -677,8 +677,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * per-direction mode counts throughout. The collapsed shapes hand the
  * two intermediates to their inner-product kernel in swapped order.
  *
- * @tparam SHAPE_TYPE          Hex, Tet, NodalTet, Prism, NodalPrism or
- *                             Pyr.
+ * @tparam SHAPE_TYPE          Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                             NodalPyr.
  * @tparam Implementation      MultiRegions::SumFacTOP.
  * @tparam DEFORMED            Geometry is deformed.
  * @tparam TSizeParameter3D    Runtime or compile-time 3D size
@@ -757,7 +757,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -799,7 +800,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nm1;
         nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nm1 * nq2;
         wsp1Size = nm0 * nq1 * nq2;

@@ -105,17 +105,20 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
     [[maybe_unused]] const unsigned int nq0,
     [[maybe_unused]] const unsigned int nq1, unsigned int &wsp0Size)
 {
-    if (SHAPE_TYPE == LibUtilities::NodalTri)
+    if (SHAPE_TYPE == LibUtilities::Quad)
     {
-        wsp0Size = std::max(wsp0Size, nm0 + nm0 * (nm0 + 1) / 2);
+        wsp0Size = std::max(wsp0Size, nm1 * nq0);
     }
     else if (SHAPE_TYPE == LibUtilities::Tri)
     {
         wsp0Size = std::max(wsp0Size, nm0);
     }
-    else
+    else if (SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        wsp0Size = std::max(wsp0Size, nm1 * nq0);
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+        wsp0Size = std::max(wsp0Size, nm0 + nmTot);
     }
 }
 
@@ -149,20 +152,20 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
         wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2);
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2);
     }
-    else if (SHAPE_TYPE == LibUtilities::NodalTet)
-    {
-        wsp0Size =
-            std::max(wsp0Size, nm0 * nm1 + nm0 * (nm0 + 1) * (nm0 + 2) / 6);
-        wsp1Size = std::max(wsp1Size, nm0);
-    }
-    else if (SHAPE_TYPE == LibUtilities::NodalPrism)
-    {
-        wsp0Size = std::max(wsp0Size, nm0 * nm1 + nm0 * nm0 * (nm0 + 1) / 2);
-        wsp1Size = std::max(wsp1Size, nm0);
-    }
-    else
+    else if (SHAPE_TYPE == LibUtilities::Tet ||
+             SHAPE_TYPE == LibUtilities::Prism ||
+             SHAPE_TYPE == LibUtilities::Pyr)
     {
         wsp0Size = std::max(wsp0Size, nm0 * nm1);
+        wsp1Size = std::max(wsp1Size, nm0);
+    }
+    else if (SHAPE_TYPE == LibUtilities::NodalTet ||
+             SHAPE_TYPE == LibUtilities::NodalPrism ||
+             SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+        wsp0Size = std::max(wsp0Size, nm0 * nm1 + nmTot);
         wsp1Size = std::max(wsp1Size, nm0);
     }
 }
@@ -284,7 +287,8 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
  * shape's own area inside @p wsp0, and @p isModified triggers the
  * collapsed-mode corrections inside the shape kernels.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                          NodalPyr.
  * @tparam APPEND           Accumulate onto @p out instead of
  *                          overwriting.
  * @tparam TSizeParameter3D 3D size parameter, runtime or compile-time
@@ -358,10 +362,18 @@ NEK_FORCE_INLINE static void BwdTransKernelLauncher(
                                     basis0, basis1, basis2, wsp0, wsp1, in1,
                                     out);
     }
-    else
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         BwdTransPyrKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                                   basis0, basis1, basis2, wsp0, wsp1, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        simd_type *in1 = wsp0 + nm0 * nm1;
+
+        MatVecKernel(nmTot, NtoM, in, in1);
+        BwdTransPyrKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                                  basis0, basis1, basis2, wsp0, wsp1, in1, out);
     }
 }
 

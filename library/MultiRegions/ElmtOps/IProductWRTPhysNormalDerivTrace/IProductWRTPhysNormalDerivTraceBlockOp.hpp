@@ -74,6 +74,7 @@ constexpr bool IsCollapsedDir(LibUtilities::ShapeType shape, unsigned dir)
         case LibUtilities::Prism:
         case LibUtilities::NodalPrism:
         case LibUtilities::Pyr:
+        case LibUtilities::NodalPyr:
             return dir == 2;
         default:
             return false;
@@ -116,6 +117,7 @@ constexpr bool CompNeedsCollapsedFac(LibUtilities::ShapeType shape, unsigned d,
         case LibUtilities::NodalPrism:
             return d == 0; // dir == 2
         case LibUtilities::Pyr:
+        case LibUtilities::NodalPyr:
             return d == 0 || d == 1; // dir == 2
         case LibUtilities::Tet:
         case LibUtilities::NodalTet:

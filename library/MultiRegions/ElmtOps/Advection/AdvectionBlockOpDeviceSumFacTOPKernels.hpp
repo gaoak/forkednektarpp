@@ -501,7 +501,8 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
             d0 *= f2[k];
             d2 += f0[i] * d0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             d0 *= f2[k];
             d1 *= f2[k];

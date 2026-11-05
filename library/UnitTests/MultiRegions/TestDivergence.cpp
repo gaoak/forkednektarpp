@@ -110,6 +110,8 @@ TEST_DIV(divergence_pyr, Pyr, 1.0E-11)
 
 TEST_DIV(divergence_pyr_varp, PyrVarP, 2.0E-11)
 
+TEST_DIV(divergence_pyr_nodal, PyrNodal, 1.0E-11)
+
 TEST_DIV(divergence_tet, Tet, 2.0E-11)
 
 TEST_DIV(divergence_tet_varp, TetVarP, 2.0E-11)

@@ -116,6 +116,7 @@ constexpr unsigned int ShapeTypeNumTraces[SIZE_ShapeType] = {
     3, // eNodalTtri
     4, // eNodalTet
     5, // eNodalPrism
+    5, // eNodalPyr
 };
 
 // Hold the number of traces in given direction
@@ -131,7 +132,8 @@ constexpr unsigned int ShapeTypeNumTraceInDir[SIZE_ShapeType][3] = {
     {2, 2, 2}, // eHexahedron
     {2, 1, 0}, // eNodalTtri
     {2, 1, 1}, // eNodalTet
-    {2, 2, 1}  // eNodalPrism
+    {2, 2, 1}, // eNodalPrism
+    {2, 2, 1}  // eNodalPyr
 };
 
 /// Exponent of (1 - eta)/2 in the collapsed-coordinate Jacobian along
@@ -168,7 +170,8 @@ constexpr unsigned int ShapeTypeTraceIDInDir[SIZE_ShapeType][3][2] = {
     {{4, 2}, {1, 3}, {0, 5}}, // eHexahedron
     {{2, 1}, {0, 0}, {0, 0}}, // eNodalTtri
     {{3, 2}, {1, 0}, {0, 0}}, // eNodalTet
-    {{4, 2}, {1, 3}, {0, 0}}  // eNodalPrism
+    {{4, 2}, {1, 3}, {0, 0}}, // eNodalPrism
+    {{4, 2}, {1, 3}, {0, 0}}  // eNodalPyr
 };
 
 // Hold the shape of each trace of a given shape. Faces of a prism and a
@@ -203,7 +206,9 @@ constexpr ShapeType ShapeTypeTraceShape[SIZE_ShapeType][6] = {
     {eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType, eNoShapeType},
     // eNodalPrism
     {eQuadrilateral, eTriangle, eQuadrilateral, eTriangle, eQuadrilateral,
-     eNoShapeType}};
+     eNoShapeType},
+    // eNodalPyr
+    {eQuadrilateral, eTriangle, eTriangle, eTriangle, eTriangle, eNoShapeType}};
 
 namespace StdSegData
 {

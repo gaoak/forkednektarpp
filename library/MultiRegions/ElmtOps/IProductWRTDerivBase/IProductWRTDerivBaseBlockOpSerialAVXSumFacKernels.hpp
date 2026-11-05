@@ -367,7 +367,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 f1  = simd_type(Fac1[j]);
                 f1m = simd_type(Fac1m[j]);
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                               SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 f1 = simd_type(Fac1[j]);
             }
@@ -418,7 +419,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     out1.fma(out2, f1);
                     out1 *= f2;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
                     f0 = Fac0[i];

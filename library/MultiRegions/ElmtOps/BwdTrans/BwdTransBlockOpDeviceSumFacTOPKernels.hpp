@@ -260,8 +260,8 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
  * The same expressions appear in the 3D launcher, which derives the
  * shared-memory pointers from them; the two must agree.
  *
- * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism or
- *                           Pyr.
+ * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism,
+ *                           Pyr, or NodalPyr.
  * @tparam Implementation    MultiRegions::SumFacTOP.
  * @tparam TSizeParameter3D  3D size parameter, runtime or templated.
  *
@@ -307,7 +307,8 @@ inline constexpr unsigned int BwdTransSharedMemorySize(
         return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot + (nm0 * nm1 * nq2) +
                (nm0 * nq1 * nq2);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nmTot +
                (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
@@ -1276,7 +1277,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacTOPKernel(
             nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, basis0, basis1,
             basis2, in, out, wsp0, wsp1, threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         BwdTransPyrSumFacTOPKernel<APPEND>(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                            isModified, basis0, basis1, basis2,
@@ -1503,8 +1505,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * converted to the modified modal basis before the shape kernel runs on
  * them.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or
- *                          Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr,
+ *                          or NodalPyr.
  * @tparam Implementation   MultiRegions::SumFacTOP.
  * @tparam APPEND           Accumulate onto @p out instead of
  *                          overwriting.
@@ -1547,7 +1549,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1586,7 +1589,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nm1;
         nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp1Size = nm0 * nm1 * nq2;
         wsp2Size = nm0 * nq1 * nq2;

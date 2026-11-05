@@ -46,6 +46,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -276,6 +277,10 @@ OperatorKey PhysInterp1DScaled_MatrixFree::m_typeArr[] = {
         OperatorKey(eNodalPrism, ePhysInterp1DScaled, eMatrixFree, true),
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysInterp1DScaled, eMatrixFree, true),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysInterp1DScaled, eMatrixFree, false),
         PhysInterp1DScaled_MatrixFree::create,
@@ -514,6 +519,10 @@ OperatorKey PhysInterp1DScaled_NoCollection::m_typeArr[] = {
         OperatorKey(eNodalPrism, ePhysInterp1DScaled, eNoCollection, true),
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysInterp1DScaled, eNoCollection, true),
+        PhysInterp1DScaled_NoCollection::create,
+        "PhysInterp1DScaled_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysInterp1DScaled, eNoCollection, false),
         PhysInterp1DScaled_NoCollection::create,

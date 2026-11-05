@@ -321,7 +321,7 @@
                                           NQ(i)>());                           \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr)
+    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
@@ -363,7 +363,7 @@
             (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
             (nq00 == nm0))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr)
+    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
             (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
             (nq00 == nm0))
@@ -441,7 +441,7 @@
                                           NQ(i)>());                           \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr)
+    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef OPERATOR_Q
 #define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
@@ -483,7 +483,7 @@
             (nq00 == nq01) && (nq10 == nq11) && (nq20 == nq21) &&
             (nq00 == nm0))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) ||           \
-    defined(SHAPE_TYPE_Pyr)
+    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) && (nq00 == nq10) && (nq00 == nq20) &&
             (nq00 == nq01+1) && (nq10 == nq11+1) && (nq20 == nq21) &&
             (nq00 == nm0))

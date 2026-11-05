@@ -624,7 +624,8 @@ NEK_DEVICE_INLINE static void Curl3DSumFacTOPKernel(
                 d0[c] *= f2[k];
                 d2[c] += f0[i] * d0[c];
             }
-            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                               SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 d0[c] *= f2[k];
                 d1[c] *= f2[k];
