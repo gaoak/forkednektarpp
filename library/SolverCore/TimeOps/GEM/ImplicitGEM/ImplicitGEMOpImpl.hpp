@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/GEM/ImplicitGEM/ImplicitGEMOp.hpp"
+#include <SolverCore/TimeOps/GEM/ImplicitGEM/ImplicitGEMOp.hpp>
 
 using namespace Nektar;
 

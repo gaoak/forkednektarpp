@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/SDC/SDCOp.hpp"
+#include <SolverCore/TimeOps/SDC/SDCOp.hpp>
 
 namespace Nektar::SolverCore
 {

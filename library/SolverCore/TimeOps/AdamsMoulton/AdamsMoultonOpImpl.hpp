@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/AdamsMoulton/AdamsMoultonOp.hpp"
-#include "SolverCore/TimeOps/DIRK/DIRKOp.hpp"
+#include <SolverCore/TimeOps/AdamsMoulton/AdamsMoultonOp.hpp>
+#include <SolverCore/TimeOps/DIRK/DIRKOp.hpp>
 
-#include "SolverCore/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/AdamsMoulton/AdamsMoultonKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -99,7 +99,7 @@ protected:
                     ExecSpace::name);
 
                 // Copy functors from outer/higher-order AdamsMoulton scheme.
-                startup->CopyFunctorsFrom(*this);
+                startup->CopyFunctors(*this);
 
                 // Move implicits to startup.
                 startup->SetImplicits(this->TakeImplicits());
@@ -133,7 +133,7 @@ protected:
                     ExecSpace::name);
 
                 // Copy functors from outer/higher-order AdamsMoulton scheme.
-                startup->CopyFunctorsFrom(*this);
+                startup->CopyFunctors(*this);
 
                 // Advance in time with startup.
                 startup->SetTime(this->m_time);

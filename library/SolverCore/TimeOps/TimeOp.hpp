@@ -39,28 +39,14 @@
 #include <MultiRegions/Common/Operator.hpp>
 
 #include <deque>
+#include <functional>
 #include <memory>
-#include <numeric>
-#include <optional>
 #include <vector>
 
 namespace Nektar::SolverCore
 {
 
 template <typename TData> class TimeOp;
-
-enum class TimeOpExtrapolationType
-{
-    StateExtrapolation,
-    BdfHistory,
-    ExplicitContribution
-};
-
-enum class TimeOpExtrapolationMode
-{
-    Assign,
-    Append
-};
 
 // Typename alias for the factory
 template <typename TData>
@@ -89,6 +75,8 @@ template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory();
 template <typename TData> class TimeOp : public MultiRegions::Operator<TData>
 {
 public:
+    /// Create the scheme from @p method, @p order and @p variant, which
+    /// default to the session's TimeIntegrationScheme.
     static std::shared_ptr<TimeOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
@@ -183,6 +171,7 @@ public:
         }
     }
 
+    /// Advance @p inout by one time step.
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         this->v_Apply(inout);
@@ -193,18 +182,19 @@ public:
         this->v_Apply(inout);
     }
 
-    /// Functor definitions and generic handles for projection, and explicit
-    /// and implicit evaluation.
-    // Functor typedefs
+    /// Projection: (in, out, time).
     typedef std::function<void(LibUtilities::Field<TData, FieldState::Phys> &,
                                LibUtilities::Field<TData, FieldState::Phys> &,
                                const TData &)>
         functorType1;
+    /// RHS evaluations: (in, out, time, factor), out = factor * f(in);
+    /// implicit solve: (in, out, time, lambda), (1 - lambda L) out = in.
     typedef std::function<void(LibUtilities::Field<TData, FieldState::Phys> &,
                                LibUtilities::Field<TData, FieldState::Phys> &,
                                const TData &, const TData &)>
         functorType2;
 
+    /// Register the solver's explicit RHS.
     template <typename FuncPointerT, typename ObjectPointerT>
     void DefineExplicitRhs(FuncPointerT func, ObjectPointerT obj)
     {
@@ -213,6 +203,7 @@ public:
                       std::placeholders::_3, std::placeholders::_4);
     }
 
+    /// Register the solver's implicit RHS.
     template <typename FuncPointerT, typename ObjectPointerT>
     void DefineImplicitRhs(FuncPointerT func, ObjectPointerT obj)
     {
@@ -221,6 +212,7 @@ public:
                       std::placeholders::_3, std::placeholders::_4);
     }
 
+    /// Register the solver's projection.
     template <typename FuncPointerT, typename ObjectPointerT>
     void DefineProjection(FuncPointerT func, ObjectPointerT obj)
     {
@@ -229,6 +221,7 @@ public:
                       std::placeholders::_3);
     }
 
+    /// Register the solver's implicit solve.
     template <typename FuncPointerT, typename ObjectPointerT>
     void DefineImplicit(FuncPointerT func, ObjectPointerT obj)
     {
@@ -237,214 +230,17 @@ public:
                       std::placeholders::_3, std::placeholders::_4);
     }
 
-    void DoExplicitRhs(LibUtilities::Field<TData, FieldState::Phys> &in,
-                       LibUtilities::Field<TData, FieldState::Phys> &out,
-                       const TData &time, const TData &factor) const
+    /// Register the solver functions of @p src, e.g. on a start-up scheme.
+    void CopyFunctors(const TimeOp<TData> &src)
     {
-        ASSERTL1(m_explicitRhsFunctor,
-                 "DoExplicitRhs functor should be defined for this time "
-                 "integration scheme. Use DefineExplicitRhs() within "
-                 "solver definition.");
-        if (m_useExplicitContributionExtrapolation)
-        {
-            auto &context       = GetExplicitContributionContext();
-            context.historyId   = m_explicitContributionHistoryId;
-            context.historySize = m_explicitContributionHistorySize;
-        }
-        m_explicitRhsFunctor(in, out, time, factor);
-    }
-
-    void DoImplicitRhs(LibUtilities::Field<TData, FieldState::Phys> &in,
-                       LibUtilities::Field<TData, FieldState::Phys> &out,
-                       const TData &time, const TData &factor) const
-    {
-        ASSERTL1(m_implicitRhsFunctor,
-                 "DoImplicitRhs functor should be defined for this time "
-                 "integration scheme. Use DefineImplicitRhs() within "
-                 "solver definition.");
-        m_implicitRhsFunctor(in, out, time, factor);
-    }
-
-    void DoProjection(LibUtilities::Field<TData, FieldState::Phys> &in,
-                      LibUtilities::Field<TData, FieldState::Phys> &out,
-                      const TData &time) const
-    {
-        ASSERTL1(m_projectionFunctor,
-                 "Projection functor should be defined for this time "
-                 "integration scheme. Use DefineProjection() within "
-                 "solver definition.");
-        m_projectionFunctor(in, out, time);
-    }
-
-    void DoImplicit(LibUtilities::Field<TData, FieldState::Phys> &in,
-                    LibUtilities::Field<TData, FieldState::Phys> &out,
-                    const TData &time, const TData &lambda) const
-    {
-        ASSERTL1(m_implicitFunctor,
-                 "Implicit functor should be defined for this time "
-                 "integration scheme. Use DefineImplicit() within "
-                 "solver definition.");
-        m_implicitFunctor(in, out, time, lambda);
-    }
-
-    void CopyFunctorsFrom(TimeOp<TData> &src)
-    {
-        // functors and relevant booleans
         this->m_implicitFunctor    = src.m_implicitFunctor;
         this->m_explicitRhsFunctor = src.m_explicitRhsFunctor;
         this->m_implicitRhsFunctor = src.m_implicitRhsFunctor;
         this->m_projectionFunctor  = src.m_projectionFunctor;
-        this->m_useExplicitContributionExtrapolation =
-            src.m_useExplicitContributionExtrapolation;
-        this->m_explicitContributionParentContext =
-            src.m_useExplicitContributionExtrapolation
-                ? &src.GetExplicitContributionContext()
-                : nullptr;
     }
 
-    void EnableExplicitContributionExtrapolation()
-    {
-        m_useExplicitContributionExtrapolation = true;
-        m_explicitContributionParentContext    = nullptr;
-    }
-
-    std::vector<TData> GetExtrapolationCoefficients(
-        const TimeOpExtrapolationType type, const unsigned int historySize)
-    {
-        return v_GetExtrapolationCoefficients(type, historySize);
-    }
-
-    void ExtrapolateHistory(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
-        LibUtilities::Field<TData, FieldState::Phys> &out,
-        const TimeOpExtrapolationType type,
-        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
-        const TData scale                  = 1.0)
-    {
-        ExtrapolateHistory(history, out,
-                           v_GetExtrapolationCoefficients(
-                               type, static_cast<unsigned int>(history.size())),
-                           mode, scale);
-    }
-
-    void ExtrapolateHistory(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
-        LibUtilities::Field<TData, FieldState::Phys> &out,
-        const std::vector<TData> &coeffs,
-        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
-        const TData scale                  = 1.0)
-    {
-        v_ExtrapolateHistory(history, out, coeffs, mode, scale);
-    }
-
-    void ExtrapolateExplicitContribution(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
-        LibUtilities::Field<TData, FieldState::Phys> &out,
-        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
-        const TData scale                  = 1.0)
-    {
-        ASSERTL0(m_useExplicitContributionExtrapolation,
-                 "Explicit contribution extrapolation has not been enabled "
-                 "for this time integration operator.");
-        const auto &coeffs = GetExplicitContributionContext().coefficients;
-        ASSERTL0(!coeffs.empty(),
-                 "No explicit contribution coefficients are available for "
-                 "this implicit solve.");
-        ASSERTL0(history.size() >= coeffs.size(),
-                 "Explicit contribution history is shorter than the current "
-                 "coefficient list.");
-
-        CombineHistory(history, out, coeffs, mode, scale);
-    }
-
-    /// First-order counterpart of ExtrapolateExplicitContribution(): every
-    /// level of @p history is replaced by the latest one, history.front(),
-    /// so that the result is that entry weighted by
-    /// GetExplicitContributionCoefficientSum(), the total weight of the
-    /// extrapolation.
-    void LatestExplicitContribution(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
-        LibUtilities::Field<TData, FieldState::Phys> &out,
-        const TimeOpExtrapolationMode mode = TimeOpExtrapolationMode::Assign,
-        const TData scale                  = 1.0)
-    {
-        ASSERTL0(m_useExplicitContributionExtrapolation,
-                 "Explicit contribution extrapolation has not been enabled "
-                 "for this time integration operator.");
-        ASSERTL0(!history.empty(), "Explicit contribution history is empty.");
-
-        const TData weight = scale * GetExplicitContributionCoefficientSum();
-        if (mode == TimeOpExtrapolationMode::Assign)
-        {
-            m_math.mul(weight, history.front(), out);
-        }
-        else
-        {
-            m_math.daxpy(weight, history.front(), out, out);
-        }
-    }
-
-    unsigned int GetExplicitContributionHistoryId() const
-    {
-        return GetExplicitContributionContext().historyId;
-    }
-
-    /// History id of this scheme itself. During a startup step,
-    /// GetExplicitContributionHistoryId() returns the id of the startup
-    /// scheme instead.
-    unsigned int GetOwnExplicitContributionHistoryId() const
-    {
-        return m_explicitContributionHistoryId;
-    }
-
-    /// Number of explicit contributions the implicit solves of the scheme
-    /// evaluating the explicit RHS combine, which the history for
-    /// ExtrapolateExplicitContribution() holds; 0 for a scheme combining
-    /// none.
-    unsigned int GetExplicitContributionHistorySize() const
-    {
-        return GetExplicitContributionContext().historySize;
-    }
-
-    /// Sum of the coefficients with which the current implicit solve
-    /// combines the explicit contributions. It is the implicit coefficient
-    /// gamma of a multistep IMEX scheme but, in general, not that of an
-    /// IMEXdirk stage, whose coefficients are quadrature weights.
-    TData GetExplicitContributionCoefficientSum() const
-    {
-        const auto &coeffs = GetExplicitContributionContext().coefficients;
-        ASSERTL0(!coeffs.empty(),
-                 "No explicit contribution coefficients are available for "
-                 "this implicit solve.");
-        return std::accumulate(coeffs.begin(), coeffs.end(), TData(0));
-    }
-
-    /// Implicit stage of the start-up step of a multistep scheme.
-    struct StartupStage
-    {
-        /// Coefficient lambda_s of the implicit step lambda_s*dt of the stage
-        TData stageImplicitCoefficient;
-        /// Implicit coefficient of the multistep scheme being started up
-        TData targetImplicitCoefficient;
-        /// Solution the stage starts from: the solution at the start of the
-        /// step in the first stage, and the solution of the previous stage
-        /// in a later one. It is the field the implicit solve writes its
-        /// result to, so it holds that solution until the solve writes it.
-        LibUtilities::Field<TData, FieldState::Phys> *initialSolution;
-    };
-
-    /// Start-up stage the active implicit solve belongs to. It is empty in a
-    /// step of the multistep scheme itself and under a one-step scheme.
-    /// Requires EnableExplicitContributionExtrapolation().
-    std::optional<StartupStage> GetStartupStage() const
-    {
-        ASSERTL0(m_useExplicitContributionExtrapolation,
-                 "Explicit contribution extrapolation has not been enabled "
-                 "for this time integration operator.");
-        return GetExplicitContributionContext().startupStage;
-    }
-
-    // Move‐out
+    // Move the stored levels out of the operator, e.g. to hand
+    // them between schemes.
     std::deque<LibUtilities::Field<TData, FieldState::Phys>> TakeSolutions()
     {
         return std::move(m_solutions);
@@ -460,7 +256,7 @@ public:
         return std::move(m_implicits);
     }
 
-    // Move‐in
+    // Move the stored levels into the operator.
     void SetSolutions(
         std::deque<LibUtilities::Field<TData, FieldState::Phys>> &&solutions)
     {
@@ -518,13 +314,14 @@ public:
         return m_step;
     }
 
+    /// Extent of the stability region along the negative real axis.
     TData GetTimeStability(void) const
     {
         return v_GetTimeStability();
     }
 
 protected:
-    // General parameters
+    // Steps taken, current time and time step
     unsigned int m_step = 0;
     TData m_time        = 0.0;
     TData m_timestep    = 0.0;
@@ -550,34 +347,10 @@ protected:
     functorType2 m_implicitRhsFunctor;
     functorType2 m_implicitFunctor;
 
-    struct ExplicitContributionContext
-    {
-        std::vector<TData> coefficients;
-        unsigned int historyId   = 0;
-        unsigned int historySize = 0;
-        // Start-up stage the solve belongs to; empty outside a start-up step
-        std::optional<StartupStage> startupStage;
-    };
-
-    mutable ExplicitContributionContext m_explicitContributionContextStorage;
-    mutable ExplicitContributionContext *m_explicitContributionParentContext =
-        nullptr;
-    bool m_useExplicitContributionExtrapolation                    = false;
-    unsigned int m_explicitContributionHistoryId                   = 0;
-    inline static unsigned int m_nextExplicitContributionHistoryId = 0;
-    // Most explicit contributions an implicit solve of this scheme combines,
-    // set by a scheme that provides them.
-    unsigned int m_explicitContributionHistorySize = 0;
-    // Element-wise maths in the operator's execution space.
-    Math::MathHelper m_math;
-
+    // Takes the time step from the session parameter TimeStep.
     TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
            const std::vector<std::string> components)
-        : MultiRegions::Operator<TData>(expansionList, components),
-          m_explicitContributionHistoryId(
-              ++m_nextExplicitContributionHistoryId),
-          m_math(MultiRegions::Operator<TData>::GetOpExecSpace(
-              expansionList->GetSession()))
+        : MultiRegions::Operator<TData>(expansionList, components)
     {
         this->m_timestep =
             expansionList->GetSession()->GetParameter("TimeStep");
@@ -614,95 +387,62 @@ protected:
     /// destroys the operator through this destructor.
     friend struct std::default_delete<TimeOp>;
 
+    // One time step of the scheme.
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;
 
-    // startupStage is the start-up stage the implicit solve belongs to,
-    // which a one-step scheme provides for the start-up of a multistep scheme.
-    void SetExplicitContributionCoefficients(
-        std::vector<TData> coeffs,
-        const std::optional<StartupStage> &startupStage = std::nullopt)
-    {
-        if (!m_useExplicitContributionExtrapolation)
-        {
-            return;
-        }
-        auto &context        = GetExplicitContributionContext();
-        context.historyId    = m_explicitContributionHistoryId;
-        context.coefficients = std::move(coeffs);
-        context.startupStage = startupStage;
-    }
-
-    void ClearExplicitContributionCoefficients()
-    {
-        if (!m_useExplicitContributionExtrapolation)
-        {
-            return;
-        }
-        auto &context = GetExplicitContributionContext();
-        context.coefficients.clear();
-        context.startupStage.reset();
-    }
-
-    ExplicitContributionContext &GetExplicitContributionContext() const
-    {
-        return m_explicitContributionParentContext
-                   ? *m_explicitContributionParentContext
-                   : m_explicitContributionContextStorage;
-    }
-
-    virtual std::vector<TData> v_GetExtrapolationCoefficients(
-        [[maybe_unused]] const TimeOpExtrapolationType type,
-        [[maybe_unused]] const unsigned int historySize)
-    {
-        ASSERTL0(false, "This time integration operator does not provide "
-                        "extrapolation coefficients.");
-        return {};
-    }
-
-    virtual void v_ExtrapolateHistory(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
-        LibUtilities::Field<TData, FieldState::Phys> &out,
-        const std::vector<TData> &coeffs, const TimeOpExtrapolationMode mode,
-        const TData scale)
-    {
-        ASSERTL0(history.size() == coeffs.size(),
-                 "History size must match extrapolation coefficient count.");
-
-        CombineHistory(history, out, coeffs, mode, scale);
-    }
-
-    /// out = scale * sum_i coeffs[i] history[i], added to out if @p mode is
-    /// Append, in one pass over out; levels of zero coefficient are skipped.
-    void CombineHistory(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &history,
-        LibUtilities::Field<TData, FieldState::Phys> &out,
-        const std::vector<TData> &coeffs, const TimeOpExtrapolationMode mode,
-        const TData scale)
-    {
-        std::vector<TData> alpha;
-        std::vector<LibUtilities::Field<TData, FieldState::Phys> *> x;
-        for (unsigned int i = 0; i < coeffs.size(); ++i)
-        {
-            if (coeffs[i] != (TData)0.0)
-            {
-                alpha.push_back(scale * coeffs[i]);
-                x.push_back(&history[i]);
-            }
-        }
-
-        const bool append = (mode == TimeOpExtrapolationMode::Append);
-        if (append && x.empty())
-        {
-            return;
-        }
-
-        m_math.linearCombination(alpha, x, out, append);
-    }
-
+    // See GetTimeStability(); 1 unless the scheme overrides it.
     virtual TData v_GetTimeStability(void) const
     {
         return 1.0;
+    }
+
+    // out = factor * explicit RHS of in.
+    void DoExplicitRhs(LibUtilities::Field<TData, FieldState::Phys> &in,
+                       LibUtilities::Field<TData, FieldState::Phys> &out,
+                       const TData &time, const TData &factor) const
+    {
+        ASSERTL1(m_explicitRhsFunctor,
+                 "DoExplicitRhs functor should be defined for this time "
+                 "integration scheme. Use DefineExplicitRhs() within "
+                 "solver definition.");
+        m_explicitRhsFunctor(in, out, time, factor);
+    }
+
+    // out = factor * implicit RHS of in.
+    void DoImplicitRhs(LibUtilities::Field<TData, FieldState::Phys> &in,
+                       LibUtilities::Field<TData, FieldState::Phys> &out,
+                       const TData &time, const TData &factor) const
+    {
+        ASSERTL1(m_implicitRhsFunctor,
+                 "DoImplicitRhs functor should be defined for this time "
+                 "integration scheme. Use DefineImplicitRhs() within "
+                 "solver definition.");
+        m_implicitRhsFunctor(in, out, time, factor);
+    }
+
+    // Project in onto out.
+    void DoProjection(LibUtilities::Field<TData, FieldState::Phys> &in,
+                      LibUtilities::Field<TData, FieldState::Phys> &out,
+                      const TData &time) const
+    {
+        ASSERTL1(m_projectionFunctor,
+                 "Projection functor should be defined for this time "
+                 "integration scheme. Use DefineProjection() within "
+                 "solver definition.");
+        m_projectionFunctor(in, out, time);
+    }
+
+    // Solve (1 - lambda L) out = in.
+    void DoImplicit(LibUtilities::Field<TData, FieldState::Phys> &in,
+                    LibUtilities::Field<TData, FieldState::Phys> &out,
+                    const TData &time, const TData &lambda) const
+    {
+        ASSERTL1(m_implicitFunctor,
+                 "Implicit functor should be defined for this time "
+                 "integration scheme. Use DefineImplicit() within "
+                 "solver definition.");
+        m_implicitFunctor(in, out, time, lambda);
     }
 
     /*
@@ -710,24 +450,24 @@ protected:
      *  The operation for 3rd order works as follows:
      *  Upon input:
      *  param inout:        u^n
-     *  param m_solutions: [u^{n-1}, u^{n-2}]
+     *  param solutions: [u^{n-1}, u^{n-2}]
      *  Upon output:
      *  param inout:        u^{n-2}
-     *  param m_solutions: [u^{n}, u^{n-1}]
+     *  param solutions: [u^{n}, u^{n-1}]
      *  Note that the first order schemes do not use this.
      */
     void RollOver(
         LibUtilities::Field<TData, FieldState::Phys> &inout,
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &fieldDeque)
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &solutions)
     {
         // Save last solution
-        auto tmp = std::move(fieldDeque.back());
+        auto tmp = std::move(solutions.back());
 
         // Remove last solution from deque
-        fieldDeque.pop_back();
+        solutions.pop_back();
 
         // Add current solution to front
-        fieldDeque.push_front(std::move(inout));
+        solutions.push_front(std::move(inout));
 
         // Move saved solution to inout
         // (use inout as temporary storage of oldest solution)
@@ -738,22 +478,22 @@ protected:
      *  Roll over explicit parts for next time step.
      *  The operation for 3rd order works as follows:
      *  Upon input:
-     *  param fieldDeque: [u^{n}, u^{n-1}, u^{n-2}]
+     *  param solutions: [u^{n}, u^{n-1}, u^{n-2}]
      *  Upon output:
-     *  param fieldDeque: [u^{n-2}, u^{n}, u^{n-1}]
+     *  param solutions: [u^{n-2}, u^{n}, u^{n-1}]
      *  Note that the first order schemes do not use this.
      */
     void RollOver(
-        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &fieldDeque)
+        std::deque<LibUtilities::Field<TData, FieldState::Phys>> &solutions)
     {
         // Save last solution
-        auto tmp = std::move(fieldDeque.back());
+        auto tmp = std::move(solutions.back());
 
         // Remove last solution from back
-        fieldDeque.pop_back();
+        solutions.pop_back();
 
         // Add last solution to front
-        fieldDeque.push_front(std::move(tmp));
+        solutions.push_front(std::move(tmp));
     }
 };
 

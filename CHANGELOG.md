@@ -151,6 +151,7 @@ v5.11.0
 - Agree across ranks on the field definitions a variable is written with (!2907)
 - Tidy and simplify the padding of shared memory in the device SumFacTOP element operators: move the stride and alignment helpers to UtilsDeviceKernels as `SharedMemoryRowStride`, `IsConflictFreeSharedMemoryRowStride` and `SharedMemoryAlignedSize`, load padded rows with `LoadWithPaddingToSharedMemory`, and rename the `Stage*ToSharedMemory` helpers to `Load*ToSharedMemory` (!2908)
 - Fix the NVPL CMake detection: only offer NVPL on Arm (aarch64) Linux, stop with an error when NEKTAR_USE_NVPL is requested on another platform, and compare the ThirdParty path literally so that paths containing regex characters (e.g. nektar++) are recognised (!2899)
+- Move the incompressible-solver hooks out of the redesign TimeOp into IMEXBaseOp, the base of IMEX and IMEXdirk, and make the TimeOp Do functions protected (!2911)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -223,6 +224,7 @@ v5.11.0
 - Check that the velocity and pressure share their quadrature points in either pressure form and on HOutflow regions, write a lower-order pressure through the velocity expansion so that FieldConvert and the legacy solver read it, and test a pressure one order below the velocity with the HOPBC and HOutflow (!2896)
 - Evaluate the Neumann value of the HOutflow velocity conditions once, and again at every step only on the regions whose expression uses `t` (!2902)
 - Vectorise the pointwise kernels of the HOPBC and HOutflow conditions on AVX, give their volume gathers the dimension as a template parameter, and form predictor - rhs of the HOPBC in place of a copy of the boundary-adjacent elements (!2909)
+- Keep the IMEX start-up and history extrapolation in the solver (!2911)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)
