@@ -45,6 +45,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -262,6 +263,10 @@ OperatorKey IProductWRTDerivBase_StdMat::m_typeArr[] = {
         OperatorKey(eNodalPrism, eIProductWRTDerivBase, eStdMat, true),
         IProductWRTDerivBase_StdMat::create,
         "IProductWRTDerivBase_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTDerivBase, eStdMat, true),
+        IProductWRTDerivBase_StdMat::create,
+        "IProductWRTDerivBase_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTDerivBase, eStdMat, false),
         IProductWRTDerivBase_StdMat::create, "IProductWRTDerivBase_StdMat_Hex"),
@@ -583,6 +588,10 @@ OperatorKey IProductWRTDerivBase_IterPerExp::m_typeArr[] = {
         IProductWRTDerivBase_IterPerExp::create,
         "IProductWRTDerivBase_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTDerivBase, eIterPerExp, true),
+        IProductWRTDerivBase_IterPerExp::create,
+        "IProductWRTDerivBase_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTDerivBase, eIterPerExp, false),
         IProductWRTDerivBase_IterPerExp::create,
         "IProductWRTDerivBase_IterPerExp_Hex")};
@@ -699,6 +708,10 @@ OperatorKey IProductWRTDerivBase_NoCollection::m_typeArr[] = {
         OperatorKey(eNodalPrism, eIProductWRTDerivBase, eNoCollection, true),
         IProductWRTDerivBase_NoCollection::create,
         "IProductWRTDerivBase_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTDerivBase, eNoCollection, true),
+        IProductWRTDerivBase_NoCollection::create,
+        "IProductWRTDerivBase_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTDerivBase, eNoCollection, false),
         IProductWRTDerivBase_NoCollection::create,

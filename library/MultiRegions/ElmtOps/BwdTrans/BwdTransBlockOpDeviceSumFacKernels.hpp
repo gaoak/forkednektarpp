@@ -270,6 +270,12 @@ inline constexpr size_t BwdTransWorkSpaceSize(
     {
         wspsize = (nm0 * nm1 + nm0) * nelmt;
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
+        wspsize = ((nm0 * nm1 + nm0) + nmTot) * nelmt;
+    }
 
     return wspsize;
 }
@@ -1056,7 +1062,8 @@ NEK_DEVICE_INLINE static void BwdTrans3DSumFacKernel(
                                           isModified, basis0, basis1, basis2,
                                           in, out, wsp0, wsp1);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         BwdTransPyrSumFacKernel<APPEND>(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
                                         isModified, basis0, basis1, basis2, in,
@@ -1281,8 +1288,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * element holding the coefficients MatVecKernel has converted to the
  * modified modal basis.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or
- *                          Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr,
+ *                          or NodalPyr.
  * @tparam Implementation   MultiRegions::SumFac.
  * @tparam APPEND           Accumulate onto @p out instead of
  *                          overwriting.
@@ -1328,7 +1335,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1354,7 +1362,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nm1;
         wsp1Size = nm0;

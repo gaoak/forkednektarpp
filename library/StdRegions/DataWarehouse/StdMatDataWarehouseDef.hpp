@@ -40,6 +40,7 @@
 #include <LibUtilities/Foundations/PhysGalerkinProject.h>
 #include <StdRegions/StdHexExp.h>
 #include <StdRegions/StdNodalPrismExp.h>
+#include <StdRegions/StdNodalPyrExp.h>
 #include <StdRegions/StdNodalTetExp.h>
 #include <StdRegions/StdNodalTriExp.h>
 #include <StdRegions/StdPointExp.h>
@@ -118,6 +119,12 @@ LibUtilities::MemoryRegion<TData> StdMatDataCreator::Create(
         {
             stdExp = MemoryManager<StdPyrExp>::AllocateSharedPtr(
                 bkey[0], bkey[1], bkey[2]);
+            break;
+        }
+        case eNodalPyr:
+        {
+            stdExp = MemoryManager<StdNodalPyrExp>::AllocateSharedPtr(
+                bkey[0], bkey[1], bkey[2], nodaltype);
             break;
         }
         case ePrism:

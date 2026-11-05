@@ -45,6 +45,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -147,6 +148,9 @@ OperatorKey BwdTrans_StdMat::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, eBwdTrans, eStdMat, true),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eBwdTrans, eStdMat, true),
+        BwdTrans_StdMat::create, "BwdTrans_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eBwdTrans, eStdMat, false),
         BwdTrans_StdMat::create, "BwdTrans_StdMat_Hex"),
@@ -316,6 +320,9 @@ OperatorKey BwdTrans_IterPerExp::m_typeArr[] = {
         OperatorKey(eNodalPrism, eBwdTrans, eIterPerExp, true),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eBwdTrans, eIterPerExp, true),
+        BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eBwdTrans, eIterPerExp, false),
         BwdTrans_IterPerExp::create, "BwdTrans_IterPerExp_Hex"),
 };
@@ -398,6 +405,9 @@ OperatorKey BwdTrans_NoCollection::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, eBwdTrans, eNoCollection, true),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eBwdTrans, eNoCollection, true),
+        BwdTrans_NoCollection::create, "BwdTrans_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eBwdTrans, eNoCollection, false),
         BwdTrans_NoCollection::create, "BwdTrans_NoCollection_Hex"),

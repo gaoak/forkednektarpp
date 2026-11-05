@@ -1971,7 +1971,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFaceKernel(
  * integration is using. Pair batching is a possible follow-up with a
  * doubled workspace.
  *
- * @tparam SHAPE_TYPE Hex, Prism, Pyr, Tet, NodalTet or NodalPrism.
+ * @tparam SHAPE_TYPE Hex, Prism, Pyr, Tet, NodalTet, NodalPrism or NodalPyr.
  * @tparam DEFORMED   Trace Jacobian varies point by point.
  * @tparam APPEND     Accumulate onto @p out instead of zeroing it first.
  * @tparam TData      Floating-point type of the field data.
@@ -2091,8 +2091,8 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTrace3DFaceKernel(
  * IProductWRTPhysTrace3DFaceKernel. @p append selects between the accumulating
  * and the zero-then-write instantiation of that wrapper.
  *
- * @tparam SHAPE_TYPE       Hex, Prism, Pyr, Tet, NodalTet or
- *                          NodalPrism.
+ * @tparam SHAPE_TYPE       Hex, Prism, Pyr, Tet, NodalTet, NodalPrism or
+ *                          NodalPyr.
  * @tparam DEFORMED         Trace Jacobian varies point by point.
  * @tparam TTraceSizeParameter3D    NonTemplatedTraceSizeParameter3D or
  *                          a TemplatedTraceSizeParameter3D
@@ -2252,7 +2252,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @param   ilane       Lane index within the warp; selects the element.
  * @param   face        Nektar face id of the trace to apply.
- * @param   shape       Hex, Prism, Pyr, Tet, NodalTet or NodalPrism.
+ * @param   shape       Hex, Prism, Pyr, Tet, NodalTet, NodalPrism or NodalPyr.
  * @param   nm0,nm1,nm2 Volume quadrature points per direction.
  * @param   nbasis0,nbasis1,nbasis2   eInterp tables \f$h_p(\pm 1)\f$
  *                      per direction.
@@ -2470,7 +2470,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFaceKernel(
  * @tparam TthreadBlock     Thread-block handle type.
  *
  * @param   face        Nektar face id of the trace to apply.
- * @param   shape       Hex, Prism, Pyr, Tet, NodalTet or NodalPrism.
+ * @param   shape       Hex, Prism, Pyr, Tet, NodalTet, NodalPrism or NodalPyr.
  * @param   sizeParam3D Volume quadrature points per direction, nm0(),
  *                      nm1() and nm2(), and the trace quadrature points
  *                      nq00() to nq21(), per normal direction and

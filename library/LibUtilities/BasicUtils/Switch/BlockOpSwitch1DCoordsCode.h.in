@@ -567,7 +567,7 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
-        defined(SHAPE_TYPE_Pyr)
+        defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
@@ -600,7 +600,7 @@ const auto nq0 = m_nq[0];
 #if defined(SHAPE_TYPE_Hex)
         if ((nq0 == nq1) && (nq1 == nq2))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
-            defined(SHAPE_TYPE_Pyr)
+            defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nq0 == nq1) && (nq1 == nq2 + 1))
 #elif defined(SHAPE_TYPE_Tet)|| defined(SHAPE_TYPE_NodalTet)
         if ((nq0 == nq1 + 1) && (nq1 == nq2))
@@ -668,7 +668,7 @@ const auto nq0 = m_nq[0];
             TemplatedPhysSizeParameter3D<NQ(i), NQ(i), NQ(i)>());              \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
-        defined(SHAPE_TYPE_Pyr)
+        defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef OPERATOR
 #define OPERATOR(r, i)                                                         \
     case NQ(i):                                                                \
@@ -701,7 +701,7 @@ const auto nq0 = m_nq[0];
 #if defined(SHAPE_TYPE_Hex)
         if ((nq0 == nq1) && (nq1 == nq2))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
-            defined(SHAPE_TYPE_Pyr)
+            defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nq0 == nq1) && (nq1 == nq2 + 1))
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)
         if ((nq0 == nq1 + 1) && (nq1 == nq2))

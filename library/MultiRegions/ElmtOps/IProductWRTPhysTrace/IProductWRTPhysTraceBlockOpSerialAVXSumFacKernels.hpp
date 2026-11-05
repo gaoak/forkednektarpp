@@ -1770,7 +1770,7 @@ NEK_FORCE_INLINE static void IProductWRTPhysTraceKernelLauncher(
  * The @c endPtsCollocated flags are runtime booleans, so each call site is
  * written out twice to instantiate both arms of the leaf template.
  *
- * @tparam SHAPE_TYPE  Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE  Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet.
  * @tparam DEFORMED    Trace Jacobian varies point by point.
  * @tparam APPEND      Accumulate onto @p out instead of zeroing it first.
  * @tparam simd_type   SIMD vector type carrying one element per lane.

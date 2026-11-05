@@ -134,6 +134,8 @@ TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr, Pyr, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr_varp, PyrVarP, 1.0E-12)
 
+TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr_nodal, PyrNodal, 1.0E-12)
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tet, Tet, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_tet_varp, TetVarP, 1.0E-12)

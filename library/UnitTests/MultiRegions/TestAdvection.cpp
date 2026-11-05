@@ -105,6 +105,8 @@ TEST_ADVECTION(advection_pyr, Pyr, 1.0E-11)
 
 TEST_ADVECTION(advection_pyr_varp, PyrVarP, 1.0E-11)
 
+TEST_ADVECTION(advection_pyr_nodal, PyrNodal, 1.0E-11)
+
 TEST_ADVECTION(advection_tet, Tet, 1.0E-11)
 
 TEST_ADVECTION(advection_tet_varp, TetVarP, 1.0E-11)

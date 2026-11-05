@@ -170,6 +170,14 @@ TEST_PHYSTRACEEXTRACT(phystraceext_pyr_varp_endpts, PyrVarP, 1.0E-12, true)
 TEST_PHYSTRACEEXTRACT(phystraceext_pyr_varp_endpt_colls, PyrVarP, 1.0E-12,
                       false)
 
+TEST_PHYSTRACEEXTRACT(phystraceext_pyr_nodal_endpts, PyrNodal, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT(phystraceext_pyr_nodal_endpts_coll, PyrNodal, 1.0E-12,
+                      false)
+
+TEST_PHYSTRACEEXTRACTTRACE(phystraceexttrace_pyr_nodal_endpts, PyrNodal,
+                           1.0E-12, true)
+
 TEST_PHYSTRACEEXTRACTTRACE(phystraceexttrace_prism_endpts, PrismFixedP, 1.0E-12,
                            true)
 
@@ -219,6 +227,8 @@ TEST_PHYSTRACEEXTRACT_GLL(phystraceext_prism_varp_gll, PrismVarP, 1.0E-12, true)
 TEST_PHYSTRACEEXTRACT_GLL(phystraceext_pyr_gll, Pyr, 1.0E-12, true)
 
 TEST_PHYSTRACEEXTRACT_GLL(phystraceext_pyr_varp_gll, PyrVarP, 1.0E-12, true)
+
+TEST_PHYSTRACEEXTRACT_GLL(phystraceext_pyr_nodal_gll, PyrNodal, 1.0E-12, true)
 
 // A hexahedron has no collapsed direction, so the two point sets coincide
 // and asking for the variant must change nothing.

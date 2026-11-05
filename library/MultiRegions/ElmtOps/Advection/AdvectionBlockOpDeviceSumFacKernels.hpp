@@ -191,7 +191,8 @@ inline constexpr unsigned int AdvectionSharedMemorySize(
     {
         return nq0 + nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nq0 + nq1 + nq2;
     }
@@ -508,7 +509,8 @@ NEK_DEVICE_INLINE static void Advection3DSumFacKernel(
                     d0 *= f2[k];
                     d2 += f0[i] * d0;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     d0 *= f2[k];
                     d1 *= f2[k];
@@ -844,7 +846,8 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;

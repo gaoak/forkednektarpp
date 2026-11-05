@@ -44,6 +44,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -259,6 +260,9 @@ OperatorKey PhysDeriv_StdMat::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, ePhysDeriv, eStdMat, true),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysDeriv, eStdMat, true),
+        PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eStdMat, false),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_Hex"),
@@ -571,6 +575,9 @@ OperatorKey PhysDeriv_IterPerExp::m_typeArr[] = {
         OperatorKey(eNodalPrism, ePhysDeriv, eIterPerExp, true),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysDeriv, eIterPerExp, true),
+        PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eIterPerExp, false),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_Hex")};
 
@@ -688,6 +695,9 @@ OperatorKey PhysDeriv_NoCollection::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, ePhysDeriv, eNoCollection, true),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysDeriv, eNoCollection, true),
+        PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eNoCollection, false),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_Hex")};

@@ -510,7 +510,8 @@ NEK_DEVICE_KERNEL void AdvectionDealiasKernelLauncher(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;

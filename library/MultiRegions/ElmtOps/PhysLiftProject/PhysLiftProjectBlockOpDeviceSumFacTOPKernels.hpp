@@ -125,7 +125,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectBasisRows(
         {
             return (dir == 1) ? nm1 : (2u * nm2 - nm0 + 1u) * nm0 / 2u;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             return (dir == 1)
                        ? nm1
@@ -212,7 +213,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStageSize(
             bwd       = transpose;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::Pyr)
+                           SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             transpose = (stage == 0) ? nm0 * nm1 * nq2 : nm0 * nq1 * nq2;
             bwd       = transpose;

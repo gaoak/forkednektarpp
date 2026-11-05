@@ -133,6 +133,8 @@ TEST_MASS(mass_pyr, Pyr, 1.0E-12)
 
 TEST_MASS(mass_pyr_varp, PyrVarP, 1.0E-12)
 
+TEST_MASS(mass_pyr_nodal, PyrNodal, 1.0E-12)
+
 TEST_MASS(mass_tet, Tet, 1.0E-12)
 
 TEST_MASS(mass_tet_varp, TetVarP, 1.0E-12)

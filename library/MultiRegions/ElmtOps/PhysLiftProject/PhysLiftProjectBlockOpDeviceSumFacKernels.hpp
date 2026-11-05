@@ -118,7 +118,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStage0Size(
             return std::max(nq12, (2u * nm1 - nm0 + 1u) * nm0 / 2u);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::Pyr)
+                           SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             return std::max(nq12, nm0 * nm1);
         }
@@ -150,7 +151,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStage1Size(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
                            SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::Pyr)
+                           SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             return std::max(nq2, sizeParam.nm0());
         }

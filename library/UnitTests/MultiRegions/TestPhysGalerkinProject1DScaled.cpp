@@ -167,6 +167,9 @@ TEST_PHYSGALERKINPROJECT1DSCALED(physgalerkinproject1d_pyr, Pyr, 1.0E-12)
 TEST_PHYSGALERKINPROJECT1DSCALED(physgalerkinproject1d_pyr_varp, PyrVarP,
                                  2.0E-12)
 
+TEST_PHYSGALERKINPROJECT1DSCALED(physgalerkinproject1d_pyr_nodal, PyrNodal,
+                                 1.0E-12)
+
 TEST_PHYSGALERKINPROJECT1DSCALED(physgalerkinproject1d_prism, Prism, 1.0E-12)
 
 TEST_PHYSGALERKINPROJECT1DSCALED(physgalerkinproject1d_prism_varp, PrismVarP,

@@ -47,6 +47,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -169,6 +170,9 @@ OperatorKey IProductWRTBase_StdMat::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, eIProductWRTBase, eStdMat, true),
         IProductWRTBase_StdMat::create, "IProductWRTBase_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTBase, eStdMat, true),
+        IProductWRTBase_StdMat::create, "IProductWRTBase_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTBase, eStdMat, false),
         IProductWRTBase_StdMat::create, "IProductWRTBase_StdMat_Hex"),
@@ -372,6 +376,10 @@ OperatorKey IProductWRTBase_IterPerExp::m_typeArr[] = {
         IProductWRTBase_IterPerExp::create,
         "IProductWRTBase_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTBase, eIterPerExp, true),
+        IProductWRTBase_IterPerExp::create,
+        "IProductWRTBase_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTBase, eIterPerExp, false),
         IProductWRTBase_IterPerExp::create, "IProductWRTBase_IterPerExp_Hex"),
 };
@@ -463,6 +471,10 @@ OperatorKey IProductWRTBase_NoCollection::m_typeArr[] = {
         OperatorKey(eNodalPrism, eIProductWRTBase, eNoCollection, true),
         IProductWRTBase_NoCollection::create,
         "IProductWRTBase_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTBase, eNoCollection, true),
+        IProductWRTBase_NoCollection::create,
+        "IProductWRTBase_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTBase, eNoCollection, false),
         IProductWRTBase_NoCollection::create,

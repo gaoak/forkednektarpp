@@ -447,10 +447,9 @@ NEK_DEVICE_INLINE constexpr bool GetTraceEdgeDispatch(
  * direction-0 face, `3->(0,0)`, with `1->(1,0)` and `0->(2,0)` the
  * single faces of its two collapsed directions.
  *
- * @tparam SHAPE_TYPE Hex, Prism, NodalPrism, Pyr, Tet or NodalTet; every
- *                    other shape returns false. The nodal entries are
- *                    accepted here even though the block operator
- *                    already instantiates the per-trace route under the
+ * @tparam SHAPE_TYPE Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet;
+ * every other shape returns false. The nodal entries are accepted here even
+ * though the block operator already instantiates the per-trace route under the
  *                    parent enumerator.
  *
  * @param   face      Nektar face id of the trace wanted.
@@ -487,7 +486,8 @@ NEK_DEVICE_INLINE constexpr bool GetTraceFaceDispatch(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         switch (face)
         {
@@ -2047,7 +2047,7 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2KernelTrace3D(
  * dispatched as one window, so within a pair both faces come out of a
  * single pass of the normal stage.
  *
- * @tparam SHAPE_TYPE Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet.
  * @tparam TData      Floating-point type of the field data.
  *
  * @param   ilane       Lane index within the warp; selects the element.
@@ -2135,7 +2135,8 @@ NEK_DEVICE_INLINE static void PhysTraceExtract3DSumFacKernelCore(
  * `nm2*nq00*2`, `nm2*nq10*2` and `nm1*nq20*2`. The block operator sizes
  * its allocation with the same expression.
  *
- * @tparam SHAPE_TYPE       Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE       Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or
+ * NodalTet.
  * @tparam TTraceSizeParameter3D    NonTemplatedTraceSizeParameter3D or
  *                          a TemplatedTraceSizeParameter3D
  *                          instantiation.
@@ -2258,7 +2259,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * All nine collocation flags default to false, that is to the general
  * path, although the only caller passes every one of them.
  *
- * @tparam SHAPE_TYPE Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet.
  * @tparam TData      Floating-point type of the field data.
  *
  * @param   ilane       Lane index within the warp; selects the element.

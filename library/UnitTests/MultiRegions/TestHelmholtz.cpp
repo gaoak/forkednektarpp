@@ -111,6 +111,8 @@ TEST_HELMHOLTZ(helmholtz_pyr, Pyr, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_pyr_varp, PyrVarP, 1.0E-12)
 
+TEST_HELMHOLTZ(helmholtz_pyr_nodal, PyrNodal, 1.0E-12)
+
 TEST_HELMHOLTZ(helmholtz_tet, Tet, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_tet_varp, TetVarP, 1.0E-12)

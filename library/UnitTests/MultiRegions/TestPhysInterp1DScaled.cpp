@@ -132,6 +132,8 @@ TEST_PHYSINTERP1DSCALED(physinterp1d_pyr, Pyr, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_pyr_varp, PyrVarP, 1.0E-12)
 
+TEST_PHYSINTERP1DSCALED(physinterp1d_pyr_nodal, PyrNodal, 1.0E-12)
+
 TEST_PHYSINTERP1DSCALED(physinterp1d_prism, Prism, 1.0E-12)
 
 TEST_PHYSINTERP1DSCALED(physinterp1d_prism_varp, PrismVarP, 1.0E-12)

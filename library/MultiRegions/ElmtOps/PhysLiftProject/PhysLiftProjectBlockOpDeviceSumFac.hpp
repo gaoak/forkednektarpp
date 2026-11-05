@@ -529,41 +529,10 @@ protected:
         }
         else
         {
-            switch (m_shapeType)
-            {
-                case LibUtilities::Seg:
-                    ShapeBlock<LibUtilities::Seg>(inblock, outblock);
-                    break;
-                case LibUtilities::Quad:
-                    ShapeBlock<LibUtilities::Quad>(inblock, outblock);
-                    break;
-                case LibUtilities::Tri:
-                    ShapeBlock<LibUtilities::Tri>(inblock, outblock);
-                    break;
-                case LibUtilities::NodalTri:
-                    ShapeBlock<LibUtilities::NodalTri>(inblock, outblock);
-                    break;
-                case LibUtilities::Hex:
-                    ShapeBlock<LibUtilities::Hex>(inblock, outblock);
-                    break;
-                case LibUtilities::Tet:
-                    ShapeBlock<LibUtilities::Tet>(inblock, outblock);
-                    break;
-                case LibUtilities::NodalTet:
-                    ShapeBlock<LibUtilities::NodalTet>(inblock, outblock);
-                    break;
-                case LibUtilities::Pyr:
-                    ShapeBlock<LibUtilities::Pyr>(inblock, outblock);
-                    break;
-                case LibUtilities::Prism:
-                    ShapeBlock<LibUtilities::Prism>(inblock, outblock);
-                    break;
-                case LibUtilities::NodalPrism:
-                    ShapeBlock<LibUtilities::NodalPrism>(inblock, outblock);
-                    break;
-                default:
-                    NEKERROR(ErrorUtil::efatal, "shape type not implemented");
-            }
+            this->ShapeSwitch(m_shapeType, [&](auto shape) {
+                this->template ShapeBlock<decltype(shape)::value>(inblock,
+                                                                  outblock);
+            });
         }
     }
 
@@ -698,7 +667,8 @@ protected:
 
         if constexpr (SHAPE_TYPE == LibUtilities::NodalTri ||
                       SHAPE_TYPE == LibUtilities::NodalTet ||
-                      SHAPE_TYPE == LibUtilities::NodalPrism)
+                      SHAPE_TYPE == LibUtilities::NodalPrism ||
+                      SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             ApplySeparate(inblock, outblock);
         }
@@ -745,7 +715,8 @@ protected:
             constexpr unsigned int N = TTraceSizeParameter::nm0();
             constexpr bool nodal     = SHAPE_TYPE == LibUtilities::NodalTri ||
                                    SHAPE_TYPE == LibUtilities::NodalTet ||
-                                   SHAPE_TYPE == LibUtilities::NodalPrism;
+                                   SHAPE_TYPE == LibUtilities::NodalPrism ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr;
             constexpr unsigned int minModes = nodal ? 2u : 1u;
             const unsigned int modes        = m_uniformModes ? m_modes[0] : 0u;
             if constexpr (N >= minModes + 1)

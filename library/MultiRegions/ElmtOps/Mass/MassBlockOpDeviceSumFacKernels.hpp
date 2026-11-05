@@ -266,6 +266,14 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
                    std::max(nq2, nm0)) *
                   nelmt;
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0) + nmTot) *
+                  nelmt;
+    }
 
     return wspsize;
 }
@@ -575,7 +583,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * area's stride, and every offset of the other shapes, are the ones
  * MassWorkSpaceSize reserves.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam Implementation   MultiRegions::SumFac.
  * @tparam DEFORMED         @p jac holds one interleaved value per
  *                          quadrature point rather than a single
@@ -638,7 +647,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -665,7 +675,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = std::max(nq1 * nq2, nm0 * nm1);
         wsp1Size = std::max(nq2, nm0);

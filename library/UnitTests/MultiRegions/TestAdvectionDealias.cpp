@@ -113,6 +113,8 @@ TEST_ADVECTIONDEALIAS(advectiondealias_pyr, Pyr, 1.0E-9)
 
 TEST_ADVECTIONDEALIAS(advectiondealias_pyr_varp, PyrVarP, 1.0E-9)
 
+TEST_ADVECTIONDEALIAS(advectiondealias_pyr_nodal, PyrNodal, 1.0E-9)
+
 TEST_ADVECTIONDEALIAS(advectiondealias_tet, Tet, 1.0E-9)
 
 TEST_ADVECTIONDEALIAS(advectiondealias_tet_varp, TetVarP, 1.0E-9)

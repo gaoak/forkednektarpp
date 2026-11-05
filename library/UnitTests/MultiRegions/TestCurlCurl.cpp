@@ -108,6 +108,8 @@ TEST_CURLCURL(curlcurl_pyr, Pyr, 1.0E-09)
 
 TEST_CURLCURL(curlcurl_pyr_varp, PyrVarP, 5.0E-09)
 
+TEST_CURLCURL(curlcurl_pyr_nodal, PyrNodal, 1.0E-09)
+
 TEST_CURLCURL(curlcurl_tet, Tet, 4.0E-09)
 
 TEST_CURLCURL(curlcurl_tet_varp, TetVarP, 4.0E-09)

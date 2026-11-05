@@ -179,7 +179,8 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
  * all three workspaces; the block implementation sizes each to the larger
  * of the two stages' demands.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam DEFORMED         @p jac holds one vector per quadrature point.
  * @tparam TSizeParameter3D 3D size parameter, templated or not.
  * @tparam simd_type        SIMD vector type of the interleaved group.

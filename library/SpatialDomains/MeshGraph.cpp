@@ -2160,6 +2160,29 @@ LibUtilities::BasisKeyVector MeshGraph::DefineBasisKeyFromExpansionType(
                     returnval.push_back(bkey2);
                 }
                 break;
+                case LibUtilities::ePyramid:
+                {
+                    // define with corrects points key
+                    // and change to Ortho on construction
+                    const LibUtilities::PointsKey pkey(
+                        np(nummodes + quadoffset),
+                        LibUtilities::eGaussLobattoLegendre);
+                    LibUtilities::BasisKey bkey(LibUtilities::eGLL_Lagrange,
+                                                nummodes, pkey);
+                    returnval.push_back(bkey);
+
+                    LibUtilities::BasisKey bkey1(LibUtilities::eOrtho_A,
+                                                 nummodes, pkey);
+                    returnval.push_back(bkey1);
+
+                    const LibUtilities::PointsKey pkey2(
+                        np(nummodes + quadoffset - 1),
+                        LibUtilities::eGaussRadauMAlpha2Beta0);
+                    LibUtilities::BasisKey bkey2(LibUtilities::eOrthoPyr_C,
+                                                 nummodes, pkey2);
+                    returnval.push_back(bkey2);
+                }
+                break;
                 case LibUtilities::eTetrahedron:
                 {
                     // define with corrects points key

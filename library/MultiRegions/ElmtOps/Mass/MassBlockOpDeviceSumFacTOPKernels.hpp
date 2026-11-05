@@ -223,6 +223,14 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
                    std::max(nq2, nm0)) *
                   nelmt;
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0) + nmTot) *
+                  nelmt;
+    }
 
     return wspsize;
 }
@@ -328,7 +336,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * table for the tetrahedra as well, hence the nm01, nm02 and nmode2 row
  * counts.
  *
- * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam Implementation    MultiRegions::SumFacTOP.
  * @tparam TData             Floating-point type of the field data; sets the
  *                           padding.
@@ -382,7 +391,8 @@ inline constexpr unsigned int MassSharedMemorySize(
         return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot +
                nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
@@ -688,7 +698,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * intermediates take those sizes the other way round; the hexahedron,
  * whose areas are maxima over both stages, passes them in the same order.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam Implementation   MultiRegions::SumFacTOP.
  * @tparam DEFORMED         @p jac holds one value per quadrature point
  *                          rather than a single per-element value.
@@ -747,7 +758,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -787,7 +799,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nm1;
         nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nm1 * nq2;
         wsp1Size = nm0 * nq1 * nq2;

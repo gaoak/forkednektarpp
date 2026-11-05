@@ -195,7 +195,8 @@ inline constexpr unsigned int CurlCurlSharedMemorySize(
     {
         return nq0 + nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nq0 + nq1 + nq2;
     }
@@ -633,7 +634,8 @@ NEK_DEVICE_INLINE static void Curl3DSumFacKernel(
                         d0[c] *= f2[k];
                         d2[c] += f0[i] * d0[c];
                     }
-                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                       SHAPE_TYPE == LibUtilities::NodalPyr)
                     {
                         d0[c] *= f2[k];
                         d1[c] *= f2[k];
@@ -1063,7 +1065,8 @@ NEK_DEVICE_KERNEL void CurlCurlKernelLauncher(
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;

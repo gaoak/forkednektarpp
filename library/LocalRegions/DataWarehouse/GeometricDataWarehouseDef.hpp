@@ -992,6 +992,7 @@ double CollCoordDfactor(Array<OneD, Array<OneD, Array<OneD, double>>> &dfactors,
             break;
         }
         case LibUtilities::Pyr:
+        case LibUtilities::NodalPyr:
         {
             if (d == 0)
             {
