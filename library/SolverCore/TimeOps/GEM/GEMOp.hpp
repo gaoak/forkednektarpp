@@ -56,16 +56,15 @@ public:
     }
 
 protected:
-    unsigned int m_order;
+    unsigned int m_order{0};
     std::string m_variant;
     std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_T;
     std::deque<LibUtilities::Field<TData, FieldState::Phys>> m_T0;
+    std::shared_ptr<TimeOp<TData>> m_stepper;
 
     GEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
-          const std::vector<std::string> &components, const unsigned int &order,
-          const std::string &variant)
-        : TimeOp<TData>(expansionList, components), m_order(order),
-          m_variant(variant)
+          const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
     }
 

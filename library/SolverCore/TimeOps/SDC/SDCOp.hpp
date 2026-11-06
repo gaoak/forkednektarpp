@@ -63,9 +63,8 @@ public:
     }
 
 protected:
-    unsigned int m_order;
+    unsigned int m_order{0};
     std::string m_variant;
-    std::vector<TData> m_freeParams;
     bool m_first_quadrature{true};
     bool m_last_quadrature{true};
     unsigned int m_ordermin{0}; /// Minimum order of the integration scheme
@@ -90,49 +89,53 @@ protected:
         m_interp; /// Array containing the interpolation coefficients
 
     SDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
-          const std::vector<std::string> components, const unsigned int &order,
-          const std::string &variant, const std::vector<TData> &freeParams)
-        : TimeOp<TData>(expansionList, components), m_order(order),
-          m_variant(variant)
+          const std::vector<std::string> &components)
+        : TimeOp<TData>(expansionList, components)
     {
-        if (freeParams.size() == 0)
-        {
-            for (unsigned int i = 0; i < expansionList->GetSession()
-                                             ->GetTimeIntScheme()
-                                             .freeParams.size();
-                 i++)
-            {
-                this->m_freeParams.push_back(expansionList->GetSession()
-                                                 ->GetTimeIntScheme()
-                                                 .freeParams[i]);
-            }
-        }
-        else
-        {
-            this->m_freeParams = freeParams;
-        }
     }
 
     ~SDCOp() override = default;
 
+    void SetFreeParams(const std::vector<TData> &freeParams)
+    {
+        if (freeParams.size() == 0)
+        {
+            auto &tfreeParams = this->m_expansionList->GetSession()
+                                    ->GetTimeIntScheme()
+                                    .freeParams;
+
+            // Set operator meta data
+            ASSERTL0(tfreeParams.size() == 2,
+                     "SDC Time integration scheme invalid number "
+                     "of free parameters, expected two "
+                     "<theta, number of quadrature>, received " +
+                         std::to_string(tfreeParams.size()));
+
+            this->m_theta    = tfreeParams[0];
+            this->m_nQuadPts = tfreeParams[1];
+        }
+        else
+        {
+            // Set operator meta data
+            ASSERTL0(freeParams.size() == 2,
+                     "SDC Time integration scheme invalid number "
+                     "of free parameters, expected two "
+                     "<theta, number of quadrature>, received " +
+                         std::to_string(freeParams.size()));
+
+            this->m_theta    = freeParams[0];
+            this->m_nQuadPts = freeParams[1];
+        }
+    }
+
     template <typename ExecSpace> void Initialize(void)
     {
-        using MemSpace = typename ExecSpace::memory_space;
-
-        // Set operator meta data
-        ASSERTL0(this->m_freeParams.size() == 2,
-                 "SDC Time integration scheme invalid number "
-                 "of free parameters, expected two "
-                 "<theta, number of quadrature>, received " +
-                     std::to_string(this->m_freeParams.size()));
-
-        ASSERTL0(0.0 <= this->m_freeParams[0] && this->m_freeParams[0] <= 1.0,
+        ASSERTL0(0.0 <= this->m_theta && this->m_theta <= 1.0,
                  "Spectral Deferred Correction Time integration "
                  "scheme bad parameter numbers (0.0 - 1.0): " +
-                     std::to_string(this->m_freeParams[0]));
+                     std::to_string(this->m_theta));
 
-        this->m_theta    = this->m_freeParams[0];
-        this->m_nQuadPts = this->m_freeParams[1];
+        using MemSpace = typename ExecSpace::memory_space;
 
         if (this->m_variant == "Equidistant")
         {

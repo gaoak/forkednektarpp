@@ -45,23 +45,7 @@ template <typename TData> TimeOpFactory<TData> &GetTimeOpFactory()
     return instance;
 }
 
-template <typename TData> GEMOpFactory<TData> &GetGEMOpFactory()
-{
-    static GEMOpFactory<TData> instance;
-    return instance;
-}
-
-template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory()
-{
-    static SDCOpFactory<TData> instance;
-    return instance;
-}
-
 template TimeOpFactory<float> &GetTimeOpFactory();
 template TimeOpFactory<double> &GetTimeOpFactory();
-template GEMOpFactory<float> &GetGEMOpFactory();
-template GEMOpFactory<double> &GetGEMOpFactory();
-template SDCOpFactory<float> &GetSDCOpFactory();
-template SDCOpFactory<double> &GetSDCOpFactory();
 
 } // namespace Nektar::SolverCore

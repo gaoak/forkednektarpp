@@ -59,9 +59,8 @@ public:
 
 protected:
     IMEXGEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
-              const std::vector<std::string> &components,
-              const unsigned int &order, const std::string &variant)
-        : GEMOp<TData>(expansionList, components, order, variant)
+              const std::vector<std::string> &components)
+        : GEMOp<TData>(expansionList, components)
     {
     }
 
