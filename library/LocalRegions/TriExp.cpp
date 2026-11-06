@@ -185,9 +185,9 @@ void TriExp::v_FwdTransBndConstrained(
             rhs[i] = tmp1[mapArray[i]];
         }
 
-        Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, matsys->Scale(),
-                    &((matsys->GetOwnedMatrix())->GetPtr())[0], nInteriorDofs,
-                    rhs.data(), 1, 0.0, result.data(), 1);
+        Blas::Gemv('N', nInteriorDofs, nInteriorDofs, matsys->Scale(),
+                   &((matsys->GetOwnedMatrix())->GetPtr())[0], nInteriorDofs,
+                   rhs.data(), 1, 0.0, result.data(), 1);
 
         for (i = 0; i < nInteriorDofs; i++)
         {

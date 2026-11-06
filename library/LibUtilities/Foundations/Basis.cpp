@@ -314,9 +314,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
-                        numPoints, m_bdata.data(), numPoints, 0.0,
-                        m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
+                       numPoints, m_bdata.data(), numPoints, 0.0,
+                       m_dbdata.data(), numPoints);
         } // end scope
         break;
 
@@ -351,9 +351,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes * (numModes + 1) / 2,
-                        numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
-                        0.0, m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes * (numModes + 1) / 2,
+                       numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
+                       0.0, m_dbdata.data(), numPoints);
         }
         break;
 
@@ -394,10 +394,10 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints,
-                        numModes * (numModes + 1) * (numModes + 2) / 6,
-                        numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
-                        0.0, m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints,
+                       numModes * (numModes + 1) * (numModes + 2) / 6,
+                       numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
+                       0.0, m_dbdata.data(), numPoints);
         }
         break;
 
@@ -458,10 +458,10 @@ void Basis::GenBasis()
             // numModes*(numModes+1)*(2*numModes+1)/6 modes, not the
             // tetrahedral numModes*(numModes+1)*(numModes+2)/6: with the
             // latter the highest modes were left without a derivative.
-            Blas::Dgemm('n', 'n', numPoints,
-                        numModes * (numModes + 1) * (2 * numModes + 1) / 6,
-                        numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
-                        0.0, m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints,
+                       numModes * (numModes + 1) * (2 * numModes + 1) / 6,
+                       numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
+                       0.0, m_dbdata.data(), numPoints);
         }
         break;
 
@@ -492,9 +492,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
-                        numPoints, m_bdata.data(), numPoints, 0.0,
-                        m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
+                       numPoints, m_bdata.data(), numPoints, 0.0,
+                       m_dbdata.data(), numPoints);
         }
         break;
 
@@ -583,9 +583,9 @@ void Basis::GenBasis()
                 }
             }
 
-            Blas::Dgemm('n', 'n', numPoints, numModes * (numModes + 1) / 2,
-                        numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
-                        0.0, m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes * (numModes + 1) / 2,
+                       numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
+                       0.0, m_dbdata.data(), numPoints);
         }
         break;
 
@@ -638,10 +638,10 @@ void Basis::GenBasis()
             }
 
             // set up derivative of basis.
-            Blas::Dgemm('n', 'n', numPoints,
-                        numModes * (numModes + 1) * (numModes + 2) / 6,
-                        numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
-                        0.0, m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints,
+                       numModes * (numModes + 1) * (numModes + 2) / 6,
+                       numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
+                       0.0, m_dbdata.data(), numPoints);
         }
         break;
 
@@ -744,10 +744,10 @@ void Basis::GenBasis()
             }
 
             // set up derivative of basis.
-            Blas::Dgemm('n', 'n', numPoints,
-                        numModes * (numModes + 1) * (2 * numModes + 1) / 6,
-                        numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
-                        0.0, m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints,
+                       numModes * (numModes + 1) * (2 * numModes + 1) / 6,
+                       numPoints, 1.0, D, numPoints, m_bdata.data(), numPoints,
+                       0.0, m_dbdata.data(), numPoints);
         } // end scope
         break;
 
@@ -768,9 +768,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
-                        numPoints, m_bdata.data(), numPoints, 0.0,
-                        m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
+                       numPoints, m_bdata.data(), numPoints, 0.0,
+                       m_dbdata.data(), numPoints);
 
         } // end scope
         break;
@@ -792,9 +792,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
-                        numPoints, m_bdata.data(), numPoints, 0.0,
-                        m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
+                       numPoints, m_bdata.data(), numPoints, 0.0,
+                       m_dbdata.data(), numPoints);
 
         } // end scope
         break;
@@ -889,9 +889,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
-                        numPoints, m_bdata.data(), numPoints, 0.0,
-                        m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
+                       numPoints, m_bdata.data(), numPoints, 0.0,
+                       m_dbdata.data(), numPoints);
         } // end scope
         break;
 
@@ -908,9 +908,9 @@ void Basis::GenBasis()
             }
 
             // Define derivative basis
-            Blas::Dgemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
-                        numPoints, m_bdata.data(), numPoints, 0.0,
-                        m_dbdata.data(), numPoints);
+            Blas::Gemm('n', 'n', numPoints, numModes, numPoints, 1.0, D,
+                       numPoints, m_bdata.data(), numPoints, 0.0,
+                       m_dbdata.data(), numPoints);
         } // end scope
         break;
 

@@ -816,15 +816,15 @@ void TetExp::GeneralMatrixOp_MatOp(const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> tmp(m_ncoeffs);
         Vmath::Vcopy(m_ncoeffs, inarray.data(), 1, tmp.data(), 1);
 
-        Blas::Dgemv('N', m_ncoeffs, m_ncoeffs, mat->Scale(),
-                    (mat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
-                    tmp.data(), 1, 0.0, outarray.data(), 1);
+        Blas::Gemv('N', m_ncoeffs, m_ncoeffs, mat->Scale(),
+                   (mat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
+                   tmp.data(), 1, 0.0, outarray.data(), 1);
     }
     else
     {
-        Blas::Dgemv('N', m_ncoeffs, m_ncoeffs, mat->Scale(),
-                    (mat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
-                    inarray.data(), 1, 0.0, outarray.data(), 1);
+        Blas::Gemv('N', m_ncoeffs, m_ncoeffs, mat->Scale(),
+                   (mat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
+                   inarray.data(), 1, 0.0, outarray.data(), 1);
     }
 }
 

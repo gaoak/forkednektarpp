@@ -155,6 +155,7 @@ v5.11.0
 - Add `ElmtBlockOp::ShapeSwitch`, which replaces the runtime shape switch duplicated in every SumFac and SumFacTOP block operator's `v_Apply()`; an unsupported shape is now a fatal error (!2910)
 - Add nodal pyramid support to the SumFac and SumFacTOP element and trace operators for Serial, AVX and Device back-ends, and build `NodalPyrExp` from a `GLL_LAGRANGE` pyramid expansion (!2910)
 - Register the redesign SDC and GEM time integration operators with the common TimeOp factory, removing the separate SDC and GEM factories; their order, variant and free parameters are set through `TimeOp::v_SetScheme` once the operator is created (!2913)
+- Remove the duplicate double-only BLAS wrappers (`Dgemv`, `Dgemm`, ...) and the unused `Cdgemm`; use the overloaded versions instead (!2915)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

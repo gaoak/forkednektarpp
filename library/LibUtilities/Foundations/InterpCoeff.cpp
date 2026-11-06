@@ -92,8 +92,8 @@ void InterpCoeff2D(const BasisKey &fbasis0, const BasisKey &fbasis1,
         // interpolate
         DNekMatSharedPtr ft1 = BasisManager()[fbasis1]->GetI(tbasis1);
 
-        Blas::Dgemm('N', 'T', fnm0, tnm1, fnm1, 1.0, from, fnm0,
-                    ft1->GetPtr().data(), tnm1, 0.0, wsp.data(), fnm0);
+        Blas::Gemm('N', 'T', fnm0, tnm1, fnm1, 1.0, from, fnm0,
+                   ft1->GetPtr().data(), tnm1, 0.0, wsp.data(), fnm0);
     }
 
     if (fbasis0.GetBasisType() == tbasis0.GetBasisType() && fnm0 == tnm0)
@@ -105,8 +105,8 @@ void InterpCoeff2D(const BasisKey &fbasis0, const BasisKey &fbasis1,
         // interpolate
         DNekMatSharedPtr ft0 = BasisManager()[fbasis0]->GetI(tbasis0);
 
-        Blas::Dgemm('N', 'N', tnm0, tnm1, fnm0, 1.0, ft0->GetPtr().data(), tnm0,
-                    wsp.data(), fnm0, 0.0, to, tnm0);
+        Blas::Gemm('N', 'N', tnm0, tnm1, fnm0, 1.0, ft0->GetPtr().data(), tnm0,
+                   wsp.data(), fnm0, 0.0, to, tnm0);
     }
 }
 
@@ -139,17 +139,17 @@ void InterpCoeff3D(const BasisKey &fbasis0, const BasisKey &fbasis1,
     DNekMatSharedPtr ft1 = BasisManager()[fbasis1]->GetI(tbasis1);
     DNekMatSharedPtr ft2 = BasisManager()[fbasis2]->GetI(tbasis2);
 
-    Blas::Dgemm('N', 'N', tnm0, fnm1 * fnm2, fnm0, 1.0, ft0->GetPtr().data(),
-                tnm0, from, fnm0, 0.0, wsp2.data(), tnm0);
+    Blas::Gemm('N', 'N', tnm0, fnm1 * fnm2, fnm0, 1.0, ft0->GetPtr().data(),
+               tnm0, from, fnm0, 0.0, wsp2.data(), tnm0);
 
     for (size_t i = 0; i < fnm2; i++)
     {
-        Blas::Dgemm('N', 'T', tnm0, tnm1, fnm1, 1.0,
-                    wsp2.data() + i * tnm0 * fnm1, tnm0, ft1->GetPtr().data(),
-                    tnm1, 0.0, wsp1.data() + i * tnm0 * tnm1, tnm0);
+        Blas::Gemm('N', 'T', tnm0, tnm1, fnm1, 1.0,
+                   wsp2.data() + i * tnm0 * fnm1, tnm0, ft1->GetPtr().data(),
+                   tnm1, 0.0, wsp1.data() + i * tnm0 * tnm1, tnm0);
     }
 
-    Blas::Dgemm('N', 'T', tnm0 * tnm1, tnm2, fnm2, 1.0, wsp1.data(),
-                tnm0 * tnm1, ft2->GetPtr().data(), tnm2, 0.0, to, tnm0 * tnm1);
+    Blas::Gemm('N', 'T', tnm0 * tnm1, tnm2, fnm2, 1.0, wsp1.data(), tnm0 * tnm1,
+               ft2->GetPtr().data(), tnm2, 0.0, to, tnm0 * tnm1);
 }
 } // namespace Nektar::LibUtilities
