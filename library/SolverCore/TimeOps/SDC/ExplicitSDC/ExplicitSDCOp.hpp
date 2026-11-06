@@ -60,10 +60,8 @@ public:
 
 protected:
     ExplicitSDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components,
-                  const unsigned int &order, const std::string &variant,
-                  const std::vector<TData> &freeParams)
-        : SDCOp<TData>(expansionList, components, order, variant, freeParams)
+                  const std::vector<std::string> &components)
+        : SDCOp<TData>(expansionList, components)
     {
     }
 

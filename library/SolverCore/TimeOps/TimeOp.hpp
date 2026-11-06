@@ -54,22 +54,8 @@ using TimeOpFactory =
     Nektar::LibUtilities::NekFactory<std::string, TimeOp<TData>,
                                      const MultiRegions::ExpListSharedPtr &,
                                      const std::vector<std::string> &>;
-template <typename TData>
-using GEMOpFactory =
-    Nektar::LibUtilities::NekFactory<std::string, TimeOp<TData>,
-                                     const MultiRegions::ExpListSharedPtr &,
-                                     const std::vector<std::string> &,
-                                     const unsigned int &, const std::string &>;
-template <typename TData>
-using SDCOpFactory = Nektar::LibUtilities::NekFactory<
-    std::string, TimeOp<TData>, const MultiRegions::ExpListSharedPtr &,
-    const std::vector<std::string> &, const unsigned int &, const std::string &,
-    const std::vector<TData> &>;
-
 // Operator factory singleton
 template <typename TData> TimeOpFactory<TData> &GetTimeOpFactory();
-template <typename TData> GEMOpFactory<TData> &GetGEMOpFactory();
-template <typename TData> SDCOpFactory<TData> &GetSDCOpFactory();
 
 // TimeIntegration base class
 template <typename TData> class TimeOp : public MultiRegions::Operator<TData>
@@ -105,13 +91,15 @@ public:
         std::string requestedKey;
 
         if (method0 == "ExplicitSDC" || method0 == "ImplicitSDC" ||
-            method0 == "IMEXSDC")
+            method0 == "IMEXSDC" || method0 == "ExplicitGEM" ||
+            method0 == "ImplicitGEM" || method0 == "IMEXGEM")
         {
-            // Specialization for SDC
+            // Specialization for SDC and GEM.
+            // Note: SDC and GEM are not order templated.
             requestedKey = method0 + execStr0;
 
             // Get operator factory.
-            SDCOpFactory<TData> &factory = GetSDCOpFactory<TData>();
+            TimeOpFactory<TData> &factory = GetTimeOpFactory<TData>();
 
             // No suitable operator was found.
             if (!factory.ModuleExists(requestedKey))
@@ -122,34 +110,15 @@ public:
                 NEKERROR(ErrorUtil::efatal, msg.str());
             }
 
-            return std::static_pointer_cast<TimeOp<TData>>(
-                factory.CreateInstance(requestedKey, expansionList, components,
-                                       order0, variant0, freeParams));
-        }
-        else if (method0 == "ExplicitGEM" || method0 == "ImplicitGEM" ||
-                 method0 == "IMEXGEM")
-        {
-            // Specialization for GEM
-            requestedKey = method0 + execStr0;
-
-            // Get operator factory.
-            GEMOpFactory<TData> &factory = GetGEMOpFactory<TData>();
-
-            // No suitable operator was found.
-            if (!factory.ModuleExists(requestedKey))
-            {
-                std::stringstream msg;
-                msg << "No such operator: " << requestedKey << std::endl;
-                factory.PrintAvailableClasses(msg);
-                NEKERROR(ErrorUtil::efatal, msg.str());
-            }
-
-            return std::static_pointer_cast<TimeOp<TData>>(
-                factory.CreateInstance(requestedKey, expansionList, components,
-                                       order0, variant0));
+            auto op =
+                std::static_pointer_cast<TimeOp<TData>>(factory.CreateInstance(
+                    requestedKey, expansionList, components));
+            op->v_SetScheme(order0, variant0, freeParams);
+            return op;
         }
         else
         {
+            // Other schemes are order and variant templated.
             requestedKey =
                 method0 + variant0 + std::to_string(order0) + execStr0;
 
@@ -361,31 +330,22 @@ protected:
                     expansionList->GetSession()));
     }
 
-    // Use for GEM
-    TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
-           const std::vector<std::string> components,
-           [[maybe_unused]] const unsigned int &order,
-           [[maybe_unused]] const std::string &variant)
-        : TimeOp(expansionList, components)
-    {
-    }
-
-    // Use for SDC
-    TimeOp(const MultiRegions::ExpListSharedPtr &expansionList,
-           const std::vector<std::string> components,
-           [[maybe_unused]] const unsigned int &order,
-           [[maybe_unused]] const std::string &variant,
-           [[maybe_unused]] const std::vector<TData> &freeParams)
-        : TimeOp(expansionList, components)
-    {
-    }
-
     ~TimeOp() override = default;
 
     /// The creators return a std::unique_ptr to this class, which the
     /// factory converts to the shared_ptr it hands out; their deleter
     /// destroys the operator through this destructor.
     friend struct std::default_delete<TimeOp>;
+
+    // For SDC and GEM: set the order, variant and free parameters and
+    // allocate the workspace. Called once, by Create(), straight after the
+    // operator is constructed.
+    virtual void v_SetScheme(
+        [[maybe_unused]] const unsigned int &order,
+        [[maybe_unused]] const std::string &variant,
+        [[maybe_unused]] const std::vector<TData> &freeParams)
+    {
+    }
 
     // One time step of the scheme.
     virtual void v_Apply(

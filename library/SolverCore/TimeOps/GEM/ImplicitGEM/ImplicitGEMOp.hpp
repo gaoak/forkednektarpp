@@ -59,13 +59,43 @@ public:
 
 protected:
     ImplicitGEMOp(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components,
-                  const unsigned int &order, const std::string &variant)
-        : GEMOp<TData>(expansionList, components, order, variant)
+                  const std::vector<std::string> &components)
+        : GEMOp<TData>(expansionList, components)
     {
     }
 
     ~ImplicitGEMOp() override = default;
+
+    void v_SetScheme(
+        const unsigned int &order, const std::string &variant,
+        [[maybe_unused]] const std::vector<TData> &freeParams) override
+    {
+        this->m_order   = order;
+        this->m_variant = variant;
+
+        unsigned int n =
+            (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
+
+        for (unsigned int m = 0; m < n; ++m)
+        {
+            this->m_T.push_back(LibUtilities::Field<TData, FieldState::Phys>(
+                this->m_blockAttr, this->m_components, 1));
+
+            this->m_T0.push_back(LibUtilities::Field<TData, FieldState::Phys>(
+                this->m_blockAttr, this->m_components, 1));
+        }
+
+        for (unsigned int m = 0; m < this->m_order; ++m)
+        {
+            this->m_solutions.push_back(
+                LibUtilities::Field<TData, FieldState::Phys>(
+                    this->m_blockAttr, this->m_components, 1));
+        }
+
+        this->m_implicits.push_back(
+            LibUtilities::Field<TData, FieldState::Phys>(
+                this->m_blockAttr, this->m_components, 1));
+    }
 };
 
 } // namespace Nektar::SolverCore
