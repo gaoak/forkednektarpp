@@ -57,6 +57,14 @@ public:
     Array<OneD, int> m_BCtoElmMap;
     Array<OneD, int> m_BCtoTraceMap;
 
+    /// Set beta^2 of the Homogeneous1D Fourier mode represented by this
+    /// plane field. ThinConductingWall uses it to add the beta^2 edge mass
+    /// term of the surface stiffness. Zero for plain 2D fields.
+    void SetThinWallHomogeneousBetaSq(const NekDouble betaSq)
+    {
+        m_thinWallHomogeneousBetaSq = betaSq;
+    }
+
     /// Default constructor.
     MULTI_REGIONS_EXPORT DisContField();
 
@@ -163,6 +171,10 @@ public:
     }
 
 protected:
+    /// beta^2 of the Homogeneous1D Fourier mode of this plane field (zero
+    /// for plain 2D fields and the k = 0 plane).
+    NekDouble m_thinWallHomogeneousBetaSq = 0.0;
+
     /// An array which contains the information about the boundary
     /// condition structure definition on the different boundary regions.
     Array<OneD, SpatialDomains::BoundaryConditionShPtr> m_bndConditions;

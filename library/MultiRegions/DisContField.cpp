@@ -4679,6 +4679,8 @@ map<int, RobinBCInfoSharedPtr> DisContField::v_GetRobinBCInfo(void)
                     m_bndConditions[i]->GetUserDefined(), "ThinConductingWall");
                 if (rInfo->m_tangential)
                 {
+                    // beta^2 of this Homogeneous1D plane (0 for plain 2D).
+                    rInfo->m_homogeneousBetaSq = m_thinWallHomogeneousBetaSq;
                     ASSERTL0(GetExp(ElmtID[cnt + e])->GetShapeDimension() == 2,
                              "ThinConductingWall requires 2D elements.");
                     const int offset      = locExpList->GetPhys_Offset(e);

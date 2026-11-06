@@ -26,6 +26,7 @@
 #include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <LibUtilities/BasicUtils/Vmath.hpp>
+#include <MultiRegions/ExpListHomogeneous1D.h>
 #include <limits>
 
 namespace Nektar
@@ -45,21 +46,47 @@ CoupledElectricPotential::CoupledElectricPotential(
 void CoupledElectricPotential::v_InitObject(bool declareFields)
 {
     EquationSystem::v_InitObject(declareFields);
-    ASSERTL0(m_HomogeneousType == eNotHomogeneous &&
+    ASSERTL0((m_HomogeneousType == eNotHomogeneous ||
+              m_HomogeneousType == eHomogeneous1D) &&
                  m_projectionType == MultiRegions::eGalerkin,
-             "CoupledElectricPotential requires a full 2D/3D Continuous mesh.");
+             "CoupledElectricPotential requires a Continuous 2D/3D mesh or a "
+             "3DH1D Fourier extension.");
     ASSERTL0(m_fields.size() == 1 && m_session->GetVariable(0) == "phi",
              "CoupledElectricPotential requires exactly one variable: phi.");
-    m_dimension = m_graph->GetMeshDimension();
-    ASSERTL0(m_dimension == 2 || m_dimension == 3,
-             "CoupledElectricPotential requires a 2D or 3D mesh.");
+    m_evalField = m_fields[0];
+    if (m_HomogeneousType == eHomogeneous1D)
+    {
+        auto homogeneous =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                m_fields[0]);
+        ASSERTL0(homogeneous &&
+                     homogeneous->GetHomogeneousBasis()->GetBasisType() ==
+                         LibUtilities::eFourier,
+                 "3DH1D CoupledElectricPotential requires a Fourier basis.");
+        ASSERTL0(m_graph->GetMeshDimension() == 2,
+                 "3DH1D CoupledElectricPotential requires a 2D cross-section.");
+        m_homogeneous = true;
+        m_evalField   = homogeneous->GetPlane(0);
+        // Keep the electric field in z-collocation (physical) space. Received
+        // velocity coefficients are expanded to z planes before the nonlinear
+        // motional source is formed.
+        m_fields[0]->SetWaveSpace(false);
+        m_dimension = 3;
+    }
+    else
+    {
+        m_dimension = m_graph->GetMeshDimension();
+        ASSERTL0(m_dimension == 2 || m_dimension == 3,
+                 "CoupledElectricPotential requires a 2D or 3D mesh.");
+    }
     ASSERTL0(
-        m_graph->GetSpaceDimension() == m_dimension &&
+        m_graph->GetSpaceDimension() == m_graph->GetMeshDimension() &&
             !m_session->DefinesElement("Nektar/Movement"),
         "CoupledElectricPotential requires a static full-dimensional mesh.");
     const int nq = m_fields[0]->GetTotPoints();
-    m_sigma      = Array<OneD, NekDouble>(nq, 0.0);
-    m_fluid      = Array<OneD, int>(nq, 0);
+    m_nqPlane    = m_evalField->GetTotPoints();
+    m_sigma      = Array<OneD, NekDouble>(m_nqPlane, 0.0);
+    m_fluid      = Array<OneD, int>(m_nqPlane, 0);
 
     // Material regions refer to volume composites, independently of the
     // electrical boundary regions. Interfaces remain internal CG faces.
@@ -90,7 +117,8 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
         {
             for (auto &geometry : entry.second->m_geomVec)
             {
-                ASSERTL0(geometry->GetShapeDim() == m_dimension,
+                ASSERTL0(geometry->GetShapeDim() ==
+                             m_graph->GetMeshDimension(),
                          "Electrical material composites must contain volume "
                          "elements.");
                 ASSERTL0(materials
@@ -102,9 +130,9 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
         }
     }
     int fluidPoints = 0;
-    for (int e = 0; e < m_fields[0]->GetExpSize(); ++e)
+    for (int e = 0; e < m_evalField->GetExpSize(); ++e)
     {
-        auto exp      = m_fields[0]->GetExp(e);
+        auto exp      = m_evalField->GetExp(e);
         auto material = materials.find(exp->GetGeom()->GetGlobalID());
         ASSERTL0(
             material != materials.end(),
@@ -113,7 +141,7 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
         {
             m_fluidElements.push_back(e);
         }
-        int offset = m_fields[0]->GetPhys_Offset(e);
+        int offset = m_evalField->GetPhys_Offset(e);
         for (int q = 0; q < exp->GetTotPoints(); ++q)
         {
             m_sigma[offset + q] = material->second.first;
@@ -125,7 +153,7 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
     ASSERTL0(fluidPoints > 0, "The electrical mesh has no fluid elements.");
     m_varcoeff[StdRegions::eVarCoeffD00] = m_sigma;
     m_varcoeff[StdRegions::eVarCoeffD11] = m_sigma;
-    if (m_dimension == 3)
+    if (!m_homogeneous && m_dimension == 3)
     {
         m_varcoeff[StdRegions::eVarCoeffD22] = m_sigma;
     }
@@ -166,7 +194,7 @@ void CoupledElectricPotential::v_InitObject(bool declareFields)
                  "ADR coefficient coupling requires ROLE=Electric.");
         bool fluidRank =
             m_comm->GetRank() < std::stoi(options.at("FLUIDRANKS"));
-        for (int q = 0; q < nq; ++q)
+        for (int q = 0; q < m_nqPlane; ++q)
             ASSERTL0(
                 (m_fluid[q] != 0) == fluidRank,
                 "Unified ADR partitions must be fluid-only on ranks 0..M-1 "
@@ -305,7 +333,7 @@ void CoupledElectricPotential::v_DoSolve()
 
 void CoupledElectricPotential::BuildFixedRhs()
 {
-    const int nq = m_sigma.size();
+    const int nq = m_fields[0]->GetTotPoints();
     const int nc = m_fields[0]->GetNcoeffs();
     m_fixedRhs   = Array<OneD, NekDouble>(nc, 0.0);
     Array<OneD, NekDouble> product, flux;
@@ -320,7 +348,12 @@ void CoupledElectricPotential::BuildFixedRhs()
             flux    = Array<OneD, NekDouble>(nq);
             product = Array<OneD, NekDouble>(nc);
         }
-        Vmath::Smul(nq, m_electric[d], m_sigma, 1, flux, 1);
+        // m_sigma is per cross-section point; replicate it over the Fourier
+        // planes, whose blocks are contiguous in physical space.
+        for (int q = 0; q < nq; ++q)
+        {
+            flux[q] = m_electric[d] * m_sigma[q % m_nqPlane];
+        }
         m_fields[0]->IProductWRTDerivBase(d, flux, product);
         // HelmSolve negates a coefficient-space RHS. Cache the fixed
         // - integral(sigma E0 . grad(test)); boundary data are applied later.
@@ -332,11 +365,44 @@ void CoupledElectricPotential::SolvePotential()
 {
     const int nc = m_fields[0]->GetNcoeffs();
     Vmath::Vcopy(nc, m_fixedRhs, 1, m_rhs, 1);
-    const bool allFluid = m_fluidElements.size() ==
-                          static_cast<size_t>(m_fields[0]->GetExpSize());
+    const int nElements = m_homogeneous
+                              ? m_evalField->GetExpSize()
+                              : m_fields[0]->GetExpSize();
+    const bool allFluid =
+        m_fluidElements.size() == static_cast<size_t>(nElements);
+    if (m_homogeneous)
+    {
+        // A homogeneous quantity is material-uniform across the Fourier
+        // planes on each rank, and the z derivative must act on the Fourier
+        // modes; only the collection projection is valid.
+        ASSERTL0(allFluid || m_fluidElements.empty(),
+                 "3DH1D coefficient partitions must be fluid-only or "
+                 "solid-only.");
+        if (allFluid)
+        {
+            const int nq = m_fields[0]->GetTotPoints();
+            for (int d = 0; d < m_dimension; ++d)
+            {
+                int j = (d + 1) % 3, k = (d + 2) % 3;
+                for (int q = 0; q < nq; ++q)
+                {
+                    NekDouble uj =
+                        j < m_velocityDimension ? m_received[j][q] : 0.0;
+                    NekDouble uk =
+                        k < m_velocityDimension ? m_received[k][q] : 0.0;
+                    m_flux[q] =
+                        m_sigma[q % m_nqPlane] *
+                        (uj * m_magnetic[k] - uk * m_magnetic[j]);
+                }
+                // Includes the Fourier derivative for d=2.
+                m_fields[0]->IProductWRTDerivBase(d, m_flux, m_product);
+                Vmath::Vsub(nc, m_rhs, 1, m_product, 1, m_rhs, 1);
+            }
+        }
+    }
     // The motional source is element-local and zero on every solid element.
     // Pure solid ranks skip this work, but still enter the global HelmSolve.
-    if (!m_fluidElements.empty())
+    else if (!m_fluidElements.empty())
     {
         for (int d = 0; d < m_dimension; ++d)
         {
@@ -376,9 +442,19 @@ void CoupledElectricPotential::SolvePotential()
     }
     StdRegions::ConstFactorMap factors;
     factors[StdRegions::eFactorLambda] = 0.0;
+    if (m_homogeneous)
+    {
+        // m_rhs is already a Fourier-projected coefficient array; the
+        // homogeneous HelmSolve must not transform it a second time.
+        m_fields[0]->SetWaveSpace(true);
+    }
     m_fields[0]->HelmSolve(m_rhs, m_fields[0]->UpdateCoeffs(), factors,
                            m_varcoeff, StdRegions::NullVarFactorsMap,
                            NullNekDouble1DArray, false);
+    if (m_homogeneous)
+    {
+        m_fields[0]->SetWaveSpace(false);
+    }
     m_fields[0]->BwdTrans(m_fields[0]->GetCoeffs(), m_fields[0]->UpdatePhys());
     m_fields[0]->SetPhysState(true);
 }
@@ -394,7 +470,10 @@ void CoupledElectricPotential::v_ExtraFldOutput(
 {
     // Current is element-local: conductivity and tangential current may jump
     // at material interfaces. Do not apply a continuous mass projection.
-    const int nq = m_sigma.size();
+    const int nq = m_fields[0]->GetTotPoints();
+    // Solid-only coefficient ranks never receive velocities.
+    const bool haveVelocity =
+        m_received.size() != 0 && m_received[0].size() != 0;
     Array<OneD, NekDouble> derivative(nq), current(nq);
     for (int d = 0; d < 3; ++d)
     {
@@ -407,12 +486,17 @@ void CoupledElectricPotential::v_ExtraFldOutput(
         int j = (d + 1) % 3, k = (d + 2) % 3;
         for (int q = 0; q < nq; ++q)
         {
-            NekDouble uj =
-                m_fluid[q] && j < m_velocityDimension ? m_received[j][q] : 0.0;
-            NekDouble uk =
-                m_fluid[q] && k < m_velocityDimension ? m_received[k][q] : 0.0;
-            current[q] = m_sigma[q] * (m_electric[d] + uj * m_magnetic[k] -
-                                       uk * m_magnetic[j] - derivative[q]);
+            const int qp = q % m_nqPlane;
+            NekDouble uj = haveVelocity && m_fluid[qp] &&
+                                   j < m_velocityDimension
+                               ? m_received[j][q]
+                               : 0.0;
+            NekDouble uk = haveVelocity && m_fluid[qp] &&
+                                   k < m_velocityDimension
+                               ? m_received[k][q]
+                               : 0.0;
+            current[q] = m_sigma[qp] * (m_electric[d] + uj * m_magnetic[k] -
+                                        uk * m_magnetic[j] - derivative[q]);
         }
         Array<OneD, NekDouble> coeffs(m_fields[0]->GetNcoeffs());
         m_fields[0]->FwdTransLocalElmt(current, coeffs);
@@ -420,7 +504,20 @@ void CoupledElectricPotential::v_ExtraFldOutput(
         variables.push_back(std::string("J") + "xyz"[d]);
     }
     Array<OneD, NekDouble> conductivity(m_fields[0]->GetNcoeffs());
-    m_fields[0]->FwdTransLocalElmt(m_sigma, conductivity);
+    if (m_homogeneous)
+    {
+        // The conductivity is constant along z; replicate the section.
+        Array<OneD, NekDouble> sigmaFull(nq);
+        for (int q = 0; q < nq; ++q)
+        {
+            sigmaFull[q] = m_sigma[q % m_nqPlane];
+        }
+        m_fields[0]->FwdTransLocalElmt(sigmaFull, conductivity);
+    }
+    else
+    {
+        m_fields[0]->FwdTransLocalElmt(m_sigma, conductivity);
+    }
     fieldcoeffs.push_back(conductivity);
     variables.push_back("sigma");
 }

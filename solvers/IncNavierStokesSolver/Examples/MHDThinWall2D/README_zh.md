@@ -27,7 +27,13 @@ integral_wall WallLength * grad_s(phi)·grad_s(test) ds
 
 与流体内部弱电势方程一起求解。外表面和边缘无电流流出；流体可以向壁内输送电流，再从壁的其他位置流回流体。
 
-首版范围：二维流体网格，或 Homogeneous=1D、HomModesZ=2 的充分发展截面；固定、未使用 Mapping 的网格；每个边界单元上常数、非负的 WallLength。MHD 使用 VALUE=0、外加 E0=0，并假定静止无滑移壁。上下壁可以设置不同系数。暂不支持三维壁面、非零 Fourier 模态、外接电路、接触电阻、独立边缘电极或壁内电动势。薄壁近似要求厚度相对于沿壁电势变化尺度足够小。
+`grad_s` 是壁面上的切向梯度。三维情况下它包含沿 z 的分量，准三维 Fourier 表示中对应每个平面的 `beta^2` 边界质量项；`v_GetRobinBCInfo` 将平面的 `beta^2` 写入 Robin 信息，装配时与切向刚度一起加入全局矩阵。
+
+适用范围：二维流体网格，或 Homogeneous=1D（Fourier 基）的准三维截面，HomModesZ 可取任意值（含非零 Fourier 模态）；固定、未使用 Mapping 的网格；每个边界单元上常数、非负的 WallLength。MHD 使用 VALUE=0、外加 E0=0，并假定静止无滑移壁。上下壁可以设置不同系数。
+
+准三维情况下，壁面切向梯度包含 z 方向导数。对第 k 个 Fourier 平面（波数 beta=2*pi*k/LZ），z 导数在弱形式中贡献 beta^2 的边界质量项，因此切向刚度按平面装配为 `WallLength*(grad_s phi·grad_s psi + beta^2*phi*psi)`；k=0 平面退化为原来的二维形式。
+
+暂不支持在真实三维网格（3D 单元）上施加薄壁、Homogeneous=2D、非 Fourier 的齐次基、外接电路、接触电阻、独立边缘电极或壁内电动势。薄壁近似要求厚度相对于沿壁电势变化尺度足够小。
 
 ## 编译、运行与 Tecplot
 

@@ -73,6 +73,11 @@ private:
     std::vector<int> m_fluidElements;
     Array<OneD, NekDouble> m_fixedRhs, m_rhs, m_flux, m_product;
     StdRegions::VarCoeffMap m_varcoeff;
+    // 3DH1D: the 2D cross-section carries the material layout, while
+    // m_dimension stays 3 because velocity and derivatives include z.
+    MultiRegions::ExpListSharedPtr m_evalField;
+    bool m_homogeneous = false;
+    int m_nqPlane = 0;
     int m_dimension, m_velocityDimension;
 };
 
