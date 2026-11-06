@@ -79,7 +79,7 @@ void PhysGalerkinProject1D(const PointsKey &fpoints0,
         // via MemoryManager<NekMatrix<NekDouble>>::AllocateSharedPtr(
         // numpointsto, numpointsfrom, ...), and PhysGalerkinProject2D/3D's
         // own direction-0 contraction below, which consumes it
-        // untransposed via Blas::Dgemm('N', 'N', tnp0, ..., fnp0, ...).
+        // untransposed via Blas::Gemm('N', 'N', tnp0, ..., fnp0, ...).
         // Transposing here (as before) swaps GetRows()/GetColumns() to
         // [fpoints0 x tpoints0], so the multiply loop
         // (NekMultiplyUnspecializedMatrixType) reads only the first
@@ -118,16 +118,16 @@ void PhysGalerkinProject1D(const PointsKey &fpoints0, const NekDouble *from,
         // and the matching comment in the Array-based overload above), so
         // it is used untransposed here, consistent with how
         // PhysGalerkinProject2D/3D consume GetGalerkinProjection() for
-        // their own direction-0 contraction (Blas::Dgemm('N', 'N', tnp0,
+        // their own direction-0 contraction (Blas::Gemm('N', 'N', tnp0,
         // ..., fnp0, GP0->GetPtr().data(), tnp0, ...) below). The
         // previous 'T' here required `from`/`to` to be
         // tpoints0.GetNumPoints()/fpoints0.GetNumPoints()-sized (the
         // reverse of what this function's own parameters document and
         // every caller assumes), reading and writing out of bounds of
         // the fpoints0/tpoints0-sized buffers actually passed in.
-        Blas::Dgemv('N', tpoints0.GetNumPoints(), fpoints0.GetNumPoints(), 1.0,
-                    GP0->GetPtr().data(), tpoints0.GetNumPoints(), from, 1, 0.0,
-                    to, 1);
+        Blas::Gemv('N', tpoints0.GetNumPoints(), fpoints0.GetNumPoints(), 1.0,
+                   GP0->GetPtr().data(), tpoints0.GetNumPoints(), from, 1, 0.0,
+                   to, 1);
     }
 }
 
@@ -171,8 +171,8 @@ void PhysGalerkinProject2D(const PointsKey &fpoints0, const PointsKey &fpoints1,
     else
     {
         GP1 = PointsManager()[tpoints1]->GetGalerkinProjection(fpoints1);
-        Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0, from, fnp0,
-                    GP1->GetPtr().data(), tnp1, 0.0, wsp.data(), fnp0);
+        Blas::Gemm('N', 'T', fnp0, tnp1, fnp1, 1.0, from, fnp0,
+                   GP1->GetPtr().data(), tnp1, 0.0, wsp.data(), fnp0);
     }
 
     if (fpoints0 == tpoints0)
@@ -182,8 +182,8 @@ void PhysGalerkinProject2D(const PointsKey &fpoints0, const PointsKey &fpoints1,
     else
     {
         GP0 = PointsManager()[tpoints0]->GetGalerkinProjection(fpoints0);
-        Blas::Dgemm('N', 'N', tnp0, tnp1, fnp0, 1.0, GP0->GetPtr().data(), tnp0,
-                    wsp.data(), fnp0, 0.0, to, tnp0);
+        Blas::Gemm('N', 'N', tnp0, tnp1, fnp0, 1.0, GP0->GetPtr().data(), tnp0,
+                   wsp.data(), fnp0, 0.0, to, tnp0);
     }
 }
 
@@ -229,20 +229,20 @@ void PhysGalerkinProject3D(const PointsKey &fpoints0, const PointsKey &fpoints1,
     Array<OneD, NekDouble> wsp2(fnp0 * fnp1 * tnp2);
 
     GP2 = PointsManager()[tpoints2]->GetGalerkinProjection(fpoints2);
-    Blas::Dgemm('N', 'T', fnp0 * fnp1, tnp2, fnp2, 1.0, from, fnp0 * fnp1,
-                GP2->GetPtr().data(), tnp2, 0.0, wsp2.data(), fnp0 * fnp1);
+    Blas::Gemm('N', 'T', fnp0 * fnp1, tnp2, fnp2, 1.0, from, fnp0 * fnp1,
+               GP2->GetPtr().data(), tnp2, 0.0, wsp2.data(), fnp0 * fnp1);
 
     GP1 = PointsManager()[tpoints1]->GetGalerkinProjection(fpoints1);
     for (size_t i = 0; i < tnp2; i++)
     {
-        Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
-                    wsp2.data() + i * fnp0 * fnp1, fnp0, GP1->GetPtr().data(),
-                    tnp1, 0.0, wsp1.data() + i * fnp0 * tnp1, fnp0);
+        Blas::Gemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
+                   wsp2.data() + i * fnp0 * fnp1, fnp0, GP1->GetPtr().data(),
+                   tnp1, 0.0, wsp1.data() + i * fnp0 * tnp1, fnp0);
     }
 
     GP0 = PointsManager()[tpoints0]->GetGalerkinProjection(fpoints0);
-    Blas::Dgemm('N', 'N', tnp0, tnp1 * tnp2, fnp0, 1.0, GP0->GetPtr().data(),
-                tnp0, wsp1.data(), fnp0, 0.0, to, tnp0);
+    Blas::Gemm('N', 'N', tnp0, tnp1 * tnp2, fnp0, 1.0, GP0->GetPtr().data(),
+               tnp0, wsp1.data(), fnp0, 0.0, to, tnp0);
 }
 
 } // namespace Nektar::LibUtilities

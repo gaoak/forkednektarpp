@@ -90,10 +90,10 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &output2,
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) override
     {
-        Blas::Dgemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
-                    1.0, m_mat->GetRawPtr(), m_mat->GetRows(), input.data(),
-                    m_stdExp->GetNcoeffs(), 0.0, output0.data(),
-                    m_stdExp->GetTotPoints());
+        Blas::Gemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
+                   1.0, m_mat->GetRawPtr(), m_mat->GetRows(), input.data(),
+                   m_stdExp->GetNcoeffs(), 0.0, output0.data(),
+                   m_stdExp->GetTotPoints());
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -438,9 +438,9 @@ public:
         else
         {
             // out = B0*in;
-            Blas::Dgemm('N', 'N', m_nquad0, m_numElmt, m_nmodes0, 1.0,
-                        m_base0.data(), m_nquad0, &input[0], m_nmodes0, 0.0,
-                        &output0[0], m_nquad0);
+            Blas::Gemm('N', 'N', m_nquad0, m_numElmt, m_nmodes0, 1.0,
+                       m_base0.data(), m_nquad0, &input[0], m_nmodes0, 0.0,
+                       &output0[0], m_nquad0);
         }
     }
 
@@ -505,17 +505,17 @@ public:
         {
             for (i = 0; i < m_numElmt; ++i)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nmodes1, 1.0,
-                            &input[i * m_nquad0 * m_nmodes1], m_nquad0,
-                            m_base1.data(), m_nquad1, 0.0,
-                            &output0[i * m_nquad0 * m_nquad1], m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nmodes1, 1.0,
+                           &input[i * m_nquad0 * m_nmodes1], m_nquad0,
+                           m_base1.data(), m_nquad1, 0.0,
+                           &output0[i * m_nquad0 * m_nquad1], m_nquad0);
             }
         }
         else if (m_colldir1)
         {
-            Blas::Dgemm('N', 'N', m_nquad0, m_nmodes1 * m_numElmt, m_nmodes0,
-                        1.0, m_base0.data(), m_nquad0, &input[0], m_nmodes0,
-                        0.0, &output0[0], m_nquad0);
+            Blas::Gemm('N', 'N', m_nquad0, m_nmodes1 * m_numElmt, m_nmodes0,
+                       1.0, m_base0.data(), m_nquad0, &input[0], m_nmodes0, 0.0,
+                       &output0[0], m_nquad0);
         }
         else
         {
@@ -523,16 +523,16 @@ public:
 
             // Those two calls correpsond to the operation
             // out = B0*in*Transpose(B1);
-            Blas::Dgemm('N', 'N', m_nquad0, m_nmodes1 * m_numElmt, m_nmodes0,
-                        1.0, m_base0.data(), m_nquad0, &input[0], m_nmodes0,
-                        0.0, &wsp[0], m_nquad0);
+            Blas::Gemm('N', 'N', m_nquad0, m_nmodes1 * m_numElmt, m_nmodes0,
+                       1.0, m_base0.data(), m_nquad0, &input[0], m_nmodes0, 0.0,
+                       &wsp[0], m_nquad0);
 
             for (i = 0; i < m_numElmt; ++i)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nmodes1, 1.0,
-                            &wsp[i * m_nquad0 * m_nmodes1], m_nquad0,
-                            m_base1.data(), m_nquad1, 0.0,
-                            &output0[i * m_nquad0 * m_nquad1], m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nmodes1, 1.0,
+                           &wsp[i * m_nquad0 * m_nmodes1], m_nquad0,
+                           m_base1.data(), m_nquad1, 0.0,
+                           &output0[i * m_nquad0 * m_nquad1], m_nquad0);
             }
         }
     }
@@ -604,10 +604,10 @@ public:
 
         for (i = mode = 0; i < m_nmodes0; ++i)
         {
-            Blas::Dgemm('N', 'N', m_nquad1, m_numElmt, m_nmodes1 - i, 1.0,
-                        m_base1.data() + mode * m_nquad1, m_nquad1,
-                        &input[0] + mode, ncoeffs, 0.0,
-                        &wsp[i * m_nquad1 * m_numElmt], m_nquad1);
+            Blas::Gemm('N', 'N', m_nquad1, m_numElmt, m_nmodes1 - i, 1.0,
+                       m_base1.data() + mode * m_nquad1, m_nquad1,
+                       &input[0] + mode, ncoeffs, 0.0,
+                       &wsp[i * m_nquad1 * m_numElmt], m_nquad1);
             mode += m_nmodes1 - i;
         }
 
@@ -623,9 +623,9 @@ public:
             }
         }
 
-        Blas::Dgemm('N', 'T', m_nquad0, m_nquad1 * m_numElmt, m_nmodes0, 1.0,
-                    m_base0.data(), m_nquad0, &wsp[0], m_nquad1 * m_numElmt,
-                    0.0, &output0[0], m_nquad0);
+        Blas::Gemm('N', 'T', m_nquad0, m_nquad1 * m_numElmt, m_nmodes0, 1.0,
+                   m_base0.data(), m_nquad0, &wsp[0], m_nquad1 * m_numElmt, 0.0,
+                   &output0[0], m_nquad0);
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -708,23 +708,23 @@ public:
             // loop over elements  and do bwd trans wrt c
             for (int n = 0; n < m_numElmt; ++n)
             {
-                Blas::Dgemm('N', 'T', m_nquad2, m_nmodes0 * m_nmodes1,
-                            m_nmodes2, 1.0, m_base2.data(), m_nquad2,
-                            &input[n * totmodes], m_nmodes0 * m_nmodes1, 0.0,
-                            &wsp[n * m_nquad2], m_nquad2 * m_numElmt);
+                Blas::Gemm('N', 'T', m_nquad2, m_nmodes0 * m_nmodes1, m_nmodes2,
+                           1.0, m_base2.data(), m_nquad2, &input[n * totmodes],
+                           m_nmodes0 * m_nmodes1, 0.0, &wsp[n * m_nquad2],
+                           m_nquad2 * m_numElmt);
             }
 
             // trans wrt b
-            Blas::Dgemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt * m_nmodes0,
-                        m_nmodes1, 1.0, m_base1.data(), m_nquad1, wsp.data(),
-                        m_nquad2 * m_numElmt * m_nmodes0, 0.0, wsp2.data(),
-                        m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt * m_nmodes0,
+                       m_nmodes1, 1.0, m_base1.data(), m_nquad1, wsp.data(),
+                       m_nquad2 * m_numElmt * m_nmodes0, 0.0, wsp2.data(),
+                       m_nquad1);
 
             // trans wrt a
-            Blas::Dgemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                        m_nmodes0, 1.0, m_base0.data(), m_nquad0, wsp2.data(),
-                        m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
-                        m_nquad0);
+            Blas::Gemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                       m_nmodes0, 1.0, m_base0.data(), m_nquad0, wsp2.data(),
+                       m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
+                       m_nquad0);
         }
     }
 
@@ -813,10 +813,10 @@ public:
         {
             for (int j = 0; j < m_nmodes1 - i; ++j, ++cnt)
             {
-                Blas::Dgemm('N', 'N', m_nquad2, m_numElmt, m_nmodes2 - i - j,
-                            1.0, m_base2.data() + mode * m_nquad2, m_nquad2,
-                            input.data() + mode1, ncoeffs, 0.0,
-                            tmp.data() + cnt * m_nquad2 * m_numElmt, m_nquad2);
+                Blas::Gemm('N', 'N', m_nquad2, m_numElmt, m_nmodes2 - i - j,
+                           1.0, m_base2.data() + mode * m_nquad2, m_nquad2,
+                           input.data() + mode1, ncoeffs, 0.0,
+                           tmp.data() + cnt * m_nquad2 * m_numElmt, m_nquad2);
                 mode += m_nmodes2 - i - j;
                 mode1 += m_nmodes2 - i - j;
             }
@@ -851,12 +851,12 @@ public:
         mode = 0;
         for (int i = 0; i < m_nmodes0; ++i)
         {
-            Blas::Dgemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt, m_nmodes1 - i,
-                        1.0, m_base1.data() + mode * m_nquad1, m_nquad1,
-                        tmp.data() + mode * m_nquad2 * m_numElmt,
-                        m_nquad2 * m_numElmt, 0.0,
-                        tmp1.data() + i * m_nquad1 * m_nquad2 * m_numElmt,
-                        m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt, m_nmodes1 - i,
+                       1.0, m_base1.data() + mode * m_nquad1, m_nquad1,
+                       tmp.data() + mode * m_nquad2 * m_numElmt,
+                       m_nquad2 * m_numElmt, 0.0,
+                       tmp1.data() + i * m_nquad1 * m_nquad2 * m_numElmt,
+                       m_nquad1);
             mode += m_nmodes1 - i;
         }
 
@@ -888,10 +888,10 @@ public:
         }
 
         // Perform summation over '0' direction
-        Blas::Dgemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nmodes0, 1.0, m_base0.data(), m_nquad0, tmp1.data(),
-                    m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
-                    m_nquad0);
+        Blas::Gemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nmodes0, 1.0, m_base0.data(), m_nquad0, tmp1.data(),
+                   m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
+                   m_nquad0);
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -986,11 +986,11 @@ public:
             cnt = i * m_nquad2 * m_numElmt;
             for (j = 0; j < m_nmodes1; ++j)
             {
-                Blas::Dgemm('N', 'N', m_nquad2, m_numElmt, m_nmodes2 - i, 1.0,
-                            m_base2.data() + mode * m_nquad2, m_nquad2,
-                            input.data() + mode1, totmodes, 0.0,
-                            &wsp[j * m_nquad2 * m_numElmt * m_nmodes0 + cnt],
-                            m_nquad2);
+                Blas::Gemm('N', 'N', m_nquad2, m_numElmt, m_nmodes2 - i, 1.0,
+                           m_base2.data() + mode * m_nquad2, m_nquad2,
+                           input.data() + mode1, totmodes, 0.0,
+                           &wsp[j * m_nquad2 * m_numElmt * m_nmodes0 + cnt],
+                           m_nquad2);
                 mode1 += m_nmodes2 - i;
             }
             mode += m_nmodes2 - i;
@@ -1023,16 +1023,16 @@ public:
         }
 
         // Perform summation over '1' direction
-        Blas::Dgemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt * m_nmodes0,
-                    m_nmodes1, 1.0, m_base1.data(), m_nquad1, wsp.data(),
-                    m_nquad2 * m_numElmt * m_nmodes0, 0.0, wsp2.data(),
-                    m_nquad1);
+        Blas::Gemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt * m_nmodes0,
+                   m_nmodes1, 1.0, m_base1.data(), m_nquad1, wsp.data(),
+                   m_nquad2 * m_numElmt * m_nmodes0, 0.0, wsp2.data(),
+                   m_nquad1);
 
         // Perform summation over '0' direction
-        Blas::Dgemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nmodes0, 1.0, m_base0.data(), m_nquad0, wsp2.data(),
-                    m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
-                    m_nquad0);
+        Blas::Gemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nmodes0, 1.0, m_base0.data(), m_nquad0, wsp2.data(),
+                   m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
+                   m_nquad0);
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -1126,10 +1126,10 @@ public:
             for (j = 0; j < m_nmodes1; ++j, ++cnt)
             {
                 int ijmax = max(i, j);
-                Blas::Dgemm('N', 'N', m_nquad2, m_numElmt, m_nmodes2 - ijmax,
-                            1.0, m_base2.data() + mode * m_nquad2, m_nquad2,
-                            input.data() + mode1, totmodes, 0.0,
-                            wsp.data() + cnt * m_nquad2 * m_numElmt, m_nquad2);
+                Blas::Gemm('N', 'N', m_nquad2, m_numElmt, m_nmodes2 - ijmax,
+                           1.0, m_base2.data() + mode * m_nquad2, m_nquad2,
+                           input.data() + mode1, totmodes, 0.0,
+                           wsp.data() + cnt * m_nquad2 * m_numElmt, m_nquad2);
                 mode += m_nmodes2 - ijmax;
                 mode1 += m_nmodes2 - ijmax;
             }
@@ -1178,20 +1178,20 @@ public:
         mode = 0;
         for (i = 0; i < m_nmodes0; ++i)
         {
-            Blas::Dgemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt, m_nmodes1,
-                        1.0, m_base1.data(), m_nquad1,
-                        wsp.data() + mode * m_nquad2 * m_numElmt,
-                        m_nquad2 * m_numElmt, 0.0,
-                        wsp2.data() + i * m_nquad1 * m_nquad2 * m_numElmt,
-                        m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad1, m_nquad2 * m_numElmt, m_nmodes1, 1.0,
+                       m_base1.data(), m_nquad1,
+                       wsp.data() + mode * m_nquad2 * m_numElmt,
+                       m_nquad2 * m_numElmt, 0.0,
+                       wsp2.data() + i * m_nquad1 * m_nquad2 * m_numElmt,
+                       m_nquad1);
             mode += m_nmodes1;
         }
 
         // Perform summation over '0' direction
-        Blas::Dgemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nmodes0, 1.0, m_base0.data(), m_nquad0, wsp2.data(),
-                    m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
-                    m_nquad0);
+        Blas::Gemm('N', 'T', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nmodes0, 1.0, m_base0.data(), m_nquad0, wsp2.data(),
+                   m_nquad1 * m_nquad2 * m_numElmt, 0.0, output0.data(),
+                   m_nquad0);
     }
 
     void operator()([[maybe_unused]] int dir,

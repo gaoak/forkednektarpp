@@ -5157,19 +5157,19 @@ void DisContField::DeriveRotate(TensorOfArray3D<NekDouble> &Bwd, const int dir,
         // Allocate intermediate matrix R * gradU in **column-major order**
         Array<OneD, NekDouble> R_gradU(9, 0.0);
 
-        // Perform matrix multiplication R * gradU using Blas::Dgemm in
+        // Perform matrix multiplication R * gradU using Blas::Gemm in
         // **column-major order**
-        Blas::Dgemm('N', 'N', 3, 3, 3, 1.0, R.data(), 3, gradU.data(), 3, 0.0,
-                    R_gradU.data(), 3);
+        Blas::Gemm('N', 'N', 3, 3, 3, 1.0, R.data(), 3, gradU.data(), 3, 0.0,
+                   R_gradU.data(), 3);
 
         // Allocate final rotated gradient (R * gradU) * R^T in **column-major
         // order**
         Array<OneD, NekDouble> gradU_rotated(9, 0.0);
 
-        // Perform matrix multiplication (R * gradU) * R^T using Blas::Dgemm in
+        // Perform matrix multiplication (R * gradU) * R^T using Blas::Gemm in
         // **column-major order**
-        Blas::Dgemm('N', 'T', 3, 3, 3, 1.0, R_gradU.data(), 3, R.data(), 3, 0.0,
-                    gradU_rotated.data(), 3);
+        Blas::Gemm('N', 'T', 3, 3, 3, 1.0, R_gradU.data(), 3, R.data(), 3, 0.0,
+                   gradU_rotated.data(), 3);
 
         // Store rotated gradients back in Bwd in **column-major order**
         Bwd[0][1][p] = gradU_rotated[0]; // ∂u_x'/∂x'

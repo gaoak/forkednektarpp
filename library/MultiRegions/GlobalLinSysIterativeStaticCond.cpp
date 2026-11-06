@@ -391,9 +391,9 @@ void GlobalLinSysIterativeStaticCond::v_DoMatrixMultiply(
             for (i = cnt = 0; i < m_denseBlocks.size(); cnt += m_rows[i], ++i)
             {
                 const int rows = m_rows[i];
-                Blas::Dgemv('N', rows, rows, m_scale[i], m_denseBlocks[i], rows,
-                            pInput.data() + cnt, 1, 0.0, pOutput.data() + cnt,
-                            1);
+                Blas::Gemv('N', rows, rows, m_scale[i], m_denseBlocks[i], rows,
+                           pInput.data() + cnt, 1, 0.0, pOutput.data() + cnt,
+                           1);
             }
         }
     }
@@ -420,8 +420,8 @@ void GlobalLinSysIterativeStaticCond::v_DoMatrixMultiply(
             for (i = cnt = 0; i < m_denseBlocks.size(); cnt += m_rows[i], ++i)
             {
                 const int rows = m_rows[i];
-                Blas::Dgemv('N', rows, rows, m_scale[i], m_denseBlocks[i], rows,
-                            m_wsp.data() + cnt, 1, 0.0, tmpout.data() + cnt, 1);
+                Blas::Gemv('N', rows, rows, m_scale[i], m_denseBlocks[i], rows,
+                           m_wsp.data() + cnt, 1, 0.0, tmpout.data() + cnt, 1);
             }
             asmMap->AssembleBnd(tmpout, pOutput);
         }

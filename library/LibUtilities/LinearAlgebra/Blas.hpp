@@ -127,16 +127,6 @@ static inline void Gemv(const char &trans, const int &m, const int &n,
 }
 
 /// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
-/// where A[m x n]
-static inline void Dgemv(const char &trans, const int &m, const int &n,
-                         const double &alpha, const double *a, const int &lda,
-                         const double *x, const int &incx, const double &beta,
-                         double *y, const int &incy)
-{
-    F77NAME(dgemv)(trans, m, n, alpha, a, lda, x, incx, beta, y, incy);
-}
-
-/// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
 /// where A[m x n] is banded
 static inline void Gbmv(const char &trans, const int &m, const int &n,
                         const int &kl, const int &ku, const double &alpha,
@@ -159,17 +149,6 @@ static inline void Gbmv(const char &trans, const int &m, const int &n,
 }
 
 /// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
-/// where A[m x n] is banded
-static inline void Dgbmv(const char &trans, const int &m, const int &n,
-                         const int &kl, const int &ku, const double &alpha,
-                         const double *a, const int &lda, const double *x,
-                         const int &incx, const double &beta, double *y,
-                         const int &incy)
-{
-    F77NAME(dgbmv)(trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy);
-}
-
-/// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
 /// where A[n x n] is symmetric packed
 static inline void Spmv(const char &uplo, const int &n, const double &alpha,
                         const double *a, const double *x, const int &incx,
@@ -185,15 +164,6 @@ static inline void Spmv(const char &uplo, const int &n, const float &alpha,
                         const float &beta, float *y, const int &incy)
 {
     F77NAME(sspmv)(uplo, n, alpha, a, x, incx, beta, y, incy);
-}
-
-/// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
-/// where A[n x n] is symmetric packed
-static inline void Dspmv(const char &uplo, const int &n, const double &alpha,
-                         const double *a, const double *x, const int &incx,
-                         const double &beta, double *y, const int &incy)
-{
-    F77NAME(dspmv)(uplo, n, alpha, a, x, incx, beta, y, incy);
 }
 
 /// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
@@ -216,16 +186,6 @@ static inline void Sbmv(const char &uplo, const int &m, const int &k,
     F77NAME(ssbmv)(uplo, m, k, alpha, a, lda, x, incx, beta, y, incy);
 }
 
-/// \brief BLAS level 2: Matrix vector multiply y = alpha A \e x plus beta \a y
-/// where A[m x m] is symmetric banded
-static inline void Dsbmv(const char &uplo, const int &m, const int &k,
-                         const double &alpha, const double *a, const int &lda,
-                         const double *x, const int &incx, const double &beta,
-                         double *y, const int &incy)
-{
-    F77NAME(dsbmv)(uplo, m, k, alpha, a, lda, x, incx, beta, y, incy);
-}
-
 /// \brief BLAS level 2: Matrix vector multiply x = alpha A \e x where A[n x n]
 static inline void Tpmv(const char &uplo, const char &trans, const char &diag,
                         const int &n, const double *ap, double *x,
@@ -240,14 +200,6 @@ static inline void Tpmv(const char &uplo, const char &trans, const char &diag,
                         const int &incx)
 {
     F77NAME(stpmv)(uplo, trans, diag, n, ap, x, incx);
-}
-
-/// \brief BLAS level 2: Matrix vector multiply x = alpha A \e x where A[n x n]
-static inline void Dtpmv(const char &uplo, const char &trans, const char &diag,
-                         const int &n, const double *ap, double *x,
-                         const int &incx)
-{
-    F77NAME(dtpmv)(uplo, trans, diag, n, ap, x, incx);
 }
 
 /// \brief BLAS level 2: Matrix vector multiply A = alpha*x*y**T + A
@@ -296,29 +248,5 @@ static inline void Gemm(const char &transa, const char &transb, const int &m,
     (transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-/// \brief BLAS level 3: Matrix-matrix multiply C = A x B
-/// where op(A)[m x k], op(B)[k x n], C[m x n]
-/// DGEMM  performs one of the matrix-matrix operations:
-/// C := alpha*op( A )*op( B ) + beta*C,
-static inline void Dgemm(const char &transa, const char &transb, const int &m,
-                         const int &n, const int &k, const double &alpha,
-                         const double *a, const int &lda, const double *b,
-                         const int &ldb, const double &beta, double *c,
-                         const int &ldc)
-{
-    F77NAME(dgemm)
-    (transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-}
-
-// \brief Wrapper to mutliply two (row major) matrices together C =
-// a*A*B + b*C
-static inline void Cdgemm(const int M, const int N, const int K, const double a,
-                          const double *A, [[maybe_unused]] const int ldA,
-                          const double *B, [[maybe_unused]] const int ldB,
-                          const double b, double *C,
-                          [[maybe_unused]] const int ldC)
-{
-    Dgemm('N', 'N', N, M, K, a, B, N, A, K, b, C, N);
-}
 } // namespace Blas
 #endif // NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_BLAS_HPP

@@ -534,9 +534,9 @@ void GlobalLinSysStaticCond::ConstructNextLevelCondensedSystem(
                 // Note: faster to use blas directly
                 if (subMat1rows && subMat2cols)
                 {
-                    Blas::Dgemm('N', 'N', subMat1rows, subMat2cols, subMat2rows,
-                                -1.0, &subMat1[0], subMat1rows, &subMat2[0],
-                                subMat2rows, 1.0, &subMat0[0], subMat0rows);
+                    Blas::Gemm('N', 'N', subMat1rows, subMat2cols, subMat2rows,
+                               -1.0, &subMat1[0], subMat1rows, &subMat2[0],
+                               subMat2rows, 1.0, &subMat0[0], subMat0rows);
                 }
             }
         }

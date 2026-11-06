@@ -531,18 +531,18 @@ void ElUtil::Evaluate()
         std::vector<NekDouble> x1i(nNodes), y1i(nNodes);
         std::vector<NekDouble> x2i(nNodes), y2i(nNodes);
 
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &X[0], 1, 0.0,
-                    &x1i[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
-                    &y1i[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &X[0], 1, 0.0,
-                    &x2i[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
-                    &y2i[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &X[0], 1, 0.0,
+                   &x1i[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
+                   &y1i[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &X[0], 1, 0.0,
+                   &x2i[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
+                   &y2i[0], 1.0);
 
         for (int j = 0; j < nNodes; j++)
         {
@@ -564,33 +564,33 @@ void ElUtil::Evaluate()
         std::vector<NekDouble> x2i2(nNodes), y2i2(nNodes), z2i2(nNodes);
         std::vector<NekDouble> x3i2(nNodes), y3i2(nNodes), z3i2(nNodes);
 
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &X[0], 1, 0.0,
-                    &x1i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
-                    &y1i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &Z[0], 1, 0.0,
-                    &z1i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &X[0], 1, 0.0,
-                    &x2i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
-                    &y2i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &Z[0], 1, 0.0,
-                    &z2i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[2].GetRawPtr(), nNodes, &X[0], 1, 0.0,
-                    &x3i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[2].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
-                    &y3i2[0], 1.0);
-        Blas::Dgemv('N', nNodes, nNodes, 1.0,
-                    m_derivUtil->VdmDStd[2].GetRawPtr(), nNodes, &Z[0], 1, 0.0,
-                    &z3i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &X[0], 1, 0.0,
+                   &x1i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
+                   &y1i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[0].GetRawPtr(), nNodes, &Z[0], 1, 0.0,
+                   &z1i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &X[0], 1, 0.0,
+                   &x2i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
+                   &y2i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[1].GetRawPtr(), nNodes, &Z[0], 1, 0.0,
+                   &z2i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[2].GetRawPtr(), nNodes, &X[0], 1, 0.0,
+                   &x3i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[2].GetRawPtr(), nNodes, &Y[0], 1, 0.0,
+                   &y3i2[0], 1.0);
+        Blas::Gemv('N', nNodes, nNodes, 1.0,
+                   m_derivUtil->VdmDStd[2].GetRawPtr(), nNodes, &Z[0], 1, 0.0,
+                   &z3i2[0], 1.0);
 
         for (int j = 0; j < nNodes; j++)
         {
@@ -711,9 +711,9 @@ void ElUtil::CalcDeriv()
 
     for (int d = 0; d < m_dim; ++d)
     {
-        Blas::Dgemm('N', 'N', pts, m_dim, nNodes, 1.0,
-                    m_derivUtil->VdmD[d].GetRawPtr(), pts, &X[0], nNodes, 0.0,
-                    &deriv[size_t(d) * m_dim * pts], pts);
+        Blas::Gemm('N', 'N', pts, m_dim, nNodes, 1.0,
+                   m_derivUtil->VdmD[d].GetRawPtr(), pts, &X[0], nNodes, 0.0,
+                   &deriv[size_t(d) * m_dim * pts], pts);
     }
 }
 

@@ -108,10 +108,10 @@ public:
             }
         }
 
-        Blas::Dgemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
-                    1.0, m_mat->GetRawPtr(), m_mat->GetRows(), wsp.data(),
-                    m_stdExp->GetTotPoints(), 0.0, output.data(),
-                    m_stdExp->GetNcoeffs());
+        Blas::Gemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
+                   1.0, m_mat->GetRawPtr(), m_mat->GetRows(), wsp.data(),
+                   m_stdExp->GetTotPoints(), 0.0, output.data(),
+                   m_stdExp->GetNcoeffs());
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -508,9 +508,9 @@ public:
             Vmath::Vmul(m_numElmt * m_nquad0, m_jacWStdW, 1, input, 1, wsp, 1);
 
             // out = B0*in;
-            Blas::Dgemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
-                        m_base0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
-                        &output[0], m_nmodes0);
+            Blas::Gemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
+                       m_base0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
+                       &output[0], m_nmodes0);
         }
     }
 

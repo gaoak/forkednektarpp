@@ -1206,9 +1206,9 @@ void CoupledLinearNS::SetUpCoupledMatrix(
             // perform (*Ah) = (*Ah) - (*B)*(*C) but since size of
             // Ah is larger than (*B)*(*C) easier to call blas
             // directly
-            Blas::Dgemm('N', 'T', B->GetRows(), C->GetRows(), B->GetColumns(),
-                        -1.0, B->GetRawPtr(), B->GetRows(), C->GetRawPtr(),
-                        C->GetRows(), 1.0, Ah->GetRawPtr(), Ah->GetRows());
+            Blas::Gemm('N', 'T', B->GetRows(), C->GetRows(), B->GetColumns(),
+                       -1.0, B->GetRawPtr(), B->GetRows(), C->GetRawPtr(),
+                       C->GetRows(), 1.0, Ah->GetRawPtr(), Ah->GetRows());
         }
 
         mat.m_BCinv->SetBlock(
@@ -1329,9 +1329,9 @@ void CoupledLinearNS::SetUpCoupledMatrix(
         Dh->Invert();
         (*Bh) = (*Bh) * (*Dh);
         //(*Ah) = (*Ah) - (*Bh)*(*Ch);
-        Blas::Dgemm('N', 'N', Bh->GetRows(), Ch->GetColumns(), Bh->GetColumns(),
-                    -1.0, Bh->GetRawPtr(), Bh->GetRows(), Ch->GetRawPtr(),
-                    Ch->GetRows(), 1.0, Ah->GetRawPtr(), Ah->GetRows());
+        Blas::Gemm('N', 'N', Bh->GetRows(), Ch->GetColumns(), Bh->GetColumns(),
+                   -1.0, Bh->GetRawPtr(), Bh->GetRows(), Ch->GetRawPtr(),
+                   Ch->GetRows(), 1.0, Ah->GetRawPtr(), Ah->GetRows());
 
         // Set matrices for later inversion. Probably do not need to be
         // attached to class

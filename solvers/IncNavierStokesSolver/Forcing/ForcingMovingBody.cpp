@@ -608,11 +608,11 @@ void ForcingMovingBody::Newmark_betaSolver(
 
         tmp2[0] = fft_o[0][i];
 
-        Blas::Dgemv('N', nrows, nrows, 1.0, &(m_CoeffMat_B[i]->GetPtr())[0],
-                    nrows, &tmp0[0], 1, 0.0, &tmp1[0], 1);
-        Blas::Dgemv('N', nrows, nrows, 1.0 / m_structrho,
-                    &(m_CoeffMat_A[i]->GetPtr())[0], nrows, &tmp2[0], 1, 1.0,
-                    &tmp1[0], 1);
+        Blas::Gemv('N', nrows, nrows, 1.0, &(m_CoeffMat_B[i]->GetPtr())[0],
+                   nrows, &tmp0[0], 1, 0.0, &tmp1[0], 1);
+        Blas::Gemv('N', nrows, nrows, 1.0 / m_structrho,
+                   &(m_CoeffMat_A[i]->GetPtr())[0], nrows, &tmp2[0], 1, 1.0,
+                   &tmp1[0], 1);
 
         for (size_t var = 0; var < 3; var++)
         {

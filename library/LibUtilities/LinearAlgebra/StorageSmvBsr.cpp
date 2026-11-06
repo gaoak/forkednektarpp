@@ -563,8 +563,8 @@ void StorageSmvBsr<DataType>::Multiply_generic(const int mb, const double *val,
         int je = bpntre[i];
         for (int j = jb; j != je; j++)
         {
-            Blas::Dgemv('N', lb, lb, 1.0, pval, lb, &b[bindx[j] * lb], 1, 1.0,
-                        pc, 1);
+            Blas::Gemv('N', lb, lb, 1.0, pval, lb, &b[bindx[j] * lb], 1, 1.0,
+                       pc, 1);
             pval += mm;
         }
         pc += lb;
