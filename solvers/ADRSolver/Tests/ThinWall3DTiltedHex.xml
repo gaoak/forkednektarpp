@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="phi" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="Laplace" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GlobalSysSoln" VALUE="DirectStaticCond" />
+        </SOLVERINFO>
+        <PARAMETERS />
+        <VARIABLES>
+            <V ID="0">phi</V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0">C[10]</B>
+            <B ID="1">C[11]</B>
+            <B ID="2">C[12]</B>
+            <B ID="3">C[13]</B>
+            <B ID="4">C[14]</B>
+            <B ID="5">C[15]</B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="phi" VALUE="(0.6*(x-0.2)+0.48*(y+0.1)-0.64*(z-0.3))^2+(0.8*(y+0.1)+0.6*(z-0.3))^2-2*(0.8*(x-0.2)-0.36*(y+0.1)+0.48*(z-0.3))^2" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="phi" VALUE="(0.6*(x-0.2)+0.48*(y+0.1)-0.64*(z-0.3))^2+(0.8*(y+0.1)+0.6*(z-0.3))^2-2*(0.8*(x-0.2)-0.36*(y+0.1)+0.48*(z-0.3))^2" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="phi" VALUE="(0.6*(x-0.2)+0.48*(y+0.1)-0.64*(z-0.3))^2+(0.8*(y+0.1)+0.6*(z-0.3))^2-2*(0.8*(x-0.2)-0.36*(y+0.1)+0.48*(z-0.3))^2" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="phi" VALUE="(0.6*(x-0.2)+0.48*(y+0.1)-0.64*(z-0.3))^2+(0.8*(y+0.1)+0.6*(z-0.3))^2-2*(0.8*(x-0.2)-0.36*(y+0.1)+0.48*(z-0.3))^2" />
+            </REGION>
+            <REGION REF="4">
+                <R VAR="phi" VALUE="-2" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="5">
+                <R VAR="phi" VALUE="-4" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="phi" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="phi" VALUE="(0.6*(x-0.2)+0.48*(y+0.1)-0.64*(z-0.3))^2+(0.8*(y+0.1)+0.6*(z-0.3))^2-2*(0.8*(x-0.2)-0.36*(y+0.1)+0.48*(z-0.3))^2" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

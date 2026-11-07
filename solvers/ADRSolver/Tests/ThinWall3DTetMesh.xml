@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <GEOMETRY DIM="3" SPACE="3">
+        <VERTEX>
+            <V ID="0">-0.9000000000000001 -0.78 -0.46</V>
+            <V ID="1">-0.3 -0.3 -1.1</V>
+            <V ID="2">-0.9000000000000001 0.8200000000000001 0.74</V>
+            <V ID="3">0.7 -1.5 0.5</V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0">0 1</E>
+            <E ID="1">1 2</E>
+            <E ID="2">0 2</E>
+            <E ID="3">0 3</E>
+            <E ID="4">1 3</E>
+            <E ID="5">2 3</E>
+        </EDGE>
+        <FACE>
+            <T ID="0">0 1 2</T>
+            <T ID="1">0 4 3</T>
+            <T ID="2">1 5 4</T>
+            <T ID="3">2 5 3</T>
+        </FACE>
+        <ELEMENT>
+            <A ID="0">0 1 2 3 </A>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0">A[0]</C>
+            <C ID="10">F[0]</C>
+            <C ID="11">F[1]</C>
+            <C ID="12">F[2]</C>
+            <C ID="13">F[3]</C>
+        </COMPOSITE>
+        <DOMAIN>C[0]</DOMAIN>
+    </GEOMETRY>
+</NEKTAR>

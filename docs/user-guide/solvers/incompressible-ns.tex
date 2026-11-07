@@ -2607,12 +2607,17 @@ vertices use ordinary CG continuity and current balance. The additive
 constant of potential is still undetermined and the usual singular-system
 reference treatment is retained.
 
-This initial implementation supports two-dimensional elements, including a
-fully developed \inltt{Homogeneous=1D}, \inltt{HomModesZ=2} calculation. It
+The implementation supports full two- and three-dimensional meshes, and
+\inltt{Homogeneous=1D} Fourier calculations. For a 3D volume, the boundary
+operator is the Laplace--Beltrami stiffness on each triangular or quadrilateral
+face, using its physical surface metric. Hexahedral and tetrahedral fixtures
+verify this operator and the full-system Dirichlet corrections. It
 assumes stationary no-slip walls, no imposed electric field, and no Mapping
-or mesh movement. General three-dimensional wall surfaces, nonzero streamwise
-Fourier modes, edge electrodes and contact resistances are outside this
-implementation. The thin-wall approximation requires wall thickness to be
+or mesh movement. Edge electrodes and contact resistances are outside this implementation.
+Adjacent thin faces sharing a mesh edge are electrically connected through CG
+assembly; exposed sheet edges have zero outgoing sheet current as the natural
+condition. The example \inltt{MHDThinWall3D} uses a full 3D duct with a periodic
+streamwise boundary and only the internal IncNS potential solver. The thin-wall approximation requires wall thickness to be
 small relative to the tangential variation scale of potential. The example
 \inltt{MHDThinWall2D} includes input files, MPI launch and Tecplot export.
 

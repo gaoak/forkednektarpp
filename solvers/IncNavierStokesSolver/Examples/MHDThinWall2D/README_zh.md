@@ -33,7 +33,7 @@ integral_wall WallLength * grad_s(phi)·grad_s(test) ds
 
 准三维情况下，壁面切向梯度包含 z 方向导数。对第 k 个 Fourier 平面（波数 beta=2*pi*k/LZ），z 导数在弱形式中贡献 beta^2 的边界质量项，因此切向刚度按平面装配为 `WallLength*(grad_s phi·grad_s psi + beta^2*phi*psi)`；k=0 平面退化为原来的二维形式。
 
-暂不支持在真实三维网格（3D 单元）上施加薄壁、Homogeneous=2D、非 Fourier 的齐次基、外接电路、接触电阻、独立边缘电极或壁内电动势。薄壁近似要求厚度相对于沿壁电势变化尺度足够小。
+完整三维网格也已支持三角形及四边形边界面的表面刚度，示例见 [MHDThinWall3D](../MHDThinWall3D/README_zh.md)。暂不支持 Homogeneous=2D、非 Fourier 的齐次基、外接电路、接触电阻、独立边缘电极或壁内电动势。薄壁近似要求厚度相对于沿壁电势变化尺度足够小。
 
 ## 编译、运行与 Tecplot
 

@@ -2055,7 +2055,8 @@ void Expansion3D::v_AddRobinMassMatrix(
     DNekMatSharedPtr &inoutmat, const bool tangential,
     [[maybe_unused]] const NekDouble betaSq)
 {
-    ASSERTL0(!tangential, "ThinConductingWall currently requires 2D elements.");
+    ASSERTL0(!tangential || betaSq == 0.0,
+             "Full 3D thin walls must not carry a homogeneous wavenumber.");
     ASSERTL1(IsBoundaryInteriorExpansion(),
              "Not set up for non boundary-interior expansions");
     ASSERTL1(inoutmat->GetRows() == inoutmat->GetColumns(),
@@ -2070,12 +2071,16 @@ void Expansion3D::v_AddRobinMassMatrix(
     Array<OneD, int> sign;
 
     StdRegions::VarCoeffMap varcoeffs;
-    varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    if (!tangential)
+    {
+        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    }
 
     LibUtilities::ShapeType shapeType = faceExp->DetShapeType();
 
-    LocalRegions::MatrixKey mkey(StdRegions::eMass, shapeType, *faceExp,
-                                 StdRegions::NullConstFactorMap, varcoeffs);
+    LocalRegions::MatrixKey mkey(
+        tangential ? StdRegions::eLaplacian : StdRegions::eMass, shapeType,
+        *faceExp, StdRegions::NullConstFactorMap, varcoeffs);
 
     DNekScalMat &facemat = *faceExp->GetLocMatrix(mkey);
 
@@ -2201,8 +2206,49 @@ void Expansion3D::v_AddRobinMassMatrix(
         for (j = 0; j < order_f; ++j)
         {
             id2 = map[j];
-            (*inoutmat)(id1, id2) += facemat(i, j) * sign[i] * sign[j];
+            (*inoutmat)(id1, id2) += facemat(i, j) * sign[i] * sign[j] *
+                                     (tangential ? primCoeffs[0] : 1.0);
         }
+    }
+}
+
+/** Apply the same face operator used by assembly to a coefficient vector.
+ * This is needed for full-system Dirichlet elimination and iterative products.
+ * The face Laplacian uses the embedded surface metric (Laplace--Beltrami),
+ * including physical derivatives in all three Cartesian directions.
+ */
+void Expansion3D::v_AddRobinTraceContribution(
+    const int face, const Array<OneD, const NekDouble> &primCoeffs,
+    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+    const bool tangential, const NekDouble betaSq)
+{
+    ASSERTL0(!tangential || betaSq == 0.0,
+             "Full 3D thin walls must not carry a homogeneous wavenumber.");
+    auto faceExp = m_traceExp[face].lock();
+    StdRegions::VarCoeffMap varcoeffs;
+    if (!tangential)
+    {
+        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    }
+    LocalRegions::MatrixKey key(tangential ? StdRegions::eLaplacian
+                                           : StdRegions::eMass,
+                                faceExp->DetShapeType(), *faceExp,
+                                StdRegions::NullConstFactorMap, varcoeffs);
+    auto matrix = faceExp->GetLocMatrix(key);
+    Array<OneD, unsigned int> map;
+    Array<OneD, int> sign;
+    GetTraceToElementMap(face, map, sign, GetTraceOrient(face));
+    const int nc = faceExp->GetNcoeffs();
+    NekVector<NekDouble> trace(nc);
+    for (int c = 0; c < nc; ++c)
+    {
+        trace[c] = incoeffs[map[c]] * sign[c];
+    }
+    trace                 = *matrix * trace;
+    const NekDouble scale = tangential ? primCoeffs[0] : 1.0;
+    for (int c = 0; c < nc; ++c)
+    {
+        coeffs[map[c]] += scale * trace[c] * sign[c];
     }
 }
 

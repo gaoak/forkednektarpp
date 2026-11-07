@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="9" FIELDS="phi" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="Poisson" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GlobalSysSoln" VALUE="DirectStaticCond" />
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> SingularVertex = 0 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">phi</V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0">C[10]</B>
+            <B ID="1">C[11]</B>
+            <B ID="2">C[12]</B>
+            <B ID="3">C[13]</B>
+            <B ID="4">C[14]</B>
+            <B ID="5">C[15]</B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <R VAR="phi" VALUE="PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="1">
+                <R VAR="phi" VALUE="PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="2">
+                <R VAR="phi" VALUE="PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="3">
+                <R VAR="phi" VALUE="PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="4">
+                <R VAR="phi" VALUE="PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="5">
+                <R VAR="phi" VALUE="PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="phi" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="phi" VALUE="cos(PI*x)*cos(PI*y)*cos(PI*z)-1" />
+        </FUNCTION>
+        <FUNCTION NAME="Forcing">
+            <E VAR="phi" VALUE="-3*PI*PI*cos(PI*x)*cos(PI*y)*cos(PI*z)" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

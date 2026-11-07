@@ -4681,8 +4681,10 @@ map<int, RobinBCInfoSharedPtr> DisContField::v_GetRobinBCInfo(void)
                 {
                     // beta^2 of this Homogeneous1D plane (0 for plain 2D).
                     rInfo->m_homogeneousBetaSq = m_thinWallHomogeneousBetaSq;
-                    ASSERTL0(GetExp(ElmtID[cnt + e])->GetShapeDimension() == 2,
-                             "ThinConductingWall requires 2D elements.");
+                    const int dim =
+                        GetExp(ElmtID[cnt + e])->GetShapeDimension();
+                    ASSERTL0(dim == 2 || dim == 3,
+                             "ThinConductingWall requires 2D or 3D elements.");
                     const int offset      = locExpList->GetPhys_Offset(e);
                     const NekDouble value = coeffphys[offset];
                     ASSERTL0(
@@ -4694,7 +4696,7 @@ map<int, RobinBCInfoSharedPtr> DisContField::v_GetRobinBCInfo(void)
                         ASSERTL0(std::abs(coeffphys[offset + q] - value) <
                                      1e-12 * std::max(1.0, value),
                                  "Thin wall PRIMCOEFF must be constant on each "
-                                 "edge.");
+                                 "boundary element.");
                     }
                 }
 
