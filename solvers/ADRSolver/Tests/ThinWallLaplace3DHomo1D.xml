@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="10" FIELDS="phi" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="Laplace" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GlobalSysSoln" VALUE="DirectStaticCond" />
+            <I PROPERTY="Homogeneous" VALUE="1D" />
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> HomModesZ = 4 </P>
+            <P> LZ        = 2*PI </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">phi</V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0">C[4]</B>
+            <B ID="1">C[5]</B>
+            <B ID="2">C[2,3]</B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <!-- Exact solution phi = cosh(beta*y)*cos(beta*z), beta=2*pi/LZ,
+                 which is harmonic in 3D. On the thin walls at y=0 and y=1
+                 the surface relation nabla_n phi - lambda*(d_xx + d_zz) phi
+                 = VALUE gives the values below (lambda = PRIMCOEFF). -->
+            <REGION REF="0">
+                <R VAR="phi" USERDEFINEDTYPE="ThinConductingWall"
+                   VALUE="0.5*(2*PI/LZ)^2*cos(2*PI*z/LZ)"
+                   PRIMCOEFF="0.5" />
+            </REGION>
+            <REGION REF="1">
+                <R VAR="phi" USERDEFINEDTYPE="ThinConductingWall"
+                   VALUE="(2*PI/LZ)*sinh(2*PI/LZ)*cos(2*PI*z/LZ) + 0.5*(2*PI/LZ)^2*cosh(2*PI/LZ)*cos(2*PI*z/LZ)"
+                   PRIMCOEFF="0.5" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="phi" VALUE="cosh(2*PI*y/LZ)*cos(2*PI*z/LZ)" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="phi" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="phi" VALUE="cosh(2*PI*y/LZ)*cos(2*PI*z/LZ)" />
+        </FUNCTION>
+    </CONDITIONS>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX>
+            <V ID="0"> 0.0 0.0 0.0 </V>
+            <V ID="1"> 0.5 0.0 0.0 </V>
+            <V ID="2"> 1.0 0.0 0.0 </V>
+            <V ID="3"> 0.0 0.5 0.0 </V>
+            <V ID="4"> 0.5 0.5 0.0 </V>
+            <V ID="5"> 1.0 0.5 0.0 </V>
+            <V ID="6"> 0.0 1.0 0.0 </V>
+            <V ID="7"> 0.5 1.0 0.0 </V>
+            <V ID="8"> 1.0 1.0 0.0 </V>
+        </VERTEX>
+        <EDGE>
+            <E ID="0"> 0 1 </E>
+            <E ID="1"> 1 2 </E>
+            <E ID="2"> 0 3 </E>
+            <E ID="3"> 1 4 </E>
+            <E ID="4"> 2 5 </E>
+            <E ID="5"> 3 4 </E>
+            <E ID="6"> 4 5 </E>
+            <E ID="7"> 3 6 </E>
+            <E ID="8"> 4 7 </E>
+            <E ID="9"> 5 8 </E>
+            <E ID="10"> 6 7 </E>
+            <E ID="11"> 7 8 </E>
+        </EDGE>
+        <ELEMENT>
+            <Q ID="0"> 0 3 5 2 </Q>
+            <Q ID="1"> 1 4 6 3 </Q>
+            <Q ID="2"> 5 8 10 7 </Q>
+            <Q ID="3"> 6 9 11 8 </Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> Q[0-3] </C>
+            <C ID="1"> E[0,1,10,11] </C>
+            <C ID="2"> E[2,7] </C>
+            <C ID="3"> E[4,9] </C>
+            <C ID="4">E[0,1]</C>
+            <C ID="5">E[10,11]</C>
+        </COMPOSITE>
+        <DOMAIN> C[0] </DOMAIN>
+    </GEOMETRY>
+</NEKTAR>

@@ -514,7 +514,8 @@ void Expansion1D::AddHDGHelmholtzTraceTerms(
 
 void Expansion1D::v_AddRobinMassMatrix(
     const int vert, const Array<OneD, const NekDouble> &primCoeffs,
-    DNekMatSharedPtr &inoutmat, const bool tangential)
+    DNekMatSharedPtr &inoutmat, const bool tangential,
+    [[maybe_unused]] const NekDouble betaSq)
 {
     ASSERTL0(!tangential, "ThinConductingWall currently requires 2D elements.");
     ASSERTL0(IsBoundaryInteriorExpansion(),
@@ -572,7 +573,7 @@ void Expansion1D::v_AddRobinMassMatrix(
 void Expansion1D::v_AddRobinTraceContribution(
     const int vert, const Array<OneD, const NekDouble> &primCoeffs,
     const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
-    const bool tangential)
+    const bool tangential, [[maybe_unused]] const NekDouble betaSq)
 {
     ASSERTL0(!tangential, "ThinConductingWall currently requires 2D elements.");
     ASSERTL1(IsBoundaryInteriorExpansion(),

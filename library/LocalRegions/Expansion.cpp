@@ -1153,7 +1153,8 @@ void Expansion::v_SetUpPhysNormals([[maybe_unused]] const int edge)
 void Expansion::v_AddRobinMassMatrix(
     [[maybe_unused]] const int trace,
     [[maybe_unused]] const Array<OneD, const NekDouble> &primCoeffs,
-    [[maybe_unused]] DNekMatSharedPtr &inoutmat, const bool tangential)
+    [[maybe_unused]] DNekMatSharedPtr &inoutmat, const bool tangential,
+    [[maybe_unused]] const NekDouble betaSq)
 {
     NEKERROR(ErrorUtil::efatal, "This function is not valid for this class");
 }
@@ -1162,7 +1163,8 @@ void Expansion::v_AddRobinTraceContribution(
     [[maybe_unused]] const int traceid,
     [[maybe_unused]] const Array<OneD, const NekDouble> &primCoeffs,
     [[maybe_unused]] const Array<OneD, NekDouble> &incoeffs,
-    [[maybe_unused]] Array<OneD, NekDouble> &coeffs, const bool tangential)
+    [[maybe_unused]] Array<OneD, NekDouble> &coeffs, const bool tangential,
+    [[maybe_unused]] const NekDouble betaSq)
 {
     NEKERROR(ErrorUtil::efatal, "This function is not valid for this class");
 }

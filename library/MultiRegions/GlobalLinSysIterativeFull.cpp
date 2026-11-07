@@ -147,7 +147,7 @@ void GlobalLinSysIterativeFull::v_Solve(
                     vExp->AddRobinTraceContribution(
                         rBC->m_robinID, rBC->m_robinPrimitiveCoeffs,
                         pLocOutput + offset, rhsloc = rhs + offset,
-                        rBC->m_tangential);
+                        rBC->m_tangential, rBC->m_homogeneousBetaSq);
                 }
             }
             Vmath::Vsub(nLocDofs, pLocInput, 1, rhs, 1, rhs, 1);
@@ -227,7 +227,8 @@ void GlobalLinSysIterativeFull::v_DoMatrixMultiply(
         {
             vExp->AddRobinTraceContribution(
                 rBC->m_robinID, rBC->m_robinPrimitiveCoeffs, InputLoc + offset,
-                tmp = OutputLoc + offset, rBC->m_tangential);
+                tmp = OutputLoc + offset, rBC->m_tangential,
+                rBC->m_homogeneousBetaSq);
         }
     }
 

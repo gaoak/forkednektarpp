@@ -31,16 +31,17 @@ CouplingCoefficients::CouplingCoefficients(MultiRegions::ExpListSharedPtr field)
         std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(field);
     if (homogeneous)
     {
-        ASSERTL0(
-            homogeneous->GetHomogeneousBasis()->GetBasisType() ==
-                    LibUtilities::eFourier &&
-                homogeneous->GetHomogeneousBasis()->GetNumModes() == 2 &&
-                field->GetZIDs().size() == 2 && field->GetZIDs()[0] == 0 &&
-                field->GetComm()->GetColumnComm()->GetSize() == 1,
-            "Coefficient MHD currently supports only the fully developed "
-            "HomModesZ=2 zero mode, with no homogeneous-direction MPI split.");
+        ASSERTL0(homogeneous->GetHomogeneousBasis()->GetBasisType() ==
+                     LibUtilities::eFourier &&
+                     field->GetComm()->GetColumnComm()->GetSize() == 1,
+                 "Coefficient MHD requires a Fourier Homogeneous1D field with "
+                 "no homogeneous-direction MPI split.");
         m_homogeneousField = field;
         m_evalField        = homogeneous->GetPlane(0);
+        m_homogeneous      = true;
+        m_numPlanes        = field->GetZIDs().size();
+        ASSERTL0(m_numPlanes > 0,
+                 "Homogeneous coefficient field has no planes.");
     }
 
     m_config["ROLE"]       = "";
@@ -50,6 +51,10 @@ CouplingCoefficients::CouplingCoefficients(MultiRegions::ExpListSharedPtr field)
 
 std::vector<NekDouble> CouplingCoefficients::BuildLayout()
 {
+    // PointGeom::GetCoords leaves coordinates above the mesh dimension
+    // untouched.  For a 2D section the z entries would therefore compare
+    // uninitialised values between the two applications.
+    const int coordim = m_evalField->GetGraph()->GetMeshDimension();
     std::vector<int> elements(m_evalField->GetExpSize());
     std::iota(elements.begin(), elements.end(), 0);
     std::sort(elements.begin(), elements.end(), [&](int a, int b) {
@@ -63,6 +68,17 @@ std::vector<NekDouble> CouplingCoefficients::BuildLayout()
         static_cast<NekDouble>(elements.size()),
         static_cast<NekDouble>(m_evalField->GetNcoeffs()),
         static_cast<NekDouble>(m_velocityDimension)};
+    if (m_homogeneous)
+    {
+        auto homogeneous =
+            std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(
+                m_homogeneousField);
+        layout.insert(layout.end(),
+                      {static_cast<NekDouble>(m_numPlanes),
+                       static_cast<NekDouble>(
+                           homogeneous->GetHomogeneousBasis()->GetNumModes()),
+                       static_cast<NekDouble>(m_homogeneousField->GetHomoLen())});
+    }
     for (int e : elements)
     {
         auto exp  = m_evalField->GetExp(e);
@@ -84,18 +100,26 @@ std::vector<NekDouble> CouplingCoefficients::BuildLayout()
         layout.push_back(geom->GetNumVerts());
         for (int v = 0; v < geom->GetNumVerts(); ++v)
         {
-            NekDouble vx, vy, vz;
+            NekDouble vx = 0.0, vy = 0.0, vz = 0.0;
             geom->GetVertex(v)->GetCoords(vx, vy, vz);
-            layout.insert(layout.end(), {static_cast<NekDouble>(
-                                             geom->GetVertex(v)->GetGlobalID()),
-                                         vx, vy, vz});
+            layout.insert(layout.end(),
+                          {static_cast<NekDouble>(
+                               geom->GetVertex(v)->GetGlobalID()),
+                           vx});
+            if (coordim > 1)
+                layout.push_back(vy);
+            if (coordim > 2)
+                layout.push_back(vz);
         }
         layout.push_back(exp->GetTotPoints());
         int offset = m_evalField->GetPhys_Offset(e);
         for (int q = 0; q < exp->GetTotPoints(); ++q)
         {
-            layout.insert(layout.end(),
-                          {x[offset + q], y[offset + q], z[offset + q]});
+            layout.push_back(x[offset + q]);
+            if (coordim > 1)
+                layout.push_back(y[offset + q]);
+            if (coordim > 2)
+                layout.push_back(z[offset + q]);
         }
         for (int c = 0; c < exp->GetNcoeffs(); ++c)
         {
@@ -194,7 +218,10 @@ void CouplingCoefficients::v_Init()
                          1e-12 * std::max({1.0, std::abs(layout[i]),
                                            std::abs(other[i])});
         }
-        m_coeffs = Array<OneD, NekDouble>(m_evalField->GetNcoeffs(), 0.0);
+        m_coeffs = Array<OneD, NekDouble>(
+            m_homogeneous ? m_homogeneousField->GetNcoeffs()
+                          : m_evalField->GetNcoeffs(),
+            0.0);
     }
     MPI_Allreduce(MPI_IN_PLACE, &valid, 1, MPI_INT, MPI_MIN, m_local);
     ASSERTL0(
@@ -251,36 +278,34 @@ void CouplingCoefficients::v_Send(
         return;
     }
     const int nc = m_indices.size();
+    const int nPlanes = m_homogeneous ? m_numPlanes : 1;
     std::vector<NekDouble> values(static_cast<size_t>(m_velocityDimension) *
-                                  nc);
+                                  nPlanes * nc);
     m_stop = fields[map[m_velocityDimension + 1]][0] > 0.0 ? 1 : -1;
     for (int d = 0; d < m_velocityDimension; ++d)
     {
-        if (m_homogeneousField && m_stop < 0)
+        // Shutdown reuses the last stage arrays, which are then in physical
+        // space; during time integration the fluid fields are in wave space.
+        // FwdTransLocalElmt follows the field's own wave-space flag, so both
+        // representations produce the same Fourier coefficients.
+        if (m_homogeneous)
         {
-            int nq = m_evalField->GetTotPoints();
-            ASSERTL0(fields[map[d]].size() == 2 * nq,
-                     "Invalid fully developed velocity layout.");
-            NekDouble error = 0.0, scale = 1.0;
-            for (int q = 0; q < nq; ++q)
-            {
-                NekDouble expected = m_homogeneousField->GetWaveSpace()
-                                         ? 0.0
-                                         : fields[map[d]][q];
-                error              = std::max(error,
-                                              std::abs(fields[map[d]][nq + q] - expected));
-                scale = std::max(scale, std::abs(fields[map[d]][q]));
-            }
-            ASSERTL0(error <= 1e-10 * scale,
-                     "Coupled cross-section MHD requires z-independent flow.");
+            ASSERTL0(fields[map[d]].size() ==
+                         m_homogeneousField->GetTotPoints(),
+                     "Invalid homogeneous velocity layout.");
+            m_homogeneousField->FwdTransLocalElmt(fields[map[d]], m_coeffs);
         }
-        // Shutdown reuses the last stage arrays (the first zero-mode plane
-        // stays valid even if output has changed the field's wave-space flag).
-        // RHS stage velocities are physical arrays; coefficients stored in
-        // the flow fields may belong to a different time-integration stage.
-        m_evalField->FwdTransLocalElmt(fields[map[d]], m_coeffs);
-        for (int c = 0; c < nc; ++c)
-            values[d * nc + c] = m_coeffs[m_indices[c]];
+        else
+        {
+            m_evalField->FwdTransLocalElmt(fields[map[d]], m_coeffs);
+        }
+        for (int p = 0; p < nPlanes; ++p)
+        {
+            const int plane = p * nc;
+            const int out   = (d * nPlanes + p) * nc;
+            for (int c = 0; c < nc; ++c)
+                values[out + c] = m_coeffs[plane + m_indices[c]];
+        }
     }
     SendPacket(step, time, m_stop, values);
 }
@@ -297,16 +322,36 @@ void CouplingCoefficients::v_Receive(
     if (m_fluid)
     {
         ReceiveCoefficients(step, time, m_coeffs);
-        m_evalField->BwdTrans(m_coeffs, fields[map[0]]);
+        if (m_homogeneous)
+        {
+            m_homogeneousField->BwdTrans(m_coeffs, fields[map[0]]);
+        }
+        else
+        {
+            m_evalField->BwdTrans(m_coeffs, fields[map[0]]);
+        }
         return;
     }
     const int nc = m_indices.size();
-    ReceivePacket(step, m_velocityDimension * nc);
+    const int nPlanes = m_homogeneous ? m_numPlanes : 1;
+    ReceivePacket(step, m_velocityDimension * nPlanes * nc);
     for (int d = 0; d < m_velocityDimension; ++d)
     {
-        for (int c = 0; c < nc; ++c)
-            m_coeffs[m_indices[c]] = m_packet[d * nc + c];
-        m_evalField->BwdTrans(m_coeffs, fields[map[d]]);
+        for (int p = 0; p < nPlanes; ++p)
+        {
+            const int plane = p * nc;
+            const int in    = (d * nPlanes + p) * nc;
+            for (int c = 0; c < nc; ++c)
+                m_coeffs[plane + m_indices[c]] = m_packet[in + c];
+        }
+        if (m_homogeneous)
+        {
+            m_homogeneousField->BwdTrans(m_coeffs, fields[map[d]]);
+        }
+        else
+        {
+            m_evalField->BwdTrans(m_coeffs, fields[map[d]]);
+        }
     }
     Vmath::Fill(fields[map[m_velocityDimension]].size(), m_time,
                 fields[map[m_velocityDimension]], 1);
@@ -321,11 +366,18 @@ void CouplingCoefficients::SendCoefficients(
     ASSERTL0(!m_fluid, "Only Electric sends potential coefficients.");
     if (!m_paired)
         return;
-    ASSERTL0(coeffs.size() == m_evalField->GetNcoeffs(),
+    ASSERTL0(coeffs.size() == m_coeffs.size(),
              "Potential coefficient size mismatch.");
-    std::vector<NekDouble> values(m_indices.size());
-    for (int c = 0; c < m_indices.size(); ++c)
-        values[c] = coeffs[m_indices[c]];
+    const int nc = m_indices.size();
+    const int nPlanes = m_homogeneous ? m_numPlanes : 1;
+    std::vector<NekDouble> values(static_cast<size_t>(nPlanes) * nc);
+    for (int p = 0; p < nPlanes; ++p)
+    {
+        const int plane = p * nc;
+        const int out   = p * nc;
+        for (int c = 0; c < nc; ++c)
+            values[out + c] = coeffs[plane + m_indices[c]];
+    }
     SendPacket(step, time, m_stop, values);
 }
 
@@ -334,21 +386,22 @@ void CouplingCoefficients::ReceiveCoefficients(int step, NekDouble time,
 {
     ASSERTL0(m_fluid && m_paired,
              "Only Fluid receives potential coefficients.");
-    ASSERTL0(coeffs.size() == m_evalField->GetNcoeffs() ||
-                 (m_homogeneousField &&
-                  coeffs.size() == m_homogeneousField->GetNcoeffs()),
+    ASSERTL0(coeffs.size() == m_coeffs.size(),
              "Potential coefficient size mismatch.");
-    ReceivePacket(step, m_indices.size());
+    const int nc = m_indices.size();
+    const int nPlanes = m_homogeneous ? m_numPlanes : 1;
+    ReceivePacket(step, nPlanes * nc);
     ASSERTL0(std::abs(time - m_time) < 1e-10 * std::max(1.0, std::abs(time)),
              "Potential reply time differs from the velocity request.");
-    // The second Fourier plane is the identically zero imaginary mean mode.
-    // The first plane's local coefficients are already the real mean mode.
-    if (m_homogeneousField)
+    // Every local Fourier plane is replaced; higher planes must not retain
+    // stale values from a restart or an earlier stage.
+    Vmath::Zero(coeffs.size(), coeffs, 1);
+    for (int p = 0; p < nPlanes; ++p)
     {
-        Vmath::Zero(coeffs.size(), coeffs, 1);
+        const int plane = p * nc;
+        for (int c = 0; c < nc; ++c)
+            coeffs[plane + m_indices[c]] = m_packet[plane + c];
     }
-    for (int c = 0; c < m_indices.size(); ++c)
-        coeffs[m_indices[c]] = m_packet[c];
 }
 
 void CouplingCoefficients::v_Finalize()

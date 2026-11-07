@@ -251,6 +251,7 @@ IF( NEKTAR_SOLVER_ADR )
     ADD_NEKTAR_TEST(SVV_Tet)
     ADD_NEKTAR_TEST(ThinWallLaplace)
     ADD_NEKTAR_TEST(ThinWallLaplaceFull)
+    ADD_NEKTAR_TEST(ThinWallLaplace3DHomo1D)
     ADD_NEKTAR_TEST(LaplacePhi)
 
     # Singular Poisson equation tests
