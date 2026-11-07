@@ -34,9 +34,11 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/IMEXdirk/IMEXdirkOp.hpp"
+#include <iterator>
 
-#include "SolverCore/TimeOps/IMEXdirk/IMEXdirkKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/IMEXdirk/IMEXdirkOp.hpp>
+
+#include <SolverCore/TimeOps/IMEXdirk/IMEXdirkKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -98,7 +100,7 @@ public:
 
         // The implicit solve of stage s combines the explicit contributions
         // of the first s stages, so the last one combines ImpStage.
-        this->m_explicitContributionHistorySize = ImpStage;
+        this->m_historySize = ImpStage;
     }
 
     // className - for OperatorFactory
@@ -160,6 +162,24 @@ protected:
         }
     }
 
+    std::vector<TData> v_GetExplicitCoefficients(
+        const unsigned int stage) const override
+    {
+        ASSERTL1(stage >= 1 && stage <= ImpStage,
+                 "IMEXdirk implicit stage out of range.");
+
+        constexpr auto coeff =
+            GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder, TData>();
+
+        const unsigned int indStart =
+            stage * (stage - 1) / 2 + (stage - 1) * (stage - 2) / 2;
+        const unsigned int explicitStart = indStart + stage - 1;
+
+        const auto first = coeff.begin() + explicitStart;
+        return std::vector<TData>(std::make_reverse_iterator(first + stage),
+                                  std::make_reverse_iterator(first));
+    }
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.
@@ -194,9 +214,9 @@ protected:
                                         TData>()[Stage - 1];
 
         // Compute explicit terms.
-        this->DoExplicitRhs(inout, this->m_explicits[Stage - 1],
-                            this->m_time + coeff0 * this->m_timestep,
-                            this->m_timestep);
+        this->DoExplicitRhsWithWeights(inout, this->m_explicits[Stage - 1],
+                                       this->m_time + coeff0 * this->m_timestep,
+                                       this->m_timestep);
 
         // Compute implicit terms.
         if constexpr (Stage <= ImpStage)
@@ -214,17 +234,10 @@ protected:
                                               TData>()[Stage - 1];
 
             // Update solution.
-            if (this->m_useExplicitContributionExtrapolation)
-            {
-                SetStageExplicitContributionCoefficients<Stage>(lambda1, inout);
-            }
-            this->DoImplicit(this->m_implicits[Stage - 1], inout,
-                             this->m_time + coeff1 * this->m_timestep,
-                             lambda1 * this->m_timestep);
-            if (this->m_useExplicitContributionExtrapolation)
-            {
-                this->ClearExplicitContributionCoefficients();
-            }
+            this->DoImplicitWithWeights(this->m_implicits[Stage - 1], inout,
+                                        this->m_time +
+                                            coeff1 * this->m_timestep,
+                                        lambda1 * this->m_timestep, Stage);
 
             // Compute implicit terms, unless inout is the new solution.
             if constexpr (Stage < ImpStage || !LastStageIsSolution())
@@ -241,37 +254,6 @@ protected:
             // Do next stage.
             Staging<Stage + 1>(inout);
         }
-    }
-
-    template <unsigned int Stage>
-    void SetStageExplicitContributionCoefficients(
-        const TData stageImplicitCoefficient,
-        LibUtilities::Field<TData, FieldState::Phys> &stageInitialSolution)
-    {
-        constexpr auto coeff =
-            GetIMEXdirkStageCoefficients<ImpStage, ExpStage, IntOrder, TData>();
-
-        const unsigned int indStart =
-            Stage * (Stage - 1) / 2 + (Stage - 1) * (Stage - 2) / 2;
-        const unsigned int explicitStart = indStart + Stage - 1;
-
-        std::vector<TData> outCoeff(Stage);
-        for (unsigned int i = 0; i < Stage; ++i)
-        {
-            outCoeff[i] = coeff[explicitStart + Stage - 1 - i];
-        }
-
-        std::optional<typename TimeOp<TData>::StartupStage> startupStage;
-        if (this->m_startupTargetImplicitCoefficient)
-        {
-            startupStage = typename TimeOp<TData>::StartupStage{
-                stageImplicitCoefficient,
-                *this->m_startupTargetImplicitCoefficient,
-                &stageInitialSolution};
-        }
-
-        this->SetExplicitContributionCoefficients(std::move(outCoeff),
-                                                  startupStage);
     }
 
     template <unsigned int... ind0, unsigned int... ind1>

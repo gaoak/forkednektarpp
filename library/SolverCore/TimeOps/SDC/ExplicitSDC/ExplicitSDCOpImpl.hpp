@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCOp.hpp"
+#include <SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCOp.hpp>
 
-#include "SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/SDC/ExplicitSDC/ExplicitSDCKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -50,12 +50,31 @@ class ExplicitSDCOpImpl : public ExplicitSDCOp<TData>
 
 public:
     ExplicitSDCOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                      const std::vector<std::string> &components,
-                      const unsigned int &order, const std::string &variant,
-                      const std::vector<TData> &freeParams)
-        : ExplicitSDCOp<TData>(expansionList, components, order, variant,
-                               freeParams)
+                      const std::vector<std::string> &components)
+        : ExplicitSDCOp<TData>(expansionList, components)
     {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in Operator Factory
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+    {
+        return std::make_unique<ExplicitSDCOpImpl<ExecSpace, TData>>(
+            expansionList, components);
+    }
+
+protected:
+    void v_SetScheme(const unsigned int &order, const std::string &variant,
+                     const std::vector<TData> &freeParams) override
+    {
+        this->m_order   = order;
+        this->m_variant = variant;
+        this->SetFreeParams(freeParams);
+
         this->template Initialize<ExecSpace>();
 
         for (unsigned int m = 0; m < this->m_nQuadPts; ++m)
@@ -76,20 +95,6 @@ public:
         this->template InitializePointerTables<ExecSpace>();
     }
 
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<TimeOp<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components, const unsigned int &order,
-        const std::string &variant, const std::vector<TData> &freeParams)
-    {
-        return std::make_unique<ExplicitSDCOpImpl<ExecSpace, TData>>(
-            expansionList, components, order, variant, freeParams);
-    }
-
-protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Check that required functions are defined.

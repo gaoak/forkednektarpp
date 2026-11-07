@@ -203,16 +203,12 @@ protected:
     bool m_isBndVelocityEvaluated = false;
     unsigned int m_nDim           = 0;
     // On the boundary-adjacent elements, the velocity, from which m_curlCurl
-    // is computed, and then rhs, or predictor when the acceleration is added,
-    // combined in place with kinvis * m_curlCurl; in the weak form, rhs for
-    // predictor - rhs, and then -kinvis * m_curlCurl. Both are laid out at
-    // the interleave width of the velocity (SetRestrictedInterleaveWidth()).
+    // is computed, then the forcing, rhs or predictor, which m_curlCurl is
+    // combined with in place into the flux, and then predictor - rhs. Both
+    // are laid out at the interleave width of the velocity
+    // (SetRestrictedInterleaveWidth()).
     LibUtilities::Field<TData, FieldState::Phys> m_bndElmtWork;
     LibUtilities::Field<TData, FieldState::Phys> m_curlCurl;
-    // On the boundary-adjacent elements, predictor - rhs, at the interleave
-    // width of the velocity. Instantiated only with
-    // m_hasNonDirichletVelocity.
-    LibUtilities::Field<TData, FieldState::Phys> m_bndElmtHistory;
     std::vector<LibUtilities::Field<TData, FieldState::Phys>> m_bndPhys;
     std::vector<LibUtilities::Field<TData, FieldState::Coeff>> m_bndCoeffs;
     // Per region, the flux extracted onto the points of the region, then
@@ -258,8 +254,8 @@ protected:
     std::vector<VolumeGather> m_volumeGather;
     std::vector<unsigned int> m_bndConditionIndices;
 
-    // Per region, extracts the flux in m_bndElmtWork onto the points of the
-    // region.
+    // Per region, extracts the flux in m_curlCurl, and predictor - rhs in
+    // m_bndElmtWork, onto the points of the region.
     std::vector<std::shared_ptr<
         MultiRegions::detail::PhysTraceExtractBndCond<ExecSpace, TData>>>
         m_bndFluxExtractOps;
@@ -310,8 +306,6 @@ protected:
         const std::vector<std::string> velocityComps(
             velocityComponents.begin(), velocityComponents.begin() + m_nDim);
 
-        // The velocity conditions decide whether the boundary-adjacent
-        // elements hold predictor - rhs.
         BuildBoundaryVelocityData(velocityExpansionList, velocityComps);
         BuildBoundaryElementData(velocityExpansionList, velocityComps);
         m_velocityContextSet = true;
@@ -462,20 +456,13 @@ protected:
                 m_bndElmtExpansionList);
 
         m_bndElmtWork = LibUtilities::Field<TData, FieldState::Phys>(
-            "HOPressureBndCond boundary element velocity and flux",
+            "HOPressureBndCond boundary element velocity and forcing",
             restrictedBlocks, velocityComponents, 1);
         m_curlCurl = LibUtilities::Field<TData, FieldState::Phys>(
-            "HOPressureBndCond CurlCurl", restrictedBlocks, velocityComponents,
-            1);
+            "HOPressureBndCond CurlCurl and flux", restrictedBlocks,
+            velocityComponents, 1);
         m_bndElmtWork.template Initialize<MemSpace>(0.0);
         m_curlCurl.template Initialize<MemSpace>(0.0);
-        if (this->m_hasNonDirichletVelocity)
-        {
-            m_bndElmtHistory = LibUtilities::Field<TData, FieldState::Phys>(
-                "HOPressureBndCond boundary element history", restrictedBlocks,
-                velocityComponents, 1);
-            m_bndElmtHistory.template Initialize<MemSpace>(0.0);
-        }
 
         std::map<int, VolumeLocation> restrictedVolumeLocation;
         for (unsigned int blk = 0; blk < restrictedBlocks.size(); ++blk)
@@ -697,11 +684,12 @@ protected:
     }
 
     // Copy the boundary-adjacent elements of the first m_nDim components of
-    // src, a field on the velocity expansion list, into dst, each block at
-    // its own interleave width. Each gather runs on the stream of its
-    // destination block, after the work queued on the stream of its source
-    // block, and the source streams wait on the gathers in turn, without the
-    // host waiting on either.
+    // src, a field on the velocity expansion list, into dst, or subtract
+    // them from it with SUBTRACT, each block at its own interleave width.
+    // Each gather runs on the stream of its destination block, after the
+    // work queued on the stream of its source block, and the source streams
+    // wait on the gathers in turn, without the host waiting on either.
+    template <bool SUBTRACT = false>
     void GatherBoundaryElements(
         LibUtilities::Field<TData, FieldState::Phys> &src,
         LibUtilities::Field<TData, FieldState::Phys> &dst)
@@ -729,10 +717,19 @@ protected:
                 indices.srcIndex.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto dstIdx =
                 indices.dstIndex.template GetPtr<MemSpace, ReadOnly>(streamID);
-            HOPressureVolumeGatherKernel<ExecSpace>(
-                gather.srcElmt.size() * gather.nData, m_nDim,
-                srcBlock.CompSize(), dstBlock.CompSize(), srcIdx, dstIdx,
-                srcPtr, dstPtr, streamID);
+            const size_t nsize = gather.srcElmt.size() * gather.nData;
+            if (m_nDim == 2)
+            {
+                HOPressureVolumeGatherKernel<ExecSpace, 2, SUBTRACT>(
+                    nsize, srcBlock.CompSize(), dstBlock.CompSize(), srcIdx,
+                    dstIdx, srcPtr, dstPtr, streamID);
+            }
+            else if (m_nDim == 3)
+            {
+                HOPressureVolumeGatherKernel<ExecSpace, 3, SUBTRACT>(
+                    nsize, srcBlock.CompSize(), dstBlock.CompSize(), srcIdx,
+                    dstIdx, srcPtr, dstPtr, streamID);
+            }
             RecordStreamEvent<ExecSpace>(streamID);
         }
 
@@ -757,60 +754,41 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> *rhs, const TData kinvis,
         const TData scale)
     {
-        // Combine the flux on the boundary-adjacent elements, before
-        // extraction, after forming predictor - rhs from the predictor. The
-        // weak form needs the predictor only for predictor - rhs, which it
-        // forms in m_bndElmtHistory, using m_bndElmtWork, which the weak
-        // combination overwrites, for rhs.
+        // Combine the flux on the boundary-adjacent elements into
+        // m_curlCurl, before extraction, reading the forcing from
+        // m_bndElmtWork, and then form predictor - rhs in m_bndElmtWork.
         const bool isWeak            = form == FluxForm::Weak;
-        const bool isSubtractHistory = rhs && m_bndElmtHistory;
-        if (isWeak)
-        {
-            if (isSubtractHistory)
-            {
-                GatherBoundaryElements(forcing, m_bndElmtHistory);
-                GatherBoundaryElements(*rhs, m_bndElmtWork);
-                Math::sub<ExecSpace>(m_bndElmtHistory, m_bndElmtWork,
-                                     m_bndElmtHistory);
-            }
-        }
-        else
+        const bool isSubtractHistory = rhs && this->m_hasNonDirichletVelocity;
+        if (!isWeak)
         {
             GatherBoundaryElements(forcing, m_bndElmtWork);
-            if (isSubtractHistory)
-            {
-                GatherBoundaryElements(*rhs, m_bndElmtHistory);
-                Math::sub<ExecSpace>(m_bndElmtWork, m_bndElmtHistory,
-                                     m_bndElmtHistory);
-            }
         }
-        for (unsigned int blk = 0; blk < m_bndElmtWork.GetBlocks().size();
-             ++blk)
+        for (unsigned int blk = 0; blk < m_curlCurl.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
-            auto &fluxBlk               = m_bndElmtWork.GetBlocks()[blk];
-            auto &curlBlk               = m_curlCurl.GetBlocks()[blk];
-            auto curlPtr =
-                curlBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
-            auto fluxPtr =
-                fluxBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
+            auto &forcingBlk            = m_bndElmtWork.GetBlocks()[blk];
+            auto &curlCurlBlk           = m_curlCurl.GetBlocks()[blk];
+            auto forcingPtr =
+                forcingBlk.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto curlCurlPtr =
+                curlCurlBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
             // Every point of the block at its interleave width, padding
             // included, which the combination keeps zero.
-            const size_t nPoints =
-                fluxBlk.GetNumElementsWithPadding() * fluxBlk.GetNumData();
+            const size_t nPoints = curlCurlBlk.GetNumElementsWithPadding() *
+                                   curlCurlBlk.GetNumData();
             if (isWeak)
             {
                 if (m_nDim == 2)
                 {
                     HOPressureVolumeCombineKernel<ExecSpace, 2, false>(
-                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
-                        fluxPtr, streamID);
+                        nPoints, curlCurlBlk.CompSize(), kinvis, scale,
+                        forcingPtr, curlCurlPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOPressureVolumeCombineKernel<ExecSpace, 3, false>(
-                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
-                        fluxPtr, streamID);
+                        nPoints, curlCurlBlk.CompSize(), kinvis, scale,
+                        forcingPtr, curlCurlPtr, streamID);
                 }
             }
             else
@@ -818,23 +796,34 @@ protected:
                 if (m_nDim == 2)
                 {
                     HOPressureVolumeCombineKernel<ExecSpace, 2, true>(
-                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
-                        fluxPtr, streamID);
+                        nPoints, curlCurlBlk.CompSize(), kinvis, scale,
+                        forcingPtr, curlCurlPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOPressureVolumeCombineKernel<ExecSpace, 3, true>(
-                        nPoints, fluxBlk.CompSize(), kinvis, scale, curlPtr,
-                        fluxPtr, streamID);
+                        nPoints, curlCurlBlk.CompSize(), kinvis, scale,
+                        forcingPtr, curlCurlPtr, streamID);
                 }
             }
+        }
+
+        // predictor - rhs overwrites the forcing the strong combination above
+        // has read; the weak one reads none, so the predictor is gathered.
+        if (isSubtractHistory)
+        {
+            if (isWeak)
+            {
+                GatherBoundaryElements(forcing, m_bndElmtWork);
+            }
+            GatherBoundaryElements<true>(*rhs, m_bndElmtWork);
         }
 
         // Each extraction orders itself after the combine above and the
         // streams of the boundary blocks after itself.
         for (unsigned int n = 0; n < m_bndPhys.size(); ++n)
         {
-            m_bndFluxExtractOps[n]->Apply(m_bndElmtWork, m_bndWorkPhys[n]);
+            m_bndFluxExtractOps[n]->Apply(m_curlCurl, m_bndWorkPhys[n]);
 
             for (unsigned int blk = 0; blk < m_bndPhys[n].GetBlocks().size();
                  ++blk)
@@ -851,14 +840,14 @@ protected:
                     outBlk.template GetPtr<MemSpace, WriteOnly>(streamID);
 
                 const size_t nPoints =
-                    outBlk.GetNumElements() * outBlk.GetNumData();
+                    outBlk.GetNumElementsWithPadding() * outBlk.GetNumData();
                 if (m_nDim == 2)
                 {
                     HOPressureBoundaryCombineKernel<ExecSpace, 2>(
                         nPoints, fluxBlk.CompSize(), fluxPtr, normalPtr, outPtr,
                         streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOPressureBoundaryCombineKernel<ExecSpace, 3>(
                         nPoints, fluxBlk.CompSize(), fluxPtr, normalPtr, outPtr,
@@ -873,7 +862,7 @@ protected:
 
             // The extraction waits on the combine above, which read
             // m_bndWorkPhys[n].
-            m_bndFluxExtractOps[n]->Apply(m_bndElmtHistory, m_bndWorkPhys[n]);
+            m_bndFluxExtractOps[n]->Apply(m_bndElmtWork, m_bndWorkPhys[n]);
             for (unsigned int blk = 0; blk < m_bndPhys[n].GetBlocks().size();
                  ++blk)
             {
@@ -889,14 +878,14 @@ protected:
                     outBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
 
                 const size_t nPoints =
-                    outBlk.GetNumElements() * outBlk.GetNumData();
+                    outBlk.GetNumElementsWithPadding() * outBlk.GetNumData();
                 if (m_nDim == 2)
                 {
                     HOPressureSubtractNormalVelocityKernel<ExecSpace, 2>(
                         nPoints, historyBlk.CompSize(), scale, historyPtr,
                         normalPtr, outPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOPressureSubtractNormalVelocityKernel<ExecSpace, 3>(
                         nPoints, historyBlk.CompSize(), scale, historyPtr,
@@ -1372,10 +1361,6 @@ protected:
                 .GetInterleaveWidth();
         SetRestrictedInterleaveWidth(m_bndElmtWork, interleaveWidth);
         SetRestrictedInterleaveWidth(m_curlCurl, interleaveWidth);
-        if (m_bndElmtHistory)
-        {
-            SetRestrictedInterleaveWidth(m_bndElmtHistory, interleaveWidth);
-        }
         GatherBoundaryElements(velocity, m_bndElmtWork);
         m_curlCurlOp->Apply(m_bndElmtWork, m_curlCurl);
         BuildBoundaryPhys(form, forcing, rhs, this->m_kinvis, this->m_scale);
@@ -1440,14 +1425,14 @@ protected:
                 auto fluxPtr =
                     fluxBlk.template GetPtr<MemSpace, ReadWrite>(streamID);
                 const size_t nPoints =
-                    fluxBlk.GetNumElements() * fluxBlk.GetNumData();
+                    fluxBlk.GetNumElementsWithPadding() * fluxBlk.GetNumData();
                 if (m_nDim == 2)
                 {
                     HOPressureSubtractNormalVelocityKernel<ExecSpace, 2>(
                         nPoints, velocityBlk.CompSize(), this->m_scale,
                         velocityPtr, normalPtr, fluxPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOPressureSubtractNormalVelocityKernel<ExecSpace, 3>(
                         nPoints, velocityBlk.CompSize(), this->m_scale,

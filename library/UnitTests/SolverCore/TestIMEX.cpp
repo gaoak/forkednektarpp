@@ -36,59 +36,61 @@
 
 #include "TestTimeOps.hpp"
 
+#include <SolverCore/TimeOps/IMEX/IMEXOp.hpp>
+
 #include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
+#include <numeric>
 #include <optional>
 
 namespace tt = boost::test_tools;
 
 /**
  * @brief Solves of the test problem, with alpha = 1 and beta = -10, that
- * record the start-up context the time integration operator reports in each
- * implicit solve.
+ * record what a solver can observe of the start-up of a multistep scheme in
+ * each implicit solve.
  */
-struct StartupContextRecorder
+struct StartupRecorder
 {
     TimeOp<double> *op = nullptr;
     Math::MathHelper math;
-    // Solution at the start of the step, and the result of the previous
-    // implicit solve
+    // Solution at the start of the step, the result of the previous
+    // implicit solve, and the input of the latest explicit RHS evaluation
     Field<double, FieldState::Phys> *stepStart      = nullptr;
     Field<double, FieldState::Phys> *previousResult = nullptr;
+    Field<double, FieldState::Phys> *explicitInput  = nullptr;
     Field<double, FieldState::Phys> *wsp            = nullptr;
     // Implicit solves so far in the current step
     unsigned int stageInStep = 0;
 
-    std::vector<std::optional<double>> targets;
-    std::vector<double> stageCoefficients;
-    std::vector<double> initialSolutionErrors;
+    std::vector<unsigned int> steps;
+    std::vector<double> implicitCoefficients;
+    std::vector<double> explicitInputErrors;
+    std::vector<IMEXBaseOp<double>::ExplicitWeights> recordedWeights;
 
     void DoExplicitRhs(Field<double, FieldState::Phys> &in,
                        Field<double, FieldState::Phys> &out,
                        [[maybe_unused]] const double &time,
                        const double &factor)
     {
+        explicitInput->template Copy<NektarSpaces::HostSpace>(in);
         math.mul(factor, in, out);
     }
 
     void DoImplicit(Field<double, FieldState::Phys> &in,
                     Field<double, FieldState::Phys> &out,
-                    [[maybe_unused]] const double &time, const double &lambda)
+                    [[maybe_unused]] const double &time, const double &lambda,
+                    const IMEXBaseOp<double>::ExplicitWeights &weights)
     {
-        if (const auto startupStage = op->GetStartupStage())
-        {
-            targets.push_back(startupStage->targetImplicitCoefficient);
-            stageCoefficients.push_back(startupStage->stageImplicitCoefficient);
-            // The first stage starts from the solution at the start of the
-            // step, a later one from the result of the previous stage.
-            auto &expected = stageInStep == 0 ? *stepStart : *previousResult;
-            math.sub(*startupStage->initialSolution, expected, *wsp);
-            initialSolutionErrors.push_back(math.l2norm(*wsp));
-        }
-        else
-        {
-            targets.push_back(std::nullopt);
-        }
+        steps.push_back(op->GetStep());
+        recordedWeights.push_back(weights);
+        implicitCoefficients.push_back(lambda / op->GetTimeStep());
+        // The first stage starts from the solution at the start of the step,
+        // a later one from the result of the previous stage.
+        auto &expected = stageInStep == 0 ? *stepStart : *previousResult;
+        math.sub(*explicitInput, expected, *wsp);
+        explicitInputErrors.push_back(math.l2norm(*wsp));
+
         math.mul(1.0 / (1.0 + 10.0 * lambda), in, out);
         previousResult->template Copy<NektarSpaces::HostSpace>(out);
         ++stageInStep;
@@ -96,21 +98,24 @@ struct StartupContextRecorder
 };
 
 /**
- * @brief Integrate nsteps steps of scheme and check the start-up context of
- * every implicit solve.
+ * @brief Integrate nsteps steps of scheme and check the start-up of every
+ * implicit solve.
  *
- * The first nstartup implicit solves belong to start-up steps: they report
- * the implicit coefficient target of the multistep scheme, their own
- * coefficient stageCoefficient, and the solution they start from.
- * The later solves report no start-up stage.
+ * The first nstartup implicit solves belong to start-up steps: GetStep() is
+ * below order - 1 in them, their implicit coefficient is stageCoefficient,
+ * and the latest explicit RHS was evaluated at the solution they start from.
+ * The later solves are steps of the multistep scheme, whose implicit
+ * coefficient target is the sum of its explicit contribution coefficients.
+ * Every solve receives the coefficients of the explicit contributions it
+ * combines; a start-up solve with the history id of its start-up scheme.
  */
-void CheckStartupContext(const SessionReaderSharedPtr &session,
-                         const ExpListSharedPtr &expList,
-                         Field<double, FieldState::Phys> &initial,
-                         const std::string &scheme, const unsigned int order,
-                         const unsigned int nsteps, const unsigned int nstartup,
-                         const std::optional<double> target,
-                         const double stageCoefficient)
+void CheckStartup(const SessionReaderSharedPtr &session,
+                  const ExpListSharedPtr &expList,
+                  Field<double, FieldState::Phys> &initial,
+                  const std::string &scheme, const unsigned int order,
+                  const unsigned int nsteps, const unsigned int nstartup,
+                  const std::optional<double> target,
+                  const double stageCoefficient)
 {
     double timeStep = 0.01;
     session->SetParameter("TimeStep", timeStep);
@@ -123,21 +128,33 @@ void CheckStartupContext(const SessionReaderSharedPtr &session,
                                               1);
     Field<double, FieldState::Phys> previousResult("previous result", blockAttr,
                                                    ncomp, 1);
+    Field<double, FieldState::Phys> explicitInput("explicit input", blockAttr,
+                                                  ncomp, 1);
     Field<double, FieldState::Phys> wsp("wsp", blockAttr, ncomp, 1);
     solution.template Copy<NektarSpaces::HostSpace>(initial);
 
     auto op =
         TimeOp<double>::Create(expList, session->GetVariables(), scheme, order);
 
-    StartupContextRecorder recorder;
+    StartupRecorder recorder;
     recorder.op   = op.get();
     recorder.math = Math::MathHelper(Operator<double>::GetOpExecSpace(session));
     recorder.stepStart      = &stepStart;
     recorder.previousResult = &previousResult;
+    recorder.explicitInput  = &explicitInput;
     recorder.wsp            = &wsp;
-    op->DefineExplicitRhs(&StartupContextRecorder::DoExplicitRhs, &recorder);
-    op->DefineImplicit(&StartupContextRecorder::DoImplicit, &recorder);
-    op->EnableExplicitContributionExtrapolation();
+    auto imexOp             = std::dynamic_pointer_cast<IMEXBaseOp<double>>(op);
+    BOOST_TEST_REQUIRE(imexOp);
+    imexOp->DefineExplicitRhs(&StartupRecorder::DoExplicitRhs, &recorder);
+    imexOp->DefineImplicitWithWeights(&StartupRecorder::DoImplicit, &recorder);
+
+    if (target)
+    {
+        const auto coeffs = imexOp->GetExplicitCoefficients();
+        BOOST_TEST(std::accumulate(coeffs.begin(), coeffs.end(), 0.0) ==
+                       *target,
+                   tt::tolerance(1e-14));
+    }
 
     while (op->GetStep() < nsteps)
     {
@@ -146,27 +163,38 @@ void CheckStartupContext(const SessionReaderSharedPtr &session,
         op->Apply(solution);
     }
 
-    BOOST_TEST_REQUIRE(recorder.targets.size() > nstartup);
-    for (unsigned int i = 0; i < recorder.targets.size(); ++i)
+    const unsigned int startupSteps = target ? order - 1 : 0;
+    BOOST_TEST_REQUIRE(recorder.steps.size() > nstartup);
+    const unsigned int mainHistoryId =
+        recorder.recordedWeights.back().historyId;
+    for (unsigned int i = 0; i < recorder.steps.size(); ++i)
     {
+        const auto &weights = recorder.recordedWeights[i];
+        const auto &coeffs  = weights.coefficients;
+        BOOST_TEST(!coeffs.empty());
+        BOOST_TEST(coeffs.size() <= weights.historySize);
         if (i < nstartup)
         {
-            BOOST_TEST_REQUIRE(target.has_value());
-            BOOST_TEST_REQUIRE(recorder.targets[i].has_value());
-            BOOST_TEST(*recorder.targets[i] == *target, tt::tolerance(1e-14));
-            BOOST_TEST(recorder.stageCoefficients[i] == stageCoefficient,
+            BOOST_TEST(recorder.steps[i] < startupSteps);
+            BOOST_TEST(recorder.implicitCoefficients[i] == stageCoefficient,
                        tt::tolerance(1e-14));
+            BOOST_TEST(recorder.explicitInputErrors[i] == 0.0);
+            BOOST_TEST(weights.historyId != mainHistoryId);
         }
         else
         {
-            BOOST_TEST(!recorder.targets[i].has_value());
+            BOOST_TEST(recorder.steps[i] >= startupSteps);
+            BOOST_TEST(weights.historyId == mainHistoryId);
+            if (target)
+            {
+                BOOST_TEST(recorder.implicitCoefficients[i] == *target,
+                           tt::tolerance(1e-14));
+                BOOST_TEST(weights.historySize == order);
+                BOOST_TEST(std::accumulate(coeffs.begin(), coeffs.end(), 0.0) ==
+                               *target,
+                           tt::tolerance(1e-14));
+            }
         }
-    }
-
-    BOOST_TEST(recorder.initialSolutionErrors.size() == nstartup);
-    for (const double error : recorder.initialSolutionErrors)
-    {
-        BOOST_TEST(error == 0.0);
     }
 }
 
@@ -191,8 +219,8 @@ void CheckStartupContext(const SessionReaderSharedPtr &session,
                   << std::endl;                                                \
         Configure();                                                           \
         SetTestCase(1.0, -10.0);                                               \
-        CheckStartupContext(m_session, m_expList, m_in, scheme, order, nsteps, \
-                            nstartup, target, stageCoefficient);               \
+        CheckStartup(m_session, m_expList, m_in, scheme, order, nsteps,        \
+                     nstartup, target, stageCoefficient);                      \
     }
 
 BOOST_AUTO_TEST_SUITE(TestSuiteIMEX)

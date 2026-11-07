@@ -157,8 +157,8 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
     const unsigned int nDT = nq0 * nq0 + nq1 * nq1;
 
     // Metric and backward transform, each 16-byte aligned.
-    const unsigned int bwdSize = IProductWRTBaseAlignedSize<TData>(6) +
-                                 IProductWRTBaseAlignedSize<TData>(nqTot);
+    const unsigned int bwdSize = SharedMemoryAlignedSize<TData>(6) +
+                                 SharedMemoryAlignedSize<TData>(nqTot);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
@@ -204,8 +204,8 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
     const unsigned int nDT = nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
 
     // Metric and backward transform, each 16-byte aligned.
-    const unsigned int bwdSize = IProductWRTBaseAlignedSize<TData>(9) +
-                                 IProductWRTBaseAlignedSize<TData>(nqTot);
+    const unsigned int bwdSize = SharedMemoryAlignedSize<TData>(9) +
+                                 SharedMemoryAlignedSize<TData>(nqTot);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
@@ -238,7 +238,8 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
                    sizeParam3D, 3u, nm0 * nm1 * nq2 + wspPadSize,
                    nm0 * nq1 * nq2 + wspPadSize);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         const unsigned int nmTot = sizeParam3D.nmTot();
         const unsigned int nmode2 =
@@ -623,7 +624,7 @@ NEK_DEVICE_INLINE static TData LaplacianApplyMetric2DPointSumFacTOP(
  * @brief Stiffness flux at one point, three dimensions; see
  * LaplacianApplyMetric2DPointSumFacTOP.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  *
  * @return The point's quadrature weight times Jacobian.
  */
@@ -732,7 +733,8 @@ NEK_DEVICE_INLINE static TData LaplacianApplyMetric3DPointSumFacTOP(
         flux[1] = sum2 * tmpQ;
         flux[2] = sum3 * tmpQ;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         TData tmp = f2[k] * tmpQ;
         flux[0]   = (sum1 + sum3 * f0[i]) * tmp;
@@ -819,7 +821,7 @@ NEK_DEVICE_INLINE static void LaplacianPhysDerivApplyMetric2DSumFacTOPKernel(
  * contracts; see LaplacianPhysDerivApplyMetric2DSumFacTOPKernel. Ends with a
  * block barrier.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
           typename TthreadBlock, typename TData>
@@ -906,7 +908,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D0T = bwd + 4 * nq0;
 
     // Copy to shared memory.
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -991,25 +993,25 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nmTot;
     }
 
-    // Rows of the inner product's input and intermediate stages are padded
-    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedDerivWorkSpaceSize, and every region starts
-    // 16-byte aligned.
-    // The padded input and the intermediate stages reuse the derivative
-    // slots, past the modal values of the nodal shapes.
-    const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
     wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
     const unsigned int derivWspSize =
         IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam2D, ncoord,
                                                       wsp0Size, 0u);
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, its input is loaded into the derivative slots, past the
+    // modal values of the nodal shapes.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *metric  = (TData *)shmemptr;
-    TData *bwd     = metric + IProductWRTBaseAlignedSize<TData>(6);
-    TData *deriv   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *bwd     = metric + SharedMemoryAlignedSize<TData>(6);
+    TData *deriv   = bwd + SharedMemoryAlignedSize<TData>(nqTot);
     TData *s_modal = deriv;
     TData *deriv0  = deriv;
     TData *deriv1  = deriv0 + nqTot;
-    TData *s_ipb   = deriv + nmTotAl;
+    TData *ipb =
+        (isPadded) ? deriv + SharedMemoryAlignedSize<TData>(nmTot) : bwd;
     TData *s_wsp0 =
         deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam2D);
     TData *s_basis0 = deriv + derivWspSize;
@@ -1018,10 +1020,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D1T    = s_D0T + nq0 * nq0;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
-    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1040,7 +1042,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         else
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_modal, threadBlock);
             localBarrier(threadBlock);
         }
 
@@ -1055,8 +1057,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         SumDerivTensor2DSumFacTOPKernel<false, false>(nq0, nq1, s_D0T, s_D1T,
                                                       deriv0, deriv1, bwd,
                                                       (TData)1.0, threadBlock);
-        const TData *ipb =
-            IProductWRTBasePadInput(nq0, nq1, bwd, s_ipb, threadBlock);
+
+        if (isPadded)
+        {
+            LoadWithPaddingToSharedMemory(nq0, nq1, ldi, bwd, ipb, threadBlock);
+            localBarrier(threadBlock);
+        }
 
         IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
             nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
@@ -1110,7 +1116,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -1152,7 +1159,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nm1;
         nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nm1 * nq2;
         wsp1Size = nm0 * nq1 * nq2;
@@ -1161,13 +1169,6 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode2   = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     }
 
-    // Rows of the inner product's input and intermediate stages are padded
-    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
-    // IProductWRTBaseFusedDerivWorkSpaceSize, and every region starts
-    // 16-byte aligned.
-    // The padded input and the intermediate stages reuse the derivative
-    // slots, past the modal values of the nodal shapes.
-    const unsigned int nmTotAl = IProductWRTBaseAlignedSize<TData>(nmTot);
     const unsigned int wspPadSize =
         IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam3D);
     wsp0Size += wspPadSize;
@@ -1176,17 +1177,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         IProductWRTBaseFusedDerivWorkSpaceSize<TData>(sizeParam3D, 3u, wsp0Size,
                                                       wsp1Size);
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, its input is loaded into the derivative slots, past the
+    // modal values of the nodal shapes.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *metric  = (TData *)shmemptr;
-    TData *bwd     = metric + IProductWRTBaseAlignedSize<TData>(9);
-    TData *deriv   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *bwd     = metric + SharedMemoryAlignedSize<TData>(9);
+    TData *deriv   = bwd + SharedMemoryAlignedSize<TData>(nqTot);
     TData *s_modal = deriv;
     TData *deriv0  = deriv;
     TData *deriv1  = deriv0 + nqTot;
     TData *deriv2  = deriv1 + nqTot;
-    TData *s_ipb   = deriv + nmTotAl;
+    TData *ipb =
+        (isPadded) ? deriv + SharedMemoryAlignedSize<TData>(nmTot) : bwd;
     TData *s_wsp0 =
         deriv + IProductWRTBaseFusedWorkSpaceOffset<TData>(sizeParam3D);
-    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
+    TData *s_wsp1   = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
     TData *s_basis0 = deriv + derivWspSize;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
@@ -1195,12 +1203,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_D2T    = s_D1T + nq1 * nq1;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
-    StageTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
-    StageTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
-    StageTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadTransposeToSharedMemory(nq0, nq0, D0, s_D0T, threadBlock);
+    LoadTransposeToSharedMemory(nq1, nq1, D1, s_D1T, threadBlock);
+    LoadTransposeToSharedMemory(nq2, nq2, D2, s_D2T, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1219,7 +1227,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         else
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_modal, threadBlock);
             localBarrier(threadBlock);
         }
 
@@ -1235,8 +1243,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         SumDerivTensor3DSumFacTOPKernel<false, false>(
             nq0, nq1, nq2, s_D0T, s_D1T, s_D2T, deriv0, deriv1, deriv2, bwd,
             (TData)1.0, threadBlock);
-        const TData *ipb =
-            IProductWRTBasePadInput(nq0, nq1 * nq2, bwd, s_ipb, threadBlock);
+
+        if (isPadded)
+        {
+            LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, bwd, ipb,
+                                          threadBlock);
+            localBarrier(threadBlock);
+        }
 
         // The collapsed shapes take the two scratches the other way round.
         constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);

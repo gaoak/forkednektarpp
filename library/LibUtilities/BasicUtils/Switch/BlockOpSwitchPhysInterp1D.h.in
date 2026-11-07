@@ -198,7 +198,7 @@
     }                                                                          \
     break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || \
-    defined(SHAPE_TYPE_Pyr)
+    defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
 #undef PHYSINTERP1D_Q
 #define PHYSINTERP1D_Q(r, i)                                                   \
     case NQ(i):                                                                \
@@ -255,7 +255,7 @@
 #if defined(SHAPE_TYPE_Hex)
         if ((nm0 == nm1) && (nm1 == nm2) &&
             (nq0 == nq1) && (nq1 == nq2))
-#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr)
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_NodalPrism) || defined(SHAPE_TYPE_Pyr) || defined(SHAPE_TYPE_NodalPyr)
         if ((nm0 == nm1) && (nm1 == nm2+1) &&
             (nq0 == nq1) && (nq1 == nq2 + 1))
 #elif defined(SHAPE_TYPE_Tet) || defined(SHAPE_TYPE_NodalTet)

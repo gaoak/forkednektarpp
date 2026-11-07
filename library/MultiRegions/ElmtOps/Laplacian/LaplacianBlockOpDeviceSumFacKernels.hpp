@@ -192,6 +192,14 @@ inline constexpr size_t LaplacianWorkSpaceSize(
                    std::max(nq2, nm0)) *
                   nelmt;
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
+        wspsize = (4 * nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0) + nmTot) *
+                  nelmt;
+    }
 
     return wspsize;
 }
@@ -258,7 +266,8 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
     {
         return nq0 + nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nq0 + nq1 + nq2;
     }
@@ -692,7 +701,8 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
                     out1[index] = sum2 * tmpQ;
                     out2[index] = sum3 * tmpQ;
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     TData tmp   = f2[k] * tmpQ;
                     out0[index] = (sum1 + sum3 * f0[i]) * tmp;
@@ -839,8 +849,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         s_f1 = s_f0 + nq0;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -942,7 +952,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -971,7 +982,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = std::max(nq1 * nq2, nm0 * nm1);
         wsp1Size = std::max(nq2, nm0);
@@ -994,10 +1006,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         s_f2  = s_f1m + nq1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
-        StageToSharedMemory(nq1, f1m, s_f1m, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq1, f1m, s_f1m, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -1008,21 +1020,22 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         s_f2 = s_f0 + nq0;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq0;
         s_f2 = s_f1 + nq1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, f0, s_f0, threadBlock);
-        StageToSharedMemory(nq1, f1, s_f1, threadBlock);
-        StageToSharedMemory(nq2, f2, s_f2, threadBlock);
+        LoadToSharedMemory(nq0, f0, s_f0, threadBlock);
+        LoadToSharedMemory(nq1, f1, s_f1, threadBlock);
+        LoadToSharedMemory(nq2, f2, s_f2, threadBlock);
 
         localBarrier(threadBlock);
     }

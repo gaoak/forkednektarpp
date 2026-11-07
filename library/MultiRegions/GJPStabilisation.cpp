@@ -617,9 +617,9 @@ void GJPStabilisation::IProductwrtStdDerivBaseOnTraceMat(
         unsigned modes    = it.second[dir]->GetRows();
         unsigned tracepts = it.second[dir]->GetColumns();
 
-        Blas::Dgemm('N', 'N', modes, it.first, tracepts, 1.0,
-                    &(it.second[dir]->GetPtr())[0], modes, &in[0] + cnt,
-                    tracepts, 0.0, &out[0] + cnt1, modes);
+        Blas::Gemm('N', 'N', modes, it.first, tracepts, 1.0,
+                   &(it.second[dir]->GetPtr())[0], modes, &in[0] + cnt,
+                   tracepts, 0.0, &out[0] + cnt1, modes);
 
         cnt += tracepts * it.first;
         cnt1 += modes * it.first;
@@ -691,9 +691,9 @@ void GJPStabilisation::StdDerivOnTraceFromModes(
         unsigned modes    = it.second[dir]->GetRows();
         unsigned tracepts = it.second[dir]->GetColumns();
 
-        Blas::Dgemm('T', 'N', tracepts, it.first, modes, 1.0,
-                    &(it.second[dir]->GetPtr())[0], modes, &in[0] + cnt, modes,
-                    0.0, &out[0] + cnt1, tracepts);
+        Blas::Gemm('T', 'N', tracepts, it.first, modes, 1.0,
+                   &(it.second[dir]->GetPtr())[0], modes, &in[0] + cnt, modes,
+                   0.0, &out[0] + cnt1, tracepts);
 
         cnt += modes * it.first;
         cnt1 += tracepts * it.first;

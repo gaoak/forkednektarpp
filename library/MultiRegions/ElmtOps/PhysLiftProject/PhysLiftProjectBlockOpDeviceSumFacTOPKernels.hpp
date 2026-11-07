@@ -125,7 +125,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectBasisRows(
         {
             return (dir == 1) ? nm1 : (2u * nm2 - nm0 + 1u) * nm0 / 2u;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             return (dir == 1)
                        ? nm1
@@ -212,7 +213,8 @@ NEK_HOSTDEVICE_INLINE constexpr unsigned int PhysLiftProjectStageSize(
             bwd       = transpose;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                           SHAPE_TYPE == LibUtilities::Pyr)
+                           SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             transpose = (stage == 0) ? nm0 * nm1 * nq2 : nm0 * nq1 * nq2;
             bwd       = transpose;
@@ -307,26 +309,26 @@ PhysLiftProjectSharedLayout(const TSizeParameter sizeParam,
     PhysLiftProjectSharedSizes size;
     if constexpr (BWD)
     {
-        size.coef = IProductWRTBaseAlignedSize<TData>(sizeParam.nmTot());
+        size.coef = SharedMemoryAlignedSize<TData>(sizeParam.nmTot());
     }
     if constexpr (LIFT)
     {
-        size.vol = IProductWRTBaseAlignedSize<TData>(nqTot);
+        size.vol = SharedMemoryAlignedSize<TData>(nqTot);
     }
     if constexpr (TRANSPOSE && MULTID)
     {
-        size.ipb = IProductWRTBaseAlignedSize<TData>(
+        size.ipb = SharedMemoryAlignedSize<TData>(
             IProductWRTBasePaddedInputSize<TData>(sizeParam));
     }
-    size.wsp0 = IProductWRTBaseAlignedSize<TData>(
+    size.wsp0 = SharedMemoryAlignedSize<TData>(
         PhysLiftProjectStageSize<SHAPE_TYPE, LIFT, TRANSPOSE, BWD, TData>(
             sizeParam, traceSizeParam, 0));
-    size.wsp1 = IProductWRTBaseAlignedSize<TData>(
+    size.wsp1 = SharedMemoryAlignedSize<TData>(
         PhysLiftProjectStageSize<SHAPE_TYPE, LIFT, TRANSPOSE, BWD, TData>(
             sizeParam, traceSizeParam, 1));
     if constexpr ((TRANSPOSE || BWD) && MULTID)
     {
-        size.basis = IProductWRTBaseAlignedSize<TData>(basis);
+        size.basis = SharedMemoryAlignedSize<TData>(basis);
     }
     return size;
 }
@@ -352,7 +354,7 @@ inline constexpr unsigned int PhysLiftProjectSharedMemorySize(
 /// The Pointwise form from @p s_vol: `out (+)= scale / (w_q J) * s_vol`
 /// at every point of element @p e. No barrier follows: each thread reads
 /// here only the points of @p s_vol it alone writes in the next element's
-/// StageToSharedMemory(), which strides them the same way.
+/// LoadToSharedMemory(), which strides them the same way.
 template <bool APPEND, bool DEFORMED, typename TthreadBlock, typename TData>
 NEK_DEVICE_INLINE static void PhysLiftProjectPointScaleTOPKernel(
     const size_t e, const unsigned int nqTot, const TData scale,
@@ -436,36 +438,6 @@ NEK_DEVICE_INLINE static void PhysLiftProjectSegLiftTOPKernel(
         }
     }
     localBarrier(threadBlock);
-}
-
-/// The padded copy of @p s_vol the basis transpose reads (Mass's layout),
-/// or @p s_vol itself where the rows need no padding.
-template <typename TSizeParameter, typename TthreadBlock, typename TData>
-NEK_DEVICE_INLINE static const TData *PhysLiftProjectPadKernel(
-    const TSizeParameter sizeParam, const TData *NEK_RESTRICT s_vol,
-    TData *NEK_RESTRICT s_ipb, const TthreadBlock &threadBlock)
-{
-    const unsigned int nq0 = sizeParam.nq0();
-    const unsigned int nq1 = sizeParam.nq1();
-    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
-    if (ldi == nq0)
-    {
-        return s_vol;
-    }
-    unsigned int nqTot = nq0 * nq1;
-    if constexpr (IsSizeParameter3D_v<TSizeParameter>)
-    {
-        nqTot *= sizeParam.nq2();
-    }
-    for (unsigned int idx = getLocalIdx<0>(threadBlock); idx < nqTot;
-         idx += getLocalRange<0>(threadBlock))
-    {
-        const unsigned int i   = idx % nq0;
-        const unsigned int row = idx / nq0;
-        s_ipb[ldi * row + i]   = s_vol[idx];
-    }
-    localBarrier(threadBlock);
-    return s_ipb;
 }
 
 /**
@@ -556,7 +528,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nq0 * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, inptr, s_vol, threadBlock);
+        LoadToSharedMemory(nq0, inptr, s_vol, threadBlock);
         localBarrier(threadBlock);
 
         if (lift)
@@ -648,18 +620,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int numDataJac =
         DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, s_vol is loaded into s_ipb.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *s_coef   = (TData *)shmemptr;
     TData *s_vol    = s_coef + size.coef;
     TData *s_ipb    = s_vol + size.vol;
     TData *s_wsp0   = s_ipb + size.ipb;
+    TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_basis0 = s_wsp0 + size.wsp0;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     if constexpr (FORM != PhysLiftProjectForm::Pointwise)
     {
         // Copy to shared memory.
-        StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-        StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+        LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+        LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
     }
 
     size_t e             = getBlockIdx<0>(threadBlock);
@@ -671,7 +649,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nqTot * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_vol, threadBlock);
         localBarrier(threadBlock);
 
         if (lift)
@@ -690,8 +668,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else
         {
-            const TData *ipb = PhysLiftProjectPadKernel(sizeParam2D, s_vol,
-                                                        s_ipb, threadBlock);
+            if (isPadded)
+            {
+                LoadWithPaddingToSharedMemory(nq0, nq1, ldi, s_vol, ipb,
+                                              threadBlock);
+                localBarrier(threadBlock);
+            }
+
             IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
                 nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
                 s_basis1, ipb, s_coef, s_wsp0, (TData)1.0, threadBlock);
@@ -803,10 +786,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int numDataJac =
         DEFORMED ? nqTotTrace : LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, s_vol is loaded into s_ipb.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *s_coef   = (TData *)shmemptr;
     TData *s_vol    = s_coef + size.coef;
     TData *s_ipb    = s_vol + size.vol;
     TData *s_wsp0   = s_ipb + size.ipb;
+    TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_wsp1   = s_wsp0 + size.wsp0;
     TData *s_basis0 = s_wsp1 + size.wsp1;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
@@ -815,9 +804,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     if constexpr (FORM != PhysLiftProjectForm::Pointwise)
     {
         // Copy to shared memory.
-        StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-        StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-        StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+        LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+        LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+        LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
     }
 
     size_t e             = getBlockIdx<0>(threadBlock);
@@ -829,7 +818,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nqTot * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_vol, threadBlock);
         localBarrier(threadBlock);
 
         if (lift)
@@ -852,8 +841,13 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         }
         else
         {
-            const TData *ipb   = PhysLiftProjectPadKernel(sizeParam3D, s_vol,
-                                                          s_ipb, threadBlock);
+            if (isPadded)
+            {
+                LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, s_vol, ipb,
+                                              threadBlock);
+                localBarrier(threadBlock);
+            }
+
             constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
             IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
@@ -911,7 +905,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *coefptr     = coef + nm0 * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nq0, inptr, s_vol, threadBlock);
+        LoadToSharedMemory(nq0, inptr, s_vol, threadBlock);
         localBarrier(threadBlock);
 
         if (lift)
@@ -983,15 +977,21 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int numDataJac =
         LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, s_vol is loaded into s_ipb.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *s_vol    = (TData *)shmemptr;
     TData *s_ipb    = s_vol + size.vol;
     TData *s_wsp0   = s_ipb + size.ipb;
+    TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_basis0 = s_wsp0 + size.wsp0;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1002,7 +1002,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *coefptr     = coef + nmTot * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_vol, threadBlock);
         localBarrier(threadBlock);
 
         if (lift)
@@ -1013,8 +1013,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 trace + nqTotTrace * slot, s_vol, isCollocated0, isCollocated1,
                 endPtsCollocated0, endPtsCollocated1, threadBlock);
         }
-        const TData *ipb =
-            PhysLiftProjectPadKernel(sizeParam2D, s_vol, s_ipb, threadBlock);
+
+        if (isPadded)
+        {
+            LoadWithPaddingToSharedMemory(nq0, nq1, ldi, s_vol, ipb,
+                                          threadBlock);
+            localBarrier(threadBlock);
+        }
+
         IProductWRTBase2DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
             nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0, s_basis0,
             s_basis1, ipb, coefptr, s_wsp0, (TData)1.0, threadBlock);
@@ -1104,18 +1110,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int numDataJac =
         LibUtilities::ShapeTypeNumTraces[SHAPE_TYPE];
 
+    // The inner product reads rows of length SharedMemoryRowStride. When
+    // nq0 is shorter, s_vol is loaded into s_ipb.
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
+    const bool isPadded    = (ldi != nq0);
+
     TData *s_vol    = (TData *)shmemptr;
     TData *s_ipb    = s_vol + size.vol;
     TData *s_wsp0   = s_ipb + size.ipb;
+    TData *ipb      = (isPadded) ? s_ipb : s_vol;
     TData *s_wsp1   = s_wsp0 + size.wsp0;
     TData *s_basis0 = s_wsp1 + size.wsp1;
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1126,7 +1138,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *coefptr     = coef + nmTot * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_vol, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_vol, threadBlock);
         localBarrier(threadBlock);
 
         if (lift)
@@ -1141,8 +1153,14 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                 isCollocated21, endPtsCollocated0, endPtsCollocated1,
                 endPtsCollocated2, threadBlock);
         }
-        const TData *ipb =
-            PhysLiftProjectPadKernel(sizeParam3D, s_vol, s_ipb, threadBlock);
+
+        if (isPadded)
+        {
+            LoadWithPaddingToSharedMemory(nq0, nq1 * nq2, ldi, s_vol, ipb,
+                                          threadBlock);
+            localBarrier(threadBlock);
+        }
+
         constexpr bool hex = (SHAPE_TYPE == LibUtilities::Hex);
         IProductWRTBase3DSumFacTOPKernel<SHAPE_TYPE, false, false, true>(
             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified, index0,
@@ -1190,7 +1208,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr     = out + nq0 * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nm0, coefptr, s_coef, threadBlock);
+        LoadToSharedMemory(nm0, coefptr, s_coef, threadBlock);
         localBarrier(threadBlock);
 
         PhysLiftProjectCoefScaleTOPKernel<false>(nm0, SafeDivide(scale, jac[e]),
@@ -1250,8 +1268,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1262,7 +1280,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr     = out + nqTot * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nmTot, coefptr, s_coef, threadBlock);
+        LoadToSharedMemory(nmTot, coefptr, s_coef, threadBlock);
         localBarrier(threadBlock);
 
         PhysLiftProjectCoefScaleTOPKernel<false>(
@@ -1341,9 +1359,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -1354,7 +1372,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr     = out + nqTot * slot;
 
         // Copy to shared memory.
-        StageToSharedMemory(nmTot, coefptr, s_coef, threadBlock);
+        LoadToSharedMemory(nmTot, coefptr, s_coef, threadBlock);
         localBarrier(threadBlock);
 
         PhysLiftProjectCoefScaleTOPKernel<false>(

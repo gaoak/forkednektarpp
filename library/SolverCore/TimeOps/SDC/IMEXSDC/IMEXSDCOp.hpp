@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/SDC/SDCOp.hpp"
+#include <SolverCore/TimeOps/SDC/SDCOp.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -60,10 +60,8 @@ public:
 
 protected:
     IMEXSDCOp(const MultiRegions::ExpListSharedPtr &expansionList,
-              const std::vector<std::string> &components,
-              const unsigned int &order, const std::string &variant,
-              const std::vector<TData> &freeParams)
-        : SDCOp<TData>(expansionList, components, order, variant, freeParams)
+              const std::vector<std::string> &components)
+        : SDCOp<TData>(expansionList, components)
     {
     }
 

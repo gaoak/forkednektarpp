@@ -383,7 +383,8 @@ NEK_FORCE_INLINE static void Advection3DKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                          SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 xfrm_eta1 = f1[j];
             }
@@ -417,7 +418,8 @@ NEK_FORCE_INLINE static void Advection3DKernel(
                     xfrm_eta0 = f0[i];
                     d2.fma(xfrm_eta0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     d0 *= xfrm_eta2;
                     d1 *= xfrm_eta2;

@@ -345,14 +345,14 @@ NekDouble StdExpansion3D::v_PhysEvaluateInterp(
     // Interpolate first coordinate direction
     interpolatingNodes = &I[0]->GetPtr()[0];
 
-    Blas::Dgemv('T', Qx, Qy * Qz, 1.0, &physvals[0], Qx, &interpolatingNodes[0],
-                1, 0.0, &sumFactorization_qr[0], 1);
+    Blas::Gemv('T', Qx, Qy * Qz, 1.0, &physvals[0], Qx, &interpolatingNodes[0],
+               1, 0.0, &sumFactorization_qr[0], 1);
 
     // Interpolate in second coordinate direction
     interpolatingNodes = &I[1]->GetPtr()[0];
 
-    Blas::Dgemv('T', Qy, Qz, 1.0, &sumFactorization_qr[0], Qy,
-                &interpolatingNodes[0], 1, 0.0, &sumFactorization_r[0], 1);
+    Blas::Gemv('T', Qy, Qz, 1.0, &sumFactorization_qr[0], Qy,
+               &interpolatingNodes[0], 1, 0.0, &sumFactorization_r[0], 1);
 
     // Interpolate in third coordinate direction
     interpolatingNodes = &I[2]->GetPtr()[0];

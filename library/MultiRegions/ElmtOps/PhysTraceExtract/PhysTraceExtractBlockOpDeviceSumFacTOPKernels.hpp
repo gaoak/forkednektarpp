@@ -1153,7 +1153,7 @@ NEK_DEVICE_INLINE static void DispatchPhysExtractFaceN2TOPKernelTrace3D(
  * group is dispatched as one window, so within a pair both faces come
  * out of a single pass of the normal stage.
  *
- * @tparam SHAPE_TYPE    Hex, Prism, NodalPrism, Pyr, Tet or NodalTet.
+ * @tparam SHAPE_TYPE    Hex, Prism, NodalPrism, Pyr, NodalPyr, Tet or NodalTet.
  * @tparam TthreadBlock  Thread-block handle of the backend.
  * @tparam TData         Floating-point type of the field data.
  *
@@ -1440,7 +1440,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nqTotOut * (nelmt * c + e);
 
         // Copy to shared memory.
-        StageToSharedMemory(nmTot, inptr, s_in, threadBlock);
+        LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
         localBarrier(threadBlock);
 
         PhysTraceExtract2DSumFacTOPKernelCore<SHAPE_TYPE>(
@@ -1510,7 +1510,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         if (dispatch.normalDir == 0u)
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_in, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
             localBarrier(threadBlock);
 
             BwdTransQuadSumFacTOPKernelTrace<SHAPE_TYPE, 0>(
@@ -1598,7 +1598,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nqTotOut * (nelmt * c + e);
 
         // Copy to shared memory.
-        StageToSharedMemory(nmTot, inptr, s_in, threadBlock);
+        LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
         localBarrier(threadBlock);
 
         PhysTraceExtract3DSumFacTOPKernelCore<SHAPE_TYPE>(
@@ -1700,7 +1700,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         {
             case 0:
                 // Copy to shared memory.
-                StageToSharedMemory(nmTot, inptr, s_in, threadBlock);
+                LoadToSharedMemory(nmTot, inptr, s_in, threadBlock);
                 localBarrier(threadBlock);
 
                 DispatchPhysExtractFaceN0TOPKernelTrace3D(

@@ -223,6 +223,14 @@ inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
                    std::max(nq2, nm0)) *
                   nelmt;
     }
+    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
+    {
+        const unsigned int nmTot = sizeParam3D.nmTot();
+
+        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
+                   std::max(nq2, nm0) + nmTot) *
+                  nelmt;
+    }
 
     return wspsize;
 }
@@ -328,7 +336,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  * table for the tetrahedra as well, hence the nm01, nm02 and nmode2 row
  * counts.
  *
- * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE        Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam Implementation    MultiRegions::SumFacTOP.
  * @tparam TData             Floating-point type of the field data; sets the
  *                           padding.
@@ -382,7 +391,8 @@ inline constexpr unsigned int MassSharedMemorySize(
         return pad + nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nmTot +
                nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         const unsigned int nmode2 =
             nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
@@ -592,24 +602,24 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 
     // Rows of the inner product's input and intermediate stages are padded
-    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // to SharedMemoryRowStride and IProductWRTBaseStageStride, sized by
     // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
     // 16-byte aligned.
     // The padded input has its own region.
     wsp0Size += IProductWRTBaseWorkSpacePadding<SHAPE_TYPE, TData>(sizeParam2D);
 
     TData *s_modal = (TData *)shmemptr;
-    TData *bwd     = s_modal + IProductWRTBaseAlignedSize<TData>(nmTot);
-    TData *s_ipb   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *bwd     = s_modal + SharedMemoryAlignedSize<TData>(nmTot);
+    TData *s_ipb   = bwd + SharedMemoryAlignedSize<TData>(nqTot);
     TData *s_wsp0 =
-        s_ipb + IProductWRTBaseAlignedSize<TData>(
+        s_ipb + SharedMemoryAlignedSize<TData>(
                     IProductWRTBasePaddedInputSize<TData>(sizeParam2D));
-    TData *s_basis0 = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
+    TData *s_basis0 = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
 
     // Input of the inner product: the weighted values, in padded rows when
     // the rows need padding.
-    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
     TData *ipb             = ldi == nq0 ? bwd : s_ipb;
 
     // Copy to shared memory.
@@ -617,8 +627,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
 
     size_t e             = getBlockIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -636,7 +646,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         else
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_modal, threadBlock);
             localBarrier(threadBlock);
         }
 
@@ -688,7 +698,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * intermediates take those sizes the other way round; the hexahedron,
  * whose areas are maxima over both stages, passes them in the same order.
  *
- * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ * NodalPyr.
  * @tparam Implementation   MultiRegions::SumFacTOP.
  * @tparam DEFORMED         @p jac holds one value per quadrature point
  *                          rather than a single per-element value.
@@ -747,7 +758,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     FETCH_SHARED_MEMORY(shmemptr);
 
     constexpr bool isNodal = SHAPE_TYPE == LibUtilities::NodalTet ||
-                             SHAPE_TYPE == LibUtilities::NodalPrism;
+                             SHAPE_TYPE == LibUtilities::NodalPrism ||
+                             SHAPE_TYPE == LibUtilities::NodalPyr;
 
     const unsigned int nm0   = sizeParam3D.nm0();
     const unsigned int nm1   = sizeParam3D.nm1();
@@ -787,7 +799,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         nmode1   = nm1;
         nmode2   = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         wsp0Size = nm0 * nm1 * nq2;
         wsp1Size = nm0 * nq1 * nq2;
@@ -797,7 +810,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     }
 
     // Rows of the inner product's input and intermediate stages are padded
-    // to IProductWRTBaseRowStride and IProductWRTBaseStageStride, sized by
+    // to SharedMemoryRowStride and IProductWRTBaseStageStride, sized by
     // IProductWRTBaseFusedSharedMemoryPadding, and every region starts
     // 16-byte aligned.
     // The padded input has its own region.
@@ -807,19 +820,19 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     wsp1Size += wspPadSize;
 
     TData *s_modal = (TData *)shmemptr;
-    TData *bwd     = s_modal + IProductWRTBaseAlignedSize<TData>(nmTot);
-    TData *s_ipb   = bwd + IProductWRTBaseAlignedSize<TData>(nqTot);
+    TData *bwd     = s_modal + SharedMemoryAlignedSize<TData>(nmTot);
+    TData *s_ipb   = bwd + SharedMemoryAlignedSize<TData>(nqTot);
     TData *s_wsp0 =
-        s_ipb + IProductWRTBaseAlignedSize<TData>(
+        s_ipb + SharedMemoryAlignedSize<TData>(
                     IProductWRTBasePaddedInputSize<TData>(sizeParam3D));
-    TData *s_wsp1   = s_wsp0 + IProductWRTBaseAlignedSize<TData>(wsp0Size);
-    TData *s_basis0 = s_wsp1 + IProductWRTBaseAlignedSize<TData>(wsp1Size);
+    TData *s_wsp1   = s_wsp0 + SharedMemoryAlignedSize<TData>(wsp0Size);
+    TData *s_basis0 = s_wsp1 + SharedMemoryAlignedSize<TData>(wsp1Size);
     TData *s_basis1 = s_basis0 + nmode0 * nq0;
     TData *s_basis2 = s_basis1 + nmode1 * nq1;
 
     // Input of the inner product: the weighted values, in padded rows when
     // the rows need padding.
-    const unsigned int ldi = IProductWRTBaseRowStride<TData>(nq0);
+    const unsigned int ldi = SharedMemoryRowStride<TData>(nq0);
     TData *ipb             = ldi == nq0 ? bwd : s_ipb;
 
     // Copy to shared memory.
@@ -827,9 +840,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     const unsigned int stride = getLocalRange<0>(threadBlock);
 
     // Copy to shared memory.
-    StageToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
-    StageToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
-    StageToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
+    LoadToSharedMemory(nmode0 * nq0, basis0, s_basis0, threadBlock);
+    LoadToSharedMemory(nmode1 * nq1, basis1, s_basis1, threadBlock);
+    LoadToSharedMemory(nmode2 * nq2, basis2, s_basis2, threadBlock);
 
     size_t e = getBlockIdx<0>(threadBlock); // use size_t to prevent overflow
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -847,7 +860,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         else
         {
             // Copy to shared memory.
-            StageToSharedMemory(nmTot, inptr, s_modal, threadBlock);
+            LoadToSharedMemory(nmTot, inptr, s_modal, threadBlock);
             localBarrier(threadBlock);
         }
 

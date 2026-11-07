@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/CNAB/CNABOp.hpp"
-#include "SolverCore/TimeOps/IMEX/IMEXOp.hpp"
+#include <SolverCore/TimeOps/CNAB/CNABOp.hpp>
+#include <SolverCore/TimeOps/IMEX/IMEXOp.hpp>
 
-#include "SolverCore/TimeOps/CNAB/CNABKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/CNAB/CNABKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -122,7 +122,7 @@ protected:
             startup->SaveImplicit(true);
 
             // Copy functors from outer/higher-order CNAB scheme.
-            startup->CopyFunctorsFrom(*this);
+            startup->CopyFunctors(*this);
 
             // Move solutions to startup.
             startup->SetImplicits(this->TakeImplicits());

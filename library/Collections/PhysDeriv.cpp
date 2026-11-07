@@ -44,6 +44,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -107,10 +108,10 @@ public:
         // calculate local derivatives
         for (int i = 0; i < m_dim; ++i)
         {
-            Blas::Dgemm('N', 'N', m_derivMat[i]->GetRows(), m_numElmt,
-                        m_derivMat[i]->GetColumns(), 1.0,
-                        m_derivMat[i]->GetRawPtr(), m_derivMat[i]->GetRows(),
-                        input.data(), nPhys, 0.0, &Diff[i][0], nPhys);
+            Blas::Gemm('N', 'N', m_derivMat[i]->GetRows(), m_numElmt,
+                       m_derivMat[i]->GetColumns(), 1.0,
+                       m_derivMat[i]->GetRawPtr(), m_derivMat[i]->GetRows(),
+                       input.data(), nPhys, 0.0, &Diff[i][0], nPhys);
         }
 
         // calculate full derivative
@@ -162,10 +163,10 @@ public:
         // calculate local derivatives
         for (int i = 0; i < m_dim; ++i)
         {
-            Blas::Dgemm('N', 'N', m_derivMat[i]->GetRows(), m_numElmt,
-                        m_derivMat[i]->GetColumns(), 1.0,
-                        m_derivMat[i]->GetRawPtr(), m_derivMat[i]->GetRows(),
-                        input.data(), nPhys, 0.0, &Diff[i][0], nPhys);
+            Blas::Gemm('N', 'N', m_derivMat[i]->GetRows(), m_numElmt,
+                       m_derivMat[i]->GetColumns(), 1.0,
+                       m_derivMat[i]->GetRawPtr(), m_derivMat[i]->GetRows(),
+                       input.data(), nPhys, 0.0, &Diff[i][0], nPhys);
         }
 
         // calculate full derivative
@@ -259,6 +260,9 @@ OperatorKey PhysDeriv_StdMat::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, ePhysDeriv, eStdMat, true),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysDeriv, eStdMat, true),
+        PhysDeriv_StdMat::create, "PhysDeriv_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eStdMat, false),
         PhysDeriv_StdMat::create, "PhysDeriv_StdMat_Hex"),
@@ -571,6 +575,9 @@ OperatorKey PhysDeriv_IterPerExp::m_typeArr[] = {
         OperatorKey(eNodalPrism, ePhysDeriv, eIterPerExp, true),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysDeriv, eIterPerExp, true),
+        PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eIterPerExp, false),
         PhysDeriv_IterPerExp::create, "PhysDeriv_IterPerExp_Hex")};
 
@@ -689,6 +696,9 @@ OperatorKey PhysDeriv_NoCollection::m_typeArr[] = {
         OperatorKey(eNodalPrism, ePhysDeriv, eNoCollection, true),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysDeriv, eNoCollection, true),
+        PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysDeriv, eNoCollection, false),
         PhysDeriv_NoCollection::create, "PhysDeriv_NoCollection_Hex")};
 
@@ -716,9 +726,9 @@ public:
 
         Array<OneD, NekDouble> diff0(nqcol, wsp);
 
-        Blas::Dgemm('N', 'N', m_nquad0, m_numElmt, m_nquad0, 1.0, m_Deriv0,
-                    m_nquad0, input.data(), m_nquad0, 0.0, diff0.data(),
-                    m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_numElmt, m_nquad0, 1.0, m_Deriv0,
+                   m_nquad0, input.data(), m_nquad0, 0.0, diff0.data(),
+                   m_nquad0);
 
         if (m_isDeformed)
         {
@@ -775,9 +785,9 @@ public:
 
         Array<OneD, NekDouble> diff0(nqcol, wsp);
 
-        Blas::Dgemm('N', 'N', m_nquad0, m_numElmt, m_nquad0, 1.0, m_Deriv0,
-                    m_nquad0, input.data(), m_nquad0, 0.0, diff0.data(),
-                    m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_numElmt, m_nquad0, 1.0, m_Deriv0,
+                   m_nquad0, input.data(), m_nquad0, 0.0, diff0.data(),
+                   m_nquad0);
 
         if (m_isDeformed)
         {
@@ -848,16 +858,16 @@ public:
         Array<OneD, NekDouble> diff0(nqcol, wsp);
         Array<OneD, NekDouble> diff1(nqcol, wsp + nqcol);
 
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
-                    diff0.data(), m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
+                   m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                   diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
         {
-            Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.data() + cnt, m_nquad0);
+            Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                       input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                       diff1.data() + cnt, m_nquad0);
         }
 
         if (m_isDeformed)
@@ -921,16 +931,16 @@ public:
         Array<OneD, NekDouble> diff0(nqcol, wsp);
         Array<OneD, NekDouble> diff1(nqcol, wsp + nqcol);
 
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
-                    diff0.data(), m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
+                   m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                   diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
         {
-            Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.data() + cnt, m_nquad0);
+            Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                       input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                       diff1.data() + cnt, m_nquad0);
         }
 
         if (m_isDeformed)
@@ -1012,9 +1022,9 @@ public:
         Array<OneD, NekDouble> diff1(nqcol, wsp + nqcol);
 
         // Tensor Product Derivative
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
-                    diff0.data(), m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
+                   m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                   diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
@@ -1023,9 +1033,9 @@ public:
             Vmath::Vmul(nqtot, &m_fac1[0], 1, diff0.data() + cnt, 1,
                         diff0.data() + cnt, 1);
 
-            Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.data() + cnt, m_nquad0);
+            Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                       input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                       diff1.data() + cnt, m_nquad0);
 
             // add to diff1 by diff0 scaled by: (1_z0)/(1-z1)
             Vmath::Vvtvp(nqtot, m_fac0.data(), 1, diff0.data() + cnt, 1,
@@ -1094,9 +1104,9 @@ public:
         Array<OneD, NekDouble> diff1(nqcol, wsp + nqcol);
 
         // Tensor Product Derivative
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
-                    diff0.data(), m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
+                   m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                   diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
@@ -1105,9 +1115,9 @@ public:
             Vmath::Vmul(nqtot, &m_fac1[0], 1, diff0.data() + cnt, 1,
                         diff0.data() + cnt, 1);
 
-            Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.data() + cnt, m_nquad0);
+            Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                       input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                       diff1.data() + cnt, m_nquad0);
 
             // add to diff1 by diff0 scaled by: (1_z0)/(1-z1)
             Vmath::Vvtvp(nqtot, m_fac0.data(), 1, diff0.data() + cnt, 1,
@@ -1224,25 +1234,24 @@ public:
             Diff[i] = wsp + i * ntot;
         }
 
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         for (int i = 0; i < m_numElmt; ++i)
         {
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
         }
 
         // calculate full derivative
@@ -1294,25 +1303,24 @@ public:
             Diff[i] = wsp + i * ntot;
         }
 
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         for (int i = 0; i < m_numElmt; ++i)
         {
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
         }
 
         // calculate full derivative
@@ -1413,17 +1421,16 @@ public:
         }
 
         // dEta0
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         // dEta2
         for (int i = 0; i < m_numElmt; ++i)
         {
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
         }
 
         for (int i = 0; i < m_numElmt; ++i)
@@ -1431,11 +1438,11 @@ public:
             // dEta1
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
             // dxi2 = (1 + eta_1)/(1 -eta_2)*dEta1 + dEta2
@@ -1511,17 +1518,16 @@ public:
         }
 
         // dEta0
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         // dEta2
         for (int i = 0; i < m_numElmt; ++i)
         {
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
         }
 
         for (int i = 0; i < m_numElmt; ++i)
@@ -1529,11 +1535,11 @@ public:
             // dEta1
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
             // dxi2 = (1 + eta_1)/(1 -eta_2)*dEta1 + dEta2
@@ -1689,9 +1695,9 @@ public:
         }
 
         // dEta0
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i)
@@ -1699,18 +1705,17 @@ public:
             // dEta 1
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
             // dEta 2
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
             Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
@@ -1772,9 +1777,9 @@ public:
         }
 
         // dEta0
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i)
@@ -1782,18 +1787,17 @@ public:
             // dEta 1
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
             // dEta 2
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
             Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
@@ -1923,9 +1927,9 @@ public:
         }
 
         // dEta0
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i)
@@ -1933,18 +1937,17 @@ public:
             // dEta 1
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
             // dEta 2
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
             Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
@@ -2014,9 +2017,9 @@ public:
         }
 
         // dEta0
-        Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
-                    m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
-                    &Diff[0][0], m_nquad0);
+        Blas::Gemm('N', 'N', m_nquad0, m_nquad1 * m_nquad2 * m_numElmt,
+                   m_nquad0, 1.0, m_Deriv0, m_nquad0, &input[0], m_nquad0, 0.0,
+                   &Diff[0][0], m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i)
@@ -2024,18 +2027,17 @@ public:
             // dEta 1
             for (int j = 0; j < m_nquad2; ++j)
             {
-                Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                            &input[i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                            &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
-                            m_nquad0);
+                Blas::Gemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
+                           &input[i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                           &Diff[1][i * nPhys + j * m_nquad0 * m_nquad1],
+                           m_nquad0);
             }
 
             // dEta 2
-            Blas::Dgemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
-                        &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
-                        m_nquad2, 0.0, &Diff[2][i * nPhys],
-                        m_nquad0 * m_nquad1);
+            Blas::Gemm('N', 'T', m_nquad0 * m_nquad1, m_nquad2, m_nquad2, 1.0,
+                       &input[i * nPhys], m_nquad0 * m_nquad1, m_Deriv2,
+                       m_nquad2, 0.0, &Diff[2][i * nPhys], m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
             Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,

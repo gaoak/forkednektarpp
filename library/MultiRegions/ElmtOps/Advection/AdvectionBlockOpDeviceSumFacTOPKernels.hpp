@@ -501,7 +501,8 @@ NEK_DEVICE_INLINE static void Advection3DSumFacTOPKernel(
             d0 *= f2[k];
             d2 += f0[i] * d0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             d0 *= f2[k];
             d1 *= f2[k];
@@ -702,7 +703,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
             advVel + nqTot * nelmt * (c % nhomo) + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         Advection2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(
@@ -794,7 +795,7 @@ NEK_DEVICE_KERNEL void AdvectionKernelLauncher(
         const TData *advVelPtr = advVel + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         Advection3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED>(

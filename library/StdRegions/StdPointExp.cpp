@@ -68,13 +68,13 @@ void StdPointExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
     {
         Array<OneD, NekDouble> wsp(nquad);
         CopyArray(inarray, wsp);
-        Blas::Dgemv('N', nquad, nquad, 1.0, &(D->GetPtr())[0], nquad, &wsp[0],
-                    1, 0.0, &outarray[0], 1);
+        Blas::Gemv('N', nquad, nquad, 1.0, &(D->GetPtr())[0], nquad, &wsp[0], 1,
+                   0.0, &outarray[0], 1);
     }
     else
     {
-        Blas::Dgemv('N', nquad, nquad, 1.0, &(D->GetPtr())[0], nquad,
-                    &inarray[0], 1, 0.0, &outarray[0], 1);
+        Blas::Gemv('N', nquad, nquad, 1.0, &(D->GetPtr())[0], nquad,
+                   &inarray[0], 1, 0.0, &outarray[0], 1);
     }
 }
 
@@ -89,9 +89,9 @@ void StdPointExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
     }
     else
     {
-        Blas::Dgemv('N', nquad, m_base[0]->GetNumModes(), 1.0,
-                    (m_base[0]->GetBdata()).data(), nquad, &inarray[0], 1, 0.0,
-                    &outarray[0], 1);
+        Blas::Gemv('N', nquad, m_base[0]->GetNumModes(), 1.0,
+                   (m_base[0]->GetBdata()).data(), nquad, &inarray[0], 1, 0.0,
+                   &outarray[0], 1);
     }
 }
 

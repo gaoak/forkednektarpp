@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE(TestDirectBlasCall)
     NekDouble y[] = {0, 0, 0, 0};
 
     NekDouble a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0};
-    Blas::Dgbmv('T', 4, 4, 1, 1, 1.0, a, 3, x, 1, 0.0, y, 1);
+    Blas::Gbmv('T', 4, 4, 1, 1, 1.0, a, 3, x, 1, 0.0, y, 1);
 
     NekDouble expected_result_buf[] = {5, 26, 65, 67};
     NekVector<NekDouble> expected_result(4, expected_result_buf);
@@ -73,7 +73,7 @@ BOOST_AUTO_TEST_CASE(TestSquareDirectBlasCall)
 
     NekDouble a[] = {0, 0, 0,  1,  2,  3, 4, 0,  0,  5,  6,  7, 8, 0,
                      0, 9, 10, 11, 12, 0, 0, 13, 14, 15, 16, 0, 0, 0};
-    Blas::Dgbmv('T', 4, 4, 3, 3, 1.0, a, 7, x, 1, 0.0, y, 1);
+    Blas::Gbmv('T', 4, 4, 3, 3, 1.0, a, 7, x, 1, 0.0, y, 1);
 
     NekDouble expected_result_buf[] = {30, 70, 110, 150};
     NekVector<NekDouble> expected_result(4, expected_result_buf);
@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(TestDifferentNumberOfLowerAndUpperDiagonalsDirectBlasCall)
 
     NekDouble a[] = {0, 1, 2, 11, 3, 4, 5, 12, 6, 7, 8, 0, 9, 10, 0, 0};
 
-    Blas::Dgbmv('T', 4, 4, 2, 1, 1.0, a, 4, x, 1, 0.0, y, 1);
+    Blas::Gbmv('T', 4, 4, 2, 1, 1.0, a, 4, x, 1, 0.0, y, 1);
 
     NekDouble expected_result_buf[] = {38, 74, 65, 67};
     NekVector<NekDouble> expected_result(4, expected_result_buf);
@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE(TestLargerPackedMatrixThanNormal)
 
     NekDouble a[] = {0, 1, 3, 6, 2, 4, 7, 0, 5, 8, 0, 0};
 
-    Blas::Dgbmv('N', 3, 3, 2, 1, 1.0, a, 4, x, 1, 0.0, y, 1);
+    Blas::Gbmv('N', 3, 3, 2, 1, 1.0, a, 4, x, 1, 0.0, y, 1);
 
     NekDouble expected_result_buf[] = {5, 26, 44};
     NekVector<NekDouble> expected_result(3, expected_result_buf);

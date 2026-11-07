@@ -294,14 +294,15 @@ void EnqueueExpressionKernel(const ExpressionKernels &kernels,
     // outlive it: they are held by kernelArgs.
     const size_t numEvar = kernelArgs.evarptr.size();
     const size_t numArgs = 7 + numEvar + kernelArgs.outptr.size();
-    void **args          = new void *[numArgs];
-    args[0]              = (void *)&kernelArgs.nsize;
-    args[1]              = (void *)&kernelArgs.compSize;
-    args[2]              = (void *)&kernelArgs.nelmt;
-    args[3]              = (void *)&kernelArgs.ndata;
-    args[4]              = (void *)&kernelArgs.scale;
-    args[5]              = (void *)&kernelArgs.coordptr;
-    args[6]              = (void *)&kernelArgs.time;
+    auto &args           = kernelArgs.launchArgs;
+    args.resize(numArgs);
+    args[0] = (void *)&kernelArgs.nsize;
+    args[1] = (void *)&kernelArgs.compSize;
+    args[2] = (void *)&kernelArgs.nelmt;
+    args[3] = (void *)&kernelArgs.ndata;
+    args[4] = (void *)&kernelArgs.scale;
+    args[5] = (void *)&kernelArgs.coordptr;
+    args[6] = (void *)&kernelArgs.time;
 
     // Set input pointers.
     for (size_t i = 0; i < numEvar; ++i)
@@ -318,9 +319,7 @@ void EnqueueExpressionKernel(const ExpressionKernels &kernels,
     // Launch kernel.
     CHECK_HIPCUDA_DRIVER_ERROR(nekLaunchKernel(kernels.kernels[index], gridSize,
                                                1, 1, blockSize, 1, 1, 0, stream,
-                                               args, nullptr));
-
-    delete[] args;
+                                               args.data(), nullptr));
 }
 
 #if !defined(NEKTAR_ENABLE_SYCL)

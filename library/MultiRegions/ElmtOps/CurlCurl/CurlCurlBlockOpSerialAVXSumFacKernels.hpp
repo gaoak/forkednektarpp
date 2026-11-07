@@ -363,7 +363,8 @@ NEK_FORCE_INLINE static void Curl3DSumFacKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                          SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 xfrm_eta1 = f1[j];
             }
@@ -401,7 +402,8 @@ NEK_FORCE_INLINE static void Curl3DSumFacKernel(
                             a0 *= xfrm_eta2;
                             a2.fma(xfrm_eta0, a0);
                         }
-                        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                           SHAPE_TYPE == LibUtilities::NodalPyr)
                         {
                             a0 *= xfrm_eta2;
                             a1 *= xfrm_eta2;

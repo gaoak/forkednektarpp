@@ -188,6 +188,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     )
     set(SOLVER_CORE_HEADERS
         SolverCore.hpp
+        TimeOps/IMEXBaseOp.hpp
         TimeOps/TimeOp.hpp
         SolverCoreDeclspec.h
     )

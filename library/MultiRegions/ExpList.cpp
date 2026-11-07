@@ -47,6 +47,7 @@
 #include <LocalRegions/HexExp.h>
 #include <LocalRegions/MatrixKey.h> // for MatrixKey
 #include <LocalRegions/NodalPrismExp.h>
+#include <LocalRegions/NodalPyrExp.h>
 #include <LocalRegions/NodalTetExp.h>
 #include <LocalRegions/NodalTriExp.h>
 #include <LocalRegions/PointExp.h>
@@ -1844,9 +1845,24 @@ void ExpList::InitialiseExpVector(
                     else if ((PyrGeom = dynamic_cast<SpatialDomains::PyrGeom *>(
                                   expInfo->m_geomPtr)))
                     {
-                        exp = MemoryManager<
-                            LocalRegions::PyrExp>::AllocateSharedPtr(Ba, Bb, Bc,
-                                                                     PyrGeom);
+                        if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
+                        {
+                            LibUtilities::BasisKey newBa(LibUtilities::eOrtho_A,
+                                                         Ba.GetNumModes(),
+                                                         Ba.GetPointsKey());
+
+                            LibUtilities::PointsType PyrNb =
+                                LibUtilities::eNodalPyrEvenlySpaced;
+
+                            exp = MemoryManager<LocalRegions::NodalPyrExp>::
+                                AllocateSharedPtr(newBa, Bb, Bc, PyrNb,
+                                                  PyrGeom);
+                        }
+                        else
+                        {
+                            exp = MemoryManager<LocalRegions::PyrExp>::
+                                AllocateSharedPtr(Ba, Bb, Bc, PyrGeom);
+                        }
                     }
                     else if ((HexGeom = dynamic_cast<SpatialDomains::HexGeom *>(
                                   expInfo->m_geomPtr)))

@@ -133,6 +133,8 @@ TEST_BWDTRANS(bwdtrans_pyr, Pyr, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_pyr_varp, PyrVarP, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_pyr_nodal, PyrNodal, 1.0E-12)
+
 TEST_BWDTRANS(bwdtrans_tet, Tet, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_tet_varp, TetVarP, 1.0E-12)

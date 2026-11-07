@@ -1480,9 +1480,9 @@ void LocTraceToTraceMap::InterpLocEdgesToTrace(
                 case eInterpDir0:
                 {
                     DNekMatSharedPtr I0 = m_interpTraceI0[dir][i];
-                    Blas::Dgemm('N', 'N', tnp, nedges, fnp, 1.0,
-                                I0->GetPtr().data(), tnp, locedges.data() + cnt,
-                                fnp, 0.0, tmp.data() + cnt1, tnp);
+                    Blas::Gemm('N', 'N', tnp, nedges, fnp, 1.0,
+                               I0->GetPtr().data(), tnp, locedges.data() + cnt,
+                               fnp, 0.0, tmp.data() + cnt1, tnp);
                 }
                 break;
                 case eInterpEndPtDir0:
@@ -1606,10 +1606,9 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                 case eInterpDir0:
                 {
                     DNekMatSharedPtr I0 = m_interpTraceI0[dir][i];
-                    Blas::Dgemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
-                                I0->GetPtr().data(), tnp0,
-                                locfaces.data() + cnt, fnp0, 0.0,
-                                tmp.data() + cnt1, tnp0);
+                    Blas::Gemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
+                               I0->GetPtr().data(), tnp0, locfaces.data() + cnt,
+                               fnp0, 0.0, tmp.data() + cnt1, tnp0);
                 }
                 break;
                 case eInterpEndPtDir0:
@@ -1622,9 +1621,9 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                     }
 
                     Array<OneD, NekDouble> I0 = m_interpEndPtI0[dir][i];
-                    Blas::Dgemv('T', fnp0, tnp1 * nfaces, 1.0,
-                                tmp.data() + cnt1, tnp0, I0.data(), 1, 0.0,
-                                tmp.data() + cnt1 + tnp0 - 1, tnp0);
+                    Blas::Gemv('T', fnp0, tnp1 * nfaces, 1.0, tmp.data() + cnt1,
+                               tnp0, I0.data(), 1, 0.0,
+                               tmp.data() + cnt1 + tnp0 - 1, tnp0);
                 }
                 break;
                 case eInterpDir1:
@@ -1632,10 +1631,10 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
                     DNekMatSharedPtr I1 = m_interpTraceI1[dir][i];
                     for (int j = 0; j < nfaces; ++j)
                     {
-                        Blas::Dgemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
-                                    locfaces.data() + cnt + j * fnp0 * fnp1,
-                                    tnp0, I1->GetPtr().data(), tnp1, 0.0,
-                                    tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0);
+                        Blas::Gemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
+                                   locfaces.data() + cnt + j * fnp0 * fnp1,
+                                   tnp0, I1->GetPtr().data(), tnp1, 0.0,
+                                   tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0);
                     }
                 }
                 break;
@@ -1669,14 +1668,14 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
 
                     for (int j = 0; j < nfaces; ++j)
                     {
-                        Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
-                                    locfaces.data() + cnt + j * fnp0 * fnp1,
-                                    fnp0, I1->GetPtr().data(), tnp1, 0.0,
-                                    wsp.data() + j * fnp0 * tnp1, fnp0);
+                        Blas::Gemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
+                                   locfaces.data() + cnt + j * fnp0 * fnp1,
+                                   fnp0, I1->GetPtr().data(), tnp1, 0.0,
+                                   wsp.data() + j * fnp0 * tnp1, fnp0);
                     }
-                    Blas::Dgemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
-                                I0->GetPtr().data(), tnp0, wsp.data(), fnp0,
-                                0.0, tmp.data() + cnt1, tnp0);
+                    Blas::Gemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
+                               I0->GetPtr().data(), tnp0, wsp.data(), fnp0, 0.0,
+                               tmp.data() + cnt1, tnp0);
                 }
                 break;
                 case eInterpEndPtDir0InterpDir1:
@@ -1686,15 +1685,15 @@ void LocTraceToTraceMap::InterpLocFacesToTrace(
 
                     for (int j = 0; j < nfaces; ++j)
                     {
-                        Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
-                                    locfaces.data() + cnt + j * fnp0 * fnp1,
-                                    fnp0, I1->GetPtr().data(), tnp1, 0.0,
-                                    tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0);
+                        Blas::Gemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
+                                   locfaces.data() + cnt + j * fnp0 * fnp1,
+                                   fnp0, I1->GetPtr().data(), tnp1, 0.0,
+                                   tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0);
                     }
 
-                    Blas::Dgemv('T', fnp0, tnp1 * nfaces, 1.0,
-                                tmp.data() + cnt1, tnp0, I0.data(), 1, 0.0,
-                                tmp.data() + cnt1 + tnp0 - 1, tnp0);
+                    Blas::Gemv('T', fnp0, tnp1 * nfaces, 1.0, tmp.data() + cnt1,
+                               tnp0, I0.data(), 1, 0.0,
+                               tmp.data() + cnt1 + tnp0 - 1, tnp0);
                 }
                 break;
                 default:
@@ -1792,9 +1791,9 @@ void LocTraceToTraceMap::InterpLocEdgesToTraceTranspose(
                 case eInterpDir0:
                 {
                     DNekMatSharedPtr I0 = m_interpTraceI0[dir][i];
-                    Blas::Dgemm('T', 'N', fnp, nedges, tnp, 1.0,
-                                I0->GetPtr().data(), tnp, tmp.data() + cnt1,
-                                tnp, 0.0, locedges.data() + cnt, fnp);
+                    Blas::Gemm('T', 'N', fnp, nedges, tnp, 1.0,
+                               I0->GetPtr().data(), tnp, tmp.data() + cnt1, tnp,
+                               0.0, locedges.data() + cnt, fnp);
                 }
                 break;
                 case eInterpEndPtDir0:
@@ -1915,9 +1914,9 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
                 case eInterpDir0:
                 {
                     DNekMatSharedPtr I0 = m_interpTraceI0[dir][i];
-                    Blas::Dgemm('T', 'N', fnp0, tnp1, tnp0, 1.0,
-                                I0->GetPtr().data(), tnp0, tmp.data() + cnt1,
-                                tnp0, 0.0, loctraces.data() + cnt, fnp0);
+                    Blas::Gemm('T', 'N', fnp0, tnp1, tnp0, 1.0,
+                               I0->GetPtr().data(), tnp0, tmp.data() + cnt1,
+                               tnp0, 0.0, loctraces.data() + cnt, fnp0);
                 }
                 break;
                 case eInterpEndPtDir0:
@@ -1944,11 +1943,11 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
 
                     for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
                     {
-                        Blas::Dgemm('N', 'N', tnp0, fnp1, tnp1, 1.0,
-                                    tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0,
-                                    I1->GetPtr().data(), tnp1, 0.0,
-                                    loctraces.data() + cnt + j * fnp0 * fnp1,
-                                    tnp0);
+                        Blas::Gemm('N', 'N', tnp0, fnp1, tnp1, 1.0,
+                                   tmp.data() + cnt1 + j * tnp0 * tnp1, tnp0,
+                                   I1->GetPtr().data(), tnp1, 0.0,
+                                   loctraces.data() + cnt + j * fnp0 * fnp1,
+                                   tnp0);
                     }
                 }
                 break;
@@ -1981,17 +1980,17 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
                     Array<OneD, NekDouble> wsp{
                         size_t(m_interpNtraces[dir][i] * fnp0 * tnp1)};
 
-                    Blas::Dgemm('T', 'N', fnp0, tnp1 * m_interpNtraces[dir][i],
-                                tnp0, 1.0, I0->GetPtr().data(), tnp0,
-                                tmp.data() + cnt1, tnp0, 0.0, wsp.data(), fnp0);
+                    Blas::Gemm('T', 'N', fnp0, tnp1 * m_interpNtraces[dir][i],
+                               tnp0, 1.0, I0->GetPtr().data(), tnp0,
+                               tmp.data() + cnt1, tnp0, 0.0, wsp.data(), fnp0);
 
                     for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
                     {
-                        Blas::Dgemm('N', 'N', fnp0, fnp1, tnp1, 1.0,
-                                    wsp.data() + j * fnp0 * tnp1, fnp0,
-                                    I1->GetPtr().data(), tnp1, 0.0,
-                                    loctraces.data() + cnt + j * fnp0 * fnp1,
-                                    fnp0);
+                        Blas::Gemm('N', 'N', fnp0, fnp1, tnp1, 1.0,
+                                   wsp.data() + j * fnp0 * tnp1, fnp0,
+                                   I1->GetPtr().data(), tnp1, 0.0,
+                                   loctraces.data() + cnt + j * fnp0 * fnp1,
+                                   fnp0);
                     }
                 }
                 break;
@@ -2012,11 +2011,11 @@ void LocTraceToTraceMap::InterpLocFacesToTraceTranspose(
 
                     for (int j = 0; j < m_interpNtraces[dir][i]; ++j)
                     {
-                        Blas::Dgemm('N', 'N', fnp0, fnp1, tnp1, 1.0,
-                                    wsp.data() + j * fnp0 * tnp1, fnp0,
-                                    I1->GetPtr().data(), tnp1, 0.0,
-                                    loctraces.data() + cnt + j * fnp0 * fnp1,
-                                    fnp0);
+                        Blas::Gemm('N', 'N', fnp0, fnp1, tnp1, 1.0,
+                                   wsp.data() + j * fnp0 * tnp1, fnp0,
+                                   I1->GetPtr().data(), tnp1, 0.0,
+                                   loctraces.data() + cnt + j * fnp0 * fnp1,
+                                   fnp0);
                     }
                 }
                 break;
@@ -2119,9 +2118,9 @@ void LocTraceToTraceMap::InterpTraceToLocEdges(
                 case eInterpDir0:
                 {
                     DNekMatSharedPtr I0 = m_interpFromTraceI0[dir][i];
-                    Blas::Dgemm('N', 'N', tnp, nedges, fnp, 1.0,
-                                I0->GetPtr().data(), tnp, tmp.data() + cnt, fnp,
-                                0.0, locedges.data() + cnt1, tnp);
+                    Blas::Gemm('N', 'N', tnp, nedges, fnp, 1.0,
+                               I0->GetPtr().data(), tnp, tmp.data() + cnt, fnp,
+                               0.0, locedges.data() + cnt1, tnp);
                 }
                 break;
                 case eInterpEndPtDir0:
@@ -2237,9 +2236,9 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
                 case eInterpDir0:
                 {
                     DNekMatSharedPtr I0 = m_interpFromTraceI0[dir][i];
-                    Blas::Dgemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
-                                I0->GetPtr().data(), tnp0, tmp.data() + cnt,
-                                fnp0, 0.0, locfaces.data() + cnt1, tnp0);
+                    Blas::Gemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
+                               I0->GetPtr().data(), tnp0, tmp.data() + cnt,
+                               fnp0, 0.0, locfaces.data() + cnt1, tnp0);
                 }
                 break;
                 case eInterpDir1:
@@ -2247,11 +2246,11 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
                     DNekMatSharedPtr I1 = m_interpFromTraceI1[dir][i];
                     for (int j = 0; j < nfaces; ++j)
                     {
-                        Blas::Dgemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
-                                    tmp.data() + cnt + j * fnp0 * fnp1, tnp0,
-                                    I1->GetPtr().data(), tnp1, 0.0,
-                                    locfaces.data() + cnt1 + j * tnp0 * tnp1,
-                                    tnp0);
+                        Blas::Gemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
+                                   tmp.data() + cnt + j * fnp0 * fnp1, tnp0,
+                                   I1->GetPtr().data(), tnp1, 0.0,
+                                   locfaces.data() + cnt1 + j * tnp0 * tnp1,
+                                   tnp0);
                     }
                 }
                 break;
@@ -2283,15 +2282,15 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
 
                     for (int j = 0; j < nfaces; ++j)
                     {
-                        Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
-                                    tmp.data() + cnt + j * fnp0 * fnp1, fnp0,
-                                    I1->GetPtr().data(), tnp1, 0.0,
-                                    wsp.data() + j * fnp0 * tnp1, fnp0);
+                        Blas::Gemm('N', 'T', fnp0, tnp1, fnp1, 1.0,
+                                   tmp.data() + cnt + j * fnp0 * fnp1, fnp0,
+                                   I1->GetPtr().data(), tnp1, 0.0,
+                                   wsp.data() + j * fnp0 * tnp1, fnp0);
                     }
 
-                    Blas::Dgemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
-                                I0->GetPtr().data(), tnp0, wsp.data(), fnp0,
-                                0.0, locfaces.data() + cnt1, tnp0);
+                    Blas::Gemm('N', 'N', tnp0, tnp1 * nfaces, fnp0, 1.0,
+                               I0->GetPtr().data(), tnp0, wsp.data(), fnp0, 0.0,
+                               locfaces.data() + cnt1, tnp0);
                 }
                 break;
                 case eInterpEndPtDir0InterpDir1:
@@ -2299,11 +2298,11 @@ void LocTraceToTraceMap::InterpTraceToLocFaces(
                     DNekMatSharedPtr I1 = m_interpFromTraceI1[dir][i];
                     for (int j = 0; j < nfaces; ++j)
                     {
-                        Blas::Dgemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
-                                    tmp.data() + cnt + j * fnp0 * fnp1, fnp0,
-                                    I1->GetPtr().data(), tnp1, 0.0,
-                                    locfaces.data() + cnt1 + j * tnp0 * tnp1,
-                                    tnp0);
+                        Blas::Gemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
+                                   tmp.data() + cnt + j * fnp0 * fnp1, fnp0,
+                                   I1->GetPtr().data(), tnp1, 0.0,
+                                   locfaces.data() + cnt1 + j * tnp0 * tnp1,
+                                   tnp0);
                     }
                 }
                 break;

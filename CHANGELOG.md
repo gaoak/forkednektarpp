@@ -147,6 +147,15 @@ v5.11.0
 - Add uniform and normal random fills to the Math library (`Math::fillUniform`, `Math::fillNormal`, `Math::RandomGenerator`) over cuRAND, hipRAND and oneMath/oneMKL on the device (!2903)
 - Add the white noise forcing (`TYPE="Noise"`) to SolverCore, and read the redesign forcing configuration through SessionNode
 - Tidy the device SumFac and SumFacTOP element operators: share 2D/3D shape-dispatch helpers for BwdTrans and IProductWRTBase, stage shared-memory data with `StageToSharedMemory`/`StageTransposeToSharedMemory`, and drop a redundant barrier after the nodal-to-modal mapping (!2905)
+- Fix device Dirichlet projection reading out of bounds in 3DH1, and reject homogeneous expansions in the boundary surface integral and MeanRemoval (!2907)
+- Agree across ranks on the field definitions a variable is written with (!2907)
+- Tidy and simplify the padding of shared memory in the device SumFacTOP element operators: move the stride and alignment helpers to UtilsDeviceKernels as `SharedMemoryRowStride`, `IsConflictFreeSharedMemoryRowStride` and `SharedMemoryAlignedSize`, load padded rows with `LoadWithPaddingToSharedMemory`, and rename the `Stage*ToSharedMemory` helpers to `Load*ToSharedMemory` (!2908)
+- Fix the NVPL CMake detection: only offer NVPL on Arm (aarch64) Linux, stop with an error when NEKTAR_USE_NVPL is requested on another platform, and compare the ThirdParty path literally so that paths containing regex characters (e.g. nektar++) are recognised (!2899)
+- Move the incompressible-solver hooks out of the redesign TimeOp into IMEXBaseOp, the base of IMEX and IMEXdirk, and make the TimeOp Do functions protected (!2911)
+- Add `ElmtBlockOp::ShapeSwitch`, which replaces the runtime shape switch duplicated in every SumFac and SumFacTOP block operator's `v_Apply()`; an unsupported shape is now a fatal error (!2910)
+- Add nodal pyramid support to the SumFac and SumFacTOP element and trace operators for Serial, AVX and Device back-ends, and build `NodalPyrExp` from a `GLL_LAGRANGE` pyramid expansion (!2910)
+- Register the redesign SDC and GEM time integration operators with the common TimeOp factory, removing the separate SDC and GEM factories; their order, variant and free parameters are set through `TimeOp::v_SetScheme` once the operator is created (!2913)
+- Remove the duplicate double-only BLAS wrappers (`Dgemv`, `Dgemm`, ...) and the unused `Cdgemm`; use the overloaded versions instead (!2915)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -203,6 +212,8 @@ v5.11.0
 - Fix NaN fluxes on padded elements in the Euler volume flux (!2891)
 - Update `TimeDependent` boundary conditions at every right-hand-side evaluation, which were left at their initial value, and add a test ported from the legacy solver (!2902)
 - Vectorise the HLL, HLLC and AUSM Riemann solvers on AVX, branch-free through clamped wave speeds and `Select()`, and build the Riemann profiler again (!2904)
+- Fail, rather than silently skip the wall temperature, on an isothermal wall with extra components (!2907)
+- Move the Roe average into `RoeAverage.hpp`, so that the HLL and HLLC solvers no longer include the Roe solver (!2909)
 
 **IncNavierStokesSolverRedesign**
 - Add `IncNavierStokesSolverRedesign` (velocity correction scheme) built on the redesign operators (!2418)
@@ -216,6 +227,8 @@ v5.11.0
 - Keep the multistep divergence weight of the pressure in IMEX start-up stages (!2892)
 - Check that the velocity and pressure share their quadrature points in either pressure form and on HOutflow regions, write a lower-order pressure through the velocity expansion so that FieldConvert and the legacy solver read it, and test a pressure one order below the velocity with the HOPBC and HOutflow (!2896)
 - Evaluate the Neumann value of the HOutflow velocity conditions once, and again at every step only on the regions whose expression uses `t` (!2902)
+- Vectorise the pointwise kernels of the HOPBC and HOutflow conditions on AVX, give their volume gathers the dimension as a template parameter, and form predictor - rhs of the HOPBC in place of a copy of the boundary-adjacent elements (!2909)
+- Keep the IMEX start-up and history extrapolation in the solver (!2911)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

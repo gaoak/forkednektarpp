@@ -428,7 +428,7 @@ NEK_FORCE_INLINE static void PhysDerivDir2DKernel(
  * output component is then `out[k] = sum_d d_d * df[3k+d]`, the nine
  * derivative factors of a three-dimensional element.
  *
- * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED   Derivative factors vary point by point.
  * @tparam simd_type  SIMD vector type of the interleaved group.
  *
@@ -481,7 +481,8 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                          SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 xfrm_eta1 = f1[j];
             }
@@ -510,7 +511,8 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
                     xfrm_eta0 = f0[i];
                     d2.fma(xfrm_eta0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     d0 *= xfrm_eta2;
                     d1 *= xfrm_eta2;
@@ -567,7 +569,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
  * reading the collapsed derivatives from separate arrays and producing
  * only the Cartesian component DIR.
  *
- * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam APPEND     Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED   Derivative factors vary point by point.
  * @tparam DIR        Cartesian component to produce; selects the
@@ -613,7 +615,8 @@ NEK_FORCE_INLINE static void PhysDerivDir3DKernel(
         for (unsigned int j = 0; j < nq1; ++j)
         {
             simd_type xfrm_eta1, xfrm;
-            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                          SHAPE_TYPE == LibUtilities::NodalPyr)
             {
                 xfrm_eta1 = f1[j];
             }
@@ -642,7 +645,8 @@ NEK_FORCE_INLINE static void PhysDerivDir3DKernel(
                     xfrm_eta0 = f0[i];
                     d2.fma(xfrm_eta0, d0);
                 }
-                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                                   SHAPE_TYPE == LibUtilities::NodalPyr)
                 {
                     d0 *= xfrm_eta2;
                     d1 *= xfrm_eta2;

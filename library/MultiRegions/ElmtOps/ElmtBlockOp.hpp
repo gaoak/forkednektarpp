@@ -74,12 +74,14 @@
 #pragma once
 
 #include <algorithm>
+#include <type_traits>
 
 #include <LibUtilities/Backends/DeviceProperties.hpp>
 #include <MultiRegions/Common/BlockOperator.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LibUtilities/BasicUtils/DataWarehouse/ModeIndexDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 #include <StdRegions/DataWarehouse/StdMatDataWarehouse.hpp>
 
@@ -170,8 +172,8 @@ struct Generic
  * detail:: implementation classes (e.g. detail::BwdTransBlockOpImpl),
  * which override v_Apply(). The sum-factorised implementations, and
  * the Generic ones of the trace operators, dispatch from v_Apply() on
- * the block's shape type into per-shape ShapeBlock definitions that
- * CMake generates from
+ * the block's shape type, through ShapeSwitch(), into per-shape
+ * ShapeBlock definitions that CMake generates from
  * LibUtilities/BasicUtils/Switch/BlockOpShapeBlock.cpp.in, one
  * translation unit per shape; each ShapeBlock switches on the
  * element's size counts and calls the implementation's OperatorND
@@ -323,6 +325,63 @@ protected:
     }
 
     ~ElmtBlockOp() override = default;
+
+    /**
+     * @brief Call @p func with the runtime @p shape as a compile-time
+     * constant, `std::integral_constant<LibUtilities::ShapeType, ...>`.
+     *
+     * Used by the v_Apply() overrides that dispatch to ShapeBlock.
+     *
+     * @param   shape   Shape of the block's elements.
+     * @param   func    Callable taking the shape constant.
+     */
+    template <typename TFunc>
+    static void ShapeSwitch(const LibUtilities::ShapeType shape, TFunc &&func)
+    {
+        using LibUtilities::ShapeType;
+        switch (shape)
+        {
+            case LibUtilities::Seg:
+                func(std::integral_constant<ShapeType, LibUtilities::Seg>{});
+                break;
+            case LibUtilities::Quad:
+                func(std::integral_constant<ShapeType, LibUtilities::Quad>{});
+                break;
+            case LibUtilities::Tri:
+                func(std::integral_constant<ShapeType, LibUtilities::Tri>{});
+                break;
+            case LibUtilities::NodalTri:
+                func(std::integral_constant<ShapeType,
+                                            LibUtilities::NodalTri>{});
+                break;
+            case LibUtilities::Hex:
+                func(std::integral_constant<ShapeType, LibUtilities::Hex>{});
+                break;
+            case LibUtilities::Tet:
+                func(std::integral_constant<ShapeType, LibUtilities::Tet>{});
+                break;
+            case LibUtilities::NodalTet:
+                func(std::integral_constant<ShapeType,
+                                            LibUtilities::NodalTet>{});
+                break;
+            case LibUtilities::Pyr:
+                func(std::integral_constant<ShapeType, LibUtilities::Pyr>{});
+                break;
+            case LibUtilities::NodalPyr:
+                func(std::integral_constant<ShapeType,
+                                            LibUtilities::NodalPyr>{});
+                break;
+            case LibUtilities::Prism:
+                func(std::integral_constant<ShapeType, LibUtilities::Prism>{});
+                break;
+            case LibUtilities::NodalPrism:
+                func(std::integral_constant<ShapeType,
+                                            LibUtilities::NodalPrism>{});
+                break;
+            default:
+                NEKERROR(ErrorUtil::efatal, "Shape type not implemented");
+        }
+    }
 
     /// The creators return a std::unique_ptr to this class, which the
     /// factory converts to the shared_ptr it hands out; their deleter

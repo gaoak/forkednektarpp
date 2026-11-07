@@ -1075,10 +1075,10 @@ void PreconditionerLowEnergy::v_DoTransformBasisToLowEnergy(
     {
         int nexp       = m_sameBlock[i].first;
         int nbndcoeffs = m_sameBlock[i].second;
-        Blas::Dgemm('N', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
-                    &(R.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.data() + cnt, nbndcoeffs, 0.0, pInOut.data() + cnt,
-                    nbndcoeffs);
+        Blas::Gemm('N', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
+                   &(R.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
+                   pLocalIn.data() + cnt, nbndcoeffs, 0.0, pInOut.data() + cnt,
+                   nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
     }
@@ -1113,10 +1113,10 @@ void PreconditionerLowEnergy::v_DoTransformCoeffsFromLowEnergy(
     {
         int nexp       = m_sameBlock[i].first;
         int nbndcoeffs = m_sameBlock[i].second;
-        Blas::Dgemm('T', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
-                    &(R.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.data() + cnt, nbndcoeffs, 0.0, pInOut.data() + cnt,
-                    nbndcoeffs);
+        Blas::Gemm('T', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
+                   &(R.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
+                   pLocalIn.data() + cnt, nbndcoeffs, 0.0, pInOut.data() + cnt,
+                   nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
     }
@@ -1153,10 +1153,10 @@ void PreconditionerLowEnergy::v_DoTransformBasisFromLowEnergy(
     {
         int nexp       = m_sameBlock[i].first;
         int nbndcoeffs = m_sameBlock[i].second;
-        Blas::Dgemm('N', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
-                    &(invR.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.data() + cnt, nbndcoeffs, 0.0,
-                    pOutput.data() + cnt, nbndcoeffs);
+        Blas::Gemm('N', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
+                   &(invR.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
+                   pLocalIn.data() + cnt, nbndcoeffs, 0.0, pOutput.data() + cnt,
+                   nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
     }
@@ -1191,10 +1191,10 @@ void PreconditionerLowEnergy::v_DoTransformCoeffsToLowEnergy(
     {
         int nexp       = m_sameBlock[i].first;
         int nbndcoeffs = m_sameBlock[i].second;
-        Blas::Dgemm('T', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
-                    &(invR.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.data() + cnt, nbndcoeffs, 0.0,
-                    pOutput.data() + cnt, nbndcoeffs);
+        Blas::Gemm('T', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
+                   &(invR.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
+                   pLocalIn.data() + cnt, nbndcoeffs, 0.0, pOutput.data() + cnt,
+                   nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
     }

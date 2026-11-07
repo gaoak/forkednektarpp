@@ -45,6 +45,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -148,11 +149,11 @@ public:
             }
         }
 
-        Blas::Dgemm('N', 'N', m_iProdWRTStdDBase[0]->GetRows(), m_numElmt,
-                    m_iProdWRTStdDBase[0]->GetColumns(), 1.0,
-                    m_iProdWRTStdDBase[0]->GetRawPtr(),
-                    m_iProdWRTStdDBase[0]->GetRows(), tmp[0].data(), nPhys, 0.0,
-                    output.data(), nmodes);
+        Blas::Gemm('N', 'N', m_iProdWRTStdDBase[0]->GetRows(), m_numElmt,
+                   m_iProdWRTStdDBase[0]->GetColumns(), 1.0,
+                   m_iProdWRTStdDBase[0]->GetRawPtr(),
+                   m_iProdWRTStdDBase[0]->GetRows(), tmp[0].data(), nPhys, 0.0,
+                   output.data(), nmodes);
 
         // Other components
         for (int i = 1; i < m_dim; ++i)
@@ -170,11 +171,11 @@ public:
                                 t = tmp[i] + e * m_nqe, 1);
                 }
             }
-            Blas::Dgemm('N', 'N', m_iProdWRTStdDBase[i]->GetRows(), m_numElmt,
-                        m_iProdWRTStdDBase[i]->GetColumns(), 1.0,
-                        m_iProdWRTStdDBase[i]->GetRawPtr(),
-                        m_iProdWRTStdDBase[i]->GetRows(), tmp[i].data(), nPhys,
-                        1.0, output.data(), nmodes);
+            Blas::Gemm('N', 'N', m_iProdWRTStdDBase[i]->GetRows(), m_numElmt,
+                       m_iProdWRTStdDBase[i]->GetColumns(), 1.0,
+                       m_iProdWRTStdDBase[i]->GetRawPtr(),
+                       m_iProdWRTStdDBase[i]->GetRows(), tmp[i].data(), nPhys,
+                       1.0, output.data(), nmodes);
         }
     }
 
@@ -262,6 +263,10 @@ OperatorKey IProductWRTDerivBase_StdMat::m_typeArr[] = {
         OperatorKey(eNodalPrism, eIProductWRTDerivBase, eStdMat, true),
         IProductWRTDerivBase_StdMat::create,
         "IProductWRTDerivBase_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTDerivBase, eStdMat, true),
+        IProductWRTDerivBase_StdMat::create,
+        "IProductWRTDerivBase_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTDerivBase, eStdMat, false),
         IProductWRTDerivBase_StdMat::create, "IProductWRTDerivBase_StdMat_Hex"),
@@ -583,6 +588,10 @@ OperatorKey IProductWRTDerivBase_IterPerExp::m_typeArr[] = {
         IProductWRTDerivBase_IterPerExp::create,
         "IProductWRTDerivBase_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTDerivBase, eIterPerExp, true),
+        IProductWRTDerivBase_IterPerExp::create,
+        "IProductWRTDerivBase_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTDerivBase, eIterPerExp, false),
         IProductWRTDerivBase_IterPerExp::create,
         "IProductWRTDerivBase_IterPerExp_Hex")};
@@ -700,6 +709,10 @@ OperatorKey IProductWRTDerivBase_NoCollection::m_typeArr[] = {
         IProductWRTDerivBase_NoCollection::create,
         "IProductWRTDerivBase_NoCollection_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTDerivBase, eNoCollection, true),
+        IProductWRTDerivBase_NoCollection::create,
+        "IProductWRTDerivBase_NoCollection_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTDerivBase, eNoCollection, false),
         IProductWRTDerivBase_NoCollection::create,
         "IProductWRTDerivBase_NoCollection_Hex")};
@@ -764,9 +777,9 @@ public:
         Vmath::Vmul(m_wspSize, m_jacWStdW, 1, wsp, 1, wsp, 1);
 
         // out = B0*in;
-        Blas::Dgemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
-                    m_derbase0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
-                    &output[0], m_nmodes0);
+        Blas::Gemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
+                   m_derbase0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
+                   &output[0], m_nmodes0);
     }
 
     void operator()([[maybe_unused]] int dir,

@@ -85,8 +85,8 @@
  * tensorial derivative and belong to the weak-form families
  * (IProductWRTDerivBase, Laplacian, Helmholtz, LinAdvDiffReaction)
  * rather than to PhysDeriv. They read the transposed differentiation
- * matrices from shared memory, where their launchers stage them with
- * StageTransposeToSharedMemory.
+ * matrices from shared memory, where their launchers load them with
+ * LoadTransposeToSharedMemory.
  *
  * The whole file is compiled only for the device back-ends
  * (NEKTAR_ENABLE_DEVICE together with DEVICE_COMPILE_ONLY).
@@ -325,7 +325,7 @@ NEK_DEVICE_INLINE static void PhysDerivDir1DSumFacTOPKernel(
  * differentiation matrix, optionally scaled and accumulated.
  *
  * The counterpart of the forward tensorial derivative, reading the
- * transpose staged by StageTransposeToSharedMemory so that consecutive
+ * transpose loaded by LoadTransposeToSharedMemory so that consecutive
  * threads read consecutive entries. Not used by PhysDeriv; it serves the
  * weak-form families.
  *
@@ -730,7 +730,7 @@ NEK_DEVICE_INLINE static void SumDerivTensor2DSumFacTOPKernel(
  * element: the per-point body of PhysDeriv3DSumFacTOPKernel, shared with
  * the fused stiffness stages of Helmholtz and Laplacian.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED     Derivative factors vary point by point.
  * @tparam TData        Floating-point type of the field data.
  *
@@ -801,7 +801,8 @@ NEK_DEVICE_INLINE static void PhysDeriv3DPointSumFacTOP(
         d0 *= f2[k];
         d2 += f0[i] * d0;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         d0 *= f2[k];
         d1 *= f2[k];
@@ -829,7 +830,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DPointSumFacTOP(
  * and writes `sum_d d_d * df[3k+d]` per component. Ends with a block
  * barrier.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam DEFORMED     Derivative factors vary point by point.
  * @tparam TthreadBlock Thread-block handle type.
  * @tparam TData        Floating-point type of the field data.
@@ -895,7 +896,7 @@ NEK_DEVICE_INLINE static void PhysDeriv3DSumFacTOPKernel(
  * `<SHAPE_TYPE, APPEND, DEFORMED, DIR, TthreadBlock, TData>`. This is
  * the entry point the Divergence device SumFacTOP kernels call into.
  *
- * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism or Pyr.
+ * @tparam SHAPE_TYPE   Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or NodalPyr.
  * @tparam APPEND       Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED     Derivative factors vary point by point.
  * @tparam DIR          Cartesian component to produce.
@@ -979,7 +980,8 @@ NEK_DEVICE_INLINE static void PhysDerivDir3DSumFacTOPKernel(
             d0 *= f2[k];
             d2 += f0[i] * d0;
         }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
+                           SHAPE_TYPE == LibUtilities::NodalPyr)
         {
             d0 *= f2[k];
             d1 *= f2[k];
@@ -1347,7 +1349,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
             out + nqTot * nelmt * (outDim * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDeriv2DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -1436,7 +1438,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir2DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(
@@ -1461,8 +1463,8 @@ NEK_DEVICE_KERNEL void PhysDerivDir2DKernelLauncher(
  * rather than `outDim` because a three-dimensional element always
  * yields three Cartesian derivatives regardless of homogeneity.
  *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism or
- *                              Pyr.
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam DEFORMED             Derivative factors vary point by point.
  * @tparam TPhysSizeParameter3D 3D physical size-parameter type.
@@ -1527,7 +1529,7 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
         TData *outptr = out + nqTot * nelmt * (3 * nmode * c + m) + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDeriv3DSumFacTOPKernel<SHAPE_TYPE, DEFORMED>(
@@ -1551,8 +1553,8 @@ NEK_DEVICE_KERNEL void PhysDerivKernelLauncher(
  * anywhere, the Divergence family launching its own kernels and
  * calling the per-element PhysDeriv kernels from inside them.
  *
- * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism or
- *                              Pyr.
+ * @tparam SHAPE_TYPE           Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
+ *                              NodalPyr.
  * @tparam Implementation       Constrained to MultiRegions::SumFacTOP.
  * @tparam APPEND               Accumulate onto @p out.
  * @tparam DEFORMED             Derivative factors vary point by point.
@@ -1612,7 +1614,7 @@ NEK_DEVICE_KERNEL void PhysDerivDir3DKernelLauncher(
         TData *outptr      = out + nqTot * nelmt * c + nqTot * e;
 
         // Copy to shared memory.
-        StageToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
+        LoadToSharedMemory(nqTot, inptr, s_wsp0, threadBlock);
         localBarrier(threadBlock);
 
         PhysDerivDir3DSumFacTOPKernel<SHAPE_TYPE, APPEND, DEFORMED, DIR>(

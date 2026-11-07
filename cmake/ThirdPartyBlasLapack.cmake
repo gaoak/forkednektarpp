@@ -22,54 +22,68 @@ ELSE()
     # only when no other BLAS/LAPACK has been selected.
     SET(NVPL_FOUND FALSE)
     SET(NVPL_THIRDPARTY_TARGETS "")
-    IF(UNIX AND NOT APPLE)
-        # FindNVPL looks for an installed NVPL, never the ThirdParty copy.
-        IF(NVPL_BLAS MATCHES "^${TPDIST}/")
+    # NVPL is only available for ARM (aarch64) Linux.
+    IF(UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        SET(NVPL_ARCH_SUPPORTED ON)
+    ELSE()
+        SET(NVPL_ARCH_SUPPORTED OFF)
+        # Exit if user request NVPL on unsupported architecture.
+        IF(NEKTAR_USE_NVPL)
+            MESSAGE(FATAL_ERROR "NVPL is only available for Arm (aarch64) Linux")
+        ENDIF()
+    ENDIF()
+
+    IF(NVPL_ARCH_SUPPORTED)
+        # FindNVPL looks for an installed NVPL.
+        STRING(FIND "${NVPL_BLAS}" "${TPDIST}/" NVPL_BLAS_TPDIST_POS)
+        IF(NVPL_BLAS_TPDIST_POS EQUAL 0)
             UNSET(NVPL_LAPACK CACHE)
             UNSET(NVPL_BLAS CACHE)
             UNSET(NVPL_BLAS_CORE CACHE)
             UNSET(NVPL_INCLUDE_DIR CACHE)
         ENDIF()
         INCLUDE(FindNVPL)
-    ENDIF()
-    IF(NVPL_FOUND)
-        MESSAGE(STATUS "Found NVPL: ${NVPL_BLAS}")
-        # Turn NVPL on in a build directory configured before it was found.
-        IF(DEFINED NEKTAR_NVPL_DETECTED AND NOT NEKTAR_NVPL_DETECTED)
+
+        IF(NVPL_FOUND)
+            MESSAGE(STATUS "Found NVPL: ${NVPL_BLAS}")
+            # Turn NVPL on in a build directory configured before it was found.
+            IF(DEFINED NEKTAR_NVPL_DETECTED AND NOT NEKTAR_NVPL_DETECTED)
+                SET(NEKTAR_USE_NVPL ON CACHE BOOL
+                    "Use the NVIDIA Performance Libraries (NVPL) for BLAS and Lapack support." FORCE)
+            ENDIF()
+        ENDIF()
+        SET(NEKTAR_NVPL_DETECTED ${NVPL_FOUND} CACHE INTERNAL "NVPL was found")
+
+        # NVPL can also be downloaded from NVIDIA. Either option turns the other on:
+        # a ThirdParty copy is used, and is downloaded whenever NVPL is requested
+        # but not installed. Disable both to stop using NVPL.
+        CMAKE_DEPENDENT_OPTION(THIRDPARTY_BUILD_NVPL
+            "Download NVPL BLAS and LAPACK from NVIDIA (NVPL licence applies)." OFF
+            "NVPL_ARCH_SUPPORTED" OFF)
+        IF(THIRDPARTY_BUILD_NVPL)
             SET(NEKTAR_USE_NVPL ON CACHE BOOL
                 "Use the NVIDIA Performance Libraries (NVPL) for BLAS and Lapack support." FORCE)
         ENDIF()
-    ENDIF()
-    SET(NEKTAR_NVPL_DETECTED ${NVPL_FOUND} CACHE INTERNAL "NVPL was found")
 
-    # NVPL can also be downloaded from NVIDIA. Either option turns the other on:
-    # a ThirdParty copy is used, and is downloaded whenever NVPL is requested
-    # but not installed. Disable both to stop using NVPL.
-    IF(UNIX AND NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-        SET(NVPL_ARCH_SUPPORTED ON)
-    ELSE()
-        SET(NVPL_ARCH_SUPPORTED OFF)
-    ENDIF()
-    CMAKE_DEPENDENT_OPTION(THIRDPARTY_BUILD_NVPL
-        "Download NVPL BLAS and LAPACK from NVIDIA (NVPL licence applies)." OFF
-        "NVPL_ARCH_SUPPORTED" OFF)
-    IF(THIRDPARTY_BUILD_NVPL)
-        SET(NEKTAR_USE_NVPL ON CACHE BOOL
-            "Use the NVIDIA Performance Libraries (NVPL) for BLAS and Lapack support." FORCE)
-    ENDIF()
+        CMAKE_DEPENDENT_OPTION(NEKTAR_USE_NVPL
+            "Use the NVIDIA Performance Libraries (NVPL) for BLAS and Lapack support." ${NVPL_FOUND}
+            "NVPL_ARCH_SUPPORTED; NOT NEKTAR_USE_OPENBLAS; NOT NEKTAR_USE_MKL; NOT NEKTAR_USE_ACML; NOT NEKTAR_USE_FLEXIBLAS" OFF)
 
-    # BLAS Support
-    CMAKE_DEPENDENT_OPTION(NEKTAR_USE_NVPL
-        "Use the NVIDIA Performance Libraries (NVPL) for BLAS and Lapack support." ${NVPL_FOUND}
-        "UNIX; NOT APPLE; NOT NEKTAR_USE_OPENBLAS; NOT NEKTAR_USE_MKL; NOT NEKTAR_USE_ACML; NOT NEKTAR_USE_FLEXIBLAS" OFF)
+        # Exit if user request ThirdParty NVPL alongside another BLAS/LAPACK.
+        IF(THIRDPARTY_BUILD_NVPL AND NOT NEKTAR_USE_NVPL)
+            MESSAGE(FATAL_ERROR "THIRDPARTY_BUILD_NVPL cannot be used with "
+                "another BLAS/LAPACK library; disable THIRDPARTY_BUILD_NVPL or "
+                "the other library.")
+        ENDIF()
 
-    IF(NEKTAR_USE_NVPL AND NOT NVPL_FOUND AND NVPL_ARCH_SUPPORTED)
-        MESSAGE(STATUS "NVPL not installed: enabling THIRDPARTY_BUILD_NVPL")
-        SET(THIRDPARTY_BUILD_NVPL ON CACHE BOOL
-            "Download NVPL BLAS and LAPACK from NVIDIA (NVPL licence applies)." FORCE)
-    ENDIF()
-    IF(NEKTAR_USE_NVPL AND THIRDPARTY_BUILD_NVPL)
-        INCLUDE(ThirdPartyNVPL)
+        IF(NEKTAR_USE_NVPL AND NOT NVPL_FOUND)
+            MESSAGE(STATUS "NVPL not installed: enabling THIRDPARTY_BUILD_NVPL")
+            SET(THIRDPARTY_BUILD_NVPL ON CACHE BOOL
+                "Download NVPL BLAS and LAPACK from NVIDIA (NVPL licence applies)." FORCE)
+        ENDIF()
+        IF(NEKTAR_USE_NVPL AND THIRDPARTY_BUILD_NVPL)
+            INCLUDE(ThirdPartyNVPL)
+        ENDIF()
     ENDIF()
 
     CMAKE_DEPENDENT_OPTION(NEKTAR_USE_SYSTEM_BLAS_LAPACK

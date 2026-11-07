@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/AdamsBashforth/AdamsBashforthOp.hpp"
-#include "SolverCore/TimeOps/RungeKutta/RungeKuttaOp.hpp"
+#include <SolverCore/TimeOps/AdamsBashforth/AdamsBashforthOp.hpp>
+#include <SolverCore/TimeOps/RungeKutta/RungeKuttaOp.hpp>
 
-#include "SolverCore/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/AdamsBashforth/AdamsBashforthKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -105,7 +105,7 @@ protected:
                 ExecSpace::name);
 
             // Copy functors from AdamsBashforth scheme.
-            startup->CopyFunctorsFrom(*this);
+            startup->CopyFunctors(*this);
 
             // Advance in time with startup.
             startup->SetTime(this->m_time);

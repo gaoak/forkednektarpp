@@ -46,6 +46,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -277,6 +278,10 @@ OperatorKey PhysInterp1DScaled_MatrixFree::m_typeArr[] = {
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_MatrixFree_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysInterp1DScaled, eMatrixFree, true),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysInterp1DScaled, eMatrixFree, false),
         PhysInterp1DScaled_MatrixFree::create,
         "PhysInterp1DScaled_NoCollection_Hex"),
@@ -327,8 +332,8 @@ public:
                 for (int i = 0; i < m_numElmt; ++i)
                 {
 
-                    Blas::Dgemv('N', npt0, pt0, 1.0, I0->GetPtr().data(), npt0,
-                                &input[cnt], 1, 0.0, &output[cnt1], 1);
+                    Blas::Gemv('N', npt0, pt0, 1.0, I0->GetPtr().data(), npt0,
+                               &input[cnt], 1, 0.0, &output[cnt1], 1);
                     cnt += pt0;
                     cnt1 += npt0;
                 }
@@ -366,13 +371,12 @@ public:
 
                 for (int i = 0; i < m_numElmt; ++i)
                 {
-                    Blas::Dgemm('N', 'T', pt0, npt1, pt1, 1.0, &input[cnt], pt0,
-                                I1->GetPtr().data(), npt1, 0.0, wsp.data(),
-                                pt0);
+                    Blas::Gemm('N', 'T', pt0, npt1, pt1, 1.0, &input[cnt], pt0,
+                               I1->GetPtr().data(), npt1, 0.0, wsp.data(), pt0);
 
-                    Blas::Dgemm('N', 'N', npt0, npt1, pt0, 1.0,
-                                I0->GetPtr().data(), npt0, wsp.data(), pt0, 0.0,
-                                &output[cnt1], npt0);
+                    Blas::Gemm('N', 'N', npt0, npt1, pt0, 1.0,
+                               I0->GetPtr().data(), npt0, wsp.data(), pt0, 0.0,
+                               &output[cnt1], npt0);
 
                     cnt += pt0 * pt1;
                     cnt1 += npt0 * npt1;
@@ -419,21 +423,21 @@ public:
                 for (int i = 0; i < m_numElmt; ++i)
                 {
                     // Interpolate points
-                    Blas::Dgemm('N', 'N', npt0, pt1 * pt2, pt0, 1.0,
-                                I0->GetPtr().data(), npt0, &input[cnt], pt0,
-                                0.0, wsp2.data(), npt0);
+                    Blas::Gemm('N', 'N', npt0, pt1 * pt2, pt0, 1.0,
+                               I0->GetPtr().data(), npt0, &input[cnt], pt0, 0.0,
+                               wsp2.data(), npt0);
 
                     for (int j = 0; j < pt2; j++)
                     {
-                        Blas::Dgemm('N', 'T', npt0, npt1, pt1, 1.0,
-                                    wsp2.data() + j * npt0 * pt1, npt0,
-                                    I1->GetPtr().data(), npt1, 0.0,
-                                    wsp1.data() + j * npt0 * npt1, npt0);
+                        Blas::Gemm('N', 'T', npt0, npt1, pt1, 1.0,
+                                   wsp2.data() + j * npt0 * pt1, npt0,
+                                   I1->GetPtr().data(), npt1, 0.0,
+                                   wsp1.data() + j * npt0 * npt1, npt0);
                     }
 
-                    Blas::Dgemm('N', 'T', npt0 * npt1, npt2, pt2, 1.0,
-                                wsp1.data(), npt0 * npt1, I2->GetPtr().data(),
-                                npt2, 0.0, &output[cnt1], npt0 * npt1);
+                    Blas::Gemm('N', 'T', npt0 * npt1, npt2, pt2, 1.0,
+                               wsp1.data(), npt0 * npt1, I2->GetPtr().data(),
+                               npt2, 0.0, &output[cnt1], npt0 * npt1);
 
                     cnt += pt0 * pt1 * pt2;
                     cnt1 += npt0 * npt1 * npt2;
@@ -514,6 +518,10 @@ OperatorKey PhysInterp1DScaled_NoCollection::m_typeArr[] = {
         OperatorKey(eNodalPrism, ePhysInterp1DScaled, eNoCollection, true),
         PhysInterp1DScaled_NoCollection::create,
         "PhysInterp1DScaled_NoCollection_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, ePhysInterp1DScaled, eNoCollection, true),
+        PhysInterp1DScaled_NoCollection::create,
+        "PhysInterp1DScaled_NoCollection_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, ePhysInterp1DScaled, eNoCollection, false),
         PhysInterp1DScaled_NoCollection::create,

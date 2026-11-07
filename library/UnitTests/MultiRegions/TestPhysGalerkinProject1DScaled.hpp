@@ -267,6 +267,8 @@ TEST(Pyr, "run/pyr.xml")
 
 TEST(PyrVarP, "run/pyr_varp.xml")
 
+TEST(PyrNodal, "run/pyr_nodal.xml")
+
 TEST(Tet, "run/tet.xml")
 
 TEST(TetVarP, "run/tet_varp.xml")

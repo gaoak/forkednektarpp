@@ -1239,7 +1239,7 @@ NEK_DEVICE_INLINE static void IPWRTPhysTraceFaceN2TOPKernel(
  * @tparam TData         Floating-point type of the field data.
  *
  * @param   face        Nektar face id of the trace to apply.
- * @param   shape       Hex, Prism, Pyr, Tet, NodalTet or NodalPrism.
+ * @param   shape       Hex, Prism, Pyr, Tet, NodalTet, NodalPrism or NodalPyr.
  * @param   nm0,nm1,nm2 Volume quadrature points per direction.
  * @param   nbasis0,nbasis1,nbasis2   eInterp tables \f$h_p(\pm 1)\f$
  *                      per direction.
@@ -1444,7 +1444,7 @@ NEK_DEVICE_INLINE static void IProductWRTPhysTraceFaceTOPKernel(
  * integration is using. Pair batching is a possible follow-up with a
  * doubled workspace.
  *
- * @tparam SHAPE_TYPE    Hex, Prism, Pyr, Tet, NodalTet or NodalPrism.
+ * @tparam SHAPE_TYPE    Hex, Prism, Pyr, Tet, NodalTet, NodalPrism or NodalPyr.
  * @tparam DEFORMED      Trace Jacobian varies point by point.
  * @tparam APPEND        Accumulate onto @p out instead of zeroing it
  *                       first.

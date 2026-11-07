@@ -177,7 +177,8 @@ inline constexpr unsigned int IProductWRTPhysNormalDerivTraceSharedMemorySize(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         return nm2;
     }
@@ -396,7 +397,7 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
         s_twoOver1 = (TData *)shmemptr;
 
         // Copy to shared memory.
-        StageToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
+        LoadToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
 
         localBarrier(threadBlock);
     }
@@ -643,19 +644,20 @@ NEK_DEVICE_KERNEL void IProductWRTPhysNormalDerivTraceKernelLauncher(
         s_twoOver2 = s_twoOver1 + nm1;
 
         // Copy to shared memory.
-        StageToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
-        StageToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
+        LoadToSharedMemory(nm1, twoOver1, s_twoOver1, threadBlock);
+        LoadToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
 
         localBarrier(threadBlock);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
                        SHAPE_TYPE == LibUtilities::NodalPrism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         s_twoOver2 = (TData *)shmemptr;
 
         // Copy to shared memory.
-        StageToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
+        LoadToSharedMemory(nm2, twoOver2, s_twoOver2, threadBlock);
 
         localBarrier(threadBlock);
     }

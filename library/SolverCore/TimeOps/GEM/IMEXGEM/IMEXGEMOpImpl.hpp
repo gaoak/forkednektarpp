@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/GEM/IMEXGEM/IMEXGEMOp.hpp"
+#include <SolverCore/TimeOps/GEM/IMEXGEM/IMEXGEMOp.hpp>
 
 using namespace Nektar;
 
@@ -48,10 +48,31 @@ class IMEXGEMOpImpl : public IMEXGEMOp<TData>
 
 public:
     IMEXGEMOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
-                  const std::vector<std::string> &components,
-                  const unsigned int &order, const std::string &variant)
-        : IMEXGEMOp<TData>(expansionList, components, order, variant)
+                  const std::vector<std::string> &components)
+        : IMEXGEMOp<TData>(expansionList, components)
     {
+    }
+
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in Operator Factory
+    static std::unique_ptr<TimeOp<TData>> Instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList,
+        const std::vector<std::string> &components)
+    {
+        return std::make_unique<IMEXGEMOpImpl<ExecSpace, TData>>(expansionList,
+                                                                 components);
+    }
+
+protected:
+    void v_SetScheme(
+        const unsigned int &order, const std::string &variant,
+        [[maybe_unused]] const std::vector<TData> &freeParams) override
+    {
+        this->m_order   = order;
+        this->m_variant = variant;
+
         const unsigned int npts =
             (this->m_variant == "Midpoint") ? this->m_order / 2 : this->m_order;
 
@@ -74,26 +95,10 @@ public:
             stepperVariant, std::vector<TData>{}, ExecSpace::name);
     }
 
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in Operator Factory
-    static std::unique_ptr<TimeOp<TData>> Instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const std::vector<std::string> &components, const unsigned int &order,
-        const std::string &variant)
-    {
-        return std::make_unique<IMEXGEMOpImpl<ExecSpace, TData>>(
-            expansionList, components, order, variant);
-    }
-
-protected:
-    std::shared_ptr<TimeOp<TData>> m_stepper;
-
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         // Copy functors to IMEXdirk scheme.
-        this->m_stepper->CopyFunctorsFrom(*this);
+        this->m_stepper->CopyFunctors(*this);
 
         // Compute approximation.
         const unsigned int npts =

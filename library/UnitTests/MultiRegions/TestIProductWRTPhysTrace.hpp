@@ -251,8 +251,8 @@ public:
                             ntracePts += npts;
                         }
                         break;
-                        case LibUtilities::NodalTri:
                         case LibUtilities::Tri:
+                        case LibUtilities::NodalTri:
                         {
                             npts = TraceExp[2]->GetTotPoints();
 
@@ -280,9 +280,10 @@ public:
                         }
                         break;
                         case LibUtilities::Hex:
-                        case LibUtilities::NodalPrism:
                         case LibUtilities::Prism:
+                        case LibUtilities::NodalPrism:
                         case LibUtilities::Pyr:
+                        case LibUtilities::NodalPyr:
                         {
                             npts = TraceExp[4]->GetTotPoints();
 
@@ -334,8 +335,8 @@ public:
                             }
                         }
                         break;
-                        case LibUtilities::NodalTet:
                         case LibUtilities::Tet:
+                        case LibUtilities::NodalTet:
                         {
                             npts = TraceExp[3]->GetTotPoints();
 
@@ -520,20 +521,21 @@ public:
         std::vector<unsigned int> order;
         switch (exp->DetShapeType())
         {
-            case LibUtilities::NodalTri:
             case LibUtilities::Tri:
+            case LibUtilities::NodalTri:
                 order = {2, 1, 0};
                 break;
             case LibUtilities::Quad:
                 order = {3, 1, 0, 2};
                 break;
-            case LibUtilities::NodalTet:
             case LibUtilities::Tet:
+            case LibUtilities::NodalTet:
                 order = {3, 2, 1, 0};
                 break;
-            case LibUtilities::NodalPrism:
             case LibUtilities::Prism:
+            case LibUtilities::NodalPrism:
             case LibUtilities::Pyr:
+            case LibUtilities::NodalPyr:
                 order = {4, 2, 1, 3, 0};
                 break;
             case LibUtilities::Hex:
@@ -815,8 +817,8 @@ public:
                             outptr += numDataOut;
                         }
                         break;
-                        case LibUtilities::NodalTri:
                         case LibUtilities::Tri:
+                        case LibUtilities::NodalTri:
                         {
                             // zero output array for this element block
                             Vmath::Zero(numDataOut, outptr, 1);
@@ -878,9 +880,10 @@ public:
                         }
                         break;
                         case LibUtilities::Hex:
-                        case LibUtilities::NodalPrism:
                         case LibUtilities::Prism:
+                        case LibUtilities::NodalPrism:
                         case LibUtilities::Pyr:
+                        case LibUtilities::NodalPyr:
                         {
                             // zero output array for this element block
                             Vmath::Zero(numDataOut, outptr, 1);
@@ -987,8 +990,8 @@ public:
                             outptr += numDataOut;
                         }
                         break;
-                        case LibUtilities::NodalTet:
                         case LibUtilities::Tet:
+                        case LibUtilities::NodalTet:
                         {
                             // zero output array for this element block
                             Vmath::Zero(numDataOut, outptr, 1);

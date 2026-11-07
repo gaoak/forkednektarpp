@@ -290,10 +290,10 @@ void StdSegExp::v_FwdTransBndConstrained(
                 DNekMatSharedPtr matsys =
                     (m_stdStaticCondMatrixManager[masskey])->GetBlock(1, 1);
 
-                Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, 1.0,
-                            &(matsys->GetPtr())[0], nInteriorDofs,
-                            tmp1.data() + offset, 1, 0.0,
-                            outarray.data() + offset, 1);
+                Blas::Gemv('N', nInteriorDofs, nInteriorDofs, 1.0,
+                           &(matsys->GetPtr())[0], nInteriorDofs,
+                           tmp1.data() + offset, 1, 0.0,
+                           outarray.data() + offset, 1);
             }
         }
         else

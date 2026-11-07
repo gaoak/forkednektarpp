@@ -36,7 +36,7 @@
 
 #include <LibUtilities/Backends/Backends.hpp>
 
-#include "RiemannSolvers/RoeSolverKernels.hpp"
+#include "RiemannSolvers/RoeAverage.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the

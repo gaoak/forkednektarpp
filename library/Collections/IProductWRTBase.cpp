@@ -47,6 +47,7 @@ namespace Nektar::Collections
 
 using LibUtilities::eHexahedron;
 using LibUtilities::eNodalPrism;
+using LibUtilities::eNodalPyr;
 using LibUtilities::eNodalTet;
 using LibUtilities::eNodalTri;
 using LibUtilities::ePrism;
@@ -107,10 +108,10 @@ public:
             }
         }
 
-        Blas::Dgemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
-                    1.0, m_mat->GetRawPtr(), m_mat->GetRows(), wsp.data(),
-                    m_stdExp->GetTotPoints(), 0.0, output.data(),
-                    m_stdExp->GetNcoeffs());
+        Blas::Gemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
+                   1.0, m_mat->GetRawPtr(), m_mat->GetRows(), wsp.data(),
+                   m_stdExp->GetTotPoints(), 0.0, output.data(),
+                   m_stdExp->GetNcoeffs());
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -169,6 +170,9 @@ OperatorKey IProductWRTBase_StdMat::m_typeArr[] = {
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eNodalPrism, eIProductWRTBase, eStdMat, true),
         IProductWRTBase_StdMat::create, "IProductWRTBase_StdMat_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTBase, eStdMat, true),
+        IProductWRTBase_StdMat::create, "IProductWRTBase_StdMat_NodalPyr"),
     GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTBase, eStdMat, false),
         IProductWRTBase_StdMat::create, "IProductWRTBase_StdMat_Hex"),
@@ -372,6 +376,10 @@ OperatorKey IProductWRTBase_IterPerExp::m_typeArr[] = {
         IProductWRTBase_IterPerExp::create,
         "IProductWRTBase_IterPerExp_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTBase, eIterPerExp, true),
+        IProductWRTBase_IterPerExp::create,
+        "IProductWRTBase_IterPerExp_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTBase, eIterPerExp, false),
         IProductWRTBase_IterPerExp::create, "IProductWRTBase_IterPerExp_Hex"),
 };
@@ -464,6 +472,10 @@ OperatorKey IProductWRTBase_NoCollection::m_typeArr[] = {
         IProductWRTBase_NoCollection::create,
         "IProductWRTBase_NoCollection_NodalPrism"),
     GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eNodalPyr, eIProductWRTBase, eNoCollection, true),
+        IProductWRTBase_NoCollection::create,
+        "IProductWRTBase_NoCollection_NodalPyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
         OperatorKey(eHexahedron, eIProductWRTBase, eNoCollection, false),
         IProductWRTBase_NoCollection::create,
         "IProductWRTBase_NoCollection_Hex"),
@@ -496,9 +508,9 @@ public:
             Vmath::Vmul(m_numElmt * m_nquad0, m_jacWStdW, 1, input, 1, wsp, 1);
 
             // out = B0*in;
-            Blas::Dgemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
-                        m_base0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
-                        &output[0], m_nmodes0);
+            Blas::Gemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
+                       m_base0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
+                       &output[0], m_nmodes0);
         }
     }
 

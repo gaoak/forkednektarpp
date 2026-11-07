@@ -224,10 +224,12 @@ public:
                  "Delta_HighOrderBC.");
 
         BuildPressureBoundaryData();
-        m_pressureAdapter =
+        this->m_pressureAdapter =
             std::make_shared<HOutflowPressureAdapter<ExecSpace, TData>>(
                 pressureExpansionList, pressureComponents);
-        m_pressureAdapter->SetOwner(this);
+        std::dynamic_pointer_cast<HOutflowPressureAdapter<ExecSpace, TData>>(
+            this->m_pressureAdapter)
+            ->SetOwner(this);
     }
 
     static std::string className;
@@ -306,9 +308,8 @@ protected:
 
     unsigned int m_nDim = 0;
     TData m_theta = 1, m_alpha1 = 0, m_alpha2 = 0, m_U0 = 1,
-          m_delta             = TData(1.0 / 20.0);
-    bool m_velocityContextSet = false;
-    bool m_pressureUpdated    = false;
+          m_delta          = TData(1.0 / 20.0);
+    bool m_pressureUpdated = false;
     // Whether m_fbPhys has been evaluated, by the first UpdatePressure().
     bool m_isFbEvaluated = false;
 
@@ -320,10 +321,6 @@ protected:
     LibUtilities::Field<TData, FieldState::Phys> m_restrictedVelocity;
     LibUtilities::Field<TData, FieldState::Phys> m_restrictedGradient;
     std::shared_ptr<MultiRegions::PhysDerivOp<TData>> m_physDerivOp;
-    std::shared_ptr<HOutflowPressureAdapter<ExecSpace, TData>>
-        m_pressureAdapter;
-    std::shared_ptr<HOutflowVelocityAdapter<ExecSpace, TData>>
-        m_velocityAdapter;
 
     std::vector<unsigned int> m_pressureConditionIndices;
     std::vector<unsigned int> m_regionIds;
@@ -443,17 +440,18 @@ protected:
 
         ValidateAndBuildVelocityBoundaryData(components);
         BuildBoundaryElementData(components);
-        m_velocityAdapter =
+        this->m_velocityAdapter =
             std::make_shared<HOutflowVelocityAdapter<ExecSpace, TData>>(
                 velocityExpansionList, components);
-        m_velocityAdapter->SetOwner(this);
-        m_velocityContextSet = true;
+        std::dynamic_pointer_cast<HOutflowVelocityAdapter<ExecSpace, TData>>(
+            this->m_velocityAdapter)
+            ->SetOwner(this);
     }
 
     void v_UpdatePressure(
         LibUtilities::Field<TData, FieldState::Phys> &velocity) override
     {
-        ASSERTL1(m_velocityContextSet,
+        ASSERTL1(this->m_velocityAdapter,
                  "SetVelocityContext must be called before UpdatePressure.");
         ASSERTL1(this->m_kinvis > TData(0),
                  "HOutflow requires a positive kinematic viscosity, set by "
@@ -480,8 +478,7 @@ protected:
         m_pressureUpdated = true;
     }
 
-    void v_ApplyPressure(
-        LibUtilities::Field<TData, FieldState::Coeff> &out) override
+    void ApplyPressure(LibUtilities::Field<TData, FieldState::Coeff> &out)
     {
         if (!m_pressureUpdated || m_pressureNumBndCoeffCompSize == 0)
         {
@@ -528,8 +525,7 @@ protected:
         }
     }
 
-    void v_ApplyVelocity(
-        LibUtilities::Field<TData, FieldState::Coeff> &inout) override
+    void ApplyVelocity(LibUtilities::Field<TData, FieldState::Coeff> &inout)
     {
         // A rank without regions has nothing to apply, and need not have
         // updated the pressure.
@@ -544,24 +540,9 @@ protected:
         ASSERTL1(this->m_kinvis > TData(0),
                  "HOutflow requires a positive kinematic viscosity, set by "
                  "SetKinvis().");
-        EvaluateVelocity(*this->m_pressure, this->m_kinvis);
+        EvaluateVelocity();
         ProjectVelocity();
         ApplyNeumannMaps(inout);
-    }
-
-    std::shared_ptr<MultiRegions::DirBndCondOp<TData>> v_GetPressureDirichletOp()
-        override
-    {
-        return m_pressureAdapter;
-    }
-
-    std::shared_ptr<MultiRegions::NeuBndCondOp<TData>> v_GetVelocityNeumannOp()
-        override
-    {
-        ASSERTL1(m_velocityContextSet,
-                 "SetVelocityContext must be called before requesting the "
-                 "HOutflow velocity adapter.");
-        return m_velocityAdapter;
     }
 
     // Whether a boundary condition is part of the high-order outflow
@@ -1272,10 +1253,19 @@ protected:
                 indices.srcIndex.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto dstIdx =
                 indices.dstIndex.template GetPtr<MemSpace, ReadOnly>(streamID);
-            HOutflowVolumeGatherKernel<ExecSpace>(
-                gather.srcElmt.size() * gather.nData, m_nDim,
-                srcBlock.CompSize(), dstBlock.CompSize(), srcIdx, dstIdx, src,
-                dst, streamID);
+            const size_t nsize = gather.srcElmt.size() * gather.nData;
+            if (m_nDim == 2)
+            {
+                HOutflowVolumeGatherKernel<ExecSpace, 2>(
+                    nsize, srcBlock.CompSize(), dstBlock.CompSize(), srcIdx,
+                    dstIdx, src, dst, streamID);
+            }
+            else if (m_nDim == 3)
+            {
+                HOutflowVolumeGatherKernel<ExecSpace, 3>(
+                    nsize, srcBlock.CompSize(), dstBlock.CompSize(), srcIdx,
+                    dstIdx, src, dst, streamID);
+            }
             RecordStreamEvent<ExecSpace>(streamID);
         }
 
@@ -1320,16 +1310,19 @@ protected:
                 // The extractions, m_normals and m_fbPhys are ordered before
                 // the stream of the block.
                 const unsigned int streamID = blk + 1;
-                auto &velocityBlock         = m_bndVelocity[n].GetBlocks()[blk];
-                auto &gradientBlock         = m_bndGradient[n].GetBlocks()[blk];
-                auto &normalBlock           = m_normals[n].GetBlocks()[blk];
-                auto &fbBlock               = m_fbPhys[n].GetBlocks()[blk];
+
+                auto &velocityBlock = m_bndVelocity[n].GetBlocks()[blk];
+                auto &gradientBlock = m_bndGradient[n].GetBlocks()[blk];
+                auto &normalBlock   = m_normals[n].GetBlocks()[blk];
+                auto &fbBlock       = m_fbPhys[n].GetBlocks()[blk];
                 auto &pressureBlock = m_pressureBndPhys[n].GetBlocks()[blk];
                 auto &energyBlock   = m_energyMinusFb[n].GetBlocks()[blk];
                 auto &divBlock      = m_divergence[n].GetBlocks()[blk];
                 const size_t nPoints =
-                    pressureBlock.GetNumElements() * pressureBlock.GetNumData();
+                    pressureBlock.GetNumElementsWithPadding() *
+                    pressureBlock.GetNumData();
                 const size_t compSize = velocityBlock.CompSize();
+
                 auto velocityPtr =
                     velocityBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
                 auto gradientPtr =
@@ -1352,7 +1345,7 @@ protected:
                         fbPtr, kinvis, scale, m_theta, m_alpha1, m_alpha2, m_U0,
                         m_delta, pressurePtr, energyPtr, divPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOutflowPressureKernel<ExecSpace, 3>(
                         nPoints, compSize, velocityPtr, gradientPtr, normalPtr,
@@ -1378,13 +1371,12 @@ protected:
             });
     }
 
-    void EvaluateVelocity(
-        LibUtilities::Field<TData, FieldState::Phys> &pressure,
-        const TData kinvis)
+    void EvaluateVelocity()
     {
         for (unsigned int n = 0; n < m_velocityBndPhys.size(); ++n)
         {
-            m_bndPressureExtractOps[n]->Apply(pressure, m_pressureBndPhys[n]);
+            m_bndPressureExtractOps[n]->Apply(*this->m_pressure,
+                                              m_pressureBndPhys[n]);
 
             for (unsigned int blk = 0;
                  blk < m_velocityBndPhys[n].GetBlocks().size(); ++blk)
@@ -1392,14 +1384,16 @@ protected:
                 // The extraction, m_normals, m_energyMinusFb and m_divergence
                 // are ordered before the stream of the block.
                 const unsigned int streamID = blk + 1;
-                auto &pressureBlock = m_pressureBndPhys[n].GetBlocks()[blk];
-                auto &normalBlock   = m_normals[n].GetBlocks()[blk];
-                auto &energyBlock   = m_energyMinusFb[n].GetBlocks()[blk];
-                auto &divBlock      = m_divergence[n].GetBlocks()[blk];
-                auto &outBlock      = m_velocityBndPhys[n].GetBlocks()[blk];
-                const size_t nPoints =
-                    outBlock.GetNumElements() * outBlock.GetNumData();
+
+                auto &pressureBlock  = m_pressureBndPhys[n].GetBlocks()[blk];
+                auto &normalBlock    = m_normals[n].GetBlocks()[blk];
+                auto &energyBlock    = m_energyMinusFb[n].GetBlocks()[blk];
+                auto &divBlock       = m_divergence[n].GetBlocks()[blk];
+                auto &outBlock       = m_velocityBndPhys[n].GetBlocks()[blk];
+                const size_t nPoints = outBlock.GetNumElementsWithPadding() *
+                                       outBlock.GetNumData();
                 const size_t compSize = outBlock.CompSize();
+
                 auto pressurePtr =
                     pressureBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
                 auto normalPtr =
@@ -1414,13 +1408,13 @@ protected:
                 {
                     HOutflowVelocityKernel<ExecSpace, 2>(
                         nPoints, compSize, pressurePtr, normalPtr, energyPtr,
-                        divPtr, kinvis, outPtr, streamID);
+                        divPtr, this->m_kinvis, outPtr, streamID);
                 }
-                else
+                else if (m_nDim == 3)
                 {
                     HOutflowVelocityKernel<ExecSpace, 3>(
                         nPoints, compSize, pressurePtr, normalPtr, energyPtr,
-                        divPtr, kinvis, outPtr, streamID);
+                        divPtr, this->m_kinvis, outPtr, streamID);
                 }
             }
         }
@@ -1500,6 +1494,7 @@ protected:
         for (unsigned int blk = 0; blk < mappedCoefficients.size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
+
             MultiRegions::detail::CGBndCondGatherKernel<ExecSpace>(
                 coefficientSources[blk].size(),
                 coefficientSources[blk].template GetPtr<MemSpace, ReadOnly>(
@@ -1532,6 +1527,7 @@ protected:
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
+
             // The targets index the block at its own interleave width.
             auto &block                        = inout.GetBlocks()[blk];
             const unsigned int interleaveWidth = block.GetInterleaveWidth();

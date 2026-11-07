@@ -1405,7 +1405,8 @@ NEK_FORCE_INLINE static void PhysTraceFaceExtractKernel(
         }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism ||
-                       SHAPE_TYPE == LibUtilities::Pyr)
+                       SHAPE_TYPE == LibUtilities::Pyr ||
+                       SHAPE_TYPE == LibUtilities::NodalPyr)
     {
         switch (face)
         {

@@ -4,7 +4,7 @@ MACRO(ADD_ELMT_OPERATOR dir)
     SET(ElmtOpImpl StdMat SumFac SumFacTOP Generic)
 
     # Shape types for seperate code compilation.
-    SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
+    SET(Shapes Seg Tri NodalTri Quad Hex Pyr NodalPyr Prism NodalPrism Tet NodalTet)
 
     # Extract operator name form directory if it exists.
     GET_FILENAME_COMPONENT(name "${dir}" NAME)
@@ -355,7 +355,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
     # not on the operator, so it is generated once here rather than once per
     # operator directory.
     SET(SWITCH_DIR ${CMAKE_SOURCE_DIR}/library/LibUtilities/BasicUtils/Switch)
-    SET(Shapes Seg Tri NodalTri Quad Hex Pyr Prism NodalPrism Tet NodalTet)
+    SET(Shapes Seg Tri NodalTri Quad Hex Pyr NodalPyr Prism NodalPrism Tet NodalTet)
     FOREACH (Shape IN LISTS Shapes)
         CONFIGURE_FILE(${SWITCH_DIR}/BlockOpSwitchCode.h.in
             include/BlockOpSwitchCode${Shape}.h)
@@ -392,7 +392,7 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(CUNROLL_ICE_SOURCES)
         FOREACH(src IN LISTS MULTI_REGIONS_SOURCES)
             GET_FILENAME_COMPONENT(src_name "${src}" NAME)
-            IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace)(Serial|AVX)SumFac(double|float)(Hex|Pyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
+            IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace)(Serial|AVX)SumFac(double|float)(Hex|Pyr|NodalPyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
                 LIST(APPEND CUNROLL_ICE_SOURCES "${src}")
             ENDIF()
         ENDFOREACH()

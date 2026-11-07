@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/TimeOps/IMEX/IMEXOp.hpp"
-#include "SolverCore/TimeOps/IMEXdirk/IMEXdirkOp.hpp"
+#include <SolverCore/TimeOps/IMEX/IMEXOp.hpp>
+#include <SolverCore/TimeOps/IMEXdirk/IMEXdirkOp.hpp>
 
-#include "SolverCore/TimeOps/IMEX/IMEXKernelLaunchers.hpp"
+#include <SolverCore/TimeOps/IMEX/IMEXKernelLaunchers.hpp>
 
 using namespace Nektar;
 
@@ -64,7 +64,7 @@ public:
 
         // Every implicit solve combines the explicit contributions of the
         // last IntOrder steps.
-        this->m_explicitContributionHistorySize = IntOrder;
+        this->m_historySize = IntOrder;
     }
 
     // className - for OperatorFactory
@@ -82,63 +82,11 @@ public:
 protected:
     TData m_gamma;
 
-    std::vector<TData> v_GetExtrapolationCoefficients(
-        const TimeOpExtrapolationType type,
-        const unsigned int historySize) override
+    std::vector<TData> v_GetExplicitCoefficients(
+        [[maybe_unused]] const unsigned int stage) const override
     {
-        ASSERTL0(historySize >= 1 && historySize <= IntOrder,
-                 "Requested extrapolation history is incompatible with the "
-                 "time integration order.");
-
-        switch (type)
-        {
-            case TimeOpExtrapolationType::StateExtrapolation:
-            {
-                switch (historySize)
-                {
-                    case 1:
-                        return {1.0};
-                    case 2:
-                        return {2.0, -1.0};
-                    case 3:
-                        return {3.0, -3.0, 1.0};
-                    case 4:
-                        return {4.0, -6.0, 4.0, -1.0};
-                    default:
-                        break;
-                }
-                break;
-            }
-            case TimeOpExtrapolationType::BdfHistory:
-            {
-                ASSERTL0(historySize == IntOrder,
-                         "BDF history extrapolation requires a full time "
-                         "integration history.");
-                constexpr auto coeff = GetIMEXCoefficients<IntOrder, TData>();
-                std::vector<TData> out(historySize);
-                for (unsigned int i = 0; i < historySize; ++i)
-                {
-                    out[i] = coeff[IntOrder + i];
-                }
-                return out;
-            }
-            case TimeOpExtrapolationType::ExplicitContribution:
-            {
-                ASSERTL0(historySize == IntOrder,
-                         "Explicit contribution extrapolation requires a "
-                         "full time integration history.");
-                constexpr auto coeff = GetIMEXCoefficients<IntOrder, TData>();
-                std::vector<TData> out(historySize);
-                for (unsigned int i = 0; i < historySize; ++i)
-                {
-                    out[i] = coeff[i];
-                }
-                return out;
-            }
-        }
-
-        ASSERTL0(false, "Unsupported IMEX extrapolation coefficient request.");
-        return {};
+        constexpr auto coeff = GetIMEXCoefficients<IntOrder, TData>();
+        return std::vector<TData>(coeff.begin(), coeff.begin() + IntOrder);
     }
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
@@ -161,8 +109,8 @@ protected:
                     inout.GetNumHomoModes()));
 
             // Compute explicit terms.
-            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
-                                this->m_timestep);
+            this->DoExplicitRhsWithWeights(inout, this->m_explicits[0],
+                                           this->m_time, this->m_timestep);
 
             // Save initial solution.
             this->m_solutions.push_front(
@@ -182,10 +130,7 @@ protected:
                 ExecSpace::name);
 
             // Copy functors from outer/higher-order IMEX scheme.
-            startup->CopyFunctorsFrom(*this);
-
-            // Mark its implicit solves as start-up stages of this scheme.
-            startup->SetStartupTargetImplicitCoefficient(m_gamma);
+            startup->CopyFunctors(*this);
 
             // Advance in time with startup.
             startup->SetTime(this->m_time);
@@ -206,6 +151,7 @@ protected:
                         this->m_blockAttr, this->m_components,
                         inout.GetNumHomoModes()));
             }
+
             // UpdateSolution previous solutions, explicit part, and sum up.
             if constexpr (IntOrder > 1)
             {
@@ -214,8 +160,8 @@ protected:
             }
 
             // Compute explicit term.
-            this->DoExplicitRhs(inout, this->m_explicits[0], this->m_time,
-                                this->m_timestep);
+            this->DoExplicitRhsWithWeights(inout, this->m_explicits[0],
+                                           this->m_time, this->m_timestep);
 
             if constexpr (IntOrder > 1)
             {
@@ -243,20 +189,9 @@ protected:
                 // Rollover previous solutions.
                 this->RollOver(inout, this->m_implicits);
 
-                if (this->m_useExplicitContributionExtrapolation)
-                {
-                    this->SetExplicitContributionCoefficients(
-                        v_GetExtrapolationCoefficients(
-                            TimeOpExtrapolationType::ExplicitContribution,
-                            IntOrder));
-                }
-                this->DoImplicit(this->m_implicits[0], inout,
-                                 this->m_time + this->m_timestep,
-                                 m_gamma * this->m_timestep);
-                if (this->m_useExplicitContributionExtrapolation)
-                {
-                    this->ClearExplicitContributionCoefficients();
-                }
+                this->DoImplicitWithWeights(this->m_implicits[0], inout,
+                                            this->m_time + this->m_timestep,
+                                            m_gamma * this->m_timestep, 1);
 
                 // Compute implicit terms.
                 Math::daxpby<ExecSpace>(
@@ -265,19 +200,9 @@ protected:
             }
             else
             {
-                if (this->m_useExplicitContributionExtrapolation)
-                {
-                    this->SetExplicitContributionCoefficients(
-                        v_GetExtrapolationCoefficients(
-                            TimeOpExtrapolationType::ExplicitContribution,
-                            IntOrder));
-                }
-                this->DoImplicit(inout, inout, this->m_time + this->m_timestep,
-                                 m_gamma * this->m_timestep);
-                if (this->m_useExplicitContributionExtrapolation)
-                {
-                    this->ClearExplicitContributionCoefficients();
-                }
+                this->DoImplicitWithWeights(inout, inout,
+                                            this->m_time + this->m_timestep,
+                                            m_gamma * this->m_timestep, 1);
             }
 
             // Increment step and time.
