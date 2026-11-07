@@ -181,7 +181,11 @@ int main(int argc, char *argv[])
         {
             ASSERTL0(electricVertices.find(v.first) != electricVertices.end(),
                      "Fluid vertex is missing from electrical mesh.");
-            NekDouble fx, fy, fz, ex, ey, ez;
+            // 2D PointGeom::GetCoords leaves the z component untouched, so
+            // initialise all components before comparing (otherwise the check
+            // reads uninitialised stack memory and can fail at random).
+            NekDouble fx = 0.0, fy = 0.0, fz = 0.0;
+            NekDouble ex = 0.0, ey = 0.0, ez = 0.0;
             v.second->GetCoords(fx, fy, fz);
             electricVertices.at(v.first)->GetCoords(ex, ey, ez);
             ASSERTL0(std::abs(fx - ex) < 1e-12 && std::abs(fy - ey) < 1e-12 &&

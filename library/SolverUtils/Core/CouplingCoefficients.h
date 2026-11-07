@@ -61,8 +61,10 @@ private:
     std::vector<int> m_indices;
     std::vector<NekDouble> m_packet;
     Array<OneD, NekDouble> m_coeffs;
-    /// Fully developed 3DH1D flow exchanges only its real zero Fourier mode.
+    /// 3DH1D flow exchanges every local Fourier plane, not only the mean mode.
     MultiRegions::ExpListSharedPtr m_homogeneousField;
+    bool m_homogeneous = false;
+    int m_numPlanes = 1;
 };
 
 } // namespace Nektar::SolverUtils

@@ -1,7 +1,8 @@
 # Coupled Hunt flow with finite conducting Hartmann walls (Ha=1)
 
 [中文学生教程](TUTORIAL_zh.md) covers Mesh2D `square` meshing, configuration,
-partitioning, MPI launch and postprocessing.
+partitioning, MPI launch and postprocessing. Complete beginner quick start
+(Chinese): [CoupledMHD 零基础快速上手](QUICKSTART_zh.md).
 
 This example uses the **unchanged** four-fluid-quad/four-solid-quad mesh as a
 square duct cross-section. Velocity is along **z** (`w`), the magnetic field

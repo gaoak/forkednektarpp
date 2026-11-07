@@ -39,6 +39,25 @@
 namespace Nektar::MultiRegions
 {
 
+namespace
+{
+/// Propagate beta^2 = (2*pi*k/LZ)^2 to the plane fields, so that
+/// ThinConductingWall includes the homogeneous-direction part of the
+/// surface stiffness on every Fourier plane.
+void SetPlaneThinWallBetaSq(
+    const Array<OneD, ExpListSharedPtr> &planes,
+    const LibUtilities::TranspositionSharedPtr &transposition,
+    const NekDouble lhom)
+{
+    for (int n = 0; n < planes.size(); ++n)
+    {
+        const NekDouble beta = 2.0 * M_PI * transposition->GetK(n) / lhom;
+        std::dynamic_pointer_cast<DisContField>(planes[n])
+            ->SetThinWallHomogeneousBetaSq(beta * beta);
+    }
+}
+} // namespace
+
 ContField3DHomogeneous1D::ContField3DHomogeneous1D(void)
     : DisContField3DHomogeneous1D()
 {
@@ -58,6 +77,8 @@ ContField3DHomogeneous1D::ContField3DHomogeneous1D(
         m_planes[n] =
             MemoryManager<ContField>::AllocateSharedPtr(*zero_plane, False);
     }
+
+    SetPlaneThinWallBetaSq(m_planes, m_transposition, m_lhom);
 
     SetCoeffPhys();
 }
@@ -79,6 +100,8 @@ ContField3DHomogeneous1D::ContField3DHomogeneous1D(
         m_planes[n] = MemoryManager<ContField>::AllocateSharedPtr(
             *zero_plane, graph2D, variable);
     }
+
+    SetPlaneThinWallBetaSq(m_planes, m_transposition, m_lhom);
 
     SetCoeffPhys();
 
@@ -146,6 +169,8 @@ ContField3DHomogeneous1D::ContField3DHomogeneous1D(
             (*m_exp).push_back(m_planes[n]->GetExp(i));
         }
     }
+
+    SetPlaneThinWallBetaSq(m_planes, m_transposition, m_lhom);
 
     nel = GetExpSize();
 

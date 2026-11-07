@@ -3157,7 +3157,8 @@ DNekMatSharedPtr ExpList::GenGlobalMatrixFull(
             {
                 (*m_exp)[n]->AddRobinMassMatrix(rBC->m_robinID,
                                                 rBC->m_robinPrimitiveCoeffs,
-                                                new_mat, rBC->m_tangential);
+                                                new_mat, rBC->m_tangential,
+                                                rBC->m_homogeneousBetaSq);
             }
 
             NekDouble one = 1.0;

@@ -122,11 +122,10 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
             ASSERTL0(m_graph->GetMeshDimension() == 2 &&
                          (m_HomogeneousType == eNotHomogeneous ||
                           (m_HomogeneousType == eHomogeneous1D &&
-                           m_session->GetParameter("HomModesZ") == 2 &&
                            m_fields[0]->GetHomogeneousBasis()->GetBasisType() ==
                                LibUtilities::eFourier)),
-                     "ThinConductingWall supports 2D or fully developed "
-                     "HomModesZ=2 flow.");
+                     "ThinConductingWall supports 2D or Homogeneous1D "
+                     "Fourier flow.");
             ASSERTL0(!m_session->DefinesElement("Nektar/Movement") &&
                          !m_session->DefinesElement("Nektar/Mapping"),
                      "ThinConductingWall currently requires a static unmapped "

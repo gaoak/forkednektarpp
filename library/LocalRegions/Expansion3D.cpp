@@ -2052,7 +2052,8 @@ void Expansion3D::v_DGDeriv(int dir,
 
 void Expansion3D::v_AddRobinMassMatrix(
     const int face, const Array<OneD, const NekDouble> &primCoeffs,
-    DNekMatSharedPtr &inoutmat, const bool tangential)
+    DNekMatSharedPtr &inoutmat, const bool tangential,
+    [[maybe_unused]] const NekDouble betaSq)
 {
     ASSERTL0(!tangential, "ThinConductingWall currently requires 2D elements.");
     ASSERTL1(IsBoundaryInteriorExpansion(),
