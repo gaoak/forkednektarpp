@@ -89,12 +89,14 @@ protected:
 
     void v_AddRobinMassMatrix(const int vert,
                               const Array<OneD, const NekDouble> &primCoeffs,
-                              DNekMatSharedPtr &inoutmat) override;
+                              DNekMatSharedPtr &inoutmat,
+                              const bool tangential,
+                              const NekDouble betaSq) override;
 
     void v_AddRobinTraceContribution(
         const int vert, const Array<OneD, const NekDouble> &primCoeffs,
-        const Array<OneD, NekDouble> &incoeffs,
-        Array<OneD, NekDouble> &coeffs) override;
+        const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+        const bool tangential, const NekDouble betaSq) override;
 
     NekDouble v_VectorFlux(
         const Array<OneD, Array<OneD, NekDouble>> &vec) override;

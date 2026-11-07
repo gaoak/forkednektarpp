@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="phi" TYPE="MODIFIED" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="Laplace" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+            <I PROPERTY="GlobalSysSoln" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> IterativeSolverTolerance = 1e-12 </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0">phi</V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0">C[10]</B>
+            <B ID="1">C[11]</B>
+            <B ID="2">C[12]</B>
+            <B ID="3">C[13]</B>
+            <B ID="4">C[14]</B>
+            <B ID="5">C[15]</B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="phi" VALUE="x*x+y*y-2*z*z" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="phi" VALUE="x*x+y*y-2*z*z" />
+            </REGION>
+            <REGION REF="2">
+                <D VAR="phi" VALUE="x*x+y*y-2*z*z" />
+            </REGION>
+            <REGION REF="3">
+                <D VAR="phi" VALUE="x*x+y*y-2*z*z" />
+            </REGION>
+            <REGION REF="4">
+                <R VAR="phi" VALUE="-2" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+            <REGION REF="5">
+                <R VAR="phi" VALUE="-6" PRIMCOEFF="0.5" USERDEFINEDTYPE="ThinConductingWall" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="phi" VALUE="0" />
+        </FUNCTION>
+        <FUNCTION NAME="ExactSolution">
+            <E VAR="phi" VALUE="x*x+y*y-2*z*z" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

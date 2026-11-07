@@ -34,6 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/EquationSystems/VelocityCorrectionScheme.h>
+#include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <LocalRegions/Expansion2D.h>
 #include <LocalRegions/Expansion3D.h>
@@ -96,6 +97,142 @@ void VelocityCorrectionScheme::v_InitObject(bool DeclareField)
     else
     {
         ASSERTL0(false, "Need to set up pressure field definition");
+    }
+
+    std::string potentialMode;
+    m_session->LoadSolverInfo("ElectricPotential", potentialMode, "Internal");
+    ASSERTL0(StringUtils::IEquals(potentialMode, "Internal") ||
+                 StringUtils::IEquals(potentialMode, "Coupled"),
+             "ElectricPotential must be Internal or Coupled.");
+    m_MHD.externalPotential = StringUtils::IEquals(potentialMode, "Coupled");
+    if (m_MHD.hasLorentzForce)
+    {
+        for (auto &bc : m_epotential->GetBndConditions())
+        {
+            if (!StringUtils::IEquals(bc->GetUserDefined(),
+                                      "ThinConductingWall"))
+            {
+                continue;
+            }
+            ASSERTL0(!m_MHD.externalPotential &&
+                         bc->GetBoundaryConditionType() ==
+                             SpatialDomains::eRobin,
+                     "ThinConductingWall requires Internal potential and an R "
+                     "boundary.");
+            const int meshDim = m_graph->GetMeshDimension();
+            ASSERTL0(((meshDim == 2 || meshDim == 3) &&
+                      m_HomogeneousType == eNotHomogeneous) ||
+                         (meshDim == 2 && m_HomogeneousType == eHomogeneous1D &&
+                          m_fields[0]->GetHomogeneousBasis()->GetBasisType() ==
+                              LibUtilities::eFourier),
+                     "ThinConductingWall supports full 2D/3D meshes or "
+                     "Homogeneous1D Fourier flow.");
+            ASSERTL0(!m_session->DefinesElement("Nektar/Movement") &&
+                         !m_session->DefinesElement("Nektar/Mapping"),
+                     "ThinConductingWall currently requires a static unmapped "
+                     "mesh.");
+        }
+    }
+
+    if (m_MHD.externalPotential)
+    {
+        ASSERTL0(m_MHD.hasLorentzForce,
+                 "Coupled electric potential requires ForcingLorentz.");
+        ASSERTL0(m_HomogeneousType == eNotHomogeneous ||
+                     m_HomogeneousType == eHomogeneous1D,
+                 "Coupled electric potential supports full meshes or the "
+                 "fully developed 3DH1D zero mode.");
+        ASSERTL0(!m_session->DefinesElement("Nektar/Movement"),
+                 "Coupled electric potential requires a static mesh.");
+        ASSERTL0(
+            m_epotential->GetTotPoints() == m_fields[0]->GetTotPoints(),
+            "Coupled phi and velocity must use the same quadrature points.");
+        ASSERTL0(m_epotential->GetExpSize() == m_fields[0]->GetExpSize(),
+                 "Coupled phi and velocity must contain the same elements.");
+        for (int e = 0; e < m_fields[0]->GetExpSize(); ++e)
+        {
+            auto phi = m_epotential->GetExp(e);
+            auto vel = m_fields[0]->GetExp(e);
+            ASSERTL0(phi->GetGeom()->GetGlobalID() ==
+                             vel->GetGeom()->GetGlobalID() &&
+                         phi->GetPointsKeys() == vel->GetPointsKeys() &&
+                         m_epotential->GetPhys_Offset(e) ==
+                             m_fields[0]->GetPhys_Offset(e),
+                     "Coupled phi and velocity must have identical quadrature "
+                     "layouts.");
+        }
+        auto config = LibUtilities::SessionNodeFromXml(
+            m_session->GetElement("Nektar/Coupling"), "COUPLING");
+        std::string couplingType = config.GetAttribute("TYPE");
+        ASSERTL0(StringUtils::IEquals(couplingType, "Cwipi") ||
+                     StringUtils::IEquals(couplingType, "Coefficients"),
+                 "Coupled electric potential requires Cwipi or Coefficients "
+                 "coupling.");
+        couplingType = StringUtils::IEquals(couplingType, "Cwipi")
+                           ? "Cwipi"
+                           : "Coefficients";
+        ASSERTL0(m_HomogeneousType == eNotHomogeneous ||
+                     couplingType == "Coefficients",
+                 "Fully developed 3DH1D MHD requires Coefficients coupling.");
+        m_MHD.coupling = SolverUtils::GetCouplingFactory().CreateInstance(
+            couplingType, m_fields[0]);
+        if (m_MHD.coupling->ExchangesCoefficients())
+        {
+            ASSERTL0(StringUtils::IEquals(
+                         m_MHD.coupling->GetConfig().at("ROLE"), "Fluid"),
+                     "IncNS coefficient coupling requires ROLE=Fluid.");
+            for (int e = 0; e < m_fields[0]->GetExpSize(); ++e)
+            {
+                auto phi = m_epotential->GetExp(e);
+                for (int d = 0; d < m_spacedim; ++d)
+                {
+                    auto vel = m_fields[m_velocity[d]]->GetExp(e);
+                    ASSERTL0(
+                        phi->GetNcoeffs() == vel->GetNcoeffs() &&
+                            m_epotential->GetCoeff_Offset(e) ==
+                                m_fields[m_velocity[d]]->GetCoeff_Offset(e),
+                        "Coefficient mode requires identical velocity and phi "
+                        "coefficient layouts.");
+                    for (int b = 0; b < phi->GetNumBases(); ++b)
+                        ASSERTL0(phi->GetBasis(b)->GetBasisKey() ==
+                                     vel->GetBasis(b)->GetBasisKey(),
+                                 "Coefficient mode requires identical velocity "
+                                 "and phi bases.");
+                }
+            }
+        }
+        for (int d = 0; d < m_spacedim; ++d)
+        {
+            m_MHD.sendNames.push_back(m_session->GetVariable(m_velocity[d]));
+        }
+        m_MHD.sendNames.push_back("mhd_time");
+        m_MHD.sendNames.push_back("mhd_stop");
+        m_MHD.recvNames = {m_session->GetVariable(m_nConvectiveFields)};
+        ASSERTL0(m_MHD.coupling->GetSendFieldNames() == m_MHD.sendNames &&
+                     m_MHD.coupling->GetRecvFieldNames() == m_MHD.recvNames,
+                 "Coupled MHD must send velocity components,mhd_time,mhd_stop "
+                 "and receive the electric potential.");
+        auto options = m_MHD.coupling->GetConfig();
+        if (!m_MHD.coupling->ExchangesCoefficients())
+        {
+            ASSERTL0(options.at("SENDSTEPS") == "1" &&
+                         options.at("RECEIVESTEPS") == "1" &&
+                         std::stod(options.at("FILTERWIDTH")) <= 0.0 &&
+                         StringUtils::IEquals(options.at("RECEIVEPROJECTION"),
+                                              "Local"),
+                     "Coupled MHD requires SendSteps=ReceiveSteps=1, "
+                     "FilterWidth<=0 and ReceiveProjection=Local.");
+        }
+        m_MHD.sendFields = Array<OneD, Array<OneD, NekDouble>>(m_spacedim + 2);
+        for (auto &field : m_MHD.sendFields)
+        {
+            field = Array<OneD, NekDouble>(m_fields[0]->GetTotPoints(), 0.0);
+        }
+        Vmath::Fill(m_fields[0]->GetTotPoints(), -1.0,
+                    m_MHD.sendFields[m_spacedim + 1], 1);
+        m_MHD.recvFields = Array<OneD, Array<OneD, NekDouble>>(1);
+        m_MHD.recvFields[0] =
+            Array<OneD, NekDouble>(m_fields[0]->GetTotPoints(), 0.0);
     }
 
     // Determine diffusion coefficients for each field
@@ -1335,24 +1472,69 @@ void VelocityCorrectionScheme::AddMovingFrameDataToParams(
  */
 void VelocityCorrectionScheme::SolveEfield(
     const Array<OneD, Array<OneD, NekDouble>> &movEfield,
-    Array<OneD, Array<OneD, NekDouble>> &totEfield)
+    Array<OneD, Array<OneD, NekDouble>> &totEfield,
+    const Array<OneD, Array<OneD, NekDouble>> &velocity, NekDouble time)
 {
-    SetEPInsulatorBCs(movEfield);
     int physTot = m_fields[0]->GetTotPoints();
-    m_fields[0]->PhysDeriv(MultiRegions::eX, movEfield[0], m_F[0]);
-    for (size_t i = 1; i < m_spacedim; ++i)
+    if (m_MHD.externalPotential)
     {
-        // Use m_F[1] as storage since it is not needed for the m_epotential
-        m_fields[i]->PhysDeriv(MultiRegions::DirCartesianMap[i], movEfield[i],
-                               m_F[1]);
-        Vmath::Vadd(physTot, m_F[1], 1, m_F[0], 1, m_F[0], 1);
+        for (int d = 0; d < m_spacedim; ++d)
+        {
+            Vmath::Vcopy(physTot, velocity[m_velocity[d]], 1,
+                         m_MHD.sendFields[d], 1);
+        }
+        Vmath::Fill(physTot, time, m_MHD.sendFields[m_spacedim], 1);
+        m_MHD.coupling->Send(m_MHD.exchange, time, m_MHD.sendFields,
+                             m_MHD.sendNames);
+        if (m_MHD.coupling->ExchangesCoefficients())
+        {
+            m_MHD.coupling->ReceiveCoefficients(m_MHD.exchange++, time,
+                                                m_epotential->UpdateCoeffs());
+        }
+        else
+        {
+            m_MHD.coupling->Receive(m_MHD.exchange++, time, m_MHD.recvFields,
+                                    m_MHD.recvNames);
+            // The received potential is a restriction of the ADR solution. A
+            // local transform must not impose the fluid-only electrical BCs.
+            m_epotential->FwdTransLocalElmt(m_MHD.recvFields[0],
+                                            m_epotential->UpdateCoeffs());
+        }
     }
-    StdRegions::ConstFactorMap factors;
-    // Setup coefficient for equation
-    factors[StdRegions::eFactorLambda] = 0.0;
+    else
+    {
+        // Assemble -<E0 + u x B, grad(test)> directly in phi's coefficient
+        // space. HelmSolve negates this RHS to match its positive stiffness
+        // matrix. Use phi's basis, which need not have the velocity order.
+        const int ncoeffs = m_epotential->GetNcoeffs();
+        Array<OneD, NekDouble> rhs(ncoeffs, 0.0), product(ncoeffs);
+        for (int d = 0; d < m_spacedim; ++d)
+        {
+            m_epotential->IProductWRTDerivBase(d, movEfield[d], product);
+            Vmath::Vsub(ncoeffs, rhs, 1, product, 1, rhs, 1);
+        }
 
-    // Solver electric potential Poisson Equation
-    m_epotential->HelmSolve(m_F[0], m_epotential->UpdateCoeffs(), factors);
+        Array<OneD, Array<OneD, NekDouble>> savedBoundaryCoeffs;
+        SetEPWeakBCs(movEfield, savedBoundaryCoeffs);
+        StdRegions::ConstFactorMap factors;
+        factors[StdRegions::eFactorLambda] = 0.0;
+        m_epotential->HelmSolve(rhs, m_epotential->UpdateCoeffs(), factors,
+                               StdRegions::NullVarCoeffMap,
+                               StdRegions::NullVarFactorsMap,
+                               NullNekDouble1DArray, false);
+
+        // Preserve prescribed derivative/Robin data for subsequent stages.
+        auto bndExp = m_epotential->GetBndCondExpansions();
+        for (int n = 0; n < savedBoundaryCoeffs.size(); ++n)
+        {
+            if (savedBoundaryCoeffs[n].size() != 0)
+            {
+                Vmath::Vcopy(savedBoundaryCoeffs[n].size(),
+                             savedBoundaryCoeffs[n], 1,
+                             bndExp[n]->UpdateCoeffs(), 1);
+            }
+        }
+    }
     m_epotential->BwdTrans(m_epotential->GetCoeffs(),
                            m_epotential->UpdatePhys());
     if (m_spacedim == 2)
@@ -1370,30 +1552,80 @@ void VelocityCorrectionScheme::SolveEfield(
     }
 }
 
-void VelocityCorrectionScheme::SetEPInsulatorBCs(
-    const Array<OneD, Array<OneD, NekDouble>> &movEfield)
+void VelocityCorrectionScheme::v_Output()
 {
-    std::string insulatorBCName = "Insulator";
-    Array<OneD, const SpatialDomains::BoundaryConditionShPtr> BndConds =
-        m_epotential->GetBndConditions();
-    Array<OneD, MultiRegions::ExpListSharedPtr> BndExp =
-        m_epotential->GetBndCondExpansions();
-    // calculate electric potential flux
-    for (int n = 0; n < BndConds.size(); ++n)
+    if (m_MHD.coupling)
     {
-        if (StringUtils::IEquals(BndConds[n]->GetUserDefined(),
-                                 insulatorBCName))
+        // Use the same request/reply protocol for shutdown, independently of
+        // the number of RHS stages, early convergence or a restarted run.
+        Vmath::Fill(m_fields[0]->GetTotPoints(), m_time,
+                    m_MHD.sendFields[m_spacedim], 1);
+        Vmath::Fill(m_fields[0]->GetTotPoints(), 1.0,
+                    m_MHD.sendFields[m_spacedim + 1], 1);
+        m_MHD.coupling->Send(m_MHD.exchange, m_time, m_MHD.sendFields,
+                             m_MHD.sendNames);
+        m_MHD.coupling->Receive(m_MHD.exchange, m_time, m_MHD.recvFields,
+                                m_MHD.recvNames);
+        m_MHD.coupling->Finalize();
+        m_MHD.coupling.reset();
+    }
+    IncNavierStokes::v_Output();
+}
+
+/**
+ * Convert derivative boundary data to the natural flux of the weak electric
+ * equation. With F = E0 + u x B, this is dphi/dn - F.n (plus the existing
+ * Robin term). Insulator prescribes this flux to be zero. Ordinary N/R data
+ * retain their original derivative meaning through the subtraction of F.n.
+ */
+void VelocityCorrectionScheme::SetEPWeakBCs(
+    const Array<OneD, Array<OneD, NekDouble>> &movEfield,
+    Array<OneD, Array<OneD, NekDouble>> &savedBoundaryCoeffs)
+{
+    auto bndConds = m_epotential->GetBndConditions();
+    auto bndExp   = m_epotential->GetBndCondExpansions();
+    savedBoundaryCoeffs =
+        Array<OneD, Array<OneD, NekDouble>>(bndConds.size());
+    for (int n = 0; n < bndConds.size(); ++n)
+    {
+        auto type = bndConds[n]->GetBoundaryConditionType();
+        if (type != SpatialDomains::eNeumann && type != SpatialDomains::eRobin)
         {
-            int npts = BndExp[n]->GetTotPoints();
-            // allocate boundary condition storage
-            Array<OneD, Array<OneD, NekDouble>> bcs(m_spacedim);
-            for (int i = 0; i < m_spacedim; ++i)
+            continue;
+        }
+        const int nc = bndExp[n]->GetNcoeffs();
+        savedBoundaryCoeffs[n] = Array<OneD, NekDouble>(nc);
+        Vmath::Vcopy(nc, bndExp[n]->GetCoeffs(), 1,
+                     savedBoundaryCoeffs[n], 1);
+        const bool thinWall = StringUtils::IEquals(
+            bndConds[n]->GetUserDefined(), "ThinConductingWall");
+        if (thinWall)
+        {
+            for (int c = 0; c < nc; ++c)
             {
-                bcs[i] = Array<OneD, NekDouble>(npts, 0.);
-                m_epotential->ExtractPhysToBnd(n, movEfield[i], bcs[i]);
+                ASSERTL0(std::abs(savedBoundaryCoeffs[n][c]) < 1e-12,
+                         "ThinConductingWall requires VALUE=0 (insulated "
+                         "exterior).");
             }
-            BndExp[n]->NormVectorIProductWRTBase(bcs,
-                                                 BndExp[n]->UpdateCoeffs());
+        }
+        if (thinWall ||
+            StringUtils::IEquals(bndConds[n]->GetUserDefined(), "Insulator"))
+        {
+            Vmath::Zero(nc, bndExp[n]->UpdateCoeffs(), 1);
+        }
+        else
+        {
+            const int nq = bndExp[n]->GetTotPoints();
+            Array<OneD, Array<OneD, NekDouble>> trace(m_spacedim);
+            for (int d = 0; d < m_spacedim; ++d)
+            {
+                trace[d] = Array<OneD, NekDouble>(nq);
+                m_epotential->ExtractPhysToBnd(n, movEfield[d], trace[d]);
+            }
+            Array<OneD, NekDouble> flux(nc);
+            bndExp[n]->NormVectorIProductWRTBase(trace, flux);
+            Vmath::Vsub(nc, savedBoundaryCoeffs[n], 1, flux, 1,
+                         bndExp[n]->UpdateCoeffs(), 1);
         }
     }
 }

@@ -1,0 +1,67 @@
+<?xml version='1.0' encoding='utf-8'?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0,1]" NUMMODES="5" NUMPOINTS="7" TYPE="MODIFIED" FIELDS="phi" />
+    </EXPANSIONS>
+    <COUPLING NAME="mhd" TYPE="Coefficients">
+        <I PROPERTY="Role" VALUE="Electric" />
+        <I PROPERTY="FluidRanks" VALUE="2" />
+        <I PROPERTY="SendSteps" VALUE="1" />
+        <I PROPERTY="ReceiveSteps" VALUE="1" />
+        <I PROPERTY="SendVariables" VALUE="phi" />
+        <I PROPERTY="ReceiveVariables" VALUE="u,v,w,mhd_time,mhd_stop" />
+    </COUPLING>
+    <ELECTRICPOTENTIAL>
+        <FLUID COMPOSITE="C[0]" CONDUCTIVITY="ElectricConductivity" />
+        <SOLID COMPOSITE="C[1]" CONDUCTIVITY="WallConductivity" />
+    </ELECTRICPOTENTIAL>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="EQType" VALUE="CoupledElectricPotential" />
+            <I PROPERTY="Projection" VALUE="Continuous" />
+        </SOLVERINFO>
+        <PARAMETERS>
+            <P> Kinvis = 0.1 </P>
+            <P> TimeStep = 0.02 </P>
+            <P> NumSteps = 500 </P>
+            <P> IO_InfoSteps = 100 </P>
+            <P> HomModesZ = 2 </P>
+            <P> LZ = 1 </P>
+            <P> Flowrate = 0.1 </P>
+            <P> IO_FlowSteps = 100 </P>
+            <P> IO_FlowStepsPrecision = 12 </P>
+            <P> Ha = 1 </P>
+            <P> HalfWidth = 0.5 </P>
+            <P> ElectricConductivity = 1 </P>
+            <P> WallConductivity = 10 </P>
+            <P> WallThickness = 0.25 </P>
+            <P> MagneticFieldStrength = Ha/HalfWidth*sqrt(Kinvis/ElectricConductivity) </P>
+        </PARAMETERS>
+        <VARIABLES>
+            <V ID="0"> phi </V>
+        </VARIABLES>
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[10] </B>
+            <B ID="1"> C[11] </B>
+            <B ID="2"> C[12] </B>
+            <B ID="3"> C[13] </B>
+        </BOUNDARYREGIONS>
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <N VAR="phi" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <N VAR="phi" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <N VAR="phi" VALUE="0" />
+            </REGION>
+            <REGION REF="3">
+                <N VAR="phi" VALUE="0" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+        <FUNCTION NAME="ElectricMagneticFields">
+            <E VAR="By" VALUE="MagneticFieldStrength" />
+        </FUNCTION>
+    </CONDITIONS>
+</NEKTAR>

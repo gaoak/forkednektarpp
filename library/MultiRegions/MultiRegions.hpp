@@ -130,6 +130,13 @@ struct RobinBCInfo
 
     int m_robinID; /// id of which edge/face is robin condition
     Array<OneD, const NekDouble> m_robinPrimitiveCoeffs;
+    bool m_tangential = false; ///< Surface stiffness instead of Robin mass.
+    /// Squared Fourier wavenumber beta = 2*pi*k/LZ of the Homogeneous1D
+    /// plane this boundary data belongs to. The tangential surface
+    /// stiffness uses (grad_s phi . grad_s psi + beta^2 phi psi), so the
+    /// assembly adds beta^2 times the edge mass matrix. Zero for plain 2D
+    /// fields and for the k = 0 plane.
+    NekDouble m_homogeneousBetaSq = 0.0;
     std::shared_ptr<RobinBCInfo> next;
 };
 

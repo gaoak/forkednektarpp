@@ -514,8 +514,10 @@ void Expansion1D::AddHDGHelmholtzTraceTerms(
 
 void Expansion1D::v_AddRobinMassMatrix(
     const int vert, const Array<OneD, const NekDouble> &primCoeffs,
-    DNekMatSharedPtr &inoutmat)
+    DNekMatSharedPtr &inoutmat, const bool tangential,
+    [[maybe_unused]] const NekDouble betaSq)
 {
+    ASSERTL0(!tangential, "ThinConductingWall currently requires 2D elements.");
     ASSERTL0(IsBoundaryInteriorExpansion(),
              "Robin boundary conditions are only implemented for "
              "boundary-interior expanisons");
@@ -570,8 +572,10 @@ void Expansion1D::v_AddRobinMassMatrix(
  */
 void Expansion1D::v_AddRobinTraceContribution(
     const int vert, const Array<OneD, const NekDouble> &primCoeffs,
-    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs)
+    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+    const bool tangential, [[maybe_unused]] const NekDouble betaSq)
 {
+    ASSERTL0(!tangential, "ThinConductingWall currently requires 2D elements.");
     ASSERTL1(IsBoundaryInteriorExpansion(),
              "Not set up for non boundary-interior expansions");
 

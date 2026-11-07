@@ -311,9 +311,11 @@ public:
 
     inline void AddRobinMassMatrix(
         const int traceid, const Array<OneD, const NekDouble> &primCoeffs,
-        DNekMatSharedPtr &inoutmat)
+        DNekMatSharedPtr &inoutmat, const bool tangential = false,
+        const NekDouble betaSq = 0.0)
     {
-        v_AddRobinMassMatrix(traceid, primCoeffs, inoutmat);
+        v_AddRobinMassMatrix(traceid, primCoeffs, inoutmat, tangential,
+                             betaSq);
     }
 
     inline void TraceNormLen(const int traceid, NekDouble &h, NekDouble &p)
@@ -323,9 +325,11 @@ public:
 
     inline void AddRobinTraceContribution(
         const int traceid, const Array<OneD, const NekDouble> &primCoeffs,
-        const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs)
+        const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+        const bool tangential = false, const NekDouble betaSq = 0.0)
     {
-        v_AddRobinTraceContribution(traceid, primCoeffs, incoeffs, coeffs);
+        v_AddRobinTraceContribution(traceid, primCoeffs, incoeffs, coeffs,
+                                    tangential, betaSq);
     }
 
     LOCAL_REGIONS_EXPORT const Array<OneD, const NekDouble> &
@@ -530,11 +534,13 @@ protected:
 
     virtual void v_AddRobinMassMatrix(
         const int face, const Array<OneD, const NekDouble> &primCoeffs,
-        DNekMatSharedPtr &inoutmat);
+        DNekMatSharedPtr &inoutmat, const bool tangential,
+        const NekDouble betaSq);
 
     virtual void v_AddRobinTraceContribution(
         const int traceid, const Array<OneD, const NekDouble> &primCoeffs,
-        const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs);
+        const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+        const bool tangential, const NekDouble betaSq);
 
     virtual void v_TraceNormLen(const int traceid, NekDouble &h, NekDouble &p);
 

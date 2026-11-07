@@ -2199,7 +2199,7 @@ void Expansion2D::v_DGDeriv(int dir,
 
 void Expansion2D::v_AddRobinMassMatrix(
     const int edge, const Array<OneD, const NekDouble> &primCoeffs,
-    DNekMatSharedPtr &inoutmat)
+    DNekMatSharedPtr &inoutmat, const bool tangential, const NekDouble betaSq)
 {
     ASSERTL1(IsBoundaryInteriorExpansion(),
              "Not set up for non boundary-interior expansions");
@@ -2214,12 +2214,29 @@ void Expansion2D::v_AddRobinMassMatrix(
     Array<OneD, int> sign;
 
     StdRegions::VarCoeffMap varcoeffs;
-    varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    if (!tangential)
+    {
+        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    }
 
-    LocalRegions::MatrixKey mkey(StdRegions::eMass, LibUtilities::eSegment,
-                                 *edgeExp, StdRegions::NullConstFactorMap,
-                                 varcoeffs);
+    LocalRegions::MatrixKey mkey(tangential ? StdRegions::eLaplacian
+                                            : StdRegions::eMass,
+                                 LibUtilities::eSegment, *edgeExp,
+                                 StdRegions::NullConstFactorMap, varcoeffs);
     DNekScalMat &edgemat = *edgeExp->GetLocMatrix(mkey);
+
+    // For a Homogeneous1D field the surface stiffness contains the
+    // z-derivative of the plane, which in Fourier space is beta^2 times the
+    // edge mass matrix. betaSq is zero for plain 2D fields and the k = 0
+    // plane, so the extra mass matrix is only assembled when needed.
+    DNekScalMatSharedPtr edgemass;
+    if (tangential && betaSq != 0.0)
+    {
+        LocalRegions::MatrixKey masskey(
+            StdRegions::eMass, LibUtilities::eSegment, *edgeExp,
+            StdRegions::NullConstFactorMap, varcoeffs);
+        edgemass = edgeExp->GetLocMatrix(masskey);
+    }
 
     // Now need to identify a map which takes the local edge
     // mass matrix to the matrix stored in inoutmat;
@@ -2313,8 +2330,14 @@ void Expansion2D::v_AddRobinMassMatrix(
         id1 = map[i];
         for (j = 0; j < order_e; ++j)
         {
-            id2 = map[j];
-            (*inoutmat)(id1, id2) += edgemat(i, j) * sign[i] * sign[j];
+            id2             = map[j];
+            NekDouble value = edgemat(i, j);
+            if (edgemass)
+            {
+                value += betaSq * (*edgemass)(i, j);
+            }
+            (*inoutmat)(id1, id2) +=
+                value * sign[i] * sign[j] * (tangential ? primCoeffs[0] : 1.0);
         }
     }
 }
@@ -2329,7 +2352,8 @@ void Expansion2D::v_AddRobinMassMatrix(
  */
 void Expansion2D::v_AddRobinTraceContribution(
     const int edgeid, const Array<OneD, const NekDouble> &primCoeffs,
-    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs)
+    const Array<OneD, NekDouble> &incoeffs, Array<OneD, NekDouble> &coeffs,
+    const bool tangential, const NekDouble betaSq)
 {
     ASSERTL1(IsBoundaryInteriorExpansion(),
              "Not set up for non boundary-interior expansions");
@@ -2341,11 +2365,15 @@ void Expansion2D::v_AddRobinTraceContribution(
     Array<OneD, int> sign;
 
     StdRegions::VarCoeffMap varcoeffs;
-    varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    if (!tangential)
+    {
+        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+    }
 
-    LocalRegions::MatrixKey mkey(StdRegions::eMass, LibUtilities::eSegment,
-                                 *edgeExp, StdRegions::NullConstFactorMap,
-                                 varcoeffs);
+    LocalRegions::MatrixKey mkey(tangential ? StdRegions::eLaplacian
+                                            : StdRegions::eMass,
+                                 LibUtilities::eSegment, *edgeExp,
+                                 StdRegions::NullConstFactorMap, varcoeffs);
     DNekScalMat &edgemat = *edgeExp->GetLocMatrix(mkey);
 
     NekVector<NekDouble> vEdgeCoeffs(order_e);
@@ -2357,7 +2385,26 @@ void Expansion2D::v_AddRobinTraceContribution(
         vEdgeCoeffs[i] = incoeffs[map[i]] * sign[i];
     }
 
-    vEdgeCoeffs = edgemat * vEdgeCoeffs;
+    if (tangential && betaSq != 0.0)
+    {
+        // Homogeneous1D: add the beta^2 * edge mass part of the surface
+        // stiffness before applying the (constant) wall coefficient.
+        LocalRegions::MatrixKey masskey(
+            StdRegions::eMass, LibUtilities::eSegment, *edgeExp,
+            StdRegions::NullConstFactorMap, varcoeffs);
+        DNekScalMat &edgemass = *edgeExp->GetLocMatrix(masskey);
+        NekVector<NekDouble> vEdgeMass = edgemass * vEdgeCoeffs;
+        vEdgeCoeffs                    = edgemat * vEdgeCoeffs;
+        vEdgeCoeffs += betaSq * vEdgeMass;
+    }
+    else
+    {
+        vEdgeCoeffs = edgemat * vEdgeCoeffs;
+    }
+    if (tangential)
+    {
+        vEdgeCoeffs *= primCoeffs[0];
+    }
 
     for (i = 0; i < order_e; ++i)
     {

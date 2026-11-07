@@ -132,8 +132,78 @@ IF( NEKTAR_SOLVER_INCNAVIERSTOKES )
     ADD_NEKTAR_TEST(ChanFlow_m3_ConOBC_VCSImplicit)
     ADD_NEKTAR_TEST(ChanFlow_m3_SKS)
     ADD_NEKTAR_TEST(ChanFlow_m8)
+    IF (NEKTAR_BUILD_TESTS AND NEKTAR_USE_MPI)
+        FIND_PACKAGE(Python3 QUIET COMPONENTS Interpreter)
+        IF (Python3_Interpreter_FOUND)
+            ADD_TEST(NAME IncNavierStokesSolver_AeroForcesH1D
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_aeroforces_h1d.py
+                    --solver $<TARGET_FILE:IncNavierStokesSolver>
+                    --case ${CMAKE_CURRENT_SOURCE_DIR}/Tests/AeroForcesH1D.xml
+                    --work ${CMAKE_BINARY_DIR}/tests/aeroforces-h1d
+                    --mpiexec ${MPIEXEC})
+            SET_TESTS_PROPERTIES(IncNavierStokesSolver_AeroForcesH1D
+                PROPERTIES TIMEOUT 180 PROCESSORS 2)
+        ENDIF()
+    ENDIF()
+    IF (NEKTAR_BUILD_TESTS AND NEKTAR_USE_MPI AND TARGET FieldConvert)
+        FIND_PACKAGE(Python3 QUIET COMPONENTS Interpreter)
+        IF (Python3_Interpreter_FOUND)
+            ADD_TEST(NAME IncNavierStokesSolver_MHDThinWall3D
+                COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_mhd_thinwall3d.py
+                    --solver $<TARGET_FILE:IncNavierStokesSolver>
+                    --fieldconvert $<TARGET_FILE:FieldConvert>
+                    --mpiexec ${MPIEXEC}
+                    --case ${CMAKE_CURRENT_SOURCE_DIR}/Examples/MHDThinWall3D
+                    --reference ${CMAKE_CURRENT_SOURCE_DIR}/Tests/MHDThinWall3DReference.xml
+                    --work ${CMAKE_BINARY_DIR}/tests/mhd-thinwall3d)
+            SET_TESTS_PROPERTIES(IncNavierStokesSolver_MHDThinWall3D
+                PROPERTIES TIMEOUT 300 PROCESSORS 2)
+        ENDIF()
+    ENDIF()
     ADD_NEKTAR_TEST(HartmannFlow)
     ADD_NEKTAR_TEST(MHDDuctFlow)
+    ADD_NEKTAR_TEST(MHDInternalWeakNeumann)
+    ADD_NEKTAR_TEST(MHDInternalWeakRobin)
+    IF (NEKTAR_USE_MPI AND NEKTAR_USE_CWIPI AND NEKTAR_SOLVER_ADR)
+        ADD_NEKTAR_TEST(CoupledMHDThickWall2D)
+        IF (NEKTAR_BUILD_TESTS)
+            SET_TESTS_PROPERTIES(IncNavierStokesSolver_CoupledMHDThickWall2D
+                PROPERTIES TIMEOUT 120 PROCESSORS 4)
+            IF (TARGET MHDPartition)
+                FIND_PACKAGE(Python3 QUIET COMPONENTS Interpreter)
+                IF (Python3_Interpreter_FOUND)
+                    ADD_NEKTAR_EXECUTABLE(MHDCoefficientTransferCheck
+                        COMPONENT tests DEPENDS SolverUtils
+                        SOURCES Tests/MHDCoefficientTransferCheck.cpp)
+                    ADD_TEST(NAME IncNavierStokesSolver_MHDCoefficients
+                        COMMAND ${Python3_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_mhd_coefficients.py
+                            --partitioner $<TARGET_FILE:MHDPartition>
+                            --fluid $<TARGET_FILE:IncNavierStokesSolver>
+                            --electric $<TARGET_FILE:ADRSolver>
+                            --transfer $<TARGET_FILE:MHDCoefficientTransferCheck>
+                            --mpiexec ${MPIEXEC}
+                            --case ${CMAKE_CURRENT_SOURCE_DIR}/Tests/CoupledMHDChannel
+                            --work ${CMAKE_BINARY_DIR}/tests/mhd-coefficients)
+                    SET_TESTS_PROPERTIES(IncNavierStokesSolver_MHDCoefficients
+                        PROPERTIES TIMEOUT 120 PROCESSORS 6
+                        ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+                    IF (TARGET FieldConvert)
+                        ADD_TEST(NAME IncNavierStokesSolver_CoupledHunt
+                            COMMAND ${Python3_EXECUTABLE}
+                                ${CMAKE_CURRENT_SOURCE_DIR}/Tests/test_coupled_hunt.py
+                                --case ${CMAKE_CURRENT_SOURCE_DIR}/Examples/CoupledMHDThickWall2D
+                                --build ${CMAKE_BINARY_DIR}
+                                --work ${CMAKE_BINARY_DIR}/tests/coupled-hunt)
+                        SET_TESTS_PROPERTIES(IncNavierStokesSolver_CoupledHunt
+                            PROPERTIES TIMEOUT 120 PROCESSORS 6)
+                    ENDIF()
+                ENDIF()
+            ENDIF()
+        ENDIF()
+    ENDIF()
     ADD_NEKTAR_TEST(ChanFlow_Accelerate)
     ADD_NEKTAR_TEST(ChanFlow_m8_BodyForce)
     ADD_NEKTAR_TEST(ChanFlow_m8_singular)

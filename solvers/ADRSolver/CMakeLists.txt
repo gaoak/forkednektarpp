@@ -9,6 +9,7 @@ ENDIF()
 IF( NEKTAR_SOLVER_ADR )
     ADD_SOLVER_EXECUTABLE(ADRSolver SOURCES
         ./ADRSolver.cpp
+        ./EquationSystems/CoupledElectricPotential.cpp
         ./EquationSystems/Helmholtz.cpp
         ./EquationSystems/Laplace.cpp
         ./EquationSystems/LaplacePhi.cpp
@@ -248,6 +249,19 @@ IF( NEKTAR_SOLVER_ADR )
     ADD_NEKTAR_TEST(SVV_Tri)
     ADD_NEKTAR_TEST(SVV_Prism)
     ADD_NEKTAR_TEST(SVV_Tet)
+    ADD_NEKTAR_TEST(ThinWall3DHex)
+    ADD_NEKTAR_TEST(ThinWall3DHexIterativeFull)
+    IF (NEKTAR_USE_MPI)
+        ADD_NEKTAR_TEST(ThinWall3DHexParallel)
+    ENDIF()
+    ADD_NEKTAR_TEST(ThinWall3DHexFull)
+    ADD_NEKTAR_TEST(ThinWall3DTiltedHex)
+    ADD_NEKTAR_TEST(ThinWall3DTet)
+    ADD_NEKTAR_TEST(ThinWall3DTetFull)
+    ADD_NEKTAR_TEST(ThinWall3DClosed)
+    ADD_NEKTAR_TEST(ThinWallLaplace)
+    ADD_NEKTAR_TEST(ThinWallLaplaceFull)
+    ADD_NEKTAR_TEST(ThinWallLaplace3DHomo1D)
     ADD_NEKTAR_TEST(LaplacePhi)
 
     # Singular Poisson equation tests
