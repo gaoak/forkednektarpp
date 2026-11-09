@@ -41,11 +41,9 @@
  * A MultiplyByElmtInvMassBlockOp applies each element's inverse mass
  * matrix to that element's coefficients, for every element of one block
  * (see ElmtBlockOp.hpp for the block scheme and
- * MultiplyByElmtInvMassOp.hpp for the mathematical action). Besides setting
- * the block states and providing the factory entry, the class adds the
- * SetInvMassMatrix() hook through which the whole-field operator supplies
- * the per-element matrices a block of deformed geometry needs. The
- * per-execution-space subclasses are the
+ * MultiplyByElmtInvMassOp.hpp for the mathematical action). The class sets
+ * the block states and provides the factory entry. The per-execution-space
+ * subclasses are the
  * detail::MultiplyByElmtInvMassBlockOpImpl definitions in
  * MultiplyByElmtInvMassBlockOpSerialAVXGeneric.hpp and
  * MultiplyByElmtInvMassBlockOpDeviceGeneric.hpp.
@@ -65,8 +63,7 @@ namespace Nektar::MultiRegions
  *
  * @details
  * Sets the block states accepted by Apply() at compile time -- coefficient
- * space in and out -- and adds the SetInvMassMatrix() hook through which
- * MultiplyByElmtInvMassOp::Create supplies the per-element matrices.
+ * space in and out.
  *
  * How the inverse is formed depends on the block's geometry type, which is
  * uniform over a block:
@@ -79,8 +76,8 @@ namespace Nektar::MultiRegions
  *   is stored;
  * - for a block of deformed elements no such factorisation exists, and the
  *   implementations apply the element-specific inverse mass matrices
- *   received through SetInvMassMatrix(), which already account for the
- *   geometry.
+ *   fetched from the data warehouse (LocalRegions::ElmtInvMassKey), which
+ *   already account for the geometry.
  *
  * CMake generates one registration translation unit per execution space
  * and data type (from ElmtOps/ElmtBlockOpFactoryDec.cpp.in) that includes
@@ -136,31 +133,6 @@ public:
     /// implementation to it to form the factory key.
     static inline const std::string name = "BlockMultiplyByElmtInvMass";
 
-    /**
-     * @brief Hand the block operator the inverse mass matrices of its
-     * elements.
-     *
-     * Called once per block by MultiplyByElmtInvMassOp::Create, after the
-     * block operator has been constructed and before any Apply().
-     *
-     * @param   dmat    For a block of deformed elements, one dense
-     *                  nmTot x nmTot inverse mass matrix per element in
-     *                  element order, copied verbatim from the raw storage
-     *                  of the matrices Expansion::GetLocMatrix returns and
-     *                  padded with zero matrices to the block's padded
-     *                  element count; empty for a block of regular
-     *                  elements, which needs no per-element matrix (see
-     *                  the class description).
-     *
-     * @note @p dmat holds one matrix per padded element, not one per
-     * padded element and homogeneous mode; every homogeneous mode uses the
-     * same matrices.
-     */
-    void SetInvMassMatrix(std::vector<TData> &dmat)
-    {
-        v_SetInvMassMatrix(dmat);
-    }
-
 protected:
     /**
      * @brief Construct the interface part of a concrete block operator;
@@ -182,20 +154,6 @@ protected:
     }
 
     ~MultiplyByElmtInvMassBlockOp() override = default;
-
-    /**
-     * @brief Implementation hook for SetInvMassMatrix().
-     *
-     * Overrides must take a copy of @p dmat into whatever storage their
-     * execution space applies it from: the vector the whole-field operator
-     * passes is a local one that does not outlive the call. An empty
-     * @p dmat is legitimate and means the block is regular, so no
-     * per-element matrix will be used.
-     *
-     * @param   dmat    Per-element inverse mass matrices; see
-     *                  SetInvMassMatrix().
-     */
-    virtual void v_SetInvMassMatrix(std::vector<TData> &dmat) = 0;
 };
 
 } // namespace Nektar::MultiRegions

@@ -84,7 +84,8 @@ namespace Nektar::MultiRegions::detail
  * #m_implInterleaveWidth: one constant per element for a regular block)
  * from the data warehouse, so both are built once and shared between
  * operators. Both are fetched for deformed blocks too, whose path uses
- * neither.
+ * neither; a deformed block also fetches its per-element inverse mass
+ * matrices (#m_dinvmassptr, the ElmtInvMassKey).
  *
  * The GEMMs need each element's coefficients contiguous, so the
  * implementation works at interleave width 1 (#m_implInterleaveWidth) and
@@ -103,7 +104,7 @@ namespace Nektar::MultiRegions::detail
  *   Jacobian in every component and homogeneous mode, completing
  *   \f$(M^e)^{-1} = (M^{\mathrm{std}})^{-1} / J^e\f$;
  * - deformed block: one batch entry per padded element, each applying
- *   that element's own inverse mass matrix from #m_dinvmass (batch stride
+ *   that element's own inverse mass matrix from #m_dinvmassptr (batch stride
  *   nmTot x nmTot) to a right-hand side whose columns are the element's
  *   coefficients in each component and homogeneous mode (leading
  *   dimension the block's CompSize(), batch stride nmTot),
@@ -130,8 +131,9 @@ class MultiplyByElmtInvMassBlockOpImpl
 public:
     /**
      * @brief Bind the operator to the block's device stream, capture the
-     * element metadata and fetch the standard-region inverse mass matrix
-     * and the block's Jacobians (see the class description).
+     * element metadata and fetch the standard-region inverse mass matrix,
+     * the block's Jacobians and, for a deformed block, its per-element
+     * inverse mass matrices (see the class description).
      *
      * The matrix key carries the element's basis keys and shape and, for a
      * nodal expansion, the nodal points type. The Jacobians are fetched at
@@ -180,6 +182,13 @@ public:
         // Fetch Jacobian.
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        // Fetch per-element inverse mass matrices.
+        if (m_isDeformed)
+        {
+            m_dinvmassptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::ElmtInvMassKey<TData>(block_idx));
+        }
     }
 
     /// Block-operator class name; defined by generated factory code.
@@ -229,9 +238,8 @@ protected:
     /// only.
     const TData *m_jacptr;
     /// Per-element inverse mass matrices of a deformed block in device
-    /// memory, as set through v_SetInvMassMatrix(); empty for a regular
-    /// block.
-    LibUtilities::MemoryRegion<TData> m_dinvmass;
+    /// memory, cached in the data warehouse; null for a regular block.
+    const TData *m_dinvmassptr = nullptr;
 
     /**
      * @brief Apply the inverse mass matrices to the whole block by one
@@ -239,7 +247,7 @@ protected:
      *
      * The input -- all components and homogeneous modes at once -- is
      * de-interleaved to #m_implInterleaveWidth. For a deformed block one
-     * strided-batched GEMM against the per-element matrices in #m_dinvmass
+     * strided-batched GEMM against the per-element matrices in #m_dinvmassptr
      * runs straight from the input to the output; for a regular block one
      * strided-batched GEMM against #m_invmassptr does so and
      * DivideByJacobian then divides each element's coefficients by its one
@@ -285,17 +293,14 @@ protected:
 
         if (m_isDeformed)
         {
-            // Fetch deformed mass matrix.
-            auto dmatptr = this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>(
-                m_streamID);
-
             // Perform batched matrix-matrix multiply, one multiply per
             // element, with the variables and the homogeneous modes held in
             // the columns.
             NekBlas::GemmStridedBatched(
-                handle, "N", "N", m_nmTot, ncomp, m_nmTot, (TData)1.0, dmatptr,
-                m_nmTot, m_nmTot * m_nmTot, inptr, inblock.CompSize(), m_nmTot,
-                (TData)0.0, outptr, outblock.CompSize(), m_nmTot, nelmt);
+                handle, "N", "N", m_nmTot, ncomp, m_nmTot, (TData)1.0,
+                m_dinvmassptr, m_nmTot, m_nmTot * m_nmTot, inptr,
+                inblock.CompSize(), m_nmTot, (TData)0.0, outptr,
+                outblock.CompSize(), m_nmTot, nelmt);
         }
         else
         {
@@ -321,21 +326,6 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    /**
-     * @brief Copy the block's per-element inverse mass matrices into a
-     * memory region of the device memory space.
-     *
-     * @param   invmass     Per-element inverse mass matrices; empty for a
-     *                      regular block, in which case #m_dinvmass stays
-     *                      empty and unused (see
-     *                      MultiplyByElmtInvMassBlockOp::SetInvMassMatrix).
-     */
-    void v_SetInvMassMatrix(std::vector<TData> &invmass) override
-    {
-        this->m_dinvmass = LibUtilities::MemoryRegion<
-            TData>::template FromVector<MemSpace, TData>(invmass);
     }
 };
 

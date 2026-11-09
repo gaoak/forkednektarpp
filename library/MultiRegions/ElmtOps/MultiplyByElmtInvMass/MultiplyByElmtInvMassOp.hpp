@@ -59,9 +59,7 @@
  * Generic tag (see ElmtBlockOp.hpp), and the only case distinction it makes
  * is between blocks of regular and of deformed geometry (see
  * MultiplyByElmtInvMassBlockOp.hpp). The family is laid out as
- * - MultiplyByElmtInvMassOp (this file): whole-field interface, which also
- *   assembles the per-element inverse mass matrices that blocks of deformed
- *   geometry need;
+ * - MultiplyByElmtInvMassOp (this file): whole-field interface;
  * - detail::MultiplyByElmtInvMassOpImpl (MultiplyByElmtInvMassOpImpl.hpp):
  *   the factory-registered whole-field shell, one entry per execution
  *   space;
@@ -94,10 +92,7 @@ namespace Nektar::MultiRegions
  * v_Apply() hands each block of the input and output fields to the matching
  * entry of #m_blockOp, and all numerical work happens in the block
  * operators (the factory shell detail::MultiplyByElmtInvMassOpImpl adds
- * nothing beyond registration). What this class adds on top of the
- * standard ElmtOp::Create machinery is the assembly of the per-element
- * inverse mass matrices that blocks of deformed geometry need; see
- * Create().
+ * nothing beyond registration).
  *
  * @tparam TData Floating-point type of the field data.
  *
@@ -113,29 +108,16 @@ class MultiplyByElmtInvMassOp
 public:
     /**
      * @brief Build a complete element-wise inverse mass operator through
-     * the operator and block-operator factories and hand each block
-     * operator the inverse mass data it needs.
+     * the operator and block-operator factories.
      *
      * The interface object and one block operator per element block are
      * built by ElmtOp::Create under the keys #name + @p execStr and
      * MultiplyByElmtInvMassBlockOp::name + @p execStr + @p implStr. Only
      * the "Generic" implementation is registered for this family, so
      * ElmtBlockOp::Create falls back to it whatever @p implStr asks for.
-     *
-     * Every block is then handed its inverse mass matrices through
-     * MultiplyByElmtInvMassBlockOp::SetInvMassMatrix:
-     * - a block of deformed elements receives one dense nmTot x nmTot
-     *   matrix per element, copied element by element from the block's
-     *   Collection -- Expansion::GetLocMatrix with StdRegions::eInvMass,
-     *   which for deformed geometry builds and inverts the element's own
-     *   mass matrix -- into a vector in element order. The vector is sized
-     *   for the block's padded element count, so the trailing padding
-     *   elements keep the zero matrices it was allocated with;
-     * - a block of regular elements receives an empty vector: its
-     *   elements' mass matrices are the standard-region mass matrix scaled
-     *   by the element's constant Jacobian, so the implementations combine
-     *   the cached standard-region inverse with a division by the Jacobian
-     *   instead of storing one matrix per element.
+     * A block of deformed elements fetches its per-element inverse mass
+     * matrices from the data warehouse (LocalRegions::ElmtInvMassKey), so
+     * every operator on the expansion list shares one copy.
      *
      * @param   expansionList   Expansion list the operator acts on.
      * @param   components      Names of the field components the operator
@@ -148,74 +130,21 @@ public:
      *                          resolves to "Generic" as described above.
      *
      * @return The fully assembled operator, ready to Apply().
-     *
-     * @note The copy takes the raw storage of the matrix GetLocMatrix()
-     * returns and does not apply its scale factor; for deformed geometry
-     * LocalRegions returns the inverted mass matrix with a unit scale.
      */
     static std::shared_ptr<MultiplyByElmtInvMassOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto op = ElmtOp<FieldState::Coeff, FieldState::Coeff,
-                         TData>::template Create<MultiplyByElmtInvMassOp,
-                                                 MultiplyByElmtInvMassBlockOp>(
+        return ElmtOp<FieldState::Coeff, FieldState::Coeff,
+                      TData>::template Create<MultiplyByElmtInvMassOp,
+                                              MultiplyByElmtInvMassBlockOp>(
             expansionList, components, execStr, implStr);
-
-        // Loop over the blocks.
-        const auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                expansionList);
-        for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
-        {
-            std::vector<TData> dmat =
-                ElmtInvMassMatrices(expansionList, blk, blockAttr[blk]);
-            op->m_blockOp[blk]->SetInvMassMatrix(dmat);
-        }
-
-        return op;
     }
 
     /// Operator base name; Create() appends the execution space to it to
     /// form the operator-factory key.
     static inline const std::string name = "MultiplyByElmtInvMass";
-
-    /**
-     * @brief The per-element inverse mass matrices of block @p blk of
-     * @p expansionList where its geometry is deformed: element after element,
-     * each nmTot x nmTot and column-major, the padding elements zero. Empty for
-     * a regular block, whose elements share the standard inverse mass.
-     * Create() hands them to the block operators, and PhysLiftProjectOp's
-     * Create() to the MultiplyByElmtInvMass of its deformed blocks; each
-     * computes the block attributes of the list once and passes block
-     * @p blk's as @p blockAttr.
-     */
-    static std::vector<TData> ElmtInvMassMatrices(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        const unsigned int blk,
-        const LibUtilities::BlockAttributes<FieldState::Coeff> &blockAttr)
-    {
-        std::vector<TData> dmat;
-        const auto coll =
-            MultiRegions::GetCollection(expansionList, blk).GetExpVector();
-        if (coll[0]->GetGeomFactors()->GetGtype() != SpatialDomains::eDeformed)
-        {
-            return dmat;
-        }
-        const auto nmTot    = coll[0]->GetNcoeffs();
-        const auto nelmt    = blockAttr.GetNumElements();
-        const auto nelmtPad = blockAttr.GetNumElementsWithPadding();
-        dmat.resize(nelmtPad * nmTot * nmTot);
-        auto dmatptr = dmat.data();
-        for (size_t e = 0; e < nelmt; ++e)
-        {
-            const auto &InvMass = coll[e]->GetLocMatrix(StdRegions::eInvMass);
-            std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, dmatptr);
-            dmatptr += nmTot * nmTot;
-        }
-        return dmat;
-    }
 
 protected:
     /// One block operator per element block, filled by Create().

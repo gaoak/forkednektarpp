@@ -154,6 +154,7 @@ v5.11.0
 - Move the incompressible-solver hooks out of the redesign TimeOp into IMEXBaseOp, the base of IMEX and IMEXdirk, and make the TimeOp Do functions protected (!2911)
 - Add `ElmtBlockOp::ShapeSwitch`, which replaces the runtime shape switch duplicated in every SumFac and SumFacTOP block operator's `v_Apply()`; an unsupported shape is now a fatal error (!2910)
 - Add nodal pyramid support to the SumFac and SumFacTOP element and trace operators for Serial, AVX and Device back-ends, and build `NodalPyrExp` from a `GLL_LAGRANGE` pyramid expansion (!2910)
+- Store the per-element inverse mass matrices of deformed blocks in the geometric data warehouse (`ElmtInvMassKey`), so MultiplyByElmtInvMass and PhysLiftProject share one copy in place of each operator holding its own (!2914)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

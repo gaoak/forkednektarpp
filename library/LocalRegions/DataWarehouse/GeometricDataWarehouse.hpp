@@ -374,6 +374,30 @@ private:
     int m_dir;
 };
 
+/// Inverse mass matrix of every element of a deformed block, as
+/// Expansion::GetLocMatrix returns it for StdRegions::eInvMass: element after
+/// element, each nmTot x nmTot and column-major, with zero matrices on the
+/// padded elements.
+template <typename TData> class ElmtInvMassKey : public LibUtilities::BaseKey
+{
+    friend class GeometricDataCreator;
+
+public:
+    using creator = GeometricDataCreator;
+    typedef TData value_type;
+
+    ~ElmtInvMassKey() override = default;
+
+    ElmtInvMassKey(const unsigned int block_idx) : m_block_idx(block_idx)
+    {
+        hash_combine(m_hash, m_block_idx, typeid(value_type).name(),
+                     "ElmtInvMassKey");
+    }
+
+private:
+    unsigned int m_block_idx;
+};
+
 class GeometricDataCreator : public LibUtilities::DataCreatorClass
 {
 public:
@@ -429,6 +453,10 @@ public:
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<TData> Create(
         const JacNormGeomFactorLocTraceKey<TData> &jacnormgeomfacLocTraceKey);
+
+    template <typename MemSpace, typename TData>
+    LibUtilities::MemoryRegion<TData> Create(
+        const ElmtInvMassKey<TData> &elmtInvMassKey);
 
     inline static const std::string m_name = "GeometricDataCreator";
 
