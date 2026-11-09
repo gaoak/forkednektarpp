@@ -85,9 +85,8 @@ namespace Nektar::MultiRegions::detail
  * a regular block.
  *
  * @details
- * The constructor fetches two pieces of shared data from the data
- * warehouse, so that both are built once and reused by every operator on
- * the expansion list:
+ * The constructor fetches shared data from the data warehouse, so that it
+ * is built once and reused by every operator on the expansion list:
  * - #m_invmassptr, the StdMatKey with eInvMassStdMatTranspose: the
  *   transposed standard-region inverse mass matrix (nmTot x nmTot,
  *   column-major), the layout the libxsmm kernel below expects; or, where
@@ -96,9 +95,12 @@ namespace Nektar::MultiRegions::detail
  * eInvMassStdMatDiagonal, its nmTot diagonal values;
  * - #m_jacptr, the block's Jacobians (JacobianKey at
  *   #m_implInterleaveWidth), one constant per element for a regular block,
- *   interleaved like the field data.
+ *   interleaved like the field data;
+ * - #m_dinvmassptr, for a deformed block only, each element's own inverse
+ *   mass matrix (ElmtInvMassKey).
  *
- * Both are fetched for deformed blocks too, whose path uses neither.
+ * The first two are fetched for deformed blocks too, whose path uses
+ * neither.
  *
  * Both geometry cases work one element group -- simd_t::width consecutive
  * elements, one per vector lane -- at a time:
@@ -116,7 +118,7 @@ namespace Nektar::MultiRegions::detail
  * mode in place of the GEMM;
  * - deformed block: one NekBlas::GemvStridedBatched per group performs
  *   simd_t::width matrix-vector products, lane j using element j's own
- *   inverse mass matrix from #m_dinvmass (batch stride nmTot x nmTot); the
+ *   inverse mass matrix from #m_dinvmassptr (batch stride nmTot x nmTot); the
  *   geometry is already contained in those matrices, so no Jacobian is
  *   applied. On AVX the input and output vectors are addressed with
  *   increment simd_t::width and batch stride 1, i.e. the interleaved
@@ -144,8 +146,9 @@ class MultiplyByElmtInvMassBlockOpImpl
 public:
     /**
      * @brief Capture the block's element metadata and fetch the transposed
-     * standard-region inverse mass matrix and the block's Jacobians (see
-     * the class description).
+     * standard-region inverse mass matrix, the block's Jacobians and, for
+     * a deformed block, its per-element inverse mass matrices (see the
+     * class description).
      *
      * The matrix key carries the element's basis keys and shape and, for a
      * nodal expansion, the nodal points type. The Jacobians are fetched at
@@ -200,6 +203,13 @@ public:
 
         m_jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
             LocalRegions::JacobianKey<TData>(block_idx, m_implInterleaveWidth));
+
+        // Fetch per-element inverse mass matrices.
+        if (m_isDeformed)
+        {
+            m_dinvmassptr = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::ElmtInvMassKey<TData>(block_idx));
+        }
     }
 
     /// Block-operator class name; defined by generated factory code.
@@ -244,9 +254,9 @@ protected:
     /// #m_implInterleaveWidth and cached in the data warehouse; used by
     /// the regular path only.
     const TData *m_jacptr;
-    /// Per-element inverse mass matrices of a deformed block, as set
-    /// through v_SetInvMassMatrix(); empty for a regular block.
-    LibUtilities::MemoryRegion<TData> m_dinvmass;
+    /// Per-element inverse mass matrices of a deformed block, cached in the
+    /// data warehouse; null for a regular block.
+    const TData *m_dinvmassptr = nullptr;
     /// The standard inverse mass is diagonal (see the constructor), so a
     /// regular block scales by its diagonal in place of the product.
     bool m_invmassIsDiagonal = false;
@@ -304,8 +314,7 @@ protected:
             if (m_isDeformed)
             {
                 // Fetch deformed mass matrix.
-                auto dmatptr =
-                    this->m_dinvmass.template GetPtr<MemSpace, ReadOnly>();
+                auto dmatptr = m_dinvmassptr;
 
                 // Loop over element groups.
                 for (size_t e = 0;
@@ -421,21 +430,6 @@ protected:
 
         // Set output block to input interleave.
         outblock.template SetInterleaveWidth<TData>(interleaveWidth);
-    }
-
-    /**
-     * @brief Take a copy of the block's per-element inverse mass matrices
-     * into host memory.
-     *
-     * @param   invmass     Per-element inverse mass matrices; empty for a
-     *                      regular block, in which case #m_dinvmass stays
-     *                      empty and unused (see
-     *                      MultiplyByElmtInvMassBlockOp::SetInvMassMatrix).
-     */
-    void v_SetInvMassMatrix(std::vector<TData> &invmass) override
-    {
-        this->m_dinvmass = LibUtilities::MemoryRegion<
-            TData>::template FromVector<MemSpace, TData>(invmass);
     }
 };
 

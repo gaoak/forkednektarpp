@@ -1406,4 +1406,48 @@ LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
     return jacngf;
 }
 
+template <typename MemSpace, typename TData>
+LibUtilities::MemoryRegion<TData> GeometricDataCreator::Create(
+    const ElmtInvMassKey<TData> &elmtInvMassKey)
+{
+    // Use maximum vector width for back-ends interoperability.
+    const auto vector_width = NektarSpaces::max_vector_width<TData>::value;
+
+    // Fetch data from key.
+    const auto block_idx = elmtInvMassKey.m_block_idx;
+
+    // Fetch expansion.
+    auto coll               = m_collections[block_idx].GetExpVector();
+    const auto num_elements = coll.size();
+    const auto nmTot        = coll[0]->GetNcoeffs();
+    const auto num_elements_with_padding =
+        ((num_elements + vector_width - 1) / vector_width) * vector_width;
+
+    ASSERTL1(coll[0]->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed,
+             "ElmtInvMassKey requires a block of deformed elements.");
+
+    // Allocate memory and get pointer.
+    auto invmass = LibUtilities::MemoryRegion<TData>(num_elements_with_padding *
+                                                     nmTot * nmTot);
+    auto invmassptr =
+        invmass.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+    // Loop over elements; the padded elements are zero.
+    for (size_t el = 0; el < num_elements_with_padding; ++el)
+    {
+        if (el < num_elements)
+        {
+            const auto &InvMass = coll[el]->GetLocMatrix(StdRegions::eInvMass);
+            std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot, invmassptr);
+        }
+        else
+        {
+            std::fill_n(invmassptr, nmTot * nmTot, 0.0);
+        }
+        invmassptr += nmTot * nmTot;
+    }
+
+    return invmass;
+}
+
 } // namespace Nektar::LocalRegions

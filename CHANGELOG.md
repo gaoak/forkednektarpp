@@ -156,6 +156,7 @@ v5.11.0
 - Add nodal pyramid support to the SumFac and SumFacTOP element and trace operators for Serial, AVX and Device back-ends, and build `NodalPyrExp` from a `GLL_LAGRANGE` pyramid expansion (!2910)
 - Register the redesign SDC and GEM time integration operators with the common TimeOp factory, removing the separate SDC and GEM factories; their order, variant and free parameters are set through `TimeOp::v_SetScheme` once the operator is created (!2913)
 - Remove the duplicate double-only BLAS wrappers (`Dgemv`, `Dgemm`, ...) and the unused `Cdgemm`; use the overloaded versions instead (!2915)
+- Store the per-element inverse mass matrices of deformed blocks in the geometric data warehouse (`ElmtInvMassKey`), so MultiplyByElmtInvMass and PhysLiftProject share one copy in place of each operator holding its own (!2914)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

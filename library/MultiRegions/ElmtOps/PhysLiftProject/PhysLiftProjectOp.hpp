@@ -69,8 +69,8 @@
  *   mode where the standard mass is diagonal) and the backward transform;
  * - **ElmtInvMass**, on deformed elements otherwise: the four operators in
  *   sequence, as their block operators, MultiplyByElmtInvMass with each
- *   element's own inverse mass as MultiplyByElmtInvMassOp builds it
- *   (MultiplyByElmtInvMassOp::ElmtInvMassMatrices()).
+ *   element's own inverse mass from the data warehouse
+ *   (LocalRegions::ElmtInvMassKey).
  *
  * Apply(in, trace, out) lifts @c trace, each block through its block
  * operator's ApplyLift(); the two-argument Apply(in, out) projects @c in
@@ -99,7 +99,6 @@
 
 #include <MultiRegions/ElmtOps/ElmtOp.hpp>
 
-#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectBlockOp.hpp>
 
 namespace Nektar::MultiRegions
@@ -123,40 +122,16 @@ public:
 
     /**
      * @brief Create the operator through the operator and block-operator
-     * factories (see ElmtOp::Create()), and hand each block of the
-     * ElmtInvMass form its elements' inverse mass matrices.
+     * factories (see ElmtOp::Create()).
      */
     static std::shared_ptr<PhysLiftProjectOp<TData>> Create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components,
         const std::string &execStr = "", const std::string &implStr = "")
     {
-        auto op =
-            ElmtOp<FieldState::Phys, FieldState::Phys, TData>::template Create<
-                PhysLiftProjectOp, PhysLiftProjectBlockOp>(
+        return ElmtOp<FieldState::Phys, FieldState::Phys, TData>::
+            template Create<PhysLiftProjectOp, PhysLiftProjectBlockOp>(
                 expansionList, components, execStr, implStr);
-
-        // The per-element inverse mass matrices of the blocks of the
-        // ElmtInvMass form, which hand them to their MultiplyByElmtInvMass,
-        // as MultiplyByElmtInvMassOp builds them.
-        const auto blockAttr =
-            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                expansionList);
-        for (unsigned int blk = 0; blk < op->m_blockOp.size(); ++blk)
-        {
-            const auto exp = MultiRegions::GetCollection(expansionList, blk)
-                                 .GetExpVector()[0];
-            if (detail::PhysLiftProjectFormOf(exp) ==
-                detail::PhysLiftProjectForm::ElmtInvMass)
-            {
-                std::vector<TData> dmat =
-                    MultiplyByElmtInvMassOp<TData>::ElmtInvMassMatrices(
-                        expansionList, blk, blockAttr[blk]);
-                op->m_blockOp[blk]->SetInvMassMatrix(dmat);
-            }
-        }
-
-        return op;
     }
 
     /// Operator base name; Create() appends the execution space to it to

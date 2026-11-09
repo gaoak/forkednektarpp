@@ -174,16 +174,6 @@ public:
         v_ApplyLift(inblock, trace, outblock);
     }
 
-    /// The per-element inverse mass matrices of a deformed block, element
-    /// after element, each column-major and nmTot x nmTot, the padding
-    /// elements zero (MultiplyByElmtInvMassOp::ElmtInvMassMatrices()); read
-    /// only by a block of the ElmtInvMass form, whose MultiplyByElmtInvMass
-    /// takes them.
-    void SetInvMassMatrix(std::vector<TData> &dmat)
-    {
-        m_chainInvMass->SetInvMassMatrix(dmat);
-    }
-
 protected:
     /// The implementation's ApplyLift().
     virtual void v_ApplyLift(
