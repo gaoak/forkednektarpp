@@ -132,9 +132,9 @@ public:
                        : 10.0;
 
         // Set up diffusion coefficient.
-        const auto coordDim      = m_expList->GetCoordim(0);
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-        m_diffCoeff.resize(diffCoeffSize);
+        const auto coordDim   = m_expList->GetCoordim(0);
+        const auto nDiffCoeff = coordDim * (coordDim + 1) / 2;
+        m_diffCoeff.resize(nDiffCoeff);
 
         if (coordDim == 1)
         {

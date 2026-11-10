@@ -68,10 +68,8 @@
  * already.
  *
  * The MassSharedMemorySize overloads here return what that staging costs;
- * the MassWorkSpaceSize overloads carry the SumFacTOP tag but return the
- * same non-zero global-memory sizes as their SumFac counterparts, even
- * though the launchers below mark their workspace argument unused and no
- * kernel here touches it.
+ * the MassWorkSpaceSize overloads return 0, since no kernel here touches
+ * the global workspace.
  */
 
 #pragma once
@@ -88,25 +86,23 @@ namespace Nektar::MultiRegions::detail
 
 #if defined(NEKTAR_ENABLE_DEVICE) && defined(DEVICE_COMPILE_ONLY)
 /**
- * @brief Global-memory workspace a 1D SumFacTOP mass launch requests, in
- * TData values.
+ * @brief Global-memory workspace a 1D SumFacTOP mass launch needs, in
+ * TData values: none.
  *
- * Repeats the size of the SumFac overload in MassBlockOpDeviceSumFacKernels.hpp
- * (nq0 values per element), so the block implementation requests a
- * workspace of that size before every SumFacTOP launch -- although the
- * kernels of this file stage their intermediates in shared memory and
- * never read the workspace pointer (see the file notes). The 2D and 3D
- * overloads below do the same for their dimensions.
+ * SumFacTOP holds every intermediate in shared memory, so this and the
+ * 2D and 3D overloads all return 0. The block implementation queries
+ * them along the same path as for SumFac and simply ends up with an
+ * empty workspace (see MassBlockOpDeviceSumFac.hpp).
  *
  * @tparam SHAPE_TYPE        Shape of the block's elements (Seg).
- * @tparam Implementation    MultiRegions::SumFacTOP.
+ * @tparam Implementation    MultiRegions::SumFacTOP; the SumFac overload
+ *                           lives in MassBlockOpDeviceSumFacKernels.hpp.
  * @tparam TSizeParameter1D  1D size parameter (see ElmtHelper.hpp).
  *
  * @param   nelmt        Elements in the block, padding included.
  * @param   sizeParam1D  Modal and quadrature sizes of the expansion.
  *
- * @return Workspace size in TData values per component, 0 for unhandled
- * shapes.
+ * @return 0.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter1D,
@@ -114,125 +110,41 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
                                IsSizeParameter1D_v<TSizeParameter1D>,
                            bool>
               Enable = true>
-inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
-                                          const TSizeParameter1D sizeParam1D)
+inline constexpr size_t MassWorkSpaceSize(
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const TSizeParameter1D sizeParam1D)
 {
-    size_t wspsize = 0;
-
-    const unsigned int nq0 = sizeParam1D.nq0();
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Seg)
-    {
-        wspsize = nq0 * nelmt;
-    }
-    return wspsize;
+    return 0;
 }
 
-/// @brief Global-memory workspace a 2D SumFacTOP mass launch requests:
-/// the SumFac size, unread by the kernels here (see the 1D overload).
+/// @brief Global-memory workspace a 2D SumFacTOP mass launch needs:
+/// none, for the reason given in the 1D overload.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter2D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter2D_v<TSizeParameter2D>,
                            bool>
               Enable = true>
-inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
-                                          const TSizeParameter2D sizeParam2D)
+inline constexpr size_t MassWorkSpaceSize(
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const TSizeParameter2D sizeParam2D)
 {
-    size_t wspsize = 0;
-
-    const unsigned int nm0 = sizeParam2D.nm0();
-    const unsigned int nq0 = sizeParam2D.nq0();
-    const unsigned int nq1 = sizeParam2D.nq1();
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        wspsize = (nq0 * nq1 + nq1) * nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-    {
-        wspsize = (nq0 * nq1 + std::max(nq1, nm0)) * nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTri)
-    {
-        const unsigned int nmTot = sizeParam2D.nmTot();
-
-        wspsize = (nq0 * nq1 + std::max(nq1, nm0) + nmTot) * nelmt;
-    }
-
-    return wspsize;
+    return 0;
 }
 
-/// @brief Global-memory workspace a 3D SumFacTOP mass launch requests:
-/// the SumFac size, unread by the kernels here (see the 1D overload).
+/// @brief Global-memory workspace a 3D SumFacTOP mass launch needs:
+/// none, for the reason given in the 1D overload.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TSizeParameter3D,
           std::enable_if_t<std::is_same_v<Implementation, SumFacTOP> &&
                                IsSizeParameter3D_v<TSizeParameter3D>,
                            bool>
               Enable = true>
-inline constexpr size_t MassWorkSpaceSize(const size_t nelmt,
-                                          const TSizeParameter3D sizeParam3D)
+inline constexpr size_t MassWorkSpaceSize(
+    [[maybe_unused]] const size_t nelmt,
+    [[maybe_unused]] const TSizeParameter3D sizeParam3D)
 {
-    size_t wspsize = 0;
-
-    const unsigned int nm0 = sizeParam3D.nm0();
-    const unsigned int nm1 = sizeParam3D.nm1();
-    const unsigned int nq0 = sizeParam3D.nq0();
-    const unsigned int nq1 = sizeParam3D.nq1();
-    const unsigned int nq2 = sizeParam3D.nq2();
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        wspsize = (nq0 * nq1 * nq2 + nq1 * nq2 + nq2) * nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-
-        wspsize =
-            (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) + std::max(nq2, nm0)) *
-            nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::NodalTet)
-    {
-        const unsigned int nmTot = sizeParam3D.nmTot();
-        const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm01) +
-                   std::max(nq2, nm0) + nmTot) *
-                  nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                   std::max(nq2, nm0)) *
-                  nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPrism)
-    {
-        const unsigned int nmTot = sizeParam3D.nmTot();
-
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                   std::max(nq2, nm0) + nmTot) *
-                  nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                   std::max(nq2, nm0)) *
-                  nelmt;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::NodalPyr)
-    {
-        const unsigned int nmTot = sizeParam3D.nmTot();
-
-        wspsize = (nq0 * nq1 * nq2 + std::max(nq1 * nq2, nm0 * nm1) +
-                   std::max(nq2, nm0) + nmTot) *
-                  nelmt;
-    }
-
-    return wspsize;
+    return 0;
 }
 
 /**

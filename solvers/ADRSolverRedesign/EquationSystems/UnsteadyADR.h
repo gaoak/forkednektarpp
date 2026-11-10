@@ -35,6 +35,8 @@
 
 #pragma once
 
+#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
+
 #include <ADRSolverRedesign/LinearAdvVolumeFlux/LinearAdvVolumeFluxOp.hpp>
 #include <MultiRegions/ElmtOps/Advection/AdvectionOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
@@ -75,6 +77,11 @@ protected:
     // Diffusion coefficient
     double m_epsilon;
     std::vector<double> m_diffCoeff;
+    // Own the tensor for the lifetime of the operators which borrow it.
+    LibUtilities::Field<double, FieldState::Phys> m_varDiffCoeff;
+    std::shared_ptr<MultiRegions::ExpressionOp<double>> m_varDiffCoeffOp;
+    // Re-evaluate the tensor every implicit stage only when it uses t.
+    bool m_isTimeDependentDiffCoeff = false;
 
     // Time stepping coefficient
     double m_lambda;

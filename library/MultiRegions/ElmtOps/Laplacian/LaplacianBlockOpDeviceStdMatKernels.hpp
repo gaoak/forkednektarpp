@@ -50,6 +50,11 @@
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
+// Coefficients are passed as raw pointers. Variable tensor components are
+// separated by varDiffCoeffSize scalars. The kernels select the plane and
+// element from the base pointer; point offsets follow the same interleaving
+// as the input and derivative-factor arrays.
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -95,8 +100,9 @@ namespace Nektar::MultiRegions::detail
  * @param   inoffset    Stride between successive reference-derivative
  *                      directions in @p in.
  * @param   outoffset   Same, for @p out.
- * @param   diffCoeff   Packed symmetric diffusion tensor, indexed
- *                      through LibUtilities::GetDiffCoeffMap().
+ * @param   diffCoeff   Constant packed tensor, indexed through
+ *                      LibUtilities::GetDiffCoeffMap(), or the base
+ *                      pointer of the variable tensor (VARCOEFF).
  * @param   jacptr      Jacobian: one value per element, or one per
  *                      quadrature point when @p DEFORMED.
  * @param   dfptr       Derivative factors in the transposed layout
@@ -108,16 +114,17 @@ namespace Nektar::MultiRegions::detail
  * @param   out         Receives \f$J G \nabla_\xi u\f$, same layout.
  * @param   threadBlock Back-end thread-block handle.
  */
-template <bool DEFORMED, typename TthreadBlock, typename TData>
+template <bool DEFORMED, bool VARCOEFF, typename TthreadBlock, typename TData>
 NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t inoffset,
-    const size_t outoffset, const TData *diffCoeff, const TData *jacptr,
-    const TData *dfptr, const TData *in, TData *out,
+    const size_t outoffset, const TData *diffCoeff, const unsigned int nhomo,
+    const TData *jacptr, const TData *dfptr, const TData *in, TData *out,
     const TthreadBlock &threadBlock)
 {
-    const auto ndf     = ncoord * dimension;
-    const size_t nsize = nqTot * nelmt;
+    const auto ndf                = ncoord * dimension;
+    const size_t nsize            = nqTot * nelmt;
+    const size_t varDiffCoeffSize = VARCOEFF ? nsize * nhomo : 1;
 
     size_t idx           = getGlobalIdx<0>(threadBlock);
     const unsigned int c = getBlockIdx<1>(threadBlock);
@@ -125,6 +132,8 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
     TData *outptr        = out + nsize * c;
     while (idx < nsize)
     {
+        const TData *diffCoeffPtr =
+            VARCOEFF ? diffCoeff + (c % nhomo) * nsize + idx : diffCoeff;
         if constexpr (DEFORMED)
         {
             size_t e     = idx / nqTot;
@@ -150,15 +159,18 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] =
-                        dfptr[ndf * nqTot * e + d * nqTot + i] *
-                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
+                    metric[k] = dfptr[ndf * nqTot * e + d * nqTot + i] *
+                                diffCoeffPtr[(LibUtilities::GetDiffCoeffMap(
+                                                 ncoord, k)) *
+                                             varDiffCoeffSize];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k] += dfptr[ndf * nqTot * e +
-                                           (l * dimension + d) * nqTot + i] *
-                                     diffCoeff[LibUtilities::GetDiffCoeffMap(
-                                         ncoord, l * ncoord + k)];
+                        metric[k] +=
+                            dfptr[ndf * nqTot * e +
+                                  (l * dimension + d) * nqTot + i] *
+                            diffCoeffPtr[(LibUtilities::GetDiffCoeffMap(
+                                             ncoord, l * ncoord + k)) *
+                                         varDiffCoeffSize];
                     }
                 }
                 tmp0 = metric[0] * tmp[0];
@@ -181,14 +193,17 @@ NEK_DEVICE_KERNEL static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] =
-                        dfptr[(ndf * e + d)] *
-                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
+                    metric[k] = dfptr[(ndf * e + d)] *
+                                diffCoeffPtr[(LibUtilities::GetDiffCoeffMap(
+                                                 ncoord, k)) *
+                                             varDiffCoeffSize];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
-                        metric[k] += dfptr[(ndf * e + l * dimension + d)] *
-                                     diffCoeff[LibUtilities::GetDiffCoeffMap(
-                                         ncoord, l * ncoord + k)];
+                        metric[k] +=
+                            dfptr[(ndf * e + l * dimension + d)] *
+                            diffCoeffPtr[(LibUtilities::GetDiffCoeffMap(
+                                             ncoord, l * ncoord + k)) *
+                                         varDiffCoeffSize];
                     }
                 }
                 for (unsigned int k = 0; k < dimension; ++k)

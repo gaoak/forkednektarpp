@@ -57,6 +57,13 @@
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOpSerialAVXSumFacKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOpSerialAVXSumFacKernels.hpp>
 
+// The constant tensor is passed as scalars and the variable tensor as SIMD
+// vectors, its components separated by varDiffCoeffSize.
+// The caller selects the element group/plane; point offsets follow the same
+// interleaving as the input and derivative-factor arrays.
+// useDiffCoeff is false for the constant identity tensor, selecting the
+// direct geometric metric instead of the full tensor contraction.
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -64,20 +71,14 @@ namespace Nektar::MultiRegions::detail
  * @brief Segment kernel contracting reference derivative with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
-    const unsigned int ncoord, const unsigned int nq0,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
-    const simd_type *df_ptr, simd_type *deriv0,
-    [[maybe_unused]] simd_type *phys,
+    const unsigned int ncoord, const unsigned int nq0, const bool useDiffCoeff,
+    const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0, const simd_type *df_ptr,
+    simd_type *deriv0, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
 {
     const auto ndf = ncoord;
@@ -93,19 +94,19 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
     simd_type df0, df1 = {0.0}, df2 = {0.0};
     simd_type metric00;
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
+        d00 = diffCoeff[0];
         if (ncoord > 1)
         {
-            d01 = constVarDiff[1];
-            d11 = constVarDiff[2];
+            d01 = diffCoeff[1];
+            d11 = diffCoeff[2];
         }
         if (ncoord == 3)
         {
-            d02 = constVarDiff[3];
-            d12 = constVarDiff[4];
-            d22 = constVarDiff[5];
+            d02 = diffCoeff[3];
+            d12 = diffCoeff[4];
+            d22 = diffCoeff[5];
         }
     }
 
@@ -124,7 +125,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
             df2 = df_ptr[2];
         }
 
-        if (!isConstVarDiff && !isVarDiff)
+        if (!useDiffCoeff)
         {
             metric00 = df0 * df0;
             if (ncoord > 1)
@@ -136,7 +137,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
                 metric00.fma(df2, df2);
             }
         }
-        else if (isConstVarDiff)
+        else if (!VARCOEFF)
         {
             if (ncoord == 1)
             {
@@ -171,7 +172,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
         }
     }
 
-    if (DEFORMED || isVarDiff)
+    if constexpr (DEFORMED || VARCOEFF)
     {
         for (unsigned int p = 0; p < nq0; ++p)
         {
@@ -191,7 +192,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
                 }
             }
 
-            if (!isConstVarDiff)
+            if (!useDiffCoeff)
             {
                 metric00 = df0 * df0;
                 if (ncoord > 1)
@@ -205,19 +206,19 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
             }
             else
             {
-                if (isVarDiff)
+                if constexpr (VARCOEFF)
                 {
-                    d00 = varD00[p];
+                    d00 = varDiffCoeff[0 * varDiffCoeffSize + p];
                     if (ncoord > 1)
                     {
-                        d01 = varD01[p];
-                        d11 = varD11[p];
+                        d01 = varDiffCoeff[1 * varDiffCoeffSize + p];
+                        d11 = varDiffCoeff[2 * varDiffCoeffSize + p];
                     }
                     if (ncoord == 3)
                     {
-                        d02 = varD02[p];
-                        d12 = varD12[p];
-                        d22 = varD22[p];
+                        d02 = varDiffCoeff[3 * varDiffCoeffSize + p];
+                        d12 = varDiffCoeff[4 * varDiffCoeffSize + p];
+                        d22 = varDiffCoeff[5 * varDiffCoeffSize + p];
                     }
                 }
 
@@ -283,18 +284,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJSegKernel(
  * @brief Triangle kernel contracting reference derivatives with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1, const simd_type *df_ptr,
     const simd_type *hfac0, const simd_type *hfac1, simd_type *deriv0,
     simd_type *deriv1, [[maybe_unused]] simd_type *phys,
@@ -314,16 +310,16 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
     simd_type df0, df1, df2, df3, df4 = {0.0}, df5 = {0.0};
     simd_type metric00, metric01, metric11;
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
-        d01 = constVarDiff[1];
-        d11 = constVarDiff[2];
+        d00 = diffCoeff[0];
+        d01 = diffCoeff[1];
+        d11 = diffCoeff[2];
         if (ncoord == 3)
         {
-            d02 = constVarDiff[3];
-            d12 = constVarDiff[4];
-            d22 = constVarDiff[5];
+            d02 = diffCoeff[3];
+            d12 = diffCoeff[4];
+            d22 = diffCoeff[5];
         }
     }
 
@@ -373,7 +369,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
             metric00      = h1 * (df0 + h0 * df1); // M_00
             simd_type tmp = h1 * (df2 + h0 * df3); // M_10
 
-            if (!isConstVarDiff && !isVarDiff)
+            if (!VARCOEFF && !useDiffCoeff)
             {
                 metric01 = metric00 * df1;
                 metric00 = metric00 * metric00;
@@ -388,22 +384,22 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
                 {
                     simd_type tmp2 = h1 * (df4 + h0 * df5); // M_10
                     metric00.fma(tmp2, tmp2);
-                    metric01.fma(tmp, df5);
+                    metric01.fma(tmp2, df5);
                     metric11.fma(df5, df5);
                 }
             }
             else
             {
-                if (isVarDiff)
+                if constexpr (VARCOEFF)
                 {
-                    d00 = varD00[cnt];
-                    d01 = varD01[cnt];
-                    d11 = varD11[cnt];
+                    d00 = varDiffCoeff[0 * varDiffCoeffSize + cnt];
+                    d01 = varDiffCoeff[1 * varDiffCoeffSize + cnt];
+                    d11 = varDiffCoeff[2 * varDiffCoeffSize + cnt];
                     if (ncoord == 3)
                     {
-                        d02 = varD02[cnt];
-                        d12 = varD12[cnt];
-                        d22 = varD22[cnt];
+                        d02 = varDiffCoeff[3 * varDiffCoeffSize + cnt];
+                        d12 = varDiffCoeff[4 * varDiffCoeffSize + cnt];
+                        d22 = varDiffCoeff[5 * varDiffCoeffSize + cnt];
                     }
                 }
 
@@ -484,18 +480,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTriKernel(
  * @brief Quad kernel contracting reference derivatives with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1, const simd_type *df_ptr,
     simd_type *deriv0, simd_type *deriv1, [[maybe_unused]] simd_type *phys,
     [[maybe_unused]] typename simd_type::scalarType lambda = 0.0)
@@ -514,16 +505,16 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
     simd_type df0, df1, df2, df3, df4 = {0.0}, df5 = {0.0};
     simd_type metric00, metric01, metric11;
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
-        d01 = constVarDiff[1];
-        d11 = constVarDiff[2];
+        d00 = diffCoeff[0];
+        d01 = diffCoeff[1];
+        d11 = diffCoeff[2];
         if (ncoord == 3)
         {
-            d02 = constVarDiff[3];
-            d12 = constVarDiff[4];
-            d22 = constVarDiff[5];
+            d02 = diffCoeff[3];
+            d12 = diffCoeff[4];
+            d22 = diffCoeff[5];
         }
     }
 
@@ -542,7 +533,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
             df5 = df_ptr[5];
         }
 
-        if (!isConstVarDiff && !isVarDiff)
+        if (!useDiffCoeff)
         {
             metric00 = df0 * df0;
             metric00.fma(df2, df2);
@@ -557,7 +548,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                 metric11.fma(df5, df5);
             }
         }
-        else if (isConstVarDiff)
+        else if (!VARCOEFF)
         {
             if (ncoord == 2)
             {
@@ -611,7 +602,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
         }
     }
 
-    if (DEFORMED || isVarDiff)
+    if constexpr (DEFORMED || VARCOEFF)
     {
         for (unsigned int q = 0; q < nq1; ++q)
         {
@@ -636,7 +627,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                     }
                 }
 
-                if (!isConstVarDiff)
+                if (!useDiffCoeff)
                 {
                     metric00 = df0 * df0;
                     metric00.fma(df2, df2);
@@ -654,16 +645,16 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
                 }
                 else
                 {
-                    if (isVarDiff)
+                    if constexpr (VARCOEFF)
                     {
-                        d00 = varD00[cnt];
-                        d01 = varD01[cnt];
-                        d11 = varD11[cnt];
+                        d00 = varDiffCoeff[0 * varDiffCoeffSize + cnt];
+                        d01 = varDiffCoeff[1 * varDiffCoeffSize + cnt];
+                        d11 = varDiffCoeff[2 * varDiffCoeffSize + cnt];
                         if (ncoord == 3)
                         {
-                            d02 = varD02[cnt];
-                            d12 = varD12[cnt];
-                            d22 = varD22[cnt];
+                            d02 = varDiffCoeff[3 * varDiffCoeffSize + cnt];
+                            d12 = varDiffCoeff[4 * varDiffCoeffSize + cnt];
+                            d22 = varDiffCoeff[5 * varDiffCoeffSize + cnt];
                         }
                     }
 
@@ -773,18 +764,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJQuadKernel(
  * @brief Hex kernel contracting reference derivatives with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2, const simd_type *df_ptr,
     simd_type *deriv0, simd_type *deriv1, simd_type *deriv2,
@@ -806,14 +792,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
     simd_type td0, td1, td2, td3, td4, td5, td6, td7,
         td8; // temp terms for vardiff
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
-        d01 = constVarDiff[1];
-        d11 = constVarDiff[2];
-        d02 = constVarDiff[3];
-        d12 = constVarDiff[4];
-        d22 = constVarDiff[5];
+        d00 = diffCoeff[0];
+        d01 = diffCoeff[1];
+        d11 = diffCoeff[2];
+        d02 = diffCoeff[3];
+        d12 = diffCoeff[4];
+        d22 = diffCoeff[5];
     }
 
     // Precompute Laplacian metrics
@@ -830,7 +816,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
         df7 = df_ptr[7];
         df8 = df_ptr[8];
 
-        if (!isConstVarDiff && !isVarDiff)
+        if (!useDiffCoeff)
         {
             metric00 = df0 * df0;
             metric00.fma(df3, df3);
@@ -856,7 +842,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
             metric22.fma(df5, df5);
             metric22.fma(df8, df8);
         }
-        else if (isConstVarDiff)
+        else if (!VARCOEFF)
         { // with vardiff
             td0 = df0 * d00;
             td0.fma(df3, d01);
@@ -922,7 +908,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
 
     // All matrices are column major ordered since operators used to
     // be computed via BLAS.
-    if (DEFORMED || isVarDiff)
+    if constexpr (DEFORMED || VARCOEFF)
     {
         for (unsigned int r = 0; r < nq2; ++r)
         {
@@ -952,7 +938,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
                         df8 = df_ptr[cnt * ndf + 8];
                     }
 
-                    if (!isConstVarDiff && !isVarDiff)
+                    if (!VARCOEFF && !useDiffCoeff)
                     {
                         metric00 = df0 * df0;
                         metric00.fma(df3, df3);
@@ -981,14 +967,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
                     else
                     { // with vardiff
 
-                        if (isVarDiff)
+                        if constexpr (VARCOEFF)
                         {
-                            d00 = varD00[cnt];
-                            d01 = varD01[cnt];
-                            d11 = varD11[cnt];
-                            d02 = varD02[cnt];
-                            d12 = varD12[cnt];
-                            d22 = varD22[cnt];
+                            d00 = varDiffCoeff[0 * varDiffCoeffSize + cnt];
+                            d01 = varDiffCoeff[1 * varDiffCoeffSize + cnt];
+                            d11 = varDiffCoeff[2 * varDiffCoeffSize + cnt];
+                            d02 = varDiffCoeff[3 * varDiffCoeffSize + cnt];
+                            d12 = varDiffCoeff[4 * varDiffCoeffSize + cnt];
+                            d22 = varDiffCoeff[5 * varDiffCoeffSize + cnt];
                         }
 
                         td0 = df0 * d00;
@@ -1129,18 +1115,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJHexKernel(
  * @brief Tet kernel contracting reference derivatives with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    [[maybe_unused]] const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2, const simd_type *df_ptr,
     const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac2,
@@ -1162,14 +1143,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
     simd_type td0, td1, td2, td3, td4, td5, td6, td7,
         td8; // temp terms for vardiff
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
-        d01 = constVarDiff[1];
-        d11 = constVarDiff[2];
-        d02 = constVarDiff[3];
-        d12 = constVarDiff[4];
-        d22 = constVarDiff[5];
+        d00 = diffCoeff[0];
+        d01 = diffCoeff[1];
+        d11 = diffCoeff[2];
+        d02 = diffCoeff[3];
+        d12 = diffCoeff[4];
+        d22 = diffCoeff[5];
     }
 
     if constexpr (!DEFORMED)
@@ -1236,7 +1217,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
                 simd_type tmp5 = df7 * h3;
                 tmp5.fma(df8, h1h3);
 
-                if (!isConstVarDiff && !isVarDiff)
+                if (!VARCOEFF && !useDiffCoeff)
                 {
                     g0 = tmp0 * tmp0;
                     g0.fma(tmp1, tmp1);
@@ -1264,14 +1245,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
                 }
                 else
                 {
-                    if (isVarDiff)
+                    if constexpr (VARCOEFF)
                     {
-                        d00 = varD00[cnt];
-                        d01 = varD01[cnt];
-                        d11 = varD11[cnt];
-                        d02 = varD02[cnt];
-                        d12 = varD12[cnt];
-                        d22 = varD22[cnt];
+                        d00 = varDiffCoeff[0 * varDiffCoeffSize + cnt];
+                        d01 = varDiffCoeff[1 * varDiffCoeffSize + cnt];
+                        d11 = varDiffCoeff[2 * varDiffCoeffSize + cnt];
+                        d02 = varDiffCoeff[3 * varDiffCoeffSize + cnt];
+                        d12 = varDiffCoeff[4 * varDiffCoeffSize + cnt];
+                        d22 = varDiffCoeff[5 * varDiffCoeffSize + cnt];
                     }
 
                     td0 = tmp0 * d00;
@@ -1367,18 +1348,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJTetKernel(
  * @brief Prism kernel contracting reference derivatives with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2, const simd_type *df_ptr,
     const simd_type *hfac0, const simd_type *hfac3, simd_type *deriv0,
@@ -1399,14 +1375,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
     simd_type td0, td1, td2, td3, td4, td5, td6, td7,
         td8; // temp terms for vardiff
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
-        d01 = constVarDiff[1];
-        d11 = constVarDiff[2];
-        d02 = constVarDiff[3];
-        d12 = constVarDiff[4];
-        d22 = constVarDiff[5];
+        d00 = diffCoeff[0];
+        d01 = diffCoeff[1];
+        d11 = diffCoeff[2];
+        d02 = diffCoeff[3];
+        d12 = diffCoeff[4];
+        d22 = diffCoeff[5];
     }
 
     if constexpr (!DEFORMED)
@@ -1456,7 +1432,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
                 simd_type tmp1 = h3 * (h0 * df5 + df3);
                 simd_type tmp2 = h3 * (h0 * df8 + df6);
 
-                if (!isConstVarDiff && !isVarDiff)
+                if (!VARCOEFF && !useDiffCoeff)
                 {
                     g0 = tmp0 * tmp0;
                     g0.fma(tmp1, tmp1);
@@ -1485,14 +1461,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
                 else
                 {
                     // vardiff
-                    if (isVarDiff)
+                    if constexpr (VARCOEFF)
                     {
-                        d00 = varD00[cnt];
-                        d01 = varD01[cnt];
-                        d11 = varD11[cnt];
-                        d02 = varD02[cnt];
-                        d12 = varD12[cnt];
-                        d22 = varD22[cnt];
+                        d00 = varDiffCoeff[0 * varDiffCoeffSize + cnt];
+                        d01 = varDiffCoeff[1 * varDiffCoeffSize + cnt];
+                        d11 = varDiffCoeff[2 * varDiffCoeffSize + cnt];
+                        d02 = varDiffCoeff[3 * varDiffCoeffSize + cnt];
+                        d12 = varDiffCoeff[4 * varDiffCoeffSize + cnt];
+                        d22 = varDiffCoeff[5 * varDiffCoeffSize + cnt];
                     }
 
                     td0 = tmp0 * d00;
@@ -1588,18 +1564,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPrismKernel(
  * @brief Pyramid kernel contracting reference derivatives with diffusion
  * tensor and metric terms, with optional lambda-weighted mass contribution.
  */
-template <bool SCALE, bool DEFORMED, typename simd_type>
+template <bool SCALE, bool DEFORMED, bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
-    const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    [[maybe_unused]] const simd_type *varDiffCoeff,
+    const size_t varDiffCoeffSize, const simd_type *jac_ptr,
+    const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2, const simd_type *df_ptr,
     const simd_type *hfac0, const simd_type *hfac1, const simd_type *hfac3,
@@ -1621,14 +1592,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
     simd_type td0, td1, td2, td3, td4, td5, td6, td7,
         td8; // temp terms for vardiff
 
-    if (isConstVarDiff)
+    if (useDiffCoeff && !VARCOEFF)
     {
-        d00 = constVarDiff[0];
-        d01 = constVarDiff[1];
-        d11 = constVarDiff[2];
-        d02 = constVarDiff[3];
-        d12 = constVarDiff[4];
-        d22 = constVarDiff[5];
+        d00 = diffCoeff[0];
+        d01 = diffCoeff[1];
+        d11 = diffCoeff[2];
+        d02 = diffCoeff[3];
+        d12 = diffCoeff[4];
+        d22 = diffCoeff[5];
     }
 
     if constexpr (!DEFORMED)
@@ -1691,7 +1662,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
                 simd_type tmp5 = h3 * df7;
                 tmp5.fma(h1h3, df8);
 
-                if (!isConstVarDiff && !isVarDiff)
+                if (!VARCOEFF && !useDiffCoeff)
                 {
                     g0 = tmp0 * tmp0;
                     g0.fma(tmp1, tmp1);
@@ -1719,14 +1690,14 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
                 }
                 else
                 {
-                    if (isVarDiff)
+                    if constexpr (VARCOEFF)
                     {
-                        d00 = varD00[cnt];
-                        d01 = varD01[cnt];
-                        d11 = varD11[cnt];
-                        d02 = varD02[cnt];
-                        d12 = varD12[cnt];
-                        d22 = varD22[cnt];
+                        d00 = varDiffCoeff[0 * varDiffCoeffSize + cnt];
+                        d01 = varDiffCoeff[1 * varDiffCoeffSize + cnt];
+                        d11 = varDiffCoeff[2 * varDiffCoeffSize + cnt];
+                        d02 = varDiffCoeff[3 * varDiffCoeffSize + cnt];
+                        d12 = varDiffCoeff[4 * varDiffCoeffSize + cnt];
+                        d22 = varDiffCoeff[5 * varDiffCoeffSize + cnt];
                     }
 
                     td0 = tmp0 * d00;
@@ -1822,27 +1793,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJPyrKernel(
  * @brief 1D launcher dispatching to DiffusionCoeffwithWJSegKernel.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool DEFORMED,
-          typename simd_type>
+          bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ1DKernel(
-    const unsigned int ncoord, const unsigned int nq0,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
+    const unsigned int ncoord, const unsigned int nq0, const bool useDiffCoeff,
+    const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
     const simd_type *df_ptr, simd_type *deriv0, simd_type *phys = nullptr,
     typename simd_type::scalarType lambda = 0.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Seg)
     {
-        DiffusionCoeffwithWJSegKernel<SCALE, DEFORMED>(
-            ncoord, nq0, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, df_ptr, deriv0,
-            phys, lambda);
+        DiffusionCoeffwithWJSegKernel<SCALE, DEFORMED, VARCOEFF>(
+            ncoord, nq0, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, df_ptr, deriv0, phys, lambda);
     }
 }
 
@@ -1850,17 +1814,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ1DKernel(
  * @brief 2D launcher dispatching to shape-specific metric kernels.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool DEFORMED,
-          typename simd_type>
+          bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
     const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1, const simd_type *df_ptr,
     [[maybe_unused]] const simd_type *h0, [[maybe_unused]] const simd_type *h1,
@@ -1870,17 +1828,17 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
     if constexpr (SHAPE_TYPE == LibUtilities::Tri ||
                   SHAPE_TYPE == LibUtilities::NodalTri)
     {
-        DiffusionCoeffwithWJTriKernel<SCALE, DEFORMED>(
-            ncoord, nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, df_ptr, h0,
-            h1, deriv0, deriv1, phys, lambda);
+        DiffusionCoeffwithWJTriKernel<SCALE, DEFORMED, VARCOEFF>(
+            ncoord, nq0, nq1, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, w1, df_ptr, h0, h1, deriv0, deriv1,
+            phys, lambda);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        DiffusionCoeffwithWJQuadKernel<SCALE, DEFORMED>(
-            ncoord, nq0, nq1, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, df_ptr,
-            deriv0, deriv1, phys, lambda);
+        DiffusionCoeffwithWJQuadKernel<SCALE, DEFORMED, VARCOEFF>(
+            ncoord, nq0, nq1, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, w1, df_ptr, deriv0, deriv1, phys,
+            lambda);
     }
 }
 
@@ -1888,17 +1846,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ2DKernel(
  * @brief 3D launcher dispatching to shape-specific metric kernels.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool DEFORMED,
-          typename simd_type>
+          bool VARCOEFF, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const bool isConstVarDiff,
-    const typename simd_type::scalarType *constVarDiff, const bool isVarDiff,
-    const std::vector<typename simd_type::scalarType> &varD00,
-    const std::vector<typename simd_type::scalarType> &varD01,
-    const std::vector<typename simd_type::scalarType> &varD11,
-    const std::vector<typename simd_type::scalarType> &varD02,
-    const std::vector<typename simd_type::scalarType> &varD12,
-    const std::vector<typename simd_type::scalarType> &varD22,
+    const bool useDiffCoeff, const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const simd_type *jac_ptr, const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1,
     const typename simd_type::scalarType *w2, const simd_type *df_ptr,
@@ -1909,34 +1861,34 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        DiffusionCoeffwithWJHexKernel<SCALE, DEFORMED>(
-            nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
-            deriv0, deriv1, deriv2, phys, lambda);
+        DiffusionCoeffwithWJHexKernel<SCALE, DEFORMED, VARCOEFF>(
+            nq0, nq1, nq2, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, w1, w2, df_ptr, deriv0, deriv1,
+            deriv2, phys, lambda);
     }
     else if constexpr ((SHAPE_TYPE == LibUtilities::Tet) ||
                        (SHAPE_TYPE == LibUtilities::NodalTet))
     {
-        DiffusionCoeffwithWJTetKernel<SCALE, DEFORMED>(
-            nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
-            h0, h1, h2, h3, deriv0, deriv1, deriv2, phys, lambda);
+        DiffusionCoeffwithWJTetKernel<SCALE, DEFORMED, VARCOEFF>(
+            nq0, nq1, nq2, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, w1, w2, df_ptr, h0, h1, h2, h3,
+            deriv0, deriv1, deriv2, phys, lambda);
     }
     else if constexpr ((SHAPE_TYPE == LibUtilities::Prism) ||
                        (SHAPE_TYPE == LibUtilities::NodalPrism))
     {
-        DiffusionCoeffwithWJPrismKernel<SCALE, DEFORMED>(
-            nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
-            h0, h3, deriv0, deriv1, deriv2, phys, lambda);
+        DiffusionCoeffwithWJPrismKernel<SCALE, DEFORMED, VARCOEFF>(
+            nq0, nq1, nq2, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, w1, w2, df_ptr, h0, h3, deriv0,
+            deriv1, deriv2, phys, lambda);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr ||
                        SHAPE_TYPE == LibUtilities::NodalPyr)
     {
-        DiffusionCoeffwithWJPyrKernel<SCALE, DEFORMED>(
-            nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
-            varD01, varD11, varD02, varD12, varD22, jac_ptr, w0, w1, w2, df_ptr,
-            h0, h1, h3, deriv0, deriv1, deriv2, phys, lambda);
+        DiffusionCoeffwithWJPyrKernel<SCALE, DEFORMED, VARCOEFF>(
+            nq0, nq1, nq2, useDiffCoeff, diffCoeff, varDiffCoeff,
+            varDiffCoeffSize, jac_ptr, w0, w1, w2, df_ptr, h0, h1, h3, deriv0,
+            deriv1, deriv2, phys, lambda);
     }
 }
 
@@ -1944,12 +1896,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffwithWJ3DKernel(
  * @brief 1D launcher stringing together the five sum-factorised stages
  * for one element group.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
     const TSizeParameter1D sizeParam1D, const bool isModified,
-    const unsigned int ncoord, const typename simd_type::scalarType *diffCoeff,
-    const std::vector<typename simd_type::scalarType> &nullVec,
+    const unsigned int ncoord, const bool useDiffCoeff,
+    const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *D0,
     const typename simd_type::scalarType *w0, const simd_type *NtoM,
@@ -1971,9 +1924,9 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
     PhysDerivTensor1DKernel(nq0, bwd, D0, deriv0);
 
     // Step 3: Apply diffusion coeff and WJ.
-    DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED>(
-        ncoord, nq0, true, diffCoeff, false, nullVec, nullVec, nullVec, nullVec,
-        nullVec, nullVec, jac, w0, df, deriv0, bwd, lambda);
+    DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED, VARCOEFF>(
+        ncoord, nq0, useDiffCoeff, diffCoeff, varDiffCoeff, varDiffCoeffSize,
+        jac, w0, df, deriv0, bwd, lambda);
 
     // Step 4: Apply derivative and sum up.
     SumDerivTensor1DKernel<true>(nq0, deriv0, D0, bwd);
@@ -1987,12 +1940,13 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
  * @brief 2D launcher stringing together the five sum-factorised stages
  * for one element group.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
     const TSizeParameter2D sizeParam2D, const bool isModified,
-    const unsigned int ncoord, const typename simd_type::scalarType *diffCoeff,
-    const std::vector<typename simd_type::scalarType> &nullVec,
+    const unsigned int ncoord, const bool useDiffCoeff,
+    const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *basis1,
     const typename simd_type::scalarType *D0,
@@ -2019,10 +1973,9 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
     PhysDerivTensor2DKernel(nq0, nq1, bwd, D0, D1, deriv0, deriv1);
 
     // Step 3: Apply diffusion coeff and WJ.
-    DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED>(
-        ncoord, nq0, nq1, true, diffCoeff, false, nullVec, nullVec, nullVec,
-        nullVec, nullVec, nullVec, jac, w0, w1, df, f0, f1, deriv0, deriv1, bwd,
-        lambda);
+    DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED, VARCOEFF>(
+        ncoord, nq0, nq1, useDiffCoeff, diffCoeff, varDiffCoeff,
+        varDiffCoeffSize, jac, w0, w1, df, f0, f1, deriv0, deriv1, bwd, lambda);
 
     // Step 4: Apply derivative and sum up.
     SumDerivTensor2DKernel<true>(nq0, nq1, deriv0, deriv1, D0, D1, bwd);
@@ -2036,13 +1989,13 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
  * @brief 3D launcher stringing together the five sum-factorised stages
  * for one element group.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
           typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
     const TSizeParameter3D sizeParam3D, const bool isModified,
-    [[maybe_unused]] const unsigned int ncoord,
+    [[maybe_unused]] const unsigned int ncoord, const bool useDiffCoeff,
     const typename simd_type::scalarType *diffCoeff,
-    const std::vector<typename simd_type::scalarType> &nullVec,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *basis1,
     const typename simd_type::scalarType *basis2,
@@ -2077,10 +2030,10 @@ NEK_FORCE_INLINE static void HelmholtzKernelLauncher(
                             deriv2);
 
     // Step 3: Apply diffusion coeff and WJ.
-    DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED>(
-        nq0, nq1, nq2, true, diffCoeff, false, nullVec, nullVec, nullVec,
-        nullVec, nullVec, nullVec, jac, w0, w1, w2, df, f0, f1, f1m, f2, deriv0,
-        deriv1, deriv2, bwd, lambda);
+    DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED, VARCOEFF>(
+        nq0, nq1, nq2, useDiffCoeff, diffCoeff, varDiffCoeff, varDiffCoeffSize,
+        jac, w0, w1, w2, df, f0, f1, f1m, f2, deriv0, deriv1, deriv2, bwd,
+        lambda);
 
     // Step 4: Apply derivative and sum up.
     SumDerivTensor3DKernel<true>(nq0, nq1, nq2, deriv0, deriv1, deriv2, D0, D1,

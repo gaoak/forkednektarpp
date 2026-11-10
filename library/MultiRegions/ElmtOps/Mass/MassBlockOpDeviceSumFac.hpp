@@ -401,9 +401,9 @@ protected:
      * kernel recovers its component from its block index. The dynamic
      * shared memory request is MassSharedMemorySize for the shape and
      * strategy at hand, in bytes (zero under SumFac); the global workspace
-     * request is MassWorkSpaceSize scaled by ncomp, taken from the static
-     * per-stream buffer. Both helpers have one overload per strategy and
-     * dimension, documented in the kernel headers.
+     * request is MassWorkSpaceSize scaled by ncomp (zero under SumFacTOP),
+     * taken from the static per-stream buffer. Both helpers have one overload
+     * per strategy and dimension, documented in the kernel headers.
      *
      * The launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the
      * MassKernelLauncher overload of this dimension and strategy, the index

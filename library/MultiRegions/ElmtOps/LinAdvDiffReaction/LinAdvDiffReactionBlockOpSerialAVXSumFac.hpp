@@ -367,9 +367,6 @@ protected:
     /// advection-plus-reaction integrand, and finally the whole
     /// integrand once the diffusion flux has been summed onto it.
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
-    /// Empty vector passed for the varying-diffusivity arguments of the
-    /// Helmholtz diffusion kernels, which this family never uses.
-    std::vector<TData> NullTDataVector;
     /// Nodal-to-modal matrix for the nodal shapes; null otherwise.
     const simd_t *m_nodToMod;
     /// Its transpose, used to map the inner-product result back to the
@@ -459,11 +456,22 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, sizeParam,
-            std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
-            std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        if (this->m_varDiffCoeff)
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        }
+        else
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        }
     }
 
     /**
@@ -524,7 +532,7 @@ protected:
      * @param   outblock    Coefficient-space output block, overwritten.
      * @param   sizeParam   Element sizes, in runtime or compile-time form.
      */
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -567,8 +575,46 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        if constexpr (VARCOEFF)
+        {
+            ASSERTL0(this->m_varDiffCoeff->GetNumHomoModes() ==
+                             inblock.GetNumHomoModes() &&
+                         this->m_varDiffCoeff->GetNumElements() ==
+                             inblock.GetNumElements() &&
+                         this->m_varDiffCoeff->GetNumElementsWithPadding() ==
+                             inblock.GetNumElementsWithPadding(),
+                     "Diffusion coefficient modes, elements and padding must "
+                     "match input");
+            if (this->m_varDiffCoeff->GetInterleaveWidth() !=
+                m_implInterleaveWidth)
+            {
+                auto ptr = this->m_varDiffCoeff
+                               ->template GetPtr<MemSpace, ReadWrite>();
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth,
+                    this->m_varDiffCoeff->GetInterleaveWidth(),
+                    this->m_varDiffCoeff->GetNumElementsWithPadding() *
+                        this->m_varDiffCoeff->GetNumComponents() *
+                        this->m_varDiffCoeff->GetNumHomoModes(),
+                    this->m_varDiffCoeff->GetNumData(), ptr);
+                this->m_varDiffCoeff->template SetInterleaveWidth<TData>(
+                    m_implInterleaveWidth);
+            }
+        }
+        const TData *diffCoeffPtr =
+            (!VARCOEFF)
+                ? this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        const TData *varDiffCoeffPtr0 =
+            (VARCOEFF)
+                ? this->m_varDiffCoeff->template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        // Stride between tensor components, including physical planes and
+        // padding.
+        const size_t varDiffCoeffSize =
+            VARCOEFF ? this->m_varDiffCoeff->CompSize() *
+                           inblock.GetNumHomoModes() / simd_t::width
+                     : 0;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -590,6 +636,11 @@ protected:
                 (n % nhomo) * this->m_advVel->CompSize();
             auto jacptr = m_jacptr;
             auto dfptr  = m_dfptr;
+            auto varDiffCoeffPtr =
+                VARCOEFF
+                    ? varDiffCoeffPtr0 + (n % inblock.GetNumHomoModes()) *
+                                             this->m_varDiffCoeff->CompSize()
+                    : nullptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -604,9 +655,12 @@ protected:
                 }
 
                 // LinAdvDiffReaction kernel.
-                LinAdvDiffReactionKernelLauncher<SHAPE_TYPE, DEFORMED>(
-                    sizeParam, m_isModified, m_coordDim, diffCoeffPtr,
-                    NullTDataVector, m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+                LinAdvDiffReactionKernelLauncher<SHAPE_TYPE, DEFORMED,
+                                                 VARCOEFF>(
+                    sizeParam, m_isModified, m_coordDim,
+                    VARCOEFF || this->m_useDiffCoeff, diffCoeffPtr,
+                    reinterpret_cast<const simd_t *>(varDiffCoeffPtr),
+                    varDiffCoeffSize, m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
                     m_f[ind2]..., m_nodToMod, m_nodToModTrans,
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<const simd_t *>(dfptr),
@@ -634,6 +688,10 @@ protected:
                 }
 
                 // Increment pointers for the next elmt group.
+                if constexpr (VARCOEFF)
+                {
+                    varDiffCoeffPtr += nqTot * simd_t::width;
+                }
                 dfptr += dfsize * ndf * simd_t::width;
                 jacptr += dfsize * simd_t::width;
                 advVelPtr += nqTot * simd_t::width;

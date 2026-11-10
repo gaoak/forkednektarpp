@@ -1040,8 +1040,8 @@ void VelocityCorrectionScheme::SetDiffusionCoeff()
     // Set-up anisotropic diffusion coefficient
     // Default value for D_ij = 1, if i = j
     // Default value for D_ij = 0, if i != j
-    const auto diffCoeffSize = m_coordim * (m_coordim + 1) / 2;
-    m_diffCoeff.resize(diffCoeffSize);
+    const auto nDiffCoeff = m_coordim * (m_coordim + 1) / 2;
+    m_diffCoeff.resize(nDiffCoeff);
 
     if (m_coordim == 1)
     {

@@ -250,11 +250,64 @@ protected:
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
+        if (this->m_varDiffCoeff)
+        {
+            ApplyImpl<true>(inblock, outblock);
+        }
+        else
+        {
+            ApplyImpl<false>(inblock, outblock);
+        }
+    }
+
+    template <bool VARCOEFF>
+    void ApplyImpl(
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        if constexpr (VARCOEFF)
+        {
+            ASSERTL0(this->m_varDiffCoeff->GetNumHomoModes() ==
+                             inblock.GetNumHomoModes() &&
+                         this->m_varDiffCoeff->GetNumElements() ==
+                             inblock.GetNumElements() &&
+                         this->m_varDiffCoeff->GetNumElementsWithPadding() ==
+                             inblock.GetNumElementsWithPadding(),
+                     "Diffusion coefficient modes, elements and padding must "
+                     "match input");
+            if (this->m_varDiffCoeff->GetInterleaveWidth() !=
+                m_implInterleaveWidth)
+            {
+                auto ptr = this->m_varDiffCoeff
+                               ->template GetPtr<MemSpace, ReadWrite>();
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth,
+                    this->m_varDiffCoeff->GetInterleaveWidth(),
+                    this->m_varDiffCoeff->GetNumElementsWithPadding() *
+                        this->m_varDiffCoeff->GetNumComponents() *
+                        this->m_varDiffCoeff->GetNumHomoModes(),
+                    this->m_varDiffCoeff->GetNumData(), ptr);
+                this->m_varDiffCoeff->template SetInterleaveWidth<TData>(
+                    m_implInterleaveWidth);
+            }
+        }
+        const TData *diffCoeffPtr =
+            (!VARCOEFF)
+                ? this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        const TData *varDiffCoeffPtr0 =
+            (VARCOEFF)
+                ? this->m_varDiffCoeff->template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        // Stride between tensor components, including physical planes and
+        // padding.
+        const size_t varDiffCoeffSize =
+            VARCOEFF ? this->m_varDiffCoeff->CompSize() *
+                           inblock.GetNumHomoModes() / simd_t::width
+                     : 0;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -289,6 +342,11 @@ protected:
         {
             auto jacptr = m_jacptr;
             auto dfptr  = m_dfptr;
+            auto varDiffCoeffPtr =
+                VARCOEFF
+                    ? varDiffCoeffPtr0 + (n % inblock.GetNumHomoModes()) *
+                                             this->m_varDiffCoeff->CompSize()
+                    : nullptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -321,9 +379,11 @@ protected:
                 // factor and Jacobian.
                 if (m_isDeformed)
                 {
-                    ApplyMetricKernel<ExecSpace, true>(
+                    ApplyMetricKernel<ExecSpace, true, VARCOEFF>(
                         m_nqTot, m_coordDim, m_dimension, 1, derivsize,
                         derivsize, diffCoeffPtr,
+                        reinterpret_cast<const simd_t *>(varDiffCoeffPtr),
+                        varDiffCoeffSize,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
@@ -334,9 +394,11 @@ protected:
                 }
                 else
                 {
-                    ApplyMetricKernel<ExecSpace, false>(
+                    ApplyMetricKernel<ExecSpace, false, VARCOEFF>(
                         m_nqTot, m_coordDim, m_dimension, 1, derivsize,
                         derivsize, diffCoeffPtr,
+                        reinterpret_cast<const simd_t *>(varDiffCoeffPtr),
+                        varDiffCoeffSize,
                         reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(dfptr),
                         reinterpret_cast<const simd_t *>(derivptr),
@@ -378,6 +440,10 @@ protected:
                 }
 
                 // Increment pointers.
+                if constexpr (VARCOEFF)
+                {
+                    varDiffCoeffPtr += m_nqTot * simd_t::width;
+                }
                 inptr += m_nmTot * simd_t::width;
                 outptr += m_nmTot * simd_t::width;
             }

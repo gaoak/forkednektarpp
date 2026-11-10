@@ -68,6 +68,34 @@
         }                                                                      \
     }
 
+#define TEST_LINADVDIFFREACTION_VARIABLE(test_name, test, tol)                 \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure();                                                           \
+        SetTestCase(true);                                                     \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
+#define TEST_LINADR3DH1_VARIABLE(test_name, test, tol)                         \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure3DH1(16);                                                     \
+        SetTestCase(true);                                                     \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteLinAdvDiffReaction)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -132,6 +160,88 @@ TEST_LINADR3DH1(linadvdiffreaction_tri_3dh1, TriFFT, 1.0E-10)
 
 TEST_LINADR3DH1(linadvdiffreaction_square_all_elements_3dh1,
                 SquareAllElementsFFT, 1.0E-10)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_seg_variable, Seg, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_seg_sem_variable, SegSEM,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_seg_3d_variable, Seg3D,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_quad_variable, Quad,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_quad_3d_variable, Quad3D,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_quad_sem_variable, QuadSEM,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_quad_varp_variable,
+                                 QuadVarP, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tri_variable, Tri, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tri_3d_variable, Tri3D,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tri_varp_variable, TriVarP,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tri_nodal_variable,
+                                 TriNodal, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(
+    linadvdiffreaction_square_all_elements_variable, SquareAllElements, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_hex_variable, Hex, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_hex_sem_variable, HexSEM,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_hex_varp_variable, HexVarP,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_prism_variable, Prism,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_prism_varp_variable,
+                                 PrismVarP, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_prism_nodal_variable,
+                                 PrismNodal, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_pyr_variable, Pyr, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_pyr_varp_variable, PyrVarP,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_pyr_nodal_variable,
+                                 PyrNodal, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tet_variable, Tet, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tet_varp_variable, TetVarP,
+                                 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_tet_nodal_variable,
+                                 TetNodal, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_cube_prism_hex_variable,
+                                 CubePrismHex, 1.0E-12)
+
+TEST_LINADVDIFFREACTION_VARIABLE(linadvdiffreaction_cube_all_elements_variable,
+                                 CubeAllElements, 1.0E-12)
+
+TEST_LINADR3DH1_VARIABLE(linadvdiffreaction_quad_3dh1_variable, QuadFFT,
+                         1.0E-10)
+
+TEST_LINADR3DH1_VARIABLE(linadvdiffreaction_tri_3dh1_variable, TriFFT, 1.0E-10)
+
+TEST_LINADR3DH1_VARIABLE(linadvdiffreaction_square_all_elements_3dh1_variable,
+                         SquareAllElementsFFT, 1.0E-10)
+
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()
