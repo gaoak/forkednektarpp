@@ -73,8 +73,8 @@ public:
             const TData *ptr = m_op->GetBlockPtr(blk);
             if (execStr == NektarSpaces::Device::name)
             {
-                deviceMemcpy<DeviceToHost>(m_values[blk].data(), ptr,
-                                           n * sizeof(TData), 0);
+                deviceMemcpy<eDeviceToHost>(m_values[blk].data(), ptr,
+                                            n * sizeof(TData), 0);
             }
             else
             {

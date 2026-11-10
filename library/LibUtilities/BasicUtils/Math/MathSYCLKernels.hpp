@@ -96,7 +96,7 @@ template <
 inline void copyKernel(const size_t nsize, const TData *x, TData *y,
                        const unsigned int streamID = 0)
 {
-    deviceMemcpy<DeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
+    deviceMemcpy<eDeviceToDevice>(y, x, nsize * sizeof(TData), streamID);
 }
 
 template <

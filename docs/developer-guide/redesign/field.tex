@@ -159,7 +159,7 @@ To allow interoperability with legacy Nektar++, the \lstinline[style=C++Style]!C
 
 \begin{lstlisting}[style=C++Style]
 template <typename MemSpace, typename TDataIn,
-          typename MemCopy = HostToDevice>
+          MemCopyType MemCopy = eHostToDevice>
 void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
 {
     ...
@@ -168,8 +168,8 @@ void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
 
 \begin{lstlisting}[style=C++Style]
 template <typename MemSpace, typename TDataIn,
-          typename MemCopy = HostToDevice,
-          class Alloc      = std::allocator<TDataIn>>
+          MemCopyType MemCopy = eHostToDevice,
+          class Alloc         = std::allocator<TDataIn>>
 void CopyVector(const std::vector<TDataIn, Alloc> &array)
 {
     ...

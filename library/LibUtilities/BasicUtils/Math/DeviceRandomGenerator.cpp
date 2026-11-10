@@ -198,8 +198,8 @@ template <typename TData>
 static void CopyToDevice(const std::vector<TData> &host, TData *x,
                          const unsigned int streamID)
 {
-    deviceMemcpy<HostToDevice>(x, host.data(), host.size() * sizeof(TData),
-                               streamID);
+    deviceMemcpy<eHostToDevice>(x, host.data(), host.size() * sizeof(TData),
+                                streamID);
     nekStreamSynchronize(streamID);
 }
 #endif
@@ -356,8 +356,8 @@ void DeviceRandomGenerator::Normal(const TData mean, const TData sigma,
         GenerateNormal(engine.generator, mean, sigma, n - 1, x, streamID);
         GenerateNormal(engine.generator, mean, sigma, size_t(2), scratch,
                        streamID);
-        deviceMemcpy<DeviceToDevice>(x + n - 1, scratch, sizeof(TData),
-                                     streamID);
+        deviceMemcpy<eDeviceToDevice>(x + n - 1, scratch, sizeof(TData),
+                                      streamID);
     }
 #elif defined(NEKTAR_SYCL_HAVE_RNG_LIBRARY)
     auto scratch = reinterpret_cast<TData *>(engine.scratch);
@@ -373,8 +373,8 @@ void DeviceRandomGenerator::Normal(const TData mean, const TData sigma,
                  streamID);
         Generate(rng::gaussian<TData>(mean, sigma), *engine.generator, 2,
                  scratch, streamID);
-        deviceMemcpy<DeviceToDevice>(x + n - 1, scratch, sizeof(TData),
-                                     streamID);
+        deviceMemcpy<eDeviceToDevice>(x + n - 1, scratch, sizeof(TData),
+                                      streamID);
     }
 #else
     std::normal_distribution<TData> distribution(mean, sigma);

@@ -544,7 +544,7 @@ inline void interleave(const unsigned int interleaveWidth,
                 interleaveWidth * npts, beta, (TData *)nullptr, npts,
                 interleaveWidth * npts, buffer, interleaveWidth,
                 interleaveWidth * npts, numElmtGroups);
-            deviceMemcpy<DeviceToDevice>(inout, buffer, bufferSize, streamID);
+            deviceMemcpy<eDeviceToDevice>(inout, buffer, bufferSize, streamID);
             return;
         }
 #endif
@@ -552,7 +552,7 @@ inline void interleave(const unsigned int interleaveWidth,
         TData *buffer = (TData *)internalInterleaveDeviceBuffer[streamID];
         transposeBatched(numElmtGroups, npts, interleaveWidth, inout, buffer,
                          streamID);
-        deviceMemcpy<DeviceToDevice>(inout, buffer, bufferSize, streamID);
+        deviceMemcpy<eDeviceToDevice>(inout, buffer, bufferSize, streamID);
     }
 }
 
@@ -611,7 +611,7 @@ inline void deInterleave(const unsigned int interleaveWidth,
                 interleaveWidth, interleaveWidth * npts, beta, (TData *)nullptr,
                 interleaveWidth, interleaveWidth * npts, buffer, npts,
                 interleaveWidth * npts, numElmtGroups);
-            deviceMemcpy<DeviceToDevice>(inout, buffer, bufferSize, streamID);
+            deviceMemcpy<eDeviceToDevice>(inout, buffer, bufferSize, streamID);
             return;
         }
 #endif
@@ -619,7 +619,7 @@ inline void deInterleave(const unsigned int interleaveWidth,
         TData *buffer = (TData *)internalInterleaveDeviceBuffer[streamID];
         transposeBatched(numElmtGroups, interleaveWidth, npts, inout, buffer,
                          streamID);
-        deviceMemcpy<DeviceToDevice>(inout, buffer, bufferSize, streamID);
+        deviceMemcpy<eDeviceToDevice>(inout, buffer, bufferSize, streamID);
     }
 }
 

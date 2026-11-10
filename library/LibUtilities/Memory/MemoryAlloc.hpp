@@ -47,18 +47,13 @@ extern bool isSetDeviceMemoryPool;
 extern bool isSetDeviceMemoryPool;
 #endif
 
-// MemoryCopy
-struct HostToHost
+// Memory copy type
+enum MemCopyType
 {
-};
-struct DeviceToHost
-{
-};
-struct HostToDevice
-{
-};
-struct DeviceToDevice
-{
+    eHostToHost,
+    eDeviceToHost,
+    eHostToDevice,
+    eDeviceToDevice
 };
 
 // Memory allocation type
@@ -409,7 +404,7 @@ inline void deviceZeroPadding(TData *dst, const unsigned int ncomp,
 #endif
 }
 
-template <typename MemCopy, typename TData>
+template <MemCopyType MemCopy, typename TData>
 inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
                          [[maybe_unused]] const unsigned int streamID)
 {
@@ -418,11 +413,11 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
         return;
     }
 
-    if constexpr (std::is_same_v<MemCopy, HostToHost>)
+    if constexpr (MemCopy == eHostToHost)
     {
         memcpy(dst, src, size);
     }
-    else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
+    else if constexpr (MemCopy == eDeviceToHost)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         auto stream = CUDAStream::GetInstance(streamID);
@@ -446,7 +441,7 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
         memcpy(dst, src, size);
 #endif
     }
-    else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
+    else if constexpr (MemCopy == eHostToDevice)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         auto stream = CUDAStream::GetInstance(streamID);
@@ -467,7 +462,7 @@ inline void deviceMemcpy(TData *dst, const TData *src, const size_t size,
         memcpy(dst, src, size);
 #endif
     }
-    else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
+    else if constexpr (MemCopy == eDeviceToDevice)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
         auto stream = CUDAStream::GetInstance(streamID);
