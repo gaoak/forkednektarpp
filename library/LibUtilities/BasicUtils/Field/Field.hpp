@@ -271,12 +271,42 @@ public:
         return m_instantiated;
     }
 
+    std::vector<unsigned int> GetInterleaveWidth(void) const
+    {
+        if (!m_instantiated)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "Field::GetInterleaveWidth - Object has not been "
+                     "instantiated by custom constructor.");
+        }
+
+        std::vector<unsigned int> interleaveWidths;
+        for (unsigned int blk = 0; blk < this->m_block_accessors.size(); ++blk)
+        {
+            interleaveWidths.push_back(
+                this->m_block_accessors[blk].GetInterleaveWidth());
+        }
+        return interleaveWidths;
+    }
+
     void SetInterleaveWidth(const unsigned int &interleaveWidth)
     {
         for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
         {
             this->GetBlocks()[blk].template SetInterleaveWidth<TData>(
                 interleaveWidth);
+        }
+    }
+
+    void SetInterleaveWidth(const std::vector<unsigned int> &interleaveWidths)
+    {
+        ASSERTL1(interleaveWidths.size() == this->GetBlocks().size(),
+                 "Number of interleave widths does not match number of "
+                 "blocks.");
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
+        {
+            this->GetBlocks()[blk].template SetInterleaveWidth<TData>(
+                interleaveWidths[blk]);
         }
     }
 
@@ -297,6 +327,20 @@ public:
             const unsigned int streamID = blk + 1;
             this->GetBlocks()[blk].ReshapeStorage(interleaveWidth, execSpace,
                                                   streamID);
+        }
+    }
+
+    void ReshapeStorage(const std::vector<unsigned int> &interleaveWidths,
+                        const std::string &execSpace)
+    {
+        ASSERTL1(interleaveWidths.size() == this->GetBlocks().size(),
+                 "Number of interleave widths does not match number of "
+                 "blocks.");
+        for (unsigned int blk = 0; blk < this->GetBlocks().size(); ++blk)
+        {
+            const unsigned int streamID = blk + 1;
+            this->GetBlocks()[blk].ReshapeStorage(interleaveWidths[blk],
+                                                  execSpace, streamID);
         }
     }
 

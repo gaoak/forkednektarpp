@@ -101,27 +101,7 @@ public:
         // The xy backend reshapes the advection velocity into its own
         // interleave format and leaves it there, so it is realigned with the
         // input before being read.
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
-        {
-            auto &velblock = m_advVel->GetBlocks()[blk];
-
-            const auto interleaveWidth =
-                in.GetBlocks()[blk].GetInterleaveWidth();
-
-            if (velblock.GetInterleaveWidth() != interleaveWidth)
-            {
-                auto velRWPtr =
-                    velblock
-                        .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, velblock.GetInterleaveWidth(),
-                    velblock.GetNumElementsWithPadding() *
-                        velblock.GetNumComponents() *
-                        velblock.GetNumHomoModes(),
-                    velblock.GetNumData(), velRWPtr);
-                velblock.template SetInterleaveWidth<TData>(interleaveWidth);
-            }
-        }
+        m_advVel->ReshapeStorage(in.GetInterleaveWidth(), ExecSpace::name);
 
         // Unpadded points per plane, summed over the blocks of `in`, and the
         // total across all planes.

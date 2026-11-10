@@ -202,29 +202,18 @@ protected:
     /// of m_advVelFine and is shared by them all.
     void MultiplyByAdvVelZ()
     {
+        // The fine velocity takes the interleave the advection velocity had
+        // when it was set, which the xy backend leaves in its own format, so
+        // it is realigned with du/dz before being read.
+        m_advVelFine.ReshapeStorage(m_dudzFine.GetInterleaveWidth(),
+                                    ExecSpace::name);
+
         for (unsigned int blk = 0; blk < m_dudzFine.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
 
             auto &dudzblock = m_dudzFine.GetBlocks()[blk];
             auto &velblock  = m_advVelFine.GetBlocks()[blk];
-
-            // The fine velocity takes the interleave the advection velocity
-            // had when it was set, which the xy backend leaves in its own
-            // format, so it is realigned with du/dz before being read.
-            const auto interleaveWidth = dudzblock.GetInterleaveWidth();
-            if (velblock.GetInterleaveWidth() != interleaveWidth)
-            {
-                auto velPtr =
-                    velblock.template GetPtr<MemSpace, ReadWrite>(streamID);
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, velblock.GetInterleaveWidth(),
-                    velblock.GetNumElementsWithPadding() *
-                        velblock.GetNumComponents() *
-                        velblock.GetNumHomoModes(),
-                    velblock.GetNumData(), velPtr, streamID);
-                velblock.template SetInterleaveWidth<TData>(interleaveWidth);
-            }
 
             const size_t nsize =
                 dudzblock.CompSize() * dudzblock.GetNumHomoModes();

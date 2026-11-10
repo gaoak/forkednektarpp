@@ -213,17 +213,11 @@ public:
 
         // Extract at the wider interleave width, then again at width 1 into
         // a cleared output, so that the gather index is built for both.
-        for (auto &block : this->fixt_in->GetBlocks())
-        {
-            block.ReshapeStorage(m_inputInterleaveWidth, ExecSpace::name);
-        }
+        this->fixt_in->ReshapeStorage(m_inputInterleaveWidth, ExecSpace::name);
         op.Apply(*this->fixt_in, *this->fixt_out);
         BOOST_TEST(this->Compare(1.0E-10));
 
-        for (auto &block : this->fixt_in->GetBlocks())
-        {
-            block.ReshapeStorage(1, ExecSpace::name);
-        }
+        this->fixt_in->ReshapeStorage(1, ExecSpace::name);
         for (auto &block : this->fixt_out->GetBlocks())
         {
             auto outptr =

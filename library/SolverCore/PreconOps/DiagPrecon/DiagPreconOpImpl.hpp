@@ -94,6 +94,9 @@ protected:
         ASSERTL1(in.size() == out.size(),
                  "Input and output arrays are of different size");
 
+        // Reshape the diagonal to the input's interleave format.
+        m_invDiag.ReshapeStorage(in.GetInterleaveWidth(), ExecSpace::name);
+
         for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
@@ -105,29 +108,12 @@ protected:
             auto inPtr = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outPtr =
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
+            auto diagPtr =
+                diagblock.template GetPtr<MemSpace, ReadOnly>(streamID);
 
-            // Reshape the diagonal to the input's interleave format, if
-            // necessary, which writes it as well as reading it.
             auto in_width = inblock.GetInterleaveWidth();
             const unsigned int nComp =
                 inblock.GetNumComponents() * inblock.GetNumHomoModes();
-            const TData *diagPtr = nullptr;
-            if (in_width != diagblock.GetInterleaveWidth())
-            {
-                auto diagRWPtr =
-                    diagblock.template GetPtr<MemSpace, ReadWrite>(streamID);
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    in_width, diagblock.GetInterleaveWidth(),
-                    diagblock.GetNumElementsWithPadding() * nComp,
-                    diagblock.GetNumData(), diagRWPtr, streamID);
-                diagblock.template SetInterleaveWidth<TData>(in_width);
-                diagPtr = diagRWPtr;
-            }
-            else
-            {
-                diagPtr =
-                    diagblock.template GetPtr<MemSpace, ReadOnly>(streamID);
-            }
 
             // Apply diagonal preconditioner.
             auto blkSize =

@@ -717,11 +717,8 @@ BOOST_AUTO_TEST_CASE(update_then_apply_interleaved_matches_width_one)
     interleaved.Initialize<NektarSpaces::HostSpace>(0.0);
     const unsigned int interleaveWidth = NektarSpaces::GetVectorWidth<double>(
         MultiRegions::Operator<double>::GetOpExecSpace(session));
-    for (auto &block : interleaved.GetBlocks())
-    {
-        // The storage is zero, so it need not be reshaped.
-        block.SetInterleaveWidth<double>(interleaveWidth);
-    }
+    // The storage is zero, so it need not be reshaped.
+    interleaved.SetInterleaveWidth(interleaveWidth);
     std::vector<double> initialValues(reference.ToVector<double>().size());
     for (std::size_t i = 0; i < initialValues.size(); ++i)
     {

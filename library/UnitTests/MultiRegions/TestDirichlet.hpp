@@ -63,11 +63,8 @@ public:
         // reshape this->fixt_out
         if (execStr == "AVX" || execStr == "Device")
         {
-            for (auto &block : this->fixt_out->GetBlocks())
-            {
-                block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::GetVectorWidth<TData>(execStr));
-            }
+            this->fixt_out->SetInterleaveWidth(
+                NektarSpaces::GetVectorWidth<TData>(execStr));
         }
 
         auto op = DirBndCondOp<TData>::Create(this->fixt_explist,

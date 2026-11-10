@@ -95,6 +95,11 @@ protected:
     void ApplyProducts(LibUtilities::Field<TData, FieldState::Phys> &velocity,
                        LibUtilities::Field<TData, FieldState::Phys> &products)
     {
+        // The products are laid out like the velocity, so that one storage
+        // index addresses the same point in both; a block at another
+        // interleave width is reshaped, keeping its content.
+        products.ReshapeStorage(velocity.GetInterleaveWidth(), ExecSpace::name);
+
         for (unsigned int block = 0; block < velocity.GetBlocks().size();
              ++block)
         {
@@ -109,21 +114,6 @@ protected:
                 velocityBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto productPtr =
                 productBlock.template GetPtr<MemSpace, ReadWrite>(streamID);
-
-            // The products are laid out like the velocity, so that one
-            // storage index addresses the same point in both; a block at
-            // another interleave width is reshaped, keeping its content.
-            const unsigned int interleaveWidth =
-                velocityBlock.GetInterleaveWidth();
-            if (productBlock.GetInterleaveWidth() != interleaveWidth)
-            {
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    interleaveWidth, productBlock.GetInterleaveWidth(),
-                    productBlock.GetNumElementsWithPadding() * m_nProducts,
-                    productBlock.GetNumData(), productPtr, streamID);
-                productBlock.template SetInterleaveWidth<TData>(
-                    interleaveWidth);
-            }
 
             ReynoldsStressKernel<DIMENSION, ExecSpace>(
                 velocityBlock.CompSize(), m_velocityComponents[0],

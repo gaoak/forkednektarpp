@@ -153,31 +153,8 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
-        for (unsigned int blk = 0; blk < m_invMultiplicity.GetBlocks().size();
-             ++blk)
-        {
-            const unsigned int streamID = blk + 1;
-
-            auto &invMultiplicityBlk = m_invMultiplicity.GetBlocks()[blk];
-            const unsigned int inWidth =
-                in.GetBlocks()[blk].GetInterleaveWidth();
-            const unsigned int invMultiplicityWidth =
-                invMultiplicityBlk.GetInterleaveWidth();
-
-            if (inWidth != invMultiplicityWidth)
-            {
-                auto invMultiplicityPtr =
-                    invMultiplicityBlk.template GetPtr<MemSpace, ReadWrite>(
-                        streamID);
-                LibUtilities::ReshapeStorage<ExecSpace>(
-                    inWidth, invMultiplicityWidth,
-                    invMultiplicityBlk.GetNumElementsWithPadding() *
-                        m_invMultiplicity.GetNumComponents(),
-                    invMultiplicityBlk.GetNumData(), invMultiplicityPtr,
-                    streamID);
-                invMultiplicityBlk.template SetInterleaveWidth<TData>(inWidth);
-            }
-        }
+        m_invMultiplicity.ReshapeStorage(in.GetInterleaveWidth(),
+                                         ExecSpace::name);
 
         Math::mul<ExecSpace>(m_invMultiplicity, in, out);
         m_assmbScatrOp->Apply(out);

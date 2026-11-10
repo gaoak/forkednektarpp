@@ -64,11 +64,8 @@ public:
 
         if (execStr == "AVX")
         {
-            for (auto &block : this->fixt_in->GetBlocks())
-            {
-                block.template SetInterleaveWidth<TData>(
-                    NektarSpaces::GetVectorWidth<TData>(execStr));
-            }
+            this->fixt_in->SetInterleaveWidth(
+                NektarSpaces::GetVectorWidth<TData>(execStr));
         }
 
         auto op = RobBndCondOp<TData>::Create(this->fixt_explist,
