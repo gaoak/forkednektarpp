@@ -185,11 +185,8 @@ std::vector<double> FillAtTwoWidths(
 {
     reference.Initialize<NektarSpaces::HostSpace>(0.0);
     interleaved.Initialize<NektarSpaces::HostSpace>(0.0);
-    for (auto &block : interleaved.GetBlocks())
-    {
-        // The storage is zero, so it need not be reshaped.
-        block.SetInterleaveWidth<double>(interleaveWidth);
-    }
+    // The storage is zero, so it need not be reshaped.
+    interleaved.SetInterleaveWidth(interleaveWidth);
 
     std::vector<double> initialValues(reference.ToVector<double>().size());
     for (std::size_t i = 0; i < initialValues.size(); ++i)

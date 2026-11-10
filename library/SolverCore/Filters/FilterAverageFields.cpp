@@ -334,7 +334,8 @@ void FilterAverageFields::AccumulateSample(FilterContext &context)
         ASSERTL1(source.size() == accumulator.size(),
                  "AverageFields output field layout changed during "
                  "integration.");
-        MatchInterleaveWidths(accumulator, source, m_executionSpace);
+        accumulator.ReshapeStorage(source.GetInterleaveWidth(),
+                                   m_executionSpace);
         m_math.daxpy(1.0, source, accumulator, accumulator);
     }
 }

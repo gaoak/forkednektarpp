@@ -169,31 +169,10 @@ protected:
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override
     {
         // Reshape m_P if required.
+        const auto inInterleaveWidths = in.GetInterleaveWidth();
         for (unsigned int stage = 0; stage < m_stage; stage++)
         {
-            for (unsigned blk = 0; blk < in.GetBlocks().size(); ++blk)
-            {
-                const unsigned int streamID = blk + 1;
-
-                auto &inblk = in.GetBlocks()[blk];
-                auto &pblk  = m_P[stage].GetBlocks()[blk];
-
-                if (inblk.GetInterleaveWidth() != pblk.GetInterleaveWidth())
-                {
-                    auto ptr =
-                        pblk.template GetPtr<MemSpace, ReadWrite>(streamID);
-                    auto numComp =
-                        pblk.GetNumComponents() * pblk.GetNumHomoModes();
-
-                    LibUtilities::ReshapeStorage<ExecSpace>(
-                        inblk.GetInterleaveWidth(), pblk.GetInterleaveWidth(),
-                        pblk.GetNumElementsWithPadding() * numComp,
-                        pblk.GetNumData(), ptr, streamID);
-
-                    pblk.template SetInterleaveWidth<TData>(
-                        inblk.GetInterleaveWidth());
-                }
-            }
+            m_P[stage].ReshapeStorage(inInterleaveWidths, ExecSpace::name);
         }
 
         // Implement IDR(s) iterative method as described in:

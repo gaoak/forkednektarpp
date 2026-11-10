@@ -294,7 +294,8 @@ void FilterReynoldsStresses::AccumulateSample(FilterContext &context)
         auto &accumulator = m_accumulators[i];
         ASSERTL1(source.size() == accumulator.size(),
                  "ReynoldsStresses field layout changed during integration.");
-        MatchInterleaveWidths(accumulator, source, m_executionSpace);
+        accumulator.ReshapeStorage(source.GetInterleaveWidth(),
+                                   m_executionSpace);
         m_math.daxpy(1.0, source, accumulator, accumulator);
     }
 

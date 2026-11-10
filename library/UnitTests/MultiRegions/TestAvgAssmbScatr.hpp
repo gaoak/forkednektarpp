@@ -131,29 +131,17 @@ public:
         }
     }
 
-    /// Interleave width of every block of @p field.
-    std::vector<unsigned int> GetInterleaveWidths(
-        Field<TData, FieldState::Coeff> &field)
-    {
-        std::vector<unsigned int> widths;
-        for (auto &block : field.GetBlocks())
-        {
-            widths.push_back(block.GetInterleaveWidth());
-        }
-        return widths;
-    }
-
     /// Average the input in place into the output, and return whether the
     /// average keeps the interleave width of the input.
     bool RunTestCase()
     {
         ReshapeInput();
-        const auto inWidths = GetInterleaveWidths(*this->fixt_in);
+        const auto inInterleaveWidths = this->fixt_in->GetInterleaveWidth();
 
         fixt_op->Apply(*this->fixt_in);
         this->fixt_out->template Copy<NektarSpaces::HostSpace>(*this->fixt_in);
 
-        return GetInterleaveWidths(*this->fixt_in) == inWidths;
+        return this->fixt_in->GetInterleaveWidth() == inInterleaveWidths;
     }
 
     /// Average the input once into the expected solution and that once more

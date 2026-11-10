@@ -41,40 +41,42 @@ namespace Nektar::LibUtilities
 template <typename TData, FieldState TState>
 void BlockAccessor<TData, TState>::ReshapeStorage(
     const unsigned int &interleaveWidth, const std::string &execSpace,
-    [[maybe_unused]] const unsigned int streamID)
+    const unsigned int streamID)
 {
     if (execSpace == "Serial")
     {
-        auto *ptr = this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        auto *ptr =
+            this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>(streamID);
         ::Nektar::LibUtilities::ReshapeStorage<NektarSpaces::Serial>(
             interleaveWidth, this->GetInterleaveWidth(),
             this->GetNumElementsWithPadding() * this->GetNumComponents() *
                 this->GetNumHomoModes(),
-            this->GetNumData(), ptr);
+            this->GetNumData(), ptr, streamID);
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
 #if defined(NEKTAR_ENABLE_SIMD)
     else if (execSpace == "AVX")
     {
-        auto *ptr = this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        auto *ptr =
+            this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>(streamID);
         ::Nektar::LibUtilities::ReshapeStorage<NektarSpaces::AVX>(
             interleaveWidth, this->GetInterleaveWidth(),
             this->GetNumElementsWithPadding() * this->GetNumComponents() *
                 this->GetNumHomoModes(),
-            this->GetNumData(), ptr);
+            this->GetNumData(), ptr, streamID);
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
 #endif
 #if defined(NEKTAR_ENABLE_DEVICE)
     else if (execSpace == "Device")
     {
-        auto *ptr =
-            this->template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>();
+        auto *ptr = this->template GetPtr<NektarSpaces::DeviceSpace, ReadWrite>(
+            streamID);
         ::Nektar::LibUtilities::ReshapeStorage<NektarSpaces::Device>(
             interleaveWidth, this->GetInterleaveWidth(),
             this->GetNumElementsWithPadding() * this->GetNumComponents() *
                 this->GetNumHomoModes(),
-            this->GetNumData(), ptr);
+            this->GetNumData(), ptr, streamID);
         this->template SetInterleaveWidth<TData>(interleaveWidth);
     }
 #endif

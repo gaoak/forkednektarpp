@@ -416,12 +416,7 @@ protected:
      */
     void SetUpLayoutMaps(LibUtilities::Field<TData, FieldState::Coeff> &inout)
     {
-        m_fieldInterleaveWidths.resize(inout.GetBlocks().size());
-        for (unsigned blk = 0; blk < inout.GetBlocks().size(); ++blk)
-        {
-            m_fieldInterleaveWidths[blk] =
-                inout.GetBlocks()[blk].GetInterleaveWidth();
-        }
+        m_fieldInterleaveWidths = inout.GetInterleaveWidth();
 
         // setup GS info of values interior to device
         auto GSNumAssmbKey =

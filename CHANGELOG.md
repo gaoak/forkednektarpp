@@ -158,6 +158,8 @@ v5.11.0
 - Remove the duplicate double-only BLAS wrappers (`Dgemv`, `Dgemm`, ...) and the unused `Cdgemm`; use the overloaded versions instead (!2915)
 - Store the per-element inverse mass matrices of deformed blocks in the geometric data warehouse (`ElmtInvMassKey`), so MultiplyByElmtInvMass and PhysLiftProject share one copy in place of each operator holding its own (!2914)
 - Add variable diffusion coefficients to the Helmholtz, Laplacian and LinAdvDiffReaction operators and their linear systems (!2916)
+- Add per-block interleave width helpers to `Field` and use them in place of duplicated block loops (!2918)
+- Fix `BlockAccessor::ReshapeStorage()` ignoring its stream (!2918)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
