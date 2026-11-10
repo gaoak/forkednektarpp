@@ -608,7 +608,7 @@ typename T::value_type MathHelper::reduceSum(T &x, const std::string &execSpace)
         }
         Nektar::Math::reduceSum<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -653,7 +653,7 @@ typename T::value_type MathHelper::reduceSum(M &mask, T &x,
         }
         Nektar::Math::reduceSum<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -697,7 +697,7 @@ typename T::value_type MathHelper::reduceMax(T &x, const std::string &execSpace)
         }
         Nektar::Math::reduceMax<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -742,7 +742,7 @@ typename T::value_type MathHelper::reduceMax(M &mask, T &x,
         }
         Nektar::Math::reduceMax<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -786,7 +786,7 @@ typename T::value_type MathHelper::reduceMin(T &x, const std::string &execSpace)
         }
         Nektar::Math::reduceMin<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -831,7 +831,7 @@ typename T::value_type MathHelper::reduceMin(M &mask, T &x,
         }
         Nektar::Math::reduceMin<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -876,7 +876,7 @@ typename T::value_type MathHelper::ddot(T &x, T &y,
         }
         Nektar::Math::ddot<NektarSpaces::Device>(
             x, y, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -921,7 +921,7 @@ typename T::value_type MathHelper::ddot(M &mask, T &x, T &y,
         }
         Nektar::Math::ddot<NektarSpaces::Device>(
             mask, x, y, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -966,7 +966,7 @@ std::array<typename T::value_type, 2> MathHelper::ddot2(
         }
         Nektar::Math::ddot2<NektarSpaces::Device>(
             x, y, z, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             2 * sizeof(typename T::value_type), streamID);
         out[0] = ((typename T::value_type *)internalHostBuffer)[0];
@@ -1012,7 +1012,7 @@ std::array<typename T::value_type, 2> MathHelper::ddot2(
         }
         Nektar::Math::ddot2<NektarSpaces::Device>(
             mask, x, y, z, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             2 * sizeof(typename T::value_type), streamID);
         out[0] = ((typename T::value_type *)internalHostBuffer)[0];
@@ -1057,7 +1057,7 @@ typename T::value_type MathHelper::l1norm(T &x, const std::string &execSpace)
         }
         Nektar::Math::l1norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -1102,7 +1102,7 @@ typename T::value_type MathHelper::l1norm(M &mask, T &x,
         }
         Nektar::Math::l1norm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -1146,7 +1146,7 @@ typename T::value_type MathHelper::l2norm(T &x, const std::string &execSpace)
         }
         Nektar::Math::l2norm<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -1191,7 +1191,7 @@ typename T::value_type MathHelper::l2norm(M &mask, T &x,
         }
         Nektar::Math::l2norm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -1235,7 +1235,7 @@ typename T::value_type MathHelper::linfnorm(T &x, const std::string &execSpace)
         }
         Nektar::Math::linfnorm<NektarSpaces::Device>(
             x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;
@@ -1280,7 +1280,7 @@ typename T::value_type MathHelper::linfnorm(M &mask, T &x,
         }
         Nektar::Math::linfnorm<NektarSpaces::Device>(
             mask, x, (typename T::value_type *)internalDeviceBuffer);
-        Nektar::deviceMemcpy<DeviceToHost>(
+        Nektar::deviceMemcpy<eDeviceToHost>(
             internalHostBuffer, internalDeviceBuffer,
             sizeof(typename T::value_type), streamID);
         out = *(typename T::value_type *)internalHostBuffer;

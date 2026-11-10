@@ -208,8 +208,8 @@ void DeviceRandomGenerator::Normal(const TData mean, const TData sigma,
     {
         GenerateNormal(engine.generator, mean, sigma, n - 1, x);
         GenerateNormal(engine.generator, mean, sigma, 2, scratch);
-        deviceMemcpy<DeviceToDevice>(x + n - 1, scratch, sizeof(TData),
-                                     streamID);
+        deviceMemcpy<eDeviceToDevice>(x + n - 1, scratch, sizeof(TData),
+                                      streamID);
     }
 }
 

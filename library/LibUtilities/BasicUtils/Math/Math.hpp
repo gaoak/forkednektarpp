@@ -107,9 +107,9 @@ public:
                 const unsigned int streamID = 0;
                 deviceMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t),
                              streamID);
-                deviceMemcpy<HostToDevice>(m_mask[key], mask.data(),
-                                           block.CompSize() * sizeof(uint8_t),
-                                           streamID);
+                deviceMemcpy<eHostToDevice>(m_mask[key], mask.data(),
+                                            block.CompSize() * sizeof(uint8_t),
+                                            streamID);
                 nekStreamSynchronize(streamID);
             }
         }

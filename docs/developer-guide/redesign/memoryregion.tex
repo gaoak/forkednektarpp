@@ -92,7 +92,7 @@ static MemoryRegion<TData> FromVector(
 Additionally, the \lstinline[style=C++Style]!CopyArray! and \lstinline[style=C++Style]!CopyVector! templated member functions are provided to allow data copy from respectively a \lstinline[style=C++Style]!Nektar::Array<Nektar::OneD, TDataIn>! or a \lstinline[style=C++Style]!std::vector<TDataIn, Alloc>! to an already instantiated \lstinline[style=C++Style]!MemoryRegion! object.
 \begin{lstlisting}[style=C++Style]
 template <typename MemSpace, typename TDataIn,
-          typename MemCopy = HostToDevice>
+          MemCopyType MemCopy = eHostToDevice>
 void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
 {
     ...
@@ -101,8 +101,8 @@ void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
 
 \begin{lstlisting}[style=C++Style]
 template <typename MemSpace, typename TDataIn,
-          typename MemCopy = HostToDevice,
-          class Alloc      = std::allocator<TDataIn>>
+          MemCopyType MemCopy = eHostToDevice,
+          class Alloc         = std::allocator<TDataIn>>
 void CopyVector(const std::vector<TDataIn, Alloc> &array)
 {
     ...
@@ -273,7 +273,7 @@ void deviceFill(TData *dst, const TData val, const unsigned int size,
 \end{lstlisting}
 
 \begin{lstlisting}[style=C++Style]
-template <typename MemCopy, typename TData>
+template <MemCopyType MemCopy, typename TData>
 void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
                   [[maybe_unused]] const unsigned int device_rank)
 {
@@ -281,6 +281,6 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
 }
 \end{lstlisting}
 
-The \lstinline[style=C++Style]!MemCopy! template parameter in \lstinline[style=C++Style]!deviceMemcpy! is a memory copy qualifier use to determine the direction of the memory copy. The following values are supported \lstinline[style=C++Style]!HostToHost!, \lstinline[style=C++Style]!DeviceToHost!, \lstinline[style=C++Style]!HostToDevice!, and \lstinline[style=C++Style]!DeviceToDevice!.
+The \lstinline[style=C++Style]!MemCopy! template parameter in \lstinline[style=C++Style]!deviceMemcpy! is a \lstinline[style=C++Style]!MemCopyType! enum value used to determine the direction of the memory copy. The following values are supported \lstinline[style=C++Style]!eHostToHost!, \lstinline[style=C++Style]!eDeviceToHost!, \lstinline[style=C++Style]!eHostToDevice!, and \lstinline[style=C++Style]!eDeviceToDevice!.
 
 

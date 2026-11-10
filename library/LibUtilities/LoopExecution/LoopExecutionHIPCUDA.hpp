@@ -236,8 +236,8 @@ inline void parallel_reduce(const size_t begin, const size_t end,
     parallel_reduce<ExecSpace, true, Reduction>(begin, end, functor,
                                                 (TData *)internalDeviceBuffer);
 
-    deviceMemcpy<DeviceToHost>(internalHostBuffer, internalDeviceBuffer,
-                               sizeof(TData), streamID);
+    deviceMemcpy<eDeviceToHost>(internalHostBuffer, internalDeviceBuffer,
+                                sizeof(TData), streamID);
 
     out = *(TData *)internalHostBuffer;
 }
