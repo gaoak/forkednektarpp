@@ -49,6 +49,11 @@
 
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
+// The constant tensor is passed as scalars and the variable tensor as SIMD
+// vectors, its components separated by varDiffCoeffSize. The caller selects the
+// element group/plane; point offsets follow the same interleaving as the input
+// and derivative-factor arrays.
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -96,7 +101,8 @@ namespace Nektar::MultiRegions::detail
  *                      @p inptr, in SIMD vectors.
  * @param   outsize     Stride between reference directions in
  *                      @p outptr.
- * @param   diffCoeff   Packed symmetric diffusion tensor.
+ * @param   diffCoeff   Constant symmetric diffusion tensor.
+ * @param   varDiffCoeff Variable diffusion tensor (VARCOEFF).
  * @param   jacptr      Jacobians: one value per element group when
  *                      regular, one per quadrature point when deformed.
  * @param   dfptr       Derivative factors in point-major order, as
@@ -104,56 +110,79 @@ namespace Nektar::MultiRegions::detail
  * @param   inptr       Reference derivatives of the group.
  * @param   outptr      Destination; may alias @p inptr.
  */
-template <typename ExecSpace, bool DEFORMED, typename TData, typename TScalar>
+template <typename ExecSpace, bool DEFORMED, bool VARCOEFF, typename TData,
+          typename TScalar>
 NEK_FORCE_INLINE static void ApplyMetricKernel(
     const unsigned int nqTot, const unsigned int ncoord,
     const unsigned int dimension, const size_t nelmt, const size_t insize,
-    const size_t outsize, const TScalar *diffCoeff, const TData *jacptr,
-    const TData *dfptr, const TData *inptr, TData *outptr)
+    const size_t outsize, [[maybe_unused]] const TScalar *diffCoeff,
+    [[maybe_unused]] const TData *varDiffCoeff, const size_t varDiffCoeffSize,
+    const TData *jacptr, const TData *dfptr, const TData *inptr, TData *outptr)
 {
-    const auto ndf   = ncoord * dimension;
-    const auto nsize = nqTot * nelmt;
+    const auto nDiffCoeff = ncoord * (ncoord + 1) / 2;
+    TData coeff[6];
+    if constexpr (!VARCOEFF)
+    {
+        for (unsigned int c = 0; c < nDiffCoeff; ++c)
+        {
+            coeff[c] = diffCoeff[c];
+        }
+    }
+    const auto ndf = ncoord * dimension;
 
-    if constexpr (DEFORMED)
+    if constexpr (DEFORMED || VARCOEFF)
     {
         TData tmp[3], tmp0, metric[3];
-        for (size_t idx = 0; idx < nsize; idx++)
+        for (size_t e = 0; e < nelmt; e++)
         {
-            auto jac = jacptr[idx];
-
-            for (unsigned int k = 0; k < ncoord; ++k)
+            for (size_t i = 0; i < nqTot; i++)
             {
-                tmp[k] = dfptr[ndf * idx + k * dimension] * inptr[idx];
-                for (unsigned int d = 1; d < dimension; d++)
+                const size_t idx = nqTot * e + i;
+                if constexpr (VARCOEFF)
                 {
-                    tmp[k].fma(dfptr[ndf * idx + k * dimension + d],
-                               inptr[d * insize + idx]);
-                }
-            }
-
-            // Compute metric.
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                for (unsigned int k = 0; k < ncoord; ++k)
-                {
-                    metric[k] =
-                        dfptr[ndf * idx + d] *
-                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
-                    for (unsigned int l = 1; l < ncoord; ++l)
+                    for (unsigned int c = 0; c < nDiffCoeff; ++c)
                     {
-                        metric[k].fma(dfptr[ndf * idx + l * dimension + d],
-                                      diffCoeff[LibUtilities::GetDiffCoeffMap(
-                                          ncoord, l * ncoord + k)]);
+                        coeff[c] = varDiffCoeff[c * varDiffCoeffSize + idx];
                     }
                 }
-                tmp0 = metric[0] * tmp[0];
-                for (unsigned int k = 1; k < ncoord; k++)
+                const auto dfindex = DEFORMED ? idx : e;
+                auto jac           = jacptr[dfindex];
+
+                for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    tmp0.fma(metric[k], tmp[k]);
+                    tmp[k] = dfptr[ndf * dfindex + k * dimension] * inptr[idx];
+                    for (unsigned int d = 1; d < dimension; d++)
+                    {
+                        tmp[k].fma(dfptr[ndf * dfindex + k * dimension + d],
+                                   inptr[d * insize + idx]);
+                    }
                 }
 
-                // Write.
-                outptr[d * outsize + idx] = tmp0 * jac;
+                // Compute metric.
+                for (unsigned int d = 0; d < dimension; d++)
+                {
+                    for (unsigned int k = 0; k < ncoord; ++k)
+                    {
+                        metric[k] =
+                            dfptr[ndf * dfindex + d] *
+                            coeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
+                        for (unsigned int l = 1; l < ncoord; ++l)
+                        {
+                            metric[k].fma(
+                                dfptr[ndf * dfindex + l * dimension + d],
+                                coeff[LibUtilities::GetDiffCoeffMap(
+                                    ncoord, l * ncoord + k)]);
+                        }
+                    }
+                    tmp0 = metric[0] * tmp[0];
+                    for (unsigned int k = 1; k < ncoord; k++)
+                    {
+                        tmp0.fma(metric[k], tmp[k]);
+                    }
+
+                    // Write.
+                    outptr[d * outsize + idx] = tmp0 * jac;
+                }
             }
         }
     }
@@ -167,13 +196,12 @@ NEK_FORCE_INLINE static void ApplyMetricKernel(
             {
                 for (unsigned int k = 0; k < ncoord; ++k)
                 {
-                    metric[k] =
-                        dfptr[ndf * e + d] *
-                        diffCoeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
+                    metric[k] = dfptr[ndf * e + d] *
+                                coeff[LibUtilities::GetDiffCoeffMap(ncoord, k)];
                     for (unsigned int l = 1; l < ncoord; ++l)
                     {
                         metric[k].fma(dfptr[ndf * e + l * dimension + d],
-                                      diffCoeff[LibUtilities::GetDiffCoeffMap(
+                                      coeff[LibUtilities::GetDiffCoeffMap(
                                           ncoord, l * ncoord + k)]);
                     }
                 }

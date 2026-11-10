@@ -79,6 +79,15 @@ public:
             ->SetDiffCoeff(diffCoeff);
     }
 
+    /// Borrow a physical-space symmetric diffusion tensor; see HelmholtzOp.
+    void SetVarDiffCoeff(
+        LibUtilities::Field<TData, FieldState::Phys> &diffCoeff)
+    {
+        std::dynamic_pointer_cast<MultiRegions::HelmholtzOp<TData>>(
+            this->m_ElmtOp)
+            ->SetVarDiffCoeff(diffCoeff);
+    }
+
 protected:
     HelmSolveOp(const MultiRegions::ExpListSharedPtr &expansionList,
                 const std::vector<std::string> &components)

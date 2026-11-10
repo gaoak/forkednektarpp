@@ -116,17 +116,48 @@ public:
      */
     void SetDiffCoeff(std::vector<TData> &diffCoeff)
     {
-        const auto coordDim      = this->m_exp->GetCoordim();
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-        ASSERTL0(diffCoeff.size() == diffCoeffSize,
+        const auto coordDim   = this->m_exp->GetCoordim();
+        const auto nDiffCoeff = coordDim * (coordDim + 1) / 2;
+        ASSERTL0(diffCoeff.size() == nDiffCoeff,
                  "The number of diffusion coefficients must match 1, 3 or 6 "
                  "for a 1D, 2D or 3D case, respectively.")
 
         this->m_diffCoeff = LibUtilities::MemoryRegion<
             TData>::template FromVector<NektarSpaces::HostSpace>(diffCoeff);
+        m_useDiffCoeff = false;
+        for (unsigned int j = 0, c = 0; j < coordDim; ++j)
+        {
+            for (unsigned int i = 0; i <= j; ++i, ++c)
+            {
+                m_useDiffCoeff |= diffCoeff[c] != TData(i == j);
+            }
+        }
+        m_varDiffCoeff = nullptr;
+    }
+
+    /// Borrow a physical-space tensor block in the constant tensor's order.
+    void SetVarDiffCoeff(
+        LibUtilities::BlockAccessor<TData, FieldState::Phys> &diffCoeff)
+    {
+        const auto coordDim = this->m_exp->GetCoordim();
+        ASSERTL0(diffCoeff.GetNumComponents() == coordDim * (coordDim + 1) / 2,
+                 "Variable diffusion tensor must have 1, 3 or 6 components for "
+                 "a 1D, 2D or 3D case, respectively.");
+        ASSERTL0(diffCoeff.GetNumData() == this->m_exp->GetTotPoints(),
+                 "Diffusion coefficient must use the expansion quadrature");
+        m_varDiffCoeff = &diffCoeff;
+        m_useDiffCoeff = true;
     }
 
 protected:
+    /// Apply the tensor; false selects the direct geometric metric for
+    /// constant unit diffusion.
+    bool m_useDiffCoeff = false;
+
+    /// Non-owning pointer; values are read anew on every Apply().
+    LibUtilities::BlockAccessor<TData, FieldState::Phys> *m_varDiffCoeff =
+        nullptr;
+
     /// Packed symmetric diffusion tensor; set by SetDiffCoeff() before
     /// Apply().
     LibUtilities::MemoryRegion<TData> m_diffCoeff;

@@ -82,6 +82,13 @@
 
 #include <MultiRegions/ElmtOps/ElmtHelper.hpp>
 
+// The constant tensor is passed as scalars and the variable tensor as SIMD
+// vectors, its components separated by varDiffCoeffSize.
+// The caller selects the element group/plane; point offsets follow the same
+// interleaving as the input and derivative-factor arrays.
+// useDiffCoeff is false for the constant identity tensor, selecting the
+// direct geometric metric instead of the full tensor contraction.
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -508,8 +515,8 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
  *    @p deriv0 by the diffusion flux pulled back to the reference
  *    direction and applies the quadrature weights and the Jacobian to
  *    it and to @p bwd, with a unit coefficient since the reaction term
- *    is already in @p bwd; the varying-diffusivity arguments receive
- *    @p nullVec;
+ *    is already in @p bwd; the tensor is read directly from the coefficient
+ *    pointer using its component stride;
  * -# SumDerivTensor1DKernel: contracts the flux against the transposed
  *    derivative matrix and adds it onto @p bwd, which then holds the
  *    whole integrand;
@@ -525,10 +532,11 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
  * @param   sizeParam1D Element sizes: modes and quadrature points.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   ncoord      Coordinate dimension.
- * @param   diffCoeff   Packed diffusivity tensor (see
+ * @param   diffCoeff   Constant diffusivity tensor (see
  *                      LinAdvDiffReactionOp::SetDiffCoeff).
- * @param   nullVec     Empty vector standing in for the
- *                      varying-diffusivity tables.
+ * @param   varDiffCoeff Variable diffusivity tensor (VARCOEFF).
+ * @param   useDiffCoeff False for the constant identity tensor.
+ * @param   varDiffCoeffSize Stride between tensor components in SIMD vectors.
  * @param   basis0      1D basis table.
  * @param   D0          1D collocation derivative matrix.
  * @param   w0          1D quadrature weights.
@@ -547,12 +555,13 @@ NEK_FORCE_INLINE static void AddAdvection3DKernel(
  * @param   out         Output coefficients of the group, overwritten.
  * @param   lambda      Reaction coefficient.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
           typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
     const TSizeParameter1D sizeParam1D, const bool isModified,
-    const unsigned int ncoord, const typename simd_type::scalarType *diffCoeff,
-    const std::vector<typename simd_type::scalarType> &nullVec,
+    const unsigned int ncoord, const bool useDiffCoeff,
+    const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *D0,
     const typename simd_type::scalarType *w0, const simd_type *NtoM,
@@ -580,9 +589,9 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
                                    advVel2_ptr, df, deriv0, bwd, lambda);
 
     // Step 4: Apply diffusion coeff and WJ.
-    DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED>(
-        ncoord, nq0, true, diffCoeff, false, nullVec, nullVec, nullVec, nullVec,
-        nullVec, nullVec, jac, w0, df, deriv0, bwd, 1.0);
+    DiffusionCoeffwithWJ1DKernel<SHAPE_TYPE, true, DEFORMED, VARCOEFF>(
+        ncoord, nq0, useDiffCoeff, diffCoeff, varDiffCoeff, varDiffCoeffSize,
+        jac, w0, df, deriv0, bwd, 1.0);
 
     // Step 5: Apply derivative and sum up.
     SumDerivTensor1DKernel<true>(nq0, deriv0, D0, bwd);
@@ -618,9 +627,10 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
  * @param   isModified  First-direction basis is eModified_A.
  * @param   ncoord      Coordinate dimension (2, or 3 for a surface
  *                      element embedded in three dimensions).
- * @param   diffCoeff   Packed diffusivity tensor.
- * @param   nullVec     Empty vector standing in for the
- *                      varying-diffusivity tables.
+ * @param   diffCoeff   Constant diffusivity tensor.
+ * @param   varDiffCoeff Variable diffusivity tensor (VARCOEFF).
+ * @param   useDiffCoeff False for the constant identity tensor.
+ * @param   varDiffCoeffSize Stride between tensor components in SIMD vectors.
  * @param   basis0,basis1   1D basis tables.
  * @param   D0,D1       1D collocation derivative matrices.
  * @param   w0,w1       1D quadrature weights.
@@ -643,12 +653,13 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
  * @param   out         Output coefficients of the group, overwritten.
  * @param   lambda      Reaction coefficient.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
           typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
     const TSizeParameter2D sizeParam2D, const bool isModified,
-    const unsigned int ncoord, const typename simd_type::scalarType *diffCoeff,
-    const std::vector<typename simd_type::scalarType> &nullVec,
+    const unsigned int ncoord, const bool useDiffCoeff,
+    const typename simd_type::scalarType *diffCoeff,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *basis1,
     const typename simd_type::scalarType *D0,
@@ -681,10 +692,9 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
         deriv0, deriv1, bwd, lambda);
 
     // Step 4: Apply diffusion coeff and WJ.
-    DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED>(
-        ncoord, nq0, nq1, true, diffCoeff, false, nullVec, nullVec, nullVec,
-        nullVec, nullVec, nullVec, jac, w0, w1, df, f0, f1, deriv0, deriv1, bwd,
-        1.0);
+    DiffusionCoeffwithWJ2DKernel<SHAPE_TYPE, true, DEFORMED, VARCOEFF>(
+        ncoord, nq0, nq1, useDiffCoeff, diffCoeff, varDiffCoeff,
+        varDiffCoeffSize, jac, w0, w1, df, f0, f1, deriv0, deriv1, bwd, 1.0);
 
     // Step 5: Apply derivative and sum up.
     SumDerivTensor2DKernel<true>(nq0, nq1, deriv0, deriv1, D0, D1, bwd);
@@ -716,9 +726,10 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
  *                      direction.
  * @param   isModified  First-direction basis is eModified_A.
  * @param   ncoord      Coordinate dimension; unused.
- * @param   diffCoeff   Packed diffusivity tensor.
- * @param   nullVec     Empty vector standing in for the
- *                      varying-diffusivity tables.
+ * @param   diffCoeff   Constant diffusivity tensor.
+ * @param   varDiffCoeff Variable diffusivity tensor (VARCOEFF).
+ * @param   useDiffCoeff False for the constant identity tensor.
+ * @param   varDiffCoeffSize Stride between tensor components in SIMD vectors.
  * @param   basis0,basis1,basis2    1D basis tables.
  * @param   D0,D1,D2    1D collocation derivative matrices.
  * @param   w0,w1,w2    1D quadrature weights.
@@ -740,13 +751,13 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
  * @param   out         Output coefficients of the group, overwritten.
  * @param   lambda      Reaction coefficient.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
           typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
     const TSizeParameter3D sizeParam3D, const bool isModified,
-    [[maybe_unused]] const unsigned int ncoord,
+    [[maybe_unused]] const unsigned int ncoord, const bool useDiffCoeff,
     const typename simd_type::scalarType *diffCoeff,
-    const std::vector<typename simd_type::scalarType> &nullVec,
+    const simd_type *varDiffCoeff, const size_t varDiffCoeffSize,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *basis1,
     const typename simd_type::scalarType *basis2,
@@ -787,10 +798,9 @@ NEK_FORCE_INLINE static void LinAdvDiffReactionKernelLauncher(
         df, deriv0, deriv1, deriv2, bwd, lambda);
 
     // Step 4: Apply diffusion coeff and WJ.
-    DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED>(
-        nq0, nq1, nq2, true, diffCoeff, false, nullVec, nullVec, nullVec,
-        nullVec, nullVec, nullVec, jac, w0, w1, w2, df, f0, f1, f1m, f2, deriv0,
-        deriv1, deriv2, bwd, 1.0);
+    DiffusionCoeffwithWJ3DKernel<SHAPE_TYPE, true, DEFORMED, VARCOEFF>(
+        nq0, nq1, nq2, useDiffCoeff, diffCoeff, varDiffCoeff, varDiffCoeffSize,
+        jac, w0, w1, w2, df, f0, f1, f1m, f2, deriv0, deriv1, deriv2, bwd, 1.0);
 
     // Step 5: Apply derivative and sum up.
     SumDerivTensor3DKernel<true>(nq0, nq1, nq2, deriv0, deriv1, deriv2, D0, D1,

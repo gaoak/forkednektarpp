@@ -141,6 +141,13 @@ void UnsteadyADR::DoImplicit(
         return;
     }
 
+    if (m_isTimeDependentDiffCoeff)
+    {
+        m_varDiffCoeffOp->SetTime(time);
+        m_varDiffCoeffOp->Apply(m_varDiffCoeff, m_varDiffCoeff);
+        m_preconOp.clear();
+    }
+
     // Switch on the projection type (Discontinuous or Continuous)
     switch (m_projectionType)
     {
@@ -317,7 +324,42 @@ void UnsteadyADR::DoExplicitRhs(
  */
 void UnsteadyADR::SetDiffusionCoeff()
 {
-    if (m_diffusion)
+    // Optional physical tensor, in the same D00,D01,D11,D02,D12,D22 order
+    // as the constant parameters. epsilon scales every tensor component.
+    if (m_session->DefinesFunction("DiffusionCoefficient"))
+    {
+        ASSERTL0(m_implicitDiffusion,
+                 "Variable DiffusionCoefficient requires implicit diffusion");
+
+        std::vector<std::string> names = {"D00", "D01", "D11",
+                                          "D02", "D12", "D22"};
+        names.resize(m_coordim * (m_coordim + 1) / 2);
+        auto bAtr_phys =
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0],
+                Operator<double>::GetDefaultInterleaveWidth(m_session));
+        m_varDiffCoeff = LibUtilities::Field<double, FieldState::Phys>(
+            "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
+        m_varDiffCoeffOp =
+            ExpressionOp<double>::Create(m_expansionLists[0], names);
+        std::vector<LibUtilities::EquationSharedPtr> expressions;
+        for (const auto &component : names)
+        {
+            expressions.push_back(
+                m_session->GetFunction("DiffusionCoefficient", component));
+            const auto variables =
+                MultiRegions::ExpressionBlockOp<double>::GetExpressionVariables(
+                    expressions.back()->GetExpression());
+            m_isTimeDependentDiffCoeff =
+                m_isTimeDependentDiffCoeff || variables.count("t") != 0;
+        }
+        m_varDiffCoeffOp->SetExpressions(expressions);
+        m_varDiffCoeffOp->SetScale(m_epsilon);
+        m_varDiffCoeffOp->SetTime(m_time);
+        m_math.zero(m_varDiffCoeff);
+        m_varDiffCoeffOp->Apply(m_varDiffCoeff, m_varDiffCoeff);
+    }
+    else if (m_diffusion)
     {
         if (m_coordim == 1)
         {
@@ -432,7 +474,14 @@ void UnsteadyADR::v_InitialiseOperators()
                 auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
                     m_expansionLists[0], m_session->GetVariables());
                 linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
-                linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+                if (m_varDiffCoeffOp)
+                {
+                    linearADRSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
+                }
+                else
+                {
+                    linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+                }
                 linearADRSolveOp->SetAdvVel(m_advectionVel);
                 m_linearSystemOp = linearADRSolveOp;
             }
@@ -452,7 +501,14 @@ void UnsteadyADR::v_InitialiseOperators()
                 auto helmSolveOp = HelmSolveOp<double>::Create(
                     m_expansionLists[0], m_session->GetVariables());
                 helmSolveOp->SetLinearSolver(m_linearSolverOp);
-                helmSolveOp->SetDiffCoeff(m_diffCoeff);
+                if (m_varDiffCoeffOp)
+                {
+                    helmSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
+                }
+                else
+                {
+                    helmSolveOp->SetDiffCoeff(m_diffCoeff);
+                }
                 m_linearSystemOp = helmSolveOp;
             }
             break;
@@ -596,8 +652,8 @@ void UnsteadyADR::InitialiseParameters()
     if (m_diffusion)
     {
         // Resize diffCoeff vector
-        const auto diffCoeffSize = m_coordim * (m_coordim + 1) / 2;
-        m_diffCoeff.resize(diffCoeffSize);
+        const auto nDiffCoeff = m_coordim * (m_coordim + 1) / 2;
+        m_diffCoeff.resize(nDiffCoeff);
 
         m_session->LoadParameter("epsilon", m_epsilon, 1.0);
         if (m_coordim == 1)

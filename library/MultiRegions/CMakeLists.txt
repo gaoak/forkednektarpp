@@ -373,12 +373,14 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
 
     # GCC 13 crashes with an internal compiler error in gimple_duplicate_bb
     # (gcc/tree-cfg.cc) while completely unrolling the three-dimensional
-    # trace kernels: once the templated size parameter is substituted every
-    # loop bound in them is a compile-time constant, and the whole call
-    # chain is always_inline, so the cunroll pass is handed more to
-    # duplicate than it can cope with. Seen on Hex, Pyr, Prism and
-    # NodalPrism. Disable that one pass for the affected translation units;
-    # every other file, and every other pass in these, is unaffected.
+    # trace kernels and the variable-coefficient diffusion kernels: once the
+    # templated size parameter is substituted every loop bound in them is a
+    # compile-time constant, and the whole call chain is always_inline, so
+    # the cunroll pass is handed more to duplicate than it can cope with.
+    # Seen on Hex, Pyr, Prism and NodalPrism. Disable that one pass for the
+    # affected translation units, appending so that the -fno-split-loops set
+    # on the collapsed shapes above is kept; every other file, and every
+    # other pass in these, is unaffected.
     #
     # Bounded to the 13 series: 14 compiles these files, 12 has not been
     # tried and is assumed good. Widen the bound if the crash turns up on
@@ -392,17 +394,18 @@ IF (NEKTAR_ENABLE_DEVICE_SUPPORT)
         SET(CUNROLL_ICE_SOURCES)
         FOREACH(src IN LISTS MULTI_REGIONS_SOURCES)
             GET_FILENAME_COMPONENT(src_name "${src}" NAME)
-            IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace)(Serial|AVX)SumFac(double|float)(Hex|Pyr|NodalPyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
+            IF(src_name MATCHES "^(PhysTraceExtract|IProductWRTPhysTrace|IProductWRTPhysNormalDerivTrace|Helmholtz|Laplacian|LinAdvDiffReaction)(Serial|AVX)SumFac(double|float)(Hex|Pyr|NodalPyr|Prism|NodalPrism|Tet|NodalTet)\\.cpp$")
                 LIST(APPEND CUNROLL_ICE_SOURCES "${src}")
             ENDIF()
         ENDFOREACH()
         IF(CUNROLL_ICE_SOURCES)
             MESSAGE(STATUS
                 "Disabling complete loop unrolling for the three-dimensional "
-                "trace operators: GCC ${CMAKE_CXX_COMPILER_VERSION} crashes in "
-                "gimple_duplicate_bb on them")
-            SET_SOURCE_FILES_PROPERTIES(${CUNROLL_ICE_SOURCES}
-                PROPERTIES COMPILE_OPTIONS "-fdisable-tree-cunroll")
+                "trace and diffusion operators: GCC "
+                "${CMAKE_CXX_COMPILER_VERSION} crashes in gimple_duplicate_bb "
+                "on them")
+            SET_PROPERTY(SOURCE ${CUNROLL_ICE_SOURCES}
+                APPEND PROPERTY COMPILE_OPTIONS "-fdisable-tree-cunroll")
         ENDIF()
     ENDIF()
 ENDIF()

@@ -37,6 +37,7 @@
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
 #include "TestOp.hpp"
+#include "VariableDiffusion.hpp"
 
 #include <MultiRegions/ElmtOps/Helmholtz/HelmholtzOp.hpp>
 
@@ -50,7 +51,7 @@ class TestHelmholtz : public TestOp<TData, FieldState::Coeff, FieldState::Coeff>
 public:
     TestHelmholtz() = default;
 
-    void SetTestCase()
+    void SetTestCase(const bool varDiffCoeff = false)
     {
         // Set initial conditions.
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
@@ -94,10 +95,10 @@ public:
                        : 10.0;
 
         // Set up diffusion coefficient.
-        const auto dim           = this->fixt_explist->GetShapeDimension();
-        const auto coordDim      = this->fixt_explist->GetCoordim(0);
-        const auto diffCoeffSize = coordDim * (coordDim + 1) / 2;
-        m_diffCoeff.resize(diffCoeffSize);
+        const auto dim        = this->fixt_explist->GetShapeDimension();
+        const auto coordDim   = this->fixt_explist->GetCoordim(0);
+        const auto nDiffCoeff = coordDim * (coordDim + 1) / 2;
+        m_diffCoeff.resize(nDiffCoeff);
 
         if (coordDim == 1)
         {
@@ -132,6 +133,21 @@ public:
             }
         }
 
+        // Set up variable diffusion coefficient. The Field keeps the initial
+        // values; RunTestCase copies the scaled ones in after borrowing it.
+        if (varDiffCoeff)
+        {
+            m_varDiffHelper.Initialise(this->fixt_explist,
+                                       this->fixt_in->GetNumHomoModes());
+            for (auto &component : m_varDiffHelper.values)
+            {
+                for (unsigned int p = 0; p < component.size(); ++p)
+                {
+                    component[p] *= 1.25;
+                }
+            }
+        }
+
         // Compute expected solution.
         ExpectedSolution();
     }
@@ -141,7 +157,16 @@ public:
         auto op = HelmholtzOp<TData>::Create(this->fixt_explist,
                                              this->session->GetVariables());
         op->SetLambda(m_lambda);
-        op->SetDiffCoeff(m_diffCoeff);
+        if (m_varDiffHelper.field)
+        {
+            op->SetVarDiffCoeff(*m_varDiffHelper.field);
+            // Updating after SetVarDiffCoeff checks the Field is borrowed.
+            m_varDiffHelper.CopyToField();
+        }
+        else
+        {
+            op->SetDiffCoeff(m_diffCoeff);
+        }
         op->Apply(*this->fixt_in, *this->fixt_out);
     }
 
@@ -227,9 +252,20 @@ public:
                     StdRegions::StdMatrixKey mkey(
                         StdRegions::eHelmholtz,
                         this->fixt_explist->GetExp(e)->DetShapeType(),
-                        *(this->fixt_explist->GetExp(e)), factors);
-                    this->fixt_explist->GetExp(e)->GeneralMatrixOp(
-                        incoeffs + offset, tmp = outcoeffs + offset, mkey);
+                        *(this->fixt_explist->GetExp(e)), factors,
+                        m_varDiffHelper.ForElement(this->fixt_explist, e));
+                    if (m_varDiffHelper.field &&
+                        this->fixt_explist->GetShapeDimension() == 1)
+                    {
+                        m_varDiffHelper.ApplySegment(
+                            this->fixt_explist, e, incoeffs + offset,
+                            tmp = outcoeffs + offset, m_lambda);
+                    }
+                    else
+                    {
+                        this->fixt_explist->GetExp(e)->GeneralMatrixOp(
+                            incoeffs + offset, tmp = outcoeffs + offset, mkey);
+                    }
                     e++;
                     offset += nmTot;
                 }
@@ -276,6 +312,7 @@ public:
     }
 
 protected:
+    VariableDiffusion<TData> m_varDiffHelper;
     TData m_lambda;
     std::vector<TData> m_diffCoeff;
 };

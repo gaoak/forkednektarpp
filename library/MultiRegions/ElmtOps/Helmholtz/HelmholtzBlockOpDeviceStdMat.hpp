@@ -219,6 +219,21 @@ protected:
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
                      &outblock) override
     {
+        if (this->m_varDiffCoeff)
+        {
+            ApplyImpl<true>(inblock, outblock);
+        }
+        else
+        {
+            ApplyImpl<false>(inblock, outblock);
+        }
+    }
+
+    template <bool VARCOEFF>
+    void ApplyImpl(
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
+        LibUtilities::BlockAccessor<TData, FieldState::Coeff> &outblock)
+    {
         // Get BLAS handle.
         auto handle = NekBlas::Handle<ExecSpace>::GetInstance(m_streamID);
 
@@ -231,8 +246,39 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        if constexpr (VARCOEFF)
+        {
+            ASSERTL0(this->m_varDiffCoeff->GetNumHomoModes() ==
+                             inblock.GetNumHomoModes() &&
+                         this->m_varDiffCoeff->GetNumElements() ==
+                             inblock.GetNumElements() &&
+                         this->m_varDiffCoeff->GetNumElementsWithPadding() ==
+                             inblock.GetNumElementsWithPadding(),
+                     "Diffusion coefficient modes, elements and padding must "
+                     "match input");
+            if (this->m_varDiffCoeff->GetInterleaveWidth() !=
+                m_implInterleaveWidth)
+            {
+                auto ptr =
+                    this->m_varDiffCoeff->template GetPtr<MemSpace, ReadWrite>(
+                        m_streamID);
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth,
+                    this->m_varDiffCoeff->GetInterleaveWidth(),
+                    this->m_varDiffCoeff->GetNumElementsWithPadding() *
+                        this->m_varDiffCoeff->GetNumComponents() *
+                        this->m_varDiffCoeff->GetNumHomoModes(),
+                    this->m_varDiffCoeff->GetNumData(), ptr, m_streamID);
+                this->m_varDiffCoeff->template SetInterleaveWidth<TData>(
+                    m_implInterleaveWidth);
+            }
+        }
+        const TData *diffCoeffPtr =
+            (VARCOEFF)
+                ? this->m_varDiffCoeff->template GetPtr<MemSpace, ReadOnly>(
+                      m_streamID)
+                : this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(
+                      m_streamID);
 
         // Get static workspace pointer.
         auto bwdptr =
@@ -286,18 +332,20 @@ protected:
         if (m_isDeformed)
         {
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (ApplyMetricKernel<true>), gridSize, ncomp, blockSize, 1,
-                m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
-                derivoffset, derivoffset, diffCoeffPtr, m_jacptr, m_dfptr,
-                derivptr, derivptr, bwdptr, this->m_lambda);
+                (ApplyMetricKernel<true, VARCOEFF>), gridSize, ncomp, blockSize,
+                1, m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
+                derivoffset, derivoffset, diffCoeffPtr,
+                inblock.GetNumHomoModes(), m_jacptr, m_dfptr, derivptr,
+                derivptr, bwdptr, this->m_lambda);
         }
         else
         {
             DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (ApplyMetricKernel<false>), gridSize, ncomp, blockSize, 1,
-                m_streamID, m_nqTot, m_coordDim, m_dimension, nelmt,
-                derivoffset, derivoffset, diffCoeffPtr, m_jacptr, m_dfptr,
-                derivptr, derivptr, bwdptr, this->m_lambda);
+                (ApplyMetricKernel<false, VARCOEFF>), gridSize, ncomp,
+                blockSize, 1, m_streamID, m_nqTot, m_coordDim, m_dimension,
+                nelmt, derivoffset, derivoffset, diffCoeffPtr,
+                inblock.GetNumHomoModes(), m_jacptr, m_dfptr, derivptr,
+                derivptr, bwdptr, this->m_lambda);
         }
 
         // Step 4: IProduct

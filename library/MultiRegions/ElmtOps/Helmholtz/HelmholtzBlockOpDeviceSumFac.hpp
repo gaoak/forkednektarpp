@@ -376,17 +376,28 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, sizeParam,
-            std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumIndex(DIM)>(),
-            std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        if (this->m_varDiffCoeff)
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumIndex(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        }
+        else
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumIndex(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        }
     }
 
     /// Generic operator implementation. ind0 indexes each direction,
     /// ind1 the precomputed index arrays used by the kernels,
     /// ind2 the collapsed coordinate factors used by the kernels.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -401,8 +412,45 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        if constexpr (VARCOEFF)
+        {
+            ASSERTL0(this->m_varDiffCoeff->GetNumHomoModes() ==
+                             inblock.GetNumHomoModes() &&
+                         this->m_varDiffCoeff->GetNumElements() ==
+                             inblock.GetNumElements() &&
+                         this->m_varDiffCoeff->GetNumElementsWithPadding() ==
+                             inblock.GetNumElementsWithPadding(),
+                     "Diffusion coefficient modes, elements and padding must "
+                     "match input");
+            if (this->m_varDiffCoeff->GetInterleaveWidth() !=
+                m_implInterleaveWidth)
+            {
+                auto ptr =
+                    this->m_varDiffCoeff->template GetPtr<MemSpace, ReadWrite>(
+                        m_streamID);
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth,
+                    this->m_varDiffCoeff->GetInterleaveWidth(),
+                    this->m_varDiffCoeff->GetNumElementsWithPadding() *
+                        this->m_varDiffCoeff->GetNumComponents() *
+                        this->m_varDiffCoeff->GetNumHomoModes(),
+                    this->m_varDiffCoeff->GetNumData(), ptr, m_streamID);
+                this->m_varDiffCoeff->template SetInterleaveWidth<TData>(
+                    m_implInterleaveWidth);
+            }
+        }
+        const TData *diffCoeffPtr =
+            (VARCOEFF)
+                ? this->m_varDiffCoeff->template GetPtr<MemSpace, ReadOnly>(
+                      m_streamID)
+                : this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>(
+                      m_streamID);
+        // Stride between tensor components, including physical planes and
+        // padding.
+        const size_t varDiffCoeffSize =
+            VARCOEFF
+                ? this->m_varDiffCoeff->CompSize() * inblock.GetNumHomoModes()
+                : 0;
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -434,11 +482,13 @@ protected:
 
         // Helmholtz kernel.
         DEVICE_2DGRID_KERNEL_LAUNCHER(
-            (HelmholtzKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>),
+            (HelmholtzKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
+                                     VARCOEFF>),
             gridsize, ncomp, blocksize, 1, shmemsize, m_streamID, sizeParam,
             m_coordDim, nelmt, m_isModified, m_index[ind1]..., m_B[ind0]...,
             m_D[ind0]..., m_W[ind0]..., m_f[ind2]..., m_nodToMod, m_dfptr,
-            m_jacptr, diffCoeffPtr, inptr, outptr, wspptr, this->m_lambda);
+            m_jacptr, diffCoeffPtr, varDiffCoeffSize, inblock.GetNumHomoModes(),
+            inptr, outptr, wspptr, this->m_lambda);
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(

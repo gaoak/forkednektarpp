@@ -102,6 +102,11 @@
 // get hold of memory sizing and routines related to collocation Helmholtz op
 #include <MultiRegions/ElmtOps/Helmholtz/HelmholtzBlockOpDeviceSumFacKernels.hpp>
 
+// Coefficients are passed as raw pointers. Variable tensor components are
+// separated by varDiffCoeffSize scalars. The kernels select the plane and
+// element from the base pointer; point offsets follow the same interleaving
+// as the input and derivative-factor arrays.
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -283,7 +288,7 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
  * @param   ncoord          Coordinate dimension: velocity components,
  *                          derivative components and rank of the
  *                          symmetric diffusivity tensor, whose packed
- *                          lower triangle therefore has
+ *                          upper triangle therefore has
  *                          ncoord * (ncoord + 1) / 2 entries.
  * @param   nelmt           Elements in the block, padding included.
  * @param   nhomo           Homogeneous planes of the field.
@@ -296,8 +301,9 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
  * @param   df              Derivative factors of the block,
  *                          warp-interleaved.
  * @param   jac             Jacobians of the block, warp-interleaved.
- * @param   coeff           Packed diffusivity tensor (see
- *                          LinAdvDiffReactionOp::SetDiffCoeff).
+ * @param   diffCoeff       Constant packed diffusivity tensor (see
+ *                          LinAdvDiffReactionOp::SetDiffCoeff), or the
+ *                          base pointer of the variable tensor (VARCOEFF).
  * @param   advVel0,advVel1,advVel2     Velocity components of the
  *                                      block; the higher ones are read
  *                                      only when @p ncoord allows.
@@ -314,8 +320,8 @@ NEK_DEVICE_INLINE static void AddAdvection3DSumFacKernel(
  *                          count in its second.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, bool VARCOEFF, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -328,10 +334,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
-        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, const TData lambda,
+        const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
+        const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
+        const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData lambda,
         [[maybe_unused]] unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
@@ -357,6 +363,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
+        const TData *diffCoeffPtr =
+            VARCOEFF
+                ? diffCoeff + nq0 * (nelmt * (c % nhomo) + warpsize * iwarp)
+                : diffCoeff;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
@@ -379,9 +389,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         AddAdvection1DSumFacKernel(ilane, ncoord, nq0, advVel0ptr, advVel1ptr,
                                    advVel2ptr, deriv, deriv + nq0 * nelmt,
                                    deriv + 2 * nq0 * nelmt, bwd, lambda);
-        ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
-                                            dfptr, jacptr, coeff, deriv, deriv,
-                                            bwd, (TData)1.0);
+        ApplyMetric1DSumFacKernel<DEFORMED, VARCOEFF>(
+            ilane, ncoord, nq0, nelmt * nq0, w0, dfptr, jacptr, diffCoeffPtr,
+            varDiffCoeffSize, deriv, deriv, bwd, (TData)1.0);
         SumDerivTensor1DKernel<false, true>(ilane, nq0, D0, deriv, bwd,
                                             (TData)1.0);
         IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, basis0,
@@ -438,7 +448,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   df              Derivative factors of the block,
  *                          warp-interleaved.
  * @param   jac             Jacobians of the block, warp-interleaved.
- * @param   coeff           Packed diffusivity tensor.
+ * @param   diffCoeff       Constant packed diffusivity tensor, or the
+ *                          base pointer of the variable tensor (VARCOEFF).
  * @param   advVel0,advVel1,advVel2     Velocity components.
  * @param   in              Coefficients of the block.
  * @param   out             Output coefficients of the block,
@@ -450,8 +461,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   threadBlock     Back-end thread-block handle.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, bool VARCOEFF, typename TSizeParameter2D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -465,11 +476,12 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
-        const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
-        const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT in,
-        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData lambda,
-        unsigned char *shmemptr, const TthreadBlock &threadBlock)
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
+        const size_t varDiffCoeffSize, const TData *NEK_RESTRICT advVel0,
+        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
+        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+        TData *NEK_RESTRICT wsp, const TData lambda, unsigned char *shmemptr,
+        const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -527,6 +539,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
+        const TData *diffCoeffPtr =
+            VARCOEFF
+                ? diffCoeff + nqTot * (nelmt * (c % nhomo) + warpsize * iwarp)
+                : diffCoeff;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
@@ -572,9 +588,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         AddAdvection2DSumFacKernel(ilane, ncoord, nq0, nq1, advVel0ptr,
                                    advVel1ptr, advVel2ptr, deriv, deriv1,
                                    deriv2, bwd, lambda);
-        ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED, VARCOEFF>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
-            jacptr, coeff, deriv, deriv0, deriv1, bwd, (TData)1.0);
+            jacptr, diffCoeffPtr, varDiffCoeffSize, deriv, deriv0, deriv1, bwd,
+            (TData)1.0);
         SumDerivTensor2DKernel<false, true>(ilane, nq0, nq1, D0, D1, deriv0,
                                             deriv1, bwd);
         IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false>(
@@ -646,7 +663,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   df              Derivative factors of the block,
  *                          warp-interleaved.
  * @param   jac             Jacobians of the block, warp-interleaved.
- * @param   coeff           Packed diffusivity tensor.
+ * @param   diffCoeff       Constant packed diffusivity tensor, or the
+ *                          base pointer of the variable tensor (VARCOEFF).
  * @param   advVel0,advVel1,advVel2     Velocity components.
  * @param   in              Coefficients of the block.
  * @param   out             Output coefficients of the block,
@@ -658,8 +676,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @param   threadBlock     Back-end thread-block handle.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, bool VARCOEFF, typename TSizeParameter3D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -680,11 +698,11 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
         const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT advVel0,
-        const TData *NEK_RESTRICT advVel1, const TData *NEK_RESTRICT advVel2,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, const TData lambda, unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+        const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
+        const TData *NEK_RESTRICT advVel0, const TData *NEK_RESTRICT advVel1,
+        const TData *NEK_RESTRICT advVel2, const TData *NEK_RESTRICT in,
+        TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp, const TData lambda,
+        unsigned char *shmemptr, const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
@@ -788,6 +806,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
+        const TData *diffCoeffPtr =
+            VARCOEFF
+                ? diffCoeff + nqTot * (nelmt * (c % nhomo) + warpsize * iwarp)
+                : diffCoeff;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
@@ -830,10 +852,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         AddAdvection3DSumFacKernel(ilane, nq0, nq1, nq2, advVel0ptr, advVel1ptr,
                                    advVel2ptr, deriv0, deriv1, deriv2, bwd,
                                    lambda);
-        ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED, VARCOEFF>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1, s_f1m,
-            s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1, deriv2, bwd,
-            (TData)1.0);
+            s_f2, dfptr, jacptr, diffCoeffPtr, varDiffCoeffSize, deriv, deriv0,
+            deriv1, deriv2, bwd, (TData)1.0);
         SumDerivTensor3DKernel<true, true>(ilane, nq0, nq1, nq2, D0, D1, D2,
                                            deriv0, deriv1, deriv2, bwd);
         IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false>(

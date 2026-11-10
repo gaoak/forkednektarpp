@@ -80,6 +80,15 @@ public:
             ->SetDiffCoeff(diffCoeff);
     }
 
+    /// Borrow a physical-space symmetric diffusion tensor; see LaplacianOp.
+    void SetVarDiffCoeff(
+        LibUtilities::Field<TData, FieldState::Phys> &diffCoeff)
+    {
+        std::dynamic_pointer_cast<MultiRegions::LaplacianOp<TData>>(
+            this->m_ElmtOp)
+            ->SetVarDiffCoeff(diffCoeff);
+    }
+
 protected:
     PoissonSolveOp(const MultiRegions::ExpListSharedPtr &expansionList,
                    const std::vector<std::string> &components)

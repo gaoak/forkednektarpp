@@ -186,6 +186,7 @@ IF(NEKTAR_SOLVER_ADR_DEVICE_SUPPORT)
 
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign SteadyDiffusion1D)
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign SteadyDiffusion2D)
+        SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyVariableDiffusion2D)
         SET_ALL_SOLVER_TEST(ADRSolverRedesign SteadyDiffusion3D)
 
         SET_SERIAL_SUMFAC_SOLVER_TEST(ADRSolverRedesign SteadyAdvecDiff1D)

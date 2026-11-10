@@ -328,8 +328,6 @@ protected:
     std::vector<std::vector<simd_t, tinysimd::allocator<simd_t>>> m_deriv;
     /// Backward-transform workspace.
     std::vector<simd_t, tinysimd::allocator<simd_t>> m_bwd;
-    /// Empty placeholder passed where a diffusion tensor is not used.
-    std::vector<TData> NullTDataVector;
     /// Nodal-to-modal conversion matrix; null for tensor-product shapes.
     const simd_t *m_nodToMod;
     /// Transposed nodal-to-modal conversion matrix; null for
@@ -409,17 +407,28 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, sizeParam,
-            std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
-            std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        if (this->m_varDiffCoeff)
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        }
+        else
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>(),
+                std::make_integer_sequence<unsigned int, NumFactor(DIM)>());
+        }
     }
 
     /// Generic operator implementation. ind0 indexes each direction,
     /// ind1 the workspaces used by the kernels,
     /// ind2 the collapsed coordinate factors used by the kernels.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1, unsigned int... ind2>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -445,8 +454,46 @@ protected:
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+        if constexpr (VARCOEFF)
+        {
+            ASSERTL0(this->m_varDiffCoeff->GetNumHomoModes() ==
+                             inblock.GetNumHomoModes() &&
+                         this->m_varDiffCoeff->GetNumElements() ==
+                             inblock.GetNumElements() &&
+                         this->m_varDiffCoeff->GetNumElementsWithPadding() ==
+                             inblock.GetNumElementsWithPadding(),
+                     "Diffusion coefficient modes, elements and padding must "
+                     "match input");
+            if (this->m_varDiffCoeff->GetInterleaveWidth() !=
+                m_implInterleaveWidth)
+            {
+                auto ptr = this->m_varDiffCoeff
+                               ->template GetPtr<MemSpace, ReadWrite>();
+                LibUtilities::ReshapeStorage<ExecSpace>(
+                    m_implInterleaveWidth,
+                    this->m_varDiffCoeff->GetInterleaveWidth(),
+                    this->m_varDiffCoeff->GetNumElementsWithPadding() *
+                        this->m_varDiffCoeff->GetNumComponents() *
+                        this->m_varDiffCoeff->GetNumHomoModes(),
+                    this->m_varDiffCoeff->GetNumData(), ptr);
+                this->m_varDiffCoeff->template SetInterleaveWidth<TData>(
+                    m_implInterleaveWidth);
+            }
+        }
+        const TData *diffCoeffPtr =
+            (!VARCOEFF)
+                ? this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        const TData *varDiffCoeffPtr0 =
+            (VARCOEFF)
+                ? this->m_varDiffCoeff->template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        // Stride between tensor components, including physical planes and
+        // padding.
+        const size_t varDiffCoeffSize =
+            VARCOEFF ? this->m_varDiffCoeff->CompSize() *
+                           inblock.GetNumHomoModes() / simd_t::width
+                     : 0;
 
         // Get interleave parameter.
         const auto interleaveWidth = inblock.GetInterleaveWidth();
@@ -461,6 +508,11 @@ protected:
         {
             auto jacptr = m_jacptr;
             auto dfptr  = m_dfptr;
+            auto varDiffCoeffPtr =
+                VARCOEFF
+                    ? varDiffCoeffPtr0 + (n % inblock.GetNumHomoModes()) *
+                                             this->m_varDiffCoeff->CompSize()
+                    : nullptr;
 
             // Loop over element groups.
             for (size_t e = 0;
@@ -475,9 +527,11 @@ protected:
                 }
 
                 // Laplacian kernel.
-                LaplacianKernelLauncher<SHAPE_TYPE, DEFORMED>(
-                    sizeParam, m_isModified, m_coordDim, diffCoeffPtr,
-                    NullTDataVector, m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
+                LaplacianKernelLauncher<SHAPE_TYPE, DEFORMED, VARCOEFF>(
+                    sizeParam, m_isModified, m_coordDim,
+                    VARCOEFF || this->m_useDiffCoeff, diffCoeffPtr,
+                    reinterpret_cast<const simd_t *>(varDiffCoeffPtr),
+                    varDiffCoeffSize, m_B[ind0]..., m_D[ind0]..., m_W[ind0]...,
                     m_f[ind2]..., m_nodToMod, m_nodToModTrans,
                     reinterpret_cast<const simd_t *>(jacptr),
                     reinterpret_cast<const simd_t *>(dfptr),
@@ -501,6 +555,10 @@ protected:
                 }
 
                 // Increment pointers for the next elmt group.
+                if constexpr (VARCOEFF)
+                {
+                    varDiffCoeffPtr += nqTot * simd_t::width;
+                }
                 dfptr += dfsize * ndf * simd_t::width;
                 jacptr += dfsize * simd_t::width;
                 inptr += nmTot * simd_t::width;

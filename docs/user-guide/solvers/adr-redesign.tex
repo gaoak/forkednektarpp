@@ -240,3 +240,32 @@ The companion files \inltt{\_Neumann}, \inltt{\_mixedBC} and
 \inltt{\_periodic} run the same problem under those boundary conditions, and
 \inltt{ExDiffusion\_3D\_IP\_prism\_hex.xml} the 3D case on prisms and
 hexahedra.
+
+\subsection*{Spatially varying diffusion tensors}
+For steady systems and implicit continuous diffusion, a
+\inltt{DiffusionCoefficient} function replaces the constant \inltt{Dij}
+parameters. Define every independent component in packed upper-triangular
+order: \inltt{D00} in one coordinate dimension; \inltt{D00,D01,D11} in two;
+and \inltt{D00,D01,D11,D02,D12,D22} in three. For example,
+\begin{lstlisting}[style=XmlStyle]
+<FUNCTION NAME="DiffusionCoefficient">
+  <E VAR="D00" VALUE="1 + x*x" />
+  <E VAR="D01" VALUE="0.2" />
+  <E VAR="D11" VALUE="2 + y*y" />
+</FUNCTION>
+\end{lstlisting}
+The solver multiplies all components by \inltt{epsilon}. Unsteady implicit
+solves evaluate the function at each stage time, including expressions that
+use \inltt{t}, and rebuild the preconditioner after updating the tensor.
+Variable coefficients are not yet supported by the explicit DG diffusion
+flux operators. On homogeneous expansions the tensor describes diffusion in
+the expansion plane; the homogeneous contribution retains its unit
+coefficient and has no cross-plane coupling.
+
+For diffusion parallel and perpendicular to a magnetic field, use
+$D_{ij}=\kappa_\perp\delta_{ij}+
+(\kappa_\parallel-\kappa_\perp)B_i B_j/|\boldsymbol{B}|^2$ to form the
+component expressions. The element operators also accept this tensor as a
+physical-space \inltt{Field} through their \inltt{SetVarDiffCoeff} method.
+They retain non-owning pointers: the field must outlive every application,
+and updates to its values are read on the next application.

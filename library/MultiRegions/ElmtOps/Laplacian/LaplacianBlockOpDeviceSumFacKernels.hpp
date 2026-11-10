@@ -63,6 +63,11 @@
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseBlockOpDeviceSumFacKernels.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivBlockOpDeviceSumFacKernels.hpp>
 
+// Coefficients are passed as raw pointers. Variable tensor components are
+// separated by varDiffCoeffSize scalars. The kernels select the plane and
+// element from the base pointer; point offsets follow the same interleaving
+// as the input and derivative-factor arrays.
+
 namespace Nektar::MultiRegions::detail
 {
 
@@ -276,18 +281,19 @@ inline constexpr unsigned int LaplacianSharedMemorySize(
 /**
  * @brief 1D metric kernel applying diffusion tensor and metric terms.
  */
-template <bool DEFORMED, typename TData>
+template <bool DEFORMED, bool VARCOEFF, typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const size_t inoffset, const TData *NEK_RESTRICT w0,
     const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT diffCoeff, const TData *NEK_RESTRICT in,
-    TData *out)
+    const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
+    const TData *NEK_RESTRICT in, TData *out)
 {
+    const size_t diffCoeffStride    = VARCOEFF ? varDiffCoeffSize : 1;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     TData metric[3] = {0.0};
-    if constexpr (!DEFORMED)
+    if constexpr (!DEFORMED && !VARCOEFF)
     {
         if (diffCoeff)
         {
@@ -323,32 +329,48 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
         const unsigned int dfindex =
             DEFORMED ? ncoord * warpsize * i + ilane : ilane;
 
-        if constexpr (DEFORMED)
+        if constexpr (DEFORMED || VARCOEFF)
         {
+            const size_t diffCoeffIndex = VARCOEFF ? index : 0;
             if (diffCoeff)
             {
                 if (ncoord == 1)
                 {
-                    metric[0] = diffCoeff[0] * df[dfindex];
+                    metric[0] = diffCoeff[diffCoeffIndex] * df[dfindex];
                 }
                 else if (ncoord == 2)
                 {
-                    metric[0] = diffCoeff[0] * df[dfindex] +
-                                diffCoeff[1] * df[warpsize + dfindex];
-                    metric[1] = diffCoeff[1] * df[dfindex] +
-                                diffCoeff[2] * df[warpsize + dfindex];
+                    metric[0] = diffCoeff[diffCoeffIndex] * df[dfindex] +
+                                diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                    df[warpsize + dfindex];
+                    metric[1] =
+                        diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                            df[dfindex] +
+                        diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                            df[warpsize + dfindex];
                 }
                 else if (ncoord == 3)
                 {
-                    metric[0] = diffCoeff[0] * df[dfindex] +
-                                diffCoeff[1] * df[warpsize + dfindex] +
-                                diffCoeff[3] * df[2 * warpsize + dfindex];
-                    metric[1] = diffCoeff[1] * df[dfindex] +
-                                diffCoeff[2] * df[warpsize + dfindex] +
-                                diffCoeff[4] * df[2 * warpsize + dfindex];
-                    metric[2] = diffCoeff[3] * df[dfindex] +
-                                diffCoeff[4] * df[warpsize + dfindex] +
-                                diffCoeff[5] * df[2 * warpsize + dfindex];
+                    metric[0] =
+                        diffCoeff[diffCoeffIndex] * df[dfindex] +
+                        diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                            df[warpsize + dfindex] +
+                        diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                            df[2 * warpsize + dfindex];
+                    metric[1] =
+                        diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                            df[dfindex] +
+                        diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                            df[warpsize + dfindex] +
+                        diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                            df[2 * warpsize + dfindex];
+                    metric[2] =
+                        diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                            df[dfindex] +
+                        diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                            df[warpsize + dfindex] +
+                        diffCoeff[5 * diffCoeffStride + diffCoeffIndex] *
+                            df[2 * warpsize + dfindex];
                 }
             }
         }
@@ -380,22 +402,24 @@ NEK_DEVICE_INLINE static void ApplyMetric1DSumFacKernel(
 /**
  * @brief 2D metric kernel applying diffusion tensor and metric terms.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
+          typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
     const unsigned int ilane, const unsigned int ncoord, const unsigned int nq0,
     const unsigned int nq1, const size_t inoffset, const TData *NEK_RESTRICT w0,
     const TData *NEK_RESTRICT w1, [[maybe_unused]] const TData *NEK_RESTRICT f0,
     [[maybe_unused]] const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out0,
-    TData *NEK_RESTRICT out1)
+    const size_t varDiffCoeffSize, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out0, TData *NEK_RESTRICT out1)
 {
+    const size_t diffCoeffStride    = VARCOEFF ? varDiffCoeffSize : 1;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     const unsigned int ndf = 2 * ncoord;
 
     TData metric[6] = {0.0};
-    if constexpr (!DEFORMED)
+    if constexpr (!DEFORMED && !VARCOEFF)
     {
         if (diffCoeff)
         {
@@ -442,41 +466,76 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
             const unsigned int dfindex =
                 DEFORMED ? ndf * warpsize * cnt_ji + ilane : ilane;
 
-            if constexpr (DEFORMED)
+            if constexpr (DEFORMED || VARCOEFF)
             {
+                const size_t diffCoeffIndex = VARCOEFF ? index : 0;
                 if (diffCoeff)
                 {
                     if (ncoord == 2)
                     {
-                        metric[0] = diffCoeff[0] * df[dfindex] +
-                                    diffCoeff[1] * df[2 * warpsize + dfindex];
-                        metric[1] = diffCoeff[0] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[1] * df[3 * warpsize + dfindex];
-                        metric[2] = diffCoeff[1] * df[dfindex] +
-                                    diffCoeff[2] * df[2 * warpsize + dfindex];
-                        metric[3] = diffCoeff[1] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[2] * df[3 * warpsize + dfindex];
+                        metric[0] =
+                            diffCoeff[diffCoeffIndex] * df[dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex];
+                        metric[1] =
+                            diffCoeff[diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex];
+                        metric[2] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex];
+                        metric[3] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex];
                     }
                     else if (ncoord == 3)
                     {
-                        metric[0] = diffCoeff[0] * df[dfindex] +
-                                    diffCoeff[1] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[3] * df[4 * warpsize + dfindex];
-                        metric[1] = diffCoeff[0] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[1] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[3] * df[5 * warpsize + dfindex];
-                        metric[2] = diffCoeff[1] * df[dfindex] +
-                                    diffCoeff[2] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[4 * warpsize + dfindex];
-                        metric[3] = diffCoeff[1] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[2] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[5 * warpsize + dfindex];
-                        metric[4] = diffCoeff[3] * df[dfindex] +
-                                    diffCoeff[4] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[5] * df[4 * warpsize + dfindex];
-                        metric[5] = diffCoeff[3] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[5] * df[5 * warpsize + dfindex];
+                        metric[0] =
+                            diffCoeff[diffCoeffIndex] * df[dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex] +
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[4 * warpsize + dfindex];
+                        metric[1] =
+                            diffCoeff[diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex] +
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[5 * warpsize + dfindex];
+                        metric[2] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[4 * warpsize + dfindex];
+                        metric[3] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[5 * warpsize + dfindex];
+                        metric[4] =
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex] +
+                            diffCoeff[5 * diffCoeffStride + diffCoeffIndex] *
+                                df[4 * warpsize + dfindex];
+                        metric[5] =
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex] +
+                            diffCoeff[5 * diffCoeffStride + diffCoeffIndex] *
+                                df[5 * warpsize + dfindex];
                     }
                 }
             }
@@ -542,7 +601,8 @@ NEK_DEVICE_INLINE static void ApplyMetric2DSumFacKernel(
 /**
  * @brief 3D metric kernel applying diffusion tensor and metric terms.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool VARCOEFF,
+          typename TData>
 NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     const unsigned int ilane, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const size_t inoffset, const TData *NEK_RESTRICT w0,
@@ -552,15 +612,17 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
     [[maybe_unused]] const TData *NEK_RESTRICT f1m,
     [[maybe_unused]] const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT df,
     const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out0,
-    TData *NEK_RESTRICT out1, TData *NEK_RESTRICT out2)
+    const size_t varDiffCoeffSize, const TData *NEK_RESTRICT in,
+    TData *NEK_RESTRICT out0, TData *NEK_RESTRICT out1,
+    TData *NEK_RESTRICT out2)
 {
+    const size_t diffCoeffStride    = VARCOEFF ? varDiffCoeffSize : 1;
     constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
 
     constexpr unsigned int ndf = 9u;
 
     TData metric[9] = {0.0};
-    if constexpr (!DEFORMED)
+    if constexpr (!DEFORMED && !VARCOEFF)
     {
         if (diffCoeff)
         {
@@ -604,37 +666,73 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
                 const unsigned int dfindex =
                     DEFORMED ? ndf * warpsize * cnt_kji + ilane : ilane;
 
-                if constexpr (DEFORMED)
+                if constexpr (DEFORMED || VARCOEFF)
                 {
+                    const size_t diffCoeffIndex = VARCOEFF ? index : 0;
                     if (diffCoeff)
                     {
-                        metric[0] = diffCoeff[0] * df[dfindex] +
-                                    diffCoeff[1] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[3] * df[6 * warpsize + dfindex];
-                        metric[1] = diffCoeff[0] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[1] * df[4 * warpsize + dfindex] +
-                                    diffCoeff[3] * df[7 * warpsize + dfindex];
-                        metric[2] = diffCoeff[0] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[1] * df[5 * warpsize + dfindex] +
-                                    diffCoeff[3] * df[8 * warpsize + dfindex];
-                        metric[3] = diffCoeff[1] * df[dfindex] +
-                                    diffCoeff[2] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[6 * warpsize + dfindex];
-                        metric[4] = diffCoeff[1] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[2] * df[4 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[7 * warpsize + dfindex];
-                        metric[5] = diffCoeff[1] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[2] * df[5 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[8 * warpsize + dfindex];
-                        metric[6] = diffCoeff[3] * df[dfindex] +
-                                    diffCoeff[4] * df[3 * warpsize + dfindex] +
-                                    diffCoeff[5] * df[6 * warpsize + dfindex];
-                        metric[7] = diffCoeff[3] * df[1 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[4 * warpsize + dfindex] +
-                                    diffCoeff[5] * df[7 * warpsize + dfindex];
-                        metric[8] = diffCoeff[3] * df[2 * warpsize + dfindex] +
-                                    diffCoeff[4] * df[5 * warpsize + dfindex] +
-                                    diffCoeff[5] * df[8 * warpsize + dfindex];
+                        metric[0] =
+                            diffCoeff[diffCoeffIndex] * df[dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex] +
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[6 * warpsize + dfindex];
+                        metric[1] =
+                            diffCoeff[diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[4 * warpsize + dfindex] +
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[7 * warpsize + dfindex];
+                        metric[2] =
+                            diffCoeff[diffCoeffIndex] *
+                                df[2 * warpsize + dfindex] +
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[5 * warpsize + dfindex] +
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[8 * warpsize + dfindex];
+                        metric[3] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[6 * warpsize + dfindex];
+                        metric[4] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[4 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[7 * warpsize + dfindex];
+                        metric[5] =
+                            diffCoeff[diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex] +
+                            diffCoeff[2 * diffCoeffStride + diffCoeffIndex] *
+                                df[5 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[8 * warpsize + dfindex];
+                        metric[6] =
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[3 * warpsize + dfindex] +
+                            diffCoeff[5 * diffCoeffStride + diffCoeffIndex] *
+                                df[6 * warpsize + dfindex];
+                        metric[7] =
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[1 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[4 * warpsize + dfindex] +
+                            diffCoeff[5 * diffCoeffStride + diffCoeffIndex] *
+                                df[7 * warpsize + dfindex];
+                        metric[8] =
+                            diffCoeff[3 * diffCoeffStride + diffCoeffIndex] *
+                                df[2 * warpsize + dfindex] +
+                            diffCoeff[4 * diffCoeffStride + diffCoeffIndex] *
+                                df[5 * warpsize + dfindex] +
+                            diffCoeff[5 * diffCoeffStride + diffCoeffIndex] *
+                                df[8 * warpsize + dfindex];
                     }
                 }
 
@@ -719,8 +817,8 @@ NEK_DEVICE_INLINE static void ApplyMetric3DSumFacKernel(
  * on device.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, bool VARCOEFF, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -732,7 +830,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT w0,
         [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+        const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
+        const unsigned int nhomo, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
         [[maybe_unused]] unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
@@ -759,6 +858,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
+        const TData *diffCoeffPtr =
+            VARCOEFF
+                ? diffCoeff + nq0 * (nelmt * (c % nhomo) + warpsize * iwarp)
+                : diffCoeff;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
@@ -770,8 +873,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, bwd);
         PhysDeriv1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, D0,
                                           dfptr, bwd, deriv);
-        ApplyMetric1DSumFacKernel<DEFORMED>(ilane, ncoord, nq0, nelmt * nq0, w0,
-                                            dfptr, jacptr, coeff, deriv, deriv);
+        ApplyMetric1DSumFacKernel<DEFORMED, VARCOEFF>(
+            ilane, ncoord, nq0, nelmt * nq0, w0, dfptr, jacptr, diffCoeffPtr,
+            varDiffCoeffSize, deriv, deriv);
         SumDerivTensor1DKernel<false, false>(ilane, nq0, D0, deriv, bwd,
                                              (TData)1.0);
         IProductWRTBaseSegSumFacKernel<false, false>(ilane, nm0, nq0, basis0,
@@ -786,8 +890,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * on device.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, bool VARCOEFF, typename TSizeParameter2D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -801,7 +905,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
         const TData *NEK_RESTRICT f0, const TData *NEK_RESTRICT f1,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT df,
-        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT coeff,
+        const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT diffCoeff,
+        const size_t varDiffCoeffSize, const unsigned int nhomo,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
         TData *NEK_RESTRICT wsp, unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
@@ -862,6 +967,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
+        const TData *diffCoeffPtr =
+            VARCOEFF
+                ? diffCoeff + nqTot * (nelmt * (c % nhomo) + warpsize * iwarp)
+                : diffCoeff;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
@@ -894,9 +1003,9 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysDeriv2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, D0, D1, s_f0, s_f1, dfptr,
             bwd, deriv);
-        ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        ApplyMetric2DSumFacKernel<SHAPE_TYPE, DEFORMED, VARCOEFF>(
             ilane, ncoord, nq0, nq1, nelmt * nqTot, w0, w1, s_f0, s_f1, dfptr,
-            jacptr, coeff, deriv, deriv0, deriv1);
+            jacptr, diffCoeffPtr, varDiffCoeffSize, deriv, deriv0, deriv1);
         SumDerivTensor2DKernel<false, false>(ilane, nq0, nq1, D0, D1, deriv0,
                                              deriv1, bwd);
         IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false>(
@@ -918,8 +1027,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * on device.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          bool DEFORMED, bool VARCOEFF, typename TSizeParameter3D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -940,7 +1049,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT f1, const TData *NEK_RESTRICT f1m,
         const TData *NEK_RESTRICT f2, const TData *NEK_RESTRICT nodToMod,
         const TData *NEK_RESTRICT df, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT coeff, const TData *NEK_RESTRICT in,
+        const TData *NEK_RESTRICT diffCoeff, const size_t varDiffCoeffSize,
+        const unsigned int nhomo, const TData *NEK_RESTRICT in,
         TData *NEK_RESTRICT out, TData *NEK_RESTRICT wsp,
         [[maybe_unused]] unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
@@ -1047,6 +1157,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     {
         const size_t ilane = e % warpsize;
         const size_t iwarp = e / warpsize;
+        const TData *diffCoeffPtr =
+            VARCOEFF
+                ? diffCoeff + nqTot * (nelmt * (c % nhomo) + warpsize * iwarp)
+                : diffCoeff;
         const TData *dfptr = df + ndf * dfsize * warpsize * iwarp;
         const TData *jacptr =
             DEFORMED ? jac + jacsize * warpsize * iwarp : jac + e;
@@ -1083,9 +1197,10 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         PhysDeriv3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, D0, D1, D2, s_f0, s_f1, s_f1m,
             s_f2, dfptr, bwd, deriv);
-        ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED>(
+        ApplyMetric3DSumFacKernel<SHAPE_TYPE, DEFORMED, VARCOEFF>(
             ilane, nq0, nq1, nq2, nelmt * nqTot, w0, w1, w2, s_f0, s_f1, s_f1m,
-            s_f2, dfptr, jacptr, coeff, deriv, deriv0, deriv1, deriv2);
+            s_f2, dfptr, jacptr, diffCoeffPtr, varDiffCoeffSize, deriv, deriv0,
+            deriv1, deriv2);
         SumDerivTensor3DKernel<false, false>(ilane, nq0, nq1, nq2, D0, D1, D2,
                                              deriv0, deriv1, deriv2, bwd);
         IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false>(

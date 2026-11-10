@@ -256,7 +256,32 @@ public:
         {
             this->m_blockOp[blk]->SetDiffCoeff(diffCoeff);
         }
-        m_isSetDiffCoeff = true;
+        m_isSetDiffCoeff    = true;
+        m_isSetVarDiffCoeff = false;
+    }
+
+    /**
+     * @brief Set a spatially varying symmetric diffusion tensor.
+     *
+     * Physical-space components use the same packed upper-triangular order
+     * as the constant overload: D00, D01, D11, D02, D12, D22. The field is
+     * borrowed and must outlive Apply(); changes to its values are visible
+     * on the next application. Implementations may change its interleaving.
+     * For homogeneous expansions these are the plane tensor components;
+     * the existing unit-coefficient homogeneous diffusion is retained.
+     */
+    void SetVarDiffCoeff(
+        LibUtilities::Field<TData, FieldState::Phys> &diffCoeff)
+    {
+        ASSERTL0(diffCoeff.GetBlocks().size() == this->m_blockOp.size(),
+                 "Diffusion coefficient blocks must match the expansion");
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetVarDiffCoeff(diffCoeff.GetBlocks()[blk]);
+        }
+
+        m_isSetDiffCoeff    = false;
+        m_isSetVarDiffCoeff = true;
     }
 
 protected:
@@ -264,7 +289,7 @@ protected:
     bool m_isSetLambda = false;
     /// Set by SetDiffCoeff(); checked by v_Apply() in debug builds.
     bool m_isSetDiffCoeff = false;
-    /// Placeholder for a spatially varying diffusion tensor.
+    /// Whether a spatially varying tensor is selected.
     bool m_isSetVarDiffCoeff = false;
 
     /// One block operator per element block of the expansion list;
@@ -315,13 +340,13 @@ protected:
                  "Set the value with SetLambda() before calling Apply().");
 
         ASSERTL1(m_isSetDiffCoeff || m_isSetVarDiffCoeff,
-                 "diffusion coefficient has not been set."
-                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "diffusion coefficient has not been set. "
+                 "Set the value with SetDiffCoeff() or SetVarDiffCoeff() "
                  "before calling Apply().");
 
         ASSERTL1(m_isSetDiffCoeff != m_isSetVarDiffCoeff,
-                 "can't set both DiffCoeff and VarDiffCoeff."
-                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "can't set both DiffCoeff and VarDiffCoeff. "
+                 "Set the value with SetDiffCoeff() or SetVarDiffCoeff() "
                  "before calling Apply().");
 
         // Loop over the blocks.

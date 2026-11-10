@@ -155,27 +155,57 @@ void SteadyADR::v_GenerateSummary(SummaryList &s)
  */
 void SteadyADR::SetDiffusionCoeff()
 {
-    if (m_coordim == 1)
+    // Optional physical tensor, in the same D00,D01,D11,D02,D12,D22 order
+    // as the constant parameters. epsilon scales every tensor component.
+    if (m_session->DefinesFunction("DiffusionCoefficient"))
     {
-        // Multiply by Scalar Part
-        m_diffCoeff[0] *= m_epsilon;
-    }
-    else if (m_coordim == 2)
-    {
-        // Multiply by Scalar Part
-        m_diffCoeff[0] *= m_epsilon;
-        m_diffCoeff[1] *= m_epsilon;
-        m_diffCoeff[2] *= m_epsilon;
+        std::vector<std::string> names = {"D00", "D01", "D11",
+                                          "D02", "D12", "D22"};
+        names.resize(m_coordim * (m_coordim + 1) / 2);
+        auto bAtr_phys =
+            MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                m_expansionLists[0],
+                Operator<double>::GetDefaultInterleaveWidth(m_session));
+        m_varDiffCoeff = LibUtilities::Field<double, FieldState::Phys>(
+            "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
+        m_varDiffCoeffOp =
+            ExpressionOp<double>::Create(m_expansionLists[0], names);
+        std::vector<LibUtilities::EquationSharedPtr> expressions;
+        for (const auto &component : names)
+        {
+            expressions.push_back(
+                m_session->GetFunction("DiffusionCoefficient", component));
+        }
+        m_varDiffCoeffOp->SetExpressions(expressions);
+        m_varDiffCoeffOp->SetScale(m_epsilon);
+        m_varDiffCoeffOp->SetTime(m_time);
+        m_math.zero(m_varDiffCoeff);
+        m_varDiffCoeffOp->Apply(m_varDiffCoeff, m_varDiffCoeff);
     }
     else
     {
-        // Multiply by Scalar Part
-        m_diffCoeff[0] *= m_epsilon;
-        m_diffCoeff[1] *= m_epsilon;
-        m_diffCoeff[2] *= m_epsilon;
-        m_diffCoeff[3] *= m_epsilon;
-        m_diffCoeff[4] *= m_epsilon;
-        m_diffCoeff[5] *= m_epsilon;
+        if (m_coordim == 1)
+        {
+            // Multiply by Scalar Part
+            m_diffCoeff[0] *= m_epsilon;
+        }
+        else if (m_coordim == 2)
+        {
+            // Multiply by Scalar Part
+            m_diffCoeff[0] *= m_epsilon;
+            m_diffCoeff[1] *= m_epsilon;
+            m_diffCoeff[2] *= m_epsilon;
+        }
+        else
+        {
+            // Multiply by Scalar Part
+            m_diffCoeff[0] *= m_epsilon;
+            m_diffCoeff[1] *= m_epsilon;
+            m_diffCoeff[2] *= m_epsilon;
+            m_diffCoeff[3] *= m_epsilon;
+            m_diffCoeff[4] *= m_epsilon;
+            m_diffCoeff[5] *= m_epsilon;
+        }
     }
 }
 
@@ -198,7 +228,14 @@ void SteadyADR::v_InitialiseOperators()
             m_expansionLists[0], m_session->GetVariables());
         linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
         linearADRSolveOp->SetLambda(m_lambda);
-        linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+        if (m_varDiffCoeffOp)
+        {
+            linearADRSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
+        }
+        else
+        {
+            linearADRSolveOp->SetDiffCoeff(m_diffCoeff);
+        }
         linearADRSolveOp->SetAdvVel(m_advectionVel);
         linearADRSolveOp->SetPrecon(m_preconOp);
         linearADRSolveOp->UpdatePrecon();
@@ -210,7 +247,14 @@ void SteadyADR::v_InitialiseOperators()
             m_expansionLists[0], m_session->GetVariables());
         helmSolveOp->SetLambda(m_lambda);
         helmSolveOp->SetLinearSolver(m_linearSolverOp);
-        helmSolveOp->SetDiffCoeff(m_diffCoeff);
+        if (m_varDiffCoeffOp)
+        {
+            helmSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
+        }
+        else
+        {
+            helmSolveOp->SetDiffCoeff(m_diffCoeff);
+        }
         helmSolveOp->SetPrecon(m_preconOp);
         helmSolveOp->UpdatePrecon();
         m_linearSystemOp = helmSolveOp;
@@ -220,7 +264,14 @@ void SteadyADR::v_InitialiseOperators()
         auto poissonSolveOp = PoissonSolveOp<double>::Create(
             m_expansionLists[0], m_session->GetVariables());
         poissonSolveOp->SetLinearSolver(m_linearSolverOp);
-        poissonSolveOp->SetDiffCoeff(m_diffCoeff);
+        if (m_varDiffCoeffOp)
+        {
+            poissonSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
+        }
+        else
+        {
+            poissonSolveOp->SetDiffCoeff(m_diffCoeff);
+        }
         poissonSolveOp->SetPrecon(m_preconOp);
         poissonSolveOp->UpdatePrecon();
         m_linearSystemOp = poissonSolveOp;
@@ -320,8 +371,8 @@ void SteadyADR::InitialiseParameters()
     m_session->LoadParameter("lambda", m_lambda, 0.0);
 
     // Get diffusion parameters
-    const auto diffCoeffSize = m_coordim * (m_coordim + 1) / 2;
-    m_diffCoeff.resize(diffCoeffSize);
+    const auto nDiffCoeff = m_coordim * (m_coordim + 1) / 2;
+    m_diffCoeff.resize(nDiffCoeff);
 
     m_session->LoadParameter("epsilon", m_epsilon, 1.0);
     if (m_coordim == 1)

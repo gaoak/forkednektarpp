@@ -157,6 +157,7 @@ v5.11.0
 - Register the redesign SDC and GEM time integration operators with the common TimeOp factory, removing the separate SDC and GEM factories; their order, variant and free parameters are set through `TimeOp::v_SetScheme` once the operator is created (!2913)
 - Remove the duplicate double-only BLAS wrappers (`Dgemv`, `Dgemm`, ...) and the unused `Cdgemm`; use the overloaded versions instead (!2915)
 - Store the per-element inverse mass matrices of deformed blocks in the geometric data warehouse (`ElmtInvMassKey`), so MultiplyByElmtInvMass and PhysLiftProject share one copy in place of each operator holding its own (!2914)
+- Add variable diffusion coefficients to the Helmholtz, Laplacian and LinAdvDiffReaction operators and their linear systems (!2916)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
@@ -201,6 +202,7 @@ v5.11.0
 - Add steady Poisson, Helmholtz and steady ADR solvers, unified into a single equation system (!2403, !2466)
 - Add unsteady diffusion and unsteady ADR, including reaction-diffusion and multi-component support (!2128, !2510)
 - Add CG and DG unsteady advection, with DG advection and interior-penalty diffusion on the flux framework (!2478, !2545, !2546, !2713, !2714)
+- Add variable diffusion coefficients through the `DiffusionCoefficient` function (!2916)
 
 **CompressibleFlowSolverRedesign**
 - Add `CompressibleFlowSolverRedesign` with the Euler equations (!2237)

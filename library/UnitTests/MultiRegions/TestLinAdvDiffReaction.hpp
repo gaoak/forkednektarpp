@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "TestOp.hpp"
+#include "VariableDiffusion.hpp"
 
 #include <cmath>
 
@@ -51,7 +52,7 @@ class TestLinAdvDiffReaction
 public:
     TestLinAdvDiffReaction() = default;
 
-    void SetTestCase()
+    void SetTestCase(const bool varDiffCoeff = false)
     {
         // Set initial conditions.
         for (unsigned int blk = 0; blk < this->fixt_in->GetBlocks().size();
@@ -96,9 +97,9 @@ public:
                        : 10.0;
 
         // Set up diffusion coefficient.
-        m_coordDim               = this->fixt_explist->GetCoordim(0);
-        const auto diffCoeffSize = m_coordDim * (m_coordDim + 1) / 2;
-        m_diffCoeff.resize(diffCoeffSize);
+        m_coordDim            = this->fixt_explist->GetCoordim(0);
+        const auto nDiffCoeff = m_coordDim * (m_coordDim + 1) / 2;
+        m_diffCoeff.resize(nDiffCoeff);
 
         if (m_coordDim == 1)
         {
@@ -137,6 +138,21 @@ public:
                         tmp = m_vel + d * m_velCompStride, 1);
         }
 
+        // Set up variable diffusion coefficient. The Field keeps the initial
+        // values; RunTestCase copies the scaled ones in after borrowing it.
+        if (varDiffCoeff)
+        {
+            m_varDiffHelper.Initialise(this->fixt_explist,
+                                       this->fixt_in->GetNumHomoModes());
+            for (auto &component : m_varDiffHelper.values)
+            {
+                for (unsigned int p = 0; p < component.size(); ++p)
+                {
+                    component[p] *= 1.25;
+                }
+            }
+        }
+
         // Compute expected solution.
         ExpectedSolution();
     }
@@ -155,7 +171,16 @@ public:
 
         // seem to have the negative definitio of lambda implemented currently
         LinADR->SetLambda(-1.0 * m_lambda);
-        LinADR->SetDiffCoeff(m_diffCoeff);
+        if (m_varDiffHelper.field)
+        {
+            LinADR->SetVarDiffCoeff(*m_varDiffHelper.field);
+            // Updating after SetVarDiffCoeff checks the Field is borrowed.
+            m_varDiffHelper.CopyToField();
+        }
+        else
+        {
+            LinADR->SetDiffCoeff(m_diffCoeff);
+        }
         LinADR->SetAdvVel(vel);
         LinADR->Apply(*this->fixt_in, *this->fixt_out);
     }
@@ -230,7 +255,8 @@ public:
                 for (size_t el = 0; el < block.GetNumElements(); ++el)
                 {
                     // Restrict varcoeffs to size of element
-                    StdRegions::VarCoeffMap varcoeffs;
+                    auto varcoeffs =
+                        m_varDiffHelper.ForElement(this->fixt_explist, e);
 
                     for (unsigned int d = 0; d < m_coordDim; ++d)
                     {
@@ -245,8 +271,18 @@ public:
                         this->fixt_explist->GetExp(e)->DetShapeType(),
                         *(this->fixt_explist->GetExp(e)), factors, varcoeffs);
 
-                    this->fixt_explist->GetExp(e)->GeneralMatrixOp(
-                        incoeffs + offset, tmp = outcoeffs + offset, mkey);
+                    if (m_varDiffHelper.field &&
+                        this->fixt_explist->GetShapeDimension() == 1)
+                    {
+                        m_varDiffHelper.ApplySegment(
+                            this->fixt_explist, e, incoeffs + offset,
+                            tmp = outcoeffs + offset, -m_lambda, varcoeffs);
+                    }
+                    else
+                    {
+                        this->fixt_explist->GetExp(e)->GeneralMatrixOp(
+                            incoeffs + offset, tmp = outcoeffs + offset, mkey);
+                    }
                     e++;
                     offset += nmTot;
                     physoffset += nphysloc;
@@ -294,6 +330,7 @@ public:
     }
 
 private:
+    VariableDiffusion<TData> m_varDiffHelper;
     unsigned int m_coordDim;
     /// Step from one velocity component to the next: one plane's points
     /// times the number of planes.

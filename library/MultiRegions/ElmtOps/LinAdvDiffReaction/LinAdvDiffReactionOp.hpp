@@ -206,7 +206,7 @@ public:
     /**
      * @brief Set the constant diffusivity tensor on every block operator.
      *
-     * The tensor is symmetric and is passed packed into its lower
+     * The tensor is symmetric and is passed packed into its upper
      * triangle, in the order the kernels' index map
      * (LibUtilities::GetDiffCoeffMap) expects --
      * \f$n_{coord}(n_{coord}+1)/2\f$ entries:
@@ -218,9 +218,8 @@ public:
      * the planes on a 3DH1 expansion, whose z term takes a unit
      * diffusivity with no coupling), not the shape dimension;
      * LinAdvDiffReactionBlockOp::SetDiffCoeff asserts the count. The same
-     * tensor applies to every element and every quadrature point; a spatially
-     * varying diffusivity is not available through this interface (see
-     * #m_isSetVarDiffCoeff).
+     * tensor applies to every element and every quadrature point. Use the
+     * physical-space Field overload for a spatially varying tensor.
      *
      * @param   diffCoeff   Packed tensor entries; copied into a host
      *                      memory region held by each block operator.
@@ -232,7 +231,8 @@ public:
         {
             this->m_blockOp[blk]->SetDiffCoeff(diffCoeff);
         }
-        m_isSetDiffCoeff = true;
+        m_isSetDiffCoeff    = true;
+        m_isSetVarDiffCoeff = false;
     }
 
     /**
@@ -273,14 +273,35 @@ public:
         v_SetAdvVelFFT(advVel);
     }
 
+    /**
+     * @brief Set a spatially varying symmetric diffusion tensor.
+     *
+     * Physical-space components use the same packed upper-triangular order
+     * as the constant overload: D00, D01, D11, D02, D12, D22. The field is
+     * borrowed and must outlive Apply(); changes to its values are visible
+     * on the next application. Implementations may change its interleaving.
+     * For homogeneous expansions these are the plane tensor components;
+     * the existing unit-coefficient homogeneous diffusion is retained.
+     */
+    void SetVarDiffCoeff(
+        LibUtilities::Field<TData, FieldState::Phys> &diffCoeff)
+    {
+        ASSERTL0(diffCoeff.GetBlocks().size() == this->m_blockOp.size(),
+                 "Diffusion coefficient blocks must match the expansion");
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetVarDiffCoeff(diffCoeff.GetBlocks()[blk]);
+        }
+        m_isSetDiffCoeff    = false;
+        m_isSetVarDiffCoeff = true;
+    }
+
 protected:
     /// SetLambda() has been called.
     bool m_isSetLambda = false;
     /// SetDiffCoeff() has been called.
     bool m_isSetDiffCoeff = false;
-    /// A spatially varying diffusivity has been installed. Nothing in
-    /// this class sets it; v_Apply() requires exactly one of it and
-    /// #m_isSetDiffCoeff.
+    /// Whether the physical-space Field overload selected variable diffusion.
     bool m_isSetVarDiffCoeff = false;
     /// SetAdvVel() has been called.
     bool m_isSetAdvVel = false;
@@ -333,13 +354,13 @@ protected:
                  "Set the value with SetLambda() before calling Apply().");
 
         ASSERTL1(m_isSetDiffCoeff || m_isSetVarDiffCoeff,
-                 "diffusion coefficient has not been set."
-                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "diffusion coefficient has not been set. "
+                 "Set the value with SetDiffCoeff() or SetVarDiffCoeff() "
                  "before calling Apply().");
 
         ASSERTL1(m_isSetDiffCoeff != m_isSetVarDiffCoeff,
-                 "can't set both DiffCoeff and VarDiffCoeff."
-                 "Set the value with SetDiffCoeff() OR SetVarDiffCoeff() "
+                 "can't set both DiffCoeff and VarDiffCoeff. "
+                 "Set the value with SetDiffCoeff() or SetVarDiffCoeff() "
                  "before calling Apply().");
 
         ASSERTL1(m_isSetAdvVel,

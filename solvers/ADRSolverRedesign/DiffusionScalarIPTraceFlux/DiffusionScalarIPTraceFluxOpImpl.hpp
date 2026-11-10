@@ -260,8 +260,8 @@ protected:
      */
     void v_SetDiffCoeff(std::vector<TData> &diffCoeff) override
     {
-        [[maybe_unused]] const auto diffCoeffSize = m_nDim * (m_nDim + 1) / 2;
-        ASSERTL1(diffCoeff.size() == diffCoeffSize,
+        [[maybe_unused]] const auto nDiffCoeff = m_nDim * (m_nDim + 1) / 2;
+        ASSERTL1(diffCoeff.size() == nDiffCoeff,
                  "The number of diffusion coefficients must match 1, 3 or 6 "
                  "for a 1D, 2D or 3D case, respectively.");
 

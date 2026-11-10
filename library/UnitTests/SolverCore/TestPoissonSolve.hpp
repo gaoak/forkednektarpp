@@ -141,8 +141,8 @@ public:
         this->m_out.template Initialize<NektarSpaces::HostSpace>(0.0);
 
         // Set up diffusion coefficient.
-        const auto diffCoeffSize = m_coordDim * (m_coordDim + 1) / 2;
-        m_diffCoeff.resize(diffCoeffSize);
+        const auto nDiffCoeff = m_coordDim * (m_coordDim + 1) / 2;
+        m_diffCoeff.resize(nDiffCoeff);
 
         // Set up (isotropic) diffusion coefficient.
         if (m_coordDim == 1)
