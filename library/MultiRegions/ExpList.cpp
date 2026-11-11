@@ -3381,6 +3381,12 @@ int ExpList::GetExpIndex(const Array<OneD, const NekDouble> &gloCoords,
     int min_id           = -1;
     Array<OneD, NekDouble> savLocCoords(locCoords.size());
 
+    // ContainsPoint overwrites locCoords and curved elements use it as the
+    // Newton initial guess, so every candidate restarts from the caller's
+    // guess rather than from where the previous candidate's search ended.
+    Array<OneD, NekDouble> initLocCoords(locCoords.size());
+    Vmath::Vcopy(locCoords.size(), locCoords, 1, initLocCoords, 1);
+
     if (cachedId >= 0 && cachedId < (*m_exp).size())
     {
         nearpt = 1e12;
@@ -3418,6 +3424,7 @@ int ExpList::GetExpIndex(const Array<OneD, const NekDouble> &gloCoords,
         {
             continue;
         }
+        Vmath::Vcopy(locCoords.size(), initLocCoords, 1, locCoords, 1);
         if ((*m_exp)[id]->GetLocator()->ContainsPoint(gloCoords, locCoords, tol,
                                                       nearpt))
         {

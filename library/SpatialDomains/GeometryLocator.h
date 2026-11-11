@@ -141,7 +141,7 @@ public:
         const Array<OneD, const NekDouble> &xs, Array<OneD, NekDouble> &xi);
 
     SPATIAL_DOMAINS_EXPORT int PreliminaryCheck(
-        const Array<OneD, const NekDouble> &gloCoord);
+        const Array<OneD, const NekDouble> &gloCoord, NekDouble &edgeDist);
     SPATIAL_DOMAINS_EXPORT bool MinMaxCheck(
         const Array<OneD, const NekDouble> &gloCoord);
     /// Clamp local coordinates into the reference element
@@ -167,6 +167,11 @@ protected:
     /// Inverse of the linear part of @p m_iso, for regular elements.
     std::array<std::array<NekDouble, kMaxGeomDim>, kMaxGeomDim> m_invIsoParam{};
 
+    /// Whether the Newton iteration of the last GetLocCoords call converged,
+    /// i.e. whether its local coordinates map to the point. Set only by
+    /// elements located by Newton iteration; read by ContainsPoint.
+    bool m_newtonConverged = false;
+
     /// Element bounding box as (xmin, ymin, zmin, xmax, ymax, zmax).
     bool m_hasBoundingBox = false;
     std::array<NekDouble, 6> m_boundingBox{};
@@ -182,7 +187,8 @@ protected:
                                      Array<OneD, NekDouble> &Lcoords);
     virtual NekDouble v_FindDistance(const Array<OneD, const NekDouble> &xs,
                                      Array<OneD, NekDouble> &xi);
-    virtual int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord);
+    virtual int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord,
+                               NekDouble &edgeDist);
     virtual void v_CalculateInverseIsoParam();
     virtual void v_PreSolveStraightEdge();
 };
@@ -214,7 +220,8 @@ protected:
                              Array<OneD, NekDouble> &Lcoords) override;
     NekDouble v_FindDistance(const Array<OneD, const NekDouble> &xs,
                              Array<OneD, NekDouble> &xi) override;
-    int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord) override;
+    int v_AllLeftCheck(const Array<OneD, const NekDouble> &gloCoord,
+                       NekDouble &edgeDist) override;
     void v_CalculateInverseIsoParam() override;
     void v_PreSolveStraightEdge() override;
 
@@ -241,7 +248,8 @@ protected:
 
 private:
     void NewtonIterationForLocCoord(const Array<OneD, const NekDouble> &coords,
-                                    Array<OneD, NekDouble> &Lcoords);
+                                    Array<OneD, NekDouble> &Lcoords,
+                                    NekDouble &dist);
     void NewtonIterationForLocCoord(const Array<OneD, const NekDouble> &coords,
                                     const Array<OneD, const NekDouble> &ptsx,
                                     const Array<OneD, const NekDouble> &ptsy,

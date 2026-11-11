@@ -162,6 +162,7 @@ v5.11.0
 - Add per-block interleave width helpers to `Field` and use them in place of duplicated block loops (!2918)
 - Fix `BlockAccessor::ReshapeStorage()` ignoring its stream (!2918)
 - Add scale and append options to Mass and an append option to IProductWRTBase, and use them to fuse the 3DH1 z-terms of Helmholtz, Laplacian, LinAdvDiffReaction and IProductWRTDerivBase (!2920)
+- Fix point location in curved elements, which could leave FieldConvert interpolation points unfound or evaluate them at the wrong local coordinates: accept a point only where the Newton iteration converged, start the 2D iteration from the nearest quadrature point, and let points just outside a straight edge of the domain boundary fall back to the nearest element (!2894)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)
