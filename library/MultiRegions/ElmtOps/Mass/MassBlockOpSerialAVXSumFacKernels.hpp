@@ -47,11 +47,9 @@
  * and then IProductWRTBaseKernelLauncher
  * (IProductWRTBaseBlockOpSerialAVXSumFacKernels.hpp) from that buffer into the
  * output, in its form with the quadrature weights and the Jacobians. The
- * transform is instantiated with APPEND false and the inner product with
- * SCALE and APPEND false, so the output is overwritten and the nodal-shape
- * APPEND caveat noted on the IProductWRTBaseKernelLauncher overloads does
- * not arise here. Both launchers stage their directional intermediate sums
- * in the same workspaces, which the block implementation
+ * transform is instantiated with APPEND false; SCALE and APPEND are passed
+ * to the inner product. Both launchers stage their directional intermediate
+ * sums in the same workspaces, which the block implementation
  * (MassBlockOpSerialAVXSumFac.hpp) sizes to the larger of the two families'
  * workspace queries, pulled in through the two kernel headers.
  */
@@ -71,6 +69,8 @@ namespace Nektar::MultiRegions::detail
  * for one element group of segments.
  *
  * @tparam SHAPE_TYPE       Shape tag (segments only in 1D).
+ * @tparam SCALE            Multiply the result by @p scale.
+ * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one vector per quadrature point
  *                          rather than one per element group.
  * @tparam TSizeParameter1D 1D size parameter, templated or not.
@@ -88,17 +88,18 @@ namespace Nektar::MultiRegions::detail
  * @param   bwd         Interleaved physical values of the group, written
  *                      by the transform and read by the inner product.
  * @param   in          Interleaved coefficients of the element group.
- * @param   out         Interleaved coefficients of the element group;
- *                      overwritten.
+ * @param   out         Interleaved coefficients of the element group.
+ * @param   scale       Factor applied when @p SCALE is set.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TSizeParameter1D, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, typename TSizeParameter1D, typename simd_type>
 NEK_FORCE_INLINE static void MassKernelLauncher(
     const TSizeParameter1D sizeParam1D, const bool isModified,
     const typename simd_type::scalarType *basis0,
     const typename simd_type::scalarType *w0, const simd_type *NtoM,
     const simd_type *NtoMTrans, const simd_type *jac, simd_type *bwd,
-    const simd_type *in, simd_type *out)
+    const simd_type *in, simd_type *out,
+    typename simd_type::scalarType scale = 1.0)
 {
     static_assert(IsSizeParameter1D_v<TSizeParameter1D>,
                   "Template argument must be either of type "
@@ -109,8 +110,8 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
                                               NtoM, in, bwd);
 
     // Step 2: Inner product for mass matrix operation.
-    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false, DEFORMED>(
-        sizeParam1D, isModified, bwd, basis0, w0, NtoMTrans, jac, out);
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
+        sizeParam1D, isModified, bwd, basis0, w0, NtoMTrans, jac, out, scale);
 }
 
 /**
@@ -124,6 +125,8 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
  * the shape kernels.
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
+ * @tparam SCALE            Multiply the result by @p scale.
+ * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one vector per quadrature point.
  * @tparam TSizeParameter2D 2D size parameter, templated or not.
  * @tparam simd_type        SIMD vector type of the interleaved group.
@@ -142,10 +145,11 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
  * @param   bwd         Interleaved physical values of the group, written
  *                      by the transform and read by the inner product.
  * @param   in          Interleaved coefficients of the group.
- * @param   out         Interleaved coefficients of the group; overwritten.
+ * @param   out         Interleaved coefficients of the group.
+ * @param   scale       Factor applied when @p SCALE is set.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TSizeParameter2D, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, typename TSizeParameter2D, typename simd_type>
 NEK_FORCE_INLINE static void MassKernelLauncher(
     const TSizeParameter2D sizeParam2D, const bool isModified,
     const typename simd_type::scalarType *basis0,
@@ -153,7 +157,8 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
     const typename simd_type::scalarType *w0,
     const typename simd_type::scalarType *w1, const simd_type *NtoM,
     const simd_type *NtoMTrans, const simd_type *jac, simd_type *wsp0,
-    simd_type *bwd, const simd_type *in, simd_type *out)
+    simd_type *bwd, const simd_type *in, simd_type *out,
+    typename simd_type::scalarType scale = 1.0)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -164,9 +169,9 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
                                               basis1, NtoM, wsp0, in, bwd);
 
     // Step 2: Inner product for mass matrix operation.
-    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false, DEFORMED>(
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         sizeParam2D, isModified, bwd, basis0, basis1, w0, w1, NtoMTrans, jac,
-        wsp0, out);
+        wsp0, out, scale);
 }
 
 /**
@@ -181,6 +186,8 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
  *
  * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
  * NodalPyr.
+ * @tparam SCALE            Multiply the result by @p scale.
+ * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one vector per quadrature point.
  * @tparam TSizeParameter3D 3D size parameter, templated or not.
  * @tparam simd_type        SIMD vector type of the interleaved group.
@@ -202,10 +209,11 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
  * @param   bwd         Interleaved physical values of the group, written
  *                      by the transform and read by the inner product.
  * @param   in          Interleaved coefficients of the group.
- * @param   out         Interleaved coefficients of the group; overwritten.
+ * @param   out         Interleaved coefficients of the group.
+ * @param   scale       Factor applied when @p SCALE is set.
  */
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
-          typename TSizeParameter3D, typename simd_type>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, typename TSizeParameter3D, typename simd_type>
 NEK_FORCE_INLINE static void MassKernelLauncher(
     const TSizeParameter3D sizeParam3D, const bool isModified,
     const typename simd_type::scalarType *basis0,
@@ -216,7 +224,7 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
     const typename simd_type::scalarType *w2, const simd_type *NtoM,
     const simd_type *NtoMTrans, const simd_type *jac, simd_type *wsp0,
     simd_type *wsp1, simd_type *wsp2, simd_type *bwd, const simd_type *in,
-    simd_type *out)
+    simd_type *out, typename simd_type::scalarType scale = 1.0)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
                   "Template argument must be either of type "
@@ -228,9 +236,9 @@ NEK_FORCE_INLINE static void MassKernelLauncher(
                                               in, bwd);
 
     // Step 2: Inner product for mass matrix operation.
-    IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false, DEFORMED>(
+    IProductWRTBaseKernelLauncher<SHAPE_TYPE, SCALE, APPEND, DEFORMED>(
         sizeParam3D, isModified, bwd, basis0, basis1, basis2, w0, w1, w2,
-        NtoMTrans, jac, wsp0, wsp1, wsp2, out);
+        NtoMTrans, jac, wsp0, wsp1, wsp2, out, scale);
 }
 
 } // namespace Nektar::MultiRegions::detail

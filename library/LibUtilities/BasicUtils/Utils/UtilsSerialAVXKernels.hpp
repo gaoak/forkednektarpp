@@ -39,7 +39,7 @@
 namespace Nektar
 {
 
-template <typename simd_type>
+template <bool APPEND = false, typename simd_type>
 NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
                                           const simd_type *Mat,
                                           const simd_type *in, simd_type *out)
@@ -53,7 +53,14 @@ NEK_FORCE_INLINE static void MatVecKernel(const unsigned int n,
             i_sum.fma(Mat[cnt], in[j]);
         }
 
-        out[i] = i_sum;
+        if constexpr (APPEND)
+        {
+            out[i] += i_sum;
+        }
+        else
+        {
+            out[i] = i_sum;
+        }
     }
 }
 

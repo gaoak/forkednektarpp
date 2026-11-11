@@ -240,12 +240,15 @@ protected:
      * with the metric off a single strided-batched GEMM against
      * #m_BT_matptr runs straight from the input, with the scale factor as
      * its alpha. In both the homogeneous modes are folded into the columns,
-     * so there is no loop over components or modes here. Both fields are
-     * interleaved back to the input's width, which the output block is
-     * also set to, and everything is issued on #m_streamID.
+     * so there is no loop over components or modes here. In append mode the
+     * output is de-interleaved too and the GEMM accumulates onto it, with
+     * beta = 1. Both fields are interleaved back to the input's width,
+     * which the output block is also set to, and everything is issued on
+     * #m_streamID.
      *
      * @param   inblock     Physical-space input block.
-     * @param   outblock    Coefficient-space output block; overwritten.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
@@ -261,8 +264,11 @@ protected:
         const auto nelmtTot = nelmt * inblock.GetNumHomoModes();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (this->m_append)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         auto wspptr =
@@ -272,7 +278,8 @@ protected:
                 : nullptr;
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Offsets between the components of a block.
         const auto inoffset  = inblock.CompSize() * inblock.GetNumHomoModes();
@@ -281,8 +288,15 @@ protected:
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
+        if (this->m_append)
+        {
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), outptr, m_streamID);
+        }
+
         if (this->m_integration) // integration with weights
         {
             // Multiply by jacobian.
@@ -301,31 +315,33 @@ protected:
 
             // Perform batched matrix-matrix multiply, one multiply per
             // component, with the homogeneous modes held in the columns.
-            NekBlas::GemmStridedBatched(
-                handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, (TData)1.0,
-                m_matptr, m_nmTot, 0, wspptr, m_nqTot, wspoffset, (TData)0.0,
-                outptr, m_nmTot, outoffset, inblock.GetNumComponents());
+            NekBlas::GemmStridedBatched(handle, "N", "N", m_nmTot, nelmtTot,
+                                        m_nqTot, (TData)1.0, m_matptr, m_nmTot,
+                                        0, wspptr, m_nqTot, wspoffset,
+                                        (TData)this->m_append, outptr, m_nmTot,
+                                        outoffset, inblock.GetNumComponents());
         }
         else
         {
             // Perform batched matrix-matrix multiply of B^T, one multiply
             // per component, with the homogeneous modes held in the columns.
-            NekBlas::GemmStridedBatched(
-                handle, "N", "N", m_nmTot, nelmtTot, m_nqTot, this->m_scale,
-                m_BT_matptr, m_nmTot, 0, inptr, m_nqTot, inoffset, (TData)0.0,
-                outptr, m_nmTot, outoffset, inblock.GetNumComponents());
+            NekBlas::GemmStridedBatched(handle, "N", "N", m_nmTot, nelmtTot,
+                                        m_nqTot, this->m_scale, m_BT_matptr,
+                                        m_nmTot, 0, inptr, m_nqTot, inoffset,
+                                        (TData)this->m_append, outptr, m_nmTot,
+                                        outoffset, inblock.GetNumComponents());
         }
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

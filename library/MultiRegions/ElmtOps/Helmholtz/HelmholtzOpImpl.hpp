@@ -57,7 +57,6 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
 #include <MultiRegions/ElmtOps/DerivZOpImpl.hpp>
@@ -94,8 +93,8 @@ public:
     {
         // The weak z-Laplacian of a multi-plane 3DH1 field is the xy mass
         // matrix applied to minus the second z-derivative, so the z-op writes
-        // that derivative into m_d2z, the mass operator takes it to m_wsp and
-        // the result is subtracted from the xy part -- the minus sits here
+        // that derivative into m_d2z and the mass operator, scaled by -1 in
+        // append mode, adds the result to the xy part -- the minus sits here
         // rather than in the z-op, which gives the derivative itself. The
         // lambda term needs nothing here: the block operators already carry
         // it on every plane. They all stay uninstantiated on every other
@@ -122,6 +121,8 @@ public:
                 DerivZOpImpl<ExecSpace, TData, DerivZLayout::Identity,
                              DerivZOrder::Second, false>>(expansionList);
             m_massOp = MassOp<TData>::Create(expansionList, components);
+            m_massOp->SetScale(-1.0);
+            m_massOp->SetAppend(true);
 
             auto blockAttr =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
@@ -131,8 +132,6 @@ public:
 
             m_d2z = LibUtilities::Field<TData, FieldState::Coeff>(
                 "HelmholtzD2Z", blockAttr, nComp, nhomo);
-            m_wsp = LibUtilities::Field<TData, FieldState::Coeff>(
-                "HelmholtzWsp", blockAttr, nComp, nhomo);
         }
     }
 
@@ -150,7 +149,7 @@ public:
 
 protected:
     /// Component for component, giving the second z-derivative; the xy
-    /// mass matrix and the subtraction below make it the weak z-Laplacian.
+    /// mass matrix, scaled by -1, makes it the weak z-Laplacian.
     std::shared_ptr<DerivZOpImpl<ExecSpace, TData, DerivZLayout::Identity,
                                  DerivZOrder::Second, false>>
         m_zOp;
@@ -158,8 +157,6 @@ protected:
     std::shared_ptr<MassOp<TData>> m_massOp;
     /// Second z-derivative of the input, written by #m_zOp.
     LibUtilities::Field<TData, FieldState::Coeff> m_d2z;
-    /// Mass matrix applied to #m_d2z, subtracted from the output.
-    LibUtilities::Field<TData, FieldState::Coeff> m_wsp;
 
     /// Subtract the mass-weighted second z-derivative from @p out on a
     /// field with more than one homogeneous mode.
@@ -168,13 +165,11 @@ protected:
     {
         if (m_zOp && in.GetNumHomoModes() > 1)
         {
-            m_zOp->Launch(in, m_d2z);
-            m_massOp->Apply(m_d2z, m_wsp);
-
             // The z-op gives the second derivative itself and the weak
-            // z-Laplacian takes minus it, so the mass-weighted result is
-            // subtracted rather than added.
-            Math::sub<ExecSpace>(out, m_wsp, out);
+            // z-Laplacian takes minus it, so the mass operator subtracts the
+            // mass-weighted result from the output.
+            m_zOp->Launch(in, m_d2z);
+            m_massOp->Apply(m_d2z, out);
         }
     }
 };

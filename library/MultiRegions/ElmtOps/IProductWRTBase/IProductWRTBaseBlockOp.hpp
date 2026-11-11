@@ -41,7 +41,8 @@
  * elements of one block (see ElmtBlockOp.hpp for the block scheme and
  * IProductWRTBaseOp.hpp for the mathematical action). It carries the
  * family-specific state the whole-field IProductWRTBaseOp forwards to every
- * block -- the scale factor and the quadrature-metric switch. The
+ * block -- the scale factor, the append flag and the quadrature-metric
+ * switch. The
  * per-implementation subclasses are the detail::IProductWRTBaseBlockOpImpl
  * definitions in IProductWRTBase{SerialAVX,Device}{StdMat,SumFac}.hpp.
  */
@@ -59,14 +60,14 @@ namespace Nektar::MultiRegions
  *
  * @details
  * Besides fixing the block states accepted by Apply() at compile time --
- * physical space in, coefficient space out -- this class stores the two
- * settings shared by every implementation: the scale factor #m_scale and
- * the quadrature-metric switch #m_integration, which selects between the
- * full inner product (the input weighted by the quadrature metric before
- * the basis transpose) and the basis transpose alone.
- * IProductWRTBaseOp::SetScale and SetIntegration forward to the setters
- * here block by block; the implementations read the settings in their
- * v_Apply().
+ * physical space in, coefficient space out -- this class stores the three
+ * settings shared by every implementation: the scale factor #m_scale, the
+ * append flag #m_append and the quadrature-metric switch #m_integration,
+ * which selects between the full inner product (the input weighted by the
+ * quadrature metric before the basis transpose) and the basis transpose
+ * alone. IProductWRTBaseOp::SetScale, SetAppend and SetIntegration forward
+ * to the setters here block by block; the implementations read the
+ * settings in their v_Apply().
  *
  * CMake generates one registration translation unit per execution space,
  * implementation and data type (from ElmtOps/ElmtBlockOpFactoryDec.cpp.in)
@@ -112,11 +113,11 @@ public:
     /// implementation to it to form the factory key.
     static inline const std::string name = "BlockIProductWRTBase";
 
-    /// @brief Set the scalar factor applied to the result; see
-    /// IProductWRTBaseOp::SetScale.
-    void SetScale(const TData &scale)
+    /// @brief Set overwrite (false, the default) or accumulate (true)
+    /// mode for subsequent Apply() calls; see IProductWRTBaseOp::SetAppend().
+    void SetAppend(const bool &append)
     {
-        m_scale = scale;
+        m_append = append;
     }
 
     /// @brief Enable (true, the initial state) or disable the quadrature
@@ -126,10 +127,20 @@ public:
         m_integration = value;
     }
 
+    /// @brief Set the scalar factor applied to the result; see
+    /// IProductWRTBaseOp::SetScale.
+    void SetScale(const TData &scale)
+    {
+        m_scale = scale;
+    }
+
 protected:
     /// Scalar factor applied to the result (default 1); how each
     /// implementation applies it is set out in IProductWRTBaseOp::SetScale.
     TData m_scale = 1.0;
+    /// When true, Apply() adds the scaled inner product onto the output
+    /// block's existing values instead of overwriting them.
+    bool m_append = false;
     /// Quadrature metric on (the initial state) or off; see the class
     /// description.
     bool m_integration = true;

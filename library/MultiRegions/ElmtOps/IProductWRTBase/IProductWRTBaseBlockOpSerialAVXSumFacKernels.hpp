@@ -59,8 +59,7 @@
  * duplicated per element size, so that the size-templated OperatorND()
  * instantiations see compile-time loop bounds and unroll. The launchers
  * are shared with the other element operators whose sum-factorised paths
- * end in a basis contraction, which is why they carry an APPEND parameter
- * that IProductWRTBase itself never sets true.
+ * end in a basis contraction.
  */
 
 #pragma once
@@ -253,13 +252,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
  * triangles, @p isModified triggers the extra collapsed-vertex contribution
  * inside IProductTriKernel.
  *
- * @note On NodalTri the @p APPEND flag does not reach @p out. It is handed
- * to IProductTriKernel, which then accumulates into the workspace slice
- * holding the pre-nodal coefficients, a slice nothing zeroes beforehand,
- * and MatVecKernel (LibUtilities/BasicUtils/Utils/UtilsSerialAVXKernels.hpp)
- * stores its result to @p out unconditionally. Quad and Tri apply the flag
- * to @p out. IProductWRTBase itself instantiates the launcher with APPEND
- * false only.
+ * On NodalTri the triangular kernel overwrites the modal slice and
+ * @p APPEND governs the nodal mapping instead.
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
  * @tparam SCALE            Multiply the result by @p scale.
@@ -308,10 +302,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1;
 
-        IProductTriKernel<SCALE, APPEND, DEFORMED>(
-            nm0, nm1, nq0, nq1, isModified, in, B0, B1, w0, w1, jac, wsp0,
-            outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        IProductTriKernel<SCALE, false, DEFORMED>(nm0, nm1, nq0, nq1,
+                                                  isModified, in, B0, B1, w0,
+                                                  w1, jac, wsp0, outtmp, scale);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
@@ -367,9 +361,9 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1;
 
-        IProductTriKernel<SCALE, APPEND>(nm0, nm1, nq0, nq1, isModified, in, B0,
-                                         B1, wsp0, outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        IProductTriKernel<SCALE, false>(nm0, nm1, nq0, nq1, isModified, in, B0,
+                                        B1, wsp0, outtmp, scale);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
@@ -394,10 +388,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
  * @p NtoMTrans. @p isModified triggers the collapsed vertex and edge
  * corrections inside the tetrahedral, prismatic and pyramidal kernels.
  *
- * @note On NodalTet and NodalPrism the @p APPEND flag does not reach
- * @p out, for the reason given in the 2D overload: the shape kernel
- * accumulates into the pre-nodal workspace slice and MatVecKernel stores
- * to @p out unconditionally. The other shapes apply the flag to @p out.
+ * On the nodal shapes the shape kernel overwrites the modal slice and
+ * @p APPEND governs the nodal mapping instead.
  *
  * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
  * NodalPyr.
@@ -465,10 +457,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductTetKernel<SCALE, APPEND, DEFORMED>(
+        IProductTetKernel<SCALE, false, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
@@ -480,10 +472,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductPrismKernel<SCALE, APPEND, DEFORMED>(
+        IProductPrismKernel<SCALE, false, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, wsp2, outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
@@ -495,10 +487,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductPyrKernel<SCALE, APPEND, DEFORMED>(
+        IProductPyrKernel<SCALE, false, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
             w2, jac, wsp0, wsp1, outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
 }
 
@@ -557,10 +549,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductTetKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, in, B0, B1, B2, wsp0, wsp1,
-                                         outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        IProductTetKernel<SCALE, false>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, in, B0, B1, B2, wsp0, wsp1,
+                                        outtmp, scale);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
@@ -572,10 +564,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductPrismKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                           isModified, in, B0, B1, B2, wsp0,
-                                           wsp1, wsp2, outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        IProductPrismKernel<SCALE, false>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                          isModified, in, B0, B1, B2, wsp0,
+                                          wsp1, wsp2, outtmp, scale);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
@@ -587,10 +579,10 @@ NEK_FORCE_INLINE static void IProductWRTBaseKernelLauncher(
     {
         simd_type *outtmp = wsp0 + nq1 * nq2;
 
-        IProductPyrKernel<SCALE, APPEND>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, in, B0, B1, B2, wsp0, wsp1,
-                                         outtmp, scale);
-        MatVecKernel(nmTot, NtoMTrans, outtmp, out);
+        IProductPyrKernel<SCALE, false>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, in, B0, B1, B2, wsp0, wsp1,
+                                        outtmp, scale);
+        MatVecKernel<APPEND>(nmTot, NtoMTrans, outtmp, out);
     }
 }
 

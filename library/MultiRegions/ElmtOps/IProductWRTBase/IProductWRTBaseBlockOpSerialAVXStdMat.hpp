@@ -245,13 +245,18 @@ protected:
      * place the Jacobian and the scale factor enter -- and the GEMM against
      * #m_matptr, which carries the quadrature weights, follows. With the
      * metric off the GEMM runs straight from the input against
-     * #m_BT_matptr, and the result is scaled in place afterwards if the
-     * scale factor is not 1. The Jacobian pointer advances by one vector
-     * per group for a regular geometry and by nqTot vectors for a deformed
-     * one, and is rewound for every component.
+     * #m_BT_matptr, and the result is scaled afterwards if the scale factor
+     * is not 1, the GEMM taking no scale of its own; in append mode with
+     * such a factor the GEMM writes to the workspace, whose scaled values
+     * are then added to the output. Otherwise, in append mode, the GEMM
+     * accumulates onto the output. In append mode the output chunk is
+     * reshaped to #m_implInterleaveWidth with the input's. The Jacobian pointer
+     * advances by one vector per group for a regular geometry and by nqTot
+     * vectors for a deformed one, and is rewound for every component.
      *
      * @param   inblock     Physical-space input block.
-     * @param   outblock    Coefficient-space output block; overwritten.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
@@ -259,25 +264,38 @@ protected:
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
+
+        // Append with a scale factor accumulates through the workspace.
+        const bool scaledAppend = this->m_append && this->m_scale != 1.0;
 
         // Get static workspace pointer.
         auto wspptr =
             (this->m_integration)
                 ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                       simd_t::width * m_nqTot)
+            : (scaledAppend)
+                ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                      simd_t::width * m_nmTot)
                 : nullptr;
 
         // Dispatch kernel.
         auto gemm_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+            simd_t::width, m_nmTot, m_nqTot, 1.0,
+            (TData)(this->m_append &&
+                    (this->m_integration || this->m_scale == 1.0)));
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -293,8 +311,14 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         m_nqTot, (TData *)inptr);
+                    if (this->m_append)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, m_nmTot, (TData *)outptr);
+                    }
                 }
 
                 if (this->m_integration) // integration with weights
@@ -324,15 +348,30 @@ protected:
                 }
                 else
                 {
-                    // Just perform matrix-matrix multiply of B^T
-                    gemm_kernel(inptr, m_BT_matptr, outptr);
-
-                    if (this->m_scale != 1.0)
+                    if (scaledAppend)
                     {
+                        // Multiply by B^T, then accumulate the scaled result.
+                        gemm_kernel(inptr, m_BT_matptr, wspptr);
+
                         for (unsigned q = 0; q < m_nmTot; ++q)
                         {
-                            reinterpret_cast<simd_t *>(outptr)[q] *=
-                                this->m_scale;
+                            reinterpret_cast<simd_t *>(outptr)[q] +=
+                                this->m_scale *
+                                reinterpret_cast<simd_t *>(wspptr)[q];
+                        }
+                    }
+                    else
+                    {
+                        // Just perform matrix-matrix multiply of B^T
+                        gemm_kernel(inptr, m_BT_matptr, outptr);
+
+                        if (this->m_scale != 1.0)
+                        {
+                            for (unsigned q = 0; q < m_nmTot; ++q)
+                            {
+                                reinterpret_cast<simd_t *>(outptr)[q] *=
+                                    this->m_scale;
+                            }
                         }
                     }
                 }
@@ -341,12 +380,12 @@ protected:
                 if (e % width_ratio == width_ratio - 1)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nqTot * simd_t::width);
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)outptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
@@ -359,7 +398,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

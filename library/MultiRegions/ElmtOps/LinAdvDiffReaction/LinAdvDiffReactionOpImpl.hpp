@@ -101,8 +101,8 @@ public:
     {
         // The weak z-Laplacian of a multi-plane 3DH1 field is the xy mass
         // matrix applied to minus the second z-derivative, so the z-op writes
-        // that derivative into m_d2z, the mass operator takes it to m_wsp and
-        // the result is subtracted from the xy part -- the minus sits here
+        // that derivative into m_d2z and the mass operator, scaled by -1 in
+        // append mode, adds the result to the xy part -- the minus sits here
         // rather than in the z-op, which gives the derivative itself. The
         // lambda term needs nothing here: the block operators already carry
         // it on every plane, as they do the in-plane advection. They all stay
@@ -128,6 +128,8 @@ public:
                 DerivZOpImpl<ExecSpace, TData, DerivZLayout::Identity,
                              DerivZOrder::Second, false>>(expansionList);
             m_massOp = MassOp<TData>::Create(expansionList, components);
+            m_massOp->SetScale(-1.0);
+            m_massOp->SetAppend(true);
 
             auto coeffAttr =
                 MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
@@ -137,8 +139,6 @@ public:
 
             m_d2z = LibUtilities::Field<TData, FieldState::Coeff>(
                 "LinAdvDiffReactionD2Z", coeffAttr, nComp, m_nhomo);
-            m_wsp = LibUtilities::Field<TData, FieldState::Coeff>(
-                "LinAdvDiffReactionWsp", coeffAttr, nComp, m_nhomo);
 
             // The advection along z multiplies by a velocity that varies over
             // the plane, so it is formed at the quadrature points and taken
@@ -148,6 +148,7 @@ public:
             m_bwdTransOp = BwdTransOp<TData>::Create(expansionList, components);
             m_ipOp =
                 IProductWRTBaseOp<TData>::Create(expansionList, components);
+            m_ipOp->SetAppend(true);
             m_advZOp = std::make_shared<AdvectionZOpImpl<ExecSpace, TData>>(
                 expansionList);
 
@@ -181,24 +182,22 @@ protected:
     unsigned int m_nhomo = 1u;
 
     /// Component for component, giving the second z-derivative; the xy mass
-    /// matrix and the subtraction below make it the weak z-Laplacian.
+    /// matrix, scaled by -1, makes it the weak z-Laplacian.
     std::shared_ptr<DerivZOpImpl<ExecSpace, TData, DerivZLayout::Identity,
                                  DerivZOrder::Second, false>>
         m_zOp;
-    /// xy mass operator applied to #m_d2z.
+    /// xy mass operator applied to #m_d2z, accumulating onto the output.
     std::shared_ptr<MassOp<TData>> m_massOp;
     /// Second z-derivative of the input, in coefficient space.
     LibUtilities::Field<TData, FieldState::Coeff> m_d2z;
-    /// Coefficient-space workspace holding each z term before it is
-    /// combined with the output.
-    LibUtilities::Field<TData, FieldState::Coeff> m_wsp;
 
     /// The advection along the homogeneous direction, w du/dz, accumulated
     /// at the quadrature points, then taken back to coefficients.
     std::shared_ptr<AdvectionZOpImpl<ExecSpace, TData>> m_advZOp;
     /// Takes the input to the quadrature points for #m_advZOp.
     std::shared_ptr<BwdTransOp<TData>> m_bwdTransOp;
-    /// Takes the z advection back to coefficient space.
+    /// Takes the z advection back to coefficient space, accumulating onto
+    /// the output.
     std::shared_ptr<IProductWRTBaseOp<TData>> m_ipOp;
     /// The input at the quadrature points.
     LibUtilities::Field<TData, FieldState::Phys> m_u;
@@ -239,21 +238,20 @@ protected:
                         "configurations.");
 
         // The z-op gives the second derivative itself and the weak
-        // z-Laplacian takes minus it, so the mass-weighted result is
-        // subtracted rather than added.
+        // z-Laplacian takes minus it, so the mass operator subtracts the
+        // mass-weighted result from the output.
         m_zOp->Launch(in, m_d2z);
-        m_massOp->Apply(m_d2z, m_wsp);
-        Math::sub<ExecSpace>(out, m_wsp, out);
+        m_massOp->Apply(m_d2z, out);
 
         // The advection along z is weak like the rest of the operator, so
         // w du/dz is formed at the quadrature points and taken back through
-        // the inner product. The z-op accumulates on top of whatever it is
-        // given, which here is nothing but this term.
+        // the inner product, which adds it to the output. The z-op
+        // accumulates on top of whatever it is given, which here is nothing
+        // but this term.
         m_bwdTransOp->Apply(in, m_u);
         Math::zero<ExecSpace>(m_advZ);
         m_advZOp->Launch(m_u, m_advZ);
-        m_ipOp->Apply(m_advZ, m_wsp);
-        Math::add<ExecSpace>(out, m_wsp, out);
+        m_ipOp->Apply(m_advZ, out);
     }
 };
 
