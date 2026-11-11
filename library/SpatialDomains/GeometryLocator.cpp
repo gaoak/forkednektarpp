@@ -242,14 +242,18 @@ void GeometryLocator::ClearBoundingBox()
  * deformed element. For regular elements, this check is unnecessary.
  *
  * @param coords   Input Cartesian global coordinates
+ * @param edgeDist For a point just outside straight edges of the element
+ *                 (see v_AllLeftCheck), its distance from them. Otherwise
+ *                 the largest double.
  *
  * @return 1 is inside of the element.
  *         0 maybe inside
  *        -1 outside of the element
  */
 int GeometryLocator::PreliminaryCheck(
-    const Array<OneD, const NekDouble> &gloCoord)
+    const Array<OneD, const NekDouble> &gloCoord, NekDouble &edgeDist)
 {
+    edgeDist = std::numeric_limits<double>::max();
     // bounding box check
     if (!MinMaxCheck(gloCoord))
     {
@@ -263,7 +267,7 @@ int GeometryLocator::PreliminaryCheck(
     }
 
     // All left check for straight edges/plane surfaces
-    return v_AllLeftCheck(gloCoord);
+    return v_AllLeftCheck(gloCoord, edgeDist);
 }
 
 /**
@@ -339,10 +343,30 @@ bool GeometryLocator::ContainsPoint(
     const Array<OneD, const NekDouble> &gloCoord,
     Array<OneD, NekDouble> &locCoord, NekDouble tol, NekDouble &dist)
 {
-    int inside = PreliminaryCheck(gloCoord);
+    NekDouble edgeDist;
+    int inside = PreliminaryCheck(gloCoord, edgeDist);
     if (inside == -1)
     {
-        dist = std::numeric_limits<double>::max();
+        dist = edgeDist;
+        if (edgeDist < std::numeric_limits<double>::max())
+        {
+            // Just outside a straight edge: not inside, but the element is
+            // a candidate nearest element. A point on a straight domain
+            // boundary is only on it to round-off, and no other element can
+            // contain it. Return the clamped local coordinates and the
+            // distance, so that GetExpIndex can still pick this element
+            // when no element contains the point.
+            NekDouble locDist = GetLocCoords(gloCoord, locCoord);
+            Array<OneD, NekDouble> eta(m_geom->GetShapeDim(), 0.);
+            m_geom->GetXmap()->LocCoordToLocCollapsed(locCoord, eta);
+            ClampLocCoords(eta, m_geom->GetShapeDim(), 0.);
+            m_geom->GetXmap()->LocCollapsedToLocCoord(eta, locCoord);
+            // Only curved elements measure a distance in GetLocCoords
+            if (locDist < std::numeric_limits<double>::max())
+            {
+                dist = std::max(dist, locDist);
+            }
+        }
         return false;
     }
     dist = GetLocCoords(gloCoord, locCoord);
@@ -357,15 +381,40 @@ bool GeometryLocator::ContainsPoint(
         m_geom->GetXmap()->LocCoordToLocCollapsed(locCoord, eta);
         if (ClampLocCoords(eta, m_geom->GetShapeDim(), tol))
         {
-            if (m_geom->CalcGeomType() == eRegular)
+            // Return the clamped point, at which dist was measured: the
+            // caller may take it as the nearest point. Unclamped, a point
+            // just beyond a collapsed edge or vertex can have collapsed
+            // coordinates of any size, and the expansion is evaluated there.
+            m_geom->GetXmap()->LocCollapsedToLocCoord(eta, locCoord);
+            // A straight-sided 3D element's Newton iteration reports no
+            // distance to the element, only whether it converged, so it
+            // offers no nearest point. A straight-sided pyramid with a
+            // non-parallelogram base (m_nCoeff = 0) takes the full-map
+            // Newton iteration instead, which does measure the distance.
+            if (m_geom->CalcGeomType() == eRegular ||
+                (m_geom->GetShapeDim() == 3 && m_straightEdge &&
+                 m_iso.m_nCoeff > 0))
             {
                 dist = std::numeric_limits<double>::max();
             }
             return false;
         }
-        return 3 != m_geom->GetCoordim() ||
-               (LibUtilities::eTriangle != m_geom->GetShapeType() &&
-                LibUtilities::eQuadrilateral != m_geom->GetShapeType()) ||
+        // Elements located by Newton iteration: 2D curved, and 3D
+        if (m_geom->GetCoordim() == m_geom->GetShapeDim() &&
+            m_geom->CalcGeomType() == eDeformed &&
+            (m_geom->GetShapeDim() == 3 ||
+             (m_geom->GetShapeDim() == 2 && !m_straightEdge)))
+        {
+            // The point is within tol of the element, so it is inside if the
+            // local coordinates map to it. dist cannot tell: a converged
+            // point just outside keeps the distance from the clamped point,
+            // and one that did not converge keeps its residual (both used
+            // by GetExpIndex to rank the nearest element).
+            return m_newtonConverged;
+        }
+        return m_geom->GetCoordim() != 3 ||
+               (m_geom->GetShapeType() != LibUtilities::eTriangle &&
+                m_geom->GetShapeType() != LibUtilities::eQuadrilateral) ||
                dist <= tol;
     }
 }
@@ -392,7 +441,8 @@ NekDouble GeometryLocator::v_FindDistance(
 }
 
 int GeometryLocator::v_AllLeftCheck(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &gloCoord)
+    [[maybe_unused]] const Array<OneD, const NekDouble> &gloCoord,
+    [[maybe_unused]] NekDouble &edgeDist)
 {
     return 0;
 }
@@ -674,8 +724,9 @@ void GeometryLocator2D::NewtonIterationForLocCoord(
     Array<OneD, DNekMatSharedPtr> I(2);
     Array<OneD, NekDouble> eta(2);
 
-    F1 = F2         = 2000; // Starting value of Function
-    NekDouble resid = sqrt(F1 * F1 + F2 * F2);
+    F1 = F2           = 2000; // Starting value of Function
+    NekDouble resid   = sqrt(F1 * F1 + F2 * F2);
+    m_newtonConverged = false;
     while (cnt++ < MaxIterations)
     {
         //  evaluate lagrange interpolant at Lcoords
@@ -692,7 +743,8 @@ void GeometryLocator2D::NewtonIterationForLocCoord(
 
         if (F1 * F1 + F2 * F2 < ScaledTol)
         {
-            resid = sqrt(F1 * F1 + F2 * F2);
+            resid             = sqrt(F1 * F1 + F2 * F2);
+            m_newtonConverged = true;
             break;
         }
 
@@ -741,9 +793,22 @@ void GeometryLocator2D::NewtonIterationForLocCoord(
         F2   = coords[1] - ymap;
         dist = sqrt(F1 * F1 + F2 * F2);
     }
-    else
+    else if (m_newtonConverged)
     {
         dist = 0.;
+    }
+    else
+    {
+        // Inside the element but not converged: Lcoords does not map to
+        // coords, so report the residual rather than claiming a match
+        I[0]  = m_geom->GetXmap()->GetBasis(0)->GetI(eta);
+        I[1]  = m_geom->GetXmap()->GetBasis(1)->GetI(eta + 1);
+        xmap  = m_geom->GetXmap()->PhysEvaluate(I, ptsx);
+        ymap  = m_geom->GetXmap()->PhysEvaluate(I, ptsy);
+        F1    = coords[0] - xmap;
+        F2    = coords[1] - ymap;
+        dist  = std::sqrt(F1 * F1 + F2 * F2);
+        resid = dist;
     }
 
     if (cnt >= MaxIterations)
@@ -807,10 +872,21 @@ NekDouble GeometryLocator2D::v_GetLocCoords(
         m_geom->GetXmap()->BwdTrans(m_geom->GetCoeffs(m_iso.m_manifold[1]),
                                     ptsy);
 
-        Array<OneD, NekDouble> eta(2, 0.);
-        m_geom->GetXmap()->LocCoordToLocCollapsed(Lcoords, eta);
-        ClampLocCoords(eta, m_geom->GetShapeDim(), 0.);
+        // Start from the nearest quadrature point: from the centre, the
+        // iteration can diverge for points near the corners of strongly
+        // curved elements
+        Vmath::Sadd(npts, -tmpcoords[0], ptsx, 1, tmpx, 1);
+        Vmath::Sadd(npts, -tmpcoords[1], ptsy, 1, tmpy, 1);
+        Vmath::Vmul(npts, tmpx, 1, tmpx, 1, tmpx, 1);
+        Vmath::Vvtvp(npts, tmpy, 1, tmpy, 1, tmpx, 1, tmpx, 1);
 
+        int min_i = Vmath::Imin(npts, tmpx, 1);
+
+        const Array<OneD, const NekDouble> za = m_geom->GetXmap()->GetPoints(0);
+        const Array<OneD, const NekDouble> zb = m_geom->GetXmap()->GetPoints(1);
+        Array<OneD, NekDouble> eta(2, 0.);
+        eta[0] = za[min_i % za.size()];
+        eta[1] = zb[min_i / za.size()];
         m_geom->GetXmap()->LocCollapsedToLocCoord(eta, Lcoords);
 
         // Perform newton iteration to find local coordinates
@@ -1092,9 +1168,10 @@ void GeometryLocator2D::v_CalculateInverseIsoParam()
 }
 
 int GeometryLocator2D::v_AllLeftCheck(
-    const Array<OneD, const NekDouble> &gloCoord)
+    const Array<OneD, const NekDouble> &gloCoord, NekDouble &edgeDist)
 {
     int nc = 1, d0 = m_iso.m_manifold[0], d1 = m_iso.m_manifold[1];
+    NekDouble nearDist = -1.; // >= 0 once the point is just outside an edge
     if (!m_edgeNormalBuilt)
     {
         m_edgeNormalBuilt = true;
@@ -1164,11 +1241,31 @@ int GeometryLocator2D::v_AllLeftCheck(
             nc = 0; // not sure
             continue;
         }
-        if (m_edgeNormal[i][0] * (gloCoord[d0] - vertex[d0]) <
-            m_edgeNormal[i][1] * (vertex[d1] - gloCoord[d1]))
+        // s is the signed distance from the edge times its length L, the
+        // length of the normal. Both elements sharing the edge use the same
+        // vertex and exactly opposite normals, so their values of s are
+        // exactly opposite: the test s < 0 never rejects a point in both, and
+        // a point off the edge passes it only in the element on its side.
+        // A point that fails by less than kGeomFactorsTol * L is just
+        // outside: its distance is returned in edgeDist, so that
+        // ContainsPoint can still offer the element as the nearest one.
+        NekDouble n2 = m_edgeNormal[i][0] * m_edgeNormal[i][0] +
+                       m_edgeNormal[i][1] * m_edgeNormal[i][1];
+        NekDouble s = m_edgeNormal[i][0] * (gloCoord[d0] - vertex[d0]) +
+                      m_edgeNormal[i][1] * (gloCoord[d1] - vertex[d1]);
+        if (s < -NekConstants::kGeomFactorsTol * n2)
         {
             return -1; // outside
         }
+        if (s < 0.)
+        {
+            nearDist = std::max(nearDist, -s / std::sqrt(n2));
+        }
+    }
+    if (nearDist >= 0.)
+    {
+        edgeDist = nearDist;
+        return -1; // just outside
     }
     // 3D manifold needs to check the distance
     if (m_geom->GetCoordim() == 3)
@@ -1229,7 +1326,8 @@ void GeometryLocator2D::v_PreSolveStraightEdge()
 }
 
 void GeometryLocator3D::NewtonIterationForLocCoord(
-    const Array<OneD, const NekDouble> &coords, Array<OneD, NekDouble> &Lcoords)
+    const Array<OneD, const NekDouble> &coords, Array<OneD, NekDouble> &Lcoords,
+    NekDouble &dist)
 {
     auto &isoParam = m_iso.m_coeff;
     const int nIso = m_iso.m_nCoeff;
@@ -1254,6 +1352,7 @@ void GeometryLocator3D::NewtonIterationForLocCoord(
     Array<OneD, NekDouble> var(8, 1.);
     Array<OneD, NekDouble> deriv(9);
     Array<OneD, NekDouble> tmp(3);
+    m_newtonConverged = false;
     while (cnt++ < MaxIterations)
     {
         var[1] = Lcoords[0];
@@ -1275,7 +1374,9 @@ void GeometryLocator3D::NewtonIterationForLocCoord(
         res = tmp[0] * tmp[0] + tmp[1] * tmp[1] + tmp[2] * tmp[2];
         if (res < ScaledTol)
         {
-            break;
+            m_newtonConverged = true;
+            dist              = 0.;
+            return;
         }
 
         // Interpolate derivative metric at Lcoords (ddx1, ddx2, ddx3)
@@ -1331,15 +1432,28 @@ void GeometryLocator3D::NewtonIterationForLocCoord(
         }
     }
 
-    if (cnt >= MaxIterations)
+    // Not converged: Lcoords does not map to coords, so report the residual
+    // rather than claiming a match
+    var[1] = Lcoords[0];
+    var[2] = Lcoords[1];
+    var[3] = Lcoords[2];
+    var[4] = Lcoords[0] * Lcoords[1];
+    var[5] = Lcoords[1] * Lcoords[2];
+    var[6] = Lcoords[0] * Lcoords[2];
+    var[7] = var[4] * Lcoords[2];
+    for (int i = 0; i < 3; ++i)
     {
-        std::ostringstream ss;
-
-        ss << "Reached MaxIterations (" << MaxIterations
-           << ") in Newton iteration ";
-
-        WARNINGL1(cnt < MaxIterations, ss.str());
+        tmp[i] =
+            coords[i] - Vmath::Dot(nIso, var.data(), 1, isoParam[i].data(), 1);
     }
+    dist = std::sqrt(tmp[0] * tmp[0] + tmp[1] * tmp[1] + tmp[2] * tmp[2]);
+
+    std::ostringstream ss;
+
+    ss << "Reached MaxIterations (" << MaxIterations
+       << ") in Newton iteration ";
+
+    WARNINGL1(cnt < MaxIterations, ss.str());
 }
 
 void GeometryLocator3D::NewtonIterationForLocCoord(
@@ -1391,8 +1505,9 @@ void GeometryLocator3D::NewtonIterationForLocCoord(
     Array<OneD, DNekMatSharedPtr> I(3);
     Array<OneD, NekDouble> eta(3);
 
-    F1 = F2 = F3    = 2000; // Starting value of Function
-    NekDouble resid = sqrt(F1 * F1 + F2 * F2 + F3 * F3);
+    F1 = F2 = F3      = 2000; // Starting value of Function
+    NekDouble resid   = sqrt(F1 * F1 + F2 * F2 + F3 * F3);
+    m_newtonConverged = false;
     while (cnt++ < MaxIterations)
     {
         //  evaluate lagrange interpolant at Lcoords
@@ -1412,7 +1527,8 @@ void GeometryLocator3D::NewtonIterationForLocCoord(
 
         if (F1 * F1 + F2 * F2 + F3 * F3 < ScaledTol)
         {
-            resid = sqrt(F1 * F1 + F2 * F2 + F3 * F3);
+            resid             = sqrt(F1 * F1 + F2 * F2 + F3 * F3);
+            m_newtonConverged = true;
             break;
         }
 
@@ -1486,9 +1602,25 @@ void GeometryLocator3D::NewtonIterationForLocCoord(
         F3   = coords[2] - zmap;
         dist = sqrt(F1 * F1 + F2 * F2 + F3 * F3);
     }
-    else
+    else if (m_newtonConverged)
     {
         dist = 0.;
+    }
+    else
+    {
+        // Inside the element but not converged: Lcoords does not map to
+        // coords, so report the residual rather than claiming a match
+        I[0]  = m_geom->GetXmap()->GetBasis(0)->GetI(eta);
+        I[1]  = m_geom->GetXmap()->GetBasis(1)->GetI(eta + 1);
+        I[2]  = m_geom->GetXmap()->GetBasis(2)->GetI(eta + 2);
+        xmap  = m_geom->GetXmap()->PhysEvaluate(I, ptsx);
+        ymap  = m_geom->GetXmap()->PhysEvaluate(I, ptsy);
+        zmap  = m_geom->GetXmap()->PhysEvaluate(I, ptsz);
+        F1    = coords[0] - xmap;
+        F2    = coords[1] - ymap;
+        F3    = coords[2] - zmap;
+        dist  = std::sqrt(F1 * F1 + F2 * F2 + F3 * F3);
+        resid = dist;
     }
 
     if (cnt >= MaxIterations)
@@ -1545,7 +1677,7 @@ NekDouble GeometryLocator3D::v_GetLocCoords(
         // Straight-sided, and the shape has a polynomial form of its mapping
         // to iterate on. A pyramid with a non-parallelogram base has not.
         ClampLocCoords(Lcoords, m_geom->GetShapeDim(), 0.);
-        NewtonIterationForLocCoord(tmpcoords, Lcoords);
+        NewtonIterationForLocCoord(tmpcoords, Lcoords, dist);
     }
     else
     {
