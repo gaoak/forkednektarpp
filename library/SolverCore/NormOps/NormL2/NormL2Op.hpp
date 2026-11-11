@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/NormOps/NormL2/NormL2BlockOp.hpp"
-#include "SolverCore/SolverCore.hpp"
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/NormOps/NormL2/NormL2BlockOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -97,31 +97,54 @@ public:
         v_Apply(in);
     }
 
-    std::vector<TData> GetNorms()
+    std::vector<TData> GetNorms(const bool &normalised = false)
     {
-        return m_data.template ToVector<TData>();
-    }
+        if (normalised)
+        {
+            this->v_ComputeVolume();
+        }
 
-    void SetNormalised(bool normalised)
-    {
-        m_normalised = normalised;
+        auto volume = normalised ? this->m_volume : 1.0;
+        auto data   = this->m_norm.template ToVector<TData>();
+        for (unsigned int nc = 0; nc < this->m_norm.size(); ++nc)
+        {
+            data[nc] = std::sqrt(data[nc] / volume);
+        }
+        return data;
     }
 
 protected:
-    bool m_normalised     = false;
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
-    LibUtilities::MemoryRegion<TData> m_data;
+    /// Homogeneous length, or 1 without a homogeneous direction.
+    TData m_homoLen = 1.0;
+    /// z quadrature weight of each local plane, times Lhom / 2; empty
+    /// without a homogeneous direction.
+    std::vector<TData> m_planeWeights;
+    LibUtilities::MemoryRegion<TData> m_norm;
+    LibUtilities::MemoryRegion<TData> m_plane;
     std::vector<std::shared_ptr<NormL2BlockOp<TData>>> m_blockOp;
 
     NormL2Op(const MultiRegions::ExpListSharedPtr &expansionList,
              const std::vector<std::string> &components)
         : MultiRegions::Operator<TData>(expansionList, components)
     {
+        if (expansionList->GetExpType() == MultiRegions::e3DH1D)
+        {
+            m_homoLen = expansionList->GetHomoLen();
+
+            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
+            const auto zIDs = expansionList->GetZIDs();
+            for (size_t n = 0; n < zIDs.size(); ++n)
+            {
+                m_planeWeights.push_back(w[zIDs[n]] * m_homoLen * 0.5);
+            }
+        }
     }
 
     ~NormL2Op() override = default;
 
     virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) = 0;
+    virtual void v_ComputeVolume()                                         = 0;
 };
 } // namespace Nektar::SolverCore

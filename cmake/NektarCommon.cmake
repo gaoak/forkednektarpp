@@ -179,7 +179,12 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
                 UNSET(IMPL_HEADER)  
                 # Set up the name used for the .cpp declaration file.
                 SET(FactoryDeclName "src/Block${name}${ExecSpace}${TData}.${SOURCE_EXT}")
-		IF(EXISTS "${dir}/${name}BlockOp${ExecName}.hpp")
+                # Found a impl header.
+		IF(EXISTS "${dir}/${name}BlockOpImpl.hpp")
+                    SET(IMPL_HEADER "#include \"${abs_dir}/${name}BlockOpImpl.hpp\"")
+                    MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
+                # Found a ExecName header.
+		ELSEIF(EXISTS "${dir}/${name}BlockOp${ExecName}.hpp")
                     SET(IMPL_HEADER "#include \"${abs_dir}/${name}BlockOp${ExecName}.hpp\"")
                     MESSAGE("Adding block operator with a ${ExecSpace} implementation: " "${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName}")
                 ENDIF()

@@ -54,6 +54,8 @@ inline constexpr unsigned int internalReductionStreamID = 0;
 //   before the launch on its stream or on internalReductionStreamID. Launches
 //   on any streams may carry on into the same *out.
 
+// Mask of the non-padding entries of a block component over all its planes,
+// CompSize() * GetNumHomoModes() long.
 template <typename MemSpace> class internalMathKernelMask
 {
 public:
@@ -61,14 +63,17 @@ public:
     static const uint8_t *GetInstance(
         LibUtilities::BlockAccessor<TData, TFieldState> &block)
     {
-        auto key =
-            std::tuple<size_t, size_t, unsigned int, size_t, unsigned int>(
-                block.GetNumElements(), block.GetNumElementsWithPadding(),
-                block.GetNumData(), block.CompSize(),
-                block.GetInterleaveWidth());
+        const size_t compSize      = block.CompSize();
+        const unsigned int numHomo = block.GetNumHomoModes();
+        const size_t maskSize      = compSize * numHomo;
+
+        auto key = std::tuple<size_t, size_t, unsigned int, size_t,
+                              unsigned int, unsigned int>(
+            block.GetNumElements(), block.GetNumElementsWithPadding(),
+            block.GetNumData(), compSize, block.GetInterleaveWidth(), numHomo);
         if (m_mask.find(key) == m_mask.end())
         {
-            auto mask = std::vector<uint8_t>(block.CompSize());
+            auto mask = std::vector<uint8_t>(maskSize);
             auto ptr  = mask.data();
 
             // Loop over chunks.
@@ -94,21 +99,27 @@ public:
                 }
             }
 
+            // Repeat the first plane's mask.
+            for (unsigned int n = 1; n < numHomo; ++n)
+            {
+                memcpy(mask.data() + n * compSize, mask.data(),
+                       compSize * sizeof(uint8_t));
+            }
+
             if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
             {
-                hostMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t),
+                hostMalloc(&m_mask[key], maskSize * sizeof(uint8_t),
                            NektarSpaces::host_memory_alignment);
-                memcpy(m_mask[key], mask.data(),
-                       block.CompSize() * sizeof(uint8_t));
+                memcpy(m_mask[key], mask.data(), maskSize * sizeof(uint8_t));
             }
             else if constexpr (std::is_same_v<MemSpace,
                                               NektarSpaces::DeviceSpace>)
             {
                 const unsigned int streamID = 0;
-                deviceMalloc(&m_mask[key], block.CompSize() * sizeof(uint8_t),
+                deviceMalloc(&m_mask[key], maskSize * sizeof(uint8_t),
                              streamID);
                 deviceMemcpy<eHostToDevice>(m_mask[key], mask.data(),
-                                            block.CompSize() * sizeof(uint8_t),
+                                            maskSize * sizeof(uint8_t),
                                             streamID);
                 nekStreamSynchronize(streamID);
             }
@@ -118,9 +129,9 @@ public:
     }
 
 private:
-    inline static std::map<
-        std::tuple<size_t, size_t, unsigned int, size_t, unsigned int>,
-        uint8_t *>
+    inline static std::map<std::tuple<size_t, size_t, unsigned int, size_t,
+                                      unsigned int, unsigned int>,
+                           uint8_t *>
         m_mask;
 };
 
@@ -176,9 +187,8 @@ void internalAssertZeroPadding(
         auto &block = x.GetBlocks()[blk];
         auto ptr    = block.template GetPtr<HostSpace, ReadOnly>(blk + 1);
         auto mask   = internalMathKernelMask<HostSpace>::GetInstance(block);
-        const size_t compSize = block.CompSize();
-        const unsigned int ncomp =
-            block.GetNumComponents() * block.GetNumHomoModes();
+        const size_t compSize    = block.CompSize() * block.GetNumHomoModes();
+        const unsigned int ncomp = block.GetNumComponents();
         for (size_t i = 0; i < ncomp * compSize; ++i)
         {
             ASSERTL2(mask[i % compSize] || ptr[i] == TData(0),
@@ -1586,8 +1596,8 @@ void reduceMax(LibUtilities::Field<TData, TFieldState> &x, TData *out)
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size    = block.CompSize() * block.GetNumHomoModes();
+        auto ncomp   = block.GetNumComponents();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
@@ -1682,8 +1692,8 @@ void reduceMin(LibUtilities::Field<TData, TFieldState> &x, TData *out)
             x.GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>(streamID);
         auto &block  = x.GetBlocks()[blk];
         auto maskptr = internalMathKernelMask<MemSpace>::GetInstance(block);
-        auto size    = block.CompSize();
-        auto ncomp   = block.GetNumComponents() * block.GetNumHomoModes();
+        auto size    = block.CompSize() * block.GetNumHomoModes();
+        auto ncomp   = block.GetNumComponents();
 
         for (unsigned int n = 0; n < ncomp; ++n)
         {
