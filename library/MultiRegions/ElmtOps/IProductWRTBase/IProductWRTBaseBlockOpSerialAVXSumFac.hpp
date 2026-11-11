@@ -373,10 +373,20 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, sizeParam,
-            std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+        if (this->m_append)
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+        }
+        else
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+        }
     }
 
     /**
@@ -393,21 +403,24 @@ protected:
      * settings of IProductWRTBaseBlockOp: the quadrature-metric flag picks
      * the overload taking the weights and the Jacobians or the one without
      * them, and a scale factor of exactly 1 picks the SCALE = false
-     * variant, which drops the final multiplication. APPEND is set to false:
-     * this family never accumulates. The Jacobian pointer advances by one
+     * variant, which drops the final multiplication. APPEND, chosen by
+     * OperatorND() from the append flag, accumulates onto the output. The
+     * Jacobian pointer advances by one
      * vector per group for a regular geometry and by nqTot vectors for a
      * deformed one, and is rewound for every component.
      *
      * Fields stored at an interleave width larger than the SIMD width are
      * handled by reshaping width_ratio consecutive groups in place: the
-     * input is converted to the implementation width before the kernel and
-     * both input and output are converted back to the input's width once
-     * the groups have been processed. The output block's recorded
-     * interleave width is set to the input's on return.
+     * input, and in append mode the output, is converted to the
+     * implementation width before the kernel and both input and output are
+     * converted back to the input's width once the groups have been
+     * processed. The output block's recorded interleave width is set to the
+     * input's on return.
      *
      * @tparam SHAPE_TYPE      Shape of the block, the nodal enumerators
      *                         included.
      * @tparam DEFORMED        Jacobians vary point by point.
+     * @tparam APPEND          Accumulate onto the output.
      * @tparam TSizeParameter  Size parameter of this dimension, templated
      *                         or not.
      * @tparam ind0            Reference directions, 0 to ndim - 1; selects
@@ -417,10 +430,11 @@ protected:
      *                         NumWorkspace()).
      *
      * @param   inblock     Physical-space input block.
-     * @param   outblock    Coefficient-space output block.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      * @param   sizeParam   Element sizes, in runtime or compile-time form.
      */
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool APPEND,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -441,14 +455,20 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (APPEND)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth = inblock.GetInterleaveWidth();
+        [[maybe_unused]] const auto outInterleaveWidth =
+            outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -464,8 +484,14 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         nqTot, (TData *)inptr);
+                    if constexpr (APPEND)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, nmTot, (TData *)outptr);
+                    }
                 }
 
                 // IProduct kernel.
@@ -473,7 +499,7 @@ protected:
                 {
                     if (this->m_scale == 1.0)
                     {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false,
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, APPEND,
                                                       DEFORMED>(
                             sizeParam, m_isModified,
                             reinterpret_cast<const simd_t *>(inptr),
@@ -484,7 +510,7 @@ protected:
                     }
                     else
                     {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, false,
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, APPEND,
                                                       DEFORMED>(
                             sizeParam, m_isModified,
                             reinterpret_cast<const simd_t *>(inptr),
@@ -499,7 +525,8 @@ protected:
                     // IProduct kernel with no quadrature B^T op.
                     if (this->m_scale == 1.0)
                     {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, false, false>(
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, false,
+                                                      APPEND>(
                             sizeParam, m_isModified,
                             reinterpret_cast<const simd_t *>(inptr),
                             m_B[ind0]..., m_nodToModTrans,
@@ -508,7 +535,7 @@ protected:
                     }
                     else
                     {
-                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, false>(
+                        IProductWRTBaseKernelLauncher<SHAPE_TYPE, true, APPEND>(
                             sizeParam, m_isModified,
                             reinterpret_cast<const simd_t *>(inptr),
                             m_B[ind0]..., m_nodToModTrans,
@@ -521,12 +548,12 @@ protected:
                 if (e % width_ratio == width_ratio - 1)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nqTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nqTot * simd_t::width);
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
@@ -540,7 +567,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

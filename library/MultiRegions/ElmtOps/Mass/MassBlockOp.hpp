@@ -38,8 +38,9 @@
  * @details
  * A MassBlockOp applies the element mass matrix to every element of one
  * block (see ElmtBlockOp.hpp for the block scheme and MassOp.hpp for the
- * mathematical action). The family has no per-block settings, so the class
- * only sets the block states and provides the factory entry. The
+ * mathematical action). It carries the family-specific state the
+ * whole-field MassOp forwards to every block -- the scale factor and the
+ * append flag. The
  * per-implementation subclasses are the detail::MassBlockOpImpl definitions
  * in Mass{SerialAVX,Device}{StdMat,SumFac}.hpp.
  */
@@ -58,10 +59,11 @@ namespace Nektar::MultiRegions
  *
  * @details
  * Sets the block states accepted by Apply() at compile time -- coefficient
- * space in and out. Unlike BwdTransBlockOp it carries no append flag, and
- * unlike IProductWRTBaseBlockOp no scale factor or quadrature-metric switch:
- * the mass operator always overwrites its output with the full inner
- * product. The concrete implementations are the detail::MassBlockOpImpl
+ * space in and out -- and stores the two settings shared by every
+ * implementation: the scale factor #m_scale and the append flag
+ * #m_append. MassOp::SetScale and SetAppend forward to the setters here
+ * block by block; the implementations read the settings in their
+ * v_Apply(). The concrete implementations are the detail::MassBlockOpImpl
  * definitions listed in MassOp.hpp.
  *
  * CMake generates one registration translation unit per execution space,
@@ -110,7 +112,27 @@ public:
     /// implementation to it to form the factory key.
     static inline const std::string name = "BlockMass";
 
+    /// @brief Set overwrite (false, the default) or accumulate (true)
+    /// mode for subsequent Apply() calls; see MassOp::SetAppend().
+    void SetAppend(const bool &append)
+    {
+        m_append = append;
+    }
+
+    /// @brief Set the scalar factor applied to the result; see
+    /// MassOp::SetScale.
+    void SetScale(const TData &scale)
+    {
+        m_scale = scale;
+    }
+
 protected:
+    /// Scalar factor applied to the result (default 1).
+    TData m_scale = 1.0;
+    /// When true, Apply() adds the scaled result onto the output block's
+    /// existing values instead of overwriting them.
+    bool m_append = false;
+
     /**
      * @brief Construct the interface part of a concrete block operator;
      * called by the factory-registered creator functions.

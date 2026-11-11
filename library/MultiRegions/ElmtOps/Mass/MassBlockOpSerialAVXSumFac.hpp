@@ -356,7 +356,8 @@ protected:
      * generated ShapeBlock() specialisation.
      *
      * @param   inblock     Coefficient-space input block.
-     * @param   outblock    Coefficient-space output block; overwritten.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
@@ -408,10 +409,20 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, sizeParam,
-            std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+        if (this->m_append)
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+        }
+        else
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumWorkspace(DIM)>());
+        }
     }
 
     /**
@@ -426,22 +437,25 @@ protected:
      * number of arguments the index sequences expand to. The launcher runs
      * BwdTransKernelLauncher into #m_bwd and IProductWRTBaseKernelLauncher
      * from there into the output, the transform instantiated with APPEND
-     * false and the inner product with SCALE and APPEND false, so the
-     * output is overwritten; the weights #m_W and the group's Jacobian
+     * false; the inner product takes APPEND, chosen by OperatorND() from
+     * the append flag, and the scale factor, a factor of exactly 1 picking
+     * the SCALE = false variant. The weights #m_W and the group's Jacobian
      * slice enter in the inner product. The Jacobian pointer advances by
      * one vector per group for a regular geometry and by nqTot vectors for
      * a deformed one, and is rewound for every component.
      *
      * Fields stored at an interleave width larger than the SIMD width are
      * handled by reshaping width_ratio consecutive groups in place: the
-     * input is converted to the implementation width before the kernel and
-     * both input and output are converted back to the input's width once
-     * the groups have been processed. The output block's recorded
-     * interleave width is set to the input's on return.
+     * input, and in append mode the output, is converted to the
+     * implementation width before the kernel and both input and output are
+     * converted back to the input's width once the groups have been
+     * processed. The output block's recorded interleave width is set to the
+     * input's on return.
      *
      * @tparam SHAPE_TYPE      Shape of the block, the nodal enumerators
      *                         included.
      * @tparam DEFORMED        Jacobians vary point by point.
+     * @tparam APPEND          Accumulate onto the output.
      * @tparam TSizeParameter  Size parameter of this dimension, templated
      *                         or not.
      * @tparam ind0            Reference directions, 0 to ndim - 1; selects
@@ -451,10 +465,11 @@ protected:
      *                         NumWorkspace()).
      *
      * @param   inblock     Coefficient-space input block.
-     * @param   outblock    Coefficient-space output block; overwritten.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      * @param   sizeParam   Element sizes, in runtime or compile-time form.
      */
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool APPEND,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -475,14 +490,20 @@ protected:
 
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (APPEND)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth = inblock.GetInterleaveWidth();
+        [[maybe_unused]] const auto outInterleaveWidth =
+            outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -498,29 +519,48 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         nmTot, (TData *)inptr);
+                    if constexpr (APPEND)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, nmTot, (TData *)outptr);
+                    }
                 }
 
                 // Mass kernel.
-                MassKernelLauncher<SHAPE_TYPE, DEFORMED>(
-                    sizeParam, m_isModified, m_B[ind0]..., m_W[ind0]...,
-                    m_nodToMod, m_nodToModTrans,
-                    reinterpret_cast<const simd_t *>(jacptr),
-                    m_wsp[ind1].data()..., m_bwd.data(),
-                    reinterpret_cast<const simd_t *>(inptr),
-                    reinterpret_cast<simd_t *>(outptr));
+                if (this->m_scale == 1.0)
+                {
+                    MassKernelLauncher<SHAPE_TYPE, false, APPEND, DEFORMED>(
+                        sizeParam, m_isModified, m_B[ind0]..., m_W[ind0]...,
+                        m_nodToMod, m_nodToModTrans,
+                        reinterpret_cast<const simd_t *>(jacptr),
+                        m_wsp[ind1].data()..., m_bwd.data(),
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr));
+                }
+                else
+                {
+                    MassKernelLauncher<SHAPE_TYPE, true, APPEND, DEFORMED>(
+                        sizeParam, m_isModified, m_B[ind0]..., m_W[ind0]...,
+                        m_nodToMod, m_nodToModTrans,
+                        reinterpret_cast<const simd_t *>(jacptr),
+                        m_wsp[ind1].data()..., m_bwd.data(),
+                        reinterpret_cast<const simd_t *>(inptr),
+                        reinterpret_cast<simd_t *>(outptr), this->m_scale);
+                }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         nmTot,
                         (TData *)outptr -
                             (width_ratio - 1) * nmTot * simd_t::width);
@@ -534,7 +574,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

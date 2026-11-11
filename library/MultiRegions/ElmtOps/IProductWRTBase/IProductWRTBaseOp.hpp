@@ -60,7 +60,7 @@
  * factors, being built by applying StdExpansion::IProductWRTBase to the
  * physical unit vectors.
  *
- * Two settings modify that default behaviour, both forwarded to every
+ * Three settings modify that default behaviour, all forwarded to every
  * block operator of the family:
  * - SetIntegration(false) drops the quadrature metric, leaving the plain
  *   basis transpose \f$\sum_i \phi_n(\xi_i)\,u(\xi_i)\f$ for input that
@@ -68,6 +68,8 @@
  *   instantiation of IProductWRTDerivBase is completed into coefficients
  *   (see IProductWRTDerivBaseOp.hpp).
  * - SetScale(s) multiplies the result by the scalar s.
+ * - SetAppend(true) adds the result onto the output instead of
+ *   overwriting it.
  *
  * IProductWRTBaseOp is the whole-field interface class of the family (see
  * ElmtOp.hpp for the two-level element-operator structure); the per-block
@@ -110,13 +112,14 @@ namespace Nektar::MultiRegions
  * detail::IProductWRTBaseOpImpl adds nothing beyond registration). See
  * ElmtOp for the block decomposition and factory scheme.
  *
- * Apply() always overwrites the output field; the family has no append
- * mode (the APPEND template parameter of the kernels is instantiated false
- * throughout).
+ * By default Apply() overwrites the output field; after SetAppend(true)
+ * it instead accumulates the scaled inner product onto the output's
+ * existing values.
  *
- * Two settings modify what the block operators compute: the scale factor
- * applied to the result and the quadrature-metric switch, both forwarded
- * to every block operator by SetScale() and SetIntegration().
+ * Three settings modify what the block operators compute: the scale factor
+ * applied to the result, the append flag and the quadrature-metric switch,
+ * all forwarded to every block operator by SetScale(), SetAppend() and
+ * SetIntegration().
  *
  * @tparam TData Floating-point type of the field data.
  */
@@ -163,20 +166,21 @@ public:
     static inline const std::string name = "IProductWRTBase";
 
     /**
-     * @brief Set the factor every block operator multiplies its result by.
+     * @brief Switch all block operators between overwrite and
+     * accumulate mode.
      *
-     * The factor applies to the coefficient-space result whether or not
-     * the quadrature metric is in use. The initial value is 1.
+     * With @p append set, subsequent Apply() calls add the scaled inner
+     * product onto the output field's existing contents instead of
+     * overwriting them. The default is overwrite.
      *
-     * @param   scale   Factor applied to the result of subsequent Apply()
-     *                  calls.
+     * @param   append  Accumulate into the output when true.
      */
-    void SetScale(const TData &scale)
+    void SetAppend(const bool &append)
     {
         // Loop over the blocks.
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
-            this->m_blockOp[blk]->SetScale(scale);
+            this->m_blockOp[blk]->SetAppend(append);
         }
     }
 
@@ -197,6 +201,24 @@ public:
         for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
         {
             this->m_blockOp[blk]->SetIntegration(value);
+        }
+    }
+
+    /**
+     * @brief Set the factor every block operator multiplies its result by.
+     *
+     * The factor applies to the coefficient-space result whether or not
+     * the quadrature metric is in use. The initial value is 1.
+     *
+     * @param   scale   Factor applied to the result of subsequent Apply()
+     *                  calls.
+     */
+    void SetScale(const TData &scale)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetScale(scale);
         }
     }
 
@@ -229,7 +251,8 @@ protected:
      * the corresponding entry of #m_blockOp.
      *
      * @param   in      Physical-space input field.
-     * @param   out     Coefficient-space output field; overwritten.
+     * @param   out     Coefficient-space output field; overwritten, or
+     *                  accumulated into when append mode is set.
      */
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override

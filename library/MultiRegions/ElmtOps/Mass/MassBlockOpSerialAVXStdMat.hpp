@@ -265,15 +265,20 @@ protected:
      *
      * Per group the deformed branch runs the backward-transform GEMM into
      * the static workspace (sized for one group's physical values),
-     * multiplies that workspace by the group's nqTot interleaved Jacobians
-     * through MultiplyByJacobian, and feeds it to the inner-product GEMM;
-     * the regular branch runs the single mass GEMM and multiplies the
-     * resulting coefficients by the group's one Jacobian per element. The
-     * Jacobian pointer advances accordingly -- nqTot vectors per group when
-     * deformed, one otherwise -- and is rewound for every component.
+     * multiplies that workspace by the scale factor and the group's nqTot
+     * interleaved Jacobians through MultiplyByJacobian, and feeds it to the
+     * inner-product GEMM; the regular branch runs the single mass GEMM and
+     * multiplies the resulting coefficients by the scale factor and the
+     * group's one Jacobian per element. In append mode the regular branch
+     * applies that factor to the input instead, in the workspace, since it
+     * is constant per element, and both final GEMMs accumulate onto the
+     * output, whose chunk is reshaped with the input's. The Jacobian pointer
+     * advances accordingly -- nqTot vectors per group when deformed, one
+     * otherwise -- and is rewound for every component.
      *
      * @param   inblock     Coefficient-space input block.
-     * @param   outblock    Coefficient-space output block; overwritten.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      */
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Coeff> &inblock,
                  LibUtilities::BlockAccessor<TData, FieldState::Coeff>
@@ -281,29 +286,37 @@ protected:
     {
         // Initialize pointers.
         auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>();
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = (this->m_append)
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto width_ratio     = (interleaveWidth == 1)
-                                         ? 1
-                                         : interleaveWidth / m_implInterleaveWidth;
-        const auto chunkSize = std::max(m_implInterleaveWidth, interleaveWidth);
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
+        const auto width_ratio =
+            (inInterleaveWidth == 1)
+                ? 1
+                : inInterleaveWidth / m_implInterleaveWidth;
+        const auto chunkSize =
+            std::max(m_implInterleaveWidth, inInterleaveWidth);
 
         // Get static workspace pointer.
         auto wspptr =
             (m_isDeformed)
                 ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
                       simd_t::width * m_nqTot)
+            : (this->m_append)
+                ? BlockOperator<TData>::template GetStaticWorkSpace<MemSpace>(
+                      simd_t::width * m_nmTot)
                 : nullptr;
 
         // Dispatch kernel.
         auto bwd_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
             simd_t::width, m_nqTot, m_nmTot, 1.0, 0.0);
         auto ipb_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nqTot, 1.0, 0.0);
+            simd_t::width, m_nmTot, m_nqTot, 1.0, (TData)this->m_append);
         auto mass_kernel = LibxsmmDispatchWrapper<TData>::dispatch(
-            simd_t::width, m_nmTot, m_nmTot, 1.0, 0.0);
+            simd_t::width, m_nmTot, m_nmTot, 1.0, (TData)this->m_append);
 
         // Loop over components.
         for (unsigned int n = 0;
@@ -319,8 +332,14 @@ protected:
                 if (e % width_ratio == 0)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        m_implInterleaveWidth, interleaveWidth, chunkSize,
+                        m_implInterleaveWidth, inInterleaveWidth, chunkSize,
                         m_nmTot, (TData *)inptr);
+                    if (this->m_append)
+                    {
+                        LibUtilities::ReshapeStorage<ExecSpace>(
+                            m_implInterleaveWidth, outInterleaveWidth,
+                            chunkSize, m_nmTot, (TData *)outptr);
+                    }
                 }
 
                 if (m_isDeformed)
@@ -333,7 +352,7 @@ protected:
                     MultiplyByJacobian<ExecSpace, true>(
                         1, m_nqTot, reinterpret_cast<const simd_t *>(jacptr),
                         reinterpret_cast<const simd_t *>(wspptr),
-                        reinterpret_cast<simd_t *>(wspptr), 1.0);
+                        reinterpret_cast<simd_t *>(wspptr), this->m_scale);
 
                     // Step 2: IProduct
                     // Perform matrix-matrix multiply.
@@ -344,29 +363,48 @@ protected:
                 }
                 else
                 {
-                    // Perform matrix-matrix multiply.
-                    mass_kernel(inptr, m_massmat, outptr);
+                    if (this->m_append)
+                    {
+                        // Multiply the input by jacobian.
+                        MultiplyByJacobian<ExecSpace, false>(
+                            1, m_nmTot,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(inptr),
+                            reinterpret_cast<simd_t *>(wspptr), this->m_scale);
 
-                    // Multiply by jacobian.
-                    MultiplyByJacobian<ExecSpace, false>(
-                        1, m_nmTot, reinterpret_cast<const simd_t *>(jacptr),
-                        reinterpret_cast<const simd_t *>(outptr),
-                        reinterpret_cast<simd_t *>(outptr), 1.0);
+                        // Perform matrix-matrix multiply.
+                        mass_kernel(wspptr, m_massmat, outptr);
 
-                    // Increment pointers.
-                    jacptr += simd_t::width;
+                        // Increment pointers.
+                        jacptr += simd_t::width;
+                    }
+                    else
+                    {
+                        // Perform matrix-matrix multiply.
+                        mass_kernel(inptr, m_massmat, outptr);
+
+                        // Multiply by jacobian.
+                        MultiplyByJacobian<ExecSpace, false>(
+                            1, m_nmTot,
+                            reinterpret_cast<const simd_t *>(jacptr),
+                            reinterpret_cast<const simd_t *>(outptr),
+                            reinterpret_cast<simd_t *>(outptr), this->m_scale);
+
+                        // Increment pointers.
+                        jacptr += simd_t::width;
+                    }
                 }
 
                 // Reshape back, if necessary.
                 if (e % width_ratio == width_ratio - 1)
                 {
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)inptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
                     LibUtilities::ReshapeStorage<ExecSpace>(
-                        interleaveWidth, m_implInterleaveWidth, chunkSize,
+                        inInterleaveWidth, m_implInterleaveWidth, chunkSize,
                         m_nmTot,
                         (TData *)outptr -
                             (width_ratio - 1) * m_nmTot * simd_t::width);
@@ -379,7 +417,7 @@ protected:
         }
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 

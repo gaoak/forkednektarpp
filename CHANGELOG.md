@@ -161,6 +161,7 @@ v5.11.0
 - Replace the `HostToHost`, `DeviceToHost`, `HostToDevice` and `DeviceToDevice` tag structs of `deviceMemcpy` with the `MemCopyType` enum, so that an invalid copy direction no longer compiles (!2919)
 - Add per-block interleave width helpers to `Field` and use them in place of duplicated block loops (!2918)
 - Fix `BlockAccessor::ReshapeStorage()` ignoring its stream (!2918)
+- Add scale and append options to Mass and an append option to IProductWRTBase, and use them to fuse the 3DH1 z-terms of Helmholtz, Laplacian, LinAdvDiffReaction and IProductWRTDerivBase (!2920)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

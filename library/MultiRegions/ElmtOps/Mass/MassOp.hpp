@@ -113,11 +113,13 @@ namespace Nektar::MultiRegions
  * detail::MassOpImpl adds nothing beyond registration). See ElmtOp for the
  * block decomposition and factory scheme.
  *
- * Apply() always overwrites the output field: the family has neither an
- * append mode nor a scale factor, and instantiates the underlying BwdTrans
- * kernels with APPEND false and the IProductWRTBase kernels with SCALE and
- * APPEND false throughout. The transform kernels have no SCALE parameter
- * of their own.
+ * Two settings modify what the block operators compute, both forwarded to
+ * every block operator: SetScale(s) multiplies the result by the scalar s,
+ * and after SetAppend(true) Apply() accumulates the scaled result onto the
+ * output's existing values instead of overwriting them. The underlying
+ * BwdTrans kernels run with APPEND false; the scale and the append flag
+ * enter in the IProductWRTBase stage, or in the GEMM and Jacobian step of
+ * the StdMat paths.
  *
  * @tparam TData Floating-point type of the field data.
  *
@@ -164,6 +166,41 @@ public:
     /// form the operator-factory key.
     static inline const std::string name = "Mass";
 
+    /**
+     * @brief Switch all block operators between overwrite and
+     * accumulate mode.
+     *
+     * With @p append set, subsequent Apply() calls add the scaled result
+     * onto the output field's existing contents instead of overwriting
+     * them. The default is overwrite.
+     *
+     * @param   append  Accumulate into the output when true.
+     */
+    void SetAppend(const bool &append)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetAppend(append);
+        }
+    }
+
+    /**
+     * @brief Set the factor every block operator multiplies its result by.
+     * The initial value is 1.
+     *
+     * @param   scale   Factor applied to the result of subsequent Apply()
+     *                  calls.
+     */
+    void SetScale(const TData &scale)
+    {
+        // Loop over the blocks.
+        for (unsigned int blk = 0; blk < this->m_blockOp.size(); ++blk)
+        {
+            this->m_blockOp[blk]->SetScale(scale);
+        }
+    }
+
 protected:
     /// One block operator per element block, filled by Create().
     std::vector<std::shared_ptr<MassBlockOp<TData>>> m_blockOp;
@@ -195,7 +232,8 @@ protected:
      * values per element.
      *
      * @param   in      Coefficient-space input field.
-     * @param   out     Coefficient-space output field; overwritten.
+     * @param   out     Coefficient-space output field; overwritten, or
+     *                  accumulated into when append mode is set.
      */
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &in,
                  LibUtilities::Field<TData, FieldState::Coeff> &out) override

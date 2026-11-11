@@ -60,7 +60,6 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <MultiRegions/ExpListHomogeneous1D.h>
 
 #include <MultiRegions/ElmtOps/DerivZOpImpl.hpp>
@@ -95,8 +94,9 @@ public:
         : IProductWRTDerivBaseOp<TFieldOut, TData>(expansionList, components)
     {
         // The z direction contributes -IProductWRTBase(da_z/dz): the z-op
-        // writes that derivative into m_dz, the inner product takes it to
-        // m_wsp and the result is subtracted from the xy part. Only the Coeff
+        // writes that derivative into m_dz and the inner product, scaled by
+        // minus the operator's scale in append mode, adds the result to the
+        // xy part. Only the Coeff
         // variant carries it, the Phys one refusing homogeneous input, and
         // they all stay uninstantiated on every other expansion.
         if constexpr (TFieldOut == FieldState::Coeff)
@@ -122,6 +122,8 @@ public:
                         expansionList);
                 m_ipOp =
                     IProductWRTBaseOp<TData>::Create(expansionList, components);
+                m_ipOp->SetScale(-1.0);
+                m_ipOp->SetAppend(true);
 
                 const unsigned int nComp =
                     static_cast<unsigned int>(components.size());
@@ -129,11 +131,6 @@ public:
                 m_dz = LibUtilities::Field<TData, FieldState::Phys>(
                     "IProductWRTDerivBaseDz",
                     MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
-                        expansionList),
-                    nComp, nhomo);
-                m_wsp = LibUtilities::Field<TData, FieldState::Coeff>(
-                    "IProductWRTDerivBaseWsp",
-                    MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
                         expansionList),
                     nComp, nhomo);
             }
@@ -163,21 +160,22 @@ protected:
         DerivZOpImpl<ExecSpace, TData, DerivZLayout::VectorZToScalar,
                      DerivZOrder::First, false>>
         m_zOp;
-    /// Inner product with the basis taking #m_dz to #m_wsp; built with
-    /// #m_zOp.
+    /// Inner product with the basis taking #m_dz onto the output, scaled
+    /// by minus the operator's scale; built with #m_zOp.
     std::shared_ptr<IProductWRTBaseOp<TData>> m_ipOp;
     /// Physical-space workspace holding \f$\partial f_z/\partial z\f$.
     LibUtilities::Field<TData, FieldState::Phys> m_dz;
-    /// Coefficient-space workspace holding its inner product with the
-    /// basis.
-    LibUtilities::Field<TData, FieldState::Coeff> m_wsp;
-    /// Scale factor of the operator, applied again to the z term.
-    TData m_scale = 1.0;
 
-    /// Store the scale factor for the z term.
+    /// Forward minus the scale factor to the z term's inner product. The
+    /// scale is taken again because the z term never passes through the
+    /// block operators that scale the xy part, and one integration by
+    /// parts puts the minus sign on it.
     void v_SetScaleFFT(const TData &scale) override
     {
-        m_scale = scale;
+        if (m_ipOp)
+        {
+            m_ipOp->SetScale(-scale);
+        }
     }
 
     /// Subtract the scaled z term from @p out through #m_zOp and #m_ipOp;
@@ -191,12 +189,7 @@ protected:
             if (m_zOp && in.GetNumHomoModes() > 1)
             {
                 m_zOp->Launch(in, m_dz);
-                m_ipOp->Apply(m_dz, m_wsp);
-
-                // One integration by parts puts the minus sign here. The
-                // scale is taken again because the z term never passes
-                // through the block operators that scale the xy part.
-                Math::daxpy<ExecSpace>(-m_scale, m_wsp, out, out);
+                m_ipOp->Apply(m_dz, out);
             }
         }
     }

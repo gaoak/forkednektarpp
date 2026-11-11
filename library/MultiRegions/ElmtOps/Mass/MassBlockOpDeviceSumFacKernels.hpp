@@ -49,16 +49,17 @@
  * BwdTrans shape kernel of BwdTransBlockOpDeviceSumFacKernels.hpp followed by
  * the IProductWRTBase shape kernel of
  * IProductWRTBaseBlockOpDeviceSumFacKernels.hpp, the transform instantiated
- * with APPEND false and the inner product with SCALE and APPEND false and given
- * a scale of 1; the transform kernels have no SCALE parameter and take no scale
- * argument. The quadrature weights and the Jacobian therefore enter exactly
- * where they do in a standalone inner product: inside the IProductWRTBase shape
- * kernel, which receives the per-direction weight tables and the warp's
- * Jacobian slice and whose DEFORMED parameter decides whether that slice holds
- * one value per element or one per quadrature point. For the nodal shapes the
- * element's coefficients are mapped to the modal basis by MatVecKernel before
- * the transform and mapped back by the same kernel with TRANSPOSE set
- * afterwards.
+ * with APPEND false and the inner product with the launcher's SCALE and
+ * APPEND and given its scale; the transform kernels have no SCALE parameter
+ * and take no scale argument. The quadrature weights and the Jacobian therefore
+ * enter exactly where they do in a standalone inner product: inside the
+ * IProductWRTBase shape kernel, which receives the per-direction weight tables
+ * and the warp's Jacobian slice and whose DEFORMED parameter decides whether
+ * that slice holds one value per element or one per quadrature point. For the
+ * nodal shapes the element's coefficients are mapped to the modal basis by
+ * MatVecKernel before the transform and mapped back by the same kernel with
+ * TRANSPOSE set afterwards; there the inner product overwrites the modal slice
+ * and APPEND governs the mapping back.
  *
  * Element data is interleaved at the warp size: lane e % warpsize of warp
  * e / warpsize owns element e, and every workspace slice is addressed by
@@ -353,6 +354,8 @@ inline constexpr unsigned int MassSharedMemorySize(
  *
  * @tparam SHAPE_TYPE       Seg.
  * @tparam Implementation   MultiRegions::SumFac.
+ * @tparam SCALE            Multiply the result by @p scale.
+ * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one interleaved value per
  *                          quadrature point rather than a single
  *                          per-element value.
@@ -372,15 +375,16 @@ inline constexpr unsigned int MassSharedMemorySize(
  *                      back; this thread's own component is c.
  * @param   out         Block's coefficients, every component back to
  *                      back; this thread's own component is c,
- *                      overwritten.
+ *                      overwritten, or accumulated into when APPEND.
  * @param   wsp         Global workspace, MassWorkSpaceSize values per
  *                      component, back to back.
+ * @param   scale       Factor applied when @p SCALE is set.
  * @param   shmemptr    Dynamic shared-memory base; unused here.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter1D, typename TthreadBlock,
-          typename TData,
+          bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter1D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -392,7 +396,7 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
                        [[maybe_unused]] const TData *NEK_RESTRICT nodToMod,
                        const TData *NEK_RESTRICT jac,
                        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-                       TData *NEK_RESTRICT wsp,
+                       TData *NEK_RESTRICT wsp, const TData scale,
                        [[maybe_unused]] unsigned char *shmemptr,
                        const TthreadBlock &threadBlock)
 {
@@ -419,8 +423,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         TData *outptr      = out + nm0 * (nelmt * c + warpsize * iwarp);
         TData *wspptr      = wsp + nq0 * (nelmt * c + warpsize * iwarp);
         BwdTransSegSumFacKernel<false>(ilane, nm0, nq0, basis0, inptr, wspptr);
-        IProductWRTBaseSegSumFacKernel<false, false, DEFORMED>(
-            ilane, nm0, nq0, basis0, w0, jacptr, wspptr, outptr, (TData)1.0);
+        IProductWRTBaseSegSumFacKernel<SCALE, APPEND, DEFORMED>(
+            ilane, nm0, nq0, basis0, w0, jacptr, wspptr, outptr, scale);
 
         e += getGlobalRange<0>(threadBlock);
     }
@@ -442,6 +446,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *
  * @tparam SHAPE_TYPE       Quad, Tri or NodalTri.
  * @tparam Implementation   MultiRegions::SumFac.
+ * @tparam SCALE            Multiply the result by @p scale.
+ * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one interleaved value per
  *                          quadrature point rather than a single
  *                          per-element value.
@@ -467,29 +473,33 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *                      back; this thread's own component is c.
  * @param   out         Block's coefficients, every component back to
  *                      back; this thread's own component is c,
- *                      overwritten.
+ *                      overwritten, or accumulated into when APPEND.
  * @param   wsp         Global workspace: MassWorkSpaceSize's regions, each
  *                      scaled by the component count (see above).
+ * @param   scale       Factor applied when @p SCALE is set.
  * @param   shmemptr    Dynamic shared-memory base; unused here.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter2D, typename TthreadBlock,
-          typename TData,
+          bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter2D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
     (GetMaxThreadPerBlock<Implementation, TSizeParameter2D>()))
-    MassKernelLauncher(
-        const TSizeParameter2D sizeParam2D, const size_t nelmt,
-        const bool isModified,
-        [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
-        const TData *NEK_RESTRICT basis0, const TData *NEK_RESTRICT basis1,
-        const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-        const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
-        const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, [[maybe_unused]] unsigned char *shmemptr,
-        const TthreadBlock &threadBlock)
+    MassKernelLauncher(const TSizeParameter2D sizeParam2D, const size_t nelmt,
+                       const bool isModified,
+                       [[maybe_unused]] const unsigned int *NEK_RESTRICT index0,
+                       const TData *NEK_RESTRICT basis0,
+                       const TData *NEK_RESTRICT basis1,
+                       const TData *NEK_RESTRICT w0,
+                       const TData *NEK_RESTRICT w1,
+                       const TData *NEK_RESTRICT nodToMod,
+                       const TData *NEK_RESTRICT jac,
+                       const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
+                       TData *NEK_RESTRICT wsp, const TData scale,
+                       [[maybe_unused]] unsigned char *shmemptr,
+                       const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter2D_v<TSizeParameter2D>,
                   "Template argument must be either of type "
@@ -548,14 +558,15 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1,
             isNodal ? modal : inptr, bwd, wsp0);
 
-        IProductWRTBase2DSumFacKernel<SHAPE_TYPE, false, false, DEFORMED>(
+        IProductWRTBase2DSumFacKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal,
+                                      DEFORMED>(
             ilane, nm0, nm1, nq0, nq1, isModified, basis0, basis1, w0, w1,
-            jacptr, bwd, isNodal ? modal : outptr, wsp0, (TData)1.0);
+            jacptr, bwd, isNodal ? modal : outptr, wsp0, scale);
 
         if constexpr (isNodal)
         {
             // Multiply by transpose nodToMod to transform coeffs.
-            MatVecKernel<false, true>(ilane, nmTot, nodToMod, modal, outptr);
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, modal, outptr);
         }
 
         e += getGlobalRange<0>(threadBlock);
@@ -586,6 +597,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  * @tparam SHAPE_TYPE       Hex, Tet, NodalTet, Prism, NodalPrism, Pyr or
  * NodalPyr.
  * @tparam Implementation   MultiRegions::SumFac.
+ * @tparam SCALE            Multiply the result by @p scale.
+ * @tparam APPEND           Accumulate onto @p out instead of overwriting.
  * @tparam DEFORMED         @p jac holds one interleaved value per
  *                          quadrature point rather than a single
  *                          per-element value.
@@ -612,15 +625,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
  *                      back; this thread's own component is c.
  * @param   out         Block's coefficients, every component back to
  *                      back; this thread's own component is c,
- *                      overwritten.
+ *                      overwritten, or accumulated into when APPEND.
  * @param   wsp         Global workspace: MassWorkSpaceSize's regions, each
  *                      scaled by the component count (see above).
+ * @param   scale       Factor applied when @p SCALE is set.
  * @param   shmemptr    Dynamic shared-memory base; unused here.
  * @param   threadBlock Thread-block handle the index helpers read.
  */
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool DEFORMED, typename TSizeParameter3D, typename TthreadBlock,
-          typename TData,
+          bool SCALE, bool APPEND, bool DEFORMED, typename TSizeParameter3D,
+          typename TthreadBlock, typename TData,
           std::enable_if_t<std::is_same_v<Implementation, SumFac>, bool>
               Enable = true>
 NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
@@ -637,7 +651,8 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
         const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
         const TData *NEK_RESTRICT nodToMod, const TData *NEK_RESTRICT jac,
         const TData *NEK_RESTRICT in, TData *NEK_RESTRICT out,
-        TData *NEK_RESTRICT wsp, [[maybe_unused]] unsigned char *shmemptr,
+        TData *NEK_RESTRICT wsp, const TData scale,
+        [[maybe_unused]] unsigned char *shmemptr,
         const TthreadBlock &threadBlock)
 {
     static_assert(IsSizeParameter3D_v<TSizeParameter3D>,
@@ -714,15 +729,16 @@ NEK_DEVICE_KERNEL void __LAUNCH_BOUNDS__(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
             basis2, isNodal ? modal : inptr, bwd, wsp0, wsp1);
 
-        IProductWRTBase3DSumFacKernel<SHAPE_TYPE, false, false, DEFORMED>(
+        IProductWRTBase3DSumFacKernel<SHAPE_TYPE, SCALE, APPEND && !isNodal,
+                                      DEFORMED>(
             ilane, nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0, basis1,
             basis2, w0, w1, w2, jacptr, bwd, isNodal ? modal : outptr, wsp0,
-            wsp1, (TData)1.0);
+            wsp1, scale);
 
         if constexpr (isNodal)
         {
             // Multiply by transpose nodToMod to transform coeffs.
-            MatVecKernel<false, true>(ilane, nmTot, nodToMod, modal, outptr);
+            MatVecKernel<APPEND, true>(ilane, nmTot, nodToMod, modal, outptr);
         }
 
         e += getGlobalRange<0>(threadBlock);

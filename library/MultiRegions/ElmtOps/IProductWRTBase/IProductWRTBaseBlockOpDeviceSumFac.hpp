@@ -377,10 +377,20 @@ protected:
                       "OperatorND expects a size parameter matching the "
                       "dimension of the shape.");
 
-        OperatorNDImpl<SHAPE_TYPE, DEFORMED>(
-            inblock, outblock, sizeParam,
-            std::make_integer_sequence<unsigned int, DIM>(),
-            std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
+        if (this->m_append)
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, true>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
+        }
+        else
+        {
+            OperatorNDImpl<SHAPE_TYPE, DEFORMED, false>(
+                inblock, outblock, sizeParam,
+                std::make_integer_sequence<unsigned int, DIM>(),
+                std::make_integer_sequence<unsigned int, NumIndex(DIM)>());
+        }
     }
 
     /**
@@ -411,21 +421,23 @@ protected:
      * quadrature-metric flag picks the IProductWRTBaseKernelLauncher
      * overload taking the weights and the Jacobians or the one without
      * them, and a scale factor of exactly 1 picks the Scale = false
-     * variant. Append is set to false: this family never accumulates. The
-     * launch goes through DEVICE_2DGRID_KERNEL_LAUNCHER to the overload of
-     * this dimension and strategy, the index sequences expanding to the
-     * per-direction tables #m_B and #m_W and the mode-index tables
-     * #m_index.
+     * variant. APPEND, chosen by OperatorND() from the append flag,
+     * accumulates onto the output. The launch goes through
+     * DEVICE_2DGRID_KERNEL_LAUNCHER to the overload of this dimension and
+     * strategy, the index sequences expanding to the per-direction tables #m_B
+     * and #m_W and the mode-index tables #m_index.
      *
-     * The storage for all ncomp components is reshaped to
-     * #m_implInterleaveWidth in a single pass before the launch, and both
-     * input and output are reshaped back to the input's width once the
-     * kernel has been queued; the output block's recorded width is set to
-     * the input's on return. Everything is issued on #m_streamID.
+     * The storage for all ncomp components of the input, and in append
+     * mode of the output, is reshaped to #m_implInterleaveWidth in a single
+     * pass before the launch, and both input and output are reshaped back
+     * to the input's width once the kernel has been queued; the output
+     * block's recorded width is set to the input's on return. Everything is
+     * issued on #m_streamID.
      *
      * @tparam SHAPE_TYPE      Shape of the block, the nodal enumerators
      *                         included.
      * @tparam DEFORMED        Jacobians vary point by point.
+     * @tparam APPEND          Accumulate onto the output.
      * @tparam TSizeParameter  Size parameter of this dimension, templated
      *                         or not.
      * @tparam ind0            Reference directions, 0 to ndim - 1; selects
@@ -435,10 +447,11 @@ protected:
      *                         3D (see NumIndex()).
      *
      * @param   inblock     Physical-space input block.
-     * @param   outblock    Coefficient-space output block.
+     * @param   outblock    Coefficient-space output block; overwritten, or
+     *                      accumulated into in append mode.
      * @param   sizeParam   Element sizes, in runtime or compile-time form.
      */
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, bool APPEND,
               typename TSizeParameter, unsigned int... ind0,
               unsigned int... ind1>
     NEK_FORCE_INLINE void OperatorNDImpl(
@@ -447,13 +460,14 @@ protected:
         TSizeParameter sizeParam, std::integer_sequence<unsigned int, ind0...>,
         std::integer_sequence<unsigned int, ind1...>)
     {
-        constexpr bool Append = false;
-
         const auto nelmt = inblock.GetNumElementsWithPadding();
 
         // Initialize pointers.
-        auto inptr  = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
-        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        auto inptr = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
+        auto outptr =
+            (APPEND)
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
 
         // Get static workspace pointer.
         const unsigned int ncomp =
@@ -466,7 +480,8 @@ protected:
                 wspSize * ncomp, m_streamID);
 
         // Get interleave parameter.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
+        const auto inInterleaveWidth  = inblock.GetInterleaveWidth();
+        const auto outInterleaveWidth = outblock.GetInterleaveWidth();
 
         // Set Kernel parameters.
         const unsigned int shmemsize =
@@ -480,8 +495,14 @@ protected:
 
         // Reshape, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            m_implInterleaveWidth, interleaveWidth, nelmt * ncomp,
+            m_implInterleaveWidth, inInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
+        if constexpr (APPEND)
+        {
+            LibUtilities::ReshapeStorage<ExecSpace>(
+                m_implInterleaveWidth, outInterleaveWidth, nelmt * ncomp,
+                outblock.GetNumData(), outptr, m_streamID);
+        }
 
         if (this->m_integration)
         {
@@ -492,7 +513,7 @@ protected:
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, Append, DEFORMED>),
+                                                   Scale, APPEND, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam, nelmt, m_isModified, m_index[ind1]...,
                     m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
@@ -504,7 +525,7 @@ protected:
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, Append, DEFORMED>),
+                                                   Scale, APPEND, DEFORMED>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam, nelmt, m_isModified, m_index[ind1]...,
                     m_B[ind0]..., m_W[ind0]..., m_nodToMod, m_jacptr, inptr,
@@ -520,7 +541,7 @@ protected:
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, Append>),
+                                                   Scale, APPEND>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam, nelmt, m_isModified, m_index[ind1]...,
                     m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
@@ -532,7 +553,7 @@ protected:
 
                 DEVICE_2DGRID_KERNEL_LAUNCHER(
                     (IProductWRTBaseKernelLauncher<SHAPE_TYPE, Implementation,
-                                                   Scale, Append>),
+                                                   Scale, APPEND>),
                     gridsize, ncomp, blocksize, 1, shmemsize, m_streamID,
                     sizeParam, nelmt, m_isModified, m_index[ind1]...,
                     m_B[ind0]..., m_nodToMod, inptr, outptr, wspptr,
@@ -542,14 +563,14 @@ protected:
 
         // Reshape back, if necessary.
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             inblock.GetNumData(), (TData *)inptr, m_streamID);
         LibUtilities::ReshapeStorage<ExecSpace>(
-            interleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
+            inInterleaveWidth, m_implInterleaveWidth, nelmt * ncomp,
             outblock.GetNumData(), outptr, m_streamID);
 
         // Set output block to input interleave.
-        outblock.template SetInterleaveWidth<TData>(interleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(inInterleaveWidth);
     }
 };
 
