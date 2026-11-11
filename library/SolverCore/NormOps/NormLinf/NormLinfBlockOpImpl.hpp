@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NormLinfBlockOpDevice.hpp
+// File: NormLinfBlockOpImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/NormOps/NormLinf/NormLinfBlockOp.hpp"
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <SolverCore/NormOps/NormLinf/NormLinfBlockOp.hpp>
 
 namespace Nektar::SolverCore::detail
 {
@@ -67,27 +67,24 @@ public:
     }
 
 protected:
-    static constexpr unsigned int m_implInterleaveWidth =
-        NektarSpaces::Device::warpSize;
-
     unsigned int m_streamID;
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
     {
-        const auto numComp = inblock.GetNumComponents();
+        const auto numComp  = inblock.GetNumComponents();
+        const auto compSize = inblock.CompSize() * inblock.GetNumHomoModes();
 
-        // Loop all components.
+        // Loop all components, each over all its planes.
         const auto maskptr =
             Math::internalMathKernelMask<MemSpace>::GetInstance(inblock);
         auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        for (unsigned int nc = 0; nc < numComp * inblock.GetNumHomoModes();
-             ++nc)
+        for (unsigned int nc = 0; nc < numComp; ++nc)
         {
-            Math::linfnormKernel<ExecSpace, false>(
-                inblock.CompSize(), maskptr, inptr, dataptr + nc, m_streamID);
-            inptr += inblock.CompSize();
+            Math::linfnormKernel<ExecSpace, false>(compSize, maskptr, inptr,
+                                                   dataptr + nc, m_streamID);
+            inptr += compSize;
         }
     }
 };

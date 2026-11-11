@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "SolverCore/NormOps/NormLinf/NormLinfOp.hpp"
+#include <SolverCore/NormOps/NormLinf/NormLinfOp.hpp>
 
 namespace Nektar::SolverCore::detail
 {
@@ -51,8 +51,10 @@ public:
     {
     }
 
+    // className - for OperatorFactory
     static std::string className;
 
+    // Instantiation function for CreatorFunction in OperatorFactory.
     static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -64,31 +66,39 @@ public:
 protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
-        ASSERTL1(in.GetNumHomoModes() == 1,
-                 "The NormLinf is not implemented for homogeneous expansions.");
+        const auto numComp = in.GetNumComponents();
+        const auto numHomo = in.GetNumHomoModes();
 
-        // Initialise norm memory region
-        if (this->m_data.size() != in.GetNumComponents())
+        // Initialise norm memory region.
+        if (this->m_norm.size() != numComp)
         {
-            this->m_data = LibUtilities::MemoryRegion<TData>(
-                "NormLinfDeviceReduce", in.GetNumComponents(), eHostPinned);
+            this->m_norm = LibUtilities::MemoryRegion<TData>(
+                "NormLinf", numComp, eHostPinned);
         }
 
-        // Reset norms
-        this->m_data.template Initialize<MemSpace>(TData{0});
+        // Reset norms.
+        this->m_norm.template Initialize<MemSpace>(TData{0});
 
-        // Loop all blocks
+        // Loop all blocks.
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             auto &inblock = in.GetBlocks()[blk];
-
-            this->m_blockOp[blk]->Apply(inblock, this->m_data);
+            this->m_blockOp[blk]->Apply(inblock, this->m_norm);
         }
 
-        // Communicate norms
-        auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
-        rowComm->template AllReduce<MemSpace>(this->m_data,
-                                              Nektar::LibUtilities::ReduceMax);
+        // Communicate norms.
+        auto comm = this->m_expansionList->GetComm();
+        comm->GetRowComm()->template AllReduce<MemSpace>(
+            this->m_norm, Nektar::LibUtilities::ReduceMax);
+
+        if (numHomo == 1)
+        {
+            return;
+        }
+
+        // Take the maximum over the ranks holding the other planes.
+        comm->GetColumnComm()->template AllReduce<MemSpace>(
+            this->m_norm, Nektar::LibUtilities::ReduceMax);
     }
 };
 

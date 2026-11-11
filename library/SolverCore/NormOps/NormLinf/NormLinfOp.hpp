@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/NormOps/NormLinf/NormLinfBlockOp.hpp"
-#include "SolverCore/SolverCore.hpp"
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/NormOps/NormLinf/NormLinfBlockOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -98,12 +98,11 @@ public:
 
     std::vector<TData> GetNorms()
     {
-        auto ptr = m_data.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        return std::vector<TData>(ptr, ptr + m_data.size());
+        return m_norm.ToVector();
     }
 
 protected:
-    LibUtilities::MemoryRegion<TData> m_data;
+    LibUtilities::MemoryRegion<TData> m_norm;
     std::vector<std::shared_ptr<NormLinfBlockOp<TData>>> m_blockOp;
 
     NormLinfOp(const MultiRegions::ExpListSharedPtr &expansionList,

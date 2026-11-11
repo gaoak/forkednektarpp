@@ -53,6 +53,20 @@
         }                                                                      \
     }
 
+#define TEST_NORM3DH1(test_name, test, tol)                                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        std::cout << std::string("Run: ") + std::string(#test_name)            \
+                  << std::endl;                                                \
+        Configure3DH1(4);                                                      \
+        SetTestCase();                                                         \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteNormOps)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -81,6 +95,9 @@ TEST_NORM(norm_tet_varp, TetVarP, 1.0E-11)
 TEST_NORM(norm_tet_nodal, TetNodal, 1.0E-11)
 TEST_NORM(norm_cube_prism_hex, CubePrismHex, 1.0E-11)
 TEST_NORM(norm_cube_all_elements, CubeAllElements, 1.0E-11)
+TEST_NORM3DH1(norm_quad_3dh1, Quad, 1.0E-11)
+TEST_NORM3DH1(norm_tri_3dh1, Tri, 1.0E-11)
+TEST_NORM3DH1(norm_square_all_elements_3dh1, SquareAllElements, 1.0E-11)
 #endif
 
 BOOST_AUTO_TEST_SUITE_END()

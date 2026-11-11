@@ -43,6 +43,7 @@
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <UnitTests/TestBoostSetup.hpp>
@@ -69,7 +70,8 @@ NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::Exec);
  * expression and checks NormL2Op (plain and normalised by the mesh volume)
  * and NormLinfOp against the norms the expansion list computes itself, both
  * for the non-interleaved storage and for the interleaved storage the
- * vectorised and device paths use.
+ * vectorised and device paths use. The 3DH1 cases give every plane its own
+ * data, so the norms depend on how the planes are combined.
  *
  * The fixture constructor (destructor) is called before (after) each call to
  * the BOOST_FIXTURE_TEST_CASE(<test name>, <fixture>) macro.
@@ -92,6 +94,17 @@ public:
     {
         SetSession();
         SetExpList();
+        SetFixture();
+    }
+
+    /**
+     * @brief As Configure, on a 3DH1 expansion list with nhomo planes.
+     */
+    void Configure3DH1(const unsigned int nhomo)
+    {
+        m_nhomo = nhomo;
+        SetSession();
+        SetExpList3DH1();
         SetFixture();
     }
 
@@ -161,18 +174,13 @@ public:
     {
         auto l2Op =
             NormL2Op<TData>::Create(m_expList, m_session->GetVariables());
-        auto l2NormalisedOp =
-            NormL2Op<TData>::Create(m_expList, m_session->GetVariables());
-        l2NormalisedOp->SetNormalised(true);
         auto linfOp =
             NormLinfOp<TData>::Create(m_expList, m_session->GetVariables());
 
         // Non-interleaved case.
         l2Op->Apply(m_in);
-        m_l2Test = l2Op->GetNorms();
-
-        l2NormalisedOp->Apply(m_in);
-        m_l2NormalisedTest = l2NormalisedOp->GetNorms();
+        m_l2Test           = l2Op->GetNorms();
+        m_l2NormalisedTest = l2Op->GetNorms(true);
 
         linfOp->Apply(m_in);
         m_linfTest = linfOp->GetNorms();
@@ -184,10 +192,8 @@ public:
                             execStr);
 
         l2Op->Apply(m_in);
-        m_l2Test2 = l2Op->GetNorms();
-
-        l2NormalisedOp->Apply(m_in);
-        m_l2NormalisedTest2 = l2NormalisedOp->GetNorms();
+        m_l2Test2           = l2Op->GetNorms();
+        m_l2NormalisedTest2 = l2Op->GetNorms(true);
 
         linfOp->Apply(m_in);
         m_linfTest2 = linfOp->GetNorms();
@@ -201,8 +207,7 @@ public:
      */
     bool Compare(const TData tol)
     {
-        const unsigned int numComp =
-            m_in.GetNumComponents() * m_in.GetNumHomoModes();
+        const unsigned int numComp = m_in.GetNumComponents();
 
         if (m_l2Test.size() != m_l2Expected.size() ||
             m_l2NormalisedTest.size() != m_l2NormalisedExpected.size() ||
@@ -293,6 +298,10 @@ public:
 
 protected:
     std::string m_meshName = "";
+    /// Number of planes; 1 without a homogeneous direction.
+    unsigned int m_nhomo = 1;
+    /// Homogeneous length of the 3DH1 cases, other than 1 so that it shows.
+    static constexpr double m_homoLen = 2.0;
     SessionReaderSharedPtr m_session;
     ExpListSharedPtr m_expList;
     Field<TData, FieldState::Phys> m_in;
@@ -339,12 +348,26 @@ protected:
         m_expList->SetDataWarehouse();
     }
 
+    void SetExpList3DH1()
+    {
+        auto graph = SpatialDomains::MeshGraphIO::Read(m_session);
+        const LibUtilities::PointsKey pkey(m_nhomo,
+                                           LibUtilities::eFourierEvenlySpaced);
+        const LibUtilities::BasisKey bkey(LibUtilities::eFourier, m_nhomo,
+                                          pkey);
+        m_expList = MemoryManager<ExpList3DHomogeneous1D>::AllocateSharedPtr(
+            m_session, bkey, m_homoLen, false, false, graph, "u",
+            Collections::eNoCollection);
+        m_expList->SetDataWarehouse();
+    }
+
     void SetFixture()
     {
         const unsigned int ncomp = m_session->GetVariables().size();
         auto blockAttr = GetBlockAttributes<TData, FieldState::Phys>(m_expList);
 
-        m_in = Field<TData, FieldState::Phys>("f_in", blockAttr, ncomp, 1);
+        m_in =
+            Field<TData, FieldState::Phys>("f_in", blockAttr, ncomp, m_nhomo);
     }
 
     /**
@@ -353,15 +376,19 @@ protected:
      */
     void ExpectedSolution()
     {
-        const unsigned int numComp =
-            m_in.GetNumComponents() * m_in.GetNumHomoModes();
-        const auto nphys = m_expList->GetTotPoints();
+        const unsigned int numComp = m_in.GetNumComponents();
+        const auto nphys           = m_expList->GetTotPoints();
 
         Array<OneD, TData> lhs = m_in.template ToArray<TData>();
 
-        // Mesh volume, for the normalised L2 norm.
+        // Mesh volume, for the normalised L2 norm: a 3DH1 mesh is one plane
+        // extended over the homogeneous length.
         const auto volume =
-            m_expList->Integral(Array<OneD, NekDouble>(nphys, 1.0));
+            (m_nhomo == 1)
+                ? m_expList->Integral(Array<OneD, double>(nphys, 1.0))
+                : m_expList->GetPlane(0)->Integral(Array<OneD, double>(
+                      m_expList->GetPlane(0)->GetTotPoints(), 1.0)) *
+                      m_homoLen;
 
         m_l2Expected.resize(numComp);
         m_l2NormalisedExpected.resize(numComp);
