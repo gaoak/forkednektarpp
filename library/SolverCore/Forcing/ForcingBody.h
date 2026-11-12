@@ -37,7 +37,7 @@
 #include <string>
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
+#include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/Forcing/Forcing.h>
 #include <SolverCore/SolverCoreDeclspec.h>
 
@@ -46,9 +46,10 @@ namespace Nektar::SolverCore
 /**
  * @brief Body/field forcing evaluated from a session function.
  *
- * This device support version intentionally starts with the minimal explicit
- * physical-space path: evaluate the configured function with ExpressionOp and
- * add it to the output Field.
+ * The function is evaluated with SessionFunction, at every application unless
+ * it depends neither on the time nor on the fields, and added to, or assigned
+ * to, the output Field. A variable the function does not define is not
+ * forced.
  */
 class ForcingBody : public Forcing
 {
@@ -78,13 +79,18 @@ protected:
     SOLVER_CORE_EXPORT void v_Apply(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double time,
-        const double scale) override;
+        const double factor) override;
 
     SOLVER_CORE_EXPORT void v_SetAppend(const bool append) override;
 
 private:
     std::string m_funcName;
-    std::shared_ptr<MultiRegions::ExpressionOp<double>> m_forceOp;
+    bool m_append = true;
+    SessionFunctionSharedPtr m_function;
+    /// Whether the forcing depends neither on the time nor on the fields.
+    bool m_constant = false;
+    /// Forcing evaluated on first use, when #m_constant.
+    LibUtilities::Field<double, FieldState::Phys> m_constantForcing;
 
     ForcingBody(const LibUtilities::SessionReaderSharedPtr &session,
                 const MultiRegions::ExpListSharedPtr &expList,

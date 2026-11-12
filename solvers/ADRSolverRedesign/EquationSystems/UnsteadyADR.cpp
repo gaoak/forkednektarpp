@@ -143,7 +143,7 @@ void UnsteadyADR::DoImplicit(
 
     if (m_isTimeDependentDiffCoeff)
     {
-        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, time, m_epsilon);
+        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, time);
         m_preconOp.clear();
     }
 
@@ -341,8 +341,9 @@ void UnsteadyADR::SetDiffusionCoeff()
             "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
         m_varDiffCoeffFunction = std::make_shared<SessionFunction>(
             m_session, m_expansionLists[0], names, "DiffusionCoefficient");
-        m_isTimeDependentDiffCoeff = m_varDiffCoeffFunction->IsTimeDependent();
-        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, m_time, m_epsilon);
+        m_isTimeDependentDiffCoeff = !m_varDiffCoeffFunction->IsConstant();
+        m_varDiffCoeffFunction->SetScale(m_epsilon);
+        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, m_time);
     }
     else if (m_diffusion)
     {

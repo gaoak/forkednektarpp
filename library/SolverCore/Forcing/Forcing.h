@@ -69,19 +69,19 @@ SOLVER_CORE_EXPORT ForcingFactory &GetForcingFactory();
 class Forcing
 {
 public:
-    SOLVER_CORE_EXPORT virtual ~Forcing() = default;
-
     SOLVER_CORE_EXPORT void InitObject(const LibUtilities::SessionNode &force)
     {
         v_InitObject(force);
     }
 
+    /// Apply the forcing at @p time to @p out, multiplied by @p factor;
+    /// time-stepping callers pass their time increment.
     SOLVER_CORE_EXPORT void Apply(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double time,
-        const double scale = 1.0)
+        const double factor = 1.0)
     {
-        v_Apply(in, out, time, scale);
+        v_Apply(in, out, time, factor);
     }
 
     SOLVER_CORE_EXPORT void SetAppend(const bool append)
@@ -95,10 +95,21 @@ public:
         const std::vector<std::string> &variables);
 
 protected:
+    LibUtilities::SessionReaderSharedPtr m_session;
+    MultiRegions::ExpListSharedPtr m_expList;
+    std::vector<std::string> m_variables;
+    Math::MathHelper m_math;
+
     SOLVER_CORE_EXPORT Forcing(
         const LibUtilities::SessionReaderSharedPtr &session,
         const MultiRegions::ExpListSharedPtr &expList,
         std::vector<std::string> variables);
+
+    SOLVER_CORE_EXPORT virtual ~Forcing() = default;
+
+    /// The planes this rank holds of a 3DH1 expansion, and one otherwise.
+    SOLVER_CORE_EXPORT static unsigned int NumLocalPlanes(
+        const MultiRegions::ExpListSharedPtr &expList);
 
     SOLVER_CORE_EXPORT virtual void v_InitObject(
         const LibUtilities::SessionNode &force) = 0;
@@ -106,13 +117,8 @@ protected:
     SOLVER_CORE_EXPORT virtual void v_Apply(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double time,
-        const double scale) = 0;
+        const double factor) = 0;
 
-    SOLVER_CORE_EXPORT virtual void v_SetAppend(const bool append);
-
-    LibUtilities::SessionReaderSharedPtr m_session;
-    MultiRegions::ExpListSharedPtr m_expList;
-    std::vector<std::string> m_variables;
-    Math::MathHelper m_math;
+    SOLVER_CORE_EXPORT virtual void v_SetAppend(const bool append) = 0;
 };
 } // namespace Nektar::SolverCore

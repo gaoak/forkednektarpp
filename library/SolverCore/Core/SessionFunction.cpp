@@ -41,6 +41,7 @@
 #include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 
 #include <algorithm>
+#include <iterator>
 #include <map>
 
 namespace Nektar::SolverCore
@@ -48,19 +49,32 @@ namespace Nektar::SolverCore
 
 namespace
 {
-/// Type of function @p name, which must be the same for each of
-/// @p variables.
+/**
+ * @brief Type of function @p name, which must be the same for each of
+ * @p variables it defines.
+ *
+ * A variable the function does not define is zero, so a function that
+ * defines none of @p variables is an expression.
+ */
 LibUtilities::FunctionType GetUniformFunctionType(
     const LibUtilities::SessionReaderSharedPtr &session,
     const std::string &name, const std::vector<std::string> &variables)
 {
-    ASSERTL0(!variables.empty(),
-             "Function '" + name + "' must be evaluated for some variables.");
-
-    const auto type = session->GetFunctionType(name, variables[0]);
-    for (std::size_t i = 1; i < variables.size(); ++i)
+    std::vector<std::string> definedVariables;
+    std::copy_if(variables.begin(), variables.end(),
+                 std::back_inserter(definedVariables),
+                 [&](const std::string &variable) {
+                     return session->DefinesFunction(name, variable);
+                 });
+    if (definedVariables.empty())
     {
-        ASSERTL0(session->GetFunctionType(name, variables[i]) == type,
+        return LibUtilities::eFunctionTypeExpression;
+    }
+
+    const auto type = session->GetFunctionType(name, definedVariables[0]);
+    for (std::size_t i = 1; i < definedVariables.size(); ++i)
+    {
+        ASSERTL0(session->GetFunctionType(name, definedVariables[i]) == type,
                  "Function '" + name +
                      "' must define either all its variables from file <F> "
                      "or all from expression <E>.");
@@ -84,20 +98,64 @@ SessionFunction::SessionFunction(LibUtilities::SessionReaderSharedPtr session,
 }
 
 /**
- * @brief Evaluate the function at the quadrature points into @p phys, scaled
- * by @p scale.
- *
- * An expression is evaluated, and scaled, at the quadrature points; a file
- * is read as element coefficients (EvaluateFld()), evaluated at the
- * quadrature points (BwdTransOp) and then scaled.
+ * @brief Whether the function is the same at every evaluation: a file, or
+ * expressions that use neither the time nor a field variable of their
+ * variable list.
+ */
+bool SessionFunction::IsConstant() const
+{
+    return m_type != LibUtilities::eFunctionTypeExpression ||
+           std::none_of(
+               m_variables.begin(), m_variables.end(),
+               [this](const std::string &variable) {
+                   if (!m_session->DefinesFunction(m_name, variable))
+                   {
+                       return false;
+                   }
+                   const auto equation =
+                       m_session->GetFunction(m_name, variable);
+                   const auto used = MultiRegions::ExpressionBlockOp<double>::
+                       GetExpressionVariables(equation->GetExpression());
+                   // Entries 0-3 of the variable list are x, y, z and t.
+                   const auto names =
+                       MultiRegions::ExpressionBlockOp<double>::GetEvarsNames(
+                           equation);
+                   return used.count("t") != 0 ||
+                          std::any_of(names.begin() + std::min<std::size_t>(
+                                                          4, names.size()),
+                                      names.end(),
+                                      [&used](const std::string &name) {
+                                          return used.count(name) != 0;
+                                      });
+               });
+}
+
+/**
+ * @brief Evaluate the function at the quadrature points into @p phys,
+ * reading field variables from @p phys.
  */
 void SessionFunction::Evaluate(
-    LibUtilities::Field<double, FieldState::Phys> &phys, double time,
-    double scale) const
+    LibUtilities::Field<double, FieldState::Phys> &phys, double time) const
+{
+    Evaluate(phys, phys, time);
+}
+
+/**
+ * @brief Evaluate the function at the quadrature points into @p out, scaled
+ * by #m_scale, or add it to @p out when #m_append.
+ *
+ * An expression is evaluated, and scaled, at the quadrature points, reading
+ * field variables from @p in; a file is read as element coefficients
+ * (EvaluateFld()), scaled and evaluated at the quadrature points
+ * (BwdTransOp).
+ */
+void SessionFunction::Evaluate(
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out, double time) const
 {
     if (m_type == LibUtilities::eFunctionTypeExpression)
     {
-        EvaluateExpression(phys, time, scale);
+        EvaluateExpression(in, out, time);
     }
     else if (m_type == LibUtilities::eFunctionTypeFile)
     {
@@ -107,16 +165,17 @@ void SessionFunction::Evaluate(
                 m_expList,
                 MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
                     m_session)),
-            phys.GetNumComponents(), phys.GetNumHomoModes());
+            out.GetNumComponents(), out.GetNumHomoModes());
         auto bwdTransOp =
             MultiRegions::BwdTransOp<double>::Create(m_expList, m_variables);
-        EvaluateFld(coeffs);
 
-        bwdTransOp->Apply(coeffs, phys);
-        if (scale != 1.0)
+        EvaluateFld(coeffs);
+        if (m_scale != 1.0)
         {
-            m_math.mul(scale, phys, phys);
+            m_math.mul(m_scale, coeffs, coeffs);
         }
+        bwdTransOp->SetAppend(m_append);
+        bwdTransOp->Apply(coeffs, out);
     }
     else
     {
@@ -126,20 +185,6 @@ void SessionFunction::Evaluate(
     }
 }
 
-bool SessionFunction::IsTimeDependent() const
-{
-    return m_type == LibUtilities::eFunctionTypeExpression &&
-           std::any_of(
-               m_variables.begin(), m_variables.end(),
-               [this](const std::string &variable) {
-                   return MultiRegions::ExpressionBlockOp<double>::
-                              GetExpressionVariables(
-                                  m_session->GetFunction(m_name, variable)
-                                      ->GetExpression())
-                                  .count("t") != 0;
-               });
-}
-
 std::vector<std::string> SessionFunction::Describe() const
 {
     std::vector<std::string> descriptions;
@@ -147,7 +192,8 @@ std::vector<std::string> SessionFunction::Describe() const
     for (const auto &variable : m_variables)
     {
         descriptions.push_back(
-            m_type == LibUtilities::eFunctionTypeExpression
+            !m_session->DefinesFunction(m_name, variable) ? "0"
+            : m_type == LibUtilities::eFunctionTypeExpression
                 ? m_session->GetFunction(m_name, variable)->GetExpression()
                 : "from file " +
                       m_session->GetFunctionFilename(m_name, variable));
@@ -156,27 +202,11 @@ std::vector<std::string> SessionFunction::Describe() const
     return descriptions;
 }
 
-/**
- * @brief Read the file function of #m_variables into @p coeffs.
- *
- * The file is read into #m_expList, each element's modes truncated or
- * padded to the expansion's order.
- */
-void SessionFunction::EvaluateFld(
-    LibUtilities::Field<double, FieldState::Coeff> &coeffs) const
-{
-    ASSERTL0(coeffs.GetNumComponents() == m_variables.size(),
-             "SessionFunction::EvaluateFld mismatch in supplied number of "
-             "variables and number of components for Field.");
-
-    coeffs.CopyVector<NektarSpaces::HostSpace>(ReadFldCoeffs());
-}
-
 void SessionFunction::EvaluateExpression(
-    LibUtilities::Field<double, FieldState::Phys> &phys, double time,
-    double scale) const
+    LibUtilities::Field<double, FieldState::Phys> &in,
+    LibUtilities::Field<double, FieldState::Phys> &out, double time) const
 {
-    ASSERTL0(phys.GetNumComponents() == m_variables.size(),
+    ASSERTL0(out.GetNumComponents() == m_variables.size(),
              "SessionFunction::EvaluateExpression mismatch in supplied number "
              "of variables and number of components for Field.");
 
@@ -189,27 +219,36 @@ void SessionFunction::EvaluateExpression(
         std::vector<LibUtilities::EquationSharedPtr> expressions;
         for (const auto &var : m_variables)
         {
-            expressions.push_back(m_session->GetFunction(m_name, var));
+            expressions.push_back(
+                m_session->DefinesFunction(m_name, var)
+                    ? m_session->GetFunction(m_name, var)
+                    : MemoryManager<LibUtilities::Equation>::AllocateSharedPtr(
+                          m_session->GetInterpreter(), "0"));
         }
         m_expressionOp->SetExpressions(expressions);
     }
     m_expressionOp->SetTime(time);
-    m_expressionOp->SetScale(scale);
+    m_expressionOp->SetScale(m_scale);
+    m_expressionOp->SetAppend(m_append);
 
     // Evaluate the expressions.
-    m_expressionOp->Apply(phys, phys);
+    m_expressionOp->Apply(in, out);
 }
 
 /**
- * @brief Read the coefficients of #m_variables from the file function into
- * the element-wise coefficient order of #m_expList.
+ * @brief Read the file function of #m_variables into @p coeffs.
  *
  * Each element's modes are copied from the file, truncated or padded to the
- * expansion's order. The result holds all components one after the other.
- * A file is read once and kept for later calls.
+ * expansion's order; a variable the function does not define is zero. A
+ * file is read once and kept for later calls.
  */
-std::vector<double> SessionFunction::ReadFldCoeffs() const
+void SessionFunction::EvaluateFld(
+    LibUtilities::Field<double, FieldState::Coeff> &coeffs) const
 {
+    ASSERTL0(coeffs.GetNumComponents() == m_variables.size(),
+             "SessionFunction::EvaluateFld mismatch in supplied number of "
+             "variables and number of components for Field.");
+
     const std::size_t ncoeffs = m_expList->GetNcoeffs();
     std::vector<double> allCoeffs(ncoeffs * m_variables.size(), 0.0);
 
@@ -217,6 +256,10 @@ std::vector<double> SessionFunction::ReadFldCoeffs() const
     for (std::size_t n = 0; n < m_variables.size(); ++n)
     {
         const std::string &variable = m_variables[n];
+        if (!m_session->DefinesFunction(m_name, variable))
+        {
+            continue;
+        }
         const auto type = m_session->GetFunctionType(m_name, variable);
         ASSERTL0(type == LibUtilities::eFunctionTypeFile,
                  "SessionFunction::EvaluateFld only supports file functions.");
@@ -287,7 +330,7 @@ std::vector<double> SessionFunction::ReadFldCoeffs() const
                   allCoeffs.begin() + n * ncoeffs);
     }
 
-    return allCoeffs;
+    coeffs.CopyVector<NektarSpaces::HostSpace>(allCoeffs);
 }
 
 } // namespace Nektar::SolverCore

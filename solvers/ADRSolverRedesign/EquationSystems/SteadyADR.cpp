@@ -175,7 +175,8 @@ void SteadyADR::SetDiffusionCoeff()
             "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
         m_varDiffCoeffFunction = std::make_shared<SessionFunction>(
             m_session, m_expansionLists[0], names, "DiffusionCoefficient");
-        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, m_time, m_epsilon);
+        m_varDiffCoeffFunction->SetScale(m_epsilon);
+        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, m_time);
     }
     else
     {

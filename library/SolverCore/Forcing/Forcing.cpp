@@ -34,6 +34,7 @@
 
 #include <LibUtilities/BasicUtils/SessionNodeXml.h>
 #include <MultiRegions/Common/Operator.hpp>
+#include <MultiRegions/ExpListHomogeneous1D.h>
 #include <SolverCore/Forcing/Forcing.h>
 
 namespace Nektar::SolverCore
@@ -51,6 +52,16 @@ Forcing::Forcing(const LibUtilities::SessionReaderSharedPtr &session,
     : m_session(session), m_expList(expList), m_variables(std::move(variables)),
       m_math(MultiRegions::Operator<double>::GetOpExecSpace(session))
 {
+}
+
+unsigned int Forcing::NumLocalPlanes(
+    const MultiRegions::ExpListSharedPtr &expList)
+{
+    auto homoExpList =
+        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(expList);
+    return homoExpList
+               ? static_cast<unsigned int>(homoExpList->GetZIDs().size())
+               : 1u;
 }
 
 std::vector<ForcingSharedPtr> Forcing::Load(
@@ -89,10 +100,6 @@ std::vector<ForcingSharedPtr> Forcing::Load(
     }
 
     return forcings;
-}
-
-void Forcing::v_SetAppend([[maybe_unused]] const bool append)
-{
 }
 
 } // namespace Nektar::SolverCore

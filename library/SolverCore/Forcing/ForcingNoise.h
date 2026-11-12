@@ -77,7 +77,7 @@ protected:
     SOLVER_CORE_EXPORT void v_Apply(
         LibUtilities::Field<double, FieldState::Phys> &in,
         LibUtilities::Field<double, FieldState::Phys> &out, const double time,
-        const double scale) override;
+        const double factor) override;
 
     SOLVER_CORE_EXPORT void v_SetAppend(const bool append) override;
 
