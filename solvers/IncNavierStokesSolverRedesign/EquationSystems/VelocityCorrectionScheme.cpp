@@ -1250,8 +1250,10 @@ void VelocityCorrectionScheme::v_InitialiseOperators()
     }
 
     // Load forcing terms, if defined in the session file. For IncNS the
-    // pressure variable is excluded, so forcing acts only on velocity fields.
-    m_forcing = Forcing::Load(m_session, m_expansionLists[0], m_variablesVel);
+    // pressure variable is excluded, so forcing acts on the velocity and
+    // passive scalar fields.
+    m_forcing =
+        Forcing::Load(m_session, m_expansionLists[0], m_variablesFields);
 }
 
 /*

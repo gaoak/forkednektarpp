@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <MultiRegions/Common/Operator.hpp>
 #include <SolverCore/Forcing/ForcingBody.h>
 
 namespace Nektar::SolverCore
@@ -54,55 +55,52 @@ void ForcingBody::v_InitObject(const LibUtilities::SessionNode &force)
     // session-file syntax.
     m_funcName = force.GetValue("BODYFORCE");
     ASSERTL0(!m_funcName.empty(), "BODYFORCE must specify a function name.");
-    ASSERTL0(m_session->DefinesFunction(m_funcName),
-             "Function '" + m_funcName + "' not defined.");
 
-    std::vector<LibUtilities::EquationSharedPtr> forcingEquations;
-    forcingEquations.reserve(m_variables.size());
-    for (const auto &var : m_variables)
-    {
-        if (m_session->DefinesFunction(m_funcName, var))
-        {
-            const auto functionType =
-                m_session->GetFunctionType(m_funcName, var);
-            ASSERTL0(functionType == LibUtilities::eFunctionTypeExpression,
-                     "SolverCore ForcingBody currently supports expression "
-                     "functions only.");
-            forcingEquations.push_back(m_session->GetFunction(m_funcName, var));
-        }
-        else
-        {
-            // Preserve legacy behaviour where forcing can be defined for only a
-            // subset of variables: missing components receive zero forcing.
-            forcingEquations.push_back(
-                MemoryManager<LibUtilities::Equation>::AllocateSharedPtr(
-                    m_session->GetInterpreter(), "0"));
-        }
-    }
+    m_function = std::make_shared<SessionFunction>(m_session, m_expList,
+                                                   m_variables, m_funcName);
 
-    m_forceOp =
-        MultiRegions::ExpressionOp<double>::Create(m_expList, m_variables);
-    m_forceOp->SetExpressions(forcingEquations);
-    m_forceOp->SetAppend(true);
+    m_constant = m_function->IsConstant();
 }
 
 void ForcingBody::v_Apply(LibUtilities::Field<double, FieldState::Phys> &in,
                           LibUtilities::Field<double, FieldState::Phys> &out,
-                          const double time, const double scale)
+                          const double time, const double factor)
 {
-    ASSERTL0(m_forceOp, "ForcingBody has not been initialised.");
+    if (!m_constant)
+    {
+        m_function->SetScale(factor);
+        m_function->SetAppend(m_append);
+        m_function->Evaluate(in, out, time);
+    }
+    else
+    {
+        // A constant forcing is evaluated once, on first use.
+        if (!m_constantForcing)
+        {
+            m_constantForcing = LibUtilities::Field<double, FieldState::Phys>(
+                "ForcingBody constant forcing",
+                MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
+                    m_expList,
+                    MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
+                        m_session)),
+                m_variables, out.GetNumHomoModes());
+            m_function->Evaluate(m_constantForcing, 0.0);
+        }
 
-    m_forceOp->SetTime(time);
-    m_forceOp->SetScale(scale);
-
-    // Add or assign the forcing according to the ExpressionOp append mode.
-    m_forceOp->Apply(in, out);
+        if (m_append)
+        {
+            m_math.daxpy(factor, m_constantForcing, out, out);
+        }
+        else
+        {
+            m_math.mul(factor, m_constantForcing, out);
+        }
+    }
 }
 
 void ForcingBody::v_SetAppend(const bool append)
 {
-    ASSERTL0(m_forceOp, "ForcingBody has not been initialised.");
-    m_forceOp->SetAppend(append);
+    m_append = append;
 }
 
 } // namespace Nektar::SolverCore

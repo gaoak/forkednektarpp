@@ -72,19 +72,38 @@ public:
         return m_variables;
     }
 
-    /// Type of the function, the same for each of #m_variables.
+    /// Type of the function, the same for each of #m_variables it defines.
     LibUtilities::FunctionType GetType() const
     {
         return m_type;
     }
 
-    /// Evaluate the function at the quadrature points, scaled by @p scale.
-    SOLVER_CORE_EXPORT void Evaluate(
-        LibUtilities::Field<double, FieldState::Phys> &phys, double time,
-        double scale = 1.0) const;
+    /// Whether the function is the same at every evaluation.
+    SOLVER_CORE_EXPORT bool IsConstant() const;
 
-    /// Whether an expression of #m_variables uses the time.
-    SOLVER_CORE_EXPORT bool IsTimeDependent() const;
+    /// Set the factor every evaluation is multiplied by; it persists
+    /// across evaluations.
+    void SetScale(const double scale)
+    {
+        m_scale = scale;
+    }
+
+    /// Choose between adding to the output and overwriting it; it persists
+    /// across evaluations.
+    void SetAppend(const bool append)
+    {
+        m_append = append;
+    }
+
+    /// Evaluate the function at the quadrature points into @p phys.
+    SOLVER_CORE_EXPORT void Evaluate(
+        LibUtilities::Field<double, FieldState::Phys> &phys, double time) const;
+
+    /// Evaluate the function at the quadrature points into @p out, reading
+    /// field variables from @p in.
+    SOLVER_CORE_EXPORT void Evaluate(
+        LibUtilities::Field<double, FieldState::Phys> &in,
+        LibUtilities::Field<double, FieldState::Phys> &out, double time) const;
 
     /// Describe the function of each of #m_variables, in that order.
     SOLVER_CORE_EXPORT std::vector<std::string> Describe() const;
@@ -95,25 +114,27 @@ private:
     /// Variables the function is evaluated for, one Field component each.
     std::vector<std::string> m_variables;
     std::string m_name;
-    /// Type of the function, the same for each of #m_variables.
+    /// Type of the function, the same for each of #m_variables it defines.
     LibUtilities::FunctionType m_type;
+    /// Factor every evaluation is multiplied by.
+    double m_scale = 1.0;
+    /// Whether an evaluation adds to the output rather than overwriting it.
+    bool m_append = false;
     mutable Math::MathHelper m_math;
     /// Field files read so far, by file name.
     mutable std::map<std::string, ImportedField> m_importedFields;
     /// Expression operator on #m_expList, built on first use.
     mutable std::shared_ptr<MultiRegions::ExpressionOp<double>> m_expressionOp;
 
-    /// Evaluate the expressions of #m_variables at the quadrature points,
-    /// scaled by @p scale.
-    void EvaluateExpression(LibUtilities::Field<double, FieldState::Phys> &phys,
-                            double time, double scale) const;
+    /// Evaluate the expressions of #m_variables at the quadrature points
+    /// into @p out, reading field variables from @p in.
+    void EvaluateExpression(LibUtilities::Field<double, FieldState::Phys> &in,
+                            LibUtilities::Field<double, FieldState::Phys> &out,
+                            double time) const;
 
     /// Read the file function of #m_variables as element coefficients.
     void EvaluateFld(
         LibUtilities::Field<double, FieldState::Coeff> &coeffs) const;
-
-    /// Read file coefficients in the element order of #m_expList.
-    std::vector<double> ReadFldCoeffs() const;
 };
 
 using SessionFunctionSharedPtr = std::shared_ptr<SessionFunction>;

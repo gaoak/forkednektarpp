@@ -32,7 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <MultiRegions/ExpListHomogeneous1D.h>
 #include <SolverCore/Forcing/ForcingNoise.h>
 
 namespace Nektar::SolverCore
@@ -41,17 +40,6 @@ namespace Nektar::SolverCore
 std::string ForcingNoise::className =
     GetForcingFactory().RegisterCreatorFunction("Noise", ForcingNoise::create,
                                                 "White Noise Forcing");
-
-// The planes this rank holds of a 3DH1 expansion, and one otherwise.
-static unsigned int NumLocalPlanes(
-    const MultiRegions::ExpListSharedPtr &expList)
-{
-    auto homoExpList =
-        std::dynamic_pointer_cast<MultiRegions::ExpListHomogeneous1D>(expList);
-    return homoExpList
-               ? static_cast<unsigned int>(homoExpList->GetZIDs().size())
-               : 1u;
-}
 
 /**
  * The seed is the rank, so that ranks draw different noise.
@@ -87,13 +75,13 @@ void ForcingNoise::v_InitObject(const LibUtilities::SessionNode &force)
 }
 
 /**
- * Adds, or assigns without append, scale times the noise to out. Each call is
+ * Adds, or assigns without append, factor times the noise to out. Each call is
  * one application for UPDATEFREQ and NSTEPS.
  */
 void ForcingNoise::v_Apply(
     [[maybe_unused]] LibUtilities::Field<double, FieldState::Phys> &in,
     LibUtilities::Field<double, FieldState::Phys> &out,
-    [[maybe_unused]] const double time, const double scale)
+    [[maybe_unused]] const double time, const double factor)
 {
     if (m_numSteps && m_index >= m_numSteps)
     {
@@ -111,11 +99,11 @@ void ForcingNoise::v_Apply(
 
     if (m_append)
     {
-        m_math.daxpy(scale, m_noise, out, out);
+        m_math.daxpy(factor, m_noise, out, out);
     }
     else
     {
-        m_math.mul(scale, m_noise, out);
+        m_math.mul(factor, m_noise, out);
     }
 
     ++m_index;
