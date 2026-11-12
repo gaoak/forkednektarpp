@@ -60,66 +60,53 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
 struct RoeSolverKernel
 {
     /**
-     * @param blksize  Points in the block; component c of the states, the
-     *                 normal and the flux lies at offset `c * blksize`.
+     * @param blksize  Component stride, in TData (a scalar or a SIMD vector
+     *                 of points): component c of the states, the normal and
+     *                 the flux lies at offset `c * blksize`.
      * @param normal   The unit trace normal, pointing from @p fwd to @p bwd,
      *                 @p NDIM components.
      */
-    template <typename TScalar>
+    template <typename TData>
     NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
                                           const size_t blksize,
-                                          const TScalar *fwd,
-                                          const TScalar *bwd,
-                                          const TScalar *normal, TScalar *flux)
+                                          const TData *fwd, const TData *bwd,
+                                          const TData *normal, TData *flux)
     {
         using std::abs;
 
-        // Explicit vectorisation for AVX backend, vec_t =
-        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
-        using vec_t =
-            typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                                  TScalar>::type;
-        constexpr unsigned int vec_width =
-            (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-                ? tinysimd::simd<TScalar>::width
-                : 1;
-
-        const vec_t half = vec_t(0.5);
+        const TData half = TData(0.5);
 
         // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
-        const size_t gs = blksize / vec_width;
-        const auto l    = reinterpret_cast<const vec_t *>(fwd);
-        const auto r    = reinterpret_cast<const vec_t *>(bwd);
-        const auto nvec = reinterpret_cast<const vec_t *>(normal);
-        auto f          = reinterpret_cast<vec_t *>(flux);
+        const auto l = fwd;
+        const auto r = bwd;
 
         // The two sides' primitive quantities and the Roe averages.
-        RoeAverageState<NDIM, vec_t> s;
-        RoeAverages<NDIM>(EoS, l, r, gs, s);
-        const vec_t rhoL = l[0], rhoR = r[0];
-        const vec_t EL = s.EL, ER = s.ER, pL = s.pL, pR = s.pR;
+        RoeAverageState<NDIM, TData> s;
+        RoeAverages<NDIM>(EoS, l, r, blksize, s);
+        const TData rhoL = l[0], rhoR = r[0];
+        const TData EL = s.EL, ER = s.ER, pL = s.pL, pR = s.pR;
         const auto &uL = s.uL, &uR = s.uR, &uRoe = s.uRoe;
-        const vec_t hRoe = s.hRoe, cRoe = s.cRoe, URoe2 = s.URoe2;
+        const TData hRoe = s.hRoe, cRoe = s.cRoe, URoe2 = s.URoe2;
 
-        vec_t n[NDIM];
-        vec_t unL = vec_t(0.0), unR = vec_t(0.0), unRoe = vec_t(0.0);
+        TData n[NDIM];
+        TData unL = TData(0.0), unR = TData(0.0), unRoe = TData(0.0);
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            n[d] = nvec[d * gs];
+            n[d] = normal[d * blksize];
             unL += n[d] * uL[d];
             unR += n[d] * uR[d];
             unRoe += n[d] * uRoe[d];
         }
-        const vec_t invC = vec_t(1.0) / cRoe;
+        const TData invC = TData(1.0) / cRoe;
 
         // Jumps: density, momentum (vector and normal), energy; and the shear
         // vector w = [rho u] - u~ [rho] with its normal part removed.
-        const vec_t dRho = rhoR - rhoL;
-        vec_t dm[NDIM], w[NDIM];
-        vec_t dmn = vec_t(0.0), wn = vec_t(0.0), wDotU = vec_t(0.0);
+        const TData dRho = rhoR - rhoL;
+        TData dm[NDIM], w[NDIM];
+        TData dmn = TData(0.0), wn = TData(0.0), wDotU = TData(0.0);
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            dm[d] = r[(1u + d) * gs] - l[(1u + d) * gs];
+            dm[d] = r[(1u + d) * blksize] - l[(1u + d) * blksize];
             w[d]  = dm[d] - uRoe[d] * dRho;
             dmn += n[d] * dm[d];
             wn += n[d] * w[d];
@@ -127,33 +114,33 @@ struct RoeSolverKernel
         }
         // The energy jump less the tangential kinetic part: jumpbar = [E] -
         // sum_t w_t u~_t.
-        const vec_t jumpbar = (ER - EL) - (wDotU - wn * unRoe);
+        const TData jumpbar = (ER - EL) - (wDotU - wn * unRoe);
 
-        const vec_t gamma = vec_t(EoS.gamma());
-        const vec_t alpha1 =
-            (gamma - vec_t(1.0)) *
+        const TData gamma = TData(EoS.gamma());
+        const TData alpha1 =
+            (gamma - TData(1.0)) *
             (dRho * (hRoe - unRoe * unRoe) + unRoe * dmn - jumpbar) *
             (invC * invC);
-        const vec_t alpha0 =
+        const TData alpha0 =
             (dRho * (unRoe + cRoe) - dmn - cRoe * alpha1) * (half * invC);
-        const vec_t alpha4 = dRho - (alpha0 + alpha1);
+        const TData alpha4 = dRho - (alpha0 + alpha1);
 
-        const vec_t lam0 = abs(unRoe - cRoe), lam1 = abs(unRoe),
+        const TData lam0 = abs(unRoe - cRoe), lam1 = abs(unRoe),
                     lam4 = abs(unRoe + cRoe);
-        const vec_t t0 = half * alpha0 * lam0, t1 = half * alpha1 * lam1,
+        const TData t0 = half * alpha0 * lam0, t1 = half * alpha1 * lam1,
                     t4 = half * alpha4 * lam4, ts = half * lam1;
 
         // Central flux through n, then the dissipation of the wave groups.
-        f[0] = half * (rhoL * unL + rhoR * unR) - (t0 + t1 + t4);
+        flux[0] = half * (rhoL * unL + rhoR * unR) - (t0 + t1 + t4);
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            f[(1u + d) * gs] =
-                half * (l[(1u + d) * gs] * unL + r[(1u + d) * gs] * unR +
-                        (pL + pR) * n[d]) -
+            flux[(1u + d) * blksize] =
+                half * (l[(1u + d) * blksize] * unL +
+                        r[(1u + d) * blksize] * unR + (pL + pR) * n[d]) -
                 (t0 * (uRoe[d] - cRoe * n[d]) + t1 * uRoe[d] +
                  t4 * (uRoe[d] + cRoe * n[d]) + ts * (w[d] - wn * n[d]));
         }
-        f[(1u + NDIM) * gs] =
+        flux[(1u + NDIM) * blksize] =
             half * (unL * (EL + pL) + unR * (ER + pR)) -
             (t0 * (hRoe - unRoe * cRoe) + t1 * half * URoe2 +
              t4 * (hRoe + unRoe * cRoe) + ts * (wDotU - wn * unRoe));

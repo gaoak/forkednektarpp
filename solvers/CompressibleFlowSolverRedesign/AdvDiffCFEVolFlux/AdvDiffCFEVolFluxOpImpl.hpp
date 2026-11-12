@@ -44,9 +44,9 @@ namespace Nektar::detail
 
 /**
  * @brief The viscous flux and the viscous minus the Euler flux from one pass
- * of DiffusionCFEVolFluxKernel(), which forms the Euler flux at each point
- * from the state it has loaded and the 1/rho and internal energy the viscous
- * flux has already computed.
+ * of DiffusionCFEVolFluxKernelLauncher(), which forms the Euler flux at each
+ * point from the state it has loaded and the 1/rho and internal energy the
+ * viscous flux has already computed.
  */
 template <typename ExecSpace, typename EqnOfSParams, typename TData>
 class AdvDiffCFEVolFluxOpImpl : public AdvDiffCFEVolFluxOp<TData>
@@ -105,7 +105,7 @@ protected:
             auto &totblock              = totalOut.GetBlocks()[blk];
             ASSERTL1(totblock.CompSize() == viscblock.CompSize(),
                      "The viscous and total fluxes share one layout.");
-            DiffusionCFEVolFluxKernel<false, true, ExecSpace>(
+            DiffusionCFEVolFluxKernelLauncher<false, true, ExecSpace>(
                 m_EoS, viscblock.CompSize(), m_dimension,
                 inblock.GetNumComponents(), inblock.CompSize(),
                 derivblock.CompSize(), viscblock.CompSize(), m_visc.prandtl,

@@ -43,6 +43,14 @@ void BlockAccessor<TData, TState>::ReshapeStorage(
     const unsigned int &interleaveWidth, const std::string &execSpace,
     const unsigned int streamID)
 {
+    // Already at the width: nothing to move, and the block's memory state
+    // is left as it is (taking a read-write pointer would copy it to the
+    // execution space and mark the other copy stale).
+    if (interleaveWidth == this->GetInterleaveWidth())
+    {
+        return;
+    }
+
     if (execSpace == "Serial")
     {
         auto *ptr =

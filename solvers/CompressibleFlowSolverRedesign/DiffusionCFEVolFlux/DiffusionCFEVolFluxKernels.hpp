@@ -34,108 +34,113 @@
 
 #pragma once
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 // header should appear after loop execution.hpp
-#include "EquationOfState/VariableConverters.hpp"
+#include <EquationOfState/VariableConverters.hpp>
 #include <LibUtilities/BasicUtils/SafeDivide.hpp>
 
 namespace Nektar::detail
 {
 
-template <typename TData>
-NEK_HOSTDEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
-    const unsigned nDim, const unsigned fluxDirection,
-    const unsigned derivDirection, const TData *inAverage, const TData *inJump,
-    const TData mu, const TData gamma, const TData prandtl, TData *outarray)
+/**
+ * @brief The viscous flux tensor of one point, in stress-tensor form.
+ *
+ * With the velocity gradients and the internal-energy gradient recovered
+ * from the conservative ones once,
+ *
+ *     d_i u_j   = (q_i[j+1] - u_j q_i[0]) / rho
+ *     d_i e     = (q_i[E] - (E/rho) q_i[0]) / rho - u_j d_i u_j
+ *     tau_ij    = mu (d_i u_j + d_j u_i) - (2/3) mu delta_ij div u
+ *     F_i       = (0, tau_i1 .. tau_iN, u_j tau_ij + mu (gamma/Pr) d_i e).
+ *
+ * The caller passes the inverse density it has already formed, and with
+ * @p NDIM a template parameter every loop unrolls. The IP penalty, when the
+ * caller has added it to @p grad, is carried through unchanged, since the
+ * tensor is linear in the gradients.
+ *
+ * @param inAverage   The state (rho, rho u_j, E), NDIM+2 entries.
+ * @param invRho      1 / rho.
+ * @param grad        The gradients, grad[d][f] = d_d of component f.
+ * @param mu          The dynamic viscosity at this point.
+ * @param gammaOverPr gamma / Pr.
+ * @param out         out[i][f]: component f of the flux in direction i.
+ */
+template <unsigned int NDIM, typename TData>
+NEK_HOSTDEVICE_INLINE static void ViscousFluxTensorKernel(
+    const TData *inAverage, const TData invRho, const TData (*grad)[NDIM + 2],
+    const TData mu, const TData gammaOverPr, TData (*out)[NDIM + 2])
 {
-    // Viscous bilinear form for one flux-direction / derivative-direction
-    // pair in conservative variables.
-    const unsigned nDimPlusOne  = nDim + 1;
-    const unsigned fluxPlusOne  = fluxDirection + 1;
-    const unsigned derivPlusOne = derivDirection + 1;
+    const TData twoThird = TData(2.0) / TData(3.0);
+    const TData eTotal   = inAverage[NDIM + 1] * invRho;
 
-    const TData gammaOverPr         = gamma / prandtl;
-    const TData oneMinusGammaOverPr = TData(1.0) - gammaOverPr;
-
-    const TData oneThird  = TData(1.0) / TData(3.0);
-    const TData twoThird  = TData(2.0) / TData(3.0);
-    const TData fourThird = TData(4.0) / TData(3.0);
-
-    if (derivDirection == fluxDirection)
+    TData vel[NDIM];
+    for (unsigned int j = 0; j < NDIM; ++j)
     {
-        outarray[0] = TData(0.0);
-
-        const TData invRho = TData(1.0) / inAverage[0];
-
-        TData u[3]  = {TData(0.0), TData(0.0), TData(0.0)};
-        TData u2[3] = {TData(0.0), TData(0.0), TData(0.0)};
-        TData u2sum = TData(0.0);
-
-        for (unsigned d = 0; d < nDim; ++d)
-        {
-            u[d]  = inAverage[d + 1] * invRho;
-            u2[d] = u[d] * u[d];
-            u2sum += u2[d];
-        }
-
-        TData eMinusU2 = inAverage[nDimPlusOne] * invRho - u2sum;
-        TData nu       = mu * invRho;
-
-        TData tmp1 = (TData(oneThird) * u2[fluxDirection] + u2sum +
-                      gammaOverPr * eMinusU2) *
-                     inJump[0];
-        TData tmp2 = gammaOverPr * inJump[nDimPlusOne] - tmp1;
-
-        TData outTmpE = TData(0.0);
-        for (unsigned d = 0; d < nDim; ++d)
-        {
-            const unsigned dPlusOne = d + 1;
-            TData outTmpD = (inJump[dPlusOne] - u[d] * inJump[0]) * nu;
-
-            outTmpE += oneMinusGammaOverPr * u[d] * inJump[dPlusOne];
-
-            if (d == fluxDirection)
-            {
-                outTmpD *= TData(fourThird);
-                outTmpE +=
-                    TData(oneThird) * u[fluxDirection] * inJump[fluxPlusOne];
-            }
-
-            outarray[dPlusOne] = outTmpD;
-        }
-
-        outarray[nDimPlusOne] = (outTmpE + tmp2) * nu;
+        vel[j] = inAverage[j + 1] * invRho;
     }
-    else
+
+    TData du[NDIM][NDIM]; // du[d][j] = d_d u_j
+    TData de[NDIM];       // d_d e_int
+    TData div = TData(0.0);
+    for (unsigned int d = 0; d < NDIM; ++d)
     {
-        outarray[0] = TData(0.0);
-
-        const TData invRho = TData(1.0) / inAverage[0];
-
-        TData u[3] = {TData(0.0), TData(0.0), TData(0.0)};
-
-        for (unsigned d = 0; d < nDim; ++d)
+        TData uDu = TData(0.0);
+        for (unsigned int j = 0; j < NDIM; ++j)
         {
-            const unsigned dPlusOne = d + 1;
-            u[d]                    = inAverage[dPlusOne] * invRho;
-            outarray[dPlusOne]      = TData(0.0);
+            du[d][j] = (grad[d][j + 1] - vel[j] * grad[d][0]) * invRho;
+            uDu += vel[j] * du[d][j];
         }
+        de[d] = (grad[d][NDIM + 1] - eTotal * grad[d][0]) * invRho - uDu;
+        div += du[d][d];
+    }
 
-        TData nu = mu * invRho;
+    const TData muDiv = twoThird * mu * div;
+    for (unsigned int i = 0; i < NDIM; ++i)
+    {
+        out[i][0]  = TData(0.0);
+        TData work = TData(0.0);
+        for (unsigned int j = 0; j < NDIM; ++j)
+        {
+            TData tau = mu * (du[i][j] + du[j][i]);
+            if (i == j)
+            {
+                tau -= muDiv;
+            }
+            out[i][j + 1] = tau;
+            work += vel[j] * tau;
+        }
+        out[i][NDIM + 1] = work + mu * gammaOverPr * de[i];
+    }
+}
 
-        TData tmp1 = (u[derivDirection] * inJump[0] - inJump[derivPlusOne]) *
-                     TData(twoThird);
-        outarray[fluxPlusOne] = nu * tmp1;
-
-        tmp1 = inJump[fluxPlusOne] - u[fluxDirection] * inJump[0];
-        outarray[derivPlusOne] = nu * tmp1;
-
-        tmp1 =
-            TData(oneThird) * u[fluxDirection] * u[derivDirection] * inJump[0];
-        TData tmp2 = TData(twoThird) * u[fluxDirection] * inJump[derivPlusOne];
-        outarray[nDimPlusOne] =
-            nu * (u[derivDirection] * inJump[fluxPlusOne] - (tmp1 + tmp2));
+/**
+ * @brief The Euler flux tensor of one point, laid out as
+ * ViscousFluxTensorKernel() lays out the viscous one: `fluxTensor[d][f]` is
+ * component f of the flux in direction d,
+ *
+ *     F_d = (rho u_d, rho u_a u_d + p delta_ad, (E + p) u_d).
+ *
+ * @param state       The state (rho, rho u_j, E), NDIM+2 entries.
+ * @param vel         The velocity.
+ * @param pressure    The pressure.
+ * @param fluxTensor  Out: the flux tensor.
+ */
+template <unsigned int NDIM, typename TData>
+NEK_HOSTDEVICE_INLINE static void EulerFluxTensorKernel(
+    const TData state[NDIM + 2], const TData vel[NDIM], const TData pressure,
+    TData fluxTensor[NDIM][NDIM + 2])
+{
+    const TData ePlusP = state[NDIM + 1] + pressure;
+    for (unsigned int d = 0; d < NDIM; ++d)
+    {
+        fluxTensor[d][0] = state[1 + d];
+        for (unsigned int a = 0; a < NDIM; ++a)
+        {
+            fluxTensor[d][1 + a] = state[1 + a] * vel[d];
+        }
+        fluxTensor[d][1 + d] += pressure;
+        fluxTensor[d][NDIM + 1] = ePlusP * vel[d];
     }
 }
 
@@ -148,9 +153,7 @@ NEK_HOSTDEVICE_INLINE static void GetViscousFluxBilinearFormKernel(
  * @p advScale times the Euler flux, formed from the state already loaded and
  * the internal energy already computed: with `advScale = -1` this is the
  * total volume flux `F_v - F_a` that an advection-diffusion right-hand side
- * integrates, while @p outbase keeps the viscous flux on its own. The Euler
- * flux is evaluated as EulerVolumeFluxKernel() evaluates it, so the total
- * is bitwise the viscous flux with the Euler kernel appended onto a copy.
+ * integrates, while @p outbase keeps the viscous flux on its own.
  *
  * @tparam NDIM    Spatial dimension.
  * @tparam APPEND  Accumulate the viscous flux onto @p outbase; not with
@@ -170,8 +173,6 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernelND(
     static_assert(!(APPEND && TOTAL),
                   "The total flux is written alongside a fresh viscous flux");
 
-    // Assemble the volume viscous flux tensor pointwise from the conservative
-    // state and its physical derivatives.
     using vec_t =
         typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
@@ -188,108 +189,75 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernelND(
     const size_t inVecStride    = inStride / vec_width;
     const size_t derivVecStride = derivStride / vec_width;
     const size_t outVecStride   = outStride / vec_width;
+    const vec_t gammaOverPr     = vec_t(EoS.gamma()) / vec_t(prandtl);
 
     Nektar::LoopExecutionSetStreamID(streamID);
-
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
-            // Declared here, not in the enclosing function: MSVC does not
-            // take a constant of the enclosing scope as a constant
-            // expression inside the lambda.
+            // Restated inside the lambda: MSVC does not take a captured
+            // constexpr local as a constant expression for an array bound.
             constexpr unsigned int NVAR = NDIM + 2;
-
-            vec_t inTmp[NVAR], qTmp[NVAR], outTmp[NVAR];
+            vec_t inTmp[NVAR];
+            vec_t qTmp[NDIM][NVAR];
+            vec_t outTmp[NDIM][NVAR];
+            vec_t advTmp[NDIM][NVAR];
 
             for (unsigned int f = 0; f < NVAR; ++f)
             {
                 inTmp[f] = invec[f * inVecStride + i];
+                for (unsigned int d = 0; d < NDIM; ++d)
+                {
+                    qTmp[d][f] = qvec[(f * NDIM + d) * derivVecStride + i];
+                }
             }
 
-            const vec_t e =
-                GetInternalEnergy(NDIM, inTmp[0], inTmp + 1, inTmp[NDIM + 1]);
+            // Zero on the zero padding, and with it the temperature, every
+            // velocity and gradient, and so both fluxes.
+            const vec_t invRho = SafeDivide(vec_t(TData(1)), inTmp[0]);
+            const vec_t e      = GetInternalEnergyFromInvDensity(
+                NDIM, invRho, inTmp + 1, inTmp[NDIM + 1]);
             const vec_t temperature = GetTemperature(EoS, inTmp[0], e);
-
-            const vec_t mu = GetDynamicViscosity(
+            const vec_t mu          = GetDynamicViscosity(
                 temperature, vec_t(muRef), isMuVariable, vec_t(oneOverTStar),
                 vec_t(tRatioSutherland));
 
-            // The Euler flux's velocity and pressure, for the total flux.
-            vec_t vel[NDIM];
-            vec_t pressure    = vec_t(0.0);
-            vec_t ePlusP      = vec_t(0.0);
-            const vec_t scale = vec_t(advScale);
-            // Plain if, not if constexpr, as for APPEND below.
+            ViscousFluxTensorKernel<NDIM>(inTmp, invRho, qTmp, mu, gammaOverPr,
+                                          outTmp);
+
+            // Plain if, not if constexpr: nvcc refuses an extended lambda
+            // whose first capture of a variable sits inside an if-constexpr
+            // branch. The template constants still fold the dead branches.
             if (TOTAL)
             {
-                const vec_t invRho = SafeDivide(vec_t(TData(1)), inTmp[0]);
+                vec_t vel[NDIM];
                 for (unsigned int d = 0; d < NDIM; ++d)
                 {
                     vel[d] = inTmp[1 + d] * invRho;
                 }
-                pressure = GetPressure(EoS, inTmp[0], e);
-                ePlusP   = inTmp[NDIM + 1] + pressure;
+                EulerFluxTensorKernel<NDIM>(
+                    inTmp, vel, GetPressure(EoS, inTmp[0], e), advTmp);
             }
 
-            for (unsigned int fluxDir = 0; fluxDir < NDIM; ++fluxDir)
+            for (unsigned int f = 0; f < NVAR; ++f)
             {
-                // Plain if, not if constexpr: nvcc refuses an extended lambda
-                // whose first capture of a variable (outvec here) sits inside
-                // an if-constexpr branch. APPEND is a template constant
-                // either way, so the dead branch still folds.
-                if (!APPEND)
+                for (unsigned int d = 0; d < NDIM; ++d)
                 {
-                    for (unsigned int f = 0; f < NVAR; ++f)
+                    const size_t idx = (f * NDIM + d) * outVecStride + i;
+                    if (APPEND)
                     {
-                        outvec[(f * NDIM + fluxDir) * outVecStride + i] =
-                            vec_t(0.0);
+                        outvec[idx] += outTmp[d][f];
                     }
-                }
-
-                for (unsigned int derivDir = 0; derivDir < NDIM; ++derivDir)
-                {
-                    for (unsigned int f = 0; f < NVAR; ++f)
+                    else
                     {
-                        qTmp[f] =
-                            qvec[(f * NDIM + derivDir) * derivVecStride + i];
+                        outvec[idx] = outTmp[d][f];
                     }
-
-                    GetViscousFluxBilinearFormKernel(
-                        NDIM, fluxDir, derivDir, inTmp, qTmp, mu,
-                        vec_t(EoS.gamma()), vec_t(prandtl), outTmp);
-
-                    for (unsigned int f = 0; f < NVAR; ++f)
+                    if (TOTAL)
                     {
-                        outvec[(f * NDIM + fluxDir) * outVecStride + i] +=
-                            outTmp[f];
+                        totvec[idx] = outTmp[d][f] + advTmp[d][f] * advScale;
                     }
-                }
-
-                if (TOTAL)
-                {
-                    // F_rho = rho u, F_mom_a = rho u_a u + p e_a,
-                    // F_E = (E + p) u, in this flux direction.
-                    const size_t rhoIdx = fluxDir * outVecStride + i;
-                    totvec[rhoIdx] =
-                        outvec[rhoIdx] + inTmp[1 + fluxDir] * scale;
-                    for (unsigned int a = 0; a < NDIM; ++a)
-                    {
-                        vec_t momFlux = inTmp[1 + a] * vel[fluxDir];
-                        if (a == fluxDir)
-                        {
-                            momFlux += pressure;
-                        }
-                        const size_t momIdx =
-                            ((1 + a) * NDIM + fluxDir) * outVecStride + i;
-                        totvec[momIdx] = outvec[momIdx] + momFlux * scale;
-                    }
-                    const size_t energyIdx =
-                        ((NDIM + 1) * NDIM + fluxDir) * outVecStride + i;
-                    totvec[energyIdx] =
-                        outvec[energyIdx] + ePlusP * vel[fluxDir] * scale;
                 }
             }
         });
-
     Nektar::LoopExecutionSetStreamID(0);
 }
 
@@ -297,7 +265,7 @@ NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernelND(
 /// variables.
 template <bool APPEND, bool TOTAL, typename ExecSpace, typename EqnOfSParams,
           typename TData>
-NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernel(
+NEK_FORCE_INLINE static void DiffusionCFEVolFluxKernelLauncher(
     const EqnOfSParams EoS, const size_t npts, const unsigned int nDim,
     const unsigned int nvarComps, const size_t inStride,
     const size_t derivStride, const size_t outStride, const TData prandtl,

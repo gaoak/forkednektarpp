@@ -141,6 +141,21 @@ template LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create<
     const OrientationMapsKey<float> &orientationMapsKey);
 #endif
 
+template LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, double>(
+    const TracePointMapKey<double> &tracePointMapKey);
+template LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create<
+    NektarSpaces::HostSpace, float>(
+    const TracePointMapKey<float> &tracePointMapKey);
+#if defined(NEKTAR_ENABLE_DEVICE)
+template LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, double>(
+    const TracePointMapKey<double> &tracePointMapKey);
+template LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create<
+    NektarSpaces::DeviceSpace, float>(
+    const TracePointMapKey<float> &tracePointMapKey);
+#endif
+
 template LibUtilities::MemoryRegion<size_t> TraceEssentialCreator::Create<
     NektarSpaces::HostSpace, double>(
     const OrientationMapsOffsetKey<double> &orientationMapsOffsetKey);

@@ -45,6 +45,7 @@
 #include <MultiRegions/ExpList3DHomogeneous2D.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
+#include <LibUtilities/Backends/Backends.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
@@ -301,6 +302,25 @@ public:
         this->fixt_in       = new Field<TData, stateIn>(std::move(f_in));
         this->fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         this->fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+    }
+
+    /**
+     * @brief Put the blocks of @p field at alternating interleave widths,
+     * the execution space's vector width on even blocks and 1 on odd ones,
+     * reshaping the data in place: a field whose blocks differ in width, for
+     * an operator that must read any mix, such as the trace flux, which
+     * addresses each trace at the width of the element block it lies in. On
+     * Serial every width is 1 and nothing changes.
+     */
+    template <typename TField> static void MixInterleaveWidths(TField &field)
+    {
+        const std::string execStr(GlobalConfiguration::ExecStr());
+        const unsigned vecWidth = NektarSpaces::GetVectorWidth<TData>(execStr);
+        for (unsigned blk = 0; blk < field.GetBlocks().size(); ++blk)
+        {
+            field.GetBlocks()[blk].ReshapeStorage(blk % 2 ? 1u : vecWidth,
+                                                  execStr, blk + 1);
+        }
     }
 
     /**

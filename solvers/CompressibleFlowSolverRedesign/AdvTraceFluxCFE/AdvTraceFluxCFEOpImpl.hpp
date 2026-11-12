@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "AdvTraceFluxCFEKernels.hpp"
-#include "AdvTraceFluxCFEOp.hpp"
-#include "SolverCore/RiemannSolver/RiemannSolverKernels.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOpImpl.hpp"
+#include <AdvTraceFluxCFE/AdvTraceFluxCFEKernels.hpp>
+#include <AdvTraceFluxCFE/AdvTraceFluxCFEOp.hpp>
+#include <SolverCore/RiemannSolver/RiemannSolverKernels.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOpImpl.hpp>
 
 namespace Nektar::detail
 {
@@ -48,7 +48,10 @@ namespace Nektar::detail
  * abstract. The base class owns the trace numbering and the gather/scatter
  * between element-local and global-trace layouts; this class walks the
  * resulting blocks, gathers the trace normals for each one, and hands the two
- * conserved states to RiemannKernelLauncher().
+ * conserved states to RiemannKernelLauncher(). A block whose two sides are
+ * both collocated with the global trace skips the gathers and scatters: the
+ * base's in-place kernels read and write the element-local traces through
+ * the trace point maps, with InviscidPointFlux as the point flux.
  *
  * The conserved state is ordered as density, momentum components, total
  * energy, so `numflux` is the spatial dimension plus two.
@@ -148,6 +151,10 @@ protected:
     {
         this->JoinBlockStreams();
 
+        // The flux is written in the layout of the state traces, which is
+        // also what lets the in-place kernels take it.
+        flux.SetInterleaveWidth(in);
+
         // loop over interior and boundary traces and evaluate flux
         // using InteriorOp and BoundaryOp defined below
         switch (this->m_traceDim)
@@ -245,13 +252,32 @@ protected:
         this->template SyncTrailingBlocks<ReadOnly>(in);
         this->template SyncTrailingBlocks<WriteOnly>(flux);
 
+        // The width the in-place kernels read the fields at, 0 for none.
+        // The layouts of the fields: the in-place kernels read the state and
+        // write the flux through one, where the two agree.
+        auto &inLayout     = this->LayoutFor(in);
+        auto &fluxLayout   = this->LayoutFor(flux);
+        auto *sharedLayout = this->SharedLayout(in, flux);
+        const InviscidPointFlux<RiemannKernel, ExecSpace, EoSParamType, dim>
+            pointFlux{m_EoS};
+
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
             // Step 1: Get global traces associated with block b and put into
             // m_gloT0 and m_gloT1
             this->template SetInteriorParams<TRACEDIM>(b);
+
+            // In-place path: both sides collocated, the fields at a width
+            // the kernels read.
+            if (this->template TakeBlockInPlace<dim, false>(
+                    b, pointFlux, sharedLayout, numflux, inPtr, nullptr,
+                    fluxPtr, normPtr))
+            {
+                continue;
+            }
+
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, inLayout);
 
             // Step 2: Solve Riemann proble on close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -273,12 +299,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, fluxLayout);
             }
             else
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, fluxLayout);
             }
         }
     }
@@ -329,14 +355,33 @@ protected:
         this->template SyncTrailingBlocks<ReadOnly>(in);
         this->template SyncTrailingBlocks<ReadWrite>(flux);
 
+        // The width the in-place kernels read the fields at, 0 for none.
+        // The layouts of the fields: the in-place kernels read the state and
+        // write the flux through one, where the two agree.
+        auto &inLayout     = this->LayoutFor(in);
+        auto &fluxLayout   = this->LayoutFor(flux);
+        auto *sharedLayout = this->SharedLayout(in, flux);
+        const InviscidPointFlux<RiemannKernel, ExecSpace, EoSParamType, dim>
+            pointFlux{m_EoS};
+
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
             // Step 1: Get global traces associated with block b and put into
             // m_gloT0 and m_gloT1; the backward side comes from the receive
             // buffer of channel 0.
             this->template SetParallelParams<TRACEDIM>(b);
+
+            // In-place path, as InteriorOp(): the local side read through
+            // the point maps, the neighbour's side from the receive buffer.
+            if (this->template TakeBlockInPlace<dim, true>(
+                    b, pointFlux, sharedLayout, numflux, inPtr, nullptr,
+                    fluxPtr, normPtr))
+            {
+                continue;
+            }
+
             this->template GetParallelTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, 0);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, inLayout, 0);
 
             // Step 2: Solve Riemann problem on close packed variables
             // left and right traces (m_gloT0, m_gloT1),
@@ -358,12 +403,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackParallelFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, fluxLayout);
             }
             else
             {
                 this->template InterpBackParallelFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, fluxLayout);
             }
         }
     }
@@ -409,7 +454,8 @@ protected:
             // m_gloT1
             this->template SetBoundaryParams<TRACEDIM>(b);
             this->template GetBoundaryTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in));
 
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -431,12 +477,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }

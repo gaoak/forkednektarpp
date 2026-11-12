@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "EulerVolumeFlux/EulerVolumeFluxKernels.hpp"
-#include "EulerVolumeFlux/EulerVolumeFluxOp.hpp"
+#include <EulerVolumeFlux/EulerVolumeFluxKernels.hpp>
+#include <EulerVolumeFlux/EulerVolumeFluxOp.hpp>
 
-#include "EquationOfState/SupportedEoS.hpp"
+#include <EquationOfState/SupportedEoS.hpp>
 
 namespace Nektar::detail
 {

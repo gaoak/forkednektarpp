@@ -215,8 +215,9 @@ public:
      * Returns the vector width of the session's execution space when the
      * requested implementation is SumFac or the execution space is AVX, so
      * that Fields are created at that width rather than reshaped on every
-     * Apply. Returns 1 for a DG projection and for every other
-     * configuration.
+     * Apply; 1 for every other configuration. A DG projection takes the same
+     * width as a continuous one: the trace operators read a field at
+     * whatever width each of its blocks carries.
      *
      * @param session  Session reader to recover the relevant command-line
      * arguments.
@@ -226,15 +227,6 @@ public:
     static unsigned int GetDefaultInterleaveWidth(
         std::shared_ptr<LibUtilities::SessionReader> session)
     {
-        // Discontinuous (DG) projections default to interleavewidth = 1
-        // as the current DG operator implementations cannot use
-        // interleaving and hence would cause a slowdown
-        // due to many interleaving/deinterleaving calls.
-        if (IsDiscontinuousProjection(session))
-        {
-            return 1u;
-        }
-
         std::string execName = GetOpExecSpace(session);
         std::string implName =
             session->DefinesCmdLineArgument("opImpl")

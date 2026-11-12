@@ -28,18 +28,22 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Kernels of the trace-flux operators: the gathers and
+// scatters between the element-local and global-trace layouts, and the
+// views and interfaces the in-place kernels take.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractKernels.hpp>
 
-#include "LocalRegions/ReOrientFaceKernel.hpp"
-#include "StdRegions/StdRegions.hpp"
+#include <LocalRegions/ReOrientFaceKernel.hpp>
+#include <StdRegions/StdRegions.hpp>
+
+#include <type_traits>
 
 namespace Nektar::SolverCore::detail
 {
@@ -589,17 +593,40 @@ struct TraceBlockView
     const size_t *compSize  = nullptr;
     const int *orient       = nullptr;
     size_t numTrace         = 0;
-    /// Distance between consecutive points of one local edge or face: the
-    /// element-local field's interleave width, whose layout @p offset then
-    /// addresses. A point trace has one point, so its gather needs no stride.
-    unsigned stride = 1;
-    /// Per-point reorientation, built for the Device only: for trace @p t and
-    /// global-trace point @p p, `ptMapFwd[t * ptsPerTrace + p]` is the local
-    /// point that lands there; `ptMapBwd` is the same the other way, local
-    /// point to the global point it takes. Null where no map was built.
+    /// Per trace, the distance between consecutive points of its local edge
+    /// or face: the interleave width of the element block the trace lies in,
+    /// whose layout @p offset then addresses. A point trace has one point, so
+    /// its gather reads no stride.
+    const unsigned *stride = nullptr;
+    /// Per-point reorientation, indexed [orientation][point]: one row of
+    /// @p ptsPerTrace entries per StdRegions::Orientation value, the data
+    /// warehouse's for the block's point set (MultiRegions::TracePointMapKey;
+    /// see TraceFluxOpImpl::PackPointMaps()), for collocated sides.
+    /// MapFwd(t, p) is the local point of trace @p t that lands on
+    /// global-trace point @p p, MapBwd(t, q) the global point local point
+    /// @p q takes; both read the row of the trace's orientation. The Device
+    /// gathers and scatters and the in-place kernels on every execution space
+    /// read through them. Null where no map was built.
     const unsigned *ptMapFwd = nullptr;
     const unsigned *ptMapBwd = nullptr;
     unsigned ptsPerTrace     = 0;
+
+    /// The orientation of trace @p t, which is its row of the point-map
+    /// tables; 0 for a point trace, which has none.
+    NEK_HOSTDEVICE_INLINE unsigned OrientOf(const size_t t) const
+    {
+        return orient ? static_cast<unsigned>(orient[t]) : 0u;
+    }
+    NEK_HOSTDEVICE_INLINE unsigned MapFwd(const size_t t,
+                                          const unsigned p) const
+    {
+        return ptMapFwd[OrientOf(t) * ptsPerTrace + p];
+    }
+    NEK_HOSTDEVICE_INLINE unsigned MapBwd(const size_t t,
+                                          const unsigned q) const
+    {
+        return ptMapBwd[OrientOf(t) * ptsPerTrace + q];
+    }
 };
 
 /**
@@ -628,6 +655,66 @@ struct GloTraceOffsetView
     /// Stride between components of a multi-component field, per trace.
     const size_t *compSize = nullptr;
 };
+
+/**
+ * @brief What the in-place kernels read one interior or partition block
+ * through: its two element-local sides, each trace at the stride of the
+ * element block it lies in, in the layout the state, the second input and
+ * the flux fields share (side 1 of a partition block, the receive buffer, at
+ * stride 1), and where each of its
+ * traces sits in the global trace, for the warehouse's trace normals and
+ * penalty factors.
+ *
+ * @see TraceFluxOpImpl::InPlaceBlockViews(), which fills it.
+ */
+struct InteriorBlockViews
+{
+    TraceBlockView side0, side1;
+    GloTraceOffsetView glo;
+};
+
+/**
+ * @brief The interface a point flux presents to the in-place kernels
+ * (TraceFluxSerialAVXKernels.hpp, TraceFluxDeviceKernels.hpp),
+ * which gather the two sides of a trace point and hand them to it, checked
+ * where a kernel takes one:
+ *
+ * - `static constexpr unsigned numVar`: components of the state and the
+ *   flux, which the fields handed to the kernels have.
+ * - `static constexpr unsigned secondPerVar`: components of the second
+ *   input per state component, as the second field is laid out: 0 for none,
+ *   1 for a flux per component, NDIM for a gradient (component
+ *   `n * NDIM + d`).
+ * - `static constexpr bool usesPenalty`: whether the trace penalty factor is
+ *   read; a flux that does not takes a null penalty array.
+ * - `template <typename vec_t> NEK_HOSTDEVICE_INLINE void operator()(
+ *   const vec_t *fwd, const vec_t *bwd, const vec_t *second0,
+ *   const vec_t *second1, const vec_t *normal, const vec_t penalty,
+ *   vec_t *flux) const`: the flux of one trace point (one vector of points
+ *   on AVX) through @p normal, which points from side 0 to side 1. Its
+ *   result is antisymmetric under exchanging the sides and the normal, so
+ *   the kernels may evaluate a trace from either side.
+ *
+ * Trivially copyable: the Device kernel captures it by value. The shape is
+ * that of a Riemann or interior-penalty flux: one global-trace vector (the
+ * normal) and one global-trace scalar (the penalty factor).
+ *
+ * @return true; the checks are static assertions.
+ */
+template <typename PointFlux, unsigned int NDIM> constexpr bool IsPointFlux()
+{
+    static_assert(PointFlux::numVar > 0, "A point flux has components");
+    static_assert(PointFlux::secondPerVar == 0 ||
+                      PointFlux::secondPerVar == 1 ||
+                      PointFlux::secondPerVar == NDIM,
+                  "A point flux takes no second input, one component per "
+                  "state component, or a gradient");
+    static_assert(std::is_same_v<decltype(PointFlux::usesPenalty), const bool>,
+                  "A point flux says whether it reads the penalty factor");
+    static_assert(std::is_trivially_copyable_v<PointFlux>,
+                  "A point flux is captured by value");
+    return true;
+}
 
 /**
  * @brief Extents of a face trace after reorientation onto the global trace.
@@ -705,7 +792,7 @@ NEK_FORCE_INLINE static void LocTraceToGloTracePoints(
             const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
                               n * T.compSize[t];
             outPtr[npts * t + n * outOffset + p] =
-                in[T.ptMapFwd[t * npts + p] * T.stride];
+                in[T.MapFwd(t, p) * T.stride[t]];
         });
 }
 
@@ -747,10 +834,9 @@ NEK_FORCE_INLINE static void GloTraceToLocTracePoints(
             const size_t n = r / numTrace;
 
             const TData v =
-                sign *
-                inPtr[npts * t + n * inOffset + T.ptMapBwd[t * npts + q]];
+                sign * inPtr[npts * t + n * inOffset + T.MapBwd(t, q)];
             TData &o = outPtr[T.offset_st[t] * numComp + T.offset[t] +
-                              n * T.compSize[t] + q * T.stride];
+                              n * T.compSize[t] + q * T.stride[t]];
             if (APPEND)
             {
                 o += v;
@@ -803,12 +889,12 @@ NEK_FORCE_INLINE static void LocEdgeToGloEdgePoints(
 
             const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
                               n * T.compSize[t];
-            const unsigned *map = T.ptMapFwd + t * nptsIn;
+            const unsigned *map = T.ptMapFwd + T.OrientOf(t) * nptsIn;
 
             TData sum = 0.0;
             for (unsigned i = 0; i < nptsIn; ++i)
             {
-                sum += in[map[i] * T.stride] * interp[i * nptsOut + p];
+                sum += in[map[i] * T.stride[t]] * interp[i * nptsOut + p];
             }
             outPtr[nptsOut * t + n * outOffset + p] = sum;
         });
@@ -856,7 +942,7 @@ NEK_FORCE_INLINE static void GloEdgeToLocEdgePoints(
             const size_t n = r / numTrace;
 
             const TData *in  = inPtr + nptsIn * t + n * inOffset;
-            const unsigned k = T.ptMapBwd[t * nptsOut + q];
+            const unsigned k = T.MapBwd(t, q);
 
             TData sum = 0.0;
             for (unsigned p = 0; p < nptsIn; ++p)
@@ -864,7 +950,7 @@ NEK_FORCE_INLINE static void GloEdgeToLocEdgePoints(
                 sum += in[p] * interp[p * nptsOut + k];
             }
             TData &o = outPtr[T.offset_st[t] * numComp + T.offset[t] +
-                              n * T.compSize[t] + q * T.stride];
+                              n * T.compSize[t] + q * T.stride[t]];
             if (APPEND)
             {
                 o += sign * sum;
@@ -930,7 +1016,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFacePoints(
 
             const TData *in = inPtr + T.offset_st[t] * numComp + T.offset[t] +
                               n * T.compSize[t];
-            const unsigned *map = T.ptMapFwd + t * nptsIn;
+            const unsigned *map = T.ptMapFwd + T.OrientOf(t) * nptsIn;
 
             // Extents of the local points once reoriented into the global
             // frame, which is the frame the map and the matrices work in.
@@ -953,7 +1039,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFacePoints(
                 {
                     const TData w0 =
                         Collocated0 ? TData(1.0) : interp0[i * nptsOut0 + p0];
-                    sum += in[map[i + j * nRe0] * T.stride] * w0 * w1;
+                    sum += in[map[i + j * nRe0] * T.stride[t]] * w0 * w1;
                 }
             }
             outPtr[nptsOut * t + n * outOffset + p] = sum;
@@ -1015,7 +1101,7 @@ NEK_FORCE_INLINE static void GloFaceToLocFacePoints(
             ReorientedFaceExtents(StdRegions::Orientation(T.orient[t]),
                                   nptsOut0, nptsOut1, nRe0, nRe1);
 
-            const unsigned k  = T.ptMapBwd[t * nptsOut + q];
+            const unsigned k  = T.MapBwd(t, q);
             const unsigned k0 = k % nRe0;
             const unsigned k1 = k / nRe0;
 
@@ -1037,7 +1123,7 @@ NEK_FORCE_INLINE static void GloFaceToLocFacePoints(
                 }
             }
             TData &o = outPtr[T.offset_st[t] * numComp + T.offset[t] +
-                              n * T.compSize[t] + q * T.stride];
+                              n * T.compSize[t] + q * T.stride[t]];
             if (APPEND)
             {
                 o += sign * sum;
@@ -1075,16 +1161,16 @@ NEK_FORCE_INLINE static void LocEdgeToGloEdgeTraces(
 
             if (Collocated)
             {
-                ReOrientEdgeKernel<false, false>(orient, nptsIn, in, T.stride,
-                                                 out, 1u);
+                ReOrientEdgeKernel<false, false>(orient, nptsIn, in,
+                                                 T.stride[t], out, 1u);
             }
             else
             {
                 // Private slice: every thread reorients before interpolating.
                 TData *w = wsp + idx * nptsIn;
 
-                ReOrientEdgeKernel<false, false>(orient, nptsIn, in, T.stride,
-                                                 w, 1u);
+                ReOrientEdgeKernel<false, false>(orient, nptsIn, in,
+                                                 T.stride[t], w, 1u);
                 MultiRegions::detail::PhysInterpEdgeKernel<TData>(
                     1u, nptsIn, nptsOut, interp, w, out, false);
             }
@@ -1179,7 +1265,7 @@ NEK_FORCE_INLINE static void GloEdgeToLocEdgeTraces(
             if (Collocated)
             {
                 ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsIn, in, 1u,
-                                                         out, T.stride);
+                                                         out, T.stride[t]);
             }
             else
             {
@@ -1189,7 +1275,7 @@ NEK_FORCE_INLINE static void GloEdgeToLocEdgeTraces(
                 MultiRegions::detail::PhysInterpEdgeKernel<TData>(
                     1u, nptsIn, nptsOut, interp, in, w, false);
                 ReOrientEdgeKernel<APPEND, NEGATE_INPUT>(orient, nptsOut, w, 1u,
-                                                         out, T.stride);
+                                                         out, T.stride[t]);
             }
         });
 }
@@ -1305,7 +1391,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFaceTraces(
             if (Collocated0 && Collocated1)
             {
                 ReOrientFaceKernel<false, false>(orient, nptsIn0, nptsIn1, in,
-                                                 T.stride, out, 1u, true);
+                                                 T.stride[t], out, 1u, true);
             }
             else
             {
@@ -1313,7 +1399,7 @@ NEK_FORCE_INLINE static void LocFaceToGloFaceTraces(
                 TData *lw = loc_wsp + idx * nptsIn;
 
                 ReOrientFaceKernel<false, false>(orient, nptsIn0, nptsIn1, in,
-                                                 T.stride, lw, 1u, true);
+                                                 T.stride[t], lw, 1u, true);
 
                 // The interpolation runs on the reoriented data, so it needs
                 // the extents reordered into the global frame.
@@ -1431,8 +1517,9 @@ NEK_FORCE_INLINE static void GloFaceToLocFaceTraces(
             // reorientation wants.
             if (Collocated0 && Collocated1)
             {
-                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(
-                    orient, nptsOut0, nptsOut1, in, 1u, out, T.stride, false);
+                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(orient, nptsOut0,
+                                                         nptsOut1, in, 1u, out,
+                                                         T.stride[t], false);
             }
             else
             {
@@ -1448,8 +1535,9 @@ NEK_FORCE_INLINE static void GloFaceToLocFaceTraces(
                     1u, nptsIn0, nptsIn1, nRe0, nRe1, interp0, interp1,
                     wsp + idx * wspStride, in, gw, Collocated0, Collocated1);
 
-                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(
-                    orient, nptsOut0, nptsOut1, gw, 1u, out, T.stride, false);
+                ReOrientFaceKernel<APPEND, NEGATE_INPUT>(orient, nptsOut0,
+                                                         nptsOut1, gw, 1u, out,
+                                                         T.stride[t], false);
             }
         });
 }
@@ -1790,14 +1878,15 @@ NEK_FORCE_INLINE static void ScatterGloTraceToBndStore(
  * @param bufOffset - Where each entry starts in the send buffer.
  * @param inPtr     - Element-local input, at the field base.
  * @param sendPtr   - Send buffer, at its base.
- * @param stride    - Point stride of @p inPtr, its interleave width.
+ * @param stride    - Per entry, the point stride of @p inPtr: the interleave
+ *                    width of the element block the entry lies in.
  */
 template <typename ExecSpace, typename TData>
 NEK_FORCE_INLINE static void PackParallelSendBlock(
     const size_t numEntry, const unsigned numComp, const size_t *offset_st,
     const size_t *offset, const size_t *compSize, const size_t *npts,
     const size_t *bufOffset, const TData *inPtr, TData *sendPtr,
-    const unsigned stride, const unsigned int streamID = 0)
+    const unsigned *stride, const unsigned int streamID = 0)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
 
@@ -1812,7 +1901,7 @@ NEK_FORCE_INLINE static void PackParallelSendBlock(
 
             for (size_t i = 0; i < npts[e]; ++i)
             {
-                dst[i] = src[i * stride];
+                dst[i] = src[i * stride[e]];
             }
         });
 

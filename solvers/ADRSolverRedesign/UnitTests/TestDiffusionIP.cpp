@@ -53,6 +53,21 @@
         }                                                                      \
     }
 
+// The same, with the state handed in at interleave widths that differ from
+// block to block (TestOp::MixInterleaveWidths()).
+#define TEST_DIFFUSIONIP_MIXED_WIDTHS(test_name, test, tol)                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        MixInterleaveWidths(*this->fixt_in);                                   \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteDiffusionIP)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
@@ -82,6 +97,12 @@ TEST_DIFFUSIONIP(diffusionip_hex, Hex, 1.0E-7)
 // TEST_DIFFUSIONIP(diffusionip_tet, Tet, 1.0E-7)
 
 TEST_DIFFUSIONIP(diffusionip_cube_all_elements, CubeAllElements, 1.0E-4)
+
+// Blocks at mixed widths.
+TEST_DIFFUSIONIP_MIXED_WIDTHS(diffusionip_cube_all_elements_mixed_widths,
+                              CubeAllElements, 1.0E-4)
+TEST_DIFFUSIONIP_MIXED_WIDTHS(diffusionip_triquad_varP_mixed_widths,
+                              TriQuad_VarP, 1.0E-4)
 
 #endif
 BOOST_AUTO_TEST_SUITE_END()

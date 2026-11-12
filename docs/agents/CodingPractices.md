@@ -300,6 +300,12 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     memory where the natural access is strided; never stride global memory
     by the vector or interleave width. Shared memory is scarce: size it for
     3D expansions of up to 7-8 modes.
+    Staging pays where a warp's addresses span many cache lines. Where a
+    thread block only permutes points within a small contiguous segment,
+    such as one face's points at width 1, the warp's accesses stay in the
+    same few lines and staging can cost more in barriers and occupancy than
+    it saves: measure before staging, and record the measurement where the
+    code does not stage.
 45. **Device shared memory is free of bank conflicts**, by index order first;
     padding is a further optimisation where it stays simple.
 46. **Device work is fused into few launches**: one launch over a block, not
@@ -344,9 +350,16 @@ and CONTRIBUTING.md disagree, CONTRIBUTING.md wins.
     <sublibrary/subdirectory/header.h>`, never `#include "..."`, and a
     header in the same directory is no exception
     (`<UnitTests/LibUtilities/TestParallelReduce.hpp>`). No file mixes the two forms.
+57. **A kernels file's host entry point ends in `KernelLauncher`.** The
+    function an `OpImpl` calls, which launches the loop or dispatches on the
+    dimension, is `...KernelLauncher`; the bodies it launches end in `Kernel`
+    and are called from nowhere else. (Element operators' Device
+    implementations write their launches inline instead, rule 53.)
 
 ## Interleave widths
 
-57. **An interleave width is named `interleaveWidth`**, prefixed with the
+58. **An interleave width is named `interleaveWidth`**, prefixed with the
     block it belongs to (`inInterleaveWidth`, `traceInterleaveWidth`,
     `outInterleaveWidth`), never `width`, which means the SIMD vector width.
+
+59. **An operator that writes a field in another field's layout labels it so.** A pointwise or trace operator writes its output in the layout of its input and sets the output blocks' interleave width from the input's (`out.SetInterleaveWidth(in)`, or per block) before it returns, as the element operators do; a field's width label is what every later operator and the Math kernels read it by, and a label left at its creation value with data in another layout is read wrongly, silently in Release. An operator reading two fields pointwise brings the second into the first's layout or asserts they agree.
