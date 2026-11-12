@@ -42,6 +42,8 @@
 #include <MultiRegions/AvgAssmbScatr/AvgAssmbScatrOp.hpp>
 #include <MultiRegions/BndCondOps/DirBndCond/DirBndCondOp.hpp>
 #include <MultiRegions/Common/Operator.hpp>
+#include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
@@ -140,7 +142,7 @@ void UnsteadySystem::v_InitObject(bool declareExpansionLists)
 void UnsteadySystem::v_SetInitialConditions(double initialTime)
 {
     SessionFunction initialConditions(m_session, m_expansionLists[0],
-                                      "InitialConditions");
+                                      m_variables, "InitialConditions");
     SetInitialConditionsFrom(initialConditions, initialTime);
 }
 
@@ -164,25 +166,30 @@ void UnsteadySystem::SetInitialConditionsFrom(
         std::cout << "Initial Conditions:" << std::endl;
     }
 
-    // Default: Zero solution in Phys and Coeff space
-    m_math.zero(m_fields);
-    m_math.zero(m_fields_coeff);
-
+    // The function at the quadrature points, projected element by element.
+    initialConditions.Evaluate(m_fields, m_time);
+    auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
+        "initial conditions inner product",
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_expansionLists[0],
+            MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
+                m_session)),
+        m_variables.size(), m_npointsZ);
+    MultiRegions::IProductWRTBaseOp<double>::Create(m_expansionLists[0],
+                                                    m_variables)
+        ->Apply(m_fields, iprod);
+    MultiRegions::MultiplyByElmtInvMassOp<double>::Create(m_expansionLists[0],
+                                                          m_variables)
+        ->Apply(iprod, m_fields_coeff);
     if (m_projectionType == MultiRegions::eGalerkin)
     {
-        SetContinuousInitialConditions(initialConditions, m_expansionLists[0],
-                                       m_variables, m_fields, m_fields_coeff,
-                                       m_bwdTransOp, m_fwdTransOp);
-        PrintInitialConditions(m_expansionLists[0], m_variables);
-        return;
+        SetContinuousInitialConditions(m_expansionLists[0], m_variables,
+                                       m_fields, m_fields_coeff, m_bwdTransOp,
+                                       m_fwdTransOp);
     }
-
-    // Discontinuous fields from here on.
-    auto vType = GetInitialConditionType(m_variables);
-    if (vType == LibUtilities::eFunctionTypeExpression)
+    else if (initialConditions.GetType() ==
+             LibUtilities::eFunctionTypeExpression)
     {
-        initialConditions.EvaluateExpression(m_variables, m_fields, m_time);
-
         // The expression was sampled at the quadrature points, which carries
         // more information than the expansion can hold - there are more
         // quadrature points than modes - so the sampled field is not in the
@@ -202,7 +209,6 @@ void UnsteadySystem::SetInitialConditionsFrom(
         if (m_initialConditionProjection ==
             InitialConditionProjection::Galerkin)
         {
-            ProjectPhysToCoeffs(m_fields);
             m_bwdTransOp->Apply(m_fields_coeff, m_fields);
         }
         else
@@ -222,27 +228,17 @@ void UnsteadySystem::SetInitialConditionsFrom(
                      "exact.");
         }
     }
-    // Set initial conditions from file
-    else if (vType == LibUtilities::eFunctionTypeFile)
-    {
-        // Field files store modal coefficients. Load coefficient space first
-        // and reconstruct physical values with the device support BwdTrans
-        // operator.
-        //
-        // Nothing to warn about here: whatever wrote the file, the state
-        // coming back is a set of modal coefficients and so is in the
-        // polynomial space by construction. Whether it is the state the
-        // earlier run actually held was decided when that run was set up,
-        // which is where the warning lives.
-        initialConditions.EvaluateFld(m_variables, m_fields_coeff, m_time);
-        m_bwdTransOp->Apply(m_fields_coeff, m_fields);
-    }
-    PrintInitialConditions(m_expansionLists[0], m_variables);
+    // Nothing to warn about for a discontinuous file: whatever wrote it, the
+    // state coming back is the backward transform of a set of modal
+    // coefficients and so is in the polynomial space by construction. Whether
+    // it is the state the earlier run actually held was decided when that run
+    // was set up, which is where the warning lives.
+    PrintInitialConditions(initialConditions);
 }
 
 /**
- * @brief Evaluate the initial condition of continuous fields and bring it
- * into the continuous space.
+ * @brief Bring the initial condition of continuous fields into the
+ * continuous space.
  *
  * @details
  * Neither source of an initial condition is continuous as it stands: an
@@ -250,11 +246,12 @@ void UnsteadySystem::SetInitialConditionsFrom(
  * element-wise coefficients that may come from another order or another
  * set of boundary conditions, so they need not be continuous between
  * elements or take the Dirichlet values of this session. Either source is
- * brought into the continuous space in three steps:
+ * brought into the continuous space in three steps, the first done by the
+ * caller:
  *
- * 1. Element coefficients: an expression is projected element by element,
- *    \f$M_e^{-1} B_e^{T} W_e\f$, and a file is used as read (see
- *    SessionFunction::EvaluateFld()).
+ * 1. Element coefficients: the field at the quadrature points, the
+ *    expression samples or the backward transform of the file, is projected
+ *    element by element, \f$M_e^{-1} B_e^{T} W_e\f$.
  * 2. Every local copy of each global degree of freedom is replaced by the
  *    signed average of all copies, by an AvgAssmbScatrOp, which makes the
  *    coefficients continuous.
@@ -268,28 +265,26 @@ void UnsteadySystem::SetInitialConditionsFrom(
  *      at #m_time. The averaged coefficients are the start of that solve: a
  *      continuous start is required, since the solve adds a continuous
  *      correction to it, and a close one saves iterations. A file that is
- *      already continuous comes back to round-off. A file that
- *      @p initialConditions reads through another expansion and projects
- *      element by element gives the Galerkin projection of the file at that
- *      expansion: the continuous space lies in the element-wise one, so the
- *      element-wise projection first changes nothing.
+ *      already continuous comes back to round-off. A file read through another
+ *      expansion and projected element by element gives the Galerkin
+ *      projection of the file at that expansion: the continuous space lies
+ *      in the element-wise one, so the element-wise projection first changes
+ *      nothing.
  *
- * Without an initial condition the fields are left as they are. The
- * operators used only here are built here and discarded. Every rank must
- * call this, since the averaging and the projection communicate.
+ * The operators used only here are built here and discarded. Every rank
+ * must call this, since the averaging and the projection communicate.
  *
- * @param   initialConditions   The InitialConditions function on
- *                              @p expList.
  * @param   expList             Continuous expansion list of the fields.
  * @param   variables           Names of the field components.
- * @param   phys                Physical values, set on return.
- * @param   coeffs              Coefficients, set on return.
+ * @param   phys                Physical values of the initial condition,
+ *                              made continuous on return.
+ * @param   coeffs              Element coefficients of the initial
+ *                              condition, made continuous on return.
  * @param   bwdTransOp          Backward transform of the fields.
  * @param   fwdTransOp          Continuous projection of the fields; built
  *                              here, for the Galerkin method only, if null.
  */
 void UnsteadySystem::SetContinuousInitialConditions(
-    const SessionFunction &initialConditions,
     const MultiRegions::ExpListSharedPtr &expList,
     const std::vector<std::string> &variables,
     LibUtilities::Field<double, FieldState::Phys> &phys,
@@ -299,42 +294,6 @@ void UnsteadySystem::SetContinuousInitialConditions(
 {
     const bool galerkin =
         m_initialConditionProjection == InitialConditionProjection::Galerkin;
-
-    // Element coefficients, and for Galerkin the field at the quadrature
-    // points that it projects.
-    auto vType = GetInitialConditionType(variables);
-    if (vType == LibUtilities::eFunctionTypeExpression)
-    {
-        initialConditions.EvaluateExpression(variables, phys, m_time);
-
-        auto iProductWRTBaseOp =
-            MultiRegions::IProductWRTBaseOp<double>::Create(expList, variables);
-        auto multiplyByElmtInvMassOp =
-            MultiRegions::MultiplyByElmtInvMassOp<double>::Create(expList,
-                                                                  variables);
-        auto wsp_iprod = LibUtilities::Field<double, FieldState::Coeff>(
-            "initial condition inner product",
-            MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
-                expList,
-                MultiRegions::Operator<double>::GetDefaultInterleaveWidth(
-                    m_session)),
-            variables.size(), m_npointsZ);
-        m_math.zero(wsp_iprod);
-        iProductWRTBaseOp->Apply(phys, wsp_iprod);
-        multiplyByElmtInvMassOp->Apply(wsp_iprod, coeffs);
-    }
-    else if (vType == LibUtilities::eFunctionTypeFile)
-    {
-        initialConditions.EvaluateFld(variables, coeffs, m_time);
-        if (galerkin)
-        {
-            bwdTransOp->Apply(coeffs, phys);
-        }
-    }
-    else
-    {
-        return;
-    }
 
     // Continuous coefficients: the Average result before its Dirichlet
     // values, and the start of the Galerkin solve.
@@ -826,17 +785,16 @@ void UnsteadySystem::WriteInitialConditions()
 }
 
 void UnsteadySystem::PrintInitialConditions(
-    const MultiRegions::ExpListSharedPtr expList,
-    const std::vector<std::string> &variables)
+    const SessionFunction &initialConditions)
 {
     if (m_session->GetComm()->GetRank() == 0)
     {
-        SessionFunction initialConditions(m_session, expList,
-                                          "InitialConditions");
-        for (const auto &varName : variables)
+        const auto &variables   = initialConditions.GetVariables();
+        const auto descriptions = initialConditions.Describe();
+        for (std::size_t i = 0; i < variables.size(); ++i)
         {
-            std::cout << "  - Field " << varName << ": "
-                      << initialConditions.Describe(varName) << std::endl;
+            std::cout << "  - Field " << variables[i] << ": " << descriptions[i]
+                      << std::endl;
         }
     }
 }

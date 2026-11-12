@@ -59,8 +59,6 @@ SOLVER_CORE_EXPORT DriverFactory &GetDriverFactory();
 class Driver
 {
 public:
-    SOLVER_CORE_EXPORT virtual ~Driver() = default;
-
     inline void InitObject(std::ostream &out = std::cout)
     {
         v_InitObject(out);
@@ -77,20 +75,21 @@ public:
     }
 
 protected:
-    SOLVER_CORE_EXPORT Driver(
-        const LibUtilities::SessionReaderSharedPtr &session,
-        const SpatialDomains::MeshGraphSharedPtr &graph);
-
-    SOLVER_CORE_EXPORT virtual void v_InitObject(std::ostream &out = std::cout);
-    SOLVER_CORE_EXPORT virtual void v_Execute(
-        std::ostream &out = std::cout) = 0;
-
     LibUtilities::CommSharedPtr m_comm;
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;
     std::vector<EquationSystemSharedPtr> m_equ;
 
     static std::string driverDefault;
+
+    SOLVER_CORE_EXPORT Driver(
+        const LibUtilities::SessionReaderSharedPtr &session,
+        const SpatialDomains::MeshGraphSharedPtr &graph);
+    SOLVER_CORE_EXPORT virtual ~Driver() = default;
+
+    SOLVER_CORE_EXPORT virtual void v_InitObject(std::ostream &out = std::cout);
+    SOLVER_CORE_EXPORT virtual void v_Execute(
+        std::ostream &out = std::cout) = 0;
 };
 
 } // namespace Nektar::SolverCore

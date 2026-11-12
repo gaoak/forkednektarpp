@@ -35,8 +35,8 @@
 #include <ADRSolverRedesign/DiffusionScalarIPTraceFlux/DiffusionScalarIPTraceFluxOp.hpp>
 #include <ADRSolverRedesign/DiffusionScalarVolFlux/DiffusionScalarVolFluxOp.hpp>
 #include <ADRSolverRedesign/ScalarTraceFlux/ScalarTraceFluxOp.hpp>
-#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
+#include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/HelmSolve/HelmSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/LinearADRSolve/LinearADRSolveOp.hpp>
 #include <SolverCore/GlobalLinSysOps/LinearSystems/PoissonSolve/PoissonSolveOp.hpp>
@@ -143,8 +143,7 @@ void UnsteadyADR::DoImplicit(
 
     if (m_isTimeDependentDiffCoeff)
     {
-        m_varDiffCoeffOp->SetTime(time);
-        m_varDiffCoeffOp->Apply(m_varDiffCoeff, m_varDiffCoeff);
+        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, time, m_epsilon);
         m_preconOp.clear();
     }
 
@@ -340,24 +339,10 @@ void UnsteadyADR::SetDiffusionCoeff()
                 Operator<double>::GetDefaultInterleaveWidth(m_session));
         m_varDiffCoeff = LibUtilities::Field<double, FieldState::Phys>(
             "DiffusionCoefficient", bAtr_phys, names.size(), m_npointsZ);
-        m_varDiffCoeffOp =
-            ExpressionOp<double>::Create(m_expansionLists[0], names);
-        std::vector<LibUtilities::EquationSharedPtr> expressions;
-        for (const auto &component : names)
-        {
-            expressions.push_back(
-                m_session->GetFunction("DiffusionCoefficient", component));
-            const auto variables =
-                MultiRegions::ExpressionBlockOp<double>::GetExpressionVariables(
-                    expressions.back()->GetExpression());
-            m_isTimeDependentDiffCoeff =
-                m_isTimeDependentDiffCoeff || variables.count("t") != 0;
-        }
-        m_varDiffCoeffOp->SetExpressions(expressions);
-        m_varDiffCoeffOp->SetScale(m_epsilon);
-        m_varDiffCoeffOp->SetTime(m_time);
-        m_math.zero(m_varDiffCoeff);
-        m_varDiffCoeffOp->Apply(m_varDiffCoeff, m_varDiffCoeff);
+        m_varDiffCoeffFunction = std::make_shared<SessionFunction>(
+            m_session, m_expansionLists[0], names, "DiffusionCoefficient");
+        m_isTimeDependentDiffCoeff = m_varDiffCoeffFunction->IsTimeDependent();
+        m_varDiffCoeffFunction->Evaluate(m_varDiffCoeff, m_time, m_epsilon);
     }
     else if (m_diffusion)
     {
@@ -373,7 +358,7 @@ void UnsteadyADR::SetDiffusionCoeff()
             m_diffCoeff[1] *= m_epsilon;
             m_diffCoeff[2] *= m_epsilon;
         }
-        else
+        else if (m_coordim == 3)
         {
             // Multiply by Scalar Part
             m_diffCoeff[0] *= m_epsilon;
@@ -393,12 +378,12 @@ void UnsteadyADR::v_InitialiseOperators()
 {
     EquationSystem::v_InitialiseOperators();
 
-    // Switch on the projection type (Discontinuous or Continuous)
+    // Switch on the projection type (Discontinuous or Continuous).
     switch (m_projectionType)
     {
         case MultiRegions::eDiscontinuous:
         {
-            // Create operators
+            // Create operators.
             if (m_advection)
             {
                 m_advectionWeakDGOp = AdvectionWeakDGOp<double>::Create(
@@ -454,7 +439,7 @@ void UnsteadyADR::v_InitialiseOperators()
         }
         case MultiRegions::eGalerkin:
         {
-            // Explicit operators
+            // Explicit operators.
             if (m_explicitAdvection)
             {
                 m_advectionCGOp = AdvectionOp<double>::Create(
@@ -466,7 +451,7 @@ void UnsteadyADR::v_InitialiseOperators()
                 // To be completed
             }
 
-            // Implicit operators
+            // Implicit operators.
             if (m_implicitAdvection && m_implicitDiffusion)
             {
                 m_linearSolverOp = LinearSolverOp<double>::Create(
@@ -474,7 +459,7 @@ void UnsteadyADR::v_InitialiseOperators()
                 auto linearADRSolveOp = LinearADRSolveOp<double>::Create(
                     m_expansionLists[0], m_session->GetVariables());
                 linearADRSolveOp->SetLinearSolver(m_linearSolverOp);
-                if (m_varDiffCoeffOp)
+                if (m_varDiffCoeffFunction)
                 {
                     linearADRSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
                 }
@@ -501,7 +486,7 @@ void UnsteadyADR::v_InitialiseOperators()
                 auto helmSolveOp = HelmSolveOp<double>::Create(
                     m_expansionLists[0], m_session->GetVariables());
                 helmSolveOp->SetLinearSolver(m_linearSolverOp);
-                if (m_varDiffCoeffOp)
+                if (m_varDiffCoeffFunction)
                 {
                     helmSolveOp->SetVarDiffCoeff(m_varDiffCoeff);
                 }
@@ -538,10 +523,10 @@ void UnsteadyADR::v_InitialiseFields()
     auto interleaveWidth =
         Operator<double>::GetDefaultInterleaveWidth(m_session);
 
-    // Switch on the projection type (Discontinuous or Continuous)
+    // Switch on the projection type (Discontinuous or Continuous).
     switch (m_projectionType)
     {
-        // Discontinuous projection
+        // Discontinuous projection.
         case MultiRegions::eDiscontinuous:
         {
             // Create blocks.
@@ -590,34 +575,15 @@ void UnsteadyADR::SetAdvectionVel()
 {
     if (m_advection)
     {
-        // Read advection velocity from session
+        // Read advection velocity from session.
         if (m_session->DefinesFunction("AdvectionVelocity"))
         {
-            // Reads the Session File Velocity defined as function
-            std::vector<std::string> vel;
-            vel.push_back("Vx");
-            vel.push_back("Vy");
-            vel.push_back("Vz");
+            // Reads the Session File Velocity defined as function.
+            std::vector<std::string> vel = {"Vx", "Vy", "Vz"};
             vel.resize(m_coordim);
-
-            // Initialise operators
-            auto expressionOp =
-                ExpressionOp<double>::Create(m_expansionLists[0], vel);
-
-            // Read advection velocity expressions and configure operator
-            std::vector<LibUtilities::EquationSharedPtr> advectionVelocities;
-            for (unsigned int i = 0; i < m_coordim; ++i)
-            {
-                advectionVelocities.push_back(
-                    m_session->GetFunction("AdvectionVelocity", vel[i]));
-            }
-            expressionOp->SetExpressions(advectionVelocities);
-            expressionOp->SetTime(m_time);
-
-            // Initialise m_advectionVel, evaluate all expressions and
-            // transform to array
-            m_math.zero(m_advectionVel);
-            expressionOp->Apply(m_advectionVel, m_advectionVel);
+            SessionFunction advectionVelocity(m_session, m_expansionLists[0],
+                                              vel, "AdvectionVelocity");
+            advectionVelocity.Evaluate(m_advectionVel, m_time);
         }
         else
         {
@@ -629,7 +595,7 @@ void UnsteadyADR::SetAdvectionVel()
 
 void UnsteadyADR::InitialiseParameters()
 {
-    // Get variable strings and number of variables
+    // Get variable strings and number of variables.
     if ((m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvection") ||
         (m_session->GetSolverInfo("EQTYPE") == "UnsteadyAdvectionDiffusion"))
     {
@@ -648,10 +614,10 @@ void UnsteadyADR::InitialiseParameters()
         m_implicitDiffusion = !m_explicitDiffusion;
     }
 
-    // Get diffusion parameters
+    // Get diffusion parameters.
     if (m_diffusion)
     {
-        // Resize diffCoeff vector
+        // Resize diffCoeff vector.
         const auto nDiffCoeff = m_coordim * (m_coordim + 1) / 2;
         m_diffCoeff.resize(nDiffCoeff);
 
@@ -666,7 +632,7 @@ void UnsteadyADR::InitialiseParameters()
             m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);
             m_session->LoadParameter("D11", m_diffCoeff[2], 1.0);
         }
-        else
+        else if (m_coordim == 3)
         {
             m_session->LoadParameter("D00", m_diffCoeff[0], 1.0);
             m_session->LoadParameter("D01", m_diffCoeff[1], 0.0);

@@ -268,18 +268,19 @@ protected:
         const auto nhomo    = inblock.GetNumHomoModes();
         const auto noutcomp = outblock.GetNumComponents();
 
-        // Initialize pointers.
-        auto inptr =
-            (&inblock != &outblock)
+        // Initialize pointers; the input is only read for EVARS, and the
+        // output only when appending.
+        const bool inPlace   = (&inblock == &outblock);
+        const bool readEvars = (this->m_numEvars[0] > 4);
+        TData *outptr =
+            (inPlace && readEvars) || this->m_append
+                ? outblock.template GetPtr<MemSpace, ReadWrite>(m_streamID)
+                : outblock.template GetPtr<MemSpace, WriteOnly>(m_streamID);
+        const TData *inptr =
+            inPlace ? outptr
+            : readEvars
                 ? inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID)
-                : inblock.template GetPtr<MemSpace, ReadWrite>(m_streamID);
-        auto outptr = (&inblock != &outblock)
-                          ? (this->m_append)
-                                ? outblock.template GetPtr<MemSpace, ReadWrite>(
-                                      m_streamID)
-                                : outblock.template GetPtr<MemSpace, WriteOnly>(
-                                      m_streamID)
-                          : (TData *)inptr;
+                : nullptr;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();

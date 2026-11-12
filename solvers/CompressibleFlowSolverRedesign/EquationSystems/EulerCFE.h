@@ -37,7 +37,6 @@
 
 #include <CompressibleFlowSolverRedesign/CFLVelocityCFE/CFLVelocityCFEOp.hpp>
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
-#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
 #include <SolverCore/Advection/AdvectionWeakDG/AdvectionWeakDGOp.hpp>
 #include <SolverCore/EquationSystems/UnsteadySystem.h>
 
@@ -68,8 +67,6 @@ public:
 protected:
     // Initialise operators
     std::shared_ptr<AdvectionWeakDGOp<double>> m_advectionWeakDGOp;
-    std::shared_ptr<ExpressionOp<double>> m_initialOp;
-    std::shared_ptr<ExpressionOp<double>> m_velOp;
     std::shared_ptr<CFLVelocityCFEOp<double>> m_cflVelocityOp;
     LibUtilities::Field<double, FieldState::Phys> m_cflVelocity;
 

@@ -65,9 +65,6 @@ void DriverStandard::v_Execute(std::ostream &out)
     timer.Start();
     m_equ[0]->DoInitialise();
     m_equ[0]->DoSolve();
-    // A device runs asynchronously, so wait for the work submitted above to
-    // finish before the timer is read; otherwise the time reported is the
-    // host's, up to its last submission.
     nekDeviceSynchronize();
     timer.Stop();
 
@@ -77,14 +74,6 @@ void DriverStandard::v_Execute(std::ostream &out)
     {
         NekDouble CpuTime;
         CpuTime = timer.Elapsed().count();
-
-        // The execution space follows the operators': the command-line
-        // argument when it is given, and otherwise whatever the build
-        // provides.
-        const std::string execSpace =
-            m_session->DefinesCmdLineArgument("opExecSpace")
-                ? m_session->GetCmdLineArgument<std::string>("opExecSpace")
-                : (nekGetNumDevice() ? "Device" : "Host");
 
         out << "-------------------------------------------" << std::endl;
         out << "Total Computation Time = " << CpuTime << std::endl;

@@ -81,7 +81,7 @@
 
         <!-- Body force to enforce reaction term -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="6*x*epsilon" />
+            <E VAR="u" VALUE="6*x*epsilon" />
         </FUNCTION>
     </CONDITIONS>
 

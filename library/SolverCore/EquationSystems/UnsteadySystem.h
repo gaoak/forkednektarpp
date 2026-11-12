@@ -185,13 +185,11 @@ protected:
     SOLVER_CORE_EXPORT void WriteInitialConditions();
 
     SOLVER_CORE_EXPORT void PrintInitialConditions(
-        const MultiRegions::ExpListSharedPtr expList,
-        const std::vector<std::string> &variables);
+        const SessionFunction &initialConditions);
 
-    /// Evaluate the initial condition of continuous fields and bring it
-    /// into the continuous space.
+    /// Bring the initial condition of continuous fields into the continuous
+    /// space.
     SOLVER_CORE_EXPORT void SetContinuousInitialConditions(
-        const SessionFunction &initialConditions,
         const MultiRegions::ExpListSharedPtr &expList,
         const std::vector<std::string> &variables,
         LibUtilities::Field<double, FieldState::Phys> &phys,

@@ -318,8 +318,8 @@ void EquationSystem::v_PrintNorms(std::ostream &out)
     if (m_session->DefinesFunction("ExactSolution"))
     {
         SessionFunction exactSolution(m_session, m_expansionLists[0],
-                                      "ExactSolution");
-        exactSolution.EvaluateExpression(m_variables, wsp_phys, m_time);
+                                      m_variables, "ExactSolution");
+        exactSolution.Evaluate(wsp_phys, m_time);
     }
     m_math.sub(m_fields, wsp_phys, wsp_phys);
 
@@ -391,28 +391,6 @@ std::shared_ptr<FwdTransOp<double>> EquationSystem::CreateFwdTransOp(
     fwdTransOp->SetPrecon(preconOp);
     fwdTransOp->UpdatePrecon();
     return fwdTransOp;
-}
-
-LibUtilities::FunctionType EquationSystem::GetInitialConditionType(
-    const std::vector<std::string> &variables)
-{
-    LibUtilities::FunctionType vType = LibUtilities::eFunctionTypeNone;
-    if (m_session->DefinesFunction("InitialConditions"))
-    {
-        vType = m_session->GetFunctionType("InitialConditions", variables[0]);
-
-        // Check all variables use same FunctionType
-        for (unsigned int i = 1; i < variables.size(); ++i)
-        {
-            LibUtilities::FunctionType vType2 =
-                m_session->GetFunctionType("InitialConditions", variables[i]);
-            ASSERTL0(vType == vType2,
-                     "Currently support either all InitialConditions from file "
-                     "<F> or all from expression <E>.");
-        }
-    }
-
-    return vType;
 }
 
 void EquationSystem::v_WriteFld(const std::string &outname)

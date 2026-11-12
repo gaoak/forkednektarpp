@@ -229,11 +229,6 @@ protected:
         const MultiRegions::ExpListSharedPtr &expList,
         const std::vector<std::string> &variables);
 
-    /// The function type, expression or file, of the initial condition of
-    /// @p variables, or none.
-    SOLVER_CORE_EXPORT LibUtilities::FunctionType GetInitialConditionType(
-        const std::vector<std::string> &variables);
-
     LibUtilities::CommSharedPtr m_comm;
     LibUtilities::SessionReaderSharedPtr m_session;
     SpatialDomains::MeshGraphSharedPtr m_graph;

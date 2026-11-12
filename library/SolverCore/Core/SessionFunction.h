@@ -6,7 +6,6 @@
 //
 // The MIT License
 //
-// Copyright (c) 2017 Kilian Lackhove
 // Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
 // Department of Aeronautics, Imperial College London (UK), and Scientific
 // Computing and Imaging Institute, University of Utah (USA).
@@ -35,16 +34,19 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <MultiRegions/ExpList.h>
-
-#include <LibUtilities/BasicUtils/Field/Field.hpp>
-#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
-
 #include <SolverCore/SolverCoreDeclspec.h>
 
 #include <map>
 #include <memory>
+
+namespace Nektar::MultiRegions
+{
+template <typename TData> class ExpressionOp;
+} // namespace Nektar::MultiRegions
 
 namespace Nektar::SolverCore
 {
@@ -61,39 +63,57 @@ class SessionFunction
 public:
     SOLVER_CORE_EXPORT SessionFunction(
         LibUtilities::SessionReaderSharedPtr session,
-        MultiRegions::ExpListSharedPtr expList, std::string functionName);
+        MultiRegions::ExpListSharedPtr expList,
+        std::vector<std::string> variables, std::string functionName);
 
-    /// The same function on another expansion list, sharing the files read.
-    SOLVER_CORE_EXPORT SessionFunction(const SessionFunction &function,
-                                       MultiRegions::ExpListSharedPtr expList);
+    /// Variables the function is evaluated for, one Field component each.
+    const std::vector<std::string> &GetVariables() const
+    {
+        return m_variables;
+    }
 
-    SOLVER_CORE_EXPORT void EvaluateFld(
-        const std::vector<std::string> &variables,
-        LibUtilities::Field<double, FieldState::Coeff> &coeffs,
-        [[maybe_unused]] double time, unsigned int domain = 0) const;
+    /// Type of the function, the same for each of #m_variables.
+    LibUtilities::FunctionType GetType() const
+    {
+        return m_type;
+    }
 
-    SOLVER_CORE_EXPORT void EvaluateExpression(
-        const std::vector<std::string> &variables,
-        LibUtilities::Field<double, FieldState::Phys> &phys, double time) const;
+    /// Evaluate the function at the quadrature points, scaled by @p scale.
+    SOLVER_CORE_EXPORT void Evaluate(
+        LibUtilities::Field<double, FieldState::Phys> &phys, double time,
+        double scale = 1.0) const;
 
-    SOLVER_CORE_EXPORT std::string Describe(const std::string &variable,
-                                            int domain = 0) const;
+    /// Whether an expression of #m_variables uses the time.
+    SOLVER_CORE_EXPORT bool IsTimeDependent() const;
+
+    /// Describe the function of each of #m_variables, in that order.
+    SOLVER_CORE_EXPORT std::vector<std::string> Describe() const;
 
 private:
     LibUtilities::SessionReaderSharedPtr m_session;
     MultiRegions::ExpListSharedPtr m_expList;
+    /// Variables the function is evaluated for, one Field component each.
+    std::vector<std::string> m_variables;
     std::string m_name;
-    /// Field files read so far, by file name; shared by the copies of this
-    /// function made for other expansion lists.
-    std::shared_ptr<std::map<std::string, ImportedField>> m_importedFields;
-    /// Expansion list a file is read through before it is projected onto
-    /// #m_expList; null to read it into #m_expList.
-    MultiRegions::ExpListSharedPtr m_fileExpList;
+    /// Type of the function, the same for each of #m_variables.
+    LibUtilities::FunctionType m_type;
+    mutable Math::MathHelper m_math;
+    /// Field files read so far, by file name.
+    mutable std::map<std::string, ImportedField> m_importedFields;
+    /// Expression operator on #m_expList, built on first use.
+    mutable std::shared_ptr<MultiRegions::ExpressionOp<double>> m_expressionOp;
 
-    /// Read file coefficients in the element order of @p expList.
-    std::vector<double> ReadFldCoeffs(
-        const MultiRegions::ExpListSharedPtr &expList,
-        const std::vector<std::string> &variables, unsigned int domain) const;
+    /// Evaluate the expressions of #m_variables at the quadrature points,
+    /// scaled by @p scale.
+    void EvaluateExpression(LibUtilities::Field<double, FieldState::Phys> &phys,
+                            double time, double scale) const;
+
+    /// Read the file function of #m_variables as element coefficients.
+    void EvaluateFld(
+        LibUtilities::Field<double, FieldState::Coeff> &coeffs) const;
+
+    /// Read file coefficients in the element order of #m_expList.
+    std::vector<double> ReadFldCoeffs() const;
 };
 
 using SessionFunctionSharedPtr = std::shared_ptr<SessionFunction>;

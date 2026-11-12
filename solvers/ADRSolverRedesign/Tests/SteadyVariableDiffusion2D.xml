@@ -93,7 +93,7 @@
 
         <!-- div(epsilon D grad u), u = x^3+y^3+x*y. -->
         <FUNCTION NAME="BodyForce">
-            <E VAR="u" EVARS="u" VALUE="epsilon*(6*x+12*y+12.3*(x^3+y^3)+4.4*x*y+0.4)" />
+            <E VAR="u" VALUE="epsilon*(6*x+12*y+12.3*(x^3+y^3)+4.4*x*y+0.4)" />
         </FUNCTION>
     </CONDITIONS>
 

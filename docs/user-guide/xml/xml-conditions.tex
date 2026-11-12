@@ -109,8 +109,9 @@ values available depend on \inltt{Projection}:
 \end{center}
 
 \begin{itemize}
-  \item \inltt{Average} (continuous only, the default): an expression is
-  first projected element by element, and a file is used as read. Every
+  \item \inltt{Average} (continuous only, the default): the initial
+  condition, an expression or a file, is first evaluated at the quadrature
+  points and projected element by element. Every
   degree of freedom shared between elements is then set to the average of
   its copies, and the Dirichlet boundary values at the start time are
   imposed. This is what the legacy solvers do.
@@ -142,7 +143,7 @@ Note that an exact restart requires the property in \emph{both} runs,
 since the field file is written from whatever state the first run held.
 A discontinuous run started with \inltt{None} emits a warning saying so.
 A field file read as the initial condition of a discontinuous run is in
-the polynomial space already and is used as read.
+the polynomial space already and needs no projection.
 
 \begin{lstlisting}[style=XMLStyle]
 <SOLVERINFO>

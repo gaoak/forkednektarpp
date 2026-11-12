@@ -42,6 +42,7 @@
 #include <MultiRegions/ElmtOps/Divergence/DivergenceOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseOp.hpp>
+#include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <MultiRegions/ElmtOps/PhysDeriv/PhysDerivOp.hpp>
 #include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
@@ -1335,7 +1336,7 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
     /// Do initial conditions for velocity and additional scalar fields
     // Set initial conditions in m_fields using m_variables
     SessionFunction initialConditions(m_session, m_expansionLists[0],
-                                      "InitialConditions");
+                                      m_variables, "InitialConditions");
     SetInitialConditionsFrom(initialConditions, initialTime);
 
     /// Do initial conditions for auxiliary pressure field
@@ -1346,20 +1347,33 @@ void VelocityCorrectionScheme::v_SetInitialConditions(double initialTime)
     m_math.zero(m_pressure);
     m_math.zero(m_pressure_coeff);
 
-    // The pressure is projected as the other fields are, its Dirichlet
-    // values included; its mass matrix projection is built only for
-    // Galerkin. The pressure function shares the files read for the
-    // velocity, so a file holding both is read once. A lower-order pressure
-    // is read from a file through the velocity expansion and projected
-    // element by element onto its own; see SessionFunction::EvaluateFld().
-    SessionFunction pressureConditions(initialConditions,
-                                       m_expansionLists[m_pressureIndex]);
+    // The pressure is evaluated on the velocity expansion, whose quadrature
+    // points it shares, so a file written at the velocity order is read at
+    // that order, and projected element by element onto its own expansion.
+    SessionFunction pressureConditions(m_session, m_expansionLists[0],
+                                       m_variablesPressure,
+                                       "InitialConditions");
+    pressureConditions.Evaluate(m_pressure, m_time);
+    auto iprod = LibUtilities::Field<double, FieldState::Coeff>(
+        "pressure inner product",
+        MultiRegions::GetBlockAttributes<double, FieldState::Coeff>(
+            m_expansionLists[m_pressureIndex],
+            Operator<double>::GetDefaultInterleaveWidth(m_session)),
+        m_variablesPressure.size(), m_npointsZ);
+    IProductWRTBaseOp<double>::Create(m_expansionLists[m_pressureIndex],
+                                      m_variablesPressure)
+        ->Apply(m_pressure, iprod);
+    MultiplyByElmtInvMassOp<double>::Create(m_expansionLists[m_pressureIndex],
+                                            m_variablesPressure)
+        ->Apply(iprod, m_pressure_coeff);
+
+    // The pressure is then made continuous as the other fields are, its
+    // Dirichlet values included; its mass matrix projection is built only
+    // for Galerkin.
     SetContinuousInitialConditions(
-        pressureConditions, m_expansionLists[m_pressureIndex],
-        m_variablesPressure, m_pressure, m_pressure_coeff, m_bwdTransPressureOp,
-        nullptr);
-    PrintInitialConditions(m_expansionLists[m_pressureIndex],
-                           m_variablesPressure);
+        m_expansionLists[m_pressureIndex], m_variablesPressure, m_pressure,
+        m_pressure_coeff, m_bwdTransPressureOp, nullptr);
+    PrintInitialConditions(pressureConditions);
 }
 
 void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
@@ -1384,9 +1398,10 @@ void VelocityCorrectionScheme::v_PrintNorms(std::ostream &out)
     // Evaluate exact solution and compute diff to discrete solution
     if (m_session->DefinesFunction("ExactSolution"))
     {
-        SessionFunction exactSolution(
-            m_session, m_expansionLists[m_pressureIndex], "ExactSolution");
-        exactSolution.EvaluateExpression(m_variablesPressure, wsp_phys, m_time);
+        SessionFunction exactSolution(m_session,
+                                      m_expansionLists[m_pressureIndex],
+                                      m_variablesPressure, "ExactSolution");
+        exactSolution.Evaluate(wsp_phys, m_time);
     }
     m_math.sub(m_pressure, wsp_phys, wsp_phys);
 
