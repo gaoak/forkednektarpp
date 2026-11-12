@@ -194,46 +194,32 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM,
 struct AUSMSolverKernel
 {
     /// @p normal: the unit trace normal, @p NDIM components at the states'
-    /// stride @p blksize.
-    template <typename TScalar>
+    /// stride @p blksize, in TData (a scalar or a SIMD vector of points).
+    template <typename TData>
     NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
                                           const size_t blksize,
-                                          const TScalar *fwd,
-                                          const TScalar *bwd,
-                                          const TScalar *normal, TScalar *flux)
+                                          const TData *fwd, const TData *bwd,
+                                          const TData *normal, TData *flux)
     {
-        // Explicit vectorisation for AVX backend, vec_t =
-        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
-        using vec_t =
-            typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                                  TScalar>::type;
-        constexpr unsigned int vec_width =
-            (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-                ? tinysimd::simd<TScalar>::width
-                : 1;
-
-        const vec_t half = vec_t(0.5);
+        const TData half = TData(0.5);
 
         // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
-        const size_t gs = blksize / vec_width;
-        const auto l    = reinterpret_cast<const vec_t *>(fwd);
-        const auto r    = reinterpret_cast<const vec_t *>(bwd);
-        const auto nvec = reinterpret_cast<const vec_t *>(normal);
-        auto f          = reinterpret_cast<vec_t *>(flux);
+        const auto l = fwd;
+        const auto r = bwd;
 
         // Velocities, normal velocities and kinetic energy terms, with one
         // reciprocal per density in place of a division at every use.
-        const vec_t rhoL = l[0], rhoR = r[0];
-        const vec_t invRhoL = vec_t(1.0) / rhoL;
-        const vec_t invRhoR = vec_t(1.0) / rhoR;
-        vec_t n[NDIM], uL[NDIM], uR[NDIM];
-        vec_t unL = vec_t(0.0), unR = vec_t(0.0);
-        vec_t qL2 = vec_t(0.0), qR2 = vec_t(0.0);
+        const TData rhoL = l[0], rhoR = r[0];
+        const TData invRhoL = TData(1.0) / rhoL;
+        const TData invRhoR = TData(1.0) / rhoR;
+        TData n[NDIM], uL[NDIM], uR[NDIM];
+        TData unL = TData(0.0), unR = TData(0.0);
+        TData qL2 = TData(0.0), qR2 = TData(0.0);
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            n[d]              = nvec[d * gs];
-            const vec_t rhouL = l[(1u + d) * gs];
-            const vec_t rhouR = r[(1u + d) * gs];
+            n[d]              = normal[d * blksize];
+            const TData rhouL = l[(1u + d) * blksize];
+            const TData rhouR = r[(1u + d) * blksize];
             uL[d]             = rhouL * invRhoL;
             uR[d]             = rhouR * invRhoR;
             unL += n[d] * uL[d];
@@ -243,39 +229,39 @@ struct AUSMSolverKernel
         }
 
         // Internal energy per unit mass, pressure and sound speed.
-        const vec_t EL = l[(1u + NDIM) * gs];
-        const vec_t ER = r[(1u + NDIM) * gs];
-        const vec_t eL = (EL - half * qL2) * invRhoL;
-        const vec_t eR = (ER - half * qR2) * invRhoR;
-        const vec_t pL = GetPressure(EoS, rhoL, eL);
-        const vec_t pR = GetPressure(EoS, rhoR, eR);
-        const vec_t cL = GetSoundSpeed(EoS, rhoL, eL);
-        const vec_t cR = GetSoundSpeed(EoS, rhoR, eR);
+        const TData EL = l[(1u + NDIM) * blksize];
+        const TData ER = r[(1u + NDIM) * blksize];
+        const TData eL = (EL - half * qL2) * invRhoL;
+        const TData eR = (ER - half * qR2) * invRhoR;
+        const TData pL = GetPressure(EoS, rhoL, eL);
+        const TData pR = GetPressure(EoS, rhoR, eR);
+        const TData cL = GetSoundSpeed(EoS, rhoL, eL);
+        const TData cR = GetSoundSpeed(EoS, rhoR, eR);
 
         // Average speed of sound and the normal Mach numbers.
-        const vec_t cA   = half * (cL + cR);
-        const vec_t invC = vec_t(1.0) / cA;
-        const vec_t ML   = unL * invC;
-        const vec_t MR   = unR * invC;
+        const TData cA   = half * (cL + cR);
+        const TData invC = TData(1.0) / cA;
+        const TData ML   = unL * invC;
+        const TData MR   = unR * invC;
 
         // Interface Mach number and pressure, and the mass flux they carry.
-        vec_t pbar, Mbar;
+        TData pbar, Mbar;
         AUSMUpwinding()(cA, rhoL, rhoR, pL, pR, ML, MR, pbar, Mbar);
-        const vec_t mn = cA * Mbar;
+        const TData mn = cA * Mbar;
 
         // The upwind state, lane by lane for a vector.
-        const auto cond   = Mbar >= vec_t(0.0);
-        const vec_t rhoUp = Select(cond, rhoL, rhoR);
-        const vec_t pUp   = Select(cond, pL, pR);
-        const vec_t EUp   = Select(cond, EL, ER);
+        const auto cond   = Mbar >= TData(0.0);
+        const TData rhoUp = Select(cond, rhoL, rhoR);
+        const TData pUp   = Select(cond, pL, pR);
+        const TData EUp   = Select(cond, EL, ER);
 
-        f[0] = mn * rhoUp;
+        flux[0] = mn * rhoUp;
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            f[(1u + d) * gs] =
+            flux[(1u + d) * blksize] =
                 mn * rhoUp * Select(cond, uL[d], uR[d]) + pbar * n[d];
         }
-        f[(1u + NDIM) * gs] = mn * (EUp + pUp);
+        flux[(1u + NDIM) * blksize] = mn * (EUp + pUp);
     }
 };
 

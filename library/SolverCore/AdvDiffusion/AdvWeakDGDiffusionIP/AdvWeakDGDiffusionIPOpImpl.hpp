@@ -41,6 +41,8 @@
 #include <MultiRegions/ElmtOps/PhysLiftProject/PhysLiftProjectOp.hpp>
 #include <MultiRegions/ElmtOps/PhysTraceExtract/PhysTraceExtractOp.hpp>
 
+#include <vector>
+
 namespace Nektar::SolverCore::detail
 {
 
@@ -162,6 +164,9 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
+        // The output leaves at the widths it arrived at.
+        const auto outWidths = out.GetInterleaveWidth();
+
         // High-level operator flow: the volume and trace terms as
         // physical-space inner products, then their projection onto the
         // polynomial space, in physical space for the caller. Append is
@@ -169,7 +174,7 @@ protected:
         // overwrite-style temporaries.
         AdvDiffInnerProducts(in);
         LiftAndProject(out);
-        ReshapeToWidth(out, 1u);
+        out.ReshapeStorage(outWidths, ExecSpace::name);
     }
 
     void v_SetAppend(const bool &append) override
@@ -179,23 +184,17 @@ protected:
 
     // Interleave width the AVX element operators work at. The volume fields
     // and the element-local traces are carried at it for the whole RHS, so
-    // each operator's per-chunk reshape is a no-op, and the trace
-    // gather/scatter addresses the traces at it directly. The caller's fields
-    // enter and leave at width 1.
+    // each operator's per-chunk reshape is a no-op, and the trace flux
+    // addresses the traces at it directly. The caller's fields are taken to
+    // it on entry, where they arrive at another width, and returned to the
+    // widths they arrived at on exit: a field created at the session's
+    // default width (Operator::GetDefaultInterleaveWidth()) is already at it
+    // and is left alone. On Serial and Device the fields are used as they
+    // arrive.
     static constexpr unsigned int m_rhsInterleaveWidth =
         std::is_same_v<ExecSpace, NektarSpaces::AVX>
             ? tinysimd::simd<TData>::width
             : 1u;
-
-    template <typename TField>
-    static void ReshapeToWidth(TField &field,
-                               [[maybe_unused]] const unsigned int width)
-    {
-        if constexpr (m_rhsInterleaveWidth != 1u)
-        {
-            field.ReshapeStorage(width, ExecSpace::name);
-        }
-    }
 
     /// What follows from the attached operators, built on the first
     /// Apply() after they change.
@@ -255,7 +254,13 @@ protected:
             Configure();
         }
 
-        ReshapeToWidth(in, m_rhsInterleaveWidth);
+        // The input is used at the RHS width and leaves at the widths it
+        // arrived at.
+        const auto inWidths = in.GetInterleaveWidth();
+        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
+        {
+            in.ReshapeStorage(m_rhsInterleaveWidth, ExecSpace::name);
+        }
 
         // Step 0: Extract trace from "in"
         m_physTraceExtractOp->Apply(in, m_trace);
@@ -329,7 +334,7 @@ protected:
             this->m_advVolFluxOpNegOut->Apply(in, m_fluxvector);
             this->m_diffVolFluxOpAppend->Apply(in, m_deriv, m_fluxvector);
         }
-        ReshapeToWidth(in, 1u);
+        in.ReshapeStorage(inWidths, ExecSpace::name);
 
         // Step 4: integrate the volume flux contribution against derivative
         // bases in physical space and negate output

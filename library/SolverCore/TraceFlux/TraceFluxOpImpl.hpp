@@ -38,20 +38,19 @@
 #include <numeric>
 #include <tuple>
 
-#include "LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp"
-#include "LibUtilities/BasicUtils/Field/Block.hpp"
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
-#include "MultiRegions/DataWarehouse/TraceDataWarehouse.hpp"
-#include "SolverCore/TraceFlux/TraceFluxKernels.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOp.hpp"
+#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
+#include <LibUtilities/BasicUtils/Field/Block.hpp>
+#include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
+#include <SolverCore/TraceFlux/TraceFluxDeviceKernels.hpp>
+#include <SolverCore/TraceFlux/TraceFluxKernels.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOp.hpp>
+#include <SolverCore/TraceFlux/TraceFluxSerialAVXKernels.hpp>
 
-#include "LibUtilities/Communication/SharedPayloadResolver.hpp"
-#include "MultiRegions/AssemblyMap/AssemblyComm.h"
-#include "MultiRegions/AssemblyMap/AssemblyMapDG.h"
+#include <LibUtilities/Communication/SharedPayloadResolver.hpp>
+#include <MultiRegions/AssemblyMap/AssemblyComm.h>
+#include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
 
 #include <array>
-#include <numeric>
-#include <tuple>
 
 namespace Nektar::SolverCore::detail
 {
@@ -83,7 +82,7 @@ namespace Nektar::SolverCore::detail
  * `[block][trace-within-block]`. A block collects traces that share the same
  * quadrature point counts, point types and interpolation requirements on both
  * sides, so that one set of interpolation matrices and one set of loop bounds
- * serves the whole block. HaveSimilarTraceInfo() decides that grouping. The
+ * serves the whole block. FindSimilarTraceBlock() decides that grouping. The
  * per-block parameters that the helpers read (#m_npT0, #m_npT1, #m_npT,
  * #m_npTot, #m_T0Collocated, #m_T1Collocated) are *not* per-block storage:
  * they are scratch fields that SetInteriorParams() or SetBoundaryParams()
@@ -119,9 +118,11 @@ class TraceFluxOpImpl : public TBase
     using MemSpace = typename ExecSpace::memory_space;
 
 protected:
-    /// The execution space's lane width, and so the one interleave width
-    /// other than 1 an element-local trace field may arrive at.
-    static constexpr unsigned s_ilvWidth =
+    /// The kernels' lane count: the SIMD width on AVX, 1 on Serial and
+    /// Device. Pads the workspace sub-buffers to whole vectors; the
+    /// element-local trace fields are read at whatever width each of their
+    /// blocks carries (FieldLayout).
+    static constexpr unsigned s_vecWidth =
         std::is_same_v<ExecSpace, NektarSpaces::AVX>
             ? tinysimd::simd<TData>::width
             : 1u;
@@ -139,7 +140,7 @@ protected:
      */
     static constexpr size_t PadToVectorWidth(const size_t n)
     {
-        constexpr size_t w = s_ilvWidth;
+        constexpr size_t w = s_vecWidth;
         return ((n + w - 1) / w) * w;
     }
 
@@ -181,7 +182,8 @@ public:
         m_traceDim       = dim - 1;
 
         std::map<size_t, TraceInfo> TraceData;
-        std::map<size_t, std::map<size_t, size_t>> PtsOffset, PtsOffsetIlv;
+        std::map<size_t, std::map<size_t, size_t>> PtsOffset;
+        std::map<size_t, ElmtLayout> ElmtLayouts;
         size_t compSizeSum = 0;
 
         std::vector<std::pair<TraceInfo, TraceInfo>> SaveTraceData;
@@ -192,6 +194,7 @@ public:
             MultiRegions::GetLocTraceBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
 
+        m_numElmtBlk = blocks.size();
         for (unsigned blk = 0; blk < blocks.size(); ++blk)
         {
             m_blockStreams.push_back(blk + 1);
@@ -261,16 +264,16 @@ public:
             for (unsigned e = 0; e < blocks[blk].GetNumElements(); ++e, ++eid)
             {
                 elmt = expansionList->GetExp(eid);
-                std::map<size_t, size_t> tPtsOffset, tPtsOffsetIlv;
+                std::map<size_t, size_t> tPtsOffset;
+                // Where this element's traces sit, at any interleave width.
+                ElmtLayouts[eid] = ElmtLayout{blk, e, tptsTot, traceOffset};
 
                 for (unsigned t = 0; t < ntrace; ++t)
                 {
                     tPtsOffset[t] = offset + traceOffset[t];
-                    // The same point with the field interleaved: groups of
-                    // s_ilvWidth elements, point-major, one element per lane.
-                    tPtsOffsetIlv[t] = (e - e % s_ilvWidth) * tptsTot +
-                                       traceOffset[t] * s_ilvWidth +
-                                       e % s_ilvWidth;
+                    ASSERTL1(tPtsOffset[t] ==
+                                 LayoutOffset(e, tptsTot, traceOffset[t], 1u),
+                             "The width-1 offset is the layout at width 1");
 
                     auto tid = elmtToTrace[eid][t]->GetElmtId();
                     // check to see if a periodic edge/face exists and
@@ -315,8 +318,35 @@ public:
                         // first entry
                         TraceInfo tinfo0 = TraceData[tid];
 
-                        auto b = HaveSimilarTraceInfo(SaveTraceData, tinfo0,
-                                                      elmt, t);
+                        // The backward side, and the global trace both sides
+                        // map onto: a block's interpolation matrices are
+                        // built once, so a pair may join a block only if all
+                        // of these match its representative.
+                        TraceInfo tinfo1;
+                        tinfo1.eid         = eid;
+                        tinfo1.t           = t;
+                        tinfo1.compSize    = traceblocks[blk].CompSize();
+                        tinfo1.compSizeSum = compSizeSum;
+                        tinfo1.orient      = t1Orient;
+
+                        for (unsigned d = 0; d < m_traceDim; ++d)
+                        {
+                            auto bkey       = elmt->GetTraceBasisKey(t, d);
+                            tinfo1.n[d]     = bkey.GetNumPoints();
+                            tinfo1.ptype[d] = bkey.GetPointsType();
+                        }
+                        if (m_traceDim)
+                        {
+                            auto telmt = elmtToTrace[tinfo0.eid][tinfo0.t];
+                            for (unsigned d = 0; d < m_traceDim; ++d)
+                            {
+                                tinfo0.gn[d]     = telmt->GetNumPoints(d);
+                                tinfo0.gptype[d] = telmt->GetPointsType(d);
+                            }
+                        }
+
+                        auto b = FindSimilarTraceBlock(
+                            SaveTraceData, m_intT0.size(), tinfo0, tinfo1);
 
                         // need to initialise new block of traces
                         if (b == m_intT0.size())
@@ -341,9 +371,9 @@ public:
                         m_intT0[b].offset.push_back(
                             PtsOffset[tinfo0.eid][tinfo0.t]);
                         m_intT1[b].offset.push_back(tPtsOffset[t]);
-                        m_intT0[b].offsetIlv.push_back(
-                            PtsOffsetIlv[tinfo0.eid][tinfo0.t]);
-                        m_intT1[b].offsetIlv.push_back(tPtsOffsetIlv[t]);
+                        PushLayout(m_intT0[b], ElmtLayouts[tinfo0.eid],
+                                   tinfo0.t);
+                        PushLayout(m_intT1[b], ElmtLayouts[eid], t);
 
                         // store component size for offseting data in blcok
                         m_intT0[b].compSize.push_back(tinfo0.compSize);
@@ -353,20 +383,6 @@ public:
                         // set up Global Trace offset (for normals etc)
                         m_intGloTraceOffset[b].push_back(
                             trace->GetPhys_Offset(tid));
-
-                        // set up tinfo1 using existing element/trace
-                        TraceInfo tinfo1;
-                        tinfo1.eid         = eid;
-                        tinfo1.t           = t;
-                        tinfo1.compSize    = traceblocks[blk].CompSize();
-                        tinfo1.compSizeSum = compSizeSum;
-
-                        for (unsigned d = 0; d < m_traceDim; ++d)
-                        {
-                            auto bkey       = elmt->GetTraceBasisKey(t, d);
-                            tinfo1.n[d]     = bkey.GetNumPoints();
-                            tinfo1.ptype[d] = bkey.GetPointsType();
-                        }
 
                         // share connecting point information
                         tinfo0.nc = tinfo1.n;
@@ -389,8 +405,6 @@ public:
                                 (m_traceDim == 1)
                                     ? StdRegions::eForwards
                                     : StdRegions::eDir1FwdDir1_Dir2FwdDir2;
-
-                            tinfo1.orient = t1Orient;
 
                             // populate information comparing tinfo0 with
                             // tinfoglo
@@ -442,8 +456,7 @@ public:
                         TraceData[tid] = tinfo;
                     }
                 }
-                PtsOffset[eid]    = tPtsOffset;
-                PtsOffsetIlv[eid] = tPtsOffsetIlv;
+                PtsOffset[eid] = tPtsOffset;
                 offset += tptsTot; // skip forward this element block
             }
             // generate a summation of composite sizes
@@ -477,7 +490,7 @@ public:
         // Claim the latter now, so that what reaches the boundary pass below
         // is what that pass has always been given.
         SetUpParallelTraces(expansionList, elmtToTrace, TraceData, PtsOffset,
-                            PtsOffsetIlv);
+                            ElmtLayouts);
 
         // clear trace info saving so can restart process with BCs
         SaveTraceData.clear();
@@ -575,7 +588,7 @@ public:
             // data
             m_bndT0[b].offset_st.push_back(tinfo0.compSizeSum);
             m_bndT0[b].offset.push_back(PtsOffset[tinfo0.eid][tinfo0.t]);
-            m_bndT0[b].offsetIlv.push_back(PtsOffsetIlv[tinfo0.eid][tinfo0.t]);
+            PushLayout(m_bndT0[b], ElmtLayouts[tinfo0.eid], tinfo0.t);
 
             // set up normal offset
             m_bndGloTraceOffset[b].push_back(
@@ -753,6 +766,9 @@ public:
         PackParallelSendLocations();
 
         PackBndBCLocations();
+
+        // The blocks the in-place kernels take, and their kernel state.
+        SetUpInPlaceBlocks();
     }
 
     /**
@@ -1098,14 +1114,22 @@ protected:
     {
         /// Position of trace data in trace field, start of block
         std::vector<size_t> offset_st;
-        /// Position of trace data in trace field within block
+        /// Position of trace data in trace field within block, for the
+        /// field at interleave width 1
         std::vector<size_t> offset;
-        /// As @p offset, for the field at interleave width #s_ilvWidth
-        std::vector<size_t> offsetIlv;
+        /// Where the trace sits independently of interleave width, for the
+        /// offset at any width (LayoutOffset()): the element block, the
+        /// element's index in it, the points of all the element's traces and
+        /// the trace's point offset within them. Empty for a side that is not
+        /// an element-local field (a receive buffer).
+        std::vector<unsigned> elmtBlk, elmtInBlk, tptsTot, ptInElmt;
         // composite size of data
         std::vector<size_t> compSize;
         /// Num points on trace - only require on set
         std::vector<unsigned> npts;
+        /// Num points on the global trace, in its own direction order - one
+        /// set per block. Both sides of a trace share it.
+        std::vector<unsigned> gloNpts;
         /// interpolation basis to global trace
         /// or null if collocated - one set per block
         std::vector<const TData *> interpFwd;
@@ -1131,16 +1155,20 @@ protected:
     {
         LibUtilities::MemoryRegion<size_t> offset_st;
         LibUtilities::MemoryRegion<size_t> offset;
-        /// Empty for a side that is not an element-local field.
-        LibUtilities::MemoryRegion<size_t> offsetIlv;
+        /// One per trace, for a side read at stride 1 through
+        /// GetTraceBlockView(TraceDeviceData &): the receive buffer, and
+        /// the width-1 reads of the boundary passes.
+        LibUtilities::MemoryRegion<unsigned> strideOne;
         LibUtilities::MemoryRegion<size_t> compSize;
         /// Empty when #m_traceDim is 0: point traces carry no orientation.
         LibUtilities::MemoryRegion<int> orient;
-        /// Device only: see TraceBlockView::ptMapFwd. Empty elsewhere.
-        LibUtilities::MemoryRegion<unsigned> ptMapFwd;
-        LibUtilities::MemoryRegion<unsigned> ptMapBwd;
-        unsigned ptsPerTrace = 0;
-        size_t numTrace      = 0;
+        /// See TraceBlockView::ptMapFwd: the data warehouse's tables for the
+        /// block's point set, in the execution space; null where no map was
+        /// built.
+        const unsigned *ptMapFwd = nullptr;
+        const unsigned *ptMapBwd = nullptr;
+        unsigned ptsPerTrace     = 0;
+        size_t numTrace          = 0;
     };
 
     /**
@@ -1300,6 +1328,157 @@ protected:
     /// the derived operators' normals and penalty-factor gathers.
     std::vector<GloTraceOffsetDeviceData> m_intGloTraceDev;
 
+    /// Per interior and per partition block, whether the in-place kernels
+    /// take it: both sides collocated with the global trace, and the point
+    /// maps built. Decided by SetUpInPlaceBlocks().
+    std::vector<bool> m_intInPlace, m_parInPlace;
+
+    /**
+     * @brief Where one element's traces sit in the element-local trace
+     * layout, independently of interleave width: its element block, its
+     * index in that block, the points of all its traces, and each trace's
+     * point offset within them. A trace's point offset at any width follows
+     * (LayoutOffset()).
+     */
+    struct ElmtLayout
+    {
+        unsigned blk = 0, e = 0, tptsTot = 0;
+        std::vector<unsigned> ptInElmt;
+    };
+
+    /// Point offset of a trace within its element block, for the block at
+    /// interleave width @p w: groups of @p w elements, point-major, one
+    /// element per lane, the element's traces in order within its points.
+    static constexpr size_t LayoutOffset(const unsigned e,
+                                         const unsigned tptsTot,
+                                         const unsigned ptInElmt,
+                                         const unsigned w)
+    {
+        return size_t(e - e % w) * tptsTot + size_t(ptInElmt) * w + e % w;
+    }
+
+    /// Append trace @p t of the element laid out as @p L to the width-free
+    /// layout data of @p T.
+    static void PushLayout(TraceDetails &T, const ElmtLayout &L,
+                           const unsigned t)
+    {
+        T.elmtBlk.push_back(L.blk);
+        T.elmtInBlk.push_back(L.e);
+        T.tptsTot.push_back(L.tptsTot);
+        T.ptInElmt.push_back(L.ptInElmt[t]);
+    }
+
+    /// Per trace of one block, its point offset and stride in a field's
+    /// layout, in the execution space.
+    struct BlockLayout
+    {
+        LibUtilities::MemoryRegion<size_t> offset;
+        LibUtilities::MemoryRegion<unsigned> stride;
+    };
+
+    /**
+     * @brief The element-local trace layout of a field at one set of block
+     * interleave widths, one width per element block: per trace of every
+     * family and block, its point offset and stride at the width of the
+     * element block it lies in (LayoutOffset()), and the same per parallel
+     * send entry. Built by BuildLayout() the first
+     * time a field with these widths is seen (LayoutFor()) and kept, keyed on
+     * the width vector as AssmbScatr keys its tables, so a field's blocks may
+     * carry any widths, alike or not, and a change of widths costs one
+     * rebuild.
+     */
+    struct FieldLayout
+    {
+        std::vector<BlockLayout> intT0, intT1, parT0, bndT0;
+        BlockLayout parSend;
+    };
+    std::map<std::vector<unsigned>, FieldLayout> m_layouts;
+    /// Element blocks of the expansion list, which a trace field's blocks
+    /// must match one for one.
+    unsigned m_numElmtBlk = 0;
+
+    /// The layout of a field whose blocks are at @p widths, one per element
+    /// block, built on first use.
+    FieldLayout &LayoutForWidths(const std::vector<unsigned> &widths)
+    {
+        ASSERTL1(widths.size() == m_numElmtBlk,
+                 "A trace field has one block per element block");
+        auto it = m_layouts.find(widths);
+        return it != m_layouts.end() ? it->second : BuildLayout(widths);
+    }
+
+    /// The layout of @p field, built on first use.
+    template <typename TField> FieldLayout &LayoutFor(TField &field)
+    {
+        return LayoutForWidths(field.GetInterleaveWidth());
+    }
+
+    /// The layout of a field at width 1 throughout.
+    FieldLayout &LayoutOne()
+    {
+        return LayoutForWidths(std::vector<unsigned>(m_numElmtBlk, 1u));
+    }
+
+    /**
+     * @brief The layout the in-place kernels read @p first and @p rest
+     * through, which address every field through one set of offsets: the
+     * fields' layout where their widths agree, null where they do not, when
+     * the block is the caller's on the packed path.
+     */
+    template <typename TField, typename... TFields>
+    FieldLayout *SharedLayout(TField &first, TFields &...rest)
+    {
+        const auto widths = first.GetInterleaveWidth();
+        if (((rest.GetInterleaveWidth() != widths) || ...))
+        {
+            return nullptr;
+        }
+        return &LayoutForWidths(widths);
+    }
+
+    /// Build the layout for @p widths: see FieldLayout.
+    FieldLayout &BuildLayout(const std::vector<unsigned> &widths)
+    {
+        auto &L          = m_layouts[widths];
+        const auto build = [&](const std::vector<unsigned> &elmtBlk,
+                               const std::vector<unsigned> &elmtInBlk,
+                               const std::vector<unsigned> &tptsTot,
+                               const std::vector<unsigned> &ptInElmt,
+                               BlockLayout &B) {
+            const size_t n = elmtBlk.size();
+            std::vector<size_t> offset(n);
+            std::vector<unsigned> stride(n);
+            for (size_t i = 0; i < n; ++i)
+            {
+                const unsigned w = widths.at(elmtBlk[i]);
+                offset[i] =
+                    LayoutOffset(elmtInBlk[i], tptsTot[i], ptInElmt[i], w);
+                stride[i] = w;
+            }
+            B.offset = LibUtilities::MemoryRegion<size_t>::template FromVector<
+                MemSpace>(offset);
+            B.stride = LibUtilities::MemoryRegion<
+                unsigned>::template FromVector<MemSpace>(stride);
+        };
+        const auto buildFamily = [&](const std::vector<TraceDetails> &T,
+                                     std::vector<BlockLayout> &B) {
+            B.resize(T.size());
+            for (unsigned b = 0; b < T.size(); ++b)
+            {
+                build(T[b].elmtBlk, T[b].elmtInBlk, T[b].tptsTot, T[b].ptInElmt,
+                      B[b]);
+            }
+        };
+        buildFamily(m_intT0, L.intT0);
+        buildFamily(m_intT1, L.intT1);
+        buildFamily(m_parT0, L.parT0);
+        buildFamily(m_bndT0, L.bndT0);
+        build(m_parSendElmtBlk, m_parSendElmtInBlk, m_parSendTptsTot,
+              m_parSendPtInElmt, L.parSend);
+
+        return L;
+    }
+
     /**
      * @name Traces cut by the partitioner
      *
@@ -1370,7 +1549,9 @@ protected:
     /// gather kernels use, flattened so the pack loop needs no block index.
     std::vector<size_t> m_parSendOffsetSt;
     std::vector<size_t> m_parSendOffset;
-    std::vector<size_t> m_parSendOffsetIlv;
+    /// As TraceDetails::elmtBlk and the rest, per entry.
+    std::vector<unsigned> m_parSendElmtBlk, m_parSendElmtInBlk,
+        m_parSendTptsTot, m_parSendPtInElmt;
     std::vector<size_t> m_parSendCompSize;
 
     /// Communicator the exchange runs over; null in serial.
@@ -1626,80 +1807,82 @@ protected:
     static_assert(std::is_trivially_copyable_v<TraceInfo>,
                   "TraceInfo is shipped between ranks as raw bytes");
 
+    /// Whether a face orientation @p orient transposes the face's two
+    /// directions, which decides the direction order its interpolation
+    /// matrices are built in. Edges and points are never transposed.
+    NEK_FORCE_INLINE bool IsTransposed(
+        const StdRegions::Orientation orient) const
+    {
+        return m_traceDim == 2 &&
+               orient >= StdRegions::eDir1FwdDir2_Dir2FwdDir1;
+    }
+
     /**
-     * @brief Find the interior block an already-paired trace belongs to.
+     * @brief Find the interior or parallel block a paired trace belongs to.
      *
-     * A trace joins an existing block only if *both* sides agree with that
-     * block's saved representative on point count and point type in every
-     * trace direction, so that the block's single set of interpolation
-     * matrices remains valid.
+     * A block records one set of point counts and interpolation matrices,
+     * taken from its first trace, so a trace joins an existing block only if
+     * it agrees with that block's saved representative on everything they
+     * depend on: both sides' point counts and types, the global trace's
+     * point counts and types, and, for faces, whether each side's orientation
+     * transposes the face, which decides the direction order the matrices are
+     * built in. Two pairs with the same sides need not share a global trace:
+     * MultiRegions merges the two sides' keys direction by direction for a
+     * face shared by two elements, while each half of a periodic pair is its
+     * own trace.
      *
      * @param SaveTraceData - One representative pair per existing block.
-     * @param tinfo0        - Forward side of the trace being placed.
-     * @param elmt          - Element owning the backward side.
-     * @param t             - Local trace number of the backward side.
+     * @param numBlocks     - Number of existing blocks.
+     * @param tinfo0        - Forward side, with the global trace in gn/gptype.
+     * @param tinfo1        - Backward side, with its orientation.
      *
-     * @return Index of the matching block, or `m_intT0.size()` if none matches
+     * @return Index of the matching block, or @p numBlocks if none matches
      *         and a new block must be started. With `m_traceDim == 0` there is
      *         nothing to distinguish and 0 is always returned.
      */
-    // check to see if already have similar interior trace interpolation
-    NEK_FORCE_INLINE unsigned HaveSimilarTraceInfo(
-        std::vector<std::pair<TraceInfo, TraceInfo>> &SaveTraceData,
-        TraceInfo &tinfo0, LocalRegions::ExpansionSharedPtr &elmt, unsigned t)
+    NEK_FORCE_INLINE unsigned FindSimilarTraceBlock(
+        const std::vector<std::pair<TraceInfo, TraceInfo>> &SaveTraceData,
+        const size_t numBlocks, const TraceInfo &tinfo0,
+        const TraceInfo &tinfo1)
     {
-
         if (m_traceDim == 0)
         {
             return 0; // always same
         }
 
         unsigned b = 0;
-
-        for (; b < m_intT0.size(); ++b)
+        for (; b < numBlocks; ++b)
         {
-            bool IsSimilar = true;
+            const auto &rep0 = SaveTraceData[b].first;
+            const auto &rep1 = SaveTraceData[b].second;
 
-            // check tinfo0
-            for (unsigned d = 0; d < m_traceDim; ++d)
+            bool IsSimilar =
+                IsTransposed(tinfo0.orient) == IsTransposed(rep0.orient) &&
+                IsTransposed(tinfo1.orient) == IsTransposed(rep1.orient);
+
+            for (unsigned d = 0; IsSimilar && d < m_traceDim; ++d)
             {
-                if ((tinfo0.n[d] != SaveTraceData[b].first.n[d]) ||
-                    (tinfo0.ptype[d] != SaveTraceData[b].first.ptype[d]))
-                {
-                    IsSimilar = false;
-                    break;
-                }
-            }
-            // check second trace  if not exited found not similar
-            if (IsSimilar)
-            {
-                for (unsigned d = 0; d < m_traceDim; ++d)
-                {
-                    auto bkey = elmt->GetTraceBasisKey(t, d);
-                    if (SaveTraceData[b].second.n[d] != bkey.GetNumPoints() ||
-                        SaveTraceData[b].second.ptype[d] !=
-                            bkey.GetPointsType())
-                    {
-                        IsSimilar = false;
-                        break;
-                    }
-                }
+                IsSimilar = tinfo0.n[d] == rep0.n[d] &&
+                            tinfo0.ptype[d] == rep0.ptype[d] &&
+                            tinfo1.n[d] == rep1.n[d] &&
+                            tinfo1.ptype[d] == rep1.ptype[d] &&
+                            tinfo0.gn[d] == rep0.gn[d] &&
+                            tinfo0.gptype[d] == rep0.gptype[d];
             }
 
             if (IsSimilar)
             {
-                // exit and return index
                 return b;
             }
         }
-        // no previous similar faces so return next b value
+        // no previous similar traces so return next b value
         return b;
     }
 
     /**
      * @brief Find the Dirichlet boundary block a trace belongs to.
      *
-     * As HaveSimilarTraceInfo(), but the second side compared against is the
+     * As FindSimilarTraceBlock(), but the second side compared against is the
      * boundary trace expansion itself rather than a neighbouring element.
      *
      * @param SaveTraceData - One representative pair per existing block.
@@ -1821,14 +2004,15 @@ protected:
      * @param TraceData     - Unpaired traces; parallel ones are erased.
      * @param PtsOffset     - Point offset of each element trace within its
      *                        block, as built by the pairing loop.
-     * @param PtsOffsetIlv  - The same, for the field at #s_ilvWidth.
+     * @param ElmtLayouts   - Each element's traces in the layout, at any
+     *                        width (ElmtLayout).
      */
     void SetUpParallelTraces(
         const MultiRegions::ExpListSharedPtr &expansionList,
         Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>> &elmtToTrace,
         std::map<size_t, TraceInfo> &TraceData,
         std::map<size_t, std::map<size_t, size_t>> &PtsOffset,
-        std::map<size_t, std::map<size_t, size_t>> &PtsOffsetIlv)
+        std::map<size_t, ElmtLayout> &ElmtLayouts)
     {
         auto session = expansionList->GetSession();
         auto comm    = session ? session->GetComm()->GetRowComm() : nullptr;
@@ -1975,7 +2159,7 @@ protected:
 
         std::sort(par.begin(), par.end(), ByRankThenKey);
 
-        BuildParallelBlocks(par, elmtToTrace, trace, PtsOffset, PtsOffsetIlv);
+        BuildParallelBlocks(par, elmtToTrace, trace, PtsOffset, ElmtLayouts);
     }
 
     /**
@@ -1991,14 +2175,14 @@ protected:
      * @param elmtToTrace - Element trace to global trace expansion map.
      * @param trace       - The global trace expansion list.
      * @param PtsOffset   - Point offset of each element trace within its block.
-     * @param PtsOffsetIlv - The same, for the field at #s_ilvWidth.
+     * @param ElmtLayouts - Each element's traces in the layout, at any width.
      */
     void BuildParallelBlocks(
         const std::vector<ParallelTrace> &par,
         Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>> &elmtToTrace,
         const MultiRegions::ExpListSharedPtr &trace,
         std::map<size_t, std::map<size_t, size_t>> &PtsOffset,
-        std::map<size_t, std::map<size_t, size_t>> &PtsOffsetIlv)
+        std::map<size_t, ElmtLayout> &ElmtLayouts)
     {
         std::vector<std::pair<TraceInfo, TraceInfo>> SaveTraceData;
 
@@ -2009,7 +2193,10 @@ protected:
         size_t sendPrefix = 0, recvPrefix = 0;
         m_parSendOffsetSt.resize(par.size());
         m_parSendOffset.resize(par.size());
-        m_parSendOffsetIlv.resize(par.size());
+        m_parSendElmtBlk.resize(par.size());
+        m_parSendElmtInBlk.resize(par.size());
+        m_parSendTptsTot.resize(par.size());
+        m_parSendPtInElmt.resize(par.size());
         m_parSendCompSize.resize(par.size());
 
         for (size_t e = 0; e < par.size(); ++e)
@@ -2058,12 +2245,18 @@ protected:
                      "traces for it, and would evaluate the flux on each");
 
             m_parSharedEntries[par[e].rank].push_back(e);
-            m_parSendPts[e]       = NumTracePoints(tinfo0);
-            m_parRecvPts[e]       = NumTracePoints(tinfo1);
-            m_parSendOffsetSt[e]  = tinfo0.compSizeSum;
-            m_parSendOffset[e]    = PtsOffset[tinfo0.eid][tinfo0.t];
-            m_parSendOffsetIlv[e] = PtsOffsetIlv[tinfo0.eid][tinfo0.t];
-            m_parSendCompSize[e]  = tinfo0.compSize;
+            m_parSendPts[e]      = NumTracePoints(tinfo0);
+            m_parRecvPts[e]      = NumTracePoints(tinfo1);
+            m_parSendOffsetSt[e] = tinfo0.compSizeSum;
+            m_parSendOffset[e]   = PtsOffset[tinfo0.eid][tinfo0.t];
+            {
+                const auto &L         = ElmtLayouts[tinfo0.eid];
+                m_parSendElmtBlk[e]   = L.blk;
+                m_parSendElmtInBlk[e] = L.e;
+                m_parSendTptsTot[e]   = L.tptsTot;
+                m_parSendPtInElmt[e]  = L.ptInElmt[tinfo0.t];
+            }
+            m_parSendCompSize[e] = tinfo0.compSize;
 
             // Where this entry starts in the buffers, counted in points
             // rather than in values. The buffers are laid out as the running
@@ -2077,7 +2270,8 @@ protected:
 
             bool SaveTraceInfo = false;
 
-            auto b = HaveSimilarParTraceInfo(SaveTraceData, tinfo0, tinfo1);
+            auto b = FindSimilarTraceBlock(SaveTraceData, m_parT0.size(),
+                                           tinfo0, tinfo1);
 
             if (b == m_parT0.size())
             {
@@ -2092,7 +2286,7 @@ protected:
 
             m_parT0[b].offset_st.push_back(tinfo0.compSizeSum);
             m_parT0[b].offset.push_back(PtsOffset[tinfo0.eid][tinfo0.t]);
-            m_parT0[b].offsetIlv.push_back(PtsOffsetIlv[tinfo0.eid][tinfo0.t]);
+            PushLayout(m_parT0[b], ElmtLayouts[tinfo0.eid], tinfo0.t);
             m_parT0[b].compSize.push_back(tinfo0.compSize);
 
             // The remote side is read out of a receive buffer. Its start is
@@ -2157,53 +2351,6 @@ protected:
 
             AccumulateWorkSpaceBound(m_parT0[b].offset.size());
         }
-    }
-
-    /**
-     * @brief Find the parallel block a trace belongs to.
-     *
-     * As HaveSimilarTraceInfo(), but both sides are compared from TraceInfo:
-     * the backward side is an element on another rank, with no expansion here
-     * to interrogate.
-     *
-     * @return Index of the matching block, or `m_parT0.size()` if a new block
-     *         must be started.
-     */
-    NEK_FORCE_INLINE unsigned HaveSimilarParTraceInfo(
-        const std::vector<std::pair<TraceInfo, TraceInfo>> &SaveTraceData,
-        const TraceInfo &tinfo0, const TraceInfo &tinfo1)
-    {
-        if (m_traceDim == 0)
-        {
-            return 0; // always same
-        }
-
-        unsigned b = 0;
-
-        for (; b < m_parT0.size(); ++b)
-        {
-            bool IsSimilar = true;
-
-            for (unsigned d = 0; d < m_traceDim; ++d)
-            {
-                if ((tinfo0.n[d] != SaveTraceData[b].first.n[d]) ||
-                    (tinfo0.ptype[d] != SaveTraceData[b].first.ptype[d]) ||
-                    (tinfo1.n[d] != SaveTraceData[b].second.n[d]) ||
-                    (tinfo1.ptype[d] != SaveTraceData[b].second.ptype[d]))
-                {
-                    IsSimilar = false;
-                    break;
-                }
-            }
-
-            if (IsSimilar)
-            {
-                return b;
-            }
-        }
-
-        // no previous similar faces so return next b value
-        return b;
     }
 
     /**
@@ -2303,6 +2450,11 @@ protected:
         // only needs one value in block;
         if (T.npts.size() == 0)
         {
+            for (unsigned d = 0; d < m_traceDim; ++d)
+            {
+                T.gloNpts.push_back(tinfobase.n[d]);
+            }
+
             if (IsSame)
             {
                 for (unsigned d = 0; d < m_traceDim; ++d)
@@ -2395,13 +2547,23 @@ protected:
                             LibUtilities::PointsKey(tinfobase.n[d],
                                                     tinfobase.ptype[d]));
 
-                        // set up an ortho projection (for variable p) from
-                        // global trace back to local trace
+                        // Back from the global trace to this side: a
+                        // projection where this side has fewer points (for
+                        // variable p), and an interpolation where it has as
+                        // many or more. MultiRegions chooses each direction of
+                        // the global trace by degree of exactness, so a side
+                        // can carry more points than the trace, and the
+                        // projection is defined only to fewer; interpolating
+                        // is exact there, the trace data being of no higher
+                        // degree than this side resolves.
+                        const auto bwdType = (tinfo.n[d1[d]] < tinfobase.n[d])
+                                                 ? LibUtilities::eOrthoProject
+                                                 : LibUtilities::eInterp;
                         T.interpBwd.push_back(
                             this->m_dataWarehouse->template GetData<MemSpace>(
                                 LibUtilities::BasisDataKey<TData>(
-                                    bbkey, LibUtilities::eOrthoProject,
-                                    tinfo.n[d1[d]], tinfo.ptype[d1[d]])));
+                                    bbkey, bwdType, tinfo.n[d1[d]],
+                                    tinfo.ptype[d1[d]])));
                     }
                 }
             }
@@ -2462,11 +2624,9 @@ protected:
         d.offset =
             LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace>(
                 T.offset);
-        if (!T.offsetIlv.empty())
-        {
-            d.offsetIlv = LibUtilities::MemoryRegion<
-                size_t>::template FromVector<MemSpace>(T.offsetIlv);
-        }
+        d.strideOne =
+            LibUtilities::MemoryRegion<unsigned>::template FromVector<MemSpace>(
+                std::vector<unsigned>(d.numTrace, 1u));
         d.compSize =
             LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace>(
                 T.compSize);
@@ -2481,83 +2641,89 @@ protected:
                     orient);
         }
 
-        if constexpr (std::is_same_v<ExecSpace, NektarSpaces::Device>)
+        // Built in every execution space: the device gathers read through
+        // the maps one thread per point, and the in-place interior flux
+        // reads the element-local traces through them.
+        if (m_traceDim == 0 || !T.orient.empty())
         {
-            if (!T.orient.empty() && m_traceDim > 0)
-            {
-                PackPointMaps(T, d);
-            }
+            PackPointMaps(T, d);
         }
     }
 
     /**
-     * @brief Tabulate each trace's reorientation, point by point, for the
-     * device gathers and scatters.
+     * @brief Point the block at the data warehouse's per-orientation point
+     * maps for its point set (MultiRegions::TracePointMapKey), for the
+     * device gathers and scatters and the in-place kernels.
      *
      * A device thread handles one trace point rather than one trace, so
      * instead of running the reorientation loop it reads where its point
-     * comes from. The table is the reorientation kernel itself applied to the
-     * point indices, once, on the host: whatever permutation the kernel
-     * performs, the table holds, and the device copy moves the same values.
-     * Built for the block's local extents, so it serves the sides that need
-     * no interpolation; an interpolated side keeps the per-trace kernel.
+     * comes from. A map depends only on the orientation and the point set,
+     * so the warehouse holds one row per orientation, which every trace of
+     * the block indexes by its own (TraceBlockView::MapFwd()), and every
+     * operator on the expansion list shares. Built for the block's local
+     * extents, so it serves the sides that need no interpolation; an
+     * interpolated side keeps the per-trace kernel. A point trace has one
+     * point and no orientation: row 0, the identity.
+     *
+     * In a debug build the warehouse's rows are checked against the
+     * reorientation kernels the host paths run, trace by trace.
      *
      * @param T - Host-side block details, complete.
-     * @param d - Destination; its maps are overwritten.
+     * @param d - Destination; its map pointers are overwritten.
      */
     void PackPointMaps(const TraceDetails &T, TraceDeviceData &d)
     {
-        const unsigned nq0  = T.npts[0];
+        const unsigned nq0  = (m_traceDim == 0) ? 1u : T.npts[0];
         const unsigned nq1  = (m_traceDim == 2) ? T.npts[1] : 1u;
         const unsigned npts = nq0 * nq1;
-        const size_t ntr    = T.orient.size();
 
-        std::vector<double> ident(npts), perm(npts);
-        std::iota(ident.begin(), ident.end(), 0.0);
+        d.ptsPerTrace = npts;
+        d.ptMapFwd    = this->m_dataWarehouse->template GetData<MemSpace>(
+            MultiRegions::TracePointMapKey<TData>(m_traceDim, nq0, nq1, true));
+        d.ptMapBwd = this->m_dataWarehouse->template GetData<MemSpace>(
+            MultiRegions::TracePointMapKey<TData>(m_traceDim, nq0, nq1, false));
 
-        std::vector<unsigned> fwd(ntr * npts), bwd(ntr * npts);
-        std::vector<char> seen(npts);
-
-        for (size_t t = 0; t < ntr; ++t)
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
+        if (m_traceDim > 0)
         {
-            for (int dir = 0; dir < 2; ++dir)
+            const auto *fwd = this->m_dataWarehouse
+                                  ->template GetData<NektarSpaces::HostSpace>(
+                                      MultiRegions::TracePointMapKey<TData>(
+                                          m_traceDim, nq0, nq1, true));
+            const auto *bwd = this->m_dataWarehouse
+                                  ->template GetData<NektarSpaces::HostSpace>(
+                                      MultiRegions::TracePointMapKey<TData>(
+                                          m_traceDim, nq0, nq1, false));
+            std::vector<double> ident(npts), perm(npts);
+            std::iota(ident.begin(), ident.end(), 0.0);
+            for (size_t t = 0; t < T.orient.size(); ++t)
             {
-                std::fill(perm.begin(), perm.end(), -1.0);
-                if (m_traceDim == 1)
+                for (int dir = 0; dir < 2; ++dir)
                 {
-                    ReOrientEdgeKernel<false, false>(T.orient[t], nq0,
-                                                     ident.data(), perm.data());
-                }
-                else
-                {
-                    ReOrientFaceKernel<false, false>(T.orient[t], nq0, nq1,
-                                                     ident.data(), perm.data(),
-                                                     dir == 0);
-                }
-
-                // Every point written once, from a distinct source: the
-                // reorientation is a permutation, or the table is wrong.
-                std::fill(seen.begin(), seen.end(), 0);
-                auto &map = (dir == 0) ? fwd : bwd;
-                for (unsigned p = 0; p < npts; ++p)
-                {
-                    const double src = perm[p];
-                    ASSERTL0(src >= 0.0 && src < npts && !seen[size_t(src)],
-                             "Trace reorientation is not a permutation of "
-                             "the trace's points.");
-                    seen[size_t(src)] = 1;
-                    map[t * npts + p] = unsigned(src);
+                    std::fill(perm.begin(), perm.end(), -1.0);
+                    if (m_traceDim == 1)
+                    {
+                        ReOrientEdgeKernel<false, false>(
+                            T.orient[t], nq0, ident.data(), perm.data());
+                    }
+                    else
+                    {
+                        ReOrientFaceKernel<false, false>(T.orient[t], nq0, nq1,
+                                                         ident.data(),
+                                                         perm.data(), dir == 0);
+                    }
+                    const auto *row =
+                        (dir == 0 ? fwd : bwd) + unsigned(T.orient[t]) * npts;
+                    for (unsigned p = 0; p < npts; ++p)
+                    {
+                        ASSERTL1(row[p] == unsigned(perm[p]),
+                                 "The warehouse's point map is the "
+                                 "reorientation kernel's permutation");
+                    }
                 }
             }
         }
-
-        d.ptsPerTrace = npts;
-        d.ptMapFwd =
-            LibUtilities::MemoryRegion<unsigned>::template FromVector<MemSpace>(
-                fwd);
-        d.ptMapBwd =
-            LibUtilities::MemoryRegion<unsigned>::template FromVector<MemSpace>(
-                bwd);
+#endif
     }
 
     /**
@@ -2608,11 +2774,23 @@ protected:
     }
 
     /**
-     * @brief Hand out the pointers a kernel needs to read @p d, for an
-     * element-local field at interleave width @p width.
+     * @brief Hand out the pointers a kernel needs to read @p d through the
+     * per-trace offsets and strides @p L of the field's layout
+     * (FieldLayout), or, without one, at stride 1 from the width-1 offsets:
+     * a receive buffer, or a field known to be at width 1.
      */
     NEK_FORCE_INLINE TraceBlockView GetTraceBlockView(TraceDeviceData &d,
-                                                      const unsigned width = 1)
+                                                      BlockLayout &L)
+    {
+        TraceBlockView v = GetTraceBlockView(d);
+        v.offset =
+            L.offset.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        v.stride =
+            L.stride.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+        return v;
+    }
+
+    NEK_FORCE_INLINE TraceBlockView GetTraceBlockView(TraceDeviceData &d)
     {
         TraceBlockView v;
 
@@ -2620,32 +2798,153 @@ protected:
             d.offset_st.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
         v.offset =
             d.offset.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
-        if (width != 1)
-        {
-            ASSERTL0(width == s_ilvWidth && d.offsetIlv.size() == d.numTrace,
-                     "Interleaved element-local traces are addressed only at "
-                     "the execution space's lane width.");
-            v.offset = d.offsetIlv.template GetPtr<MemSpace, ReadOnly>(
-                this->m_opStreamID);
-            v.stride = width;
-        }
+        v.stride =
+            d.strideOne.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
         v.compSize =
             d.compSize.template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
-        v.orient   = d.orient.size()
-                         ? d.orient.template GetPtr<MemSpace, ReadOnly>(
+        v.orient      = d.orient.size()
+                            ? d.orient.template GetPtr<MemSpace, ReadOnly>(
                              this->m_opStreamID)
-                         : nullptr;
-        v.numTrace = d.numTrace;
-        if (d.ptMapFwd.size())
-        {
-            v.ptMapFwd = d.ptMapFwd.template GetPtr<MemSpace, ReadOnly>(
-                this->m_opStreamID);
-            v.ptMapBwd = d.ptMapBwd.template GetPtr<MemSpace, ReadOnly>(
-                this->m_opStreamID);
-            v.ptsPerTrace = d.ptsPerTrace;
-        }
+                            : nullptr;
+        v.numTrace    = d.numTrace;
+        v.ptMapFwd    = d.ptMapFwd;
+        v.ptMapBwd    = d.ptMapBwd;
+        v.ptsPerTrace = d.ptsPerTrace;
 
         return v;
+    }
+
+    /**
+     * @brief Decide which interior and partition blocks the in-place kernels
+     * take: a block whose two sides are both collocated with the global
+     * trace, so that the point maps were built; a partition block is not
+     * taken on Device, where it keeps the packed path. Run once at
+     * construction; the kernels' state for a block is built per field layout
+     * (BuildLayout()).
+     */
+    void SetUpInPlaceBlocks()
+    {
+        const auto collocated = [](const TraceDeviceData &T) {
+            return T.ptMapFwd != nullptr;
+        };
+        m_intInPlace.resize(m_intT0.size());
+        for (unsigned b = 0; b < m_intT0.size(); ++b)
+        {
+            m_intInPlace[b] =
+                collocated(m_intT0Dev[b]) && collocated(m_intT1Dev[b]);
+        }
+        m_parInPlace.resize(m_parT0.size());
+        if constexpr (!std::is_same_v<ExecSpace, NektarSpaces::Device>)
+        {
+            for (unsigned b = 0; b < m_parT0.size(); ++b)
+            {
+                m_parInPlace[b] =
+                    collocated(m_parT0Dev[b]) && collocated(m_parT1Dev[b]);
+            }
+        }
+    }
+
+    /**
+     * @brief Interior block @p b (or partition block @p b when @p PARALLEL)
+     * as the in-place kernels read it, its sides through the field layout
+     * @p L, a partition block's far side, the receive buffer, at stride 1.
+     */
+    template <bool PARALLEL>
+    InteriorBlockViews InPlaceBlockViews(const unsigned b, FieldLayout &L)
+    {
+        auto &T0Dev = PARALLEL ? m_parT0Dev[b] : m_intT0Dev[b];
+        auto &T1Dev = PARALLEL ? m_parT1Dev[b] : m_intT1Dev[b];
+        InteriorBlockViews views;
+        views.side0 =
+            GetTraceBlockView(T0Dev, PARALLEL ? L.parT0[b] : L.intT0[b]);
+        views.side1 = PARALLEL ? GetTraceBlockView(T1Dev)
+                               : GetTraceBlockView(T1Dev, L.intT1[b]);
+        views.glo   = GetGloTraceOffsetView(PARALLEL ? m_parGloTraceDev[b]
+                                                     : m_intGloTraceDev[b]);
+        return views;
+    }
+
+    /**
+     * @brief Take interior block @p b, or partition block @p b when
+     * @p PARALLEL, through the in-place kernels with the point flux
+     * @p pointFlux, if the block is one they take (SetUpInPlaceBlocks()) and
+     * the fields share a layout, @p layout (SharedLayout(), null where they
+     * do not).
+     *
+     * The kernels read the state from @p inPtr and the second input from
+     * @p secondPtr (null for a point flux without one), a partition block's
+     * far side from the receive buffers of exchange channels 0 and 1, the
+     * trace normals from @p normPtr and the penalty factors from the data
+     * warehouse, and write the flux to @p fluxPtr, adding to it under the
+     * operator's append setting.
+     *
+     * @tparam NDIM Spatial dimension, `TRACEDIM + 1`.
+     * @return Whether the block was taken; otherwise it is the caller's, on
+     *         the packed path.
+     */
+    template <unsigned NDIM, bool PARALLEL, typename PointFlux>
+    bool TakeBlockInPlace(const unsigned b, const PointFlux &pointFlux,
+                          FieldLayout *layout,
+                          [[maybe_unused]] const unsigned numflux,
+                          const TData *inPtr, const TData *secondPtr,
+                          TData *fluxPtr, const TData *normPtr)
+    {
+        if constexpr (PARALLEL &&
+                      std::is_same_v<ExecSpace, NektarSpaces::Device>)
+        {
+            return false;
+        }
+        else
+        {
+            const bool use = PARALLEL ? m_parInPlace[b] : m_intInPlace[b];
+            if (!use || layout == nullptr)
+            {
+                return false;
+            }
+            ASSERTL1(numflux == PointFlux::numVar,
+                     "The fields have the components of the point flux.");
+
+            const auto views = InPlaceBlockViews<PARALLEL>(b, *layout);
+            const TData *in1 = inPtr, *second1 = secondPtr;
+            if constexpr (PARALLEL)
+            {
+                in1 = m_parChannel[0]
+                          .recvBuffer.template GetPtr<MemSpace, ReadOnly>(
+                              this->m_opStreamID);
+                if constexpr (PointFlux::secondPerVar > 0)
+                {
+                    second1 =
+                        m_parChannel[1]
+                            .recvBuffer.template GetPtr<MemSpace, ReadOnly>(
+                                this->m_opStreamID);
+                }
+            }
+            const TData *penPtr = nullptr;
+            if constexpr (PointFlux::usesPenalty)
+            {
+                // One array spanning every block, one component per block, so
+                // it is indexed by the scalar offset and not by the normals'.
+                penPtr = this->m_dataWarehouse->template GetData<MemSpace>(
+                    MultiRegions::IPTraceScalarKey<TData>(
+                        0, MultiRegions::IPTraceScalarData::IPPenaltyFactor));
+            }
+
+            if (this->m_append)
+            {
+                InteriorBlockInPlaceKernelLauncher<NDIM, true, PARALLEL,
+                                                   ExecSpace>(
+                    views, pointFlux, inPtr, in1, secondPtr, second1, fluxPtr,
+                    normPtr, penPtr, this->m_opStreamID);
+            }
+            else
+            {
+                InteriorBlockInPlaceKernelLauncher<NDIM, false, PARALLEL,
+                                                   ExecSpace>(
+                    views, pointFlux, inPtr, in1, secondPtr, second1, fluxPtr,
+                    normPtr, penPtr, this->m_opStreamID);
+            }
+            return true;
+        }
     }
 
     /**
@@ -2681,10 +2980,9 @@ protected:
             m_npT0[0] = m_intT0[b].npts[0];
             m_npT1[0] = m_intT1[b].npts[0];
 
-            ASSERTL1(m_T0Collocated[0] || m_T1Collocated[0],
-                     "One side must be collocated");
-
-            m_npT[0] = m_T0Collocated[0] ? m_npT0[0] : m_npT1[0];
+            // The global trace's own extent: either side, or neither, may
+            // match it, and each interpolates onto it where it does not.
+            m_npT[0] = m_intT0[b].gloNpts[0];
             m_npTot  = m_npT[0];
         }
         else if constexpr (TRACEDIM == 2)
@@ -2704,16 +3002,12 @@ protected:
             m_npT1[0] = m_intT1[b].npts[0];
             m_npT1[1] = m_intT1[b].npts[1];
 
-            ASSERTL1((m_T0Collocated[0] && m_T0Collocated[1]) ||
-                         (m_T1Collocated[0] && m_T1Collocated[1]),
-                     "One trace must be collocated");
-            bool T0IsCollocated =
-                (m_T0Collocated[0] && m_T0Collocated[1]) ? true : false;
-
-            // one side has to be collocated and so choose the size of
-            // collocated trace to define global trace details
-            m_npT[0] = T0IsCollocated ? m_npT0[0] : m_npT1[0];
-            m_npT[1] = T0IsCollocated ? m_npT0[1] : m_npT1[1];
+            // The global trace's own extents. MultiRegions chooses each
+            // direction of a shared face separately, so the trace can take
+            // one direction from each side and match neither; each side then
+            // interpolates onto it in the directions where it differs.
+            m_npT[0] = m_intT0[b].gloNpts[0];
+            m_npT[1] = m_intT0[b].gloNpts[1];
             m_npTot  = m_npT[0] * m_npT[1];
         }
     }
@@ -2756,11 +3050,10 @@ protected:
     NEK_FORCE_INLINE void GetInteriorTraces(const unsigned b,
                                             const unsigned numflux,
                                             const TData *inPtr, TData *gloT0,
-                                            TData *gloT1,
-                                            const unsigned width = 1)
+                                            TData *gloT1, FieldLayout &L)
     {
-        const auto T0 = GetTraceBlockView(m_intT0Dev[b], width);
-        const auto T1 = GetTraceBlockView(m_intT1Dev[b], width);
+        const auto T0 = GetTraceBlockView(m_intT0Dev[b], L.intT0[b]);
+        const auto T1 = GetTraceBlockView(m_intT1Dev[b], L.intT1[b]);
 
         const auto npTBlock = m_intT0[b].m_nTraceXnPtsPad;
 
@@ -2833,12 +3126,11 @@ protected:
     template <unsigned TRACEDIM, bool APPEND>
     NEK_FORCE_INLINE void InterpBackInteriorFlux(const unsigned b,
                                                  const unsigned numflux,
-                                                 TData *fluxPtr,
-                                                 const unsigned width = 1)
+                                                 TData *fluxPtr, FieldLayout &L)
     {
 
-        const auto T0 = GetTraceBlockView(m_intT0Dev[b], width);
-        const auto T1 = GetTraceBlockView(m_intT1Dev[b], width);
+        const auto T0 = GetTraceBlockView(m_intT0Dev[b], L.intT0[b]);
+        const auto T1 = GetTraceBlockView(m_intT1Dev[b], L.intT1[b]);
 
         const auto npTBlock = m_intT0[b].m_nTraceXnPtsPad;
 
@@ -2912,8 +3204,7 @@ protected:
         auto inPtr = trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
             this->m_opStreamID);
         SyncTrailingBlocks<ReadOnly>(trace);
-        PackParallelSendBuffer(chan, inPtr, numComp,
-                               trace.GetBlocks()[0].GetInterleaveWidth());
+        PackParallelSendBuffer(chan, inPtr, numComp, LayoutFor(trace));
 
         SyncSendBufferForComm(c);
 
@@ -2997,7 +3288,8 @@ protected:
      */
     NEK_FORCE_INLINE void ExchangeParallelTracesBlocking(const unsigned chan,
                                                          const TData *inPtr,
-                                                         const unsigned numComp)
+                                                         const unsigned numComp,
+                                                         FieldLayout &L)
     {
         if (m_parT0.empty())
         {
@@ -3007,7 +3299,7 @@ protected:
         auto &c = m_parChannel[chan];
 
         SetUpParallelComm(chan, numComp);
-        PackParallelSendBuffer(chan, inPtr, numComp);
+        PackParallelSendBuffer(chan, inPtr, numComp, L);
         SyncSendBufferForComm(c);
 
         c.comm->BeginComm();
@@ -3029,8 +3321,6 @@ protected:
     struct ParallelSendData
     {
         LibUtilities::MemoryRegion<size_t> offset_st;
-        LibUtilities::MemoryRegion<size_t> offset;
-        LibUtilities::MemoryRegion<size_t> offsetIlv;
         LibUtilities::MemoryRegion<size_t> compSize;
         /// Points per component this entry sends.
         LibUtilities::MemoryRegion<size_t> npts;
@@ -3129,12 +3419,6 @@ protected:
         m_parSendDev.offset_st =
             LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace>(
                 m_parSendOffsetSt);
-        m_parSendDev.offset =
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace>(
-                m_parSendOffset);
-        m_parSendDev.offsetIlv =
-            LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace>(
-                m_parSendOffsetIlv);
         m_parSendDev.compSize =
             LibUtilities::MemoryRegion<size_t>::template FromVector<MemSpace>(
                 m_parSendCompSize);
@@ -3159,19 +3443,19 @@ protected:
     NEK_FORCE_INLINE void PackParallelSendBuffer(const unsigned chan,
                                                  const TData *inPtr,
                                                  const unsigned numComp,
-                                                 const unsigned width = 1)
+                                                 FieldLayout &L)
     {
         const size_t numEntry = m_parSendDev.numEntry;
 
-        ASSERTL0(width == 1 || width == s_ilvWidth,
-                 "The trace field is at an interleave width with no pack "
-                 "table.");
         const auto offset_st =
             m_parSendDev.offset_st.template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
         const auto offset =
-            (width == 1 ? m_parSendDev.offset : m_parSendDev.offsetIlv)
-                .template GetPtr<MemSpace, ReadOnly>(this->m_opStreamID);
+            L.parSend.offset.template GetPtr<MemSpace, ReadOnly>(
+                this->m_opStreamID);
+        const auto stride =
+            L.parSend.stride.template GetPtr<MemSpace, ReadOnly>(
+                this->m_opStreamID);
         const auto compSize =
             m_parSendDev.compSize.template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
@@ -3187,7 +3471,7 @@ protected:
 
         PackParallelSendBlock<ExecSpace>(numEntry, numComp, offset_st, offset,
                                          compSize, npts, bufOffset, inPtr,
-                                         sendPtr, width, this->m_opStreamID);
+                                         sendPtr, stride, this->m_opStreamID);
     }
 
     /**
@@ -3218,10 +3502,9 @@ protected:
             m_npT0[0] = m_parT0[b].npts[0];
             m_npT1[0] = m_parT1[b].npts[0];
 
-            ASSERTL1(m_T0Collocated[0] || m_T1Collocated[0],
-                     "One side must be collocated");
-
-            m_npT[0] = m_T0Collocated[0] ? m_npT0[0] : m_npT1[0];
+            // The global trace's own extent: either side, or neither, may
+            // match it, and each interpolates onto it where it does not.
+            m_npT[0] = m_parT0[b].gloNpts[0];
             m_npTot  = m_npT[0];
         }
         else if constexpr (TRACEDIM == 2)
@@ -3241,16 +3524,12 @@ protected:
             m_npT1[0] = m_parT1[b].npts[0];
             m_npT1[1] = m_parT1[b].npts[1];
 
-            ASSERTL1((m_T0Collocated[0] && m_T0Collocated[1]) ||
-                         (m_T1Collocated[0] && m_T1Collocated[1]),
-                     "One trace must be collocated");
-            bool T0IsCollocated =
-                (m_T0Collocated[0] && m_T0Collocated[1]) ? true : false;
-
-            // one side has to be collocated and so choose the size of
-            // collocated trace to define global trace details
-            m_npT[0] = T0IsCollocated ? m_npT0[0] : m_npT1[0];
-            m_npT[1] = T0IsCollocated ? m_npT0[1] : m_npT1[1];
+            // The global trace's own extents. MultiRegions chooses each
+            // direction of a shared face separately, so the trace can take
+            // one direction from each side and match neither; each side then
+            // interpolates onto it in the directions where it differs.
+            m_npT[0] = m_parT0[b].gloNpts[0];
+            m_npT[1] = m_parT0[b].gloNpts[1];
             m_npTot  = m_npT[0] * m_npT[1];
         }
     }
@@ -3280,16 +3559,15 @@ protected:
     NEK_FORCE_INLINE void GetParallelTraces(const unsigned b,
                                             const unsigned numflux,
                                             const TData *inPtr, TData *gloT0,
-                                            TData *gloT1,
-                                            const unsigned chan  = 0,
-                                            const unsigned width = 1)
+                                            TData *gloT1, FieldLayout &L,
+                                            const unsigned chan = 0)
     {
         ASSERTL1(!m_parChannel[chan].inFlight,
                  "EndParallelExchange() must be called before the received "
                  "traces are read");
 
         // T1 is the receive buffer, which is never interleaved.
-        const auto T0 = GetTraceBlockView(m_parT0Dev[b], width);
+        const auto T0 = GetTraceBlockView(m_parT0Dev[b], L.parT0[b]);
         const auto T1 = GetTraceBlockView(m_parT1Dev[b]);
 
         const auto npTBlock = m_parT0[b].m_nTraceXnPtsPad;
@@ -3351,10 +3629,9 @@ protected:
     template <unsigned TRACEDIM, bool APPEND>
     NEK_FORCE_INLINE void InterpBackParallelFlux(const unsigned b,
                                                  const unsigned numflux,
-                                                 TData *fluxPtr,
-                                                 const unsigned width = 1)
+                                                 TData *fluxPtr, FieldLayout &L)
     {
-        const auto T0 = GetTraceBlockView(m_parT0Dev[b], width);
+        const auto T0 = GetTraceBlockView(m_parT0Dev[b], L.parT0[b]);
 
         const auto npTBlock = m_parT0[b].m_nTraceXnPtsPad;
 
@@ -3459,9 +3736,9 @@ protected:
     NEK_FORCE_INLINE void GetLocalBndTrace(const unsigned b,
                                            const unsigned numflux,
                                            const TData *inPtr, TData *gloT0,
-                                           const unsigned width = 1)
+                                           FieldLayout &L)
     {
-        const auto T0 = GetTraceBlockView(m_bndT0Dev[b], width);
+        const auto T0 = GetTraceBlockView(m_bndT0Dev[b], L.bndT0[b]);
 
         const auto npTBlock = m_bndT0[b].m_nTraceXnPtsPad;
 
@@ -3650,7 +3927,7 @@ protected:
             trace.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
                 this->m_opStreamID);
         SyncTrailingBlocks<ReadOnly>(trace);
-        const auto width = trace.GetBlocks()[0].GetInterleaveWidth();
+        auto &L = LayoutFor(trace);
 
         UploadBlockPointers(
             m_bndCondBaseW, m_bndCondBaseWHost, [&](const unsigned k) {
@@ -3683,15 +3960,15 @@ protected:
             {
                 case 0:
                     SetBoundaryParams<0>(b);
-                    GetLocalBndTrace<0>(b, numComp, tracePtr, m_gloT0, width);
+                    GetLocalBndTrace<0>(b, numComp, tracePtr, m_gloT0, L);
                     break;
                 case 1:
                     SetBoundaryParams<1>(b);
-                    GetLocalBndTrace<1>(b, numComp, tracePtr, m_gloT0, width);
+                    GetLocalBndTrace<1>(b, numComp, tracePtr, m_gloT0, L);
                     break;
                 case 2:
                     SetBoundaryParams<2>(b);
-                    GetLocalBndTrace<2>(b, numComp, tracePtr, m_gloT0, width);
+                    GetLocalBndTrace<2>(b, numComp, tracePtr, m_gloT0, L);
                     break;
             }
 
@@ -3867,10 +4144,9 @@ protected:
     NEK_FORCE_INLINE void GetBoundaryTraces(const unsigned b,
                                             const unsigned numflux,
                                             const TData *inPtr, TData *gloT0,
-                                            TData *gloT1,
-                                            const unsigned width = 1)
+                                            TData *gloT1, FieldLayout &L)
     {
-        GetLocalBndTrace<TRACEDIM>(b, numflux, inPtr, gloT0, width);
+        GetLocalBndTrace<TRACEDIM>(b, numflux, inPtr, gloT0, L);
 
         GetDirBCTrace<TRACEDIM, FillDirData>(b, numflux, gloT0, gloT1);
     }
@@ -3897,9 +4173,9 @@ protected:
     NEK_FORCE_INLINE void GetNeumannBoundaryTraces(
         const unsigned b, const unsigned numflux, const unsigned ndim,
         const TData *inPtr, const TData *norms, TData *gloT0, TData *gloT1,
-        const unsigned width = 1)
+        FieldLayout &L)
     {
-        GetLocalBndTrace<TRACEDIM>(b, numflux * ndim, inPtr, gloT0, width);
+        GetLocalBndTrace<TRACEDIM>(b, numflux * ndim, inPtr, gloT0, L);
 
         GetNeuBCTrace<TRACEDIM>(b, numflux, ndim, norms, gloT0, gloT1);
     }
@@ -3923,9 +4199,9 @@ protected:
     NEK_FORCE_INLINE void InterpBackDirichletFlux(const unsigned b,
                                                   const unsigned numflux,
                                                   TData *fluxPtr,
-                                                  const unsigned width = 1)
+                                                  FieldLayout &L)
     {
-        const auto T0 = GetTraceBlockView(m_bndT0Dev[b], width);
+        const auto T0 = GetTraceBlockView(m_bndT0Dev[b], L.bndT0[b]);
 
         const auto npTBlock = m_bndT0[b].m_nTraceXnPtsPad;
 

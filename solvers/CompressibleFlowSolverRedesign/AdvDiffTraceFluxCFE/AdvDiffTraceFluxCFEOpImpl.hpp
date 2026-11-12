@@ -35,11 +35,14 @@
 #pragma once
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
-#include "AdvDiffTraceFluxCFE/DiffTraceFluxCFEKernels.hpp"
-#include "AdvTraceFluxCFE/AdvTraceFluxCFEOpImpl.hpp"
-#include "LibUtilities/BasicUtils/Math/MathKernels.hpp"
-#include "SolverCore/RiemannSolver/RiemannSolverKernels.hpp"
-#include "SolverCore/TraceFlux/TraceFluxOpImpl.hpp"
+#include <algorithm>
+
+#include <AdvDiffTraceFluxCFE/DiffTraceFluxCFEKernels.hpp>
+#include <AdvTraceFluxCFE/AdvTraceFluxCFEKernels.hpp>
+#include <DiffusionCFEVolFlux/CFEViscosityParams.hpp>
+#include <LibUtilities/BasicUtils/Math/MathKernels.hpp>
+#include <SolverCore/RiemannSolver/RiemannSolverKernels.hpp>
+#include <SolverCore/TraceFlux/TraceFluxOpImpl.hpp>
 
 namespace Nektar::detail
 {
@@ -63,22 +66,27 @@ public:
  *
  * Evaluates both halves of the trace flux in a single pass. Each block is
  * gathered once, the Riemann problem is solved exactly as in
- * AdvTraceFluxCFEOpImpl, and DiffuseTraceFluxKernel() negates the result and
- * accumulates the viscous contribution on top of it in the same pass. The
- * negation is what puts the inviscid and viscous terms on the same side of
- * the equation; the two are then scattered back together as one flux.
+ * AdvTraceFluxCFEOpImpl, and DiffuseTraceFluxKernelLauncher() negates the
+ * result and accumulates the viscous contribution on top of it in the same
+ * pass. The negation is what puts the inviscid and viscous terms on the same
+ * side of the equation; the two are then scattered back together as one flux. A
+ * block whose two sides are both collocated with the global trace skips the
+ * gathers and scatters: the base's in-place kernels read and write the
+ * element-local traces through the trace point maps, with ViscousPointFlux
+ * as the point flux.
  *
  * Because the viscous term needs the gradient of the conserved state, this
  * class overrides the three-argument `v_Apply(in, inDeriv, flux)`.
  *
+ * The Riemann solvers work in Cartesian components through the trace
+ * normal, as in AdvTraceFluxCFEOpImpl: nothing is rotated or cached.
+ *
  * ### Transport properties
  *
- * Reference viscosity, density and pressure are read from the session, and
- * #m_oneOverTstar is formed from them through the ideal gas law so the
- * temperature ratio Sutherland's law needs can be evaluated pointwise.
- * Viscosity is constant unless `ViscosityType` is `Variable`, in which case
- * Sutherland's law applies with #m_TRatioSutherland. Thermal conductivity is
- * expressed as a Prandtl number: give either `Prandtl` or
+ * The viscosity law and the Prandtl number are read from the session as
+ * every viscous flux of the solver reads them (#m_viscParams,
+ * CFEViscosityParams): constant viscosity unless `ViscosityType` is `Variable`,
+ * in which case Sutherland's law applies, and either `Prandtl` or
  * `thermalConductivity`, not both.
  *
  * @tparam RiemannKernel Flux function, as a class template on execution space,
@@ -90,7 +98,7 @@ public:
  * @see SolverCore::detail::TraceFluxOpImpl for the trace numbering and the
  * meaning of T0/T1.
  * @see RiemannKernelLauncher for the inviscid half.
- * @see DiffuseTraceFluxKernel for the viscous half.
+ * @see DiffuseTraceFluxKernelLauncher for the viscous half.
  */
 template <template <typename, typename, unsigned int> typename RiemannKernel,
           typename EoSParamType, typename ExecSpace, typename TData>
@@ -118,71 +126,28 @@ public:
         LibUtilities::SessionReaderSharedPtr session =
             expansionList->GetSession();
 
-        SetUpEquationOfState(expansionList->GetSession(), m_EoS);
+        SetUpEquationOfState(expansionList->GetSession(), m_viscParams.EoS);
 
-        // The widest trace block of every kind (interior, boundary and
-        // parallel) sizes m_wspDeriv below; m_gloDerivT0/T1 and m_penFactor
-        // would otherwise be allocated too small for a parallel block wider
+        // The widest block of the interior, boundary and partition lists,
+        // which sizes m_wspDeriv below: its arrays m_gloDerivT0/T1 and
+        // m_penFactor would otherwise be too small for a partition block wider
         // than any interior or boundary one.
         size_t maxNTraceNPts = 0;
-        for (unsigned b = 0; b < this->m_intT0.size(); ++b)
+        for (const auto *list :
+             {&this->m_intT0, &this->m_bndT0, &this->m_parT0})
         {
-            maxNTraceNPts =
-                std::max(maxNTraceNPts, this->m_intT0[b].m_nTraceXnPtsPad);
-        }
-        for (unsigned b = 0; b < this->m_bndT0.size(); ++b)
-        {
-            maxNTraceNPts =
-                std::max(maxNTraceNPts, this->m_bndT0[b].m_nTraceXnPtsPad);
-        }
-        for (unsigned b = 0; b < this->m_parT0.size(); ++b)
-        {
-            maxNTraceNPts =
-                std::max(maxNTraceNPts, this->m_parT0[b].m_nTraceXnPtsPad);
+            for (const auto &blk : *list)
+            {
+                maxNTraceNPts = std::max(maxNTraceNPts, blk.m_nTraceXnPtsPad);
+            }
         }
 
         // viscous initialisation
-        double rhoInf, pInf;
-
-        // reference values could probably be in seperate session section
-        session->LoadReferenceValue("viscosity", m_muRef, 1.78e-05);
-        session->LoadReferenceValue("density", rhoInf, 1.225);
-        session->LoadReferenceValue("pressure", pInf, 101325);
-
-        m_oneOverTstar = (rhoInf * m_EoS.gasConst()) / pInf;
-
-        std::string viscosityType;
-        session->LoadSolverInfo("ViscosityType", viscosityType, "Constant");
-        if (StringUtils::IEquals(viscosityType, "Variable"))
-        {
-            m_isMuVariable = true;
-            double Tref, Tsuth;
-            session->LoadReferenceValue("Temperature", Tref, 288.15);
-            session->LoadReferenceValue("Tsutherland", Tsuth, 110.0);
-            m_TRatioSutherland = Tsuth / Tref;
-        }
-        else
-        {
-            m_isMuVariable = false;
-        }
-
-        double Cp = m_EoS.gamma() / (m_EoS.gamma() - 1.0) * m_EoS.gasConst();
-
-        if (session->DefinesReferenceValue("thermalConductivity"))
-        {
-            ASSERTL0(!session->DefinesReferenceValue("Prandtl"),
-                     "Cannot define both Prandtl and thermalConductivity.");
-            double thermalConductivityRef;
-            session->LoadReferenceValue("thermalConductivity",
-                                        thermalConductivityRef, 1.0);
-            m_Prandtl = Cp * m_muRef / thermalConductivityRef;
-        }
-        else
-        {
-            double Prandtl;
-            session->LoadReferenceValue("Prandtl", Prandtl, 0.72);
-            m_Prandtl = Prandtl;
-        }
+        m_viscParams.visc =
+            CFEViscosityParams<TData>::Read(session, m_viscParams.EoS);
+        ASSERTL0(m_nComp == m_nDim + 2,
+                 "The viscous trace flux needs the dimension plus two "
+                 "components.");
 
         // One length per array, summed to size the buffer and then walked to
         // carve the pointers, so the total cannot fall behind the carving. A
@@ -342,35 +307,18 @@ public:
     }
 
 protected:
-    /// Interleave width of an element-local field, which the gathers and
-    /// scatters read and write it at; Field reshapes all its blocks together.
-    template <typename TField> NEK_FORCE_INLINE static unsigned Width(TField &f)
-    {
-        return f.GetBlocks()[0].GetInterleaveWidth();
-    }
-
     /// Spatial dimension of the mesh.
     unsigned m_nDim;
     /// Number of conserved variables, equal to #m_nDim plus two.
     unsigned m_nComp;
-    /// Equation-of-state parameters.
-    EoSParamType m_EoS;
-
-    // viscosity parameters
-    /// True when `ViscosityType` is `Variable`, selecting Sutherland's law.
-    bool m_isMuVariable;
-    /// Reference dynamic viscosity.
-    TData m_muRef;
-    /// Prandtl number, derived from `thermalConductivity` when that is given
-    /// in place of `Prandtl`.
-    TData m_Prandtl;
-
-    // Sutherland's law parameters
-    /// Sutherland temperature as a fraction of the reference temperature.
-    TData m_TRatioSutherland;
-    /// Reciprocal reference temperature, formed from the reference density,
-    /// pressure and gas constant.
-    TData m_oneOverTstar;
+    /// The equation of state and the viscosity law, as the kernels take
+    /// them.
+    ViscousTraceParams<EoSParamType, TData> m_viscParams;
+    /// The flux field zero-initialised last, and the width it was zeroed
+    /// at: every path writes the points it owns, so a field is zeroed when it
+    /// is first handed in or its layout changes, and its padding stays zero.
+    const LibUtilities::Field<TData, FieldState::Phys> *m_fluxZeroed = nullptr;
+    std::vector<unsigned> m_fluxZeroedWidths;
 
     // workspace
     /// Backing storage for #m_gloDerivT0, #m_gloDerivT1, #m_penFactor and
@@ -423,10 +371,12 @@ protected:
     {
         /// Per-trace energy weight.
         LibUtilities::MemoryRegion<TData> engyWeight;
-        /// Per-trace reflected-ghost flag. The region could hold `bool`; it
-        /// holds `unsigned` because it is filled from a `std::vector`, and
-        /// `std::vector<bool>` has no contiguous storage to copy from.
-        LibUtilities::MemoryRegion<unsigned> ghostIsReflected;
+        /// Per point of the padded block: non-zero where the diffusion's
+        /// ghost is to be reflected, on the points of a trace whose ghost does
+        /// not already reflect (see DiffusionGhostStateKernelLauncher()).
+        /// `unsigned` rather than `bool`, since it is filled from a
+        /// `std::vector`.
+        LibUtilities::MemoryRegion<unsigned> reflectGhost;
     };
 
     /// Boundary blocks, indexed as m_bndT0.
@@ -466,12 +416,24 @@ protected:
                 LibUtilities::MemoryRegion<TData>::template FromVector<
                     MemSpace>(m_bndEnergyWeightPerTrace[b]);
 
-            // std::vector<bool> is a bitfield, so it is widened on the host
-            // before being copied rather than pointed at.
-            std::vector<unsigned> reflected(m_bndGhostIsReflected[b].begin(),
-                                            m_bndGhostIsReflected[b].end());
-            m_bndGather[b].ghostIsReflected = LibUtilities::MemoryRegion<
-                unsigned>::template FromVector<MemSpace>(reflected);
+            // Spread over the points of the padded block on the host, so that
+            // the kernel needs no division to find a point's trace.
+            size_t npTot = 1;
+            for (unsigned d = 0; d < this->m_traceDim; ++d)
+            {
+                npTot *= this->m_bndNptsT1[b][d];
+            }
+            std::vector<unsigned> reflect(this->m_bndT0[b].m_nTraceXnPtsPad, 0);
+            for (size_t trace = 0; trace < m_bndGhostIsReflected[b].size();
+                 ++trace)
+            {
+                if (!m_bndGhostIsReflected[b][trace])
+                {
+                    std::fill_n(reflect.begin() + trace * npTot, npTot, 1u);
+                }
+            }
+            m_bndGather[b].reflectGhost = LibUtilities::MemoryRegion<
+                unsigned>::template FromVector<MemSpace>(reflect);
         }
 
         m_bndGatherDataBuilt = true;
@@ -560,14 +522,23 @@ protected:
     {
         this->JoinBlockStreams();
 
-        // The flux is written at the width of the state traces; it is zeroed
-        // below, so taking that width needs no reshape.
+        // The flux is written at the width of the state traces.
         flux.SetInterleaveWidth(in);
 
-        // primarily here to ensure all blocks are intialised since
-        // the GetPtr() below will only intiialise first block. On the trace
-        // stream, which the kernels writing the flux run on.
-        flux.template Initialize<MemSpace>(0, this->m_opStreamID);
+        // Initialises every block's storage the first time a field is
+        // handed in at a width, on the trace stream the kernels writing the
+        // flux run on (the GetPtr() calls below touch the first block only);
+        // afterwards each path writes the points it owns, and the padding,
+        // which none writes, stays zero. Appending, the flux handed in is
+        // the caller's, and is added to as it stands.
+        if (!this->m_append &&
+            (m_fluxZeroed != &flux ||
+             m_fluxZeroedWidths != flux.GetInterleaveWidth()))
+        {
+            flux.template Initialize<MemSpace>(0, this->m_opStreamID);
+            m_fluxZeroed       = &flux;
+            m_fluxZeroedWidths = flux.GetInterleaveWidth();
+        }
 
         // The boundary pass calls the conditions' diffusion hook.
         this->SetBndCondStreams();
@@ -647,7 +618,6 @@ protected:
      * Riemann problem, negate the result and accumulate the viscous flux on
      * top in one pass, and scatter back to both elements.
      *
-     *
      * @tparam TRACEDIM Trace dimension; must equal `m_traceDim`.
      * @param  in       Physical-space conserved variables.
      * @param  inDeriv  Physical-space gradient of @p in.
@@ -673,6 +643,17 @@ protected:
         ASSERTL1(in.GetNumComponents() == numflux,
                  "Assumption that input components are the "
                  "same as the flux components");
+        ASSERTL1(inDeriv.GetNumComponents() ==
+                     (avgNormalFlux ? numflux : numflux * m_nDim),
+                 "The second input has the wrong number of components for "
+                 "the viscous trace flux form in use");
+
+        // One interleave width per field, every block's.
+        // The layouts of the three fields, and the one the in-place kernels
+        // read and write all three through, where they agree.
+        auto &inLayout    = this->LayoutFor(in);
+        auto &derivLayout = this->LayoutFor(inDeriv);
+        auto &fluxLayout  = this->LayoutFor(flux);
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
@@ -690,24 +671,45 @@ protected:
 
         // These trace geometry/weight arrays are read-only mesh data, so
         // they live in the data warehouse instead of per-op Field storage.
-        // These trace geometry/weight arrays are read-only mesh data, so
-        // they live in the data warehouse instead of per-op Field storage.
         // One array spanning every block, one component per block - so it is
         // indexed by the scalar offset below and not by the normals'.
         auto penFactorPtr = this->m_dataWarehouse->template GetData<MemSpace>(
             MultiRegions::IPTraceScalarKey<TData>(
                 0, MultiRegions::IPTraceScalarData::IPPenaltyFactor));
 
+        // The width the in-place kernels read the fields at, 0 for none, and
+        // the point flux of each viscous trace form.
+        auto *sharedLayout = this->SharedLayout(in, inDeriv, flux);
+        const ViscousPointFlux<true, RiemannKernel, ExecSpace, EoSParamType,
+                               dim, TData>
+            avgPointFlux{m_viscParams};
+        const ViscousPointFlux<false, RiemannKernel, ExecSpace, EoSParamType,
+                               dim, TData>
+            ipPointFlux{m_viscParams};
+
         for (unsigned b = 0; b < this->m_intT0.size(); ++b)
         {
             // Step 1: Get global traces associated with block b and put into
             // m_gloT0 and m_gloT1
             this->template SetInteriorParams<TRACEDIM>(b);
+
+            // In-place path: both sides collocated, the fields at a width
+            // the kernels read.
+            if (avgNormalFlux ? this->template TakeBlockInPlace<dim, false>(
+                                    b, avgPointFlux, sharedLayout, numflux,
+                                    inPtr, inDerivPtr, fluxPtr, normPtr)
+                              : this->template TakeBlockInPlace<dim, false>(
+                                    b, ipPointFlux, sharedLayout, numflux,
+                                    inPtr, inDerivPtr, fluxPtr, normPtr))
+            {
+                continue;
+            }
+
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, Width(in));
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, inLayout);
             this->template GetInteriorTraces<TRACEDIM>(
                 b, numSecond, inDerivPtr, m_gloDerivT0, m_gloDerivT1,
-                Width(inDeriv));
+                derivLayout);
 
             // Step 2: Solve Riemann proble on close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -744,42 +746,47 @@ protected:
                 numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
                 this->m_opStreamID);
 
-            // Solve the Riemann problem in Cartesian components through the
-            // trace normals.
+            // Solve the Riemann problem through the gathered normals.
             RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace, dim>(
-                m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
-                this->m_flux, this->m_opStreamID);
+                m_viscParams.EoS, npTBlock, this->m_norms, this->m_gloT0,
+                this->m_gloT1, this->m_flux, this->m_opStreamID);
 
             if (avgNormalFlux)
             {
                 // The second input holds each side's outward normal viscous
                 // flux; the kernel averages them and adds the penalty.
-                AvgNormalFluxTraceKernel<ExecSpace>(
-                    m_EoS, npTBlock, m_nDim, m_Prandtl, m_muRef, m_isMuVariable,
-                    m_oneOverTstar, m_TRatioSutherland, this->m_norms,
+                AvgNormalFluxTraceKernelLauncher<ExecSpace>(
+                    m_viscParams.EoS, npTBlock, m_nDim,
+                    m_viscParams.visc.prandtl, m_viscParams.visc.muRef,
+                    m_viscParams.visc.isMuVariable,
+                    m_viscParams.visc.oneOverTstar,
+                    m_viscParams.visc.tRatioSutherland, this->m_norms,
                     m_penFactor, this->m_gloT0, this->m_gloT1, m_gloDerivT0,
                     m_gloDerivT1, this->m_flux, this->m_opStreamID);
             }
             else
             {
-                DiffuseTraceFluxKernel<ExecSpace, true>(
-                    m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
-                    m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
-                    this->m_norms, m_penFactor, m_bndEnergyWeight,
-                    this->m_gloT0, this->m_gloT1, m_gloDerivT0, m_gloDerivT1,
-                    this->m_flux, this->m_opStreamID);
+                DiffuseTraceFluxKernelLauncher<ExecSpace, true>(
+                    m_viscParams.EoS, npTBlock, m_nDim,
+                    m_viscParams.visc.prandtl, m_viscParams.visc.muRef,
+                    m_viscParams.visc.isMuVariable,
+                    m_viscParams.visc.oneOverTstar,
+                    m_viscParams.visc.tRatioSutherland, this->m_norms,
+                    m_penFactor, m_bndEnergyWeight, this->m_gloT0,
+                    this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                    this->m_opStreamID);
             }
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
             if (this->m_append)
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr, Width(flux));
+                    b, numflux, fluxPtr, fluxLayout);
             }
             else
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr, Width(flux));
+                    b, numflux, fluxPtr, fluxLayout);
             }
         }
     }
@@ -791,7 +798,7 @@ protected:
      * identical to it in every respect the physics can see. A parallel trace
      * is an *interior* trace: its exterior state and gradient are a real
      * neighbouring element's, delivered on exchange channels 0 and 1, so the
-     * Riemann solve is the interior one and DiffuseTraceFluxKernel() is
+     * Riemann solve is the interior one and DiffuseTraceFluxKernelLauncher() is
      * instantiated with `IsInterior = true` - average weights of one half,
      * jump weights of one, no boundary energy-flux weight. Routing these
      * through the boundary form would reflect a perfectly good neighbour
@@ -837,6 +844,13 @@ protected:
                  "Assumption that input components are the "
                  "same as the flux components");
 
+        // One interleave width per field, every block's.
+        // The layouts of the three fields, and the one the in-place kernels
+        // read and write all three through, where they agree.
+        auto &inLayout    = this->LayoutFor(in);
+        auto &derivLayout = this->LayoutFor(inDeriv);
+        auto &fluxLayout  = this->LayoutFor(flux);
+
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
             this->m_opStreamID);
@@ -855,17 +869,42 @@ protected:
             MultiRegions::IPTraceScalarKey<TData>(
                 0, MultiRegions::IPTraceScalarData::IPPenaltyFactor));
 
+        // The width the in-place kernels read the fields at, 0 for none, and
+        // the point flux of each viscous trace form.
+        auto *sharedLayout = this->SharedLayout(in, inDeriv, flux);
+        const ViscousPointFlux<true, RiemannKernel, ExecSpace, EoSParamType,
+                               dim, TData>
+            avgPointFlux{m_viscParams};
+        const ViscousPointFlux<false, RiemannKernel, ExecSpace, EoSParamType,
+                               dim, TData>
+            ipPointFlux{m_viscParams};
+
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
             // Step 1: Get global traces associated with block b and put into
             // m_gloT0 and m_gloT1; the backward sides come from the receive
             // buffers of channels 0 and 1.
             this->template SetParallelParams<TRACEDIM>(b);
+
+            // In-place path, as InteriorOp(): the local side read through
+            // the point maps, the neighbour's side from the receive buffers,
+            // which channel 1 fills with the second input of either viscous
+            // form.
+            if (avgNormalFlux ? this->template TakeBlockInPlace<dim, true>(
+                                    b, avgPointFlux, sharedLayout, numflux,
+                                    inPtr, inDerivPtr, fluxPtr, normPtr)
+                              : this->template TakeBlockInPlace<dim, true>(
+                                    b, ipPointFlux, sharedLayout, numflux,
+                                    inPtr, inDerivPtr, fluxPtr, normPtr))
+            {
+                continue;
+            }
+
             this->template GetParallelTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, 0, Width(in));
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, inLayout, 0);
             this->template GetParallelTraces<TRACEDIM>(
-                b, numSecond, inDerivPtr, m_gloDerivT0, m_gloDerivT1, 1,
-                Width(inDeriv));
+                b, numSecond, inDerivPtr, m_gloDerivT0, m_gloDerivT1,
+                derivLayout, 1);
 
             // Step 2: gather the normals and penalty factor for these traces
             auto numBlock = this->m_parT0[b].offset.size();
@@ -894,30 +933,35 @@ protected:
                 numBlock, this->m_npTot, penFactorPtr, G, m_penFactor,
                 this->m_opStreamID);
 
-            // Solve the Riemann problem in Cartesian components through the
-            // trace normals.
+            // Solve the Riemann problem through the gathered normals.
             RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace, dim>(
-                m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
-                this->m_flux, this->m_opStreamID);
+                m_viscParams.EoS, npTBlock, this->m_norms, this->m_gloT0,
+                this->m_gloT1, this->m_flux, this->m_opStreamID);
 
             if (avgNormalFlux)
             {
                 // The second input holds each side's outward normal viscous
                 // flux; the kernel averages them and adds the penalty.
-                AvgNormalFluxTraceKernel<ExecSpace>(
-                    m_EoS, npTBlock, m_nDim, m_Prandtl, m_muRef, m_isMuVariable,
-                    m_oneOverTstar, m_TRatioSutherland, this->m_norms,
+                AvgNormalFluxTraceKernelLauncher<ExecSpace>(
+                    m_viscParams.EoS, npTBlock, m_nDim,
+                    m_viscParams.visc.prandtl, m_viscParams.visc.muRef,
+                    m_viscParams.visc.isMuVariable,
+                    m_viscParams.visc.oneOverTstar,
+                    m_viscParams.visc.tRatioSutherland, this->m_norms,
                     m_penFactor, this->m_gloT0, this->m_gloT1, m_gloDerivT0,
                     m_gloDerivT1, this->m_flux, this->m_opStreamID);
             }
             else
             {
-                DiffuseTraceFluxKernel<ExecSpace, true>(
-                    m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
-                    m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
-                    this->m_norms, m_penFactor, m_bndEnergyWeight,
-                    this->m_gloT0, this->m_gloT1, m_gloDerivT0, m_gloDerivT1,
-                    this->m_flux, this->m_opStreamID);
+                DiffuseTraceFluxKernelLauncher<ExecSpace, true>(
+                    m_viscParams.EoS, npTBlock, m_nDim,
+                    m_viscParams.visc.prandtl, m_viscParams.visc.muRef,
+                    m_viscParams.visc.isMuVariable,
+                    m_viscParams.visc.oneOverTstar,
+                    m_viscParams.visc.tRatioSutherland, this->m_norms,
+                    m_penFactor, m_bndEnergyWeight, this->m_gloT0,
+                    this->m_gloT1, m_gloDerivT0, m_gloDerivT1, this->m_flux,
+                    this->m_opStreamID);
             }
 
             // Step 3: Replace flux values into the local flux storage, this
@@ -925,12 +969,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackParallelFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr, Width(flux));
+                    b, numflux, fluxPtr, fluxLayout);
             }
             else
             {
                 this->template InterpBackParallelFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr, Width(flux));
+                    b, numflux, fluxPtr, fluxLayout);
             }
         }
     }
@@ -941,8 +985,8 @@ protected:
      * As InteriorOp(), with the exterior conserved state taken from the
      * boundary condition operator and the exterior gradient taken equal to the
      * interior one, since the boundary condition operator holds no gradient
-     * data. DiffuseTraceFluxKernel() is instantiated in its boundary form.
-     *
+     * data. DiffuseTraceFluxKernelLauncher() is instantiated in its boundary
+     * form.
      *
      * @tparam TRACEDIM Trace dimension; must equal `m_traceDim`.
      * @param  in       Physical-space conserved variables.
@@ -973,6 +1017,13 @@ protected:
         ASSERTL1(in.GetNumComponents() == numflux,
                  "Assumption that input components are the "
                  "same as the flux components");
+
+        // One interleave width per field, every block's.
+        // The layouts of the three fields, and the one the in-place kernels
+        // read and write all three through, where they agree.
+        auto &inLayout    = this->LayoutFor(in);
+        auto &derivLayout = this->LayoutFor(inDeriv);
+        auto &fluxLayout  = this->LayoutFor(flux);
 
         // get field pointers
         auto inPtr = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>(
@@ -1006,7 +1057,7 @@ protected:
             // m_gloT1
             this->template SetBoundaryParams<TRACEDIM>(b);
             this->template GetBoundaryTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, Width(in));
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, inLayout);
 
             auto numBlock = this->m_bndT0[b].offset.size();
             auto npTBlock = this->m_bndT0[b].m_nTraceXnPtsPad;
@@ -1085,17 +1136,12 @@ protected:
             // exterior state it builds instead of threading a weight through
             // the flux evaluation.
             //
-            // Seed the whole padded block, not only the points in use: the
+            // The whole padded block, not only the points in use: the
             // kernel walks every point of it.
-            Nektar::Math::copyKernel<ExecSpace>(numflux * npTBlock,
-                                                this->m_gloT1, m_gloT1Diff,
-                                                this->m_opStreamID);
-
-            ReflectDiffusionGhostStateKernel<ExecSpace>(
-                numBlock, this->m_npTot, npTBlock, numflux,
-                m_bndGather[b]
-                    .ghostIsReflected.template GetPtr<MemSpace, ReadOnly>(
-                        this->m_opStreamID),
+            DiffusionGhostStateKernelLauncher<ExecSpace>(
+                npTBlock, numflux,
+                m_bndGather[b].reflectGhost.template GetPtr<MemSpace, ReadOnly>(
+                    this->m_opStreamID),
                 this->m_gloT0, this->m_gloT1, m_gloT1Diff, this->m_opStreamID);
 
             // Any condition that acts on the diffusion's exterior state
@@ -1126,34 +1172,34 @@ protected:
             // exterior gradient equal to the interior, as before.
             this->template GetNeumannBoundaryTraces<TRACEDIM>(
                 b, numflux, m_nDim, inDerivPtr, this->m_norms, m_gloDerivT0,
-                m_gloDerivT1, Width(inDeriv));
+                m_gloDerivT1, derivLayout);
 
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
 
-            // Solve the Riemann problem in Cartesian components through the
-            // trace normals.
+            // Solve the Riemann problem through the gathered normals.
             RiemannKernelLauncher<RiemannKernel, EoSParamType, ExecSpace, dim>(
-                m_EoS, npTBlock, this->m_norms, this->m_gloT0, this->m_gloT1,
-                this->m_flux, this->m_opStreamID);
-            DiffuseTraceFluxKernel<ExecSpace, false>(
-                m_EoS, npTBlock, m_nDim, m_nComp, m_Prandtl, m_muRef,
-                m_isMuVariable, m_oneOverTstar, m_TRatioSutherland,
-                this->m_norms, m_penFactor, m_bndEnergyWeight, this->m_gloT0,
-                m_gloT1Diff, m_gloDerivT0, m_gloDerivT1, this->m_flux,
-                this->m_opStreamID);
+                m_viscParams.EoS, npTBlock, this->m_norms, this->m_gloT0,
+                this->m_gloT1, this->m_flux, this->m_opStreamID);
+            DiffuseTraceFluxKernelLauncher<ExecSpace, false>(
+                m_viscParams.EoS, npTBlock, m_nDim, m_viscParams.visc.prandtl,
+                m_viscParams.visc.muRef, m_viscParams.visc.isMuVariable,
+                m_viscParams.visc.oneOverTstar,
+                m_viscParams.visc.tRatioSutherland, this->m_norms, m_penFactor,
+                m_bndEnergyWeight, this->m_gloT0, m_gloT1Diff, m_gloDerivT0,
+                m_gloDerivT1, this->m_flux, this->m_opStreamID);
 
             // Step 3: Replace flux values from (m_gloT0,m_gloT1) into
             // the local flux storage
             if (this->m_append)
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr, Width(flux));
+                    b, numflux, fluxPtr, fluxLayout);
             }
             else
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr, Width(flux));
+                    b, numflux, fluxPtr, fluxLayout);
             }
         }
     }

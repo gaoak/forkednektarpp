@@ -218,6 +218,9 @@ protected:
 
         this->JoinBlockStreams();
 
+        // The flux is written in the layout of the state traces.
+        flux.SetInterleaveWidth(in);
+
         // primarily here to ensure all blocks are intialised since
         // the GetPtr() below will only intiialise first block. On the trace
         // stream, which the kernels writing the flux run on.
@@ -337,7 +340,8 @@ protected:
             // m_gloT0 and m_gloT1
             this->template SetInteriorParams<TRACEDIM>(b);
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in));
 
             // Step 2: Solve Riemann proble on close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -366,12 +370,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }
@@ -433,7 +437,8 @@ protected:
             // m_gloT0 and m_gloT1
             this->template SetParallelParams<TRACEDIM>(b);
             this->template GetParallelTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in));
 
             // Step 2: Solve Riemann problem on close packed variables
             // left and right traces (m_gloT0, m_gloT1),
@@ -459,12 +464,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackParallelFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackParallelFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }
@@ -514,7 +519,8 @@ protected:
             // m_gloT1
             this->template SetBoundaryParams<TRACEDIM>(b);
             this->template GetBoundaryTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in));
 
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -543,12 +549,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }
@@ -586,7 +592,8 @@ protected:
             // m_gloT1
             this->template SetInteriorParams<TRACEDIM>(b);
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numComp, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numComp, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(AdvVel));
 
             unsigned npT = 0;
             if constexpr (TRACEDIM == 0)
@@ -617,13 +624,15 @@ protected:
         // interior trace, so the neighbour's half of it has to be fetched. It
         // is fetched once, here, rather than every apply: the sample is held
         // until the velocity is set again.
-        this->ExchangeParallelTracesBlocking(0, inPtr, numComp);
+        this->ExchangeParallelTracesBlocking(0, inPtr, numComp,
+                                             this->LayoutFor(AdvVel));
 
         for (unsigned b = 0; b < this->m_parT0.size(); ++b)
         {
             this->template SetParallelParams<TRACEDIM>(b);
             this->template GetParallelTraces<TRACEDIM>(
-                b, numComp, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numComp, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(AdvVel));
 
             auto numBlock = this->m_parT0[b].offset.size();
             auto npTBlock = this->m_parT0[b].m_nTraceXnPtsPad;
@@ -645,7 +654,8 @@ protected:
             // m_gloT1
             this->template SetBoundaryParams<TRACEDIM>(b);
             this->template GetBoundaryTraces<TRACEDIM, false>(
-                b, numComp, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numComp, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(AdvVel));
 
             auto numBlock = this->m_bndT0[b].offset.size();
             auto npTBlock = this->m_bndT0[b].m_nTraceXnPtsPad;

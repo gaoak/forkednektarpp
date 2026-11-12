@@ -35,10 +35,14 @@
 #pragma once
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
+#include <LocalRegions/ReOrientFaceKernel.hpp>
 #include <MultiRegions/DataWarehouse/TraceDataWarehouse.hpp>
 
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
+
+#include <numeric>
+#include <vector>
 
 #if defined(_MSC_VER)
 #undef max
@@ -1668,6 +1672,84 @@ LibUtilities::MemoryRegion<TData> TraceEssentialCreator::Create(
     }
 
     return LibUtilities::MemoryRegion<TData>::template FromArray<MemSpace>(mat);
+}
+
+/**
+ * The reorientation kernels applied to the point indices, once per
+ * orientation: whatever permutation a kernel performs, the row holds. An
+ * edge is reversed or not; a face goes through
+ * LocalRegions::ReOrientFaceKernel(), whose @p Forwards flag is the key's.
+ */
+template <typename MemSpace, typename TData>
+LibUtilities::MemoryRegion<unsigned int> TraceEssentialCreator::Create(
+    const TracePointMapKey<TData> &tracePointMapKey)
+{
+    const unsigned traceDim    = tracePointMapKey.m_traceDim;
+    const unsigned nq0         = tracePointMapKey.m_nq0;
+    const unsigned nq1         = (traceDim == 2) ? tracePointMapKey.m_nq1 : 1u;
+    const unsigned npts        = (traceDim == 0) ? 1u : nq0 * nq1;
+    const bool forwards        = tracePointMapKey.m_forwards;
+    constexpr unsigned nOrient = StdRegions::SIZE_Orientation;
+
+    // Every row the identity, then the rows of the orientations an edge or
+    // a face can take overwritten: a trace's orientation indexes its row.
+    std::vector<unsigned int> maps(nOrient * npts);
+    for (unsigned row = 0; row < nOrient; ++row)
+    {
+        std::iota(maps.begin() + row * npts, maps.begin() + (row + 1) * npts,
+                  0u);
+    }
+    if (traceDim == 0)
+    {
+        // A point has one point and no orientation.
+        return LibUtilities::MemoryRegion<unsigned int>::template FromVector<
+            MemSpace>(maps);
+    }
+    std::vector<double> ident(npts), perm(npts);
+    std::iota(ident.begin(), ident.end(), 0.0);
+    std::vector<char> seen(npts);
+
+    const unsigned firstOrient = (traceDim == 1)
+                                     ? StdRegions::eForwards
+                                     : StdRegions::eDir1FwdDir1_Dir2FwdDir2;
+    const unsigned lastOrient  = (traceDim == 1)
+                                     ? StdRegions::eBackwards
+                                     : StdRegions::eDir1BwdDir2_Dir2BwdDir1;
+    for (unsigned n = firstOrient; n <= lastOrient; ++n)
+    {
+        const auto orient = StdRegions::Orientation(n);
+        unsigned int *row = maps.data() + n * npts;
+        if (traceDim == 1)
+        {
+            for (unsigned p = 0; p < npts; ++p)
+            {
+                perm[p] = (orient == StdRegions::eForwards)
+                              ? ident[p]
+                              : ident[npts - 1 - p];
+            }
+        }
+        else
+        {
+            std::fill(perm.begin(), perm.end(), -1.0);
+            LocalRegions::ReOrientFaceKernel<false, false>(
+                orient, nq0, nq1, ident.data(), perm.data(), forwards);
+        }
+        // Every point written once, from a distinct source: the
+        // reorientation is a permutation, or the table is wrong.
+        std::fill(seen.begin(), seen.end(), 0);
+        for (unsigned p = 0; p < npts; ++p)
+        {
+            const double src = perm[p];
+            ASSERTL0(src >= 0.0 && src < npts && !seen[size_t(src)],
+                     "Trace reorientation is not a permutation of the "
+                     "trace's points.");
+            seen[size_t(src)] = 1;
+            row[p]            = static_cast<unsigned int>(src);
+        }
+    }
+
+    return LibUtilities::MemoryRegion<unsigned int>::template FromVector<
+        MemSpace>(maps);
 }
 
 } // namespace Nektar::MultiRegions

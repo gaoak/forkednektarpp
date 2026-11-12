@@ -31,12 +31,13 @@
 // Description: CFE Diffusion volume flux operator implementation.
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 
-#include "DiffusionCFEVolFlux/CFEViscosityParams.hpp"
-#include "DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp"
-#include "DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp"
+#include <DiffusionCFEVolFlux/CFEViscosityParams.hpp>
+#include <DiffusionCFEVolFlux/DiffusionCFEVolFluxKernels.hpp>
+#include <DiffusionCFEVolFlux/DiffusionCFEVolFluxOp.hpp>
 
 namespace Nektar::detail
 {
@@ -60,6 +61,10 @@ public:
         SetUpEquationOfState(session, m_EoS);
 
         m_visc = CFEViscosityParams<TData>::Read(session, m_EoS);
+
+        ASSERTL0(components.size() == m_dimension + 2,
+                 "The viscous volume flux needs the dimension plus two "
+                 "components.");
     }
 
     // className - for OperatorFactory
@@ -85,6 +90,22 @@ protected:
                  LibUtilities::Field<TData, FieldState::Phys> &deriv,
                  LibUtilities::Field<TData, FieldState::Phys> &out) override
     {
+        if (this->m_append)
+        {
+            ViscousFlux<true>(in, deriv, out);
+        }
+        else
+        {
+            ViscousFlux<false>(in, deriv, out);
+        }
+    }
+
+    /// The viscous flux, block by block.
+    template <bool APPEND>
+    void ViscousFlux(LibUtilities::Field<TData, FieldState::Phys> &in,
+                     LibUtilities::Field<TData, FieldState::Phys> &deriv,
+                     LibUtilities::Field<TData, FieldState::Phys> &out)
+    {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             const unsigned int streamID = blk + 1;
@@ -97,32 +118,17 @@ protected:
             auto qbase =
                 derivblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outbase =
-                outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
+                APPEND
+                    ? outblock.template GetPtr<MemSpace, ReadWrite>(streamID)
+                    : outblock.template GetPtr<MemSpace, WriteOnly>(streamID);
 
-            const size_t npts            = outblock.CompSize();
-            const size_t inStride        = inblock.CompSize();
-            const size_t derivStride     = derivblock.CompSize();
-            const size_t outStride       = outblock.CompSize();
-            const unsigned int nvarComps = inblock.GetNumComponents();
-
-            if (this->m_append)
-            {
-                DiffusionCFEVolFluxKernel<true, false, ExecSpace>(
-                    m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
-                    outStride, m_visc.prandtl, m_visc.muRef,
-                    m_visc.isMuVariable, m_visc.oneOverTstar,
-                    m_visc.tRatioSutherland, inbase, qbase, outbase,
-                    static_cast<TData *>(nullptr), TData(0.0), streamID);
-            }
-            else
-            {
-                DiffusionCFEVolFluxKernel<false, false, ExecSpace>(
-                    m_EoS, npts, m_dimension, nvarComps, inStride, derivStride,
-                    outStride, m_visc.prandtl, m_visc.muRef,
-                    m_visc.isMuVariable, m_visc.oneOverTstar,
-                    m_visc.tRatioSutherland, inbase, qbase, outbase,
-                    static_cast<TData *>(nullptr), TData(0.0), streamID);
-            }
+            DiffusionCFEVolFluxKernelLauncher<APPEND, false, ExecSpace>(
+                m_EoS, outblock.CompSize(), m_dimension,
+                inblock.GetNumComponents(), inblock.CompSize(),
+                derivblock.CompSize(), outblock.CompSize(), m_visc.prandtl,
+                m_visc.muRef, m_visc.isMuVariable, m_visc.oneOverTstar,
+                m_visc.tRatioSutherland, inbase, qbase, outbase,
+                static_cast<TData *>(nullptr), TData(0.0), streamID);
         }
         // The kernel is pointwise: the flux has the layout of the state.
         out.SetInterleaveWidth(in);

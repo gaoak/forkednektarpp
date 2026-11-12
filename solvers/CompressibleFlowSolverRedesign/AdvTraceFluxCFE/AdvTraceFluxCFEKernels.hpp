@@ -38,9 +38,12 @@
 
 #include <cstdlib>
 
-#include "LibUtilities/BasicUtils/ErrorUtil.hpp"
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
-#include "SolverCore/RiemannSolver/RiemannSolverKernels.hpp"
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+#include <SolverCore/RiemannSolver/RiemannSolverKernels.hpp>
+
+#include <type_traits>
 
 namespace Nektar::detail
 {
@@ -81,6 +84,11 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
 {
     Nektar::LoopExecutionSetStreamID(streamID);
 
+    // Explicit vectorisation for AVX backend, vec_t =
+    // tinysimd::simd<TData> for AVX, vec_t = TData otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
     constexpr unsigned int vec_width =
         (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
             ? tinysimd::simd<TData>::width
@@ -95,11 +103,48 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             RiemannKernel<ExecSpace, EoSParamType, NDIM>()(
-                EoS, blksize, fwdPtr + i * vec_width, bwdPtr + i * vec_width,
-                normalPtr + i * vec_width, fluxPtr + i * vec_width);
+                EoS, groupsize, reinterpret_cast<const vec_t *>(fwdPtr) + i,
+                reinterpret_cast<const vec_t *>(bwdPtr) + i,
+                reinterpret_cast<const vec_t *>(normalPtr) + i,
+                reinterpret_cast<vec_t *>(fluxPtr) + i);
         });
 
     Nektar::LoopExecutionSetStreamID(0);
 }
+
+/**
+ * @brief The inviscid flux of one trace point, as the in-place trace flux
+ * kernels take it (the point flux of
+ * SolverCore/TraceFlux/TraceFluxKernels.hpp): the Riemann flux through the
+ * normal, with no second input and no penalty.
+ *
+ * @tparam RiemannKernel Flux function, as a class template on execution space,
+ *                       equation-of-state parameters and dimension.
+ * @tparam ExecSpace     Execution space; selects the SIMD width.
+ * @tparam EoSParamType  Equation-of-state parameter pack.
+ * @tparam NDIM          Spatial dimension.
+ */
+template <template <typename, typename, unsigned int> typename RiemannKernel,
+          typename ExecSpace, typename EoSParamType, unsigned int NDIM>
+struct InviscidPointFlux
+{
+    static constexpr unsigned numVar       = NDIM + 2;
+    static constexpr unsigned secondPerVar = 0;
+    static constexpr bool usesPenalty      = false;
+
+    EoSParamType EoS;
+
+    template <typename TData>
+    NEK_HOSTDEVICE_INLINE void operator()(const TData *fwd, const TData *bwd,
+                                          [[maybe_unused]] const TData *second0,
+                                          [[maybe_unused]] const TData *second1,
+                                          const TData *normal,
+                                          [[maybe_unused]] const TData penalty,
+                                          TData *flux) const
+    {
+        RiemannKernel<ExecSpace, EoSParamType, NDIM>()(EoS, 1, fwd, bwd, normal,
+                                                       flux);
+    }
+};
 
 } // namespace Nektar::detail

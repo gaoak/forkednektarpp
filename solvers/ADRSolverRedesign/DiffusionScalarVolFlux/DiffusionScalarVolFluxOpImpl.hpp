@@ -87,6 +87,13 @@ protected:
             auto &derivblock = deriv.GetBlocks()[blk];
             auto &outblock   = out.GetBlocks()[blk];
 
+            // Pointwise in the gradient's layout, which the flux leaves in.
+            ASSERTL1(derivblock.GetInterleaveWidth() ==
+                         inblock.GetInterleaveWidth(),
+                     "The state and its gradient share an interleave width");
+            outblock.template SetInterleaveWidth<TData>(
+                derivblock.GetInterleaveWidth());
+
             auto derivbase =
                 derivblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outbase =

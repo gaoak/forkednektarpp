@@ -52,11 +52,38 @@
         }                                                                      \
     }
 
+// The same, with the state and the advection velocity handed in at
+// interleave widths that differ from block to block (TestOp::
+// MixInterleaveWidths()): the trace flux reads each trace at its own block's
+// width, and the result must not depend on it.
+#define TEST_ADVECTIONWEAKDG_MIXED_WIDTHS(test_name, test, tol)                \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase();                                                         \
+        MixInterleaveWidths(*this->fixt_in);                                   \
+        MixInterleaveWidths(*this->fixt_advectVel);                            \
+        RunTestCase();                                                         \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            BOOST_TEST(Compare(tol));                                          \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestSuiteAdvectionWeakDG)
 
 #if defined(NEKTAR_ENABLE_DOUBLE_PRECISION)
 
 TEST_ADVECTIONWEAKDG(advectionweakdg_cube_all_elements, CubeAllElements, 1.0E-4)
+
+// Blocks at mixed widths: a one-block mesh then runs wholly at the vector
+// width, a multi-shape one alternates.
+TEST_ADVECTIONWEAKDG_MIXED_WIDTHS(
+    advectionweakdg_cube_all_elements_mixed_widths, CubeAllElements, 1.0E-4)
+TEST_ADVECTIONWEAKDG_MIXED_WIDTHS(advectionweakdg_triquad_varP_mixed_widths,
+                                  TriQuad_VarP, 1.0E-4)
+TEST_ADVECTIONWEAKDG_MIXED_WIDTHS(advectionweakdg_hex_per_mixed_widths, Hex_Per,
+                                  1.0E-7)
 
 TEST_ADVECTIONWEAKDG(advection_seg, Seg, 1.0E-10)
 

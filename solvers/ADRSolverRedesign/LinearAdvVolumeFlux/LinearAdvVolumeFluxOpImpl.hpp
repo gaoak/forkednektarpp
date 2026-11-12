@@ -77,6 +77,12 @@ protected:
             auto &outblock = out.GetBlocks()[blk];
             auto &velblock = this->m_advVel->GetBlocks()[blk];
 
+            // A pointwise product, in the state's layout: the velocity is
+            // brought to it, and the flux leaves in it.
+            const auto width = inblock.GetInterleaveWidth();
+            velblock.ReshapeStorage(width, ExecSpace::name, streamID);
+            outblock.template SetInterleaveWidth<TData>(width);
+
             auto inbase = inblock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto outbase =
                 outblock.template GetPtr<MemSpace, WriteOnly>(streamID);

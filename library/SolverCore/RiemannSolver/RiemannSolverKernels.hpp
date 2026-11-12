@@ -49,11 +49,11 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
 {
     Nektar::LoopExecutionSetStreamID(streamID);
 
-    // Explicit vectorisation for AVX backend,
-    // vec_t = tinysimd::simd<TData> for AVX,
-    // vec_t = TData otherwise.
-    // using vec_t = typename data_type_if<
-    //    std::is_same_v<ExecSpace, NektarSpaces::AVX>, TData>::type;
+    // Explicit vectorisation for AVX backend, vec_t =
+    // tinysimd::simd<TData> for AVX, vec_t = TData otherwise.
+    using vec_t =
+        typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                              TData>::type;
     constexpr unsigned int vec_width =
         (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
             ? tinysimd::simd<TData>::width
@@ -64,9 +64,12 @@ NEK_FORCE_INLINE static void RiemannKernelLauncher(
     Nektar::parallel_for<ExecSpace>(
         0u, groupsize, NEKTAR_LAMBDA(const size_t i) {
             RiemannKernel<ExecSpace>()(
-                blksize, velComps, fluxComps, velbase + i * vec_width,
-                normbase + i * vec_width, fwdbase + i * vec_width,
-                bwdbase + i * vec_width, fluxbase + i * vec_width);
+                groupsize, velComps, fluxComps,
+                reinterpret_cast<const vec_t *>(velbase) + i,
+                reinterpret_cast<const vec_t *>(normbase) + i,
+                reinterpret_cast<const vec_t *>(fwdbase) + i,
+                reinterpret_cast<const vec_t *>(bwdbase) + i,
+                reinterpret_cast<vec_t *>(fluxbase) + i);
         });
 
     Nektar::LoopExecutionSetStreamID(0);

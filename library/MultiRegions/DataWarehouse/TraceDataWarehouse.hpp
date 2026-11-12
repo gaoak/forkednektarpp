@@ -284,6 +284,42 @@ private:
     unsigned int m_interleave_width;
 };
 
+/**
+ * @brief The point maps of the element-local traces with @p nq0 by @p nq1
+ * points (@p nq0 points for an edge, one for a point trace), one per
+ * orientation: row `orient` of `StdRegions::SIZE_Orientation` rows of
+ * `nq0 * nq1` entries holds, for each global-trace point, the local point
+ * that lands there (@p forwards) or, for each local point, the global point
+ * it takes (not @p forwards). Rows of orientations that do not apply to the
+ * trace dimension hold the identity. The trace flux operators read every
+ * collocated trace through these, by the trace's orientation; one table
+ * per point set serves every operator on the expansion list.
+ */
+template <typename TData> class TracePointMapKey : public LibUtilities::BaseKey
+{
+    friend class TraceEssentialCreator;
+
+public:
+    using creator = TraceEssentialCreator;
+    typedef unsigned int value_type;
+
+    ~TracePointMapKey() override = default;
+
+    TracePointMapKey(const unsigned int traceDim, const unsigned int nq0,
+                     const unsigned int nq1, const bool forwards)
+        : m_traceDim(traceDim), m_nq0(nq0), m_nq1(nq1), m_forwards(forwards)
+    {
+        hash_combine(m_hash, m_traceDim, m_nq0, m_nq1, m_forwards,
+                     typeid(value_type).name(), "TracePointMapKey");
+    }
+
+private:
+    unsigned int m_traceDim;
+    unsigned int m_nq0;
+    unsigned int m_nq1;
+    bool m_forwards;
+};
+
 template <typename TData>
 class LocToTracePhysOffsetKey : public LibUtilities::BaseKey
 {
@@ -719,6 +755,10 @@ public:
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<size_t> Create(
         const OrientationMapsOffsetKey<TData> &orientationMapsOffsetKey);
+
+    template <typename MemSpace, typename TData>
+    LibUtilities::MemoryRegion<unsigned int> Create(
+        const TracePointMapKey<TData> &tracePointMapKey);
 
     template <typename MemSpace, typename TData>
     LibUtilities::MemoryRegion<size_t> Create(

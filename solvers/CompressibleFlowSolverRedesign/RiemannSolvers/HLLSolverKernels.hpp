@@ -55,49 +55,35 @@ template <typename ExecSpace, typename EqnOfStParams, unsigned int NDIM>
 struct HLLSolverKernel
 {
     /// @p normal: the unit trace normal, @p NDIM components at the states'
-    /// stride @p blksize.
-    template <typename TScalar>
+    /// stride @p blksize, in TData (a scalar or a SIMD vector of points).
+    template <typename TData>
     NEK_HOSTDEVICE_INLINE void operator()(const EqnOfStParams &EoS,
                                           const size_t blksize,
-                                          const TScalar *fwd,
-                                          const TScalar *bwd,
-                                          const TScalar *normal, TScalar *flux)
+                                          const TData *fwd, const TData *bwd,
+                                          const TData *normal, TData *flux)
     {
         using std::max;
         using std::min;
 
-        // Explicit vectorisation for AVX backend, vec_t =
-        // tinysimd::simd<TScalar> for AVX, vec_t = TScalar otherwise.
-        using vec_t =
-            typename data_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
-                                  TScalar>::type;
-        constexpr unsigned int vec_width =
-            (std::is_same_v<ExecSpace, NektarSpaces::AVX>)
-                ? tinysimd::simd<TScalar>::width
-                : 1;
-
         // Layout: [rho | m0 | m1 | m2 | E] but only first (NDIM) moment exist.
-        const size_t gs = blksize / vec_width;
-        const auto l    = reinterpret_cast<const vec_t *>(fwd);
-        const auto r    = reinterpret_cast<const vec_t *>(bwd);
-        const auto nvec = reinterpret_cast<const vec_t *>(normal);
-        auto f          = reinterpret_cast<vec_t *>(flux);
+        const auto l = fwd;
+        const auto r = bwd;
 
         // The two sides' primitive quantities and the Roe averages.
-        RoeAverageState<NDIM, vec_t> s;
-        RoeAverages<NDIM>(EoS, l, r, gs, s);
-        const vec_t rhoL = l[0], rhoR = r[0];
-        const vec_t EL = s.EL, ER = s.ER, pL = s.pL, pR = s.pR;
+        RoeAverageState<NDIM, TData> s;
+        RoeAverages<NDIM>(EoS, l, r, blksize, s);
+        const TData rhoL = l[0], rhoR = r[0];
+        const TData EL = s.EL, ER = s.ER, pL = s.pL, pR = s.pR;
         const auto &uL = s.uL, &uR = s.uR, &uRoe = s.uRoe;
-        const vec_t cRoe = s.cRoe;
-        const vec_t cL   = GetSoundSpeed(EoS, rhoL, s.eL);
-        const vec_t cR   = GetSoundSpeed(EoS, rhoR, s.eR);
+        const TData cRoe = s.cRoe;
+        const TData cL   = GetSoundSpeed(EoS, rhoL, s.eL);
+        const TData cR   = GetSoundSpeed(EoS, rhoR, s.eR);
 
-        vec_t n[NDIM];
-        vec_t unL = vec_t(0.0), unR = vec_t(0.0), unRoe = vec_t(0.0);
+        TData n[NDIM];
+        TData unL = TData(0.0), unR = TData(0.0), unRoe = TData(0.0);
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            n[d] = nvec[d * gs];
+            n[d] = normal[d * blksize];
             unL += n[d] * uL[d];
             unR += n[d] * uR[d];
             unRoe += n[d] * uRoe[d];
@@ -110,24 +96,26 @@ struct HLLSolverKernel
         //   F = (SR+ FL - SL- FR + SR+ SL- (UR - UL)) / (SR+ - SL-),
         // so every lane takes it without a branch. SR+ - SL- is zero only
         // when both speeds are, where the flux is taken as zero.
-        const vec_t SLm  = min(min(unL - cL, unRoe - cRoe), vec_t(0.0));
-        const vec_t SRp  = max(max(unR + cR, unRoe + cRoe), vec_t(0.0));
-        const vec_t invS = SafeDivide(vec_t(1.0), SRp - SLm);
-        const vec_t SLR  = SRp * SLm;
+        const TData SLm  = min(min(unL - cL, unRoe - cRoe), TData(0.0));
+        const TData SRp  = max(max(unR + cR, unRoe + cRoe), TData(0.0));
+        const TData invS = SafeDivide(TData(1.0), SRp - SLm);
+        const TData SLR  = SRp * SLm;
 
         // Jumps: density and momentum.
-        const vec_t dRho = rhoR - rhoL;
+        const TData dRho = rhoR - rhoL;
 
-        f[0] = (SRp * rhoL * unL - SLm * rhoR * unR + SLR * dRho) * invS;
+        flux[0] = (SRp * rhoL * unL - SLm * rhoR * unR + SLR * dRho) * invS;
         for (unsigned int d = 0; d < NDIM; ++d)
         {
-            const vec_t rhouL = l[(1u + d) * gs], rhouR = r[(1u + d) * gs];
-            const vec_t dm   = rhouR - rhouL;
-            f[(1u + d) * gs] = (SRp * (rhouL * unL + pL * n[d]) -
-                                SLm * (rhouR * unR + pR * n[d]) + SLR * dm) *
-                               invS;
+            const TData rhouL = l[(1u + d) * blksize],
+                        rhouR = r[(1u + d) * blksize];
+            const TData dm    = rhouR - rhouL;
+            flux[(1u + d) * blksize] =
+                (SRp * (rhouL * unL + pL * n[d]) -
+                 SLm * (rhouR * unR + pR * n[d]) + SLR * dm) *
+                invS;
         }
-        f[(1u + NDIM) * gs] =
+        flux[(1u + NDIM) * blksize] =
             (SRp * unL * (EL + pL) - SLm * unR * (ER + pR) + SLR * (ER - EL)) *
             invS;
     }

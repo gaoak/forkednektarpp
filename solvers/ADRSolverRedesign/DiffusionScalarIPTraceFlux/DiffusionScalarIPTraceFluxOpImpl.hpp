@@ -298,6 +298,9 @@ protected:
     {
         this->JoinBlockStreams();
 
+        // The flux is written in the layout of the state traces.
+        flux.SetInterleaveWidth(in);
+
         switch (this->m_traceDim)
         {
             case 0:
@@ -405,9 +408,11 @@ protected:
             // m_gloT0 and m_gloT1
             this->template SetInteriorParams<TRACEDIM>(b);
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in));
             this->template GetInteriorTraces<TRACEDIM>(
-                b, numflux * m_nDim, inDerivPtr, m_gloDerivT0, m_gloDerivT1);
+                b, numflux * m_nDim, inDerivPtr, m_gloDerivT0, m_gloDerivT1,
+                this->LayoutFor(inDeriv));
 
             // Step 2: Solve Riemann proble on  close packed variables
             // left and right  traces (m_gloT0, m_gloT1),
@@ -455,12 +460,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackInteriorFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }
@@ -529,9 +534,11 @@ protected:
             // channel it was exchanged on rather than from the local field.
             this->template SetParallelParams<TRACEDIM>(b);
             this->template GetParallelTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1, 0);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in), 0);
             this->template GetParallelTraces<TRACEDIM>(
-                b, numflux * m_nDim, inDerivPtr, m_gloDerivT0, m_gloDerivT1, 1);
+                b, numflux * m_nDim, inDerivPtr, m_gloDerivT0, m_gloDerivT1,
+                this->LayoutFor(inDeriv), 1);
 
             // Step 2: gather the normals and penalty factor for these traces
             auto numBlock = this->m_parT0[b].offset.size();
@@ -573,12 +580,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackParallelFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackParallelFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }
@@ -636,7 +643,8 @@ protected:
             // m_gloT1
             this->template SetBoundaryParams<TRACEDIM>(b);
             this->template GetBoundaryTraces<TRACEDIM>(
-                b, numflux, inPtr, this->m_gloT0, this->m_gloT1);
+                b, numflux, inPtr, this->m_gloT0, this->m_gloT1,
+                this->LayoutFor(in));
 
             auto numBlock = this->m_bndT0[b].offset.size();
             auto npTBlock = this->m_bndT0[b].m_nTraceXnPtsPad;
@@ -673,7 +681,7 @@ protected:
             // other condition keep the exterior gradient equal to the interior.
             this->template GetNeumannBoundaryTraces<TRACEDIM>(
                 b, numflux, m_nDim, inDerivPtr, this->m_norms, m_gloDerivT0,
-                m_gloDerivT1);
+                m_gloDerivT1, this->LayoutFor(inDeriv));
 
             // Turn the exterior state into a ghost. The kernel averages
             // half-and-half on boundary traces as it does in the interior, so
@@ -710,12 +718,12 @@ protected:
             if (this->m_append)
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, true>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
             else
             {
                 this->template InterpBackDirichletFlux<TRACEDIM, false>(
-                    b, numflux, fluxPtr);
+                    b, numflux, fluxPtr, this->LayoutFor(flux));
             }
         }
     }
