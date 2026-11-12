@@ -57,6 +57,8 @@ public:
     static std::string className;
 
 protected:
+    static std::string driverLookupId;
+
     SOLVER_CORE_EXPORT DriverStandard(
         const LibUtilities::SessionReaderSharedPtr &session,
         const SpatialDomains::MeshGraphSharedPtr &graph);
@@ -65,8 +67,6 @@ protected:
     SOLVER_CORE_EXPORT void v_InitObject(
         std::ostream &out = std::cout) override;
     SOLVER_CORE_EXPORT void v_Execute(std::ostream &out = std::cout) override;
-
-    static std::string driverLookupId;
 };
 
 } // namespace Nektar::SolverCore

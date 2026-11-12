@@ -35,8 +35,6 @@
 
 #pragma once
 
-#include <MultiRegions/ElmtOps/Expression/ExpressionOp.hpp>
-
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 #include <SolverCore/EquationSystems/EquationSystem.h>
 #include <SolverCore/Forcing/Forcing.h>
@@ -75,7 +73,7 @@ protected:
     std::vector<double> m_diffCoeff;
     // Own the tensor for the lifetime of the operators which borrow it.
     LibUtilities::Field<double, FieldState::Phys> m_varDiffCoeff;
-    std::shared_ptr<MultiRegions::ExpressionOp<double>> m_varDiffCoeffOp;
+    SessionFunctionSharedPtr m_varDiffCoeffFunction;
 
     // Setup workspaces
     LibUtilities::Field<double, FieldState::Phys> m_wsp_fce;

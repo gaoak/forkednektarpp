@@ -49,39 +49,20 @@ namespace Nektar::SolverCore
 
 using SummaryList = std::vector<std::pair<std::string, std::string>>;
 
-namespace detail
-{
-template <typename T> std::string SummaryValueToString(const T &value)
-{
-    using ValueType = std::decay_t<T>;
-
-    if constexpr (std::is_same_v<ValueType, std::string>)
-    {
-        return value;
-    }
-    else if constexpr (std::is_convertible_v<T, std::string>)
-    {
-        return std::string(value);
-    }
-    else if constexpr (std::is_same_v<ValueType, double>)
-    {
-        std::ostringstream valueStream;
-        valueStream << std::setprecision(8) << value;
-        return valueStream.str();
-    }
-    else
-    {
-        return std::to_string(value);
-    }
-}
-
-} // namespace detail
-
 template <typename T>
 void AddSummaryItem(SummaryList &summary, const std::string &name,
                     const T &value)
 {
-    summary.emplace_back(name, detail::SummaryValueToString(value));
+    if constexpr (std::is_convertible_v<T, std::string>)
+    {
+        summary.emplace_back(name, value);
+    }
+    else
+    {
+        std::ostringstream valueStream;
+        valueStream << std::setprecision(8) << value;
+        summary.emplace_back(name, valueStream.str());
+    }
 }
 
 std::string GetProjectionString(MultiRegions::ProjectionType projectionType);

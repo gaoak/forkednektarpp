@@ -105,6 +105,11 @@ public:
         return m_fields_coeff;
     }
 
+    LibUtilities::Field<double, FieldState::Phys> &Phys()
+    {
+        return m_fields;
+    }
+
     const MultiRegions::ExpListSharedPtr &Expansion() const
     {
         return m_expansionLists[0];
@@ -242,8 +247,9 @@ void CheckEqual(const std::vector<double> &result,
 
 // Loads distinct coefficients from a field file into the solver fields, which
 // have the interleave width of the solver, and writes the solver fields to a
-// field file. The loaded field must hold the coefficients of the input file,
-// and the written file those of the solver fields, element by element. With
+// field file. The loaded field must be the backward transform of the
+// coefficients of the input file, and the written file must hold those of the
+// solver fields, element by element. With
 // splitDefinitions, each variable of the input file has field definitions of
 // its own.
 [[maybe_unused]] void RunFieldFileTest(const std::string &xml,
@@ -266,6 +272,7 @@ void CheckEqual(const std::vector<double> &result,
     const auto interleaveWidth =
         MultiRegions::Operator<double>::GetDefaultInterleaveWidth(session);
     auto &coeffs = system->Coeffs();
+    auto &phys   = system->Phys();
     CheckInterleaveWidth(coeffs, interleaveWidth);
 
     // Distinct values for every coefficient of every component.
@@ -278,23 +285,23 @@ void CheckEqual(const std::vector<double> &result,
     WriteInputFile(session, explist, variables, expected, inputFile,
                    splitDefinitions);
 
-    // Load.
-    SessionFunction initialConditions(session, explist, "InitialConditions");
-    initialConditions.EvaluateFld(variables, coeffs, 0.0);
+    // The coefficients of the file, and their backward transform.
+    coeffs.CopyVector<NektarSpaces::HostSpace>(expected);
     CheckInterleaveWidth(coeffs, interleaveWidth);
-    BOOST_TEST_CONTEXT("load")
+    BOOST_TEST_CONTEXT("CopyVector")
     {
         CheckEqual(FieldCoeffs(coeffs, interleaveWidth, execStr), expected);
     }
+    system->SetPhysFromCoeffs();
+    const auto expectedPhys = phys.ToVector<double>();
 
-    // A copy of the function for another expansion list shares what was
-    // read, so it loads the same coefficients with the file gone.
-    fs::remove(inputFile);
-    SessionFunction sharedConditions(initialConditions, explist);
-    sharedConditions.EvaluateFld(variables, coeffs, 0.0);
-    BOOST_TEST_CONTEXT("load shared")
+    // Load: the function is the backward transform of the file.
+    SessionFunction initialConditions(session, explist, variables,
+                                      "InitialConditions");
+    initialConditions.Evaluate(phys, 0.0);
+    BOOST_TEST_CONTEXT("load")
     {
-        CheckEqual(FieldCoeffs(coeffs, interleaveWidth, execStr), expected);
+        CheckEqual(phys.ToVector<double>(), expectedPhys);
     }
 
     // ToVector() de-interleaves the field without changing it.

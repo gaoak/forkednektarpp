@@ -95,24 +95,4 @@ void Forcing::v_SetAppend([[maybe_unused]] const bool append)
 {
 }
 
-SessionFunctionSharedPtr Forcing::GetFunction(const std::string &name,
-                                              bool cache)
-{
-    if (!cache)
-    {
-        return std::make_shared<SessionFunction>(m_session, m_expList, name);
-    }
-
-    auto function = m_sessionFunctions.find(name);
-    if (function == m_sessionFunctions.end())
-    {
-        function = m_sessionFunctions
-                       .emplace(name, std::make_shared<SessionFunction>(
-                                          m_session, m_expList, name))
-                       .first;
-    }
-
-    return function->second;
-}
-
 } // namespace Nektar::SolverCore

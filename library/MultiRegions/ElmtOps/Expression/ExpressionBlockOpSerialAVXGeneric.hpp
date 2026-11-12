@@ -217,16 +217,17 @@ protected:
 
         const auto compSize = inblock.CompSize();
 
-        // Initialize pointers.
-        auto inptr = (&inblock != &outblock)
-                         ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                         : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr =
-            (&inblock != &outblock)
-                ? (this->m_append)
-                      ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                      : outblock.template GetPtr<MemSpace, WriteOnly>()
-                : (TData *)inptr;
+        // Initialize pointers; the input is only read for EVARS, and the
+        // output only when appending.
+        const bool inPlace   = (&inblock == &outblock);
+        const bool readEvars = (this->m_numEvars[0] > 4);
+        TData *outptr        = (inPlace && readEvars) || this->m_append
+                                   ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                                   : outblock.template GetPtr<MemSpace, WriteOnly>();
+        const TData *inptr   = inPlace ? outptr
+                               : readEvars
+                                   ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                                   : nullptr;
 
         // Get interleave parameter.
         const auto inInterleaveWidth  = inblock.GetInterleaveWidth();

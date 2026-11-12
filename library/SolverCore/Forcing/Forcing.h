@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -44,7 +43,6 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SessionNode.h>
 #include <MultiRegions/ExpList.h>
-#include <SolverCore/Core/SessionFunction.h>
 #include <SolverCore/SolverCoreDeclspec.h>
 
 namespace Nektar::SolverCore
@@ -112,13 +110,9 @@ protected:
 
     SOLVER_CORE_EXPORT virtual void v_SetAppend(const bool append);
 
-    SOLVER_CORE_EXPORT SessionFunctionSharedPtr
-    GetFunction(const std::string &name, bool cache = true);
-
     LibUtilities::SessionReaderSharedPtr m_session;
     MultiRegions::ExpListSharedPtr m_expList;
     std::vector<std::string> m_variables;
-    std::map<std::string, SessionFunctionSharedPtr> m_sessionFunctions;
     Math::MathHelper m_math;
 };
 } // namespace Nektar::SolverCore
