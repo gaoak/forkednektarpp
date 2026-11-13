@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MeanRemovalBlockOpDevice.hpp
+// File: MeanBlockOpDevice.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,7 +37,7 @@
 #include <array>
 
 #include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
-#include <SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp>
+#include <SolverCore/Mean/MeanBlockOp.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
@@ -47,16 +47,15 @@ namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
-class MeanRemovalBlockOpImpl : public MeanRemovalBlockOp<TData>
+class MeanBlockOpImpl : public MeanBlockOp<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    MeanRemovalBlockOpImpl(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : MeanRemovalBlockOp<TData>(block_idx, exp, dataWarehouse)
+    MeanBlockOpImpl(const unsigned int block_idx,
+                    const LocalRegions::ExpansionSharedPtr &exp,
+                    LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
+        : MeanBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
 
@@ -89,12 +88,12 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<MeanRemovalBlockOp<TData>> Instantiate(
+    static std::unique_ptr<MeanBlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<MeanRemovalBlockOpImpl<ExecSpace, TData>>(
+        return std::make_unique<MeanBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
     }
 
@@ -132,7 +131,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "MeanRemoval Device only implemented for "
+                ASSERTL0(false, "Mean Device only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }
@@ -157,7 +156,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "MeanRemoval Device only implemented for "
+                ASSERTL0(false, "Mean Device only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }

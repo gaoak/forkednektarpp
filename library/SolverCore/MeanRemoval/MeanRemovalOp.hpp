@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp"
-#include "SolverCore/SolverCore.hpp"
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/Mean/MeanBlockOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -49,6 +49,11 @@ template <typename TData> class LinearSystemOp;
 // arbitrary additive constant; this operator removes that constant so that
 // norms/errors computed from the field reflect genuine discretisation error
 // rather than the arbitrary offset.
+//
+// With a homogeneous direction (3DH1) the integrals are taken per local
+// plane, summed with the z quadrature weights of the planes and reduced over
+// the ranks holding the other planes, so that one constant, the mean over the
+// 3D domain, is removed from every plane.
 //
 // Dispatch across execution spaces (Serial/AVX/Device) is resolved entirely
 // by Create(), via the same OperatorFactory used by every Operators-library
@@ -63,9 +68,6 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        // Force a genuine cross-library symbol reference into libSolverCore so
-        // the MeanRemoval*OpImpl static factory registrations are not dropped
-        // by the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
         auto session = expansionList->GetSession();
@@ -78,7 +80,7 @@ public:
         auto op = MultiRegions::Operator<TData>::template Create<MeanRemovalOp>(
             expansionList, components, execStr0);
 
-        auto blockAttr =
+        const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
 
@@ -89,7 +91,7 @@ public:
                 MultiRegions::GetCollection(expansionList, block_idx)
                     .GetExpVector()[0];
 
-            op->m_blockOp.push_back(MeanRemovalBlockOp<TData>::Create(
+            op->m_blockOp.push_back(MeanBlockOp<TData>::Create(
                 block_idx, exp, expansionList->GetDataWarehouseSharedPtr(),
                 execStr0));
             op->m_blockOp.back()->SetNumElements(
@@ -121,10 +123,8 @@ public:
      * of its forcing equals the surface integral of its Neumann boundary
      * values. Apply() then subtracts (integral_c - surface_c) / volume from
      * component c, where surface_c is summed by
-     * LinearSystemOp::AddNeumannSurfaceIntegral() into the reduction of the
-     * domain integrals, so that the two are reduced across ranks and read
-     * back to the host together. A nullptr @p system, the default, removes
-     * the mean.
+     * LinearSystemOp::AddNeumannSurfaceIntegral() and reduced across ranks.
+     * A nullptr @p system, the default, removes the mean.
      *
      * The operator keeps a non-owning pointer to @p system, which must
      * outlive its use here.
@@ -145,35 +145,67 @@ public:
      *
      * @details
      * The constant forcing with this value has the domain integral that
-     * the system needs, without a field to balance. Collective over the
-     * row communicator: surface_c is reduced across ranks and read back to
-     * the host once.
+     * the system needs, without a field to balance. Collective: surface_c is
+     * reduced across ranks and read back to the host once.
      */
     std::vector<TData> GetBalancedMean()
     {
-        return v_GetBalancedMean();
+        const auto volume = GetVolume();
+        v_ComputeNeumannSurfaceIntegral();
+        auto means = m_surfaceIntegral.ToVector();
+        for (auto &mean : means)
+        {
+            mean /= volume;
+        }
+        return means;
+    }
+
+    /// Domain volume, computed on the first call and kept; collective on the
+    /// first call.
+    TData GetVolume()
+    {
+        v_ComputeVolume();
+        return m_volume;
     }
 
 protected:
-    // Volume of the domain, computed on the first Apply() or
-    // GetBalancedMean() and kept.
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
-    LibUtilities::MemoryRegion<TData> m_data;
-    std::vector<std::shared_ptr<MeanRemovalBlockOp<TData>>> m_blockOp;
+    /// Homogeneous length, or 1 without a homogeneous direction.
+    TData m_homoLen = 1.0;
+    /// z quadrature weight of each local plane, times Lhom / 2; empty
+    /// without a homogeneous direction.
+    std::vector<TData> m_planeWeights;
+    LibUtilities::MemoryRegion<TData> m_domainIntegral;
+    LibUtilities::MemoryRegion<TData> m_domainIntegralPlane;
+    LibUtilities::MemoryRegion<TData> m_surfaceIntegral;
+    LibUtilities::MemoryRegion<TData> m_surfaceIntegralPlane;
+    std::vector<std::shared_ptr<MeanBlockOp<TData>>> m_blockOp;
     LinearSystemOp<TData> *m_neumannSystem = nullptr;
 
     MeanRemovalOp(const MultiRegions::ExpListSharedPtr &expansionList,
                   const std::vector<std::string> &components)
         : MultiRegions::Operator<TData>(expansionList, components)
     {
+        if (expansionList->GetExpType() == MultiRegions::e3DH1D)
+        {
+            m_homoLen = expansionList->GetHomoLen();
+
+            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
+            const auto zIDs = expansionList->GetZIDs();
+            for (unsigned int n = 0; n < zIDs.size(); ++n)
+            {
+                m_planeWeights.push_back(w[zIDs[n]] * m_homoLen * 0.5);
+            }
+        }
     }
 
     ~MeanRemovalOp() override = default;
 
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &inout) = 0;
-
-    virtual std::vector<TData> v_GetBalancedMean() = 0;
+    virtual void v_ComputeNeumannSurfaceIntegral()           = 0;
+    virtual void v_ComputeVolume()                           = 0;
 };
+
 } // namespace Nektar::SolverCore

@@ -105,7 +105,6 @@ protected:
     unsigned int m_dimension = 0;
     unsigned int m_coordDim  = 0;
     std::vector<unsigned int> m_nq;
-    std::vector<unsigned int> m_nm;
     std::vector<const TData *> m_W;
     /// Jacobians for non-interleaved data (first) and for interleaved data
     /// (second); null until first read at that layout.

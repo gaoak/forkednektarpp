@@ -49,6 +49,24 @@ public:
                  const std::vector<std::string> &components)
         : NormL2Op<TData>(expansionList, components)
     {
+        if (expansionList->GetExpType() == MultiRegions::e3DH1D)
+        {
+            m_numPlanes = expansionList->GetZIDs().size();
+        }
+
+        // Layout: [ norm_c0, ..., norm_c{n-1} ], the squared norms until
+        // GetNorms() takes their square roots.
+        this->m_norm = LibUtilities::MemoryRegion<TData>(
+            "NormL2", components.size(), eHostPinned);
+
+        // Layout: [ c0_p0, ..., c0_p{m-1}, c1_p0, ... ] over the m local
+        // planes; v_Apply() sums the planes into m_norm.
+        if (!this->m_planeWeights.empty())
+        {
+            this->m_plane = LibUtilities::MemoryRegion<TData>(
+                "NormL2 plane", components.size() * this->m_planeWeights.size(),
+                eHostPinned);
+        }
     }
 
     // className - for OperatorFactory
@@ -64,21 +82,24 @@ public:
     }
 
 protected:
+    /// Number of local planes, or 1 without a homogeneous direction.
+    unsigned int m_numPlanes = 1;
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
+        ASSERTL1(in.GetNumComponents() == this->m_components.size(),
+                 "NormL2 field component count mismatch.");
+        ASSERTL1(in.GetNumHomoModes() == m_numPlanes,
+                 "NormL2 field plane count mismatch.");
+        ASSERTL1(in.GetBlocks().size() == this->m_blockOp.size(),
+                 "NormL2 field block count changed after configuration.");
+
         const auto numComp = in.GetNumComponents();
         const auto numHomo = in.GetNumHomoModes();
 
         // The block ops integrate each plane separately; without a
         // homogeneous direction they write straight into the norms.
         auto &plane = (numHomo == 1) ? this->m_norm : this->m_plane;
-
-        // Initialise norm memory region.
-        if (plane.size() != numComp * numHomo)
-        {
-            plane = LibUtilities::MemoryRegion<TData>(
-                "NormL2", numComp * numHomo, eHostPinned);
-        }
 
         // Reset norms.
         plane.template Initialize<MemSpace>(TData{0});
@@ -102,12 +123,6 @@ protected:
 
         // Sum the planes with their z quadrature weights, then over the
         // ranks holding the other planes.
-        if (this->m_norm.size() != numComp)
-        {
-            this->m_norm = LibUtilities::MemoryRegion<TData>("NormL2", numComp,
-                                                             eHostPinned);
-        }
-
         auto planeptr =
             plane.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         auto normptr =
@@ -141,9 +156,9 @@ protected:
                 blockOp->Volume(volume);
             }
 
-            auto rowComm = this->m_expansionList->GetComm()->GetRowComm();
-            rowComm->template AllReduce<MemSpace>(volume,
-                                                  LibUtilities::ReduceSum);
+            auto comm = this->m_expansionList->GetComm();
+            comm->GetRowComm()->template AllReduce<MemSpace>(
+                volume, LibUtilities::ReduceSum);
 
             this->m_volumeComputed = true;
             this->m_volume =

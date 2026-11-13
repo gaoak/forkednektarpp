@@ -166,6 +166,7 @@ v5.11.0
 - Add 3DH1 support to the NormL2 and NormLinf operators, and tidy them up (!2922)
 - Tidy the SolverCore SessionFunction: variables fixed at construction, a single `Evaluate()` at the quadrature points for expressions and files, with an optional scale, and `IsTimeDependent()`; use it for the ADR advection velocity and diffusion coefficient, and move the mixed-order pressure treatment to the incompressible solver (!2923)
 - Zero-fill undefined variables in SolverCore SessionFunction and add `SetScale()`, `SetAppend()` and `IsConstant()`; make ForcingBody a thin wrapper around it, with file and cached constant forcing (!2924)
+- Add 3DH1 support to MeanOp, MeanRemovalOp and the Mean filter (!2925)
 
 **NekMesh**
 - Replace NekMesh's own mesh representation with the SpatialDomains geometry classes, adding volume curvature and CAD association storage to MeshGraph (!2726)

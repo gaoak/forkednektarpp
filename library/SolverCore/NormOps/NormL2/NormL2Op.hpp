@@ -49,9 +49,6 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        // Force a genuine cross-library symbol reference into libSolverCore so
-        // the NormL2*OpImpl static factory registrations are not dropped by
-        // the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
         auto session = expansionList->GetSession();
@@ -64,7 +61,7 @@ public:
         auto op = MultiRegions::Operator<TData>::template Create<NormL2Op>(
             expansionList, components, execStr0);
 
-        auto blockAttr =
+        const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
 
@@ -99,18 +96,21 @@ public:
 
     std::vector<TData> GetNorms(const bool &normalised = false)
     {
-        if (normalised)
+        auto volume = normalised ? GetVolume() : 1.0;
+        auto data   = this->m_norm.ToVector();
+        for (auto &val : data)
         {
-            this->v_ComputeVolume();
-        }
-
-        auto volume = normalised ? this->m_volume : 1.0;
-        auto data   = this->m_norm.template ToVector<TData>();
-        for (unsigned int nc = 0; nc < this->m_norm.size(); ++nc)
-        {
-            data[nc] = std::sqrt(data[nc] / volume);
+            val = std::sqrt(val / volume);
         }
         return data;
+    }
+
+    /// Domain volume, computed on the first call and kept; collective on the
+    /// first call.
+    TData GetVolume()
+    {
+        v_ComputeVolume();
+        return m_volume;
     }
 
 protected:
@@ -121,8 +121,8 @@ protected:
     /// z quadrature weight of each local plane, times Lhom / 2; empty
     /// without a homogeneous direction.
     std::vector<TData> m_planeWeights;
-    LibUtilities::MemoryRegion<TData> m_norm;
     LibUtilities::MemoryRegion<TData> m_plane;
+    LibUtilities::MemoryRegion<TData> m_norm;
     std::vector<std::shared_ptr<NormL2BlockOp<TData>>> m_blockOp;
 
     NormL2Op(const MultiRegions::ExpListSharedPtr &expansionList,
@@ -135,7 +135,7 @@ protected:
 
             const auto w    = expansionList->GetHomogeneousBasis()->GetW();
             const auto zIDs = expansionList->GetZIDs();
-            for (size_t n = 0; n < zIDs.size(); ++n)
+            for (unsigned int n = 0; n < zIDs.size(); ++n)
             {
                 m_planeWeights.push_back(w[zIDs[n]] * m_homoLen * 0.5);
             }
@@ -147,4 +147,5 @@ protected:
     virtual void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) = 0;
     virtual void v_ComputeVolume()                                         = 0;
 };
+
 } // namespace Nektar::SolverCore

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MeanRemovalBlockOpSerialAVX.hpp
+// File: MeanBlockOpSerialAVX.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,7 +36,7 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include <SolverCore/MeanRemoval/MeanRemovalBlockOp.hpp>
+#include <SolverCore/Mean/MeanBlockOp.hpp>
 
 #include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
@@ -48,7 +48,7 @@ namespace Nektar::SolverCore::detail
 {
 
 template <typename ExecSpace, typename TData>
-class MeanRemovalBlockOpImpl : public MeanRemovalBlockOp<TData>
+class MeanBlockOpImpl : public MeanBlockOp<TData>
 {
     using simd_t =
         typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
@@ -56,11 +56,10 @@ class MeanRemovalBlockOpImpl : public MeanRemovalBlockOp<TData>
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
-    MeanRemovalBlockOpImpl(
-        const unsigned int block_idx,
-        const LocalRegions::ExpansionSharedPtr &exp,
-        LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
-        : MeanRemovalBlockOp<TData>(block_idx, exp, dataWarehouse)
+    MeanBlockOpImpl(const unsigned int block_idx,
+                    const LocalRegions::ExpansionSharedPtr &exp,
+                    LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
+        : MeanBlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         // Determine shape and type of the element.
         m_shapeType = exp->DetShapeType();
@@ -95,12 +94,12 @@ public:
     static std::string className;
 
     // Instantiation function for CreatorFunction in BlockOperatorFactory.
-    static std::unique_ptr<MeanRemovalBlockOp<TData>> Instantiate(
+    static std::unique_ptr<MeanBlockOp<TData>> Instantiate(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
     {
-        return std::make_unique<MeanRemovalBlockOpImpl<ExecSpace, TData>>(
+        return std::make_unique<MeanBlockOpImpl<ExecSpace, TData>>(
             block_idx, exp, dataWarehouse);
     }
 
@@ -150,7 +149,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "MeanRemoval SerialAVX only implemented for "
+                ASSERTL0(false, "Mean SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }
@@ -175,7 +174,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "MeanRemoval SerialAVX only implemented for "
+                ASSERTL0(false, "Mean SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }

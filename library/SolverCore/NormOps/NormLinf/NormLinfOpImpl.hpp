@@ -49,6 +49,15 @@ public:
                    const std::vector<std::string> &components)
         : NormLinfOp<TData>(expansionList, components)
     {
+        if (expansionList->GetExpType() == MultiRegions::e3DH1D)
+        {
+            m_numPlanes = expansionList->GetZIDs().size();
+        }
+
+        // Layout: [ norm_c0, ..., norm_c{n-1} ]; the block ops take the
+        // maximum over the local planes.
+        this->m_norm = LibUtilities::MemoryRegion<TData>(
+            "NormLinf", components.size(), eHostPinned);
     }
 
     // className - for OperatorFactory
@@ -64,17 +73,19 @@ public:
     }
 
 protected:
+    /// Number of local planes, or 1 without a homogeneous direction.
+    unsigned int m_numPlanes = 1;
+
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
-        const auto numComp = in.GetNumComponents();
-        const auto numHomo = in.GetNumHomoModes();
+        ASSERTL1(in.GetNumComponents() == this->m_components.size(),
+                 "NormLinf field component count mismatch.");
+        ASSERTL1(in.GetNumHomoModes() == m_numPlanes,
+                 "NormLinf field plane count mismatch.");
+        ASSERTL1(in.GetBlocks().size() == this->m_blockOp.size(),
+                 "NormLinf field block count changed after configuration.");
 
-        // Initialise norm memory region.
-        if (this->m_norm.size() != numComp)
-        {
-            this->m_norm = LibUtilities::MemoryRegion<TData>(
-                "NormLinf", numComp, eHostPinned);
-        }
+        const auto numHomo = in.GetNumHomoModes();
 
         // Reset norms.
         this->m_norm.template Initialize<MemSpace>(TData{0});
