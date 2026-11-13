@@ -68,16 +68,12 @@ public:
             "MeanRemoval surface", components.size(), eHostPinned);
 
         // Layout: [ c0_p0, ..., c0_p{m-1}, c1_p0, ... ] over the m local
-        // planes; the planes are summed into m_domainIntegral and
-        // m_surfaceIntegral.
-        if (!this->m_planeWeights.empty())
+        // planes; the planes are summed into m_surfaceIntegral.
+        if (this->m_homogeneous)
         {
-            this->m_domainIntegralPlane = LibUtilities::MemoryRegion<TData>(
-                "MeanRemoval plane",
-                components.size() * this->m_planeWeights.size(), eHostPinned);
             this->m_surfaceIntegralPlane = LibUtilities::MemoryRegion<TData>(
-                "MeanRemoval surface plane",
-                components.size() * this->m_planeWeights.size(), eHostPinned);
+                "MeanRemoval surface plane", components.size() * m_numPlanes,
+                eHostPinned);
         }
     }
 
@@ -101,7 +97,7 @@ protected:
     {
         ASSERTL1(inout.GetNumComponents() == this->m_components.size(),
                  "MeanRemoval field component count mismatch.");
-        ASSERTL1(inout.GetNumHomoModes() == m_numPlanes,
+        ASSERTL1(inout.GetNumHomoModes() == this->m_numPlanes,
                  "MeanRemoval field plane count mismatch.");
         ASSERTL1(inout.GetBlocks().size() == this->m_blockOp.size(),
                  "MeanRemoval field block count changed after configuration.");
@@ -112,45 +108,25 @@ protected:
         v_ComputeVolume();
         v_ComputeNeumannSurfaceIntegral();
 
-        // The block ops integrate each plane separately; without a
-        // homogeneous direction they write straight into m_domainIntegral.
-        auto &plane = (numHomo == 1) ? this->m_domainIntegral
-                                     : this->m_domainIntegralPlane;
-
-        plane.template Initialize<MemSpace>(TData{0});
+        // With a homogeneous direction the block ops sum the local planes of
+        // each component with their z quadrature weights.
+        this->m_domainIntegral.template Initialize<MemSpace>(TData{0});
 
         // Loop all blocks.
         for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             auto &inblock = inout.GetBlocks()[blk];
-            this->m_blockOp[blk]->Apply(inblock, plane);
+            this->m_blockOp[blk]->Apply(inblock, this->m_domainIntegral);
         }
 
+        // Sum over the ranks sharing the planes, then over the ranks holding
+        // the other planes.
         auto comm = this->m_expansionList->GetComm();
         comm->GetRowComm()->template AllReduce<MemSpace>(
-            plane, LibUtilities::ReduceSum);
-
-        if (numHomo > 1)
+            this->m_domainIntegral, LibUtilities::ReduceSum);
+        if (this->m_homogeneous)
         {
-            // Sum the planes with their z quadrature weights, then over the
-            // ranks holding the other planes.
-            const unsigned int numPlanes = this->m_planeWeights.size();
-            auto planeptr =
-                plane.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-            auto resultptr =
-                this->m_domainIntegral
-                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int nc = 0; nc < this->m_components.size(); ++nc)
-            {
-                resultptr[nc] = 0.0;
-                for (unsigned int p = 0; p < numPlanes; ++p)
-                {
-                    resultptr[nc] +=
-                        this->m_planeWeights[p] * planeptr[nc * numPlanes + p];
-                }
-            }
-
-            comm->GetColumnComm()->template AllReduce<NektarSpaces::HostSpace>(
+            comm->GetColumnComm()->template AllReduce<MemSpace>(
                 this->m_domainIntegral, LibUtilities::ReduceSum);
         }
 
@@ -176,9 +152,8 @@ protected:
     /// planes, into m_surfaceIntegral.
     void v_ComputeNeumannSurfaceIntegral() override
     {
-        const bool homo = !this->m_planeWeights.empty();
-        auto &plane =
-            homo ? this->m_surfaceIntegralPlane : this->m_surfaceIntegral;
+        auto &plane = this->m_homogeneous ? this->m_surfaceIntegralPlane
+                                          : this->m_surfaceIntegral;
 
         plane.template Initialize<MemSpace>(TData{0});
 
@@ -191,7 +166,7 @@ protected:
         comm->GetRowComm()->template AllReduce<MemSpace>(
             plane, LibUtilities::ReduceSum);
 
-        if (!homo)
+        if (!this->m_homogeneous)
         {
             return;
         }

@@ -220,6 +220,13 @@ protected:
         const unsigned int nComp = inblock.GetNumComponents();
         const unsigned int nHomo = inblock.GetNumHomoModes();
 
+        // With a homogeneous direction the planes of a component, stored one
+        // after the other, are summed with their weights into its integral.
+        const TData *planeWeights =
+            (this->m_planeWeights.size() == 0)
+                ? nullptr
+                : this->m_planeWeights.template GetPtr<MemSpace, ReadOnly>();
+
         // Compute norm
         // Loop over components.
         for (unsigned int nc = 0; nc < nComp * nHomo; ++nc)
@@ -284,9 +291,11 @@ protected:
             }
 
             // Accumulate over vector width.
+            const TData weight =
+                (planeWeights == nullptr) ? 1.0 : planeWeights[nc % nHomo];
             for (unsigned int i = 0; i < simd_t::width; i++)
             {
-                dataptr[nc] += acc[i];
+                dataptr[nc / nHomo] += weight * acc[i];
             }
         }
     }

@@ -50,10 +50,10 @@ template <typename TData> class LinearSystemOp;
 // norms/errors computed from the field reflect genuine discretisation error
 // rather than the arbitrary offset.
 //
-// With a homogeneous direction (3DH1) the integrals are taken per local
-// plane, summed with the z quadrature weights of the planes and reduced over
-// the ranks holding the other planes, so that one constant, the mean over the
-// 3D domain, is removed from every plane.
+// With a homogeneous direction (3DH1) the local planes are summed with their
+// z quadrature weights and the integrals reduced over the ranks holding the
+// other planes, so that one constant, the mean over the 3D domain, is removed
+// from every plane.
 //
 // Dispatch across execution spaces (Serial/AVX/Device) is resolved entirely
 // by Create(), via the same OperatorFactory used by every Operators-library
@@ -80,6 +80,20 @@ public:
         auto op = MultiRegions::Operator<TData>::template Create<MeanRemovalOp>(
             expansionList, components, execStr0);
 
+        // z quadrature weight of each local plane, times Lhom / 2, with which
+        // the block ops sum the planes; empty without a homogeneous direction.
+        std::vector<TData> planeWeights;
+        if (op->m_homogeneous)
+        {
+            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
+            const auto zIDs = expansionList->GetZIDs();
+            for (unsigned int n = 0; n < zIDs.size(); ++n)
+            {
+                planeWeights.push_back(w[zIDs[n]] * op->m_homoLen * 0.5);
+            }
+        }
+        op->m_planeWeights = planeWeights;
+
         const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
@@ -96,6 +110,10 @@ public:
                 execStr0));
             op->m_blockOp.back()->SetNumElements(
                 blockAttr[block_idx].GetNumElements());
+            if (op->m_homogeneous)
+            {
+                op->m_blockOp.back()->SetPlaneWeights(planeWeights);
+            }
         }
 
         return op;
@@ -171,13 +189,14 @@ public:
 protected:
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
+    /// Whether the field has a homogeneous direction (3DH1).
+    bool m_homogeneous = false;
     /// Homogeneous length, or 1 without a homogeneous direction.
     TData m_homoLen = 1.0;
     /// z quadrature weight of each local plane, times Lhom / 2; empty
     /// without a homogeneous direction.
     std::vector<TData> m_planeWeights;
     LibUtilities::MemoryRegion<TData> m_domainIntegral;
-    LibUtilities::MemoryRegion<TData> m_domainIntegralPlane;
     LibUtilities::MemoryRegion<TData> m_surfaceIntegral;
     LibUtilities::MemoryRegion<TData> m_surfaceIntegralPlane;
     std::vector<std::shared_ptr<MeanBlockOp<TData>>> m_blockOp;
@@ -189,14 +208,8 @@ protected:
     {
         if (expansionList->GetExpType() == MultiRegions::e3DH1D)
         {
-            m_homoLen = expansionList->GetHomoLen();
-
-            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
-            const auto zIDs = expansionList->GetZIDs();
-            for (unsigned int n = 0; n < zIDs.size(); ++n)
-            {
-                m_planeWeights.push_back(w[zIDs[n]] * m_homoLen * 0.5);
-            }
+            m_homogeneous = true;
+            m_homoLen     = expansionList->GetHomoLen();
         }
     }
 

@@ -37,6 +37,7 @@
 #include <LibUtilities/Backends/Backends_Device_API.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsDeviceKernelsHelper.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 #include <LibUtilities/Memory/MemoryAlloc.hpp>
 
 namespace Nektar
@@ -661,524 +662,128 @@ NEK_FORCE_INLINE static void DivideByJacobian(const size_t nelmt,
                                           nqTot, nhomo, jacptr, inptr, outptr);
 }
 
-// Quadrature approximation of the element volume (integral of 1 over each
-// element): sum of w0[i]*w1[j]*w2[k]*jac, summed over the block's elements.
-// DEFORMED selects a per-quadrature-point Jacobian versus a single constant
-// one. Shared by NormL2 (normalisation) and MeanRemoval (mean division). The
-// two families differ only in the thread<->element mapping and Jacobian memory
-// layout.
-
-// 1D Case - Non-interleaved
-#if !(defined(SYCL_ENABLE_CPU) &&                                              \
-      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
-template <
-    unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
-    typename TData,
-    std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
-        Enable = true>
-NEK_DEVICE_KERNEL void VolumeKernelLauncher(const unsigned int nq0,
-                                            const size_t nelmt,
-                                            const TData *NEK_RESTRICT w0,
-                                            const TData *NEK_RESTRICT jac,
-                                            TData *NEK_RESTRICT volume,
-                                            const TthreadBlock &threadBlock)
+/**
+ * @brief Add the volume of a block's elements, the sum of its quadrature
+ * metric, to @p out. See IntegralKernelLauncher().
+ *
+ * @param n         Entries of the metric, padding included.
+ * @param metric    Quadrature weight times Jacobian at every entry.
+ * @param out       The volume is added to this value.
+ * @param streamID  The stream the launches run on; reset to the null stream
+ *                  afterwards.
+ */
+template <typename ExecSpace, typename TData>
+NEK_FORCE_INLINE static void VolumeKernelLauncher(const size_t n,
+                                                  const TData *metric,
+                                                  TData *out,
+                                                  const unsigned int streamID)
 {
-    const unsigned int jacsize      = DEFORMED ? nq0 : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    TData acc = 0.0;
-    size_t e  = getGlobalIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane  = e % warpsize;
-        const size_t iwarp  = e / warpsize;
-        const TData *jacptr = jac + jacsize * warpsize * iwarp;
-
-        for (unsigned int i = 0; i < nq0; ++i)
-        {
-            const unsigned int index = warpsize * i + ilane;
-            const TData jacobian     = DEFORMED ? jacptr[index] : jacptr[ilane];
-
-            acc += w0[i] * jacobian;
-        }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, volume);
-}
-#endif
-
-// 1D Case - Non-interleaved
-template <unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
-NEK_DEVICE_KERNEL void VolumeKernelLauncher(const unsigned int nq0,
-                                            const size_t nelmt,
-                                            const TData *NEK_RESTRICT w0,
-                                            const TData *NEK_RESTRICT jac,
-                                            TData *NEK_RESTRICT volume,
-                                            const TthreadBlock &threadBlock)
-{
-    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
-
-    TData acc                 = 0.0;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-    size_t e                  = getBlockIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            const TData jacobian = DEFORMED ? jacptr[idx] : jacptr[0];
-
-            acc += w0[idx] * jacobian;
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, volume);
+    Nektar::LoopExecutionSetStreamID(streamID);
+    Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>>(
+        0, n, NEKTAR_LAMBDA(const size_t idx) { return metric[idx]; }, out);
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
-// 2D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) &&                                              \
-      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
-template <
-    unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
-    typename TData,
-    std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
-        Enable = true>
-NEK_DEVICE_KERNEL void VolumeKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-    const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
-    const TthreadBlock &threadBlock)
+/**
+ * @brief Add the integrals of INTEGRALOP of @p NRED consecutive components
+ * of a block to out[0, NRED).
+ *
+ * The components and the quadrature metric share the block's storage layout,
+ * the caller passing the metric at the interleave width of the input, so one
+ * storage index addresses the same point in all of them whatever that width,
+ * and every entry is one term of a parallel sum. The sum is the two-stage
+ * reduction of parallel_reduce(): a grid of the reduction's own size, each
+ * thread block storing its partials, and one add to @p out. A thread block
+ * per element, each adding to @p out, spends its time contending for that
+ * one address on some devices. The components are taken @p NRED at a time
+ * because each reduction is two launches, whose fixed cost is most of what
+ * the integrals of a few components cost.
+ *
+ * The metric is zero on the padding, which holds no solution and may hold
+ * anything; an entry with no metric is left out, not multiplied by it, so
+ * that a non-finite padding value cannot reach the sum.
+ *
+ * @tparam INTEGRALOP Applied to every value before it is weighted.
+ * @tparam NRED     Components summed in the one reduction.
+ * @param n         Entries of a component, padding included; the stride
+ *                  between components.
+ * @param metric    Quadrature weight times Jacobian at every entry.
+ * @param in        The first of the components.
+ * @param out       The integrals are added to these values.
+ * @param streamID  The stream the launches run on; reset to the null stream
+ *                  afterwards.
+ */
+template <typename ExecSpace, template <typename> typename INTEGRALOP,
+          unsigned int NRED, typename TData>
+NEK_FORCE_INLINE static void IntegralKernelLauncher(const size_t n,
+                                                    const TData *metric,
+                                                    const TData *in, TData *out,
+                                                    const unsigned int streamID)
 {
-    const unsigned int nqTot        = nq0 * nq1;
-    const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    TData acc = 0.0;
-    size_t e  = getGlobalIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane  = e % warpsize;
-        const size_t iwarp  = e / warpsize;
-        const TData *jacptr = jac + jacsize * warpsize * iwarp;
-
-        for (unsigned int j = 0, cnt = 0; j < nq1; ++j)
-        {
-            const TData w1j = w1[j];
-            for (unsigned int i = 0; i < nq0; ++i, ++cnt)
+    Nektar::LoopExecutionSetStreamID(streamID);
+    Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, NRED>(
+        0, n,
+        NEKTAR_LAMBDA(const size_t idx, TData *vals) {
+            const TData weight = metric[idx];
+            for (unsigned int s = 0; s < NRED; ++s)
             {
-                const unsigned int index = warpsize * cnt + ilane;
-                const TData jacobian = DEFORMED ? jacptr[index] : jacptr[ilane];
-
-                acc += w0[i] * w1j * jacobian;
+                const TData value = in[s * n + idx];
+                vals[s]           = weight != TData(0.0)
+                                        ? weight * INTEGRALOP<TData>()(value)
+                                        : TData(0.0);
             }
-        }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, volume);
-}
-#endif
-
-// 2D Case - Non-interleaved
-template <unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
-NEK_DEVICE_KERNEL void VolumeKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT w1,
-    const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot   = nq0 * nq1;
-    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
-
-    TData acc                 = 0.0;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-    size_t e                  = getBlockIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = idx / nq0;
-            const TData jacobian = DEFORMED ? jacptr[idx] : jacptr[0];
-
-            acc += w0[i] * w1[j] * jacobian;
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, volume);
+        },
+        out);
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
-// 3D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) &&                                              \
-      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
-template <
-    unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
-    typename TData,
-    std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
-        Enable = true>
-NEK_DEVICE_KERNEL void VolumeKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-    const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
-    const TthreadBlock &threadBlock)
+/**
+ * @brief Add the integrals of INTEGRALOP of @p NRED consecutive components
+ * of a block, each over its @p nPlanes homogeneous planes, to out[0, NRED).
+ *
+ * As IntegralKernelLauncher(), with the planes of a component stored one
+ * after the other and each weighted by its entry of @p planeWeights, so that
+ * all the planes of a component are summed in the one reduction.
+ *
+ * @tparam INTEGRALOP Applied to every value before it is weighted.
+ * @tparam NRED     Components summed in the one reduction.
+ * @param n         Entries of a plane, padding included; the stride between
+ *                  planes.
+ * @param nPlanes   Planes of a component.
+ * @param metric    Quadrature weight times Jacobian at every entry of a plane.
+ * @param planeWeights  Quadrature weight of every plane.
+ * @param in        The first of the components.
+ * @param out       The integrals are added to these values.
+ * @param streamID  The stream the launches run on; reset to the null stream
+ *                  afterwards.
+ */
+template <typename ExecSpace, template <typename> typename INTEGRALOP,
+          unsigned int NRED, typename TData>
+NEK_FORCE_INLINE static void IntegralKernelLauncher(const size_t n,
+                                                    const unsigned int nPlanes,
+                                                    const TData *metric,
+                                                    const TData *planeWeights,
+                                                    const TData *in, TData *out,
+                                                    const unsigned int streamID)
 {
-    const unsigned int nqTot        = nq0 * nq1 * nq2;
-    const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
+    const size_t compSize = n * nPlanes;
 
-    TData acc = 0.0;
-    size_t e  = getGlobalIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane  = e % warpsize;
-        const size_t iwarp  = e / warpsize;
-        const TData *jacptr = jac + jacsize * warpsize * iwarp;
-
-        for (unsigned int k = 0, cnt = 0; k < nq2; ++k)
-        {
-            const TData w2k = w2[k];
-            for (unsigned int j = 0; j < nq1; ++j)
+    Nektar::LoopExecutionSetStreamID(streamID);
+    Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, NRED>(
+        0, compSize,
+        NEKTAR_LAMBDA(const size_t idx, TData *vals) {
+            const size_t plane = idx / n;
+            const TData weight = metric[idx - plane * n] * planeWeights[plane];
+            for (unsigned int s = 0; s < NRED; ++s)
             {
-                const TData w12 = w1[j] * w2k;
-                for (unsigned int i = 0; i < nq0; ++i, ++cnt)
-                {
-                    const unsigned int index = warpsize * cnt + ilane;
-                    const TData jacobian =
-                        DEFORMED ? jacptr[index] : jacptr[ilane];
-
-                    acc += w0[i] * w12 * jacobian;
-                }
+                const TData value = in[s * compSize + idx];
+                vals[s]           = weight != TData(0.0)
+                                        ? weight * INTEGRALOP<TData>()(value)
+                                        : TData(0.0);
             }
-        }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, volume);
-}
-#endif
-
-// 3D Case - Non-interleaved
-template <unsigned int interleaveWidth, bool DEFORMED, typename TthreadBlock,
-          typename TData,
-          std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
-NEK_DEVICE_KERNEL void VolumeKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-    const TData *NEK_RESTRICT jac, TData *NEK_RESTRICT volume,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
-    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
-
-    TData acc                 = 0.0;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-    size_t e                  = getBlockIdx<0>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = (idx / nq0) % nq1;
-            const unsigned int k = idx / (nq0 * nq1);
-            const TData jacobian = DEFORMED ? jacptr[idx] : jacptr[0];
-
-            acc += w0[i] * w1[j] * w2[k] * jacobian;
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, volume);
-}
-
-// The IntegralKernelLauncher family strides between components with the
-// compSize the caller passes, taken from the block's own CompSize(). Do not
-// recompute it here as roundUp(nelmt, warpSize) * nqTot: a block is padded to
-// NektarSpaces::max_vector_width, which is max(AVX width, warpSize), so that
-// re-derivation is only correct where the two happen to be equal. It was wrong
-// for every block with an element count not a multiple of the SIMD width, and
-// every component after the first was then read from the wrong offset.
-//
-// 1D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) &&                                              \
-      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
-template <
-    template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
-    bool DEFORMED, typename TthreadBlock, typename TData,
-    std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
-        Enable = true>
-NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const size_t nelmt, const size_t compSize,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int jacsize      = DEFORMED ? nq0 : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    TData acc            = 0.0;
-    size_t e             = getGlobalIdx<0>(threadBlock);
-    const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane  = e % warpsize;
-        const size_t iwarp  = e / warpsize;
-        const TData *jacptr = jac + jacsize * warpsize * iwarp;
-        const TData *inptr  = in + compSize * c + nq0 * warpsize * iwarp;
-
-        for (unsigned int i = 0; i < nq0; ++i)
-        {
-            const unsigned int index = warpsize * i + ilane;
-            const TData jacobian     = DEFORMED ? jacptr[index] : jacptr[ilane];
-
-            acc += INTEGRALOP<TData>()(inptr[index]) * w0[i] * jacobian;
-        }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, integral + c);
-}
-#endif
-
-// 1D Case - Non-interleaved
-template <template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
-          bool DEFORMED, typename TthreadBlock, typename TData,
-          std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
-NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const size_t nelmt, const size_t compSize,
-    const TData *NEK_RESTRICT w0, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int jacsize = DEFORMED ? nq0 : 1u;
-
-    TData acc                 = 0.0;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-    size_t e                  = getBlockIdx<0>(threadBlock);
-    const unsigned int c      = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + compSize * c + nq0 * e;
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            const TData jacobian = DEFORMED ? jacptr[idx] : jacptr[0];
-
-            acc += INTEGRALOP<TData>()(inptr[idx]) * w0[idx] * jacobian;
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, integral + c);
-}
-
-// 2D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) &&                                              \
-      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
-template <
-    template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
-    bool DEFORMED, typename TthreadBlock, typename TData,
-    std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
-        Enable = true>
-NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const size_t compSize, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot        = nq0 * nq1;
-    const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    TData acc            = 0.0;
-    size_t e             = getGlobalIdx<0>(threadBlock);
-    const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane  = e % warpsize;
-        const size_t iwarp  = e / warpsize;
-        const TData *jacptr = jac + jacsize * warpsize * iwarp;
-        const TData *inptr  = in + compSize * c + nqTot * warpsize * iwarp;
-
-        for (unsigned int j = 0, cnt = 0; j < nq1; ++j)
-        {
-            const TData w1j = w1[j];
-            for (unsigned int i = 0; i < nq0; ++i, ++cnt)
-            {
-                const unsigned int index = warpsize * cnt + ilane;
-                const TData jacobian = DEFORMED ? jacptr[index] : jacptr[ilane];
-
-                acc +=
-                    INTEGRALOP<TData>()(inptr[index]) * w0[i] * w1j * jacobian;
-            }
-        }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, integral + c);
-}
-#endif
-
-// 2D Case - Non-interleaved
-template <template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
-          bool DEFORMED, typename TthreadBlock, typename TData,
-          std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
-NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const size_t nelmt,
-    const size_t compSize, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT jac,
-    const TData *NEK_RESTRICT in, TData *NEK_RESTRICT integral,
-    const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot   = nq0 * nq1;
-    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
-
-    TData acc                 = 0.0;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-    size_t e                  = getBlockIdx<0>(threadBlock);
-    const unsigned int c      = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + compSize * c + nqTot * e;
-
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = idx / nq0;
-            const TData jacobian = DEFORMED ? jacptr[idx] : jacptr[0];
-
-            acc += INTEGRALOP<TData>()(inptr[idx]) * w0[i] * w1[j] * jacobian;
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, integral + c);
-}
-
-// 3D Case - Interleaved
-#if !(defined(SYCL_ENABLE_CPU) &&                                              \
-      (defined(__ADAPTIVECPP__) || defined(__DPCPP_COMPILER_NATIVE_CPU)))
-template <
-    template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
-    bool DEFORMED, typename TthreadBlock, typename TData,
-    std::enable_if_t<interleaveWidth == NektarSpaces::Device::warpSize, bool>
-        Enable = true>
-NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const size_t compSize, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot        = nq0 * nq1 * nq2;
-    const unsigned int jacsize      = DEFORMED ? nqTot : 1u;
-    constexpr unsigned int warpsize = NektarSpaces::Device::warpSize;
-
-    TData acc            = 0.0;
-    size_t e             = getGlobalIdx<0>(threadBlock);
-    const unsigned int c = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const size_t ilane  = e % warpsize;
-        const size_t iwarp  = e / warpsize;
-        const TData *jacptr = jac + jacsize * warpsize * iwarp;
-        const TData *inptr  = in + compSize * c + nqTot * warpsize * iwarp;
-
-        for (unsigned int k = 0, cnt = 0; k < nq2; ++k)
-        {
-            const TData w2k = w2[k];
-            for (unsigned int j = 0; j < nq1; ++j)
-            {
-                const TData w12 = w1[j] * w2k;
-                for (unsigned int i = 0; i < nq0; ++i, ++cnt)
-                {
-                    const unsigned int index = warpsize * cnt + ilane;
-                    const TData jacobian =
-                        DEFORMED ? jacptr[index] : jacptr[ilane];
-
-                    acc += INTEGRALOP<TData>()(inptr[index]) * w0[i] * w12 *
-                           jacobian;
-                }
-            }
-        }
-
-        e += getGlobalRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, integral + c);
-}
-#endif
-
-// 3D Case - Non-interleaved
-template <template <typename> typename INTEGRALOP, unsigned int interleaveWidth,
-          bool DEFORMED, typename TthreadBlock, typename TData,
-          std::enable_if_t<interleaveWidth == 1u, bool> Enable = true>
-NEK_DEVICE_KERNEL void IntegralKernelLauncher(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const size_t nelmt, const size_t compSize, const TData *NEK_RESTRICT w0,
-    const TData *NEK_RESTRICT w1, const TData *NEK_RESTRICT w2,
-    const TData *NEK_RESTRICT jac, const TData *NEK_RESTRICT in,
-    TData *NEK_RESTRICT integral, const TthreadBlock &threadBlock)
-{
-    const unsigned int nqTot   = nq0 * nq1 * nq2;
-    const unsigned int jacsize = DEFORMED ? nqTot : 1u;
-
-    TData acc                 = 0.0;
-    const unsigned int idx0   = getLocalIdx<0>(threadBlock);
-    const unsigned int stride = getLocalRange<0>(threadBlock);
-    size_t e                  = getBlockIdx<0>(threadBlock);
-    const unsigned int c      = getBlockIdx<1>(threadBlock);
-    while (e < nelmt)
-    {
-        const TData *jacptr = jac + jacsize * e;
-        const TData *inptr  = in + compSize * c + nqTot * e;
-
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = (idx / nq0) % nq1;
-            const unsigned int k = idx / (nq0 * nq1);
-            const TData jacobian = DEFORMED ? jacptr[idx] : jacptr[0];
-
-            acc += INTEGRALOP<TData>()(inptr[idx]) * w0[i] * w1[j] * w2[k] *
-                   jacobian;
-        }
-
-        e += getBlockRange<0>(threadBlock);
-    }
-
-    blockReduceSum(acc, threadBlock, integral + c);
+        },
+        out);
+    Nektar::LoopExecutionSetStreamID(0);
 }
 
 #endif
