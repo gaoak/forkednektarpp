@@ -52,10 +52,6 @@ static const NekDouble kNekMachineEpsilon =
     std::numeric_limits<NekDouble>::epsilon();
 static const NekDouble kNekSparseNonZeroTol = kNekMachineEpsilon;
 
-// Tolerances for mesh generation and CAD handling
-static const NekDouble GeomTol = 1.0e-02;
-static const NekDouble CoinTol = 1.0e-06;
-
 // Factor for tolerance for floating point comparison
 static const unsigned int kNekFloatCompFact = 4;
 

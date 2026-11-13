@@ -57,7 +57,6 @@ int main(int argc, char *argv[])
     Array<OneD, NekDouble> fce;
     Array<OneD, NekDouble> xc0, xc1, xc2;
     StdRegions::ConstFactorMap factors;
-    FlagList flags;
 
     if (argc < 2)
     {

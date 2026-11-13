@@ -54,7 +54,6 @@ int main(int argc, char *argv[])
     MultiRegions::ContField3DHomogeneous1DSharedPtr Exp_u, Exp_v, Exp_w;
 
     StdRegions::ConstFactorMap factors;
-    FlagList flags;
 
     if ((argc != 2) && (argc != 3))
     {
@@ -102,7 +101,6 @@ int main(int argc, char *argv[])
 
     //----------------------------------------------
     // Print summary of solution details
-    flags.set(eUseGlobal, false);
 
     const SpatialDomains::ExpansionInfoMap &expansions =
         graph2D->GetExpansionInfo();
