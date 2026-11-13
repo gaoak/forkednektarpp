@@ -47,9 +47,10 @@ namespace Nektar::MultiRegions::detail
 {
 
 /**
- * @brief Adds the surface integral of boundary fields, per component, to a
- * reduction in the memory space of @p ExecSpace, from the inner products of
- * the fields with the basis of their boundary expansion lists.
+ * @brief Adds the surface integral of boundary fields, per component and
+ * homogeneous plane, to a reduction in the memory space of @p ExecSpace, from
+ * the inner products of the fields with the basis of their boundary expansion
+ * lists.
  *
  * @details
  * The surface integral of a field is the sum of its inner products with the
@@ -151,7 +152,8 @@ public:
      * @brief Add the surface integral of component nc of every field
      * coeffs[n], the fields of the boundary expansion lists this was built
      * for, in the same order, to data[offset + nc], where isComp[n][nc]
-     * holds.
+     * holds. With homogeneous planes, that of plane p of component nc is
+     * added to data[offset + nc * nHomo + p].
      */
     void Add(std::vector<LibUtilities::Field<TData, FieldState::Coeff>> &coeffs,
              LibUtilities::MemoryRegion<TData> &data, const size_t offset)
@@ -172,9 +174,11 @@ public:
 
         for (unsigned int n = 0; n < coeffs.size(); ++n)
         {
-            ASSERTL0(coeffs[n].GetNumHomoModes() == 1,
-                     "The surface integral holds one value per component, "
-                     "not one per homogeneous mode.");
+            const unsigned int nHomo = coeffs[n].GetNumHomoModes();
+            ASSERTL1(offset + coeffs[n].GetNumComponents() * nHomo <=
+                         data.size(),
+                     "The surface integral holds one value per component "
+                     "and homogeneous plane.");
 
             for (unsigned int blk = 0; blk < coeffs[n].GetBlocks().size();
                  ++blk)
@@ -185,9 +189,9 @@ public:
                 auto srcPtr =
                     block.template GetPtr<MemSpace, ReadOnly>(streamID);
                 const unsigned int nComp = coeffs[n].GetNumComponents();
-                for (unsigned int nc = 0; nc < nComp; ++nc)
+                for (unsigned int i = 0; i < nComp * nHomo; ++i)
                 {
-                    if (!m_isComp[n][nc])
+                    if (!m_isComp[n][i / nHomo])
                     {
                         continue;
                     }
@@ -196,14 +200,14 @@ public:
                     {
                         Math::reduceSumKernel<ExecSpace, false>(
                             block.CompSize(), maskPtr,
-                            srcPtr + nc * block.CompSize(),
-                            dataPtr + offset + nc, streamID);
+                            srcPtr + i * block.CompSize(), dataPtr + offset + i,
+                            streamID);
                     }
                     else
                     {
                         Math::reduceSumKernel<ExecSpace, false>(
-                            block.CompSize(), srcPtr + nc * block.CompSize(),
-                            dataPtr + offset + nc, streamID);
+                            block.CompSize(), srcPtr + i * block.CompSize(),
+                            dataPtr + offset + i, streamID);
                     }
                 }
             }

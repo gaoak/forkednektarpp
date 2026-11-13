@@ -223,8 +223,8 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
         ADD_OPERATOR(${child} OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
     ENDFOREACH()
 
-    # Set compilation for the MeanRemoval, Norm and CFL block operators
-    FILE(GLOB children MeanRemoval NormOps/* CFL/*)
+    # Set compilation for the Mean, Norm and CFL block operators
+    FILE(GLOB children Mean NormOps/* CFL/*)
     FOREACH(child ${children})
         ADD_BLOCK_OPERATOR(${child} OPNAMESPACE SOLVER_CORE_HEADERS SOLVER_CORE_SOURCES)
     ENDFOREACH()

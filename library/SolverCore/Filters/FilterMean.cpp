@@ -72,23 +72,28 @@ FilterMean::FilterMean(const LibUtilities::SessionReaderSharedPtr &session,
  */
 void FilterMean::v_Initialise(FilterContext &context)
 {
-    ASSERTL0(!m_session->DefinesSolverInfo("HOMOGENEOUS"),
-             "Mean does not support homogeneous expansions.");
-
     const auto &groups = context.fields.GetPhysicalGroups();
     ASSERTL0(!groups.empty(), "Mean found no physical fields.");
 
     m_meanOps.clear();
     m_componentCounts.clear();
     m_variables.clear();
+    unsigned int dimension = 0;
     for (const auto &view : groups)
     {
-        ASSERTL0(view.spaceDimension == 2 || view.spaceDimension == 3,
+        // A 3DH1 expansion is a 2D mesh extended by the homogeneous direction.
+        const bool homo1D =
+            view.expansion->GetExpType() == MultiRegions::e3DH1D;
+        const auto shapeDim = view.expansion->GetShapeDimension();
+        dimension           = shapeDim + (homo1D ? 1 : 0);
+
+        ASSERTL0(dimension == 2 || dimension == 3,
                  "Mean supports only 2D and 3D fields.");
-        ASSERTL0(view.expansion->GetShapeDimension() == view.spaceDimension,
+        ASSERTL0(shapeDim == view.spaceDimension ||
+                     (homo1D && dimension == view.spaceDimension),
                  "Mean does not support embedded-manifold expansions.");
-        ASSERTL0(view.field.get().GetNumHomoModes() == 1,
-                 "Mean does not support homogeneous expansions.");
+        ASSERTL0(homo1D || view.field.get().GetNumHomoModes() == 1,
+                 "Mean supports only 3DH1 homogeneous expansions.");
         ASSERTL0(view.field.get().GetNumComponents() == view.components.size(),
                  "Mean physical field component mismatch.");
 
@@ -103,7 +108,7 @@ void FilterMean::v_Initialise(FilterContext &context)
     m_writer = std::make_unique<RootTableWriter>(m_session->GetComm());
     m_writer->Open(m_outputFile);
     ComputeMeans(context);
-    WriteHeader(groups.front().spaceDimension);
+    WriteHeader(dimension);
 
     if (m_schedule.Due(context))
     {
@@ -126,7 +131,7 @@ void FilterMean::v_Apply(FilterContext &context)
  * @brief Evaluate the domain average of every variable.
  *
  * Collective: every rank must call this so each operator's reduction
- * completes, although only rank zero receives the averages and the volume.
+ * completes.
  */
 void FilterMean::ComputeMeans(FilterContext &context)
 {

@@ -35,6 +35,7 @@
 #define BOOST_TEST_MODULE TestMean
 
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
@@ -72,18 +73,37 @@ static LibUtilities::SessionReaderSharedPtr SetSession(const std::string &xml,
     return session;
 }
 
+// Homogeneous length of the 3DH1 cases, other than 1 so that it shows.
+static constexpr double homoLen = 2.0;
+
+// A 2D or 3D expansion list without a homogeneous direction, or a 3DH1 one
+// with nHomo planes.
 static MultiRegions::ExpListSharedPtr SetExpList(
-    const LibUtilities::SessionReaderSharedPtr &session)
+    const LibUtilities::SessionReaderSharedPtr &session,
+    const unsigned int nHomo = 1)
 {
-    auto graph   = SpatialDomains::MeshGraphIO::Read(session);
-    auto explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, graph, true, "u", Collections::eNoCollection);
+    auto graph = SpatialDomains::MeshGraphIO::Read(session);
+    MultiRegions::ExpListSharedPtr explist;
+    if (nHomo == 1)
+    {
+        explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+            session, graph, true, "u", Collections::eNoCollection);
+    }
+    else
+    {
+        const LibUtilities::PointsKey pkey(nHomo,
+                                           LibUtilities::eFourierEvenlySpaced);
+        const LibUtilities::BasisKey bkey(LibUtilities::eFourier, nHomo, pkey);
+        explist = MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+            AllocateSharedPtr(session, bkey, homoLen, false, false, graph, "u",
+                              Collections::eNoCollection);
+    }
     explist->SetDataWarehouse();
     return explist;
 }
 
 // Evaluates one analytic function per component at the quadrature points,
-// flattened component-major.
+// flattened component-major, and plane-major within a component.
 using ComponentFunction =
     std::function<double(unsigned int, double, double, double)>;
 
@@ -114,7 +134,8 @@ static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
                        const std::vector<std::string> &variables,
                        const Array<OneD, double> &values,
                        const std::vector<double> &expectedMeans,
-                       const double expectedVolume)
+                       const double expectedVolume,
+                       const unsigned int nHomo = 1)
 {
     const double tol = 1.0e-12;
     const auto nComp = static_cast<unsigned int>(variables.size());
@@ -130,7 +151,7 @@ static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
         BOOST_TEST_CONTEXT("interleave=" << interleaveWidth)
         {
             LibUtilities::Field<double, FieldState::Phys> field("u", blockAttr,
-                                                                nComp, 1);
+                                                                nComp, nHomo);
             field.template CopyArray<NektarSpaces::HostSpace>(values);
             field.ReshapeStorage(interleaveWidth, execStr);
 
@@ -155,10 +176,11 @@ static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
 }
 
 // A constant field averages to that constant on any domain.
-static void RunConstantTest(const std::string &xml, const std::string &execStr)
+static void RunConstantTest(const std::string &xml, const std::string &execStr,
+                            const unsigned int nHomo = 1)
 {
     auto session     = SetSession(xml, execStr);
-    auto explist     = SetExpList(session);
+    auto explist     = SetExpList(session, nHomo);
     const auto vars  = session->GetVariables();
     const auto nComp = static_cast<unsigned int>(vars.size());
 
@@ -175,7 +197,7 @@ static void RunConstantTest(const std::string &xml, const std::string &execStr)
                                   [&](unsigned int comp, double, double,
                                       double) { return expected[comp]; });
 
-    CheckMeans(explist, execStr, vars, values, expected, volume);
+    CheckMeans(explist, execStr, vars, values, expected, volume, nHomo);
 }
 
 // A linear field on the unit square centred at the origin averages to its
@@ -202,10 +224,11 @@ static void RunLinearTest(const std::string &execStr)
 
 // A general polynomial field is compared with the expansion list's own
 // quadrature, on a mesh with several element types and orders.
-static void RunIntegralTest(const std::string &xml, const std::string &execStr)
+static void RunIntegralTest(const std::string &xml, const std::string &execStr,
+                            const unsigned int nHomo = 1)
 {
     auto session         = SetSession(xml, execStr);
-    auto explist         = SetExpList(session);
+    auto explist         = SetExpList(session, nHomo);
     const auto vars      = session->GetVariables();
     const auto nComp     = static_cast<unsigned int>(vars.size());
     const size_t nPoints = explist->GetTotPoints();
@@ -232,7 +255,7 @@ static void RunIntegralTest(const std::string &xml, const std::string &execStr)
         expected[comp] = explist->Integral(component) / volume;
     }
 
-    CheckMeans(explist, execStr, vars, values, expected, volume);
+    CheckMeans(explist, execStr, vars, values, expected, volume, nHomo);
 }
 #endif
 
@@ -273,6 +296,23 @@ BOOST_AUTO_TEST_CASE(Mean_Integral)
         BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
         {
             RunIntegralTest(xml, execStr);
+        }
+    }
+}
+
+// 3DH1: a 2D mesh with four planes over the homogeneous length; the volume
+// is the mesh area times the homogeneous length.
+BOOST_AUTO_TEST_CASE(Mean_3DH1)
+{
+    const std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+    for (const std::string xml :
+         {"run/square.xml", "run/square_all_elements.xml"})
+    {
+        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
+        {
+            RunConstantTest(xml, execStr, 4);
+            RunIntegralTest(xml, execStr, 4);
         }
     }
 }

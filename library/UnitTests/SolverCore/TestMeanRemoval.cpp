@@ -39,6 +39,7 @@
 
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SpatialDomains/Conditions.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
@@ -81,15 +82,31 @@ static LibUtilities::SessionReaderSharedPtr SetSession(
     return session;
 }
 
+// Homogeneous length of the 3DH1 cases, other than 1 so that it shows.
+static constexpr double homoLen = 2.0;
+
+// A volume ExpList, or a 3DH1 one with nHomo planes.
 static MultiRegions::ExpListSharedPtr SetExpList(
-    const LibUtilities::SessionReaderSharedPtr &session)
+    const LibUtilities::SessionReaderSharedPtr &session,
+    const unsigned int nHomo = 1)
 {
     auto graph = SpatialDomains::MeshGraphIO::Read(session);
-    return MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, graph, true, "u", Collections::eNoCollection);
+    if (nHomo == 1)
+    {
+        return MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+            session, graph, true, "u", Collections::eNoCollection);
+    }
+
+    const LibUtilities::PointsKey pkey(nHomo,
+                                       LibUtilities::eFourierEvenlySpaced);
+    const LibUtilities::BasisKey bkey(LibUtilities::eFourier, nHomo, pkey);
+    return MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+        AllocateSharedPtr(session, bkey, homoLen, false, false, graph, "u",
+                          Collections::eNoCollection);
 }
 
-// Analytic, per-component input field, flattened component-major. Deliberately
+// Analytic, per-component input field, flattened component-major, and
+// plane-major within a component for a 3DH1 ExpList. Deliberately
 // carries a non-zero volume-averaged mean per component (the leading constant).
 static void FillField(const MultiRegions::ExpListSharedPtr &explist,
                       unsigned int nComp, size_t npts,
@@ -113,10 +130,11 @@ static void FillField(const MultiRegions::ExpListSharedPtr &explist,
 // Runner: build session/ExpList, fill fields, apply MeanRemovalOp, and check
 // against an independent oracle (mean computed from ExpList's own quadrature).
 static void RunMeanRemovalTest(const std::string &xml,
-                               const std::string &execStr)
+                               const std::string &execStr,
+                               const unsigned int nHomo = 1)
 {
     auto session = SetSession(xml, execStr);
-    auto explist = SetExpList(session);
+    auto explist = SetExpList(session, nHomo);
     explist->SetDataWarehouse();
 
     const size_t npts        = explist->GetTotPoints();
@@ -160,7 +178,7 @@ static void RunMeanRemovalTest(const std::string &xml,
     // --- Non-interleaved storage ---
     {
         LibUtilities::Field<double, FieldState::Phys> f("u", blockAttr, nComp,
-                                                        1);
+                                                        nHomo);
         f.template CopyArray<NektarSpaces::HostSpace>(orig);
 
         op->Apply(f);
@@ -188,7 +206,7 @@ static void RunMeanRemovalTest(const std::string &xml,
     // ---
     {
         LibUtilities::Field<double, FieldState::Phys> f("u", blockAttr, nComp,
-                                                        1);
+                                                        nHomo);
         f.template CopyArray<NektarSpaces::HostSpace>(orig);
 
         const unsigned int width =
@@ -297,6 +315,7 @@ static void RunMeanRemovalTest(const std::string &xml,
 struct Case
 {
     std::string xml;
+    unsigned int nHomo = 1;
 };
 
 [[maybe_unused]] static void RunCases(const std::string &execStr,
@@ -304,9 +323,10 @@ struct Case
 {
     for (const auto &tc : cases)
     {
-        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << tc.xml)
+        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << tc.xml
+                                   << " nHomo=" << tc.nHomo)
         {
-            RunMeanRemovalTest(tc.xml, execStr);
+            RunMeanRemovalTest(tc.xml, execStr, tc.nHomo);
         }
     }
 }
@@ -326,6 +346,21 @@ BOOST_AUTO_TEST_CASE(MeanRemoval_MeanSubtraction)
         // Blocks with fewer elements than the interleave width, all padded.
         {"run/square_all_elements.xml"},
         {"run/cube_all_elements.xml"},
+    };
+
+    RunCases(execStr, cases);
+}
+
+// 3DH1: a 2D mesh with four planes over the homogeneous length; one constant,
+// the mean over the 3D domain, is removed from every plane.
+BOOST_AUTO_TEST_CASE(MeanRemoval_3DH1)
+{
+    std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+
+    const std::vector<Case> cases = {
+        {"run/square.xml", 4},
+        {"run/square_all_elements.xml", 4},
     };
 
     RunCases(execStr, cases);

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MeanRemovalBlockOp.hpp
+// File: MeanBlockOp.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -40,20 +40,20 @@ namespace Nektar::SolverCore
 {
 
 template <typename TData>
-class MeanRemovalBlockOp : public MultiRegions::BlockOperator<TData>
+class MeanBlockOp : public MultiRegions::BlockOperator<TData>
 {
 public:
-    static std::shared_ptr<MeanRemovalBlockOp<TData>> Create(
+    static std::shared_ptr<MeanBlockOp<TData>> Create(
         const unsigned int block_idx,
         const LocalRegions::ExpansionSharedPtr &exp,
         LibUtilities::NekDataWarehouseSharedPtr dataWarehouse,
         const std::string &execStr)
     {
-        return MultiRegions::BlockOperator<TData>::template Create<
-            MeanRemovalBlockOp>(block_idx, exp, dataWarehouse, execStr);
+        return MultiRegions::BlockOperator<TData>::template Create<MeanBlockOp>(
+            block_idx, exp, dataWarehouse, execStr);
     }
 
-    static inline const std::string name = "BlockMeanRemoval";
+    static inline const std::string name = "BlockMean";
 
     void Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                LibUtilities::MemoryRegion<TData> &data)
@@ -83,19 +83,19 @@ public:
 protected:
     size_t m_nelmt = 0;
 
-    MeanRemovalBlockOp(const unsigned int block_idx,
-                       const LocalRegions::ExpansionSharedPtr &exp,
-                       LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
+    MeanBlockOp(const unsigned int block_idx,
+                const LocalRegions::ExpansionSharedPtr &exp,
+                LibUtilities::NekDataWarehouseSharedPtr dataWarehouse)
         : MultiRegions::BlockOperator<TData>(block_idx, exp, dataWarehouse)
     {
     }
 
-    ~MeanRemovalBlockOp() override = default;
+    ~MeanBlockOp() override = default;
 
     /// The creators return a std::unique_ptr to this class, which the
     /// factory converts to the shared_ptr it hands out; their deleter
     /// destroys the operator through this destructor.
-    friend struct std::default_delete<MeanRemovalBlockOp>;
+    friend struct std::default_delete<MeanBlockOp>;
 
     virtual void v_Apply(
         LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
