@@ -56,11 +56,11 @@ namespace Nektar::SolverCore
  * the domain volume \f$ \int_\Omega 1 \, d\Omega \f$ (the length or area in
  * 1D or 2D).
  *
- * With a homogeneous direction (3DH1) the block operators integrate each
- * local plane separately. The plane integrals are reduced over the ranks
- * sharing the planes, summed with their z quadrature weights and reduced
- * over the ranks holding the other planes. The volume is the plane
- * area times the homogeneous length.
+ * With a homogeneous direction (3DH1) the block operators sum the local
+ * planes of each component with their z quadrature weights. The integrals
+ * are reduced over the ranks sharing the planes and over the ranks holding
+ * the other planes. The volume is the plane area times the homogeneous
+ * length.
  *
  * Apply() is collective: every rank must call it. GetMeans() and GetVolume()
  * are valid on every rank.
@@ -85,6 +85,19 @@ public:
         auto op = MultiRegions::Operator<TData>::template Create<MeanOp>(
             expansionList, components, execStr0);
 
+        // z quadrature weight of each local plane, times Lhom / 2, with which
+        // the block ops sum the planes; empty without a homogeneous direction.
+        std::vector<TData> planeWeights;
+        if (op->m_homogeneous)
+        {
+            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
+            const auto zIDs = expansionList->GetZIDs();
+            for (unsigned int n = 0; n < zIDs.size(); ++n)
+            {
+                planeWeights.push_back(w[zIDs[n]] * op->m_homoLen * 0.5);
+            }
+        }
+
         const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
@@ -101,6 +114,10 @@ public:
                 execStr0));
             op->m_blockOp.back()->SetNumElements(
                 blockAttr[block_idx].GetNumElements());
+            if (op->m_homogeneous)
+            {
+                op->m_blockOp.back()->SetPlaneWeights(planeWeights);
+            }
         }
 
         return op;
@@ -140,12 +157,10 @@ public:
 protected:
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
+    /// Whether the field has a homogeneous direction (3DH1).
+    bool m_homogeneous = false;
     /// Homogeneous length, or 1 without a homogeneous direction.
     TData m_homoLen = 1.0;
-    /// z quadrature weight of each local plane, times Lhom / 2; empty
-    /// without a homogeneous direction.
-    std::vector<TData> m_planeWeights;
-    LibUtilities::MemoryRegion<TData> m_plane;
     /// Reduced integral of each component from Apply(), allocated by the
     /// implementation's constructor.
     LibUtilities::MemoryRegion<TData> m_result;
@@ -157,14 +172,8 @@ protected:
     {
         if (expansionList->GetExpType() == MultiRegions::e3DH1D)
         {
-            m_homoLen = expansionList->GetHomoLen();
-
-            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
-            const auto zIDs = expansionList->GetZIDs();
-            for (unsigned int n = 0; n < zIDs.size(); ++n)
-            {
-                m_planeWeights.push_back(w[zIDs[n]] * m_homoLen * 0.5);
-            }
+            m_homogeneous = true;
+            m_homoLen     = expansionList->GetHomoLen();
         }
     }
 

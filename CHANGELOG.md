@@ -165,6 +165,7 @@ v5.11.0
 - Fix point location in curved elements, which could leave FieldConvert interpolation points unfound or evaluate them at the wrong local coordinates: accept a point only where the Newton iteration converged, start the 2D iteration from the nearest quadrature point, and let points just outside a straight edge of the domain boundary fall back to the nearest element (!2894)
 - Add 3DH1 support to the NormL2 and NormLinf operators, and tidy them up (!2922)
 - Tidy the SolverCore SessionFunction: variables fixed at construction, a single `Evaluate()` at the quadrature points for expressions and files, with an optional scale, and `IsTimeDependent()`; use it for the ADR advection velocity and diffusion coefficient, and move the mixed-order pressure treatment to the incompressible solver (!2923)
+- Use the two-stage device reduction for NormL2 and Mean, and sum the 3DH1 planes of a component in one reduction, fixing NormL2, Mean and MeanRemoval with one local plane per rank (!2926)
 - Zero-fill undefined variables in SolverCore SessionFunction and add `SetScale()`, `SetAppend()` and `IsConstant()`; make ForcingBody a thin wrapper around it, with file and cached constant forcing (!2924)
 - Add 3DH1 support to MeanOp, MeanRemovalOp and the Mean filter (!2925)
 - Remove the unused FlagType enumeration, FlagTypeMap and FlagList class, the unused GeomTol and CoinTol constants, and duplicate integer typedefs (!2917)

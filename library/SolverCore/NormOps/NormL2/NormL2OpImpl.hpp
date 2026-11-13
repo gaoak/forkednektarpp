@@ -58,15 +58,6 @@ public:
         // GetNorms() takes their square roots.
         this->m_norm = LibUtilities::MemoryRegion<TData>(
             "NormL2", components.size(), eHostPinned);
-
-        // Layout: [ c0_p0, ..., c0_p{m-1}, c1_p0, ... ] over the m local
-        // planes; v_Apply() sums the planes into m_norm.
-        if (!this->m_planeWeights.empty())
-        {
-            this->m_plane = LibUtilities::MemoryRegion<TData>(
-                "NormL2 plane", components.size() * this->m_planeWeights.size(),
-                eHostPinned);
-        }
     }
 
     // className - for OperatorFactory
@@ -89,56 +80,32 @@ protected:
     {
         ASSERTL1(in.GetNumComponents() == this->m_components.size(),
                  "NormL2 field component count mismatch.");
-        ASSERTL1(in.GetNumHomoModes() == m_numPlanes,
+        ASSERTL1(in.GetNumHomoModes() == this->m_numPlanes,
                  "NormL2 field plane count mismatch.");
         ASSERTL1(in.GetBlocks().size() == this->m_blockOp.size(),
                  "NormL2 field block count changed after configuration.");
 
-        const auto numComp = in.GetNumComponents();
-        const auto numHomo = in.GetNumHomoModes();
-
-        // The block ops integrate each plane separately; without a
-        // homogeneous direction they write straight into the norms.
-        auto &plane = (numHomo == 1) ? this->m_norm : this->m_plane;
-
         // Reset norms.
-        plane.template Initialize<MemSpace>(TData{0});
+        this->m_norm.template Initialize<MemSpace>(TData{0});
 
-        // Loop all blocks.
+        // Loop all blocks. With a homogeneous direction they sum the local
+        // planes of each component with their z quadrature weights.
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             auto &inblock = in.GetBlocks()[blk];
-            this->m_blockOp[blk]->Apply(inblock, plane);
+            this->m_blockOp[blk]->Apply(inblock, this->m_norm);
         }
 
-        // Communicate norms.
+        // Sum over the ranks sharing the planes, then over the ranks holding
+        // the other planes.
         auto comm = this->m_expansionList->GetComm();
         comm->GetRowComm()->template AllReduce<MemSpace>(
-            plane, LibUtilities::ReduceSum);
-
-        if (numHomo == 1)
-        {
-            return;
-        }
-
-        // Sum the planes with their z quadrature weights, then over the
-        // ranks holding the other planes.
-        auto planeptr =
-            plane.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        auto normptr =
-            this->m_norm.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int nc = 0; nc < numComp; ++nc)
-        {
-            normptr[nc] = 0.0;
-            for (unsigned int p = 0; p < numHomo; ++p)
-            {
-                normptr[nc] +=
-                    this->m_planeWeights[p] * planeptr[nc * numHomo + p];
-            }
-        }
-
-        comm->GetColumnComm()->template AllReduce<NektarSpaces::HostSpace>(
             this->m_norm, LibUtilities::ReduceSum);
+        if (this->m_homogeneous)
+        {
+            comm->GetColumnComm()->template AllReduce<MemSpace>(
+                this->m_norm, LibUtilities::ReduceSum);
+        }
     }
 
     /// The volume of the mesh, summed over the blocks and across the ranks,

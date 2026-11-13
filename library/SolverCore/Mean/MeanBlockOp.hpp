@@ -80,8 +80,20 @@ public:
         m_nelmt = nelmt;
     }
 
+    /// Set the z quadrature weight of each local plane, with which the
+    /// planes of a component are summed into its one integral. Left unset
+    /// without a homogeneous direction.
+    void SetPlaneWeights(const std::vector<TData> &planeWeights)
+    {
+        m_planeWeights = LibUtilities::MemoryRegion<TData>::template FromVector<
+            NektarSpaces::HostSpace>("Plane weights", planeWeights);
+    }
+
 protected:
     size_t m_nelmt = 0;
+    /// z quadrature weight of each local plane; empty without a homogeneous
+    /// direction.
+    LibUtilities::MemoryRegion<TData> m_planeWeights;
 
     MeanBlockOp(const unsigned int block_idx,
                 const LocalRegions::ExpansionSharedPtr &exp,

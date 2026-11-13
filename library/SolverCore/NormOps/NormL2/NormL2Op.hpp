@@ -61,6 +61,19 @@ public:
         auto op = MultiRegions::Operator<TData>::template Create<NormL2Op>(
             expansionList, components, execStr0);
 
+        // z quadrature weight of each local plane, times Lhom / 2, with which
+        // the block ops sum the planes; empty without a homogeneous direction.
+        std::vector<TData> planeWeights;
+        if (op->m_homogeneous)
+        {
+            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
+            const auto zIDs = expansionList->GetZIDs();
+            for (unsigned int n = 0; n < zIDs.size(); ++n)
+            {
+                planeWeights.push_back(w[zIDs[n]] * op->m_homoLen * 0.5);
+            }
+        }
+
         const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 expansionList);
@@ -77,6 +90,10 @@ public:
                 execStr0));
             op->m_blockOp.back()->SetNumElements(
                 blockAttr[block_idx].GetNumElements());
+            if (op->m_homogeneous)
+            {
+                op->m_blockOp.back()->SetPlaneWeights(planeWeights);
+            }
         }
 
         return op;
@@ -116,12 +133,10 @@ public:
 protected:
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
+    /// Whether the field has a homogeneous direction (3DH1).
+    bool m_homogeneous = false;
     /// Homogeneous length, or 1 without a homogeneous direction.
     TData m_homoLen = 1.0;
-    /// z quadrature weight of each local plane, times Lhom / 2; empty
-    /// without a homogeneous direction.
-    std::vector<TData> m_planeWeights;
-    LibUtilities::MemoryRegion<TData> m_plane;
     LibUtilities::MemoryRegion<TData> m_norm;
     std::vector<std::shared_ptr<NormL2BlockOp<TData>>> m_blockOp;
 
@@ -131,14 +146,8 @@ protected:
     {
         if (expansionList->GetExpType() == MultiRegions::e3DH1D)
         {
-            m_homoLen = expansionList->GetHomoLen();
-
-            const auto w    = expansionList->GetHomogeneousBasis()->GetW();
-            const auto zIDs = expansionList->GetZIDs();
-            for (unsigned int n = 0; n < zIDs.size(); ++n)
-            {
-                m_planeWeights.push_back(w[zIDs[n]] * m_homoLen * 0.5);
-            }
+            m_homogeneous = true;
+            m_homoLen     = expansionList->GetHomoLen();
         }
     }
 

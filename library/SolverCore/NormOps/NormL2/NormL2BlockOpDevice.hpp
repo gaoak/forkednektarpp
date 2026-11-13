@@ -36,10 +36,8 @@
 
 #include <array>
 
-#include <MultiRegions/ElmtOps/ElmtBlockOp.hpp>
 #include <SolverCore/NormOps/NormL2/NormL2BlockOp.hpp>
 
-#include <LibUtilities/BasicUtils/DataWarehouse/BasisDataWarehouse.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
 
@@ -58,30 +56,7 @@ public:
         : NormL2BlockOp<TData>(block_idx, exp, dataWarehouse)
     {
         m_streamID = block_idx + 1;
-
-        // Determine shape and type of the element.
-        m_shapeType = exp->DetShapeType();
-        m_isDeformed =
-            exp->GetGeomFactors()->GetGtype() == SpatialDomains::eDeformed;
-        m_nqTot     = exp->GetTotPoints();
-        m_dimension = exp->GetShapeDimension();
-        m_coordDim  = exp->GetCoordim();
-
-        // Get basis keys for fetching matrices.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            m_dimension, LibUtilities::NullBasisKey);
-        for (unsigned int d = 0; d < m_dimension; d++)
-        {
-            basisKeys[d] = exp->GetBasis(d)->GetBasisKey();
-
-            // Fetch element size.
-            m_nq.push_back(exp->GetNumPoints(d));
-
-            // Fetch basis data.
-            m_W.push_back(this->m_dataWarehouse->template GetData<MemSpace>(
-                LibUtilities::BasisDataKey<TData>(basisKeys[d],
-                                                  LibUtilities::eWeights)));
-        }
+        m_nqTot    = exp->GetTotPoints();
     }
 
     // className - for BlockOperatorFactory
@@ -99,179 +74,93 @@ public:
 
 protected:
     unsigned int m_streamID;
-    LibUtilities::ShapeType m_shapeType;
-    bool m_isDeformed        = false;
-    unsigned int m_nqTot     = 0;
-    unsigned int m_dimension = 0;
-    unsigned int m_coordDim  = 0;
-    std::vector<unsigned int> m_nq;
-    std::vector<const TData *> m_W;
-    /// Jacobians for non-interleaved data (first) and for interleaved data
-    /// (second); null until first read at that layout.
-    std::array<const TData *, 2> m_jacptr{};
+    unsigned int m_nqTot = 0;
+    /// Quadrature metric of every point of the block for non-interleaved
+    /// data (first) and for interleaved data (second); null until first read
+    /// at that layout.
+    std::array<const TData *, 2> m_metric{};
+
+    /// The quadrature metric at @p interleaveWidth, fetched from the data
+    /// warehouse with the layout of the first input read in it, and kept.
+    const TData *GetMetric(const unsigned int interleaveWidth)
+    {
+        const TData *&metric = m_metric[interleaveWidth == 1 ? 0 : 1];
+        if (metric == nullptr)
+        {
+            metric = this->m_dataWarehouse->template GetData<MemSpace>(
+                LocalRegions::QuadratureMetricKey<TData>(this->m_block_idx,
+                                                         interleaveWidth));
+        }
+        return metric;
+    }
 
     void v_Apply(LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
                  LibUtilities::MemoryRegion<TData> &data) override
     {
-        switch (m_dimension)
-        {
-            case 1:
-            {
-                OperatorND<1>(inblock, data);
-                break;
-            }
-            case 2:
-            {
-                OperatorND<2>(inblock, data);
-                break;
-            }
-            case 3:
-            {
-                OperatorND<3>(inblock, data);
-                break;
-            }
-            default:
-                ASSERTL0(
-                    false,
-                    "NormL2 Device only implemented for dimension 1, 2 or 3.");
-        }
-    }
-
-    void v_Volume(LibUtilities::MemoryRegion<TData> &data) override
-    {
-        switch (m_dimension)
-        {
-            case 1:
-            {
-                VolumeND<1>(data);
-                break;
-            }
-            case 2:
-            {
-                VolumeND<2>(data);
-                break;
-            }
-            case 3:
-            {
-                VolumeND<3>(data);
-                break;
-            }
-            default:
-                ASSERTL0(
-                    false,
-                    "NormL2 Device only implemented for dimension 1, 2 or 3.");
-        }
-    }
-
-    template <unsigned int NDIM>
-    void OperatorND(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::MemoryRegion<TData> &data)
-    {
-        OperatorNDImpl<>(inblock, data,
-                         std::make_integer_sequence<unsigned int, NDIM>());
-    }
-
-    template <unsigned int NDIM>
-    void VolumeND(LibUtilities::MemoryRegion<TData> &data)
-    {
-        VolumeNDImpl<>(data, std::make_integer_sequence<unsigned int, NDIM>());
-    }
-
-    template <unsigned int... ind>
-    void OperatorNDImpl(
-        LibUtilities::BlockAccessor<TData, FieldState::Phys> &inblock,
-        LibUtilities::MemoryRegion<TData> &data,
-        std::integer_sequence<unsigned int, ind...>)
-    {
-        const auto nelmt    = inblock.GetNumElements();
-        const auto nelmtPad = inblock.GetNumElementsWithPadding();
-        const auto nComp    = inblock.GetNumComponents();
-        const auto nHomo    = inblock.GetNumHomoModes();
+        const unsigned int nComp = inblock.GetNumComponents();
+        const unsigned int nHomo = inblock.GetNumHomoModes();
+        const size_t compSize    = inblock.CompSize();
 
         // Initialize pointers.
         auto inptr   = inblock.template GetPtr<MemSpace, ReadOnly>(m_streamID);
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
-        // Get interleave parameter and the stride between components.
-        const auto interleaveWidth = inblock.GetInterleaveWidth();
-        const auto compSize        = inblock.CompSize();
+        // The metric is laid out like the input, so one storage index
+        // addresses the same point in both.
+        const TData *metric = GetMetric(inblock.GetInterleaveWidth());
 
-        // Set Kernel parameters.
-        const unsigned int shmemsize = 0;
-        const unsigned int blocksize =
-            (interleaveWidth == 1)
-                ? MultiRegions::GetDeviceBlockSize<MultiRegions::SumFacTOP>(
-                      m_nqTot)
-                : MultiRegions::GetDeviceBlockSize<MultiRegions::SumFac>(
-                      m_nqTot);
-        const unsigned int gridsize =
-            (interleaveWidth == 1)
-                ? MultiRegions::GetDeviceGridSize<MultiRegions::SumFacTOP>(
-                      nelmtPad, blocksize, shmemsize)
-                : MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
-                      nelmtPad, blocksize, shmemsize);
+        // With a homogeneous direction the planes of a component, stored one
+        // after the other, are summed with their weights in one reduction.
+        const TData *planeWeights =
+            (this->m_planeWeights.size() == 0)
+                ? nullptr
+                : this->m_planeWeights.template GetPtr<MemSpace, ReadOnly>(
+                      m_streamID);
 
-        // The Jacobian is fetched from the data warehouse with the layout of
-        // the first input read in it, and kept.
-        const TData *&jacptr = m_jacptr[interleaveWidth == 1 ? 0 : 1];
-        if (jacptr == nullptr)
-        {
-            jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-                LocalRegions::JacobianKey<TData>(this->m_block_idx,
-                                                 interleaveWidth));
-        }
-
-        // Compute norm.
-        if (m_isDeformed)
-        {
-            if (interleaveWidth == 1)
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square, 1u, true>),
-                    gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
-                    dataptr);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square,
-                                            NektarSpaces::Device::warpSize,
-                                            true>),
-                    gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
-                    dataptr);
-            }
-        }
-        else
-        {
-            if (interleaveWidth == 1)
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square, 1u, false>),
-                    gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
-                    dataptr);
-            }
-            else
-            {
-                DEVICE_2DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                    (IntegralKernelLauncher<IntegralOp::Square,
-                                            NektarSpaces::Device::warpSize,
-                                            false>),
-                    gridsize, nComp * nHomo, blocksize, 1, m_streamID,
-                    m_nq[ind]..., nelmt, compSize, m_W[ind]..., jacptr, inptr,
-                    dataptr);
-            }
-        }
+        // Compute norm, as many components to a reduction as there are left.
+        unsigned int cnt = 0;
+        cnt = Integrals<8>(cnt, nComp, nHomo, compSize, metric, planeWeights,
+                           inptr, dataptr);
+        cnt = Integrals<4>(cnt, nComp, nHomo, compSize, metric, planeWeights,
+                           inptr, dataptr);
+        cnt = Integrals<2>(cnt, nComp, nHomo, compSize, metric, planeWeights,
+                           inptr, dataptr);
+        Integrals<1>(cnt, nComp, nHomo, compSize, metric, planeWeights, inptr,
+                     dataptr);
     }
 
-    template <unsigned int... ind>
-    void VolumeNDImpl(LibUtilities::MemoryRegion<TData> &data,
-                      std::integer_sequence<unsigned int, ind...>)
+    /// Add the integrals of the squares of components [@p cnt, nComp), each
+    /// over its
+    /// @p nHomo planes, to data[@p cnt, nComp), @p NRED components to a
+    /// reduction while that many are left. Returns the first component not
+    /// done.
+    template <unsigned int NRED>
+    unsigned int Integrals(unsigned int cnt, const unsigned int nComp,
+                           const unsigned int nHomo, const size_t compSize,
+                           const TData *metric, const TData *planeWeights,
+                           const TData *inptr, TData *dataptr)
     {
-        // Number of elements in the block, with and without padding.
+        for (; cnt + NRED <= nComp; cnt += NRED)
+        {
+            if (planeWeights == nullptr)
+            {
+                IntegralKernelLauncher<ExecSpace, IntegralOp::Square, NRED>(
+                    compSize, metric, inptr + cnt * compSize, dataptr + cnt,
+                    m_streamID);
+            }
+            else
+            {
+                IntegralKernelLauncher<ExecSpace, IntegralOp::Square, NRED>(
+                    compSize, nHomo, metric, planeWeights,
+                    inptr + cnt * nHomo * compSize, dataptr + cnt, m_streamID);
+            }
+        }
+        return cnt;
+    }
+
+    void v_Volume(LibUtilities::MemoryRegion<TData> &data) override
+    {
+        // Number of elements in the block with padding.
         const size_t nelmt      = this->m_nelmt;
         constexpr auto vecWidth = NektarSpaces::max_vector_width<TData>::value;
         const size_t nelmtPad = ((nelmt + vecWidth - 1) / vecWidth) * vecWidth;
@@ -279,40 +168,12 @@ protected:
         // Initialize pointers.
         auto dataptr = data.template GetPtr<MemSpace, ReadWrite>(m_streamID);
 
-        // Use the device's default interleave width.
-        constexpr auto interleaveWidth = NektarSpaces::Device::warpSize;
+        // The metric at the device's default interleave width.
+        const TData *metric = GetMetric(NektarSpaces::Device::warpSize);
 
-        // Set Kernel parameters.
-        const unsigned int shmemsize = 0;
-        const unsigned int blocksize =
-            MultiRegions::GetDeviceBlockSize<MultiRegions::SumFac>(m_nqTot);
-        const unsigned int gridsize =
-            MultiRegions::GetDeviceGridSize<MultiRegions::SumFac>(
-                nelmtPad, blocksize, shmemsize);
-
-        // Volume of the block's elements. The interleaved Jacobian is fetched
-        // from the data warehouse on first use, and kept.
-        const TData *&jacptr = m_jacptr[1];
-        if (jacptr == nullptr)
-        {
-            jacptr = this->m_dataWarehouse->template GetData<MemSpace>(
-                LocalRegions::JacobianKey<TData>(this->m_block_idx,
-                                                 interleaveWidth));
-        }
-        if (m_isDeformed)
-        {
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (VolumeKernelLauncher<interleaveWidth, true>), gridsize,
-                blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., jacptr,
-                dataptr);
-        }
-        else
-        {
-            DEVICE_1DGRID_KERNEL_LAUNCHER_NOSHMEM(
-                (VolumeKernelLauncher<interleaveWidth, false>), gridsize,
-                blocksize, m_streamID, m_nq[ind]..., nelmt, m_W[ind]..., jacptr,
-                dataptr);
-        }
+        // Volume of the block's elements
+        VolumeKernelLauncher<ExecSpace>(nelmtPad * m_nqTot, metric, dataptr,
+                                        m_streamID);
     }
 };
 
