@@ -71,10 +71,6 @@ FilterHistoryPoints::FilterHistoryPoints(
 
 void FilterHistoryPoints::v_Initialise(FilterContext &context)
 {
-    ASSERTL0(!m_session->DefinesSolverInfo("HOMOGENEOUS"),
-             "Redesigned HistoryPoints does not yet support homogeneous "
-             "expansions.");
-
     const auto &fields = context.fields.GetPhysicalGroups();
     ASSERTL0(!fields.empty(), "FilterHistoryPoints found no physical fields.");
     m_historyOps.clear();
@@ -82,9 +78,9 @@ void FilterHistoryPoints::v_Initialise(FilterContext &context)
     m_variables.clear();
     for (const auto &view : fields)
     {
-        ASSERTL0(view.field.get().GetNumHomoModes() == 1,
-                 "Redesigned HistoryPoints does not yet support homogeneous "
-                 "fields.");
+        ASSERTL0(view.expansion->GetExpType() == MultiRegions::e3DH1D ||
+                     view.field.get().GetNumHomoModes() == 1,
+                 "HistoryPoints supports only 3DH1 homogeneous expansions.");
         ASSERTL0(view.field.get().GetNumComponents() == view.components.size(),
                  "HistoryPoints physical field component mismatch.");
         m_historyOps.push_back(HistoryPointsOp<double>::Create(
@@ -160,8 +156,9 @@ void FilterHistoryPoints::v_Apply(FilterContext &context)
              "HistoryPoints physical field count changed.");
 
     // Each operator returns its group's values point-major,
-    // values[point * nComp + comp], already reduced to rank zero. Interleave
-    // the groups into one point-major row per point across all variables.
+    // values[point * nComp + comp], already reduced across the ranks.
+    // Interleave the groups into one point-major row per point across all
+    // variables.
     m_values.assign(m_points.size() * m_variables.size(), 0.0);
     size_t componentOffset = 0;
     for (size_t field = 0; field < fields.size(); ++field)
@@ -169,7 +166,8 @@ void FilterHistoryPoints::v_Apply(FilterContext &context)
         ASSERTL0(fields[field].components.size() == m_componentCounts[field],
                  "HistoryPoints physical field components changed.");
         // Collective: every rank must call this so each operator's internal
-        // reduction completes, even though only rank zero keeps a result.
+        // reduction completes, to the writer, rank zero, alone.
+        m_historyOps[field]->SetRootOnly(true);
         (*m_historyOps[field])(fields[field].field.get());
         if (m_writer->IsWriter())
         {

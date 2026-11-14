@@ -145,6 +145,8 @@ void FilterMean::ComputeMeans(FilterContext &context)
         ASSERTL0(groups[group].components.size() == m_componentCounts[group],
                  "Mean physical field components changed.");
         auto &meanOp = *m_meanOps[group];
+        // Only the writer, rank zero, reads the means.
+        meanOp.SetRootOnly(true);
         meanOp(groups[group].field.get());
         if (m_writer->IsWriter())
         {

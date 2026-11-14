@@ -49,7 +49,7 @@ namespace Nektar::SolverCore
  *
  * Volume-to-boundary restriction, traction evaluation, quadrature and the
  * local reduction execute in the selected operator execution space, and the
- * forces and moments are reduced to rank zero in one packed buffer.
+ * forces and moments are reduced across the ranks in one packed buffer.
  *
  * After Apply(), the getters return Cartesian 3-vectors, with component
  * @c d (0 = x, 1 = y, 2 = z) at index @c d:
@@ -71,10 +71,14 @@ namespace Nektar::SolverCore
  * and y moment components are zero, and the z moment components hold the
  * in-plane moments.
  *
+ * A 3DH1 expansion is integrated as its 2D planes are: each local plane
+ * gives the forces and moments per unit span, as in 2D, from the in-plane
+ * velocity gradient, and the result is their average over all the planes.
+ *
  * Apply() is collective: every rank must call it. The getters read the
- * reduced values on the host and are valid on rank zero only, the other
- * ranks holding their own local contributions. Internally the four 3-vectors
- * are packed in m_result, starting at the offsets pressureForce,
+ * reduced values on the host, on every rank, or on rank zero only after
+ * SetRootOnly(true), which reduces them to rank zero alone. Internally the four
+ * 3-vectors are packed in m_result, starting at the offsets pressureForce,
  * viscousForce, pressureMoment and viscousMoment.
  */
 template <typename TData>
@@ -88,6 +92,7 @@ public:
         const std::string &execStr = "")
     {
         EnsureLinked();
+
         return MultiRegions::Operator<TData>::template Create<AeroForcesOp>(
             expansionList, components, execStr);
     }
@@ -123,27 +128,33 @@ public:
         v_Apply(pressure, velocityGradient);
     }
 
-    /// Pressure force from the last Apply(), valid on rank zero only.
+    /// Reduce the results of the next Apply() to rank zero alone if
+    /// @p rootOnly, else to every rank.
+    void SetRootOnly(const bool rootOnly)
+    {
+        m_rootOnly = rootOnly;
+    }
+
+    /// Pressure force from the last Apply().
     std::array<TData, 3> GetPressureForce()
     {
         return GetResultVector(pressureForce);
     }
 
-    /// Viscous force from the last Apply(), valid on rank zero only.
+    /// Viscous force from the last Apply().
     std::array<TData, 3> GetViscousForce()
     {
         return GetResultVector(viscousForce);
     }
 
     /// Moment of the pressure traction about the pivot from the last
-    /// Apply(), valid on rank zero only.
+    /// Apply().
     std::array<TData, 3> GetPressureMoment()
     {
         return GetResultVector(pressureMoment);
     }
 
-    /// Moment of the viscous traction about the pivot from the last Apply(),
-    /// valid on rank zero only.
+    /// Moment of the viscous traction about the pivot from the last Apply().
     std::array<TData, 3> GetViscousMoment()
     {
         return GetResultVector(viscousMoment);
@@ -158,6 +169,8 @@ protected:
     /// Number of entries in m_result.
     static constexpr unsigned int resultSize = 12;
 
+    /// Whether Apply() reduces the results to rank zero alone.
+    bool m_rootOnly = false;
     /// Reduced result of Apply(), of size resultSize, allocated by
     /// Configure().
     LibUtilities::MemoryRegion<TData> m_result;
@@ -184,6 +197,10 @@ protected:
     /// The 3-vector at @p offset of the reduced result, read on the host.
     std::array<TData, 3> GetResultVector(const unsigned int offset)
     {
+        ASSERTL0(!m_rootOnly || this->m_expansionList->GetComm()
+                                    ->GetSpaceComm()
+                                    ->TreatAsRankZero(),
+                 "AeroForcesOp reduced its results to rank zero only.");
         const auto result =
             m_result.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         return {result[offset], result[offset + 1], result[offset + 2]};

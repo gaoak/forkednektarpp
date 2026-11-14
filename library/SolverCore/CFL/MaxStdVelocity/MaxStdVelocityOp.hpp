@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp"
-#include "SolverCore/SolverCore.hpp"
 #include <MultiRegions/Common/Operator.hpp>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -70,6 +70,10 @@ namespace Nektar::SolverCore
  * scalar wave speed when SetSoundSpeedFactor() has been given a non-zero
  * weight. A scalar advection or incompressible problem passes velocity alone;
  * a compressible one appends the speed of sound.
+ *
+ * Apply() is collective: every rank must call it. It returns the result on
+ * every rank, or on rank zero only after SetRootOnly(true), which reduces it
+ * to rank zero alone.
  */
 template <typename TData>
 class MaxStdVelocityOp : public MultiRegions::Operator<TData>
@@ -80,9 +84,6 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        // Force a genuine cross-library symbol reference into libSolverCore so
-        // the MaxStdVelocity*OpImpl static factory registrations are not
-        // dropped by the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
         auto session = expansionList->GetSession();
@@ -127,14 +128,23 @@ public:
 
     static inline const std::string name = "MaxStdVelocity";
 
+    /// Collective: every rank must call it.
     TData Apply(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         return v_Apply(in);
     }
 
+    /// Collective: as Apply().
     TData operator()(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         return v_Apply(in);
+    }
+
+    /// Reduce the result of the next Apply() to rank zero alone if
+    /// @p rootOnly, else to every rank.
+    void SetRootOnly(const bool rootOnly)
+    {
+        m_rootOnly = rootOnly;
     }
 
     /**
@@ -145,16 +155,21 @@ public:
      */
     void SetSoundSpeedFactor(const TData &soundSpeedFactor)
     {
-        for (unsigned int blk = 0; blk < m_blockOp.size(); ++blk)
+        for (unsigned int block_idx = 0; block_idx < m_blockOp.size();
+             ++block_idx)
         {
-            m_blockOp[blk]->SetSoundSpeedFactor(soundSpeedFactor);
+            m_blockOp[block_idx]->SetSoundSpeedFactor(soundSpeedFactor);
         }
     }
 
 protected:
+    /// Whether Apply() reduces the result to rank zero alone.
+    bool m_rootOnly = false;
     std::vector<std::shared_ptr<MaxStdVelocityBlockOp<TData>>> m_blockOp;
     /// \f$(P-1)^2\f$ for each block, applied before the blocks are combined.
     std::vector<TData> m_orderWeight;
+    /// Standard velocity of each block from Apply(), before the order
+    /// weights, allocated by Create().
     LibUtilities::MemoryRegion<TData> m_data;
 
     MaxStdVelocityOp(const MultiRegions::ExpListSharedPtr &expansionList,

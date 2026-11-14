@@ -83,18 +83,16 @@ public:
         op->UpdateBndCoeffs(time);
         op->Apply(*this->fixt_out);
 
-        // The surface integral is summed after a leading entry, which it
-        // leaves as it is, in the memory space of the execution space, and
-        // read back here.
+        // The surface integral is summed in the memory space of the
+        // execution space, and read back here.
         const size_t nComp = this->session->GetVariables().size();
         LibUtilities::MemoryRegion<TData> data("Neumann surface integral",
-                                               nComp + 1, eHostPinned);
+                                               nComp, eHostPinned);
         data.template Initialize<NektarSpaces::HostSpace>(TData{0});
-        op->AddNeumannSurfaceIntegral(data, 1);
+        op->AddNeumannSurfaceIntegral(data);
         auto dataPtr =
             data.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        BOOST_CHECK(dataPtr[0] == TData{0});
-        surfaceIntegral.assign(dataPtr + 1, dataPtr + 1 + nComp);
+        surfaceIntegral.assign(dataPtr, dataPtr + nComp);
     }
 
     void ExpectedSolution(const double time = 0.0)

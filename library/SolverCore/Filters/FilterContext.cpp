@@ -160,7 +160,10 @@ LibUtilities::Field<double, FieldState::Phys> &DerivedDataCache::GetGradient(
         }
         auto op = MultiRegions::PhysDerivOp<double>::Create(
             view.expansion, names, executionSpace);
-        const unsigned int dimension = view.expansion->GetCoordim(0);
+        // A multi-plane 3DH1 gradient also carries the homogeneous
+        // derivative.
+        const unsigned int dimension =
+            source.GetNumHomoModes() > 1 ? 3 : view.expansion->GetCoordim(0);
         LibUtilities::Field<double, FieldState::Phys> gradient(
             "cached physical gradient",
             MultiRegions::GetBlockAttributes<double, FieldState::Phys>(

@@ -36,10 +36,10 @@
 
 #include <algorithm>
 
-#include "LibUtilities/BasicUtils/Utils/UtilsKernels.hpp"
-#include "LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp"
-#include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp"
-#include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOpSerialAVXKernels.hpp"
+#include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
+#include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOp.hpp>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityBlockOpSerialAVXKernels.hpp>
 
 namespace Nektar::SolverCore::detail
 {

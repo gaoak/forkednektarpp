@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "LibUtilities/Communication/Comm.h"
-#include "SolverCore/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp"
+#include <LibUtilities/Communication/Comm.h>
+#include <SolverCore/CFL/MaxStdVelocity/MaxStdVelocityOp.hpp>
 
 namespace Nektar::SolverCore::detail
 {
@@ -55,8 +55,10 @@ public:
         m_rowComm = expansionList->GetComm()->GetRowComm();
     }
 
+    // className - for OperatorFactory
     static std::string className;
 
+    // Instantiation function for CreatorFunction in OperatorFactory.
     static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -76,18 +78,18 @@ protected:
     TData v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
         ASSERTL1(in.GetNumHomoModes() == 1,
-                 "MaxStdVelocity is not implemented for homogeneous "
+                 "MaxStdVelocityOp is not implemented for homogeneous "
                  "expansions.");
 
         const auto nBlocks = in.GetBlocks().size();
 
         this->m_data.template Initialize<MemSpace>(TData{0});
 
-        for (unsigned int blk = 0; blk < nBlocks; ++blk)
+        for (unsigned int block_idx = 0; block_idx < nBlocks; ++block_idx)
         {
-            auto &inblock = in.GetBlocks()[blk];
+            auto &inblock = in.GetBlocks()[block_idx];
 
-            this->m_blockOp[blk]->Apply(inblock, this->m_data);
+            this->m_blockOp[block_idx]->Apply(inblock, this->m_data);
         }
 
         // Weight each block by its own order before combining, which is what
@@ -96,15 +98,23 @@ protected:
             this->m_data.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
         TData invTimeScale = TData(0);
-        for (unsigned int blk = 0; blk < nBlocks; ++blk)
+        for (unsigned int block_idx = 0; block_idx < nBlocks; ++block_idx)
         {
             invTimeScale =
-                std::max(invTimeScale, dataptr[blk] * this->m_orderWeight[blk]);
+                std::max(invTimeScale,
+                         dataptr[block_idx] * this->m_orderWeight[block_idx]);
         }
 
         // The timestep is set from the whole mesh, so every rank needs the
-        // same answer.
-        m_rowComm->AllReduce(invTimeScale, Nektar::LibUtilities::ReduceMax);
+        // same answer, unless only rank zero reads it.
+        if (this->m_rootOnly)
+        {
+            m_rowComm->Reduce(invTimeScale, Nektar::LibUtilities::ReduceMax, 0);
+        }
+        else
+        {
+            m_rowComm->AllReduce(invTimeScale, Nektar::LibUtilities::ReduceMax);
+        }
 
         return invTimeScale;
     }

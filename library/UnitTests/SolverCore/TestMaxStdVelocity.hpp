@@ -166,7 +166,8 @@ public:
 
     /**
      * @brief Apply the operator with and without the wave speed, once on the
-     * non-interleaved storage and once on the interleaved storage.
+     * non-interleaved storage reduced to every rank and once on the
+     * interleaved storage reduced to rank zero alone.
      */
     void RunTestCase()
     {
@@ -185,6 +186,7 @@ public:
         m_in.ReshapeStorage(NektarSpaces::GetVectorWidth<TData>(execStr),
                             execStr);
 
+        op->SetRootOnly(true);
         op->SetSoundSpeedFactor(TData(0));
         m_testNoSound2 = op->Apply(m_in);
 

@@ -61,16 +61,19 @@ void FilterEnergy::v_Initialise(FilterContext &context)
 {
     auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
     ASSERTL0(velocityView, "Energy requires a velocity field view.");
-    ASSERTL0(velocityView->spaceDimension == 2 ||
-                 velocityView->spaceDimension == 3,
+    // A 3DH1 expansion is a 2D mesh extended by the homogeneous direction.
+    const bool homo1D =
+        velocityView->expansion->GetExpType() == MultiRegions::e3DH1D;
+    const auto shapeDim  = velocityView->expansion->GetShapeDimension();
+    const auto dimension = shapeDim + (homo1D ? 1 : 0);
+    ASSERTL0(dimension == 2 || dimension == 3,
              "Energy supports only 2D and 3D velocity fields.");
-    ASSERTL0(velocityView->expansion->GetShapeDimension() ==
-                 velocityView->spaceDimension,
+    ASSERTL0(dimension == velocityView->spaceDimension,
              "Energy does not support embedded-manifold expansions.");
     ASSERTL0(velocityView->components.size() == velocityView->spaceDimension,
              "Energy requires one velocity component per dimension.");
-    ASSERTL0(velocityView->field.get().GetNumHomoModes() == 1,
-             "Energy does not support homogeneous expansions.");
+    ASSERTL0(homo1D || velocityView->field.get().GetNumHomoModes() == 1,
+             "Energy supports only 3DH1 homogeneous expansions.");
 
     m_energyOp = EnergyOp<double>::Create(
         velocityView->expansion, ComponentNames(velocityView->components));
@@ -94,6 +97,8 @@ void FilterEnergy::v_Apply(FilterContext &context)
 
     auto &gradient =
         context.derived.GetGradient(*velocityView, m_executionSpace);
+    // Only the writer, rank zero, reads the integrals.
+    m_energyOp->SetRootOnly(true);
     (*m_energyOp)(velocityView->field.get(), gradient);
     if (!m_writer->IsWriter())
     {

@@ -39,6 +39,7 @@
 #include <vector>
 
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
@@ -76,12 +77,31 @@ static LibUtilities::SessionReaderSharedPtr SetSession(const std::string &xml,
     return session;
 }
 
+// Homogeneous length of the 3DH1 cases, other than 1 so that it shows.
+static constexpr double homoLen = 2.0;
+
+// A 2D or 3D expansion list without a homogeneous direction, or a 3DH1 one
+// with nHomo planes.
 static MultiRegions::ExpListSharedPtr SetExpList(
-    const LibUtilities::SessionReaderSharedPtr &session)
+    const LibUtilities::SessionReaderSharedPtr &session,
+    const unsigned int nHomo = 1)
 {
-    auto graph   = SpatialDomains::MeshGraphIO::Read(session);
-    auto explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, graph, true, "u", Collections::eNoCollection);
+    auto graph = SpatialDomains::MeshGraphIO::Read(session);
+    MultiRegions::ExpListSharedPtr explist;
+    if (nHomo == 1)
+    {
+        explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+            session, graph, true, "u", Collections::eNoCollection);
+    }
+    else
+    {
+        const LibUtilities::PointsKey pkey(nHomo,
+                                           LibUtilities::eFourierEvenlySpaced);
+        const LibUtilities::BasisKey bkey(LibUtilities::eFourier, nHomo, pkey);
+        explist = MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+            AllocateSharedPtr(session, bkey, homoLen, false, false, graph, "u",
+                              Collections::eNoCollection);
+    }
     explist->SetDataWarehouse();
     return explist;
 }
@@ -95,14 +115,17 @@ using ComponentFunction =
 // product field, and checks that every product holds 1.5 u_a u_b and that
 // the velocity is unchanged. The velocity and the products are laid out with
 // and without interleaving, at the same width or at different widths on
-// entry, and the products leave at the width of the velocity.
+// entry, and the products leave at the width of the velocity. A 3DH1 case,
+// with nHomo planes, is 3D, the fields flattened plane-major within a
+// component.
 static void CheckProducts(const std::string &xml, const std::string &execStr,
-                          const ComponentFunction &function)
+                          const ComponentFunction &function,
+                          const unsigned int nHomo = 1)
 {
     const double tol      = 1.0e-12;
     auto session          = SetSession(xml, execStr);
-    auto explist          = SetExpList(session);
-    const unsigned int nD = explist->GetCoordim(0);
+    auto explist          = SetExpList(session, nHomo);
+    const unsigned int nD = nHomo == 1 ? explist->GetCoordim(0) : 3;
     const size_t nPoints  = explist->GetTotPoints();
 
     Array<OneD, double> x(nPoints, 0.0), y(nPoints, 0.0), z(nPoints, 0.0);
@@ -156,12 +179,12 @@ static void CheckProducts(const std::string &xml, const std::string &execStr,
                                                       << productWidth)
             {
                 LibUtilities::Field<double, FieldState::Phys> velocity(
-                    "velocity", blockAttr, nComp, 1);
+                    "velocity", blockAttr, nComp, nHomo);
                 velocity.template CopyArray<NektarSpaces::HostSpace>(values);
                 velocity.ReshapeStorage(velocityWidth, execStr);
 
                 LibUtilities::Field<double, FieldState::Phys> products(
-                    "products", blockAttr, productNames, 1);
+                    "products", blockAttr, productNames, nHomo);
                 products.template Initialize<NektarSpaces::HostSpace>(0.0);
                 products.ReshapeStorage(productWidth, execStr);
 
@@ -306,6 +329,33 @@ BOOST_AUTO_TEST_CASE(ReynoldsStress_Varying2D)
         BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
         {
             CheckProducts(xml, execStr, velocity);
+        }
+    }
+}
+
+// 3DH1: a 2D mesh with four planes, the velocity varying in z.
+BOOST_AUTO_TEST_CASE(ReynoldsStress_3DH1)
+{
+    const std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+    const ComponentFunction velocity = [](unsigned int a, double x, double y,
+                                          double z) {
+        switch (a)
+        {
+            case 0:
+                return 1.0 + x - 2.0 * y * z;
+            case 1:
+                return std::sin(2.0 * x) + 0.5 * z;
+            default:
+                return -0.3 + x * y + std::cos(z);
+        }
+    };
+    for (const std::string xml :
+         {"run/square.xml", "run/square_all_elements.xml"})
+    {
+        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
+        {
+            CheckProducts(xml, execStr, velocity, 4);
         }
     }
 }

@@ -151,12 +151,12 @@ public:
     /**
      * @brief Add the surface integral of component nc of every field
      * coeffs[n], the fields of the boundary expansion lists this was built
-     * for, in the same order, to data[offset + nc], where isComp[n][nc]
-     * holds. With homogeneous planes, that of plane p of component nc is
-     * added to data[offset + nc * nHomo + p].
+     * for, in the same order, to data[nc], where isComp[n][nc] holds. With
+     * homogeneous planes, that of plane p of component nc is added to
+     * data[nc * nHomo + p].
      */
     void Add(std::vector<LibUtilities::Field<TData, FieldState::Coeff>> &coeffs,
-             LibUtilities::MemoryRegion<TData> &data, const size_t offset)
+             LibUtilities::MemoryRegion<TData> &data)
     {
         // data is moved to the memory space of the execution space on
         // m_opStreamID, which the block streams then wait for.
@@ -175,8 +175,7 @@ public:
         for (unsigned int n = 0; n < coeffs.size(); ++n)
         {
             const unsigned int nHomo = coeffs[n].GetNumHomoModes();
-            ASSERTL1(offset + coeffs[n].GetNumComponents() * nHomo <=
-                         data.size(),
+            ASSERTL1(coeffs[n].GetNumComponents() * nHomo <= data.size(),
                      "The surface integral holds one value per component "
                      "and homogeneous plane.");
 
@@ -200,14 +199,14 @@ public:
                     {
                         Math::reduceSumKernel<ExecSpace, false>(
                             block.CompSize(), maskPtr,
-                            srcPtr + i * block.CompSize(), dataPtr + offset + i,
+                            srcPtr + i * block.CompSize(), dataPtr + i,
                             streamID);
                     }
                     else
                     {
                         Math::reduceSumKernel<ExecSpace, false>(
                             block.CompSize(), srcPtr + i * block.CompSize(),
-                            dataPtr + offset + i, streamID);
+                            dataPtr + i, streamID);
                     }
                 }
             }

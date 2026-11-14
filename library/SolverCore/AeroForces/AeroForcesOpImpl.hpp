@@ -60,8 +60,10 @@ public:
     {
     }
 
+    // className - for OperatorFactory
     static std::string className;
 
+    // Instantiation function for CreatorFunction in OperatorFactory.
     static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -144,9 +146,15 @@ protected:
     std::vector<std::array<BlockBoundary, 2>> m_boundary;
     std::array<unsigned int, 3> m_velocityComponents{};
     unsigned int m_pressureComponent = 0;
-    unsigned int m_nDim              = 0;
-    TData m_rho                      = TData(1);
-    TData m_mu                       = TData(1);
+    unsigned int m_dimension         = 0;
+    /// Number of local planes, or 1 without a homogeneous direction.
+    unsigned int m_numPlanes = 1;
+    /// Number of directions of each velocity component in the gradient.
+    unsigned int m_gradientDirections = 0;
+    /// Weight of each plane in the average over the planes.
+    TData m_planeWeight = TData(1);
+    TData m_rho         = TData(1);
+    TData m_mu          = TData(1);
 
     std::map<int, VolumeLocation> BuildVolumeLocations(
         const MultiRegions::ExpListSharedPtr &expansion)
@@ -155,14 +163,15 @@ protected:
         const auto blockAttributes =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 expansion);
-        for (unsigned int block = 0; block < blockAttributes.size(); ++block)
+        for (unsigned int block_idx = 0; block_idx < blockAttributes.size();
+             ++block_idx)
         {
-            auto collection = MultiRegions::GetCollection(expansion, block);
+            auto collection = MultiRegions::GetCollection(expansion, block_idx);
             const auto &elements = collection.GetExpVector();
             for (size_t element = 0; element < elements.size(); ++element)
             {
                 locations[elements[element]->GetGeom()->GetGlobalID()] = {
-                    block, element, elements[element]};
+                    block_idx, element, elements[element]};
             }
         }
         return locations;
@@ -268,7 +277,7 @@ protected:
                     }
                 }
                 ASSERTL1(host.weight.size() > rowStart,
-                         "AeroForces encountered an empty boundary "
+                         "AeroForcesOp encountered an empty boundary "
                          "restriction row.");
             }
             host.rowOffset.push_back(host.weight.size());
@@ -391,28 +400,45 @@ protected:
                      const TData rho, const TData mu,
                      const std::array<TData, 3> &pivot) override
     {
-        m_pressureExpansion = pressureExpansion;
-        m_nDim              = this->m_expansionList->GetCoordim(0);
-        ASSERTL0(m_nDim == 2 || m_nDim == 3,
-                 "AeroForces supports only 2D and 3D expansions.");
-        ASSERTL0(this->m_expansionList->GetShapeDimension() == m_nDim,
-                 "AeroForces does not support embedded-manifold expansions.");
-        ASSERTL0(this->m_components.size() >= m_nDim,
-                 "AeroForces requires one velocity component per dimension.");
-        ASSERTL0(velocityComponents.size() == m_nDim,
-                 "AeroForces velocity selection has the wrong dimension.");
+        // A 3DH1 expansion is a 2D mesh extended by the homogeneous
+        // direction: the boundaries are those of its first plane, and each
+        // local plane is integrated as a 2D expansion, the forces per unit
+        // span averaged over the planes. The z velocity is not read.
+        const bool homogeneous =
+            this->m_expansionList->GetExpType() == MultiRegions::e3DH1D;
+        const auto planeExpansion    = homogeneous
+                                           ? this->m_expansionList->GetPlane(0)
+                                           : this->m_expansionList;
+        m_pressureExpansion          = pressureExpansion;
+        m_dimension                  = planeExpansion->GetCoordim(0);
+        const unsigned int nVelocity = m_dimension + (homogeneous ? 1 : 0);
+        ASSERTL0(m_dimension == 2 || m_dimension == 3,
+                 "AeroForcesOp supports only 2D, 3D and 3DH1 expansions.");
+        ASSERTL0(planeExpansion->GetShapeDimension() == m_dimension,
+                 "AeroForcesOp does not support embedded-manifold expansions.");
+        ASSERTL0(this->m_components.size() >= nVelocity,
+                 "AeroForcesOp requires one velocity component per dimension.");
+        ASSERTL0(velocityComponents.size() == nVelocity,
+                 "AeroForcesOp velocity selection has the wrong dimension.");
         ASSERTL0(pressureExpansion,
-                 "AeroForces requires a pressure expansion.");
-        std::copy(velocityComponents.begin(), velocityComponents.end(),
+                 "AeroForcesOp requires a pressure expansion.");
+        std::copy(velocityComponents.begin(),
+                  velocityComponents.begin() + m_dimension,
                   m_velocityComponents.begin());
-        m_pressureComponent = pressureComponent;
-        m_rho               = rho;
-        m_mu                = mu;
+        m_numPlanes = homogeneous ? this->m_expansionList->GetZIDs().size() : 1;
+        // A multi-plane 3DH1 gradient also carries the z direction.
+        m_gradientDirections = m_numPlanes > 1 ? 3 : m_dimension;
+        m_planeWeight        = homogeneous ? TData(1) / this->m_expansionList
+                                                     ->GetHomogeneousBasis()
+                                                     ->GetNumPoints()
+                                           : TData(1);
+        m_pressureComponent  = pressureComponent;
+        m_rho                = rho;
+        m_mu                 = mu;
 
-        const auto &boundaryExpansions =
-            this->m_expansionList->GetBndCondExpansions();
+        const auto &boundaryExpansions = planeExpansion->GetBndCondExpansions();
         ASSERTL0(selectedBoundaryRegions.size() == boundaryExpansions.size(),
-                 "AeroForces boundary selection size mismatch.");
+                 "AeroForcesOp boundary selection size mismatch.");
 
         const auto velocityLocations =
             BuildVolumeLocations(this->m_expansionList);
@@ -420,8 +446,8 @@ protected:
             BuildVolumeLocations(m_pressureExpansion);
         Array<OneD, int> boundaryToElement;
         Array<OneD, int> boundaryToTrace;
-        this->m_expansionList->GetBoundaryToElmtMap(boundaryToElement,
-                                                    boundaryToTrace);
+        planeExpansion->GetBoundaryToElmtMap(boundaryToElement,
+                                             boundaryToTrace);
 
         const size_t nBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
@@ -440,26 +466,25 @@ protected:
             }
 
             Array<OneD, Array<OneD, NekDouble>> normals;
-            this->m_expansionList->GetBoundaryNormals(region, normals);
+            planeExpansion->GetBoundaryNormals(region, normals);
             for (size_t face = 0; face < boundaryList->GetExpSize(); ++face)
             {
-                const size_t mapIndex = boundaryOffset + face;
-                const int elementId   = boundaryToElement[mapIndex];
-                const int traceId     = boundaryToTrace[mapIndex];
-                const auto velocityElement =
-                    this->m_expansionList->GetExp(elementId);
+                const size_t mapIndex      = boundaryOffset + face;
+                const int elementId        = boundaryToElement[mapIndex];
+                const int traceId          = boundaryToTrace[mapIndex];
+                const auto velocityElement = planeExpansion->GetExp(elementId);
                 const int geometry = velocityElement->GetGeom()->GetGlobalID();
                 const auto velocityLocation = velocityLocations.at(geometry);
                 const auto pressureLocationIt =
                     pressureLocations.find(geometry);
                 ASSERTL0(pressureLocationIt != pressureLocations.end(),
-                         "AeroForces could not match a pressure element to a "
+                         "AeroForcesOp could not match a pressure element to a "
                          "selected velocity boundary.");
                 const auto pressureLocation = pressureLocationIt->second;
                 ASSERTL0(pressureLocation.block == velocityLocation.block &&
                              pressureLocation.element ==
                                  velocityLocation.element,
-                         "AeroForces requires the pressure to share the "
+                         "AeroForcesOp requires the pressure to share the "
                          "blocks of the velocity.");
                 const int boundaryGeometry =
                     velocityElement->GetGeom()->GetTid(traceId);
@@ -478,7 +503,7 @@ protected:
                     }
                 }
                 ASSERTL0(pressureTraceFound,
-                         "AeroForces pressure and velocity boundary topology "
+                         "AeroForcesOp pressure and velocity boundary topology "
                          "differs.");
 
                 const auto boundary       = boundaryList->GetExp(face);
@@ -506,7 +531,7 @@ protected:
                     boundaryList->GetPhys_Offset(face);
                 for (size_t point = 0; point < nDst; ++point)
                 {
-                    for (unsigned int d = 0; d < m_nDim; ++d)
+                    for (unsigned int d = 0; d < m_dimension; ++d)
                     {
                         host.weightedNormals.push_back(static_cast<TData>(
                             metric[point] *
@@ -538,104 +563,134 @@ protected:
             "AeroForces result", AeroForcesOp<TData>::resultSize, eHostPinned);
     }
 
+    void v_Apply(
+        LibUtilities::Field<TData, FieldState::Phys> &pressure,
+        LibUtilities::Field<TData, FieldState::Phys> &velocityGradient) override
+    {
+        ASSERTL1(pressure.GetNumHomoModes() == m_numPlanes &&
+                     velocityGradient.GetNumHomoModes() == m_numPlanes,
+                 "AeroForcesOp pressure or gradient plane count mismatch.");
+        ASSERTL1(m_pressureComponent < pressure.GetNumComponents(),
+                 "AeroForcesOp pressure component is out of range.");
+        ASSERTL1(pressure.GetBlocks().size() == m_boundary.size() &&
+                     velocityGradient.GetBlocks().size() == m_boundary.size(),
+                 "AeroForcesOp block count changed after configuration.");
+
+        // Each block is integrated on its own stream, between the zeroing of
+        // the result and its reduction on the null stream.
+        this->m_result.template Initialize<MemSpace>(TData{0});
+
+        switch (m_dimension)
+        {
+            case 2:
+                OperatorND<2>(pressure, velocityGradient);
+                break;
+            case 3:
+                OperatorND<3>(pressure, velocityGradient);
+                break;
+            default:
+                ASSERTL0(false,
+                         "AeroForcesOp supports only dimensions 2 and 3.");
+        }
+
+        // Reduce over the spatial ranks, which exclude those of other time
+        // slices, to every one or to rank zero alone.
+        auto comm = this->m_expansionList->GetComm()->GetSpaceComm();
+        if (this->m_rootOnly)
+        {
+            comm->template Reduce<MemSpace>(this->m_result,
+                                            LibUtilities::ReduceSum, 0);
+        }
+        else
+        {
+            comm->template AllReduce<MemSpace>(this->m_result,
+                                               LibUtilities::ReduceSum);
+        }
+    }
+
     template <unsigned int DIMENSION>
-    void ApplyBlocks(
+    void OperatorND(
         LibUtilities::Field<TData, FieldState::Phys> &pressure,
         LibUtilities::Field<TData, FieldState::Phys> &velocityGradient)
     {
         // Each block integrates the boundary points on its elements on its
         // own stream; a block with no selected boundary launches nothing.
-        for (unsigned int blk = 0; blk < m_boundary.size(); ++blk)
+        for (unsigned int block_idx = 0; block_idx < m_boundary.size();
+             ++block_idx)
         {
-            auto &pressureBlock = pressure.GetBlocks()[blk];
-            auto &gradientBlock = velocityGradient.GetBlocks()[blk];
+            auto &pressureBlock = pressure.GetBlocks()[block_idx];
+            auto &gradientBlock = velocityGradient.GetBlocks()[block_idx];
             const unsigned int pressureInterleaveWidth =
                 pressureBlock.GetInterleaveWidth();
             const unsigned int gradientInterleaveWidth =
                 gradientBlock.GetInterleaveWidth();
+
             ASSERTL0((pressureInterleaveWidth == 1 ||
                       pressureInterleaveWidth == m_implInterleaveWidth) &&
                          (gradientInterleaveWidth == 1 ||
                           gradientInterleaveWidth == m_implInterleaveWidth),
-                     "AeroForces reads its inputs at interleave width 1 or " +
+                     "AeroForcesOp reads its inputs at interleave width 1 or " +
                          std::to_string(m_implInterleaveWidth) + ".");
 
-            const auto &host = m_boundaryHost[blk];
+            const auto &host = m_boundaryHost[block_idx];
             if (host.gradient.rowOffset.size() == 1)
             {
                 continue;
             }
+
             auto &boundary =
-                m_boundary[blk][gradientInterleaveWidth == 1 ? 0 : 1];
+                m_boundary[block_idx][gradientInterleaveWidth == 1 ? 0 : 1];
             if (boundary.nPoints == 0)
             {
-                boundary =
-                    UploadBlockBoundary(host, m_nDim, gradientInterleaveWidth);
+                boundary = UploadBlockBoundary(host, m_dimension,
+                                               gradientInterleaveWidth);
             }
 
-            const unsigned int streamID = blk + 1;
+            const unsigned int streamID = block_idx + 1;
+
             const auto pressurePtr =
                 pressureBlock.template GetPtr<MemSpace, ReadOnly>(streamID) +
-                m_pressureComponent * pressureBlock.CompSize();
+                m_pressureComponent * m_numPlanes * pressureBlock.CompSize();
             const auto gradientPtr =
                 gradientBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto result =
                 this->m_result.template GetPtr<MemSpace, ReadWrite>(streamID);
 
-            AeroForcesKernel<DIMENSION, ExecSpace>(
-                boundary.nPoints,
+            const auto pressureRowOffset =
                 boundary.pressureRowOffset.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
+                    streamID);
+            const auto pressureSource =
                 boundary.pressureSource[pressureInterleaveWidth == 1 ? 0 : 1]
-                    .template GetPtr<MemSpace, ReadOnly>(streamID),
+                    .template GetPtr<MemSpace, ReadOnly>(streamID);
+            const auto pressureWeight =
                 boundary.pressureWeight.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
+                    streamID);
+            const auto gradientRowOffset =
                 boundary.gradientRowOffset.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
+                    streamID);
+            const auto gradientSource =
                 boundary.gradientSource.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
+                    streamID);
+            const auto gradientWeight =
                 boundary.gradientWeight.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
+                    streamID);
+            const auto weightedNormals =
                 boundary.weightedNormals.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
+                    streamID);
+            const auto momentArms =
                 boundary.momentArms.template GetPtr<MemSpace, ReadOnly>(
-                    streamID),
-                pressurePtr, gradientPtr, gradientBlock.CompSize(),
+                    streamID);
+
+            AeroForcesKernelLauncher<DIMENSION, ExecSpace>(
+                boundary.nPoints, pressureRowOffset, pressureSource,
+                pressureWeight, gradientRowOffset, gradientSource,
+                gradientWeight, weightedNormals, momentArms, pressurePtr,
+                gradientPtr, m_numPlanes, pressureBlock.CompSize(),
+                gradientBlock.CompSize(), m_gradientDirections,
                 m_velocityComponents[0], m_velocityComponents[1],
-                m_velocityComponents[2], m_rho, m_mu, result, streamID);
+                m_velocityComponents[2], m_planeWeight, m_rho, m_mu, result,
+                streamID);
         }
-    }
-
-    void v_Apply(
-        LibUtilities::Field<TData, FieldState::Phys> &pressure,
-        LibUtilities::Field<TData, FieldState::Phys> &velocityGradient) override
-    {
-        ASSERTL1(pressure.GetNumHomoModes() == 1,
-                 "AeroForces does not support homogeneous expansions.");
-        ASSERTL1(m_pressureComponent < pressure.GetNumComponents(),
-                 "AeroForces pressure component is out of range.");
-        ASSERTL1(pressure.GetBlocks().size() == m_boundary.size() &&
-                     velocityGradient.GetBlocks().size() == m_boundary.size(),
-                 "AeroForces block count changed after configuration.");
-        // Each block is integrated on its own stream, between the zeroing of
-        // the result and its reduction on the null stream.
-        this->m_result.template Initialize<MemSpace>(TData{0});
-
-        switch (m_nDim)
-        {
-            case 2:
-                ApplyBlocks<2>(pressure, velocityGradient);
-                break;
-            case 3:
-                ApplyBlocks<3>(pressure, velocityGradient);
-                break;
-            default:
-                ASSERTL0(false, "AeroForces supports only dimensions 2 and 3.");
-        }
-
-        auto comm = this->m_expansionList->GetComm();
-        comm->template Reduce<MemSpace>(this->m_result, LibUtilities::ReduceSum,
-                                        0);
     }
 };
 

@@ -127,8 +127,9 @@ static Array<OneD, double> FillField(
 }
 
 // Applies MeanOp to the given values with non-interleaved and with
-// implementation-width interleaved storage, checking the domain volume, the
-// per-component averages and that the field values are left unchanged.
+// implementation-width interleaved storage, reduced to every rank and to rank
+// zero alone, checking the domain volume, the per-component averages and that
+// the field values are left unchanged.
 static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
                        const std::string &execStr,
                        const std::vector<std::string> &variables,
@@ -146,30 +147,35 @@ static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
 
     auto op = MeanOp<double>::Create(explist, variables, execStr);
 
-    for (const unsigned int interleaveWidth : {1u, implInterleaveWidth})
+    for (const bool rootOnly : {false, true})
     {
-        BOOST_TEST_CONTEXT("interleave=" << interleaveWidth)
+        for (const unsigned int interleaveWidth : {1u, implInterleaveWidth})
         {
-            LibUtilities::Field<double, FieldState::Phys> field("u", blockAttr,
-                                                                nComp, nHomo);
-            field.template CopyArray<NektarSpaces::HostSpace>(values);
-            field.ReshapeStorage(interleaveWidth, execStr);
-
-            (*op)(field);
-
-            BOOST_CHECK_CLOSE(op->GetVolume(), expectedVolume, 1.0e-10);
-            const auto means = op->GetMeans();
-            BOOST_REQUIRE_EQUAL(means.size(), nComp);
-            for (unsigned int comp = 0; comp < nComp; ++comp)
+            BOOST_TEST_CONTEXT("rootOnly=" << rootOnly
+                                           << " interleave=" << interleaveWidth)
             {
-                BOOST_CHECK_SMALL(means[comp] - expectedMeans[comp], tol);
-            }
+                LibUtilities::Field<double, FieldState::Phys> field(
+                    "u", blockAttr, nComp, nHomo);
+                field.template CopyArray<NektarSpaces::HostSpace>(values);
+                field.ReshapeStorage(interleaveWidth, execStr);
 
-            field.ReshapeStorage(1, execStr);
-            const auto fieldValues = field.template ToArray<double>();
-            for (size_t i = 0; i < values.size(); ++i)
-            {
-                BOOST_CHECK_EQUAL(fieldValues[i], values[i]);
+                op->SetRootOnly(rootOnly);
+                (*op)(field);
+
+                BOOST_CHECK_CLOSE(op->GetVolume(), expectedVolume, 1.0e-10);
+                const auto means = op->GetMeans();
+                BOOST_REQUIRE_EQUAL(means.size(), nComp);
+                for (unsigned int comp = 0; comp < nComp; ++comp)
+                {
+                    BOOST_CHECK_SMALL(means[comp] - expectedMeans[comp], tol);
+                }
+
+                field.ReshapeStorage(1, execStr);
+                const auto fieldValues = field.template ToArray<double>();
+                for (size_t i = 0; i < values.size(); ++i)
+                {
+                    BOOST_CHECK_EQUAL(fieldValues[i], values[i]);
+                }
             }
         }
     }

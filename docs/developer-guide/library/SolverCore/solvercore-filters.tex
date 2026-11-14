@@ -329,7 +329,9 @@ share one velocity-gradient calculation when both are scheduled on the same
 step, and neither constructs an operator or allocates a field per step.
 
 The cached gradient currently has storage for the full component count of the
-underlying field. Downstream operators consume only the component indices in
+underlying field, each with one derivative per coordinate direction, or three
+for a 3DH1 field with more than one local plane, whose $z$ derivative the
+physical derivative operator adds. Downstream operators consume only the component indices in
 the view, so passive scalars do not enter energy or force calculations, although
 their derivatives may be present in the cached field.
 
@@ -445,8 +447,10 @@ component indices. On a due step it requests the velocity gradient from the
 shared derived-data cache and passes the underlying velocity field and the
 cached gradient to the operator.
 
-The operator supports two- and three-dimensional velocity fields. The
-quadrature metric of each block, the quadrature weight times the Jacobian of
+The operator supports two- and three-dimensional velocity fields, and 3DH1
+fields, whose local planes it weights with their $z$ quadrature weights in the
+same sums, every entry of every plane one term; the $z$ derivatives the curl
+needs require more than one plane on each rank. The quadrature metric of each block, the quadrature weight times the Jacobian of
 every point, is fetched from the data warehouse through
 \texttt{LocalRegions::QuadratureMetricKey} the first time a velocity is read
 at a given interleave width, laid out as the velocity, so that one storage
@@ -457,7 +461,8 @@ on the block's stream, neighbouring threads reading neighbouring entries. It
 packs
 $\int_\Omega |\mathbf{u}|^2\,d\Omega$, $\int_\Omega |\boldsymbol{\omega}|^2
 \,d\Omega$ and the volume into one \texttt{MemoryRegion} and performs a single
-reduction to the writer rank. On the writer rank the filter reads the three
+reduction over the spatial ranks, to the writer rank alone, which the filter
+requests through \texttt{SetRootOnly(true)}. On the writer rank the filter reads the three
 values through \texttt{EnergyOp::GetKineticEnergy()}, \texttt{GetEnstrophy()}
 and \texttt{GetVolume()}, and writes half of each integral divided by the
 volume. Passive scalars are not included.
@@ -469,8 +474,9 @@ including pressure for incompressible flow, is averaged exactly once. For each
 group it constructs a \texttt{MeanOp} on the group's own expansion. The
 operator reuses the MeanRemoval block operators to accumulate, in the selected
 execution space, the integral of every component together with the domain
-volume, packs them into one \texttt{MemoryRegion} and reduces them once to the
-writer rank. There \texttt{MeanOp::GetMeans()} returns the instantaneous
+volume, packs them into one \texttt{MemoryRegion} and reduces them once over
+the spatial ranks to the writer rank, the filter requesting a root-only
+reduction. There \texttt{MeanOp::GetMeans()} returns the instantaneous
 averages $\int_\Omega f\,d\Omega / \int_\Omega d\Omega$ in component order,
 and \texttt{GetVolume()} the volume. The volume is recorded at initialisation
 and written to the header. The \texttt{.avg}
@@ -481,8 +487,10 @@ table keeps the legacy layout,
 \end{center}
 
 with \texttt{area} in place of \texttt{volume} in two dimensions and one row
-per due step, including step zero. Homogeneous, one-dimensional
-and embedded-manifold expansions are rejected.
+per due step, including step zero. A 3DH1 expansion is averaged over its
+planes with their $z$ quadrature weights, its volume being the plane area times
+the homogeneous length. One-dimensional, embedded-manifold and other
+homogeneous expansions are rejected.
 
 \subsubsection{AeroForces}
 
@@ -509,11 +517,19 @@ threads read neighbouring entries where the boundary allows; the normals and
 moment arms are stored point-minor for the same reason. \texttt{Apply()} then
 reads the pressure and the gradient where they are stored, at either width. The
 operator integrates pressure and viscous forces and moments into twelve packed
-values and reduces them to the writer rank. There the filter reads the four
+values and reduces them to the writer rank, the filter requesting a root-only
+reduction. There the filter reads the four
 Cartesian 3-vectors through \texttt{AeroForcesOp::GetPressureForce()},
 \texttt{GetViscousForce()}, \texttt{GetPressureMoment()} and
 \texttt{GetViscousMoment()}; in two dimensions the $z$ force components and
 the $x$ and $y$ moment components are zero.
+
+A 3DH1 expansion is integrated as its two-dimensional planes are: the
+boundary restrictions, normals and moment arms are built once from its first
+plane, each local plane gives the forces and moments per unit span from the
+in-plane velocity gradient, and the result is their average over all the
+planes, one boundary point of one plane per thread. The table therefore keeps
+the two-dimensional columns.
 
 The filter validates that the boundary selection is non-empty and contains no
 duplicates, and that every selected boundary identifier exists on some rank.
@@ -526,8 +542,12 @@ separate pressure, viscous and total columns.
 HistoryPoints obtains the registry's physical groups so every canonical
 variable is sampled once. At initialisation, an interpolation operator for each
 registered layout determines containing elements and interpolation weights.
-Point ownership is resolved with a maximum-rank reduction, giving deterministic
-highest-rank ownership when a point lies on a partition boundary. A point that
+Point ownership is resolved with a maximum-rank reduction over the ranks
+sharing the planes, which hold one copy of the mesh, giving deterministic
+highest-rank ownership when a point lies on a partition boundary. For a 3DH1
+expansion a point is located in the two-dimensional mesh by its $x$ and $y$,
+and its value is the trigonometric interpolation at its $z$ of its values on
+the planes, through one weight per local plane computed at initialisation. A point that
 cannot be found on any rank produces an explicit diagnostic.
 
 At each output step each group is evaluated locally, block by block on the
@@ -536,8 +556,10 @@ holding each point is built the first time a field is read at an interleave
 width, one or the width of the execution space, which is a template parameter
 of the kernel, and the points of a block are sorted by element, so that at the execution
 space's width neighbouring threads read neighbouring lanes. The values are then
-collected on the writer rank by one sum over the ranks: each point is owned by
-one rank, and every other rank contributes zero. On the writer rank \texttt{HistoryPointsOp::GetValues()} returns each
+collected on the writer rank by one sum over the spatial ranks: each point is
+owned by one rank, or for a 3DH1 expansion by the ranks holding its element,
+each adding the share of its own planes, and every other rank contributes
+zero. On the writer rank \texttt{HistoryPointsOp::GetValues()} returns each
 group's values point-major, with component \texttt{comp} of point
 \texttt{point} at \texttt{point * nComp + comp}, and the groups are
 interleaved into one point-major table, whose schema is
@@ -787,13 +809,16 @@ Checkpoint filter SolverCore had before this interface, are as follows.
 \item Energy and AeroForces share one physical-derivative operator and
       gradient field through the derived-data cache, instead of each owning
       its own.
-\item Result operators reduce their packed results to the writer rank only,
-      through a device-aware \texttt{Comm::Reduce} overload for
-      \texttt{MemoryRegion}. GPU-aware MPI uses device storage; other MPI
-      configurations stage through the MemoryRegion host representation.
-      As for the norm operators, \texttt{Apply()} returns nothing and the
-      filter reads the reduced values on the writer rank through the
-      operator's getters, which copy them to the host.
+\item Result operators reduce their packed results once over the spatial
+      ranks, which exclude those of other time slices, to every rank by
+      default or to the writer rank alone after \texttt{SetRootOnly(true)},
+      which the filters request before each \texttt{Apply()}. The reductions
+      use the device-aware \texttt{Comm::AllReduce} and \texttt{Comm::Reduce}
+      overloads for \texttt{MemoryRegion}. GPU-aware MPI uses device storage;
+      other MPI configurations stage through the MemoryRegion host
+      representation. As for the norm operators, \texttt{Apply()} returns
+      nothing and the filter reads the reduced values on the writer rank
+      through the operator's getters, which copy them to the host.
 \item AeroForces supports pressure and velocity expansions with different
       volume quadrature, through independent restriction maps, and validates
       its boundary identifiers rather than silently ignoring unknown ones.

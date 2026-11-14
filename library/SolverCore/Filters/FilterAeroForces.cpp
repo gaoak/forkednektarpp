@@ -144,16 +144,19 @@ void FilterAeroForces::v_Initialise(FilterContext &context)
 
     m_velocityExp = velocityView->expansion;
     m_pressureExp = pressureView->expansion;
-    m_spaceDim    = velocityView->spaceDimension;
-    m_momentDim   = m_spaceDim == 2 ? 1 : 3;
+    // A 3DH1 expansion is a 2D mesh extended by the homogeneous direction,
+    // whose forces and moments are those of its 2D planes.
+    const bool homo1D = m_velocityExp->GetExpType() == MultiRegions::e3DH1D;
+    m_spaceDim        = m_velocityExp->GetShapeDimension();
+    m_momentDim       = m_spaceDim == 2 ? 1 : 3;
 
     ASSERTL0(m_spaceDim == 2 || m_spaceDim == 3,
-             "AeroForces supports only 2D and 3D expansions.");
-    ASSERTL0(m_velocityExp->GetShapeDimension() == m_spaceDim,
+             "AeroForces supports only 2D, 3D and 3DH1 expansions.");
+    ASSERTL0(m_spaceDim + (homo1D ? 1 : 0) == velocityView->spaceDimension,
              "AeroForces does not support embedded-manifold expansions.");
-    ASSERTL0(velocityView->field.get().GetNumHomoModes() == 1 &&
-                 pressureView->field.get().GetNumHomoModes() == 1,
-             "AeroForces does not support homogeneous expansions.");
+    ASSERTL0(homo1D || (velocityView->field.get().GetNumHomoModes() == 1 &&
+                        pressureView->field.get().GetNumHomoModes() == 1),
+             "AeroForces supports only 3DH1 homogeneous expansions.");
 
     const auto first = m_boundaryString.find_first_of('[');
     const auto last  = m_boundaryString.find_last_of(']');
@@ -204,7 +207,7 @@ void FilterAeroForces::v_Initialise(FilterContext &context)
                                     " does not exist.");
     }
 
-    ASSERTL0(velocityView->components.size() == m_spaceDim,
+    ASSERTL0(velocityView->components.size() == velocityView->spaceDimension,
              "AeroForces requires one velocity component per dimension.");
     ASSERTL0(pressureView->components.size() == 1,
              "AeroForces requires exactly one pressure component.");
@@ -246,6 +249,8 @@ void FilterAeroForces::CalculateForces(FilterContext &context)
 
     auto &gradient =
         context.derived.GetGradient(*velocityView, m_executionSpace);
+    // Only the writer, rank zero, reads the forces.
+    m_aeroForcesOp->SetRootOnly(true);
     (*m_aeroForcesOp)(pressureView->field.get(), gradient);
     if (!m_writer->IsWriter())
     {

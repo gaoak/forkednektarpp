@@ -560,11 +560,11 @@ protected:
         return m_totalBndDofs;
     }
 
-    void v_AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
-                                     const size_t offset) override
+    void v_AddNeumannSurfaceIntegral(
+        LibUtilities::MemoryRegion<TData> &data) override
     {
         InitialiseBndCoeffs();
-        m_surfaceIntegral.Add(m_wsp_coeffs, data, offset);
+        m_surfaceIntegral.Add(m_wsp_coeffs, data);
     }
 
     void v_Apply(LibUtilities::Field<TData, FieldState::Coeff> &inout) override

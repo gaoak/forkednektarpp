@@ -69,7 +69,7 @@ public:
         m_dimension = exp->GetShapeDimension();
         m_coordDim  = exp->GetCoordim();
 
-        // Get basis keys for fetching matrices
+        // Get basis keys for fetching matrices.
         std::vector<LibUtilities::BasisKey> basisKeys(
             m_dimension, LibUtilities::NullBasisKey);
         for (unsigned int d = 0; d < m_dimension; d++)
@@ -149,7 +149,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "Mean SerialAVX only implemented for "
+                ASSERTL0(false, "MeanOp SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }
@@ -174,7 +174,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "Mean SerialAVX only implemented for "
+                ASSERTL0(false, "MeanOp SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }

@@ -159,10 +159,10 @@ protected:
         return m_owner->GetNumVelocityBndDofs();
     }
 
-    void v_AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
-                                     const size_t offset) override
+    void v_AddNeumannSurfaceIntegral(
+        LibUtilities::MemoryRegion<TData> &data) override
     {
-        m_owner->AddVelocitySurfaceIntegral(data, offset);
+        m_owner->AddVelocitySurfaceIntegral(data);
     }
 
     void v_ExcludeUserDefinedType(
@@ -421,11 +421,10 @@ protected:
     }
 
     // Add the surface integral of the velocity flux of the last
-    // ApplyVelocity(), per velocity component, to data[offset + c].
-    void AddVelocitySurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
-                                    const size_t offset)
+    // ApplyVelocity(), per velocity component, to data[c].
+    void AddVelocitySurfaceIntegral(LibUtilities::MemoryRegion<TData> &data)
     {
-        m_velocitySurfaceIntegral.Add(m_velocityBndCoeffs, data, offset);
+        m_velocitySurfaceIntegral.Add(m_velocityBndCoeffs, data);
     }
 
     void v_SetVelocityContext(

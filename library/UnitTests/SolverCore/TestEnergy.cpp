@@ -35,6 +35,7 @@
 #define BOOST_TEST_MODULE TestEnergy
 
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
@@ -72,26 +73,48 @@ static LibUtilities::SessionReaderSharedPtr SetSession(const std::string &xml,
     return session;
 }
 
+// Homogeneous length of the 3DH1 cases, other than 1 so that it shows.
+static constexpr double homoLen = 2.0;
+
+// A 2D or 3D expansion list without a homogeneous direction, or a 3DH1 one
+// with nHomo planes.
 static MultiRegions::ExpListSharedPtr SetExpList(
-    const LibUtilities::SessionReaderSharedPtr &session)
+    const LibUtilities::SessionReaderSharedPtr &session,
+    const unsigned int nHomo = 1)
 {
-    auto graph   = SpatialDomains::MeshGraphIO::Read(session);
-    auto explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-        session, graph, true, "u", Collections::eNoCollection);
+    auto graph = SpatialDomains::MeshGraphIO::Read(session);
+    MultiRegions::ExpListSharedPtr explist;
+    if (nHomo == 1)
+    {
+        explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+            session, graph, true, "u", Collections::eNoCollection);
+    }
+    else
+    {
+        const LibUtilities::PointsKey pkey(nHomo,
+                                           LibUtilities::eFourierEvenlySpaced);
+        const LibUtilities::BasisKey bkey(LibUtilities::eFourier, nHomo, pkey);
+        explist = MemoryManager<MultiRegions::ExpList3DHomogeneous1D>::
+            AllocateSharedPtr(session, bkey, homoLen, false, false, graph, "u",
+                              Collections::eNoCollection);
+    }
     explist->SetDataWarehouse();
     return explist;
 }
 
 // Integrates the energy of a polynomial velocity, with a gradient given
 // independently of it, laying the velocity and its gradient out with and
-// without interleaving, and compares with the expansion list's own
-// quadrature. In 2D the velocity is the last two of three components, in
-// reverse order, so that the component selection is exercised.
-static void RunEnergyTest(const std::string &xml, const std::string &execStr)
+// without interleaving and reducing to every rank and to rank zero alone,
+// and compares with the expansion list's own quadrature. In 2D the velocity is
+// the last two of three components, in reverse order, so that the component
+// selection is exercised. A 3DH1 case, with nHomo planes, is 3D, the fields
+// flattened plane-major within a component.
+static void RunEnergyTest(const std::string &xml, const std::string &execStr,
+                          const unsigned int nHomo = 1)
 {
     auto session          = SetSession(xml, execStr);
-    auto explist          = SetExpList(session);
-    const unsigned int nD = explist->GetCoordim(0);
+    auto explist          = SetExpList(session, nHomo);
+    const unsigned int nD = nHomo == 1 ? explist->GetCoordim(0) : 3;
     const size_t nPoints  = explist->GetTotPoints();
 
     Array<OneD, double> x(nPoints, 0.0), y(nPoints, 0.0), z(nPoints, 0.0);
@@ -166,28 +189,35 @@ static void RunEnergyTest(const std::string &xml, const std::string &execStr)
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(explist);
     const unsigned int implInterleaveWidth =
         NektarSpaces::GetVectorWidth<double>(execStr);
-    for (const unsigned int interleaveWidth : {1u, implInterleaveWidth})
+    for (const bool rootOnly : {false, true})
     {
-        BOOST_TEST_CONTEXT("interleave=" << interleaveWidth)
+        for (const unsigned int interleaveWidth : {1u, implInterleaveWidth})
         {
-            LibUtilities::Field<double, FieldState::Phys> velocityField(
-                "velocity", blockAttr, nComp, 1);
-            LibUtilities::Field<double, FieldState::Phys> gradientField(
-                "gradient", blockAttr, nComp * nD, 1);
-            velocityField.template CopyArray<NektarSpaces::HostSpace>(velocity);
-            gradientField.template CopyArray<NektarSpaces::HostSpace>(gradient);
-            velocityField.ReshapeStorage(interleaveWidth, execStr);
-            gradientField.ReshapeStorage(interleaveWidth, execStr);
+            BOOST_TEST_CONTEXT("rootOnly=" << rootOnly
+                                           << " interleave=" << interleaveWidth)
+            {
+                LibUtilities::Field<double, FieldState::Phys> velocityField(
+                    "velocity", blockAttr, nComp, nHomo);
+                LibUtilities::Field<double, FieldState::Phys> gradientField(
+                    "gradient", blockAttr, nComp * nD, nHomo);
+                velocityField.template CopyArray<NektarSpaces::HostSpace>(
+                    velocity);
+                gradientField.template CopyArray<NektarSpaces::HostSpace>(
+                    gradient);
+                velocityField.ReshapeStorage(interleaveWidth, execStr);
+                gradientField.ReshapeStorage(interleaveWidth, execStr);
 
-            (*op)(velocityField, gradientField);
+                op->SetRootOnly(rootOnly);
+                (*op)(velocityField, gradientField);
 
-            const double tol = 1.0e-10;
-            BOOST_CHECK_SMALL(op->GetVolume() - expectedVolume,
-                              tol * (1.0 + expectedVolume));
-            BOOST_CHECK_SMALL(op->GetKineticEnergy() - expectedKinetic,
-                              tol * (1.0 + expectedKinetic));
-            BOOST_CHECK_SMALL(op->GetEnstrophy() - expectedEnstrophy,
-                              tol * (1.0 + expectedEnstrophy));
+                const double tol = 1.0e-10;
+                BOOST_CHECK_SMALL(op->GetVolume() - expectedVolume,
+                                  tol * (1.0 + expectedVolume));
+                BOOST_CHECK_SMALL(op->GetKineticEnergy() - expectedKinetic,
+                                  tol * (1.0 + expectedKinetic));
+                BOOST_CHECK_SMALL(op->GetEnstrophy() - expectedEnstrophy,
+                                  tol * (1.0 + expectedEnstrophy));
+            }
         }
     }
 }
@@ -207,6 +237,22 @@ BOOST_AUTO_TEST_CASE(Energy_Integral)
         BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
         {
             RunEnergyTest(xml, execStr);
+        }
+    }
+}
+
+// 3DH1: a 2D mesh with four planes over the homogeneous length, so that the
+// z-derivative terms of the curl contribute.
+BOOST_AUTO_TEST_CASE(Energy_3DH1)
+{
+    const std::string execStr(
+        boost::unit_test::framework::master_test_suite().argv[1]);
+    for (const std::string xml :
+         {"run/square.xml", "run/square_all_elements.xml"})
+    {
+        BOOST_TEST_CONTEXT("exec=" << execStr << " xml=" << xml)
+        {
+            RunEnergyTest(xml, execStr, 4);
         }
     }
 }

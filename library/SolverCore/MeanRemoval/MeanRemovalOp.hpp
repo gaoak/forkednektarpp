@@ -43,22 +43,30 @@ namespace Nektar::SolverCore
 
 template <typename TData> class LinearSystemOp;
 
-// Subtracts the volume-averaged mean of a physical-space field from itself,
-// in place. A PDE variable governed by a singular system (e.g. pressure
-// under Neumann/periodic-only boundaries) is only determined up to an
-// arbitrary additive constant; this operator removes that constant so that
-// norms/errors computed from the field reflect genuine discretisation error
-// rather than the arbitrary offset.
-//
-// With a homogeneous direction (3DH1) the local planes are summed with their
-// z quadrature weights and the integrals reduced over the ranks holding the
-// other planes, so that one constant, the mean over the 3D domain, is removed
-// from every plane.
-//
-// Dispatch across execution spaces (Serial/AVX/Device) is resolved entirely
-// by Create(), via the same OperatorFactory used by every Operators-library
-// operator -- callers just do MeanRemovalOp<TData>::Create(...)->Apply(field),
-// with no execution-space conditionals of their own.
+/**
+ * @brief Subtract the domain average of every component of a physical-space
+ * field from it, in place.
+ *
+ * A variable governed by a singular system, such as the pressure under
+ * Neumann or periodic boundaries only, is determined up to an additive
+ * constant; this operator removes it, so that norms and errors of the field
+ * reflect the discretisation rather than the constant. With
+ * SetNeumannBalance() it instead drives each component's domain integral to
+ * the surface integral of the system's Neumann values. The integrals are
+ * accumulated per block in the selected operator execution space by the
+ * Mean block operators and reduced once across the ranks. The domain volume
+ * is computed by the same block operators on the first Apply() and kept.
+ *
+ * With a homogeneous direction (3DH1) the block operators sum the local
+ * planes of each component with their z quadrature weights, so that one
+ * constant, the mean over the 3D domain, is removed from every plane. The
+ * volume is the plane area, reduced over the ranks sharing the planes only,
+ * times the homogeneous length.
+ *
+ * Apply() is collective: every rank must call it, and the first Apply()
+ * also computes the volume. GetVolume() and GetBalancedMean() are valid on
+ * every rank.
+ */
 template <typename TData>
 class MeanRemovalOp : public MultiRegions::Operator<TData>
 {
@@ -91,8 +99,8 @@ public:
             {
                 planeWeights.push_back(w[zIDs[n]] * op->m_homoLen * 0.5);
             }
+            op->m_planeWeights = planeWeights;
         }
-        op->m_planeWeights = planeWeights;
 
         const auto blockAttr =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
@@ -121,11 +129,13 @@ public:
 
     static inline const std::string name = "MeanRemoval";
 
+    /// Collective: every rank must call it.
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         v_Apply(inout);
     }
 
+    /// Collective: as Apply().
     void operator()(LibUtilities::Field<TData, FieldState::Phys> &inout)
     {
         v_Apply(inout);
@@ -178,8 +188,9 @@ public:
         return means;
     }
 
-    /// Domain volume, computed on the first call and kept; collective on the
-    /// first call.
+    /// Domain volume, computed by the first Apply() or on the first call,
+    /// whichever comes first, and kept; collective on the first call before
+    /// any Apply().
     TData GetVolume()
     {
         v_ComputeVolume();

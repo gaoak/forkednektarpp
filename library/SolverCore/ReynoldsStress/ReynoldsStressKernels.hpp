@@ -49,23 +49,26 @@ namespace Nektar::SolverCore::detail
  * reading and writing neighbouring entries, with no index arithmetic. The
  * padding of the velocity is zero, so the padded entries of the products
  * stay zero. The products are ordered (0,0), (0,1), ..., (0,d-1), (1,1), ...,
- * (d-1,d-1).
+ * (d-1,d-1). Each component holds @p nPlanes homogeneous planes of
+ * @p planeSize entries, one after the other, which the kernel walks as one.
  */
 template <unsigned int DIMENSION, typename ExecSpace, typename TData>
-void ReynoldsStressKernel(const size_t compSize,
-                          const unsigned int velocityComponent0,
-                          const unsigned int velocityComponent1,
-                          const unsigned int velocityComponent2,
-                          const TData scale, const TData *velocity,
-                          TData *products, const unsigned int streamID)
+void ReynoldsStressKernelLauncher(const size_t planeSize,
+                                  const unsigned int nPlanes,
+                                  const unsigned int velocityComponent0,
+                                  const unsigned int velocityComponent1,
+                                  const unsigned int velocityComponent2,
+                                  const TData scale, const TData *velocity,
+                                  TData *products, const unsigned int streamID)
 {
     static_assert(DIMENSION == 2 || DIMENSION == 3,
                   "ReynoldsStress supports only dimensions 2 and 3.");
 
     // Offsets of the velocity components. The third is unused in 2D.
-    const size_t uOffset = velocityComponent0 * compSize;
-    const size_t vOffset = velocityComponent1 * compSize;
-    const size_t wOffset = velocityComponent2 * compSize;
+    const size_t compSize = nPlanes * planeSize;
+    const size_t uOffset  = velocityComponent0 * compSize;
+    const size_t vOffset  = velocityComponent1 * compSize;
+    const size_t wOffset  = velocityComponent2 * compSize;
 
     Nektar::LoopExecutionSetStreamID(streamID);
     Nektar::parallel_for<ExecSpace>(
