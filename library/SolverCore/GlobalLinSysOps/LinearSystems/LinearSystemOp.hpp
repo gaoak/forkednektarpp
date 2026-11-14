@@ -129,22 +129,20 @@ public:
     /**
      * @brief Add the surface integral of the Neumann boundary values on this
      * rank, per component, summed over the Neumann operators of the system,
-     * the default one and those added with AddNeumannBCOp(), to
-     * data[offset + c] for component c, or data[offset + c * nHomo + p]
-     * for plane p of a field with nHomo homogeneous planes, in the memory
-     * space of the execution space.
+     * the default one and those added with AddNeumannBCOp(), to data[c] for
+     * component c, or data[c * nHomo + p] for plane p of a field with nHomo
+     * homogeneous planes, in the memory space of the execution space.
      *
      * @details
      * For a singular system this is the value the domain integral of the
      * forcing must match; see MeanRemovalOp::SetNeumannBalance(), which
      * reduces it across ranks. Nothing is read back to the host.
      */
-    void AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
-                                   const size_t offset)
+    void AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data)
     {
         for (auto &op : m_NeuBCOps)
         {
-            op->AddNeumannSurfaceIntegral(data, offset);
+            op->AddNeumannSurfaceIntegral(data);
         }
     }
 

@@ -59,8 +59,10 @@ public:
     {
     }
 
+    // className - for OperatorFactory
     static std::string className;
 
+    // Instantiation function for CreatorFunction in OperatorFactory.
     static std::unique_ptr<MultiRegions::Operator<TData>> Instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList,
         const std::vector<std::string> &components)
@@ -77,7 +79,8 @@ protected:
     };
 
     /// The history points in the elements of one block, in the order they
-    /// are found, with the interpolation weights of each point stored
+    /// are found, with the interpolation weights of each point, and with a
+    /// homogeneous direction the weights of its local planes, stored
     /// point-major.
     struct BlockPointsHost
     {
@@ -87,6 +90,7 @@ protected:
         std::vector<size_t> elements;
         std::vector<size_t> pointIds;
         std::array<std::vector<TData>, 3> weights;
+        std::vector<TData> planeWeights;
     };
 
     /// The history points in the elements of one block, sorted by element.
@@ -106,6 +110,9 @@ protected:
         LibUtilities::MemoryRegion<size_t> pointIds;
         /// Interpolation weights of each direction, stored point-minor.
         std::array<LibUtilities::MemoryRegion<TData>, 3> weights;
+        /// Weight of each local plane, stored point-minor; empty without a
+        /// homogeneous direction.
+        LibUtilities::MemoryRegion<TData> planeWeights;
     };
 
     /// Interleave width of the execution space: an input block is read at
@@ -117,6 +124,8 @@ protected:
     std::vector<BlockPoints> m_blockPoints;
     size_t m_numPoints       = 0;
     unsigned int m_dimension = 0;
+    /// Number of local planes, or 1 without a homogeneous direction.
+    unsigned int m_numPlanes = 1;
 
     std::map<int, VolumeLocation> BuildVolumeLocations() const
     {
@@ -124,15 +133,16 @@ protected:
         const auto blockAttributes =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 this->m_expansionList);
-        for (unsigned int block = 0; block < blockAttributes.size(); ++block)
+        for (unsigned int block_idx = 0; block_idx < blockAttributes.size();
+             ++block_idx)
         {
             auto collection =
-                MultiRegions::GetCollection(this->m_expansionList, block);
+                MultiRegions::GetCollection(this->m_expansionList, block_idx);
             const auto &elements = collection.GetExpVector();
             for (size_t element = 0; element < elements.size(); ++element)
             {
                 locations[elements[element]->GetGeom()->GetGlobalID()] = {
-                    block, element};
+                    block_idx, element};
             }
         }
         return locations;
@@ -162,10 +172,38 @@ protected:
             denominator += weights[i];
         }
         ASSERTL1(std::abs(denominator) > std::numeric_limits<TData>::epsilon(),
-                 "HistoryPoints encountered singular interpolation weights.");
+                 "HistoryPointsOp encountered singular interpolation weights.");
         for (auto &weight : weights)
         {
             weight /= denominator;
+        }
+        return weights;
+    }
+
+    /// Weight of each local plane, numbered @p zIDs among the @p nz evenly
+    /// spaced planes of a homogeneous direction of length @p homoLen, in the
+    /// trigonometric interpolation at @p z: the cardinal function of the
+    /// plane over the Fourier modes the planes hold, the Nyquist mode of an
+    /// even number of planes being a cosine.
+    static std::vector<TData> BuildPlaneWeights(
+        const Array<OneD, const unsigned int> &zIDs, const unsigned int nz,
+        const TData homoLen, const TData z)
+    {
+        const TData theta = TData(2) * TData(M_PI) * z / homoLen;
+        std::vector<TData> weights(zIDs.size(), TData(0));
+        for (size_t n = 0; n < zIDs.size(); ++n)
+        {
+            const TData angle = theta - TData(2) * TData(M_PI) * zIDs[n] / nz;
+            TData sum         = TData(1);
+            for (unsigned int k = 1; 2 * k < nz; ++k)
+            {
+                sum += TData(2) * std::cos(k * angle);
+            }
+            if (nz % 2 == 0)
+            {
+                sum += std::cos(TData(nz / 2) * angle);
+            }
+            weights[n] = sum / nz;
         }
         return weights;
     }
@@ -214,6 +252,22 @@ protected:
                 LibUtilities::MemoryRegion<TData>::template FromVector<
                     MemSpace>("HistoryPoints weights", weights);
         }
+
+        if (!host.planeWeights.empty())
+        {
+            std::vector<TData> planeWeights(m_numPlanes * result.nPoints);
+            for (size_t i = 0; i < result.nPoints; ++i)
+            {
+                for (unsigned int n = 0; n < m_numPlanes; ++n)
+                {
+                    planeWeights[n * result.nPoints + i] =
+                        host.planeWeights[order[i] * m_numPlanes + n];
+                }
+            }
+            result.planeWeights =
+                LibUtilities::MemoryRegion<TData>::template FromVector<
+                    MemSpace>("HistoryPoints plane weights", planeWeights);
+        }
         return result;
     }
 
@@ -239,19 +293,49 @@ protected:
     void v_Configure(const std::vector<std::array<TData, 3>> &points) override
     {
         m_numPoints = points.size();
-        ASSERTL0(m_numPoints > 0, "HistoryPoints requires at least one point.");
+        ASSERTL0(m_numPoints > 0,
+                 "HistoryPointsOp requires at least one point.");
 
+        // A 3DH1 expansion is a 2D mesh extended by the homogeneous
+        // direction: the points are located in the mesh by their x and y,
+        // the list's elements numbered as those of its first plane, and the
+        // value at a point is the trigonometric interpolation in z of its
+        // values on the planes. The planes themselves may hold no mesh graph
+        // to search.
+        const bool homogeneous =
+            this->m_expansionList->GetExpType() == MultiRegions::e3DH1D;
         m_dimension = this->m_expansionList->GetShapeDimension();
         ASSERTL0(m_dimension >= 1 && m_dimension <= 3,
-                 "HistoryPoints supports dimensions 1, 2 and 3.");
+                 "HistoryPointsOp supports dimensions 1, 2 and 3.");
         ASSERTL0(this->m_expansionList->GetCoordim(0) == m_dimension,
-                 "HistoryPoints does not support embedded manifolds.");
+                 "HistoryPointsOp does not support embedded manifolds.");
+
+        Array<OneD, const unsigned int> zIDs;
+        unsigned int nz = 1;
+        TData homoLen   = TData(1);
+        if (homogeneous)
+        {
+            const auto basis = this->m_expansionList->GetHomogeneousBasis();
+            ASSERTL0(basis->GetBasisType() == LibUtilities::eFourier &&
+                         basis->GetPointsType() ==
+                             LibUtilities::eFourierEvenlySpaced,
+                     "HistoryPointsOp supports only Fourier homogeneous "
+                     "expansions.");
+            zIDs        = this->m_expansionList->GetZIDs();
+            nz          = basis->GetNumPoints();
+            homoLen     = this->m_expansionList->GetHomoLen();
+            m_numPlanes = zIDs.size();
+        }
         const size_t nBlocks =
             MultiRegions::GetBlockAttributes<TData, FieldState::Phys>(
                 this->m_expansionList)
                 .size();
 
-        auto comm            = this->m_expansionList->GetComm();
+        // Points are owned among the ranks sharing the planes, which hold one
+        // copy of the mesh and exclude those of other time slices; with a
+        // homogeneous direction, every rank holding the owner's elements adds
+        // the share of its own planes.
+        auto comm            = this->m_expansionList->GetComm()->GetRowComm();
         const int rank       = comm->GetRank();
         const auto locations = BuildVolumeLocations();
         std::vector<int> elementIds(m_numPoints, -1);
@@ -294,12 +378,12 @@ protected:
 
             const int elementId = elementIds[point];
             ASSERTL1(elementId >= 0,
-                     "HistoryPoints owner has no local element.");
+                     "HistoryPointsOp owner has no local element.");
             auto expansion       = this->m_expansionList->GetExp(elementId);
             const int geometryId = expansion->GetGeom()->GetGlobalID();
             const auto location  = locations.find(geometryId);
             ASSERTL1(location != locations.end(),
-                     "HistoryPoints could not map an element to a block.");
+                     "HistoryPointsOp could not map an element to a block.");
 
             auto &host = blockPoints[location->second.block];
             host.nq0   = expansion->GetNumPoints(0);
@@ -318,15 +402,24 @@ protected:
                 host.weights[d].insert(host.weights[d].end(), weights.begin(),
                                        weights.end());
             }
+            if (homogeneous)
+            {
+                const auto planeWeights =
+                    BuildPlaneWeights(zIDs, nz, homoLen, points[point][2]);
+                host.planeWeights.insert(host.planeWeights.end(),
+                                         planeWeights.begin(),
+                                         planeWeights.end());
+            }
         }
 
         m_blockPoints.clear();
         m_blockPoints.resize(nBlocks);
-        for (size_t block = 0; block < nBlocks; ++block)
+        for (size_t block_idx = 0; block_idx < nBlocks; ++block_idx)
         {
-            if (!blockPoints[block].pointIds.empty())
+            if (!blockPoints[block_idx].pointIds.empty())
             {
-                m_blockPoints[block] = UploadBlockPoints(blockPoints[block]);
+                m_blockPoints[block_idx] =
+                    UploadBlockPoints(blockPoints[block_idx]);
             }
         }
 
@@ -336,27 +429,82 @@ protected:
             eHostPinned);
     }
 
+    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &field) override
+    {
+        ASSERTL1(field.GetNumHomoModes() == m_numPlanes,
+                 "HistoryPointsOp field plane count mismatch.");
+        ASSERTL1(field.GetNumComponents() == this->m_components.size(),
+                 "HistoryPointsOp field component count changed.");
+        ASSERTL1(field.GetBlocks().size() == m_blockPoints.size(),
+                 "HistoryPointsOp field block layout changed.");
+
+        // The points are evaluated on the block streams, between the zeroing
+        // of the result and its collection on the null stream.
+        this->m_result.template Initialize<MemSpace>(TData{0});
+
+        switch (m_dimension)
+        {
+            case 1:
+                OperatorND<1>(field);
+                break;
+            case 2:
+                OperatorND<2>(field);
+                break;
+            case 3:
+                OperatorND<3>(field);
+                break;
+            default:
+                ASSERTL0(false,
+                         "HistoryPointsOp supports dimensions 1, 2 and 3.");
+        }
+
+        // Collect the point values on every spatial rank, or on rank zero
+        // alone.
+        // Each point is owned by one rank, or with a homogeneous direction by
+        // the ranks holding its element, which alone write its entries, each
+        // the share of its planes; on every other rank they keep the zero set
+        // above, so the sum over the ranks is the point's value. The sum is one
+        // collective over the whole result, in the operator's own memory space
+        // - GPU-aware MPI when available - where a gather would need per-rank
+        // counts and a reordering of the gathered values into point order.
+        // Every rank must make this call.
+        auto comm = this->m_expansionList->GetComm()->GetSpaceComm();
+        if (this->m_rootOnly)
+        {
+            comm->template Reduce<MemSpace>(this->m_result,
+                                            LibUtilities::ReduceSum, 0);
+        }
+        else
+        {
+            comm->template AllReduce<MemSpace>(this->m_result,
+                                               LibUtilities::ReduceSum);
+        }
+    }
+
     template <unsigned int DIMENSION>
-    void ApplyBlocks(LibUtilities::Field<TData, FieldState::Phys> &field)
+    void OperatorND(LibUtilities::Field<TData, FieldState::Phys> &field)
     {
         // Each point is owned by one rank and evaluated by the block holding
         // it, on the block's stream; a block holding no point launches
         // nothing.
-        for (unsigned int blk = 0; blk < m_blockPoints.size(); ++blk)
+        for (unsigned int block_idx = 0; block_idx < m_blockPoints.size();
+             ++block_idx)
         {
-            auto &points = m_blockPoints[blk];
+            auto &points = m_blockPoints[block_idx];
             if (points.nPoints == 0)
             {
                 continue;
             }
 
-            const unsigned int streamID = blk + 1;
-            auto &fieldBlock            = field.GetBlocks()[blk];
+            const unsigned int streamID = block_idx + 1;
+
+            auto &fieldBlock = field.GetBlocks()[block_idx];
             const unsigned int interleaveWidth =
                 fieldBlock.GetInterleaveWidth();
+
             ASSERTL0(interleaveWidth == 1 ||
                          interleaveWidth == m_implInterleaveWidth,
-                     "HistoryPoints reads a field at interleave width 1 or " +
+                     "HistoryPointsOp reads a field at interleave width 1 or " +
                          std::to_string(m_implInterleaveWidth) + ", not " +
                          std::to_string(interleaveWidth) + ".");
 
@@ -367,6 +515,7 @@ protected:
                 elementOffsetRegion =
                     UploadElementOffsets(points, interleaveWidth);
             }
+
             const auto elementOffset =
                 elementOffsetRegion.template GetPtr<MemSpace, ReadOnly>(
                     streamID);
@@ -374,20 +523,21 @@ protected:
                 points.pointIds.template GetPtr<MemSpace, ReadOnly>(streamID);
             const auto weights0 =
                 points.weights[0].template GetPtr<MemSpace, ReadOnly>(streamID);
-            const TData *weights1 = nullptr;
-            const TData *weights2 = nullptr;
-            if constexpr (DIMENSION >= 2)
-            {
-                weights1 =
-                    points.weights[1].template GetPtr<MemSpace, ReadOnly>(
-                        streamID);
-            }
-            if constexpr (DIMENSION == 3)
-            {
-                weights2 =
-                    points.weights[2].template GetPtr<MemSpace, ReadOnly>(
-                        streamID);
-            }
+            const auto weights1 =
+                (DIMENSION >= 2)
+                    ? points.weights[1].template GetPtr<MemSpace, ReadOnly>(
+                          streamID)
+                    : nullptr;
+            const auto weights2 =
+                (DIMENSION == 3)
+                    ? points.weights[2].template GetPtr<MemSpace, ReadOnly>(
+                          streamID)
+                    : nullptr;
+            const auto planeWeights =
+                (points.planeWeights.size() != 0)
+                    ? points.planeWeights.template GetPtr<MemSpace, ReadOnly>(
+                          streamID)
+                    : nullptr;
             const auto fieldPtr =
                 fieldBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
             auto result =
@@ -395,66 +545,22 @@ protected:
 
             if (interleaveWidth == 1)
             {
-                HistoryPointsKernel<DIMENSION, 1u, ExecSpace>(
+                HistoryPointsKernelLauncher<DIMENSION, 1u, ExecSpace>(
                     points.nPoints, field.GetNumComponents(), points.nq0,
-                    points.nq1, points.nq2, fieldBlock.CompSize(),
+                    points.nq1, points.nq2, fieldBlock.CompSize(), m_numPlanes,
                     elementOffset, pointIds, weights0, weights1, weights2,
-                    fieldPtr, result, streamID);
+                    planeWeights, fieldPtr, result, streamID);
             }
             else
             {
-                HistoryPointsKernel<DIMENSION, m_implInterleaveWidth,
-                                    ExecSpace>(
+                HistoryPointsKernelLauncher<DIMENSION, m_implInterleaveWidth,
+                                            ExecSpace>(
                     points.nPoints, field.GetNumComponents(), points.nq0,
-                    points.nq1, points.nq2, fieldBlock.CompSize(),
+                    points.nq1, points.nq2, fieldBlock.CompSize(), m_numPlanes,
                     elementOffset, pointIds, weights0, weights1, weights2,
-                    fieldPtr, result, streamID);
+                    planeWeights, fieldPtr, result, streamID);
             }
         }
-    }
-
-    void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &field) override
-    {
-        ASSERTL1(field.GetNumHomoModes() == 1,
-                 "HistoryPoints homogeneous expansions are not yet "
-                 "supported.");
-        ASSERTL1(field.GetNumComponents() == this->m_components.size(),
-                 "HistoryPoints field component count changed.");
-        ASSERTL1(field.GetBlocks().size() == m_blockPoints.size(),
-                 "HistoryPoints field block layout changed.");
-
-        // The points are evaluated on the block streams, between the zeroing
-        // of the result and its collection on the null stream.
-        this->m_result.template Initialize<MemSpace>(TData{0});
-
-        switch (m_dimension)
-        {
-            case 1:
-                ApplyBlocks<1>(field);
-                break;
-            case 2:
-                ApplyBlocks<2>(field);
-                break;
-            case 3:
-                ApplyBlocks<3>(field);
-                break;
-            default:
-                ASSERTL0(false,
-                         "HistoryPoints supports dimensions 1, 2 and 3.");
-        }
-
-        // Collect the point values on rank zero, the rank
-        // FilterHistoryPoints writes from. Each point is owned by one rank,
-        // which alone writes its entries; on every other rank they keep the
-        // zero set above, so the sum over the ranks is the owner's value.
-        // The sum is one collective over the whole result, in the operator's
-        // own memory space - GPU-aware MPI when available - where a gather
-        // would need per-rank counts and a reordering of the gathered values
-        // into point order on rank zero. Every rank must make this call;
-        // GetValues() copies the result to the host on rank zero.
-        auto comm = this->m_expansionList->GetComm();
-        comm->template Reduce<MemSpace>(this->m_result, LibUtilities::ReduceSum,
-                                        0);
     }
 };
 

@@ -54,16 +54,21 @@ public:
                          const std::vector<std::string> &components)
         : ReynoldsStressOp<TData>(expansionList, components)
     {
-        m_dimension = expansionList->GetCoordim(0);
+        // A 3DH1 expansion is a 2D mesh extended by the homogeneous direction.
+        const bool homogeneous =
+            expansionList->GetExpType() == MultiRegions::e3DH1D;
+        const unsigned int shapeDimension = expansionList->GetShapeDimension();
+        m_dimension = shapeDimension + (homogeneous ? 1 : 0);
         ASSERTL0(m_dimension == 2 || m_dimension == 3,
-                 "ReynoldsStress supports only 2D and 3D expansions.");
-        ASSERTL0(expansionList->GetShapeDimension() == m_dimension,
+                 "ReynoldsStress supports only 2D, 3D and 3DH1 expansions.");
+        ASSERTL0(expansionList->GetCoordim(0) == shapeDimension,
                  "ReynoldsStress does not support embedded-manifold "
                  "expansions.");
         ASSERTL0(components.size() >= m_dimension,
                  "ReynoldsStress requires one velocity component per "
                  "dimension.");
         m_nProducts = m_dimension * (m_dimension + 1) / 2;
+        m_numPlanes = homogeneous ? expansionList->GetZIDs().size() : 1;
     }
 
     static std::string className;
@@ -80,6 +85,8 @@ protected:
     std::array<unsigned int, 3> m_velocityComponents{};
     unsigned int m_dimension = 0;
     unsigned int m_nProducts = 0;
+    /// Number of local planes, or 1 without a homogeneous direction.
+    unsigned int m_numPlanes = 1;
 
     void v_Configure(
         const std::vector<unsigned int> &velocityComponents) override
@@ -91,44 +98,13 @@ protected:
                   m_velocityComponents.begin());
     }
 
-    template <unsigned int DIMENSION>
-    void ApplyProducts(LibUtilities::Field<TData, FieldState::Phys> &velocity,
-                       LibUtilities::Field<TData, FieldState::Phys> &products)
-    {
-        // The products are laid out like the velocity, so that one storage
-        // index addresses the same point in both; a block at another
-        // interleave width is reshaped, keeping its content.
-        products.ReshapeStorage(velocity.GetInterleaveWidth(), ExecSpace::name);
-
-        for (unsigned int block = 0; block < velocity.GetBlocks().size();
-             ++block)
-        {
-            const unsigned int streamID = block + 1;
-            auto &velocityBlock         = velocity.GetBlocks()[block];
-            auto &productBlock          = products.GetBlocks()[block];
-            ASSERTL1(productBlock.CompSize() == velocityBlock.CompSize(),
-                     "ReynoldsStress velocity-product block layout "
-                     "mismatch.");
-
-            const auto velocityPtr =
-                velocityBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
-            auto productPtr =
-                productBlock.template GetPtr<MemSpace, ReadWrite>(streamID);
-
-            ReynoldsStressKernel<DIMENSION, ExecSpace>(
-                velocityBlock.CompSize(), m_velocityComponents[0],
-                m_velocityComponents[1], m_velocityComponents[2], this->m_scale,
-                velocityPtr, productPtr, streamID);
-        }
-    }
-
     void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &velocity,
         LibUtilities::Field<TData, FieldState::Phys> &products) override
     {
-        ASSERTL1(velocity.GetNumHomoModes() == 1 &&
-                     products.GetNumHomoModes() == 1,
-                 "ReynoldsStress does not support homogeneous expansions.");
+        ASSERTL1(velocity.GetNumHomoModes() == m_numPlanes &&
+                     products.GetNumHomoModes() == m_numPlanes,
+                 "ReynoldsStress velocity or product plane count mismatch.");
         ASSERTL1(velocity.GetNumComponents() >= m_dimension &&
                      products.GetNumComponents() == m_nProducts,
                  "ReynoldsStress velocity or product component count "
@@ -139,14 +115,47 @@ protected:
         switch (m_dimension)
         {
             case 2:
-                ApplyProducts<2>(velocity, products);
+                OperatorND<2>(velocity, products);
                 break;
             case 3:
-                ApplyProducts<3>(velocity, products);
+                OperatorND<3>(velocity, products);
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal,
                          "ReynoldsStress supports only dimensions 2 and 3.");
+        }
+    }
+
+    template <unsigned int DIMENSION>
+    void OperatorND(LibUtilities::Field<TData, FieldState::Phys> &velocity,
+                    LibUtilities::Field<TData, FieldState::Phys> &products)
+    {
+        // The products are laid out like the velocity, so that one storage
+        // index addresses the same point in both; a block at another
+        // interleave width is reshaped, keeping its content.
+        products.ReshapeStorage(velocity.GetInterleaveWidth(), ExecSpace::name);
+
+        for (unsigned int block_idx = 0;
+             block_idx < velocity.GetBlocks().size(); ++block_idx)
+        {
+            const unsigned int streamID = block_idx + 1;
+
+            auto &velocityBlock = velocity.GetBlocks()[block_idx];
+            auto &productBlock  = products.GetBlocks()[block_idx];
+
+            ASSERTL1(productBlock.CompSize() == velocityBlock.CompSize(),
+                     "ReynoldsStress velocity-product block layout "
+                     "mismatch.");
+
+            const auto velocityPtr =
+                velocityBlock.template GetPtr<MemSpace, ReadOnly>(streamID);
+            auto productPtr =
+                productBlock.template GetPtr<MemSpace, ReadWrite>(streamID);
+
+            ReynoldsStressKernelLauncher<DIMENSION, ExecSpace>(
+                velocityBlock.CompSize(), m_numPlanes, m_velocityComponents[0],
+                m_velocityComponents[1], m_velocityComponents[2], this->m_scale,
+                velocityPtr, productPtr, streamID);
         }
     }
 };

@@ -88,10 +88,10 @@ public:
 
     /**
      * @brief Add the surface integral of the Neumann boundary values on
-     * this rank, per component, as of their last update, to
-     * data[offset + c] for component c, or data[offset + c * nHomo + p]
-     * for plane p of a field with nHomo homogeneous planes, in the memory
-     * space of the operator's execution space.
+     * this rank, per component, as of their last update, to data[c] for
+     * component c, or data[c * nHomo + p] for plane p of a field with nHomo
+     * homogeneous planes, in the memory space of the operator's execution
+     * space.
      *
      * @details
      * A singular (all-Neumann or periodic) system is solvable only when the
@@ -100,10 +100,9 @@ public:
      * caller reduces it across ranks and reads it back. Each block of boundary
      * values is summed on the stream that wrote it.
      */
-    void AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
-                                   const size_t offset)
+    void AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data)
     {
-        v_AddNeumannSurfaceIntegral(data, offset);
+        v_AddNeumannSurfaceIntegral(data);
     }
 
     /**
@@ -142,7 +141,7 @@ protected:
     virtual size_t v_GetNumBndDofs() = 0;
 
     virtual void v_AddNeumannSurfaceIntegral(
-        LibUtilities::MemoryRegion<TData> &data, const size_t offset) = 0;
+        LibUtilities::MemoryRegion<TData> &data) = 0;
 
     virtual void v_ExcludeUserDefinedType(
         const std::string &userDefinedType) = 0;

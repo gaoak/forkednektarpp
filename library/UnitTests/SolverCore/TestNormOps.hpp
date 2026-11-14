@@ -168,7 +168,8 @@ public:
 
     /**
      * @brief Apply the norm operators, once on the non-interleaved storage
-     * and once on the interleaved storage.
+     * reduced to every rank and once on the interleaved storage reduced to
+     * rank zero alone.
      */
     void RunTestCase()
     {
@@ -191,10 +192,12 @@ public:
         m_in.ReshapeStorage(NektarSpaces::GetVectorWidth<TData>(execStr),
                             execStr);
 
+        l2Op->SetRootOnly(true);
         l2Op->Apply(m_in);
         m_l2Test2           = l2Op->GetNorms();
         m_l2NormalisedTest2 = l2Op->GetNorms(true);
 
+        linfOp->SetRootOnly(true);
         linfOp->Apply(m_in);
         m_linfTest2 = linfOp->GetNorms();
     }

@@ -41,78 +41,127 @@ namespace Nektar::SolverCore::detail
 {
 
 /**
+ * @brief Interpolate one component of one plane at history point @p point
+ * from the quadrature values of the element holding it, which start at
+ * @p values.
+ *
+ * Quadrature point @c q of the element is at <tt>values[q *
+ * INTERLEAVE_WIDTH]</tt>. The interpolation weights of each direction are
+ * stored point-minor, the weight of quadrature point @c i of point @p point
+ * at <tt>i * nPoints + point</tt>, so that neighbouring threads read
+ * neighbouring weights.
+ */
+template <unsigned int DIMENSION, unsigned int INTERLEAVE_WIDTH, typename TData>
+NEK_HOSTDEVICE_INLINE TData
+HistoryPointsKernel(const size_t point, const size_t nPoints,
+                    const unsigned int nq0, const unsigned int nq1,
+                    const unsigned int nq2, const TData *NEK_RESTRICT weights0,
+                    [[maybe_unused]] const TData *NEK_RESTRICT weights1,
+                    [[maybe_unused]] const TData *NEK_RESTRICT weights2,
+                    const TData *NEK_RESTRICT values)
+{
+    TData value    = TData(0);
+    unsigned int q = 0;
+    for (unsigned int k = 0; k < nq2; ++k)
+    {
+        TData wk = TData(1);
+        if constexpr (DIMENSION == 3)
+        {
+            wk = weights2[k * nPoints + point];
+        }
+        for (unsigned int j = 0; j < nq1; ++j)
+        {
+            TData wjk = wk;
+            if constexpr (DIMENSION >= 2)
+            {
+                wjk *= weights1[j * nPoints + point];
+            }
+            TData line = TData(0);
+            for (unsigned int i = 0; i < nq0; ++i, ++q)
+            {
+                line += weights0[i * nPoints + point] *
+                        values[q * INTERLEAVE_WIDTH];
+            }
+            value += wjk * line;
+        }
+    }
+    return value;
+}
+
+/**
  * @brief Interpolate every component of the field of one block at the history
  * points in its elements, one point per thread.
  *
  * The block is laid out at interleave width @p INTERLEAVE_WIDTH, which is one
  * or the width of the execution space. Quadrature point @c q of the element
  * holding point @c p is at <tt>elementOffset[p] + q * INTERLEAVE_WIDTH</tt>
- * within a component, the offset of the element being computed on the host. The
+ * within a plane, the offset of the element being computed on the host. The
  * points are sorted by element, so that at the execution space's width
- * neighbouring threads read neighbouring lanes of an element group.
- *
- * The interpolation weights of each direction are stored point-minor, the
- * weight of quadrature point @c i of point @c p at <tt>i * nPoints + p</tt>,
- * so that neighbouring threads read neighbouring weights. The value of
- * component @c c at point @c p is written to
+ * neighbouring threads read neighbouring lanes of an element group. The value
+ * of component @c c at point @c p is written to
  * <tt>result[pointIds[p] * nComponents + c]</tt>.
+ *
+ * Each component holds @p nPlanes homogeneous planes of @p planeSize entries,
+ * one after the other. With @p planeWeights the value is the sum over the
+ * planes of each plane's interpolation times its weight, stored point-minor
+ * like the interpolation weights; without, there is one plane, read as it
+ * is.
  */
 template <unsigned int DIMENSION, unsigned int INTERLEAVE_WIDTH,
           typename ExecSpace, typename TData>
-void HistoryPointsKernel(const size_t nPoints, const unsigned int nComponents,
-                         const unsigned int nq0, const unsigned int nq1,
-                         const unsigned int nq2, const size_t compSize,
-                         const size_t *elementOffset, const size_t *pointIds,
-                         const TData *weights0, const TData *weights1,
-                         const TData *weights2, const TData *field,
-                         TData *result, const unsigned int streamID)
+void HistoryPointsKernelLauncher(
+    const size_t nPoints, const unsigned int nComponents,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const size_t planeSize, const unsigned int nPlanes,
+    const size_t *elementOffset, const size_t *pointIds, const TData *weights0,
+    const TData *weights1, const TData *weights2, const TData *planeWeights,
+    const TData *field, TData *result, const unsigned int streamID)
 {
     static_assert(DIMENSION >= 1 && DIMENSION <= 3,
-                  "HistoryPoints supports dimensions 1, 2 and 3.");
+                  "HistoryPointsOp supports dimensions 1, 2 and 3.");
+
+    // Entries of a component, over all its planes.
+    const size_t compSize = nPlanes * planeSize;
 
     Nektar::LoopExecutionSetStreamID(streamID);
-    Nektar::parallel_for<ExecSpace>(
-        0u, nPoints, NEKTAR_LAMBDA(const size_t point) {
-            // Read what the higher directions use through locals, as nvcc
-            // does not let a lambda capture a variable first inside an if
-            // constexpr.
-            [[maybe_unused]] const TData *direction1Weights = weights1;
-            [[maybe_unused]] const TData *direction2Weights = weights2;
-            const size_t weightStride                       = nPoints;
-            const size_t offset       = elementOffset[point];
-            const size_t resultOffset = pointIds[point] * nComponents;
-
-            for (unsigned int c = 0; c < nComponents; ++c)
-            {
-                const TData *values = field + c * compSize + offset;
-                TData value         = TData(0);
-                unsigned int q      = 0;
-                for (unsigned int k = 0; k < nq2; ++k)
+    if (planeWeights == nullptr)
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0u, nPoints, NEKTAR_LAMBDA(const size_t point) {
+                const size_t offset       = elementOffset[point];
+                const size_t resultOffset = pointIds[point] * nComponents;
+                for (unsigned int c = 0; c < nComponents; ++c)
                 {
-                    TData wk = TData(1);
-                    if constexpr (DIMENSION == 3)
-                    {
-                        wk = direction2Weights[k * weightStride + point];
-                    }
-                    for (unsigned int j = 0; j < nq1; ++j)
-                    {
-                        TData wjk = wk;
-                        if constexpr (DIMENSION >= 2)
-                        {
-                            wjk *= direction1Weights[j * weightStride + point];
-                        }
-                        TData line = TData(0);
-                        for (unsigned int i = 0; i < nq0; ++i, ++q)
-                        {
-                            line += weights0[i * weightStride + point] *
-                                    values[q * INTERLEAVE_WIDTH];
-                        }
-                        value += wjk * line;
-                    }
+                    result[resultOffset + c] =
+                        HistoryPointsKernel<DIMENSION, INTERLEAVE_WIDTH>(
+                            point, nPoints, nq0, nq1, nq2, weights0, weights1,
+                            weights2, field + c * compSize + offset);
                 }
-                result[resultOffset + c] = value;
-            }
-        });
+            });
+    }
+    else
+    {
+        Nektar::parallel_for<ExecSpace>(
+            0u, nPoints, NEKTAR_LAMBDA(const size_t point) {
+                const size_t offset       = elementOffset[point];
+                const size_t resultOffset = pointIds[point] * nComponents;
+                for (unsigned int c = 0; c < nComponents; ++c)
+                {
+                    TData value = TData(0);
+                    for (unsigned int plane = 0; plane < nPlanes; ++plane)
+                    {
+                        value +=
+                            planeWeights[plane * nPoints + point] *
+                            HistoryPointsKernel<DIMENSION, INTERLEAVE_WIDTH>(
+                                point, nPoints, nq0, nq1, nq2, weights0,
+                                weights1, weights2,
+                                field + c * compSize + plane * planeSize +
+                                    offset);
+                    }
+                    result[resultOffset + c] = value;
+                }
+            });
+    }
     Nektar::LoopExecutionSetStreamID(0);
 }
 

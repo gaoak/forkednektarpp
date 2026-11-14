@@ -79,37 +79,36 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
         ASSERTL1(in.GetNumComponents() == this->m_components.size(),
-                 "NormLinf field component count mismatch.");
-        ASSERTL1(in.GetNumHomoModes() == m_numPlanes,
-                 "NormLinf field plane count mismatch.");
+                 "NormLinfOp field component count mismatch.");
+        ASSERTL1(in.GetNumHomoModes() == this->m_numPlanes,
+                 "NormLinfOp field plane count mismatch.");
         ASSERTL1(in.GetBlocks().size() == this->m_blockOp.size(),
-                 "NormLinf field block count changed after configuration.");
-
-        const auto numHomo = in.GetNumHomoModes();
+                 "NormLinfOp field block count changed after configuration.");
 
         // Reset norms.
         this->m_norm.template Initialize<MemSpace>(TData{0});
 
         // Loop all blocks.
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        for (unsigned int block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
         {
-            auto &inblock = in.GetBlocks()[blk];
-            this->m_blockOp[blk]->Apply(inblock, this->m_norm);
+            auto &inblock = in.GetBlocks()[block_idx];
+            this->m_blockOp[block_idx]->Apply(inblock, this->m_norm);
         }
 
-        // Communicate norms.
-        auto comm = this->m_expansionList->GetComm();
-        comm->GetRowComm()->template AllReduce<MemSpace>(
-            this->m_norm, Nektar::LibUtilities::ReduceMax);
-
-        if (numHomo == 1)
+        // Take the maximum over the spatial ranks, which exclude those of other
+        // time slices, to every one or to rank zero alone.
+        auto comm = this->m_expansionList->GetComm()->GetSpaceComm();
+        if (this->m_rootOnly)
         {
-            return;
+            comm->template Reduce<MemSpace>(this->m_norm,
+                                            LibUtilities::ReduceMax, 0);
         }
-
-        // Take the maximum over the ranks holding the other planes.
-        comm->GetColumnComm()->template AllReduce<MemSpace>(
-            this->m_norm, Nektar::LibUtilities::ReduceMax);
+        else
+        {
+            comm->template AllReduce<MemSpace>(this->m_norm,
+                                               LibUtilities::ReduceMax);
+        }
     }
 };
 

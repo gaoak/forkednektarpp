@@ -48,8 +48,8 @@ namespace Nektar::SolverCore
  * @brief Evaluate physical fields at a fixed set of global points.
  *
  * Point ownership and interpolation data are configured once. Evaluation and
- * the packed MPI reduction execute in the selected operator execution space;
- * only the point values needed for text output are copied to rank zero.
+ * the packed MPI reduction, which collects the point values, execute in the
+ * selected operator execution space.
  *
  * After Apply(), GetValues() returns the point values point-major: with
  * @c nComp the number of components the operator was created with, the value
@@ -57,9 +57,14 @@ namespace Nektar::SolverCore
  * Configure(), is entry <tt>point * nComp + comp</tt>, for a size of the
  * number of points times @c nComp. m_result holds them in the same layout.
  *
+ * With a homogeneous direction (3DH1) a point is located in the 2D mesh by
+ * its x and y, and its value is the trigonometric interpolation at its z of
+ * its values on the planes. The ranks holding its element each add the share
+ * of their own planes, and the reduction sums them.
+ *
  * Apply() is collective: every rank must call it. GetValues() reads the
- * reduced values on the host and is valid on rank zero only, the other ranks
- * holding their own local contributions.
+ * reduced values on the host, on every rank, or on rank zero only after
+ * SetRootOnly(true), which collects them on rank zero alone.
  */
 template <typename TData>
 class HistoryPointsOp : public MultiRegions::Operator<TData>
@@ -71,6 +76,7 @@ public:
         const std::string &execStr = "")
     {
         EnsureLinked();
+
         return MultiRegions::Operator<TData>::template Create<HistoryPointsOp>(
             expansionList, components, execStr);
     }
@@ -96,16 +102,26 @@ public:
         v_Apply(field);
     }
 
-    /// Point values from the last Apply(), point-major, valid on rank zero
-    /// only.
+    /// Reduce the results of the next Apply() to rank zero alone if
+    /// @p rootOnly, else to every rank.
+    void SetRootOnly(const bool rootOnly)
+    {
+        m_rootOnly = rootOnly;
+    }
+
+    /// Point values from the last Apply(), point-major.
     std::vector<TData> GetValues()
     {
-        const auto result =
-            m_result.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        return std::vector<TData>(result, result + m_result.size());
+        ASSERTL0(!m_rootOnly || this->m_expansionList->GetComm()
+                                    ->GetSpaceComm()
+                                    ->TreatAsRankZero(),
+                 "HistoryPointsOp reduced its results to rank zero only.");
+        return m_result.ToVector();
     }
 
 protected:
+    /// Whether Apply() reduces the results to rank zero alone.
+    bool m_rootOnly = false;
     /// Reduced result of Apply(), allocated by Configure().
     LibUtilities::MemoryRegion<TData> m_result;
 
@@ -119,6 +135,7 @@ protected:
 
     virtual void v_Configure(
         const std::vector<std::array<TData, 3>> &points) = 0;
+
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &field) = 0;
 };

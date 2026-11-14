@@ -57,13 +57,15 @@ namespace Nektar::SolverCore
  * 1D or 2D).
  *
  * With a homogeneous direction (3DH1) the block operators sum the local
- * planes of each component with their z quadrature weights. The integrals
- * are reduced over the ranks sharing the planes and over the ranks holding
- * the other planes. The volume is the plane area times the homogeneous
- * length.
+ * planes of each component with their z quadrature weights, and the
+ * integrals are reduced over all the spatial ranks. The volume is the plane
+ * area, reduced over the ranks sharing the planes only, times the
+ * homogeneous length.
  *
- * Apply() is collective: every rank must call it. GetMeans() and GetVolume()
- * are valid on every rank.
+ * Apply() is collective: every rank must call it, and the first Apply()
+ * also computes the volume. GetVolume() is valid on every rank. GetMeans() is
+ * valid on every rank, or on rank zero only after SetRootOnly(true), which
+ * reduces the integrals to rank zero alone.
  */
 template <typename TData> class MeanOp : public MultiRegions::Operator<TData>
 {
@@ -125,18 +127,33 @@ public:
 
     static inline const std::string name = "Mean";
 
+    /// Collective: every rank must call it.
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         v_Apply(in);
     }
 
+    /// Collective: as Apply().
     void operator()(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         v_Apply(in);
     }
 
+    /// Reduce the integrals of the next Apply() to rank zero alone if
+    /// @p rootOnly, else to every rank.
+    void SetRootOnly(const bool rootOnly)
+    {
+        m_rootOnly = rootOnly;
+    }
+
+    /// Domain average of each component from the last Apply(), valid on rank
+    /// zero only after SetRootOnly(true).
     std::vector<TData> GetMeans()
     {
+        ASSERTL0(!m_rootOnly || this->m_expansionList->GetComm()
+                                    ->GetSpaceComm()
+                                    ->TreatAsRankZero(),
+                 "MeanOp reduced its integrals to rank zero only.");
         const auto volume = GetVolume();
         auto means        = m_result.ToVector();
         for (auto &mean : means)
@@ -146,8 +163,9 @@ public:
         return means;
     }
 
-    /// Domain volume, computed on the first call and kept; collective on the
-    /// first call.
+    /// Domain volume, computed by the first Apply() or on the first call,
+    /// whichever comes first, and kept; collective on the first call before
+    /// any Apply().
     TData GetVolume()
     {
         v_ComputeVolume();
@@ -155,6 +173,8 @@ public:
     }
 
 protected:
+    /// Whether Apply() reduces the integrals to rank zero alone.
+    bool m_rootOnly       = false;
     bool m_volumeComputed = false;
     TData m_volume        = 1.0;
     /// Whether the field has a homogeneous direction (3DH1).

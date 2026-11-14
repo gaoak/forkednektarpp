@@ -347,10 +347,10 @@ protected:
         return m_numBndCoeffCompSize;
     }
 
-    void v_AddNeumannSurfaceIntegral(LibUtilities::MemoryRegion<TData> &data,
-                                     const size_t offset) override
+    void v_AddNeumannSurfaceIntegral(
+        LibUtilities::MemoryRegion<TData> &data) override
     {
-        m_surfaceIntegral.Add(m_bndCoeffs, data, offset);
+        m_surfaceIntegral.Add(m_bndCoeffs, data);
     }
 
     void v_ExcludeUserDefinedType(

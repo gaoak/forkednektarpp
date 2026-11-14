@@ -47,9 +47,9 @@ namespace Nektar::SolverCore
  * domain volume.
  *
  * The quadrature and the local reduction execute in the selected operator
- * execution space, and the three integrals are reduced to rank zero in one
- * packed buffer. The velocity gradient is an input, so that it can be shared
- * with other consumers.
+ * execution space, and the three integrals are reduced across the ranks in
+ * one packed buffer. The velocity gradient is an input, so that it can be
+ * shared with other consumers.
  *
  * After Apply(), the getters return:
  *
@@ -60,13 +60,18 @@ namespace Nektar::SolverCore
  * - GetVolume(): the domain volume \f$ \int_\Omega 1 \, d\Omega \f$ (the
  *   area in 2D).
  *
+ * A 3DH1 expansion is integrated as a 3D one, its planes summed with their
+ * z quadrature weights; the velocity gradient then carries the homogeneous
+ * derivative, which needs more than one plane on each rank.
+ *
  * The two integrals carry neither the factor one half nor the division by the
  * volume; FilterEnergy applies both.
  *
  * Apply() is collective: every rank must call it. The getters read the
- * reduced values on the host and are valid on rank zero only, the other
- * ranks holding their own local contributions. Internally the three values
- * are packed in m_result, at the indices kineticEnergy, enstrophy and volume.
+ * reduced values on the host, on every rank, or on rank zero only after
+ * SetRootOnly(true), which reduces them to rank zero alone. Internally the
+ * three values are packed in m_result, at the indices kineticEnergy, enstrophy
+ * and volume.
  */
 template <typename TData> class EnergyOp : public MultiRegions::Operator<TData>
 {
@@ -77,6 +82,7 @@ public:
         const std::string &execStr = "")
     {
         EnsureLinked();
+
         return MultiRegions::Operator<TData>::template Create<EnergyOp>(
             expansionList, components, execStr);
     }
@@ -105,21 +111,26 @@ public:
         v_Apply(velocity, velocityGradient);
     }
 
-    /// Integral of the squared velocity magnitude from the last Apply(),
-    /// valid on rank zero only.
+    /// Reduce the results of the next Apply() to rank zero alone if
+    /// @p rootOnly, else to every rank.
+    void SetRootOnly(const bool rootOnly)
+    {
+        m_rootOnly = rootOnly;
+    }
+
+    /// Integral of the squared velocity magnitude from the last Apply().
     TData GetKineticEnergy()
     {
         return GetResult(kineticEnergy);
     }
 
-    /// Integral of the squared vorticity magnitude from the last Apply(),
-    /// valid on rank zero only.
+    /// Integral of the squared vorticity magnitude from the last Apply().
     TData GetEnstrophy()
     {
         return GetResult(enstrophy);
     }
 
-    /// Domain volume from the last Apply(), valid on rank zero only.
+    /// Domain volume from the last Apply().
     TData GetVolume()
     {
         return GetResult(volume);
@@ -133,6 +144,8 @@ protected:
     /// Number of entries in m_result.
     static constexpr unsigned int resultSize = 3;
 
+    /// Whether Apply() reduces the results to rank zero alone.
+    bool m_rootOnly = false;
     /// Reduced result of Apply(), of size resultSize, allocated by the
     /// implementation's constructor.
     LibUtilities::MemoryRegion<TData> m_result;
@@ -147,6 +160,7 @@ protected:
 
     virtual void v_Configure(
         const std::vector<unsigned int> &velocityComponents) = 0;
+
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &velocity,
         LibUtilities::Field<TData, FieldState::Phys> &velocityGradient) = 0;
@@ -154,6 +168,10 @@ protected:
     /// Entry @p index of the reduced result, read on the host.
     TData GetResult(const unsigned int index)
     {
+        ASSERTL0(!m_rootOnly || this->m_expansionList->GetComm()
+                                    ->GetSpaceComm()
+                                    ->TreatAsRankZero(),
+                 "EnergyOp reduced its results to rank zero only.");
         return m_result
             .template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[index];
     }

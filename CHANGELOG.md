@@ -168,6 +168,8 @@ v5.11.0
 - Use the two-stage device reduction for NormL2 and Mean, and sum the 3DH1 planes of a component in one reduction, fixing NormL2, Mean and MeanRemoval with one local plane per rank (!2926)
 - Zero-fill undefined variables in SolverCore SessionFunction and add `SetScale()`, `SetAppend()` and `IsConstant()`; make ForcingBody a thin wrapper around it, with file and cached constant forcing (!2924)
 - Add 3DH1 support to MeanOp, MeanRemovalOp and the Mean filter (!2925)
+- Add 3DH1 support to EnergyOp, the Energy filter, ReynoldsStressOp, AeroForcesOp, HistoryPointsOp and the AeroForces and HistoryPoints filters, and size the filters' cached velocity gradient for the homogeneous derivative (!2930)
+- Add an optional root-only reduction to the SolverCore reducing operators and use it in the filters; reduce over the space communicator, fixing a FilterMean hang in parallel and NormLinf with one local plane per rank (!2930)
 - Remove the unused FlagType enumeration, FlagTypeMap and FlagList class, the unused GeomTol and CoinTol constants, and duplicate integer typedefs (!2917)
 
 **NekMesh**

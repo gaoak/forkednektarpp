@@ -58,14 +58,15 @@ namespace Nektar::SolverCore::detail
  * the pressure and the gradient are laid out at, so that both are read where
  * they are stored, at either width. The velocity gradient holds the
  * derivative of velocity component @c c in direction @c d as component
- * <tt>c * DIMENSION + d</tt>. The normals are weighted by the quadrature
- * metric of the boundary, and the moment arms are positions relative to the
- * pivot; both are stored point-minor, component @c d of point @p point at
- * <tt>d * nPoints + point</tt>, so that neighbouring threads read
- * neighbouring entries.
+ * <tt>c * gradientDirections + d</tt>, @p gradientCompSize apart, and may
+ * carry more directions than the @c DIMENSION the tractions read. The normals
+ * are weighted by the quadrature metric of the boundary, and the moment arms
+ * are positions relative to the pivot; both are stored point-minor, component
+ * @c d of point @p point at <tt>d * nPoints + point</tt>, so that neighbouring
+ * threads read neighbouring entries.
  */
 template <unsigned int DIMENSION, typename TData>
-NEK_HOSTDEVICE_INLINE void AeroForcesPoint(
+NEK_HOSTDEVICE_INLINE void AeroForcesKernel(
     const size_t point, const size_t nPoints,
     const size_t *NEK_RESTRICT pressureRowOffset,
     const size_t *NEK_RESTRICT pressureSource,
@@ -76,6 +77,7 @@ NEK_HOSTDEVICE_INLINE void AeroForcesPoint(
     const TData *NEK_RESTRICT weightedNormals,
     const TData *NEK_RESTRICT momentArms, const TData *NEK_RESTRICT pressure,
     const TData *NEK_RESTRICT gradient, const size_t gradientCompSize,
+    const unsigned int gradientDirections,
     const unsigned int velocityComponent0,
     const unsigned int velocityComponent1,
     const unsigned int velocityComponent2, const TData rho, const TData mu,
@@ -102,9 +104,9 @@ NEK_HOSTDEVICE_INLINE void AeroForcesPoint(
             for (unsigned int d = 0; d < DIMENSION; ++d)
             {
                 grad[c * DIMENSION + d] +=
-                    weight *
-                    gradient[(component * DIMENSION + d) * gradientCompSize +
-                             source];
+                    weight * gradient[(component * gradientDirections + d) *
+                                          gradientCompSize +
+                                      source];
             }
         }
     }
@@ -142,7 +144,7 @@ NEK_HOSTDEVICE_INLINE void AeroForcesPoint(
         vals[10] = TData(0);
         vals[11] = r[0] * fv[1] - r[1] * fv[0];
     }
-    else
+    else if constexpr (DIMENSION == 3)
     {
         vals[6]  = r[1] * fp[2] - r[2] * fp[1];
         vals[7]  = r[2] * fp[0] - r[0] * fp[2];
@@ -156,37 +158,71 @@ NEK_HOSTDEVICE_INLINE void AeroForcesPoint(
 /**
  * @brief Add the forces and moments on the boundary quadrature points of one
  * block to the 3-vectors at result[0], result[3], result[6] and result[9], as
- * AeroForcesPoint() lays them out.
+ * AeroForcesKernel() lays them out.
  *
- * The twelve sums are reduced over the points, one point per thread, by one
- * parallel_reduce of twelve values on stream @p streamID.
+ * Each component holds @p nPlanes homogeneous planes, one after the other,
+ * of @p pressurePlaneSize entries for the pressure and @p gradientPlaneSize
+ * for the gradient, and the point offsets address a plane. The twelve sums
+ * are reduced over the points of every plane, one point of one plane per
+ * thread, by one parallel_reduce of twelve values on stream @p streamID, each
+ * plane weighted by @p planeWeight so that the result is the average over the
+ * planes; without a homogeneous direction there is one plane of unit
+ * weight. The plane of a thread is its only index arithmetic, which a single
+ * plane does without.
  */
 template <unsigned int DIMENSION, typename ExecSpace, typename TData>
-void AeroForcesKernel(const size_t nPoints, const size_t *pressureRowOffset,
-                      const size_t *pressureSource, const TData *pressureWeight,
-                      const size_t *gradientRowOffset,
-                      const size_t *gradientSource, const TData *gradientWeight,
-                      const TData *weightedNormals, const TData *momentArms,
-                      const TData *pressure, const TData *gradient,
-                      const size_t gradientCompSize,
-                      const unsigned int velocityComponent0,
-                      const unsigned int velocityComponent1,
-                      const unsigned int velocityComponent2, const TData rho,
-                      const TData mu, TData *result,
-                      const unsigned int streamID)
+void AeroForcesKernelLauncher(
+    const size_t nPoints, const size_t *pressureRowOffset,
+    const size_t *pressureSource, const TData *pressureWeight,
+    const size_t *gradientRowOffset, const size_t *gradientSource,
+    const TData *gradientWeight, const TData *weightedNormals,
+    const TData *momentArms, const TData *pressure, const TData *gradient,
+    const unsigned int nPlanes, const size_t pressurePlaneSize,
+    const size_t gradientPlaneSize, const unsigned int gradientDirections,
+    const unsigned int velocityComponent0,
+    const unsigned int velocityComponent1,
+    const unsigned int velocityComponent2, const TData planeWeight,
+    const TData rho, const TData mu, TData *result, const unsigned int streamID)
 {
     Nektar::LoopExecutionSetStreamID(streamID);
-    Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 12>(
-        0, nPoints,
-        NEKTAR_LAMBDA(const size_t point, TData *vals) {
-            AeroForcesPoint<DIMENSION>(
-                point, nPoints, pressureRowOffset, pressureSource,
-                pressureWeight, gradientRowOffset, gradientSource,
-                gradientWeight, weightedNormals, momentArms, pressure, gradient,
-                gradientCompSize, velocityComponent0, velocityComponent1,
-                velocityComponent2, rho, mu, vals);
-        },
-        result);
+    if (nPlanes == 1)
+    {
+        Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 12>(
+            0, nPoints,
+            NEKTAR_LAMBDA(const size_t point, TData *vals) {
+                AeroForcesKernel<DIMENSION>(
+                    point, nPoints, pressureRowOffset, pressureSource,
+                    pressureWeight, gradientRowOffset, gradientSource,
+                    gradientWeight, weightedNormals, momentArms, pressure,
+                    gradient, gradientPlaneSize, gradientDirections,
+                    velocityComponent0, velocityComponent1, velocityComponent2,
+                    rho, mu, vals);
+            },
+            result);
+    }
+    else
+    {
+        // The tractions are linear in rho and mu, which carry the plane weight.
+        const size_t gradientCompSize = nPlanes * gradientPlaneSize;
+        const TData planeRho          = planeWeight * rho;
+        const TData planeMu           = planeWeight * mu;
+
+        Nektar::parallel_reduce<ExecSpace, false, Nektar::ReduceSum<TData>, 12>(
+            0, nPlanes * nPoints,
+            NEKTAR_LAMBDA(const size_t idx, TData *vals) {
+                const size_t plane = idx / nPoints;
+                const size_t point = idx - plane * nPoints;
+                AeroForcesKernel<DIMENSION>(
+                    point, nPoints, pressureRowOffset, pressureSource,
+                    pressureWeight, gradientRowOffset, gradientSource,
+                    gradientWeight, weightedNormals, momentArms,
+                    pressure + plane * pressurePlaneSize,
+                    gradient + plane * gradientPlaneSize, gradientCompSize,
+                    gradientDirections, velocityComponent0, velocityComponent1,
+                    velocityComponent2, planeRho, planeMu, vals);
+            },
+            result);
+    }
     Nektar::LoopExecutionSetStreamID(0);
 }
 

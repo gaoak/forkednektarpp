@@ -50,7 +50,8 @@ namespace Nektar::SolverCore
  * Configure(), Apply() adds \f$ s \, u_a u_b \f$, \f$ a \le b \f$,
  * pointwise to the \f$ d(d+1)/2 \f$ components of a product field, ordered
  * \f$ (a,b) = (0,0), (0,1), \ldots, (0,d-1), (1,1), \ldots, (d-1,d-1) \f$,
- * i.e. \f$ uu, uv, uw, vv, vw, ww \f$ in three dimensions. The scale
+ * i.e. \f$ uu, uv, uw, vv, vw, ww \f$ in three dimensions, which include a
+ * 3DH1 expansion, its products formed on every local plane. The scale
  * \f$ s \f$ is one unless changed with SetScale().
  *
  * The velocity field may carry further components, such as passive scalars;
@@ -70,6 +71,7 @@ public:
         const std::string &execStr = "")
     {
         EnsureLinked();
+
         return MultiRegions::Operator<TData>::template Create<ReynoldsStressOp>(
             expansionList, components, execStr);
     }
@@ -134,6 +136,7 @@ protected:
 
     virtual void v_Configure(
         const std::vector<unsigned int> &velocityComponents) = 0;
+
     virtual void v_Apply(
         LibUtilities::Field<TData, FieldState::Phys> &velocity,
         LibUtilities::Field<TData, FieldState::Phys> &products) = 0;

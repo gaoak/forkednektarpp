@@ -79,37 +79,46 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &in) override
     {
         ASSERTL1(in.GetNumComponents() == this->m_components.size(),
-                 "NormL2 field component count mismatch.");
+                 "NormL2Op field component count mismatch.");
         ASSERTL1(in.GetNumHomoModes() == this->m_numPlanes,
-                 "NormL2 field plane count mismatch.");
+                 "NormL2Op field plane count mismatch.");
         ASSERTL1(in.GetBlocks().size() == this->m_blockOp.size(),
-                 "NormL2 field block count changed after configuration.");
+                 "NormL2Op field block count changed after configuration.");
+
+        // The volume is computed here, where every rank takes part, so that
+        // GetVolume() needs no collective afterwards.
+        v_ComputeVolume();
 
         // Reset norms.
         this->m_norm.template Initialize<MemSpace>(TData{0});
 
         // Loop all blocks. With a homogeneous direction they sum the local
         // planes of each component with their z quadrature weights.
-        for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+        for (unsigned int block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
         {
-            auto &inblock = in.GetBlocks()[blk];
-            this->m_blockOp[blk]->Apply(inblock, this->m_norm);
+            auto &inblock = in.GetBlocks()[block_idx];
+            this->m_blockOp[block_idx]->Apply(inblock, this->m_norm);
         }
 
-        // Sum over the ranks sharing the planes, then over the ranks holding
-        // the other planes.
-        auto comm = this->m_expansionList->GetComm();
-        comm->GetRowComm()->template AllReduce<MemSpace>(
-            this->m_norm, LibUtilities::ReduceSum);
-        if (this->m_homogeneous)
+        // Sum over the spatial ranks, which exclude those of other time
+        // slices, to every one or to rank zero alone.
+        auto comm = this->m_expansionList->GetComm()->GetSpaceComm();
+        if (this->m_rootOnly)
         {
-            comm->GetColumnComm()->template AllReduce<MemSpace>(
-                this->m_norm, LibUtilities::ReduceSum);
+            comm->template Reduce<MemSpace>(this->m_norm,
+                                            LibUtilities::ReduceSum, 0);
+        }
+        else
+        {
+            comm->template AllReduce<MemSpace>(this->m_norm,
+                                               LibUtilities::ReduceSum);
         }
     }
 
-    /// The volume of the mesh, summed over the blocks and across the ranks,
-    /// and extended over the homogeneous length.
+    /// The volume of the mesh, summed over the blocks and across the ranks
+    /// sharing the planes, which hold one copy of the mesh, and extended over
+    /// the homogeneous length.
     void v_ComputeVolume() override
     {
         if (!this->m_volumeComputed)

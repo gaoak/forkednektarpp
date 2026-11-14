@@ -149,7 +149,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "NormL2 SerialAVX only implemented for "
+                ASSERTL0(false, "NormL2Op SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }
@@ -174,7 +174,7 @@ protected:
                 break;
             }
             default:
-                ASSERTL0(false, "NormL2 SerialAVX only implemented for "
+                ASSERTL0(false, "NormL2Op SerialAVX only implemented for "
                                 "dimension 1, 2 or 3.");
         }
     }

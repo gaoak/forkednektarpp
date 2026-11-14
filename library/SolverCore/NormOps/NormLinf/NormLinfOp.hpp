@@ -41,6 +41,19 @@
 namespace Nektar::SolverCore
 {
 
+/**
+ * @brief Maximum magnitude of every component of a physical-space field.
+ *
+ * For each component \f$ f \f$ the operator evaluates the maximum of
+ * \f$ |f| \f$ over the quadrature points, and over the local planes with a
+ * homogeneous direction (3DH1). The maxima are taken per block in the
+ * selected operator execution space by the NormLinf block operators, packed
+ * into one MemoryRegion and reduced once across the ranks.
+ *
+ * Apply() is collective: every rank must call it. GetNorms() is valid on
+ * every rank, or on rank zero only after SetRootOnly(true), which reduces the
+ * norms to rank zero alone.
+ */
 template <typename TData>
 class NormLinfOp : public MultiRegions::Operator<TData>
 {
@@ -50,9 +63,6 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        // Force a genuine cross-library symbol reference into libSolverCore so
-        // the NormLinf*OpImpl static factory registrations are not dropped by
-        // the linker/loader -- see EnsureLinked() in SolverCore.hpp.
         EnsureLinked();
 
         auto session = expansionList->GetSession();
@@ -86,22 +96,41 @@ public:
 
     static inline const std::string name = "NormLinf";
 
+    /// Collective: every rank must call it.
     void Apply(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         v_Apply(in);
     }
 
+    /// Collective: as Apply().
     void operator()(LibUtilities::Field<TData, FieldState::Phys> &in)
     {
         v_Apply(in);
     }
 
+    /// Reduce the norms of the next Apply() to rank zero alone if
+    /// @p rootOnly, else to every rank.
+    void SetRootOnly(const bool rootOnly)
+    {
+        m_rootOnly = rootOnly;
+    }
+
+    /// Maximum magnitude of each component from the last Apply(), valid on
+    /// rank zero only after SetRootOnly(true).
     std::vector<TData> GetNorms()
     {
+        ASSERTL0(!m_rootOnly || this->m_expansionList->GetComm()
+                                    ->GetSpaceComm()
+                                    ->TreatAsRankZero(),
+                 "NormLinfOp reduced its norms to rank zero only.");
         return m_norm.ToVector();
     }
 
 protected:
+    /// Whether Apply() reduces the norms to rank zero alone.
+    bool m_rootOnly = false;
+    /// Reduced maximum magnitude of each component from Apply(), allocated
+    /// by the implementation's constructor.
     LibUtilities::MemoryRegion<TData> m_norm;
     std::vector<std::shared_ptr<NormLinfBlockOp<TData>>> m_blockOp;
 

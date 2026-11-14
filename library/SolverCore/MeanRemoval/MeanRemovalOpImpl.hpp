@@ -96,11 +96,12 @@ protected:
     void v_Apply(LibUtilities::Field<TData, FieldState::Phys> &inout) override
     {
         ASSERTL1(inout.GetNumComponents() == this->m_components.size(),
-                 "MeanRemoval field component count mismatch.");
+                 "MeanRemovalOp field component count mismatch.");
         ASSERTL1(inout.GetNumHomoModes() == this->m_numPlanes,
-                 "MeanRemoval field plane count mismatch.");
-        ASSERTL1(inout.GetBlocks().size() == this->m_blockOp.size(),
-                 "MeanRemoval field block count changed after configuration.");
+                 "MeanRemovalOp field plane count mismatch.");
+        ASSERTL1(
+            inout.GetBlocks().size() == this->m_blockOp.size(),
+            "MeanRemovalOp field block count changed after configuration.");
 
         const auto numComp = inout.GetNumComponents();
         const auto numHomo = inout.GetNumHomoModes();
@@ -113,22 +114,18 @@ protected:
         this->m_domainIntegral.template Initialize<MemSpace>(TData{0});
 
         // Loop all blocks.
-        for (unsigned int blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        for (unsigned int block_idx = 0; block_idx < inout.GetBlocks().size();
+             ++block_idx)
         {
-            auto &inblock = inout.GetBlocks()[blk];
-            this->m_blockOp[blk]->Apply(inblock, this->m_domainIntegral);
+            auto &inblock = inout.GetBlocks()[block_idx];
+            this->m_blockOp[block_idx]->Apply(inblock, this->m_domainIntegral);
         }
 
-        // Sum over the ranks sharing the planes, then over the ranks holding
-        // the other planes.
-        auto comm = this->m_expansionList->GetComm();
-        comm->GetRowComm()->template AllReduce<MemSpace>(
-            this->m_domainIntegral, LibUtilities::ReduceSum);
-        if (this->m_homogeneous)
-        {
-            comm->GetColumnComm()->template AllReduce<MemSpace>(
-                this->m_domainIntegral, LibUtilities::ReduceSum);
-        }
+        // Sum over the spatial ranks, which exclude those of other time
+        // slices; every rank removes the mean, so every one needs it.
+        auto comm = this->m_expansionList->GetComm()->GetSpaceComm();
+        comm->template AllReduce<MemSpace>(this->m_domainIntegral,
+                                           LibUtilities::ReduceSum);
 
         auto integral = this->m_domainIntegral.ToVector();
         auto surface  = this->m_surfaceIntegral.ToVector();
@@ -148,53 +145,59 @@ protected:
     }
 
     /// The surface integral of the Neumann values of each component,
-    /// summed across the ranks and, with a homogeneous direction, over the
-    /// planes, into m_surfaceIntegral.
+    /// summed with a homogeneous direction over the local planes, then
+    /// across the spatial ranks, into m_surfaceIntegral.
     void v_ComputeNeumannSurfaceIntegral() override
     {
-        auto &plane = this->m_homogeneous ? this->m_surfaceIntegralPlane
-                                          : this->m_surfaceIntegral;
-
-        plane.template Initialize<MemSpace>(TData{0});
-
-        if (this->m_neumannSystem)
+        // Sum the local planes with their z quadrature weights.
+        if (this->m_homogeneous)
         {
-            this->m_neumannSystem->AddNeumannSurfaceIntegral(plane, 0);
-        }
+            this->m_surfaceIntegralPlane.template Initialize<MemSpace>(
+                TData{0});
 
-        auto comm = this->m_expansionList->GetComm();
-        comm->GetRowComm()->template AllReduce<MemSpace>(
-            plane, LibUtilities::ReduceSum);
-
-        if (!this->m_homogeneous)
-        {
-            return;
-        }
-
-        // Sum the planes with their z quadrature weights, then over the
-        // ranks holding the other planes.
-        const unsigned int numPlanes = this->m_planeWeights.size();
-        auto planeptr =
-            plane.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        auto resultptr =
-            this->m_surfaceIntegral
-                .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (unsigned int nc = 0; nc < this->m_components.size(); ++nc)
-        {
-            resultptr[nc] = 0.0;
-            for (unsigned int p = 0; p < numPlanes; ++p)
+            if (this->m_neumannSystem)
             {
-                resultptr[nc] +=
-                    this->m_planeWeights[p] * planeptr[nc * numPlanes + p];
+                this->m_neumannSystem->AddNeumannSurfaceIntegral(
+                    this->m_surfaceIntegralPlane);
+            }
+
+            auto planeptr =
+                this->m_surfaceIntegralPlane
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            auto resultptr =
+                this->m_surfaceIntegral
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+            for (unsigned int nc = 0; nc < this->m_components.size(); ++nc)
+            {
+                resultptr[nc] = 0.0;
+                for (unsigned int p = 0; p < m_numPlanes; ++p)
+                {
+                    resultptr[nc] += this->m_planeWeights[p] *
+                                     planeptr[nc * m_numPlanes + p];
+                }
+            }
+        }
+        else
+        {
+            this->m_surfaceIntegral.template Initialize<MemSpace>(TData{0});
+
+            if (this->m_neumannSystem)
+            {
+                this->m_neumannSystem->AddNeumannSurfaceIntegral(
+                    this->m_surfaceIntegral);
             }
         }
 
-        comm->GetColumnComm()->template AllReduce<NektarSpaces::HostSpace>(
-            this->m_surfaceIntegral, LibUtilities::ReduceSum);
+        // Sum over the spatial ranks, which exclude those of other time
+        // slices.
+        auto comm = this->m_expansionList->GetComm()->GetSpaceComm();
+        comm->template AllReduce<MemSpace>(this->m_surfaceIntegral,
+                                           LibUtilities::ReduceSum);
     }
 
-    /// The volume of the mesh, summed over the blocks and across the ranks,
-    /// and extended over the homogeneous length.
+    /// The volume of the mesh, summed over the blocks and across the ranks
+    /// sharing the planes, which hold one copy of the mesh, and extended over
+    /// the homogeneous length.
     void v_ComputeVolume() override
     {
         if (!this->m_volumeComputed)

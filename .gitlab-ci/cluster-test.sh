@@ -2,6 +2,7 @@
 #SBATCH --account=aero_ci
 #SBATCH --partition=gpu-gh200
 #SBATCH --nodes=1
+#SBATCH --nodelist=whirlwind
 #SBATCH --gpus=1
 #SBATCH --ntasks-per-gpu=72 
 #SBATCH --mem=96GB
