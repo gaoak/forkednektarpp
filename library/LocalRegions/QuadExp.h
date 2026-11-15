@@ -209,6 +209,11 @@ private:
                            const Array<OneD, const NekDouble> &inarray,
                            Array<OneD, NekDouble> &outarray);
 
+    void EvaluateEdgeVals(const int edge,
+                          const LibUtilities::PointsKeyVector &ptsKeys,
+                          const Array<OneD, const NekDouble> &inarray,
+                          Array<OneD, NekDouble> &outarray);
+
     QuadExp();
 };
 

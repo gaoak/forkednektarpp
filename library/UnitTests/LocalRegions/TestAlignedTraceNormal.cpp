@@ -492,4 +492,71 @@ BOOST_AUTO_TEST_CASE(TestAlignedQuadFaceNormals)
                 orients.end());
 }
 
+/// The edge normals of a straight-sided quadrilateral that is not a
+/// parallelogram, and so deformed, are the constant outward normals of its
+/// sides, on Gauss points of every count, one point per direction included.
+BOOST_AUTO_TEST_CASE(TestDeformedQuadEdgeNormals)
+{
+    using namespace LibUtilities;
+    const std::array<std::array<NekDouble, 2>, 4> x = {
+        {{{0.0, 0.0}}, {{2.0, 0.1}}, {{1.6, 1.0}}, {{0.3, 1.3}}}};
+
+    std::array<SpatialDomains::PointGeomUniquePtr, 4> verts;
+    for (int i = 0; i < 4; ++i)
+    {
+        verts[i] = SpatialDomains::PointGeomUniquePtr(
+            new SpatialDomains::PointGeom(2u, i, x[i][0], x[i][1], 0.0));
+    }
+    std::array<SpatialDomains::SegGeomUniquePtr, 4> edges;
+    std::array<SpatialDomains::SegGeom *, 4> edgePtrs;
+    for (int i = 0; i < 4; ++i)
+    {
+        std::array<SpatialDomains::PointGeom *, 2> ev = {
+            verts[i].get(), verts[(i + 1) % 4].get()};
+        edges[i] = SpatialDomains::SegGeomUniquePtr(
+            new SpatialDomains::SegGeom(i, 2, ev));
+        edgePtrs[i] = edges[i].get();
+    }
+    SpatialDomains::QuadGeomUniquePtr quad(
+        new SpatialDomains::QuadGeom(0, edgePtrs));
+
+    // Edge i runs from vertex i to vertex i + 1 anticlockwise, so its outward
+    // normal is its direction turned clockwise.
+    std::array<std::array<NekDouble, 2>, 4> exact;
+    for (int i = 0; i < 4; ++i)
+    {
+        const NekDouble dx  = x[(i + 1) % 4][0] - x[i][0];
+        const NekDouble dy  = x[(i + 1) % 4][1] - x[i][1];
+        const NekDouble len = std::sqrt(dx * dx + dy * dy);
+        exact[i]            = {{dy / len, -dx / len}};
+    }
+
+    const std::array<std::array<int, 2>, 5> counts = {
+        {{{1, 1}}, {{2, 2}}, {{3, 3}}, {{1, 3}}, {{3, 1}}}};
+    for (const auto &n : counts)
+    {
+        const BasisKey b0(eOrtho_A, n[0], PointsKey(n[0], eGaussGaussLegendre));
+        const BasisKey b1(eOrtho_A, n[1], PointsKey(n[1], eGaussGaussLegendre));
+        auto exp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
+            b0, b1, quad.get());
+        BOOST_REQUIRE_EQUAL(exp->GetGeomFactors()->GetGtype(),
+                            SpatialDomains::eDeformed);
+
+        for (int e = 0; e < 4; ++e)
+        {
+            const auto &normal = exp->GetTraceNormal(e);
+            for (size_t q = 0; q < normal[0].size(); ++q)
+            {
+                BOOST_CHECK_MESSAGE(
+                    std::abs(normal[0][q] - exact[e][0]) < 1.0e-12 &&
+                        std::abs(normal[1][q] - exact[e][1]) < 1.0e-12,
+                    "points " << n[0] << " x " << n[1] << ", edge " << e
+                              << ": normal (" << normal[0][q] << ", "
+                              << normal[1][q] << ") against (" << exact[e][0]
+                              << ", " << exact[e][1] << ")");
+            }
+        }
+    }
+}
+
 } // namespace Nektar::AlignedTraceNormalTests
