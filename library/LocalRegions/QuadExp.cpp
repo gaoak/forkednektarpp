@@ -471,6 +471,54 @@ void QuadExp::GetEdgeInterpVals(const int edge, const NekDouble *inarray,
     }
 }
 
+/**
+ * @brief Evaluate on edge @p edge a field given at the points @p ptsKeys.
+ *
+ * Where @p ptsKeys are this element's own points this is
+ * GetEdgeInterpVals(). Otherwise, as when v_ComputeTraceNormal() takes a
+ * direction of one point to two, @p inarray is interpolated to the two end
+ * points of the edge's normal direction and the edge's values are copied
+ * out: edges 0 and 2 are the first and second rows, edges 1 and 3 the
+ * second and first columns, each in the direction's point order.
+ *
+ * @param   edge      Edge index, 0 to 3.
+ * @param   ptsKeys   Points of @p inarray in each direction.
+ * @param   inarray   Field at the points @p ptsKeys, direction 0 fastest.
+ * @param   outarray  The field at the edge's points of @p ptsKeys.
+ */
+void QuadExp::EvaluateEdgeVals(const int edge,
+                               const LibUtilities::PointsKeyVector &ptsKeys,
+                               const Array<OneD, const NekDouble> &inarray,
+                               Array<OneD, NekDouble> &outarray)
+{
+    if (ptsKeys[0] == m_base[0]->GetPointsKey() &&
+        ptsKeys[1] == m_base[1]->GetPointsKey())
+    {
+        GetEdgeInterpVals(edge, inarray, outarray);
+    }
+    else
+    {
+        const int nq0 = ptsKeys[0].GetNumPoints();
+        const int nq1 = ptsKeys[1].GetNumPoints();
+        const LibUtilities::PointsKey ends(2,
+                                           LibUtilities::eGaussLobattoLegendre);
+        Array<OneD, NekDouble> endVals(2 * max(nq0, nq1));
+        if (edge == 0 || edge == 2)
+        {
+            LibUtilities::Interp2D(ptsKeys[0], ptsKeys[1], inarray, ptsKeys[0],
+                                   ends, endVals);
+            Vmath::Vcopy(nq0, &endVals[edge == 0 ? 0 : nq0], 1, &outarray[0],
+                         1);
+        }
+        else
+        {
+            LibUtilities::Interp2D(ptsKeys[0], ptsKeys[1], inarray, ends,
+                                   ptsKeys[1], endVals);
+            Vmath::Vcopy(nq1, &endVals[edge == 1 ? 1 : 0], 2, &outarray[0], 1);
+        }
+    }
+}
+
 void QuadExp::v_GetTracePhysMap(const int edge, Array<OneD, int> &outarray)
 {
     int nquad0 = m_base[0]->GetNumPoints();
@@ -896,7 +944,7 @@ void QuadExp::v_ComputeTraceNormal(const int edge)
         {
             int nqtot = nquad0 * nquad1;
             Array<OneD, NekDouble> tmp_gmat(nqtot, 0.0);
-            Array<OneD, NekDouble> tmp_gmat_edge(nqe, 0.0);
+            Array<OneD, NekDouble> tmp_gmat_edge(max(nquad0, nquad1), 0.0);
 
             switch (edge)
             {
@@ -907,8 +955,8 @@ void QuadExp::v_ComputeTraceNormal(const int edge)
                         {
                             Vmath::Vmul(nqtot, &(df[2 * i + 1][0]), 1, &jac[0],
                                         1, &(tmp_gmat[0]), 1);
-                            QuadExp::GetEdgeInterpVals(edge, tmp_gmat,
-                                                       tmp_gmat_edge);
+                            EvaluateEdgeVals(edge, ptsKeys, tmp_gmat,
+                                             tmp_gmat_edge);
                             normals[i * nquad0 + j] = -tmp_gmat_edge[j];
                         }
                     }
@@ -921,8 +969,8 @@ void QuadExp::v_ComputeTraceNormal(const int edge)
                         {
                             Vmath::Vmul(nqtot, &(df[2 * i][0]), 1, &jac[0], 1,
                                         &(tmp_gmat[0]), 1);
-                            QuadExp::GetEdgeInterpVals(edge, tmp_gmat,
-                                                       tmp_gmat_edge);
+                            EvaluateEdgeVals(edge, ptsKeys, tmp_gmat,
+                                             tmp_gmat_edge);
                             normals[i * nquad1 + j] = tmp_gmat_edge[j];
                         }
                     }
@@ -935,8 +983,8 @@ void QuadExp::v_ComputeTraceNormal(const int edge)
                         {
                             Vmath::Vmul(nqtot, &(df[2 * i + 1][0]), 1, &jac[0],
                                         1, &(tmp_gmat[0]), 1);
-                            QuadExp::GetEdgeInterpVals(edge, tmp_gmat,
-                                                       tmp_gmat_edge);
+                            EvaluateEdgeVals(edge, ptsKeys, tmp_gmat,
+                                             tmp_gmat_edge);
                             normals[i * nquad0 + j] = tmp_gmat_edge[j];
                         }
                     }
@@ -949,8 +997,8 @@ void QuadExp::v_ComputeTraceNormal(const int edge)
                         {
                             Vmath::Vmul(nqtot, &(df[2 * i][0]), 1, &jac[0], 1,
                                         &(tmp_gmat[0]), 1);
-                            QuadExp::GetEdgeInterpVals(edge, tmp_gmat,
-                                                       tmp_gmat_edge);
+                            EvaluateEdgeVals(edge, ptsKeys, tmp_gmat,
+                                             tmp_gmat_edge);
                             normals[i * nquad1 + j] = -tmp_gmat_edge[j];
                         }
                     }
