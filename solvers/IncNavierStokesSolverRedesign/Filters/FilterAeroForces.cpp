@@ -42,25 +42,27 @@
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <SpatialDomains/Conditions.h>
 
-#include <SolverCore/Filters/FilterAeroForces.h>
+#include <IncNavierStokesSolverRedesign/Filters/FilterAeroForces.h>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
 std::string FilterAeroForces::className =
-    GetFilterFactory().RegisterCreatorFunction("AeroForces",
-                                               FilterAeroForces::create);
+    SolverCore::GetFilterFactory().RegisterCreatorFunction(
+        "AeroForces", FilterAeroForces::create);
 
 FilterAeroForces::FilterAeroForces(
     const LibUtilities::SessionReaderSharedPtr &session, const ParamMap &params)
-    : Filter(session)
+    : SolverCore::Filter(session)
 {
-    m_outputFile = Filter::SetupOutput(".fce", params);
-    FilterParameters parameters(session, params, "FilterAeroForces");
+    m_outputFile = SolverCore::Filter::SetupOutput(".fce", params);
+    SolverCore::FilterParameters parameters(session, params,
+                                            "FilterAeroForces");
     parameters.Consume("OutputFile");
     m_outputFrequency = parameters.PositiveFrequency("OutputFrequency", 1);
-    m_schedule = StepSchedule(m_outputFrequency, true, parameters.StartTime());
-    m_boundaryString = parameters.RequiredString("Boundary");
+    m_schedule        = SolverCore::StepSchedule(m_outputFrequency, true,
+                                                 parameters.StartTime());
+    m_boundaryString  = parameters.RequiredString("Boundary");
 
     auto parseVector = [&](const std::string &name,
                            std::array<double, 3> defaultValue) {
@@ -116,31 +118,23 @@ FilterAeroForces::FilterAeroForces(
         m_pivotPoint = parseVector("MomentPoint", m_pivotPoint);
     }
 
-    if (m_session->DefinesParameter("Kinvis"))
-    {
-        m_rho = m_session->DefinesParameter("rho")
-                    ? m_session->GetParameter("rho")
-                    : 1.0;
-        m_mu  = m_rho * m_session->GetParameter("Kinvis");
-    }
-    else
-    {
-        ASSERTL0(m_session->DefinesParameter("mu"),
-                 "AeroForces requires either 'Kinvis' or 'mu'.");
-        m_mu = m_session->GetParameter("mu");
-    }
+    // Kinvis with the default the solver uses.
+    double kinvis = 1.0;
+    m_session->LoadParameter("rho", m_rho, 1.0);
+    m_session->LoadParameter("Kinvis", kinvis, 1.0);
+    m_mu = m_rho * kinvis;
     ASSERTL0(std::isfinite(m_rho) && std::isfinite(m_mu),
              "AeroForces density and viscosity must be finite.");
     parameters.ValidateAllConsumed();
     m_executionSpace = MultiRegions::Operator<double>::GetOpExecSpace(session);
 }
 
-void FilterAeroForces::v_Initialise(FilterContext &context)
+void FilterAeroForces::v_Initialise(SolverCore::FilterContext &context)
 {
-    auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
-    auto pressureView = context.fields.GetRole(FieldRoles::Pressure);
-    ASSERTL0(velocityView && pressureView,
-             "AeroForces requires velocity and pressure field views.");
+    auto velocityView =
+        context.fields.GetRole(SolverCore::FieldRoles::Velocity);
+    auto pressureView =
+        context.fields.GetRole(SolverCore::FieldRoles::Pressure);
 
     m_velocityExp = velocityView->expansion;
     m_pressureExp = pressureView->expansion;
@@ -207,14 +201,10 @@ void FilterAeroForces::v_Initialise(FilterContext &context)
                                     " does not exist.");
     }
 
-    ASSERTL0(velocityView->components.size() == velocityView->spaceDimension,
-             "AeroForces requires one velocity component per dimension.");
-    ASSERTL0(pressureView->components.size() == 1,
-             "AeroForces requires exactly one pressure component.");
     m_aeroForcesOp = AeroForcesOp<double>::Create(
-        m_velocityExp, ComponentNames(velocityView->components));
+        m_velocityExp, SolverCore::ComponentNames(velocityView->components));
     m_aeroForcesOp->Configure(
-        ComponentIndices(velocityView->components), m_pressureExp,
+        SolverCore::ComponentIndices(velocityView->components), m_pressureExp,
         pressureView->components.front().index, m_boundaryRegionIsInList, m_rho,
         m_mu, m_pivotPoint);
 
@@ -223,13 +213,14 @@ void FilterAeroForces::v_Initialise(FilterContext &context)
     m_pressureMoment.assign(m_momentDim, 0.0);
     m_viscousMoment.assign(m_momentDim, 0.0);
 
-    m_writer = std::make_unique<RootTableWriter>(m_session->GetComm());
+    m_writer =
+        std::make_unique<SolverCore::RootTableWriter>(m_session->GetComm());
     m_writer->Open(m_outputFile);
     WriteHeader(boundaryIds);
     v_Apply(context);
 }
 
-void FilterAeroForces::v_Apply(FilterContext &context)
+void FilterAeroForces::v_Apply(SolverCore::FilterContext &context)
 {
     if (!m_schedule.Due(context))
     {
@@ -240,18 +231,18 @@ void FilterAeroForces::v_Apply(FilterContext &context)
     WriteForces(context.time);
 }
 
-void FilterAeroForces::CalculateForces(FilterContext &context)
+void FilterAeroForces::CalculateForces(SolverCore::FilterContext &context)
 {
-    auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
-    auto pressureView = context.fields.GetRole(FieldRoles::Pressure);
-    ASSERTL0(velocityView && pressureView,
-             "AeroForces velocity or pressure field view is unavailable.");
+    auto velocityView =
+        context.fields.GetRole(SolverCore::FieldRoles::Velocity);
+    auto pressureView =
+        context.fields.GetRole(SolverCore::FieldRoles::Pressure);
 
     auto &gradient =
         context.derived.GetGradient(*velocityView, m_executionSpace);
     // Only the writer, rank zero, reads the forces.
     m_aeroForcesOp->SetRootOnly(true);
-    (*m_aeroForcesOp)(pressureView->field.get(), gradient);
+    m_aeroForcesOp->Apply(pressureView->field.get(), gradient);
     if (!m_writer->IsWriter())
     {
         return;
@@ -399,7 +390,8 @@ void FilterAeroForces::WriteForces(const double time)
     m_writer->EndRow();
 }
 
-void FilterAeroForces::v_Finalise([[maybe_unused]] FilterContext &context)
+void FilterAeroForces::v_Finalise(
+    [[maybe_unused]] SolverCore::FilterContext &context)
 {
     if (m_writer)
     {
@@ -407,4 +399,4 @@ void FilterAeroForces::v_Finalise([[maybe_unused]] FilterContext &context)
     }
 }
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar

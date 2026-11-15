@@ -34,9 +34,10 @@
 
 #pragma once
 
-#include "LibUtilities/Backends/DeviceProperties.hpp"
 #include <algorithm>
 #include <cstring>
+
+#include <LibUtilities/Backends/DeviceProperties.hpp>
 
 namespace Nektar
 {

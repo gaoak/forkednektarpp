@@ -38,23 +38,23 @@
 #include <string>
 #include <vector>
 
+#include <IncNavierStokesSolverRedesign/Utilities/ReynoldsStress/ReynoldsStressOp.hpp>
 #include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 #include <MultiRegions/ElmtOps/BwdTrans/BwdTransOp.hpp>
 #include <MultiRegions/ElmtOps/IProductWRTBase/IProductWRTBaseOp.hpp>
 #include <MultiRegions/ElmtOps/MultiplyByElmtInvMass/MultiplyByElmtInvMassOp.hpp>
 #include <SolverCore/Filters/Filter.h>
 #include <SolverCore/Filters/FilterUtils.h>
-#include <SolverCore/ReynoldsStress/ReynoldsStressOp.hpp>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
-class FilterReynoldsStresses : public Filter
+class FilterReynoldsStresses : public SolverCore::Filter
 {
 public:
     friend class MemoryManager<FilterReynoldsStresses>;
 
-    static FilterSharedPtr create(
+    static SolverCore::FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &session,
         const ParamMap &params)
     {
@@ -65,19 +65,18 @@ public:
     static std::string className;
 
 protected:
-    SOLVER_CORE_EXPORT FilterReynoldsStresses(
-        const LibUtilities::SessionReaderSharedPtr &session,
-        const ParamMap &params);
-    SOLVER_CORE_EXPORT ~FilterReynoldsStresses() override = default;
+    FilterReynoldsStresses(const LibUtilities::SessionReaderSharedPtr &session,
+                           const ParamMap &params);
+    ~FilterReynoldsStresses() override = default;
 
-    SOLVER_CORE_EXPORT void v_Initialise(FilterContext &context) override;
-    SOLVER_CORE_EXPORT void v_Apply(FilterContext &context) override;
-    SOLVER_CORE_EXPORT void v_Finalise(FilterContext &context) override;
+    void v_Initialise(SolverCore::FilterContext &context) override;
+    void v_Apply(SolverCore::FilterContext &context) override;
+    void v_Finalise(SolverCore::FilterContext &context) override;
 
 private:
     std::string m_executionSpace;
     Math::MathHelper m_math;
-    CoefficientFieldViews m_sourceFields;
+    SolverCore::CoefficientFieldViews m_sourceFields;
     std::vector<LibUtilities::Field<double, FieldState::Coeff>> m_accumulators;
     LibUtilities::Field<double, FieldState::Phys> m_products;
     /// Output workspace, allocated at initialisation and refilled at each
@@ -91,7 +90,6 @@ private:
     LibUtilities::FieldMetaDataMap m_fieldMetaData;
 
     MultiRegions::ExpListSharedPtr m_velocityExpansion;
-    unsigned int m_velocityGroup = 0;
     std::vector<std::string> m_productNames;
     std::shared_ptr<ReynoldsStressOp<double>> m_reynoldsStressOp;
     std::shared_ptr<MultiRegions::BwdTransOp<double>> m_bwdTransOp;
@@ -105,12 +103,13 @@ private:
     unsigned int m_sampleFrequency = 1;
 
     std::string m_outputFile;
-    StepSchedule m_sampleSchedule;
-    StepSchedule m_outputSchedule;
-    std::unique_ptr<OutputSeries> m_series;
+    SolverCore::StepSchedule m_sampleSchedule;
+    SolverCore::StepSchedule m_outputSchedule;
+    std::unique_ptr<SolverCore::OutputSeries> m_series;
 
-    void AccumulateSample(FilterContext &context);
-    void WriteStresses(FilterContext &context, bool numbered = false);
+    void AccumulateSample(SolverCore::FilterContext &context);
+    void WriteStresses(SolverCore::FilterContext &context,
+                       bool numbered = false);
 };
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar

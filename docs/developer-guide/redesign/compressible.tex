@@ -1,0 +1,53 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Redesign Compressible Flow Solver}
+\label{chap:redesign-cfs}
+
+This chapter collects the parts of \code{CompressibleFlowSolverRedesign} that
+concern the \code{SolverCore} framework rather than its discretisation. Its
+equation systems, \code{EulerCFE} and \code{NavierStokesCFE}, derive from
+\code{SolverCore::UnsteadySystem}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Filters}
+\label{sec:redesign-cfs-filters}
+
+The solver keeps the default field registry of \code{EquationSystem}
+(Chapter~\ref{chap:solvercore}): \code{m\_fields}, the conservative variables
+density, momentum and total energy, are the solution role and the one
+physical group. Checkpoint, AverageFields, HistoryPoints and Mean therefore
+work unchanged, and their files contain the conservative variables.
+
+The compressible solution is conservative, so component slices of
+\code{m\_fields} cannot be used as velocity or pressure views. Supporting the
+fluid diagnostics requires the equation system to provide backend-native
+primitive workspaces and populate
+
+\begin{itemize}
+\item velocity as momentum divided by density;
+\item pressure through the configured equation of state; and
+\item density for density-weighted diagnostics.
+\end{itemize}
+
+These values should be computed lazily once per filter phase and shared by all
+consumers. A natural extension is a lazy physical-role provider in
+\code{FieldRegistry}, with the resolved view cached for the lifetime of that
+registry. The conversion kernel and its workspace belong to the compressible
+solver (or to a compressible primitive-state service), not to the filters.
+This preserves the backend-independent filter layer and avoids a host
+conversion of conservative fields.
+
+Fluid diagnostics need more than the primitive roles. A kinetic-energy
+diagnostic of variable-density flow integrates density-weighted quantities,
+so it requires the density role as well as the velocity. A boundary-force
+diagnostic requires a constitutive contract as well as primitive pressure:
+the Navier--Stokes equations may use a dynamic, possibly
+temperature-dependent, viscosity and a dilatational stress term, and Euler
+flow has no viscous traction. The equation system should therefore publish a
+viscous-stress (or boundary traction) view or service computed by its
+diffusion model. Treating momentum gradients as velocity gradients would be
+incorrect.
+
+Tests of such diagnostics need analytic variable-density fields, and
+inviscid and viscous cases using the same equation-of-state and transport
+models as the solver. A negative test should confirm that an Euler run
+rejects a requested viscous contribution.

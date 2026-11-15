@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unit test for the SolverCore ReynoldsStressOp.
+// Description: Unit test for the ReynoldsStressOp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -44,13 +44,12 @@
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
-#include <SolverCore/ReynoldsStress/ReynoldsStressOp.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/ReynoldsStress/ReynoldsStressOp.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
 #include <UnitTests/TestGlobalConfiguration.hpp>
 
 using namespace Nektar;
-using namespace Nektar::SolverCore;
 
 NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
@@ -189,9 +188,9 @@ static void CheckProducts(const std::string &xml, const std::string &execStr,
                 products.ReshapeStorage(productWidth, execStr);
 
                 op->SetScale(1.0);
-                (*op)(velocity, products);
+                op->Apply(velocity, products);
                 op->SetScale(0.5);
-                (*op)(velocity, products);
+                op->Apply(velocity, products);
 
                 for (const auto &block : products.GetBlocks())
                 {
@@ -263,7 +262,7 @@ static void RunConstantTest(const std::string &execStr)
         "products", blockAttr, productNames, 1);
     products.template Initialize<NektarSpaces::HostSpace>(0.0);
 
-    (*op)(velocity, products);
+    op->Apply(velocity, products);
 
     const auto result                  = products.template ToArray<double>();
     const std::vector<double> expected = {4.0, 6.0, 0.0, 9.0, 0.0, 0.0};

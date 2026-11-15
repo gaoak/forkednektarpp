@@ -1,0 +1,33 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Redesign Advection--Diffusion--Reaction Solver}
+\label{chap:redesign-adr}
+
+This chapter collects the parts of \code{ADRSolverRedesign} that concern the
+\code{SolverCore} framework rather than its discretisation. The unsteady
+equation systems derive from \code{SolverCore::UnsteadySystem}; the steady
+ones derive from \code{SolverCore::EquationSystem}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Filters}
+\label{sec:redesign-adr-filters}
+
+The solver keeps the default field registry of \code{EquationSystem}
+(Chapter~\ref{chap:solvercore}): \code{m\_fields}, the transported scalars,
+are the solution role and the one physical group, and the history and average
+files contain the transported variables. No velocity or pressure role is
+published.
+
+The ADR solution represents transported quantities, not fluid momentum. Its
+prescribed advection field is an operator coefficient and must not
+automatically be advertised as the velocity whose kinetic energy is measured.
+Checkpoint, AverageFields, HistoryPoints and Mean are therefore meaningful
+through the default registry. If a future coupled ADR system has genuine fluid
+state, that equation system can explicitly publish velocity, pressure and
+stress roles; the generic scalar ADR solver should not invent them.
+
+SteadyADR derives directly from \code{EquationSystem}, while the filter
+lifecycle is driven by \code{UnsteadySystem}, so a steady solve runs no
+filters. Supporting them requires moving the lifecycle driver to a common
+equation-system or driver hook and defining whether the single solved state is
+an initial, step-zero or final event. This is independent of field-registry
+compatibility.

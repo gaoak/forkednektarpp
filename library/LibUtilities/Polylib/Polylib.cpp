@@ -32,13 +32,13 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Polylib.h"
 #include <cfloat>
 #include <cmath>
 #include <complex>
 #include <cstdio>
 
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
+#include <LibUtilities/Polylib/Polylib.h>
 /// Maximum number of iterations in polynomial defalation routine Jacobz
 #define STOP 30
 /// Precision tolerance for two points to be similar

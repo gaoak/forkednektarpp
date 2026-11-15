@@ -37,11 +37,11 @@
 #include <algorithm>
 #include <array>
 
+#include <IncNavierStokesSolverRedesign/Utilities/ReynoldsStress/ReynoldsStressKernels.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/ReynoldsStress/ReynoldsStressOp.hpp>
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
-#include <SolverCore/ReynoldsStress/ReynoldsStressKernels.hpp>
-#include <SolverCore/ReynoldsStress/ReynoldsStressOp.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -160,4 +160,4 @@ protected:
     }
 };
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail

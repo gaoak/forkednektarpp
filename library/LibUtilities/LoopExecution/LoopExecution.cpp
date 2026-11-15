@@ -36,7 +36,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "LibUtilities/LoopExecution/LoopExecution.hpp"
+#include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
 namespace Nektar
 {

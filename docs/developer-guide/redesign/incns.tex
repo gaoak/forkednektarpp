@@ -16,8 +16,8 @@ This chapter summarises \code{IncNavierStokesSolverRedesign}, the
 incompressible Navier--Stokes solver built on the redesign operators of
 the \code{MultiRegions} and \code{SolverCore} libraries. It covers the time
 discretisation, the boundary conditions specific to the solver, initial
-conditions and restarts, a known start-up pressure transient, and the
-session parameters. Two further chapters give the full detail and are
+conditions and restarts, a known start-up pressure transient, the filters
+specific to the solver, and the session parameters. Two further chapters give the full detail and are
 referred to where useful:
 \begin{itemize}
   \item Chapter~\ref{chap:hopressure-bndcond}: the higher-order pressure
@@ -66,10 +66,14 @@ The main pieces are listed below; paths are relative to
   \code{FwdTransOp} (projections); \path{GlobalLinSysOps/LinearSolvers}: the
   iterative solvers (\code{ConjGrad}, \code{GMRES} and others);
   \path{PreconOps}: the \code{Diagonal} and \code{Null} preconditioners.
-  \item \path{Filters} in \code{SolverCore}: the filter available to the
-  solver is \code{Checkpoint}. Checkpoints are written only by the
-  \code{Checkpoint} filter; \code{IO\_CheckSteps} and \code{IO\_CheckTime}
-  are ignored with a warning.
+  \item \path{Filters} in \code{SolverCore}: \code{Checkpoint},
+  \code{AverageFields}, \code{HistoryPoints} and \code{Mean}. Checkpoints
+  are written only by the \code{Checkpoint} filter; \code{IO\_CheckSteps}
+  and \code{IO\_CheckTime} are ignored with a warning.
+  \item \path{Filters} and \path{Utilities}: the \code{Energy},
+  \code{AeroForces} and \code{ReynoldsStresses} filters and their operators
+  \code{EnergyOp}, \code{AeroForcesOp} and \code{ReynoldsStressOp}
+  (Section~\ref{sec:incns-filters}).
 \end{itemize}
 
 The variables must be ordered as velocity components, optional passive
@@ -939,6 +943,189 @@ steady cylinder flow ($Re=20,40$) found:
 B1, B2 and B4 only affect transients, not the fixed point.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Filters}
+\label{sec:incns-filters}
+
+The solver runs the SolverCore filters (Chapter~\ref{chap:solvercore}) and
+three filters of its own: Energy, AeroForces and ReynoldsStresses, in
+\path{Filters}, with their operators \code{EnergyOp}, \code{AeroForcesOp} and
+\code{ReynoldsStressOp} in \path{Utilities}. They implement diagnostics of
+constant-density flow and read the velocity and pressure roles that this
+solver publishes. They use the SolverCore filter interface and register with
+its filter factory, so a session selects them as it does any other filter.
+Energy and AeroForces include step zero in their schedules; ReynoldsStresses
+begins sampling after the first completed step.
+
+\subsection{Published fields}
+
+\code{VelocityCorrectionScheme} overrides the registry because pressure has
+separate storage and may have a different expansion. It publishes velocity as
+the first \code{spaceDimension} components of the solution field, publishes
+pressure as a separate role, and retains passive scalars only in the canonical
+solution group. The physical groups are therefore the complete solution field,
+including passive scalars, and the separate pressure field:
+
+\begin{lstlisting}[language=C++]
+PhysicalFieldView solution{
+    m_fields, m_expansionLists[0], m_coordim,
+    MakeFieldComponents(m_variablesFields)};
+
+PhysicalFieldView velocity{
+    m_fields, m_expansionLists[0], m_coordim,
+    MakeFieldComponents(m_variablesFields, 0, m_coordim)};
+
+PhysicalFieldView pressure{
+    m_pressure, m_expansionLists[m_pressureIndex], m_coordim,
+    MakeFieldComponents(m_variablesPressure)};
+
+registry.SetRole(std::string(FieldRoles::Solution), solution);
+registry.SetRole(std::string(FieldRoles::Velocity), velocity);
+registry.SetRole(std::string(FieldRoles::Pressure), pressure);
+registry.SetPhysicalGroups({solution, pressure});
+\end{lstlisting}
+
+This arrangement lets semantic consumers request velocity or pressure while
+generic output consumers operate on complete, non-overlapping groups. Energy
+and AeroForces use the component indices of the velocity view and therefore
+exclude the passive scalars. Both request the velocity gradient from the
+derived-data cache, so when both are due on the same step they share one
+gradient calculation.
+
+\subsection{Energy}
+
+Energy obtains the velocity role and constructs \texttt{EnergyOp} with its
+component indices. On a due step it requests the velocity gradient from the
+shared derived-data cache and passes the underlying velocity field and the
+cached gradient to the operator.
+
+The operator supports two- and three-dimensional velocity fields, and 3DH1
+fields, whose local planes it weights with their $z$ quadrature weights in the
+same sums, every entry of every plane one term; the $z$ derivatives the curl
+needs require more than one plane on each rank. The quadrature metric of each block, the quadrature weight times the Jacobian of
+every point, is fetched from the data warehouse through
+\texttt{LocalRegions::QuadratureMetricKey} the first time a velocity is read
+at a given interleave width, laid out as the velocity, so that one storage
+index addresses the same point of the velocity, its gradient and the metric at
+either width, with no reshape. Each
+block is integrated by one \texttt{parallel\_reduce\_sum} over its storage,
+on the block's stream, neighbouring threads reading neighbouring entries. It
+packs
+$\int_\Omega |\mathbf{u}|^2\,d\Omega$, $\int_\Omega |\boldsymbol{\omega}|^2
+\,d\Omega$ and the volume into one \texttt{MemoryRegion} and performs a single
+reduction over the spatial ranks, to the writer rank alone, which the filter
+requests through \texttt{SetRootOnly(true)}. On the writer rank the filter reads the three
+values through \texttt{EnergyOp::GetKineticEnergy()}, \texttt{GetEnstrophy()}
+and \texttt{GetVolume()}, and writes half of each integral divided by the
+volume. Passive scalars are not included.
+\subsection{AeroForces}
+
+AeroForces obtains both velocity and pressure role views and uses the same
+cached velocity gradient as Energy. Its operator retains the velocity and
+pressure expansions separately, with the component indices of velocity and
+pressure in their fields.
+
+During configuration, the operator constructs independent oriented
+volume-to-boundary restrictions for pressure and velocity gradient data, so
+pressure and velocity expansions do not need identical quadrature. Each
+boundary quadrature point has one sparse row per restriction, with a single
+entry of weight one where the restriction is a gather. The pressure shares the
+blocks of the velocity, as the incompressible solver requires, and the points
+on the elements of one block are integrated by one
+\texttt{parallel\_reduce\_sum} of the twelve sums on the block's stream,
+whatever the shapes of its faces. The rows are gathered on the host at
+configuration. The first time the gradient is read at an interleave width, one
+or the width of the execution space, the rows of each block are copied to the
+operator's memory space for that width: the restriction sources are converted
+to storage offsets, those of the pressure at both widths, and the points are
+ordered by the offset of their first gradient source, so that neighbouring
+threads read neighbouring entries where the boundary allows; the normals and
+moment arms are stored point-minor for the same reason. \texttt{Apply()} then
+reads the pressure and the gradient where they are stored, at either width. The
+operator integrates pressure and viscous forces and moments into twelve packed
+values and reduces them to the writer rank, the filter requesting a root-only
+reduction. There the filter reads the four
+Cartesian 3-vectors through \texttt{AeroForcesOp::GetPressureForce()},
+\texttt{GetViscousForce()}, \texttt{GetPressureMoment()} and
+\texttt{GetViscousMoment()}; in two dimensions the $z$ force components and
+the $x$ and $y$ moment components are zero.
+
+A 3DH1 expansion is integrated as its two-dimensional planes are: the
+boundary restrictions, normals and moment arms are built once from its first
+plane, each local plane gives the forces and moments per unit span from the
+in-plane velocity gradient, and the result is their average over all the
+planes, one boundary point of one plane per thread. The table therefore keeps
+the two-dimensional columns.
+
+The filter validates that the boundary selection is non-empty and contains no
+duplicates, and that every selected boundary identifier exists on some rank.
+Directions and pivot points require exactly three finite values; directions are
+normalised but are not required to be mutually orthogonal. Output retains
+separate pressure, viscous and total columns.
+Unlike the SolverUtils filter, AeroForces supports pressure and velocity
+expansions with different volume quadrature, through independent restriction
+maps, and validates its boundary identifiers rather than silently ignoring
+unknown ones.
+
+\subsection{ReynoldsStresses}
+
+ReynoldsStresses obtains the coefficient groups and the velocity role. Like
+AverageFields, it keeps an unscaled coefficient accumulator for every group,
+so the averages of all solver variables, pressure included, are written.
+The velocity is the leading components of the first coefficient group, on
+the velocity expansion, as \code{VelocityCorrectionScheme} publishes it. In addition the filter keeps one physical-space
+field $S_{ab}$ with a component for every pair $a \le b$ of velocity
+components, $d(d+1)/2$ in $d$ dimensions, to which each sample adds the
+pointwise products $u_a u_b$ at the quadrature points. The products are
+formed by \texttt{ReynoldsStressOp}, which is created on the velocity
+expansion and configured with the velocity component indices. It adds
+$s\,u_a u_b$ for a scale $s$ set with \texttt{SetScale} immediately before
+each application, reads only the selected velocity components of a field that
+may also hold passive scalars, and runs block $b$ on stream $b+1$. The product
+field has the block attributes of the velocity, and a product block at another
+interleave width than the velocity's is first reshaped to it on the block's
+stream, keeping its content, so one storage index addresses the same point in
+both. Each block is one \texttt{parallel\_for} over its storage, neighbouring
+threads reading and writing neighbouring entries with no index arithmetic, and
+the same kernel serves the Serial, AVX and device execution spaces at any
+interleave width. The padding of the velocity is zero, so that of the
+products stays zero.
+
+When a file is written, the summed velocity coefficients are transformed back
+to $U_a = \sum_n u_a$ at the quadrature points, and the operator is applied to
+them with $s = -1/N$ on a copy of $S$, giving $S_{ab} - U_a U_b/N$. This is
+projected element by element onto the velocity expansion with
+\texttt{IProductWRTBaseOp} followed by \texttt{MultiplyByElmtInvMassOp}.
+\texttt{FwdTransOp} is not used: its continuous path imposes the Dirichlet
+and Robin conditions of the solver variables, which do not exist for the
+product variables, and it would perform a global rather than an elementwise
+projection. All written fields share the scale $1/N$, so the file holds the
+averages followed by the covariances
+\[
+\overline{u_a' u_b'} = \frac{1}{N}\left(S_{ab} - \frac{U_a U_b}{N}\right),
+\]
+named \texttt{uu, uv, uw, vv, vw, ww} (\texttt{uu, uv, vv} in two dimensions).
+The two-moment form needs no mean in physical space during sampling. Its
+rounding error is of order $\epsilon\,\overline{u_a u_b}$ in absolute terms,
+which for wall-bounded turbulence, where $\overline{u}^2$ exceeds
+$\overline{u'^2}$ by at most a few hundred, is far below the sampling error.
+
+Sampling excludes the initial phase and follows \texttt{SampleFrequency}. A
+numbered file \texttt{<OutputFile>\_<k>\_stress.fld}, from the shared
+zero-based series $k = 0, 1, \ldots$, is written on sampled steps that are
+also multiples of \texttt{OutputFrequency}, and finalisation always writes
+\texttt{<OutputFile>\_stress.fld}. The metadata records
+\texttt{InitialTime}, \texttt{FinalTime}, \texttt{Time},
+\texttt{NumberOfFieldDumps} and, once a numbered file has been written,
+\texttt{FilterFileNum}. Moving averages, phase averaging, scaled expansions,
+FieldConvert modules and restarting from an earlier file are rejected with an
+explicit error, as are homogeneous and embedded-manifold expansions. Besides
+the coefficient accumulators and the $d(d+1)/2$ physical-space products, the
+filter holds an output workspace: the summed velocity at the quadrature
+points, a copy of the products and two coefficient fields of $d(d+1)/2$
+components. It is allocated at initialisation and refilled at each output, so
+that writing a file neither allocates nor frees memory.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Usage and parameters}
 \label{sec:incns-usage}
 
@@ -1090,10 +1277,20 @@ HOutflow: \code{HOutflowPressureKernel}, \code{HOutflowVelocityKernel},
 \code{ValidateAndBuildVelocityBoundaryData}, \code{EvaluatePressure},
 \code{EvaluateVelocity}, \code{ApplyNeumannMaps}, and the adapters
 \code{HOutflowPressureAdapter} and \code{HOutflowVelocityAdapter} \\
+\path{Filters/FilterEnergy.cpp}, \path{Filters/FilterAeroForces.cpp},
+\path{Filters/FilterReynoldsStresses.cpp} & kinetic energy and enstrophy,
+boundary forces and moments, time-averaged fields and velocity covariances \\
+\path{Utilities/Energy}, \path{Utilities/AeroForces},
+\path{Utilities/ReynoldsStress} & \code{EnergyOp}, \code{AeroForcesOp} and
+\code{ReynoldsStressOp} used by these filters \\
 \code{ADD\_OPERATOR} in \path{CMakeLists.txt} & per execution space
 factory registration \\
 \path{UnitTests/TestHOPressureBndCond.cpp},
-\path{UnitTests/TestHOutflowBndCond.cpp} & operator unit tests \\
+\path{UnitTests/TestHOutflowBndCond.cpp}, \path{UnitTests/TestEnergy.cpp},
+\path{UnitTests/TestAeroForces.cpp}, \path{UnitTests/TestReynoldsStress.cpp}
+& operator unit tests \\
+\path{UnitTests/TestFilterReynoldsStresses.cpp} & values written by the
+\code{ReynoldsStresses} filter \\
 \path{Tests/} & regression sessions, e.g.\ \code{KovasznayFlowHOPBC2D},
 \code{KovasznayFlowHOPBC2D\_SmallTimeStep},
 \code{KovasznayFlowHOPBC2D\_IMEXOrder2}, \code{KovasznayFlowHOPBC2D\_IMEXdirk},

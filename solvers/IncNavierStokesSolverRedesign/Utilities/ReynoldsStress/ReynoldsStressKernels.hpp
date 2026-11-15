@@ -36,7 +36,7 @@
 
 #include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 /**
@@ -89,4 +89,4 @@ void ReynoldsStressKernelLauncher(const size_t planeSize,
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail
