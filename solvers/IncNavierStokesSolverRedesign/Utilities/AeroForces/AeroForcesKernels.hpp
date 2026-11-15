@@ -37,7 +37,7 @@
 
 #include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 /**
@@ -226,4 +226,4 @@ void AeroForcesKernelLauncher(
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail

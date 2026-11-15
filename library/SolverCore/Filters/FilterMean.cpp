@@ -147,7 +147,7 @@ void FilterMean::ComputeMeans(FilterContext &context)
         auto &meanOp = *m_meanOps[group];
         // Only the writer, rank zero, reads the means.
         meanOp.SetRootOnly(true);
-        meanOp(groups[group].field.get());
+        meanOp.Apply(groups[group].field.get());
         if (m_writer->IsWriter())
         {
             const auto means = meanOp.GetMeans();

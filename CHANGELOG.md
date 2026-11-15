@@ -248,6 +248,7 @@ v5.11.0
 - Evaluate the Neumann value of the HOutflow velocity conditions once, and again at every step only on the regions whose expression uses `t` (!2902)
 - Vectorise the pointwise kernels of the HOPBC and HOutflow conditions on AVX, give their volume gathers the dimension as a template parameter, and form predictor - rhs of the HOPBC in place of a copy of the boundary-adjacent elements (!2909)
 - Keep the IMEX start-up and history extrapolation in the solver (!2911)
+- Move Incompressible Navier-Stokes specific operators to IncNavierStokesSolverRedesign directory (!2933)
 
 **Miscellaneous**
 - Turn-off fast math for intel compiler (!2617)

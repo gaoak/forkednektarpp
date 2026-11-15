@@ -36,7 +36,7 @@
 
 #include <LibUtilities/LoopExecution/LoopExecution.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 /**
@@ -189,4 +189,4 @@ void EnergyKernelLauncher(const size_t planeSize, const unsigned int nPlanes,
     Nektar::LoopExecutionSetStreamID(0);
 }
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail

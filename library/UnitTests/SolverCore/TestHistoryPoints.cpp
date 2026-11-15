@@ -190,7 +190,7 @@ static void RunPointsTest(const std::string &xml, const std::string &execStr)
                 field.ReshapeStorage(interleaveWidth, execStr);
 
                 op->SetRootOnly(rootOnly);
-                (*op)(field);
+                op->Apply(field);
 
                 const auto result = op->GetValues();
                 BOOST_REQUIRE_EQUAL(result.size(), nHistoryPoints * nComp);
@@ -300,7 +300,7 @@ static void RunPoints3DH1Test(const std::string &xml,
                 field.ReshapeStorage(interleaveWidth, execStr);
 
                 op->SetRootOnly(rootOnly);
-                (*op)(field);
+                op->Apply(field);
 
                 const auto result = op->GetValues();
                 BOOST_REQUIRE_EQUAL(result.size(), nHistoryPoints * nComp);

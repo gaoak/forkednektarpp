@@ -42,10 +42,10 @@
 #include <numeric>
 #include <utility>
 
-#include <SolverCore/AeroForces/AeroForcesKernels.hpp>
-#include <SolverCore/AeroForces/AeroForcesOp.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/AeroForces/AeroForcesKernels.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/AeroForces/AeroForcesOp.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -694,4 +694,4 @@ protected:
     }
 };
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail

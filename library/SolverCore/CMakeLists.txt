@@ -215,8 +215,7 @@ IF(NEKTAR_ENABLE_DEVICE_SUPPORT)
     FILE(GLOB children Advection/* Advection/AdvectionWeakDG/*
                        Diffusion/* Diffusion/DiffusionIP/*
                        AdvDiffusion/* AdvDiffusion/AdvWeakDGDiffusionIP/*
-                       AeroForces Energy HistoryPoints Mean ReynoldsStress
-                       MeanRemoval NormOps/* CFL/*
+                       HistoryPoints Mean MeanRemoval NormOps/* CFL/*
                        GlobalLinSysOps/LinearSystems/* GlobalLinSysOps/LinearSolvers/* PreconOps/*)
 
     FOREACH(child ${children})

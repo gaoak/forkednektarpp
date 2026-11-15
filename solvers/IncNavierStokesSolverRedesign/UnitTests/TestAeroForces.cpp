@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unit test for the SolverCore AeroForcesOp.
+// Description: Unit test for the AeroForcesOp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -44,13 +44,12 @@
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
-#include <SolverCore/AeroForces/AeroForcesOp.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/AeroForces/AeroForcesOp.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
 #include <UnitTests/TestGlobalConfiguration.hpp>
 
 using namespace Nektar;
-using namespace Nektar::SolverCore;
 
 NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
@@ -244,7 +243,7 @@ static void RunClosedBoundaryTest(const std::string &xml,
                                                  execStr);
 
                     op->SetRootOnly(rootOnly);
-                    (*op)(pressureField, gradientField);
+                    op->Apply(pressureField, gradientField);
 
                     const auto check =
                         [](const std::array<double, 3> &actual,
@@ -402,7 +401,7 @@ static void RunClosedBoundary3DH1Test(const std::string &xml,
                                                  execStr);
 
                     op->SetRootOnly(rootOnly);
-                    (*op)(pressureField, gradientField);
+                    op->Apply(pressureField, gradientField);
 
                     const auto check =
                         [](const std::array<double, 3> &actual,

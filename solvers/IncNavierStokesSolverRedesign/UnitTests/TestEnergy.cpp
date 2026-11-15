@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Unit test for the SolverCore EnergyOp.
+// Description: Unit test for the EnergyOp.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -40,13 +40,12 @@
 
 #include <LibUtilities/BasicUtils/Field/Field.hpp>
 
-#include <SolverCore/Energy/EnergyOp.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/Energy/EnergyOp.hpp>
 
 #include <UnitTests/TestBoostSetup.hpp>
 #include <UnitTests/TestGlobalConfiguration.hpp>
 
 using namespace Nektar;
-using namespace Nektar::SolverCore;
 
 NEKTAR_TEST_GLOBAL_CONFIGURATION(Nektar::UnitTests::TestArgs::None);
 
@@ -208,7 +207,7 @@ static void RunEnergyTest(const std::string &xml, const std::string &execStr,
                 gradientField.ReshapeStorage(interleaveWidth, execStr);
 
                 op->SetRootOnly(rootOnly);
-                (*op)(velocityField, gradientField);
+                op->Apply(velocityField, gradientField);
 
                 const double tol = 1.0e-10;
                 BOOST_CHECK_SMALL(op->GetVolume() - expectedVolume,

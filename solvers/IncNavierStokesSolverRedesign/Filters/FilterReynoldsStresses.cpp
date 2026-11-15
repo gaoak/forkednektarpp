@@ -34,16 +34,16 @@
 
 #include <iostream>
 
+#include <IncNavierStokesSolverRedesign/Filters/FilterReynoldsStresses.h>
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <MultiRegions/Common/Operator.hpp>
-#include <SolverCore/Filters/FilterReynoldsStresses.h>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
 std::string FilterReynoldsStresses::className =
-    GetFilterFactory().RegisterCreatorFunction("ReynoldsStresses",
-                                               FilterReynoldsStresses::create);
+    SolverCore::GetFilterFactory().RegisterCreatorFunction(
+        "ReynoldsStresses", FilterReynoldsStresses::create);
 
 /**
  * @class FilterReynoldsStresses
@@ -77,7 +77,7 @@ std::string FilterReynoldsStresses::className =
  */
 FilterReynoldsStresses::FilterReynoldsStresses(
     const LibUtilities::SessionReaderSharedPtr &session, const ParamMap &params)
-    : Filter(session),
+    : SolverCore::Filter(session),
       m_executionSpace(MultiRegions::Operator<double>::GetOpExecSpace(session)),
       m_math(m_executionSpace)
 {
@@ -99,8 +99,9 @@ FilterReynoldsStresses::FilterReynoldsStresses(
                      " (parameter '" + name + "').");
     }
 
-    m_outputFile = Filter::SetupOutput(".fld", params);
-    FilterParameters parameters(session, params, "FilterReynoldsStresses");
+    m_outputFile = SolverCore::Filter::SetupOutput(".fld", params);
+    SolverCore::FilterParameters parameters(session, params,
+                                            "FilterReynoldsStresses");
     parameters.Consume("OutputFile");
     unsigned int defaultOutputFrequency = 0;
     if (!parameters.Has("OutputFrequency"))
@@ -111,29 +112,31 @@ FilterReynoldsStresses::FilterReynoldsStresses(
         parameters.PositiveFrequency("OutputFrequency", defaultOutputFrequency);
     m_sampleFrequency      = parameters.PositiveFrequency("SampleFrequency", 1);
     const double startTime = parameters.StartTime();
-    m_sampleSchedule       = StepSchedule(m_sampleFrequency, false, startTime);
-    m_outputSchedule       = StepSchedule(m_outputFrequency, false, startTime);
+    m_sampleSchedule =
+        SolverCore::StepSchedule(m_sampleFrequency, false, startTime);
+    m_outputSchedule =
+        SolverCore::StepSchedule(m_outputFrequency, false, startTime);
     parameters.ValidateAllConsumed();
-    m_series = std::make_unique<OutputSeries>(m_outputFile);
+    m_series = std::make_unique<SolverCore::OutputSeries>(m_outputFile);
 }
 
 /**
  * @brief Allocate the accumulators, the output workspace and the operators.
  *
  * The coefficient accumulators follow the registry's coefficient groups. The
- * velocity is taken from the velocity role, whose components must appear at
- * the same indices in one coefficient group on the same expansion, so that
+ * velocity is taken from the velocity role, whose components are the leading
+ * components of the first coefficient group, on the same expansion, so that
  * the summed coefficients of that group transform back to the summed
  * velocity. The output workspace is allocated here, so that writing a file
  * neither allocates nor frees memory.
  */
-void FilterReynoldsStresses::v_Initialise(FilterContext &context)
+void FilterReynoldsStresses::v_Initialise(SolverCore::FilterContext &context)
 {
     ASSERTL0(!m_session->DefinesSolverInfo("HOMOGENEOUS"),
              "ReynoldsStresses does not support homogeneous expansions.");
 
-    auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
-    ASSERTL0(velocityView, "ReynoldsStresses requires a velocity field view.");
+    auto velocityView =
+        context.fields.GetRole(SolverCore::FieldRoles::Velocity);
     ASSERTL0(velocityView->spaceDimension == 2 ||
                  velocityView->spaceDimension == 3,
              "ReynoldsStresses supports only 2D and 3D velocity fields.");
@@ -141,41 +144,16 @@ void FilterReynoldsStresses::v_Initialise(FilterContext &context)
                  velocityView->spaceDimension,
              "ReynoldsStresses does not support embedded-manifold "
              "expansions.");
-    ASSERTL0(velocityView->components.size() == velocityView->spaceDimension,
-             "ReynoldsStresses requires one velocity component per "
-             "dimension.");
     ASSERTL0(velocityView->field.get().GetNumHomoModes() == 1,
              "ReynoldsStresses does not support homogeneous expansions.");
 
     m_numSamples = 0;
 
     m_sourceFields = context.fields.GetCoefficientGroups();
-    ASSERTL0(!m_sourceFields.empty(),
-             "ReynoldsStresses found no fields to average.");
-
-    // Locate the coefficient group holding the velocity, with the velocity
-    // at the same component indices as in the physical field.
-    const auto velocityNames   = ComponentNames(velocityView->components);
-    const auto velocityIndices = ComponentIndices(velocityView->components);
-    bool foundVelocity         = false;
-    for (unsigned int i = 0; i < m_sourceFields.size() && !foundVelocity; ++i)
-    {
-        if (m_sourceFields[i].expansion != velocityView->expansion)
-        {
-            continue;
-        }
-        const auto names = ComponentNames(m_sourceFields[i].components);
-        foundVelocity    = true;
-        for (size_t c = 0; c < velocityNames.size(); ++c)
-        {
-            foundVelocity = foundVelocity &&
-                            velocityIndices[c] < names.size() &&
-                            names[velocityIndices[c]] == velocityNames[c];
-        }
-        m_velocityGroup = i;
-    }
-    ASSERTL0(foundVelocity, "ReynoldsStresses found no coefficient group "
-                            "matching the velocity field layout.");
+    const auto velocityNames =
+        SolverCore::ComponentNames(velocityView->components);
+    const auto velocityIndices =
+        SolverCore::ComponentIndices(velocityView->components);
 
     m_accumulators.clear();
     m_accumulators.reserve(m_sourceFields.size());
@@ -196,7 +174,7 @@ void FilterReynoldsStresses::v_Initialise(FilterContext &context)
     }
 
     const auto &expansion     = velocityView->expansion;
-    const auto &velocityGroup = m_sourceFields[m_velocityGroup];
+    const auto &velocityGroup = m_sourceFields.front();
     m_velocityExpansion       = expansion;
     m_productNames = ReynoldsStressOp<double>::ProductNames(velocityNames);
     const auto physBlocks =
@@ -210,7 +188,7 @@ void FilterReynoldsStresses::v_Initialise(FilterContext &context)
         "velocity sum",
         MultiRegions::GetBlockAttributes<double, FieldState::Phys>(
             velocityGroup.expansion),
-        m_accumulators[m_velocityGroup].GetNumComponents(), 1);
+        m_accumulators.front().GetNumComponents(), 1);
     m_covarianceSum = LibUtilities::Field<double, FieldState::Phys>(
         "covariance sum", physBlocks, m_productNames, 1);
     m_covarianceInnerProduct = LibUtilities::Field<double, FieldState::Coeff>(
@@ -224,7 +202,8 @@ void FilterReynoldsStresses::v_Initialise(FilterContext &context)
         ReynoldsStressOp<double>::Create(expansion, velocityNames);
     m_reynoldsStressOp->Configure(velocityIndices);
     m_bwdTransOp = MultiRegions::BwdTransOp<double>::Create(
-        velocityGroup.expansion, ComponentNames(velocityGroup.components));
+        velocityGroup.expansion,
+        SolverCore::ComponentNames(velocityGroup.components));
     m_iProductWRTBaseOp = MultiRegions::IProductWRTBaseOp<double>::Create(
         expansion, m_productNames);
     m_multiplyByElmtInvMassOp =
@@ -240,7 +219,7 @@ void FilterReynoldsStresses::v_Initialise(FilterContext &context)
  * @brief Sample on due steps and, on a sampled step that is also an output
  * step, write the numbered file.
  */
-void FilterReynoldsStresses::v_Apply(FilterContext &context)
+void FilterReynoldsStresses::v_Apply(SolverCore::FilterContext &context)
 {
     if (!m_sampleSchedule.Due(context))
     {
@@ -260,7 +239,7 @@ void FilterReynoldsStresses::v_Apply(FilterContext &context)
  * @brief Write the final statistics, zero-valued with a warning if no sample
  * was taken.
  */
-void FilterReynoldsStresses::v_Finalise(FilterContext &context)
+void FilterReynoldsStresses::v_Finalise(SolverCore::FilterContext &context)
 {
     if (m_numSamples == 0 && m_session->GetComm()->GetRank() == 0)
     {
@@ -279,14 +258,14 @@ void FilterReynoldsStresses::v_Finalise(FilterContext &context)
  * reshaped to the source's, since the sum is formed entry by entry;
  * ReynoldsStressOp lays the products out like the velocity itself.
  */
-void FilterReynoldsStresses::AccumulateSample(FilterContext &context)
+void FilterReynoldsStresses::AccumulateSample(
+    SolverCore::FilterContext &context)
 {
     auto sourceFields = context.fields.GetCoefficientGroups();
     ASSERTL1(sourceFields.size() == m_accumulators.size(),
              "ReynoldsStresses field count changed during integration.");
-    auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
-    ASSERTL0(velocityView,
-             "ReynoldsStresses velocity field view is unavailable.");
+    auto velocityView =
+        context.fields.GetRole(SolverCore::FieldRoles::Velocity);
 
     for (size_t i = 0; i < sourceFields.size(); ++i)
     {
@@ -300,7 +279,7 @@ void FilterReynoldsStresses::AccumulateSample(FilterContext &context)
     }
 
     m_reynoldsStressOp->SetScale(1.0);
-    (*m_reynoldsStressOp)(velocityView->field.get(), m_products);
+    m_reynoldsStressOp->Apply(velocityView->field.get(), m_products);
 }
 
 /**
@@ -313,23 +292,23 @@ void FilterReynoldsStresses::AccumulateSample(FilterContext &context)
  * \f$ M_e^{-1} (\cdot, \phi) \f$, which needs no boundary conditions for the
  * product variables. The workspace is refilled in place.
  */
-void FilterReynoldsStresses::WriteStresses(FilterContext &context,
+void FilterReynoldsStresses::WriteStresses(SolverCore::FilterContext &context,
                                            const bool numbered)
 {
-    const auto &velocityGroup = m_sourceFields[m_velocityGroup];
+    const auto &velocityGroup = m_sourceFields.front();
     const auto &expansion     = m_velocityExpansion;
 
     if (m_numSamples > 0)
     {
-        (*m_bwdTransOp)(m_accumulators[m_velocityGroup], m_velocitySum);
+        m_bwdTransOp->Apply(m_accumulators.front(), m_velocitySum);
         m_math.copy(m_products, m_covarianceSum);
         m_reynoldsStressOp->SetScale(-1.0 / static_cast<double>(m_numSamples));
-        (*m_reynoldsStressOp)(m_velocitySum, m_covarianceSum);
-        (*m_iProductWRTBaseOp)(m_covarianceSum, m_covarianceInnerProduct);
-        (*m_multiplyByElmtInvMassOp)(m_covarianceInnerProduct, m_stressSum);
+        m_reynoldsStressOp->Apply(m_velocitySum, m_covarianceSum);
+        m_iProductWRTBaseOp->Apply(m_covarianceSum, m_covarianceInnerProduct);
+        m_multiplyByElmtInvMassOp->Apply(m_covarianceInnerProduct, m_stressSum);
     }
 
-    CoefficientFieldViews fields;
+    SolverCore::CoefficientFieldViews fields;
     fields.reserve(m_accumulators.size() + 1);
     for (size_t i = 0; i < m_accumulators.size(); ++i)
     {
@@ -338,7 +317,7 @@ void FilterReynoldsStresses::WriteStresses(FilterContext &context,
                           m_sourceFields[i].components});
     }
     fields.push_back({m_stressSum, expansion, velocityGroup.spaceDimension,
-                      MakeFieldComponents(m_productNames)});
+                      SolverCore::MakeFieldComponents(m_productNames)});
 
     m_fieldMetaData["FinalTime"]          = std::to_string(context.time);
     m_fieldMetaData["Time"]               = std::to_string(context.time);
@@ -360,4 +339,4 @@ void FilterReynoldsStresses::WriteStresses(FilterContext &context,
                                      fields, m_fieldMetaData, scale);
 }
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar

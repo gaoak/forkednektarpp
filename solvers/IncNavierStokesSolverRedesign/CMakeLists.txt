@@ -13,7 +13,10 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
     SET(OPNAMESPACE "Nektar::detail")
     FOREACH(child IN ITEMS
             ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/HOPressureBndCond
-            ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/HOutflowBndCond)
+            ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/HOutflowBndCond
+            ${CMAKE_CURRENT_SOURCE_DIR}/Utilities/AeroForces
+            ${CMAKE_CURRENT_SOURCE_DIR}/Utilities/Energy
+            ${CMAKE_CURRENT_SOURCE_DIR}/Utilities/ReynoldsStress)
         ADD_OPERATOR(${child} OPNAMESPACE INCNS_OPERATORS_HEADERS
             INCNS_OPERATORS_SOURCES)
     ENDFOREACH()
@@ -239,6 +242,54 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
             ADD_HOPRESSURE_NEUMANN_VELOCITY_UNIT_TEST(
                 HOPressureBndCond_device_sumfactop Device SumFacTOP)
         ENDIF()
+
+        # The flow statistics operators, and the values the ReynoldsStresses
+        # filter writes.
+        ADD_NEKTAR_EXECUTABLE(TestAeroForces
+            COMPONENT unit-test
+            DEPENDS ${INCNS_UNIT_TEST_DEPENDS}
+            SOURCES UnitTests/TestAeroForces.cpp ${AeroForces_SOURCES})
+
+        ADD_NEKTAR_EXECUTABLE(TestEnergy
+            COMPONENT unit-test
+            DEPENDS ${INCNS_UNIT_TEST_DEPENDS}
+            SOURCES UnitTests/TestEnergy.cpp ${Energy_SOURCES})
+
+        ADD_NEKTAR_EXECUTABLE(TestReynoldsStress
+            COMPONENT unit-test
+            DEPENDS ${INCNS_UNIT_TEST_DEPENDS}
+            SOURCES UnitTests/TestReynoldsStress.cpp ${ReynoldsStress_SOURCES})
+
+        ADD_NEKTAR_EXECUTABLE(TestFilterReynoldsStresses
+            COMPONENT unit-test
+            DEPENDS ${INCNS_UNIT_TEST_DEPENDS}
+            SOURCES UnitTests/TestFilterReynoldsStresses.cpp
+                    Filters/FilterReynoldsStresses.cpp
+                    ${ReynoldsStress_SOURCES})
+
+        FUNCTION(ADD_EXECSPACE_UNIT_TEST testname execspace)
+            ADD_TEST(
+                NAME Operators${testname}${execspace}
+                COMMAND $<TARGET_FILE:Test${testname}>
+                    --detect_memory_leaks=0 -- ${execspace})
+        ENDFUNCTION()
+
+        FOREACH(testname IN ITEMS
+                AeroForces Energy ReynoldsStress FilterReynoldsStresses)
+            ADD_EXECSPACE_UNIT_TEST(${testname} Serial)
+            IF(NEKTAR_ENABLE_SIMD)
+                ADD_EXECSPACE_UNIT_TEST(${testname} AVX)
+            ENDIF()
+            IF(NEKTAR_ENABLE_DEVICE)
+                ADD_EXECSPACE_UNIT_TEST(${testname} Device)
+            ENDIF()
+        ENDFOREACH()
+
+        # These test fixtures open their session files as "run/<mesh>.xml",
+        # relative to the working directory of the test. The meshes are shared
+        # by every unit test and live in one place, so copy them from there.
+        FILE(COPY ${CMAKE_SOURCE_DIR}/library/UnitTests/run
+            DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
     ENDIF()
 
     # Default timestepping schemes.
@@ -300,6 +351,9 @@ IF (NEKTAR_SOLVER_INCNAVIERSTOKESSOLVER_DEVICE_SUPPORT)
         SOURCES
             IncNavierStokesSolverRedesign.cpp
             EquationSystems/VelocityCorrectionScheme.cpp
+            Filters/FilterAeroForces.cpp
+            Filters/FilterEnergy.cpp
+            Filters/FilterReynoldsStresses.cpp
             ${INCNS_OPERATORS_SOURCES}
     )
 

@@ -168,7 +168,7 @@ void FilterHistoryPoints::v_Apply(FilterContext &context)
         // Collective: every rank must call this so each operator's internal
         // reduction completes, to the writer, rank zero, alone.
         m_historyOps[field]->SetRootOnly(true);
-        (*m_historyOps[field])(fields[field].field.get());
+        m_historyOps[field]->Apply(fields[field].field.get());
         if (m_writer->IsWriter())
         {
             const auto values = m_historyOps[field]->GetValues();

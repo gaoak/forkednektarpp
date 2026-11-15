@@ -37,11 +37,11 @@
 #include <algorithm>
 #include <array>
 
+#include <IncNavierStokesSolverRedesign/Utilities/Energy/EnergyKernels.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/Energy/EnergyOp.hpp>
 #include <LocalRegions/DataWarehouse/GeometricDataWarehouse.hpp>
-#include <SolverCore/Energy/EnergyKernels.hpp>
-#include <SolverCore/Energy/EnergyOp.hpp>
 
-namespace Nektar::SolverCore::detail
+namespace Nektar::detail
 {
 
 template <typename ExecSpace, typename TData>
@@ -241,4 +241,4 @@ protected:
     }
 };
 
-} // namespace Nektar::SolverCore::detail
+} // namespace Nektar::detail

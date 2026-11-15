@@ -35,32 +35,34 @@
 #include <cmath>
 #include <iomanip>
 
+#include <IncNavierStokesSolverRedesign/Filters/FilterEnergy.h>
 #include <LibUtilities/BasicUtils/Equation.h>
-#include <SolverCore/Filters/FilterEnergy.h>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
 std::string FilterEnergy::className =
-    GetFilterFactory().RegisterCreatorFunction("Energy", FilterEnergy::create);
+    SolverCore::GetFilterFactory().RegisterCreatorFunction(
+        "Energy", FilterEnergy::create);
 
 FilterEnergy::FilterEnergy(const LibUtilities::SessionReaderSharedPtr &session,
                            const ParamMap &params)
-    : Filter(session)
+    : SolverCore::Filter(session)
 {
-    m_outputFile = Filter::SetupOutput(".eny", params);
-    FilterParameters parameters(session, params, "FilterEnergy");
+    m_outputFile = SolverCore::Filter::SetupOutput(".eny", params);
+    SolverCore::FilterParameters parameters(session, params, "FilterEnergy");
     parameters.Consume("OutputFile");
     m_outputFrequency = parameters.PositiveFrequency("OutputFrequency", 0);
-    m_schedule = StepSchedule(m_outputFrequency, true, parameters.StartTime());
+    m_schedule        = SolverCore::StepSchedule(m_outputFrequency, true,
+                                                 parameters.StartTime());
     parameters.ValidateAllConsumed();
     m_executionSpace = MultiRegions::Operator<double>::GetOpExecSpace(session);
 }
 
-void FilterEnergy::v_Initialise(FilterContext &context)
+void FilterEnergy::v_Initialise(SolverCore::FilterContext &context)
 {
-    auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
-    ASSERTL0(velocityView, "Energy requires a velocity field view.");
+    auto velocityView =
+        context.fields.GetRole(SolverCore::FieldRoles::Velocity);
     // A 3DH1 expansion is a 2D mesh extended by the homogeneous direction.
     const bool homo1D =
         velocityView->expansion->GetExpType() == MultiRegions::e3DH1D;
@@ -70,36 +72,36 @@ void FilterEnergy::v_Initialise(FilterContext &context)
              "Energy supports only 2D and 3D velocity fields.");
     ASSERTL0(dimension == velocityView->spaceDimension,
              "Energy does not support embedded-manifold expansions.");
-    ASSERTL0(velocityView->components.size() == velocityView->spaceDimension,
-             "Energy requires one velocity component per dimension.");
     ASSERTL0(homo1D || velocityView->field.get().GetNumHomoModes() == 1,
              "Energy supports only 3DH1 homogeneous expansions.");
 
     m_energyOp = EnergyOp<double>::Create(
-        velocityView->expansion, ComponentNames(velocityView->components));
-    m_energyOp->Configure(ComponentIndices(velocityView->components));
+        velocityView->expansion,
+        SolverCore::ComponentNames(velocityView->components));
+    m_energyOp->Configure(
+        SolverCore::ComponentIndices(velocityView->components));
 
-    m_writer = std::make_unique<RootTableWriter>(m_session->GetComm());
+    m_writer =
+        std::make_unique<SolverCore::RootTableWriter>(m_session->GetComm());
     m_writer->Open(m_outputFile);
     WriteHeader();
     v_Apply(context);
 }
 
-void FilterEnergy::v_Apply(FilterContext &context)
+void FilterEnergy::v_Apply(SolverCore::FilterContext &context)
 {
     if (!m_schedule.Due(context))
     {
         return;
     }
 
-    auto velocityView = context.fields.GetRole(FieldRoles::Velocity);
-    ASSERTL0(velocityView, "Energy velocity field view is unavailable.");
-
+    auto velocityView =
+        context.fields.GetRole(SolverCore::FieldRoles::Velocity);
     auto &gradient =
         context.derived.GetGradient(*velocityView, m_executionSpace);
     // Only the writer, rank zero, reads the integrals.
     m_energyOp->SetRootOnly(true);
-    (*m_energyOp)(velocityView->field.get(), gradient);
+    m_energyOp->Apply(velocityView->field.get(), gradient);
     if (!m_writer->IsWriter())
     {
         return;
@@ -135,7 +137,8 @@ void FilterEnergy::WriteEnergy(const double time, const double kineticEnergy,
     m_writer->EndRow();
 }
 
-void FilterEnergy::v_Finalise([[maybe_unused]] FilterContext &context)
+void FilterEnergy::v_Finalise(
+    [[maybe_unused]] SolverCore::FilterContext &context)
 {
     if (m_writer)
     {
@@ -143,4 +146,4 @@ void FilterEnergy::v_Finalise([[maybe_unused]] FilterContext &context)
     }
 }
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar

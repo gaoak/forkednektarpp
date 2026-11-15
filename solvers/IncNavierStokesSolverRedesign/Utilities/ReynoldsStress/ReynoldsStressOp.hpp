@@ -38,9 +38,8 @@
 #include <vector>
 
 #include <MultiRegions/Common/Operator.hpp>
-#include <SolverCore/SolverCore.hpp>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
 /**
@@ -70,8 +69,6 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        EnsureLinked();
-
         return MultiRegions::Operator<TData>::template Create<ReynoldsStressOp>(
             expansionList, components, execStr);
     }
@@ -142,4 +139,4 @@ protected:
         LibUtilities::Field<TData, FieldState::Phys> &products) = 0;
 };
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar

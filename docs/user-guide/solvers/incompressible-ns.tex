@@ -852,6 +852,11 @@ $\alpha=1,\beta=0$ weights (see \cite{KaSh05} for details).
 
 Further information is also available in Section~\ref{sec:xml:expansions}.
 
+In \inltt{IncNavierStokesSolverRedesign} the \inltt{ProjectInitialConditions}
+property treats the pressure as the other fields are. A pressure expanded
+differently from the velocity is read from a file through the velocity
+expansion and projected element by element onto its own.
+
 \subsection{Governing Equation}
 \label{incns:governingEq}
 The first thing in setting up a simulation is to define what governing eqautions

@@ -160,7 +160,7 @@ static void CheckMeans(const MultiRegions::ExpListSharedPtr &explist,
                 field.ReshapeStorage(interleaveWidth, execStr);
 
                 op->SetRootOnly(rootOnly);
-                (*op)(field);
+                op->Apply(field);
 
                 BOOST_CHECK_CLOSE(op->GetVolume(), expectedVolume, 1.0e-10);
                 const auto means = op->GetMeans();

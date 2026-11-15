@@ -58,8 +58,6 @@ class Filter
 public:
     using ParamMap = std::map<std::string, std::string>;
 
-    SOLVER_CORE_EXPORT virtual ~Filter() = default;
-
     void Initialise(FilterContext &context)
     {
         v_Initialise(context);
@@ -80,6 +78,8 @@ protected:
 
     SOLVER_CORE_EXPORT explicit Filter(
         const LibUtilities::SessionReaderSharedPtr &session);
+
+    SOLVER_CORE_EXPORT virtual ~Filter() = default;
 
     SOLVER_CORE_EXPORT std::string SetupOutput(const std::string &ext,
                                                const ParamMap &params);

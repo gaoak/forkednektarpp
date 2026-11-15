@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: FilterAeroForces.h
+// File: FilterEnergy.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,79 +28,57 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Outputs aerodynamic forces during time-stepping.
+// Description: Outputs kinetic energy and enstrophy during time-stepping.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 
-#include <array>
 #include <fstream>
 #include <memory>
 #include <string>
-#include <vector>
 
-#include <SolverCore/AeroForces/AeroForcesOp.hpp>
+#include <IncNavierStokesSolverRedesign/Utilities/Energy/EnergyOp.hpp>
 #include <SolverCore/Filters/Filter.h>
 #include <SolverCore/Filters/FilterUtils.h>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
-class FilterAeroForces : public Filter
+class FilterEnergy : public SolverCore::Filter
 {
 public:
-    friend class MemoryManager<FilterAeroForces>;
+    friend class MemoryManager<FilterEnergy>;
 
-    static FilterSharedPtr create(
+    static SolverCore::FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &session,
         const ParamMap &params)
     {
-        return MemoryManager<FilterAeroForces>::AllocateSharedPtr(session,
-                                                                  params);
+        return MemoryManager<FilterEnergy>::AllocateSharedPtr(session, params);
     }
 
     static std::string className;
 
 protected:
-    SOLVER_CORE_EXPORT FilterAeroForces(
-        const LibUtilities::SessionReaderSharedPtr &session,
-        const ParamMap &params);
-    SOLVER_CORE_EXPORT ~FilterAeroForces() override = default;
+    FilterEnergy(const LibUtilities::SessionReaderSharedPtr &session,
+                 const ParamMap &params);
+    ~FilterEnergy() override = default;
 
-    SOLVER_CORE_EXPORT void v_Initialise(FilterContext &context) override;
-    SOLVER_CORE_EXPORT void v_Apply(FilterContext &context) override;
-    SOLVER_CORE_EXPORT void v_Finalise(FilterContext &context) override;
+    void v_Initialise(SolverCore::FilterContext &context) override;
+    void v_Apply(SolverCore::FilterContext &context) override;
+    void v_Finalise(SolverCore::FilterContext &context) override;
 
 private:
-    MultiRegions::ExpListSharedPtr m_velocityExp;
-    MultiRegions::ExpListSharedPtr m_pressureExp;
-    std::shared_ptr<AeroForcesOp<double>> m_aeroForcesOp;
+    std::shared_ptr<EnergyOp<double>> m_energyOp;
     std::string m_executionSpace;
-
-    std::vector<unsigned int> m_boundaryRegions;
-    std::vector<bool> m_boundaryRegionIsInList;
-
-    std::array<std::array<double, 3>, 3> m_directions{};
-    std::array<double, 3> m_pivotPoint{};
-    std::vector<double> m_pressureForce;
-    std::vector<double> m_viscousForce;
-    std::vector<double> m_pressureMoment;
-    std::vector<double> m_viscousMoment;
-
-    unsigned int m_spaceDim        = 0;
-    unsigned int m_momentDim       = 0;
-    unsigned int m_outputFrequency = 1;
-    double m_rho                   = 1.0;
-    double m_mu                    = 1.0;
-    std::string m_boundaryString;
     std::string m_outputFile;
-    StepSchedule m_schedule;
-    std::unique_ptr<RootTableWriter> m_writer;
+    unsigned int m_outputFrequency = 1;
+    SolverCore::StepSchedule m_schedule;
+    std::unique_ptr<SolverCore::RootTableWriter> m_writer;
 
-    void CalculateForces(FilterContext &context);
-    void WriteHeader(const std::string &boundaryString);
-    void WriteForces(const double time);
+    void WriteHeader();
+    void WriteEnergy(const double time, const double kineticEnergy,
+                     const double enstrophy);
 };
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar

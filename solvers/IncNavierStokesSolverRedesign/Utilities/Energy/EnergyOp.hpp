@@ -37,9 +37,8 @@
 #include <vector>
 
 #include <MultiRegions/Common/Operator.hpp>
-#include <SolverCore/SolverCore.hpp>
 
-namespace Nektar::SolverCore
+namespace Nektar
 {
 
 /**
@@ -81,8 +80,6 @@ public:
         const std::vector<std::string> &components,
         const std::string &execStr = "")
     {
-        EnsureLinked();
-
         return MultiRegions::Operator<TData>::template Create<EnergyOp>(
             expansionList, components, execStr);
     }
@@ -177,4 +174,4 @@ protected:
     }
 };
 
-} // namespace Nektar::SolverCore
+} // namespace Nektar
