@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjRes/PipeConjResOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjRes/PipeConjResOp.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjRes/PipeConjResKernels.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/PipeConjRes/PipeConjResKernels.hpp>
 
 #include <iomanip>
 
@@ -55,40 +55,19 @@ public:
                       const std::vector<std::string> &components)
         : PipeConjResOp<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes w", this->m_blockAttr, components, 1)),
           m_wk(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes wk",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes wk", this->m_blockAttr, components, 1)),
           m_z(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes v",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes v", this->m_blockAttr, components, 1)),
           m_s(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes s",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes s", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes r", this->m_blockAttr, components, 1)),
           m_q(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes q", this->m_blockAttr, components, 1)),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "PipeConjRes p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "PipeConjRes p", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
 
 namespace Nektar::SolverCore
 {

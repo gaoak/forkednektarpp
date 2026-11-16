@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSystems/FwdTrans/FwdTransOp.hpp>
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
 
 namespace Nektar::SolverCore::detail
 {

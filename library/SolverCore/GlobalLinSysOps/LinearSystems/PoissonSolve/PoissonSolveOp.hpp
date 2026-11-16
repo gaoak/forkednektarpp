@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp"
-#include "SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp"
-#include "SolverCore/PreconOps/PreconOp.hpp"
-#include "SolverCore/SolverCore.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/LinearSolverOp.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LinearSystemOp.hpp>
+#include <SolverCore/PreconOps/PreconOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
 #include <MultiRegions/ElmtOps/Laplacian/LaplacianOp.hpp>
 

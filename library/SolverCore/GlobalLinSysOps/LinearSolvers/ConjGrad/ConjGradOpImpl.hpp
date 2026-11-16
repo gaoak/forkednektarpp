@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradOp.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradKernels.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/ConjGrad/ConjGradKernels.hpp>
 
 #include <iomanip>
 
@@ -55,30 +55,15 @@ public:
                    const std::vector<std::string> &components)
         : ConjGradOp<TData>(expansionList, components),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjGrad w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjGrad w", this->m_blockAttr, components, 1)),
           m_s(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjGrad s",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjGrad s", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjGrad r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjGrad r", this->m_blockAttr, components, 1)),
           m_q(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjGrad q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjGrad q", this->m_blockAttr, components, 1)),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "ConjGrad p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "ConjGrad p", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(4, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();

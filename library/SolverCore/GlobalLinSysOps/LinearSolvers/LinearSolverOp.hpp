@@ -41,15 +41,15 @@
 #include <LibUtilities/BasicUtils/StringUtils.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp"
-#include "SolverCore/PreconOps/PreconOp.hpp"
-#include "SolverCore/SolverCore.hpp"
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 #include <MultiRegions/AssmbScatr/AssmbScatrOp.hpp>
 #include <MultiRegions/DataWarehouse/LocalToGlobalDataWarehouse.hpp>
+#include <SolverCore/GlobalLinSysOps/LinearSystems/LHSOp.hpp>
+#include <SolverCore/PreconOps/PreconOp.hpp>
+#include <SolverCore/SolverCore.hpp>
 
-#include "LibUtilities/BasicUtils/Math/Math.hpp"
-#include "LibUtilities/BasicUtils/Math/MathHelper.hpp"
+#include <LibUtilities/BasicUtils/Math/Math.hpp>
+#include <LibUtilities/BasicUtils/Math/MathHelper.hpp>
 
 namespace Nektar::SolverCore
 {
@@ -151,6 +151,8 @@ protected:
     std::shared_ptr<PreconOp<TData>> m_precon;
     std::shared_ptr<MultiRegions::AssmbScatrOp<TData>> m_assmbScatrOp;
     LibUtilities::Field<std::uint8_t, FieldState::Coeff> m_mask;
+    // Block attributes of the fields the operator allocates
+    std::vector<LibUtilities::BlockAttributes<FieldState::Coeff>> m_blockAttr;
     Math::MathHelper m_math;
     bool m_root;
 
@@ -166,6 +168,9 @@ protected:
                    const std::vector<std::string> &components)
         : MultiRegions::Operator<TData>(expansionList, components)
     {
+        m_blockAttr =
+            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
+                this->m_expansionList);
     }
 
     ~LinearSolverOp() override = default;
@@ -285,10 +290,7 @@ protected:
     template <typename ExecSpace> void SetMask(void)
     {
         this->m_mask = LibUtilities::Field<std::uint8_t, FieldState::Coeff>(
-            "LinearSolver mask",
-            MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                this->m_expansionList),
-            this->m_components, 1);
+            "LinearSolver mask", this->m_blockAttr, this->m_components, 1);
 
         auto maskptr =
             this->m_dataWarehouse->template GetData<NektarSpaces::HostSpace>(

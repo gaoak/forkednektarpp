@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/IDRS/IDRSOp.hpp"
-#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/IDRS/IDRSOp.hpp>
+#include <SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldHelper.hpp>
 
 #include <LibUtilities/BasicUtils/Utils/UtilsKernels.hpp>
 
@@ -56,33 +56,15 @@ public:
     IDRSOpImpl(const MultiRegions::ExpListSharedPtr &expansionList,
                const std::vector<std::string> &components)
         : IDRSOp<TData>(expansionList, components),
-          m_P("IDRSOp P",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components),
-          m_U("IDRSOp U",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components),
-          m_G("IDRSOp G",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components),
+          m_P("IDRSOp P", this->m_blockAttr, components),
+          m_U("IDRSOp U", this->m_blockAttr, components),
+          m_G("IDRSOp G", this->m_blockAttr, components),
           m_v(LibUtilities::Field<TData, FieldState::Coeff>(
-              "IDRSOp v",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "IDRSOp v", this->m_blockAttr, components, 1)),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "IDRSOp t",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "IDRSOp t", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "IDRSOp r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1))
+              "IDRSOp r", this->m_blockAttr, components, 1))
     {
         this->template SetLinearSolver<ExecSpace>();
 

@@ -38,8 +38,8 @@
 #include <LibUtilities/BasicUtils/Math/Math.hpp>
 #include <LibUtilities/LinearAlgebra/NekBlas/NekBlas.hpp>
 
-#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldKernels.hpp"
-#include "SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldWorkSpace.hpp"
+#include <SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldKernels.hpp>
+#include <SolverCore/GlobalLinSysOps/MultiFieldHelper/MultiFieldWorkSpace.hpp>
 
 #include <algorithm>
 #include <cstdint>

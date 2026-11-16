@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/CGS/CGSOp.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/CGS/CGSOp.hpp>
 
-#include "SolverCore/GlobalLinSysOps/LinearSolvers/CGS/CGSKernels.hpp"
+#include <SolverCore/GlobalLinSysOps/LinearSolvers/CGS/CGSKernels.hpp>
 
 #include <iomanip>
 
@@ -55,40 +55,19 @@ public:
               const std::vector<std::string> &components)
         : CGSOp<TData>(expansionList, components),
           m_q(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp q",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp q", this->m_blockAttr, components, 1)),
           m_w(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp w",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp w", this->m_blockAttr, components, 1)),
           m_s(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp s",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp s", this->m_blockAttr, components, 1)),
           m_u(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp u",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp u", this->m_blockAttr, components, 1)),
           m_p(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp p",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp p", this->m_blockAttr, components, 1)),
           m_r(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp r",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp r", this->m_blockAttr, components, 1)),
           m_rtilde(LibUtilities::Field<TData, FieldState::Coeff>(
-              "CGSOp rtilde",
-              MultiRegions::GetBlockAttributes<TData, FieldState::Coeff>(
-                  expansionList),
-              components, 1)),
+              "CGSOp rtilde", this->m_blockAttr, components, 1)),
           m_vExchange(LibUtilities::MemoryRegion<TData>(3, eHostPinned))
     {
         this->template SetLinearSolver<ExecSpace>();
